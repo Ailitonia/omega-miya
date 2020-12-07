@@ -1,0 +1,14 @@
+nonebot2
+zhdate
+sqlalchemy
+mysqlclient
+aiocqhttp
+bs4
+lxml
+Pillow
+beautifulsoup4
+Jinja2
+aiohttp
+xlwt
+ujson
+msgpack
