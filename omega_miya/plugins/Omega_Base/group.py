@@ -61,8 +61,7 @@ class DBGroup(object):
         session = NBdb().get_session()
         try:
             # 清空群成员列表
-            for user_id in self.member_list().result:
-                self.member_del(user=DBUser(user_id=user_id))
+            self.member_clear()
             # 清空订阅
             # TODO
             exist_group = session.query(Group).filter(Group.group_id == self.group_id).one()

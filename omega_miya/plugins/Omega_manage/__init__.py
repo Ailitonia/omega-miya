@@ -39,7 +39,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
         state['sub_command'] = args[0]
         state['sub_arg'] = args[1]
     else:
-        await omega.finish('你好呀~ 我是Omega Miya~ 请问今天要来点喵娘吗?')
+        await omega.finish('你好呀~ 我是Omega Miya~ 请问您今天要来点喵娘吗?')
 
 
 @omega.got('sub_command', prompt='执行操作?')
@@ -87,6 +87,10 @@ async def group_init(bot: Bot, event: Event, state: dict) -> Result:
         return Result(True, _result.info, -1)
 
     _result = group.permission_reset()
+    if not _result.success():
+        return Result(True, _result.info, -1)
+
+    _result = group.member_clear()
     if not _result.success():
         return Result(True, _result.info, -1)
 
@@ -216,7 +220,7 @@ async def show_group_permission(bot: Bot, event: Event, state: dict) -> Result:
               f'Command: {group_command.result}\nPermissionLevel: {group_level.result}'
         _result = Result(False, 'Success', msg)
     else:
-        _result = Result(True, 'Failed', -1)
+        _result = Result(True, 'Failed', '')
 
     return _result
 
