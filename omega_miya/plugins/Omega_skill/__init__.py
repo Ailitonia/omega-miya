@@ -35,7 +35,9 @@ skill_admin = on_command('Skill', rule=has_command_permission(), aliases={'skill
 # 修改默认参数处理
 @skill_admin.args_parser
 async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        await skill_admin.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await skill_admin.finish('操作已取消')
@@ -43,7 +45,7 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 @skill_admin.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:
@@ -111,7 +113,9 @@ skill_group_user = on_command('技能', rule=has_command_permission() & permissi
 # 修改默认参数处理
 @skill_group_user.args_parser
 async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        await skill_group_user.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await skill_group_user.finish('操作已取消')
@@ -119,7 +123,7 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 @skill_group_user.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:

@@ -101,7 +101,9 @@ set_vocation = on_command('请假', rule=has_command_permission() & permission_l
 # 修改默认参数处理
 @set_vocation.args_parser
 async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        await set_vocation.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await set_vocation.finish('操作已取消')
@@ -109,7 +111,7 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 @set_vocation.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:
@@ -170,7 +172,9 @@ get_idle = on_command('谁有空', rule=has_command_permission() & permission_le
 # 修改默认参数处理
 @get_idle.args_parser
 async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        await get_idle.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await get_idle.finish('操作已取消')
@@ -178,7 +182,7 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 @get_idle.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
     if not args:
         state['skill'] = None
     elif args and len(args) == 1:
@@ -296,7 +300,7 @@ async def member_vocations_monitor():
                 user = DBUser(user_id=user_qq)
                 status, stop_time = user.vocation_status().result
                 if status == 1 and datetime.now() >= stop_time:
-                    msg = f'{user_nickname}的假期已经结束啦~\n快给他/她安排工作吧！'
+                    msg = f'【{user_nickname}】的假期已经结束啦~\n快给他/她安排工作吧！'
                     await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                     user.status_set(status=0)
     logger.debug('member_vocations_monitor: vocation checking completed')

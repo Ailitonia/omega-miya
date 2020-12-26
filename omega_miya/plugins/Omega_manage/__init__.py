@@ -29,14 +29,17 @@ omega = on_command('Omega', rule=None, aliases={'omega'}, permission=GROUP_ADMIN
 # 修改默认参数处理
 @omega.args_parser
 async def parse(bot: Bot, event: Event, state: dict):
-    state[state["_current_key"]] = str(event.message).strip().lower()
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        await omega.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
+    state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await omega.finish('操作已取消')
 
 
 @omega.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().lower().split()
+    args = str(event.plain_text).strip().lower().split()
     if args and len(args) == 1:
         state['sub_command'] = args[0]
         state['sub_arg'] = None
