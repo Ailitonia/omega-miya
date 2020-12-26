@@ -1,6 +1,6 @@
 from .database import NBdb, DBResult
-from .tables import User, Group, UserGroup
-from .user import DBUser
+from .tables import User, Group, UserGroup, Vocation, Skill, UserSkill
+from .user import DBUser, DBSkill
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
@@ -83,10 +83,10 @@ class DBGroup(object):
         session = NBdb().get_session()
         res = []
         if self.exist():
-            for item in session.query(User.qq).join(UserGroup). \
+            for item in session.query(User.qq, UserGroup.user_group_nickname).join(UserGroup). \
                     filter(User.id == UserGroup.user_id). \
                     filter(UserGroup.group_id == self.id().result).all():
-                res.append(item[0])
+                res.append(item)
             result = DBResult(error=False, info='Success', result=res)
         else:
             result = DBResult(error=True, info='Group not exist', result=res)
@@ -277,3 +277,91 @@ class DBGroup(object):
         finally:
             session.close()
         return result
+
+    def idle_member_list(self) -> DBResult:
+        session = NBdb().get_session()
+        res = []
+        # 查询该群组中所有没有假的人
+        try:
+            for user_id, nickname in session.query(User.id, UserGroup.user_group_nickname). \
+                    join(Vocation).join(UserGroup).join(Group). \
+                    filter(User.id == Vocation.user_id). \
+                    filter(User.id == UserGroup.user_id). \
+                    filter(UserGroup.group_id == Group.id). \
+                    filter(Vocation.status == 0). \
+                    filter(Group.group_id == self.group_id). \
+                    all():
+                res_skills = session.query(Skill.name). \
+                    join(UserSkill).join(User). \
+                    filter(Skill.id == UserSkill.skill_id). \
+                    filter(UserSkill.user_id == User.id). \
+                    filter(User.id == user_id). \
+                    all()
+                user_skill = ''
+                if res_skills:
+                    for skill in res_skills:
+                        user_skill += f'/{skill[0]}'
+                else:
+                    user_skill = '/暂无技能'
+                res.append([nickname, user_skill])
+            result = DBResult(error=False, info='Success', result=res)
+        except Exception as e:
+            result = DBResult(error=True, info=str(e), result=res)
+        finally:
+            session.close()
+        return result
+
+    def idle_skill_list(self, skill: DBSkill) -> DBResult:
+        session = NBdb().get_session()
+        res = []
+        # 查询这这个技能有那些人会
+        try:
+            for user_id, nickname in session.query(User.id, UserGroup.user_group_nickname). \
+                    join(UserSkill).join(Skill).join(UserGroup).join(Group). \
+                    filter(User.id == UserSkill.user_id). \
+                    filter(UserSkill.skill_id == Skill.id). \
+                    filter(User.id == UserGroup.user_id). \
+                    filter(UserGroup.group_id == Group.id). \
+                    filter(Skill.name == skill.name). \
+                    filter(Group.group_id == self.group_id). \
+                    all():
+                # 查这个人是不是空闲
+                user_status = session.query(Vocation.status).filter(Vocation.user_id == user_id).one()[0]
+                # 如果空闲则把这个人昵称放进结果列表里面
+                if user_status == 0:
+                    res.append(nickname)
+            result = DBResult(error=False, info='Success', result=res)
+        except Exception as e:
+            result = DBResult(error=True, info=str(e), result=res)
+        finally:
+            session.close()
+        return result
+
+    def vocation_member_list(self) -> DBResult:
+        session = NBdb().get_session()
+        res = []
+        # 查询所有没有假的人
+        try:
+            for nickname, stop_at in session.query(UserGroup.user_group_nickname, Vocation.stop_at).\
+                    select_from(UserGroup).join(User).join(Group). \
+                    filter(UserGroup.user_id == User.id). \
+                    filter(User.id == Vocation.user_id). \
+                    filter(UserGroup.group_id == Group.id). \
+                    filter(Vocation.status == 1). \
+                    filter(Group.group_id == self.group_id). \
+                    all():
+                res.append([nickname, stop_at])
+            result = DBResult(error=False, info='Success', result=res)
+        except Exception as e:
+            result = DBResult(error=True, info=str(e), result=res)
+        finally:
+            session.close()
+        return result
+
+    def init_member_status(self) -> DBResult:
+        memberlist = self.member_list().result
+        for user_qq, nickname in memberlist:
+            user = DBUser(user_id=user_qq)
+            if user.status().error:
+                user.status_set(status=0)
+        return DBResult(error=False, info='ignore', result=0)

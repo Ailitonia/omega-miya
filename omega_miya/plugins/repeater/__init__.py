@@ -1,14 +1,14 @@
 from nonebot import on_message
 from nonebot.permission import GROUP
 from nonebot.typing import Bot, Event
-from omega_miya.plugins.Omega_plugin_utils import has_notice_permission
+from omega_miya.utils.Omega_plugin_utils import has_notice_permission
 import re
 
 last_msg = {}
 last_repeat_msg = {}
 repeat_count = {}
 
-repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=10)
+repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=100)
 
 
 @repeater.handle()

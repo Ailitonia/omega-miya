@@ -1,13 +1,16 @@
-from nonebot import on_command, export, logger
+from nonebot import on_command, export, logger, require
 from nonebot.permission import GROUP_ADMIN, SUPERUSER
 from nonebot.typing import Bot, Event
-from omega_miya.plugins.Omega_Base import DBGroup, DBUser, Result
-from omega_miya.plugins.Omega_plugin_utils import init_export
+from omega_miya.utils.Omega_Base import DBGroup, DBUser, Result
+from omega_miya.utils.Omega_plugin_utils import init_export
 
 # Custom plugin usage text
 __plugin_name__ = 'Omega'
 __plugin_usage__ = r'''【Omega 管理插件】
+Omega机器人管理
 
+**Usage**
+**GroupAdmin and SuperUser Only**
 /Omega Init
 /Omega Upgrade
 /Omega Notice <on|off>
@@ -27,6 +30,8 @@ omega = on_command('Omega', rule=None, aliases={'omega'}, permission=GROUP_ADMIN
 @omega.args_parser
 async def parse(bot: Bot, event: Event, state: dict):
     state[state["_current_key"]] = str(event.message).strip().lower()
+    if state[state["_current_key"]] == '取消':
+        await omega.finish('操作已取消')
 
 
 @omega.handle()
@@ -117,6 +122,8 @@ async def group_init(bot: Bot, event: Event, state: dict) -> Result:
             failed_user.append(_user.qq)
             logger.warning(f'User: {user_qq}, {_result.info}')
 
+    group.init_member_status()
+
     return Result(False, f'Success with ignore user: {failed_user}', 0)
 
 
@@ -132,13 +139,25 @@ async def group_upgrade(bot: Bot, event: Event, state: dict) -> Result:
     if not _result.success():
         return Result(True, _result.info, -1)
 
-    _result = group.member_clear()
-    if not _result.success():
-        return Result(True, _result.info, -1)
-
     # 更新用户
     group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
     failed_user = []
+
+    # 首先清除数据库中退群成员
+    exist_member_list = []
+    for user_info in group_member_list:
+        user_qq = user_info['user_id']
+        exist_member_list.append(int(user_qq))
+
+    db_member_list = []
+    for user_id, nickname in group.member_list().result:
+        db_member_list.append(user_id)
+    del_member_list = list(set(db_member_list).difference(set(exist_member_list)))
+
+    for user_id in del_member_list:
+        group.member_del(user=DBUser(user_id=user_id))
+
+    # 更新群成员
     for user_info in group_member_list:
         # 用户信息
         user_qq = user_info['user_id']
@@ -159,6 +178,8 @@ async def group_upgrade(bot: Bot, event: Event, state: dict) -> Result:
             failed_user.append(_user.qq)
             logger.warning(f'User: {user_qq}, {_result.info}')
 
+    group.init_member_status()
+
     return Result(False, f'Success with ignore user: {failed_user}', 0)
 
 
@@ -169,13 +190,13 @@ async def set_group_notice(bot: Bot, event: Event, state: dict) -> Result:
     group_level = group.permission_level().result
 
     if state['sub_arg'] == 'on':
-        _result = group.permission_set(notice=1, command=group_command, level=group_level)
+        result = group.permission_set(notice=1, command=group_command, level=group_level)
     elif state['sub_arg'] == 'off':
-        _result = group.permission_set(notice=0, command=group_command, level=group_level)
+        result = group.permission_set(notice=0, command=group_command, level=group_level)
     else:
-        _result = Result(True, 'Missing parameters or Illegal parameter', -1)
+        result = Result(True, 'Missing parameters or Illegal parameter', -1)
 
-    return _result
+    return result
 
 
 async def set_group_command(bot: Bot, event: Event, state: dict) -> Result:
@@ -185,13 +206,13 @@ async def set_group_command(bot: Bot, event: Event, state: dict) -> Result:
     group_level = group.permission_level().result
 
     if state['sub_arg'] == 'on':
-        _result = group.permission_set(notice=group_notice, command=1, level=group_level)
+        result = group.permission_set(notice=group_notice, command=1, level=group_level)
     elif state['sub_arg'] == 'off':
-        _result = group.permission_set(notice=group_notice, command=0, level=group_level)
+        result = group.permission_set(notice=group_notice, command=0, level=group_level)
     else:
-        _result = Result(True, 'Missing parameters or Illegal parameter', -1)
+        result = Result(True, 'Missing parameters or Illegal parameter', -1)
 
-    return _result
+    return result
 
 
 async def set_group_level(bot: Bot, event: Event, state: dict) -> Result:
@@ -201,11 +222,11 @@ async def set_group_level(bot: Bot, event: Event, state: dict) -> Result:
     group_command = group.permission_command().result
     try:
         group_level = int(state['sub_arg'])
-        _result = group.permission_set(notice=group_notice, command=group_command, level=group_level)
+        result = group.permission_set(notice=group_notice, command=group_command, level=group_level)
     except Exception as e:
-        _result = Result(True, f'Missing parameters or Illegal parameter, {e}', -1)
+        result = Result(True, f'Missing parameters or Illegal parameter, {e}', -1)
 
-    return _result
+    return result
 
 
 async def show_group_permission(bot: Bot, event: Event, state: dict) -> Result:
@@ -218,17 +239,91 @@ async def show_group_permission(bot: Bot, event: Event, state: dict) -> Result:
     if group_notice.success() and group_command.success() and group_level.success():
         msg = f'当前群组权限: \n\nNotice: {group_notice.result}\n' \
               f'Command: {group_command.result}\nPermissionLevel: {group_level.result}'
-        _result = Result(False, 'Success', msg)
+        result = Result(False, 'Success', msg)
     else:
-        _result = Result(True, 'Failed', '')
+        result = Result(True, 'Failed', '')
 
-    return _result
+    return result
 
 
 async def reset_group_permission(bot: Bot, event: Event, state: dict) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
 
-    _result = group.permission_reset()
+    result = group.permission_reset()
 
-    return _result
+    return result
+
+
+# 启用自动更新群组的定时任务
+scheduler = require("nonebot_plugin_apscheduler").scheduler
+
+
+@scheduler.scheduled_job(
+    'cron',
+    # year=None,
+    # month=None,
+    # day='*/1',
+    # week=None,
+    # day_of_week=None,
+    hour='4',
+    # minute=None,
+    # second='*/10',
+    # start_date=None,
+    # end_date=None,
+    # timezone=None,
+    id='refresh_group_info',
+    coalesce=True,
+    misfire_grace_time=300
+)
+async def refresh_group_info():
+    from nonebot import get_bots
+
+    for bot_id, bot in get_bots().items():
+        group_list = await bot.call_api('get_group_list')
+        for group in group_list:
+            group_id = group.get('group_id')
+            # 调用api获取群信息
+            group_info = await bot.call_api(api='get_group_info', group_id=group_id)
+            group_name = group_info['group_name']
+            group = DBGroup(group_id=group_id)
+
+            # 添加并初始化群信息
+            group.add(name=group_name)
+
+            # 更新用户
+            group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
+
+            # 首先清除数据库中退群成员
+            exist_member_list = []
+            for user_info in group_member_list:
+                user_qq = user_info['user_id']
+                exist_member_list.append(int(user_qq))
+
+            db_member_list = []
+            for user_id, nickname in group.member_list().result:
+                db_member_list.append(user_id)
+            del_member_list = list(set(db_member_list).difference(set(exist_member_list)))
+
+            for user_id in del_member_list:
+                group.member_del(user=DBUser(user_id=user_id))
+
+            # 更新群成员
+            for user_info in group_member_list:
+                # 用户信息
+                user_qq = user_info['user_id']
+                user_nickname = user_info['nickname']
+                user_group_nickmane = user_info['card']
+                if not user_group_nickmane:
+                    user_group_nickmane = user_nickname
+                _user = DBUser(user_id=user_qq)
+                _result = _user.add(nickname=user_nickname)
+                if not _result.success():
+                    logger.warning(f'Refresh group info, User: {user_qq}, {_result.info}')
+                    continue
+                _result = group.member_add(user=_user, user_group_nickname=user_group_nickmane)
+                if not _result.success():
+                    logger.warning(f'Refresh group info, User: {user_qq}, {_result.info}')
+
+            group.init_member_status()
+            logger.info(f'Refresh group info completed, Bot: {bot_id}, Group: {group_id}')

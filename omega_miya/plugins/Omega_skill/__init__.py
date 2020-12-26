@@ -1,14 +1,17 @@
 from nonebot import on_command, export, logger
 from nonebot.permission import GROUP, SUPERUSER
 from nonebot.typing import Bot, Event
-from omega_miya.plugins.Omega_Base import DBSkill, DBUser, DBTable, Result
-from omega_miya.plugins.Omega_plugin_utils import init_export
-from omega_miya.plugins.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBTable, Result
+from omega_miya.utils.Omega_plugin_utils import init_export
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
 
 # Custom plugin usage text
 __plugin_name__ = '技能'
 __plugin_usage__ = r'''【Omega 技能插件】
 用来设置/查询自己的技能
+
+**Permission**
+Command & Lv.80
 
 **Usage**
 /技能 清单
@@ -19,14 +22,13 @@ __plugin_usage__ = r'''【Omega 技能插件】
 
 **SuperUser Only**
 /Skill add [SkillName] [SkillDescription]
-/Skill del [SkillName]
-'''
+/Skill del [SkillName]'''
 
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
-skill_admin = on_command('Skill', rule=has_command_permission() & permission_level(level=50), aliases={'skill'},
+skill_admin = on_command('Skill', rule=has_command_permission(), aliases={'skill'},
                          permission=SUPERUSER, priority=10, block=True)
 
 
@@ -35,6 +37,8 @@ skill_admin = on_command('Skill', rule=has_command_permission() & permission_lev
 async def parse(bot: Bot, event: Event, state: dict):
     args = str(event.message).strip().lower().split()
     state[state["_current_key"]] = args[0]
+    if state[state["_current_key"]] == '取消':
+        await skill_admin.finish('操作已取消')
 
 
 @skill_admin.handle()
@@ -63,8 +67,8 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
         state['skill_description'] = None
 
 
-@skill_admin.got('skill_name', prompt='请输入技能名称')
-@skill_admin.got('skill_description', prompt='请输入技能描述')
+@skill_admin.got('skill_name', prompt='请输入技能名称:')
+@skill_admin.got('skill_description', prompt='请输入技能描述:')
 async def handle_sub_command(bot: Bot, event: Event, state: dict):
     # 子命令列表
     command = {
@@ -100,7 +104,7 @@ async def skill_del(bot: Bot, event: Event, state: dict) -> Result:
 
 
 # 注册事件响应器
-skill_group_user = on_command('技能', rule=has_command_permission() & permission_level(level=50), aliases={'我的技能'},
+skill_group_user = on_command('技能', rule=has_command_permission() & permission_level(level=80), aliases={'我的技能'},
                               permission=GROUP, priority=10, block=True)
 
 
@@ -109,6 +113,8 @@ skill_group_user = on_command('技能', rule=has_command_permission() & permissi
 async def parse(bot: Bot, event: Event, state: dict):
     args = str(event.message).strip().lower().split()
     state[state["_current_key"]] = args[0]
+    if state[state["_current_key"]] == '取消':
+        await skill_group_user.finish('操作已取消')
 
 
 @skill_group_user.handle()
@@ -140,11 +146,11 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
         state['skill_level'] = None
 
 
-@skill_group_user.got('skill_name', prompt='请输入技能名称')
+@skill_group_user.got('skill_name', prompt='请输入技能名称:')
 async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
     if state['sub_command'] in ['设置', '删除']:
-        _res = await skill_list(bot=bot, event=event, state=state)
-        if state['skill_name'] not in _res.result:
+        res = await skill_list(bot=bot, event=event, state=state)
+        if state['skill_name'] not in res.result:
             await skill_admin.reject('没有这个技能哦, 请重新输入:')
 
 

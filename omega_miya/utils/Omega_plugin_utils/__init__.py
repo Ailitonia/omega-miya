@@ -1,7 +1,7 @@
 from nonebot.plugin import Export
 from nonebot.rule import Rule
 from nonebot.typing import Bot, Event
-from omega_miya.plugins.Omega_Base import DBGroup
+from omega_miya.utils.Omega_Base import DBGroup
 
 
 def init_export(plugin_export: Export, custom_name: str, usage: str, **kwargs: str) -> Export:
@@ -40,7 +40,7 @@ def has_command_permission() -> Rule:
     return Rule(_has_command_permission)
 
 
-# 规划权限等级: 10+一般插件, 20+限制插件(涉及调用api), 50+后期组用工作插件, 80+涩图插件
+# 规划权限等级(暂定): 10+一般插件, 20+限制插件(涉及调用api), 50+涩图插件, 80+后期组用工作插件
 def permission_level(level: int) -> Rule:
     async def _has_command_permission(bot: Bot, event: Event, state: dict) -> bool:
         # 检查当前消息类型

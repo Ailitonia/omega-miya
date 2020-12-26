@@ -1,5 +1,5 @@
 from .database import NBdb, DBResult
-from .tables import User, UserGroup, Skill, UserSkill
+from .tables import User, UserGroup, Skill, UserSkill, Vocation
 from .skill import DBSkill
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -65,7 +65,7 @@ class DBUser(object):
             # 删除技能
             self.skill_clear()
             # 删除状态和假期
-            # TODO
+            self.status_del()
             exist_user = session.query(User).filter(User.qq == self.qq).one()
             session.delete(exist_user)
             session.commit()
@@ -101,7 +101,7 @@ class DBUser(object):
             # 查询用户已有技能
             try:
                 # 已有技能, 更新等级
-                exist_skill = session.query(UserSkill).\
+                exist_skill = session.query(UserSkill). \
                     filter(UserSkill.skill_id == skill.id().result). \
                     filter(UserSkill.user_id == self.id().result).one()
                 exist_skill.skill_level = skill_level
@@ -136,7 +136,7 @@ class DBUser(object):
             # 查询用户已有技能
             try:
                 # 已有技能, 删除
-                exist_skill = session.query(UserSkill).\
+                exist_skill = session.query(UserSkill). \
                     filter(UserSkill.skill_id == skill.id().result). \
                     filter(UserSkill.user_id == self.id().result).one()
                 session.delete(exist_skill)
@@ -173,6 +173,111 @@ class DBUser(object):
             result = DBResult(error=True, info='Skill or user not exist', result=-1)
         return result
 
-    def vocation_reset(self) -> DBResult:
-        pass
-        # TODO
+    def status(self) -> DBResult:
+        session = NBdb().get_session()
+        try:
+            res = session.query(Vocation.status).filter(Vocation.user_id == self.id().result).one()
+            result = DBResult(error=False, info='Success', result=res[0])
+        except Exception as e:
+            result = DBResult(error=True, info=str(e), result=-1)
+        finally:
+            session.close()
+        return result
+
+    def vocation_status(self) -> DBResult:
+        session = NBdb().get_session()
+        try:
+            status, stop_time = session.query(Vocation.status, Vocation.stop_at). \
+                filter(Vocation.user_id == self.id().result).one()
+            result = DBResult(error=False, info='Success', result=[status, stop_time])
+        except Exception as e:
+            result = DBResult(error=True, info=str(e), result=[-1, None])
+        finally:
+            session.close()
+        return result
+
+    def status_set(self, status: int) -> DBResult:
+        if self.exist():
+            session = NBdb().get_session()
+            # 检查用户在假期表中是否存在
+            try:
+                # 存在则设置假期状态信息
+                exist_status = session.query(Vocation).filter(Vocation.user_id == self.id().result).one()
+                exist_status.status = status
+                exist_status.stop_at = None
+                exist_status.reason = None
+                exist_status.updated_at = datetime.now()
+                session.commit()
+                result = DBResult(error=False, info='Success upgraded', result=0)
+            except NoResultFound:
+                # 不存在则假期表中添加信息
+                try:
+                    new_status = Vocation(user_id=self.id().result, status=status, created_at=datetime.now())
+                    session.add(new_status)
+                    session.commit()
+                    result = DBResult(error=False, info='Success set', result=0)
+                except Exception as e:
+                    session.rollback()
+                    result = DBResult(error=True, info=str(e), result=-1)
+            except MultipleResultsFound:
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=str(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='User not exist', result=-1)
+        return result
+
+    def vocation_set(self, stop_time: datetime, reason: str = None) -> DBResult:
+        if self.exist():
+            session = NBdb().get_session()
+            # 检查用户在假期表中是否存在
+            try:
+                # 存在则设置假期状态信息
+                exist_status = session.query(Vocation).filter(Vocation.user_id == self.id().result).one()
+                exist_status.status = 1
+                exist_status.stop_at = stop_time
+                exist_status.reason = reason
+                exist_status.updated_at = datetime.now()
+                session.commit()
+                result = DBResult(error=False, info='Success upgraded', result=0)
+            except NoResultFound:
+                # 不存在则假期表中添加信息
+                try:
+                    new_status = Vocation(user_id=self.id().result, status=1,
+                                          stop_at=stop_time, reason=reason, created_at=datetime.now())
+                    session.add(new_status)
+                    session.commit()
+                    result = DBResult(error=False, info='Success set', result=0)
+                except Exception as e:
+                    session.rollback()
+                    result = DBResult(error=True, info=str(e), result=-1)
+            except MultipleResultsFound:
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=str(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='User not exist', result=-1)
+        return result
+
+    def status_del(self) -> DBResult:
+        if self.exist():
+            session = NBdb().get_session()
+            try:
+                exist_status = session.query(Vocation).filter(Vocation.user_id == self.id().result).one()
+                session.delete(exist_status)
+                session.commit()
+                result = DBResult(error=False, info='Success', result=0)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=str(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Status or user not exist', result=-1)
+        return result

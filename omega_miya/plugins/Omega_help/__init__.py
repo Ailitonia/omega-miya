@@ -1,10 +1,8 @@
-from nonebot import on_command, export
+from nonebot import on_command
 from nonebot.plugin import get_loaded_plugins
 from nonebot.permission import GROUP
 from nonebot.typing import Bot, Event
-from omega_miya.plugins.Omega_plugin_utils import init_export
-from omega_miya.plugins.Omega_plugin_utils import has_command_permission, permission_level
-
+from omega_miya.utils.Omega_plugin_utils import has_command_permission
 
 """
 # Custom plugin usage text
@@ -18,7 +16,7 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 """
 
 # 注册事件响应器
-bot_help = on_command('help', rule=has_command_permission(), aliases={'帮助'}, permission=GROUP, priority=1)
+bot_help = on_command('help', rule=has_command_permission(), aliases={'帮助'}, permission=GROUP, priority=1, block=True)
 
 
 @bot_help.handle()
@@ -46,5 +44,4 @@ async def handle_plugin_name(bot: Bot, event: Event, state: dict):
     for p in state['plugin_list']:
         if p.export.custom_name.lower() == plugin_custom_name:
             await bot_help.finish(p.export.usage)
-        else:
-            await bot_help.finish('没有这个插件呢QAQ, 请检查输入插件名是否正确~')
+    await bot_help.finish('没有这个插件呢QAQ, 请检查输入插件名是否正确~')
