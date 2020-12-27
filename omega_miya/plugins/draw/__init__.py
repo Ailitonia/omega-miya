@@ -50,13 +50,13 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 
 @draw.got('draw', prompt='你想问什么事呢?')
-async def handle_sub_command(bot: Bot, event: Event, state: dict):
+async def handle_draw(bot: Bot, event: Event, state: dict):
     user_id = event.user_id
     _draw = state['draw']
     # 求签者昵称, 优先使用群昵称
     draw_user = event.sender['card']
     if not draw_user:
-        draw_user = event.sender['card']['nickname']
+        draw_user = event.sender['nickname']
 
     # 载入牌堆
     deck = deck_list.keys()

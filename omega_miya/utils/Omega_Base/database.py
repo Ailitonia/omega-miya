@@ -78,7 +78,25 @@ class DBTable(object):
                     res.append(item)
                 result = DBResult(error=False, info='Success', result=res)
             except Exception as e:
-                result = DBResult(error=True, info=str(e), result=res)
+                result = DBResult(error=True, info=repr(e), result=res)
+            finally:
+                session.close()
+        return result
+
+    def list_col_with_condition(self, col_name, condition_col_name, condition) -> DBResult:
+        res = []
+        if not self.__table:
+            result = DBResult(error=True, info='Table not exist', result=res)
+        else:
+            session = NBdb().get_session()
+            try:
+                col = getattr(self.__table, col_name)
+                condition_col = getattr(self.__table, condition_col_name)
+                for item in session.query(col).filter(condition_col == condition).all():
+                    res.append(item)
+                result = DBResult(error=False, info='Success', result=res)
+            except Exception as e:
+                result = DBResult(error=True, info=repr(e), result=res)
             finally:
                 session.close()
         return result

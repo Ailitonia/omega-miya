@@ -19,7 +19,7 @@ class DBUser(object):
         except MultipleResultsFound:
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -46,12 +46,12 @@ class DBUser(object):
                 result = DBResult(error=False, info='Success added', result=0)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
         except MultipleResultsFound:
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -76,7 +76,7 @@ class DBUser(object):
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -118,12 +118,12 @@ class DBUser(object):
                     result = DBResult(error=False, info='Success added', result=0)
                 except Exception as e:
                     session.rollback()
-                    result = DBResult(error=True, info=str(e), result=-1)
+                    result = DBResult(error=True, info=repr(e), result=-1)
             except MultipleResultsFound:
                 result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -148,7 +148,7 @@ class DBUser(object):
                 result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -166,7 +166,7 @@ class DBUser(object):
                 result = DBResult(error=False, info='Success', result=0)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -179,7 +179,7 @@ class DBUser(object):
             res = session.query(Vocation.status).filter(Vocation.user_id == self.id().result).one()
             result = DBResult(error=False, info='Success', result=res[0])
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -191,7 +191,7 @@ class DBUser(object):
                 filter(Vocation.user_id == self.id().result).one()
             result = DBResult(error=False, info='Success', result=[status, stop_time])
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=[-1, None])
+            result = DBResult(error=True, info=repr(e), result=[-1, None])
         finally:
             session.close()
         return result
@@ -218,12 +218,12 @@ class DBUser(object):
                     result = DBResult(error=False, info='Success set', result=0)
                 except Exception as e:
                     session.rollback()
-                    result = DBResult(error=True, info=str(e), result=-1)
+                    result = DBResult(error=True, info=repr(e), result=-1)
             except MultipleResultsFound:
                 result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -253,12 +253,12 @@ class DBUser(object):
                     result = DBResult(error=False, info='Success set', result=0)
                 except Exception as e:
                     session.rollback()
-                    result = DBResult(error=True, info=str(e), result=-1)
+                    result = DBResult(error=True, info=repr(e), result=-1)
             except MultipleResultsFound:
                 result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -275,7 +275,7 @@ class DBUser(object):
                 result = DBResult(error=False, info='Success', result=0)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:

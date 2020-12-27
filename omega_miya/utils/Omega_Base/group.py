@@ -1,6 +1,7 @@
 from .database import NBdb, DBResult
-from .tables import User, Group, UserGroup, Vocation, Skill, UserSkill
+from .tables import User, Group, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub
 from .user import DBUser, DBSkill
+from .subscription import DBSubscription
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
@@ -19,7 +20,7 @@ class DBGroup(object):
         except MultipleResultsFound:
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -47,12 +48,12 @@ class DBGroup(object):
                 result = DBResult(error=False, info='Success added', result=0)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
         except MultipleResultsFound:
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -63,7 +64,7 @@ class DBGroup(object):
             # 清空群成员列表
             self.member_clear()
             # 清空订阅
-            # TODO
+            self.subscription_clear()
             exist_group = session.query(Group).filter(Group.group_id == self.group_id).one()
             session.delete(exist_group)
             session.commit()
@@ -74,7 +75,7 @@ class DBGroup(object):
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -116,12 +117,12 @@ class DBGroup(object):
                     result = DBResult(error=False, info='Success added', result=0)
                 except Exception as e:
                     session.rollback()
-                    result = DBResult(error=True, info=str(e), result=-1)
+                    result = DBResult(error=True, info=repr(e), result=-1)
             except MultipleResultsFound:
                 result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -146,7 +147,7 @@ class DBGroup(object):
                 result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -164,7 +165,7 @@ class DBGroup(object):
                 result = DBResult(error=False, info='Success', result=0)
             except Exception as e:
                 session.rollback()
-                result = DBResult(error=True, info=str(e), result=-1)
+                result = DBResult(error=True, info=repr(e), result=-1)
             finally:
                 session.close()
         else:
@@ -188,7 +189,7 @@ class DBGroup(object):
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -210,7 +211,7 @@ class DBGroup(object):
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -234,7 +235,7 @@ class DBGroup(object):
             result = DBResult(error=True, info='MultipleResultsFound', result=res)
         except Exception as e:
             session.rollback()
-            result = DBResult(error=True, info=str(e), result=res)
+            result = DBResult(error=True, info=repr(e), result=res)
         finally:
             session.close()
         return result
@@ -248,7 +249,7 @@ class DBGroup(object):
             else:
                 result = DBResult(error=False, info='Success', result=0)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -262,7 +263,7 @@ class DBGroup(object):
             else:
                 result = DBResult(error=False, info='Success', result=0)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -273,7 +274,7 @@ class DBGroup(object):
             res = session.query(Group.permission_level).filter(Group.group_id == self.group_id).one()
             result = DBResult(error=False, info='Success', result=res[0])
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=-1)
+            result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()
         return result
@@ -306,7 +307,7 @@ class DBGroup(object):
                 res.append([nickname, user_skill])
             result = DBResult(error=False, info='Success', result=res)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=res)
+            result = DBResult(error=True, info=repr(e), result=res)
         finally:
             session.close()
         return result
@@ -332,7 +333,7 @@ class DBGroup(object):
                     res.append(nickname)
             result = DBResult(error=False, info='Success', result=res)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=res)
+            result = DBResult(error=True, info=repr(e), result=res)
         finally:
             session.close()
         return result
@@ -353,7 +354,7 @@ class DBGroup(object):
                 res.append([nickname, stop_at])
             result = DBResult(error=False, info='Success', result=res)
         except Exception as e:
-            result = DBResult(error=True, info=str(e), result=res)
+            result = DBResult(error=True, info=repr(e), result=res)
         finally:
             session.close()
         return result
@@ -365,3 +366,95 @@ class DBGroup(object):
             if user.status().error:
                 user.status_set(status=0)
         return DBResult(error=False, info='ignore', result=0)
+
+    def subscription_list(self) -> DBResult:
+        session = NBdb().get_session()
+        res = []
+        if self.exist():
+            for item in session.query(Subscription.sub_type, Subscription.sub_id, Subscription.up_name).\
+                    join(GroupSub).\
+                    filter(Subscription.id == GroupSub.sub_id). \
+                    filter(GroupSub.group_id == self.id().result).all():
+                res.append(item)
+            result = DBResult(error=False, info='Success', result=res)
+        else:
+            result = DBResult(error=True, info='Group not exist', result=res)
+        session.close()
+        return result
+
+    def subscription_add(self, sub: DBSubscription, group_sub_info: str = None) -> DBResult:
+        if self.exist() and sub.exist():
+            session = NBdb().get_session()
+            try:
+                # 订阅关系已存在, 更新信息
+                exist_subscription = session.query(GroupSub). \
+                    filter(GroupSub.group_id == self.id().result). \
+                    filter(GroupSub.sub_id == sub.id().result).one()
+                exist_subscription.group_sub_info = group_sub_info
+                exist_subscription.updated_at = datetime.now()
+                session.commit()
+                result = DBResult(error=False, info='Success upgraded', result=0)
+            except NoResultFound:
+                # 不存在关系则添加新成员
+                try:
+                    subscription = GroupSub(sub_id=sub.id().result, group_id=self.id().result,
+                                            group_sub_info=group_sub_info, created_at=datetime.now())
+                    session.add(subscription)
+                    session.commit()
+                    result = DBResult(error=False, info='Success added', result=0)
+                except Exception as e:
+                    session.rollback()
+                    result = DBResult(error=True, info=repr(e), result=-1)
+            except MultipleResultsFound:
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or subscription not exist', result=-1)
+        return result
+
+    def subscription_del(self, sub: DBSubscription) -> DBResult:
+        if self.exist() and sub.exist():
+            session = NBdb().get_session()
+            # 查询成员-群组表中用户-群关系
+            try:
+                # 用户-群关系已存在, 删除
+                exist_subscription = session.query(GroupSub). \
+                    filter(GroupSub.group_id == self.id().result). \
+                    filter(GroupSub.sub_id == sub.id().result).one()
+                session.delete(exist_subscription)
+                session.commit()
+                result = DBResult(error=False, info='Success', result=0)
+            except NoResultFound:
+                result = DBResult(error=True, info='NoResultFound', result=-1)
+            except MultipleResultsFound:
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or subscription not exist', result=-1)
+        return result
+
+    def subscription_clear(self) -> DBResult:
+        if self.exist():
+            session = NBdb().get_session()
+            # 查询成员-群组表中用户-群关系
+            try:
+                for exist_group_sub in session.query(GroupSub).filter(GroupSub.group_id == self.id().result).all():
+                    session.delete(exist_group_sub)
+                session.commit()
+                result = DBResult(error=False, info='Success', result=0)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or subscription not exist', result=-1)
+        return result

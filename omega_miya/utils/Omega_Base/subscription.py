@@ -1,18 +1,20 @@
 from .database import NBdb, DBResult
-from .tables import Skill, User, UserSkill
+from .tables import Subscription, Group, GroupSub
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
-class DBSkill(object):
-    def __init__(self, name: str):
-        self.name = name
+class DBSubscription(object):
+    def __init__(self, sub_type: int, sub_id: int):
+        self.sub_type = sub_type
+        self.sub_id = sub_id
 
     def id(self) -> DBResult:
         session = NBdb().get_session()
         try:
-            skill_table_id = session.query(Skill.id).filter(Skill.name == self.name).one()[0]
-            result = DBResult(error=False, info='Success', result=skill_table_id)
+            subscription_table_id = session.query(Subscription.id).filter(Subscription.sub_type == self.sub_type).\
+                filter(Subscription.sub_id == self.sub_id).one()[0]
+            result = DBResult(error=False, info='Success', result=subscription_table_id)
         except NoResultFound:
             result = DBResult(error=True, info='NoResultFound', result=-1)
         except MultipleResultsFound:
@@ -27,20 +29,23 @@ class DBSkill(object):
         result = self.id().success()
         return result
 
-    def add(self, description: str) -> DBResult:
+    def add(self, up_name: str, live_info: str = None) -> DBResult:
         session = NBdb().get_session()
         try:
             # 已存在则更新描述
-            exist_skill = session.query(Skill).filter(Skill.name == self.name).one()
-            exist_skill.description = description
-            exist_skill.updated_at = datetime.now()
+            exist_subscription = session.query(Subscription).filter(Subscription.sub_type == self.sub_type).\
+                filter(Subscription.sub_id == self.sub_id).one()
+            exist_subscription.up_name = up_name
+            exist_subscription.live_info = live_info
+            exist_subscription.updated_at = datetime.now()
             session.commit()
             result = DBResult(error=False, info='Success upgraded', result=0)
         except NoResultFound:
-            # 不存在则添加新技能
+            # 不存在则添加新订阅信息
             try:
-                new_skill = Skill(name=self.name, description=description, created_at=datetime.now())
-                session.add(new_skill)
+                new_subscription = Subscription(sub_type=self.sub_type, sub_id=self.sub_id,
+                                                up_name=up_name, live_info=live_info, created_at=datetime.now())
+                session.add(new_subscription)
                 session.commit()
                 result = DBResult(error=False, info='Success added', result=0)
             except Exception as e:
@@ -58,10 +63,11 @@ class DBSkill(object):
     def delete(self) -> DBResult:
         session = NBdb().get_session()
         try:
-            # 清空持有这个技能人的技能
-            self.able_member_clear()
-            exist_skill = session.query(Skill).filter(Skill.name == self.name).one()
-            session.delete(exist_skill)
+            # 清空持已订阅这个sub的群组
+            self.sub_group_clear()
+            exist_subscription = session.query(Subscription).filter(Subscription.sub_type == self.sub_type).\
+                filter(Subscription.sub_id == self.sub_id).one()
+            session.delete(exist_subscription)
             session.commit()
             result = DBResult(error=False, info='Success', result=0)
         except NoResultFound:
@@ -75,27 +81,26 @@ class DBSkill(object):
             session.close()
         return result
 
-    def able_member_list(self) -> DBResult:
+    def sub_group_list(self) -> DBResult:
         session = NBdb().get_session()
         res = []
         if self.exist():
-            for item in session.query(User.qq).join(UserSkill). \
-                    filter(User.id == UserSkill.user_id). \
-                    filter(UserSkill.skill_id == self.id().result).all():
+            for item in session.query(Group.group_id).join(GroupSub). \
+                    filter(Group.id == GroupSub.group_id). \
+                    filter(GroupSub.sub_id == self.id().result).all():
                 res.append(item[0])
             result = DBResult(error=False, info='Success', result=res)
         else:
-            result = DBResult(error=True, info='Skill not exist', result=res)
+            result = DBResult(error=True, info='Subscription not exist', result=res)
         session.close()
         return result
 
-    def able_member_clear(self) -> DBResult:
+    def sub_group_clear(self) -> DBResult:
         if self.exist():
             session = NBdb().get_session()
-            # 查询成员-技能表中用户-技能关系
             try:
-                for exist_user_skill in session.query(UserSkill).filter(UserSkill.skill_id == self.id().result).all():
-                    session.delete(exist_user_skill)
+                for exist_group_sub in session.query(GroupSub).filter(GroupSub.sub_id == self.id().result).all():
+                    session.delete(exist_group_sub)
                 session.commit()
                 result = DBResult(error=False, info='Success', result=0)
             except Exception as e:
@@ -104,5 +109,5 @@ class DBSkill(object):
             finally:
                 session.close()
         else:
-            result = DBResult(error=True, info='Skill not exist', result=-1)
+            result = DBResult(error=True, info='Subscription not exist', result=-1)
         return result

@@ -7,6 +7,7 @@ from .database import DBTable
 from .user import DBUser
 from .group import DBGroup
 from .skill import DBSkill
+from .subscription import DBSubscription
 from .database import DBResult as Result
 
 
@@ -15,5 +16,6 @@ __all__ = [
     'DBUser',
     'DBGroup',
     'DBSkill',
+    'DBSubscription',
     'Result'
 ]

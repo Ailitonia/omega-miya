@@ -125,7 +125,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 
 @set_vocation.got('vocation_time', prompt='请输入你想请假的时间: \n仅支持数字+周/天/小时/分/分钟/秒')
-async def handle_vocation_time_args(bot: Bot, event: Event, state: dict):
+async def handle_vocation_time(bot: Bot, event: Event, state: dict):
     time = state['vocation_time']
     add_time = timedelta()
     if re.match(r'^\d+周$', time):
@@ -150,7 +150,7 @@ async def handle_vocation_time_args(bot: Bot, event: Event, state: dict):
 
 @set_vocation.got('stop_at', prompt='stop_at?')
 @set_vocation.got('reason', prompt='请输入你的请假理由:')
-async def handle_command_args(bot: Bot, event: Event, state: dict):
+async def handle_vocation_stop(bot: Bot, event: Event, state: dict):
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     stop_at = state['stop_at']
@@ -192,7 +192,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 
 @get_idle.got('skill', prompt='空闲技能组?')
-async def handle_command_args(bot: Bot, event: Event, state: dict):
+async def handle_skill(bot: Bot, event: Event, state: dict):
     skill = state['skill']
     group_id = event.group_id
     group = DBGroup(group_id=group_id)

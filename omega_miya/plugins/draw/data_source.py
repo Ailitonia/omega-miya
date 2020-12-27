@@ -64,4 +64,4 @@ deck_list = {
 
 
 def draw_deck(deck: str):
-    return deck_list[deck]
+    return deck_list.get(deck)
