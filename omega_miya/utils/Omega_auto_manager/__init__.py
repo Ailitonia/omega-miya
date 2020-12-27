@@ -1,7 +1,7 @@
 from nonebot import on_request, on_notice, logger
 from nonebot.typing import Bot, Event
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import has_command_permission
+from omega_miya.utils.Omega_Base import DBGroup
 
 # 注册事件响应器, 处理加好友申请
 friend_request = on_request(priority=2)
@@ -29,12 +29,12 @@ async def handle_group_invite(bot: Bot, event: Event, state: dict):
 
 
 # 注册事件响应器, 新增群成员
-group_increase = on_notice(rule=has_command_permission(), priority=2)
+group_increase = on_notice(priority=2)
 
 
 @group_increase.handle()
 async def handle_group_increase(bot: Bot, event: Event, state: dict):
-    if event.detail_type == 'group_increase':
+    if event.detail_type == 'group_increase' and DBGroup(group_id=event.group_id).permission_command().result == 1:
         # 发送欢迎消息
         at_seg = MessageSegment.at(user_id=event.user_id)
         msg = f'{at_seg}欢迎新朋友～\n进群请先看群公告~\n想知道我的用法请发送/help'

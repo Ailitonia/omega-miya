@@ -61,7 +61,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
         await skill_admin.finish('参数错误QAQ')
 
 
-@skill_admin.got('sub_command', prompt='执行操作?')
+@skill_admin.got('sub_command', prompt='执行操作?\n【add/del】')
 async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
     if state['sub_command'] not in ['add', 'del']:
         await skill_admin.reject('没有这个命令哦, 请重新输入:')
@@ -139,7 +139,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
         await skill_admin.finish('参数错误QAQ')
 
 
-@skill_group_user.got('sub_command', prompt='执行操作?')
+@skill_group_user.got('sub_command', prompt='执行操作?\n【清单/我会的/设置/删除/清空】')
 async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
     if state['sub_command'] not in ['清单', '我会的', '设置', '删除', '清空']:
         await skill_admin.reject('没有这个命令哦, 请重新输入:')

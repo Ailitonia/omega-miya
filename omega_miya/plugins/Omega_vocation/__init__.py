@@ -267,14 +267,14 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     # week=None,
     # day_of_week=None,
     # hour='4',
-    minute='*/5',
+    minute='*/10',
     # second='*/10',
     # start_date=None,
     # end_date=None,
     # timezone=None,
     id='member_vocations_monitor',
     coalesce=True,
-    misfire_grace_time=30
+    misfire_grace_time=60
 )
 async def member_vocations_monitor():
     from nonebot import get_bots

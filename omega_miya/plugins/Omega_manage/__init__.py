@@ -50,7 +50,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
         await omega.finish('你好呀~ 我是Omega Miya~ 请问您今天要来点喵娘吗?')
 
 
-@omega.got('sub_command', prompt='执行操作?')
+@omega.got('sub_command', prompt='执行操作?\n【Init/Upgrade/Notice/Command/SetLevel/ShowPermission/ResetPermission】')
 async def handle_sub_command(bot: Bot, event: Event, state: dict):
     # 子命令列表
     command = {

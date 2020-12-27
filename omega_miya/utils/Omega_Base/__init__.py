@@ -8,6 +8,7 @@ from .user import DBUser
 from .group import DBGroup
 from .skill import DBSkill
 from .subscription import DBSubscription
+from .bilidynamic import DBDynamic
 from .database import DBResult as Result
 
 
@@ -17,5 +18,6 @@ __all__ = [
     'DBGroup',
     'DBSkill',
     'DBSubscription',
+    'DBDynamic',
     'Result'
 ]

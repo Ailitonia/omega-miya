@@ -458,3 +458,24 @@ class DBGroup(object):
         else:
             result = DBResult(error=True, info='Group or subscription not exist', result=-1)
         return result
+
+    def subscription_clear_by_type(self, sub_type: int) -> DBResult:
+        if self.exist():
+            session = NBdb().get_session()
+            # 查询成员-群组表中用户-群关系
+            try:
+                for exist_group_sub in session.query(GroupSub).join(Subscription).\
+                        filter(GroupSub.sub_id == Subscription.id). \
+                        filter(Subscription.sub_type == sub_type). \
+                        filter(GroupSub.group_id == self.id().result).all():
+                    session.delete(exist_group_sub)
+                session.commit()
+                result = DBResult(error=False, info='Success', result=0)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or subscription not exist', result=-1)
+        return result
