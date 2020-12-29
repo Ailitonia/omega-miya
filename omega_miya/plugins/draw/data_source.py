@@ -59,7 +59,8 @@ def sp_event(event: str):
 # Draw事件
 deck_list = {
     '单张塔罗牌': one_tarot,
-    '超能力': superpower
+    '超能力': superpower,
+    'dd老黄历': old_almanac
 }
 
 

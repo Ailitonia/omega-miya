@@ -54,17 +54,17 @@ async def dynamic_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour='4',
-    minute='*/1',
-    # second='*/30',
+    minute='*/2',
+    # second='*/20',
     # start_date=None,
     # end_date=None,
     # timezone=None,
     id='bilibili_dynamic_monitor',
     coalesce=True,
-    misfire_grace_time=30
+    misfire_grace_time=45
 )
 async def bilibili_dynamic_monitor():
-    sleep(random.randint(3, 9))
+    sleep(random.randint(2, 5))
 
     logger.debug(f"bilibili_dynamic_monitor: checking started")
 
@@ -141,9 +141,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 原创的动态（有图片）
                     elif dynamic_info[num]['type'] == 2:
@@ -161,9 +161,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 原创的动态（无图片）
                     elif dynamic_info[num]['type'] == 4:
@@ -174,9 +174,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 视频
                     elif dynamic_info[num]['type'] == 8:
@@ -188,9 +188,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 小视频
                     elif dynamic_info[num]['type'] == 16:
@@ -201,9 +201,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 番剧
                     elif dynamic_info[num]['type'] in [32, 512]:
@@ -214,9 +214,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 文章
                     elif dynamic_info[num]['type'] == 64:
@@ -228,9 +228,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # 音频
                     elif dynamic_info[num]['type'] == 256:
@@ -242,9 +242,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     # B站活动相关
                     elif dynamic_info[num]['type'] == 2048:
@@ -256,9 +256,9 @@ async def bilibili_dynamic_monitor():
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as e:
+                                except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(e)}")
+                                                   f"error: {repr(_e)}")
                                     continue
                     elif dynamic_info[num]['type'] == -1:
                         logger.warning(f"未知的动态类型: {dynamic_info[num]['id']}")
@@ -273,8 +273,8 @@ async def bilibili_dynamic_monitor():
                         logger.info(f"向数据库写入动态信息: {dynamic_info[num]['id']} 成功")
                     else:
                         logger.error(f"向数据库写入动态信息: {dynamic_info[num]['id']} 失败")
-            except Exception as err:
-                logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(err)}')
+            except Exception as _e:
+                logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(_e)}')
 
     # 检查所有在订阅表里面的直播间(异步)
     tasks = []

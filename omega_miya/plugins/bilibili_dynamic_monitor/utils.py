@@ -180,6 +180,8 @@ async def get_dynamic_info(dy_uid) -> Result:
                     origin_description = json.loads(origin_card['card'])['intro']
                 elif origin_card['desc']['type'] == 512:
                     origin_description = json.loads(origin_card['card'])['apiSeasonInfo']['title']
+                elif origin_card['desc']['type'] == 2048:
+                    origin_description = json.loads(origin_card['card'])['vest']['content']
                 else:
                     origin_description = ''
                 origin = dict({'id': origin_dy_uid, 'type': origin_card['desc']['type'], 'url': '',

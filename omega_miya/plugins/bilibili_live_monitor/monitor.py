@@ -105,7 +105,7 @@ async def live_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour='4',
-    minute='*/1',
+    minute='*/2',
     # second='*/30',
     # start_date=None,
     # end_date=None,
@@ -115,7 +115,7 @@ async def live_db_upgrade():
     misfire_grace_time=30
 )
 async def bilibili_live_monitor():
-    sleep(random.randint(2, 8))
+    sleep(random.randint(1, 4))
 
     logger.debug(f"bilibili_live_monitor: checking started")
     global live_title
@@ -173,8 +173,8 @@ async def bilibili_live_monitor():
                     try:
                         await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                         logger.info(f"向群组: {group_id} 发送直播间: {room_id} 标题变更通知")
-                    except Exception as e:
-                        logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 标题变更通知失败, error: {repr(e)}")
+                    except Exception as _e:
+                        logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 标题变更通知失败, error: {repr(_e)}")
                         continue
             live_title[room_id] = live_info['title']
             logger.info(f"直播间: {room_id}/{up_name} 标题变更为: {live_info['title']}")
@@ -192,8 +192,8 @@ async def bilibili_live_monitor():
                             try:
                                 await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                 logger.info(f"向群组: {group_id} 发送直播间: {room_id} 下播通知")
-                            except Exception as e:
-                                logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 下播通知失败, error: {repr(e)}")
+                            except Exception as _e:
+                                logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 下播通知失败, error: {repr(_e)}")
                                 continue
                     # 更新直播间状态
                     live_status[room_id] = live_info['status']
@@ -210,8 +210,8 @@ async def bilibili_live_monitor():
                             try:
                                 await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                 logger.info(f"向群组: {group_id} 发送直播间: {room_id} 开播通知")
-                            except Exception as e:
-                                logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 开播通知失败, error: {repr(e)}")
+                            except Exception as _e:
+                                logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 开播通知失败, error: {repr(_e)}")
                                 continue
                     live_status[room_id] = live_info['status']
                     logger.info(f"直播间: {room_id}/{up_name} 开播了")
@@ -223,8 +223,8 @@ async def bilibili_live_monitor():
                             try:
                                 await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                 logger.info(f"向群组: {group_id} 发送直播间: {room_id} 下播通知")
-                            except Exception as e:
-                                logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 下播通知失败, error: {repr(e)}")
+                            except Exception as _e:
+                                logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 下播通知失败, error: {repr(_e)}")
                                 continue
                     live_status[room_id] = live_info['status']
                     logger.info(f"直播间: {room_id}/{up_name} 下播了（轮播中）")

@@ -9,6 +9,7 @@ from .group import DBGroup
 from .skill import DBSkill
 from .subscription import DBSubscription
 from .bilidynamic import DBDynamic
+from .history import DBHistory
 from .database import DBResult as Result
 
 
@@ -19,5 +20,6 @@ __all__ = [
     'DBSkill',
     'DBSubscription',
     'DBDynamic',
+    'DBHistory',
     'Result'
 ]

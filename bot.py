@@ -21,6 +21,7 @@ driver = nonebot.get_driver()
 driver.register_adapter("cqhttp", CQHTTPBot)
 app = nonebot.get_asgi()
 
+nonebot.load_plugins("omega_miya/utils")
 nonebot.load_plugins("omega_miya/plugins")
 
 # Modify some config / config depends on loaded configs

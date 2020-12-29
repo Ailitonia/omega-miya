@@ -8,7 +8,7 @@ last_msg = {}
 last_repeat_msg = {}
 repeat_count = {}
 
-repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=100)
+repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=100, block=False)
 
 
 @repeater.handle()

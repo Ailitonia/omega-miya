@@ -8,6 +8,7 @@ from omega_miya.utils.Omega_plugin_utils import has_command_permission, permissi
 from .utils import get_live_info, get_user_info
 from .monitor import *
 
+
 # Custom plugin usage text
 __plugin_name__ = 'B站直播间订阅'
 __plugin_usage__ = r'''【B站直播间订阅】

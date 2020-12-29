@@ -171,8 +171,8 @@ class History(Base):
     group_id = Column(BigInteger, nullable=True, comment='群号')
     user_id = Column(BigInteger, nullable=True, comment='发送者QQ号')
     user_name = Column(String(64), nullable=True, comment='发送者名称')
-    raw_data = Column(String(1024), nullable=True, comment='原始事件内容')
-    msg_data = Column(String(1024), nullable=True, comment='经处理的事件内容')
+    raw_data = Column(String(4096), nullable=True, comment='原始事件内容')
+    msg_data = Column(String(4096), nullable=True, comment='经处理的事件内容')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
