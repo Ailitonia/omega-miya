@@ -4,7 +4,7 @@ from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBGroup
 
 # 注册事件响应器, 处理加好友申请
-friend_request = on_request(priority=2)
+friend_request = on_request(priority=100)
 
 
 @friend_request.handle()
@@ -18,7 +18,7 @@ async def handle_friend_request(bot: Bot, event: Event, state: dict):
 
 
 # 注册事件响应器, 处理被邀请进群
-group_invite = on_request(priority=2)
+group_invite = on_request(priority=100)
 
 
 @group_invite.handle()
@@ -29,7 +29,7 @@ async def handle_group_invite(bot: Bot, event: Event, state: dict):
 
 
 # 注册事件响应器, 新增群成员
-group_increase = on_notice(priority=2)
+group_increase = on_notice(priority=100)
 
 
 @group_increase.handle()

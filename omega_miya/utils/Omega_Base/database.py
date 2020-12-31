@@ -1,12 +1,31 @@
 import nonebot
 from typing import Union
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.orm.session import Session
+from sqlalchemy.orm import sessionmaker
 from .tables import *
+
+global_config = nonebot.get_driver().config
+__DATABASE = global_config.database
+__DB_DRIVER = global_config.db_driver
+__DB_USER = global_config.db_user
+__DB_PASSWORD = global_config.db_password
+__DB_HOST = global_config.db_host
+__DB_PORT = global_config.db_port
+__DB_NAME = global_config.db_name
+
+# 格式化数据库引擎链接
+__DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{__DB_PASSWORD}@{__DB_HOST}:{__DB_PORT}/{__DB_NAME}'
+
+# 持久化数据库连接
+engine = create_engine(__DB_ENGINE, encoding='utf8',
+                       connect_args={"use_unicode": True, "charset": "utf8mb4"},
+                       pool_recycle=3600, pool_pre_ping=True)
+# 创建数据库结构
+Base.metadata.create_all(engine)
 
 
 class NBdb(object):
+    """
     def __init__(self):
         global_config = nonebot.get_driver().config
         self.__DATABASE = global_config.database
@@ -29,12 +48,21 @@ class NBdb(object):
                                       pool_recycle=3600, pool_pre_ping=True)
         # 初始化数据库结构
         Base.metadata.create_all(self.__engine)
+    """
+
+    def __init__(self):
+        dbsession = sessionmaker()
+        dbsession.configure(bind=engine)
+        self.__session = dbsession()
 
     def get_session(self):
         # 创建DBSession对象
+        """
         self.__session = sessionmaker()
         self.__session.configure(bind=self.__engine)
         return scoped_session(self.__session)()
+        """
+        return self.__session
 
 
 class DBResult(object):

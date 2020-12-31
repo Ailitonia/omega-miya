@@ -33,10 +33,13 @@ class DBUser(object):
         try:
             # 用户已存在则更新成员表昵称
             exist_user = session.query(User).filter(User.qq == self.qq).one()
-            exist_user.nickname = nickname
-            exist_user.updated_at = datetime.now()
-            session.commit()
-            result = DBResult(error=False, info='Success upgraded', result=0)
+            if exist_user.nickname == nickname:
+                result = DBResult(error=False, info='Success upgraded', result=0)
+            else:
+                exist_user.nickname = nickname
+                exist_user.updated_at = datetime.now()
+                session.commit()
+                result = DBResult(error=False, info='Success upgraded', result=0)
         except NoResultFound:
             # 不存在则成员表中添加新成员
             try:

@@ -24,7 +24,7 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
 draw = on_command('求签', rule=has_command_permission() & permission_level(level=10), aliases={'Draw', 'draw'},
-                  permission=GROUP, priority=20, block=True)
+                  permission=GROUP, priority=10, block=True)
 
 
 # 修改默认参数处理
