@@ -1,8 +1,9 @@
+import re
 from nonebot import on_message
 from nonebot.permission import GROUP
 from nonebot.typing import Bot, Event
 from omega_miya.utils.Omega_plugin_utils import has_notice_permission
-import re
+from .utils import sp_event_check
 
 last_msg = {}
 last_repeat_msg = {}
@@ -13,9 +14,9 @@ repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=1
 
 @repeater.handle()
 async def handle_repeater(bot: Bot, event: Event, state: dict):
-    global last_msg, last_repeat_msg, repeat_count
-
     group_id = event.group_id
+
+    global last_msg, last_repeat_msg, repeat_count
 
     try:
         last_msg[group_id]
@@ -25,6 +26,12 @@ async def handle_repeater(bot: Bot, event: Event, state: dict):
         last_repeat_msg[group_id]
     except KeyError:
         last_repeat_msg[group_id] = ''
+
+    # 特殊消息
+    sp_res, sp_msg = await sp_event_check(event=event)
+    if sp_res:
+        repeat_count[group_id] = 0
+        await repeater.finish(message=sp_msg)
 
     msg = str(event.raw_message)
     if re.match(r'^/', msg):

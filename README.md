@@ -6,6 +6,12 @@
 
 [Nonebot2 PreRelease v2.0.0a7](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a7)
 
+## 配套使用的api
+
+api主要用于获取pixiv等网站内容
+
+->[Miya API](https://github.com/Ailitonia/miya_api)
+
 ## 摸鱼重构中
 
 - [x] 新建文件夹
