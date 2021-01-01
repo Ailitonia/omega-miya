@@ -2,6 +2,10 @@
 
 基于nonebot2的qq机器人
 
+## 当前适配nonebot2版本
+
+[Nonebot2 PreRelease v2.0.0a7](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a7)
+
 ## 摸鱼重构中
 
 - [x] 新建文件夹

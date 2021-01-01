@@ -120,7 +120,7 @@ async def handle_check(bot: Bot, event: Event, state: dict):
         await bilibili_live.finish(f'{sub_command}成功!')
     else:
         logger.error(f'{sub_command}直播间失败, group_id: {event.group_id}, room_id: {room_id}')
-        await bilibili_live.finish(f'{sub_command}失败了QAQ, 请稍后再试~')
+        await bilibili_live.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
 async def sub_list(bot: Bot, event: Event, state: dict) -> Result:

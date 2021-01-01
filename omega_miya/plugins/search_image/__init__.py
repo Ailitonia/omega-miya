@@ -32,7 +32,7 @@ search_image = on_command('识图', rule=has_command_permission() & permission_l
 async def parse(bot: Bot, event: Event, state: dict):
     args = str(event.message).strip().split()
     if not args:
-        await search_image.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
+        await search_image.reject('你似乎没有发送有效的消息呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await search_image.finish('操作已取消')

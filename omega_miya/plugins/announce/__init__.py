@@ -3,7 +3,7 @@ from nonebot import on_command, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import Bot, Event
-from omega_miya.utils.Omega_Base import DBGroup, DBTable
+from omega_miya.utils.Omega_Base import DBTable
 
 
 # 注册事件响应器

@@ -44,16 +44,17 @@ async def pic_2_base64(url: str) -> Result:
                 timeout = aiohttp.ClientTimeout(total=10)
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'}
+                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+                               'referer': 'https://www.bilibili.com/'}
                     async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
                         _res = await resp.read()
                 return _res
             except Exception as _e:
-                error_info += f'{repr(_e)} Occurred in fetch_json trying {timeout_count + 1} using paras: {pic_url}\n'
+                error_info += f'{repr(_e)} Occurred in pic_2_base64 trying {timeout_count + 1} using paras: {pic_url}\n'
             finally:
                 timeout_count += 1
         else:
-            error_info += f'Failed too many times in fetch_json using paras: {pic_url}'
+            error_info += f'Failed too many times in pic_2_base64 using paras: {pic_url}'
             return None
 
     origin_image_f = BytesIO()

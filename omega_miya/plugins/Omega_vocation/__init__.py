@@ -277,6 +277,8 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     misfire_grace_time=60
 )
 async def member_vocations_monitor():
+    logger.debug(f"member_vocations_monitor: vocation checking started")
+
     from nonebot import get_bots
 
     for bot_id, bot in get_bots().items():

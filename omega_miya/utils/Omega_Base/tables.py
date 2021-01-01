@@ -399,13 +399,13 @@ class PixivT2I(Base):
             self.illust_id, self.tag_id, self.created_at, self.updated_at)
 
 
-# Pixivsion表
-class Pixivsion(Base):
-    __tablename__ = 'pixivsion_article'
+# Pixivision表
+class Pixivision(Base):
+    __tablename__ = 'pixivision_article'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('pixivsion_article_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('pixivision_article_id_seq'), primary_key=True, nullable=False)
     aid = Column(Integer, nullable=False, comment='aid')
     title = Column(String(256), nullable=False, comment='title')
     description = Column(String(1024), nullable=False, comment='description')
@@ -426,7 +426,7 @@ class Pixivsion(Base):
         self.updated_at = updated_at
 
     def __repr__(self):
-        return "<Pixiv(aid='%s',title='%s',description='%s'," \
+        return "<Pixivision(aid='%s',title='%s',description='%s'," \
                "tags='%s', illust_id='%s', url='%s', created_at='%s', created_at='%s')>" % (
                    self.aid, self.title, self.description,
                    self.tags, self.illust_id, self.url, self.created_at, self.updated_at)
