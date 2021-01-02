@@ -13,13 +13,13 @@ async def handle_message(bot: Bot, event: Event, state: dict):
         user_name = event.sender.get('card')
         if not user_name:
             user_name = event.sender.get('nickname')
-        time = int(event.time)
-        self_id = int(event.self_id)
-        post_type = str(event.type)
-        detail_type = str(event.detail_type)
-        sub_type = str(event.sub_type)
-        group_id = int(event.group_id)
-        user_id = int(event.user_id)
+        time = event.time
+        self_id = event.self_id
+        post_type = event.type
+        detail_type = event.detail_type
+        sub_type = event.sub_type
+        group_id = event.group_id
+        user_id = event.user_id
         raw_data = str(event.raw_message)
         msg_data = str(event.message)
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
@@ -36,13 +36,13 @@ notice_history = on_notice(priority=101, block=True)
 @notice_history.handle()
 async def handle_notice(bot: Bot, event: Event, state: dict):
     try:
-        time = int(event.time)
-        self_id = int(event.self_id)
-        post_type = str(event.type)
-        detail_type = str(event.detail_type)
-        sub_type = str(event.sub_type)
-        group_id = int(event.group_id)
-        user_id = int(event.user_id)
+        time = event.time
+        self_id = event.self_id
+        post_type = event.type
+        detail_type = event.detail_type
+        sub_type = event.sub_type
+        group_id = event.group_id
+        user_id = event.user_id
         raw_data = repr(event.raw_event)
         msg_data = str(event.message)
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
@@ -59,13 +59,13 @@ request_history = on_request(priority=101, block=True)
 @request_history.handle()
 async def handle_request(bot: Bot, event: Event, state: dict):
     try:
-        time = int(event.time)
-        self_id = int(event.self_id)
-        post_type = str(event.type)
-        detail_type = str(event.detail_type)
-        sub_type = str(event.sub_type)
-        group_id = int(event.group_id)
-        user_id = int(event.user_id)
+        time = event.time
+        self_id = event.self_id
+        post_type = event.type
+        detail_type = event.detail_type
+        sub_type = event.sub_type
+        group_id = event.group_id
+        user_id = event.user_id
         raw_data = repr(event.raw_event)
         msg_data = str(event.message)
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)

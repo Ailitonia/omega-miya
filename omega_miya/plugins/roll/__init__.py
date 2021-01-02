@@ -17,7 +17,8 @@ __plugin_usage__ = r'''【Roll & 抽奖】
 Command & Lv.10
 
 **Usage**
-/roll <x>d<y>'''
+/roll <x>d<y>
+/抽奖 <人数>'''
 
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
@@ -69,3 +70,56 @@ async def handle_roll(bot: Bot, event: Event, state: dict):
         await roll.finish(f'你掷出了{dice_num}个{dice_side}面骰子, 点数为【{dice_result}】')
     else:
         await roll.reject(f'格式不对呢, 请重新输入: <x>d<y>')
+
+
+lottery = on_command('抽奖', rule=has_command_permission() & permission_level(level=10),
+                     permission=GROUP, priority=10, block=True)
+
+
+# 修改默认参数处理
+@lottery.args_parser
+async def parse(bot: Bot, event: Event, state: dict):
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        await lottery.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
+    state[state["_current_key"]] = args[0]
+    if state[state["_current_key"]] == '取消':
+        await lottery.finish('操作已取消')
+
+
+@lottery.handle()
+async def handle_first_receive(bot: Bot, event: Event, state: dict):
+    args = str(event.plain_text).strip().lower().split()
+    if not args:
+        pass
+    elif args and len(args) == 1:
+        state['lottery'] = args[0]
+    else:
+        await lottery.finish('参数错误QAQ')
+
+
+@lottery.got('lottery', prompt='请输入抽奖人数')
+async def handle_lottery(bot: Bot, event: Event, state: dict):
+    _lottery = state['lottery']
+    if re.match(r'^\d+$', _lottery):
+        people_num = int(_lottery)
+
+        group_member_list = await bot.call_api(api='get_group_member_list', group_id=event.group_id)
+        group_user_name_list = []
+
+        for user_info in group_member_list:
+            # 用户信息
+            user_nickname = user_info['nickname']
+            user_group_nickmane = user_info['card']
+            if not user_group_nickmane:
+                user_group_nickmane = user_nickname
+            group_user_name_list.append(user_group_nickmane)
+
+        if people_num > len(group_user_name_list):
+            await lottery.finish(f'【错误】抽奖人数大于群成员人数了QAQ')
+
+        lottery_result = random.sample(group_user_name_list, k=people_num)
+        msg = '【' + str.join('】\n【', lottery_result) + '】'
+        await lottery.finish(f"抽奖人数: 【{people_num}】\n以下是中奖名单:\n{msg}")
+    else:
+        await lottery.reject(f'格式不对呢, 人数应该是数字, 请重新输入:')

@@ -29,7 +29,4 @@ async def sp_event_check(event: Event) -> (bool, str):
                         r = sp_msg.get(key).get('re')
                         msg = handle(msg, r)
                         return True, msg
-                    else:
-                        msg = handle(msg)
-                        return True, msg
     return False, ''
