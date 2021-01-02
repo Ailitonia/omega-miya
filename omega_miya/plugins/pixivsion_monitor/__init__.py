@@ -13,7 +13,7 @@ __plugin_usage__ = r'''【Pixivision订阅】
 推送最新的Pixivision特辑
 
 **Permission**
-Command & Lv.20
+Command & Lv.30
 
 **Usage**
 **GroupAdmin and SuperUser Only**
@@ -24,7 +24,7 @@ Command & Lv.20
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
-pixivision = on_command('pixivision', rule=has_command_permission() & permission_level(level=20),
+pixivision = on_command('pixivision', rule=has_command_permission() & permission_level(level=30),
                         aliases={'Pixivision'}, permission=GROUP_ADMIN | SUPERUSER, priority=20, block=True)
 
 

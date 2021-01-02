@@ -66,7 +66,7 @@ class NBdb(object):
 
 
 class DBResult(object):
-    def __init__(self, error: bool, info: str, result: Union[int, str, list, dict]):
+    def __init__(self, error: bool, info: str, result: Union[int, str, list, set, dict]):
         self.error = error
         self.info = info
         self.result = result

@@ -349,6 +349,7 @@ class Pixiv(Base):
     uid = Column(Integer, nullable=False, comment='uid')
     title = Column(String(512), nullable=False, comment='title')
     uname = Column(String(256), nullable=False, comment='author')
+    nsfw_tag = Column(Integer, nullable=False, comment='nsfw标签, 0=safe, 1=setu. 2=r18')
     tags = Column(String(2048), nullable=False, comment='tags')
     url = Column(String(2048), nullable=False, comment='url')
     created_at = Column(DateTime, nullable=True)
@@ -357,20 +358,21 @@ class Pixiv(Base):
     has_tags = relationship('PixivT2I', back_populates='illust_tags',
                             cascade="all, delete", passive_deletes=True)
 
-    def __init__(self, pid, uid, title, uname, tags, url, created_at=None, updated_at=None):
+    def __init__(self, pid, uid, title, uname, nsfw_tag, tags, url, created_at=None, updated_at=None):
         self.pid = pid
         self.uid = uid
         self.title = title
         self.uname = uname
+        self.nsfw_tag = nsfw_tag
         self.tags = tags
         self.url = url
         self.created_at = created_at
         self.updated_at = updated_at
 
     def __repr__(self):
-        return "<Pixiv(pid='%s',uid='%s',title='%s',uname='%s'," \
+        return "<Pixiv(pid='%s',uid='%s',title='%s',uname='%s',nsfw_tag='%s'," \
                "tags='%s', url='%s', created_at='%s', created_at='%s')>" % (
-                   self.pid, self.uid, self.title, self.uname,
+                   self.pid, self.uid, self.title, self.uname, self.nsfw_tag,
                    self.tags, self.url, self.created_at, self.updated_at)
 
 

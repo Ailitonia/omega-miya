@@ -12,10 +12,10 @@ class DBDynamic(object):
     def id(self) -> DBResult:
         session = NBdb().get_session()
         try:
-            user_table_id = session.query(Bilidynamic.id).\
+            bilidynamic_table_id = session.query(Bilidynamic.id).\
                 filter(Bilidynamic.uid == self.uid).\
                 filter(Bilidynamic.dynamic_id == self.dynamic_id).one()[0]
-            result = DBResult(error=False, info='Success', result=user_table_id)
+            result = DBResult(error=False, info='Success', result=bilidynamic_table_id)
         except NoResultFound:
             result = DBResult(error=True, info='NoResultFound', result=-1)
         except MultipleResultsFound:
@@ -31,17 +31,28 @@ class DBDynamic(object):
         return result
 
     def add(self, dynamic_type: int, content: str) -> DBResult:
-        # 已存在则忽略
-        if self.exist():
-            return DBResult(error=False, info='dynamic exist', result=0)
         session = NBdb().get_session()
         try:
-            # 动态表中添加新动态
-            new_dynamic = Bilidynamic(uid=self.uid, dynamic_id=self.dynamic_id, dynamic_type=dynamic_type,
-                                      content=content, created_at=datetime.now())
-            session.add(new_dynamic)
+            exist_dynamic = session.query(Bilidynamic).\
+                filter(Bilidynamic.uid == self.uid).\
+                filter(Bilidynamic.dynamic_id == self.dynamic_id).one()
+            exist_dynamic.content += f'\nupdate: {datetime.now()}\n{content}'
+            exist_dynamic.updated_at = datetime.now()
             session.commit()
-            result = DBResult(error=False, info='Success added', result=0)
+            result = DBResult(error=False, info='Success upgrade', result=0)
+        except NoResultFound:
+            try:
+                # 动态表中添加新动态
+                new_dynamic = Bilidynamic(uid=self.uid, dynamic_id=self.dynamic_id, dynamic_type=dynamic_type,
+                                          content=content, created_at=datetime.now())
+                session.add(new_dynamic)
+                session.commit()
+                result = DBResult(error=False, info='Success added', result=0)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+        except MultipleResultsFound:
+            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
             result = DBResult(error=True, info=repr(e), result=-1)

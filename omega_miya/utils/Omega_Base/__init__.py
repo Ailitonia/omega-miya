@@ -9,6 +9,8 @@ from .group import DBGroup
 from .skill import DBSkill
 from .subscription import DBSubscription
 from .bilidynamic import DBDynamic
+from .pixivillust import DBPixivillust
+from .pixivtag import DBPixivtag
 from .pixivision import DBPixivision
 from .history import DBHistory
 from .database import DBResult as Result
@@ -21,6 +23,8 @@ __all__ = [
     'DBSkill',
     'DBSubscription',
     'DBDynamic',
+    'DBPixivillust',
+    'DBPixivtag',
     'DBPixivision',
     'DBHistory',
     'Result'

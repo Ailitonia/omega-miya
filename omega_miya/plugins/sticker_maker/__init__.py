@@ -22,6 +22,7 @@ Command & Lv.10
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
 
+
 sticker = on_command('表情包', rule=has_command_permission() & permission_level(level=10), aliases={'Sticker', 'sticker'},
                      permission=GROUP, priority=10, block=True)
 

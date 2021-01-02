@@ -12,13 +12,19 @@ api主要用于获取pixiv等网站内容
 
 ->[Miya API](https://github.com/Ailitonia/miya_api)
 
-## 摸鱼重构中
+## 功能
 
-- [x] 新建文件夹
-- [ ] 封装所有数据库操作
-- [x] 命令权限等级
-- [x] 删掉不切实际的需求
-- [ ] 重写插件
+- B站动态订阅
+- B站直播间监控
+- 求签抽卡
+- Pixiv助手（需要API）
+- Pixivision订阅（需要API）
+- 复读姬
+- roll点抽奖
+- 搜二次元图（Saucenao 和 ascii2d）
+- 来点涩图（涩图数据库需要自己导入）
+- 表情包制作器
+
 
 ## 说点题外话
 
