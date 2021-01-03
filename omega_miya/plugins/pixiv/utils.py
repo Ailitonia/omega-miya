@@ -2,10 +2,10 @@ import aiohttp
 from omega_miya.utils.Omega_Base import Result
 
 
-API_KEY = '123456789abcdef'
-RANK_API_URL = 'http://127.0.0.1:9090/api/pixiv/rank/'
-SEARCH_API_URL = 'http://127.0.0.1:9090/api/pixiv/search/'
-DOWNLOAD_API_URL = 'http://127.0.0.1:9090/api/pixiv/download/'
+API_KEY = ''
+RANK_API_URL = 'https://127.0.0.1/api/pixiv/rank/'
+SEARCH_API_URL = 'https://127.0.0.1/api/pixiv/search/'
+DOWNLOAD_API_URL = 'https://127.0.0.1/api/pixiv/download/'
 
 
 async def fetch_json(url: str, paras: dict) -> Result:

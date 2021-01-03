@@ -19,7 +19,6 @@ logger.add(log_error_path, rotation="00:00", diagnose=False, level="ERROR", form
 nonebot.init()
 driver = nonebot.get_driver()
 driver.register_adapter("cqhttp", CQHTTPBot)
-app = nonebot.get_asgi()
 
 nonebot.load_plugins("omega_miya/utils")
 nonebot.load_plugins("omega_miya/plugins")
@@ -31,4 +30,4 @@ nonebot.load_plugins("omega_miya/plugins")
 
 
 if __name__ == "__main__":
-    nonebot.run(app="bot:app")
+    nonebot.run()
