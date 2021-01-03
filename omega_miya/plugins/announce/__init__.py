@@ -2,7 +2,8 @@ import re
 from nonebot import on_command, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
-from nonebot.typing import Bot, Event
+from nonebot.typing import T_State
+from nonebot.adapters import Bot, Event
 from omega_miya.utils.Omega_Base import DBTable
 
 
@@ -12,8 +13,8 @@ announce = on_command('公告', rule=to_me(), aliases={'announce'}, permission=S
 
 # 修改默认参数处理
 @announce.args_parser
-async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def parse(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await announce.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -22,8 +23,8 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 
 @announce.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:
@@ -37,7 +38,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 @announce.got('group', prompt='请输入通知群组:')
 @announce.got('announce_text', prompt='请输入公告内容:')
-async def handle_announce(bot: Bot, event: Event, state: dict):
+async def handle_announce(bot: Bot, event: Event, state: T_State):
     group = state['group']
     msg = state['announce_text']
     if group == 'all':

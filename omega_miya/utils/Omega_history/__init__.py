@@ -1,5 +1,6 @@
 from nonebot import on_message, on_request, on_notice, logger
-from nonebot.typing import Bot, Event
+from nonebot.typing import T_State
+from nonebot.adapters import Bot, Event
 from omega_miya.utils.Omega_Base import DBHistory
 
 
@@ -8,20 +9,20 @@ message_history = on_message(priority=101, block=True)
 
 
 @message_history.handle()
-async def handle_message(bot: Bot, event: Event, state: dict):
+async def handle_message(bot: Bot, event: Event, state: T_State):
     try:
-        user_name = event.sender.get('card')
+        user_name = event.dict().get('sender').get('card')
         if not user_name:
-            user_name = event.sender.get('nickname')
-        time = event.time
-        self_id = event.self_id
-        post_type = event.type
-        detail_type = event.detail_type
-        sub_type = event.sub_type
-        group_id = event.group_id
-        user_id = event.user_id
-        raw_data = str(event.raw_message)
-        msg_data = str(event.message)
+            user_name = event.dict().get('sender').get('nickname')
+        time = event.dict().get('time')
+        self_id = event.dict().get('self_id')
+        post_type = event.get_type()
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        sub_type = event.dict().get('sub_type')
+        group_id = event.dict().get('group_id')
+        user_id = event.dict().get('user_id')
+        raw_data = repr(event)
+        msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
         new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=user_name,
                       raw_data=raw_data, msg_data=msg_data)
@@ -34,17 +35,17 @@ notice_history = on_notice(priority=101, block=True)
 
 
 @notice_history.handle()
-async def handle_notice(bot: Bot, event: Event, state: dict):
+async def handle_notice(bot: Bot, event: Event, state: T_State):
     try:
-        time = event.time
-        self_id = event.self_id
-        post_type = event.type
-        detail_type = event.detail_type
-        sub_type = event.sub_type
-        group_id = event.group_id
-        user_id = event.user_id
-        raw_data = repr(event.raw_event)
-        msg_data = str(event.message)
+        time = event.dict().get('time')
+        self_id = event.dict().get('self_id')
+        post_type = event.get_type()
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        sub_type = event.dict().get('sub_type')
+        group_id = event.dict().get('group_id')
+        user_id = event.dict().get('user_id')
+        raw_data = repr(event)
+        msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
         new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=None,
                       raw_data=raw_data, msg_data=msg_data)
@@ -57,17 +58,17 @@ request_history = on_request(priority=101, block=True)
 
 
 @request_history.handle()
-async def handle_request(bot: Bot, event: Event, state: dict):
+async def handle_request(bot: Bot, event: Event, state: T_State):
     try:
-        time = event.time
-        self_id = event.self_id
-        post_type = event.type
-        detail_type = event.detail_type
-        sub_type = event.sub_type
-        group_id = event.group_id
-        user_id = event.user_id
-        raw_data = repr(event.raw_event)
-        msg_data = str(event.message)
+        time = event.dict().get('time')
+        self_id = event.dict().get('self_id')
+        post_type = event.get_type()
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        sub_type = event.dict().get('sub_type')
+        group_id = event.dict().get('group_id')
+        user_id = event.dict().get('user_id')
+        raw_data = repr(event)
+        msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
         new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=None,
                       raw_data=raw_data, msg_data=msg_data)

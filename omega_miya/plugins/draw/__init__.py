@@ -1,7 +1,8 @@
 import datetime
 from nonebot import on_command, export, logger
-from nonebot.permission import GROUP
-from nonebot.typing import Bot, Event
+from nonebot.typing import T_State
+from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
 from .data_source import deck_list, maybe, sp,  sp_event, draw_deck
@@ -29,8 +30,8 @@ draw = on_command('求签', rule=has_command_permission() & permission_level(lev
 
 # 修改默认参数处理
 @draw.args_parser
-async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def parse(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await draw.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -39,8 +40,8 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 
 @draw.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:
@@ -50,13 +51,13 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 
 @draw.got('draw', prompt='你想问什么事呢?')
-async def handle_draw(bot: Bot, event: Event, state: dict):
-    user_id = event.user_id
+async def handle_draw(bot: Bot, event: Event, state: T_State):
+    user_id = event.dict().get('user_id')
     _draw = state['draw']
     # 求签者昵称, 优先使用群昵称
-    draw_user = event.sender['card']
+    draw_user = event.dict().get('sender').get('card')
     if not draw_user:
-        draw_user = event.sender['nickname']
+        draw_user = event.dict().get('sender').get('nickname')
 
     # 载入牌堆
     deck = deck_list.keys()

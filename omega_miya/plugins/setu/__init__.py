@@ -2,8 +2,10 @@ import asyncio
 import random
 from nonebot import on_command, export, logger
 from nonebot.rule import to_me
-from nonebot.permission import GROUP, SUPERUSER
-from nonebot.typing import Bot, Event
+from nonebot.permission import SUPERUSER
+from nonebot.typing import T_State
+from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -36,8 +38,8 @@ setu = on_command('来点涩图', rule=has_command_permission() & permission_lev
 
 
 @setu.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = set(str(event.plain_text).strip().split())
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+    args = set(str(event.get_plaintext()).strip().split())
     # 处理r18
     state['nsfw_tag'] = 1
     for tag in args.copy():
@@ -49,7 +51,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 @setu.got('nsfw_tag', prompt='r18?')
 @setu.got('tags', prompt='tag?')
-async def handle_setu(bot: Bot, event: Event, state: dict):
+async def handle_setu(bot: Bot, event: Event, state: T_State):
     nsfw_tag = state['nsfw_tag']
     tags = state['tags']
 
@@ -73,7 +75,7 @@ async def handle_setu(bot: Bot, event: Event, state: dict):
         pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
 
     if not pid_list:
-        logger.info(f'Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图')
+        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
     elif len(pid_list) > 3:
         pid_list = random.sample(pid_list, k=3)
@@ -96,14 +98,14 @@ async def handle_setu(bot: Bot, event: Event, state: dict):
             # 发送图片
             await setu.send(img_seg)
         except Exception as e:
-            logger.warning(f'图片发送失败, group: {event.group_id}. error: {repr(e)}')
+            logger.warning(f"图片发送失败, group: {event.dict().get('group_id')}. error: {repr(e)}")
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f'Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的涩图')
+        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 没能看到他/她想要的涩图")
         await setu.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f'Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的涩图')
+        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 找到了他/她想要的涩图")
 
 
 # 注册事件响应器
@@ -111,7 +113,7 @@ setu_stat = on_command('涩图统计', rule=to_me(), permission=SUPERUSER, prior
 
 
 @setu_stat.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
     _res = DBPixivillust.status()
     msg = f"本地数据库统计:\n\n" \
           f"全部: {_res.get('total')}\n" \
@@ -125,7 +127,7 @@ setu_import = on_command('导入涩图', rule=to_me(), permission=SUPERUSER, pri
 
 
 @setu_import.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
     import os
     import re
 

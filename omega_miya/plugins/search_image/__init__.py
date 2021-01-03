@@ -1,7 +1,8 @@
 import re
 from nonebot import on_command, export, logger
-from nonebot.permission import GROUP
-from nonebot.typing import Bot, Event
+from nonebot.typing import T_State
+from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -29,8 +30,8 @@ search_image = on_command('识图', rule=has_command_permission() & permission_l
 
 # 修改默认参数处理
 @search_image.args_parser
-async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.message).strip().split()
+async def parse(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_message()).strip().split()
     if not args:
         await search_image.reject('你似乎没有发送有效的消息呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -39,14 +40,14 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 
 @search_image.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if args:
         await search_image.finish('该命令不支持参数QAQ')
 
 
 @search_image.got('image_url', prompt='请发送你想要识别的图片:')
-async def handle_draw(bot: Bot, event: Event, state: dict):
+async def handle_draw(bot: Bot, event: Event, state: T_State):
     image_url = state['image_url']
     if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
         await search_image.reject('你发送的似乎不是图片呢, 请重新发送~')
@@ -83,13 +84,16 @@ async def handle_draw(bot: Bot, event: Event, state: dict):
                 except Exception as e:
                     logger.warning(f'处理和发送识别结果时发生了错误: {repr(e)}')
                     continue
-            logger.info(f'Group: {event.group_id}, user: {event.user_id} 使用searchimage成功搜索了一张图片')
+            logger.info(f"Group: {event.dict().get('group_id')}, user: {event.dict().get('user_id')} "
+                        f"使用searchimage成功搜索了一张图片")
             return
         else:
             await search_image.send('没有找到相似度足够高的图片QAQ')
-            logger.info(f'Group: {event.group_id}, user: {event.user_id} 使用了searchimage, 但没有找到相似的图片')
+            logger.info(f"Group: {event.dict().get('group_id')}, user: {event.dict().get('user_id')} "
+                        f"使用了searchimage, 但没有找到相似的图片")
             return
     except Exception as e:
         await search_image.send('识图失败, 发生了意外的错误QAQ')
-        logger.error(f'Group: {event.group_id}, user: {event.user_id}  使用命令searchimage时发生了错误: {repr(e)}')
+        logger.error(f"Group: {event.dict().get('group_id')}, user: {event.dict().get('user_id')}  "
+                     f"使用命令searchimage时发生了错误: {repr(e)}")
         return

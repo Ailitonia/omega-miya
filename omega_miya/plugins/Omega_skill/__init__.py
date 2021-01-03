@@ -1,6 +1,8 @@
 from nonebot import on_command, export, logger
-from nonebot.permission import GROUP, SUPERUSER
-from nonebot.typing import Bot, Event
+from nonebot.permission import SUPERUSER
+from nonebot.typing import T_State
+from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBTable, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -34,8 +36,8 @@ skill_admin = on_command('Skill', rule=has_command_permission(), aliases={'skill
 
 # 修改默认参数处理
 @skill_admin.args_parser
-async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def parse(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await skill_admin.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -44,8 +46,8 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 
 @skill_admin.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:
@@ -62,7 +64,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 
 @skill_admin.got('sub_command', prompt='执行操作?\n【add/del】')
-async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
+async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
     if state['sub_command'] not in ['add', 'del']:
         await skill_admin.reject('没有这个命令哦, 请重新输入:')
     if state['sub_command'] == 'del':
@@ -71,7 +73,7 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
 
 @skill_admin.got('skill_name', prompt='请输入技能名称:')
 @skill_admin.got('skill_description', prompt='请输入技能描述:')
-async def handle_sub_command(bot: Bot, event: Event, state: dict):
+async def handle_sub_command(bot: Bot, event: Event, state: T_State):
     # 子命令列表
     command = {
         'add': skill_add,
@@ -83,14 +85,14 @@ async def handle_sub_command(bot: Bot, event: Event, state: dict):
         await skill_admin.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f'Group: {event.group_id}, {sub_command}, Success, {result.info}')
+        logger.info(f"Group: {event.dict().get('group_id')}, {sub_command}, Success, {result.info}")
         await skill_admin.finish('Success')
     else:
-        logger.error(f'Group: {event.group_id}, {sub_command}, Failed, {result.info}')
+        logger.error(f"Group: {event.dict().get('group_id')}, {sub_command}, Failed, {result.info}")
         await skill_admin.finish('Failed QAQ')
 
 
-async def skill_add(bot: Bot, event: Event, state: dict) -> Result:
+async def skill_add(bot: Bot, event: Event, state: T_State) -> Result:
     skill_name = state["skill_name"]
     skill_description = state["skill_description"]
     skill = DBSkill(name=skill_name)
@@ -98,7 +100,7 @@ async def skill_add(bot: Bot, event: Event, state: dict) -> Result:
     return result
 
 
-async def skill_del(bot: Bot, event: Event, state: dict) -> Result:
+async def skill_del(bot: Bot, event: Event, state: T_State) -> Result:
     skill_name = state["skill_name"]
     skill = DBSkill(name=skill_name)
     result = skill.delete()
@@ -112,8 +114,8 @@ skill_group_user = on_command('技能', rule=has_command_permission() & permissi
 
 # 修改默认参数处理
 @skill_group_user.args_parser
-async def parse(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def parse(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await skill_group_user.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -122,8 +124,8 @@ async def parse(bot: Bot, event: Event, state: dict):
 
 
 @skill_group_user.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: dict):
-    args = str(event.plain_text).strip().lower().split()
+async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
     elif args and len(args) == 1:
@@ -140,7 +142,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: dict):
 
 
 @skill_group_user.got('sub_command', prompt='执行操作?\n【清单/我会的/设置/删除/清空】')
-async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
+async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
     if state['sub_command'] not in ['清单', '我会的', '设置', '删除', '清空']:
         await skill_admin.reject('没有这个命令哦, 请重新输入:')
     if state['sub_command'] in ['清单', '我会的', '清空']:
@@ -151,7 +153,7 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
 
 
 @skill_group_user.got('skill_name', prompt='请输入技能名称:')
-async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
+async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
     if state['sub_command'] in ['设置', '删除']:
         res = await skill_list(bot=bot, event=event, state=state)
         if state['skill_name'] not in res.result:
@@ -159,13 +161,13 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
 
 
 @skill_group_user.got('skill_level', prompt='请输入技能等级【普通/熟练/专业】')
-async def handle_sub_command_args(bot: Bot, event: Event, state: dict):
+async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
     if state['sub_command'] == '设置' and state['skill_level'] not in ['普通', '熟练', '专业']:
         await skill_admin.reject('没有这个技能等级哦, 请重新输入:')
 
 
 @skill_group_user.got('sub_command', prompt='执行操作?')
-async def handle_sub_command(bot: Bot, event: Event, state: dict):
+async def handle_sub_command(bot: Bot, event: Event, state: T_State):
     # 子命令列表
     command = {
         '清单': skill_list,
@@ -186,17 +188,17 @@ async def handle_sub_command(bot: Bot, event: Event, state: dict):
         await skill_group_user.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f'Group: {event.group_id}, {sub_command}, Success, {result.info}')
+        logger.info(f"Group: {event.dict().get('group_id')}, {sub_command}, Success, {result.info}")
         if sub_command in need_reply:
             await skill_group_user.finish(result.result)
         else:
             await skill_group_user.finish('Success')
     else:
-        logger.error(f'Group: {event.group_id}, {sub_command}, Failed, {result.info}')
+        logger.error(f"Group: {event.dict().get('group_id')}, {sub_command}, Failed, {result.info}")
         await skill_group_user.finish('Failed QAQ')
 
 
-async def skill_list(bot: Bot, event: Event, state: dict) -> Result:
+async def skill_list(bot: Bot, event: Event, state: T_State) -> Result:
     skill_table = DBTable(table_name='Skill')
     _res = skill_table.list_col(col_name='name')
     if _res.success():
@@ -209,8 +211,8 @@ async def skill_list(bot: Bot, event: Event, state: dict) -> Result:
     return result
 
 
-async def user_skill_list(bot: Bot, event: Event, state: dict) -> Result:
-    user_id = event.user_id
+async def user_skill_list(bot: Bot, event: Event, state: T_State) -> Result:
+    user_id = event.dict().get('user_id')
     user = DBUser(user_id=user_id)
     _res = user.skill_list()
     if _res.success():
@@ -232,8 +234,8 @@ async def user_skill_list(bot: Bot, event: Event, state: dict) -> Result:
     return result
 
 
-async def user_skill_set(bot: Bot, event: Event, state: dict) -> Result:
-    user_id = event.user_id
+async def user_skill_set(bot: Bot, event: Event, state: T_State) -> Result:
+    user_id = event.dict().get('user_id')
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
     skill_level = state['skill_level']
@@ -252,8 +254,8 @@ async def user_skill_set(bot: Bot, event: Event, state: dict) -> Result:
     return result
 
 
-async def user_skill_del(bot: Bot, event: Event, state: dict) -> Result:
-    user_id = event.user_id
+async def user_skill_del(bot: Bot, event: Event, state: T_State) -> Result:
+    user_id = event.dict().get('user_id')
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
     _res = user.skill_del(skill=DBSkill(name=skill_name))
@@ -264,8 +266,8 @@ async def user_skill_del(bot: Bot, event: Event, state: dict) -> Result:
     return result
 
 
-async def user_skill_clear(bot: Bot, event: Event, state: dict) -> Result:
-    user_id = event.user_id
+async def user_skill_clear(bot: Bot, event: Event, state: T_State) -> Result:
+    user_id = event.dict().get('user_id')
     user = DBUser(user_id=user_id)
     _res = user.skill_clear()
     if _res.success():

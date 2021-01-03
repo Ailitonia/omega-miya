@@ -88,10 +88,15 @@ async def bilibili_dynamic_monitor():
     # 注册一个异步函数用于检查动态
     async def check_dynamic(dy_uid):
         # 获取动态并返回动态类型及内容
-        _res = await get_dynamic_info(dy_uid=dy_uid)
-        if not _res.success():
-            logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {_res.info}')
+        try:
+            _res = await get_dynamic_info(dy_uid=dy_uid)
+            if not _res.success():
+                logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {_res.info}')
+                return
+        except Exception as e:
+            logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {repr(e)}')
             return
+
         dynamic_info = dict(_res.result)
 
         # 用户所有的动态id

@@ -2,9 +2,9 @@ import aiohttp
 from omega_miya.utils.Omega_Base import DBPixivision, Result
 
 
-API_KEY = '123456789abcdef'
-API_URL = 'http://127.0.0.1:9090/api/pixivsion/'
-DOWNLOAD_API_URL = 'http://127.0.0.1:9090/api/pixiv/download/'
+API_KEY = ''
+API_URL = 'https://127.0.0.1/api/pixivsion/'
+DOWNLOAD_API_URL = 'https://127.0.0.1/api/pixiv/download/'
 
 
 async def fetch_json(url: str, paras: dict) -> Result:

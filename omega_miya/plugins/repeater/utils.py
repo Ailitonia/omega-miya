@@ -1,6 +1,6 @@
 import re
 import operator
-from nonebot.typing import Event
+from nonebot.adapters import Event
 
 sp_msg = {
     r'.+好萌好可爱$':
@@ -11,8 +11,8 @@ sp_msg = {
 
 
 async def sp_event_check(event: Event) -> (bool, str):
-    msg = event.raw_message
-    group_id = event.group_id
+    msg = str(event.get_message())
+    group_id = event.dict().get('group_id')
     for key in sp_msg.keys():
         if re.match(key, msg):
             if group_id in sp_msg.get(key).get('group_id') or not sp_msg.get(key).get('group_id'):
