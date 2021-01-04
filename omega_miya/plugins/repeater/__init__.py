@@ -34,8 +34,8 @@ async def handle_repeater(bot: Bot, event: Event, state: T_State):
         repeat_count[group_id] = 0
         await repeater.finish(message=sp_msg)
 
-    msg = str(event.get_message())
-    if re.match(r'^/', msg):
+    msg = event.get_message()
+    if re.match(r'^/', str(msg)):
         return
 
     if msg != last_msg[group_id] or msg == last_repeat_msg[group_id]:
@@ -46,7 +46,7 @@ async def handle_repeater(bot: Bot, event: Event, state: T_State):
         repeat_count[group_id] += 1
         last_repeat_msg[group_id] = ''
         if repeat_count[group_id] >= 2:
-            await repeater.send(message=msg)
+            await repeater.send(msg)
             repeat_count[group_id] = 0
             last_msg[group_id] = ''
             last_repeat_msg[group_id] = msg

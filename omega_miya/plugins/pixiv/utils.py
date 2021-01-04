@@ -1,11 +1,13 @@
 import aiohttp
+import nonebot
 from omega_miya.utils.Omega_Base import Result
 
 
-API_KEY = ''
-RANK_API_URL = 'https://127.0.0.1/api/pixiv/rank/'
-SEARCH_API_URL = 'https://127.0.0.1/api/pixiv/search/'
-DOWNLOAD_API_URL = 'https://127.0.0.1/api/pixiv/download/'
+global_config = nonebot.get_driver().config
+API_KEY = global_config.api_key
+RANK_API_URL = global_config.pixiv_rank_api_url
+SEARCH_API_URL = global_config.pixiv_search_api_url
+DOWNLOAD_API_URL = global_config.pixiv_download_api_url
 
 
 async def fetch_json(url: str, paras: dict) -> Result:

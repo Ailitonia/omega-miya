@@ -28,7 +28,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
         await bot_help.finish('暂时没有可用的插件QAQ')
     state['plugin_list'] = plugins
     # 首次发送命令时跟随的参数，例：/天气 上海，则args为上海
-    args = str(event.plain_text).strip().lower().split()
+    args = str(event.get_plaintext()).strip().lower().split()
     if args:
         # 如果用户发送了参数则直接赋值
         state['plugin_name'] = args[0]

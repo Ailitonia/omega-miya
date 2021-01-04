@@ -134,7 +134,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
     # 文件操作
     import_pid_file = os.path.join(os.path.dirname(__file__), 'import_pid.txt')
     if not os.path.exists(import_pid_file):
-        logger.error(f'setu_import: 导入列表不存在')
+        logger.error(f'setu_import: 找不到导入文件: {import_pid_file}')
         await setu_import.finish('错误: 导入列表不存在QAQ')
 
     pid_list = []
