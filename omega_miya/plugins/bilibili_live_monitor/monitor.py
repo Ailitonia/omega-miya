@@ -1,6 +1,4 @@
 import asyncio
-import random
-from time import sleep
 from nonebot import logger, require, get_driver, get_bots
 from omega_miya.utils.Omega_Base import DBSubscription, DBTable
 from .utils import get_live_info, get_user_info
@@ -115,7 +113,6 @@ async def live_db_upgrade():
     misfire_grace_time=30
 )
 async def bilibili_live_monitor():
-    sleep(random.randint(1, 4))
 
     logger.debug(f"bilibili_live_monitor: checking started")
     global live_title

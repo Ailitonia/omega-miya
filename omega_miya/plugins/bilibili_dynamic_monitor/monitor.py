@@ -1,6 +1,4 @@
 import asyncio
-import random
-from time import sleep
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
@@ -64,7 +62,6 @@ async def dynamic_db_upgrade():
     misfire_grace_time=45
 )
 async def bilibili_dynamic_monitor():
-    sleep(random.randint(2, 5))
 
     logger.debug(f"bilibili_dynamic_monitor: checking started")
 

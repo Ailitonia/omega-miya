@@ -1,12 +1,13 @@
 import re
-import operator
 from nonebot.adapters import Event
 
 sp_msg = {
-    r'.+好萌好可爱$':
-        {'group_id': [], 'replyMsg': '', 'handle': operator.add, 're': r'我也觉得', 'seq': 'prefix'},
+    r'(.+)好萌好可爱$':
+        {'group_id': [], 'replyMsg': r'我也觉得{}好萌好可爱', 'handle': True},
+    r'^#测试群友(.+)浓度#?$':
+        {'group_id': [], 'replyMsg': r'群友{}浓度已超出测量范围Σ(っ °Д °;)っ', 'handle': True},
     r'^对呀对呀$':
-        {'group_id': [123456789], 'replyMsg': '对呀对呀', 'handle': None, 're': None, 'seq': None}
+        {'group_id': [123456789], 'replyMsg': r'对呀对呀', 'handle': None}
 }
 
 
@@ -17,16 +18,10 @@ async def sp_event_check(event: Event) -> (bool, str):
         if re.match(key, msg):
             if group_id in sp_msg.get(key).get('group_id') or not sp_msg.get(key).get('group_id'):
                 handle = sp_msg.get(key).get('handle')
-                if not handle:
-                    msg = sp_msg.get(key).get('replyMsg')
+                if handle:
+                    msg = sp_msg.get(key).get('replyMsg').format(re.findall(key, msg)[0])
                     return True, msg
                 else:
-                    if sp_msg.get(key).get('seq') == 'prefix':
-                        r = sp_msg.get(key).get('re')
-                        msg = handle(r, msg)
-                        return True, msg
-                    elif sp_msg.get(key).get('seq') == 'suffix':
-                        r = sp_msg.get(key).get('re')
-                        msg = handle(msg, r)
-                        return True, msg
+                    msg = sp_msg.get(key).get('replyMsg')
+                    return True, msg
     return False, ''

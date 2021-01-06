@@ -1,7 +1,8 @@
 import re
 from nonebot import on_message
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import has_notice_permission
 from .utils import sp_event_check
@@ -14,7 +15,7 @@ repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=1
 
 
 @repeater.handle()
-async def handle_repeater(bot: Bot, event: Event, state: T_State):
+async def handle_repeater(bot: Bot, event: GroupMessageEvent, state: T_State):
     group_id = event.dict().get('group_id')
 
     global last_msg, last_repeat_msg, repeat_count
@@ -34,8 +35,10 @@ async def handle_repeater(bot: Bot, event: Event, state: T_State):
         repeat_count[group_id] = 0
         await repeater.finish(message=sp_msg)
 
-    msg = event.get_message()
-    if re.match(r'^/', str(msg)):
+    t_msg = event.message
+    msg = event.raw_message
+
+    if re.match(r'^/', msg):
         return
 
     if msg != last_msg[group_id] or msg == last_repeat_msg[group_id]:
@@ -46,7 +49,7 @@ async def handle_repeater(bot: Bot, event: Event, state: T_State):
         repeat_count[group_id] += 1
         last_repeat_msg[group_id] = ''
         if repeat_count[group_id] >= 2:
-            await repeater.send(msg)
+            await repeater.send(t_msg)
             repeat_count[group_id] = 0
             last_msg[group_id] = ''
             last_repeat_msg[group_id] = msg
