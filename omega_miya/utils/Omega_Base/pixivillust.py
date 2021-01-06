@@ -1,10 +1,11 @@
 from typing import List
 from .database import NBdb, DBResult
-from .tables import Pixiv, PixivT2I
+from .tables import Pixiv, PixivTag, PixivT2I
 from .pixivtag import DBPixivtag
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.sql.expression import func
+from sqlalchemy import or_
 
 
 class DBPixivillust(object):
@@ -107,4 +108,23 @@ class DBPixivillust(object):
         setu_count = session.query(func.count(Pixiv.id)).filter(Pixiv.nsfw_tag == 1).scalar()
         r18_count = session.query(func.count(Pixiv.id)).filter(Pixiv.nsfw_tag == 2).scalar()
         result = {'total': int(all_count), 'setu': int(setu_count), 'r18': int(r18_count)}
+        return result
+
+    @classmethod
+    def list_illust(cls, nsfw_tag: int, keyword: str) -> DBResult:
+        session = NBdb().get_session()
+        try:
+            pid_list = session.query(Pixiv.pid).join(PixivT2I).join(PixivTag). \
+                filter(Pixiv.id == PixivT2I.illust_id). \
+                filter(PixivT2I.tag_id == PixivTag.id). \
+                filter(Pixiv.nsfw_tag == nsfw_tag). \
+                filter(or_(PixivTag.tagname.ilike(f'%{keyword}%'), Pixiv.uname.ilike(f'%{keyword}%'))).all()
+            tag_pid_list = []
+            for pid in pid_list:
+                tag_pid_list.append(pid[0])
+            result = DBResult(error=False, info='Success', result=tag_pid_list)
+        except Exception as e:
+            result = DBResult(error=True, info=repr(e), result=[])
+        finally:
+            session.close()
         return result

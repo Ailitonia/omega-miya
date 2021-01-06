@@ -58,8 +58,11 @@ async def handle_setu(bot: Bot, event: Event, state: T_State):
     if tags:
         _res_list = list()
         for tag in tags:
+            """
             _tag = DBPixivtag(tagname=tag)
             _res = _tag.list_illust(nsfw_tag=nsfw_tag)
+            """
+            _res = DBPixivillust.list_illust(nsfw_tag=nsfw_tag, keyword=tag)
             if _res.success():
                 _pids = set(_res.result)
                 _res_list.append(_pids)
