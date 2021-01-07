@@ -37,8 +37,8 @@ async def fetch_image_b64(pid: [int, str]) -> Result:
     # 获取illust
     payload = {'key': API_KEY, 'pid': pid, 'mode': 'regular'}
     _res = await fetch_json(url=DOWNLOAD_API_URL, paras=payload)
-    illust_data = _res.result
-    if _res.success() and not illust_data.get('error'):
+    if _res.success() and not _res.result.get('error'):
+        illust_data = _res.result.get('body')
         pic_b64 = illust_data.get('pic_b64')
         result = Result(error=False, info='Success', result=pic_b64)
     else:

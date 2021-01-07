@@ -37,8 +37,8 @@ async def fetch_illust_b64(pid: [int, str]) -> Result:
     # 获取illust
     payload = {'key': API_KEY, 'pid': pid, 'mode': 'regular'}
     _res = await fetch_json(url=DOWNLOAD_API_URL, paras=payload)
-    illust_data = _res.result
-    if _res.success() and not illust_data.get('error'):
+    if _res.success() and not _res.result.get('error'):
+        illust_data = _res.result.get('body')
         pic_b64 = illust_data.get('pic_b64')
         result = Result(error=False, info='Success', result=pic_b64)
     else:
@@ -50,8 +50,7 @@ async def fetch_illust_info(pid: [int, str]) -> Result:
     # 获取illust
     payload = {'key': API_KEY, 'pid': pid}
     _res = await fetch_json(url=SEARCH_API_URL, paras=payload)
-    illust_data = _res.result
-    if _res.success() and not illust_data.get('error'):
+    if _res.success() and not _res.result.get('error'):
         result = _res
     else:
         result = Result(error=True, info=f'网络超时或 {pid} 不存在', result={})
@@ -61,7 +60,7 @@ async def fetch_illust_info(pid: [int, str]) -> Result:
 async def add_illust(pid: int) -> Result:
     _res = await fetch_illust_info(pid=pid)
     if _res.success():
-        illust_data = _res.result
+        illust_data = _res.result.get('body')
         title = illust_data.get('title')
         uid = illust_data.get('uid')
         uname = illust_data.get('uname')

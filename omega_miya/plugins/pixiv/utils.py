@@ -37,8 +37,8 @@ async def fetch_image(pid: [int, str]) -> Result:
     # 获取illust
     payload = {'key': API_KEY, 'pid': pid, 'mode': 'regular'}
     _res = await fetch_json(url=DOWNLOAD_API_URL, paras=payload)
-    illust_data = _res.result
-    if _res.success() and not illust_data.get('error'):
+    if _res.success() and not _res.result.get('error'):
+        illust_data = _res.result.get('body')
         title = illust_data.get('title')
         author = illust_data.get('uname')
         url = illust_data.get('url')
@@ -49,7 +49,7 @@ async def fetch_image(pid: [int, str]) -> Result:
         if not description:
             msg = f'「{title}」/「{author}」\n{tags}\n{url}'
         else:
-            msg = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description}'
+            msg = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:28]}......'
         pic_b64 = illust_data.get('pic_b64')
         result = Result(error=False, info='Success', result={'msg': msg, 'b64': pic_b64})
     else:

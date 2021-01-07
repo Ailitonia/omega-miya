@@ -66,13 +66,15 @@ async def handle_setu(bot: Bot, event: Event, state: T_State):
             if _res.success():
                 _pids = set(_res.result)
                 _res_list.append(_pids)
-        if len(tags) > 1:
+        if len(_res_list) > 1:
             # 处理tag交集, 同时满足所有tag
             for item in _res_list[1:]:
                 _res_list[0].intersection_update(item)
             pid_list = _res_list[0]
-        else:
+        elif len(_res_list) == 1:
             pid_list = _res_list[0]
+        else:
+            pid_list = _res_list
     else:
         # 没有tag则随机获取
         pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)

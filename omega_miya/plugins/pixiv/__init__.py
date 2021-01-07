@@ -62,6 +62,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
         _res = await fetch_json(url=RANK_API_URL, paras=payload)
         rank_data = _res.result
         if _res.success() and not rank_data.get('error'):
+            error_count = 0
             for pid in rank_data.get('body'):
                 logger.debug(f'获取Pixiv资源: {pid}.')
                 # 获取illust
@@ -74,16 +75,20 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     await pixiv.send(msg)
                 else:
                     logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
-                    await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
+                    error_count += 1
+            else:
+                if error_count == len(rank_data.get('body')):
+                    await pixiv.finish('加载失败, 网络超时QAQ')
         else:
             logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv Rank失败, 网络超时")
-            await pixiv.send('加载失败, 网络超时QAQ')
+            await pixiv.finish('加载失败, 网络超时QAQ')
     elif mode == '周榜':
         await pixiv.send('稍等, 正在下载资源~')
         payload = {'key': API_KEY, 'num': 3, 'mode': 'weekly'}
         _res = await fetch_json(url=RANK_API_URL, paras=payload)
         rank_data = _res.result
         if _res.success() and not rank_data.get('error'):
+            error_count = 0
             for pid in rank_data.get('body'):
                 logger.debug(f'获取Pixiv资源: {pid}.')
                 # 获取illust
@@ -96,16 +101,20 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     await pixiv.send(msg)
                 else:
                     logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
-                    await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
+                    error_count += 1
+            else:
+                if error_count == len(rank_data.get('body')):
+                    await pixiv.finish('加载失败, 网络超时QAQ')
         else:
             logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv Rank失败, 网络超时")
-            await pixiv.send('加载失败, 网络超时QAQ')
+            await pixiv.finish('加载失败, 网络超时QAQ')
     elif mode == '月榜':
         await pixiv.send('稍等, 正在下载资源~')
         payload = {'key': API_KEY, 'num': 3, 'mode': 'monthly'}
         _res = await fetch_json(url=RANK_API_URL, paras=payload)
         rank_data = _res.result
         if _res.success() and not rank_data.get('error'):
+            error_count = 0
             for pid in rank_data.get('body'):
                 logger.debug(f'获取Pixiv资源: {pid}.')
                 # 获取illust
@@ -118,7 +127,10 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     await pixiv.send(msg)
                 else:
                     logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
-                    await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
+                    error_count += 1
+            else:
+                if error_count == len(rank_data.get('body')):
+                    await pixiv.finish('加载失败, 网络超时QAQ')
         else:
             logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv Rank失败, 网络超时")
             await pixiv.send('加载失败, 网络超时QAQ')
