@@ -271,15 +271,15 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     # day='*/1',
     # week=None,
     # day_of_week=None,
-    hour='4',
-    # minute=None,
+    hour='3',
+    minute='47',
     # second='*/10',
     # start_date=None,
     # end_date=None,
     # timezone=None,
     id='refresh_group_info',
     coalesce=True,
-    misfire_grace_time=600
+    misfire_grace_time=300
 )
 async def refresh_group_info():
     from nonebot import get_bots
