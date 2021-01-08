@@ -3,7 +3,7 @@ from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp import MessageSegment
+from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
 from .utils import pic_2_base64, get_identify_result, get_ascii2d_identify_result
@@ -80,7 +80,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     else:
                         img_seg = MessageSegment.image(img_b64.result)
                         msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}\n{img_seg}"
-                        await search_image.send(msg)
+                        await search_image.send(Message(msg))
                 except Exception as e:
                     logger.warning(f'处理和发送识别结果时发生了错误: {repr(e)}')
                     continue

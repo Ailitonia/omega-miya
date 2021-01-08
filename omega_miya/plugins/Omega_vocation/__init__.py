@@ -282,6 +282,8 @@ async def member_vocations_monitor():
 
     from nonebot import get_bots
 
+    over_vocation_user = set()
+
     for bot_id, bot in get_bots().items():
         group_list = await bot.call_api('get_group_list')
         for group in group_list:
@@ -305,5 +307,9 @@ async def member_vocations_monitor():
                 if status == 1 and datetime.now() >= stop_time:
                     msg = f'【{user_nickname}】的假期已经结束啦~\n快给他/她安排工作吧！'
                     await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                    user.status_set(status=0)
+                    over_vocation_user.add(user)
+    for user in over_vocation_user:
+        _res = user.status_set(status=0)
+        if not _res.success():
+            logger.error(f"reset user status failed: {_res.info}")
     logger.debug('member_vocations_monitor: vocation checking completed')

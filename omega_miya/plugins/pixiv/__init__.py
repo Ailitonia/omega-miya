@@ -3,7 +3,7 @@ from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp import MessageSegment
+from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
 from .utils import fetch_json, fetch_image, API_KEY, RANK_API_URL
@@ -71,8 +71,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     msg = _res.result.get('msg')
                     img_seg = MessageSegment.image(_res.result.get('b64'))
                     # 发送图片和图片信息
-                    await pixiv.send(img_seg)
-                    await pixiv.send(msg)
+                    await pixiv.send(Message(img_seg).append(msg))
                 else:
                     logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
                     error_count += 1
@@ -97,8 +96,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     msg = _res.result.get('msg')
                     img_seg = MessageSegment.image(_res.result.get('b64'))
                     # 发送图片和图片信息
-                    await pixiv.send(img_seg)
-                    await pixiv.send(msg)
+                    await pixiv.send(Message(img_seg).append(msg))
                 else:
                     logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
                     error_count += 1
@@ -123,8 +121,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     msg = _res.result.get('msg')
                     img_seg = MessageSegment.image(_res.result.get('b64'))
                     # 发送图片和图片信息
-                    await pixiv.send(img_seg)
-                    await pixiv.send(msg)
+                    await pixiv.send(Message(img_seg).append(msg))
                 else:
                     logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
                     error_count += 1
@@ -144,8 +141,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
             msg = _res.result.get('msg')
             img_seg = MessageSegment.image(_res.result.get('b64'))
             # 发送图片和图片信息
-            await pixiv.send(img_seg)
-            await pixiv.send(msg)
+            await pixiv.send(Message(img_seg).append(msg))
         else:
             logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
             await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
