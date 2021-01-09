@@ -1,7 +1,7 @@
 from nonebot import on_request, on_notice, logger
 from nonebot.typing import T_State
 from nonebot.adapters import Bot, Event
-from nonebot.adapters.cqhttp import MessageSegment
+from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_Base import DBGroup
 
 # 注册事件响应器, 处理加好友申请
@@ -51,5 +51,5 @@ async def handle_group_increase(bot: Bot, event: Event, state: T_State):
         # 发送欢迎消息
         at_seg = MessageSegment.at(user_id=user_id)
         msg = f'{at_seg}欢迎新朋友～\n进群请先看群公告~\n想知道我的用法请发送/help'
-        await bot.send(event=event, message=msg)
+        await bot.send(event=event, message=Message(msg))
         logger.info(f'群组: {group_id}, 有新用户: {user_id} 进群')

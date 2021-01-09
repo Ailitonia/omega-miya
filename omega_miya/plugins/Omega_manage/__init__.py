@@ -2,7 +2,7 @@ from nonebot import on_command, export, logger, require
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters import Bot, Event
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN
+from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBUser, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
 
@@ -25,7 +25,8 @@ Omega机器人管理
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
-omega = on_command('Omega', rule=None, aliases={'omega'}, permission=GROUP_ADMIN | SUPERUSER, priority=1, block=True)
+omega = on_command('Omega', rule=None, aliases={'omega'},
+                   permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=1, block=True)
 
 
 # 修改默认参数处理

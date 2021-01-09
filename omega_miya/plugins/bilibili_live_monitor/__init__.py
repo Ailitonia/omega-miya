@@ -3,7 +3,7 @@ from nonebot import on_command, export, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters import Bot, Event
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN
+from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -33,7 +33,7 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
 bilibili_live = on_command('B站直播间', rule=has_command_permission() & permission_level(level=20), aliases={'b站直播间'},
-                           permission=GROUP_ADMIN | SUPERUSER, priority=20, block=True)
+                           permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=20, block=True)
 
 
 # 修改默认参数处理

@@ -52,7 +52,7 @@ async def dynamic_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour='4',
-    minute='*/1',
+    minute='*/2',
     # second='*/30',
     # start_date=None,
     # end_date=None,
