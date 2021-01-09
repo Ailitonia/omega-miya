@@ -29,6 +29,13 @@ api主要用于获取pixiv等网站内容
 - 来点涩图（需要 Miya API / 涩图数据库需要自己导入）
 - 表情包制作器
 
+## 一张图看懂如何获取B站cookies
+
+**注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
+
+<img src="https://raw.githubusercontent.com/Ailitonia/nonebot2_miya/main/docs/img/how_to_get_bilibili_cookies.png" width="75%">
+
+**注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
 
 ## 说点题外话
 
