@@ -1,12 +1,31 @@
 import aiohttp
+import nonebot
 from omega_miya.utils.Omega_Base import Result
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
 LIVE_URL = 'https://live.bilibili.com/'
 
+global_config = nonebot.get_driver().config
+BILI_SESSDATA = global_config.bili_sessdata
+BILI_CSRF = global_config.bili_csrf
 
-async def fetch_json(url: str, paras: dict) -> Result:
+
+def check_bili_cookies() -> Result:
+    cookies = {}
+    if BILI_SESSDATA and BILI_CSRF:
+        cookies.update({'SESSDATA': BILI_SESSDATA})
+        cookies.update({'bili_jct': BILI_CSRF})
+        return Result(error=False, info='Success', result=cookies)
+    else:
+        return Result(error=True, info='None', result=cookies)
+
+
+async def fetch_json(url: str, paras: dict = None) -> Result:
+    cookies = None
+    cookies_res = check_bili_cookies()
+    if cookies_res.success():
+        cookies = cookies_res.result
     timeout_count = 0
     error_info = ''
     while timeout_count < 3:
@@ -16,8 +35,8 @@ async def fetch_json(url: str, paras: dict) -> Result:
                 headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'referer': 'https://www.bilibili.com/'}
-                async with session.get(url=url, params=paras, headers=headers, timeout=timeout) as resp:
-                    _json = await resp.json()
+                async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
+                    _json = await rp.json()
                 result = Result(error=False, info='Success', result=_json)
             return result
         except Exception as e:
@@ -73,14 +92,31 @@ async def get_user_info(user_uid) -> Result:
     return result
 
 
+async def verify_cookies() -> Result:
+    cookies_verify_url = 'https://api.bilibili.com/x/web-interface/nav'
+    _res = await fetch_json(url=cookies_verify_url, paras=None)
+    if _res.success():
+        code = _res.result.get('code')
+        data = dict(_res.result.get('data'))
+        if code == 0 and data.get('isLogin'):
+            uname = data.get('uname')
+            result = Result(error=False, info='Success login', result=uname)
+        else:
+            result = Result(error=True, info='Not login', result='')
+        return result
+    else:
+        return _res
+
+
 __all__ = [
     'get_live_info',
-    'get_user_info'
+    'get_user_info',
+    'verify_cookies'
 ]
 
 
 if __name__ == '__main__':
     import asyncio
     loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(get_live_info(room_id=3012597))
+    res = loop.run_until_complete(verify_cookies())
     print(res)

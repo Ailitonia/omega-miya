@@ -2,6 +2,7 @@ import aiohttp
 import base64
 import json
 from io import BytesIO
+import nonebot
 from omega_miya.utils.Omega_Base import DBTable, Result
 
 DYNAMIC_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
@@ -9,8 +10,26 @@ GET_DYNAMIC_DETAIL_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
 DYNAMIC_URL = 'https://t.bilibili.com/'
 
+global_config = nonebot.get_driver().config
+BILI_SESSDATA = global_config.bili_sessdata
+BILI_CSRF = global_config.bili_csrf
 
-async def fetch_json(url: str, paras: dict) -> Result:
+
+def check_bili_cookies() -> Result:
+    cookies = {}
+    if BILI_SESSDATA and BILI_CSRF:
+        cookies.update({'SESSDATA': BILI_SESSDATA})
+        cookies.update({'bili_jct': BILI_CSRF})
+        return Result(error=False, info='Success', result=cookies)
+    else:
+        return Result(error=True, info='None', result=cookies)
+
+
+async def fetch_json(url: str, paras: dict = None) -> Result:
+    cookies = None
+    cookies_res = check_bili_cookies()
+    if cookies_res.success():
+        cookies = cookies_res.result
     timeout_count = 0
     error_info = ''
     while timeout_count < 3:
@@ -20,8 +39,8 @@ async def fetch_json(url: str, paras: dict) -> Result:
                 headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'referer': 'https://www.bilibili.com/'}
-                async with session.get(url=url, params=paras, headers=headers, timeout=timeout) as resp:
-                    _json = await resp.json()
+                async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
+                    _json = await rp.json()
                 result = Result(error=False, info='Success', result=_json)
             return result
         except Exception as e:

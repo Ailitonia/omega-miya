@@ -1,5 +1,4 @@
 import aiohttp
-import json
 from omega_miya.utils.Omega_Base import Result
 
 API_URL = 'https://lab.magiconch.com/api/nbnhhsh/guess/'

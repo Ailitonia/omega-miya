@@ -1,7 +1,7 @@
 import asyncio
 from nonebot import logger, require, get_driver, get_bots
 from omega_miya.utils.Omega_Base import DBSubscription, DBTable
-from .utils import get_live_info, get_user_info
+from .utils import get_live_info, get_user_info, verify_cookies
 
 
 # 初始化直播间标题, 状态
@@ -14,6 +14,12 @@ async def init_live_info():
     global live_title
     global live_status
     global live_up_name
+
+    _res = await verify_cookies()
+    if _res.success():
+        logger.info(f'Bilibili 已登录! 当前用户: {_res.result}')
+    else:
+        logger.warning(f'Bilibili 未登录! B站动态及直播间监控很可能被B站风控限制! 请在配置中设置cookies以保证插件正常运行!')
 
     t = DBTable(table_name='Subscription')
     for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
@@ -103,7 +109,7 @@ async def live_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour='4',
-    minute='*/2',
+    minute='*/1',
     # second='*/30',
     # start_date=None,
     # end_date=None,
