@@ -17,9 +17,9 @@ async def init_live_info():
 
     _res = await verify_cookies()
     if _res.success():
-        logger.info(f'Bilibili 已登录! 当前用户: {_res.result}')
+        logger.opt(colors=True).info(f'<g>Bilibili 已登录!</g> 当前用户: {_res.result}')
     else:
-        logger.warning(f'Bilibili 未登录! B站动态及直播间监控很可能被B站风控限制! 请在配置中设置cookies以保证插件正常运行!')
+        logger.opt(colors=True).warning(f'<y>Bilibili 未登录!</y> B站动态及直播间监控很可能被B站风控限制! 请在配置中设置cookies以保证插件正常运行!')
 
     t = DBTable(table_name='Subscription')
     for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:

@@ -24,7 +24,7 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器
-search_image = on_command('识图', rule=has_command_permission() & permission_level(level=30), aliases={'搜图'},
+search_image = on_command('识图', rule=has_command_permission() & permission_level(level=50), aliases={'搜图'},
                           permission=GROUP, priority=20, block=True)
 
 

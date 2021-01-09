@@ -1,11 +1,10 @@
 nonebot2==2.0.0a8.post2
-zhdate
 sqlalchemy~=1.3.22
-mysqlclient~=2.0.2
+mysqlclient~=2.0.3
 aiocqhttp
 bs4~=0.0.1
 lxml
-Pillow~=8.0.1
+Pillow~=8.1.0
 beautifulsoup4~=4.9.3
 Jinja2~=2.11.2
 aiohttp~=3.7.3

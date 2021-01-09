@@ -18,8 +18,8 @@ api主要用于获取pixiv等网站内容
 - 独立的群组通知权限、命令权限以及权限等级系统
 - 插件帮助功能
 - Bot对群组公告功能
-- B站动态订阅
-- B站直播间监控
+- B站动态订阅（建议配置B站cookies）
+- B站直播间监控（建议配置B站cookies）
 - 求签抽卡
 - Pixiv助手（需要 Miya API）
 - Pixivision订阅（需要 Miya API）

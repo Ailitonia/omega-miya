@@ -96,6 +96,8 @@ async def pixivision_monitor():
         tags = list(article['tags'])
         a_res = await pixivsion_article_parse(aid=aid, tags=tags)
         if a_res.success():
+            if not notice_group:
+                continue
             article_data = a_res.result
             msg = f"新的Pixivision特辑！\n\n" \
                   f"《{article_data['title']}》\n\n{article_data['description']}\n{article_data['url']}"
