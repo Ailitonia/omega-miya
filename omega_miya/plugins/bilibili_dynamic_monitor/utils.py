@@ -36,9 +36,13 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
         try:
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                headers = {'accept': 'application/json, text/plain, */*',
+                           'accept-encoding': 'gzip, deflate, br',
+                           'accept-language:': 'zh-CN,zh;q=0.9',
+                           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                           'referer': 'https://www.bilibili.com/'}
+                           'origin': 'https://space.bilibili.com',
+                           'referer': 'https://space.bilibili.com/'}
                 async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
                     _json = await rp.json()
                 result = Result(error=False, info='Success', result=_json)
@@ -362,9 +366,9 @@ __all__ = [
     'get_dynamic_info'
 ]
 
-
 if __name__ == '__main__':
     import asyncio
+
     loop = asyncio.get_event_loop()
     res = loop.run_until_complete(get_dynamic_info(dy_uid=846180))
     print(res)

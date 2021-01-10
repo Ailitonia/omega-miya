@@ -92,6 +92,7 @@ async def handle_uid(bot: Bot, event: Event, state: T_State):
         logger.error(f'获取用户信息失败, uid: {uid}, error: {_res.info}')
         await bilibili_dynamic.finish('获取用户信息失败了QAQ, 请稍后再试~')
     up_name = _res.result.get('name')
+    state['up_name'] = up_name
     msg = f'即将{sub_command}【{up_name}】的动态!'
     await bilibili_dynamic.send(msg)
 
@@ -115,7 +116,8 @@ async def handle_check(bot: Bot, event: Event, state: T_State):
         logger.info(f"{sub_command}动态成功, group_id: {event.dict().get('group_id')}, uid: {uid}")
         await bilibili_dynamic.finish(f'{sub_command}成功!')
     else:
-        logger.error(f"{sub_command}动态失败, group_id: {event.dict().get('group_id')}, uid: {uid}")
+        logger.error(f"{sub_command}动态失败, group_id: {event.dict().get('group_id')}, uid: {uid},"
+                     f"info: {_res.info}")
         await bilibili_dynamic.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
@@ -137,7 +139,11 @@ async def sub_add(bot: Bot, event: Event, state: T_State) -> Result:
     group_id = event.dict().get('group_id')
     group = DBGroup(group_id=group_id)
     uid = state['uid']
-    _res = group.subscription_add(sub=DBSubscription(sub_type=2, sub_id=uid))
+    sub = DBSubscription(sub_type=2, sub_id=uid)
+    _res = sub.add(up_name=state.get('up_name'), live_info='动态')
+    if not _res.success():
+        return _res
+    _res = group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)

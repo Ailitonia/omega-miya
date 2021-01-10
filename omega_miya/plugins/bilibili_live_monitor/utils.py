@@ -1,5 +1,7 @@
 import aiohttp
 import nonebot
+import base64
+from io import BytesIO
 from omega_miya.utils.Omega_Base import Result
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
@@ -32,8 +34,12 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
         try:
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                headers = {'accept': 'application/json, text/plain, */*',
+                           'accept-encoding': 'gzip, deflate, br',
+                           'accept-language:': 'zh-CN,zh;q=0.9',
+                           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+                           'origin': 'https://www.bilibili.com',
                            'referer': 'https://www.bilibili.com/'}
                 async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
                     _json = await rp.json()
@@ -47,6 +53,43 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
         error_info += f'Failed too many times in fetch_json using paras: {paras}'
         result = Result(error=True, info=error_info, result={})
         return result
+
+
+# 图片转base64
+async def pic_2_base64(url: str) -> Result:
+    async def get_image(pic_url: str):
+        timeout_count = 0
+        error_info = ''
+        while timeout_count < 3:
+            try:
+                timeout = aiohttp.ClientTimeout(total=10)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+                               'referer': 'https://www.bilibili.com/'}
+                    async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
+                        _res = await resp.read()
+                return _res
+            except Exception as _e:
+                error_info += f'{repr(_e)} Occurred in pic_2_base64 trying {timeout_count + 1} using paras: {pic_url}\n'
+            finally:
+                timeout_count += 1
+        else:
+            error_info += f'Failed too many times in pic_2_base64 using paras: {pic_url}'
+            return None
+
+    origin_image_f = BytesIO()
+    try:
+        origin_image_f.write(await get_image(pic_url=url))
+    except Exception as e:
+        result = Result(error=True, info=f'pic_2_base64 error: {repr(e)}', result='')
+        return result
+    b64 = base64.b64encode(origin_image_f.getvalue())
+    b64 = str(b64, encoding='utf-8')
+    b64 = 'base64://' + b64
+    origin_image_f.close()
+    result = Result(error=False, info='Success', result=b64)
+    return result
 
 
 # 获取直播间信息
@@ -64,7 +107,8 @@ async def get_live_info(room_id) -> Result:
                 'url': LIVE_URL + str(room_id),
                 'title': live_info['data']['title'],
                 'time': live_info['data']['live_time'],
-                'uid': live_info['data']['uid']
+                'uid': live_info['data']['uid'],
+                'cover_img': live_info['data']['user_cover']
             }
             result = Result(error=False, info='Success', result=_res)
         except Exception as e:
@@ -111,6 +155,7 @@ async def verify_cookies() -> Result:
 __all__ = [
     'get_live_info',
     'get_user_info',
+    'pic_2_base64',
     'verify_cookies'
 ]
 

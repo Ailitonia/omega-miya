@@ -98,6 +98,7 @@ async def handle_room_id(bot: Bot, event: Event, state: T_State):
         logger.error(f'获取直播间信息失败, room_id: {room_id}, error: {_res.info}')
         await bilibili_live.finish('获取直播间信息失败了QAQ, 请稍后再试~')
     up_name = _res.result.get('name')
+    state['up_name'] = up_name
     msg = f'即将{sub_command}【{up_name}】的直播间!'
     await bilibili_live.send(msg)
 
@@ -121,7 +122,8 @@ async def handle_check(bot: Bot, event: Event, state: T_State):
         logger.info(f"{sub_command}直播间成功, group_id: {event.dict().get('group_id')}, room_id: {room_id}")
         await bilibili_live.finish(f'{sub_command}成功!')
     else:
-        logger.error(f"{sub_command}直播间失败, group_id: {event.dict().get('group_id')}, room_id: {room_id}")
+        logger.error(f"{sub_command}直播间失败, group_id: {event.dict().get('group_id')}, room_id: {room_id},"
+                     f"info: {_res.info}")
         await bilibili_live.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
@@ -143,7 +145,11 @@ async def sub_add(bot: Bot, event: Event, state: T_State) -> Result:
     group_id = event.dict().get('group_id')
     group = DBGroup(group_id=group_id)
     room_id = state['room_id']
-    _res = group.subscription_add(sub=DBSubscription(sub_type=1, sub_id=room_id))
+    sub = DBSubscription(sub_type=1, sub_id=room_id)
+    _res = sub.add(up_name=state.get('up_name'), live_info='直播间')
+    if not _res.success():
+        return _res
+    _res = group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     # 添加直播间时需要刷新全局监控列表

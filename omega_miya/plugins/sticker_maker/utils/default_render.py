@@ -91,7 +91,7 @@ def stick_maker_temp_whitebg(text: str, image_file: bytes, font_path: str, image
         font = ImageFont.truetype(font_path, font_size)
         text_w, text_h = font.getsize_multiline(text)
     # 计算居中文字位置
-    text_coordinate = (((background_w - text_w) // 2), background_h - 100)
+    text_coordinate = (((background_w - text_w) // 2), image_height + ((100 - text_h) // 2))
 
     draw.multiline_text(text_coordinate, text, font=font, fill=(0, 0, 0))
 

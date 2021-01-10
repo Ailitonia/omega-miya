@@ -1,7 +1,8 @@
 import asyncio
 from nonebot import logger, require, get_driver, get_bots
+from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBTable
-from .utils import get_live_info, get_user_info, verify_cookies
+from .utils import get_live_info, get_user_info, pic_2_base64, verify_cookies
 
 
 # 初始化直播间标题, 状态
@@ -170,7 +171,12 @@ async def bilibili_live_monitor():
             logger.info(f"直播间: {room_id}/{up_name} 标题变更为: {live_info['title']}")
         elif live_info['status'] == 1 and live_info['title'] != live_title[room_id]:
             # 通知有通知权限且订阅了该直播间的群
-            msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】\n{live_info['url']}"
+            cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
+            if cover_pic.success():
+                msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】\n{MessageSegment.image(cover_pic.result)}"
+            else:
+                # msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】\n{live_info['url']}"
+                msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】"
             for group_id in notice_group:
                 for _bot in bots:
                     try:
@@ -207,7 +213,13 @@ async def bilibili_live_monitor():
                     logger.info(f"开播记录: LiveStart! Room: {room_id}/{up_name}, Title: {live_info['title']}, "
                                 f"TrueTime: {live_info['time']}")
 
-                    msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】\n{live_info['url']}"
+                    cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
+                    if cover_pic.success():
+                        msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】" \
+                              f"\n{MessageSegment.image(cover_pic.result)}"
+                    else:
+                        # msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】\n{live_info['url']}"
+                        msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】"
                     for group_id in notice_group:
                         for _bot in bots:
                             try:
