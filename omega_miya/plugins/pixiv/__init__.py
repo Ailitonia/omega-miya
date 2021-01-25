@@ -54,7 +54,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID~')
-async def handle_draw(bot: Bot, event: Event, state: T_State):
+async def handle_pixiv(bot: Bot, event: Event, state: T_State):
     mode = state['mode']
     if mode == '日榜':
         await pixiv.send('稍等, 正在下载资源~')

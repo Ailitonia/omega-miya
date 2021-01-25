@@ -57,7 +57,7 @@ async def fetch_illust_info(pid: [int, str]) -> Result:
     return result
 
 
-async def add_illust(pid: int) -> Result:
+async def add_illust(pid: int, nsfw_tag: int) -> Result:
     _res = await fetch_illust_info(pid=pid)
     if _res.success():
         illust_data = _res.result.get('body')
@@ -70,8 +70,6 @@ async def add_illust(pid: int) -> Result:
 
         if is_r18:
             nsfw_tag = 2
-        else:
-            nsfw_tag = 1
 
         illust = DBPixivillust(pid=pid)
         _res = illust.add(uid=uid, title=title, uname=uname, nsfw_tag=nsfw_tag, tags=tags, url=url)

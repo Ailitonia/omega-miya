@@ -14,7 +14,7 @@ __plugin_usage__ = r'''【识图助手】
 使用SauceNAO/ascii2d识别各类图片、插画
 
 **Permission**
-Command & Lv.30
+Command & Lv.50
 
 **Usage**
 /识图'''

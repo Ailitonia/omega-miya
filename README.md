@@ -1,6 +1,14 @@
-# nonebot2_miya
+<div align="center">
 
-基于nonebot2的qq机器人
+# Omega Miya
+
+基于 [nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
+
+![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
+![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
+
+</div>
 
 ## 当前适配nonebot2版本
 
@@ -14,7 +22,7 @@ api主要用于获取pixiv等网站内容
 
 ## 功能 & 特点
 
-- 基于 SQLAlchemy / MySQL 的数据存储
+- 基于 MySQL 的数据存储
 - 独立的群组通知权限、命令权限以及权限等级系统
 - 插件帮助功能
 - Bot对群组公告功能
