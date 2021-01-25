@@ -67,7 +67,7 @@ class DBPixivillust(object):
                 for tag in tags:
                     _tag = DBPixivtag(tagname=tag)
                     _tag_id_res = _tag.id()
-                    if not _tag_id_res:
+                    if not _tag_id_res.success():
                         continue
                     _tag_id = _tag_id_res.result
                     try:
