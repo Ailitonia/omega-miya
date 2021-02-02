@@ -1,5 +1,7 @@
-from nonebot.log import logger
+import logging
+
 from nonebot import get_driver, export
+from nonebot.log import logger, LoguruHandler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .config import Config
@@ -21,3 +23,8 @@ async def _start_scheduler():
 
 if plugin_config.apscheduler_autostart:
     driver.on_startup(_start_scheduler)
+
+aps_logger = logging.getLogger("apscheduler")
+aps_logger.setLevel(plugin_config.apscheduler_log_level)
+aps_logger.handlers.clear()
+aps_logger.addHandler(LoguruHandler())

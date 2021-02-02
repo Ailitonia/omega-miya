@@ -4,7 +4,8 @@ from nonebot import on_command, export, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -39,7 +40,7 @@ setu = on_command('来点涩图', rule=has_command_permission() & permission_lev
 
 
 @setu.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
     # 处理r18
     state['nsfw_tag'] = 1
@@ -52,7 +53,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 @setu.got('nsfw_tag', prompt='r18?')
 @setu.got('tags', prompt='tag?')
-async def handle_setu(bot: Bot, event: Event, state: T_State):
+async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
     nsfw_tag = state['nsfw_tag']
     tags = state['tags']
 
@@ -81,7 +82,7 @@ async def handle_setu(bot: Bot, event: Event, state: T_State):
         pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
 
     if not pid_list:
-        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 没有找到他/她想要的涩图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
     elif len(pid_list) > 3:
         pid_list = random.sample(pid_list, k=3)
@@ -104,14 +105,14 @@ async def handle_setu(bot: Bot, event: Event, state: T_State):
             # 发送图片
             await setu.send(img_seg)
         except Exception as e:
-            logger.warning(f"图片发送失败, group: {event.dict().get('group_id')}. error: {repr(e)}")
+            logger.warning(f"图片发送失败, group: {event.group_id}. error: {repr(e)}")
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 没能看到他/她想要的涩图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的涩图")
         await setu.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 找到了他/她想要的涩图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的涩图")
 
 
 # 注册事件响应器
@@ -120,7 +121,7 @@ moepic = on_command('来点萌图', rule=has_command_permission() & permission_l
 
 
 @moepic.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
     # 排除r18
     for tag in args.copy():
@@ -130,7 +131,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @moepic.got('tags', prompt='tag?')
-async def handle_moepic(bot: Bot, event: Event, state: T_State):
+async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
     tags = state['tags']
     if tags:
         _res_list = list()
@@ -153,7 +154,7 @@ async def handle_moepic(bot: Bot, event: Event, state: T_State):
         pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=0)
 
     if not pid_list:
-        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 没有找到他/她想要的萌图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的萌图")
         await moepic.finish('找不到萌图QAQ')
     elif len(pid_list) > 3:
         pid_list = random.sample(pid_list, k=3)
@@ -176,14 +177,14 @@ async def handle_moepic(bot: Bot, event: Event, state: T_State):
             # 发送图片
             await moepic.send(img_seg)
         except Exception as e:
-            logger.warning(f"图片发送失败, group: {event.dict().get('group_id')}. error: {repr(e)}")
+            logger.warning(f"图片发送失败, group: {event.group_id}. error: {repr(e)}")
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 没能看到他/她想要的萌图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的萌图")
         await moepic.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"Group: {event.dict().get('group_id')}, User: {event.dict().get('user_id')} 找到了他/她想要的萌图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的萌图")
 
 
 # 注册事件响应器

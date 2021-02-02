@@ -2,7 +2,8 @@ import re
 from nonebot import on_command, export, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -37,7 +38,7 @@ bilibili_dynamic = on_command('B站动态', rule=has_command_permission() & perm
 
 # 修改默认参数处理
 @bilibili_dynamic.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await bilibili_dynamic.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -47,7 +48,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @bilibili_dynamic.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -61,13 +62,13 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @bilibili_dynamic.got('sub_command', prompt='执行操作?\n【订阅/取消订阅/清空订阅/订阅列表】')
-async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
+async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     if state['sub_command'] not in ['订阅', '取消订阅', '清空订阅', '订阅列表']:
         await bilibili_dynamic.reject('没有这个命令哦, 请重新输入:')
     if state['sub_command'] == '订阅列表':
         _res = await sub_list(bot=bot, event=event, state=state)
         if not _res.success():
-            logger.error(f"查询群组动态订阅失败, group_id: {event.dict().get('group_id')}, error: {_res.info}")
+            logger.error(f"查询群组动态订阅失败, group_id: {event.group_id}, error: {_res.info}")
             await bilibili_dynamic.finish('查询群组动态订阅失败QAQ, 请稍后再试吧')
         msg = '本群已订阅以下动态:\n'
         for sub_id, up_name in _res.result:
@@ -78,7 +79,7 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
 
 
 @bilibili_dynamic.got('uid', prompt='请输入订阅动态用户UID:')
-async def handle_uid(bot: Bot, event: Event, state: T_State):
+async def handle_uid(bot: Bot, event: GroupMessageEvent, state: T_State):
     sub_command = state['sub_command']
     # 针对清空动态操作, 跳过获取动态信息
     if state['sub_command'] == '清空订阅':
@@ -98,7 +99,7 @@ async def handle_uid(bot: Bot, event: Event, state: T_State):
 
 
 @bilibili_dynamic.got('check', prompt='确认吗?\n\n【是/否】')
-async def handle_check(bot: Bot, event: Event, state: T_State):
+async def handle_check(bot: Bot, event: GroupMessageEvent, state: T_State):
     check_msg = state['check']
     uid = state['uid']
     if check_msg != '是':
@@ -113,16 +114,16 @@ async def handle_check(bot: Bot, event: Event, state: T_State):
     else:
         _res = Result(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
-        logger.info(f"{sub_command}动态成功, group_id: {event.dict().get('group_id')}, uid: {uid}")
+        logger.info(f"{sub_command}动态成功, group_id: {event.group_id}, uid: {uid}")
         await bilibili_dynamic.finish(f'{sub_command}成功!')
     else:
-        logger.error(f"{sub_command}动态失败, group_id: {event.dict().get('group_id')}, uid: {uid},"
+        logger.error(f"{sub_command}动态失败, group_id: {event.group_id}, uid: {uid},"
                      f"info: {_res.info}")
         await bilibili_dynamic.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
-async def sub_list(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def sub_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     _res = group.subscription_list()
     dynamic_sub = []
@@ -135,8 +136,8 @@ async def sub_list(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def sub_add(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     uid = state['uid']
     sub = DBSubscription(sub_type=2, sub_id=uid)
@@ -150,8 +151,8 @@ async def sub_add(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def sub_del(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     uid = state['uid']
     _res = group.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
@@ -161,8 +162,8 @@ async def sub_del(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def sub_clear(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def sub_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     _res = group.subscription_clear_by_type(sub_type=2)
     if not _res.success():

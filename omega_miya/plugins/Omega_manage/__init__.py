@@ -1,7 +1,8 @@
 from nonebot import on_command, export, logger, require
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBUser, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -31,7 +32,7 @@ omega = on_command('Omega', rule=None, aliases={'omega'},
 
 # 修改默认参数处理
 @omega.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await omega.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -41,7 +42,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @omega.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if args and len(args) == 1:
         state['sub_command'] = args[0]
@@ -54,7 +55,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @omega.got('sub_command', prompt='执行操作?\n【Init/Upgrade/Notice/Command/SetLevel/ShowPermission/ResetPermission】')
-async def handle_sub_command(bot: Bot, event: Event, state: T_State):
+async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 子命令列表
     command = {
         'init': group_init,
@@ -75,18 +76,18 @@ async def handle_sub_command(bot: Bot, event: Event, state: T_State):
         await omega.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f"Group: {event.dict().get('group_id')}, {sub_command}, Success, {result.info}")
+        logger.info(f"Group: {event.group_id}, {sub_command}, Success, {result.info}")
         if sub_command in need_reply:
             await omega.finish(result.result)
         else:
             await omega.finish('Success')
     else:
-        logger.error(f"Group: {event.dict().get('group_id')}, {sub_command}, Failed, {result.info}")
+        logger.error(f"Group: {event.group_id}, {sub_command}, Failed, {result.info}")
         await omega.finish('Failed QAQ')
 
 
-async def group_init(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     # 调用api获取群信息
     group_info = await bot.call_api(api='get_group_info', group_id=group_id)
     group_name = group_info['group_name']
@@ -133,8 +134,8 @@ async def group_init(bot: Bot, event: Event, state: T_State) -> Result:
     return Result(False, f'Success with ignore user: {failed_user}', 0)
 
 
-async def group_upgrade(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     # 调用api获取群信息
     group_info = await bot.call_api(api='get_group_info', group_id=group_id)
     group_name = group_info['group_name']
@@ -189,8 +190,8 @@ async def group_upgrade(bot: Bot, event: Event, state: T_State) -> Result:
     return Result(False, f'Success with ignore user: {failed_user}', 0)
 
 
-async def set_group_notice(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     group_command = group.permission_command().result
     group_level = group.permission_level().result
@@ -205,8 +206,8 @@ async def set_group_notice(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def set_group_command(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     group_notice = group.permission_notice().result
     group_level = group.permission_level().result
@@ -221,8 +222,8 @@ async def set_group_command(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def set_group_level(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     group_notice = group.permission_notice().result
     group_command = group.permission_command().result
@@ -235,8 +236,8 @@ async def set_group_level(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def show_group_permission(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     group_notice = group.permission_notice()
     group_command = group.permission_command()
@@ -252,8 +253,8 @@ async def show_group_permission(bot: Bot, event: Event, state: T_State) -> Resul
     return result
 
 
-async def reset_group_permission(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
 
     result = group.permission_reset()

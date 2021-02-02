@@ -42,6 +42,14 @@ scheduler.add_job(run_every_day_from_program_start, "interval", days=1, id="xxx"
 
 是否自动启动 `scheduler`
 
+### apscheduler_log_level
+
+`int` 类型日志等级
+
+- `WARNING` = `30` (默认)
+- `INFO` = `20`
+- `DEBUG` = `10` (只有在开启 nonebot 的 debug 模式才会显示 debug 日志)
+
 ### apscheduler_config
 
 `apscheduler` 的相关配置。参考 [配置 scheduler](https://apscheduler.readthedocs.io/en/latest/userguide.html#scheduler-config), [配置参数](https://apscheduler.readthedocs.io/en/latest/modules/schedulers/base.html#apscheduler.schedulers.base.BaseScheduler)

@@ -1,7 +1,8 @@
 import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -31,7 +32,7 @@ nbnhhsh = on_command('好好说话', rule=has_command_permission() & permission_
 
 # 修改默认参数处理
 @nbnhhsh.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await nbnhhsh.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -41,7 +42,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @nbnhhsh.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -52,7 +53,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @nbnhhsh.got('guess', prompt='有啥缩写搞不懂?')
-async def handle_nbnhhsh(bot: Bot, event: Event, state: T_State):
+async def handle_nbnhhsh(bot: Bot, event: GroupMessageEvent, state: T_State):
     guess = state['guess']
     if re.match(r'^[a-zA-Z0-9]+$', guess):
         res = await get_guess(guess=guess)

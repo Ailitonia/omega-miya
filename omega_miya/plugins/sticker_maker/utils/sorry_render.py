@@ -1,5 +1,3 @@
-# 使用了 https://github.com/East196/sorrypy 中的源码
-
 import hashlib
 import os
 import re
@@ -57,10 +55,10 @@ def make_gif_with_ffmpeg(template_name, sentences, filename):
     log.logger.debug(ass_path, gif_path, video_path)
 
     # 使用插件携带ffmpeg程序执行
-    cmd = f'''{plugin_path}/ffmpeg -i {video_path} -r 8 -vf "ass='{ass_path}',scale=300:-1" -y {gif_path}'''
+    # cmd = f'''{plugin_path}/ffmpeg -i {video_path} -r 8 -vf "ass='{ass_path}',scale=300:-1" -y {gif_path}'''
 
-    # Linux使用系统ffmpeg执行
-    # cmd = f'''ffmpeg -i {video_path} -r 8 -vf "ass='{ass_path}',scale=300:-1" -y {gif_path}'''
+    # 使用系统环境ffmpeg执行
+    cmd = f'''ffmpeg -i {video_path} -r 8 -vf "ass='{ass_path}',scale=300:-1" -y {gif_path}'''
 
     log.logger.debug(cmd)
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)

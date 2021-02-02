@@ -1,7 +1,8 @@
 import datetime
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -30,7 +31,7 @@ draw = on_command('求签', rule=has_command_permission() & permission_level(lev
 
 # 修改默认参数处理
 @draw.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await draw.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -40,7 +41,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @draw.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -51,13 +52,13 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @draw.got('draw', prompt='你想问什么事呢?')
-async def handle_draw(bot: Bot, event: Event, state: T_State):
-    user_id = event.dict().get('user_id')
+async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
     _draw = state['draw']
     # 求签者昵称, 优先使用群昵称
-    draw_user = event.dict().get('sender').get('card')
+    draw_user = event.sender.card
     if not draw_user:
-        draw_user = event.dict().get('sender').get('nickname')
+        draw_user = event.sender.nickname
 
     # 载入牌堆
     deck = deck_list.keys()

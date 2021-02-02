@@ -1,7 +1,8 @@
 from nonebot import on_command, export, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -33,7 +34,7 @@ pixivision = on_command('pixivision', rule=has_command_permission() & permission
 
 # 修改默认参数处理
 @pixivision.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await pixivision.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -43,7 +44,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @pixivision.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -54,7 +55,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @pixivision.got('sub_command', prompt='执行操作?\n【订阅/取消订阅】')
-async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
+async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     sub_command = state['sub_command']
     if sub_command not in ['订阅', '取消订阅']:
         await pixivision.reject('没有这个命令哦, 请重新输入:')
@@ -66,15 +67,15 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
     else:
         _res = Result(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
-        logger.info(f"{sub_command}Pixivision成功, group_id: {event.dict().get('group_id')}, {_res.info}")
+        logger.info(f"{sub_command}Pixivision成功, group_id: {event.group_id}, {_res.info}")
         await pixivision.finish(f'{sub_command}成功!')
     else:
-        logger.error(f"{sub_command}Pixivision失败, group_id: {event.dict().get('group_id')}, {_res.info}")
+        logger.error(f"{sub_command}Pixivision失败, group_id: {event.group_id}, {_res.info}")
         await pixivision.finish(f'{sub_command}失败了QAQ, 可能并未订阅Pixivision, 或请稍后再试~')
 
 
-async def sub_add(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     sub_id = -1
     sub = DBSubscription(sub_type=8, sub_id=sub_id)
@@ -86,8 +87,8 @@ async def sub_add(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def sub_del(bot: Bot, event: Event, state: T_State) -> Result:
-    group_id = event.dict().get('group_id')
+async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     sub_id = -1
     _res = group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))

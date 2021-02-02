@@ -2,7 +2,8 @@ import re
 import random
 from nonebot import on_command, export
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
@@ -30,7 +31,7 @@ roll = on_command('roll', rule=has_command_permission() & permission_level(level
 
 # 修改默认参数处理
 @roll.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await roll.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -40,7 +41,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @roll.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -51,7 +52,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @roll.got('roll', prompt='请掷骰子: <x>d<y>')
-async def handle_roll(bot: Bot, event: Event, state: T_State):
+async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
     _roll = state['roll']
     if re.match(r'^\d+[d]\d+$', _roll):
         dice_info = _roll.split('d')
@@ -79,7 +80,7 @@ lottery = on_command('抽奖', rule=has_command_permission() & permission_level(
 
 # 修改默认参数处理
 @lottery.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await lottery.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -89,7 +90,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @lottery.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -100,12 +101,12 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @lottery.got('lottery', prompt='请输入抽奖人数')
-async def handle_lottery(bot: Bot, event: Event, state: T_State):
+async def handle_lottery(bot: Bot, event: GroupMessageEvent, state: T_State):
     _lottery = state['lottery']
     if re.match(r'^\d+$', _lottery):
         people_num = int(_lottery)
 
-        group_member_list = await bot.call_api(api='get_group_member_list', group_id=event.dict().get('group_id'))
+        group_member_list = await bot.call_api(api='get_group_member_list', group_id=event.group_id)
         group_user_name_list = []
 
         for user_info in group_member_list:

@@ -83,7 +83,7 @@ async def get_identify_result(img_url: str) -> Result:
     _result = []
     for item in _res.get('docs'):
         try:
-            if item.get('similarity') < 0.6:
+            if item.get('similarity') < 0.80:
                 continue
             _result.append({
                 'raw_at': item.get('at'),

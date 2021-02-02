@@ -2,7 +2,8 @@ import re
 from datetime import datetime, timedelta
 from nonebot import on_command, export, logger, require
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBGroup, DBTable
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -34,8 +35,8 @@ my_status = on_command('我的状态', rule=has_command_permission() & permissio
 
 
 @my_status.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    user_id = event.dict().get('user_id')
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
     user = DBUser(user_id=user_id)
     result = user.status()
     if result.success():
@@ -46,10 +47,10 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
             status = '工作中'
         else:
             status = '空闲中'
-        logger.info(f"my_status: {event.dict().get('group_id')}/{user_id}, Success, {result.info}")
+        logger.info(f"my_status: {event.group_id}/{user_id}, Success, {result.info}")
         await my_status.finish(f'你现在的状态是: 【{status}】')
     else:
-        logger.error(f"my_status: {event.dict().get('group_id')}/{user_id}, Failed, {result.info}")
+        logger.error(f"my_status: {event.group_id}/{user_id}, Failed, {result.info}")
         await my_status.finish('没有查询到你的状态信息QAQ, 请尝试使用【/重置状态】来解决问题')
 
 
@@ -59,15 +60,15 @@ reset_status = on_command('重置状态', rule=has_command_permission() & permis
 
 
 @reset_status.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    user_id = event.dict().get('user_id')
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
     user = DBUser(user_id=user_id)
     result = user.status_set(status=0)
     if result.success():
-        logger.info(f"reset_status: {event.dict().get('group_id')}/{user_id}, Success, {result.info}")
+        logger.info(f"reset_status: {event.group_id}/{user_id}, Success, {result.info}")
         await my_status.finish('Success')
     else:
-        logger.error(f"reset_status: {event.dict().get('group_id')}/{user_id}, Failed, {result.info}")
+        logger.error(f"reset_status: {event.group_id}/{user_id}, Failed, {result.info}")
         await my_status.finish('Failed QAQ')
 
 
@@ -77,8 +78,8 @@ my_vocation = on_command('我的假期', rule=has_command_permission() & permiss
 
 
 @my_vocation.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    user_id = event.dict().get('user_id')
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
     user = DBUser(user_id=user_id)
     result = user.vocation_status()
     if result.success():
@@ -87,10 +88,10 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
             msg = f'你的假期将持续到: 【{stop_time}】'
         else:
             msg = '你似乎并不在假期中呢~需要现在请假吗？'
-        logger.info(f"my_vocation: {event.dict().get('group_id')}/{user_id}, Success, {result.info}")
+        logger.info(f"my_vocation: {event.group_id}/{user_id}, Success, {result.info}")
         await my_status.finish(msg)
     else:
-        logger.error(f"my_vocation: {event.dict().get('group_id')}/{user_id}, Failed, {result.info}")
+        logger.error(f"my_vocation: {event.group_id}/{user_id}, Failed, {result.info}")
         await my_status.finish('没有查询到你的假期信息QAQ, 请尝试使用【/重置状态】来解决问题')
 
 
@@ -101,7 +102,7 @@ set_vocation = on_command('请假', rule=has_command_permission() & permission_l
 
 # 修改默认参数处理
 @set_vocation.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await set_vocation.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -111,7 +112,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @set_vocation.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -126,7 +127,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @set_vocation.got('vocation_time', prompt='请输入你想请假的时间: \n仅支持数字+周/天/小时/分/分钟/秒')
-async def handle_vocation_time(bot: Bot, event: Event, state: T_State):
+async def handle_vocation_time(bot: Bot, event: GroupMessageEvent, state: T_State):
     time = state['vocation_time']
     add_time = timedelta()
     if re.match(r'^\d+周$', time):
@@ -151,17 +152,17 @@ async def handle_vocation_time(bot: Bot, event: Event, state: T_State):
 
 @set_vocation.got('stop_at', prompt='stop_at?')
 @set_vocation.got('reason', prompt='请输入你的请假理由:')
-async def handle_vocation_stop(bot: Bot, event: Event, state: T_State):
-    user_id = event.dict().get('user_id')
+async def handle_vocation_stop(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
     user = DBUser(user_id=user_id)
     stop_at = state['stop_at']
     reason = state['reason']
     result = user.vocation_set(stop_time=stop_at, reason=reason)
     if result.success():
-        logger.info(f"Group: {event.dict().get('group_id')}/{user_id}, set_vocation, Success, {result.info}")
+        logger.info(f"Group: {event.group_id}/{user_id}, set_vocation, Success, {result.info}")
         await set_vocation.finish(f'请假成功! 你的假期将持续到【{stop_at.strftime("%Y-%m-%d %H:%M:%S")}】')
     else:
-        logger.error(f"Group: {event.dict().get('group_id')}/{user_id}, set_vocation, Failed, {result.info}")
+        logger.error(f"Group: {event.group_id}/{user_id}, set_vocation, Failed, {result.info}")
         await set_vocation.finish('请假失败, 发生了意外的错误QAQ')
 
 
@@ -172,7 +173,7 @@ get_idle = on_command('谁有空', rule=has_command_permission() & permission_le
 
 # 修改默认参数处理
 @get_idle.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await get_idle.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -182,7 +183,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @get_idle.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         state['skill'] = None
@@ -193,9 +194,9 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @get_idle.got('skill', prompt='空闲技能组?')
-async def handle_skill(bot: Bot, event: Event, state: T_State):
+async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
     skill = state['skill']
-    group_id = event.dict().get('group_id')
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     if not skill:
         result = group.idle_member_list()
@@ -203,13 +204,13 @@ async def handle_skill(bot: Bot, event: Event, state: T_State):
             msg = ''
             for nickname, user_skill in result.result:
                 msg += f'\n【{nickname}{user_skill}】'
-            logger.info(f"Group: {event.dict().get('group_id')}, get_idle, Success, {result.info}")
+            logger.info(f"Group: {event.group_id}, get_idle, Success, {result.info}")
             await get_idle.finish(f'现在有空的人: \n{msg}')
         elif result.success() and not result.result:
-            logger.info(f"Group: {event.dict().get('group_id')}, get_idle, Success, {result.info}")
+            logger.info(f"Group: {event.group_id}, get_idle, Success, {result.info}")
             await get_idle.finish(f'现在似乎没人有空呢QAQ')
         else:
-            logger.error(f"Group: {event.dict().get('group_id')}, get_idle, Failed, {result.info}")
+            logger.error(f"Group: {event.group_id}, get_idle, Failed, {result.info}")
             await get_idle.finish(f'似乎发生了点错误QAQ')
     else:
         skill_table = DBTable(table_name='Skill')
@@ -225,10 +226,10 @@ async def handle_skill(bot: Bot, event: Event, state: T_State):
                 msg += f'\n【{nickname}】'
             await get_idle.finish(f'现在有空的{skill}人: \n{msg}')
         elif result.success() and not result.result:
-            logger.info(f"Group: {event.dict().get('group_id')}, get_idle, Success, {result.info}")
+            logger.info(f"Group: {event.group_id}, get_idle, Success, {result.info}")
             await get_idle.finish(f'现在似乎没有{skill}人有空呢QAQ')
         else:
-            logger.error(f"Group: {event.dict().get('group_id')}, get_idle, Failed, {result.info}")
+            logger.error(f"Group: {event.group_id}, get_idle, Failed, {result.info}")
             await get_idle.finish(f'似乎发生了点错误QAQ')
 
 
@@ -238,21 +239,21 @@ get_vocation = on_command('谁在休假', rule=has_command_permission() & permis
 
 
 @get_vocation.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    group_id = event.dict().get('group_id')
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    group_id = event.group_id
     group = DBGroup(group_id=group_id)
     result = group.vocation_member_list()
     if result.success() and result.result:
         msg = ''
         for nickname, stop_at in result.result:
             msg += f'\n【{nickname}/休假到: {stop_at}】'
-        logger.info(f"Group: {event.dict().get('group_id')}, get_vocation, Success, {result.info}")
+        logger.info(f"Group: {event.group_id}, get_vocation, Success, {result.info}")
         await get_vocation.finish(f'现在在休假的的人: \n{msg}')
     elif result.success() and not result.result:
-        logger.info(f"Group: {event.dict().get('group_id')}, get_vocation, Success, {result.info}")
+        logger.info(f"Group: {event.group_id}, get_vocation, Success, {result.info}")
         await get_vocation.finish(f'现在似乎没没有人休假呢~')
     else:
-        logger.error(f"Group: {event.dict().get('group_id')}, get_vocation, Failed, {result.info}")
+        logger.error(f"Group: {event.group_id}, get_vocation, Failed, {result.info}")
         await get_idle.finish(f'似乎发生了点错误QAQ')
 
 

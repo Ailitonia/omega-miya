@@ -1,7 +1,8 @@
 from nonebot import on_command
 from nonebot.plugin import get_loaded_plugins
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import has_command_permission
 
@@ -21,7 +22,7 @@ bot_help = on_command('help', rule=has_command_permission(), aliases={'帮助'},
 
 
 @bot_help.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 获取设置了名称的插件列表
     plugins = list(filter(lambda p: set(p.export.keys()).issuperset({'custom_name', 'usage'}), get_loaded_plugins()))
     if not plugins:
@@ -39,7 +40,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @bot_help.got('plugin_name', prompt='你想查询哪个插件的用法呢？')
-async def handle_plugin_name(bot: Bot, event: Event, state: T_State):
+async def handle_plugin_name(bot: Bot, event: GroupMessageEvent, state: T_State):
     plugin_custom_name = state["plugin_name"]
     # 如果发了参数则发送相应命令的使用帮助
     for p in state['plugin_list']:
