@@ -13,8 +13,8 @@ class User(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('users_id_seq'), primary_key=True, nullable=False)
-    qq = Column(BigInteger, nullable=False, comment='QQ号')
+    id = Column(Integer, Sequence('users_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    qq = Column(BigInteger, nullable=False, index=True, unique=True, comment='QQ号')
     nickname = Column(String(64), nullable=False, comment='昵称')
     aliasname = Column(String(64), nullable=True, comment='自定义名称')
     created_at = Column(DateTime, nullable=True)
@@ -45,8 +45,8 @@ class Skill(Base):
     __tablename__ = 'skills'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('skills_id_seq'), primary_key=True, nullable=False)
-    name = Column(String(64), nullable=False, comment='技能名称')
+    id = Column(Integer, Sequence('skills_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    name = Column(String(64), nullable=False, index=True, unique=True, comment='技能名称')
     description = Column(String(64), nullable=True, comment='技能介绍')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
@@ -70,7 +70,7 @@ class UserSkill(Base):
     __tablename__ = 'users_skills'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('users_skills_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('users_skills_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     skill_id = Column(Integer, ForeignKey('skills.id'), nullable=False)
     skill_level = Column(Integer, nullable=False, comment='技能等级')
@@ -97,9 +97,9 @@ class Group(Base):
     __tablename__ = 'groups'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('groups_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     name = Column(String(64), nullable=False, comment='qq群名称')
-    group_id = Column(Integer, nullable=False, comment='qq群号')
+    group_id = Column(Integer, nullable=False, index=True, unique=True, comment='qq群号')
     notice_permissions = Column(Integer, nullable=False, comment='通知权限')
     command_permissions = Column(Integer, nullable=False, comment='命令权限')
     permission_level = Column(Integer, nullable=False, comment='权限等级, 越大越高')
@@ -133,7 +133,7 @@ class UserGroup(Base):
     __tablename__ = 'users_groups'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('users_groups_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('users_groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
     user_group_nickname = Column(String(64), nullable=True, comment='用户群昵称')
@@ -162,7 +162,7 @@ class History(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('history_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('history_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     time = Column(BigInteger, nullable=False, comment='事件发生的时间戳')
     self_id = Column(BigInteger, nullable=False, comment='收到事件的机器人QQ号')
     post_type = Column(String(64), nullable=False, comment='事件类型')
@@ -205,10 +205,10 @@ class Subscription(Base):
     __tablename__ = 'subscription'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('subscription_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('subscription_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     # 订阅类型, 0暂留, 1直播间, 2动态, 8Pixivsion
     sub_type = Column(Integer, nullable=False, comment='订阅类型，0暂留，1直播间，2动态')
-    sub_id = Column(Integer, nullable=False, comment='订阅id，直播为直播间房间号，动态为用户uid')
+    sub_id = Column(Integer, nullable=False, index=True, comment='订阅id，直播为直播间房间号，动态为用户uid')
     up_name = Column(String(64), nullable=False, comment='up名称')
     live_info = Column(String(64), nullable=True, comment='相关信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
@@ -235,7 +235,7 @@ class GroupSub(Base):
     __tablename__ = 'groups_subs'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('groups_subs_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('groups_subs_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     sub_id = Column(Integer, ForeignKey('subscription.id'), nullable=False)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
     group_sub_info = Column(String(64), nullable=True, comment='群订阅信息，暂空备用')
@@ -264,9 +264,9 @@ class Bilidynamic(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('bili_dynamics_id_seq'), primary_key=True, nullable=False)
-    uid = Column(Integer, nullable=False, comment='up的uid')
-    dynamic_id = Column(BigInteger, nullable=False, comment='动态的id')
+    id = Column(Integer, Sequence('bili_dynamics_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    uid = Column(Integer, nullable=False, index=True, comment='up的uid')
+    dynamic_id = Column(BigInteger, nullable=False, index=True, unique=True, comment='动态的id')
     dynamic_type = Column(Integer, nullable=False, comment='动态的类型')
     content = Column(String(4096), nullable=False, comment='动态内容')
     created_at = Column(DateTime, nullable=True)
@@ -292,7 +292,7 @@ class Vocation(Base):
     __tablename__ = 'vocations'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('vocations_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('vocations_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     status = Column(Integer, nullable=False, comment='请假状态 0-空闲 1-请假 2-工作中')
     stop_at = Column(DateTime, nullable=True, comment='假期结束时间')
@@ -320,8 +320,8 @@ class PixivTag(Base):
     __tablename__ = 'pixiv_tag'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('pixiv_tag_id_seq'), primary_key=True, nullable=False)
-    tagname = Column(String(256), nullable=False, comment='tag名称')
+    id = Column(Integer, Sequence('pixiv_tag_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    tagname = Column(String(256), nullable=False, index=True, unique=True, comment='tag名称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
@@ -344,8 +344,8 @@ class Pixiv(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('upixiv_illusts_id_seq'), primary_key=True, nullable=False)
-    pid = Column(Integer, nullable=False, comment='pid')
+    id = Column(Integer, Sequence('upixiv_illusts_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    pid = Column(Integer, nullable=False, index=True, unique=True, comment='pid')
     uid = Column(Integer, nullable=False, comment='uid')
     title = Column(String(512), nullable=False, comment='title')
     uname = Column(String(256), nullable=False, comment='author')
@@ -381,7 +381,8 @@ class PixivT2I(Base):
     __tablename__ = 'pixiv_tag_to_illusts'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('pixiv_tag_to_illusts_id_seq'), primary_key=True, nullable=False)
+    id = Column(Integer, Sequence('pixiv_tag_to_illusts_id_seq'),
+                primary_key=True, nullable=False, index=True, unique=True)
     illust_id = Column(Integer, ForeignKey('pixiv_illusts.id'), nullable=False)
     tag_id = Column(Integer, ForeignKey('pixiv_tag.id'), nullable=False)
     created_at = Column(DateTime, nullable=True)
@@ -407,8 +408,9 @@ class Pixivision(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('pixivision_article_id_seq'), primary_key=True, nullable=False)
-    aid = Column(Integer, nullable=False, comment='aid')
+    id = Column(Integer, Sequence('pixivision_article_id_seq'),
+                primary_key=True, nullable=False, index=True, unique=True)
+    aid = Column(Integer, nullable=False, index=True, unique=True, comment='aid')
     title = Column(String(256), nullable=False, comment='title')
     description = Column(String(1024), nullable=False, comment='description')
     tags = Column(String(1024), nullable=False, comment='tags')

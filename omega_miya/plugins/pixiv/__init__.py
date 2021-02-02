@@ -1,7 +1,8 @@
 import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -33,7 +34,7 @@ pixiv = on_command('pixiv', rule=has_command_permission() & permission_level(lev
 
 # 修改默认参数处理
 @pixiv.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await pixiv.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -43,7 +44,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @pixiv.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -54,7 +55,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID~')
-async def handle_draw(bot: Bot, event: Event, state: T_State):
+async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
     mode = state['mode']
     if mode == '日榜':
         await pixiv.send('稍等, 正在下载资源~')
@@ -73,13 +74,13 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     # 发送图片和图片信息
                     await pixiv.send(Message(img_seg).append(msg))
                 else:
-                    logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
+                    logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
                     error_count += 1
             else:
                 if error_count == len(rank_data.get('body')):
                     await pixiv.finish('加载失败, 网络超时QAQ')
         else:
-            logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv Rank失败, 网络超时")
+            logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, 网络超时")
             await pixiv.finish('加载失败, 网络超时QAQ')
     elif mode == '周榜':
         await pixiv.send('稍等, 正在下载资源~')
@@ -98,13 +99,13 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     # 发送图片和图片信息
                     await pixiv.send(Message(img_seg).append(msg))
                 else:
-                    logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
+                    logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
                     error_count += 1
             else:
                 if error_count == len(rank_data.get('body')):
                     await pixiv.finish('加载失败, 网络超时QAQ')
         else:
-            logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv Rank失败, 网络超时")
+            logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, 网络超时")
             await pixiv.finish('加载失败, 网络超时QAQ')
     elif mode == '月榜':
         await pixiv.send('稍等, 正在下载资源~')
@@ -123,13 +124,13 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
                     # 发送图片和图片信息
                     await pixiv.send(Message(img_seg).append(msg))
                 else:
-                    logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
+                    logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
                     error_count += 1
             else:
                 if error_count == len(rank_data.get('body')):
                     await pixiv.finish('加载失败, 网络超时QAQ')
         else:
-            logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv Rank失败, 网络超时")
+            logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, 网络超时")
             await pixiv.send('加载失败, 网络超时QAQ')
     elif re.match(r'^\d+$', mode):
         pid = mode
@@ -143,7 +144,7 @@ async def handle_draw(bot: Bot, event: Event, state: T_State):
             # 发送图片和图片信息
             await pixiv.send(Message(img_seg).append(msg))
         else:
-            logger.warning(f"User: {event.dict().get('user_id')} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
+            logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
             await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
     else:
         await pixiv.reject('你输入的命令好像不对呢……请输入"月榜"、"周榜"、"日榜"或者PixivID试试吧~')

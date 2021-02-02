@@ -42,7 +42,14 @@ class DBPixivillust(object):
         # 将作品信息写入pixiv_illust表
         try:
             exist_illust = session.query(Pixiv).filter(Pixiv.pid == self.pid).one()
-            result = DBResult(error=False, info='illust exist', result=0)
+            exist_illust.title = title
+            exist_illust.uname = uname
+            if nsfw_tag > exist_illust.nsfw_tag:
+                exist_illust.nsfw_tag = nsfw_tag
+            exist_illust.tags = repr(tags)
+            exist_illust.updated_at = datetime.now()
+            session.commit()
+            result = DBResult(error=False, info='Exist illust updated', result=0)
         except NoResultFound:
             try:
                 new_illust = Pixiv(pid=self.pid, uid=uid, title=title, uname=uname, url=url, nsfw_tag=nsfw_tag,
@@ -60,7 +67,7 @@ class DBPixivillust(object):
                 for tag in tags:
                     _tag = DBPixivtag(tagname=tag)
                     _tag_id_res = _tag.id()
-                    if not _tag_id_res:
+                    if not _tag_id_res.success():
                         continue
                     _tag_id = _tag_id_res.result
                     try:
@@ -105,9 +112,10 @@ class DBPixivillust(object):
     def status(cls):
         session = NBdb().get_session()
         all_count = session.query(func.count(Pixiv.id)).scalar()
+        moe_count = session.query(func.count(Pixiv.id)).filter(Pixiv.nsfw_tag == 0).scalar()
         setu_count = session.query(func.count(Pixiv.id)).filter(Pixiv.nsfw_tag == 1).scalar()
         r18_count = session.query(func.count(Pixiv.id)).filter(Pixiv.nsfw_tag == 2).scalar()
-        result = {'total': int(all_count), 'setu': int(setu_count), 'r18': int(r18_count)}
+        result = {'total': int(all_count), 'moe': int(moe_count), 'setu': int(setu_count), 'r18': int(r18_count)}
         return result
 
     @classmethod

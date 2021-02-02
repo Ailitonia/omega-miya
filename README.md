@@ -1,10 +1,18 @@
-# nonebot2_miya
+<div align="center">
 
-基于nonebot2的qq机器人
+# Omega Miya
+
+基于 [nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
+
+![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
+![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
+
+</div>
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 PreRelease v2.0.0a8.post2](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a8.post2)
+[Nonebot2 PreRelease v2.0.0a9](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a9)
 
 ## 配套使用的api
 
@@ -25,8 +33,9 @@ api主要用于获取pixiv等网站内容
 - Pixivision订阅（需要 Miya API）
 - 复读姬
 - roll点抽奖
+- 搜番剧（trace.moe API）
 - 搜二次元图（Saucenao API 和 ascii2d）
-- 来点涩图（需要 Miya API / 涩图数据库需要自己导入）
+- 来点涩图 / 来点萌图（需要 Miya API / 图片数据库需要自己导入）
 - 表情包制作器
 
 ## 一张图看懂如何获取B站cookies

@@ -1,7 +1,8 @@
 import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export
@@ -30,7 +31,7 @@ sticker = on_command('表情包', rule=has_command_permission() & permission_lev
 
 # 修改默认参数处理
 @sticker.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_message()).strip()
     if not args:
         await sticker.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -40,7 +41,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @sticker.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_message()).strip().lower().split()
     if not args:
         state['temp'] = None
@@ -51,7 +52,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @sticker.got('temp', prompt='请输入模板名称:')
-async def handle_sticker(bot: Bot, event: Event, state: T_State):
+async def handle_sticker(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 定义模板名称、类型, 处理模板正则
     sticker_temp = {
         '默认': {'name': 'default', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
@@ -79,7 +80,7 @@ async def handle_sticker(bot: Bot, event: Event, state: T_State):
 
 
 @sticker.got('image_url', prompt='请发送你想要制作的表情包的图片:')
-async def handle_img(bot: Bot, event: Event, state: T_State):
+async def handle_img(bot: Bot, event: GroupMessageEvent, state: T_State):
     image_url = state['image_url']
     if state['temp_type'] not in ['static', 'gif']:
         if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
@@ -94,7 +95,7 @@ async def handle_img(bot: Bot, event: Event, state: T_State):
 
 
 @sticker.got('sticker_text', prompt='请输入你想要制作的表情包的文字:')
-async def handle_sticker_text(bot: Bot, event: Event, state: T_State):
+async def handle_sticker_text(bot: Bot, event: GroupMessageEvent, state: T_State):
     sticker_text = state['sticker_text']
     sticker_temp_text_part = state['temp_text_part']
     # 获取制作表情包所需文字
@@ -134,10 +135,10 @@ async def handle_sticker_text(bot: Bot, event: Event, state: T_State):
 
         # 发送图片
         await sticker.send(sticker_seg)
-        logger.info(f"Group: {event.dict().get('group_id')}, 用户: {event.dict().get('user_id')} 成功制作了一个表情")
+        logger.info(f"Group: {event.group_id}, 用户: {event.user_id} 成功制作了一个表情")
 
     except Exception as e:
-        logger.error(f"Group: {event.dict().get('group_id')}, 用户: {event.dict().get('user_id')} "
+        logger.error(f"Group: {event.group_id}, 用户: {event.user_id} "
                      f"制作表情时发生了错误: {repr(e)}")
         await sticker.finish(f"表情制作失败QAQ, 请稍后再试\n小提示:{sticker_temp_help_msg}")
         return

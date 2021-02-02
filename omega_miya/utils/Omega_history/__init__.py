@@ -1,6 +1,7 @@
 from nonebot import on_message, on_request, on_notice, logger
 from nonebot.typing import T_State
-from nonebot.adapters import Bot, Event
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import Event
 from omega_miya.utils.Omega_Base import DBHistory
 
 
