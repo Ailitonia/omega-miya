@@ -20,8 +20,9 @@ async def init_live_info():
     if _res.success():
         logger.opt(colors=True).info(f'<g>Bilibili 已登录!</g> 当前用户: {_res.result}')
     else:
-        logger.opt(colors=True).warning(f'<y>Bilibili 未登录!</y> B站动态及直播间监控很可能被B站风控限制! 请在配置中设置cookies以保证插件正常运行!')
+        logger.opt(colors=True).warning(f'<r>Bilibili 登录状态异常: {_res.info}!</r> 建议在配置中正确设置cookies!')
 
+    logger.opt(colors=True).info('init_live_info: <y>初始化B站直播间监控列表...</y>')
     t = DBTable(table_name='Subscription')
     for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
         sub_id = int(item[0])
@@ -50,7 +51,7 @@ async def init_live_info():
         except Exception as e:
             logger.error(f'init_live_info: 获取直播间信息错误, room_id: {sub_id}, error: {repr(e)}')
             continue
-    logger.info('init_live_info: 初始化完成')
+    logger.opt(colors=True).info('init_live_info: <g>B站直播间监控列表初始化完成.</g>')
 
 
 # 初始化任务加入启动序列

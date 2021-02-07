@@ -33,10 +33,6 @@ class MiyaVoice(Voice):
                 'file': '0.mp3',
                 'tag': ''
             },
-            '圣经': {
-                'file': '1.mp3',
-                'tag': ''
-            },
             '你才千岁幼猫': {
                 'file': '2.mp3',
                 'tag': ''

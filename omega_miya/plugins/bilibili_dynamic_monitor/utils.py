@@ -13,6 +13,7 @@ DYNAMIC_URL = 'https://t.bilibili.com/'
 global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
+BILI_UID = global_config.bili_uid
 
 
 def check_bili_cookies() -> Result:
@@ -41,8 +42,8 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
                            'accept-language:': 'zh-CN,zh;q=0.9',
                            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                           'origin': 'https://space.bilibili.com',
-                           'referer': 'https://space.bilibili.com/'}
+                           'origin': 'https://t.bilibili.com',
+                           'referer': 'https://t.bilibili.com/'}
                 async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
                     _json = await rp.json()
                 result = Result(error=False, info='Success', result=_json)
@@ -68,7 +69,8 @@ async def pic_2_base64(url: str) -> Result:
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                               'referer': 'https://www.bilibili.com/'}
+                               'origin': 'https://t.bilibili.com',
+                               'referer': 'https://t.bilibili.com/'}
                     async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
                         _res = await resp.read()
                 return _res
@@ -128,10 +130,14 @@ def get_user_dynamic(user_id: int) -> Result:
 
 
 # 查询动态并返回动态类型及内容
-async def get_dynamic_info(dy_uid) -> Result:
+async def get_user_dynamic_history(dy_uid) -> Result:
     _DYNAMIC_INFO = {}  # 这个字典用来放最后的输出结果
     url = DYNAMIC_API_URL
-    payload = {'host_uid': dy_uid}
+    if BILI_UID:
+        payload = {'visitor_uid': BILI_UID, 'host_uid': dy_uid,
+                   'offset_dynamic_id': 0, 'need_top': 0, 'platform': 'web'}
+    else:
+        payload = {'host_uid': dy_uid, 'offset_dynamic_id': 0, 'need_top': 0, 'platform': 'web'}
 
     result = await fetch_json(url=url, paras=payload)
     if not result.success():
@@ -168,55 +174,10 @@ async def get_dynamic_info(dy_uid) -> Result:
             name = cards['desc']['user_profile']['info']['uname']
             # 这是转发动态时评论的内容
             content = card['item']['content']
-            # 这是被转发的原动态信息
-            try:
-                origin_dy_uid = cards['desc']['origin']['dynamic_id']
-                __payload = {'dynamic_id': origin_dy_uid}
-
-                result = await fetch_json(url=GET_DYNAMIC_DETAIL_API_URL, paras=__payload)
-                origin_dynamic = dict(result.result)
-                origin_card = origin_dynamic['data']['card']
-                origin_name = origin_card['desc']['user_profile']['info']['uname']
-                origin_pics_list = []
-                if origin_card['desc']['type'] == 1:
-                    origin_description = json.loads(origin_card['card'])['item']['content']
-                elif origin_card['desc']['type'] == 2:
-                    origin_description = json.loads(origin_card['card'])['item']['description']
-                    origin_pics = json.loads(origin_card['card'])['item']['pictures']
-                    for item in origin_pics:
-                        try:
-                            origin_pics_list.append(item['img_src'])
-                        except (KeyError, TypeError):
-                            continue
-                elif origin_card['desc']['type'] == 4:
-                    origin_description = json.loads(origin_card['card'])['item']['content']
-                elif origin_card['desc']['type'] == 8:
-                    origin_description = json.loads(origin_card['card'])['dynamic']
-                    if not origin_description:
-                        origin_description = json.loads(origin_card['card'])['title']
-                elif origin_card['desc']['type'] == 16:
-                    origin_description = json.loads(origin_card['card'])['item']['description']
-                elif origin_card['desc']['type'] == 32:
-                    origin_description = json.loads(origin_card['card'])['title']
-                elif origin_card['desc']['type'] == 64:
-                    origin_description = json.loads(origin_card['card'])['summary']
-                elif origin_card['desc']['type'] == 256:
-                    origin_description = json.loads(origin_card['card'])['intro']
-                elif origin_card['desc']['type'] == 512:
-                    origin_description = json.loads(origin_card['card'])['apiSeasonInfo']['title']
-                elif origin_card['desc']['type'] == 2048:
-                    origin_description = json.loads(origin_card['card'])['vest']['content']
-                else:
-                    origin_description = ''
-                origin = dict({'id': origin_dy_uid, 'type': origin_card['desc']['type'], 'url': '',
-                               'name': origin_name, 'content': origin_description, 'origin': '',
-                               'origin_pics': origin_pics_list})
-            except Exception as e:
-                # 原动态被删除
-                origin = dict({'id': -1, 'type': -1, 'url': '',
-                               'name': 'Unknow', 'content': '原动态被删除', 'origin': repr(e)})
+            # 这是被转发的原动态id
+            origin_dynamic_id = cards['desc']['origin']['dynamic_id']
             card_dic = dict({'id': dy_id, 'type': 1, 'url': url,
-                             'name': name, 'content': content, 'origin': origin})
+                             'name': name, 'content': content, 'origin': origin_dynamic_id})
             _DYNAMIC_INFO[card_num] = card_dic
         # type=2, 这是一条原创的动态(有图片)
         elif cards['desc']['type'] == 2:
@@ -352,17 +313,71 @@ async def get_dynamic_info(dy_uid) -> Result:
             dy_id = cards['desc']['dynamic_id']
             # 这是动态的链接
             url = DYNAMIC_URL + str(cards['desc']['dynamic_id'])
-            name = 'Unknow'
+            name = 'Unknown'
             card_dic = dict({'id': dy_id, 'type': -1, 'url': url,
                              'name': name, 'content': '', 'origin': ''})
             _DYNAMIC_INFO[card_num] = card_dic
     return Result(error=False, info='Success', result=_DYNAMIC_INFO)
 
 
+async def get_dynamic_info(dynamic_id) -> Result:
+    __payload = {'dynamic_id': dynamic_id}
+    _res = await fetch_json(url=GET_DYNAMIC_DETAIL_API_URL, paras=__payload)
+    if not _res.success():
+        return _res
+    else:
+        try:
+            origin_dynamic = dict(_res.result)
+            origin_card = origin_dynamic['data']['card']
+            origin_name = origin_card['desc']['user_profile']['info']['uname']
+            origin_pics_list = []
+            if origin_card['desc']['type'] == 1:
+                origin_description = json.loads(origin_card['card'])['item']['content']
+            elif origin_card['desc']['type'] == 2:
+                origin_description = json.loads(origin_card['card'])['item']['description']
+                origin_pics = json.loads(origin_card['card'])['item']['pictures']
+                for item in origin_pics:
+                    try:
+                        origin_pics_list.append(item['img_src'])
+                    except (KeyError, TypeError):
+                        continue
+            elif origin_card['desc']['type'] == 4:
+                origin_description = json.loads(origin_card['card'])['item']['content']
+            elif origin_card['desc']['type'] == 8:
+                origin_description = json.loads(origin_card['card'])['dynamic']
+                if not origin_description:
+                    origin_description = json.loads(origin_card['card'])['title']
+            elif origin_card['desc']['type'] == 16:
+                origin_description = json.loads(origin_card['card'])['item']['description']
+            elif origin_card['desc']['type'] == 32:
+                origin_description = json.loads(origin_card['card'])['title']
+            elif origin_card['desc']['type'] == 64:
+                origin_description = json.loads(origin_card['card'])['summary']
+            elif origin_card['desc']['type'] == 256:
+                origin_description = json.loads(origin_card['card'])['intro']
+            elif origin_card['desc']['type'] == 512:
+                origin_description = json.loads(origin_card['card'])['apiSeasonInfo']['title']
+            elif origin_card['desc']['type'] == 2048:
+                origin_description = json.loads(origin_card['card'])['vest']['content']
+            else:
+                origin_description = ''
+            origin = dict({'id': dynamic_id, 'type': origin_card['desc']['type'], 'url': '',
+                           'name': origin_name, 'content': origin_description, 'origin': '',
+                           'origin_pics': origin_pics_list})
+            result = Result(error=False, info='Success', result=origin)
+        except Exception as e:
+            # 原动态被删除
+            origin = dict({'id': dynamic_id, 'type': -1, 'url': '',
+                           'name': 'Unknown', 'content': '原动态被删除', 'origin': repr(e)})
+            result = Result(error=True, info='Dynamic not found', result=origin)
+        return result
+
+
 __all__ = [
     'pic_2_base64',
     'get_user_info',
     'get_user_dynamic',
+    'get_user_dynamic_history',
     'get_dynamic_info'
 ]
 
@@ -370,5 +385,5 @@ if __name__ == '__main__':
     import asyncio
 
     loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(get_dynamic_info(dy_uid=846180))
+    res = loop.run_until_complete(get_user_dynamic_history(dy_uid=846180))
     print(res)

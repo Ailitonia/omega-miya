@@ -11,6 +11,7 @@ LIVE_URL = 'https://live.bilibili.com/'
 global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
+BILI_UID = global_config.bili_uid
 
 
 def check_bili_cookies() -> Result:
@@ -66,6 +67,7 @@ async def pic_2_base64(url: str) -> Result:
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+                               'origin': 'https://www.bilibili.com',
                                'referer': 'https://www.bilibili.com/'}
                     async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
                         _res = await resp.read()
@@ -144,7 +146,11 @@ async def verify_cookies() -> Result:
         data = dict(_res.result.get('data'))
         if code == 0 and data.get('isLogin'):
             uname = data.get('uname')
-            result = Result(error=False, info='Success login', result=uname)
+            mid = data.get('mid')
+            if mid == BILI_UID:
+                result = Result(error=False, info='Success login', result=uname)
+            else:
+                result = Result(error=True, info='Logged user UID does not match', result=uname)
         else:
             result = Result(error=True, info='Not login', result='')
         return result
