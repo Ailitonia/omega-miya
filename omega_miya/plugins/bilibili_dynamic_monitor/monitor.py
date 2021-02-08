@@ -51,7 +51,7 @@ async def dynamic_db_upgrade():
     # day='*/1',
     # week=None,
     # day_of_week=None,
-    # hour='4',
+    hour='0-1,8-23',
     minute='*/2',
     # second='*/30',
     # start_date=None,
@@ -90,8 +90,8 @@ async def bilibili_dynamic_monitor():
             if not _res.success():
                 logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {_res.info}')
                 return
-        except Exception as e:
-            logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {repr(e)}')
+        except Exception as _e:
+            logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {repr(_e)}')
             return
 
         dynamic_info = dict(_res.result)

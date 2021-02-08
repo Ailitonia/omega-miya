@@ -5,8 +5,8 @@ from omega_miya.utils.Omega_Base import DBPixivision, Result
 
 global_config = nonebot.get_driver().config
 API_KEY = global_config.api_key
-API_URL = global_config.pixivision_api_url
-DOWNLOAD_API_URL = global_config.pixiv_download_api_url
+API_URL = f'{global_config.api_url}/api/pixivsion/'
+DOWNLOAD_API_URL = f'{global_config.api_url}/api/pixiv/download/'
 
 
 async def fetch_json(url: str, paras: dict) -> Result:

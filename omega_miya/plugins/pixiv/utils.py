@@ -5,9 +5,9 @@ from omega_miya.utils.Omega_Base import Result
 
 global_config = nonebot.get_driver().config
 API_KEY = global_config.api_key
-RANK_API_URL = global_config.pixiv_rank_api_url
-SEARCH_API_URL = global_config.pixiv_search_api_url
-DOWNLOAD_API_URL = global_config.pixiv_download_api_url
+RANK_API_URL = f'{global_config.api_url}/api/pixiv/rank/'
+SEARCH_API_URL = f'{global_config.api_url}/api/pixiv/search/'
+DOWNLOAD_API_URL = f'{global_config.api_url}/api/pixiv/download/'
 
 
 async def fetch_json(url: str, paras: dict) -> Result:

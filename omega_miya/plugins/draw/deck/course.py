@@ -201,7 +201,7 @@ def course(user_id: int) -> str:
     random_seed = md5.hexdigest()
     random.seed(random_seed)
     course_day = random.sample(basic, k=1)
-    course_day.extend(random.sample(advance, k=2))
+    course_day.extend(random.sample(advance, k=3))
     course_t = str.join('》\n《', course_day)
-    result = f"今天要上的课有:\n《{course_t}》"
+    result = f"今天要修行的课有:\n《{course_t}》"
     return result

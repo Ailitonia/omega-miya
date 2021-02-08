@@ -4,7 +4,7 @@ import random
 
 class Voice(object):
     def __init__(self):
-        self.VoicesFiles = None
+        self.VoicesFiles = dict()
 
     def get_voice_filepath(self, voice: str) -> str:
         plugin_path = os.path.dirname(os.path.abspath(__file__))

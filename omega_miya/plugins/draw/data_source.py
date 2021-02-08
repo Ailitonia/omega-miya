@@ -61,7 +61,7 @@ deck_list = {
     '单张塔罗牌': one_tarot,
     '超能力': superpower,
     'dd老黄历': old_almanac,
-    '课表': course
+    '程序员修行': course
 }
 
 

@@ -12,7 +12,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 PreRelease v2.0.0a9.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a9.post1)
+[Nonebot2 PreRelease v2.0.0a10](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a10)
 
 ## 配套使用的api
 
@@ -45,6 +45,11 @@ api主要用于获取pixiv等网站内容
 <img src="https://raw.githubusercontent.com/Ailitonia/nonebot2_miya/main/docs/img/how_to_get_bilibili_cookies.png" width="75%">
 
 **注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
+
+## 特别感谢
+
+- [Nonebot2](https://github.com/nonebot/nonebot2)
+- [go-cqhttp](https://github.com/Mrs4s/go-cqhttp)
 
 ## 说点题外话
 
