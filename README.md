@@ -12,7 +12,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 PreRelease v2.0.0a9](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a9)
+[Nonebot2 PreRelease v2.0.0a9.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a9.post1)
 
 ## 配套使用的api
 

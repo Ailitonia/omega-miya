@@ -36,7 +36,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     else:
         # 如果用户没有发送参数, 则发送功能列表并结束此命令
         plugins_list = '\n'.join(p.export.custom_name for p in plugins)
-        await bot_help.finish(f'我现在支持的插件有: \n\n{plugins_list}\n\n输入"/help [插件]"即可查看对应帮助')
+        await bot_help.finish(f'我现在支持的插件有: \n\n{plugins_list}\n\n注意: 群组权限等级未达到要求的命令不会被响应\n输入"/help [插件]"即可查看插件详情及帮助')
 
 
 @bot_help.got('plugin_name', prompt='你想查询哪个插件的用法呢？')

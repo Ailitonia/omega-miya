@@ -1,7 +1,8 @@
 import asyncio
+import time
 from nonebot import logger, require, get_driver, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBTable
+from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, DBTable
 from .utils import get_live_info, get_user_info, pic_2_base64, verify_cookies
 
 
@@ -20,8 +21,9 @@ async def init_live_info():
     if _res.success():
         logger.opt(colors=True).info(f'<g>Bilibili 已登录!</g> 当前用户: {_res.result}')
     else:
-        logger.opt(colors=True).warning(f'<y>Bilibili 未登录!</y> B站动态及直播间监控很可能被B站风控限制! 请在配置中设置cookies以保证插件正常运行!')
+        logger.opt(colors=True).warning(f'<r>Bilibili 登录状态异常: {_res.info}!</r> 建议在配置中正确设置cookies!')
 
+    logger.opt(colors=True).info('init_live_info: <y>初始化B站直播间监控列表...</y>')
     t = DBTable(table_name='Subscription')
     for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
         sub_id = int(item[0])
@@ -50,7 +52,7 @@ async def init_live_info():
         except Exception as e:
             logger.error(f'init_live_info: 获取直播间信息错误, room_id: {sub_id}, error: {repr(e)}')
             continue
-    logger.info('init_live_info: 初始化完成')
+    logger.opt(colors=True).info('init_live_info: <g>B站直播间监控列表初始化完成.</g>')
 
 
 # 初始化任务加入启动序列
@@ -194,6 +196,11 @@ async def bilibili_live_monitor():
             try:
                 # 现在状态为未开播
                 if live_info['status'] == 0:
+                    live_start_info = f"LiveEnd! Room: {room_id}/{up_name}"
+                    new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili', detail_type='live')
+                    new_event.add(sub_type='live_end', user_id=room_id, user_name=up_name,
+                                  raw_data=repr(live_info), msg_data=live_start_info)
+
                     msg = f'{up_name}下播了'
                     # 通知有通知权限且订阅了该直播间的群
                     for group_id in notice_group:
@@ -209,9 +216,12 @@ async def bilibili_live_monitor():
                     logger.info(f"直播间: {room_id}/{up_name} 下播了")
                 # 现在状态为直播中
                 elif live_info['status'] == 1:
-                    # 打一条log记录准确开播信息
-                    logger.info(f"开播记录: LiveStart! Room: {room_id}/{up_name}, Title: {live_info['title']}, "
-                                f"TrueTime: {live_info['time']}")
+                    # 记录准确开播信息
+                    live_start_info = f"LiveStart! Room: {room_id}/{up_name}, Title: {live_info['title']}, " \
+                                      f"TrueTime: {live_info['time']}"
+                    new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili', detail_type='live')
+                    new_event.add(sub_type='live_start', user_id=room_id, user_name=up_name,
+                                  raw_data=repr(live_info), msg_data=live_start_info)
 
                     cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
                     if cover_pic.success():
@@ -232,6 +242,11 @@ async def bilibili_live_monitor():
                     logger.info(f"直播间: {room_id}/{up_name} 开播了")
                 # 现在状态为未开播（轮播中）
                 elif live_info['status'] == 2:
+                    live_start_info = f"LiveEnd! Room: {room_id}/{up_name}"
+                    new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili', detail_type='live')
+                    new_event.add(sub_type='live_end_with_playlist', user_id=room_id, user_name=up_name,
+                                  raw_data=repr(live_info), msg_data=live_start_info)
+
                     msg = f'{up_name}下播了（轮播中）'
                     for group_id in notice_group:
                         for _bot in bots:

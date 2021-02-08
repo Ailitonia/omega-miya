@@ -2,7 +2,7 @@ import asyncio
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
-from .utils import get_dynamic_info, get_user_info, get_user_dynamic, pic_2_base64
+from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
 
 
 # 启用检查动态状态的定时任务
@@ -86,7 +86,7 @@ async def bilibili_dynamic_monitor():
     async def check_dynamic(dy_uid):
         # 获取动态并返回动态类型及内容
         try:
-            _res = await get_dynamic_info(dy_uid=dy_uid)
+            _res = await get_user_dynamic_history(dy_uid=dy_uid)
             if not _res.success():
                 logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {_res.info}')
                 return
@@ -117,27 +117,38 @@ async def bilibili_dynamic_monitor():
                     logger.info(f"用户: {dy_uid}/{dynamic_info[num]['name']} 新动态: {dynamic_info[num]['id']}")
                     # 转发的动态
                     if dynamic_info[num]['type'] == 1:
-                        # 原动态type=2, 带图片
-                        if dynamic_info[num]['origin']['type'] == 2:
-                            # 处理图片序列
-                            pic_segs = ''
-                            for pic_url in dynamic_info[num]['origin']['origin_pics']:
-                                _res = await pic_2_base64(pic_url)
-                                pic_b64 = _res.result
-                                pic_segs += f'{MessageSegment.image(pic_b64)}\n'
-                            msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}\n{}'.format(
-                                dynamic_info[num]['name'], dynamic_info[num]['origin']['name'],
-                                dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
-                                dynamic_info[num]['origin']['name'], dynamic_info[num]['origin']['content'],
-                                pic_segs
-                            )
-                        # 原动态为其他类型, 无图
-                        else:
+                        # 获取原动态信息
+                        origin_dynamic_id = dynamic_info[num]['origin']
+                        _dy_res = await get_dynamic_info(dynamic_id=origin_dynamic_id)
+                        if not _dy_res.success():
                             msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}'.format(
-                                dynamic_info[num]['name'], dynamic_info[num]['origin']['name'],
+                                dynamic_info[num]['name'], 'Unknown',
                                 dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
-                                dynamic_info[num]['origin']['name'], dynamic_info[num]['origin']['content']
+                                'Unknown', '获取原动态失败'
                             )
+                        else:
+                            origin_dynamic_info = _dy_res.result
+                            # 原动态type=2, 带图片
+                            if origin_dynamic_info['type'] == 2:
+                                # 处理图片序列
+                                pic_segs = ''
+                                for pic_url in origin_dynamic_info['origin_pics']:
+                                    _res = await pic_2_base64(pic_url)
+                                    pic_b64 = _res.result
+                                    pic_segs += f'{MessageSegment.image(pic_b64)}\n'
+                                msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}\n{}'.format(
+                                    dynamic_info[num]['name'], origin_dynamic_info['name'],
+                                    dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
+                                    origin_dynamic_info['name'], origin_dynamic_info['content'],
+                                    pic_segs
+                                )
+                            # 原动态为其他类型, 无图
+                            else:
+                                msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}'.format(
+                                    dynamic_info[num]['name'], origin_dynamic_info['name'],
+                                    dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
+                                    origin_dynamic_info['name'], origin_dynamic_info['content']
+                                )
                         for group_id in notice_group:
                             for _bot in bots:
                                 try:
