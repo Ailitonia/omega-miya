@@ -13,6 +13,7 @@ from .pixivillust import DBPixivillust
 from .pixivtag import DBPixivtag
 from .pixivision import DBPixivision
 from .history import DBHistory
+from .auth import DBAuth
 from .database import DBResult as Result
 
 
@@ -27,5 +28,6 @@ __all__ = [
     'DBPixivtag',
     'DBPixivision',
     'DBHistory',
+    'DBAuth',
     'Result'
 ]

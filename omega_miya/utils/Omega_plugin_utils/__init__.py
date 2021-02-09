@@ -3,12 +3,13 @@ from nonebot.rule import Rule
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import Event
-from omega_miya.utils.Omega_Base import DBGroup
+from omega_miya.utils.Omega_Base import DBGroup, DBAuth
 
 
-def init_export(plugin_export: Export, custom_name: str, usage: str, **kwargs: str) -> Export:
+def init_export(plugin_export: Export, custom_name: str, usage: str, auth_node: list = None, **kwargs: str) -> Export:
     setattr(plugin_export, 'custom_name', custom_name)
     setattr(plugin_export, 'usage', usage)
+    setattr(plugin_export, 'auth_node', auth_node)
     for key, value in kwargs.items():
         setattr(plugin_export, key, value)
     return plugin_export
@@ -60,3 +61,28 @@ def permission_level(level: int) -> Rule:
             else:
                 return False
     return Rule(_has_command_permission)
+
+
+# 权限节点检查
+def check_auth_node(*auth_nodes: str) -> Rule:
+    async def _has_auth_node(bot: Bot, event: Event, state: T_State) -> bool:
+        auth_node = '.'.join(auth_nodes)
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        group_id = event.dict().get('group_id')
+        user_id = event.dict().get('user_id')
+        # 检查当前消息类型
+        if detail_type == 'private':
+            allow_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).allow_tag().result
+            deny_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).deny_tag().result
+        elif detail_type == 'group':
+            allow_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).allow_tag().result
+            deny_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).deny_tag().result
+        else:
+            allow_tag = 0
+            deny_tag = 0
+
+        if allow_tag == 1 and deny_tag == 0:
+            return True
+        else:
+            return False
+    return Rule(_has_auth_node)

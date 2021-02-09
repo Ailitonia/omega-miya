@@ -27,6 +27,8 @@ class User(Base):
                                    cascade="all, delete", passive_deletes=True)
     vocation = relationship('Vocation', back_populates='vocation_for_user', uselist=False,
                             cascade="all, delete", passive_deletes=True)
+    user_auth = relationship('AuthUser', back_populates='auth_for_user', uselist=False,
+                             cascade="all, delete", passive_deletes=True)
 
     def __init__(self, qq, nickname, aliasname=None, created_at=None, updated_at=None):
         self.qq = qq
@@ -110,6 +112,8 @@ class Group(Base):
                                    cascade="all, delete", passive_deletes=True)
     sub_what = relationship('GroupSub', back_populates='groups_sub',
                             cascade="all, delete", passive_deletes=True)
+    group_auth = relationship('AuthGroup', back_populates='auth_for_group', uselist=False,
+                              cascade="all, delete", passive_deletes=True)
 
     def __init__(self, name, group_id, notice_permissions, command_permissions,
                  permission_level, created_at=None, updated_at=None):
@@ -154,6 +158,70 @@ class UserGroup(Base):
         return "<UserGroup(user_id='%s', group_id='%s', " \
                "user_group_nickname='%s', created_at='%s', created_at='%s')>" % (
                    self.user_id, self.group_id, self.user_group_nickname, self.created_at, self.updated_at)
+
+
+# 用户授权表
+class AuthUser(Base):
+    __tablename__ = 'auth_user'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('auth_user_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    auth_node = Column(String(128), nullable=False, comment='授权节点, 由插件检查')
+    allow_tag = Column(Integer, nullable=False, comment='授权标签')
+    deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
+    auth_info = Column(String(128), nullable=True, comment='授权信息备注')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    auth_for_user = relationship('User', back_populates='user_auth')
+
+    def __init__(self, user_id, auth_node, allow_tag=0, deny_tag=0, auth_info=None, created_at=None, updated_at=None):
+        self.user_id = user_id
+        self.auth_node = auth_node
+        self.allow_tag = allow_tag
+        self.deny_tag = deny_tag
+        self.auth_info = auth_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<AuthUser(user_id='%s', auth_node='%s', allow_tag='%s', deny_tag='%s', auth_info='%s', " \
+               "created_at='%s', created_at='%s')>" % (
+                   self.user_id, self.auth_node, self.allow_tag, self.deny_tag, self.auth_info,
+                   self.created_at, self.updated_at)
+
+
+# 群组授权表
+class AuthGroup(Base):
+    __tablename__ = 'auth_group'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('auth_group_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    auth_node = Column(String(128), nullable=False, comment='授权节点, 由插件检查')
+    allow_tag = Column(Integer, nullable=False, comment='授权标签')
+    deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
+    auth_info = Column(String(128), nullable=True, comment='授权信息备注')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    auth_for_group = relationship('Group', back_populates='group_auth')
+
+    def __init__(self, group_id, auth_node, allow_tag=0, deny_tag=0, auth_info=None, created_at=None, updated_at=None):
+        self.group_id = group_id
+        self.auth_node = auth_node
+        self.allow_tag = allow_tag
+        self.deny_tag = deny_tag
+        self.auth_info = auth_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<AuthGroup(group_id='%s', auth_node='%s', allow_tag='%s', deny_tag='%s', auth_info='%s', " \
+               "created_at='%s', created_at='%s')>" % (
+                   self.group_id, self.auth_node, self.allow_tag, self.deny_tag, self.auth_info,
+                   self.created_at, self.updated_at)
 
 
 # 记录表
