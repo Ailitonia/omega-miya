@@ -79,7 +79,7 @@ async def handle_auth_id(bot: Bot, event: Event, state: T_State):
     elif auth_type == 'group':
         group = DBGroup(group_id=auth_id)
         if group.exist():
-            await omegaauth.send(f'即将群组: 【{group.name().result}】执行操作')
+            await omegaauth.send(f'即将对群组: 【{group.name().result}】执行操作')
         else:
             logger.error(f'为 {auth_type}/{auth_id} 配置权限节点失败, 数据库中不存在该群组')
             await omegaauth.finish('数据库中不存在该群组QAQ')
