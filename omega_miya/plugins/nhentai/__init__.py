@@ -25,6 +25,7 @@ Command & Lv.50
 **Usage**
 /nh search [tag]
 /nh download [id]'''
+
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
     'basic'

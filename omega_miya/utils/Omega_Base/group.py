@@ -29,6 +29,21 @@ class DBGroup(object):
         result = self.id().success()
         return result
 
+    def name(self) -> DBResult:
+        session = NBdb().get_session()
+        try:
+            group_name = session.query(Group.name).filter(Group.group_id == self.group_id).one()[0]
+            result = DBResult(error=False, info='Success', result=group_name)
+        except NoResultFound:
+            result = DBResult(error=True, info='NoResultFound', result='')
+        except MultipleResultsFound:
+            result = DBResult(error=True, info='MultipleResultsFound', result='')
+        except Exception as e:
+            result = DBResult(error=True, info=repr(e), result='')
+        finally:
+            session.close()
+        return result
+
     def add(self, name: str) -> DBResult:
         session = NBdb().get_session()
         try:

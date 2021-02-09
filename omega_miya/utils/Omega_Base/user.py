@@ -28,6 +28,21 @@ class DBUser(object):
         result = self.id().success()
         return result
 
+    def nickname(self) -> DBResult:
+        session = NBdb().get_session()
+        try:
+            user_nickname = session.query(User.nickname).filter(User.qq == self.qq).one()[0]
+            result = DBResult(error=False, info='Success', result=user_nickname)
+        except NoResultFound:
+            result = DBResult(error=True, info='NoResultFound', result='')
+        except MultipleResultsFound:
+            result = DBResult(error=True, info='MultipleResultsFound', result='')
+        except Exception as e:
+            result = DBResult(error=True, info=repr(e), result='')
+        finally:
+            session.close()
+        return result
+
     def add(self, nickname: str) -> DBResult:
         session = NBdb().get_session()
         try:
