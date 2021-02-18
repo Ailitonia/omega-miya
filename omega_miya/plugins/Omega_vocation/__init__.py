@@ -146,7 +146,7 @@ async def handle_vocation_time(bot: Bot, event: GroupMessageEvent, state: T_Stat
         time = int(re.sub(r'秒$', '', time))
         add_time = timedelta(seconds=time)
     else:
-        await set_vocation.reject('仅支持数字+周/天/小时/分/分钟/秒, 请重新输入~')
+        await set_vocation.reject('仅支持数字+周/天/小时/分/分钟/秒, 请重新输入, 取消命令请发送【取消】:')
     state['stop_at'] = datetime.now() + add_time
 
 
@@ -218,7 +218,7 @@ async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
         for _skill in skill_table.list_col(col_name='name').result:
             exist_skill.append(_skill[0])
         if skill not in exist_skill:
-            await get_idle.reject(f'没有{skill}这个技能, 请重新输入:')
+            await get_idle.reject(f'没有{skill}这个技能, 请重新输入, 取消命令请发送【取消】:')
         result = group.idle_skill_list(skill=DBSkill(name=skill))
         if result.success() and result.result:
             msg = ''

@@ -48,6 +48,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'whitebg': stick_maker_temp_whitebg,
         'littleangel': stick_maker_temp_littleangel,
         'traitor': stick_maker_static_traitor,
+        'jichou': stick_maker_static_jichou,
         'sorry': render_gif,
         'wangjingze': render_gif
     }

@@ -232,7 +232,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 async def handle_setu_import(bot: Bot, event: Event, state: T_State):
     mode = state['mode']
     if mode not in ['setu', 'moe']:
-        await setu_import.reject('参数错误, 重新输入: 【setu/moe】')
+        await setu_import.reject('参数错误, 重新输入: 【setu/moe】, 取消命令请发送【取消】:')
 
     if mode == 'moe':
         nsfw_tag = 0

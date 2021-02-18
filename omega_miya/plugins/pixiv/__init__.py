@@ -147,4 +147,4 @@ async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
             logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在")
             await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
     else:
-        await pixiv.reject('你输入的命令好像不对呢……请输入"月榜"、"周榜"、"日榜"或者PixivID试试吧~')
+        await pixiv.reject('你输入的命令好像不对呢……请输入"月榜"、"周榜"、"日榜"或者PixivID, 取消命令请发送【取消】:')

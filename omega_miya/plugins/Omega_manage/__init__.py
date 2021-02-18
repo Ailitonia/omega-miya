@@ -1,3 +1,12 @@
+"""
+Omega Miya 使用指南
+
+- /Omega Init - bot首次加入新群组后须使用本命令进行初始化
+- /Omega Upgrade - 手动更新本群组信息
+- /Omega Notice <on|off> - 为本群组配置通知权限(订阅类插件是否通知)
+- /Omega Command <on|off> - 为本群组配置命令权限(是否允许使用命令)
+- /Omega SetLevel <PermissionLevel> - 为本群组配置命令等级(对于低于命令要求等级的群组, 该命令不会被响应)
+"""
 from nonebot import on_command, export, logger, require
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State

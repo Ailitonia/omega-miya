@@ -73,25 +73,28 @@ def stick_maker_temp_littleangel(text: str, image_file: bytes, font_path: str, i
 
 
 def stick_maker_temp_whitebg(text: str, image_file: bytes, font_path: str, image_wight: int, image_height: int):
+    # 处理文本
+    font_size = 72
+    font = ImageFont.truetype(font_path, font_size)
+    text_w, text_h = font.getsize_multiline(text)
+    while text_w >= (image_wight * 7 // 8) or text_h > 100:
+        font_size = font_size * 5 // 6
+        font = ImageFont.truetype(font_path, font_size)
+        text_w, text_h = font.getsize_multiline(text)
+
     # 处理图片
     background_w = image_wight
-    background_h = image_height + 100
+    background_h = image_height + round(text_h * 1.5)
     background = Image.new(mode="RGB", size=(background_w, background_h), color=(255, 255, 255))
-    # 处理粘贴位置 顶头 下留100像素
+
+    # 处理粘贴位置 顶头
     image_coordinate = (0, 0)
     background.paste(image_file, image_coordinate)
 
     draw = ImageDraw.Draw(background)
 
-    font_size = 72
-    font = ImageFont.truetype(font_path, font_size)
-    text_w, text_h = font.getsize_multiline(text)
-    while text_w >= background_w or text_h > 100:
-        font_size = font_size * 5 // 6
-        font = ImageFont.truetype(font_path, font_size)
-        text_w, text_h = font.getsize_multiline(text)
     # 计算居中文字位置
-    text_coordinate = (((background_w - text_w) // 2), image_height + ((100 - text_h) // 2))
+    text_coordinate = (((background_w - text_w) // 2), image_height + round(text_h * 0.1))
 
     draw.multiline_text(text_coordinate, text, font=font, fill=(0, 0, 0))
 

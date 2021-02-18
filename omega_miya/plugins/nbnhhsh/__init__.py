@@ -70,4 +70,4 @@ async def handle_nbnhhsh(bot: Bot, event: GroupMessageEvent, state: T_State):
                 await nbnhhsh.finish(msg)
         await nbnhhsh.finish(f'没有找到{guess}的相关解释QAQ')
     else:
-        await nbnhhsh.reject('缩写仅支持字母加数字, 请重新输入:')
+        await nbnhhsh.reject('缩写仅支持字母加数字, 请重新输入, 取消命令请发送【取消】:')

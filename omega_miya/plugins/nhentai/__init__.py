@@ -22,6 +22,9 @@ __plugin_usage__ = r'''【nh】
 **Permission**
 Command & Lv.50
 
+**AuthNode**
+basic
+
 **Usage**
 /nh search [tag]
 /nh download [id]'''
