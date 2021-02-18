@@ -101,6 +101,8 @@ async def get_live_info(room_id) -> Result:
     result = await fetch_json(url=url, paras=payload)
     if not result.success():
         return result
+    elif dict(result.result).get('code') != 0:
+        result = Result(error=True, info=f"Get Live info failed: {dict(result.result).get('message')}", result={})
     else:
         live_info = dict(result.result)
         try:
@@ -125,6 +127,8 @@ async def get_user_info(user_uid) -> Result:
     result = await fetch_json(url=url, paras=payload)
     if not result.success():
         return result
+    elif dict(result.result).get('code') != 0:
+        result = Result(error=True, info=f"Get User info failed: {dict(result.result).get('message')}", result={})
     else:
         user_info = dict(result.result)
         try:

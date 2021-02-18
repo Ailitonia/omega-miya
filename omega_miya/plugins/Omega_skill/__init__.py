@@ -67,7 +67,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 @skill_admin.got('sub_command', prompt='执行操作?\n【add/del】')
 async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     if state['sub_command'] not in ['add', 'del']:
-        await skill_admin.reject('没有这个命令哦, 请重新输入:')
+        await skill_admin.reject('没有这个命令哦, 请在【add/del】中选择并重新发送, 取消命令请发送【取消】:')
     if state['sub_command'] == 'del':
         state['skill_description'] = None
 
@@ -145,7 +145,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 @skill_group_user.got('sub_command', prompt='执行操作?\n【清单/我会的/设置/删除/清空】')
 async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     if state['sub_command'] not in ['清单', '我会的', '设置', '删除', '清空']:
-        await skill_admin.reject('没有这个命令哦, 请重新输入:')
+        await skill_admin.reject('没有这个命令哦, 请在【清单/我会的/设置/删除/清空】中选择并重新发送, 取消命令请发送【取消】:')
     if state['sub_command'] in ['清单', '我会的', '清空']:
         state['skill_name'] = None
         state['skill_level'] = None
@@ -158,13 +158,13 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
     if state['sub_command'] in ['设置', '删除']:
         res = await skill_list(bot=bot, event=event, state=state)
         if state['skill_name'] not in res.result:
-            await skill_admin.reject('没有这个技能哦, 请重新输入:')
+            await skill_admin.reject('没有这个技能哦, 请重新输入, 取消命令请发送【取消】:')
 
 
 @skill_group_user.got('skill_level', prompt='请输入技能等级【普通/熟练/专业】')
 async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     if state['sub_command'] == '设置' and state['skill_level'] not in ['普通', '熟练', '专业']:
-        await skill_admin.reject('没有这个技能等级哦, 请重新输入:')
+        await skill_admin.reject('没有这个技能等级哦, 请重新输入, 取消命令请发送【取消】:')
 
 
 @skill_group_user.got('sub_command', prompt='执行操作?')

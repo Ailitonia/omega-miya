@@ -65,7 +65,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 @bilibili_live.got('sub_command', prompt='执行操作?\n【订阅/取消订阅/清空订阅/订阅列表】')
 async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     if state['sub_command'] not in ['订阅', '取消订阅', '清空订阅', '订阅列表']:
-        await bilibili_live.reject('没有这个命令哦, 请重新输入:')
+        await bilibili_live.reject('没有这个命令哦, 请在【订阅/取消订阅/清空订阅/订阅列表】中选择并重新发送, 取消命令请发送【取消】:')
     if state['sub_command'] == '订阅列表':
         _res = await sub_list(bot=bot, event=event, state=state)
         if not _res.success():
@@ -88,7 +88,7 @@ async def handle_room_id(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 直播间信息获取部分
     room_id = state['room_id']
     if not re.match(r'^\d+$', room_id):
-        await bilibili_live.reject('这似乎不是房间号呢, 请重新输入:')
+        await bilibili_live.reject('这似乎不是房间号呢, 房间号应为纯数字, 请重新输入:')
     _res = await get_live_info(room_id=room_id)
     if not _res.success():
         logger.error(f'获取直播间信息失败, room_id: {room_id}, error: {_res.info}')

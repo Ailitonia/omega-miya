@@ -58,7 +58,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
     sub_command = state['sub_command']
     if sub_command not in ['订阅', '取消订阅']:
-        await pixivision.reject('没有这个命令哦, 请重新输入:')
+        await pixivision.reject('没有这个命令哦, 请在【订阅/取消订阅】中选择并重新发送, 取消命令请发送【取消】:')
 
     if sub_command == '订阅':
         _res = await sub_add(bot=bot, event=event, state=state)

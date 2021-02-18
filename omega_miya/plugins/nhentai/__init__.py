@@ -1,9 +1,6 @@
 """
-危险功能
-谨慎使用
-请喝茶警告
+请谨慎使用本插件
 要求go-cqhttp v0.9.40以上
-需要 Miya API
 """
 import re
 import os
@@ -13,9 +10,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level, check_auth_node
 from .utils import nh_search, nh_download
-from .allow_list import ALLOW_GROUP
 
 
 # Custom plugin usage text
@@ -26,17 +22,26 @@ __plugin_usage__ = r'''【nh】
 **Permission**
 Command & Lv.50
 
+**AuthNode**
+basic
+
 **Usage**
 /nh search [tag]
 /nh download [id]'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-nhentai = on_command('nh', rule=has_command_permission() & permission_level(level=50), aliases={'NH'},
-                     permission=GROUP, priority=20, block=True)
+nhentai = on_command(
+    'nh', rule=has_command_permission() & permission_level(level=50) & check_auth_node(__name__, 'basic'),
+    aliases={'NH'}, permission=GROUP, priority=20, block=True)
 
 
 # 修改默认参数处理
@@ -48,12 +53,6 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await nhentai.finish('操作已取消')
-
-
-@nhentai.handle()
-async def handle_group_check(bot: Bot, event: GroupMessageEvent, state: T_State):
-    if event.group_id not in ALLOW_GROUP:
-        await nhentai.finish('权限不足')
 
 
 @nhentai.handle()

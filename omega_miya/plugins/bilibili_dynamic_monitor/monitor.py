@@ -44,23 +44,6 @@ async def dynamic_db_upgrade():
     logger.debug('dynamic_db_upgrade: upgrade subscription info completed')
 
 
-@scheduler.scheduled_job(
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='0-1,8-23',
-    minute='*/2',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_dynamic_monitor',
-    coalesce=True,
-    misfire_grace_time=45
-)
 async def bilibili_dynamic_monitor():
 
     logger.debug(f"bilibili_dynamic_monitor: checking started")
@@ -299,6 +282,45 @@ async def bilibili_dynamic_monitor():
     except Exception as e:
         logger.error(f'bilibili_dynamic_monitor: error occurred in checking  {repr(e)}')
 
+
+# 分时间段创建计划任务, 夜间闲时降低检查频率
+scheduler.add_job(
+    bilibili_dynamic_monitor,
+    'cron',
+    # year=None,
+    # month=None,
+    # day='*/1',
+    # week=None,
+    # day_of_week=None,
+    hour='9-23',
+    minute='*/2',
+    # second='*/30',
+    # start_date=None,
+    # end_date=None,
+    # timezone=None,
+    id='bilibili_dynamic_monitor_in_day',
+    coalesce=True,
+    misfire_grace_time=30
+)
+
+scheduler.add_job(
+    bilibili_dynamic_monitor,
+    'cron',
+    # year=None,
+    # month=None,
+    # day='*/1',
+    # week=None,
+    # day_of_week=None,
+    hour='0-8',
+    minute='*/30',
+    # second='*/30',
+    # start_date=None,
+    # end_date=None,
+    # timezone=None,
+    id='bilibili_dynamic_monitor_in_night',
+    coalesce=True,
+    misfire_grace_time=30
+)
 
 __all__ = [
     'scheduler'

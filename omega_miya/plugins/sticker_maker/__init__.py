@@ -59,6 +59,7 @@ async def handle_sticker(bot: Bot, event: GroupMessageEvent, state: T_State):
         '白底': {'name': 'whitebg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '王境泽': {'name': 'wangjingze', 'type': 'gif', 'text_part': 4, 'help_msg': '请检查文本分段'},
         '为所欲为': {'name': 'sorry', 'type': 'gif', 'text_part': 9, 'help_msg': '请检查文本分段'}
     }
@@ -66,7 +67,7 @@ async def handle_sticker(bot: Bot, event: GroupMessageEvent, state: T_State):
     get_sticker_temp = state['temp']
     if not get_sticker_temp or get_sticker_temp not in sticker_temp.keys():
         temp_msg = '【' + str.join('】\n【', sticker_temp.keys()) + '】'
-        await sticker.reject(f'请输入你想要制作的表情包模板:\n{temp_msg}')
+        await sticker.reject(f'请输入你想要制作的表情包模板:\n{temp_msg}\n取消命令请发送【取消】:')
 
     # 获取模板名称、类型
     state['temp_name'] = sticker_temp[get_sticker_temp]['name']
@@ -84,7 +85,7 @@ async def handle_img(bot: Bot, event: GroupMessageEvent, state: T_State):
     image_url = state['image_url']
     if state['temp_type'] not in ['static', 'gif']:
         if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
-            await sticker.reject('你发送的似乎不是图片呢, 请重新发送~')
+            await sticker.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
 
         # 提取图片url
         image_url = re.sub(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=)', '', image_url)

@@ -53,7 +53,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
     image_url = state['image_url']
     if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
-        await search_anime.reject('你发送的似乎不是图片呢, 请重新发送~')
+        await search_anime.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
 
     # 提取图片url
     image_url = re.sub(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=)', '', image_url)
