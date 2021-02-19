@@ -10,7 +10,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level, check_auth_node
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level, has_auth_node
 from .utils import nh_search, nh_download
 
 
@@ -21,6 +21,7 @@ __plugin_usage__ = r'''【nh】
 
 **Permission**
 Command & Lv.50
+with AuthNode
 
 **AuthNode**
 basic
@@ -40,7 +41,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 nhentai = on_command(
-    'nh', rule=has_command_permission() & permission_level(level=50) & check_auth_node(__name__, 'basic'),
+    'nh', rule=has_command_permission() & permission_level(level=50) & has_auth_node(__name__, 'basic'),
     aliases={'NH'}, permission=GROUP, priority=20, block=True)
 
 

@@ -6,7 +6,7 @@ from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
 from .utils import get_identify_result, pic_2_base64
 
 
@@ -17,18 +17,26 @@ __plugin_usage__ = r'''【识番助手】
 
 **Permission**
 Command & Lv.50
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /识番'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-search_anime = on_command('识番', rule=has_command_permission() & permission_level(level=50), aliases={'搜番', '番剧识别'},
-                          permission=GROUP, priority=20, block=True)
+search_anime = on_command('识番', rule=has_command_permission() & has_level_or_node(50, __name__, 'basic'),
+                          aliases={'搜番', '番剧识别'}, permission=GROUP, priority=20, block=True)
 
 
 # 修改默认参数处理

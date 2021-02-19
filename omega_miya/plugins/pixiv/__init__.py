@@ -6,7 +6,7 @@ from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
 from .utils import fetch_json, fetch_image, API_KEY, RANK_API_URL
 
 # Custom plugin usage text
@@ -16,6 +16,10 @@ __plugin_usage__ = r'''【Pixiv助手】
 
 **Permission**
 Command & Lv.50
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /pixiv [PID]
@@ -23,12 +27,17 @@ Command & Lv.50
 /pixiv 周榜
 /pixiv 月榜'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-pixiv = on_command('pixiv', rule=has_command_permission() & permission_level(level=50), aliases={'Pixiv'},
+pixiv = on_command('pixiv', rule=has_command_permission() & has_level_or_node(50, __name__, 'basic'), aliases={'Pixiv'},
                    permission=GROUP, priority=20, block=True)
 
 

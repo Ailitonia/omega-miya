@@ -44,6 +44,7 @@ async def dynamic_db_upgrade():
     logger.debug('dynamic_db_upgrade: upgrade subscription info completed')
 
 
+# 创建动态检查函数
 async def bilibili_dynamic_monitor():
 
     logger.debug(f"bilibili_dynamic_monitor: checking started")

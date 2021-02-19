@@ -169,7 +169,7 @@ class DBAuth(object):
             session.close()
         return result
 
-    def delete(self):
+    def delete(self) -> DBResult:
         session = NBdb().get_session()
         try:
             if self.auth_type == 'user':
@@ -196,6 +196,34 @@ class DBAuth(object):
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
             session.rollback()
+            result = DBResult(error=True, info=repr(e), result=-1)
+        finally:
+            session.close()
+        return result
+
+    @classmethod
+    def list(cls, auth_type: str, auth_id: int) -> DBResult:
+        session = NBdb().get_session()
+        try:
+            if auth_type == 'user':
+                auth_node_list = session.query(AuthUser.auth_node, AuthUser.allow_tag, AuthUser.deny_tag). \
+                    join(User). \
+                    filter(AuthUser.user_id == User.id). \
+                    filter(User.qq == auth_id).all()
+                result = DBResult(error=False, info='Success', result=auth_node_list)
+            elif auth_type == 'group':
+                auth_node_list = session.query(AuthGroup.auth_node, AuthGroup.allow_tag, AuthGroup.deny_tag). \
+                    join(Group). \
+                    filter(AuthGroup.group_id == Group.id). \
+                    filter(Group.group_id == auth_id).all()
+                result = DBResult(error=False, info='Success', result=auth_node_list)
+            else:
+                result = DBResult(error=True, info='Auth type error', result=-1)
+        except NoResultFound:
+            result = DBResult(error=True, info='NoResultFound', result=-1)
+        except MultipleResultsFound:
+            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+        except Exception as e:
             result = DBResult(error=True, info=repr(e), result=-1)
         finally:
             session.close()

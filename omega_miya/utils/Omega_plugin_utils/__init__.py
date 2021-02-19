@@ -64,7 +64,7 @@ def permission_level(level: int) -> Rule:
 
 
 # 权限节点检查
-def check_auth_node(*auth_nodes: str) -> Rule:
+def has_auth_node(*auth_nodes: str) -> Rule:
     async def _has_auth_node(bot: Bot, event: Event, state: T_State) -> bool:
         auth_node = '.'.join(auth_nodes)
         detail_type = event.dict().get(f'{event.get_type()}_type')
@@ -86,3 +86,40 @@ def check_auth_node(*auth_nodes: str) -> Rule:
         else:
             return False
     return Rule(_has_auth_node)
+
+
+# 由于目前nb2暂不支持or连接rule, 因此将or逻辑放在rule内处理
+def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
+    async def _has_level_or_node(bot: Bot, event: Event, state: T_State) -> bool:
+        auth_node = '.'.join(auth_nodes)
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        group_id = event.dict().get('group_id')
+        user_id = event.dict().get('user_id')
+
+        # level检查部分
+        if detail_type != 'group':
+            level_checker = False
+        else:
+            if DBGroup(group_id=group_id).permission_level().result >= level:
+                return True
+            else:
+                level_checker = False
+
+        # node检查部分
+        if detail_type == 'private':
+            allow_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).allow_tag().result
+            deny_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).deny_tag().result
+        elif detail_type == 'group':
+            allow_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).allow_tag().result
+            deny_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).deny_tag().result
+        else:
+            allow_tag = 0
+            deny_tag = 0
+
+        if allow_tag == 1 and deny_tag == 0:
+            return True
+        else:
+            node_checker = False
+
+        return level_checker or node_checker
+    return Rule(_has_level_or_node)

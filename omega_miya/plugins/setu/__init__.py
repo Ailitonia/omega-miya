@@ -9,7 +9,7 @@ from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
 from omega_miya.utils.Omega_Base import DBPixivtag, DBPixivillust
 from .utils import fetch_illust_b64, add_illust
 
@@ -21,6 +21,11 @@ __plugin_usage__ = r'''【来点涩图】
 
 **Permission**
 Command & Lv.50
+or AuthNode
+
+**AuthNode**
+setu
+moepic
 
 **Usage**
 /来点涩图 [tag]
@@ -30,12 +35,18 @@ Command & Lv.50
 /图库统计
 /导入图库'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'setu',
+    'moepic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-setu = on_command('来点涩图', rule=has_command_permission() & permission_level(level=50),
+setu = on_command('来点涩图', rule=has_command_permission() & has_level_or_node(50, __name__, 'setu'),
                   permission=GROUP, priority=20, block=True)
 
 
@@ -116,7 +127,7 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 # 注册事件响应器
-moepic = on_command('来点萌图', rule=has_command_permission() & permission_level(level=50),
+moepic = on_command('来点萌图', rule=has_command_permission() & has_level_or_node(50, __name__, 'moepic'),
                     permission=GROUP, priority=20, block=True)
 
 

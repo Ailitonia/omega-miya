@@ -15,7 +15,7 @@ __plugin_usage__ = r'''【OmegaAuth 授权管理插件】
 插件特殊权限授权管理
 
 **Usage**
-**GroupAdmin and SuperUser Only**
+**SuperUser Only**
 /OmegaAuth'''
 
 # Init plugin export
@@ -48,11 +48,39 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
         await omegaauth.finish('参数错误QAQ')
 
 
-@omegaauth.got('sub_command', prompt='执行操作?\n【allow/deny/clear】')
+@omegaauth.got('sub_command', prompt='执行操作?\n【allow/deny/clear/list】')
 async def handle_sub_command(bot: Bot, event: Event, state: T_State):
     sub_command = state["sub_command"]
-    if sub_command not in ['allow', 'deny', 'clear']:
+    if sub_command not in ['allow', 'deny', 'clear', 'list']:
         await omegaauth.finish('参数错误QAQ')
+
+
+# 处理显示权限节点列表事件
+@omegaauth.got('sub_command', prompt='list:')
+async def handle_list_node(bot: Bot, event: Event, state: T_State):
+    sub_command = state["sub_command"]
+    if sub_command == 'list':
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        if detail_type == 'group':
+            group_id = event.dict().get('group_id')
+            _res = DBAuth.list(auth_type='group', auth_id=group_id)
+            if _res.success():
+                node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
+                msg = f'当前群组权限列表为:\n\n{node_text}'
+                await omegaauth.finish(msg)
+            else:
+                await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
+        elif detail_type == 'private':
+            user_id = event.dict().get('user_id')
+            _res = DBAuth.list(auth_type='user', auth_id=user_id)
+            if _res.success():
+                node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
+                msg = f'当前用户权限列表为:\n\n{node_text}'
+                await omegaauth.finish(msg)
+            else:
+                await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
+        else:
+            await omegaauth.finish('非授权会话, 操作中止')
 
 
 @omegaauth.got('auth_type', prompt='授权类型?\n【user/group】')
