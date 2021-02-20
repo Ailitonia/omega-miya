@@ -53,6 +53,9 @@ api主要用于获取pixiv等网站内容
 
 - [Nonebot2](https://github.com/nonebot/nonebot2)
 - [go-cqhttp](https://github.com/Mrs4s/go-cqhttp)
+- [OneBot](https://github.com/howmanybots/onebot)
+- [ZhouShen_Hime](https://github.com/HakuRemu/ZhouShen_Hime)
+
 
 ## 说点题外话
 
