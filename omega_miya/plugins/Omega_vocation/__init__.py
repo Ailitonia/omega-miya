@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from nonebot import on_command, export, logger, require
+from nonebot import MatcherGroup, export, logger, require
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
@@ -30,8 +30,10 @@ Command & Lv.80
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
-my_status = on_command('我的状态', rule=has_command_permission() & permission_level(level=80),
-                       permission=GROUP, priority=10, block=True)
+vocation = MatcherGroup(type='message', rule=has_command_permission() & permission_level(level=80),
+                        permission=GROUP, priority=10, block=True)
+
+my_status = vocation.on_command('我的状态')
 
 
 @my_status.handle()
@@ -55,8 +57,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-reset_status = on_command('重置状态', rule=has_command_permission() & permission_level(level=80), aliases={'销假'},
-                          permission=GROUP, priority=10, block=True)
+reset_status = vocation.on_command('重置状态', aliases={'销假'})
 
 
 @reset_status.handle()
@@ -73,8 +74,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-my_vocation = on_command('我的假期', rule=has_command_permission() & permission_level(level=80),
-                         permission=GROUP, priority=10, block=True)
+my_vocation = vocation.on_command('我的假期')
 
 
 @my_vocation.handle()
@@ -96,8 +96,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-set_vocation = on_command('请假', rule=has_command_permission() & permission_level(level=80),
-                          permission=GROUP, priority=10, block=True)
+set_vocation = vocation.on_command('请假')
 
 
 # 修改默认参数处理
@@ -167,8 +166,7 @@ async def handle_vocation_stop(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-get_idle = on_command('谁有空', rule=has_command_permission() & permission_level(level=80),
-                      permission=GROUP, priority=10, block=True)
+get_idle = vocation.on_command('谁有空')
 
 
 # 修改默认参数处理
@@ -234,8 +232,7 @@ async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 # 注册事件响应器
-get_vocation = on_command('谁在休假', rule=has_command_permission() & permission_level(level=80),
-                          permission=GROUP, priority=10, block=True)
+get_vocation = vocation.on_command('谁在休假')
 
 
 @get_vocation.handle()

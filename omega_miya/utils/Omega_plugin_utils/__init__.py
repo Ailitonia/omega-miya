@@ -74,7 +74,7 @@ def has_auth_node(*auth_nodes: str) -> Rule:
         if detail_type == 'private':
             allow_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).allow_tag().result
             deny_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).deny_tag().result
-        elif detail_type == 'group':
+        elif detail_type == 'group' or detail_type == 'group_upload':
             allow_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).allow_tag().result
             deny_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).deny_tag().result
         else:

@@ -10,7 +10,7 @@ class Voice(object):
         plugin_path = os.path.dirname(os.path.abspath(__file__))
         if voice in self.VoicesFiles.keys():
             return os.path.join(plugin_path, 'voices', self.VoicesFiles[voice]['file'])
-        else:
+        elif voice:
             voice_list = []
             for name, content in self.VoicesFiles.items():
                 if voice == content['tag']:
@@ -19,6 +19,11 @@ class Voice(object):
                 return ''
             else:
                 return os.path.join(plugin_path, 'voices', random.choice(voice_list))
+        else:
+            voice_list = []
+            for name, content in self.VoicesFiles.items():
+                voice_list.append(content['file'])
+            return os.path.join(plugin_path, 'voices', random.choice(voice_list))
 
 
 class MiyaVoice(Voice):
