@@ -519,6 +519,7 @@ class ZhouChecker(object):
             if seq >= len(event_lines):
                 # 这里是最后一行了
                 break
+            # 由前向后搜索, 匹配最近符合的两行. 处理完直接跳出
             for end_line_num, end_line in list(event_lines.items())[seq:]:
 
                 # 开启style_mode后跳过不比较不同style的行

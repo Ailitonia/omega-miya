@@ -47,6 +47,10 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     if file_name.split('.')[-1] not in ['ass', 'ASS']:
         await zhouShenHime.finish()
 
+    # 只处理文件名中含"未校""待校""需校"的文件
+    if not any(key in file_name for key in ['未校', '待校', '需校']):
+        await zhouShenHime.finish()
+
     plugin_path = os.path.dirname(__file__)
     download_dir = os.path.join(plugin_path, 'file_downloaded')
     if not os.path.exists(download_dir):
