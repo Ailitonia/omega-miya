@@ -54,9 +54,6 @@ def make_gif_with_ffmpeg(template_name, sentences, filename):
     video_path = os.path.join(plugin_path, 'gif_static', template_name, 'template.mp4')
     log.logger.debug(ass_path, gif_path, video_path)
 
-    # 使用插件携带ffmpeg程序执行
-    # cmd = f'''{plugin_path}/ffmpeg -i {video_path} -r 8 -vf "ass='{ass_path}',scale=300:-1" -y {gif_path}'''
-
     # 使用系统环境ffmpeg执行
     cmd = f'''ffmpeg -i {video_path} -r 8 -vf "ass='{ass_path}',scale=300:-1" -y {gif_path}'''
 
@@ -66,13 +63,3 @@ def make_gif_with_ffmpeg(template_name, sentences, filename):
     if p.returncode != 0:
         log.logger.error("Error.")
         return -1
-
-
-if __name__ == '__main__':
-    log.logger.info(str(["hello"]))
-    test_sentences = ["好啊", "就算你是一流工程师", "就算你出报告再完美", "我叫你改报告你就要改",
-                      "毕竟我是客户", "客户了不起啊", "sorry 客户真的了不起", "以后叫他天天改报告", "天天改 天天改"]
-    test_template_name = "sorry"
-    path = render_gif(test_template_name, test_sentences)
-    print(path)
-    log.logger.info(path)

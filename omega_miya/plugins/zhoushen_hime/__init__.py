@@ -8,8 +8,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupUploadNoticeEvent
 from omega_miya.utils.Omega_plugin_utils import init_export, has_auth_node
-from .utils import download_file
-from .hime_main import ZhouChecker
+from .utils import ZhouChecker, download_file
 
 
 # Custom plugin usage text
@@ -66,7 +65,7 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     checker = ZhouChecker(file_path=download_file_path, flash_mode=True)
 
     try:
-        init_res = checker.init_file()
+        init_res = checker.init_file(auto_style=True)
         if not init_res.success():
             logger.error(f'初始化时轴文件失败: {init_res.info}')
             await zhouShenHime.finish('出错了QAQ')
@@ -87,7 +86,13 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     output_ass_filename = os.path.basename(output_ass_path)
 
     character_count = handle_res.result.get('character_count')
-    zhou_count = handle_res.result.get('zhou_count')
+    overlap_count = handle_res.result.get('overlap_count')
+    flash_count = handle_res.result.get('flash_count')
+
+    # 没有检查到错误的话就直接结束
+    if character_count + flash_count + overlap_count == 0:
+        msg = f'看完了! 没有发现符号错误、疑问文本、叠轴和闪轴, 真棒~'
+        await zhouShenHime.finish(msg)
 
     try:
         group_file_info = await bot.call_api(api='get_group_root_files', group_id=event.group_id)
@@ -115,5 +120,6 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
         await zhouShenHime.finish('出错了QAQ')
         return
 
-    msg = f'看完了! 以下是结果:\n\n符号及疑问文本共{character_count}处\n连轴及闪轴共{zhou_count}处\n\n锤轴结果已上传, 请参考修改哟~'
+    msg = f'看完了! 以下是结果:\n\n符号及疑问文本共{character_count}处\n' \
+          f'叠轴共{overlap_count}处\n闪轴共{flash_count}处\n\n锤轴结果已上传, 请参考修改哟~'
     await zhouShenHime.finish(msg)
