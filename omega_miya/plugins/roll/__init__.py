@@ -71,7 +71,7 @@ async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
             dice_result += this_dice_result
         await roll.finish(f'你掷出了{dice_num}个{dice_side}面骰子, 点数为【{dice_result}】')
     else:
-        await roll.reject(f'格式不对呢, 请重新输入: <x>d<y>, 取消命令请发送【取消】:')
+        await roll.finish(f'格式不对呢, 请重新输入: /roll <x>d<y>:')
 
 
 lottery = on_command('抽奖', rule=has_command_permission() & permission_level(level=10),
@@ -124,4 +124,4 @@ async def handle_lottery(bot: Bot, event: GroupMessageEvent, state: T_State):
         msg = '【' + str.join('】\n【', lottery_result) + '】'
         await lottery.finish(f"抽奖人数: 【{people_num}】\n以下是中奖名单:\n{msg}")
     else:
-        await lottery.reject(f'格式不对呢, 人数应该是数字, 请重新输入, 取消命令请发送【取消】:')
+        await lottery.finish(f'格式不对呢, 人数应该是数字')

@@ -195,6 +195,9 @@ class AssScriptLine(object):
         if not self.__is_init:
             return self.raw_text
 
+        if self.__type in [AssScriptLine.__Header, AssScriptLine.__Style]:
+            return self.raw_text
+
         start_time = self.start_time.strftime('%H:%M:%S.%f')[:-4]
         if start_time[0] == '0':
             start_time = start_time[1:]
@@ -413,7 +416,7 @@ class ZhouChecker(object):
         :param multi_threshold_time: 多行闪轴判断阈值, 单位毫秒, 默认300
         :param flash_mode: 是否启用单行闪轴强制去除(可能导致多行闪轴), 默认False
         :param style_mode: 是否启用样式判断, 默认False
-        :param fx_mode: 是否检查含特效的行, True
+        :param fx_mode: 是否检查含特效的行, 默认True
         """
         self.__file_path = file_path
         self.__single_threshold_time = single_threshold_time
@@ -547,7 +550,7 @@ class ZhouChecker(object):
                 # 处理叠轴
                 if overlap == 1:
                     overlap_count += 1
-                    out_log += f"第{start_line.event_line_num}行轴和第{end_line.event_line_num}行是可能是叠轴, 请检查一下\n"
+                    out_log += f"第{start_line.event_line_num}行轴和第{end_line.event_line_num}行可能是叠轴, 请检查一下\n"
 
                 # 处理闪轴
                 # 是单行闪轴还和后面连轴了
@@ -623,7 +626,7 @@ class ZhouChecker(object):
 
         # 输出路径
         output_txt_path = f"{self.__file_path}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}_锤.txt"
-        output_ass_path = f"{self.__file_path}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}-改.ass"
+        output_ass_path = f"{self.__file_path}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}_改.ass"
         with open(output_txt_path, 'w', encoding='utf-8') as ft:
             ft.writelines(out_log)
         with open(output_ass_path, 'w', encoding='utf-8-sig') as fn:

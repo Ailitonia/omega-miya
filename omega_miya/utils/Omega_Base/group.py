@@ -1,7 +1,8 @@
 from .database import NBdb, DBResult
-from .tables import User, Group, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub
+from .tables import User, Group, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub, EmailBox, GroupEmailBox
 from .user import DBUser, DBSkill
 from .subscription import DBSubscription
+from .mail import DBEmailBox
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
@@ -493,4 +494,94 @@ class DBGroup(object):
                 session.close()
         else:
             result = DBResult(error=True, info='Group or subscription not exist', result=-1)
+        return result
+
+    def mailbox_list(self) -> DBResult:
+        session = NBdb().get_session()
+        if self.exist():
+            mailbox_list = session.query(EmailBox.address).join(GroupEmailBox).\
+                    filter(EmailBox.id == GroupEmailBox.email_box_id). \
+                    filter(GroupEmailBox.group_id == self.id().result).all()
+            res = [x[0] for x in mailbox_list]
+            result = DBResult(error=False, info='Success', result=res)
+        else:
+            result = DBResult(error=True, info='Group not exist', result=[])
+        session.close()
+        return result
+
+    def mailbox_add(self, mailbox: DBEmailBox, mailbox_info: str = None) -> DBResult:
+        if self.exist() and mailbox.exist():
+            session = NBdb().get_session()
+            try:
+                # 群邮箱已存在, 更新信息
+                exist_mailbox = session.query(GroupEmailBox). \
+                    filter(GroupEmailBox.group_id == self.id().result). \
+                    filter(GroupEmailBox.email_box_id == mailbox.id().result).one()
+                exist_mailbox.box_info = mailbox_info
+                exist_mailbox.updated_at = datetime.now()
+                session.commit()
+                result = DBResult(error=False, info='Success upgraded', result=0)
+            except NoResultFound:
+                # 不存在关系则添加新邮箱
+                try:
+                    new_mailbox = GroupEmailBox(email_box_id=mailbox.id().result, group_id=self.id().result,
+                                                box_info=mailbox_info, created_at=datetime.now())
+                    session.add(new_mailbox)
+                    session.commit()
+                    result = DBResult(error=False, info='Success added', result=0)
+                except Exception as e:
+                    session.rollback()
+                    result = DBResult(error=True, info=repr(e), result=-1)
+            except MultipleResultsFound:
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or mailbox not exist', result=-1)
+        return result
+
+    def mailbox_del(self, mailbox: DBEmailBox) -> DBResult:
+        if self.exist() and mailbox.exist():
+            session = NBdb().get_session()
+            try:
+                # 群邮箱已存在, 更新信息
+                exist_mailbox = session.query(GroupEmailBox). \
+                    filter(GroupEmailBox.group_id == self.id().result). \
+                    filter(GroupEmailBox.email_box_id == mailbox.id().result).one()
+                session.delete(exist_mailbox)
+                session.commit()
+                result = DBResult(error=False, info='Success', result=0)
+            except NoResultFound:
+                result = DBResult(error=True, info='NoResultFound', result=-1)
+            except MultipleResultsFound:
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or mailbox not exist', result=-1)
+        return result
+
+    def mailbox_clear(self) -> DBResult:
+        if self.exist():
+            session = NBdb().get_session()
+            # 查询成员-群组表中用户-群关系
+            try:
+                for exist_mailbox in \
+                        session.query(GroupEmailBox).filter(GroupEmailBox.group_id == self.id().result).all():
+                    session.delete(exist_mailbox)
+                session.commit()
+                result = DBResult(error=False, info='Success', result=0)
+            except Exception as e:
+                session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
+            finally:
+                session.close()
+        else:
+            result = DBResult(error=True, info='Group or mailbox not exist', result=-1)
         return result

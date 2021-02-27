@@ -114,6 +114,8 @@ class Group(Base):
                             cascade="all, delete", passive_deletes=True)
     group_auth = relationship('AuthGroup', back_populates='auth_for_group', uselist=False,
                               cascade="all, delete", passive_deletes=True)
+    group_box = relationship('GroupEmailBox', back_populates='box_for_group',
+                             cascade="all, delete", passive_deletes=True)
 
     def __init__(self, name, group_id, notice_permissions, command_permissions,
                  permission_level, created_at=None, updated_at=None):
@@ -222,6 +224,101 @@ class AuthGroup(Base):
                "created_at='%s', created_at='%s')>" % (
                    self.group_id, self.auth_node, self.allow_tag, self.deny_tag, self.auth_info,
                    self.created_at, self.updated_at)
+
+
+# 邮箱表
+class EmailBox(Base):
+    __tablename__ = 'email_box'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('email_box_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    address = Column(String(128), nullable=False, index=True, unique=True, comment='邮箱地址')
+    server_host = Column(String(128), nullable=False, comment='IMAP服务器地址')
+    protocol = Column(String(16), nullable=False, comment='协议')
+    port = Column(Integer, nullable=False, comment='服务器端口')
+    password = Column(String(128), nullable=False, comment='密码, 注意明文!!这个是给插件读公共邮箱用的, 严禁写入个人邮箱信息')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    used_box = relationship('GroupEmailBox', back_populates='has_box',
+                            cascade="all, delete", passive_deletes=True)
+
+    def __init__(self, address: str, server_host: str, password: str,
+                 protocol: str = 'imap', port: int = 993, created_at=None, updated_at=None):
+        self.address = address
+        self.server_host = server_host
+        self.protocol = protocol
+        self.port = port
+        self.password = password
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<EmailBox(address='%s', server_host='%s', port='%s', port='%s', created_at='%s', updated_at='%s')>" % (
+                   self.address, self.server_host, self.protocol, self.port, self.created_at, self.updated_at)
+
+
+# 群组邮箱表
+class GroupEmailBox(Base):
+    __tablename__ = 'group_email_box'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('group_email_box_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    email_box_id = Column(Integer, ForeignKey('email_box.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    box_info = Column(String(64), nullable=True, comment='群邮箱信息，暂空备用')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    box_for_group = relationship('Group', back_populates='group_box')
+
+    has_box = relationship('EmailBox', back_populates='used_box')
+
+    def __init__(self, email_box_id, group_id, box_info=None, created_at=None, updated_at=None):
+        self.email_box_id = email_box_id
+        self.group_id = group_id
+        self.box_info = box_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<GroupEmailBox(email_box_id='%s', group_id='%s', box_info='%s', created_at='%s', created_at='%s')>" % (
+                   self.email_box_id, self.group_id, self.box_info, self.created_at, self.updated_at)
+
+
+# 邮件表
+class Email(Base):
+    __tablename__ = 'emails'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('emails_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    mail_hash = Column(String(128), nullable=False, index=True, unique=True, comment='邮件hash')
+    date = Column(String(128), nullable=False, comment='时间')
+    header = Column(String(128), nullable=False, comment='标题')
+    sender = Column(String(128), nullable=False, comment='发件人')
+    to = Column(String(1024), nullable=False, comment='收件人')
+    body = Column(String(4096), nullable=True, comment='正文')
+    html = Column(String(8192), nullable=True, comment='html正文')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, mail_hash, date, header, sender, to, body, html, created_at=None, updated_at=None):
+        self.mail_hash = mail_hash
+        self.date = date
+        self.header = header
+        self.sender = sender
+        self.to = to
+        self.body = body
+        self.html = html
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<Email(mail_hash='%s',date='%s',header='%s',sender='%s'," \
+               "to='%s', body='%s', html='%s', created_at='%s', created_at='%s')>" % (
+                   self.mail_hash, self.date, self.header, self.sender,
+                   self.to, self.body, self.html, self.created_at, self.updated_at)
 
 
 # 记录表

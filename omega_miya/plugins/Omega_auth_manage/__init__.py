@@ -29,7 +29,7 @@ omegaauth = on_command('OmegaAuth', rule=to_me(), aliases={'omegaauth', 'oauth'}
 # 修改默认参数处理
 @omegaauth.args_parser
 async def parse(bot: Bot, event: Event, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split()
     if not args:
         await omegaauth.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -39,7 +39,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 @omegaauth.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split()
     if not args:
         pass
     elif args and len(args) == 1:
