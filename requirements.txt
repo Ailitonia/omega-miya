@@ -13,3 +13,4 @@ ujson~=4.0.2
 msgpack~=1.0.2
 pydantic~=1.7.2
 APScheduler~=3.6.3
+pycryptodome~=3.10.1

@@ -236,7 +236,7 @@ class EmailBox(Base):
     server_host = Column(String(128), nullable=False, comment='IMAP服务器地址')
     protocol = Column(String(16), nullable=False, comment='协议')
     port = Column(Integer, nullable=False, comment='服务器端口')
-    password = Column(String(128), nullable=False, comment='密码, 注意明文!!这个是给插件读公共邮箱用的, 严禁写入个人邮箱信息')
+    password = Column(String(256), nullable=False, comment='密码')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 

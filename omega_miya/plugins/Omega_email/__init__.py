@@ -1,7 +1,3 @@
-"""
-注意!!!明文密码!!!
-这个是给插件读公共邮箱用的, 严禁写入个人邮箱信息
-"""
 import re
 from nonebot import MatcherGroup, export, logger
 from nonebot.rule import to_me
@@ -12,7 +8,7 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBEmailBox, DBGroup
 from omega_miya.utils.Omega_plugin_utils import init_export, has_command_permission, has_auth_node
-from .utils import check_mailbox, get_unseen_mail_info
+from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decrypt_password
 
 
 # Custom plugin usage text
@@ -59,16 +55,16 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @admin_mail_add.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    await admin_mail_add.send('您正在添加邮箱, 请按指示操作, 注意: 当前只支持接收IMAP邮箱邮件!')
     args = str(event.get_plaintext()).strip().split()
     if args:
         await admin_mail_add.finish('该命令不支持参数QAQ')
+    await admin_mail_add.send('您正在添加邮箱, 请按提示操作, 注意: 当前只支持接收IMAP邮箱邮件!')
 
 
 @admin_mail_add.got('address', prompt='请输入邮箱地址:')
 @admin_mail_add.got('server_host', prompt='请输入IMAP服务器地址:')
 @admin_mail_add.got('password', prompt='请输入邮箱密码:')
-async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State):
+async def handle_admin_mail_add(bot: Bot, event: MessageEvent, state: T_State):
     address = state['address']
     server_host = state['server_host']
     password = state['password']
@@ -78,6 +74,8 @@ async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State)
         logger.warning(f'{event.user_id} 添加邮箱: {address} 失败, 邮箱验证不通过, error: {check_result.info}')
         await admin_mail_add.finish('验证邮箱失败了QAQ, 请检查邮箱信息或稍后再试')
 
+    # 对密码加密保存
+    password = encrypt_password(plaintext=password)
     add_result = DBEmailBox(address=address).add(server_host=server_host, password=password)
 
     if add_result.success():
@@ -121,7 +119,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 @admin_mail_bind.got('email_address', prompt='请输入需要绑定的邮箱地址:')
-async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_admin_mail_bind(bot: Bot, event: GroupMessageEvent, state: T_State):
     mailbox_list = state['mailbox_list']
     email_address = state['email_address']
 
@@ -138,6 +136,27 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
     else:
         logger.error(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 失败, error: {res.info}')
         await admin_mail_bind.finish('绑定邮箱失败QAQ, 请检联系管理员处理')
+
+
+admin_mail_clear = OmegaEmail_admin.on_command('情清空绑定邮箱')
+
+
+@admin_mail_clear.handle()
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    args = str(event.get_plaintext()).strip().split()
+    if args:
+        await mail_receive.finish('该命令不支持参数QAQ')
+
+    group_id = event.group_id
+    group = DBGroup(group_id=group_id)
+    res = group.mailbox_clear()
+
+    if res.success():
+        logger.info(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱成功')
+        await admin_mail_bind.finish('Success! 已清空本群组的绑定邮箱')
+    else:
+        logger.info(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱失败, error: {res.info}')
+        await admin_mail_bind.finish('清空本群组的绑定邮箱失败QAQ, 请检联系管理员处理')
 
 
 # 注册事件响应器
@@ -158,7 +177,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     group_bind_mailbox = group.mailbox_list()
     if not group_bind_mailbox.success() or not group_bind_mailbox.result:
         logger.info(f'{group_id} 收邮件失败: 没有绑定的邮箱')
-        await mail_receive.finish('本群组没有绑定的邮箱, 请先绑定又想后再收件!')
+        await mail_receive.finish('本群组没有绑定的邮箱, 请先绑定邮箱后再收件!')
 
     mail_box_list_msg = '\n'.join([x for x in group_bind_mailbox.result])
     await mail_receive.send(f'本群组已绑定邮箱:\n{mail_box_list_msg}\n\n正在连接到邮箱服务器, 请稍后...')
@@ -172,6 +191,13 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
         host = mailbox.result.get('server_host')
         password = mailbox.result.get('password')
+        # 解密密码
+        password = decrypt_password(ciphertext=password)
+        if not password.success():
+            logger.error(f'邮箱 {mailbox_address} 密码验证失败')
+            await mail_receive.send(f'邮箱: {mailbox_address}\n密码验证失败QAQ, 请联系管理员处理')
+            continue
+        password = password.result
         unseen_mail_res = await get_unseen_mail_info(address=mailbox_address, server_host=host, password=password)
         if not unseen_mail_res.success():
             logger.error(f'邮箱 {mailbox_address} 收件失败, error: {unseen_mail_res.info}')
@@ -184,8 +210,9 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         else:
             for mail in unseen_mail_res.result:
                 html = mail.html
-                reg = re.compile('<[^>]*>')
-                content = reg.sub('', html).replace('\n', '').replace(' ', '')
+                content = re.sub(r'<[^>]*>', '', html)
+                content = re.sub(r'\s', '', content)
+                content = content.replace('&nbsp;', '').replace('\n', '').replace(' ', '')
                 msg = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'='*16}\n{content}"
                 await mail_receive.send(msg)
             logger.info(f'邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail_res.result)}封新的邮件')

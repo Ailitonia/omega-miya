@@ -1,6 +1,13 @@
 import asyncio
+import nonebot
+import json
 from omega_miya.utils.Omega_Base import DBEmail, Result
+from omega_miya.utils.Omega_plugin_utils import AESEncryptStr
 from .imap import EmailImap
+
+
+global_config = nonebot.get_driver().config
+AES_KEY = global_config.aes_key
 
 
 async def check_mailbox(address: str, server_host: str, password: str) -> Result:
@@ -40,3 +47,21 @@ async def get_unseen_mail_info(address: str, server_host: str, password: str) ->
     result = await loop.run_in_executor(None, __get_unseen_mail_info)
 
     return result
+
+
+def encrypt_password(plaintext: str) -> str:
+    encryptor = AESEncryptStr(key=AES_KEY)
+    return json.dumps(list(encryptor.encrypt(plaintext)))
+
+
+def decrypt_password(ciphertext: str) -> Result:
+    encryptor = AESEncryptStr(key=AES_KEY)
+    try:
+        data = json.loads(ciphertext)
+        stat, plaintext = encryptor.decrypt(data[0], data[1], data[2])
+        if stat:
+            return Result(error=False, info='Success', result=plaintext)
+        else:
+            return Result(error=True, info='Key incorrect or message corrupted', result=plaintext)
+    except Exception as e:
+        return Result(error=True, info=f'Ciphertext parse error: {repr(e)}', result='')
