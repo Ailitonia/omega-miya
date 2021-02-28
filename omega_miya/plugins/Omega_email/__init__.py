@@ -138,7 +138,7 @@ async def handle_admin_mail_bind(bot: Bot, event: GroupMessageEvent, state: T_St
         await admin_mail_bind.finish('绑定邮箱失败QAQ, 请检联系管理员处理')
 
 
-admin_mail_clear = OmegaEmail_admin.on_command('情清空绑定邮箱')
+admin_mail_clear = OmegaEmail_admin.on_command('清空绑定邮箱')
 
 
 @admin_mail_clear.handle()

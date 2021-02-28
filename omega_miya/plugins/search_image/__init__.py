@@ -69,9 +69,11 @@ async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
     try:
         await search_image.send('获取识别结果中, 请稍后~')
         identify_result = await get_identify_result(url=image_url)
-        identify_ascii2d_result = await get_ascii2d_identify_result(url=image_url)
-        # 合并搜索结果
-        identify_result.extend(identify_ascii2d_result)
+        # saucenao 没有结果时再使用 ascii2d 进行搜索
+        if not identify_result:
+            identify_ascii2d_result = await get_ascii2d_identify_result(url=image_url)
+            # 合并搜索结果
+            identify_result.extend(identify_ascii2d_result)
         if identify_result:
             for item in identify_result:
                 try:
