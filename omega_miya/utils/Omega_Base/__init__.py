@@ -15,6 +15,7 @@ from .pixivision import DBPixivision
 from .mail import DBEmail, DBEmailBox
 from .history import DBHistory
 from .auth import DBAuth
+from .cooldown import DBCoolDownEvent
 from .database import DBResult as Result
 
 
@@ -32,5 +33,6 @@ __all__ = [
     'DBEmailBox',
     'DBHistory',
     'DBAuth',
+    'DBCoolDownEvent',
     'Result'
 ]

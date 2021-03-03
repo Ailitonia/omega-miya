@@ -599,3 +599,38 @@ class Pixivision(Base):
                "tags='%s', illust_id='%s', url='%s', created_at='%s', created_at='%s')>" % (
                    self.aid, self.title, self.description,
                    self.tags, self.illust_id, self.url, self.created_at, self.updated_at)
+
+
+# 冷却事件表
+class CoolDownEvent(Base):
+    __tablename__ = 'cool_down_event'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('cool_down_event_id_seq'),
+                primary_key=True, nullable=False, index=True, unique=True)
+    event_type = Column(String(16), nullable=False, comment='冷却事件类型/global/plugin/group/user')
+    stop_at = Column(DateTime, nullable=False, comment='冷却结束时间')
+    plugin = Column(String(64), nullable=True, comment='plugin事件对应插件名')
+    group_id = Column(Integer, nullable=True, comment='group事件对应group_id')
+    user_id = Column(Integer, nullable=True, comment='user事件对应user_id')
+    description = Column(String(128), nullable=True, comment='事件描述')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, event_type, stop_at, plugin=None, group_id=None, user_id=None, description=None,
+                 created_at=None, updated_at=None):
+        self.event_type = event_type
+        self.stop_at = stop_at
+        self.plugin = plugin
+        self.group_id = group_id
+        self.user_id = user_id
+        self.description = description
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<CoolDownEvent(event_type='%s',stop_at='%s',plugin='%s'," \
+               "group_id='%s', user_id='%s', description='%s', created_at='%s', created_at='%s')>" % (
+                   self.event_type, self.stop_at, self.plugin,
+                   self.group_id, self.user_id, self.description, self.created_at, self.updated_at)

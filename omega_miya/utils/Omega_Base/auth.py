@@ -119,21 +119,21 @@ class DBAuth(object):
         session = NBdb().get_session()
         try:
             if self.auth_type == 'user':
-                auth_table_id = session.query(AuthUser.allow_tag).join(User). \
+                allow_tag = session.query(AuthUser.allow_tag).join(User). \
                     filter(AuthUser.user_id == User.id). \
                     filter(User.qq == self.auth_id). \
                     filter(AuthUser.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=auth_table_id)
+                result = DBResult(error=False, info='Success', result=allow_tag)
             elif self.auth_type == 'group':
-                auth_table_id = session.query(AuthGroup.allow_tag).join(Group). \
+                allow_tag = session.query(AuthGroup.allow_tag).join(Group). \
                     filter(AuthGroup.group_id == Group.id). \
                     filter(Group.group_id == self.auth_id). \
                     filter(AuthGroup.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=auth_table_id)
+                result = DBResult(error=False, info='Success', result=allow_tag)
             else:
                 result = DBResult(error=True, info='Auth type error', result=-1)
         except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-1)
+            result = DBResult(error=True, info='NoResultFound', result=-2)
         except MultipleResultsFound:
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:
@@ -146,21 +146,21 @@ class DBAuth(object):
         session = NBdb().get_session()
         try:
             if self.auth_type == 'user':
-                auth_table_id = session.query(AuthUser.deny_tag).join(User). \
+                deny_tag = session.query(AuthUser.deny_tag).join(User). \
                     filter(AuthUser.user_id == User.id). \
                     filter(User.qq == self.auth_id). \
                     filter(AuthUser.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=auth_table_id)
+                result = DBResult(error=False, info='Success', result=deny_tag)
             elif self.auth_type == 'group':
-                auth_table_id = session.query(AuthGroup.deny_tag).join(Group). \
+                deny_tag = session.query(AuthGroup.deny_tag).join(Group). \
                     filter(AuthGroup.group_id == Group.id). \
                     filter(Group.group_id == self.auth_id). \
                     filter(AuthGroup.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=auth_table_id)
+                result = DBResult(error=False, info='Success', result=deny_tag)
             else:
                 result = DBResult(error=True, info='Auth type error', result=-1)
         except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-1)
+            result = DBResult(error=True, info='NoResultFound', result=-2)
         except MultipleResultsFound:
             result = DBResult(error=True, info='MultipleResultsFound', result=-1)
         except Exception as e:

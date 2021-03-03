@@ -1,12 +1,12 @@
-from nonebot import on_command
+from nonebot import on_command, export
 from nonebot.plugin import get_loaded_plugins
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import has_command_permission
+from omega_miya.utils.Omega_plugin_utils import init_export, has_command_permission, has_level_or_node
 
-"""
+
 # Custom plugin usage text
 __plugin_name__ = '帮助'
 __plugin_usage__ = r'''【帮助】
@@ -20,10 +20,10 @@ __plugin_auth_node__ = [
 
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
-"""
 
 # 注册事件响应器
-bot_help = on_command('help', rule=has_command_permission(), aliases={'帮助'}, permission=GROUP, priority=1, block=True)
+bot_help = on_command('help', rule=has_command_permission() & has_level_or_node(10, __name__, 'basic'),
+                      aliases={'帮助'}, permission=GROUP, priority=1, block=True)
 
 
 @bot_help.handle()

@@ -7,9 +7,9 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp import MessageSegment
+from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
+from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node, check_and_set_group_cool_down
 from omega_miya.utils.Omega_Base import DBPixivtag, DBPixivillust
 from .utils import fetch_illust_b64, add_illust
 
@@ -26,6 +26,11 @@ or AuthNode
 **AuthNode**
 setu
 moepic
+
+**CoolDown**
+群组共享冷却时间
+来点涩图: 5 Minutes
+来点萌图: 2 Minutes
 
 **Usage**
 /来点涩图 [tag]
@@ -48,6 +53,19 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 # 注册事件响应器
 setu = on_command('来点涩图', rule=has_command_permission() & has_level_or_node(50, __name__, 'setu'),
                   permission=GROUP, priority=20, block=True)
+
+
+@setu.handle()
+async def handle_cool_down(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
+    group_id = event.group_id
+    res = check_and_set_group_cool_down(minutes=5, plugin=f'{__name__}.setu', group_id=group_id)
+    if res.result == 1:
+        await setu.finish(Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
+    elif res.result == 0:
+        pass
+    else:
+        logger.error(f'冷却事件异常! group: {group_id}, user: {user_id}, plugin: {__name__}')
 
 
 @setu.handle()
@@ -129,6 +147,19 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
 # 注册事件响应器
 moepic = on_command('来点萌图', rule=has_command_permission() & has_level_or_node(50, __name__, 'moepic'),
                     permission=GROUP, priority=20, block=True)
+
+
+@moepic.handle()
+async def handle_cool_down(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user_id = event.user_id
+    group_id = event.group_id
+    res = check_and_set_group_cool_down(minutes=2, plugin=f'{__name__}.moepic', group_id=group_id)
+    if res.result == 1:
+        await setu.finish(Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
+    elif res.result == 0:
+        pass
+    else:
+        logger.error(f'冷却事件异常! group: {group_id}, user: {user_id}, plugin: {__name__}')
 
 
 @moepic.handle()

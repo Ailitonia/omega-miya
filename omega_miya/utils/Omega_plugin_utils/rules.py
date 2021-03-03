@@ -80,6 +80,11 @@ def has_auth_node(*auth_nodes: str) -> Rule:
 
 # 由于目前nb2暂不支持or连接rule, 因此将or逻辑放在rule内处理
 def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
+    """
+    :param level: 需要群组权限等级
+    :param auth_nodes: 需要的权限节点
+    :return: 群组权限等级大于要求等级或者具备权限节点, 权限节点为deny则拒绝
+    """
     async def _has_level_or_node(bot: Bot, event: Event, state: T_State) -> bool:
         auth_node = '.'.join(auth_nodes)
         detail_type = event.dict().get(f'{event.get_type()}_type')
@@ -91,7 +96,7 @@ def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
             level_checker = False
         else:
             if DBGroup(group_id=group_id).permission_level().result >= level:
-                return True
+                level_checker = True
             else:
                 level_checker = False
 
@@ -108,10 +113,11 @@ def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
 
         if allow_tag == 1 and deny_tag == 0:
             return True
+        elif allow_tag == -2 and deny_tag == -2:
+            return level_checker
         else:
-            node_checker = False
+            return False
 
-        return level_checker or node_checker
     return Rule(_has_level_or_node)
 
 

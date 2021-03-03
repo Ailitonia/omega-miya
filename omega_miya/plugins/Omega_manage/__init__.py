@@ -13,7 +13,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, Result
+from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBCoolDownEvent, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
 
 # Custom plugin usage text
@@ -343,3 +343,26 @@ async def refresh_group_info():
 
             group.init_member_status()
             logger.info(f'Refresh group info completed, Bot: {bot_id}, Group: {group_id}')
+
+
+# 创建用于刷新冷却事件的定时任务
+@scheduler.scheduled_job(
+    'cron',
+    # year=None,
+    # month=None,
+    # day='*/1',
+    # week=None,
+    # day_of_week=None,
+    # hour='*/8',
+    # minute='*/1',
+    second='*/20',
+    # start_date=None,
+    # end_date=None,
+    # timezone=None,
+    id='cool_down_refresh',
+    coalesce=True,
+    misfire_grace_time=10
+)
+def cool_down_refresh():
+    logger.debug('cool_down_refresh: cleaning time out event')
+    DBCoolDownEvent.clear_time_out_event()
