@@ -10,7 +10,7 @@ from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node, check_and_set_group_cool_down
-from omega_miya.utils.Omega_Base import DBPixivtag, DBPixivillust
+from omega_miya.utils.Omega_Base import DBPixivillust
 from .utils import fetch_illust_b64, add_illust
 
 
@@ -65,7 +65,7 @@ async def handle_cool_down(bot: Bot, event: GroupMessageEvent, state: T_State):
     elif res.result == 0:
         pass
     else:
-        logger.error(f'冷却事件异常! group: {group_id}, user: {user_id}, plugin: {__name__}')
+        logger.error(f'冷却事件异常! group: {group_id}, user: {user_id}, plugin: {__name__}, error: {res.info}')
 
 
 @setu.handle()
@@ -159,7 +159,7 @@ async def handle_cool_down(bot: Bot, event: GroupMessageEvent, state: T_State):
     elif res.result == 0:
         pass
     else:
-        logger.error(f'冷却事件异常! group: {group_id}, user: {user_id}, plugin: {__name__}')
+        logger.error(f'冷却事件异常! group: {group_id}, user: {user_id}, plugin: {__name__}, error: {res.info}')
 
 
 @moepic.handle()

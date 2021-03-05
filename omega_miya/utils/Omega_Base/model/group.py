@@ -1,5 +1,5 @@
-from .database import NBdb, DBResult
-from .tables import User, Group, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub, EmailBox, GroupEmailBox
+from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.tables import User, Group, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub, EmailBox, GroupEmailBox
 from .user import DBUser, DBSkill
 from .subscription import DBSubscription
 from .mail import DBEmailBox

@@ -5,8 +5,10 @@ from sqlalchemy.orm import sessionmaker
 from .tables import *
 
 global_config = nonebot.get_driver().config
-__DATABASE = global_config.database
-__DB_DRIVER = global_config.db_driver
+# __DATABASE = global_config.database
+__DATABASE = 'mysql'
+# __DB_DRIVER = global_config.db_driver
+__DB_DRIVER = 'mysqldb'
 __DB_USER = global_config.db_user
 __DB_PASSWORD = global_config.db_password
 __DB_HOST = global_config.db_host
@@ -16,12 +18,18 @@ __DB_NAME = global_config.db_name
 # 格式化数据库引擎链接
 __DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{__DB_PASSWORD}@{__DB_HOST}:{__DB_PORT}/{__DB_NAME}'
 
-# 持久化数据库连接
-engine = create_engine(__DB_ENGINE, encoding='utf8',
-                       connect_args={"use_unicode": True, "charset": "utf8mb4"},
-                       pool_recycle=3600, pool_pre_ping=True)
-# 创建数据库结构
-Base.metadata.create_all(engine)
+try:
+    # 持久化数据库连接
+    engine = create_engine(__DB_ENGINE, encoding='utf8',
+                           connect_args={"use_unicode": True, "charset": "utf8mb4"},
+                           pool_recycle=3600, pool_pre_ping=True)
+    # 初始化数据库结构
+    Base.metadata.create_all(engine)
+
+except Exception as e:
+    import sys
+    nonebot.logger.critical(f'数据库连接失败, error: {repr(e)}')
+    sys.exit()
 
 
 class NBdb(object):

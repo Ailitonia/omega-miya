@@ -4,18 +4,10 @@
 """
 
 from .database import DBTable
-from .user import DBUser
-from .group import DBGroup
-from .skill import DBSkill
-from .subscription import DBSubscription
-from .bilidynamic import DBDynamic
-from .pixivillust import DBPixivillust
-from .pixivtag import DBPixivtag
-from .pixivision import DBPixivision
-from .mail import DBEmail, DBEmailBox
-from .history import DBHistory
-from .auth import DBAuth
-from .cooldown import DBCoolDownEvent
+from .model import \
+    DBUser, DBGroup, DBSkill, DBSubscription, DBDynamic, \
+    DBPixivillust, DBPixivtag, DBPixivision, \
+    DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent
 from .database import DBResult as Result
 
 

@@ -1,5 +1,5 @@
-from .database import NBdb, DBResult
-from .tables import Skill, User, UserSkill
+from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.tables import Skill, User, UserSkill
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 

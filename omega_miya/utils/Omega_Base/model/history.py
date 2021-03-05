@@ -1,5 +1,5 @@
-from .database import NBdb, DBResult
-from .tables import History
+from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.tables import History
 from datetime import datetime
 
 

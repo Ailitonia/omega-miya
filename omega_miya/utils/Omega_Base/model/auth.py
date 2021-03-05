@@ -1,5 +1,5 @@
-from .database import NBdb, DBResult
-from .tables import AuthUser, AuthGroup, User, Group
+from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.tables import AuthUser, AuthGroup, User, Group
 from .user import DBUser
 from .group import DBGroup
 from datetime import datetime

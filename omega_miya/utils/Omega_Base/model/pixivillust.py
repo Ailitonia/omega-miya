@@ -1,6 +1,6 @@
 from typing import List
-from .database import NBdb, DBResult
-from .tables import Pixiv, PixivTag, PixivT2I
+from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.tables import Pixiv, PixivTag, PixivT2I
 from .pixivtag import DBPixivtag
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
