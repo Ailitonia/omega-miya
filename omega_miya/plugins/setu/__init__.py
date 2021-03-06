@@ -44,6 +44,7 @@ moepic
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
+    PluginCoolDown.skip_auth_node,
     'setu',
     'moepic'
 ]

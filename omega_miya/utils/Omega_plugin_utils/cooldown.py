@@ -1,10 +1,11 @@
 import datetime
 from omega_miya.utils.Omega_Base import DBCoolDownEvent, Result
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
 class PluginCoolDown:
+    skip_auth_node: str = field(default='skip_cd', init=False)
     plugin_name: str
     type: str
     cool_down_time: int

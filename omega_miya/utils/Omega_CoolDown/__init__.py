@@ -1,3 +1,8 @@
+"""
+插件命令冷却系统
+使用参考例:
+plugins/setu
+"""
 from nonebot import get_plugin, get_driver, logger
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from nonebot.exception import IgnoredException
@@ -8,8 +13,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import Event
 from omega_miya.utils.Omega_plugin_utils import \
     check_and_set_global_cool_down, check_and_set_plugin_cool_down, \
-    check_and_set_group_cool_down, check_and_set_user_cool_down
-from omega_miya.utils.Omega_Base import DBCoolDownEvent
+    check_and_set_group_cool_down, check_and_set_user_cool_down, PluginCoolDown
+from omega_miya.utils.Omega_Base import DBCoolDownEvent, DBAuth
 
 
 @run_preprocessor
@@ -35,8 +40,18 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
     plugin = get_plugin(plugin_name)
     plugin_cool_down_list = plugin.export.get('cool_down')
 
-    # 只有声明了__plugin_cool_down__的插件才检查冷却
+    # 只处理声明了__plugin_cool_down__的插件
     if not plugin_cool_down_list:
+        return
+
+    # 检查用户或群组是否有skip_cd权限, 跳过冷却检查
+    skip_cd_auth_node = f'{plugin_name}.{PluginCoolDown.skip_auth_node}'
+    user_auth_res = DBAuth(auth_id=user_id, auth_type='user', auth_node=skip_cd_auth_node)
+    if user_auth_res.allow_tag().result == 1 and user_auth_res.deny_tag().result == 0:
+        return
+
+    group_auth_res = DBAuth(auth_id=group_id, auth_type='group', auth_node=skip_cd_auth_node)
+    if group_auth_res.allow_tag().result == 1 and group_auth_res.deny_tag().result == 0:
         return
 
     # 检查冷却情况
