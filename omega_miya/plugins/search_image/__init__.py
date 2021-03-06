@@ -34,7 +34,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-search_image = on_command('识图', rule=has_command_permission() & has_level_or_node(50, __name__, 'basic'),
+search_image = on_command('识图', rule=has_command_permission() & has_level_or_node(50, __name__.split('.')[-1], 'basic'),
                           aliases={'搜图'}, permission=GROUP, priority=20, block=True)
 
 

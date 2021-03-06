@@ -41,7 +41,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 nhentai = on_command(
-    'nh', rule=has_command_permission() & permission_level(level=50) & has_auth_node(__name__, 'basic'),
+    'nh', rule=has_command_permission() & permission_level(level=50) & has_auth_node(__name__.split('.')[-1], 'basic'),
     aliases={'NH'}, permission=GROUP, priority=20, block=True)
 
 

@@ -31,7 +31,7 @@ __plugin_auth_node__ = [
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
-zhouShenHime = on_notice(rule=has_auth_node(__name__, 'basic'), priority=100, block=False)
+zhouShenHime = on_notice(rule=has_auth_node(__name__.split('.')[-1], 'basic'), priority=100, block=False)
 
 
 @zhouShenHime.handle()

@@ -37,8 +37,8 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-pixiv = on_command('pixiv', rule=has_command_permission() & has_level_or_node(50, __name__, 'basic'), aliases={'Pixiv'},
-                   permission=GROUP, priority=20, block=True)
+pixiv = on_command('pixiv', rule=has_command_permission() & has_level_or_node(50, __name__.split('.')[-1], 'basic'),
+                   aliases={'Pixiv'}, permission=GROUP, priority=20, block=True)
 
 
 # 修改默认参数处理

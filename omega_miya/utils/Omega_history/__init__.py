@@ -1,4 +1,5 @@
 from nonebot import on_message, on_request, on_notice, logger
+from nonebot.plugin import on
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import Event
@@ -20,6 +21,32 @@ async def handle_message(bot: Bot, event: Event, state: T_State):
         post_type = event.get_type()
         detail_type = event.dict().get(f'{event.get_type()}_type')
         sub_type = event.dict().get('sub_type')
+        group_id = event.dict().get('group_id')
+        user_id = event.dict().get('user_id')
+        raw_data = repr(event)
+        msg_data = str(event.dict().get('message'))
+        new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
+        new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=user_name,
+                      raw_data=raw_data, msg_data=msg_data)
+    except Exception as e:
+        logger.error(f'Message history recording Failed, error: {repr(e)}')
+
+
+# 注册事件响应器, 处理message_sent
+message_sent_history = on(type='message_sent', priority=101, block=True)
+
+
+@message_sent_history.handle()
+async def handle_message_sent_history(bot: Bot, event: Event, state: T_State):
+    try:
+        user_name = event.dict().get('sender').get('card')
+        if not user_name:
+            user_name = event.dict().get('sender').get('nickname')
+        time = event.dict().get('time')
+        self_id = event.dict().get('self_id')
+        post_type = event.get_type()
+        detail_type = 'self_sent'
+        sub_type = 'self'
         group_id = event.dict().get('group_id')
         user_id = event.dict().get('user_id')
         raw_data = repr(event)

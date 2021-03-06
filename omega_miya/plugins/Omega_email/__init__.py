@@ -160,7 +160,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-OmegaEmail_group = MatcherGroup(rule=has_command_permission() & has_auth_node(__name__, 'basic'),
+OmegaEmail_group = MatcherGroup(rule=has_command_permission() & has_auth_node(__name__.split('.')[-1], 'basic'),
                                 permission=GROUP, priority=20, block=True)
 
 mail_receive = OmegaEmail_group.on_command('收邮件')

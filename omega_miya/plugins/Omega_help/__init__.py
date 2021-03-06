@@ -18,11 +18,19 @@ __plugin_auth_node__ = [
     'basic'
 ]
 
+'''
+# 声明本插件的冷却时间配置
+__plugin_cool_down__ = [
+    PluginCoolDown(__name__.split('.')[-1], 'user', 10),
+    PluginCoolDown(__name__.split('.')[-1], 'group', 2)
+]
+'''
+
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
-bot_help = on_command('help', rule=has_command_permission() & has_level_or_node(10, __name__, 'basic'),
+bot_help = on_command('help', rule=has_command_permission() & has_level_or_node(10, __name__.split('.')[-1], 'basic'),
                       aliases={'帮助'}, permission=GROUP, priority=1, block=True)
 
 

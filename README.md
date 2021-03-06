@@ -12,7 +12,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 PreRelease v2.0.0a10](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a10)
+[Nonebot2 PreRelease v2.0.0a11](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a11)
 
 ## 配套使用的api
 
@@ -25,7 +25,7 @@ api主要用于获取pixiv等网站内容
 - 基于 SQLAlchemy / MySQL 的数据存储
 - 基于群组的通知权限、命令权限以及权限等级系统
 - 基于插件节点的权限管理系统
-- 命令冷却功能（实验）
+- 命令冷却系统
 - 插件帮助功能
 - Bot对群组公告功能
 - B站动态订阅（建议配置B站cookies）

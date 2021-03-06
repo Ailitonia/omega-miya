@@ -4,10 +4,17 @@ from .encrypt import AESEncryptStr
 from .cooldown import *
 
 
-def init_export(plugin_export: Export, custom_name: str, usage: str, auth_node: list = None, **kwargs: str) -> Export:
+def init_export(
+        plugin_export: Export,
+        custom_name: str,
+        usage: str,
+        auth_node: list = None,
+        cool_down: list = None,
+        **kwargs: str) -> Export:
     setattr(plugin_export, 'custom_name', custom_name)
     setattr(plugin_export, 'usage', usage)
     setattr(plugin_export, 'auth_node', auth_node)
+    setattr(plugin_export, 'cool_down', cool_down)
     for key, value in kwargs.items():
         setattr(plugin_export, key, value)
     return plugin_export
