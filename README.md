@@ -5,7 +5,7 @@
 基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
-![Python](https://img.shields.io/badge/Python-3.9.2-blue)
+![Python](https://img.shields.io/badge/Python-3.7+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
 

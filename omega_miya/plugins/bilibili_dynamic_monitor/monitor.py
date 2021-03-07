@@ -294,7 +294,7 @@ scheduler.add_job(
     # week=None,
     # day_of_week=None,
     hour='9-23',
-    minute='*/2',
+    minute='*/3',
     # second='*/30',
     # start_date=None,
     # end_date=None,

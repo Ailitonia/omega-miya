@@ -85,18 +85,11 @@ saying = [
 ]
 
 vtb = [
-    '夜霧Yogiri',
-    '希薇娅Civia',
-    '黑桃影SpadeEcho',
-    '朵莉丝Doris',
-    '罗莎琳Rosalyn',
-    '阿媂娅Artia',
     '喵田弥夜Miya',
     '喵田咪芙Mifu',
     '子心Koishi',
     '长乐泠Rinnya',
     '望月遥Haruka',
-    '天城霞Kasumi',
     '洛丽璐莉LoliRuri',
     '炎魔rinkaru',
     '桃井最中Monaka',
@@ -139,7 +132,54 @@ vtb = [
     '白雪深白',
     '爱宫Milk',
     '神乐Mea',
-    '夢乃栞'
+    '夢乃栞',
+    '绊爱',
+    '辉夜月',
+    '未来明',
+    '电脑少女Siro',
+    'Nekomasu',
+    '电脑少女Siro',
+    '神乐铃',
+    '月之美兔',
+    '本间向日葵',
+    '笹木咲',
+    '莉泽·赫露艾斯塔',
+    '安洁·卡特莉娜',
+    '椎名唯华',
+    '铃鹿诗子',
+    '樋口枫',
+    '贝尔蒙德·班德拉斯',
+    '天宫心',
+    '芙莲·E·露丝塔莉欧',
+    '物述有栖',
+    '童田明治',
+    '森中花咲',
+    '魔界之莉莉姆',
+    '樱凛月',
+    '犬山玉姬',
+    '白雪深白',
+    '爱宫Milk',
+    '时雨羽衣',
+    '神乐Mea',
+    '如月Koyori',
+    '八乙女Noe',
+    '神乐七奈',
+    '鹿乃',
+    '野野宫Nonono',
+    '花丸晴琉',
+    '小东人鱼',
+    '天辉Okome',
+    '魔宵Sakyu',
+    '雏月もふ',
+    '白咲铃',
+    '琴乃叶雪乃',
+    '阳向心美',
+    'Mendako酱',
+    '梦月真白',
+    'Milky',
+    '赤星奈奈华',
+    '星宫汐',
+    '水龙敬'
 ]
 
 
@@ -151,15 +191,14 @@ def old_almanac(user_id: int) -> str:
     random_seed = md5.hexdigest()
     random.seed(random_seed)
     # 宜做和不宜做
-    dd_do_and_not = random.sample(do, k=4)
+    dd_do_and_not = random.sample(do, k=2)
     # 名句与DD
     dd_saying = random.sample(saying, k=1)
     dd_vtb = random.sample(vtb, k=1)
 
-    result = f"今天:\n【宜】\n{dd_do_and_not[0]['name']} —— {dd_do_and_not[0]['good']}\n" \
-             f"{dd_do_and_not[2]['name']} —— {dd_do_and_not[2]['good']}\n\n" \
-             f"【忌】\n{dd_do_and_not[1]['name']} —— {dd_do_and_not[1]['bad']}\n" \
-             f"{dd_do_and_not[3]['name']} —— {dd_do_and_not[3]['bad']}\n\n" \
+    result = f"今天是{datetime.date.today().strftime('%Y年%m月%d日')}\n\n" \
+             f"今日:\n【宜】{dd_do_and_not[0]['name']} —— {dd_do_and_not[0]['good']}\n" \
+             f"【忌】{dd_do_and_not[1]['name']} —— {dd_do_and_not[1]['bad']}\n\n" \
              f"今日宜D：{dd_vtb[0]}\n\n“{dd_saying[0]}”"
 
     return result
