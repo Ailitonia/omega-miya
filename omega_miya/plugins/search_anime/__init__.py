@@ -11,6 +11,7 @@ from .utils import get_identify_result, pic_2_base64
 
 
 # Custom plugin usage text
+__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '识番'
 __plugin_usage__ = r'''【识番助手】
 使用 trace.moe API 识别番剧
@@ -35,7 +36,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-search_anime = on_command('识番', rule=has_command_permission() & has_level_or_node(50, __name__.split('.')[-1], 'basic'),
+search_anime = on_command('识番', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'basic'),
                           aliases={'搜番', '番剧识别'}, permission=GROUP, priority=20, block=True)
 
 

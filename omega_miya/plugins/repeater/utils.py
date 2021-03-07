@@ -7,7 +7,9 @@ sp_msg = {
     r'^#测试群友(.+)浓度#?$':
         {'group_id': [], 'replyMsg': r'群友{}浓度已超出测量范围Σ(っ °Д °;)っ', 'handle': True},
     r'^对呀对呀$':
-        {'group_id': [123456789], 'replyMsg': r'对呀对呀', 'handle': None}
+        {'group_id': [], 'replyMsg': r'对呀对呀', 'handle': None},
+    r'^小母猫':
+        {'group_id': [], 'replyMsg': r'喵喵喵~', 'handle': None}
 }
 
 

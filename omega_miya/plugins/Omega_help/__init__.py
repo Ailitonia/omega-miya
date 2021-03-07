@@ -8,6 +8,7 @@ from omega_miya.utils.Omega_plugin_utils import init_export, has_command_permiss
 
 
 # Custom plugin usage text
+__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '帮助'
 __plugin_usage__ = r'''【帮助】
 
@@ -21,8 +22,8 @@ __plugin_auth_node__ = [
 '''
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(__name__.split('.')[-1], 'user', 10),
-    PluginCoolDown(__name__.split('.')[-1], 'group', 2)
+    PluginCoolDown(__plugin_raw_name__, 'user', 10),
+    PluginCoolDown(__plugin_raw_name__, 'group', 2)
 ]
 '''
 
@@ -30,7 +31,7 @@ __plugin_cool_down__ = [
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
-bot_help = on_command('help', rule=has_command_permission() & has_level_or_node(10, __name__.split('.')[-1], 'basic'),
+bot_help = on_command('help', rule=has_command_permission() & has_level_or_node(10, __plugin_raw_name__, 'basic'),
                       aliases={'帮助'}, permission=GROUP, priority=1, block=True)
 
 

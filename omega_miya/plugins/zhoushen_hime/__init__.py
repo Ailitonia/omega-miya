@@ -12,6 +12,7 @@ from .utils import ZhouChecker, download_file
 
 
 # Custom plugin usage text
+__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '自动审轴姬'
 __plugin_usage__ = r'''【自动审轴姬】
 检测群内上传文件并自动锤轴
@@ -31,7 +32,7 @@ __plugin_auth_node__ = [
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
-zhouShenHime = on_notice(rule=has_auth_node(__name__.split('.')[-1], 'basic'), priority=100, block=False)
+zhouShenHime = on_notice(rule=has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
 
 
 @zhouShenHime.handle()

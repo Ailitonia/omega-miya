@@ -2,6 +2,7 @@
 插件命令冷却系统
 使用参考例:
 plugins/setu
+plugin/draw
 """
 from nonebot import get_plugin, get_driver, logger
 from nonebot.adapters.cqhttp import MessageSegment, Message

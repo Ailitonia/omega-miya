@@ -2,9 +2,10 @@
 
 # Omega Miya
 
-基于 [nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
+基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
+![Python](https://img.shields.io/badge/Python-3.9.2-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
 
@@ -30,7 +31,8 @@ api主要用于获取pixiv等网站内容
 - Bot对群组公告功能
 - B站动态订阅（建议配置B站cookies）
 - B站直播间监控（建议配置B站cookies）
-- 求签抽卡
+- 求签
+- 抽卡
 - Pixiv助手（需要 Miya API）
 - Pixivision订阅（需要 Miya API）
 - 复读姬

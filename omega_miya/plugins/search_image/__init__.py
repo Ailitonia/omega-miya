@@ -10,6 +10,7 @@ from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_leve
 from .utils import pic_2_base64, get_identify_result, get_ascii2d_identify_result
 
 # Custom plugin usage text
+__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '识图'
 __plugin_usage__ = r'''【识图助手】
 使用SauceNAO/ascii2d识别各类图片、插画
@@ -34,7 +35,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-search_image = on_command('识图', rule=has_command_permission() & has_level_or_node(50, __name__.split('.')[-1], 'basic'),
+search_image = on_command('识图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'basic'),
                           aliases={'搜图'}, permission=GROUP, priority=20, block=True)
 
 

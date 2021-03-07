@@ -12,6 +12,7 @@ from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decryp
 
 
 # Custom plugin usage text
+__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = 'OmegaEmail'
 __plugin_usage__ = r'''【OmegaEmail 邮箱插件】
 主要是用来收验证码OvO
@@ -160,7 +161,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-OmegaEmail_group = MatcherGroup(rule=has_command_permission() & has_auth_node(__name__.split('.')[-1], 'basic'),
+OmegaEmail_group = MatcherGroup(rule=has_command_permission() & has_auth_node(__plugin_raw_name__, 'basic'),
                                 permission=GROUP, priority=20, block=True)
 
 mail_receive = OmegaEmail_group.on_command('收邮件')

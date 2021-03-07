@@ -16,6 +16,7 @@ from .utils import fetch_illust_b64, add_illust
 
 
 # Custom plugin usage text
+__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '来点涩图'
 __plugin_usage__ = r'''【来点涩图】
 测试群友LSP成分
@@ -51,8 +52,8 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(__name__.split('.')[-1], 'user', 10),
-    PluginCoolDown(__name__.split('.')[-1], 'group', 2)
+    PluginCoolDown(__plugin_raw_name__, 'user', 10),
+    PluginCoolDown(__plugin_raw_name__, 'group', 2)
 ]
 
 # Init plugin export
@@ -60,7 +61,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, _
 
 
 # 注册事件响应器
-setu = on_command('来点涩图', rule=has_command_permission() & has_level_or_node(50, __name__.split('.')[-1], 'setu'),
+setu = on_command('来点涩图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'setu'),
                   permission=GROUP, priority=20, block=True)
 
 
@@ -141,7 +142,7 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 # 注册事件响应器
-moepic = on_command('来点萌图', rule=has_command_permission() & has_level_or_node(50, __name__.split('.')[-1], 'moepic'),
+moepic = on_command('来点萌图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'moepic'),
                     permission=GROUP, priority=20, block=True)
 
 

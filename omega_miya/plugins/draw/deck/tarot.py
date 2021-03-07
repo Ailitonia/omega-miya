@@ -75,11 +75,11 @@ major_arcana = [
 
 def one_tarot(user_id: int) -> str:
     # 用qq、日期生成随机种子
-    random_seed_str = str([user_id, datetime.date.today()])
-    md5 = hashlib.md5()
-    md5.update(random_seed_str.encode('utf-8'))
-    random_seed = md5.hexdigest()
-    random.seed(random_seed)
+    # random_seed_str = str([user_id, datetime.date.today()])
+    # md5 = hashlib.md5()
+    # md5.update(random_seed_str.encode('utf-8'))
+    # random_seed = md5.hexdigest()
+    # random.seed(random_seed)
     tarot = random.sample(major_arcana, k=1)[0]
     position = random.sample(['positive', 'negative'], k=1)[0]
     if position == 'positive':
@@ -87,5 +87,5 @@ def one_tarot(user_id: int) -> str:
     else:
         position_text = '逆位'
 
-    result = f"抽到了:\n【{position_text}】/{tarot['name']}\n{tarot[position]}"
+    result = f"【{position_text}】/{tarot['name']}\n{tarot[position]}"
     return result

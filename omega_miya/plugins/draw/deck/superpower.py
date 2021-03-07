@@ -114,14 +114,14 @@ but = [
 
 def superpower(user_id: int) -> str:
     # 用qq、日期生成随机种子
-    random_seed_str = str([user_id, datetime.date.today()])
-    md5 = hashlib.md5()
-    md5.update(random_seed_str.encode('utf-8'))
-    random_seed = md5.hexdigest()
-    random.seed(random_seed)
+    # random_seed_str = str([user_id, datetime.date.today()])
+    # md5 = hashlib.md5()
+    # md5.update(random_seed_str.encode('utf-8'))
+    # random_seed = md5.hexdigest()
+    # random.seed(random_seed)
     condition = random.sample(where_or_when, k=1)[0]
     power = random.sample(can_do, k=1)[0]
     effects = random.sample(but, k=1)[0]
 
-    result = f"今天的超能力是:\n在{condition}可以使用【{power}】, 但是{effects}"
+    result = f"获得了超能力!\n在{condition}可以使用【{power}】, 但是{effects}"
     return result
