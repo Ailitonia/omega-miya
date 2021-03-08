@@ -196,9 +196,8 @@ def old_almanac(user_id: int) -> str:
     dd_saying = random.sample(saying, k=1)
     dd_vtb = random.sample(vtb, k=1)
 
-    result = f"今天是{datetime.date.today().strftime('%Y年%m月%d日')}\n\n" \
-             f"今日:\n【宜】{dd_do_and_not[0]['name']} —— {dd_do_and_not[0]['good']}\n" \
-             f"【忌】{dd_do_and_not[1]['name']} —— {dd_do_and_not[1]['bad']}\n\n" \
+    result = f"【宜】\n{dd_do_and_not[0]['name']} —— {dd_do_and_not[0]['good']}\n\n" \
+             f"【忌】\n{dd_do_and_not[1]['name']} —— {dd_do_and_not[1]['bad']}\n\n" \
              f"今日宜D：{dd_vtb[0]}\n\n“{dd_saying[0]}”"
 
     return result

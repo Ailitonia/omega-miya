@@ -7,6 +7,7 @@ from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export
 from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
 from .utils import maybe, sp,  sp_event
+from .oldalmanac import old_almanac
 
 
 # Custom plugin usage text
@@ -20,7 +21,8 @@ __plugin_usage__ = r'''【求签】
 Command & Lv.10
 
 **Usage**
-/求签 [所求之事]'''
+/求签 [所求之事]
+/DD老黄历'''
 
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
@@ -73,3 +75,29 @@ async def handle_luck(bot: Bot, event: GroupMessageEvent, state: T_State):
     today = datetime.date.today().strftime('%Y年%m月%d日')
     msg = f'今天是{today}\n{draw_user}{draw_result}'
     await luck.finish(msg)
+
+
+almanac = Maybe.command('almanac', aliases={'DD老黄历', 'dd老黄历'})
+
+
+@almanac.handle()
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
+    if not args:
+        pass
+    else:
+        await almanac.finish('参数错误QAQ')
+
+    user_id = event.user_id
+
+    # 求签者昵称, 优先使用群昵称
+    draw_user = event.sender.card
+    if not draw_user:
+        draw_user = event.sender.nickname
+
+    draw_result = old_almanac(user_id=user_id)
+
+    # 向用户发送结果
+    today = datetime.date.today().strftime('%Y年%m月%d日')
+    msg = f"今天是{today}\n{draw_user}今日:\n{'='*12}\n{draw_result}"
+    await almanac.finish(msg)

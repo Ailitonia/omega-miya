@@ -17,8 +17,8 @@ from .utils import fetch_illust_b64, add_illust
 
 # Custom plugin usage text
 __plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_name__ = '来点涩图'
-__plugin_usage__ = r'''【来点涩图】
+__plugin_name__ = '来点萌图'
+__plugin_usage__ = r'''【来点萌图】
 测试群友LSP成分
 
 **Permission**

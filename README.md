@@ -39,7 +39,7 @@ api主要用于获取pixiv等网站内容
 - roll点抽奖
 - 搜番剧（trace.moe API）
 - 搜二次元图（Saucenao API 和 ascii2d）
-- 来点涩图 / 来点萌图（需要 Miya API / 图片数据库需要自己导入）
+- 来点萌图 / 来点涩图（需要 Miya API / 图片数据库需要自己导入）
 - 表情包制作器
 - 猫按钮（测试）
 - 自动锤轴姬（需要 go-cqhttp v0.9.40 及以上版本）

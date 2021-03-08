@@ -25,17 +25,15 @@ UP_OPERATOR = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='黑/Schwarz', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='史尔特尔/Surtr', star=6, limited=False, recruit_only=False, event_only=False, special_only=False)
+            Operator(name='灰烬/ASH', star=6, limited=True, recruit_only=False, event_only=True, special_only=False)
         ],
         zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='雷蛇/Liskarm', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='崖心/Cliffheart', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='奥斯塔/Aosta', star=5, limited=False, recruit_only=False, event_only=False, special_only=False)
+            Operator(name='霜华/FROST', star=5, limited=True, recruit_only=False, event_only=True, special_only=False),
+            Operator(name='闪击/BLITZ', star=5, limited=True, recruit_only=False, event_only=True, special_only=False)
         ],
         zoom=0.5
     )
@@ -43,6 +41,10 @@ UP_OPERATOR = [
 
 
 ALL_OPERATOR = [
+    Operator(name='灰烬/ASH', star=6, limited=True, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='霜华/FROST', star=5, limited=True, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='闪击/BLITZ', star=5, limited=True, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='战车/TACHANKA', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='嵯峨/Saga', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='风笛/Bagpipe', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='推进之王/Siege', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
