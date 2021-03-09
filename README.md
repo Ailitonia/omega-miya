@@ -57,6 +57,24 @@ api主要用于获取pixiv等网站内容
 
 4. 在群组中使用 `/Omega` `/OmegaAuth` 等命令配置群组权限
 
+## 关于图片数据
+
+如果你不想自己收集图片数据, 可以将
+[这组图片数据集](https://github.com/Ailitonia/nonebot2_miya/raw/main/archive_data/db_pixiv.7z)
+导入数据库
+
+这个图片集大概有5万条左右, 基本都是按我自己口味收集的图片
+
+请依次按`pixiv_illusts.sql` `pixiv_tag.sql` `pixiv_tag_to_illusts.sql` 顺序导入
+
+Password: `ailitonia`
+MD5: `45660FB63798421A6FAF3F439464ACC2`
+SHA1: `BFB376328C2AF601BAD725D29AF03953B04010FE`
+
+数据集来源是我的
+[这个频道](https://t.me/amoeloli)
+, 虽然已经断更很久了...
+
 ## 一张图看懂如何获取B站cookies
 
 **注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
