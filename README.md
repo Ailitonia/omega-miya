@@ -45,6 +45,18 @@ api主要用于获取pixiv等网站内容
 - 自动锤轴姬（需要 go-cqhttp v0.9.40 及以上版本）
 - 邮箱插件 （仅支持IMAP收件）
 
+## 如何使用
+
+0. 首先得有个MySQL数据库
+
+1. 安装依赖: `pip install -r requirements.txt`
+
+2. 配置.env中数据库相关配置(必需), 其他配置可选
+
+3. 运行`python bot.py`
+
+4. 在群组中使用 `/Omega` `/OmegaAuth` 等命令配置群组权限
+
 ## 一张图看懂如何获取B站cookies
 
 **注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
