@@ -32,10 +32,10 @@ __plugin_auth_node__ = [
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
-zhouShenHime = on_notice(rule=has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
+ZhouShenHime = on_notice(rule=has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
 
 
-@zhouShenHime.handle()
+@ZhouShenHime.handle()
 async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     file_name = event.file.name
     file_url = event.file.dict().get('url')
@@ -43,14 +43,14 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
 
     # 不响应自己上传的文件
     if int(event.user_id) == int(bot.self_id):
-        await zhouShenHime.finish()
+        await ZhouShenHime.finish()
 
     if file_name.split('.')[-1] not in ['ass', 'ASS']:
-        await zhouShenHime.finish()
+        await ZhouShenHime.finish()
 
     # 只处理文件名中含"未校""待校""需校"的文件
     if not any(key in file_name for key in ['未校', '待校', '需校']):
-        await zhouShenHime.finish()
+        await ZhouShenHime.finish()
 
     plugin_path = os.path.dirname(__file__)
     download_dir = os.path.join(plugin_path, 'file_downloaded')
@@ -61,11 +61,11 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     dl_res = await download_file(url=file_url, file_path=download_file_path)
     if not dl_res.success():
         logger.error(f'下载文件失败: {dl_res.info}')
-        await zhouShenHime.finish()
+        await ZhouShenHime.finish()
 
     at_msg = MessageSegment.at(user_id=user_id)
     msg = f'{at_msg}你刚刚上传了一份轴呢, 让我来帮你看看吧!'
-    await zhouShenHime.send(Message(msg))
+    await ZhouShenHime.send(Message(msg))
 
     checker = ZhouChecker(file_path=download_file_path, flash_mode=True)
 
@@ -73,15 +73,15 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
         init_res = checker.init_file(auto_style=True)
         if not init_res.success():
             logger.error(f'初始化时轴文件失败: {init_res.info}')
-            await zhouShenHime.finish('出错了QAQ')
+            await ZhouShenHime.finish('出错了QAQ')
 
         handle_res = checker.handle()
         if not handle_res.success():
             logger.error(f'处理时轴文件失败: {handle_res.info}')
-            await zhouShenHime.finish('出错了QAQ')
+            await ZhouShenHime.finish('出错了QAQ')
     except Exception as e:
         logger.error(f'执行ZhouChecker时发生了意外的错误: {repr(e)}')
-        await zhouShenHime.finish('出错了QAQ')
+        await ZhouShenHime.finish('出错了QAQ')
         return
 
     output_txt_path = os.path.abspath(handle_res.result.get('output_txt_path'))
@@ -97,7 +97,7 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     # 没有检查到错误的话就直接结束
     if character_count + flash_count + overlap_count == 0:
         msg = f'看完了! 没有发现符号错误、疑问文本、叠轴和闪轴, 真棒~'
-        await zhouShenHime.finish(msg)
+        await ZhouShenHime.finish(msg)
 
     try:
         group_file_info = await bot.call_api(api='get_group_root_files', group_id=event.group_id)
@@ -122,9 +122,9 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
                                file=output_ass_path, name=output_ass_filename)
     except Exception as e:
         logger.error(f'上传结果时时发生了意外的错误: {repr(e)}')
-        await zhouShenHime.finish('出错了QAQ')
+        await ZhouShenHime.finish('出错了QAQ')
         return
 
     msg = f'看完了! 以下是结果:\n\n符号及疑问文本共{character_count}处\n' \
           f'叠轴共{overlap_count}处\n闪轴共{flash_count}处\n\n锤轴结果已上传, 请参考修改哟~'
-    await zhouShenHime.finish(msg)
+    await ZhouShenHime.finish(msg)

@@ -5,8 +5,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import sticker_maker_main, pic_2_base64
 
 
@@ -25,8 +24,17 @@ Command & Lv.10
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 
-sticker = on_command('表情包', rule=has_command_permission() & permission_level(level=10), aliases={'Sticker', 'sticker'},
-                     permission=GROUP, priority=10, block=True)
+sticker = on_command(
+    '表情包',
+    aliases={'Sticker', 'sticker'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='sticker',
+        command=True,
+        level=10),
+    permission=GROUP,
+    priority=10,
+    block=True)
 
 
 # 修改默认参数处理

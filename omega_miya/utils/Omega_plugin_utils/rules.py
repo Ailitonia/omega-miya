@@ -37,9 +37,9 @@ def has_command_permission() -> Rule:
     return Rule(_has_command_permission)
 
 
-# 规划权限等级(暂定): 10+一般插件, 20各类订阅插件, 30+限制插件(涉及调用api), 50+涩图插件, 80+后期组用工作插件
+# 规划权限等级(暂定): 10+一般插件, 20各类订阅插件, 30+限制插件(涉及调用api), 50+涩图插件
 def permission_level(level: int) -> Rule:
-    async def _has_command_permission(bot: Bot, event: Event, state: T_State) -> bool:
+    async def _has_permission_level(bot: Bot, event: Event, state: T_State) -> bool:
         detail_type = event.dict().get(f'{event.get_type()}_type')
         group_id = event.dict().get('group_id')
         # 检查当前消息类型
@@ -50,7 +50,7 @@ def permission_level(level: int) -> Rule:
                 return True
             else:
                 return False
-    return Rule(_has_command_permission)
+    return Rule(_has_permission_level)
 
 
 # 权限节点检查

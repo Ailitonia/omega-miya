@@ -5,10 +5,13 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PluginCoolDown:
-    skip_auth_node: str = field(default='skip_cd', init=False)
-    plugin_name: str
     type: str
     cool_down_time: int
+    global_type: str = field(default='global', init=False)
+    plugin_type: str = field(default='plugin', init=False)
+    group_type: str = field(default='group', init=False)
+    user_type: str = field(default='user', init=False)
+    skip_auth_node: str = field(default='skip_cd', init=False)
 
 
 def check_and_set_global_cool_down(minutes: int) -> Result:

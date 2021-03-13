@@ -1,6 +1,6 @@
 import asyncio
 import random
-from nonebot import on_command, export, logger
+from nonebot import CommandGroup, on_command, export, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -8,15 +8,12 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import \
-    has_command_permission, has_level_or_node, PluginCoolDown
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 from omega_miya.utils.Omega_Base import DBPixivillust
 from .utils import fetch_illust_b64, add_illust
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '来点萌图'
 __plugin_usage__ = r'''【来点萌图】
 测试群友LSP成分
@@ -52,8 +49,8 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(__plugin_raw_name__, 'user', 10),
-    PluginCoolDown(__plugin_raw_name__, 'group', 2)
+    PluginCoolDown(PluginCoolDown.user_type, 10),
+    PluginCoolDown(PluginCoolDown.group_type, 2)
 ]
 
 # Init plugin export
@@ -61,8 +58,17 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, _
 
 
 # 注册事件响应器
-setu = on_command('来点涩图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'setu'),
-                  permission=GROUP, priority=20, block=True)
+Setu = CommandGroup('sepic', permission=GROUP, priority=20, block=True)
+
+setu = Setu.command(
+    'setu',
+    aliases={'来点涩图'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='setu',
+        command=True,
+        level=50,
+        auth_node='setu'))
 
 
 @setu.handle()
@@ -142,8 +148,15 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 # 注册事件响应器
-moepic = on_command('来点萌图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'moepic'),
-                    permission=GROUP, priority=20, block=True)
+moepic = Setu.command(
+    'moepic',
+    aliases={'来点萌图'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='moepic',
+        command=True,
+        level=50,
+        auth_node='moepic'))
 
 
 @moepic.handle()

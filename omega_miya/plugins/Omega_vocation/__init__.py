@@ -6,8 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBGroup, DBTable
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 
 # Custom plugin usage text
 __plugin_name__ = '请假'
@@ -15,7 +14,11 @@ __plugin_usage__ = r'''【Omega 请假插件】
 用来设置/查询自己以及群员的状态和假期
 
 **Permission**
-Command & Lv.80
+Command
+with AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /我的状态
@@ -26,12 +29,25 @@ Command & Lv.80
 /谁有空 [技能名称]
 /谁在休假'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
-vocation = MatcherGroup(type='message', rule=has_command_permission() & permission_level(level=80),
-                        permission=GROUP, priority=10, block=True)
+vocation = MatcherGroup(
+    type='message',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='vocation',
+        command=True,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=10,
+    block=True)
 
 my_status = vocation.on_command('我的状态')
 

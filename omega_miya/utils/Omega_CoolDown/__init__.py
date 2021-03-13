@@ -73,7 +73,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
     else:
         logger.error(f'全局冷却事件异常! group: {group_id}, user: {user_id}, error: {global_check.info}')
     # 然后再处理命令中存在的全局冷却
-    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == 'global']:
+    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == PluginCoolDown.global_type]:
         # 若有插件、群组或用户冷却则交由其处理
         if plugin_check.result == 1 or group_check.result == 1 or user_check.result == 1:
             break
@@ -88,7 +88,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
             logger.error(f'全局冷却事件异常! group: {group_id}, user: {user_id}, error: {res.info}')
 
     # 处理插件冷却
-    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == 'plugin']:
+    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == PluginCoolDown.plugin_type]:
         # 若有群组或用户冷却则交由其处理
         if group_check.result == 1 or user_check.result == 1:
             break
@@ -103,7 +103,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
             logger.error(f'插件冷却事件异常! group: {group_id}, user: {user_id}, plugin: {plugin_name}, error: {res.info}')
 
     # 处理群组冷却
-    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == 'group']:
+    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == PluginCoolDown.group_type]:
         if not group_id:
             break
 
@@ -121,7 +121,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
             logger.error(f'群组冷却事件异常! group: {group_id}, user: {user_id}, plugin: {plugin_name}, error: {res.info}')
 
     # 处理用户冷却
-    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == 'user']:
+    for time in [x.cool_down_time for x in plugin_cool_down_list if x.type == PluginCoolDown.user_type]:
         if not user_id:
             break
 

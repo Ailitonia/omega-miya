@@ -5,8 +5,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .monitor import *
 
 
@@ -27,9 +26,17 @@ Command & Lv.30
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
-pixivision = on_command('pixivision', rule=has_command_permission() & permission_level(level=30),
-                        aliases={'Pixivision'}, permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
-                        priority=20, block=True)
+pixivision = on_command(
+    'pixivision',
+    aliases={'Pixivision'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='pixivision',
+        command=True,
+        level=30),
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理

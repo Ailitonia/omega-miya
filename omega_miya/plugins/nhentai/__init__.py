@@ -9,19 +9,17 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level, has_auth_node
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import nh_search, nh_download
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = 'nh'
 __plugin_usage__ = r'''【nh】
 神秘的插件
 
 **Permission**
-Command & Lv.50
+Command
 with AuthNode
 
 **AuthNode**
@@ -42,8 +40,16 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 nhentai = on_command(
-    'nh', rule=has_command_permission() & permission_level(level=50) & has_auth_node(__plugin_raw_name__, 'basic'),
-    aliases={'NH'}, permission=GROUP, priority=20, block=True)
+    'nh',
+    aliases={'NH'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='nhentai',
+        command=True,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理
@@ -60,7 +66,9 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 @nhentai.handle()
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
-    if args and len(args) == 1:
+    if not args:
+        pass
+    elif args and len(args) == 1:
         state['sub_command'] = args[0]
     elif args and len(args) == 2:
         state['sub_command'] = args[0]

@@ -6,8 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import get_live_info, get_user_info
 from .monitor import *
 
@@ -33,8 +32,17 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器
-bilibili_live = on_command('B站直播间', rule=has_command_permission() & permission_level(level=20), aliases={'b站直播间'},
-                           permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=20, block=True)
+bilibili_live = on_command(
+    'B站直播间',
+    aliases={'b站直播间'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='bilibili_live',
+        command=True,
+        level=20),
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理

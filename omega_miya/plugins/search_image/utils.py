@@ -50,8 +50,8 @@ async def pic_2_base64(url: str) -> Result:
 
 
 # 获取识别结果 Saucenao模块
-async def get_identify_result(url: str) -> list:
-    async def get_result(__url: str, paras: dict) -> dict:
+async def get_saucenao_identify_result(url: str) -> list:
+    async def get_saucenao_result(__url: str, paras: dict) -> dict:
         timeout_count = 0
         while timeout_count < 3:
             try:
@@ -78,7 +78,7 @@ async def get_identify_result(url: str) -> list:
                  'numres': 6,
                  'db': 999,
                  'url': url}
-    __result_json = await get_result(__url=API_URL, paras=__payload)
+    __result_json = await get_saucenao_result(__url=API_URL, paras=__payload)
     if __result_json['header']['status'] != 0:
         logger.error(f"get_identify_result failed, "
                      f"status code: {__result_json['header']['status']}, Sever or Client error")
