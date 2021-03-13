@@ -74,11 +74,14 @@ def stick_maker_temp_littleangel(text: str, image_file: bytes, font_path: str, i
 
 def stick_maker_temp_whitebg(text: str, image_file: bytes, font_path: str, image_wight: int, image_height: int):
     # 处理文本
-    font_size = 72
+    if image_wight > image_height:
+        font_size = 72
+    else:
+        font_size = 84
     font = ImageFont.truetype(font_path, font_size)
     text_w, text_h = font.getsize_multiline(text)
-    while text_w >= (image_wight * 7 // 8) or text_h > 100:
-        font_size = font_size * 5 // 6
+    while text_w >= (image_wight * 8 // 9):
+        font_size = font_size * 7 // 8
         font = ImageFont.truetype(font_path, font_size)
         text_w, text_h = font.getsize_multiline(text)
 
@@ -94,15 +97,56 @@ def stick_maker_temp_whitebg(text: str, image_file: bytes, font_path: str, image
     draw = ImageDraw.Draw(background)
 
     # 计算居中文字位置
-    text_coordinate = (((background_w - text_w) // 2), image_height + round(text_h * 0.1))
+    text_coordinate = (((background_w - text_w) // 2), image_height + round(text_h / 100) * round(text_h * 0.1))
 
     draw.multiline_text(text_coordinate, text, font=font, fill=(0, 0, 0))
 
     return background
 
 
+def stick_maker_temp_blackbg(text: str, image_file: bytes, font_path: str, image_wight: int, image_height: int):
+    # 处理文本
+    if image_wight > image_height:
+        font_size = 96
+    else:
+        font_size = 108
+    font = ImageFont.truetype(font_path, font_size)
+    text_w, text_h = font.getsize_multiline(text)
+    while text_w >= (image_wight * 9 // 10):
+        font_size = font_size * 8 // 9
+        font = ImageFont.truetype(font_path, font_size)
+        text_w, text_h = font.getsize_multiline(text)
+
+    # 处理图片
+    background_w = image_wight + 150
+    background_h = image_height + 115 + round(text_h * 1.5)
+    background = Image.new(mode="RGB", size=(background_w, background_h), color=(0, 0, 0))
+    layer_1 = Image.new(mode="RGB", size=(image_wight + 12, image_height + 12), color=(255, 255, 255))
+    layer_2 = Image.new(mode="RGB", size=(image_wight + 10, image_height + 10), color=(0, 0, 0))
+    layer_3 = Image.new(mode="RGB", size=(image_wight + 6, image_height + 6), color=(255, 255, 255))
+    layer_4 = Image.new(mode="RGB", size=(image_wight + 4, image_height + 4), color=(0, 0, 0))
+
+    # 处理粘贴位置 留出黑边距离
+    background.paste(layer_1, (70, 70))
+    background.paste(layer_2, (71, 71))
+    background.paste(layer_3, (73, 73))
+    background.paste(layer_4, (74, 74))
+    background.paste(image_file, (76, 76))
+
+    draw = ImageDraw.Draw(background)
+
+    # 计算居中文字位置
+    text_coordinate = (((background_w - text_w) // 2),
+                       image_height + 110 - round(text_h / 9) + round(text_h / 100) * round(text_h * 0.1))
+
+    draw.multiline_text(text_coordinate, text, font=font, fill=(255, 255, 255))
+
+    return background
+
+
 __all__ = [
     'stick_maker_temp_whitebg',
+    'stick_maker_temp_blackbg',
     'stick_maker_temp_default',
     'stick_maker_temp_littleangel'
 ]

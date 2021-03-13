@@ -82,7 +82,56 @@ def stick_maker_static_jichou(text: str, image_file: bytes, font_path: str, imag
     return background
 
 
+def stick_maker_static_phlogo(text: str, image_file: bytes, font_path: str, image_wight: int, image_height: int):
+    # 处理文本主体
+    test_sentences = text.strip().split(maxsplit=1)
+    white_text = test_sentences[0]
+    yellow_text = test_sentences[1]
+
+    font_size = 640
+    font = ImageFont.truetype(font_path, font_size)
+    text_w, text_h = font.getsize(text)
+
+    y_text_w, y_text_h = font.getsize(yellow_text)
+    bg_y_text = Image.new(mode="RGB", size=(round(y_text_w * 1.1), round(text_h * 1.3)), color=(254, 154, 0))
+    draw_y_text = ImageDraw.Draw(bg_y_text)
+    draw_y_text.text((round(y_text_w * 1.1) // 2, round(text_h * 1.3) // 2), yellow_text, anchor='mm', font=font, fill=(0, 0, 0))
+    radii = 64
+    # 画圆(用于分离4个角)
+    circle = Image.new('L', (radii * 2, radii * 2), 0)  # 创建黑色方形
+    draw_circle = ImageDraw.Draw(circle)
+    draw_circle.ellipse((0, 0, radii * 2, radii * 2), fill=255)  # 黑色方形内切白色圆形
+    # 原图转为带有alpha通道（表示透明程度）
+    bg_y_text = bg_y_text.convert("RGBA")
+    y_weight, y_height = bg_y_text.size
+    # 画4个角（将整圆分离为4个部分）
+    alpha = Image.new('L', bg_y_text.size, 255)  # 与img同大小的白色矩形，L 表示黑白图
+    alpha.paste(circle.crop((0, 0, radii, radii)), (0, 0))  # 左上角
+    alpha.paste(circle.crop((radii, 0, radii * 2, radii)), (y_weight - radii, 0))  # 右上角
+    alpha.paste(circle.crop((radii, radii, radii * 2, radii * 2)), (y_weight - radii, y_height - radii))  # 右下角
+    alpha.paste(circle.crop((0, radii, radii, radii * 2)), (0, y_height - radii))  # 左下角
+    bg_y_text.putalpha(alpha)  # 白色区域透明可见，黑色区域不可见
+
+    w_text_w, w_text_h = font.getsize(white_text)
+    bg_w_text = Image.new(mode="RGB", size=(round(w_text_w * 1.05), round(text_h * 1.3)), color=(0, 0, 0))
+    w_weight, w_height = bg_w_text.size
+    draw_w_text = ImageDraw.Draw(bg_w_text)
+    draw_w_text.text((round(w_text_w * 1.025) // 2, round(text_h * 1.3) // 2), white_text, anchor='mm', font=font, fill=(255, 255, 255))
+
+    text_bg = Image.new(mode="RGB", size=(w_weight + y_weight, y_height), color=(0, 0, 0))
+    text_bg.paste(bg_w_text, (0, 0))
+    text_bg.paste(bg_y_text, (round(w_text_w * 1.05), 0), mask=alpha)
+    t_weight, t_height = text_bg.size
+
+    background = Image.new(mode="RGB", size=(round(t_weight * 1.2), round(t_height * 1.75)), color=(0, 0, 0))
+    b_weight, b_height = background.size
+    background.paste(text_bg, ((b_weight - t_weight) // 2, (b_height - t_height) // 2))
+
+    return background
+
+
 __all__ = [
     'stick_maker_static_traitor',
-    'stick_maker_static_jichou'
+    'stick_maker_static_jichou',
+    'stick_maker_static_phlogo'
 ]

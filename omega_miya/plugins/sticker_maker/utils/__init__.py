@@ -46,9 +46,11 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
     stick_maker = {
         'default': stick_maker_temp_default,
         'whitebg': stick_maker_temp_whitebg,
+        'blackbg': stick_maker_temp_blackbg,
         'littleangel': stick_maker_temp_littleangel,
         'traitor': stick_maker_static_traitor,
         'jichou': stick_maker_static_jichou,
+        'phlogo': stick_maker_static_phlogo,
         'sorry': render_gif,
         'wangjingze': render_gif
     }
@@ -106,8 +108,10 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
             font_path = os.path.join(static_temp_path, 'default_font.ttc')
         elif os.path.exists(os.path.join(static_temp_path, 'default_font.ttf')):
             font_path = os.path.join(static_temp_path, 'default_font.ttf')
+        elif os.path.exists(os.path.join(static_temp_path, 'default_font.otf')):
+            font_path = os.path.join(static_temp_path, 'default_font.otf')
         else:
-            logger.error(f'Stick_maker: 模板预置文件错误, 默认字体应为default_font.ttc或default_font.ttf')
+            logger.error(f'Stick_maker: 模板预置文件错误, 默认字体应为default_font.ttc、default_font.ttf或default_font.otf')
             return None
 
         # 生成表情包路径
