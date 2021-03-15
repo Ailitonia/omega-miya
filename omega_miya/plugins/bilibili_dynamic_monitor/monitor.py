@@ -1,9 +1,14 @@
 import asyncio
+import random
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
+from .utils import ENABLE_BILI_CHECK_POOL_MODE
 
+
+# 检查池模式使用的检查队列
+checking_pool = []
 
 # 启用检查动态状态的定时任务
 scheduler = require("nonebot_plugin_apscheduler").scheduler
@@ -14,12 +19,12 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     'cron',
     # year=None,
     # month=None,
-    day='*/1',
+    # day='*/1',
     # week=None,
     # day_of_week=None,
-    # hour='*/8',
-    # minute='*/1',
-    # second='*/20',
+    hour='3',
+    minute='3',
+    second='22',
     # start_date=None,
     # end_date=None,
     # timezone=None,
@@ -273,55 +278,135 @@ async def bilibili_dynamic_monitor():
             except Exception as _e:
                 logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(_e)}')
 
-    # 检查所有在订阅表里面的直播间(异步)
-    tasks = []
-    for uid in check_sub:
-        tasks.append(check_dynamic(uid))
-    try:
-        await asyncio.gather(*tasks)
-        logger.debug('bilibili_dynamic_monitor: checking completed')
-    except Exception as e:
-        logger.error(f'bilibili_dynamic_monitor: error occurred in checking  {repr(e)}')
+    # 启用了检查池模式
+    if ENABLE_BILI_CHECK_POOL_MODE:
+        global checking_pool
+
+        # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的room_id
+        if not checking_pool:
+            checking_pool.extend(check_sub)
+
+        # 看下checking_pool里面还剩多少
+        waiting_num = len(checking_pool)
+
+        # 默认单次检查并发数为2, 默认日间检查间隔为30s
+        logger.debug(f'bili dynamic pool mode debug info, B_checking_pool: {checking_pool}')
+        if waiting_num >= 2:
+            # 抽取检查对象
+            now_checking = random.sample(checking_pool, k=2)
+            # 更新checking_pool
+            checking_pool = [x for x in checking_pool if x not in now_checking]
+        else:
+            now_checking = checking_pool.copy()
+            checking_pool.clear()
+        logger.debug(f'bili dynamic pool mode debug info, A_checking_pool: {checking_pool}')
+        logger.debug(f'bili dynamic pool mode debug info, now_checking: {now_checking}')
+
+        # 检查now_checking里面的直播间(异步)
+        tasks = []
+        for uid in check_sub:
+            tasks.append(check_dynamic(uid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"bilibili_dynamic_monitor: pool mode enable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in now_checking])}.")
+        except Exception as e:
+            logger.error(f'bilibili_dynamic_monitor: pool mode enable, error occurred in checking  {repr(e)}')
+
+    # 没有启用检查池模式
+    else:
+        # 检查所有在订阅表里面的直播间(异步)
+        tasks = []
+        for uid in check_sub:
+            tasks.append(check_dynamic(uid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"bilibili_dynamic_monitor: pool mode disable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in check_sub])}.")
+        except Exception as e:
+            logger.error(f'bilibili_dynamic_monitor: pool mode disable, error occurred in checking  {repr(e)}')
 
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
-scheduler.add_job(
-    bilibili_dynamic_monitor,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='9-23',
-    minute='*/3',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_dynamic_monitor_in_day',
-    coalesce=True,
-    misfire_grace_time=30
-)
-
-scheduler.add_job(
-    bilibili_dynamic_monitor,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='0-8',
-    minute='*/30',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_dynamic_monitor_in_night',
-    coalesce=True,
-    misfire_grace_time=30
-)
+# 根据检查池模式初始化检查时间间隔
+if ENABLE_BILI_CHECK_POOL_MODE:
+    # 检查池启用, 日间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='9-23',
+        # minute='*/3',
+        second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_day_pool_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+    # 检查池启用, 夜间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='0-8',
+        minute='*/2',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_night_pool_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+else:
+    # 检查池禁用, 日间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='9-23',
+        minute='*/3',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_day_pool_disable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+    # 检查池禁用, 夜间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='0-8',
+        minute='*/15',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_night_pool_disable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
 
 __all__ = [
     'scheduler'

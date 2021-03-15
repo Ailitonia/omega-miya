@@ -13,6 +13,7 @@ message_history = on_message(priority=101, block=True)
 @message_history.handle()
 async def handle_message(bot: Bot, event: Event, state: T_State):
     try:
+        message_id = event.dict().get('message_id')
         user_name = event.dict().get('sender').get('card')
         if not user_name:
             user_name = event.dict().get('sender').get('nickname')
@@ -26,7 +27,7 @@ async def handle_message(bot: Bot, event: Event, state: T_State):
         raw_data = repr(event)
         msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
-        new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=user_name,
+        new_event.add(sub_type=sub_type, event_id=message_id, group_id=group_id, user_id=user_id, user_name=user_name,
                       raw_data=raw_data, msg_data=msg_data)
     except Exception as e:
         logger.error(f'Message history recording Failed, error: {repr(e)}')

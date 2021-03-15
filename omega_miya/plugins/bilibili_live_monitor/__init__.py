@@ -163,7 +163,7 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
         return _res
     # 添加直播间时需要刷新全局监控列表
     # 执行一次初始化
-    await init_live_info()
+    await init_add_live_info(room_id=room_id)
     result = Result(error=False, info='Success', result=0)
     return result
 

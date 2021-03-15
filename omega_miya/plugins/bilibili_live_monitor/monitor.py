@@ -1,9 +1,11 @@
 import asyncio
 import time
+import random
 from nonebot import logger, require, get_driver, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, DBTable
 from .utils import get_live_info, get_user_info, pic_2_base64, verify_cookies
+from .utils import ENABLE_BILI_CHECK_POOL_MODE
 
 
 # 初始化直播间标题, 状态
@@ -11,11 +13,19 @@ live_title = {}
 live_status = {}
 live_up_name = {}
 
+# 检查池模式使用的检查队列
+checking_pool = []
+
 
 async def init_live_info():
     global live_title
     global live_status
     global live_up_name
+
+    if ENABLE_BILI_CHECK_POOL_MODE:
+        logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><y>已启用!</y>')
+    else:
+        logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><y>已禁用!</y>')
 
     _res = await verify_cookies()
     if _res.success():
@@ -31,13 +41,13 @@ async def init_live_info():
             # 获取直播间信息
             _res = await get_live_info(room_id=sub_id)
             if not _res.success():
-                logger.error(f'init_live_info: 获取直播间信息失败, room_id: {sub_id}, error: {_res.info}')
+                logger.error(f'init_live_info: <r>获取直播间信息失败</r>, room_id: {sub_id}, error: {_res.info}')
                 continue
             live_info = _res.result
             up_uid = _res.result.get('uid')
             _res = await get_user_info(user_uid=up_uid)
             if not _res.success():
-                logger.error(f'init_live_info: 获取直播间UP用户信息失败, room_id: {sub_id}, error: {_res.info}')
+                logger.error(f'init_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {sub_id}, error: {_res.info}')
                 continue
             up_name = _res.result.get('name')
 
@@ -49,10 +59,49 @@ async def init_live_info():
 
             # 直播间up名称放入live_up_name全局变量中
             live_up_name[sub_id] = str(up_name)
+
+            logger.opt(colors=True).info(f"init_live_info: <g>初始化直播间 {sub_id}/{up_name} ... </g>"
+                                         f"<y>status: {live_info['status']}</y>")
         except Exception as e:
-            logger.error(f'init_live_info: 获取直播间信息错误, room_id: {sub_id}, error: {repr(e)}')
+            logger.error(f'init_live_info: <r>初始化直播间 {sub_id} 失败</r>, <y>error: {repr(e)}</y>')
             continue
     logger.opt(colors=True).info('init_live_info: <g>B站直播间监控列表初始化完成.</g>')
+
+
+# 针对添加的直播间单独进行初始化
+async def init_add_live_info(room_id: int):
+    global live_title
+    global live_status
+    global live_up_name
+
+    try:
+        room_id = int(room_id)
+        # 获取直播间信息
+        _res = await get_live_info(room_id=room_id)
+        if not _res.success():
+            logger.error(f'init_add_live_info: <r>获取直播间信息失败</r>, room_id: {room_id}, error: {_res.info}')
+            return
+        live_info = _res.result
+        up_uid = _res.result.get('uid')
+        _res = await get_user_info(user_uid=up_uid)
+        if not _res.success():
+            logger.error(f'init_add_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {room_id}, error: {_res.info}')
+            return
+        up_name = _res.result.get('name')
+
+        # 直播状态放入live_status全局变量中
+        live_status[room_id] = int(live_info['status'])
+
+        # 直播间标题放入live_title全局变量中
+        live_title[room_id] = str(live_info['title'])
+
+        # 直播间up名称放入live_up_name全局变量中
+        live_up_name[room_id] = str(up_name)
+
+        logger.opt(colors=True).info(f'init_add_live_info: <g>初始化直播间 {room_id}/{up_name} ... </g>'
+                                     f"<y>status: {live_info['status']}</y>")
+    except Exception as e:
+        logger.error(f'init_add_live_info: <r>初始化直播间 {room_id} 失败</r>, <y>error: {repr(e)}</y>')
 
 
 # 初始化任务加入启动序列
@@ -68,12 +117,12 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     'cron',
     # year=None,
     # month=None,
-    day='*/1',
+    # day='*/1',
     # week=None,
     # day_of_week=None,
-    # hour='*/8',
-    # minute='*/1',
-    # second='*/20',
+    hour='2',
+    minute='2',
+    second='33',
     # start_date=None,
     # end_date=None,
     # timezone=None,
@@ -245,57 +294,137 @@ async def bilibili_live_monitor():
             except Exception as _e:
                 logger.warning(f'试图向群组发送直播间: {room_id}/{up_name} 的直播通知时发生了错误: {repr(_e)}')
 
-    # 检查所有在订阅表里面的直播间(异步)
-    tasks = []
-    for rid in check_sub:
-        tasks.append(check_live(rid))
-    try:
-        await asyncio.gather(*tasks)
-        logger.debug('bilibili_live_monitor: checking completed')
-    except Exception as e:
-        logger.error(f'bilibili_live_monitor: error occurred in checking  {repr(e)}')
+    # 启用了检查池模式
+    if ENABLE_BILI_CHECK_POOL_MODE:
+        global checking_pool
+
+        # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的room_id
+        if not checking_pool:
+            checking_pool.extend(check_sub)
+
+        # 看下checking_pool里面还剩多少
+        waiting_num = len(checking_pool)
+
+        # 默认单次检查并发数为2, 默认日间检查间隔为20s
+        logger.debug(f'bili live pool mode debug info, B_checking_pool: {checking_pool}')
+        if waiting_num >= 2:
+            # 抽取检查对象
+            now_checking = random.sample(checking_pool, k=2)
+            # 更新checking_pool
+            checking_pool = [x for x in checking_pool if x not in now_checking]
+        else:
+            now_checking = checking_pool.copy()
+            checking_pool.clear()
+        logger.debug(f'bili live pool mode debug info, A_checking_pool: {checking_pool}')
+        logger.debug(f'bili live pool mode debug info, now_checking: {now_checking}')
+
+        # 检查now_checking里面的直播间(异步)
+        tasks = []
+        for rid in now_checking:
+            tasks.append(check_live(rid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"bilibili_live_monitor: pool mode enable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in now_checking])}.")
+        except Exception as e:
+            logger.error(f'bilibili_live_monitor: pool mode enable, error occurred in checking {repr(e)}')
+
+    # 没有启用检查池模式
+    else:
+        # 检查所有在订阅表里面的直播间(异步)
+        tasks = []
+        for rid in check_sub:
+            tasks.append(check_live(rid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"bilibili_live_monitor: pool mode disable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in check_sub])}.")
+        except Exception as e:
+            logger.error(f'bilibili_live_monitor: pool mode disable, error occurred in checking  {repr(e)}')
 
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
-scheduler.add_job(
-    bilibili_live_monitor,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='9-23',
-    minute='*/2',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_live_monitor_in_day',
-    coalesce=True,
-    misfire_grace_time=30
-)
-
-scheduler.add_job(
-    bilibili_live_monitor,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='0-8',
-    minute='*/15',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_live_monitor_in_night',
-    coalesce=True,
-    misfire_grace_time=30
-)
+# 根据检查池模式初始化检查时间间隔
+if ENABLE_BILI_CHECK_POOL_MODE:
+    # 检查池启用, 日间
+    scheduler.add_job(
+        bilibili_live_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='9-23',
+        # minute='*/2',
+        second='*/20',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_live_monitor_in_day_pool_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+    # 检查池启用, 夜间
+    scheduler.add_job(
+        bilibili_live_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='0-8',
+        minute='*/1',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_live_monitor_in_night_pool_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+else:
+    # 检查池禁用, 日间
+    scheduler.add_job(
+        bilibili_live_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='9-23',
+        minute='*/1',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_live_monitor_in_day_pool_disable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+    # 检查池禁用, 夜间
+    scheduler.add_job(
+        bilibili_live_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='0-8',
+        minute='*/5',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_live_monitor_in_night_pool_disable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
 
 __all__ = [
     'scheduler',
-    'init_live_info'
+    'init_add_live_info'
 ]

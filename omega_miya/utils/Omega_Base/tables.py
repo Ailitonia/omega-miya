@@ -101,7 +101,7 @@ class Group(Base):
 
     id = Column(Integer, Sequence('groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     name = Column(String(64), nullable=False, comment='qq群名称')
-    group_id = Column(Integer, nullable=False, index=True, unique=True, comment='qq群号')
+    group_id = Column(BigInteger, nullable=False, index=True, unique=True, comment='qq群号')
     notice_permissions = Column(Integer, nullable=False, comment='通知权限')
     command_permissions = Column(Integer, nullable=False, comment='命令权限')
     permission_level = Column(Integer, nullable=False, comment='权限等级, 越大越高')
@@ -333,6 +333,7 @@ class History(Base):
     post_type = Column(String(64), nullable=False, comment='事件类型')
     detail_type = Column(String(64), nullable=False, comment='消息/通知/请求/元事件类型')
     sub_type = Column(String(64), nullable=True, comment='子事件类型')
+    event_id = Column(BigInteger, nullable=True, comment='事件id, 消息事件为message_id')
     group_id = Column(BigInteger, nullable=True, comment='群号')
     user_id = Column(BigInteger, nullable=True, comment='发送者QQ号')
     user_name = Column(String(64), nullable=True, comment='发送者名称')
@@ -341,7 +342,7 @@ class History(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, time, self_id, post_type, detail_type, sub_type=None,
+    def __init__(self, time, self_id, post_type, detail_type, sub_type=None, event_id=None,
                  group_id=None, user_id=None, user_name=None, raw_data=None, msg_data=None,
                  created_at=None, updated_at=None):
         self.time = time
@@ -349,6 +350,7 @@ class History(Base):
         self.post_type = post_type
         self.detail_type = detail_type
         self.sub_type = sub_type
+        self.event_id = event_id
         self.group_id = group_id
         self.user_id = user_id
         self.user_name = user_name
@@ -358,9 +360,10 @@ class History(Base):
         self.updated_at = updated_at
 
     def __repr__(self):
-        return "<History(time='%s', self_id='%s', post_type='%s', detail_type='%s', sub_type='%s', group_id='%s', " \
-               "user_id='%s', user_name='%s', raw_data='%s', msg_data='%s', created_at='%s', created_at='%s')>" % (
-                   self.time, self.self_id, self.post_type, self.detail_type, self.sub_type,
+        return "<History(time='%s', self_id='%s', post_type='%s', detail_type='%s', sub_type='%s', event_id='%s', " \
+               "group_id='%s', user_id='%s', user_name='%s', raw_data='%s', msg_data='%s', " \
+               "created_at='%s', created_at='%s')>" % (
+                   self.time, self.self_id, self.post_type, self.detail_type, self.sub_type, self.event_id,
                    self.group_id, self.user_id, self.user_name, self.raw_data, self.msg_data,
                    self.created_at, self.updated_at)
 
@@ -612,8 +615,8 @@ class CoolDownEvent(Base):
     event_type = Column(String(16), nullable=False, comment='冷却事件类型/global/plugin/group/user')
     stop_at = Column(DateTime, nullable=False, comment='冷却结束时间')
     plugin = Column(String(64), nullable=True, comment='plugin事件对应插件名')
-    group_id = Column(Integer, nullable=True, comment='group事件对应group_id')
-    user_id = Column(Integer, nullable=True, comment='user事件对应user_id')
+    group_id = Column(BigInteger, nullable=True, comment='group事件对应group_id')
+    user_id = Column(BigInteger, nullable=True, comment='user事件对应user_id')
     description = Column(String(128), nullable=True, comment='事件描述')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)

@@ -14,6 +14,7 @@ global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
+ENABLE_BILI_CHECK_POOL_MODE = global_config.enable_bili_check_pool_mode
 
 
 def check_bili_cookies() -> Result:
@@ -378,12 +379,6 @@ __all__ = [
     'get_user_info',
     'get_user_dynamic',
     'get_user_dynamic_history',
-    'get_dynamic_info'
+    'get_dynamic_info',
+    'ENABLE_BILI_CHECK_POOL_MODE'
 ]
-
-if __name__ == '__main__':
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(get_user_dynamic_history(dy_uid=846180))
-    print(res)
