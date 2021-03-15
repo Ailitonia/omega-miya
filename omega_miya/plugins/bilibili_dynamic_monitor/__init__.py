@@ -149,7 +149,7 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group = DBGroup(group_id=group_id)
     uid = state['uid']
     sub = DBSubscription(sub_type=2, sub_id=uid)
-    _res = sub.add(up_name=state.get('up_name'), live_info='动态')
+    _res = sub.add(up_name=state.get('up_name'), live_info='B站动态')
     if not _res.success():
         return _res
     _res = group.subscription_add(sub=sub)

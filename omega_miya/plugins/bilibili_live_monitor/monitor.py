@@ -146,7 +146,7 @@ async def live_db_upgrade():
             logger.error(f'live_db_upgrade: 获取直播间UP用户信息失败, room_id: {sub_id}, error: {_res.info}')
             continue
         up_name = _res.result.get('name')
-        _res = sub.add(up_name=up_name)
+        _res = sub.add(up_name=up_name, live_info='B站直播间')
         if not _res.success():
             logger.error(f'live_db_upgrade: 更新直播间信息失败, room_id: {sub_id}, error: {_res.info}')
             continue
@@ -305,11 +305,11 @@ async def bilibili_live_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为2, 默认日间检查间隔为20s
+        # 默认单次检查并发数为3, 默认日间检查间隔为20s
         logger.debug(f'bili live pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 2:
+        if waiting_num >= 3:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=2)
+            now_checking = random.sample(checking_pool, k=3)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:

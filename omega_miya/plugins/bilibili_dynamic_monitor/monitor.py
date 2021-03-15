@@ -42,7 +42,7 @@ async def dynamic_db_upgrade():
         if not _res.success():
             logger.error(f'获取用户信息失败, uid: {sub_id}, error: {_res.info}')
         up_name = _res.result.get('name')
-        _res = sub.add(up_name=up_name)
+        _res = sub.add(up_name=up_name, live_info='B站动态')
         if not _res.success():
             logger.error(f'dynamic_db_upgrade: 更新用户信息失败, uid: {sub_id}, error: {_res.info}')
             continue
@@ -289,11 +289,11 @@ async def bilibili_dynamic_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为2, 默认日间检查间隔为30s
+        # 默认单次检查并发数为3, 默认日间检查间隔为30s
         logger.debug(f'bili dynamic pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 2:
+        if waiting_num >= 3:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=2)
+            now_checking = random.sample(checking_pool, k=3)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:
@@ -304,7 +304,7 @@ async def bilibili_dynamic_monitor():
 
         # 检查now_checking里面的直播间(异步)
         tasks = []
-        for uid in check_sub:
+        for uid in now_checking:
             tasks.append(check_dynamic(uid))
         try:
             await asyncio.gather(*tasks)
