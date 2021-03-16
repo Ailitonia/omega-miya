@@ -27,6 +27,7 @@ nonebot.load_plugins("omega_miya/plugins")
 # config = nonebot.get_driver().config
 # do something...
 # nonebot.load_plugin("nonebot_plugin_test")
+# nonebot.require("nonebot_plugin_apscheduler").scheduler.print_jobs()
 
 
 if __name__ == "__main__":
