@@ -5,11 +5,12 @@ from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import FriendRequestEvent, GroupRequestEvent, GroupIncreaseNoticeEvent
 from omega_miya.utils.Omega_Base import DBGroup
 
-# 注册事件响应器, 处理加好友申请
-friend_request = on_request(priority=100)
+# 注册事件响应器
+add_and_invite_request = on_request(priority=100)
 
 
-@friend_request.handle()
+# 处理加好友申请
+@add_and_invite_request.handle()
 async def handle_friend_request(bot: Bot, event: FriendRequestEvent, state: T_State):
     user_id = event.user_id
     detail_type = event.request_type
@@ -22,11 +23,8 @@ async def handle_friend_request(bot: Bot, event: FriendRequestEvent, state: T_St
         logger.info(f'已拒绝用户: {user_id} 的好友申请')
 
 
-# 注册事件响应器, 处理被邀请进群
-group_invite = on_request(priority=100)
-
-
-@group_invite.handle()
+# 处理被邀请进群
+@add_and_invite_request.handle()
 async def handle_group_invite(bot: Bot, event: GroupRequestEvent, state: T_State):
     user_id = event.user_id
     group_id = event.group_id

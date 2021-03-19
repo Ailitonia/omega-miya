@@ -1,5 +1,13 @@
 import re
+import os
 from nonebot.adapters import Event
+from nonebot.adapters.cqhttp import Message
+
+
+def img_message(img_name: str) -> Message:
+    img_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'img_res', img_name))
+    return Message(f"[CQ:image,file=file:///{img_path}]")
+
 
 sp_msg = {
     r'(.+)好萌好可爱$':
@@ -7,9 +15,13 @@ sp_msg = {
     r'^#测试群友(.+)浓度#?$':
         {'group_id': [], 'replyMsg': r'群友{}浓度已超出测量范围Σ(っ °Д °;)っ', 'handle': True},
     r'^对呀对呀$':
-        {'group_id': [], 'replyMsg': r'对呀对呀', 'handle': None},
+        {'group_id': [], 'replyMsg': r'对呀对呀', 'handle': False},
     r'^小母猫':
-        {'group_id': [], 'replyMsg': r'喵喵喵~', 'handle': None}
+        {'group_id': [], 'replyMsg': r'喵喵喵~', 'handle': False},
+    r'^优质(解答|回答)(\.jpg)?$':
+        {'group_id': [], 'replyMsg': img_message('good_answer.jpg'), 'handle': False},
+    r'^[Dd]{2}们都是变态吗[\?？]?$':
+        {'group_id': [], 'replyMsg': r'你好，是的', 'handle': False},
 }
 
 

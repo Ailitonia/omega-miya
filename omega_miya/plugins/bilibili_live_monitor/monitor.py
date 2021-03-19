@@ -305,7 +305,7 @@ async def bilibili_live_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为3, 默认日间检查间隔为20s
+        # 默认单次检查并发数为3, 默认检查间隔为20s
         logger.debug(f'bili live pool mode debug info, B_checking_pool: {checking_pool}')
         if waiting_num >= 3:
             # 抽取检查对象

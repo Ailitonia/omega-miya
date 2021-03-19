@@ -1,4 +1,4 @@
-from nonebot import on_message, on_request, on_notice, logger
+from nonebot import MatcherGroup, on_message, on_request, on_notice, logger
 from nonebot.plugin import on
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -7,7 +7,9 @@ from omega_miya.utils.Omega_Base import DBHistory
 
 
 # 注册事件响应器, 处理MessageEvent
-message_history = on_message(priority=101, block=True)
+Message_history = MatcherGroup(type='message', priority=101, block=True)
+
+message_history = Message_history.on_message()
 
 
 @message_history.handle()

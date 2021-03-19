@@ -73,8 +73,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         plugin_src_path = os.path.dirname(__file__)
         font_path = os.path.join(plugin_src_path, 'fonts', 'msyhbd.ttc')
         # 生成表情包路径
-        sticker_path = os.path.join(plugin_src_path, 'sticker',
-                                    f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg")
+        sticker_path = os.path.abspath(
+            os.path.join(plugin_src_path, 'sticker', f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
         # 调整图片大小（宽度512像素）
         make_image = Image.open(origin_image_f)
         image_resize_width = 512
@@ -115,8 +115,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
             return None
 
         # 生成表情包路径
-        sticker_path = os.path.join(plugin_src_path, 'sticker',
-                                    f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg")
+        sticker_path = os.path.abspath(
+            os.path.join(plugin_src_path, 'sticker', f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
 
         # 读取模板的预置背景
         try:
@@ -147,7 +147,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         if path == -1:
             sticker_path = None
         else:
-            sticker_path = path
+            sticker_path = os.path.abspath(path)
 
         return sticker_path
 

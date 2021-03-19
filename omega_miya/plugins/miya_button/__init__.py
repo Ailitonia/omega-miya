@@ -33,12 +33,12 @@ miya_button = button.on_endswith(msg='喵一个')
 
 
 @miya_button.handle()
-async def miya_button(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_miya_button(bot: Bot, event: GroupMessageEvent, state: T_State):
     arg = str(event.get_plaintext()).strip().lower()
     voice = re.sub('喵一个', '', arg)
     voice_file = MiyaVoice().get_voice_filepath(voice=voice)
     if not os.path.exists(voice_file):
-        await bot.send(event=event, message='喵？')
+        await miya_button.send('喵？')
     else:
         msg = MessageSegment.record(file=f'file:///{voice_file}')
-        await bot.send(event=event, message=msg)
+        await miya_button.send(msg)
