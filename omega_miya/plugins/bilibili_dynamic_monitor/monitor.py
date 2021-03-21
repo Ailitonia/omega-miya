@@ -330,7 +330,7 @@ async def bilibili_dynamic_monitor():
 # 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
 if ENABLE_BILI_CHECK_POOL_MODE:
-    # 检查池启用
+    # 检查池启用, 日间
     scheduler.add_job(
         bilibili_dynamic_monitor,
         'cron',
@@ -339,13 +339,32 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         # day='*/1',
         # week=None,
         # day_of_week=None,
-        # hour=None,
+        hour='9-23',
         # minute='*/3',
         second='*/30',
         # start_date=None,
         # end_date=None,
         # timezone=None,
-        id='bilibili_dynamic_monitor_pool_enable',
+        id='bilibili_dynamic_monitor_in_day_pool_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+    # 检查池启用, 夜间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='0-8',
+        minute='*/2',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_night_pool_enable',
         coalesce=True,
         misfire_grace_time=30
     )
