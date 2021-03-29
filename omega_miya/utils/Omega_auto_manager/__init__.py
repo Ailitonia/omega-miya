@@ -47,6 +47,6 @@ async def handle_group_increase(bot: Bot, event: GroupIncreaseNoticeEvent, state
     if detail_type == 'group_increase' and DBGroup(group_id=group_id).permission_command().result == 1:
         # 发送欢迎消息
         at_seg = MessageSegment.at(user_id=user_id)
-        msg = f'{at_seg}欢迎新朋友～\n进群请先看群公告~\n一起愉快地聊天吧!'
+        msg = f'{at_seg}欢迎新朋友～\n进群请先看群公告～\n一起愉快地聊天吧!'
         await bot.send(event=event, message=Message(msg))
         logger.info(f'群组: {group_id}, 有新用户: {user_id} 进群')

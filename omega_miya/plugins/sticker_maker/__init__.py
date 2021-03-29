@@ -108,6 +108,7 @@ async def handle_img(bot: Bot, event: GroupMessageEvent, state: T_State):
 @sticker.got('sticker_text', prompt='请输入你想要制作的表情包的文字:')
 async def handle_sticker_text(bot: Bot, event: GroupMessageEvent, state: T_State):
     sticker_text = state['sticker_text']
+
     sticker_temp_text_part = state['temp_text_part']
     # 获取制作表情包所需文字
     if sticker_temp_text_part > 1:
@@ -117,6 +118,10 @@ async def handle_sticker_text(bot: Bot, event: GroupMessageEvent, state: T_State
         text_msg = f'请输入你想要制作的表情包的文字: \n注意: 不同模板适用的文字字数有所区别'
     if not sticker_text:
         await sticker.reject(text_msg)
+
+    # 过滤CQ码
+    if re.match(r'\[CQ:', sticker_text, re.I):
+        await sticker.finish('含非法字符QAQ')
 
     if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
         eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'

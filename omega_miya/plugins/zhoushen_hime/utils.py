@@ -384,7 +384,7 @@ class AssScriptLineTool(object):
 # 构造ass字幕文件处理工具类
 class ZhouChecker(object):
     # 需要校对的关键词
-    __proofreading_words = ['ong', '???', '？？？', '校对']
+    __proofreading_words = ['ong', '???', '？？？']
 
     # 要替换的标点, key为替换前, value为替换后
     __punctuation_replace = {

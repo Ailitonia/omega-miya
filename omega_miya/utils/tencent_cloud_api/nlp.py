@@ -54,7 +54,9 @@ class TencentNLP(object):
                         result.info = 'Attributes not found'
                 else:
                     text = json.loads(result.result['Response']['Content'])['简介'][0]['Name']
-                    text = re.sub(r'\s{2,}', '', str(text)).split('|@|')[0]
+                    text = re.sub(r'\s{2,}', '', str(text))
+                    text = text.replace('|@|', '\n')
+                    # text = re.sub(r'\s{2,}', '', str(text)).split('|@|')[0]
                     result.result = text
         return result
 
