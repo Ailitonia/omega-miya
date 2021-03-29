@@ -4,6 +4,11 @@ from datetime import datetime
 from nonebot.adapters.cqhttp import Bot as CQHTTPBot
 from nonebot.log import logger, default_format
 
+# win环境下proxy配置
+import sys
+import asyncio
+if sys.version_info[0] == 3 and sys.version_info[1] >= 8 and sys.platform.startswith('win'):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Custom logger
 log_info_name = f"{datetime.today().strftime('%Y%m%d-%H%M%S')}-INFO.log"
@@ -21,6 +26,7 @@ driver = nonebot.get_driver()
 driver.register_adapter("cqhttp", CQHTTPBot)
 
 nonebot.load_plugins("omega_miya/utils")
+nonebot.load_plugins("omega_miya/enhance")
 nonebot.load_plugins("omega_miya/plugins")
 
 # Modify some config / config depends on loaded configs

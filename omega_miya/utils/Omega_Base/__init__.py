@@ -7,7 +7,7 @@ from .database import DBTable
 from .model import \
     DBUser, DBGroup, DBSkill, DBSubscription, DBDynamic, \
     DBPixivillust, DBPixivtag, DBPixivision, \
-    DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent
+    DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus
 from .database import DBResult as Result
 
 
@@ -26,5 +26,6 @@ __all__ = [
     'DBHistory',
     'DBAuth',
     'DBCoolDownEvent',
+    'DBStatus',
     'Result'
 ]

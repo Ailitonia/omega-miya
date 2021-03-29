@@ -10,3 +10,4 @@ from .pixivtag import DBPixivtag
 from .skill import DBSkill
 from .subscription import DBSubscription
 from .user import DBUser
+from .status import DBStatus

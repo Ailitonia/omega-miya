@@ -5,7 +5,7 @@ from nonebot import logger, require, get_driver, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, DBTable
 from .utils import get_live_info, get_user_info, pic_2_base64, verify_cookies
-from .utils import ENABLE_BILI_CHECK_POOL_MODE
+from .utils import ENABLE_BILI_CHECK_POOL_MODE, ENABLE_PROXY
 
 
 # 初始化直播间标题, 状态
@@ -22,6 +22,37 @@ async def init_live_info():
     global live_status
     global live_up_name
 
+    # 定义函数用于初始化直播间信息
+    async def __init_live_info(room_id: int):
+        try:
+            # 获取直播间信息
+            __res = await get_live_info(room_id=room_id)
+            if not __res.success():
+                logger.error(f'init_live_info: <r>获取直播间信息失败</r>, room_id: {room_id}, error: {__res.info}')
+                return
+            live_info = __res.result
+            up_uid = __res.result.get('uid')
+            __res = await get_user_info(user_uid=up_uid)
+            if not __res.success():
+                logger.error(f'init_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {room_id}, error: {__res.info}')
+                return
+            up_name = __res.result.get('name')
+
+            # 直播状态放入live_status全局变量中
+            live_status[room_id] = int(live_info['status'])
+
+            # 直播间标题放入live_title全局变量中
+            live_title[room_id] = str(live_info['title'])
+
+            # 直播间up名称放入live_up_name全局变量中
+            live_up_name[room_id] = str(up_name)
+
+            logger.opt(colors=True).info(f"init_live_info: <g>初始化直播间 {room_id}/{up_name} ... </g>"
+                                         f"<y>status: {live_info['status']}</y>")
+        except Exception as e:
+            logger.error(f'init_live_info: <r>初始化直播间 {room_id} 失败</r>, <y>error: {repr(e)}</y>')
+            return
+
     if ENABLE_BILI_CHECK_POOL_MODE:
         logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><y>已启用!</y>')
     else:
@@ -35,36 +66,15 @@ async def init_live_info():
 
     logger.opt(colors=True).info('init_live_info: <y>初始化B站直播间监控列表...</y>')
     t = DBTable(table_name='Subscription')
+
+    tasks = []
     for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
         sub_id = int(item[0])
-        try:
-            # 获取直播间信息
-            _res = await get_live_info(room_id=sub_id)
-            if not _res.success():
-                logger.error(f'init_live_info: <r>获取直播间信息失败</r>, room_id: {sub_id}, error: {_res.info}')
-                continue
-            live_info = _res.result
-            up_uid = _res.result.get('uid')
-            _res = await get_user_info(user_uid=up_uid)
-            if not _res.success():
-                logger.error(f'init_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {sub_id}, error: {_res.info}')
-                continue
-            up_name = _res.result.get('name')
-
-            # 直播状态放入live_status全局变量中
-            live_status[sub_id] = int(live_info['status'])
-
-            # 直播间标题放入live_title全局变量中
-            live_title[sub_id] = str(live_info['title'])
-
-            # 直播间up名称放入live_up_name全局变量中
-            live_up_name[sub_id] = str(up_name)
-
-            logger.opt(colors=True).info(f"init_live_info: <g>初始化直播间 {sub_id}/{up_name} ... </g>"
-                                         f"<y>status: {live_info['status']}</y>")
-        except Exception as e:
-            logger.error(f'init_live_info: <r>初始化直播间 {sub_id} 失败</r>, <y>error: {repr(e)}</y>')
-            continue
+        tasks.append(__init_live_info(room_id=sub_id))
+    try:
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        logger.error(f'bilibili_live_monitor: init live info failed, error: {repr(e)}')
     logger.opt(colors=True).info('init_live_info: <g>B站直播间监控列表初始化完成.</g>')
 
 
@@ -305,11 +315,11 @@ async def bilibili_live_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为3, 默认检查间隔为20s
+        # 默认单次检查并发数为2, 默认检查间隔为20s
         logger.debug(f'bili live pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 3:
+        if waiting_num >= 2:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=3)
+            now_checking = random.sample(checking_pool, k=2)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:
@@ -345,8 +355,8 @@ async def bilibili_live_monitor():
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
-if ENABLE_BILI_CHECK_POOL_MODE:
-    # 检查池启用, 日间
+if ENABLE_PROXY:
+    # 启用了代理
     scheduler.add_job(
         bilibili_live_monitor,
         'cron',
@@ -355,17 +365,18 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         # day='*/1',
         # week=None,
         # day_of_week=None,
-        hour='9-23',
+        # hour='9-23',
         # minute='*/2',
         second='*/20',
         # start_date=None,
         # end_date=None,
         # timezone=None,
-        id='bilibili_live_monitor_in_day_pool_enable',
+        id='bilibili_live_monitor_proxy_enable',
         coalesce=True,
-        misfire_grace_time=30
+        misfire_grace_time=20
     )
-    # 检查池启用, 夜间
+elif ENABLE_BILI_CHECK_POOL_MODE:
+    # 检查池启用
     scheduler.add_job(
         bilibili_live_monitor,
         'cron',
@@ -374,15 +385,15 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         # day='*/1',
         # week=None,
         # day_of_week=None,
-        hour='0-8',
-        minute='*/1',
-        # second='*/30',
+        # hour='9-23',
+        # minute='*/2',
+        second='*/20',
         # start_date=None,
         # end_date=None,
         # timezone=None,
-        id='bilibili_live_monitor_in_night_pool_enable',
+        id='bilibili_live_monitor_pool_enable',
         coalesce=True,
-        misfire_grace_time=30
+        misfire_grace_time=20
     )
 else:
     # 检查池禁用, 日间

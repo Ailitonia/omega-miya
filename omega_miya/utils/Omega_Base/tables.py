@@ -7,6 +7,31 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
+# 系统参数表, 存放运行时状态
+class OmegaStatus(Base):
+    __tablename__ = 'omega_status'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('omega_status_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    name = Column(String(32), nullable=False, index=True, unique=True, comment='参数名称')
+    status = Column(Integer, nullable=False, comment='参数值')
+    info = Column(String(128), nullable=True, comment='参数说明')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, name, status, info, created_at=None, updated_at=None):
+        self.name = name
+        self.status = status
+        self.info = info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<OmegaStatus(name='%s',status='%s',info='%s', created_at='%s', created_at='%s')>" % (
+                   self.name, self.status, self.info, self.created_at, self.updated_at)
+
+
 # 成员表
 class User(Base):
     __tablename__ = 'users'

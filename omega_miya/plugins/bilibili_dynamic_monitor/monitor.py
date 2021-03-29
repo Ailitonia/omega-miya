@@ -4,7 +4,7 @@ from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
-from .utils import ENABLE_BILI_CHECK_POOL_MODE
+from .utils import ENABLE_BILI_CHECK_POOL_MODE, ENABLE_PROXY
 
 
 # 检查池模式使用的检查队列
@@ -289,11 +289,11 @@ async def bilibili_dynamic_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为3, 默认检查间隔为30s
+        # 默认单次检查并发数为2, 默认检查间隔为30s
         logger.debug(f'bili dynamic pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 3:
+        if waiting_num >= 2:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=3)
+            now_checking = random.sample(checking_pool, k=2)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:
@@ -329,8 +329,8 @@ async def bilibili_dynamic_monitor():
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
-if ENABLE_BILI_CHECK_POOL_MODE:
-    # 检查池启用, 日间
+if ENABLE_PROXY:
+    # 启用了代理
     scheduler.add_job(
         bilibili_dynamic_monitor,
         'cron',
@@ -339,17 +339,18 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         # day='*/1',
         # week=None,
         # day_of_week=None,
-        hour='9-23',
+        # hour='9-23',
         # minute='*/3',
         second='*/30',
         # start_date=None,
         # end_date=None,
         # timezone=None,
-        id='bilibili_dynamic_monitor_in_day_pool_enable',
+        id='bilibili_dynamic_monitor_proxy_enable',
         coalesce=True,
         misfire_grace_time=30
     )
-    # 检查池启用, 夜间
+elif ENABLE_BILI_CHECK_POOL_MODE:
+    # 检查池启用
     scheduler.add_job(
         bilibili_dynamic_monitor,
         'cron',
@@ -358,13 +359,13 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         # day='*/1',
         # week=None,
         # day_of_week=None,
-        hour='0-8',
-        minute='*/2',
-        # second='*/30',
+        # hour='9-23',
+        # minute='*/3',
+        second='*/30',
         # start_date=None,
         # end_date=None,
         # timezone=None,
-        id='bilibili_dynamic_monitor_in_night_pool_enable',
+        id='bilibili_dynamic_monitor_pool_enable',
         coalesce=True,
         misfire_grace_time=30
     )
