@@ -204,7 +204,19 @@ async def bilibili_live_monitor():
         # 需通知的群
         notice_group = list(set(all_noitce_groups) & set(sub_group))
 
-        up_name = live_up_name[room_id]
+        try:
+            up_name = live_up_name[room_id]
+            status = live_status[room_id]
+            title = live_title[room_id]
+        except KeyError:
+            await init_add_live_info(room_id=room_id)
+            try:
+                up_name = live_up_name[room_id]
+                status = live_status[room_id]
+                title = live_title[room_id]
+            except KeyError:
+                logger.error(f'直播间: {room_id} 状态失效且获取失败!')
+                raise Exception('直播间状态失效且获取失败')
 
         # 检查是否是已开播状态, 若已开播则监测直播间标题变动
         # 为避免开播时同时出现标题变更通知和开播通知, 在检测到直播状态变化时更新标题, 且仅在直播状态为直播中时发送标题变更通知
@@ -315,11 +327,11 @@ async def bilibili_live_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为2, 默认检查间隔为20s
+        # 默认单次检查并发数为3, 默认检查间隔为20s
         logger.debug(f'bili live pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 2:
+        if waiting_num >= 3:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=2)
+            now_checking = random.sample(checking_pool, k=3)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:
