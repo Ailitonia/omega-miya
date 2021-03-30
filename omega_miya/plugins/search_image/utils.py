@@ -1,13 +1,15 @@
 import aiohttp
 import base64
 import re
+import nonebot
 from io import BytesIO
 from bs4 import BeautifulSoup
 from nonebot import logger
 from omega_miya.utils.Omega_Base import Result
 
 
-API_KEY = ''
+global_config = nonebot.get_driver().config
+API_KEY = global_config.saucenao_api_key
 API_URL = 'https://saucenao.com/search.php'
 API_URL_ASCII2D = 'https://ascii2d.net/search/url/'
 
@@ -72,6 +74,10 @@ async def get_saucenao_identify_result(url: str) -> list:
             logger.warning(error_info)
             return {'header': {'status': 1}, 'results': []}
 
+    if not API_KEY:
+        logger.opt(colors=True).warning(f'<r>Saucenao API KEY未配置</r>, <y>无法使用Saucenao API进行识图!</y>')
+        return []
+
     __payload = {'output_type': 2,
                  'api_key': API_KEY,
                  'testmode': 1,
@@ -83,6 +89,7 @@ async def get_saucenao_identify_result(url: str) -> list:
         logger.error(f"get_identify_result failed, "
                      f"status code: {__result_json['header']['status']}, Sever or Client error")
         return []
+
     __result = []
     for __item in __result_json['results']:
         try:
