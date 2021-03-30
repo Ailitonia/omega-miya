@@ -288,13 +288,17 @@ async def handle_setu_import(bot: Bot, event: Event, state: T_State):
         await setu_import.finish('错误: 导入列表不存在QAQ')
 
     pid_list = []
-    with open(import_pid_file) as f:
-        lines = f.readlines()
-        for line in lines:
-            if not re.match(r'^[0-9]+$', line):
-                logger.debug(f'setu_import: 导入列表中有非数字字符: {line}')
-                continue
-            pid_list.append(int(line))
+    try:
+        with open(import_pid_file) as f:
+            lines = f.readlines()
+            for line in lines:
+                if not re.match(r'^[0-9]+$', line):
+                    logger.debug(f'setu_import: 导入列表中有非数字字符: {line}')
+                    continue
+                pid_list.append(int(line))
+    except Exception as e:
+        logger.error(f'setu_import: 读取导入列表失败, error: {repr(e)}')
+        await setu_import.finish('错误: 读取导入列表失败QAQ')
 
     await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
 
