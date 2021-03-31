@@ -28,13 +28,15 @@ async def init_live_info():
             # 获取直播间信息
             __res = await get_live_info(room_id=room_id)
             if not __res.success():
-                logger.error(f'init_live_info: <r>获取直播间信息失败</r>, room_id: {room_id}, error: {__res.info}')
+                logger.opt(colors=True).error(
+                    f'init_live_info: <r>获取直播间信息失败</r>, room_id: {room_id}, error: {__res.info}')
                 return
             live_info = __res.result
             up_uid = __res.result.get('uid')
             __res = await get_user_info(user_uid=up_uid)
             if not __res.success():
-                logger.error(f'init_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {room_id}, error: {__res.info}')
+                logger.opt(colors=True).error(
+                    f'init_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {room_id}, error: {__res.info}')
                 return
             up_name = __res.result.get('name')
 
@@ -47,16 +49,16 @@ async def init_live_info():
             # 直播间up名称放入live_up_name全局变量中
             live_up_name[room_id] = str(up_name)
 
-            logger.opt(colors=True).info(f"init_live_info: <g>初始化直播间 {room_id}/{up_name} ... </g>"
-                                         f"<y>status: {live_info['status']}</y>")
-        except Exception as e:
-            logger.error(f'init_live_info: <r>初始化直播间 {room_id} 失败</r>, <y>error: {repr(e)}</y>')
+            logger.opt(colors=True).info(f"init_live_info: <lc>初始化直播间 {room_id}/{up_name} ... </lc>"
+                                         f"<g>status: {live_info['status']}</g>")
+        except Exception as _e:
+            logger.opt(colors=True).error(f'init_live_info: <r>初始化直播间 {room_id} 失败</r>, <y>error: {repr(_e)}</y>')
             return
 
     if ENABLE_BILI_CHECK_POOL_MODE:
-        logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><y>已启用!</y>')
+        logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><ly>已启用!</ly>')
     else:
-        logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><y>已禁用!</y>')
+        logger.opt(colors=True).info('<g>Bilibili 检查池模式: </g><ly>已禁用!</ly>')
 
     _res = await verify_cookies()
     if _res.success():
@@ -89,13 +91,15 @@ async def init_add_live_info(room_id: int):
         # 获取直播间信息
         _res = await get_live_info(room_id=room_id)
         if not _res.success():
-            logger.error(f'init_add_live_info: <r>获取直播间信息失败</r>, room_id: {room_id}, error: {_res.info}')
+            logger.opt(colors=True).error(
+                f'init_add_live_info: <r>获取直播间信息失败</r>, room_id: {room_id}, error: {_res.info}')
             return
         live_info = _res.result
         up_uid = _res.result.get('uid')
         _res = await get_user_info(user_uid=up_uid)
         if not _res.success():
-            logger.error(f'init_add_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {room_id}, error: {_res.info}')
+            logger.opt(colors=True).error(
+                f'init_add_live_info: <r>获取直播间UP用户信息失败</r>, room_id: {room_id}, error: {_res.info}')
             return
         up_name = _res.result.get('name')
 
@@ -108,10 +112,10 @@ async def init_add_live_info(room_id: int):
         # 直播间up名称放入live_up_name全局变量中
         live_up_name[room_id] = str(up_name)
 
-        logger.opt(colors=True).info(f'init_add_live_info: <g>初始化直播间 {room_id}/{up_name} ... </g>'
-                                     f"<y>status: {live_info['status']}</y>")
+        logger.opt(colors=True).info(f'init_add_live_info: <lc>初始化直播间 {room_id}/{up_name} ... </lc>'
+                                     f"<g>status: {live_info['status']}</g>")
     except Exception as e:
-        logger.error(f'init_add_live_info: <r>初始化直播间 {room_id} 失败</r>, <y>error: {repr(e)}</y>')
+        logger.opt(colors=True).error(f'init_add_live_info: <r>初始化直播间 {room_id} 失败</r>, <y>error: {repr(e)}</y>')
 
 
 # 初始化任务加入启动序列
