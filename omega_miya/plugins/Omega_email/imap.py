@@ -46,6 +46,14 @@ class EmailImap(object):
 
     def get_mail_info(self, charset, *criteria) -> List[Email]:
         self.__mail.login(self.__address, self.__password)
+
+        if self.__address.endswith('163.com'):
+            # 添加163邮箱 IMAP ID 验证
+            imaplib.Commands['ID'] = ('AUTH',)
+            args = ("name", "omega", "contact", "omega_miya@163.com", "version", "1.0.2", "vendor", "pyimaplibclient")
+            typ, dat = self.__mail._simple_command('ID', '("' + '" "'.join(args) + '")')
+            self.__mail._untagged_response(typ, dat, 'ID')
+
         self.__mail.select()
         typ, msg_nums = self.__mail.search(charset, *criteria)
         msg_nums = str(msg_nums[0], encoding='utf8')
