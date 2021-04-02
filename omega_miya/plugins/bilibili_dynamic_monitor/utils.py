@@ -4,7 +4,7 @@ import json
 from io import BytesIO
 import nonebot
 from omega_miya.utils.Omega_Base import DBTable, Result
-from omega_miya.enhance.Omega_proxy_utils import check_proxy_available
+from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 
 DYNAMIC_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
 GET_DYNAMIC_DETAIL_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'

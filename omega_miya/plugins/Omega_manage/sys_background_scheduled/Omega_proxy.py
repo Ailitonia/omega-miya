@@ -1,6 +1,6 @@
 import aiohttp
 import nonebot
-from nonebot import logger, require
+from nonebot import logger
 from omega_miya.utils.Omega_Base import DBStatus, Result
 
 global_config = nonebot.get_driver().config
@@ -56,29 +56,7 @@ async def check_proxy():
         db_res = DBStatus(name='PROXY_AVAILABLE').set_status(status=0, info='代理不可用')
         logger.opt(colors=True).warning(f'代理检查: <y>失败, status: {result.result}, '
                                         f'info: {result.info}!</y>, DB info: {db_res.info}')
-
-if ENABLE_PROXY:
-    # 初始化任务加入启动序列
-    nonebot.get_driver().on_startup(check_proxy)
-
-    # 创建用于检查代理可用性的状态的定时任务
-    scheduler = require("nonebot_plugin_apscheduler").scheduler
-
-    scheduler.add_job(
-        check_proxy,
-        'cron',
-        # year=None,
-        # month=None,
-        # day=None,
-        # week=None,
-        # day_of_week=None,
-        # hour=None,
-        # minute=None,
-        second='*/30',
-        # start_date=None,
-        # end_date=None,
-        # timezone=None,
-        id='check_proxy',
-        coalesce=True,
-        misfire_grace_time=20
-    )
+__all__ = [
+    'ENABLE_PROXY',
+    'check_proxy'
+]

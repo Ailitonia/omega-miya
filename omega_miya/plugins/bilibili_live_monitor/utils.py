@@ -3,7 +3,7 @@ import nonebot
 import base64
 from io import BytesIO
 from omega_miya.utils.Omega_Base import Result
-from omega_miya.enhance.Omega_proxy_utils import check_proxy_available
+from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
