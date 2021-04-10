@@ -1,6 +1,6 @@
 from typing import List
 from omega_miya.utils.Omega_Base.database import NBdb, DBResult
-from omega_miya.utils.Omega_Base.tables import Pixiv, PixivTag, PixivT2I
+from omega_miya.utils.Omega_Base.tables import Pixiv, PixivT2I
 from .pixivtag import DBPixivtag
 from datetime import datetime
 from sqlalchemy.future import select
@@ -136,7 +136,7 @@ class DBPixivillust(object):
         return result
 
     @classmethod
-    async def list_illust(cls, *keywords: str, nsfw_tag: int, acc_mode: bool) -> DBResult:
+    async def list_illust(cls, *keywords: str, num: int, nsfw_tag: int, acc_mode: bool = False) -> DBResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -150,7 +150,7 @@ class DBPixivillust(object):
                                 func.find_in_set(keyword, Pixiv.uname),
                                 func.find_in_set(keyword, Pixiv.title)
                             ))
-                        query = query.order_by(func.random())
+                        query = query.order_by(func.random()).limit(num)
                         session_result = await session.execute(query)
                         res = [x for x in session_result.scalars().all()]
 
@@ -163,7 +163,7 @@ class DBPixivillust(object):
                                 Pixiv.uname.ilike(f'%{keyword}%'),
                                 Pixiv.title.ilike(f'%{keyword}%')
                             ))
-                        query = query.order_by(func.random())
+                        query = query.order_by(func.random()).limit(num)
                         session_result = await session.execute(query)
                         res = [x for x in session_result.scalars().all()]
 

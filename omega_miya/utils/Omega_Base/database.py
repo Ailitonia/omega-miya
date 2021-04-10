@@ -36,10 +36,10 @@ async def database_init():
             # where synchronous IO calls will be transparently translated for
             # await.
             await conn.run_sync(Base.metadata.create_all)
-
+        nonebot.logger.opt(colors=True).info(f'{__name__}<lc>初始化数据库...</lc><lg>完成</lg>')
     except Exception as e:
         import sys
-        nonebot.logger.critical(f'数据库初始化失败, error: {repr(e)}')
+        nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e)}')
         sys.exit('数据库初始化失败')
 
 
