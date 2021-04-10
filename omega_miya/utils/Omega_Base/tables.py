@@ -41,6 +41,7 @@ class User(Base):
     id = Column(Integer, Sequence('users_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     qq = Column(BigInteger, nullable=False, index=True, unique=True, comment='QQ号')
     nickname = Column(String(64), nullable=False, comment='昵称')
+    is_friend = Column(Integer, nullable=False, comment='是否为好友')
     aliasname = Column(String(64), nullable=True, comment='自定义名称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
@@ -55,16 +56,17 @@ class User(Base):
     user_auth = relationship('AuthUser', back_populates='auth_for_user', uselist=False,
                              cascade="all, delete", passive_deletes=True)
 
-    def __init__(self, qq, nickname, aliasname=None, created_at=None, updated_at=None):
+    def __init__(self, qq, nickname, is_friend=0, aliasname=None, created_at=None, updated_at=None):
         self.qq = qq
         self.nickname = nickname
+        self.is_friend = is_friend
         self.aliasname = aliasname
         self.created_at = created_at
         self.updated_at = updated_at
 
     def __repr__(self):
         return f"<User(qq='{self.qq}', nickname='{self.nickname}', aliasname='{self.aliasname}', " \
-               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+               f"is_friend='{self.is_friend}', created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
 # 技能表
@@ -194,7 +196,7 @@ class AuthUser(Base):
 
     id = Column(Integer, Sequence('auth_user_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    auth_node = Column(String(128), nullable=False, comment='授权节点, 由插件检查')
+    auth_node = Column(String(128), nullable=False, index=True, comment='授权节点, 由插件检查')
     allow_tag = Column(Integer, nullable=False, comment='授权标签')
     deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
     auth_info = Column(String(128), nullable=True, comment='授权信息备注')
@@ -225,7 +227,7 @@ class AuthGroup(Base):
 
     id = Column(Integer, Sequence('auth_group_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
-    auth_node = Column(String(128), nullable=False, comment='授权节点, 由插件检查')
+    auth_node = Column(String(128), nullable=False, index=True, comment='授权节点, 由插件检查')
     allow_tag = Column(Integer, nullable=False, comment='授权标签')
     deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
     auth_info = Column(String(128), nullable=True, comment='授权信息备注')
@@ -631,11 +633,11 @@ class CoolDownEvent(Base):
     # 表结构
     id = Column(Integer, Sequence('cool_down_event_id_seq'),
                 primary_key=True, nullable=False, index=True, unique=True)
-    event_type = Column(String(16), nullable=False, comment='冷却事件类型/global/plugin/group/user')
+    event_type = Column(String(16), nullable=False, index=True, comment='冷却事件类型/global/plugin/group/user')
     stop_at = Column(DateTime, nullable=False, comment='冷却结束时间')
-    plugin = Column(String(64), nullable=True, comment='plugin事件对应插件名')
-    group_id = Column(BigInteger, nullable=True, comment='group事件对应group_id')
-    user_id = Column(BigInteger, nullable=True, comment='user事件对应user_id')
+    plugin = Column(String(64), nullable=True, index=True, comment='plugin事件对应插件名')
+    group_id = Column(BigInteger, nullable=True, index=True, comment='group事件对应group_id')
+    user_id = Column(BigInteger, nullable=True, index=True, comment='user事件对应user_id')
     description = Column(String(128), nullable=True, comment='事件描述')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
