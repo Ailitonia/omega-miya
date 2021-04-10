@@ -16,8 +16,9 @@ class DBDynamic(object):
             async with session.begin():
                 try:
                     session_result = await session.execute(
-                        select(Bilidynamic.id).where(
-                            Bilidynamic.uid == self.uid).where(Bilidynamic.dynamic_id == self.dynamic_id)
+                        select(Bilidynamic.id).
+                        where(Bilidynamic.uid == self.uid).
+                        where(Bilidynamic.dynamic_id == self.dynamic_id)
                     )
                     bilidynamic_table_id = session_result.scalar_one()
                     result = DBResult(error=False, info='Success', result=bilidynamic_table_id)
@@ -40,8 +41,9 @@ class DBDynamic(object):
                 async with session.begin():
                     try:
                         session_result = await session.execute(
-                            select(Bilidynamic).where(
-                                Bilidynamic.uid == self.uid).where(Bilidynamic.dynamic_id == self.dynamic_id)
+                            select(Bilidynamic).
+                            where(Bilidynamic.uid == self.uid).
+                            where(Bilidynamic.dynamic_id == self.dynamic_id)
                         )
                         exist_dynamic = session_result.scalar_one()
                         exist_dynamic.content += f'\nupdate: {datetime.now()}\n{content}'
