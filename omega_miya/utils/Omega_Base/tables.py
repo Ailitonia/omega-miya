@@ -535,12 +535,12 @@ class Pixiv(Base):
     # 表结构
     id = Column(Integer, Sequence('upixiv_illusts_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     pid = Column(Integer, nullable=False, index=True, unique=True, comment='pid')
-    uid = Column(Integer, nullable=False, comment='uid')
-    title = Column(String(512), nullable=False, comment='title')
-    uname = Column(String(256), nullable=False, comment='author')
+    uid = Column(Integer, nullable=False, index=True, comment='uid')
+    title = Column(String(256), nullable=False, index=True, comment='title')
+    uname = Column(String(256), nullable=False, index=True, comment='author')
     nsfw_tag = Column(Integer, nullable=False, comment='nsfw标签, 0=safe, 1=setu. 2=r18')
-    tags = Column(String(2048), nullable=False, comment='tags')
-    url = Column(String(2048), nullable=False, comment='url')
+    tags = Column(String(1024), nullable=False, comment='tags')
+    url = Column(String(1024), nullable=False, comment='url')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
