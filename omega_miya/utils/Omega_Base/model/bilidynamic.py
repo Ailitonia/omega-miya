@@ -1,6 +1,7 @@
 from omega_miya.utils.Omega_Base.database import NBdb, DBResult
 from omega_miya.utils.Omega_Base.tables import Bilidynamic
 from datetime import datetime
+from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
@@ -9,53 +10,56 @@ class DBDynamic(object):
         self.uid = uid
         self.dynamic_id = dynamic_id
 
-    def id(self) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            bilidynamic_table_id = session.query(Bilidynamic.id).\
-                filter(Bilidynamic.uid == self.uid).\
-                filter(Bilidynamic.dynamic_id == self.dynamic_id).one()[0]
-            result = DBResult(error=False, info='Success', result=bilidynamic_table_id)
-        except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-1)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
+    async def id(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(Bilidynamic.id).
+                        where(Bilidynamic.uid == self.uid).
+                        where(Bilidynamic.dynamic_id == self.dynamic_id)
+                    )
+                    bilidynamic_table_id = session_result.scalar_one()
+                    result = DBResult(error=False, info='Success', result=bilidynamic_table_id)
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=-1)
         return result
 
-    def exist(self) -> bool:
-        result = self.id().success()
-        return result
+    async def exist(self) -> bool:
+        result = await self.id()
+        return result.success()
 
-    def add(self, dynamic_type: int, content: str) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            exist_dynamic = session.query(Bilidynamic).\
-                filter(Bilidynamic.uid == self.uid).\
-                filter(Bilidynamic.dynamic_id == self.dynamic_id).one()
-            exist_dynamic.content += f'\nupdate: {datetime.now()}\n{content}'
-            exist_dynamic.updated_at = datetime.now()
-            session.commit()
-            result = DBResult(error=False, info='Success upgrade', result=0)
-        except NoResultFound:
+    async def add(self, dynamic_type: int, content: str) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
             try:
-                # 动态表中添加新动态
-                new_dynamic = Bilidynamic(uid=self.uid, dynamic_id=self.dynamic_id, dynamic_type=dynamic_type,
-                                          content=content, created_at=datetime.now())
-                session.add(new_dynamic)
-                session.commit()
-                result = DBResult(error=False, info='Success added', result=0)
+                async with session.begin():
+                    try:
+                        session_result = await session.execute(
+                            select(Bilidynamic).
+                            where(Bilidynamic.uid == self.uid).
+                            where(Bilidynamic.dynamic_id == self.dynamic_id)
+                        )
+                        exist_dynamic = session_result.scalar_one()
+                        exist_dynamic.content += f'\nupdate: {datetime.now()}\n{content}'
+                        exist_dynamic.updated_at = datetime.now()
+                        result = DBResult(error=False, info='Success upgrade', result=0)
+                    except NoResultFound:
+                        # 动态表中添加新动态
+                        new_dynamic = Bilidynamic(uid=self.uid, dynamic_id=self.dynamic_id, dynamic_type=dynamic_type,
+                                                  content=content, created_at=datetime.now())
+                        session.add(new_dynamic)
+                        result = DBResult(error=False, info='Success added', result=0)
+                await session.commit()
+            except MultipleResultsFound:
+                await session.rollback()
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
-                session.rollback()
+                await session.rollback()
                 result = DBResult(error=True, info=repr(e), result=-1)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            session.rollback()
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
         return result

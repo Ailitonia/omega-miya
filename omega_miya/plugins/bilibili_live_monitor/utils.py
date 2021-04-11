@@ -3,7 +3,7 @@ import nonebot
 import base64
 from io import BytesIO
 from omega_miya.utils.Omega_Base import Result
-from omega_miya.enhance.Omega_proxy_utils import check_proxy_available
+from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
@@ -48,7 +48,8 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'origin': 'https://www.bilibili.com',
                            'referer': 'https://www.bilibili.com/'}
-                if ENABLE_PROXY and check_proxy_available():
+                proxy_available = await check_proxy_available()
+                if ENABLE_PROXY and proxy_available:
                     proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
                     async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
                                            proxy=proxy, timeout=timeout) as rp:

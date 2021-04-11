@@ -36,10 +36,9 @@ async def pixivision_monitor():
         bots.append(bot)
 
     # 获取所有有通知权限的群组
-    all_noitce_groups = []
     t = DBTable(table_name='Group')
-    for item in t.list_col_with_condition('group_id', 'notice_permissions', 1).result:
-        all_noitce_groups.append(int(item[0]))
+    group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+    all_noitce_groups = [int(x) for x in group_res.result]
 
     # 初始化tag黑名单
     block_tag_id = []
@@ -49,10 +48,9 @@ async def pixivision_monitor():
         block_tag_name.append(block_tag.get('name'))
 
     # 提取数据库中已有article的id列表
-    exist_article = []
     t = DBTable(table_name='Pixivision')
-    for item in t.list_col('aid').result:
-        exist_article.append(int(item[0]))
+    pixivision_res = await t.list_col(col_name='aid')
+    exist_article = [int(x) for x in pixivision_res.result]
 
     # 获取最新一页pixivision的article
     new_article = []
@@ -86,7 +84,8 @@ async def pixivision_monitor():
 
     sub = DBSubscription(sub_type=8, sub_id=-1)
     # 获取订阅了该直播间的所有群
-    sub_group = sub.sub_group_list().result
+    sub_group_res = await sub.sub_group_list()
+    sub_group = sub_group_res.result
     # 需通知的群
     notice_group = list(set(all_noitce_groups) & set(sub_group))
 

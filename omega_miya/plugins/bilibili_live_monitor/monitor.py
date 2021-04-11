@@ -70,8 +70,8 @@ async def init_live_info():
     t = DBTable(table_name='Subscription')
 
     tasks = []
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
-        sub_id = int(item[0])
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
+    for sub_id in sub_res.result:
         tasks.append(__init_live_info(room_id=sub_id))
     try:
         await asyncio.gather(*tasks)
@@ -147,8 +147,8 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
 async def live_db_upgrade():
     logger.debug('live_db_upgrade: started upgrade subscription info')
     t = DBTable(table_name='Subscription')
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
-        sub_id = int(item[0])
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
+    for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=1, sub_id=sub_id)
         _res = await get_live_info(room_id=sub_id)
         if not _res.success():
@@ -160,7 +160,7 @@ async def live_db_upgrade():
             logger.error(f'live_db_upgrade: 获取直播间UP用户信息失败, room_id: {sub_id}, error: {_res.info}')
             continue
         up_name = _res.result.get('name')
-        _res = sub.add(up_name=up_name, live_info='B站直播间')
+        _res = await sub.add(up_name=up_name, live_info='B站直播间')
         if not _res.success():
             logger.error(f'live_db_upgrade: 更新直播间信息失败, room_id: {sub_id}, error: {_res.info}')
             continue
@@ -181,16 +181,14 @@ async def bilibili_live_monitor():
         bots.append(bot)
 
     # 获取所有有通知权限的群组
-    all_noitce_groups = []
     t = DBTable(table_name='Group')
-    for item in t.list_col_with_condition('group_id', 'notice_permissions', 1).result:
-        all_noitce_groups.append(int(item[0]))
+    group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+    all_noitce_groups = [int(x) for x in group_res.result]
 
     # 获取订阅表中的所有直播间订阅
-    check_sub = []
     t = DBTable(table_name='Subscription')
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 1).result:
-        check_sub.append(int(item[0]))
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
+    check_sub = [int(x) for x in sub_res.result]
 
     # 注册一个异步函数用于检查直播间状态
     async def check_live(room_id: int):
@@ -204,7 +202,8 @@ async def bilibili_live_monitor():
         sub = DBSubscription(sub_type=1, sub_id=room_id)
 
         # 获取订阅了该直播间的所有群
-        sub_group = sub.sub_group_list().result
+        sub_group_res = await sub.sub_group_list()
+        sub_group = sub_group_res.result
         # 需通知的群
         notice_group = list(set(all_noitce_groups) & set(sub_group))
 
@@ -257,8 +256,8 @@ async def bilibili_live_monitor():
                 if live_info['status'] == 0:
                     live_start_info = f"LiveEnd! Room: {room_id}/{up_name}"
                     new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili', detail_type='live')
-                    new_event.add(sub_type='live_end', user_id=room_id, user_name=up_name,
-                                  raw_data=repr(live_info), msg_data=live_start_info)
+                    await new_event.add(sub_type='live_end', user_id=room_id, user_name=up_name,
+                                        raw_data=repr(live_info), msg_data=live_start_info)
 
                     msg = f'{up_name}下播了'
                     # 通知有通知权限且订阅了该直播间的群
@@ -279,8 +278,8 @@ async def bilibili_live_monitor():
                     live_start_info = f"LiveStart! Room: {room_id}/{up_name}, Title: {live_info['title']}, " \
                                       f"TrueTime: {live_info['time']}"
                     new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili', detail_type='live')
-                    new_event.add(sub_type='live_start', user_id=room_id, user_name=up_name,
-                                  raw_data=repr(live_info), msg_data=live_start_info)
+                    await new_event.add(sub_type='live_start', user_id=room_id, user_name=up_name,
+                                        raw_data=repr(live_info), msg_data=live_start_info)
 
                     cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
                     if cover_pic.success():
@@ -303,8 +302,8 @@ async def bilibili_live_monitor():
                 elif live_info['status'] == 2:
                     live_start_info = f"LiveEnd! Room: {room_id}/{up_name}"
                     new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili', detail_type='live')
-                    new_event.add(sub_type='live_end_with_playlist', user_id=room_id, user_name=up_name,
-                                  raw_data=repr(live_info), msg_data=live_start_info)
+                    await new_event.add(sub_type='live_end_with_playlist', user_id=room_id, user_name=up_name,
+                                        raw_data=repr(live_info), msg_data=live_start_info)
 
                     msg = f'{up_name}下播了（轮播中）'
                     for group_id in notice_group:

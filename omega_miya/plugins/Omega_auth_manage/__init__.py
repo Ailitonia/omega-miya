@@ -63,7 +63,7 @@ async def handle_list_node(bot: Bot, event: Event, state: T_State):
         detail_type = event.dict().get(f'{event.get_type()}_type')
         if detail_type == 'group':
             group_id = event.dict().get('group_id')
-            _res = DBAuth.list(auth_type='group', auth_id=group_id)
+            _res = await DBAuth.list(auth_type='group', auth_id=group_id)
             if _res.success():
                 node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
                 msg = f'当前群组权限列表为:\n\n{node_text}'
@@ -72,7 +72,7 @@ async def handle_list_node(bot: Bot, event: Event, state: T_State):
                 await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
         elif detail_type == 'private':
             user_id = event.dict().get('user_id')
-            _res = DBAuth.list(auth_type='user', auth_id=user_id)
+            _res = await DBAuth.list(auth_type='user', auth_id=user_id)
             if _res.success():
                 node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
                 msg = f'当前用户权限列表为:\n\n{node_text}'
@@ -99,15 +99,17 @@ async def handle_auth_id(bot: Bot, event: Event, state: T_State):
 
     if auth_type == 'user':
         user = DBUser(user_id=auth_id)
-        if user.exist():
-            await omegaauth.send(f'即将对用户: 【{user.nickname().result}】执行操作')
+        user_name_res = await user.nickname()
+        if user_name_res.success():
+            await omegaauth.send(f'即将对用户: 【{user_name_res.result}】执行操作')
         else:
             logger.error(f'为 {auth_type}/{auth_id} 配置权限节点失败, 数据库中不存在该用户')
             await omegaauth.finish('数据库中不存在该用户QAQ')
     elif auth_type == 'group':
         group = DBGroup(group_id=auth_id)
-        if group.exist():
-            await omegaauth.send(f'即将对群组: 【{group.name().result}】执行操作')
+        group_name_res = await group.name()
+        if group_name_res.success():
+            await omegaauth.send(f'即将对群组: 【{group_name_res.result}】执行操作')
         else:
             logger.error(f'为 {auth_type}/{auth_id} 配置权限节点失败, 数据库中不存在该群组')
             await omegaauth.finish('数据库中不存在该群组QAQ')
@@ -155,11 +157,11 @@ async def handle_auth_node(bot: Bot, event: Event, state: T_State):
     auth = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=r_auth_node)
 
     if sub_command == 'allow':
-        res = auth.set(allow_tag=1, deny_tag=0)
+        res = await auth.set(allow_tag=1, deny_tag=0)
     elif sub_command == 'deny':
-        res = auth.set(allow_tag=0, deny_tag=1)
+        res = await auth.set(allow_tag=0, deny_tag=1)
     elif sub_command == 'clear':
-        res = auth.delete()
+        res = await auth.delete()
     else:
         logger.error(f'handle_auth_node 执行时 sub_command 变量检验错误')
         return

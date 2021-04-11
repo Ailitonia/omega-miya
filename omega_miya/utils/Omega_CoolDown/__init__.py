@@ -47,19 +47,21 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
 
     # 检查用户或群组是否有skip_cd权限, 跳过冷却检查
     skip_cd_auth_node = f'{plugin_name}.{PluginCoolDown.skip_auth_node}'
-    user_auth_res = DBAuth(auth_id=user_id, auth_type='user', auth_node=skip_cd_auth_node)
-    if user_auth_res.allow_tag().result == 1 and user_auth_res.deny_tag().result == 0:
+    user_auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=skip_cd_auth_node)
+    user_tag_res = await user_auth.tags_info()
+    if user_tag_res.result[0] == 1 and user_tag_res.result[1] == 0:
         return
 
-    group_auth_res = DBAuth(auth_id=group_id, auth_type='group', auth_node=skip_cd_auth_node)
-    if group_auth_res.allow_tag().result == 1 and group_auth_res.deny_tag().result == 0:
+    group_auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=skip_cd_auth_node)
+    group_tag_res = await group_auth.tags_info()
+    if group_tag_res.result[0] == 1 and group_tag_res.result[1] == 0:
         return
 
     # 检查冷却情况
-    global_check = DBCoolDownEvent.check_global_cool_down_event()
-    plugin_check = DBCoolDownEvent.check_plugin_cool_down_event(plugin=plugin_name)
-    group_check = DBCoolDownEvent.check_group_cool_down_event(plugin=plugin_name, group_id=group_id)
-    user_check = DBCoolDownEvent.check_user_cool_down_event(plugin=plugin_name, user_id=user_id)
+    global_check = await DBCoolDownEvent.check_global_cool_down_event()
+    plugin_check = await DBCoolDownEvent.check_plugin_cool_down_event(plugin=plugin_name)
+    group_check = await DBCoolDownEvent.check_group_cool_down_event(plugin=plugin_name, group_id=group_id)
+    user_check = await DBCoolDownEvent.check_user_cool_down_event(plugin=plugin_name, user_id=user_id)
 
     # 处理全局冷却
     # 先检查是否已有全局冷却
@@ -78,7 +80,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
         if plugin_check.result == 1 or group_check.result == 1 or user_check.result == 1:
             break
 
-        res = check_and_set_global_cool_down(minutes=time)
+        res = await check_and_set_global_cool_down(minutes=time)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('全局命令冷却中')
@@ -93,7 +95,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
         if group_check.result == 1 or user_check.result == 1:
             break
 
-        res = check_and_set_plugin_cool_down(minutes=time, plugin=plugin_name)
+        res = await check_and_set_plugin_cool_down(minutes=time, plugin=plugin_name)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('插件命令冷却中')
@@ -111,7 +113,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
         if user_check.result == 1:
             break
 
-        res = check_and_set_group_cool_down(minutes=time, plugin=plugin_name, group_id=group_id)
+        res = await check_and_set_group_cool_down(minutes=time, plugin=plugin_name, group_id=group_id)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('群组命令冷却中')
@@ -125,7 +127,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state
         if not user_id:
             break
 
-        res = check_and_set_user_cool_down(minutes=time, plugin=plugin_name, user_id=user_id)
+        res = await check_and_set_user_cool_down(minutes=time, plugin=plugin_name, user_id=user_id)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('用户命令冷却中')
