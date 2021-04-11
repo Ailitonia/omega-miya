@@ -6,8 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBGroup, DBTable
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, check_auth_node
 
 # Custom plugin usage text
 __plugin_name__ = '请假'
@@ -15,7 +14,11 @@ __plugin_usage__ = r'''【Omega 请假插件】
 用来设置/查询自己以及群员的状态和假期
 
 **Permission**
-Command & Lv.80
+Command
+with AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /我的状态
@@ -26,12 +29,25 @@ Command & Lv.80
 /谁有空 [技能名称]
 /谁在休假'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
-vocation = MatcherGroup(type='message', rule=has_command_permission() & permission_level(level=80),
-                        permission=GROUP, priority=10, block=True)
+vocation = MatcherGroup(
+    type='message',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='vocation',
+        command=True,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=10,
+    block=True)
 
 my_status = vocation.on_command('我的状态')
 
@@ -40,7 +56,7 @@ my_status = vocation.on_command('我的状态')
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     user_id = event.user_id
     user = DBUser(user_id=user_id)
-    result = user.status()
+    result = await user.status()
     if result.success():
         status = result.result
         if status == 1:
@@ -64,7 +80,7 @@ reset_status = vocation.on_command('重置状态', aliases={'销假'})
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     user_id = event.user_id
     user = DBUser(user_id=user_id)
-    result = user.status_set(status=0)
+    result = await user.status_set(status=0)
     if result.success():
         logger.info(f"reset_status: {event.group_id}/{user_id}, Success, {result.info}")
         await my_status.finish('Success')
@@ -81,7 +97,7 @@ my_vocation = vocation.on_command('我的假期')
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     user_id = event.user_id
     user = DBUser(user_id=user_id)
-    result = user.vocation_status()
+    result = await user.vocation_status()
     if result.success():
         status, stop_time = result.result
         if status == 1:
@@ -156,7 +172,7 @@ async def handle_vocation_stop(bot: Bot, event: GroupMessageEvent, state: T_Stat
     user = DBUser(user_id=user_id)
     stop_at = state['stop_at']
     reason = state['reason']
-    result = user.vocation_set(stop_time=stop_at, reason=reason)
+    result = await user.vocation_set(stop_time=stop_at, reason=reason)
     if result.success():
         logger.info(f"Group: {event.group_id}/{user_id}, set_vocation, Success, {result.info}")
         await set_vocation.finish(f'请假成功! 你的假期将持续到【{stop_at.strftime("%Y-%m-%d %H:%M:%S")}】')
@@ -197,7 +213,7 @@ async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     if not skill:
-        result = group.idle_member_list()
+        result = await group.idle_member_list()
         if result.success() and result.result:
             msg = ''
             for nickname, user_skill in result.result:
@@ -212,12 +228,11 @@ async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
             await get_idle.finish(f'似乎发生了点错误QAQ')
     else:
         skill_table = DBTable(table_name='Skill')
-        exist_skill = []
-        for _skill in skill_table.list_col(col_name='name').result:
-            exist_skill.append(_skill[0])
+        skill_res = await skill_table.list_col(col_name='name')
+        exist_skill = [x for x in skill_res.result]
         if skill not in exist_skill:
             await get_idle.reject(f'没有{skill}这个技能, 请重新输入, 取消命令请发送【取消】:')
-        result = group.idle_skill_list(skill=DBSkill(name=skill))
+        result = await group.idle_skill_list(skill=DBSkill(name=skill))
         if result.success() and result.result:
             msg = ''
             for nickname in result.result:
@@ -239,7 +254,7 @@ get_vocation = vocation.on_command('谁在休假')
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    result = group.vocation_member_list()
+    result = await group.vocation_member_list()
     if result.success() and result.result:
         msg = ''
         for nickname, stop_at in result.result:
@@ -286,11 +301,13 @@ async def member_vocations_monitor():
         group_list = await bot.call_api('get_group_list')
         for group in group_list:
             group_id = group.get('group_id')
-            group = DBGroup(group_id=group_id)
 
             # 跳过不具备权限的组
-            if group.permission_command().result != 1 or group.permission_level().result < 80:
+            auth_check_res = await check_auth_node(
+                auth_id=group_id, auth_type='group', auth_node='Omega_vocation.basic')
+            if auth_check_res != 1:
                 continue
+            logger.debug(f"member_vocations_monitor: checking group: {group_id}")
 
             # 调用api获取群成员信息
             group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
@@ -301,13 +318,14 @@ async def member_vocations_monitor():
                     user_nickname = user_info['nickname']
                 user_qq = user_info['user_id']
                 user = DBUser(user_id=user_qq)
-                status, stop_time = user.vocation_status().result
+                user_vocation_res = await user.vocation_status()
+                status, stop_time = user_vocation_res.result
                 if status == 1 and datetime.now() >= stop_time:
                     msg = f'【{user_nickname}】的假期已经结束啦~\n快给他/她安排工作吧！'
                     await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                     over_vocation_user.add(user)
     for user in over_vocation_user:
-        _res = user.status_set(status=0)
+        _res = await user.status_set(status=0)
         if not _res.success():
             logger.error(f"reset user status failed: {_res.info}")
     logger.debug('member_vocations_monitor: vocation checking completed')

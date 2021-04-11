@@ -1,7 +1,10 @@
+from typing import Optional
 from nonebot.plugin import Export
+from nonebot.typing import T_State
 from .rules import *
 from .encrypt import AESEncryptStr
 from .cooldown import *
+from .permission import *
 
 
 def init_export(
@@ -18,3 +21,18 @@ def init_export(
     for key, value in kwargs.items():
         setattr(plugin_export, key, value)
     return plugin_export
+
+
+def init_permission_state(
+        name: str,
+        notice: Optional[bool] = None,
+        command: Optional[bool] = None,
+        level: Optional[int] = None,
+        auth_node: Optional[str] = None) -> T_State:
+    return {
+        '_matcher': name,
+        '_notice_permission': notice,
+        '_command_permission': command,
+        '_permission_level': level,
+        '_auth_node': auth_node
+    }

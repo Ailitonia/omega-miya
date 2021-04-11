@@ -3,12 +3,11 @@
 其他插件不得单独写入数据库操作逻辑
 """
 
-from .database import DBTable
+from .database import DBTable, DBResult as Result
 from .model import \
     DBUser, DBGroup, DBSkill, DBSubscription, DBDynamic, \
     DBPixivillust, DBPixivtag, DBPixivision, \
-    DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent
-from .database import DBResult as Result
+    DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus
 
 
 __all__ = [
@@ -26,5 +25,6 @@ __all__ = [
     'DBHistory',
     'DBAuth',
     'DBCoolDownEvent',
+    'DBStatus',
     'Result'
 ]

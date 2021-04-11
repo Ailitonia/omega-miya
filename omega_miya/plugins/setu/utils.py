@@ -72,5 +72,5 @@ async def add_illust(pid: int, nsfw_tag: int) -> Result:
             nsfw_tag = 2
 
         illust = DBPixivillust(pid=pid)
-        _res = illust.add(uid=uid, title=title, uname=uname, nsfw_tag=nsfw_tag, tags=tags, url=url)
+        _res = await illust.add(uid=uid, title=title, uname=uname, nsfw_tag=nsfw_tag, tags=tags, url=url)
     return _res

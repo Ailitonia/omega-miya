@@ -5,12 +5,10 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import fetch_json, fetch_image, API_KEY, RANK_API_URL
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = 'Pixiv'
 __plugin_usage__ = r'''【Pixiv助手】
 查看Pixiv插画, 以及随机日榜、周榜、月榜
@@ -38,8 +36,18 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-pixiv = on_command('pixiv', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'basic'),
-                   aliases={'Pixiv'}, permission=GROUP, priority=20, block=True)
+pixiv = on_command(
+    'pixiv',
+    aliases={'Pixiv'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='pixiv',
+        command=True,
+        level=50,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理

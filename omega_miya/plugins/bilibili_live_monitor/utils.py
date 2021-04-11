@@ -3,6 +3,7 @@ import nonebot
 import base64
 from io import BytesIO
 from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
@@ -12,6 +13,11 @@ global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
+ENABLE_BILI_CHECK_POOL_MODE = global_config.enable_bili_check_pool_mode
+
+ENABLE_PROXY = global_config.enable_proxy
+PROXY_ADDRESS = global_config.proxy_address
+PROXY_PORT = global_config.proxy_port
 
 
 def check_bili_cookies() -> Result:
@@ -42,8 +48,16 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'origin': 'https://www.bilibili.com',
                            'referer': 'https://www.bilibili.com/'}
-                async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
-                    _json = await rp.json()
+                proxy_available = await check_proxy_available()
+                if ENABLE_PROXY and proxy_available:
+                    proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
+                                           proxy=proxy, timeout=timeout) as rp:
+                        _json = await rp.json()
+                else:
+                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
+                                           timeout=timeout) as rp:
+                        _json = await rp.json()
                 result = Result(error=False, info='Success', result=_json)
             return result
         except Exception as e:
@@ -166,12 +180,7 @@ __all__ = [
     'get_live_info',
     'get_user_info',
     'pic_2_base64',
-    'verify_cookies'
+    'verify_cookies',
+    'ENABLE_BILI_CHECK_POOL_MODE',
+    'ENABLE_PROXY'
 ]
-
-
-if __name__ == '__main__':
-    import asyncio
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(verify_cookies())
-    print(res)

@@ -1,6 +1,6 @@
 import asyncio
 import random
-from nonebot import on_command, export, logger
+from nonebot import CommandGroup, on_command, export, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -8,15 +8,12 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import \
-    has_command_permission, has_level_or_node, PluginCoolDown
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 from omega_miya.utils.Omega_Base import DBPixivillust
 from .utils import fetch_illust_b64, add_illust
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '来点萌图'
 __plugin_usage__ = r'''【来点萌图】
 测试群友LSP成分
@@ -52,8 +49,8 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(__plugin_raw_name__, 'user', 10),
-    PluginCoolDown(__plugin_raw_name__, 'group', 2)
+    PluginCoolDown(PluginCoolDown.user_type, 10),
+    PluginCoolDown(PluginCoolDown.group_type, 2)
 ]
 
 # Init plugin export
@@ -61,8 +58,17 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, _
 
 
 # 注册事件响应器
-setu = on_command('来点涩图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'setu'),
-                  permission=GROUP, priority=20, block=True)
+Setu = CommandGroup('sepic', permission=GROUP, priority=20, block=True)
+
+setu = Setu.command(
+    'setu',
+    aliases={'来点涩图'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='setu',
+        command=True,
+        level=50,
+        auth_node='setu'))
 
 
 @setu.handle()
@@ -74,7 +80,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         if tag in ['r18', 'R18', 'r-18', 'R-18']:
             args.remove(tag)
             state['nsfw_tag'] = 2
-    state['tags'] = args
+    state['tags'] = list(args)
 
 
 @setu.got('nsfw_tag', prompt='r18?')
@@ -84,34 +90,15 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
     tags = state['tags']
 
     if tags:
-        _res_list = list()
-        for tag in tags:
-            """
-            _tag = DBPixivtag(tagname=tag)
-            _res = _tag.list_illust(nsfw_tag=nsfw_tag)
-            """
-            _res = DBPixivillust.list_illust(nsfw_tag=nsfw_tag, keyword=tag)
-            if _res.success():
-                _pids = set(_res.result)
-                _res_list.append(_pids)
-        if len(_res_list) > 1:
-            # 处理tag交集, 同时满足所有tag
-            for item in _res_list[1:]:
-                _res_list[0].intersection_update(item)
-            pid_list = _res_list[0]
-        elif len(_res_list) == 1:
-            pid_list = _res_list[0]
-        else:
-            pid_list = _res_list
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=nsfw_tag)
+        pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
+        pid_list = await DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
 
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
-    elif len(pid_list) > 3:
-        pid_list = random.sample(pid_list, k=3)
 
     await setu.send('稍等, 正在下载图片~')
     # 处理article中图片内容
@@ -142,8 +129,15 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 # 注册事件响应器
-moepic = on_command('来点萌图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'moepic'),
-                    permission=GROUP, priority=20, block=True)
+moepic = Setu.command(
+    'moepic',
+    aliases={'来点萌图'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='moepic',
+        command=True,
+        level=50,
+        auth_node='moepic'))
 
 
 @moepic.handle()
@@ -153,37 +147,23 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     for tag in args.copy():
         if tag in ['r18', 'R18', 'r-18', 'R-18']:
             args.remove(tag)
-    state['tags'] = args
+    state['tags'] = list(args)
 
 
 @moepic.got('tags', prompt='tag?')
 async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
     tags = state['tags']
+
     if tags:
-        _res_list = list()
-        for tag in tags:
-            _res = DBPixivillust.list_illust(nsfw_tag=0, keyword=tag)
-            if _res.success():
-                _pids = set(_res.result)
-                _res_list.append(_pids)
-        if len(_res_list) > 1:
-            # 处理tag交集, 同时满足所有tag
-            for item in _res_list[1:]:
-                _res_list[0].intersection_update(item)
-            pid_list = _res_list[0]
-        elif len(_res_list) == 1:
-            pid_list = _res_list[0]
-        else:
-            pid_list = _res_list
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=0)
+        pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=0)
+        pid_list = await DBPixivillust.rand_illust(num=3, nsfw_tag=0)
 
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的萌图")
         await moepic.finish('找不到萌图QAQ')
-    elif len(pid_list) > 3:
-        pid_list = random.sample(pid_list, k=3)
 
     await moepic.send('稍等, 正在下载图片~')
     # 处理article中图片内容
@@ -219,12 +199,12 @@ setu_stat = on_command('图库统计', rule=to_me(), permission=SUPERUSER, prior
 
 @setu_stat.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    _res = DBPixivillust.status()
+    status_res = await DBPixivillust.status()
     msg = f"本地数据库统计:\n\n" \
-          f"全部: {_res.get('total')}\n" \
-          f"萌图: {_res.get('moe')}\n" \
-          f"涩图: {_res.get('setu')}\n" \
-          f"R18: {_res.get('r18')}"
+          f"全部: {status_res.result.get('total')}\n" \
+          f"萌图: {status_res.result.get('moe')}\n" \
+          f"涩图: {status_res.result.get('setu')}\n" \
+          f"R18: {status_res.result.get('r18')}"
     await setu_stat.finish(msg)
 
 
@@ -275,13 +255,17 @@ async def handle_setu_import(bot: Bot, event: Event, state: T_State):
         await setu_import.finish('错误: 导入列表不存在QAQ')
 
     pid_list = []
-    with open(import_pid_file) as f:
-        lines = f.readlines()
-        for line in lines:
-            if not re.match(r'^[0-9]+$', line):
-                logger.debug(f'setu_import: 导入列表中有非数字字符: {line}')
-                continue
-            pid_list.append(int(line))
+    try:
+        with open(import_pid_file) as f:
+            lines = f.readlines()
+            for line in lines:
+                if not re.match(r'^[0-9]+$', line):
+                    logger.debug(f'setu_import: 导入列表中有非数字字符: {line}')
+                    continue
+                pid_list.append(int(line))
+    except Exception as e:
+        logger.error(f'setu_import: 读取导入列表失败, error: {repr(e)}')
+        await setu_import.finish('错误: 读取导入列表失败QAQ')
 
     await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
 

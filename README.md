@@ -5,7 +5,7 @@
 基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
-![Python](https://img.shields.io/badge/Python-3.7+-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
 
@@ -13,7 +13,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 PreRelease v2.0.0a11](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a11)
+[Nonebot2 PreRelease 2.0.0a13.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a13.post1)
 
 ## 配套使用的api
 
@@ -23,7 +23,7 @@ api主要用于获取pixiv等网站内容
 
 ## 功能 & 特点
 
-- 基于 SQLAlchemy / MySQL 的数据存储
+- 基于异步 SQLAlchemy / MySQL 的数据存储
 - 基于群组的通知权限、命令权限以及权限等级系统
 - 基于插件节点的权限管理系统
 - 命令冷却系统
@@ -65,11 +65,11 @@ api主要用于获取pixiv等网站内容
 
 这个图片集大概有5万条左右, 基本都是按我自己口味收集的图片
 
-请依次按`pixiv_illusts.sql` `pixiv_tag.sql` `pixiv_tag_to_illusts.sql` 顺序导入
+解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表的就好了
 
-Password: `ailitonia`
-MD5: `45660FB63798421A6FAF3F439464ACC2`
-SHA1: `BFB376328C2AF601BAD725D29AF03953B04010FE`
+MD5: `8BF375B9687C397AE2040C8F9E28F68E`
+
+SHA1: `7CFF3593A85979B5D966773F3857577CFCC2FFBD`
 
 数据集来源是我的
 [这个频道](https://t.me/amoeloli)

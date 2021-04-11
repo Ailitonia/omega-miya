@@ -32,12 +32,7 @@ async def get_unseen_mail_info(address: str, server_host: str, password: str) ->
         try:
             mail = EmailImap(host=server_host, address=address, password=password)
             unseen_mails = mail.get_mail_info(None, 'UNSEEN')
-            res = []
-            for email in unseen_mails:
-                DBEmail(mail_hash=email.hash).add(date=email.date, header=email.header, sender=email.sender,
-                                                  to=email.to, body=email.body, html=email.html)
-
-                res.append(email)
+            res = [x for x in unseen_mails]
             __result = Result(error=False, info='Success', result=res)
         except Exception as e:
             __result = Result(error=True, info=repr(e), result=[])
@@ -45,6 +40,9 @@ async def get_unseen_mail_info(address: str, server_host: str, password: str) ->
 
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, __get_unseen_mail_info)
+    for email in result.result:
+        await DBEmail(mail_hash=email.hash).add(date=email.date, header=email.header, sender=email.sender,
+                                                to=email.to, body=email.body, html=email.html)
 
     return result
 

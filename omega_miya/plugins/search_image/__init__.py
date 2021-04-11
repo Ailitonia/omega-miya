@@ -5,9 +5,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
-from .utils import pic_2_base64, get_identify_result, get_ascii2d_identify_result
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from .utils import pic_2_base64, get_saucenao_identify_result, get_ascii2d_identify_result
 
 # Custom plugin usage text
 __plugin_raw_name__ = __name__.split('.')[-1]
@@ -35,8 +34,18 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-search_image = on_command('识图', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'basic'),
-                          aliases={'搜图'}, permission=GROUP, priority=20, block=True)
+search_image = on_command(
+    '识图',
+    aliases={'搜图'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='search_image',
+        command=True,
+        level=50,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理
@@ -69,7 +78,7 @@ async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
 
     try:
         await search_image.send('获取识别结果中, 请稍后~')
-        identify_result = await get_identify_result(url=image_url)
+        identify_result = await get_saucenao_identify_result(url=image_url)
         # saucenao 没有结果时再使用 ascii2d 进行搜索
         if not identify_result:
             identify_ascii2d_result = await get_ascii2d_identify_result(url=image_url)

@@ -1,12 +1,11 @@
 import re
 import random
-from nonebot import on_command, export
+from nonebot import CommandGroup, export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 
 
 # Custom plugin usage text
@@ -25,8 +24,18 @@ Command & Lv.10
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
 
-roll = on_command('roll', rule=has_command_permission() & permission_level(level=10), aliases={'Roll'},
-                  permission=GROUP, priority=10, block=True)
+Roll = CommandGroup(
+    'R0ll',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='roll',
+        command=True,
+        level=10),
+    permission=GROUP,
+    priority=10,
+    block=True)
+
+roll = Roll.command('rand', aliases={'Roll', 'roll'})
 
 
 # 修改默认参数处理
@@ -74,8 +83,7 @@ async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
         await roll.finish(f'格式不对呢, 请重新输入: /roll <x>d<y>:')
 
 
-lottery = on_command('抽奖', rule=has_command_permission() & permission_level(level=10),
-                     permission=GROUP, priority=10, block=True)
+lottery = Roll.command('lottery', aliases={'抽奖'})
 
 
 # 修改默认参数处理

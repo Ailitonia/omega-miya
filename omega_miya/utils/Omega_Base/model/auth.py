@@ -3,6 +3,7 @@ from omega_miya.utils.Omega_Base.tables import AuthUser, AuthGroup, User, Group
 from .user import DBUser
 from .group import DBGroup
 from datetime import datetime
+from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
@@ -19,212 +20,277 @@ class DBAuth(object):
         self.auth_type = auth_type
         self.auth_node = auth_node
 
-    def id(self) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            if self.auth_type == 'user':
-                auth_table_id = session.query(AuthUser.id).join(User). \
-                    filter(AuthUser.user_id == User.id). \
-                    filter(User.qq == self.auth_id). \
-                    filter(AuthUser.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=auth_table_id)
-            elif self.auth_type == 'group':
-                auth_table_id = session.query(AuthGroup.id).join(Group). \
-                    filter(AuthGroup.group_id == Group.id). \
-                    filter(Group.group_id == self.auth_id). \
-                    filter(AuthGroup.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=auth_table_id)
-            else:
-                result = DBResult(error=True, info='Auth type error', result=-1)
-        except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-1)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
+    async def id(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if self.auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser.id).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == self.auth_id).
+                            where(AuthUser.auth_node == self.auth_node)
+                        )
+                        auth_table_id = session_result.scalar_one()
+                        result = DBResult(error=False, info='Success', result=auth_table_id)
+                    elif self.auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup.id).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == self.auth_id).
+                            where(AuthGroup.auth_node == self.auth_node)
+                        )
+                        auth_table_id = session_result.scalar_one()
+                        result = DBResult(error=False, info='Success', result=auth_table_id)
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=-1)
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=-1)
         return result
 
-    def exist(self) -> bool:
-        result = self.id().success()
-        return result
+    async def exist(self) -> bool:
+        result = await self.id()
+        return result.success()
 
-    def set(self, allow_tag: int, deny_tag: int, auth_info: str = None) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            # 已存在则更新
-            if self.auth_type == 'user':
-                auth = session.query(AuthUser).join(User). \
-                    filter(AuthUser.user_id == User.id). \
-                    filter(User.qq == self.auth_id). \
-                    filter(AuthUser.auth_node == self.auth_node).one()
-                auth.allow_tag = allow_tag
-                auth.deny_tag = deny_tag
-                auth.auth_info = auth_info
-                auth.updated_at = datetime.now()
-                session.commit()
-                result = DBResult(error=False, info='Success upgraded', result=0)
-            elif self.auth_type == 'group':
-                auth = session.query(AuthGroup).join(Group). \
-                    filter(AuthGroup.group_id == Group.id). \
-                    filter(Group.group_id == self.auth_id). \
-                    filter(AuthGroup.auth_node == self.auth_node).one()
-                auth.allow_tag = allow_tag
-                auth.deny_tag = deny_tag
-                auth.auth_info = auth_info
-                auth.updated_at = datetime.now()
-                session.commit()
-                result = DBResult(error=False, info='Success upgraded', result=0)
-            else:
-                result = DBResult(error=True, info='Auth type error', result=-1)
-        except NoResultFound:
+    async def set(self, allow_tag: int, deny_tag: int, auth_info: str = None) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
             try:
-                # 不存在则添加信息
-                if self.auth_type == 'user':
-                    user = DBUser(user_id=self.auth_id)
-                    if not user.exist():
-                        result = DBResult(error=True, info='User not exist', result=-1)
-                    else:
-                        auth = AuthUser(user_id=user.id().result, auth_node=self.auth_node, allow_tag=allow_tag,
-                                        deny_tag=deny_tag, auth_info=auth_info, created_at=datetime.now())
-                        session.add(auth)
-                        session.commit()
-                        result = DBResult(error=False, info='Success set', result=0)
-                elif self.auth_type == 'group':
-                    group = DBGroup(group_id=self.auth_id)
-                    if not group.exist():
-                        result = DBResult(error=True, info='Group not exist', result=-1)
-                    else:
-                        auth = AuthGroup(group_id=group.id().result, auth_node=self.auth_node, allow_tag=allow_tag,
-                                         deny_tag=deny_tag, auth_info=auth_info, created_at=datetime.now())
-                        session.add(auth)
-                        session.commit()
-                        result = DBResult(error=False, info='Success set', result=0)
-                else:
-                    result = DBResult(error=True, info='Auth type error', result=-1)
+                async with session.begin():
+                    try:
+                        if self.auth_type == 'user':
+                            session_result = await session.execute(
+                                select(AuthUser).join(User).
+                                where(AuthUser.user_id == User.id).
+                                where(User.qq == self.auth_id).
+                                where(AuthUser.auth_node == self.auth_node)
+                            )
+                            auth = session_result.scalar_one()
+                            auth.allow_tag = allow_tag
+                            auth.deny_tag = deny_tag
+                            auth.auth_info = auth_info
+                            auth.updated_at = datetime.now()
+                            result = DBResult(error=False, info='Success upgraded', result=0)
+                        elif self.auth_type == 'group':
+                            session_result = await session.execute(
+                                select(AuthGroup).join(Group).
+                                where(AuthGroup.group_id == Group.id).
+                                where(Group.group_id == self.auth_id).
+                                where(AuthGroup.auth_node == self.auth_node)
+                            )
+                            auth = session_result.scalar_one()
+                            auth.allow_tag = allow_tag
+                            auth.deny_tag = deny_tag
+                            auth.auth_info = auth_info
+                            auth.updated_at = datetime.now()
+                            result = DBResult(error=False, info='Success upgraded', result=0)
+                        else:
+                            result = DBResult(error=True, info='Auth type error', result=-1)
+                    except NoResultFound:
+                        if self.auth_type == 'user':
+                            user = DBUser(user_id=self.auth_id)
+                            user_id_result = await user.id()
+                            if user_id_result.error:
+                                result = DBResult(error=True, info='User not exist', result=-1)
+                            else:
+                                auth = AuthUser(user_id=user_id_result.result, auth_node=self.auth_node,
+                                                allow_tag=allow_tag,
+                                                deny_tag=deny_tag, auth_info=auth_info, created_at=datetime.now())
+                                session.add(auth)
+                                result = DBResult(error=False, info='Success set', result=0)
+                        elif self.auth_type == 'group':
+                            group = DBGroup(group_id=self.auth_id)
+                            group_id_result = await group.id()
+                            if group_id_result.error:
+                                result = DBResult(error=True, info='Group not exist', result=-1)
+                            else:
+                                auth = AuthGroup(group_id=group_id_result.result, auth_node=self.auth_node,
+                                                 allow_tag=allow_tag,
+                                                 deny_tag=deny_tag, auth_info=auth_info, created_at=datetime.now())
+                                session.add(auth)
+                                result = DBResult(error=False, info='Success set', result=0)
+                        else:
+                            result = DBResult(error=True, info='Auth type error', result=-1)
+                await session.commit()
+            except MultipleResultsFound:
+                await session.rollback()
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
-                session.rollback()
+                await session.rollback()
                 result = DBResult(error=True, info=repr(e), result=-1)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            session.rollback()
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
         return result
 
-    def allow_tag(self) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            if self.auth_type == 'user':
-                allow_tag = session.query(AuthUser.allow_tag).join(User). \
-                    filter(AuthUser.user_id == User.id). \
-                    filter(User.qq == self.auth_id). \
-                    filter(AuthUser.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=allow_tag)
-            elif self.auth_type == 'group':
-                allow_tag = session.query(AuthGroup.allow_tag).join(Group). \
-                    filter(AuthGroup.group_id == Group.id). \
-                    filter(Group.group_id == self.auth_id). \
-                    filter(AuthGroup.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=allow_tag)
-            else:
-                result = DBResult(error=True, info='Auth type error', result=-1)
-        except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-2)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
+    async def allow_tag(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if self.auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser.allow_tag).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == self.auth_id).
+                            where(AuthUser.auth_node == self.auth_node)
+                        )
+                        allow_tag = session_result.scalar_one()
+                        result = DBResult(error=False, info='Success', result=allow_tag)
+                    elif self.auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup.allow_tag).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == self.auth_id).
+                            where(AuthGroup.auth_node == self.auth_node)
+                        )
+                        allow_tag = session_result.scalar_one()
+                        result = DBResult(error=False, info='Success', result=allow_tag)
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=-1)
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=-2)
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=-1)
         return result
 
-    def deny_tag(self) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            if self.auth_type == 'user':
-                deny_tag = session.query(AuthUser.deny_tag).join(User). \
-                    filter(AuthUser.user_id == User.id). \
-                    filter(User.qq == self.auth_id). \
-                    filter(AuthUser.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=deny_tag)
-            elif self.auth_type == 'group':
-                deny_tag = session.query(AuthGroup.deny_tag).join(Group). \
-                    filter(AuthGroup.group_id == Group.id). \
-                    filter(Group.group_id == self.auth_id). \
-                    filter(AuthGroup.auth_node == self.auth_node).one()[0]
-                result = DBResult(error=False, info='Success', result=deny_tag)
-            else:
-                result = DBResult(error=True, info='Auth type error', result=-1)
-        except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-2)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
+    async def deny_tag(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if self.auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser.deny_tag).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == self.auth_id).
+                            where(AuthUser.auth_node == self.auth_node)
+                        )
+                        deny_tag = session_result.scalar_one()
+                        result = DBResult(error=False, info='Success', result=deny_tag)
+                    elif self.auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup.deny_tag).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == self.auth_id).
+                            where(AuthGroup.auth_node == self.auth_node)
+                        )
+                        deny_tag = session_result.scalar_one()
+                        result = DBResult(error=False, info='Success', result=deny_tag)
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=-1)
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=-2)
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=-1)
         return result
 
-    def delete(self) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            if self.auth_type == 'user':
-                auth = session.query(AuthUser).join(User). \
-                    filter(AuthUser.user_id == User.id). \
-                    filter(User.qq == self.auth_id). \
-                    filter(AuthUser.auth_node == self.auth_node).one()
-                session.delete(auth)
-                session.commit()
-                result = DBResult(error=False, info='Success', result=0)
-            elif self.auth_type == 'group':
-                auth = session.query(AuthGroup).join(Group). \
-                    filter(AuthGroup.group_id == Group.id). \
-                    filter(Group.group_id == self.auth_id). \
-                    filter(AuthGroup.auth_node == self.auth_node).one()
-                session.delete(auth)
-                session.commit()
-                result = DBResult(error=False, info='Success', result=0)
-            else:
-                result = DBResult(error=True, info='Auth type error', result=-1)
-        except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-1)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            session.rollback()
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
+    async def tags_info(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if self.auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser.allow_tag, AuthUser.deny_tag).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == self.auth_id).
+                            where(AuthUser.auth_node == self.auth_node)
+                        )
+                        res = session_result.one()
+                        result = DBResult(error=False, info='Success', result=(res[0], res[1]))
+                    elif self.auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup.allow_tag, AuthGroup.deny_tag).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == self.auth_id).
+                            where(AuthGroup.auth_node == self.auth_node)
+                        )
+                        res = session_result.one()
+                        result = DBResult(error=False, info='Success', result=(res[0], res[1]))
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=(-1, -1))
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=(-2, -2))
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=(-1, -1))
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=(-1, -1))
+        return result
+
+    async def delete(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    if self.auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == self.auth_id).
+                            where(AuthUser.auth_node == self.auth_node)
+                        )
+                        auth = session_result.scalar_one()
+                        await session.delete(auth)
+                        result = DBResult(error=False, info='Success', result=0)
+                    elif self.auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == self.auth_id).
+                            where(AuthGroup.auth_node == self.auth_node)
+                        )
+                        auth = session_result.scalar_one()
+                        await session.delete(auth)
+                        result = DBResult(error=False, info='Success', result=0)
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=-1)
+                await session.commit()
+            except NoResultFound:
+                await session.rollback()
+                result = DBResult(error=True, info='NoResultFound', result=-1)
+            except MultipleResultsFound:
+                await session.rollback()
+                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                await session.rollback()
+                result = DBResult(error=True, info=repr(e), result=-1)
         return result
 
     @classmethod
-    def list(cls, auth_type: str, auth_id: int) -> DBResult:
-        session = NBdb().get_session()
-        try:
-            if auth_type == 'user':
-                auth_node_list = session.query(AuthUser.auth_node, AuthUser.allow_tag, AuthUser.deny_tag). \
-                    join(User). \
-                    filter(AuthUser.user_id == User.id). \
-                    filter(User.qq == auth_id).all()
-                result = DBResult(error=False, info='Success', result=auth_node_list)
-            elif auth_type == 'group':
-                auth_node_list = session.query(AuthGroup.auth_node, AuthGroup.allow_tag, AuthGroup.deny_tag). \
-                    join(Group). \
-                    filter(AuthGroup.group_id == Group.id). \
-                    filter(Group.group_id == auth_id).all()
-                result = DBResult(error=False, info='Success', result=auth_node_list)
-            else:
-                result = DBResult(error=True, info='Auth type error', result=-1)
-        except NoResultFound:
-            result = DBResult(error=True, info='NoResultFound', result=-1)
-        except MultipleResultsFound:
-            result = DBResult(error=True, info='MultipleResultsFound', result=-1)
-        except Exception as e:
-            result = DBResult(error=True, info=repr(e), result=-1)
-        finally:
-            session.close()
+    async def list(cls, auth_type: str, auth_id: int) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser.auth_node, AuthUser.allow_tag, AuthUser.deny_tag).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == auth_id)
+                        )
+                        auth_node_list = [(x[0], x[1], x[2]) for x in session_result.all()]
+                        result = DBResult(error=False, info='Success', result=auth_node_list)
+                    elif auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup.auth_node, AuthGroup.allow_tag, AuthGroup.deny_tag).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == auth_id)
+                        )
+                        auth_node_list = [(x[0], x[1], x[2]) for x in session_result.all()]
+                        result = DBResult(error=False, info='Success', result=auth_node_list)
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=[])
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=[])
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=[])
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=[])
         return result

@@ -15,7 +15,8 @@ def has_notice_permission() -> Rule:
         if detail_type != 'group':
             return False
         else:
-            if DBGroup(group_id=group_id).permission_notice().result == 1:
+            res = await DBGroup(group_id=group_id).permission_notice()
+            if res.result == 1:
                 return True
             else:
                 return False
@@ -30,27 +31,29 @@ def has_command_permission() -> Rule:
         if detail_type != 'group':
             return False
         else:
-            if DBGroup(group_id=group_id).permission_command().result == 1:
+            res = await DBGroup(group_id=group_id).permission_command()
+            if res.result == 1:
                 return True
             else:
                 return False
     return Rule(_has_command_permission)
 
 
-# 规划权限等级(暂定): 10+一般插件, 20各类订阅插件, 30+限制插件(涉及调用api), 50+涩图插件, 80+后期组用工作插件
+# 规划权限等级(暂定): 10+一般插件, 20各类订阅插件, 30+限制插件(涉及调用api), 50+涩图插件
 def permission_level(level: int) -> Rule:
-    async def _has_command_permission(bot: Bot, event: Event, state: T_State) -> bool:
+    async def _has_permission_level(bot: Bot, event: Event, state: T_State) -> bool:
         detail_type = event.dict().get(f'{event.get_type()}_type')
         group_id = event.dict().get('group_id')
         # 检查当前消息类型
         if detail_type != 'group':
             return False
         else:
-            if DBGroup(group_id=group_id).permission_level().result >= level:
+            res = await DBGroup(group_id=group_id).permission_level()
+            if res.result >= level:
                 return True
             else:
                 return False
-    return Rule(_has_command_permission)
+    return Rule(_has_permission_level)
 
 
 # 权限节点检查
@@ -62,11 +65,15 @@ def has_auth_node(*auth_nodes: str) -> Rule:
         user_id = event.dict().get('user_id')
         # 检查当前消息类型
         if detail_type == 'private':
-            allow_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).allow_tag().result
-            deny_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).deny_tag().result
+            user_auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node)
+            user_tag_res = await user_auth.tags_info()
+            allow_tag = user_tag_res.result[0]
+            deny_tag = user_tag_res.result[1]
         elif detail_type == 'group' or detail_type == 'group_upload':
-            allow_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).allow_tag().result
-            deny_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).deny_tag().result
+            group_auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node)
+            group_tag_res = await group_auth.tags_info()
+            allow_tag = group_tag_res.result[0]
+            deny_tag = group_tag_res.result[1]
         else:
             allow_tag = 0
             deny_tag = 0
@@ -95,18 +102,23 @@ def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
         if detail_type != 'group':
             level_checker = False
         else:
-            if DBGroup(group_id=group_id).permission_level().result >= level:
+            level_res = await DBGroup(group_id=group_id).permission_level()
+            if level_res.result >= level:
                 level_checker = True
             else:
                 level_checker = False
 
         # node检查部分
         if detail_type == 'private':
-            allow_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).allow_tag().result
-            deny_tag = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node).deny_tag().result
+            user_auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node)
+            user_tag_res = await user_auth.tags_info()
+            allow_tag = user_tag_res.result[0]
+            deny_tag = user_tag_res.result[1]
         elif detail_type == 'group':
-            allow_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).allow_tag().result
-            deny_tag = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node).deny_tag().result
+            group_auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node)
+            group_tag_res = await group_auth.tags_info()
+            allow_tag = group_tag_res.result[0]
+            deny_tag = group_tag_res.result[1]
         else:
             allow_tag = 0
             deny_tag = 0

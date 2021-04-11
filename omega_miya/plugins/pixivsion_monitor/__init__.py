@@ -5,8 +5,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .monitor import *
 
 
@@ -27,9 +26,17 @@ Command & Lv.30
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
-pixivision = on_command('pixivision', rule=has_command_permission() & permission_level(level=30),
-                        aliases={'Pixivision'}, permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
-                        priority=20, block=True)
+pixivision = on_command(
+    'pixivision',
+    aliases={'Pixivision'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='pixivision',
+        command=True,
+        level=30),
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理
@@ -79,8 +86,10 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group = DBGroup(group_id=group_id)
     sub_id = -1
     sub = DBSubscription(sub_type=8, sub_id=sub_id)
-    sub.add(up_name='Pixivision', live_info='Pixivision订阅')
-    _res = group.subscription_add(sub=sub)
+    _res = await sub.add(up_name='Pixivision', live_info='Pixivision订阅')
+    if not _res.success():
+        return _res
+    _res = await group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -91,7 +100,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     sub_id = -1
-    _res = group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)

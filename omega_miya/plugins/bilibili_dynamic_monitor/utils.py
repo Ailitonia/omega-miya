@@ -4,6 +4,7 @@ import json
 from io import BytesIO
 import nonebot
 from omega_miya.utils.Omega_Base import DBTable, Result
+from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 
 DYNAMIC_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
 GET_DYNAMIC_DETAIL_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'
@@ -14,6 +15,11 @@ global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
+ENABLE_BILI_CHECK_POOL_MODE = global_config.enable_bili_check_pool_mode
+
+ENABLE_PROXY = global_config.enable_proxy
+PROXY_ADDRESS = global_config.proxy_address
+PROXY_PORT = global_config.proxy_port
 
 
 def check_bili_cookies() -> Result:
@@ -44,8 +50,16 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'origin': 'https://t.bilibili.com',
                            'referer': 'https://t.bilibili.com/'}
-                async with session.get(url=url, params=paras, headers=headers, cookies=cookies, timeout=timeout) as rp:
-                    _json = await rp.json()
+                proxy_available = await check_proxy_available()
+                if ENABLE_PROXY and proxy_available:
+                    proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
+                                           proxy=proxy, timeout=timeout) as rp:
+                        _json = await rp.json()
+                else:
+                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
+                                           timeout=timeout) as rp:
+                        _json = await rp.json()
                 result = Result(error=False, info='Success', result=_json)
             return result
         except Exception as e:
@@ -117,14 +131,12 @@ async def get_user_info(user_uid) -> Result:
 
 
 # 返回某个up的所有动态id的列表
-def get_user_dynamic(user_id: int) -> Result:
+async def get_user_dynamic(user_id: int) -> Result:
     t = DBTable(table_name='Bilidynamic')
-    _res = t.list_col_with_condition('dynamic_id', 'uid', user_id)
+    _res = await t.list_col_with_condition('dynamic_id', 'uid', user_id)
     if not _res.success():
         return _res
-    dynamic_list = []
-    for item in _res.result:
-        dynamic_list.append(int(item[0]))
+    dynamic_list = [int(x) for x in _res.result]
     result = Result(error=False, info='Success', result=dynamic_list)
     return result
 
@@ -378,12 +390,7 @@ __all__ = [
     'get_user_info',
     'get_user_dynamic',
     'get_user_dynamic_history',
-    'get_dynamic_info'
+    'get_dynamic_info',
+    'ENABLE_BILI_CHECK_POOL_MODE',
+    'ENABLE_PROXY'
 ]
-
-if __name__ == '__main__':
-    import asyncio
-
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(get_user_dynamic_history(dy_uid=846180))
-    print(res)

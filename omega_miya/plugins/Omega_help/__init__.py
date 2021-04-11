@@ -4,11 +4,10 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, has_command_permission, has_level_or_node
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '帮助'
 __plugin_usage__ = r'''【帮助】
 
@@ -16,23 +15,32 @@ __plugin_usage__ = r'''【帮助】
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
+    PluginCoolDown.skip_auth_node,
     'basic'
 ]
 
-'''
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(__plugin_raw_name__, 'user', 10),
-    PluginCoolDown(__plugin_raw_name__, 'group', 2)
+    PluginCoolDown(PluginCoolDown.user_type, 5),
+    PluginCoolDown(PluginCoolDown.group_type, 1)
 ]
-'''
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
 
 # 注册事件响应器
-bot_help = on_command('help', rule=has_command_permission() & has_level_or_node(10, __plugin_raw_name__, 'basic'),
-                      aliases={'帮助'}, permission=GROUP, priority=1, block=True)
+bot_help = on_command(
+    'help',
+    aliases={'Help', '帮助'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='help',
+        command=True,
+        level=10,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=1,
+    block=True)
 
 
 @bot_help.handle()

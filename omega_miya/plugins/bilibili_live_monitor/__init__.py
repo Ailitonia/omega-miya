@@ -6,8 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import get_live_info, get_user_info
 from .monitor import *
 
@@ -33,8 +32,17 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器
-bilibili_live = on_command('B站直播间', rule=has_command_permission() & permission_level(level=20), aliases={'b站直播间'},
-                           permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=20, block=True)
+bilibili_live = on_command(
+    'B站直播间',
+    aliases={'b站直播间'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='bilibili_live',
+        command=True,
+        level=20),
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理
@@ -131,14 +139,7 @@ async def handle_check(bot: Bot, event: GroupMessageEvent, state: T_State):
 async def sub_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    _res = group.subscription_list()
-    live_sub = []
-    if not _res.success():
-        return _res
-    for sub_type, sub_id, up_name in _res.result:
-        if sub_type == 1:
-            live_sub.append([sub_id, up_name])
-    result = Result(error=False, info='Success', result=live_sub)
+    result = await group.subscription_list_by_type(sub_type=1)
     return result
 
 
@@ -147,15 +148,15 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group = DBGroup(group_id=group_id)
     room_id = state['room_id']
     sub = DBSubscription(sub_type=1, sub_id=room_id)
-    _res = sub.add(up_name=state.get('up_name'), live_info='直播间')
+    _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
     if not _res.success():
         return _res
-    _res = group.subscription_add(sub=sub)
+    _res = await group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     # 添加直播间时需要刷新全局监控列表
     # 执行一次初始化
-    await init_live_info()
+    await init_add_live_info(room_id=room_id)
     result = Result(error=False, info='Success', result=0)
     return result
 
@@ -164,7 +165,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     room_id = state['room_id']
-    _res = group.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -174,7 +175,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
 async def sub_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    _res = group.subscription_clear_by_type(sub_type=1)
+    _res = await group.subscription_clear_by_type(sub_type=1)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)

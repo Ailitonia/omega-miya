@@ -4,8 +4,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import get_guess
 
 
@@ -26,8 +25,17 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器
-nbnhhsh = on_command('好好说话', rule=has_command_permission() & permission_level(level=30), aliases={'hhsh', 'nbnhhsh'},
-                     permission=GROUP, priority=20, block=True)
+nbnhhsh = on_command(
+    '好好说话',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='nbnhhsh',
+        command=True,
+        level=30),
+    aliases={'hhsh', 'nbnhhsh'},
+    permission=GROUP,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理

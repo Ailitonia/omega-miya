@@ -5,13 +5,11 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, has_level_or_node
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import get_identify_result, pic_2_base64
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '识番'
 __plugin_usage__ = r'''【识番助手】
 使用 trace.moe API 识别番剧
@@ -36,8 +34,18 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
-search_anime = on_command('识番', rule=has_command_permission() & has_level_or_node(50, __plugin_raw_name__, 'basic'),
-                          aliases={'搜番', '番剧识别'}, permission=GROUP, priority=20, block=True)
+search_anime = on_command(
+    '识番',
+    aliases={'搜番', '番剧识别'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='search_anime',
+        command=True,
+        level=50,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理

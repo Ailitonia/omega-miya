@@ -1,9 +1,14 @@
 import asyncio
+import random
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
+from .utils import ENABLE_BILI_CHECK_POOL_MODE, ENABLE_PROXY
 
+
+# 检查池模式使用的检查队列
+checking_pool = []
 
 # 启用检查动态状态的定时任务
 scheduler = require("nonebot_plugin_apscheduler").scheduler
@@ -14,12 +19,12 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     'cron',
     # year=None,
     # month=None,
-    day='*/1',
+    # day='*/1',
     # week=None,
     # day_of_week=None,
-    # hour='*/8',
-    # minute='*/1',
-    # second='*/20',
+    hour='3',
+    minute='3',
+    second='22',
     # start_date=None,
     # end_date=None,
     # timezone=None,
@@ -30,14 +35,14 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
 async def dynamic_db_upgrade():
     logger.debug('dynamic_db_upgrade: started upgrade subscription info')
     t = DBTable(table_name='Subscription')
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 2).result:
-        sub_id = int(item[0])
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
+    for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=2, sub_id=sub_id)
         _res = await get_user_info(user_uid=sub_id)
         if not _res.success():
             logger.error(f'获取用户信息失败, uid: {sub_id}, error: {_res.info}')
         up_name = _res.result.get('name')
-        _res = sub.add(up_name=up_name)
+        _res = await sub.add(up_name=up_name, live_info='B站动态')
         if not _res.success():
             logger.error(f'dynamic_db_upgrade: 更新用户信息失败, uid: {sub_id}, error: {_res.info}')
             continue
@@ -55,16 +60,14 @@ async def bilibili_dynamic_monitor():
         bots.append(bot)
 
     # 获取所有有通知权限的群组
-    all_noitce_groups = []
     t = DBTable(table_name='Group')
-    for item in t.list_col_with_condition('group_id', 'notice_permissions', 1).result:
-        all_noitce_groups.append(int(item[0]))
+    group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+    all_noitce_groups = [int(x) for x in group_res.result]
 
     # 获取订阅表中的所有动态订阅
-    check_sub = []
     t = DBTable(table_name='Subscription')
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 2).result:
-        check_sub.append(int(item[0]))
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
+    check_sub = [int(x) for x in sub_res.result]
 
     # 注册一个异步函数用于检查动态
     async def check_dynamic(dy_uid):
@@ -81,7 +84,7 @@ async def bilibili_dynamic_monitor():
         dynamic_info = dict(_res.result)
 
         # 用户所有的动态id
-        _res = get_user_dynamic(user_id=dy_uid)
+        _res = await get_user_dynamic(user_id=dy_uid)
         if not _res.success():
             logger.error(f'bilibili_dynamic_monitor: 获取用户已有动态失败, uid: {dy_uid}, error: {_res.info}')
             return
@@ -90,7 +93,8 @@ async def bilibili_dynamic_monitor():
         sub = DBSubscription(sub_type=2, sub_id=dy_uid)
 
         # 获取订阅了该直播间的所有群
-        sub_group = sub.sub_group_list().result
+        sub_group_res = await sub.sub_group_list()
+        sub_group = sub_group_res.result
         # 需通知的群
         notice_group = list(set(all_noitce_groups) & set(sub_group))
 
@@ -265,7 +269,7 @@ async def bilibili_dynamic_monitor():
                     content = dynamic_info[num]['content']
                     # 向数据库中写入动态信息
                     dynamic = DBDynamic(uid=dy_uid, dynamic_id=dy_id)
-                    _res = dynamic.add(dynamic_type=dy_type, content=content)
+                    _res = await dynamic.add(dynamic_type=dy_type, content=content)
                     if _res.success():
                         logger.info(f"向数据库写入动态信息: {dynamic_info[num]['id']} 成功")
                     else:
@@ -273,55 +277,136 @@ async def bilibili_dynamic_monitor():
             except Exception as _e:
                 logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(_e)}')
 
-    # 检查所有在订阅表里面的直播间(异步)
-    tasks = []
-    for uid in check_sub:
-        tasks.append(check_dynamic(uid))
-    try:
-        await asyncio.gather(*tasks)
-        logger.debug('bilibili_dynamic_monitor: checking completed')
-    except Exception as e:
-        logger.error(f'bilibili_dynamic_monitor: error occurred in checking  {repr(e)}')
+    # 启用了检查池模式
+    if ENABLE_BILI_CHECK_POOL_MODE:
+        global checking_pool
+
+        # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的uid
+        if not checking_pool:
+            checking_pool.extend(check_sub)
+
+        # 看下checking_pool里面还剩多少
+        waiting_num = len(checking_pool)
+
+        # 默认单次检查并发数为2, 默认检查间隔为13s
+        logger.debug(f'bili dynamic pool mode debug info, B_checking_pool: {checking_pool}')
+        if waiting_num >= 2:
+            # 抽取检查对象
+            now_checking = random.sample(checking_pool, k=2)
+            # 更新checking_pool
+            checking_pool = [x for x in checking_pool if x not in now_checking]
+        else:
+            now_checking = checking_pool.copy()
+            checking_pool.clear()
+        logger.debug(f'bili dynamic pool mode debug info, A_checking_pool: {checking_pool}')
+        logger.debug(f'bili dynamic pool mode debug info, now_checking: {now_checking}')
+
+        # 检查now_checking里面的直播间(异步)
+        tasks = []
+        for uid in now_checking:
+            tasks.append(check_dynamic(uid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"bilibili_dynamic_monitor: pool mode enable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in now_checking])}.")
+        except Exception as e:
+            logger.error(f'bilibili_dynamic_monitor: pool mode enable, error occurred in checking  {repr(e)}')
+
+    # 没有启用检查池模式
+    else:
+        # 检查所有在订阅表里面的直播间(异步)
+        tasks = []
+        for uid in check_sub:
+            tasks.append(check_dynamic(uid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"bilibili_dynamic_monitor: pool mode disable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in check_sub])}.")
+        except Exception as e:
+            logger.error(f'bilibili_dynamic_monitor: pool mode disable, error occurred in checking  {repr(e)}')
 
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
-scheduler.add_job(
-    bilibili_dynamic_monitor,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='9-23',
-    minute='*/3',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_dynamic_monitor_in_day',
-    coalesce=True,
-    misfire_grace_time=30
-)
-
-scheduler.add_job(
-    bilibili_dynamic_monitor,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='0-8',
-    minute='*/30',
-    # second='*/30',
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='bilibili_dynamic_monitor_in_night',
-    coalesce=True,
-    misfire_grace_time=30
-)
+# 根据检查池模式初始化检查时间间隔
+if ENABLE_PROXY:
+    # 启用了代理
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        # hour='9-23',
+        # minute='*/3',
+        second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_proxy_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+elif ENABLE_BILI_CHECK_POOL_MODE:
+    # 检查池启用
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        # hour='9-23',
+        # minute='*/3',
+        second='13-59/13',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_pool_enable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+else:
+    # 检查池禁用, 日间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='9-23',
+        minute='*/3',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_day_pool_disable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
+    # 检查池禁用, 夜间
+    scheduler.add_job(
+        bilibili_dynamic_monitor,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='0-8',
+        minute='*/15',
+        # second='*/30',
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='bilibili_dynamic_monitor_in_night_pool_disable',
+        coalesce=True,
+        misfire_grace_time=30
+    )
 
 __all__ = [
     'scheduler'

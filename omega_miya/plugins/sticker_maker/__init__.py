@@ -5,8 +5,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import sticker_maker_main, pic_2_base64
 
 
@@ -25,8 +24,17 @@ Command & Lv.10
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 
-sticker = on_command('表情包', rule=has_command_permission() & permission_level(level=10), aliases={'Sticker', 'sticker'},
-                     permission=GROUP, priority=10, block=True)
+sticker = on_command(
+    '表情包',
+    aliases={'Sticker', 'sticker'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='sticker',
+        command=True,
+        level=10),
+    permission=GROUP,
+    priority=10,
+    block=True)
 
 
 # 修改默认参数处理
@@ -57,11 +65,13 @@ async def handle_sticker(bot: Bot, event: GroupMessageEvent, state: T_State):
     sticker_temp = {
         '默认': {'name': 'default', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '白底': {'name': 'whitebg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
+        '黑框': {'name': 'blackbg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
-        '王境泽': {'name': 'wangjingze', 'type': 'gif', 'text_part': 4, 'help_msg': '请检查文本分段'},
-        '为所欲为': {'name': 'sorry', 'type': 'gif', 'text_part': 9, 'help_msg': '请检查文本分段'}
+        # '王境泽': {'name': 'wangjingze', 'type': 'gif', 'text_part': 4, 'help_msg': '请检查文本分段'},
+        # '为所欲为': {'name': 'sorry', 'type': 'gif', 'text_part': 9, 'help_msg': '请检查文本分段'},
+        'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'}
     }
 
     get_sticker_temp = state['temp']
@@ -98,6 +108,7 @@ async def handle_img(bot: Bot, event: GroupMessageEvent, state: T_State):
 @sticker.got('sticker_text', prompt='请输入你想要制作的表情包的文字:')
 async def handle_sticker_text(bot: Bot, event: GroupMessageEvent, state: T_State):
     sticker_text = state['sticker_text']
+
     sticker_temp_text_part = state['temp_text_part']
     # 获取制作表情包所需文字
     if sticker_temp_text_part > 1:
@@ -107,6 +118,10 @@ async def handle_sticker_text(bot: Bot, event: GroupMessageEvent, state: T_State
         text_msg = f'请输入你想要制作的表情包的文字: \n注意: 不同模板适用的文字字数有所区别'
     if not sticker_text:
         await sticker.reject(text_msg)
+
+    # 过滤CQ码
+    if re.match(r'\[CQ:', sticker_text, re.I):
+        await sticker.finish('含非法字符QAQ')
 
     if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
         eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'

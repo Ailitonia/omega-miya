@@ -6,8 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export
-from omega_miya.utils.Omega_plugin_utils import has_command_permission, permission_level
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import get_user_info
 from .monitor import *
 
@@ -32,8 +31,17 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器
-bilibili_dynamic = on_command('B站动态', rule=has_command_permission() & permission_level(level=20), aliases={'b站动态'},
-                              permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=20, block=True)
+bilibili_dynamic = on_command(
+    'B站动态',
+    aliases={'b站动态'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='bilibili_dynamic',
+        command=True,
+        level=20),
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
+    priority=20,
+    block=True)
 
 
 # 修改默认参数处理
@@ -125,14 +133,7 @@ async def handle_check(bot: Bot, event: GroupMessageEvent, state: T_State):
 async def sub_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    _res = group.subscription_list()
-    dynamic_sub = []
-    if not _res.success():
-        return _res
-    for sub_type, sub_id, up_name in _res.result:
-        if sub_type == 2:
-            dynamic_sub.append([sub_id, up_name])
-    result = Result(error=False, info='Success', result=dynamic_sub)
+    result = await group.subscription_list_by_type(sub_type=2)
     return result
 
 
@@ -141,10 +142,10 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group = DBGroup(group_id=group_id)
     uid = state['uid']
     sub = DBSubscription(sub_type=2, sub_id=uid)
-    _res = sub.add(up_name=state.get('up_name'), live_info='动态')
+    _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
     if not _res.success():
         return _res
-    _res = group.subscription_add(sub=sub)
+    _res = await group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -155,7 +156,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     uid = state['uid']
-    _res = group.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -165,7 +166,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
 async def sub_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    _res = group.subscription_clear_by_type(sub_type=2)
+    _res = await group.subscription_clear_by_type(sub_type=2)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)

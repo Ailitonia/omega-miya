@@ -10,3 +10,21 @@ from .pixivtag import DBPixivtag
 from .skill import DBSkill
 from .subscription import DBSubscription
 from .user import DBUser
+from .status import DBStatus
+
+__all__ = [
+    'DBAuth',
+    'DBDynamic',
+    'DBCoolDownEvent',
+    'DBGroup',
+    'DBHistory',
+    'DBEmail',
+    'DBEmailBox',
+    'DBPixivillust',
+    'DBPixivision',
+    'DBPixivtag',
+    'DBSkill',
+    'DBSubscription',
+    'DBUser',
+    'DBStatus'
+]

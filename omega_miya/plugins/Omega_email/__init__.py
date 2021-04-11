@@ -7,12 +7,11 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBEmailBox, DBGroup
-from omega_miya.utils.Omega_plugin_utils import init_export, has_command_permission, has_auth_node
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decrypt_password
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = 'OmegaEmail'
 __plugin_usage__ = r'''【OmegaEmail 邮箱插件】
 主要是用来收验证码OvO
@@ -26,7 +25,8 @@ with AuthNode
 
 **SuperUser Only**
 /添加邮箱
-/绑定邮箱'''
+/绑定邮箱
+/清空绑定邮箱'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
@@ -77,7 +77,7 @@ async def handle_admin_mail_add(bot: Bot, event: MessageEvent, state: T_State):
 
     # 对密码加密保存
     password = encrypt_password(plaintext=password)
-    add_result = DBEmailBox(address=address).add(server_host=server_host, password=password)
+    add_result = await DBEmailBox(address=address).add(server_host=server_host, password=password)
 
     if add_result.success():
         logger.info(f'{event.user_id} 添加邮箱: {address} 成功')
@@ -108,7 +108,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         await admin_mail_bind.finish('该命令不支持参数QAQ')
 
     # 发送已有邮箱列表
-    mailbox_list_res = DBEmailBox.list()
+    mailbox_list_res = await DBEmailBox.list()
     mailbox_list = mailbox_list_res.result
     if not mailbox_list_res.success() or not mailbox_list:
         await admin_mail_bind.finish('无可绑定邮箱, 请先添加邮箱!')
@@ -129,7 +129,7 @@ async def handle_admin_mail_bind(bot: Bot, event: GroupMessageEvent, state: T_St
         await admin_mail_bind.finish('该邮箱不在可绑定邮箱中!')
 
     group_id = event.group_id
-    res = DBGroup(group_id=group_id).mailbox_add(mailbox=DBEmailBox(address=email_address))
+    res = await DBGroup(group_id=group_id).mailbox_add(mailbox=DBEmailBox(address=email_address))
 
     if res.success():
         logger.info(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 成功')
@@ -150,7 +150,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    res = group.mailbox_clear()
+    res = await group.mailbox_clear()
 
     if res.success():
         logger.info(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱成功')
@@ -161,8 +161,16 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 # 注册事件响应器
-OmegaEmail_group = MatcherGroup(rule=has_command_permission() & has_auth_node(__plugin_raw_name__, 'basic'),
-                                permission=GROUP, priority=20, block=True)
+OmegaEmail_group = MatcherGroup(
+    type='message',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='OmegaEmail_group',
+        command=True,
+        auth_node='basic'),
+    permission=GROUP,
+    priority=20,
+    block=True)
 
 mail_receive = OmegaEmail_group.on_command('收邮件')
 
@@ -175,7 +183,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    group_bind_mailbox = group.mailbox_list()
+    group_bind_mailbox = await group.mailbox_list()
     if not group_bind_mailbox.success() or not group_bind_mailbox.result:
         logger.info(f'{group_id} 收邮件失败: 没有绑定的邮箱')
         await mail_receive.finish('本群组没有绑定的邮箱, 请先绑定邮箱后再收件!')
@@ -184,7 +192,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     await mail_receive.send(f'本群组已绑定邮箱:\n{mail_box_list_msg}\n\n正在连接到邮箱服务器, 请稍后...')
 
     for mailbox_address in group_bind_mailbox.result:
-        mailbox = DBEmailBox(address=mailbox_address).get_info()
+        mailbox = await DBEmailBox(address=mailbox_address).get_info()
         if not mailbox.success():
             logger.error(f'邮箱 {mailbox_address} 信息获取失败, 请检查数据库, error: {mailbox.info}')
             await mail_receive.send(f'邮箱: {mailbox_address} 收件失败QAQ, 请联系管理员处理')

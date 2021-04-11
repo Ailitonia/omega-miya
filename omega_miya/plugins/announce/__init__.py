@@ -15,10 +15,10 @@ announce = on_command('公告', rule=to_me(), aliases={'announce'}, permission=S
 # 修改默认参数处理
 @announce.args_parser
 async def parse(bot: Bot, event: Event, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().lower()
     if not args:
         await announce.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
+    state[state["_current_key"]] = args
     if state[state["_current_key"]] == '取消':
         await announce.finish('操作已取消')
 
@@ -37,25 +37,25 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
         await announce.finish('参数错误QAQ')
 
 
-@announce.got('group', prompt='请输入通知群组:')
+@announce.got('group', prompt='请输入通知群组:\n【all/notice/command/group_id】')
 @announce.got('announce_text', prompt='请输入公告内容:')
 async def handle_announce(bot: Bot, event: Event, state: T_State):
     group = state['group']
     msg = state['announce_text']
     if group == 'all':
         t = DBTable(table_name='Group')
-        for item in t.list_col('group_id').result:
-            group_id = item[0]
+        group_res = await t.list_col(col_name='group_id')
+        for group_id in group_res.result:
             await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
     elif group == 'notice':
         t = DBTable(table_name='Group')
-        for item in t.list_col_with_condition('group_id', 'notice_permissions', 1).result:
-            group_id = item[0]
+        group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+        for group_id in group_res.result:
             await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
     elif group == 'command':
         t = DBTable(table_name='Group')
-        for item in t.list_col_with_condition('group_id', 'command_permissions', 1).result:
-            group_id = item[0]
+        group_res = await t.list_col_with_condition('group_id', 'command_permissions', 1)
+        for group_id in group_res.result:
             await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
     elif re.match(r'^\d+$', group):
         group_id = int(group)

@@ -5,11 +5,12 @@ from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import FriendRequestEvent, GroupRequestEvent, GroupIncreaseNoticeEvent
 from omega_miya.utils.Omega_Base import DBGroup
 
-# 注册事件响应器, 处理加好友申请
-friend_request = on_request(priority=100)
+# 注册事件响应器
+add_and_invite_request = on_request(priority=100)
 
 
-@friend_request.handle()
+# 处理加好友申请
+@add_and_invite_request.handle()
 async def handle_friend_request(bot: Bot, event: FriendRequestEvent, state: T_State):
     user_id = event.user_id
     detail_type = event.request_type
@@ -22,11 +23,8 @@ async def handle_friend_request(bot: Bot, event: FriendRequestEvent, state: T_St
         logger.info(f'已拒绝用户: {user_id} 的好友申请')
 
 
-# 注册事件响应器, 处理被邀请进群
-group_invite = on_request(priority=100)
-
-
-@group_invite.handle()
+# 处理被邀请进群
+@add_and_invite_request.handle()
 async def handle_group_invite(bot: Bot, event: GroupRequestEvent, state: T_State):
     user_id = event.user_id
     group_id = event.group_id
@@ -46,9 +44,10 @@ async def handle_group_increase(bot: Bot, event: GroupIncreaseNoticeEvent, state
     user_id = event.user_id
     group_id = event.group_id
     detail_type = event.notice_type
-    if detail_type == 'group_increase' and DBGroup(group_id=group_id).permission_command().result == 1:
+    group_c_permission_res = await DBGroup(group_id=group_id).permission_command()
+    if detail_type == 'group_increase' and group_c_permission_res.result == 1:
         # 发送欢迎消息
         at_seg = MessageSegment.at(user_id=user_id)
-        msg = f'{at_seg}欢迎新朋友～\n进群请先看群公告~\n一起愉快地聊天吧!'
+        msg = f'{at_seg}欢迎新朋友～\n进群请先看群公告～\n一起愉快地聊天吧!'
         await bot.send(event=event, message=Message(msg))
         logger.info(f'群组: {group_id}, 有新用户: {user_id} 进群')
