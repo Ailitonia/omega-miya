@@ -1,7 +1,12 @@
+import nonebot
 from sqlalchemy import Sequence, ForeignKey
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+
+
+global_config = nonebot.get_driver().config
+TABLE_PREFIX = global_config.db_table_prefix
 
 # 创建数据表基类
 Base = declarative_base()
@@ -9,7 +14,7 @@ Base = declarative_base()
 
 # 系统参数表, 存放运行时状态
 class OmegaStatus(Base):
-    __tablename__ = 'omega_status'
+    __tablename__ = f'{TABLE_PREFIX}status'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -34,7 +39,7 @@ class OmegaStatus(Base):
 
 # 成员表
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = f'{TABLE_PREFIX}users'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -71,7 +76,7 @@ class User(Base):
 
 # 技能表
 class Skill(Base):
-    __tablename__ = 'skills'
+    __tablename__ = f'{TABLE_PREFIX}skills'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('skills_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -96,12 +101,12 @@ class Skill(Base):
 
 # 成员与技能表
 class UserSkill(Base):
-    __tablename__ = 'users_skills'
+    __tablename__ = f'{TABLE_PREFIX}users_skills'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('users_skills_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    skill_id = Column(Integer, ForeignKey('skills.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    skill_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}skills.id'), nullable=False)
     skill_level = Column(Integer, nullable=False, comment='技能等级')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
@@ -123,7 +128,7 @@ class UserSkill(Base):
 
 # qq群表
 class Group(Base):
-    __tablename__ = 'groups'
+    __tablename__ = f'{TABLE_PREFIX}groups'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -163,12 +168,12 @@ class Group(Base):
 
 # 成员与qq群表
 class UserGroup(Base):
-    __tablename__ = 'users_groups'
+    __tablename__ = f'{TABLE_PREFIX}users_groups'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('users_groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
     user_group_nickname = Column(String(64), nullable=True, comment='用户群昵称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
@@ -191,11 +196,11 @@ class UserGroup(Base):
 
 # 用户授权表
 class AuthUser(Base):
-    __tablename__ = 'auth_user'
+    __tablename__ = f'{TABLE_PREFIX}auth_user'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('auth_user_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
     auth_node = Column(String(128), nullable=False, index=True, comment='授权节点, 由插件检查')
     allow_tag = Column(Integer, nullable=False, comment='授权标签')
     deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
@@ -222,11 +227,11 @@ class AuthUser(Base):
 
 # 群组授权表
 class AuthGroup(Base):
-    __tablename__ = 'auth_group'
+    __tablename__ = f'{TABLE_PREFIX}auth_group'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('auth_group_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
     auth_node = Column(String(128), nullable=False, index=True, comment='授权节点, 由插件检查')
     allow_tag = Column(Integer, nullable=False, comment='授权标签')
     deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
@@ -253,7 +258,7 @@ class AuthGroup(Base):
 
 # 邮箱表
 class EmailBox(Base):
-    __tablename__ = 'email_box'
+    __tablename__ = f'{TABLE_PREFIX}email_box'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('email_box_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -286,12 +291,12 @@ class EmailBox(Base):
 
 # 群组邮箱表
 class GroupEmailBox(Base):
-    __tablename__ = 'group_email_box'
+    __tablename__ = f'{TABLE_PREFIX}group_email_box'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('group_email_box_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    email_box_id = Column(Integer, ForeignKey('email_box.id'), nullable=False)
-    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    email_box_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}email_box.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
     box_info = Column(String(64), nullable=True, comment='群邮箱信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
@@ -314,7 +319,7 @@ class GroupEmailBox(Base):
 
 # 邮件表
 class Email(Base):
-    __tablename__ = 'emails'
+    __tablename__ = f'{TABLE_PREFIX}emails'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -349,7 +354,7 @@ class Email(Base):
 
 # 记录表
 class History(Base):
-    __tablename__ = 'history'
+    __tablename__ = f'{TABLE_PREFIX}history'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -395,7 +400,7 @@ class History(Base):
 
 # 订阅表
 class Subscription(Base):
-    __tablename__ = 'subscription'
+    __tablename__ = f'{TABLE_PREFIX}subscription'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('subscription_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -424,12 +429,12 @@ class Subscription(Base):
 
 # qq群订阅表
 class GroupSub(Base):
-    __tablename__ = 'groups_subs'
+    __tablename__ = f'{TABLE_PREFIX}groups_subs'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('groups_subs_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    sub_id = Column(Integer, ForeignKey('subscription.id'), nullable=False)
-    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    sub_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}subscription.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
     group_sub_info = Column(String(64), nullable=True, comment='群订阅信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
@@ -452,7 +457,7 @@ class GroupSub(Base):
 
 # B站动态表
 class Bilidynamic(Base):
-    __tablename__ = 'bili_dynamics'
+    __tablename__ = f'{TABLE_PREFIX}bili_dynamics'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -480,11 +485,11 @@ class Bilidynamic(Base):
 
 # 假期表
 class Vocation(Base):
-    __tablename__ = 'vocations'
+    __tablename__ = f'{TABLE_PREFIX}vocations'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('vocations_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
     status = Column(Integer, nullable=False, comment='请假状态 0-空闲 1-请假 2-工作中')
     stop_at = Column(DateTime, nullable=True, comment='假期结束时间')
     reason = Column(String(64), nullable=True, comment='请假理由')
@@ -508,7 +513,7 @@ class Vocation(Base):
 
 # Pixiv tag表
 class PixivTag(Base):
-    __tablename__ = 'pixiv_tag'
+    __tablename__ = f'{TABLE_PREFIX}pixiv_tag'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('pixiv_tag_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -531,7 +536,7 @@ class PixivTag(Base):
 
 # Pixiv作品表
 class Pixiv(Base):
-    __tablename__ = 'pixiv_illusts'
+    __tablename__ = f'{TABLE_PREFIX}pixiv_illusts'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -568,13 +573,13 @@ class Pixiv(Base):
 
 # Pixiv作品-tag表
 class PixivT2I(Base):
-    __tablename__ = 'pixiv_tag_to_illusts'
+    __tablename__ = f'{TABLE_PREFIX}pixiv_tag_to_illusts'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('pixiv_tag_to_illusts_id_seq'),
                 primary_key=True, nullable=False, index=True, unique=True)
-    illust_id = Column(Integer, ForeignKey('pixiv_illusts.id'), nullable=False)
-    tag_id = Column(Integer, ForeignKey('pixiv_tag.id'), nullable=False)
+    illust_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_illusts.id'), nullable=False)
+    tag_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_tag.id'), nullable=False)
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
@@ -594,7 +599,7 @@ class PixivT2I(Base):
 
 # Pixivision表
 class Pixivision(Base):
-    __tablename__ = 'pixivision_article'
+    __tablename__ = f'{TABLE_PREFIX}pixivision_article'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
@@ -627,7 +632,7 @@ class Pixivision(Base):
 
 # 冷却事件表
 class CoolDownEvent(Base):
-    __tablename__ = 'cool_down_event'
+    __tablename__ = f'{TABLE_PREFIX}cool_down_event'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构

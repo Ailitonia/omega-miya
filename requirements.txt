@@ -1,5 +1,5 @@
-nonebot2==2.0.0a11
-nonebot-adapter-cqhttp==2.0.0a11.post2
+nonebot2==2.0.0a13.post1
+nonebot-adapter-cqhttp==2.0.0a12
 SQLAlchemy~=1.4.7
 mysqlclient~=2.0.3
 aiomysql~=0.0.21

@@ -47,13 +47,3 @@ async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
             await nlp.finish(str(res.result))
         else:
             logger.warning(f'nlp handling describe entity failed: {res.info}')
-
-    # describe_relation实体关系查询
-    elif re.match(r'^(你?知道)?(.{1,32})和(.{1,32})是(什么|啥)关系吗?[?？]?$', arg):
-        item_1 = re.findall(r'^(你?知道)?(.{1,32})和(.{1,32})是(什么|啥)关系吗?[?？]?$', arg)[0][1]
-        item_2 = re.findall(r'^(你?知道)?(.{1,32})和(.{1,32})是(什么|啥)关系吗?[?？]?$', arg)[0][2]
-        res = await TencentNLP().describe_relation(left_entity_name=item_1, right_entity_name=item_2)
-        if not res.error and res.result:
-            await nlp.finish(str(res.result))
-        else:
-            logger.warning(f'nlp handling describe relation failed: {res.info}')
