@@ -104,14 +104,14 @@ async def skill_add(bot: Bot, event: Event, state: T_State) -> Result:
     skill_name = state["skill_name"]
     skill_description = state["skill_description"]
     skill = DBSkill(name=skill_name)
-    result = skill.add(description=skill_description)
+    result = await skill.add(description=skill_description)
     return result
 
 
 async def skill_del(bot: Bot, event: Event, state: T_State) -> Result:
     skill_name = state["skill_name"]
     skill = DBSkill(name=skill_name)
-    result = skill.delete()
+    result = await skill.delete()
     return result
 
 
@@ -217,11 +217,11 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
 
 async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     skill_table = DBTable(table_name='Skill')
-    _res = skill_table.list_col(col_name='name')
+    _res = await skill_table.list_col(col_name='name')
     if _res.success():
         msg = '目前已有的技能列表如下:'
         for skill_name in _res.result:
-            msg += f'\n{skill_name[0]}'
+            msg += f'\n{skill_name}'
         result = Result(False, _res.info, msg)
     else:
         result = Result(True, _res.info, '')
@@ -231,7 +231,7 @@ async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
 async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
-    _res = user.skill_list()
+    _res = await user.skill_list()
     if _res.success():
         if not _res.result:
             msg = '你似乎没有掌握任何技能哦~'
@@ -263,7 +263,7 @@ async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         skill_level = 2
     elif skill_level == '专业':
         skill_level = 3
-    _res = user.skill_add(skill=DBSkill(name=skill_name), skill_level=skill_level)
+    _res = await user.skill_add(skill=DBSkill(name=skill_name), skill_level=skill_level)
     if _res.success():
         result = Result(False, _res.info, msg)
     else:
@@ -275,7 +275,7 @@ async def user_skill_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
-    _res = user.skill_del(skill=DBSkill(name=skill_name))
+    _res = await user.skill_del(skill=DBSkill(name=skill_name))
     if _res.success():
         result = Result(False, _res.info, 0)
     else:
@@ -286,7 +286,7 @@ async def user_skill_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
 async def user_skill_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
-    _res = user.skill_clear()
+    _res = await user.skill_clear()
     if _res.success():
         result = Result(False, _res.info, 0)
     else:

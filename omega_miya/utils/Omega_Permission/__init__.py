@@ -27,7 +27,7 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: Event, sta
 
     # 检查command权限
     if matcher_command_permission:
-        command_checker = check_command_permission(group_id=group_id)
+        command_checker = await check_command_permission(group_id=group_id)
         if command_checker:
             pass
         else:
@@ -36,7 +36,7 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: Event, sta
 
     # 检查权限等级
     if matcher_permission_level:
-        level_checker = check_permission_level(group_id=group_id, level=matcher_permission_level)
+        level_checker = await check_permission_level(group_id=group_id, level=matcher_permission_level)
     else:
         level_checker = False
 
@@ -44,8 +44,8 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: Event, sta
     if matcher_auth_node:
         auth_node = '.'.join([matcher.module, matcher_auth_node])
         # 分别检查用户及群组权限节点
-        user_auth_checker = check_auth_node(auth_id=user_id, auth_type='user', auth_node=auth_node)
-        group_auth_checker = check_auth_node(auth_id=group_id, auth_type='group', auth_node=auth_node)
+        user_auth_checker = await check_auth_node(auth_id=user_id, auth_type='user', auth_node=auth_node)
+        group_auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node=auth_node)
         # 优先级: 用户权限节点>群组权限节点>权限等级
         if user_auth_checker == -1 or group_auth_checker == -1:
             await bot.send(event=event, message=f'权限受限QAQ')

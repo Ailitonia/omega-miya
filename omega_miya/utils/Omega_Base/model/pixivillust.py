@@ -136,7 +136,7 @@ class DBPixivillust(object):
         return result
 
     @classmethod
-    async def list_illust(cls, *keywords: str, num: int, nsfw_tag: int, acc_mode: bool = False) -> DBResult:
+    async def list_illust(cls, keywords: List[str], num: int, nsfw_tag: int, acc_mode: bool = False) -> DBResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():

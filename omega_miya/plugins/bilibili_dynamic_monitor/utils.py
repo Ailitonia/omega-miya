@@ -50,7 +50,8 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'origin': 'https://t.bilibili.com',
                            'referer': 'https://t.bilibili.com/'}
-                if ENABLE_PROXY and check_proxy_available():
+                proxy_available = await check_proxy_available()
+                if ENABLE_PROXY and proxy_available:
                     proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
                     async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
                                            proxy=proxy, timeout=timeout) as rp:
@@ -130,14 +131,12 @@ async def get_user_info(user_uid) -> Result:
 
 
 # 返回某个up的所有动态id的列表
-def get_user_dynamic(user_id: int) -> Result:
+async def get_user_dynamic(user_id: int) -> Result:
     t = DBTable(table_name='Bilidynamic')
-    _res = t.list_col_with_condition('dynamic_id', 'uid', user_id)
+    _res = await t.list_col_with_condition('dynamic_id', 'uid', user_id)
     if not _res.success():
         return _res
-    dynamic_list = []
-    for item in _res.result:
-        dynamic_list.append(int(item[0]))
+    dynamic_list = [int(x) for x in _res.result]
     result = Result(error=False, info='Success', result=dynamic_list)
     return result
 

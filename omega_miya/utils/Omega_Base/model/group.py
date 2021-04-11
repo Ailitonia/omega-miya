@@ -303,7 +303,9 @@ class DBGroup(object):
         return result
 
     async def permission_info(self) -> DBResult:
-        res = {}
+        """
+        :return: Result: Tuple[Notice_permission, Command_permission, Permission_level]
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -313,16 +315,13 @@ class DBGroup(object):
                         where(Group.group_id == self.group_id)
                     )
                     notice, command, level = session_result.one()
-                    res['notice'] = notice
-                    res['command'] = command
-                    res['level'] = level
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = DBResult(error=False, info='Success', result=(notice, command, level))
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=res)
+                    result = DBResult(error=True, info='NoResultFound', result=(-1, -1, -1))
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=res)
+                    result = DBResult(error=True, info='MultipleResultsFound', result=(-1, -1, -1))
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=res)
+                    result = DBResult(error=True, info=repr(e), result=(-1, -1, -1))
         return result
 
     async def permission_notice(self) -> DBResult:
@@ -477,6 +476,9 @@ class DBGroup(object):
         return DBResult(error=False, info='ignore', result=0)
 
     async def subscription_list(self) -> DBResult:
+        """
+        :return: Result: List[Tuple[sub_type, sub_id, up_name]]
+        """
         group_id_result = await self.id()
         if group_id_result.error:
             return DBResult(error=True, info='Group not exist', result=[])
@@ -498,6 +500,10 @@ class DBGroup(object):
         return result
 
     async def subscription_list_by_type(self, sub_type: int) -> DBResult:
+        """
+        :param sub_type: 订阅类型
+        :return: Result: List[Tuple[sub_id, up_name]]
+        """
         group_id_result = await self.id()
         if group_id_result.error:
             return DBResult(error=True, info='Group not exist', result=[])

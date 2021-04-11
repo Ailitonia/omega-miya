@@ -191,6 +191,39 @@ class DBAuth(object):
                     result = DBResult(error=True, info=repr(e), result=-1)
         return result
 
+    async def tags_info(self) -> DBResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if self.auth_type == 'user':
+                        session_result = await session.execute(
+                            select(AuthUser.allow_tag, AuthUser.deny_tag).join(User).
+                            where(AuthUser.user_id == User.id).
+                            where(User.qq == self.auth_id).
+                            where(AuthUser.auth_node == self.auth_node)
+                        )
+                        res = session_result.one()
+                        result = DBResult(error=False, info='Success', result=(res[0], res[1]))
+                    elif self.auth_type == 'group':
+                        session_result = await session.execute(
+                            select(AuthGroup.allow_tag, AuthGroup.deny_tag).join(Group).
+                            where(AuthGroup.group_id == Group.id).
+                            where(Group.group_id == self.auth_id).
+                            where(AuthGroup.auth_node == self.auth_node)
+                        )
+                        res = session_result.one()
+                        result = DBResult(error=False, info='Success', result=(res[0], res[1]))
+                    else:
+                        result = DBResult(error=True, info='Auth type error', result=(-1, -1))
+                except NoResultFound:
+                    result = DBResult(error=True, info='NoResultFound', result=(-2, -2))
+                except MultipleResultsFound:
+                    result = DBResult(error=True, info='MultipleResultsFound', result=(-1, -1))
+                except Exception as e:
+                    result = DBResult(error=True, info=repr(e), result=(-1, -1))
+        return result
+
     async def delete(self) -> DBResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:

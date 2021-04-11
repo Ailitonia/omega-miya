@@ -36,7 +36,7 @@ async def database_init():
             # where synchronous IO calls will be transparently translated for
             # await.
             await conn.run_sync(Base.metadata.create_all)
-        nonebot.logger.opt(colors=True).info(f'{__name__}<lc>初始化数据库...</lc><lg>完成</lg>')
+        nonebot.logger.opt(colors=True).debug(f'<lc>初始化数据库...</lc><lg>完成</lg>')
     except Exception as e:
         import sys
         nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e)}')
@@ -61,7 +61,7 @@ class NBdb(object):
 
 
 class DBResult(object):
-    def __init__(self, error: bool, info: str, result: Union[int, str, list, set, dict]):
+    def __init__(self, error: bool, info: str, result: Union[int, str, list, set, tuple, dict]):
         self.error = error
         self.info = info
         self.result = result
@@ -125,3 +125,10 @@ class DBTable(object):
                     except Exception as e:
                         result = DBResult(error=True, info=repr(e), result=res)
         return result
+
+
+__all__ = [
+    'NBdb',
+    'DBResult',
+    'DBTable'
+]

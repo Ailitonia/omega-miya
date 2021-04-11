@@ -1,30 +1,35 @@
 from omega_miya.utils.Omega_Base import DBGroup, DBAuth
 
 
-def check_notice_permission(group_id: int) -> bool:
-    if DBGroup(group_id=group_id).permission_notice().result == 1:
+async def check_notice_permission(group_id: int) -> bool:
+    res = await DBGroup(group_id=group_id).permission_notice()
+    if res.result == 1:
         return True
     else:
         return False
 
 
-def check_command_permission(group_id: int) -> bool:
-    if DBGroup(group_id=group_id).permission_command().result == 1:
+async def check_command_permission(group_id: int) -> bool:
+    res = await DBGroup(group_id=group_id).permission_command()
+    if res.result == 1:
         return True
     else:
         return False
 
 
-def check_permission_level(group_id: int, level: int) -> bool:
-    if DBGroup(group_id=group_id).permission_level().result >= level:
+async def check_permission_level(group_id: int, level: int) -> bool:
+    res = await DBGroup(group_id=group_id).permission_level()
+    if res.result >= level:
         return True
     else:
         return False
 
 
-def check_auth_node(auth_id: int, auth_type: str, auth_node: str) -> int:
-    allow_tag = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=auth_node).allow_tag().result
-    deny_tag = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=auth_node).deny_tag().result
+async def check_auth_node(auth_id: int, auth_type: str, auth_node: str) -> int:
+    auth = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=auth_node)
+    tag_res = await auth.tags_info()
+    allow_tag = tag_res.result[0]
+    deny_tag = tag_res.result[1]
 
     if allow_tag == 1 and deny_tag == 0:
         return 1

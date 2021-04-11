@@ -86,8 +86,10 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group = DBGroup(group_id=group_id)
     sub_id = -1
     sub = DBSubscription(sub_type=8, sub_id=sub_id)
-    sub.add(up_name='Pixivision', live_info='Pixivision订阅')
-    _res = group.subscription_add(sub=sub)
+    _res = await sub.add(up_name='Pixivision', live_info='Pixivision订阅')
+    if not _res.success():
+        return _res
+    _res = await group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -98,7 +100,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     sub_id = -1
-    _res = group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)

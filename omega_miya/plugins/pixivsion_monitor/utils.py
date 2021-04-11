@@ -71,8 +71,8 @@ async def pixivsion_article_parse(aid: int, tags: list) -> Result:
                 illusts_list.append(int(illust['illusts_id']))
 
             pixivision = DBPixivision(aid=aid)
-            db_res = pixivision.add(title=title, description=description,
-                                    tags=repr(tags), illust_id=repr(illusts_list), url=url)
+            db_res = await pixivision.add(title=title, description=description,
+                                          tags=repr(tags), illust_id=repr(illusts_list), url=url)
             if db_res.success():
                 __res = {
                     'title': title,
@@ -91,9 +91,3 @@ async def pixivsion_article_parse(aid: int, tags: list) -> Result:
         _res.info += f" // error data: {repr(_res.result)}"
         _res.error = True
         return _res
-
-if __name__ == '__main__':
-    import asyncio
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(get_pixivsion_article_info(6083))
-    print(res.result)

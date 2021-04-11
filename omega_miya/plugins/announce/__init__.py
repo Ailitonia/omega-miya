@@ -44,18 +44,18 @@ async def handle_announce(bot: Bot, event: Event, state: T_State):
     msg = state['announce_text']
     if group == 'all':
         t = DBTable(table_name='Group')
-        for item in t.list_col('group_id').result:
-            group_id = item[0]
+        group_res = await t.list_col(col_name='group_id')
+        for group_id in group_res.result:
             await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
     elif group == 'notice':
         t = DBTable(table_name='Group')
-        for item in t.list_col_with_condition('group_id', 'notice_permissions', 1).result:
-            group_id = item[0]
+        group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+        for group_id in group_res.result:
             await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
     elif group == 'command':
         t = DBTable(table_name='Group')
-        for item in t.list_col_with_condition('group_id', 'command_permissions', 1).result:
-            group_id = item[0]
+        group_res = await t.list_col_with_condition('group_id', 'command_permissions', 1)
+        for group_id in group_res.result:
             await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
     elif re.match(r'^\d+$', group):
         group_id = int(group)

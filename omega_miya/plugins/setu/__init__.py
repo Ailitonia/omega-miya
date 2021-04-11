@@ -80,7 +80,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         if tag in ['r18', 'R18', 'r-18', 'R-18']:
             args.remove(tag)
             state['nsfw_tag'] = 2
-    state['tags'] = args
+    state['tags'] = list(args)
 
 
 @setu.got('nsfw_tag', prompt='r18?')
@@ -90,34 +90,15 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
     tags = state['tags']
 
     if tags:
-        _res_list = list()
-        for tag in tags:
-            """
-            _tag = DBPixivtag(tagname=tag)
-            _res = _tag.list_illust(nsfw_tag=nsfw_tag)
-            """
-            _res = DBPixivillust.list_illust(nsfw_tag=nsfw_tag, keyword=tag)
-            if _res.success():
-                _pids = set(_res.result)
-                _res_list.append(_pids)
-        if len(_res_list) > 1:
-            # 处理tag交集, 同时满足所有tag
-            for item in _res_list[1:]:
-                _res_list[0].intersection_update(item)
-            pid_list = _res_list[0]
-        elif len(_res_list) == 1:
-            pid_list = _res_list[0]
-        else:
-            pid_list = _res_list
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=nsfw_tag)
+        pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
+        pid_list = await DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
 
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
-    elif len(pid_list) > 3:
-        pid_list = random.sample(pid_list, k=3)
 
     await setu.send('稍等, 正在下载图片~')
     # 处理article中图片内容
@@ -166,37 +147,23 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     for tag in args.copy():
         if tag in ['r18', 'R18', 'r-18', 'R-18']:
             args.remove(tag)
-    state['tags'] = args
+    state['tags'] = list(args)
 
 
 @moepic.got('tags', prompt='tag?')
 async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
     tags = state['tags']
+
     if tags:
-        _res_list = list()
-        for tag in tags:
-            _res = DBPixivillust.list_illust(nsfw_tag=0, keyword=tag)
-            if _res.success():
-                _pids = set(_res.result)
-                _res_list.append(_pids)
-        if len(_res_list) > 1:
-            # 处理tag交集, 同时满足所有tag
-            for item in _res_list[1:]:
-                _res_list[0].intersection_update(item)
-            pid_list = _res_list[0]
-        elif len(_res_list) == 1:
-            pid_list = _res_list[0]
-        else:
-            pid_list = _res_list
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=0)
+        pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_list = DBPixivillust.rand_illust(num=3, nsfw_tag=0)
+        pid_list = await DBPixivillust.rand_illust(num=3, nsfw_tag=0)
 
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的萌图")
         await moepic.finish('找不到萌图QAQ')
-    elif len(pid_list) > 3:
-        pid_list = random.sample(pid_list, k=3)
 
     await moepic.send('稍等, 正在下载图片~')
     # 处理article中图片内容
@@ -232,12 +199,12 @@ setu_stat = on_command('图库统计', rule=to_me(), permission=SUPERUSER, prior
 
 @setu_stat.handle()
 async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    _res = DBPixivillust.status()
+    status_res = await DBPixivillust.status()
     msg = f"本地数据库统计:\n\n" \
-          f"全部: {_res.get('total')}\n" \
-          f"萌图: {_res.get('moe')}\n" \
-          f"涩图: {_res.get('setu')}\n" \
-          f"R18: {_res.get('r18')}"
+          f"全部: {status_res.result.get('total')}\n" \
+          f"萌图: {status_res.result.get('moe')}\n" \
+          f"涩图: {status_res.result.get('setu')}\n" \
+          f"R18: {status_res.result.get('r18')}"
     await setu_stat.finish(msg)
 
 

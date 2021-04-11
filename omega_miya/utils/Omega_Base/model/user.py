@@ -50,7 +50,7 @@ class DBUser(object):
                     result = DBResult(error=True, info=repr(e), result='')
         return result
 
-    async def add(self, nickname: str) -> DBResult:
+    async def add(self, nickname: str, is_friend: int = 0, aliasname: str = None) -> DBResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -65,11 +65,14 @@ class DBUser(object):
                             result = DBResult(error=False, info='Nickname not change', result=0)
                         else:
                             exist_user.nickname = nickname
+                            exist_user.is_friend = is_friend
+                            exist_user.aliasname = aliasname
                             exist_user.updated_at = datetime.now()
                             result = DBResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         # 不存在则成员表中添加新成员
-                        new_user = User(qq=self.qq, nickname=nickname, created_at=datetime.now())
+                        new_user = User(qq=self.qq, nickname=nickname, is_friend=is_friend,
+                                        aliasname=aliasname, created_at=datetime.now())
                         session.add(new_user)
                         result = DBResult(error=False, info='Success added', result=0)
                 await session.commit()

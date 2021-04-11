@@ -29,8 +29,10 @@ async def handle_message(bot: Bot, event: Event, state: T_State):
         raw_data = repr(event)
         msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
-        new_event.add(sub_type=sub_type, event_id=message_id, group_id=group_id, user_id=user_id, user_name=user_name,
-                      raw_data=raw_data, msg_data=msg_data)
+        res = await new_event.add(sub_type=sub_type, event_id=message_id, group_id=group_id, user_id=user_id,
+                                  user_name=user_name, raw_data=raw_data, msg_data=msg_data)
+        if res.error:
+            logger.error(f'Message history recording Failed with database error: {res.info}')
     except Exception as e:
         logger.error(f'Message history recording Failed, error: {repr(e)}')
 
@@ -55,10 +57,12 @@ async def handle_message_sent_history(bot: Bot, event: Event, state: T_State):
         raw_data = repr(event)
         msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
-        new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=user_name,
-                      raw_data=raw_data, msg_data=msg_data)
+        res = await new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=user_name,
+                                  raw_data=raw_data, msg_data=msg_data)
+        if res.error:
+            logger.error(f'Self-sent Message history recording Failed with database error: {res.info}')
     except Exception as e:
-        logger.error(f'Message history recording Failed, error: {repr(e)}')
+        logger.error(f'Self-sent Message history recording Failed, error: {repr(e)}')
 
 
 # 注册事件响应器, 处理NoticeEvent
@@ -78,8 +82,10 @@ async def handle_notice(bot: Bot, event: Event, state: T_State):
         raw_data = repr(event)
         msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
-        new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=None,
-                      raw_data=raw_data, msg_data=msg_data)
+        res = await new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=None,
+                                  raw_data=raw_data, msg_data=msg_data)
+        if res.error:
+            logger.error(f'Notice history recording Failed with database error: {res.info}')
     except Exception as e:
         logger.error(f'Notice history recording Failed, error: {repr(e)}')
 
@@ -101,7 +107,9 @@ async def handle_request(bot: Bot, event: Event, state: T_State):
         raw_data = repr(event)
         msg_data = str(event.dict().get('message'))
         new_event = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
-        new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=None,
-                      raw_data=raw_data, msg_data=msg_data)
+        res = await new_event.add(sub_type=sub_type, group_id=group_id, user_id=user_id, user_name=None,
+                                  raw_data=raw_data, msg_data=msg_data)
+        if res.error:
+            logger.error(f'Request history recording Failed with database error: {res.info}')
     except Exception as e:
         logger.error(f'Request history recording Failed, error: {repr(e)}')

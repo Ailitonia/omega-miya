@@ -5,7 +5,7 @@
 基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
-![Python](https://img.shields.io/badge/Python-3.7+-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
 
@@ -23,7 +23,7 @@ api主要用于获取pixiv等网站内容
 
 ## 功能 & 特点
 
-- 基于 SQLAlchemy / MySQL 的数据存储
+- 基于异步 SQLAlchemy / MySQL 的数据存储
 - 基于群组的通知权限、命令权限以及权限等级系统
 - 基于插件节点的权限管理系统
 - 命令冷却系统

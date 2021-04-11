@@ -35,14 +35,14 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
 async def dynamic_db_upgrade():
     logger.debug('dynamic_db_upgrade: started upgrade subscription info')
     t = DBTable(table_name='Subscription')
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 2).result:
-        sub_id = int(item[0])
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
+    for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=2, sub_id=sub_id)
         _res = await get_user_info(user_uid=sub_id)
         if not _res.success():
             logger.error(f'获取用户信息失败, uid: {sub_id}, error: {_res.info}')
         up_name = _res.result.get('name')
-        _res = sub.add(up_name=up_name, live_info='B站动态')
+        _res = await sub.add(up_name=up_name, live_info='B站动态')
         if not _res.success():
             logger.error(f'dynamic_db_upgrade: 更新用户信息失败, uid: {sub_id}, error: {_res.info}')
             continue
@@ -60,16 +60,14 @@ async def bilibili_dynamic_monitor():
         bots.append(bot)
 
     # 获取所有有通知权限的群组
-    all_noitce_groups = []
     t = DBTable(table_name='Group')
-    for item in t.list_col_with_condition('group_id', 'notice_permissions', 1).result:
-        all_noitce_groups.append(int(item[0]))
+    group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+    all_noitce_groups = [int(x) for x in group_res.result]
 
     # 获取订阅表中的所有动态订阅
-    check_sub = []
     t = DBTable(table_name='Subscription')
-    for item in t.list_col_with_condition('sub_id', 'sub_type', 2).result:
-        check_sub.append(int(item[0]))
+    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
+    check_sub = [int(x) for x in sub_res.result]
 
     # 注册一个异步函数用于检查动态
     async def check_dynamic(dy_uid):
@@ -86,7 +84,7 @@ async def bilibili_dynamic_monitor():
         dynamic_info = dict(_res.result)
 
         # 用户所有的动态id
-        _res = get_user_dynamic(user_id=dy_uid)
+        _res = await get_user_dynamic(user_id=dy_uid)
         if not _res.success():
             logger.error(f'bilibili_dynamic_monitor: 获取用户已有动态失败, uid: {dy_uid}, error: {_res.info}')
             return
@@ -95,7 +93,8 @@ async def bilibili_dynamic_monitor():
         sub = DBSubscription(sub_type=2, sub_id=dy_uid)
 
         # 获取订阅了该直播间的所有群
-        sub_group = sub.sub_group_list().result
+        sub_group_res = await sub.sub_group_list()
+        sub_group = sub_group_res.result
         # 需通知的群
         notice_group = list(set(all_noitce_groups) & set(sub_group))
 
@@ -270,7 +269,7 @@ async def bilibili_dynamic_monitor():
                     content = dynamic_info[num]['content']
                     # 向数据库中写入动态信息
                     dynamic = DBDynamic(uid=dy_uid, dynamic_id=dy_id)
-                    _res = dynamic.add(dynamic_type=dy_type, content=content)
+                    _res = await dynamic.add(dynamic_type=dy_type, content=content)
                     if _res.success():
                         logger.info(f"向数据库写入动态信息: {dynamic_info[num]['id']} 成功")
                     else:

@@ -133,14 +133,7 @@ async def handle_check(bot: Bot, event: GroupMessageEvent, state: T_State):
 async def sub_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    _res = group.subscription_list()
-    dynamic_sub = []
-    if not _res.success():
-        return _res
-    for sub_type, sub_id, up_name in _res.result:
-        if sub_type == 2:
-            dynamic_sub.append([sub_id, up_name])
-    result = Result(error=False, info='Success', result=dynamic_sub)
+    result = await group.subscription_list_by_type(sub_type=2)
     return result
 
 
@@ -149,10 +142,10 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group = DBGroup(group_id=group_id)
     uid = state['uid']
     sub = DBSubscription(sub_type=2, sub_id=uid)
-    _res = sub.add(up_name=state.get('up_name'), live_info='B站动态')
+    _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
     if not _res.success():
         return _res
-    _res = group.subscription_add(sub=sub)
+    _res = await group.subscription_add(sub=sub)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -163,7 +156,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     uid = state['uid']
-    _res = group.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)
@@ -173,7 +166,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
 async def sub_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
-    _res = group.subscription_clear_by_type(sub_type=2)
+    _res = await group.subscription_clear_by_type(sub_type=2)
     if not _res.success():
         return _res
     result = Result(error=False, info='Success', result=0)

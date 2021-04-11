@@ -48,7 +48,8 @@ async def fetch_json(url: str, paras: dict = None) -> Result:
                                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
                            'origin': 'https://www.bilibili.com',
                            'referer': 'https://www.bilibili.com/'}
-                if ENABLE_PROXY and check_proxy_available():
+                proxy_available = await check_proxy_available()
+                if ENABLE_PROXY and proxy_available:
                     proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
                     async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
                                            proxy=proxy, timeout=timeout) as rp:
