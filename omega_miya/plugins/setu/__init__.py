@@ -94,7 +94,8 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_list = await DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
+        pid_res = await DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
+        pid_list = pid_res.result
 
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图")
@@ -159,7 +160,8 @@ async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_list = await DBPixivillust.rand_illust(num=3, nsfw_tag=0)
+        pid_res = await DBPixivillust.rand_illust(num=3, nsfw_tag=0)
+        pid_list = pid_res.result
 
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的萌图")
