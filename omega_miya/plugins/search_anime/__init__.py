@@ -61,6 +61,12 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 @search_anime.handle()
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    # 响应引用回复图片
+    if event.reply:
+        img_url = str(event.reply.message).strip()
+        if re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+?])$', img_url):
+            state['image_url'] = img_url
+
     args = str(event.get_plaintext()).strip().lower().split()
     if args:
         await search_anime.finish('该命令不支持参数QAQ')
@@ -69,7 +75,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 @search_anime.got('image_url', prompt='请发送你想要识别的番剧截图:')
 async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
     image_url = state['image_url']
-    if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
+    if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+?])$', image_url):
         await search_anime.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
 
     # 提取图片url
