@@ -13,7 +13,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 PreRelease 2.0.0a13.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a13.post1)
+[Nonebot2 Pre Release v2.0.0a13.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a13.post1)
 
 ## 配套使用的api
 
@@ -65,7 +65,7 @@ api主要用于获取pixiv等网站内容
 
 这个图片集大概有5万条左右, 基本都是按我自己口味收集的图片
 
-解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表的就好了
+解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表就好了
 
 MD5: `8BF375B9687C397AE2040C8F9E28F68E`
 
