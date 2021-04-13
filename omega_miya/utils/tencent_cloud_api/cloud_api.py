@@ -19,6 +19,12 @@ class TencentCloudApi(object):
         info: str
         result: dict
 
+        def success(self) -> bool:
+            if not self.error:
+                return True
+            else:
+                return False
+
     def __init__(self,
                  secret_id: str,
                  secret_key: str,
