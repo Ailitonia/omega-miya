@@ -1,10 +1,10 @@
-import aiohttp
 import base64
 import json
 from io import BytesIO
 import nonebot
 from omega_miya.utils.Omega_Base import DBTable, Result
 from omega_miya.utils.Omega_proxy_utils import check_proxy_available
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 
 DYNAMIC_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
 GET_DYNAMIC_DETAIL_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'
@@ -32,69 +32,51 @@ def check_bili_cookies() -> Result:
         return Result(error=True, info='None', result=cookies)
 
 
-async def fetch_json(url: str, paras: dict = None) -> Result:
+async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonResult:
     cookies = None
+    proxy = None
+
+    # 检查cookies
     cookies_res = check_bili_cookies()
     if cookies_res.success():
         cookies = cookies_res.result
-    timeout_count = 0
-    error_info = ''
-    while timeout_count < 3:
-        try:
-            timeout = aiohttp.ClientTimeout(total=10)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                headers = {'accept': 'application/json, text/plain, */*',
-                           'accept-encoding': 'gzip, deflate, br',
-                           'accept-language:': 'zh-CN,zh;q=0.9',
-                           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                         'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                           'origin': 'https://t.bilibili.com',
-                           'referer': 'https://t.bilibili.com/'}
-                proxy_available = await check_proxy_available()
-                if ENABLE_PROXY and proxy_available:
-                    proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
-                                           proxy=proxy, timeout=timeout) as rp:
-                        _json = await rp.json()
-                else:
-                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
-                                           timeout=timeout) as rp:
-                        _json = await rp.json()
-                result = Result(error=False, info='Success', result=_json)
-            return result
-        except Exception as e:
-            error_info += f'{repr(e)} Occurred in fetch_json trying {timeout_count + 1} using paras: {paras}\n'
-        finally:
-            timeout_count += 1
-    else:
-        error_info += f'Failed too many times in fetch_json using paras: {paras}'
-        result = Result(error=True, info=error_info, result={})
-        return result
+
+    # 检查proxy
+    proxy_available = await check_proxy_available()
+    if ENABLE_PROXY and proxy_available:
+        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+
+    headers = {'accept': 'application/json, text/plain, */*',
+               'accept-encoding': 'gzip, deflate, br',
+               'accept-language:': 'zh-CN,zh;q=0.9',
+               'origin': 'https://t.bilibili.com',
+               'referer': 'https://t.bilibili.com/',
+               'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
+               'sec-ch-ua-mobile': '?0',
+               'sec-fetch-dest': 'empty',
+               'sec-fetch-mode': 'cors',
+               'sec-fetch-site': 'same-site',
+               'sec-gpc': '1',
+               'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/89.0.4389.114 Safari/537.36'
+               }
+
+    fetcher = HttpFetcher(timeout=10, flag='bilibili_dynamic_monitor', headers=headers, cookies=cookies, proxy=proxy)
+    result = await fetcher.get_json(url=url, params=paras)
+    return result
 
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    async def get_image(pic_url: str):
-        timeout_count = 0
-        error_info = ''
-        while timeout_count < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                               'origin': 'https://t.bilibili.com',
-                               'referer': 'https://t.bilibili.com/'}
-                    async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
-                        _res = await resp.read()
-                return _res
-            except Exception as _e:
-                error_info += f'{repr(_e)} Occurred in pic_2_base64 trying {timeout_count + 1} using paras: {pic_url}\n'
-            finally:
-                timeout_count += 1
-        else:
-            error_info += f'Failed too many times in pic_2_base64 using paras: {pic_url}'
-            return None
+    async def get_image(pic_url: str) -> bytes:
+        headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                 'Chrome/89.0.4389.114 Safari/537.36',
+                   'origin': 'https://t.bilibili.com',
+                   'referer': 'https://t.bilibili.com/'}
+
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='bilibili_dynamic_monitor_get_image', headers=headers)
+        bytes_result = await fetcher.get_bytes(url=pic_url)
+        return bytes_result.result
 
     origin_image_f = BytesIO()
     try:
@@ -118,7 +100,7 @@ async def get_user_info(user_uid) -> Result:
     if not result.success():
         return result
     else:
-        user_info = dict(result.result)
+        user_info = result.result
         try:
             _res = {
                 'status': user_info['code'],
@@ -145,8 +127,8 @@ async def get_user_dynamic(user_id: int) -> Result:
 async def get_user_dynamic_history(dy_uid) -> Result:
     _DYNAMIC_INFO = {}  # 这个字典用来放最后的输出结果
     url = DYNAMIC_API_URL
-    if BILI_UID:
-        payload = {'visitor_uid': BILI_UID, 'host_uid': dy_uid,
+    if BILI_UID and BILI_CSRF:
+        payload = {'csrf': BILI_CSRF, 'visitor_uid': BILI_UID, 'host_uid': dy_uid,
                    'offset_dynamic_id': 0, 'need_top': 0, 'platform': 'web'}
     else:
         payload = {'host_uid': dy_uid, 'offset_dynamic_id': 0, 'need_top': 0, 'platform': 'web'}
@@ -155,7 +137,7 @@ async def get_user_dynamic_history(dy_uid) -> Result:
     if not result.success():
         return result
     else:
-        dynamic_info = dict(result.result)
+        dynamic_info = result.result
         if not dynamic_info.get('data'):
             result = Result(error=True, info=f"Get dynamic info failed: {dynamic_info.get('message')}", result={})
             return result
@@ -339,7 +321,7 @@ async def get_dynamic_info(dynamic_id) -> Result:
         return _res
     else:
         try:
-            origin_dynamic = dict(_res.result)
+            origin_dynamic = _res.result
             origin_card = origin_dynamic['data']['card']
             origin_name = origin_card['desc']['user_profile']['info']['uname']
             origin_pics_list = []

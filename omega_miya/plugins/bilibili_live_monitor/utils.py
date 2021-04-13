@@ -1,9 +1,9 @@
-import aiohttp
 import nonebot
 import base64
 from io import BytesIO
 from omega_miya.utils.Omega_Base import Result
 from omega_miya.utils.Omega_proxy_utils import check_proxy_available
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
@@ -30,69 +30,51 @@ def check_bili_cookies() -> Result:
         return Result(error=True, info='None', result=cookies)
 
 
-async def fetch_json(url: str, paras: dict = None) -> Result:
+async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonResult:
     cookies = None
+    proxy = None
+
+    # 检查cookies
     cookies_res = check_bili_cookies()
     if cookies_res.success():
         cookies = cookies_res.result
-    timeout_count = 0
-    error_info = ''
-    while timeout_count < 3:
-        try:
-            timeout = aiohttp.ClientTimeout(total=10)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                headers = {'accept': 'application/json, text/plain, */*',
-                           'accept-encoding': 'gzip, deflate, br',
-                           'accept-language:': 'zh-CN,zh;q=0.9',
-                           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                         'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                           'origin': 'https://www.bilibili.com',
-                           'referer': 'https://www.bilibili.com/'}
-                proxy_available = await check_proxy_available()
-                if ENABLE_PROXY and proxy_available:
-                    proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
-                                           proxy=proxy, timeout=timeout) as rp:
-                        _json = await rp.json()
-                else:
-                    async with session.get(url=url, params=paras, headers=headers, cookies=cookies,
-                                           timeout=timeout) as rp:
-                        _json = await rp.json()
-                result = Result(error=False, info='Success', result=_json)
-            return result
-        except Exception as e:
-            error_info += f'{repr(e)} Occurred in fetch_json trying {timeout_count + 1} using paras: {paras}\n'
-        finally:
-            timeout_count += 1
-    else:
-        error_info += f'Failed too many times in fetch_json using paras: {paras}'
-        result = Result(error=True, info=error_info, result={})
-        return result
+
+    # 检查proxy
+    proxy_available = await check_proxy_available()
+    if ENABLE_PROXY and proxy_available:
+        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+
+    headers = {'accept': 'application/json, text/plain, */*',
+               'accept-encoding': 'gzip, deflate, br',
+               'accept-language:': 'zh-CN,zh;q=0.9',
+               'origin': 'https://www.bilibili.com',
+               'referer': 'https://www.bilibili.com/',
+               'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
+               'sec-ch-ua-mobile': '?0',
+               'sec-fetch-dest': 'empty',
+               'sec-fetch-mode': 'cors',
+               'sec-fetch-site': 'same-site',
+               'sec-gpc': '1',
+               'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/89.0.4389.114 Safari/537.36'
+               }
+
+    fetcher = HttpFetcher(timeout=10, flag='bilibili_live_monitor', headers=headers, cookies=cookies, proxy=proxy)
+    result = await fetcher.get_json(url=url, params=paras)
+    return result
 
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    async def get_image(pic_url: str):
-        timeout_count = 0
-        error_info = ''
-        while timeout_count < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                               'origin': 'https://www.bilibili.com',
-                               'referer': 'https://www.bilibili.com/'}
-                    async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
-                        _res = await resp.read()
-                return _res
-            except Exception as _e:
-                error_info += f'{repr(_e)} Occurred in pic_2_base64 trying {timeout_count + 1} using paras: {pic_url}\n'
-            finally:
-                timeout_count += 1
-        else:
-            error_info += f'Failed too many times in pic_2_base64 using paras: {pic_url}'
-            return None
+    async def get_image(pic_url: str) -> bytes:
+        headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                 'Chrome/89.0.4389.114 Safari/537.36',
+                   'origin': 'https://www.bilibili.com',
+                   'referer': 'https://www.bilibili.com/'}
+
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='bilibili_live_monitor_get_image', headers=headers)
+        bytes_result = await fetcher.get_bytes(url=pic_url)
+        return bytes_result.result
 
     origin_image_f = BytesIO()
     try:
@@ -115,10 +97,10 @@ async def get_live_info(room_id) -> Result:
     result = await fetch_json(url=url, paras=payload)
     if not result.success():
         return result
-    elif dict(result.result).get('code') != 0:
-        result = Result(error=True, info=f"Get Live info failed: {dict(result.result).get('message')}", result={})
+    elif result.result.get('code') != 0:
+        result = Result(error=True, info=f"Get Live info failed: {result.result.get('message')}", result={})
     else:
-        live_info = dict(result.result)
+        live_info = result.result
         try:
             _res = {
                 'status': live_info['data']['live_status'],
@@ -141,10 +123,10 @@ async def get_user_info(user_uid) -> Result:
     result = await fetch_json(url=url, paras=payload)
     if not result.success():
         return result
-    elif dict(result.result).get('code') != 0:
-        result = Result(error=True, info=f"Get User info failed: {dict(result.result).get('message')}", result={})
+    elif result.result.get('code') != 0:
+        result = Result(error=True, info=f"Get User info failed: {result.result.get('message')}", result={})
     else:
-        user_info = dict(result.result)
+        user_info = result.result
         try:
             _res = {
                 'status': user_info['code'],
