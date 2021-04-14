@@ -1,10 +1,9 @@
-import aiohttp
-import base64
 import re
 import nonebot
-from io import BytesIO
 from bs4 import BeautifulSoup
 from nonebot import logger
+from omega_miya.utils.Omega_proxy_utils import check_proxy_available
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 from omega_miya.utils.Omega_Base import Result
 
 
@@ -13,66 +12,46 @@ API_KEY = global_config.saucenao_api_key
 API_URL = 'https://saucenao.com/search.php'
 API_URL_ASCII2D = 'https://ascii2d.net/search/url/'
 
+ENABLE_PROXY = global_config.enable_proxy
+PROXY_ADDRESS = global_config.proxy_address
+PROXY_PORT = global_config.proxy_port
+
+HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                         'Chrome/89.0.4389.114 Safari/537.36'}
+
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    async def get_image(pic_url: str):
-        timeout_count = 0
-        while timeout_count < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'}
-                    async with session.get(url=pic_url, headers=headers, timeout=timeout) as resp:
-                        _res = await resp.read()
-                return _res
-            except Exception as _e:
-                error_info = f'{repr(_e)} Occurred in get_image trying {timeout_count + 1} using paras: {pic_url}'
-                logger.info(error_info)
-            finally:
-                timeout_count += 1
-        else:
-            error_info = f'Failed too many times in get_image using paras: {pic_url}'
-            logger.warning(error_info)
-            return None
+    proxy = None
 
-    origin_image_f = BytesIO()
-    try:
-        origin_image_f.write(await get_image(pic_url=url))
-    except Exception as e:
-        result = Result(error=True, info=f'pic_2_base64 error: {repr(e)}', result='')
-        return result
-    b64 = base64.b64encode(origin_image_f.getvalue())
-    b64 = str(b64, encoding='utf-8')
-    b64 = 'base64://' + b64
-    origin_image_f.close()
-    result = Result(error=False, info='Success', result=b64)
-    return result
+    # 检查proxy
+    proxy_available = await check_proxy_available()
+    if ENABLE_PROXY and proxy_available:
+        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+
+    fetcher = HttpFetcher(timeout=10, flag='search_image_get_image', proxy=proxy, headers=HEADERS)
+    bytes_result = await fetcher.get_bytes(url=url)
+    if bytes_result.error:
+        return Result(error=True, info='Image download failed', result='')
+
+    encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
+
+    if encode_result.success():
+        return Result(error=False, info='Success', result=encode_result.result)
+    else:
+        return Result(error=True, info=encode_result.info, result='')
 
 
 # 获取识别结果 Saucenao模块
 async def get_saucenao_identify_result(url: str) -> list:
-    async def get_saucenao_result(__url: str, paras: dict) -> dict:
-        timeout_count = 0
-        while timeout_count < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as __session:
-                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'}
-                    async with __session.get(url=__url, params=paras, headers=headers, timeout=timeout) as resp:
-                        json = await resp.json()
-                return json
-            except Exception as e:
-                error_info = f'{repr(e)} Occurred in get_result trying {timeout_count + 1} using paras: {paras}'
-                logger.info(error_info)
-            finally:
-                timeout_count += 1
-        else:
-            error_info = f'Failed too many times in get_result using paras: {paras}'
-            logger.warning(error_info)
-            return {'header': {'status': 1}, 'results': []}
+    proxy = None
+
+    # 检查proxy
+    proxy_available = await check_proxy_available()
+    if ENABLE_PROXY and proxy_available:
+        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+
+    fetcher = HttpFetcher(timeout=10, flag='search_image_saucenao', proxy=proxy, headers=HEADERS)
 
     if not API_KEY:
         logger.opt(colors=True).warning(f'<r>Saucenao API KEY未配置</r>, <y>无法使用Saucenao API进行识图!</y>')
@@ -84,10 +63,16 @@ async def get_saucenao_identify_result(url: str) -> list:
                  'numres': 6,
                  'db': 999,
                  'url': url}
-    __result_json = await get_saucenao_result(__url=API_URL, paras=__payload)
+    saucenao_result = await fetcher.get_json(url=API_URL, params=__payload)
+    if saucenao_result.error:
+        logger.error(f"get_saucenao_identify_result failed, Network error: {saucenao_result.info}")
+        return []
+
+    __result_json = saucenao_result.result
+
     if __result_json['header']['status'] != 0:
-        logger.error(f"get_identify_result failed, "
-                     f"status code: {__result_json['header']['status']}, Sever or Client error")
+        logger.error(f"get_saucenao_identify_result failed, DataSource error, "
+                     f"status code: {__result_json['header']['status']}")
         return []
 
     __result = []
@@ -101,78 +86,40 @@ async def get_saucenao_identify_result(url: str) -> list:
                                  'index_name': __item['header']['index_name'],
                                  'ext_urls': __item['data']['ext_urls']})
         except Exception as res_err:
-            logger.error(f"get_identify_result failed: {repr(res_err)}, can not resolve results")
+            logger.error(f"get_saucenao_identify_result failed: {repr(res_err)}, can not resolve results")
             continue
     return __result
 
 
 # 获取识别结果 ascii2d模块
 async def get_ascii2d_identify_result(url: str) -> list:
-    async def get_ascii2d_redirects(_url: str) -> dict:
-        timeout_count = 0
-        while timeout_count < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as __session:
-                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
-                               'accept-language': 'zh-CN,zh;q=0.9'}
-                    async with __session.get(url=_url, headers=headers, timeout=timeout,
-                                             allow_redirects=False) as resp:
-                        res_headers = resp.headers
-                        res_dict = {'error': False, 'body': dict(res_headers)}
-                return res_dict
-            except Exception as e:
-                error_info = f'{repr(e)} Occurred in get_ascii2d_redirects trying {timeout_count + 1} using url: {_url}'
-                logger.info(error_info)
-            finally:
-                timeout_count += 1
-        else:
-            error_info = f'Failed too many times in get_result using url: {_url}'
-            logger.warning(error_info)
-            return {'error': True, 'body': None}
+    proxy = None
 
-    async def get_ascii2d_result(__url: str) -> str:
-        timeout_count = 0
-        while timeout_count < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as __session:
-                    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                                             'AppleWebKit/537.36 (KHTML, like Gecko) '
-                                             'Chrome/83.0.4103.116 Safari/537.36',
-                               'accept-language': 'zh-CN,zh;q=0.9'}
-                    async with __session.get(url=__url, headers=headers, timeout=timeout) as resp:
-                        res_headers = await resp.text()
-                return res_headers
-            except Exception as e:
-                error_info = f'{repr(e)} Occurred in get_ascii2d_result trying {timeout_count + 1} using url: {__url}'
-                logger.info(error_info)
-            finally:
-                timeout_count += 1
-        else:
-            error_info = f'Failed too many times in get_result using url: {__url}'
-            logger.warning(error_info)
-            return ''
+    # 检查proxy
+    proxy_available = await check_proxy_available()
+    if ENABLE_PROXY and proxy_available:
+        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+
+    fetcher = HttpFetcher(timeout=10, flag='search_image_ascii2d', proxy=proxy, headers=HEADERS)
 
     search_url = f'{API_URL_ASCII2D}{url}'
-    __result_json = await get_ascii2d_redirects(_url=search_url)
-    if not __result_json['error']:
-        ascii2d_color_url = __result_json['body']['Location']
-        ascii2d_bovw_url = re.sub(
-            r'https://ascii2d\.net/search/color/', r'https://ascii2d.net/search/bovw/', ascii2d_color_url)
-    else:
-        logger.error(f'get_ascii2d_identify_result failed: 获取识别结果url发生错误, 错误信息详见日志.')
+    saucenao_redirects_result = await fetcher.get_text(url=search_url, allow_redirects=False)
+    if saucenao_redirects_result.error:
+        logger.warning(f'get_ascii2d_identify_result failed: 获取识别结果url发生错误, 错误信息详见日志.')
         return []
 
-    color_res = await get_ascii2d_result(ascii2d_color_url)
-    bovw_res = await get_ascii2d_result(ascii2d_bovw_url)
+    ascii2d_color_url = saucenao_redirects_result.headers.get('Location')
+    ascii2d_bovw_url = re.sub(
+        r'https://ascii2d\.net/search/color/', r'https://ascii2d.net/search/bovw/', ascii2d_color_url)
+
+    color_res = await fetcher.get_text(url=ascii2d_color_url)
+    bovw_res = await fetcher.get_text(url=ascii2d_bovw_url)
 
     pre_bs_list = []
-    if color_res:
-        pre_bs_list.append(color_res)
-    if bovw_res:
-        pre_bs_list.append(bovw_res)
+    if color_res.success():
+        pre_bs_list.append(color_res.result)
+    if bovw_res.success():
+        pre_bs_list.append(bovw_res.result)
     if not pre_bs_list:
         logger.error(f'get_ascii2d_identify_result ERROR: 获取识别结果异常, 错误信息详见日志.')
         return []
