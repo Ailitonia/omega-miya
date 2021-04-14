@@ -1,9 +1,7 @@
 import nonebot
-import base64
-from io import BytesIO
 from omega_miya.utils.Omega_Base import Result
 from omega_miya.utils.Omega_proxy_utils import check_proxy_available
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
@@ -45,7 +43,7 @@ async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonRes
         proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
 
     headers = {'accept': 'application/json, text/plain, */*',
-               'accept-encoding': 'gzip, deflate, br',
+               'accept-encoding': 'gzip, deflate',
                'accept-language:': 'zh-CN,zh;q=0.9',
                'origin': 'https://www.bilibili.com',
                'referer': 'https://www.bilibili.com/',
@@ -66,28 +64,30 @@ async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonRes
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    async def get_image(pic_url: str) -> bytes:
-        headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                                 'Chrome/89.0.4389.114 Safari/537.36',
-                   'origin': 'https://www.bilibili.com',
-                   'referer': 'https://www.bilibili.com/'}
+    proxy = None
 
-        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='bilibili_live_monitor_get_image', headers=headers)
-        bytes_result = await fetcher.get_bytes(url=pic_url)
-        return bytes_result.result
+    # 检查proxy
+    proxy_available = await check_proxy_available()
+    if ENABLE_PROXY and proxy_available:
+        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
 
-    origin_image_f = BytesIO()
-    try:
-        origin_image_f.write(await get_image(pic_url=url))
-    except Exception as e:
-        result = Result(error=True, info=f'pic_2_base64 error: {repr(e)}', result='')
-        return result
-    b64 = base64.b64encode(origin_image_f.getvalue())
-    b64 = str(b64, encoding='utf-8')
-    b64 = 'base64://' + b64
-    origin_image_f.close()
-    result = Result(error=False, info='Success', result=b64)
-    return result
+    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/89.0.4389.114 Safari/537.36',
+               'origin': 'https://www.bilibili.com',
+               'referer': 'https://www.bilibili.com/'}
+
+    fetcher = HttpFetcher(
+        timeout=30, attempt_limit=2, flag='bilibili_live_monitor_get_image', proxy=proxy, headers=headers)
+    bytes_result = await fetcher.get_bytes(url=url)
+    if bytes_result.error:
+        return Result(error=True, info='Image download failed', result='')
+
+    encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
+
+    if encode_result.success():
+        return Result(error=False, info='Success', result=encode_result.result)
+    else:
+        return Result(error=True, info=encode_result.info, result='')
 
 
 # 获取直播间信息
