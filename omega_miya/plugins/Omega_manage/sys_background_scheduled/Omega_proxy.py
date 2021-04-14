@@ -45,11 +45,11 @@ async def check_proxy():
     result = await test_proxy(proxy_address=PROXY_ADDRESS, proxy_port=PROXY_PORT)
     if result.success():
         db_res = await DBStatus(name='PROXY_AVAILABLE').set_status(status=1, info='代理可用')
-        logger.opt(colors=True).info(f'代理检查: <g>成功, status: {result.result}!</g>, DB info: {db_res.info}')
+        logger.opt(colors=True).info(f'代理检查: <g>成功! status: {result.result}</g>, DB info: {db_res.info}')
     else:
         db_res = await DBStatus(name='PROXY_AVAILABLE').set_status(status=0, info='代理不可用')
-        logger.opt(colors=True).warning(f'代理检查: <y>失败, status: {result.result}, '
-                                        f'info: {result.info}!</y>, DB info: {db_res.info}')
+        logger.opt(colors=True).error(f'代理检查: <r>失败! status: {result.result}, '
+                                      f'info: {result.info}</r>, DB info: {db_res.info}')
 
 
 __all__ = [
