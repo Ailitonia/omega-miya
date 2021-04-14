@@ -114,15 +114,15 @@ async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
 
             img_b64 = await pic_2_base64(thumb_img_url)
             if not img_b64.success():
-                msg = f"识别结果: {anime}\n\n名称:\n【{title_native}】\n【{title_chinese}】\n" \
-                      f"相似度: {similarity}\n\n原始文件: {filename}\nEpisode: 【{episode}】\n" \
-                      f"截图时间位置: {at}\n绅士: 【{is_adult}】"
+                msg = f"识别结果: {anime}\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
+                      f"相似度: {int(similarity)}\n\n来源文件: {filename}\nEpisode: 【{episode}】\n" \
+                      f"截图时间位置: {at}\n绅士: {is_adult}"
                 await search_anime.send(msg)
             else:
                 img_seg = MessageSegment.image(img_b64.result)
-                msg = f"识别结果: {anime}\n\n名称:\n【{title_native}】\n【{title_chinese}】\n" \
-                      f"相似度: {similarity}\n\n原始文件: {filename}\nEpisode: 【{episode}】\n" \
-                      f"截图时间位置: {at}\n绅士: 【{is_adult}】\n{img_seg}"
+                msg = f"识别结果: {anime}\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
+                      f"相似度: {int(similarity)}\n\n来源文件: {filename}\nEpisode: 【{episode}】\n" \
+                      f"截图时间位置: {at}\n绅士: {is_adult}\n{img_seg}"
                 await search_anime.send(Message(msg))
         except Exception as e:
             logger.error(f"Group: {event.group_id}, user: {event.user_id}  "
