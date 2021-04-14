@@ -6,6 +6,7 @@ from .encrypt import AESEncryptStr
 from .cooldown import *
 from .permission import *
 from .http_fetcher import HttpFetcher
+from .picture_to_base64 import PicEncoder
 
 
 def init_export(
@@ -57,5 +58,6 @@ __all__ = [
     'check_command_permission',
     'check_permission_level',
     'check_auth_node',
-    'HttpFetcher'
+    'HttpFetcher',
+    'PicEncoder'
 ]
