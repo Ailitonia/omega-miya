@@ -19,6 +19,12 @@
 
 api主要用于获取pixiv等网站内容
 
+pixiv, pixivsion_monitor，setu， nhentai 插件依赖 MIYA_API 获取相关资源
+
+请确保已部署MIYA_API后再启用
+
+**MIYA API 是一个计划停止维护的功能, 在下一个版本中将使用内置模块和 HTTP 代理取代**
+
 ->[Miya API](https://github.com/Ailitonia/miya_api)
 
 ## 功能 & 特点
