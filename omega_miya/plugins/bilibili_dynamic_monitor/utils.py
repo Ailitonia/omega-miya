@@ -1,7 +1,6 @@
 import json
 import nonebot
 from omega_miya.utils.Omega_Base import DBTable, Result
-from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 
 DYNAMIC_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
@@ -14,10 +13,6 @@ BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
 ENABLE_BILI_CHECK_POOL_MODE = global_config.enable_bili_check_pool_mode
-
-ENABLE_PROXY = global_config.enable_proxy
-PROXY_ADDRESS = global_config.proxy_address
-PROXY_PORT = global_config.proxy_port
 
 
 def check_bili_cookies() -> Result:
@@ -32,17 +27,11 @@ def check_bili_cookies() -> Result:
 
 async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonResult:
     cookies = None
-    proxy = None
 
     # 检查cookies
     cookies_res = check_bili_cookies()
     if cookies_res.success():
         cookies = cookies_res.result
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
 
     headers = {'accept': 'application/json, text/plain, */*',
                'accept-encoding': 'gzip, deflate',
@@ -59,27 +48,20 @@ async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonRes
                              'Chrome/89.0.4389.114 Safari/537.36'
                }
 
-    fetcher = HttpFetcher(timeout=10, flag='bilibili_dynamic_monitor', headers=headers, cookies=cookies, proxy=proxy)
+    fetcher = HttpFetcher(timeout=10, flag='bilibili_dynamic_monitor', headers=headers, cookies=cookies)
     result = await fetcher.get_json(url=url, params=paras)
     return result
 
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    proxy = None
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-
     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                              'Chrome/89.0.4389.114 Safari/537.36',
                'origin': 'https://t.bilibili.com',
                'referer': 'https://t.bilibili.com/'}
 
     fetcher = HttpFetcher(
-        timeout=30, attempt_limit=2, flag='bilibili_dynamic_monitor_get_image', proxy=proxy, headers=headers)
+        timeout=30, attempt_limit=2, flag='bilibili_dynamic_monitor_get_image', headers=headers)
     bytes_result = await fetcher.get_bytes(url=url)
     if bytes_result.error:
         return Result(error=True, info='Image download failed', result='')
@@ -373,6 +355,5 @@ __all__ = [
     'get_user_dynamic',
     'get_user_dynamic_history',
     'get_dynamic_info',
-    'ENABLE_BILI_CHECK_POOL_MODE',
-    'ENABLE_PROXY'
+    'ENABLE_BILI_CHECK_POOL_MODE'
 ]

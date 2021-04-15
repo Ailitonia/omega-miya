@@ -2,7 +2,6 @@ import re
 import nonebot
 from bs4 import BeautifulSoup
 from nonebot import logger
-from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 from omega_miya.utils.Omega_Base import Result
 
@@ -12,9 +11,6 @@ API_KEY = global_config.saucenao_api_key
 API_URL = 'https://saucenao.com/search.php'
 API_URL_ASCII2D = 'https://ascii2d.net/search/url/'
 
-ENABLE_PROXY = global_config.enable_proxy
-PROXY_ADDRESS = global_config.proxy_address
-PROXY_PORT = global_config.proxy_port
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/89.0.4389.114 Safari/537.36'}
@@ -22,14 +18,7 @@ HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    proxy = None
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-
-    fetcher = HttpFetcher(timeout=10, flag='search_image_get_image', proxy=proxy, headers=HEADERS)
+    fetcher = HttpFetcher(timeout=10, flag='search_image_get_image', headers=HEADERS)
     bytes_result = await fetcher.get_bytes(url=url)
     if bytes_result.error:
         return Result(error=True, info='Image download failed', result='')
@@ -44,14 +33,7 @@ async def pic_2_base64(url: str) -> Result:
 
 # 获取识别结果 Saucenao模块
 async def get_saucenao_identify_result(url: str) -> list:
-    proxy = None
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-
-    fetcher = HttpFetcher(timeout=10, flag='search_image_saucenao', proxy=proxy, headers=HEADERS)
+    fetcher = HttpFetcher(timeout=10, flag='search_image_saucenao', headers=HEADERS)
 
     if not API_KEY:
         logger.opt(colors=True).warning(f'<r>Saucenao API KEY未配置</r>, <y>无法使用Saucenao API进行识图!</y>')
@@ -93,14 +75,7 @@ async def get_saucenao_identify_result(url: str) -> list:
 
 # 获取识别结果 ascii2d模块
 async def get_ascii2d_identify_result(url: str) -> list:
-    proxy = None
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-
-    fetcher = HttpFetcher(timeout=10, flag='search_image_ascii2d', proxy=proxy, headers=HEADERS)
+    fetcher = HttpFetcher(timeout=10, flag='search_image_ascii2d', headers=HEADERS)
 
     search_url = f'{API_URL_ASCII2D}{url}'
     saucenao_redirects_result = await fetcher.get_text(url=search_url, allow_redirects=False)

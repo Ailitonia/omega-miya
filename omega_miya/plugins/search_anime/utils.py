@@ -1,17 +1,10 @@
-import nonebot
 import datetime
 from nonebot import logger
-from omega_miya.utils.Omega_proxy_utils import check_proxy_available
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 from omega_miya.utils.Omega_Base import Result
 
 
 API_URL = 'https://trace.moe/api/search'
-
-global_config = nonebot.get_driver().config
-ENABLE_PROXY = global_config.enable_proxy
-PROXY_ADDRESS = global_config.proxy_address
-PROXY_PORT = global_config.proxy_port
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/89.0.4389.114 Safari/537.36'}
@@ -19,14 +12,7 @@ HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 
 # 图片转base64
 async def pic_2_base64(url: str) -> Result:
-    proxy = None
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-
-    fetcher = HttpFetcher(timeout=10, flag='search_anime_get_image', proxy=proxy, headers=HEADERS)
+    fetcher = HttpFetcher(timeout=10, flag='search_anime_get_image', headers=HEADERS)
     bytes_result = await fetcher.get_bytes(url=url)
     if bytes_result.error:
         return Result(error=True, info='Image download failed', result='')
@@ -41,14 +27,7 @@ async def pic_2_base64(url: str) -> Result:
 
 # 获取识别结果
 async def get_identify_result(img_url: str) -> Result:
-    proxy = None
-
-    # 检查proxy
-    proxy_available = await check_proxy_available()
-    if ENABLE_PROXY and proxy_available:
-        proxy = f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
-
-    fetcher = HttpFetcher(timeout=10, flag='search_anime', headers=HEADERS, proxy=proxy)
+    fetcher = HttpFetcher(timeout=10, flag='search_anime', headers=HEADERS)
 
     payload = {'url': img_url}
     result_json = await fetcher.get_json(url=API_URL, params=payload)
