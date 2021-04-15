@@ -3,11 +3,19 @@
 """
 import nonebot
 from nonebot import logger, require
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBCoolDownEvent
-from .Omega_proxy import ENABLE_PROXY, check_proxy
+from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBStatus, DBCoolDownEvent
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+
+
+global_config = nonebot.get_driver().config
+ENABLE_PROXY = global_config.enable_proxy
+PROXY_CHECK_URL = global_config.proxy_check_url
+PROXY_CHECK_TIMEOUT = global_config.proxy_check_timeout
 
 # 获取scheduler
 scheduler = require("nonebot_plugin_apscheduler").scheduler
+
+logger.opt(colors=True).debug('<lg>初始化 Omega 后台任务...</lg>')
 
 
 # 创建自动更新群组信息的定时任务
@@ -82,9 +90,6 @@ async def refresh_group_info():
             logger.info(f'Refresh group info completed, Bot: {bot_id}, Group: {group_id}')
 
 
-logger.opt(colors=True).debug('后台任务: <lg>refresh_group_info</lg>, <ly>已启用!</ly>')
-
-
 # 创建用于刷新冷却事件的定时任务
 @scheduler.scheduled_job(
     'cron',
@@ -108,16 +113,12 @@ async def cool_down_refresh():
     logger.debug('cool_down_refresh: cleaning time out event')
 
 
-logger.opt(colors=True).debug('后台任务: <lg>cool_down_refresh</lg>, <ly>已启用!</ly>')
-
-
 # 创建用于检查代理可用性的状态的定时任务
 if ENABLE_PROXY:
-    # 初始化任务加入启动序列
-    nonebot.get_driver().on_startup(check_proxy)
+    logger.opt(colors=True).info('<ly>HTTP 代理:</ly> <lg>已启用!</lg>')
 
-    scheduler.add_job(
-        check_proxy,
+    # 检查代理可用性的状态的任务
+    @scheduler.scheduled_job(
         'cron',
         # year=None,
         # month=None,
@@ -125,8 +126,8 @@ if ENABLE_PROXY:
         # week=None,
         # day_of_week=None,
         # hour=None,
-        # minute=None,
-        second='*/30',
+        minute='*/1',
+        # second=None,
         # start_date=None,
         # end_date=None,
         # timezone=None,
@@ -134,7 +135,49 @@ if ENABLE_PROXY:
         coalesce=True,
         misfire_grace_time=20
     )
+    async def check_proxy():
+        timeout = 5
+        test_url = 'https://api.bilibili.com/x/web-interface/nav'
+        headers = {'accept': 'application/json; charset=utf-8',
+                   'accept-encoding': 'gzip, deflate',
+                   'accept-language': 'zh-CN,zh;q=0.9',
+                   'origin': 'https://www.bilibili.com',
+                   'referer': 'https://www.bilibili.com/',
+                   'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
+                   'sec-ch-ua-mobile': '?0',
+                   'sec-fetch-dest': 'empty',
+                   'sec-fetch-mode': 'cors',
+                   'sec-fetch-site': 'same-site',
+                   'sec-gpc': '1',
+                   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                 'Chrome/89.0.4389.114 Safari/537.36'
+                   }
+
+        if PROXY_CHECK_URL and type(PROXY_CHECK_URL) == str:
+            test_url = str(PROXY_CHECK_URL)
+            headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                       'Chrome/89.0.4389.114 Safari/537.36'}
+
+        if PROXY_CHECK_TIMEOUT and type(PROXY_CHECK_TIMEOUT) == int:
+            timeout = PROXY_CHECK_TIMEOUT
+
+        fetcher = HttpFetcher(timeout=timeout, flag='Omega_proxy_test', headers=headers)
+        fetcher_result = await fetcher.get_text(url=test_url, force_proxy=True)
+
+        if fetcher_result.success() and fetcher_result.status == 200:
+            db_res = await DBStatus(name='PROXY_AVAILABLE').set_status(status=1, info='代理可用')
+            logger.opt(colors=True).info(f'代理检查: <g>成功! status: {fetcher_result.status}</g>, DB info: {db_res.info}')
+        else:
+            db_res = await DBStatus(name='PROXY_AVAILABLE').set_status(status=0, info='代理不可用')
+            logger.opt(colors=True).error(f'代理检查: <r>失败! status: {fetcher_result.status}, '
+                                          f'info: {fetcher_result.info}</r>, DB info: {db_res.info}')
+
+    # 初始化任务加入启动序列
+    nonebot.get_driver().on_startup(check_proxy)
+
     logger.opt(colors=True).debug('后台任务: <lg>check_proxy</lg>, <ly>已启用!</ly>')
+else:
+    logger.opt(colors=True).info('<ly>HTTP 代理:</ly> <lr>已禁用!</lr>')
 
 
 __all__ = [

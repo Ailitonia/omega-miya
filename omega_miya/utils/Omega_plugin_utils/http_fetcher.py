@@ -1,8 +1,17 @@
 import aiohttp
+import nonebot
 from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
 from typing import Dict, Union, Optional, Any
 from nonebot import logger
+from omega_miya.utils.Omega_Base import DBStatus
+
+
+global_config = nonebot.get_driver().config
+ENABLE_PROXY = global_config.enable_proxy
+ENABLE_FORCED_PROXY = global_config.enable_forced_proxy
+PROXY_ADDRESS = global_config.proxy_address
+PROXY_PORT = global_config.proxy_port
 
 
 class HttpFetcher(object):
@@ -43,35 +52,55 @@ class HttpFetcher(object):
             return f'<FetcherBytesResult(' \
                    f'error={self.error}, status={self.status}, info={self.info}, result={self.result})>'
 
+    @classmethod
+    async def __get_proxy(cls, always_return_proxy: bool = False) -> Optional[str]:
+        if always_return_proxy:
+            return f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+
+        if not all([ENABLE_PROXY, PROXY_ADDRESS, PROXY_PORT]):
+            return None
+
+        if not ENABLE_PROXY:
+            return None
+
+        # 检查proxy
+        if ENABLE_FORCED_PROXY:
+            return f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+        else:
+            proxy_status_res = await DBStatus(name='PROXY_AVAILABLE').get_status()
+            if proxy_status_res.result == 1:
+                return f'http://{PROXY_ADDRESS}:{PROXY_PORT}'
+            else:
+                return None
+
     def __init__(
             self,
             timeout: Union[int, float] = 10,
             attempt_limit: int = 3,
             flag: str = 'aiohttp',
             headers: Optional[Dict[str, str]] = None,
-            cookies: Optional[Dict[str, str]] = None,
-            proxy: Optional[str] = None
+            cookies: Optional[Dict[str, str]] = None
     ):
         self.__timeout = aiohttp.ClientTimeout(total=timeout)
         self.__attempt_limit = attempt_limit
         self.__headers = headers
         self.__cookies = cookies
-        self.__proxy = proxy
         self.__flag = flag
 
     async def get_json(
             self,
             url: str,
             params: Dict[str, str] = None,
-            **kwargs: Any
-    ) -> FetcherJsonResult:
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherJsonResult:
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
         while num_of_attempts < self.__attempt_limit:
             try:
                 async with aiohttp.ClientSession(timeout=self.__timeout) as session:
                     async with session.get(
                             url=url, params=params,
-                            headers=self.__headers, cookies=self.__cookies, proxy=self.__proxy, timeout=self.__timeout,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
                             **kwargs
                     ) as rp:
                         result_json = await rp.json()
@@ -102,15 +131,16 @@ class HttpFetcher(object):
             self,
             url: str,
             params: Dict[str, str] = None,
-            **kwargs: Any
-    ) -> FetcherTextResult:
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherTextResult:
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
         while num_of_attempts < self.__attempt_limit:
             try:
                 async with aiohttp.ClientSession(timeout=self.__timeout) as session:
                     async with session.get(
                             url=url, params=params,
-                            headers=self.__headers, cookies=self.__cookies, proxy=self.__proxy, timeout=self.__timeout,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
                             **kwargs
                     ) as rp:
                         result_text = await rp.text()
@@ -141,15 +171,16 @@ class HttpFetcher(object):
             self,
             url: str,
             params: Dict[str, str] = None,
-            **kwargs: Any
-    ) -> FetcherBytesResult:
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherBytesResult:
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
         while num_of_attempts < self.__attempt_limit:
             try:
                 async with aiohttp.ClientSession(timeout=self.__timeout) as session:
                     async with session.get(
                             url=url, params=params,
-                            headers=self.__headers, cookies=self.__cookies, proxy=self.__proxy, timeout=self.__timeout,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
                             **kwargs
                     ) as rp:
                         result_bytes = await rp.read()
@@ -182,15 +213,16 @@ class HttpFetcher(object):
             params: Dict[str, str] = None,
             json: Dict[str, str] = None,
             data: Dict[str, str] = None,
-            **kwargs: Any
-    ) -> FetcherJsonResult:
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherJsonResult:
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
         while num_of_attempts < self.__attempt_limit:
             try:
                 async with aiohttp.ClientSession(timeout=self.__timeout) as session:
                     async with session.post(
                             url=url, params=params, json=json, data=data,
-                            headers=self.__headers, cookies=self.__cookies, proxy=self.__proxy, timeout=self.__timeout,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
                             **kwargs
                     ) as rp:
                         result_json = await rp.json()
@@ -223,15 +255,16 @@ class HttpFetcher(object):
             params: Dict[str, str] = None,
             json: Dict[str, str] = None,
             data: Dict[str, str] = None,
-            **kwargs: Any
-    ) -> FetcherTextResult:
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherTextResult:
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
         while num_of_attempts < self.__attempt_limit:
             try:
                 async with aiohttp.ClientSession(timeout=self.__timeout) as session:
                     async with session.post(
                             url=url, params=params, json=json, data=data,
-                            headers=self.__headers, cookies=self.__cookies, proxy=self.__proxy, timeout=self.__timeout,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
                             **kwargs
                     ) as rp:
                         result_text = await rp.text()
@@ -264,15 +297,16 @@ class HttpFetcher(object):
             params: Dict[str, str] = None,
             json: Dict[str, str] = None,
             data: Dict[str, str] = None,
-            **kwargs: Any
-    ) -> FetcherBytesResult:
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherBytesResult:
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
         while num_of_attempts < self.__attempt_limit:
             try:
                 async with aiohttp.ClientSession(timeout=self.__timeout) as session:
                     async with session.post(
                             url=url, params=params, json=json, data=data,
-                            headers=self.__headers, cookies=self.__cookies, proxy=self.__proxy, timeout=self.__timeout,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
                             **kwargs
                     ) as rp:
                         result_bytes = await rp.read()
