@@ -10,7 +10,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import nh_search, nh_download
+from omega_miya.utils.nhentai_utils import search_gallery_by_tag, download_gallery
 
 
 # Custom plugin usage text
@@ -86,9 +86,9 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
         await nhentai.finish('没有这个命令哦QAQ')
 
     if sub_command == 'search':
-        _res = await nh_search(tag=sub_arg)
-        if _res.success():
-            nh_list = list(_res.result.get('body'))
+        search_result = await search_gallery_by_tag(keyword=sub_arg)
+        if search_result.success():
+            nh_list = list(search_result.result)
             msg = ''
             for item in nh_list:
                 _id = item.get('id')
@@ -97,22 +97,20 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
             logger.info(f"Group: {event.group_id}, User: {event.user_id} 搜索成功")
             await nhentai.finish(f"已为你找到了如下结果: \n{msg}\n{'='*8}\n可通过id下载")
         else:
-            logger.warning(f"Group: {event.group_id}, User: {event.user_id} 搜索失败, error info: {_res.info}")
+            logger.warning(f"Group: {event.group_id}, User: {event.user_id} 搜索失败, error info: {search_result.info}")
             await nhentai.finish('搜索失败QAQ, 请稍后再试')
     elif sub_command == 'download':
         if not re.match(r'^\d+$', sub_arg):
             logger.warning(f"Group: {event.group_id}, User: {event.user_id} 搜索失败, id错误")
-            await nhentai.finish('失败了QAQ, id应为纯数字')
+            await nhentai.finish('错误QAQ, id应为纯数字')
         else:
             await nhentai.send('正在下载资源, 请稍后~')
-            _res = await nh_download(_id=sub_arg)
-            if not _res.success():
-                logger.warning(f"Group: {event.group_id}, User: {event.user_id} 下载失败, error info: {_res.info}")
+            status, password, path = await download_gallery(gallery_id=sub_arg)
+            if not status:
+                logger.warning(f"Group: {event.group_id}, User: {event.user_id} 下载失败")
                 await nhentai.finish('下载失败QAQ, 请稍后再试')
             else:
-                password = _res.result.get('password')
-                file = _res.result.get('file')
-                file_abs = os.path.abspath(file)
+                file_abs = os.path.abspath(path)
                 await bot.call_api(api='upload_group_file',
                                    group_id=event.group_id, file=file_abs, name=f'{sub_arg}.7z')
                 logger.info(f"Group: {event.group_id}, User: {event.user_id} 下载成功")

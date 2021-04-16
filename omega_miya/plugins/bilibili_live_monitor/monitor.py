@@ -5,7 +5,7 @@ from nonebot import logger, require, get_driver, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, DBTable
 from .utils import get_live_info, get_user_info, pic_2_base64, verify_cookies
-from .utils import ENABLE_BILI_CHECK_POOL_MODE, ENABLE_PROXY
+from .utils import ENABLE_BILI_CHECK_POOL_MODE
 
 
 # 初始化直播间标题, 状态
@@ -370,27 +370,7 @@ async def bilibili_live_monitor():
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
-if ENABLE_PROXY:
-    # 启用了代理
-    scheduler.add_job(
-        bilibili_live_monitor,
-        'cron',
-        # year=None,
-        # month=None,
-        # day='*/1',
-        # week=None,
-        # day_of_week=None,
-        # hour='9-23',
-        # minute='*/2',
-        second='*/20',
-        # start_date=None,
-        # end_date=None,
-        # timezone=None,
-        id='bilibili_live_monitor_proxy_enable',
-        coalesce=True,
-        misfire_grace_time=20
-    )
-elif ENABLE_BILI_CHECK_POOL_MODE:
+if ENABLE_BILI_CHECK_POOL_MODE:
     # 检查池启用
     scheduler.add_job(
         bilibili_live_monitor,

@@ -1,5 +1,4 @@
 import asyncio
-import random
 from nonebot import CommandGroup, on_command, export, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
@@ -7,10 +6,11 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp import MessageSegment, Message
+from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 from omega_miya.utils.Omega_Base import DBPixivillust
-from .utils import fetch_illust_b64, add_illust
+from omega_miya.utils.pixiv_utils import PixivIllust
+from .utils import add_illust
 
 
 # Custom plugin usage text
@@ -83,7 +83,6 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     state['tags'] = list(args)
 
 
-@setu.got('nsfw_tag', prompt='r18?')
 @setu.got('tags', prompt='tag?')
 async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
     nsfw_tag = state['nsfw_tag']
@@ -100,12 +99,11 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
     if not pid_list:
         logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
-
     await setu.send('稍等, 正在下载图片~')
     # 处理article中图片内容
     tasks = []
     for pid in pid_list:
-        tasks.append(fetch_illust_b64(pid=pid))
+        tasks.append(PixivIllust(pid=pid).pic_2_base64())
     p_res = await asyncio.gather(*tasks)
     fault_count = 0
     for image_res in p_res:
@@ -171,7 +169,7 @@ async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 处理article中图片内容
     tasks = []
     for pid in pid_list:
-        tasks.append(fetch_illust_b64(pid=pid))
+        tasks.append(PixivIllust(pid=pid).pic_2_base64())
     p_res = await asyncio.gather(*tasks)
     fault_count = 0
     for image_res in p_res:

@@ -5,8 +5,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import sticker_maker_main, pic_2_base64
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from .utils import sticker_maker_main
 
 
 # Custom plugin usage text
@@ -141,7 +141,7 @@ async def handle_sticker_text(bot: Bot, event: GroupMessageEvent, state: T_State
             raise Exception('sticker_maker_main return null')
 
         # 发送base64图片
-        sticker_b64 = await pic_2_base64(sticker_path)
+        sticker_b64 = PicEncoder.file_to_b64(sticker_path).result
         sticker_seg = MessageSegment.image(sticker_b64)
 
         """
