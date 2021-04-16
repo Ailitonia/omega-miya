@@ -35,7 +35,8 @@ async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonRes
 
     headers = {'accept': 'application/json, text/plain, */*',
                'accept-encoding': 'gzip, deflate',
-               'accept-language:': 'zh-CN,zh;q=0.9',
+               'accept-language': 'zh-CN,zh;q=0.9',
+               'dnt': '1',
                'origin': 'https://t.bilibili.com',
                'referer': 'https://t.bilibili.com/',
                'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
