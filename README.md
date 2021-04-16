@@ -15,35 +15,31 @@
 
 [Nonebot2 Pre Release v2.0.0a13.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a13.post1)
 
-## 配套使用的api
-
-api主要用于获取pixiv等网站内容
-
-->[Miya API](https://github.com/Ailitonia/miya_api)
-
 ## 功能 & 特点
 
 - 基于异步 SQLAlchemy / MySQL 的数据存储
 - 基于群组的通知权限、命令权限以及权限等级系统
 - 基于插件节点的权限管理系统
 - 命令冷却系统
+- HTTP 代理功能
 - 插件帮助功能
 - Bot对群组公告功能
-- B站动态订阅（建议配置B站cookies）
-- B站直播间监控（建议配置B站cookies）
+- B站动态订阅 (建议配置B站cookies)
+- B站直播间监控 (建议配置B站cookies)
 - 求签
 - 抽卡
-- Pixiv助手（需要 Miya API）
-- Pixivision订阅（需要 Miya API）
+- Pixiv助手 (需要 HTTP 代理, 除非部署在外网)
+- Pixivision订阅 (需要 HTTP 代理, 除非部署在外网)
 - 复读姬
 - roll点抽奖
-- 搜番剧（trace.moe API）
-- 搜二次元图（Saucenao API 和 ascii2d）
-- 来点萌图 / 来点涩图（需要 Miya API / 图片数据库需要自己导入）
+- 搜番剧 (trace.moe API / 建议使用 HTTP 代理)
+- 搜二次元图 (Saucenao API 和 ascii2d / 建议使用 HTTP 代理)
+- 来点萌图 / 来点涩图 (需要 HTTP 代理, 除非部署在外网 / 图片数据库需要自己导入)
 - 表情包制作器
-- 猫按钮（测试）
-- 自动锤轴姬（需要 go-cqhttp v0.9.40 及以上版本）
-- 邮箱插件 （仅支持IMAP收件）
+- 猫按钮 (测试)
+- 自动锤轴姬 (需要 go-cqhttp v0.9.40 及以上版本)
+- 邮箱插件 (仅支持IMAP收件)
+- 腾讯云组件 (测试)
 
 ## 如何使用
 
