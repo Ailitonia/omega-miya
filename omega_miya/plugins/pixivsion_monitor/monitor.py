@@ -2,7 +2,8 @@ import asyncio
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBTable
-from .utils import get_pixivsion_article, pixivsion_article_parse, fetch_image_b64
+from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
+from .utils import pixivsion_article_parse
 from .block_tag import TAG_BLOCK_LIST
 
 
@@ -54,29 +55,29 @@ async def pixivision_monitor():
 
     # 获取最新一页pixivision的article
     new_article = []
-    _res = await get_pixivsion_article()
-    if _res.success() and not _res.result.get('error'):
+    articles_result = await PixivisionArticle.get_illustration_list()
+    if articles_result.error:
+        logger.error(f'pixivision_monitor: checking pixivision failed: {articles_result.info}')
+        return
+
+    for article in articles_result.result:
         try:
-            pixivsion_article = dict(_res.result)
-            for article in pixivsion_article['body']['illustration']:
-                article_tags_id = []
-                article_tags_name = []
-                for tag in article['tags']:
-                    article_tags_id.append(int(tag['tag_id']))
-                    article_tags_name.append(str(tag['tag_name']))
-                # 跳过黑名单tag的article
-                if list(set(article_tags_id) & set(block_tag_id)) or list(set(article_tags_name) & set(block_tag_name)):
-                    continue
-                # 获取新的article内容
-                if int(article['id']) not in exist_article:
-                    logger.info(f"pixivision_monitor: 检查到新的Pixivision article: {article['id']}")
-                    new_article.append({'aid': int(article['id']), 'tags': article_tags_name})
+            article = dict(article)
+            article_tags_id = []
+            article_tags_name = []
+            for tag in article['tags']:
+                article_tags_id.append(int(tag['tag_id']))
+                article_tags_name.append(str(tag['tag_name']))
+            # 跳过黑名单tag的article
+            if list(set(article_tags_id) & set(block_tag_id)) or list(set(article_tags_name) & set(block_tag_name)):
+                continue
+            # 获取新的article内容
+            if int(article['id']) not in exist_article:
+                logger.info(f"pixivision_monitor: 检查到新的Pixivision article: {article['id']}")
+                new_article.append({'aid': int(article['id']), 'tags': article_tags_name})
         except Exception as e:
             logger.error(f'pixivision_monitor: an error occured in checking pixivision: {repr(e)}')
-            return
-    else:
-        logger.error(f'pixivision_monitor: checking pixivision timeout or other error: {_res.info}')
-        return
+            continue
 
     if not new_article:
         logger.info(f'pixivision_monitor: checking completed, 没有新的article')
@@ -110,7 +111,7 @@ async def pixivision_monitor():
             # 处理article中图片内容
             tasks = []
             for pid in article_data['illusts_list']:
-                tasks.append(fetch_image_b64(pid=pid))
+                tasks.append(PixivIllust(pid=pid).pic_2_base64())
             p_res = await asyncio.gather(*tasks)
             image_error = 0
             for image_res in p_res:
