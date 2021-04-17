@@ -5,7 +5,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 # Custom plugin usage text
@@ -20,6 +20,12 @@ or AuthNode
 **AuthNode**
 basic
 
+**CoolDown**
+群组共享冷却时间
+2 Minutes
+用户冷却时间
+10 Minutes
+
 **Usage**
 /pixiv [PID]
 /pixiv 日榜
@@ -28,11 +34,18 @@ basic
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
+    PluginCoolDown.skip_auth_node,
     'basic'
 ]
 
+# 声明本插件的冷却时间配置
+__plugin_cool_down__ = [
+    PluginCoolDown(PluginCoolDown.user_type, 10),
+    PluginCoolDown(PluginCoolDown.group_type, 2)
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
 
 
 # 注册事件响应器
