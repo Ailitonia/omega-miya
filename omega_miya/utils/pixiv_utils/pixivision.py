@@ -73,20 +73,67 @@ class PixivisionArticle(Pixivision):
             article_title = article_main.find(name='h1', attrs={'class': 'am__title'}).get_text(strip=True)
             article_description = article_main.find(
                 name='div', attrs={'class': 'am__description _medium-editor-text'}).get_text(strip=True)
-            article_eyecatch_image = article_main.find(name='img', attrs={'class': 'aie__image'}).attrs['src']
+            try:
+                article_eyecatch_image = article_main.find(name='img', attrs={'class': 'aie__image'}).attrs['src']
+            except Exception as e:
+                logger.debug(f'PixivisionArticle | Article eyecatch image not found, ignored. {repr(e)},')
+                article_eyecatch_image = ''
             article_body = article_main.find(name='div', attrs={'class': 'am__body'})
             # article_illusts = article_body.find_all(name='div', recursive=False)
+
+            # 这个是一般的特辑的样式
             article_illusts = article_body.find_all(name='div', attrs={'class': 'am__work__main'})
+            # 这个是某些特殊特辑的样式, 一般出现在各种特辑TOP排行榜或者专题特辑上
+            article_illusts_feature_type = article_body.find_all(
+                name='div', attrs={'class': 'article-item _feature-article-body__caption'})
+
             illusts_list = []
-            for item in article_illusts:
-                try:
-                    url = item.find(name='a', attrs={'class': 'inner-link'}).attrs['href']
-                    pid = int(re.sub(r'^https://www\.pixiv\.net/artworks/(?=\d+)', '', url))
-                    image_url = item.find(name='img', attrs={'class': 'am__work__illust'}).attrs['src']
-                    illusts_list.append({'illusts_id': pid, 'illusts_url': url, 'illusts_image': image_url})
-                except Exception as e:
-                    logger.debug(f'PixivisionArticle | Illust in article parse failed, ignored. {str(e)},')
-                    continue
+            # 分别解析两种样式中的图片列表
+            # 一般样式
+            if article_illusts:
+                for item in article_illusts:
+                    try:
+                        url = item.find(name='a', attrs={'class': 'inner-link'}).attrs['href']
+                        pid = int(re.sub(r'^https://www\.pixiv\.net/artworks/(?=\d+)', '', url))
+                        image_url = item.find(name='img', attrs={'class': 'am__work__illust'}).attrs['src']
+                        illusts_list.append({'illusts_id': pid, 'illusts_url': url, 'illusts_image': image_url})
+                    except Exception as e:
+                        logger.debug(f'PixivisionArticle | Illust in article parse failed, ignored. {repr(e)}')
+                        continue
+            # 排行榜样式
+            elif article_illusts_feature_type:
+                # 重新解析description
+                article_description = article_main.find(
+                    name='div', attrs={'class': 'fab__paragraph _medium-editor-text'}).get_text(strip=True)
+                # 解析图片
+                for item in article_illusts_feature_type:
+                    try:
+                        illust_info = item.find(name='a', attrs={'target': '_blank', 'rel': 'noopener'})
+                        url = illust_info.attrs['href']
+                        # info = illust_info.get_text(strip=True)
+                        # 识别pid
+                        text_o = re.findall(r'illust_id=[0-9]+', url)
+                        text_n = re.findall(r'net/artworks/[0-9]+', url)
+                        text_p = re.findall(r'pixiv\.net/i/[0-9]+', url)
+                        if text_o:
+                            pid = re.search(r'[0-9]+', text_o[0]).group()
+                            url = f'https://www.pixiv.net/artworks/{pid}'
+                        elif text_n:
+                            pid = re.search(r'[0-9]+', text_n[0]).group()
+                            url = f'https://www.pixiv.net/artworks/{pid}'
+                        elif text_p:
+                            pid = re.search(r'[0-9]+', text_p[0]).group()
+                            url = f'https://www.pixiv.net/artworks/{pid}'
+                        else:
+                            logger.debug(f'PixivisionArticle | Illust in article not found, ignored.')
+                            continue
+                        illusts_list.append({'illusts_id': pid, 'illusts_url': url, 'illusts_image': None})
+                    except Exception as e:
+                        logger.debug(f'PixivisionArticle | Illust in article parse failed, ignored. {repr(e)}')
+                        continue
+            else:
+                logger.warning(f'PixivisionArticle | Something wrong in parse article, no illusts found')
+
             result = {
                 'article_title': article_title,
                 'article_description': article_description,
