@@ -98,12 +98,12 @@ async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
         for rank, illust_data in dict(rank_result.result).items():
             rank += 1
             illust_id = illust_data.get('illust_id')
-            illust_title = illust_data.get('title')
-            illust_uname = illust_data.get('user_name')
+            illust_title = illust_data.get('illust_title')
+            illust_uname = illust_data.get('illust_uname')
 
             image_result = await PixivIllust(pid=illust_id).pic_2_base64()
             if image_result.success():
-                msg = f'【{rank}】「{illust_title}」/「{illust_uname}」'
+                msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
                 await pixiv.send(Message(img_seg).append(msg))
             else:
@@ -120,12 +120,12 @@ async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
         for rank, illust_data in dict(rank_result.result).items():
             rank += 1
             illust_id = illust_data.get('illust_id')
-            illust_title = illust_data.get('title')
-            illust_uname = illust_data.get('user_name')
+            illust_title = illust_data.get('illust_title')
+            illust_uname = illust_data.get('illust_uname')
 
             image_result = await PixivIllust(pid=illust_id).pic_2_base64()
             if image_result.success():
-                msg = f'【{rank}】「{illust_title}」/「{illust_uname}」'
+                msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
                 await pixiv.send(Message(img_seg).append(msg))
             else:
@@ -142,12 +142,12 @@ async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
         for rank, illust_data in dict(rank_result.result).items():
             rank += 1
             illust_id = illust_data.get('illust_id')
-            illust_title = illust_data.get('title')
-            illust_uname = illust_data.get('user_name')
+            illust_title = illust_data.get('illust_title')
+            illust_uname = illust_data.get('illust_uname')
 
             image_result = await PixivIllust(pid=illust_id).pic_2_base64()
             if image_result.success():
-                msg = f'【{rank}】「{illust_title}」/「{illust_uname}」'
+                msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
                 await pixiv.send(Message(img_seg).append(msg))
             else:
