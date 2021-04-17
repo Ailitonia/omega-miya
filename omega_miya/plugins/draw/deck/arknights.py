@@ -35,7 +35,7 @@ UP_OPERATOR = [
         operator=[
             Operator(name='熔泉/Toddifons', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='暴雨/Heavyrain', star=5, limited=False, recruit_only=False, event_only=True,
+            Operator(name='慑砂/Sesa', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
