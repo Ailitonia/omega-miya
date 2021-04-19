@@ -1,8 +1,12 @@
 import nonebot
+import datetime
+from typing import List, Union
+from nonebot.log import logger
 from omega_miya.utils.Omega_Base import Result
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
+LIVE_BY_UIDS_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids'
 USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
 LIVE_URL = 'https://live.bilibili.com/'
 
@@ -10,7 +14,23 @@ global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
-ENABLE_BILI_CHECK_POOL_MODE = global_config.enable_bili_check_pool_mode
+ENABLE_BILI_LIVE_CHECK_POOL_MODE = global_config.enable_bili_live_check_pool_mode
+
+HEADERS = {'accept': 'application/json, text/plain, */*',
+           'accept-encoding': 'gzip, deflate',
+           'accept-language': 'zh-CN,zh;q=0.9',
+           'dnt': '1',
+           'origin': 'https://www.bilibili.com',
+           'referer': 'https://www.bilibili.com/',
+           'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
+           'sec-ch-ua-mobile': '?0',
+           'sec-fetch-dest': 'empty',
+           'sec-fetch-mode': 'cors',
+           'sec-fetch-site': 'same-site',
+           'sec-gpc': '1',
+           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                         'Chrome/89.0.4389.114 Safari/537.36'
+           }
 
 
 def check_bili_cookies() -> Result:
@@ -31,23 +51,7 @@ async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonRes
     if cookies_res.success():
         cookies = cookies_res.result
 
-    headers = {'accept': 'application/json, text/plain, */*',
-               'accept-encoding': 'gzip, deflate',
-               'accept-language': 'zh-CN,zh;q=0.9',
-               'dnt': '1',
-               'origin': 'https://www.bilibili.com',
-               'referer': 'https://www.bilibili.com/',
-               'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
-               'sec-ch-ua-mobile': '?0',
-               'sec-fetch-dest': 'empty',
-               'sec-fetch-mode': 'cors',
-               'sec-fetch-site': 'same-site',
-               'sec-gpc': '1',
-               'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                             'Chrome/89.0.4389.114 Safari/537.36'
-               }
-
-    fetcher = HttpFetcher(timeout=10, flag='bilibili_live_monitor', headers=headers, cookies=cookies)
+    fetcher = HttpFetcher(timeout=10, flag='bilibili_live_monitor', headers=HEADERS, cookies=cookies)
     result = await fetcher.get_json(url=url, params=paras)
     return result
 
@@ -91,12 +95,55 @@ async def get_live_info(room_id) -> Result:
                 'title': live_info['data']['title'],
                 'time': live_info['data']['live_time'],
                 'uid': live_info['data']['uid'],
-                'cover_img': live_info['data']['user_cover']
+                'cover_img': live_info['data']['user_cover'],
+                'room_id': live_info['data']['room_id'],
+                'short_id': live_info['data']['short_id']
             }
             result = Result(error=False, info='Success', result=_res)
         except Exception as e:
             result = Result(error=True, info=f'Live info parse failed: {repr(e)}', result={})
     return result
+
+
+# 获取直播间信息
+async def get_live_info_by_uid_list(uid_list: List[Union[int, str]]) -> Result:
+    """
+    :param uid_list: uid 列表
+    :return: result: {直播间房间号: 直播间信息}
+    """
+    payload = {'uids': uid_list}
+
+    fetcher = HttpFetcher(timeout=10, flag='bilibili_live_monitor_list_users_live', headers=HEADERS)
+    api_result = await fetcher.post_json(url=LIVE_BY_UIDS_API_URL, json=payload)
+
+    if api_result.error:
+        return Result(error=True, info=api_result.info, result={})
+
+    api_code = api_result.result.get('code')
+    api_msg = api_result.result.get('message')
+    if api_code != 0:
+        return Result(error=True, info=f'Api error: {api_msg}', result={})
+
+    result = {}
+    live_data = dict(api_result.result.get('data'))
+    for uid, room_info in live_data.items():
+        try:
+            result.update({
+                int(room_info.get('room_id')): {
+                    'status': room_info.get('live_status'),
+                    'url': LIVE_URL + str(room_info.get('room_id')),
+                    'title': room_info.get('title'),
+                    'time': datetime.datetime.fromtimestamp(room_info.get('live_time')).strftime('%Y-%m-%d %H:%M:%S'),
+                    'uid': int(uid),
+                    'cover_img': room_info.get('cover_from_user'),
+                    'room_id': room_info.get('room_id'),
+                    'short_id': room_info.get('short_id')
+                }
+            })
+        except Exception as e:
+            logger.warning(f'bilibili_live_monitor_utils: parse room live info failed, error info: {repr(e)}')
+            continue
+    return Result(error=False, info='Success', result=result)
 
 
 # 根据用户uid获取用户信息
@@ -143,8 +190,9 @@ async def verify_cookies() -> Result:
 
 __all__ = [
     'get_live_info',
+    'get_live_info_by_uid_list',
     'get_user_info',
     'pic_2_base64',
     'verify_cookies',
-    'ENABLE_BILI_CHECK_POOL_MODE'
+    'ENABLE_BILI_LIVE_CHECK_POOL_MODE'
 ]

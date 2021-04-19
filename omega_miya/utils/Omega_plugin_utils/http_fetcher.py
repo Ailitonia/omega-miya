@@ -211,8 +211,8 @@ class HttpFetcher(object):
             self,
             url: str,
             params: Dict[str, str] = None,
-            json: Dict[str, str] = None,
-            data: Dict[str, str] = None,
+            json: Dict[str, Any] = None,
+            data: Dict[str, Any] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherJsonResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -253,8 +253,8 @@ class HttpFetcher(object):
             self,
             url: str,
             params: Dict[str, str] = None,
-            json: Dict[str, str] = None,
-            data: Dict[str, str] = None,
+            json: Dict[str, Any] = None,
+            data: Dict[str, Any] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherTextResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -295,8 +295,8 @@ class HttpFetcher(object):
             self,
             url: str,
             params: Dict[str, str] = None,
-            json: Dict[str, str] = None,
-            data: Dict[str, str] = None,
+            json: Dict[str, Any] = None,
+            data: Dict[str, Any] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherBytesResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)

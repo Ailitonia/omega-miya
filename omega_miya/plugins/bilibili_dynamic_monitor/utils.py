@@ -12,7 +12,7 @@ global_config = nonebot.get_driver().config
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
-ENABLE_BILI_CHECK_POOL_MODE = global_config.enable_bili_check_pool_mode
+ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE = global_config.enable_bili_dynamic_check_pool_mode
 
 
 def check_bili_cookies() -> Result:
@@ -356,5 +356,5 @@ __all__ = [
     'get_user_dynamic',
     'get_user_dynamic_history',
     'get_dynamic_info',
-    'ENABLE_BILI_CHECK_POOL_MODE'
+    'ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE'
 ]

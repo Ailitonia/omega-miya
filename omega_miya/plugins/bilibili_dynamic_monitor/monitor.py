@@ -4,7 +4,7 @@ from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
-from .utils import ENABLE_BILI_CHECK_POOL_MODE
+from .utils import ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE
 
 
 # 检查池模式使用的检查队列
@@ -278,7 +278,7 @@ async def bilibili_dynamic_monitor():
                 logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(_e)}')
 
     # 启用了检查池模式
-    if ENABLE_BILI_CHECK_POOL_MODE:
+    if ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE:
         global checking_pool
 
         # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的uid
@@ -288,7 +288,7 @@ async def bilibili_dynamic_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为2, 默认检查间隔为30s
+        # 默认单次检查并发数为2, 默认检查间隔为20s
         logger.debug(f'bili dynamic pool mode debug info, B_checking_pool: {checking_pool}')
         if waiting_num >= 2:
             # 抽取检查对象
@@ -328,7 +328,7 @@ async def bilibili_dynamic_monitor():
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
-if ENABLE_BILI_CHECK_POOL_MODE:
+if ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE:
     # 检查池启用
     scheduler.add_job(
         bilibili_dynamic_monitor,
@@ -340,7 +340,7 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         # day_of_week=None,
         # hour='9-23',
         # minute='*/3',
-        second='15-45/30',
+        second='*/20',
         # start_date=None,
         # end_date=None,
         # timezone=None,
@@ -349,7 +349,7 @@ if ENABLE_BILI_CHECK_POOL_MODE:
         misfire_grace_time=30
     )
 else:
-    # 检查池禁用, 日间
+    # 检查池禁用
     scheduler.add_job(
         bilibili_dynamic_monitor,
         'cron',
@@ -358,32 +358,13 @@ else:
         # day='*/1',
         # week=None,
         # day_of_week=None,
-        hour='9-23',
+        # hour=None,
         minute='*/3',
         # second='*/30',
         # start_date=None,
         # end_date=None,
         # timezone=None,
-        id='bilibili_dynamic_monitor_in_day_pool_disable',
-        coalesce=True,
-        misfire_grace_time=30
-    )
-    # 检查池禁用, 夜间
-    scheduler.add_job(
-        bilibili_dynamic_monitor,
-        'cron',
-        # year=None,
-        # month=None,
-        # day='*/1',
-        # week=None,
-        # day_of_week=None,
-        hour='0-8',
-        minute='*/15',
-        # second='*/30',
-        # start_date=None,
-        # end_date=None,
-        # timezone=None,
-        id='bilibili_dynamic_monitor_in_night_pool_disable',
+        id='bilibili_dynamic_monitor_pool_disable',
         coalesce=True,
         misfire_grace_time=30
     )
