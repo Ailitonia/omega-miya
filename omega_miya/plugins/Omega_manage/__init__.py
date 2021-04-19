@@ -38,7 +38,7 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
 omega = on_command('Omega', rule=None, aliases={'omega'},
-                   permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=1, block=True)
+                   permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=10, block=True)
 
 
 # 修改默认参数处理
