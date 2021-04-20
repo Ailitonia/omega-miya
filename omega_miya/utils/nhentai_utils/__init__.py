@@ -240,7 +240,7 @@ async def fetch_gallery(gallery_id: int) -> str:
                         f.write(json.dumps(gallery))
                     z.write(manifest_path, 'manifest.json')
                     for index_, url_, local_, file_type_ in request_list:
-                        z.write(local, f'{index_}.{file_type_}')
+                        z.write(local_, f'{index_}.{file_type_}')
                 # 保存密码
                 with open(password_file, 'w+', encoding='utf-8') as f:
                     f.write(password)
