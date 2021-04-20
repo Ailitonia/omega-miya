@@ -2,6 +2,7 @@ import json
 import nonebot
 from omega_miya.utils.Omega_Base import DBTable, Result
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
+from .config import Config
 
 DYNAMIC_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
 GET_DYNAMIC_DETAIL_API_URL = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'
@@ -9,10 +10,11 @@ USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
 DYNAMIC_URL = 'https://t.bilibili.com/'
 
 global_config = nonebot.get_driver().config
+plugin_config = Config(**global_config.dict())
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
-ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE = global_config.enable_bili_dynamic_check_pool_mode
+ENABLE_DYNAMIC_CHECK_POOL_MODE = plugin_config.enable_dynamic_check_pool_mode
 
 
 def check_bili_cookies() -> Result:
@@ -291,7 +293,7 @@ async def get_user_dynamic_history(dy_uid) -> Result:
             # 这是动态的链接
             url = DYNAMIC_URL + str(cards['desc']['dynamic_id'])
             name = 'Unknown'
-            card_dic = dict({'id': dy_id, 'type': -1, 'url': url,
+            card_dic = dict({'id': dy_id, 'type': cards['desc']['type'], 'url': url,
                              'name': name, 'content': '', 'origin': ''})
             _DYNAMIC_INFO[card_num] = card_dic
     return Result(error=False, info='Success', result=_DYNAMIC_INFO)
@@ -356,5 +358,5 @@ __all__ = [
     'get_user_dynamic',
     'get_user_dynamic_history',
     'get_dynamic_info',
-    'ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE'
+    'ENABLE_DYNAMIC_CHECK_POOL_MODE'
 ]

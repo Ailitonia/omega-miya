@@ -4,7 +4,7 @@ from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
-from .utils import ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE
+from .utils import ENABLE_DYNAMIC_CHECK_POOL_MODE
 
 
 # 检查池模式使用的检查队列
@@ -137,15 +137,6 @@ async def bilibili_dynamic_monitor():
                                     dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
                                     origin_dynamic_info['name'], origin_dynamic_info['content']
                                 )
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 原创的动态（有图片）
                     elif dynamic_info[num]['type'] == 2:
                         # 处理图片序列
@@ -157,101 +148,44 @@ async def bilibili_dynamic_monitor():
                         msg = '{}发布了新动态！\n\n“{}”\n{}\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['content'],
                             dynamic_info[num]['url'], pic_segs)
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 原创的动态（无图片）
                     elif dynamic_info[num]['type'] == 4:
                         msg = '{}发布了新动态！\n\n“{}”\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['content'], dynamic_info[num]['url'])
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 视频
                     elif dynamic_info[num]['type'] == 8:
                         msg = '{}发布了新的视频！\n\n《{}》\n“{}”\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['origin'],
                             dynamic_info[num]['content'], dynamic_info[num]['url'])
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 小视频
                     elif dynamic_info[num]['type'] == 16:
                         msg = '{}发布了新的小视频动态！\n\n“{}”\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['content'], dynamic_info[num]['url'])
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 番剧
                     elif dynamic_info[num]['type'] in [32, 512]:
                         msg = '{}发布了新的番剧！\n\n《{}》\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['origin'], dynamic_info[num]['url'])
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 文章
                     elif dynamic_info[num]['type'] == 64:
                         msg = '{}发布了新的文章！\n\n《{}》\n“{}”\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['origin'],
                             dynamic_info[num]['content'], dynamic_info[num]['url'])
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # 音频
                     elif dynamic_info[num]['type'] == 256:
                         msg = '{}发布了新的音乐！\n\n《{}》\n“{}”\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['origin'],
                             dynamic_info[num]['content'], dynamic_info[num]['url'])
-                        for group_id in notice_group:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
                     # B站活动相关
                     elif dynamic_info[num]['type'] == 2048:
                         msg = '{}发布了一条活动相关动态！\n\n【{}】\n“{}”\n{}'.format(
                             dynamic_info[num]['name'], dynamic_info[num]['origin'],
                             dynamic_info[num]['content'], dynamic_info[num]['url'])
+                    else:
+                        logger.warning(f"未知的动态类型: {dynamic_info[num]['type']}, id: {dynamic_info[num]['id']}")
+                        msg = None
+
+                    # 向群组发送消息
+                    if msg:
                         for group_id in notice_group:
                             for _bot in bots:
                                 try:
@@ -261,8 +195,7 @@ async def bilibili_dynamic_monitor():
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
                                                    f"error: {repr(_e)}")
                                     continue
-                    elif dynamic_info[num]['type'] == -1:
-                        logger.warning(f"未知的动态类型: {dynamic_info[num]['id']}")
+
                     # 更新动态内容到数据库
                     dy_id = dynamic_info[num]['id']
                     dy_type = dynamic_info[num]['type']
@@ -278,7 +211,7 @@ async def bilibili_dynamic_monitor():
                 logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(_e)}')
 
     # 启用了检查池模式
-    if ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE:
+    if ENABLE_DYNAMIC_CHECK_POOL_MODE:
         global checking_pool
 
         # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的uid
@@ -328,7 +261,7 @@ async def bilibili_dynamic_monitor():
 
 # 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
-if ENABLE_BILI_DYNAMIC_CHECK_POOL_MODE:
+if ENABLE_DYNAMIC_CHECK_POOL_MODE:
     # 检查池启用
     scheduler.add_job(
         bilibili_dynamic_monitor,
