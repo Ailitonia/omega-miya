@@ -474,7 +474,7 @@ elif ENABLE_LIVE_CHECK_POOL_MODE:
         misfire_grace_time=20
     )
 else:
-    # 检查池禁用, 日间
+    # 检查池禁用
     scheduler.add_job(
         bilibili_live_monitor,
         'cron',
