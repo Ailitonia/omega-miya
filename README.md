@@ -4,10 +4,10 @@
 
 基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
-![GitHub](https://img.shields.io/github/license/Ailitonia/nonebot2_miya)
+![GitHub](https://img.shields.io/github/license/Ailitonia/omega-miya)
 ![Python](https://img.shields.io/badge/Python-3.8+-blue)
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/nonebot2_miya?include_prereleases)
-![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/nonebot2_miya)
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/omega-miya?include_prereleases)
+![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/omega-miya)
 
 </div>
 
@@ -56,7 +56,7 @@
 ## 关于图片数据
 
 如果你不想自己收集图片数据, 可以将
-[这组图片数据集](https://github.com/Ailitonia/nonebot2_miya/raw/main/archive_data/db_pixiv.7z)
+[这组图片数据集](https://github.com/Ailitonia/omega-miya/raw/main/archive_data/db_pixiv.7z)
 导入数据库
 
 这个图片集大概有5万条左右, 基本都是按我自己口味收集的图片
@@ -75,7 +75,7 @@ SHA1: `7CFF3593A85979B5D966773F3857577CFCC2FFBD`
 
 **注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
 
-<img src="https://raw.githubusercontent.com/Ailitonia/nonebot2_miya/main/docs/img/how_to_get_bilibili_cookies.png" width="75%">
+<img src="https://raw.githubusercontent.com/Ailitonia/omega-miya/main/docs/img/how_to_get_bilibili_cookies.png" width="75%">
 
 **注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
 
