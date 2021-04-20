@@ -4,6 +4,7 @@ from typing import List, Union
 from nonebot.log import logger
 from omega_miya.utils.Omega_Base import Result
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
+from .config import Config
 
 LIVE_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 LIVE_BY_UIDS_API_URL = 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids'
@@ -11,10 +12,12 @@ USER_INFO_API_URL = 'https://api.bilibili.com/x/space/acc/info'
 LIVE_URL = 'https://live.bilibili.com/'
 
 global_config = nonebot.get_driver().config
+plugin_config = Config(**global_config.dict())
 BILI_SESSDATA = global_config.bili_sessdata
 BILI_CSRF = global_config.bili_csrf
 BILI_UID = global_config.bili_uid
-ENABLE_BILI_LIVE_CHECK_POOL_MODE = global_config.enable_bili_live_check_pool_mode
+ENABLE_NEW_LIVE_API = plugin_config.enable_new_live_api
+ENABLE_LIVE_CHECK_POOL_MODE = plugin_config.enable_live_check_pool_mode
 
 HEADERS = {'accept': 'application/json, text/plain, */*',
            'accept-encoding': 'gzip, deflate',
@@ -194,5 +197,6 @@ __all__ = [
     'get_user_info',
     'pic_2_base64',
     'verify_cookies',
-    'ENABLE_BILI_LIVE_CHECK_POOL_MODE'
+    'ENABLE_NEW_LIVE_API',
+    'ENABLE_LIVE_CHECK_POOL_MODE'
 ]
