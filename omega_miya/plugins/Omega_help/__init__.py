@@ -39,7 +39,7 @@ bot_help = on_command(
         level=10,
         auth_node='basic'),
     permission=GROUP,
-    priority=1,
+    priority=10,
     block=True)
 
 

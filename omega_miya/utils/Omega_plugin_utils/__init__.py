@@ -6,7 +6,7 @@ from .encrypt import AESEncryptStr
 from .cooldown import *
 from .permission import *
 from .http_fetcher import HttpFetcher
-from .picture_to_base64 import PicEncoder
+from .picture_encoder import PicEncoder
 
 
 def init_export(

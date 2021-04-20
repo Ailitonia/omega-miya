@@ -9,7 +9,7 @@ from omega_miya.utils.Omega_Base import DBTable
 
 
 # 注册事件响应器
-announce = on_command('公告', rule=to_me(), aliases={'announce'}, permission=SUPERUSER, priority=1, block=True)
+announce = on_command('公告', rule=to_me(), aliases={'announce'}, permission=SUPERUSER, priority=10, block=True)
 
 
 # 修改默认参数处理
@@ -63,5 +63,5 @@ async def handle_announce(bot: Bot, event: Event, state: T_State):
     else:
         logger.warning(f'公告未发送, 不合规的群组类型或群号: {group}')
         await announce.finish('不合规的群组类型或群号')
-    logger.warning(f'公告已成功发送群组: {group}')
+    logger.info(f'公告已成功发送群组: {group}')
     await announce.finish('公告发送完成')
