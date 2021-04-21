@@ -17,14 +17,14 @@ BILI_UID = global_config.bili_uid
 ENABLE_DYNAMIC_CHECK_POOL_MODE = plugin_config.enable_dynamic_check_pool_mode
 
 
-def check_bili_cookies() -> Result:
+def check_bili_cookies() -> Result.DictResult:
     cookies = {}
     if BILI_SESSDATA and BILI_CSRF:
         cookies.update({'SESSDATA': BILI_SESSDATA})
         cookies.update({'bili_jct': BILI_CSRF})
-        return Result(error=False, info='Success', result=cookies)
+        return Result.DictResult(error=False, info='Success', result=cookies)
     else:
-        return Result(error=True, info='None', result=cookies)
+        return Result.DictResult(error=True, info='None', result=cookies)
 
 
 async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonResult:
@@ -57,7 +57,7 @@ async def fetch_json(url: str, paras: dict = None) -> HttpFetcher.FetcherJsonRes
 
 
 # 图片转base64
-async def pic_2_base64(url: str) -> Result:
+async def pic_2_base64(url: str) -> Result.TextResult:
     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                              'Chrome/89.0.4389.114 Safari/537.36',
                'origin': 'https://t.bilibili.com',
@@ -67,18 +67,18 @@ async def pic_2_base64(url: str) -> Result:
         timeout=30, attempt_limit=2, flag='bilibili_dynamic_monitor_get_image', headers=headers)
     bytes_result = await fetcher.get_bytes(url=url)
     if bytes_result.error:
-        return Result(error=True, info='Image download failed', result='')
+        return Result.TextResult(error=True, info='Image download failed', result='')
 
     encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
 
     if encode_result.success():
-        return Result(error=False, info='Success', result=encode_result.result)
+        return Result.TextResult(error=False, info='Success', result=encode_result.result)
     else:
-        return Result(error=True, info=encode_result.info, result='')
+        return Result.TextResult(error=True, info=encode_result.info, result='')
 
 
 # 根据用户uid获取用户信息
-async def get_user_info(user_uid) -> Result:
+async def get_user_info(user_uid) -> Result.DictResult:
     url = USER_INFO_API_URL
     payload = {'mid': user_uid}
     result = await fetch_json(url=url, paras=payload)
@@ -91,25 +91,25 @@ async def get_user_info(user_uid) -> Result:
                 'status': user_info['code'],
                 'name': user_info['data']['name']
             }
-            result = Result(error=False, info='Success', result=_res)
+            result = Result.DictResult(error=False, info='Success', result=_res)
         except Exception as e:
-            result = Result(error=True, info=f'User info parse failed: {repr(e)}', result={})
+            result = Result.DictResult(error=True, info=f'User info parse failed: {repr(e)}', result={})
     return result
 
 
 # 返回某个up的所有动态id的列表
-async def get_user_dynamic(user_id: int) -> Result:
+async def get_user_dynamic(user_id: int) -> Result.ListResult:
     t = DBTable(table_name='Bilidynamic')
     _res = await t.list_col_with_condition('dynamic_id', 'uid', user_id)
-    if not _res.success():
+    if _res.error:
         return _res
     dynamic_list = [int(x) for x in _res.result]
-    result = Result(error=False, info='Success', result=dynamic_list)
+    result = Result.ListResult(error=False, info='Success', result=dynamic_list)
     return result
 
 
 # 查询动态并返回动态类型及内容
-async def get_user_dynamic_history(dy_uid) -> Result:
+async def get_user_dynamic_history(dy_uid) -> Result.DictResult:
     _DYNAMIC_INFO = {}  # 这个字典用来放最后的输出结果
     url = DYNAMIC_API_URL
     if BILI_UID and BILI_CSRF:
@@ -124,7 +124,8 @@ async def get_user_dynamic_history(dy_uid) -> Result:
     else:
         dynamic_info = result.result
         if not dynamic_info.get('data'):
-            result = Result(error=True, info=f"Get dynamic info failed: {dynamic_info.get('message')}", result={})
+            result = Result.DictResult(
+                error=True, info=f"Get dynamic info failed: {dynamic_info.get('message')}", result={})
             return result
     for card_num in range(len(dynamic_info['data']['cards'])):
         cards = dynamic_info['data']['cards'][card_num]
@@ -296,10 +297,10 @@ async def get_user_dynamic_history(dy_uid) -> Result:
             card_dic = dict({'id': dy_id, 'type': cards['desc']['type'], 'url': url,
                              'name': name, 'content': '', 'origin': ''})
             _DYNAMIC_INFO[card_num] = card_dic
-    return Result(error=False, info='Success', result=_DYNAMIC_INFO)
+    return Result.DictResult(error=False, info='Success', result=_DYNAMIC_INFO)
 
 
-async def get_dynamic_info(dynamic_id) -> Result:
+async def get_dynamic_info(dynamic_id) -> Result.DictResult:
     __payload = {'dynamic_id': dynamic_id}
     _res = await fetch_json(url=GET_DYNAMIC_DETAIL_API_URL, paras=__payload)
     if not _res.success():
@@ -343,12 +344,12 @@ async def get_dynamic_info(dynamic_id) -> Result:
             origin = dict({'id': dynamic_id, 'type': origin_card['desc']['type'], 'url': '',
                            'name': origin_name, 'content': origin_description, 'origin': '',
                            'origin_pics': origin_pics_list})
-            result = Result(error=False, info='Success', result=origin)
+            result = Result.DictResult(error=False, info='Success', result=origin)
         except Exception as e:
             # 原动态被删除
             origin = dict({'id': dynamic_id, 'type': -1, 'url': '',
                            'name': 'Unknown', 'content': '原动态被删除', 'origin': repr(e)})
-            result = Result(error=True, info='Dynamic not found', result=origin)
+            result = Result.DictResult(error=True, info='Dynamic not found', result=origin)
         return result
 
 

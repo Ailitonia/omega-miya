@@ -1,4 +1,5 @@
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Email, EmailBox, GroupEmailBox
 from datetime import datetime
 from sqlalchemy.future import select
@@ -9,7 +10,7 @@ class DBEmailBox(object):
     def __init__(self, address: str):
         self.address = address
 
-    async def id(self) -> DBResult:
+    async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -19,13 +20,13 @@ class DBEmailBox(object):
                         where(EmailBox.address == self.address)
                     )
                     email_box_table_id = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=email_box_table_id)
+                    result = Result.IntResult(error=False, info='Success', result=email_box_table_id)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                    result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                    result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     async def exist(self) -> bool:
@@ -33,7 +34,7 @@ class DBEmailBox(object):
         return result.success()
 
     @classmethod
-    async def list(cls) -> DBResult:
+    async def list(cls) -> Result.ListResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -42,12 +43,12 @@ class DBEmailBox(object):
                         select(EmailBox.address).order_by(EmailBox.id)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def get_info(self) -> DBResult:
+    async def get_info(self) -> Result.DictResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -61,16 +62,16 @@ class DBEmailBox(object):
                     port = exist_box.port
                     password = exist_box.password
                     res_dict = {'server_host': server_host, 'port': port, 'password': password}
-                    result = DBResult(error=False, info='Success', result=res_dict)
+                    result = Result.DictResult(error=False, info='Success', result=res_dict)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result={})
+                    result = Result.DictResult(error=True, info='NoResultFound', result={})
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result={})
+                    result = Result.DictResult(error=True, info='MultipleResultsFound', result={})
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result={})
+                    result = Result.DictResult(error=True, info=repr(e), result={})
         return result
 
-    async def add(self, server_host: str, password: str, port: int = 993) -> DBResult:
+    async def add(self, server_host: str, password: str, port: int = 993) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -86,25 +87,25 @@ class DBEmailBox(object):
                         exist_box.port = port
                         exist_box.password = password
                         exist_box.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_box = EmailBox(address=self.address, server_host=server_host, password=password,
                                            port=port, created_at=datetime.now())
                         session.add(new_box)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def delete(self) -> DBResult:
+    async def delete(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='EmailBox not exist', result=-1)
+            return Result.IntResult(error=True, info='EmailBox not exist', result=-1)
 
         # 清空持已绑定这个邮箱的群组
         await self.mailbox_group_clear()
@@ -120,22 +121,22 @@ class DBEmailBox(object):
                     exist_box = session_result.scalar_one()
                     await session.delete(exist_box)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def mailbox_group_clear(self) -> DBResult:
+    async def mailbox_group_clear(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='EmailBox not exist', result=-1)
+            return Result.IntResult(error=True, info='EmailBox not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -147,10 +148,10 @@ class DBEmailBox(object):
                     for exist_group_mailbox in session_result.scalars().all():
                         await session.delete(exist_group_mailbox)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
 
@@ -158,7 +159,9 @@ class DBEmail(object):
     def __init__(self, mail_hash: str):
         self.mail_hash = mail_hash
 
-    async def add(self, date: str, header: str, sender: str, to: str, body: str = None, html: str = None) -> DBResult:
+    async def add(
+            self, date: str, header: str, sender: str, to: str, body: str = None, html: str = None
+    ) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -167,8 +170,8 @@ class DBEmail(object):
                                       body=body, html=html, created_at=datetime.now())
                     session.add(new_email)
                 await session.commit()
-                result = DBResult(error=False, info='Success added', result=0)
+                result = Result.IntResult(error=False, info='Success added', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result

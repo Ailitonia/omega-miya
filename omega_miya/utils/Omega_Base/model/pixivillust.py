@@ -1,5 +1,6 @@
 from typing import List
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Pixiv, PixivT2I
 from .pixivtag import DBPixivtag
 from datetime import datetime
@@ -13,7 +14,7 @@ class DBPixivillust(object):
     def __init__(self, pid: int):
         self.pid = pid
 
-    async def id(self) -> DBResult:
+    async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -22,20 +23,20 @@ class DBPixivillust(object):
                         select(Pixiv.id).where(Pixiv.pid == self.pid)
                     )
                     pixiv_table_id = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=pixiv_table_id)
+                    result = Result.IntResult(error=False, info='Success', result=pixiv_table_id)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                    result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                    result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     async def exist(self) -> bool:
         result = await self.id()
         return result.success()
 
-    async def add(self, uid: int, title: str, uname: str, nsfw_tag: int, tags: List[str], url: str) -> DBResult:
+    async def add(self, uid: int, title: str, uname: str, nsfw_tag: int, tags: List[str], url: str) -> Result.IntResult:
         # 将tag写入pixiv_tag表
         for tag in tags:
             _tag = DBPixivtag(tagname=tag)
@@ -59,13 +60,13 @@ class DBPixivillust(object):
                             exist_illust.nsfw_tag = nsfw_tag
                         exist_illust.tags = tag_text
                         exist_illust.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Exist illust updated', result=0)
+                        result = Result.IntResult(error=False, info='Exist illust updated', result=0)
                     except NoResultFound:
                         new_illust = Pixiv(pid=self.pid, uid=uid, title=title, uname=uname, url=url, nsfw_tag=nsfw_tag,
                                            tags=tag_text, created_at=datetime.now())
                         session.add(new_illust)
                         need_upgrade_pixivt2i = True
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
 
                 # 写入tag_pixiv关联表
@@ -88,17 +89,17 @@ class DBPixivillust(object):
                             except Exception as e:
                                 continue
                     await session.commit()
-                    result = DBResult(error=False, info='Success added with tags', result=0)
+                    result = Result.IntResult(error=False, info='Success added with tags', result=0)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     @classmethod
-    async def rand_illust(cls, num: int, nsfw_tag: int) -> DBResult:
+    async def rand_illust(cls, num: int, nsfw_tag: int) -> Result.ListResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -109,13 +110,13 @@ class DBPixivillust(object):
                         order_by(func.random()).limit(num)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
     @classmethod
-    async def status(cls) -> DBResult:
+    async def status(cls) -> Result.DictResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -130,13 +131,14 @@ class DBPixivillust(object):
                     r18_count = session_result.scalar()
                     res = {'total': int(all_count), 'moe': int(moe_count),
                            'setu': int(setu_count), 'r18': int(r18_count)}
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.DictResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result={})
+                    result = Result.DictResult(error=True, info=repr(e), result={})
         return result
 
     @classmethod
-    async def list_illust(cls, keywords: List[str], num: int, nsfw_tag: int, acc_mode: bool = False) -> DBResult:
+    async def list_illust(
+            cls, keywords: List[str], num: int, nsfw_tag: int, acc_mode: bool = False) -> Result.ListResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -167,7 +169,7 @@ class DBPixivillust(object):
                         session_result = await session.execute(query)
                         res = [x for x in session_result.scalars().all()]
 
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result

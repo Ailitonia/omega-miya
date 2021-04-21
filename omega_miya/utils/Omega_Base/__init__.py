@@ -3,7 +3,8 @@
 其他插件不得单独写入数据库操作逻辑
 """
 
-from .database import DBTable, DBResult as Result
+from .database import DBTable
+from .class_result import Result
 from .model import \
     DBUser, DBGroup, DBSkill, DBSubscription, DBDynamic, \
     DBPixivillust, DBPixivtag, DBPixivision, \

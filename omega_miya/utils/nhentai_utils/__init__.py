@@ -32,7 +32,7 @@ class NHException(Exception):
 
 
 # 通过关键词搜索本子id和标题
-async def search_gallery_by_tag(keyword: str) -> Result:
+async def search_gallery_by_tag(keyword: str) -> Result.ListResult:
     # 搜索关键词
     payload_keyword = {'q': keyword}
     search_url = f'https://nhentai.net/search/'
@@ -42,7 +42,7 @@ async def search_gallery_by_tag(keyword: str) -> Result:
     fetcher = HttpFetcher(timeout=10, flag='nhentai_search', headers=headers)
     html_result = await fetcher.get_text(url=search_url, params=payload_keyword)
     if html_result.error:
-        return Result(error=True, info=f'Search keyword failed, {html_result.info}', result=[])
+        return Result.ListResult(error=True, info=f'Search keyword failed, {html_result.info}', result=[])
 
     search_res = html_result.result
     result = []
@@ -58,10 +58,10 @@ async def search_gallery_by_tag(keyword: str) -> Result:
                 gallery_title = item.find('div', class_='caption').get_text(strip=True)
                 gallery_id = re.sub(r'\D', '', item.find('a', class_='cover').get('href'))
                 result.append({'id': gallery_id, 'title': gallery_title})
-        return Result(error=False, info='Success', result=result)
+        return Result.ListResult(error=False, info='Success', result=result)
     except Exception as e:
         logger.error(f'Nhentai | Parse search result failed, error: {repr(e)}')
-        return Result(error=True, info=f'Parse search result failed', result=[])
+        return Result.ListResult(error=True, info=f'Parse search result failed', result=[])
 
 
 # 下载一张图片

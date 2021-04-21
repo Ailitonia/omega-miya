@@ -97,7 +97,7 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await omega.finish('Failed QAQ')
 
 
-async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     # 调用api获取群信息
     group_info = await bot.call_api(api='get_group_info', group_id=group_id)
@@ -107,18 +107,18 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
     # 添加并初始化群信息
     _result = await group.add(name=group_name)
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     _result = await group.permission_set(notice=1, command=1, level=10)
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     # 初始化群组authnode
     await init_group_auth_node(group_id=group_id)
 
     _result = await group.member_clear()
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     # 添加用户
     group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
@@ -145,10 +145,10 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
 
     await group.init_member_status()
 
-    return Result(False, f'Success with ignore user: {failed_user}', 0)
+    return Result.IntResult(False, f'Success with ignore user: {failed_user}', 0)
 
 
-async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     # 调用api获取群信息
     group_info = await bot.call_api(api='get_group_info', group_id=group_id)
@@ -158,7 +158,7 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
     # 更新群信息
     _result = await group.add(name=group_name)
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     # 更新用户
     group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
@@ -202,15 +202,15 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
 
     await group.init_member_status()
 
-    return Result(False, f'Success with ignore user: {failed_user}', 0)
+    return Result.IntResult(False, f'Success with ignore user: {failed_user}', 0)
 
 
-async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, -1)
+        return Result.IntResult(True, permission_res.info, -1)
 
     _notice, group_command, group_level = permission_res.result
 
@@ -219,17 +219,17 @@ async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -
     elif state['sub_arg'] == 'off':
         result = await group.permission_set(notice=0, command=group_command, level=group_level)
     else:
-        result = Result(True, 'Missing parameters or Illegal parameter', -1)
+        result = Result.IntResult(True, 'Missing parameters or Illegal parameter', -1)
 
     return result
 
 
-async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, -1)
+        return Result.IntResult(True, permission_res.info, -1)
 
     group_notice, _command, group_level = permission_res.result
 
@@ -238,17 +238,17 @@ async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) 
     elif state['sub_arg'] == 'off':
         result = await group.permission_set(notice=group_notice, command=0, level=group_level)
     else:
-        result = Result(True, 'Missing parameters or Illegal parameter', -1)
+        result = Result.IntResult(True, 'Missing parameters or Illegal parameter', -1)
 
     return result
 
 
-async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, -1)
+        return Result.IntResult(True, permission_res.info, -1)
 
     group_notice, group_command, _level = permission_res.result
 
@@ -256,26 +256,26 @@ async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) ->
         group_level = int(state['sub_arg'])
         result = await group.permission_set(notice=group_notice, command=group_command, level=group_level)
     except Exception as e:
-        result = Result(True, f'Missing parameters or Illegal parameter, {e}', -1)
+        result = Result.IntResult(True, f'Missing parameters or Illegal parameter, {e}', -1)
 
     return result
 
 
-async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, '')
+        return Result.TextResult(True, permission_res.info, '')
 
     group_notice, group_command, group_level = permission_res.result
 
     msg = f'当前群组权限: \n\nNotice: {group_notice}\nCommand: {group_command}\nPermissionLevel: {group_level}'
-    result = Result(False, 'Success', msg)
+    result = Result.TextResult(False, 'Success', msg)
     return result
 
 
-async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
 

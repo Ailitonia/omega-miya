@@ -100,7 +100,7 @@ async def handle_sub_command(bot: Bot, event: Event, state: T_State):
         await skill_admin.finish('Failed QAQ')
 
 
-async def skill_add(bot: Bot, event: Event, state: T_State) -> Result:
+async def skill_add(bot: Bot, event: Event, state: T_State) -> Result.IntResult:
     skill_name = state["skill_name"]
     skill_description = state["skill_description"]
     skill = DBSkill(name=skill_name)
@@ -108,7 +108,7 @@ async def skill_add(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def skill_del(bot: Bot, event: Event, state: T_State) -> Result:
+async def skill_del(bot: Bot, event: Event, state: T_State) -> Result.IntResult:
     skill_name = state["skill_name"]
     skill = DBSkill(name=skill_name)
     result = await skill.delete()
@@ -215,20 +215,20 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await skill_group_user.finish('Failed QAQ')
 
 
-async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     skill_table = DBTable(table_name='Skill')
     _res = await skill_table.list_col(col_name='name')
     if _res.success():
         msg = '目前已有的技能列表如下:'
         for skill_name in _res.result:
             msg += f'\n{skill_name}'
-        result = Result(False, _res.info, msg)
+        result = Result.TextResult(False, _res.info, msg)
     else:
-        result = Result(True, _res.info, '')
+        result = Result.TextResult(True, _res.info, '')
     return result
 
 
-async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     _res = await user.skill_list()
@@ -245,13 +245,13 @@ async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) ->
                 elif skill_level == 3:
                     skill_level = '专业'
                 msg += f'\n【{skill_name}/{skill_level}】'
-        result = Result(False, _res.info, msg)
+        result = Result.TextResult(False, _res.info, msg)
     else:
-        result = Result(True, _res.info, '')
+        result = Result.TextResult(True, _res.info, '')
     return result
 
 
-async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
@@ -265,30 +265,30 @@ async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         skill_level = 3
     _res = await user.skill_add(skill=DBSkill(name=skill_name), skill_level=skill_level)
     if _res.success():
-        result = Result(False, _res.info, msg)
+        result = Result.TextResult(False, _res.info, msg)
     else:
-        result = Result(True, _res.info, '')
+        result = Result.TextResult(True, _res.info, '')
     return result
 
 
-async def user_skill_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
     _res = await user.skill_del(skill=DBSkill(name=skill_name))
     if _res.success():
-        result = Result(False, _res.info, 0)
+        result = Result.IntResult(False, _res.info, 0)
     else:
-        result = Result(True, _res.info, -1)
+        result = Result.IntResult(True, _res.info, -1)
     return result
 
 
-async def user_skill_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     _res = await user.skill_clear()
     if _res.success():
-        result = Result(False, _res.info, 0)
+        result = Result.IntResult(False, _res.info, 0)
     else:
-        result = Result(True, _res.info, -1)
+        result = Result.IntResult(True, _res.info, -1)
     return result

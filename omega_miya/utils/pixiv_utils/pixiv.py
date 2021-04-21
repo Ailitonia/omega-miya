@@ -24,17 +24,19 @@ class Pixiv(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
-    async def daily_ranking(cls) -> Result:
+    async def daily_ranking(cls) -> Result.DictResult:
         payload_daily = {'format': 'json', 'mode': 'daily',
                          'content': 'illust', 'p': 1}
         fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_daily_ranking', headers=cls.HEADERS)
         daily_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_daily)
         if daily_ranking_result.error:
-            return Result(error=True, info=f'Fetch daily ranking failed, {daily_ranking_result.info}', result={})
+            return Result.DictResult(
+                error=True, info=f'Fetch daily ranking failed, {daily_ranking_result.info}', result={})
 
         daily_ranking_data = daily_ranking_result.result.get('contents')
         if type(daily_ranking_data) != list:
-            return Result(error=True, info=f'Daily ranking data error, {daily_ranking_result.result}', result={})
+            return Result.DictResult(
+                error=True, info=f'Daily ranking data error, {daily_ranking_result.result}', result={})
 
         result = {}
         for num in range(len(daily_ranking_data)):
@@ -50,20 +52,22 @@ class Pixiv(object):
             except Exception as e:
                 logger.debug(f'Pixiv | Daily ranking data error at {num}, ignored. {str(e)},')
                 continue
-        return Result(error=False, info='Success', result=result)
+        return Result.DictResult(error=False, info='Success', result=result)
 
     @classmethod
-    async def weekly_ranking(cls) -> Result:
+    async def weekly_ranking(cls) -> Result.DictResult:
         payload_weekly = {'format': 'json', 'mode': 'weekly',
                           'content': 'illust', 'p': 1}
         fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_weekly_ranking', headers=cls.HEADERS)
         weekly_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_weekly)
         if weekly_ranking_result.error:
-            return Result(error=True, info=f'Fetch weekly ranking failed, {weekly_ranking_result.info}', result={})
+            return Result.DictResult(
+                error=True, info=f'Fetch weekly ranking failed, {weekly_ranking_result.info}', result={})
 
         weekly_ranking_data = weekly_ranking_result.result.get('contents')
         if type(weekly_ranking_data) != list:
-            return Result(error=True, info=f'Weekly ranking data error, {weekly_ranking_result.result}', result={})
+            return Result.DictResult(
+                error=True, info=f'Weekly ranking data error, {weekly_ranking_result.result}', result={})
 
         result = {}
         for num in range(len(weekly_ranking_data)):
@@ -79,20 +83,22 @@ class Pixiv(object):
             except Exception as e:
                 logger.debug(f'Pixiv | Weekly ranking data error at {num}, ignored. {str(e)},')
                 continue
-        return Result(error=False, info='Success', result=result)
+        return Result.DictResult(error=False, info='Success', result=result)
 
     @classmethod
-    async def monthly_ranking(cls) -> Result:
+    async def monthly_ranking(cls) -> Result.DictResult:
         payload_monthly = {'format': 'json', 'mode': 'monthly',
                            'content': 'illust', 'p': 1}
         fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_monthly_ranking', headers=cls.HEADERS)
         monthly_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_monthly)
         if monthly_ranking_result.error:
-            return Result(error=True, info=f'Fetch monthly ranking failed, {monthly_ranking_result.info}', result={})
+            return Result.DictResult(
+                error=True, info=f'Fetch monthly ranking failed, {monthly_ranking_result.info}', result={})
 
         monthly_ranking_data = monthly_ranking_result.result.get('contents')
         if type(monthly_ranking_data) != list:
-            return Result(error=True, info=f'Monthly ranking data error, {monthly_ranking_result.result}', result={})
+            return Result.DictResult(
+                error=True, info=f'Monthly ranking data error, {monthly_ranking_result.result}', result={})
 
         result = {}
         for num in range(len(monthly_ranking_data)):
@@ -108,7 +114,7 @@ class Pixiv(object):
             except Exception as e:
                 logger.debug(f'Pixiv | Monthly ranking data error at {num}, ignored. {repr(e)},')
                 continue
-        return Result(error=False, info='Success', result=result)
+        return Result.DictResult(error=False, info='Success', result=result)
 
 
 class PixivIllust(Pixiv):
@@ -117,7 +123,7 @@ class PixivIllust(Pixiv):
 
     # 获取作品完整信息（pixiv api 获取 json）
     # 返回格式化后的作品信息
-    async def get_illust_data(self) -> Result:
+    async def get_illust_data(self) -> Result.DictResult:
         illust_url = f'{self.ILLUST_DATA_URL}{self.__pid}'
         illust_artworks_url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
 
@@ -129,17 +135,18 @@ class PixivIllust(Pixiv):
         # 获取作品信息
         illust_data_result = await fetcher.get_json(url=illust_url)
         if illust_data_result.error:
-            return Result(error=True, info=f'Fetch illust data failed, {illust_data_result.info}', result={})
+            return Result.DictResult(error=True, info=f'Fetch illust data failed, {illust_data_result.info}', result={})
 
         # 检查返回状态
         if illust_data_result.result.get('error') or not illust_data_result.result:
-            return Result(error=True, info=f'PixivApiError: {illust_data_result.result}', result={})
+            return Result.DictResult(error=True, info=f'PixivApiError: {illust_data_result.result}', result={})
 
         # 获取多张图作品图片列表
         illust_page_url = illust_url + '/pages'
         illust_pages_result = await fetcher.get_json(url=illust_page_url)
         if illust_pages_result.error:
-            return Result(error=True, info=f'Fetch illust pages failed, {illust_pages_result.info}', result={})
+            return Result.DictResult(
+                error=True, info=f'Fetch illust pages failed, {illust_pages_result.info}', result={})
 
         illust_data = illust_data_result.result
         illust_pages = illust_pages_result.result
@@ -193,16 +200,16 @@ class PixivIllust(Pixiv):
             result = {'pid': illustid, 'title': illusttitle, 'uid': userid, 'uname': username,
                       'url': url, 'orig_url': illust_orig_url, 'regular_url': illust_regular_url, 'all_url': all_url,
                       'description': illust_description, 'tags': illusttag, 'is_r18': is_r18}
-            return Result(error=False, info='Success', result=result)
+            return Result.DictResult(error=False, info='Success', result=result)
         except Exception as e:
             logger.error(f'PixivIllust | Parse illust data failed, error: {repr(e)}')
-            return Result(error=True, info=f'Parse illust data failed', result={})
+            return Result.DictResult(error=True, info=f'Parse illust data failed', result={})
 
     # 图片转base64
-    async def pic_2_base64(self, original: bool = False) -> Result:
+    async def pic_2_base64(self, original: bool = False) -> Result.TextResult:
         illust_data_result = await self.get_illust_data()
         if illust_data_result.error:
-            return Result(error=True, info='Fetch illust data failed', result='')
+            return Result.TextResult(error=True, info='Fetch illust data failed', result='')
 
         illust_data = dict(illust_data_result.result)
         title = illust_data.get('title')
@@ -233,14 +240,14 @@ class PixivIllust(Pixiv):
         fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_get_image', headers=headers)
         bytes_result = await fetcher.get_bytes(url=url)
         if bytes_result.error:
-            return Result(error=True, info='Image download failed', result='')
+            return Result.TextResult(error=True, info='Image download failed', result='')
 
         encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
 
         if encode_result.success():
-            return Result(error=False, info=info, result=encode_result.result)
+            return Result.TextResult(error=False, info=info, result=encode_result.result)
         else:
-            return Result(error=True, info=encode_result.info, result='')
+            return Result.TextResult(error=True, info=encode_result.info, result='')
 
 
 __all__ = [

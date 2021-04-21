@@ -17,18 +17,18 @@ HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 
 
 # 图片转base64
-async def pic_2_base64(url: str) -> Result:
+async def pic_2_base64(url: str) -> Result.TextResult:
     fetcher = HttpFetcher(timeout=10, flag='search_image_get_image', headers=HEADERS)
     bytes_result = await fetcher.get_bytes(url=url)
     if bytes_result.error:
-        return Result(error=True, info='Image download failed', result='')
+        return Result.TextResult(error=True, info='Image download failed', result='')
 
     encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
 
     if encode_result.success():
-        return Result(error=False, info='Success', result=encode_result.result)
+        return Result.TextResult(error=False, info='Success', result=encode_result.result)
     else:
-        return Result(error=True, info=encode_result.info, result='')
+        return Result.TextResult(error=True, info=encode_result.info, result='')
 
 
 # 获取识别结果 Saucenao模块

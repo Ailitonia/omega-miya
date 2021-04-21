@@ -126,7 +126,7 @@ async def handle_check(bot: Bot, event: GroupMessageEvent, state: T_State):
     elif sub_command == '清空订阅':
         _res = await sub_clear(bot=bot, event=event, state=state)
     else:
-        _res = Result(error=True, info='Unknown error, except sub_command', result=-1)
+        _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
         logger.info(f"{sub_command}直播间成功, group_id: {event.group_id}, room_id: {room_id}")
         await bilibili_live.finish(f'{sub_command}成功!')
@@ -136,14 +136,14 @@ async def handle_check(bot: Bot, event: GroupMessageEvent, state: T_State):
         await bilibili_live.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
-async def sub_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def sub_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.ListResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     result = await group.subscription_list_by_type(sub_type=1)
     return result
 
 
-async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     room_id = state['room_id']
@@ -157,26 +157,26 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     # 添加直播间时需要刷新全局监控列表
     # 执行一次初始化
     await init_add_live_info(room_id=room_id)
-    result = Result(error=False, info='Success', result=0)
+    result = Result.IntResult(error=False, info='Success', result=0)
     return result
 
 
-async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     room_id = state['room_id']
     _res = await group.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
     if not _res.success():
         return _res
-    result = Result(error=False, info='Success', result=0)
+    result = Result.IntResult(error=False, info='Success', result=0)
     return result
 
 
-async def sub_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def sub_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     _res = await group.subscription_clear_by_type(sub_type=1)
     if not _res.success():
         return _res
-    result = Result(error=False, info='Success', result=0)
+    result = Result.IntResult(error=False, info='Success', result=0)
     return result

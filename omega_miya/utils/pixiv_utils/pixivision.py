@@ -27,11 +27,11 @@ class Pixivision(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
-    async def get_illustration_list(cls) -> Result:
+    async def get_illustration_list(cls) -> Result.ListResult:
         fetcher = HttpFetcher(timeout=10, flag='pixivision_utils_illustration_list', headers=cls.HEADERS)
         html_result = await fetcher.get_text(url=cls.ILLUSTRATION_URL, params={'lang': 'zh'})
         if html_result.error:
-            return Result(error=True, info=f'Fetch illustration list failed, {html_result.info}', result=[])
+            return Result.ListResult(error=True, info=f'Fetch illustration list failed, {html_result.info}', result=[])
 
         result = []
         try:
@@ -50,22 +50,22 @@ class Pixivision(object):
                     tag_url = cls.ROOT_URL + tag_r_url
                     tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
                 result.append({'id': aid, 'title': title, 'url': url, 'tags': tag_list})
-            return Result(error=False, info='Success', result=result)
+            return Result.ListResult(error=False, info='Success', result=result)
         except Exception as e:
             logger.error(f'Pixivision | Parse illustration list failed, error: {repr(e)}')
-            return Result(error=True, info=f'Parse illustration list failed', result=[])
+            return Result.ListResult(error=True, info=f'Parse illustration list failed', result=[])
 
 
 class PixivisionArticle(Pixivision):
     def __init__(self, aid: int):
         self.__aid = aid
 
-    async def get_article_info(self) -> Result:
+    async def get_article_info(self) -> Result.DictResult:
         url = f'{self.ARTICLES_URL}/{self.__aid}'
         fetcher = HttpFetcher(timeout=10, flag='pixivision_utils_article_info', headers=self.HEADERS)
         html_result = await fetcher.get_text(url=url, params={'lang': 'zh'})
         if html_result.error:
-            return Result(error=True, info=f'Fetch article info failed, {html_result.info}', result={})
+            return Result.DictResult(error=True, info=f'Fetch article info failed, {html_result.info}', result={})
 
         try:
             __bs = BeautifulSoup(html_result.result, 'lxml')
@@ -140,10 +140,10 @@ class PixivisionArticle(Pixivision):
                 'article_eyecatch_image': article_eyecatch_image,
                 'illusts_list': illusts_list
             }
-            return Result(error=False, info='Success', result=result)
+            return Result.DictResult(error=False, info='Success', result=result)
         except Exception as e:
             logger.error(f'PixivisionArticle | Parse article failed, error: {repr(e)}')
-            return Result(error=True, info=f'Parse article failed', result={})
+            return Result.DictResult(error=True, info=f'Parse article failed', result={})
 
 
 __all__ = [

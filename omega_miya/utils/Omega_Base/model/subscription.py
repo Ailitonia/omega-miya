@@ -1,4 +1,5 @@
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Subscription, Group, GroupSub
 from datetime import datetime
 from sqlalchemy.future import select
@@ -10,7 +11,7 @@ class DBSubscription(object):
         self.sub_type = sub_type
         self.sub_id = sub_id
 
-    async def id(self) -> DBResult:
+    async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -21,20 +22,20 @@ class DBSubscription(object):
                         where(Subscription.sub_id == self.sub_id)
                     )
                     subscription_table_id = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=subscription_table_id)
+                    result = Result.IntResult(error=False, info='Success', result=subscription_table_id)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                    result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                    result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     async def exist(self) -> bool:
         result = await self.id()
         return result.success()
 
-    async def add(self, up_name: str, live_info: str = None) -> DBResult:
+    async def add(self, up_name: str, live_info: str = None) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -49,25 +50,25 @@ class DBSubscription(object):
                         exist_subscription.up_name = up_name
                         exist_subscription.live_info = live_info
                         exist_subscription.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_subscription = Subscription(sub_type=self.sub_type, sub_id=self.sub_id,
                                                         up_name=up_name, live_info=live_info, created_at=datetime.now())
                         session.add(new_subscription)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def delete(self) -> DBResult:
+    async def delete(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Subscription not exist', result=-1)
+            return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
         # 清空持已订阅这个sub的群组
         await self.sub_group_clear()
@@ -84,22 +85,22 @@ class DBSubscription(object):
                     exist_subscription = session_result.scalar_one()
                     await session.delete(exist_subscription)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def sub_group_list(self) -> DBResult:
+    async def sub_group_list(self) -> Result.ListResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Subscription not exist', result=[])
+            return Result.ListResult(error=True, info='Subscription not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -111,15 +112,15 @@ class DBSubscription(object):
                         where(GroupSub.sub_id == id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def sub_group_clear(self) -> DBResult:
+    async def sub_group_clear(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Subscription not exist', result=-1)
+            return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -131,8 +132,8 @@ class DBSubscription(object):
                     for exist_group_sub in session_result.scalars().all():
                         await session.delete(exist_group_sub)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
