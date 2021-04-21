@@ -326,6 +326,10 @@ async def bilibili_live_monitor():
     sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
     check_sub = [int(x) for x in sub_res.result]
 
+    if not check_sub:
+        logger.debug(f'bilibili_live_monitor: no live subscription, ignore.')
+        return
+
     # 检查单个直播间状态
     async def check_live(room_id: int):
         # 获取直播间信息

@@ -69,6 +69,10 @@ async def bilibili_dynamic_monitor():
     sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
     check_sub = [int(x) for x in sub_res.result]
 
+    if not check_sub:
+        logger.debug(f'bilibili_dynamic_monitor: no dynamic subscription, ignore.')
+        return
+
     # 注册一个异步函数用于检查动态
     async def check_dynamic(dy_uid):
         # 获取动态并返回动态类型及内容
