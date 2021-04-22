@@ -83,13 +83,23 @@ async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
     image_url = re.sub(r'(])$', '', image_url)
 
     try:
+        has_error = False
         await search_image.send('获取识别结果中, 请稍后~')
-        identify_result = await get_saucenao_identify_result(url=image_url)
+        identify_result = []
+        identify_saucenao_result = await get_saucenao_identify_result(url=image_url)
+        if identify_saucenao_result.success():
+            identify_result.extend(identify_saucenao_result.result)
+        else:
+            has_error = True
+
         # saucenao 没有结果时再使用 ascii2d 进行搜索
         if not identify_result:
             identify_ascii2d_result = await get_ascii2d_identify_result(url=image_url)
             # 合并搜索结果
-            identify_result.extend(identify_ascii2d_result)
+            if identify_ascii2d_result.success():
+                identify_result.extend(identify_ascii2d_result.result)
+            else:
+                has_error = True
         if identify_result:
             for item in identify_result:
                 try:
@@ -115,13 +125,15 @@ async def handle_draw(bot: Bot, event: GroupMessageEvent, state: T_State):
             logger.info(f"Group: {event.group_id}, user: {event.user_id} "
                         f"使用searchimage成功搜索了一张图片")
             return
+        elif not identify_result and has_error:
+            await search_image.send('识图过程中获取信息失败QAQ, 请重试一下吧')
+            logger.info(f"Group: {event.group_id}, user: {event.user_id} 使用了searchimage, 但在识图过程中获取信息失败")
+            return
         else:
             await search_image.send('没有找到相似度足够高的图片QAQ')
-            logger.info(f"Group: {event.group_id}, user: {event.user_id} "
-                        f"使用了searchimage, 但没有找到相似的图片")
+            logger.info(f"Group: {event.group_id}, user: {event.user_id} 使用了searchimage, 但没有找到相似的图片")
             return
     except Exception as e:
-        await search_image.send('识图失败, 发生了意外的错误QAQ')
-        logger.error(f"Group: {event.group_id}, user: {event.user_id}  "
-                     f"使用命令searchimage时发生了错误: {repr(e)}")
+        await search_image.send('识图失败, 发生了意外的错误QAQ, 请稍后重试')
+        logger.error(f"Group: {event.group_id}, user: {event.user_id} 使用命令searchimage时发生了错误: {repr(e)}")
         return
