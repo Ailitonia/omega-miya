@@ -1,6 +1,8 @@
 import re
 import os
+import json
 import asyncio
+import aiofiles
 from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
 from omega_miya.utils.Omega_Base import Result
@@ -211,6 +213,7 @@ class PixivIllust(Pixiv):
                     all_url.get('original').append(item['urls']['original'])
 
             ugoira_meta = {
+                'frames': None,
                 'mime_type': None,
                 'originalsrc': None,
                 'src': None
@@ -224,6 +227,7 @@ class PixivIllust(Pixiv):
                         error=True, info=f'Fetch illust pages failed, {illust_ugoira_meta_result.info}', result={})
                 illust_ugoira_meta = illust_ugoira_meta_result.result
                 if illust_ugoira_meta_result.success() and not illust_ugoira_meta.get('error') and illust_ugoira_meta:
+                    ugoira_meta['frames'] = illust_ugoira_meta['body']['frames']
                     ugoira_meta['mime_type'] = illust_ugoira_meta['body']['mime_type']
                     ugoira_meta['originalsrc'] = illust_ugoira_meta['body']['originalSrc']
                     ugoira_meta['src'] = illust_ugoira_meta['body']['src']
@@ -297,7 +301,7 @@ class PixivIllust(Pixiv):
         """
         :param page: 仅下载特定页码
         """
-        if page < 1:
+        if page and page < 1:
             page = None
 
         illust_data_result = await self.get_illust_data()
@@ -352,6 +356,17 @@ class PixivIllust(Pixiv):
             failed_num = len([x for x in download_result if x.error])
             if len(downloaded_list) != len(download_url_list):
                 return Result.TextResult(error=True, info=f'{failed_num} illust download failed', result='')
+
+            # 动图额外保存原始ugoira_meta信息
+            if illust_type == 2:
+                pid = illust_data_result.result.get('pid')
+                ugoira_meta = illust_data_result.result.get('ugoira_meta')
+                ugoira_meta_file = os.path.abspath(os.path.join(file_path, f'{pid}_ugoira_meta'))
+                async with aiofiles.open(ugoira_meta_file, 'w') as f:
+                    await f.write(json.dumps(ugoira_meta))
+                downloaded_list.append(ugoira_meta_file)
+
+            # 打包
             zip_result = await create_zip_file(files=downloaded_list, file_path=file_path, file_name=str(self.__pid))
             return zip_result
         else:
