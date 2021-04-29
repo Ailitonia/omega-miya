@@ -28,12 +28,12 @@ download
 10 Minutes
 
 **Usage**
-/pixiv [PID]
+/pixiv <PID>
 /pixiv 日榜
 /pixiv 周榜
 /pixiv 月榜
 **Need AuthNode**
-/pixivdl [PID]'''
+/pixivdl <PID> [页码]'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
@@ -205,21 +205,32 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
-        pass
+        state['page'] = None
     elif args and len(args) == 1:
         state['pid'] = args[0]
+        state['page'] = None
+    elif args and len(args) == 2:
+        state['pid'] = args[0]
+        state['page'] = args[1]
     else:
         await pixiv_dl.finish('参数错误QAQ')
+
+    if state['page']:
+        try:
+            state['page'] = int(state['page'])
+        except ValueError:
+            await pixiv_dl.finish('参数错误QAQ, 页码应为数字')
 
 
 @pixiv_dl.got('pid', prompt='请输入PixivID:')
 async def handle_pixiv_dl(bot: Bot, event: GroupMessageEvent, state: T_State):
     pid = state['pid']
+    page = state['page']
     if re.match(r'^\d+$', pid):
         pid = int(pid)
         logger.debug(f'获取Pixiv资源: {pid}.')
         await pixiv_dl.send('稍等, 正在下载图片~')
-        download_result = await PixivIllust(pid=pid).download_illust()
+        download_result = await PixivIllust(pid=pid).download_illust(page=page)
         if download_result.error:
             logger.warning(f"User: {event.user_id} 下载Pixiv资源失败, 网络超时或 {pid} 不存在, {download_result.info}")
             await pixiv_dl.finish('下载失败, 网络超时或没有这张图QAQ')
