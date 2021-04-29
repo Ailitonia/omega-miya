@@ -1,5 +1,6 @@
 import re
-from nonebot import logger
+import os
+from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
 from omega_miya.utils.Omega_Base import Result
 
@@ -226,9 +227,9 @@ class PixivIllust(Pixiv):
             info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:28]}......'
 
         if original:
-            url = illust_data_result.result.get('orig_url')
+            url = illust_data.get('orig_url')
         else:
-            url = illust_data_result.result.get('regular_url')
+            url = illust_data.get('regular_url')
 
         headers = self.HEADERS.copy()
         headers.update({
@@ -248,6 +249,36 @@ class PixivIllust(Pixiv):
             return Result.TextResult(error=False, info=info, result=encode_result.result)
         else:
             return Result.TextResult(error=True, info=encode_result.info, result='')
+
+    async def download_illust(self, original: bool = True) -> Result.TextResult:
+        illust_data_result = await self.get_illust_data()
+        if illust_data_result.error:
+            return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+
+        if original:
+            url = illust_data_result.result.get('orig_url')
+        else:
+            url = illust_data_result.result.get('regular_url')
+
+        headers = self.HEADERS.copy()
+        headers.update({
+            'sec-fetch-dest': 'image',
+            'sec-fetch-mode': 'no-cors',
+            'sec-fetch-site': 'cross-site'
+        })
+
+        global_config = get_driver().config
+        file_path = os.path.abspath(os.path.join(global_config.tmp_path_, 'pixiv_illust'))
+        file_name = os.path.basename(url)
+        if not file_name:
+            file_name = f'{self.__pid}.tmp'
+
+        fetcher = HttpFetcher(timeout=45, attempt_limit=2, flag='pixiv_utils_download_illust', headers=headers)
+        download_result = await fetcher.download_file(url=url, path=file_path, file_name=file_name)
+        if download_result.success():
+            return Result.TextResult(error=False, info=file_name, result=download_result.result)
+        else:
+            return Result.TextResult(error=True, info=download_result.info, result='')
 
 
 __all__ = [
