@@ -121,10 +121,10 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的涩图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的涩图, {pid_list}")
         await setu.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的涩图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的涩图, {pid_list}")
 
 
 # 注册事件响应器
@@ -187,10 +187,10 @@ async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的萌图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的萌图, {pid_list}")
         await moepic.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的萌图")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的萌图, {pid_list}")
 
 
 # 注册事件响应器
