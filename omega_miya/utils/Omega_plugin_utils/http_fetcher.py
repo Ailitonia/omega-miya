@@ -1,4 +1,6 @@
+import os
 import aiohttp
+import aiofiles
 import nonebot
 from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
@@ -86,6 +88,66 @@ class HttpFetcher(object):
         self.__headers = headers
         self.__cookies = cookies
         self.__flag = flag
+
+    async def download_file(
+            self,
+            url: str,
+            path: str,
+            file_name: str,
+            params: Dict[str, str] = None,
+            force_proxy: bool = False,
+            **kwargs: Any) -> FetcherTextResult:
+        """
+        下载文件
+        :param url: 链接
+        :param path: 下载文件夹路径
+        :param file_name: 文件名
+        :param params: 请求参数
+        :param force_proxy: 强制代理
+        :param kwargs: ...
+        :return:
+        """
+        # 检查保存文件路径
+        folder_path = os.path.abspath(path)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        file_path = os.path.abspath(os.path.join(folder_path, file_name))
+
+        proxy = await self.__get_proxy(always_return_proxy=force_proxy)
+        num_of_attempts = 0
+        while num_of_attempts < self.__attempt_limit:
+            try:
+                async with aiohttp.ClientSession(timeout=self.__timeout) as session:
+                    async with session.get(
+                            url=url, params=params,
+                            headers=self.__headers, cookies=self.__cookies, proxy=proxy, timeout=self.__timeout,
+                            **kwargs
+                    ) as rp:
+                        file_bytes = await rp.read()
+                        status = rp.status
+                        headers = dict(rp.headers)
+                    async with aiofiles.open(file_path, 'wb') as f:
+                        await f.write(file_bytes)
+                    result = self.FetcherTextResult(
+                        error=False, info='Success', status=status, headers=headers, result=file_path)
+                return result
+            except TimeoutError_:
+                logger.opt(colors=True).warning(
+                    fr'<Y><lw>HttpFetcher \<{self.__flag}></lw></Y> <lr>TimeoutError</lr> occurred '
+                    f'in <lc>download_file</lc> attempt <y>{num_of_attempts + 1}</y>.')
+            except Exception as e:
+                logger.opt(colors=True).warning(
+                    fr'<Y><lw>HttpFetcher \<{self.__flag}></lw></Y> <lr>{str(e.__class__.__name__)}</lr> occurred '
+                    f'in <lc>download_file</lc> attempt <y>{num_of_attempts + 1}</y>.\n<y>Error info</y>: {str(e)}')
+            finally:
+                num_of_attempts += 1
+        else:
+            logger.opt(colors=True).error(
+                fr'<Y><lw>HttpFetcher \<{self.__flag}></lw></Y> <lr>ExceededAttemptNumberError</lr> '
+                f'Failed too many times in <lc>download_file</lc>.\n'
+                f'<y>url</y>: {url}\n<y>params</y>: {params}')
+            return self.FetcherTextResult(
+                error=True, info='Failed too many times in download_file', status=-1, headers={}, result='')
 
     async def get_json(
             self,
