@@ -20,9 +20,16 @@ __DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{__DB_PASSWORD}@{__DB_H
 
 
 # 创建数据库连接
-engine = create_async_engine(__DB_ENGINE, encoding='utf8',
-                             connect_args={"use_unicode": True, "charset": "utf8mb4"},
-                             pool_recycle=3600, pool_pre_ping=True, echo=False)
+try:
+    engine = create_async_engine(
+        __DB_ENGINE, encoding='utf8',
+        connect_args={"use_unicode": True, "charset": "utf8mb4"},
+        pool_recycle=3600, pool_pre_ping=True, echo=False
+    )
+except Exception as exp:
+    import sys
+    nonebot.logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, error: {repr(exp)}')
+    sys.exit('创建数据库连接失败')
 
 
 async def database_init():
