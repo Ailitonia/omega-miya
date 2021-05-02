@@ -7,7 +7,7 @@ from .cooldown import *
 from .permission import *
 from .http_fetcher import HttpFetcher
 from .picture_encoder import PicEncoder
-from .zip_utils import create_zip_file
+from .zip_utils import create_zip_file, create_7z_file
 
 
 def init_export(
@@ -61,5 +61,6 @@ __all__ = [
     'check_auth_node',
     'HttpFetcher',
     'PicEncoder',
-    'create_zip_file'
+    'create_zip_file',
+    'create_7z_file'
 ]
