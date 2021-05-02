@@ -32,7 +32,7 @@ async def create_zip_file(files: List[str], file_path: str, file_name: str) -> R
     try:
         result = await loop.run_in_executor(None, __handle)
     except Exception as e:
-        result = Result.TextResult(error=True, info=repr(e), result='')
+        result = Result.TextResult(error=True, info=f'create_zip_file failed: {repr(e)}', result='')
 
     return result
 
