@@ -8,7 +8,7 @@ import aiofiles
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
 from nonebot import logger, get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, create_zip_file
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher, create_7z_file
 from omega_miya.utils.Omega_Base import Result
 
 global_config = get_driver().config
@@ -169,12 +169,12 @@ class NhentaiGallery(Nhentai):
         """
         return Result.DictResult(error=False, info='Success', result=gallery)
 
-    # 给定本子ID 下载所有图片到指定目录
-    async def fetch_gallery(self) -> Result.TextResult:
+    # 下载所有图片到指定目录
+    async def fetch_gallery(self) -> Result.DictResult:
         # 获取gallery信息
         gallery_result = await self.get_data()
         if gallery_result.error:
-            return Result.TextResult(error=True, info=f'获取本子信息失败, {gallery_result.info}', result='')
+            return Result.DictResult(error=True, info=f'获取本子信息失败, {gallery_result.info}', result={})
         gallery = gallery_result.result
 
         # 获取总页数
@@ -238,7 +238,7 @@ class NhentaiGallery(Nhentai):
 
         logger.debug(f'Gallery download completed, success list: {downloaded_list}, failed number: {failed_num}')
         if failed_num > 0:
-            return Result.TextResult(error=True, info=f'{failed_num} page(s) download failed', result='')
+            return Result.DictResult(error=True, info=f'{failed_num} page(s) download failed', result={})
 
         # 生成包含本子原始信息的文件
         manifest_path = os.path.abspath(os.path.join(file_path, f'manifest.json'))
@@ -246,17 +246,31 @@ class NhentaiGallery(Nhentai):
             await f.write(json.dumps(gallery))
         downloaded_list.append(manifest_path)
 
-        # 生成一段随机字符串改变打包后zip文件的hash
+        # 生成一段随机字符串改变打包后压缩文件的hash
         rand_str = ''.join(random.choices(string.ascii_letters + string.digits, k=1024))
         rand_file = os.path.abspath(os.path.join(file_path, f'mask'))
         async with aiofiles.open(rand_file, 'w') as f:
             await f.write(rand_str)
         downloaded_list.append(rand_file)
 
-        # 打包
-        zip_result = await create_zip_file(files=downloaded_list, file_path=file_path, file_name=str(self.gallery_id))
+        # 生成压缩包随机密码
+        password_str = ''.join(random.sample(string.ascii_letters + string.digits, k=8))
+        password_file = os.path.abspath(os.path.join(file_path, f'password'))
+        async with aiofiles.open(password_file, 'w') as f:
+            await f.write(password_str)
 
-        return zip_result
+        # 打包
+        c7z_result = await create_7z_file(
+            files=downloaded_list, file_path=file_path, file_name=str(self.gallery_id), password=password_str)
+        if c7z_result.error:
+            return Result.DictResult(error=True, info=f'创建压缩文件失败, error: {c7z_result.info}', result={})
+        else:
+            result = {
+                'password': password_str,
+                'file_name': c7z_result.info,
+                'file_path': c7z_result.result
+            }
+            return Result.DictResult(error=False, info='Success', result=result)
 
 
 __all__ = [

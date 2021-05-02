@@ -116,16 +116,19 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
             await nhentai.send('正在下载资源, 请稍后~')
             download_result = await NhentaiGallery(gallery_id=sub_arg).fetch_gallery()
             if download_result.error:
-                logger.error(f"Group: {event.group_id}, User: {event.user_id} 下载失败")
+                logger.error(f"Group: {event.group_id}, User: {event.user_id} 下载失败, {download_result.info}")
                 await nhentai.finish('下载失败QAQ, 请稍后再试')
             else:
-                file_abs = os.path.abspath(download_result.result)
+                password = download_result.result.get('password')
+                file_name = download_result.result.get('file_name')
+                file_path = os.path.abspath(download_result.result.get('file_path'))
+                await nhentai.send(f'下载完成, 密码: {password}, 正在上传文件, 可能需要一段时间...')
                 try:
                     await bot.call_api(api='upload_group_file',
-                                       group_id=event.group_id, file=file_abs, name=download_result.info)
+                                       group_id=event.group_id, file=file_path, name=file_name)
                     logger.info(f"Group: {event.group_id}, User: {event.user_id} 下载成功")
                 except Exception as e:
                     logger.error(f'Group: {event.group_id}, User: {event.user_id} 上传文件失败, {repr(e)}')
-                    await nhentai.finish(f'上传文件失败QAQ')
+                    await nhentai.finish(f'上传文件失败QAQ, 获取上传结果超时, 请等待1~2分钟后再重试')
     else:
         await nhentai.finish('没有这个命令哦QAQ')
