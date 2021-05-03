@@ -217,7 +217,7 @@ class NhentaiGallery(Nhentai):
             # 产生请求序列
             tasks = []
             for page in gallery_pages[i:i + pool]:
-                logger.debug(f'Downloading: {self.gallery_id}/{page} ...')
+                logger.debug(f'Nhentai | Downloading: {self.gallery_id}/{page} ...')
                 url = f'https://i.nhentai.net/galleries/{media_id}/{page.index}.{page.type_}'
                 file_name = os.path.basename(url)
                 if not file_name:
@@ -226,7 +226,7 @@ class NhentaiGallery(Nhentai):
                 # 检测文件是否已经存在避免重复下载
                 if os.path.exists(os.path.abspath(os.path.join(file_path, file_name))):
                     downloaded_list.append(os.path.abspath(os.path.join(file_path, file_name)))
-                    logger.debug(f'file: {self.gallery_id}/{file_name} exists, pass.')
+                    logger.debug(f'Nhentai | File: {self.gallery_id}/{file_name} exists, pass.')
                     continue
 
                 tasks.append(fetcher.download_file(url=url, path=file_path, file_name=file_name))
@@ -236,7 +236,7 @@ class NhentaiGallery(Nhentai):
             downloaded_list.extend([x.result for x in download_result if x.success()])
             failed_num += len([x for x in download_result if x.error])
 
-        logger.debug(f'Gallery download completed, success list: {downloaded_list}, failed number: {failed_num}')
+        logger.debug(f'Nhentai | Gallery download completed, succeed: {downloaded_list}, failed number: {failed_num}')
         if failed_num > 0:
             return Result.DictResult(error=True, info=f'{failed_num} page(s) download failed', result={})
 

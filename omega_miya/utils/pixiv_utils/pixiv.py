@@ -331,7 +331,7 @@ class PixivIllust(Pixiv):
             'sec-fetch-site': 'cross-site'
         })
 
-        fetcher = HttpFetcher(timeout=45, attempt_limit=2, flag='pixiv_utils_download_illust', headers=headers)
+        fetcher = HttpFetcher(timeout=60, attempt_limit=2, flag='pixiv_utils_download_illust', headers=headers)
         file_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
 
         if len(download_url_list) == 1:

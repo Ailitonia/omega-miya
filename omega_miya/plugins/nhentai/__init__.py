@@ -129,6 +129,6 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
                     logger.info(f"Group: {event.group_id}, User: {event.user_id} 下载成功")
                 except Exception as e:
                     logger.error(f'Group: {event.group_id}, User: {event.user_id} 上传文件失败, {repr(e)}')
-                    await nhentai.finish(f'上传文件失败QAQ, 获取上传结果超时, 请等待1~2分钟后再重试')
+                    await nhentai.finish(f'获取上传结果超时或上传失败QAQ, 上传可能仍在进行中, 请等待2~5分钟后再重试')
     else:
         await nhentai.finish('没有这个命令哦QAQ')
