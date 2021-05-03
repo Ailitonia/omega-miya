@@ -1,6 +1,7 @@
 from .auth import DBAuth
 from .bilidynamic import DBDynamic
 from .cooldown import DBCoolDownEvent
+from .friend import DBFriend
 from .group import DBGroup
 from .history import DBHistory
 from .mail import DBEmail, DBEmailBox
@@ -16,6 +17,7 @@ __all__ = [
     'DBAuth',
     'DBDynamic',
     'DBCoolDownEvent',
+    'DBFriend',
     'DBGroup',
     'DBHistory',
     'DBEmail',

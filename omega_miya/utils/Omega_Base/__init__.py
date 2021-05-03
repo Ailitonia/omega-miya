@@ -6,7 +6,7 @@
 from .database import DBTable
 from .class_result import Result
 from .model import \
-    DBUser, DBGroup, DBSkill, DBSubscription, DBDynamic, \
+    DBUser, DBFriend, DBGroup, DBSkill, DBSubscription, DBDynamic, \
     DBPixivillust, DBPixivtag, DBPixivision, \
     DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus
 
@@ -14,6 +14,7 @@ from .model import \
 __all__ = [
     'DBTable',
     'DBUser',
+    'DBFriend',
     'DBGroup',
     'DBSkill',
     'DBSubscription',

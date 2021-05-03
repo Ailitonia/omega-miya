@@ -46,12 +46,14 @@ class User(Base):
     id = Column(Integer, Sequence('users_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     qq = Column(BigInteger, nullable=False, index=True, unique=True, comment='QQ号')
     nickname = Column(String(64), nullable=False, comment='昵称')
-    is_friend = Column(Integer, nullable=False, comment='是否为好友')
+    is_friend = Column(Integer, nullable=False, comment='是否为好友(已弃用)')
     aliasname = Column(String(64), nullable=True, comment='自定义名称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
     # 声明外键联系
+    has_friends = relationship('Friends', back_populates='user_friend', uselist=False,
+                               cascade="all, delete", passive_deletes=True)
     has_skills = relationship('UserSkill', back_populates='user_skill',
                               cascade="all, delete", passive_deletes=True)
     in_which_groups = relationship('UserGroup', back_populates='user_groups',
@@ -72,6 +74,36 @@ class User(Base):
     def __repr__(self):
         return f"<User(qq='{self.qq}', nickname='{self.nickname}', aliasname='{self.aliasname}', " \
                f"is_friend='{self.is_friend}', created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# 好友表
+class Friends(Base):
+    __tablename__ = f'{TABLE_PREFIX}friends'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('friends_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    nickname = Column(String(64), nullable=False, comment='昵称')
+    remark = Column(String(64), nullable=True, comment='备注')
+    private_permissions = Column(Integer, nullable=False, comment='是否启用私聊权限')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    user_friend = relationship('User', back_populates='has_friends')
+
+    def __init__(self, user_id, nickname, remark=None, private_permissions=0, created_at=None, updated_at=None):
+        self.user_id = user_id
+        self.nickname = nickname
+        self.remark = remark
+        self.private_permissions = private_permissions
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<Friends(user_id='{self.user_id}', nickname='{self.nickname}', remark='{self.remark}', " \
+               f"private_permissions='{self.private_permissions}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
 # 技能表
