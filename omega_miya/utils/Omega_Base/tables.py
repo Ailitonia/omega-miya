@@ -62,6 +62,8 @@ class User(Base):
                             cascade="all, delete", passive_deletes=True)
     user_auth = relationship('AuthUser', back_populates='auth_for_user', uselist=False,
                              cascade="all, delete", passive_deletes=True)
+    users_sub_what = relationship('UserSub', back_populates='users_sub',
+                                  cascade="all, delete", passive_deletes=True)
 
     def __init__(self, qq, nickname, is_friend=0, aliasname=None, created_at=None, updated_at=None):
         self.qq = qq
@@ -445,6 +447,7 @@ class Subscription(Base):
     updated_at = Column(DateTime, nullable=True)
 
     be_sub = relationship('GroupSub', back_populates='sub_by', cascade="all, delete", passive_deletes=True)
+    be_sub_users = relationship('UserSub', back_populates='sub_by_users', cascade="all, delete", passive_deletes=True)
 
     def __init__(self, sub_type, sub_id, up_name, live_info=None, created_at=None, updated_at=None):
         self.sub_type = sub_type
@@ -484,6 +487,34 @@ class GroupSub(Base):
     def __repr__(self):
         return f"<GroupSub(sub_id='{self.sub_id}', group_id='{self.group_id}', " \
                f"group_sub_info='{self.group_sub_info}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# 好友用户订阅表
+class UserSub(Base):
+    __tablename__ = f'{TABLE_PREFIX}users_subs'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('users_subs_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    sub_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}subscription.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    user_sub_info = Column(String(64), nullable=True, comment='用户订阅信息，暂空备用')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    users_sub = relationship('User', back_populates='users_sub_what')
+    sub_by_users = relationship('Subscription', back_populates='be_sub_users')
+
+    def __init__(self, sub_id, user_id, user_sub_info=None, created_at=None, updated_at=None):
+        self.sub_id = sub_id
+        self.user_id = user_id
+        self.user_sub_info = user_sub_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<UserSub(sub_id='{self.sub_id}', user_id='{self.user_id}', " \
+               f"user_sub_info='{self.user_sub_info}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 

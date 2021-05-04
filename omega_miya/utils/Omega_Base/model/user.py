@@ -1,6 +1,6 @@
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import User, UserGroup, Skill, UserSkill, Vocation, AuthUser
+from omega_miya.utils.Omega_Base.tables import User, UserGroup, Skill, UserSkill, UserSub, Vocation, AuthUser
 from .skill import DBSkill
 from datetime import datetime
 from sqlalchemy.future import select
@@ -114,6 +114,13 @@ class DBUser(object):
                     )
                     exist_status = session_result.scalar_one()
                     await session.delete(exist_status)
+
+                    # 清空订阅
+                    session_result = await session.execute(
+                        select(UserSub).where(UserSub.user_id == id_result.result)
+                    )
+                    for exist_user_sub in session_result.scalars().all():
+                        await session.delete(exist_user_sub)
 
                     # 清空群成员表中该用户
                     session_result = await session.execute(
