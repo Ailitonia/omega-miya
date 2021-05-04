@@ -36,13 +36,6 @@ class Nhentai(object):
                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
-    @dataclass
-    class GalleryPage:
-        index: int
-        type_: str
-        width: int
-        height: int
-
     # 通过关键词搜索本子id和标题
     @classmethod
     async def search_gallery_by_keyword(cls, keyword: str) -> Result.ListResult:
@@ -81,6 +74,13 @@ class Nhentai(object):
 class NhentaiGallery(Nhentai):
     def __init__(self, gallery_id: int):
         self.gallery_id = gallery_id
+
+    @dataclass
+    class GalleryPage:
+        index: int
+        type_: str
+        width: int
+        height: int
 
     # 获取gallery信息
     async def get_data(self) -> Result.DictResult:
