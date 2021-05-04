@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Set, Tuple, Any
+from typing import Dict, List, Set, Tuple, Union, Any
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Result(object):
 
     @dataclass
     class JsonDictResult(BaseResult):
-        result: Dict[Any, dict]
+        result: Dict[str, Union[str, int, bool, list, dict]]
 
         def __repr__(self):
             return f'<JsonDictResult(error={self.error}, info={self.info}, result={self.result})>'
