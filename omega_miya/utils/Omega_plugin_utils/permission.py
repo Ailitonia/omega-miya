@@ -1,4 +1,4 @@
-from omega_miya.utils.Omega_Base import DBGroup, DBAuth
+from omega_miya.utils.Omega_Base import DBFriend, DBGroup, DBAuth
 
 
 async def check_notice_permission(group_id: int) -> bool:
@@ -39,9 +39,20 @@ async def check_auth_node(auth_id: int, auth_type: str, auth_node: str) -> int:
         return -1
 
 
+async def check_friend_private_permission(user_id: int) -> bool:
+    res = await DBFriend(user_id=user_id).get_private_permission()
+    if res.error:
+        return False
+    elif res.result == 1:
+        return True
+    else:
+        return False
+
+
 __all__ = [
     'check_notice_permission',
     'check_command_permission',
     'check_permission_level',
-    'check_auth_node'
+    'check_auth_node',
+    'check_friend_private_permission'
 ]

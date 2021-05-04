@@ -2,7 +2,7 @@ from nonebot.rule import Rule
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import Event
-from omega_miya.utils.Omega_Base import DBGroup, DBAuth
+from omega_miya.utils.Omega_Base import DBFriend, DBGroup, DBAuth
 
 
 # Plugin permission rule
@@ -133,10 +133,27 @@ def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
     return Rule(_has_level_or_node)
 
 
+def has_friend_private_permission() -> Rule:
+    async def _has_friend_private_permission(bot: Bot, event: Event, state: T_State) -> bool:
+        detail_type = event.dict().get(f'{event.get_type()}_type')
+        user_id = event.dict().get('user_id')
+        # 检查当前消息类型
+        if detail_type != 'private':
+            return False
+        else:
+            res = await DBFriend(user_id=user_id).get_private_permission()
+            if res.result == 1:
+                return True
+            else:
+                return False
+    return Rule(_has_friend_private_permission)
+
+
 __all__ = [
     'has_notice_permission',
     'has_command_permission',
     'has_auth_node',
     'has_level_or_node',
-    'permission_level'
+    'permission_level',
+    'has_friend_private_permission'
 ]
