@@ -1,9 +1,12 @@
 import os
 import datetime
 from typing import Tuple, List
-from nonebot import logger
+from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 from omega_miya.utils.Omega_Base import Result
+
+global_config = get_driver().config
+TMP_PATH = global_config.tmp_path_
 
 
 class AssScriptException(Exception):
@@ -646,18 +649,16 @@ class ZhouChecker(object):
         return Result.DictResult(error=False, info='Success', result=result_dict)
 
 
-async def download_file(url: str, file_path: str) -> Result.IntResult:
+async def download_file(url: str, file_name: str) -> Result.TextResult:
     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                              'Chrome/89.0.4389.114 Safari/537.36'}
     # 尝试从服务器下载资源
     fetcher = HttpFetcher(timeout=10, flag=f'zhoushen_hime', headers=headers)
-    download_result = await fetcher.get_bytes(url=url)
-    if download_result.error:
-        return Result.IntResult(error=True, info=f'Download failed, error info: {download_result.info}', result=-1)
+    file_path = os.path.abspath(os.path.join(TMP_PATH, 'zhoushen_hime'))
 
-    try:
-        with open(file_path, 'wb+') as f:
-            f.write(download_result.result)
-        return Result.IntResult(error=False, info='Success', result=1)
-    except Exception as e:
-        return Result.IntResult(error=True, info=f'Write file failed, error info: {repr(e)}', result=-1)
+    download_result = await fetcher.download_file(url=url, path=file_path, file_name=file_name)
+
+    if download_result.success():
+        return Result.TextResult(error=False, info=file_name, result=download_result.result)
+    else:
+        return Result.TextResult(error=True, info=download_result.info, result='')

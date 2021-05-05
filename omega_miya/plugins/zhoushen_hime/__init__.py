@@ -16,6 +16,7 @@ __plugin_raw_name__ = __name__.split('.')[-1]
 __plugin_name__ = '自动审轴姬'
 __plugin_usage__ = r'''【自动审轴姬】
 检测群内上传文件并自动锤轴
+仅限群聊使用
 
 **AuthNode**
 basic
@@ -52,13 +53,7 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     if not any(key in file_name for key in ['未校', '待校', '需校']):
         await ZhouShenHime.finish()
 
-    plugin_path = os.path.dirname(__file__)
-    download_dir = os.path.join(plugin_path, 'file_downloaded')
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
-
-    download_file_path = os.path.join(download_dir, file_name)
-    dl_res = await download_file(url=file_url, file_path=download_file_path)
+    dl_res = await download_file(url=file_url, file_name=file_name)
     if not dl_res.success():
         logger.error(f'下载文件失败: {dl_res.info}')
         await ZhouShenHime.finish()
@@ -67,7 +62,8 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     msg = f'{at_msg}你刚刚上传了一份轴呢, 让我来帮你看看吧!'
     await ZhouShenHime.send(Message(msg))
 
-    checker = ZhouChecker(file_path=download_file_path, flash_mode=True)
+    file_path = os.path.abspath(dl_res.result)
+    checker = ZhouChecker(file_path=file_path, flash_mode=True)
 
     try:
         init_res = checker.init_file(auto_style=True)
