@@ -17,6 +17,7 @@ from omega_miya.utils.nhentai_utils import NhentaiGallery
 __plugin_name__ = 'nh'
 __plugin_usage__ = r'''【nh】
 神秘的插件
+仅限群聊使用
 
 **Permission**
 Command

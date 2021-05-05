@@ -12,6 +12,7 @@ from omega_miya.utils.pixiv_utils import PixivIllust
 __plugin_name__ = 'Pixiv'
 __plugin_usage__ = r'''【Pixiv助手】
 查看Pixiv插画, 以及日榜、周榜、月榜
+仅限群聊使用
 
 **Permission**
 Command & Lv.50

@@ -12,6 +12,7 @@ from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_sta
 __plugin_name__ = '请假'
 __plugin_usage__ = r'''【Omega 请假插件】
 用来设置/查询自己以及群员的状态和假期
+仅限群聊使用
 
 **Permission**
 Command

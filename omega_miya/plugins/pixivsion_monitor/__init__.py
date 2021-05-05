@@ -13,6 +13,7 @@ from .monitor import *
 __plugin_name__ = 'Pixivision'
 __plugin_usage__ = r'''【Pixivision订阅】
 推送最新的Pixivision特辑
+仅限群聊使用
 
 **Permission**
 Command & Lv.30
