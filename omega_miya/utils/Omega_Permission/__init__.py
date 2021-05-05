@@ -11,7 +11,7 @@ from omega_miya.utils.Omega_plugin_utils import \
 
 @run_preprocessor
 async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
-    if isinstance(event, PrivateMessageEvent) and event.sub_type == "friend":
+    if isinstance(event, PrivateMessageEvent):
         private_mode = True
     elif isinstance(event, GroupMessageEvent):
         private_mode = False
@@ -40,7 +40,7 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
             if command_checker:
                 pass
             else:
-                await bot.send(event=event, message=f'没有好友命令权限QAQ')
+                await bot.send(event=event, message=f'没有好友命令权限QAQ, 请添加好友后使用"/Omega Enable"或"/Omega Init"启用')
                 raise IgnoredException('没有好友命令权限')
     else:
         if matcher_command_permission:
