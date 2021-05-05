@@ -5,7 +5,7 @@ from typing import List
 from nonebot import logger, require, get_driver, get_bots
 from nonebot.adapters import Bot
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, DBTable
+from omega_miya.utils.Omega_Base import DBFriend, DBSubscription, DBHistory, DBTable
 from .utils import get_live_info, get_live_info_by_uid_list, get_user_info, pic_2_base64, verify_cookies
 from .utils import ENABLE_NEW_LIVE_API, ENABLE_LIVE_CHECK_POOL_MODE
 
@@ -174,13 +174,15 @@ async def live_db_upgrade():
 
 
 # 直播间检查及消息发送函数
-async def live_status_sender(room_id: int, live_info: dict, bots: List[Bot], all_groups: List[int]):
+async def live_status_sender(
+        room_id: int, live_info: dict, bots: List[Bot], all_groups: List[int], all_friends: List[int]):
     """
     检查直播间状态并向群组发送消息
     :param room_id: 直播间房间id
     :param live_info: 由 get_live_info 或 get_live_info_by_uid_list 获取的直播间信息
     :param bots: bots 列表
     :param all_groups: 所有可能需要通知的群组列表
+    :param all_friends: 所有可能需要通知的好友列表
     """
     global live_title
     global live_status
@@ -193,6 +195,12 @@ async def live_status_sender(room_id: int, live_info: dict, bots: List[Bot], all
     sub_group = sub_group_res.result
     # 需通知的群
     notice_group = list(set(all_groups) & set(sub_group))
+
+    # 获取订阅了该直播间的所有好友
+    sub_friend_res = await sub.sub_user_list()
+    sub_friend = sub_friend_res.result
+    # 需通知的好友
+    notice_friends = list(set(all_friends) & set(sub_friend))
 
     try:
         up_name = live_up_name[room_id]
@@ -217,13 +225,17 @@ async def live_status_sender(room_id: int, live_info: dict, bots: List[Bot], all
         live_title[room_id] = live_info['title']
         logger.info(f"直播间: {room_id}/{up_name} 标题变更为: {live_info['title']}")
     elif live_info['status'] == 1 and live_info['title'] != live_title[room_id]:
-        # 通知有通知权限且订阅了该直播间的群
-        cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
-        if cover_pic.success():
-            msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】\n{MessageSegment.image(cover_pic.result)}"
+        if live_info.get('cover_img'):
+            cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
+            if cover_pic.success():
+                msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】\n{MessageSegment.image(cover_pic.result)}"
+            else:
+                msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】"
         else:
             # msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】\n{live_info['url']}"
             msg = f"{up_name}的直播间换标题啦！\n\n【{live_info['title']}】"
+
+        # 通知有通知权限且订阅了该直播间的群
         for group_id in notice_group:
             for _bot in bots:
                 try:
@@ -232,6 +244,16 @@ async def live_status_sender(room_id: int, live_info: dict, bots: List[Bot], all
                 except Exception as _e:
                     logger.warning(f"向群组: {group_id} 发送直播间: {room_id} 标题变更通知失败, error: {repr(_e)}")
                     continue
+        # 通知有通知权限且订阅了该直播间的好友
+        for user_id in notice_friends:
+            for _bot in bots:
+                try:
+                    await _bot.call_api(api='send_private_msg', user_id=user_id, message=msg)
+                    logger.info(f"向好友: {user_id} 发送直播间: {room_id} 标题变更通知")
+                except Exception as _e:
+                    logger.warning(f"向好友: {user_id} 发送直播间: {room_id} 标题变更通知失败, error: {repr(_e)}")
+                    continue
+
         live_title[room_id] = live_info['title']
         logger.info(f"直播间: {room_id}/{up_name} 标题变更为: {live_info['title']}")
 
@@ -261,10 +283,13 @@ async def live_status_sender(room_id: int, live_info: dict, bots: List[Bot], all
             await new_event.add(sub_type='live_start', user_id=room_id, user_name=up_name,
                                 raw_data=repr(live_info), msg_data=live_start_info)
 
-            cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
-            if cover_pic.success():
-                msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】" \
-                      f"\n{MessageSegment.image(cover_pic.result)}"
+            if live_info.get('cover_img'):
+                cover_pic = await pic_2_base64(url=live_info.get('cover_img'))
+                if cover_pic.success():
+                    msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】" \
+                          f"\n{MessageSegment.image(cover_pic.result)}"
+                else:
+                    msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】"
             else:
                 # msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】\n{live_info['url']}"
                 msg = f"{live_info['time']}\n{up_name}开播啦！\n\n【{live_info['title']}】"
@@ -305,6 +330,16 @@ async def live_status_sender(room_id: int, live_info: dict, bots: List[Bot], all
                     except Exception as _e:
                         logger.warning(f"向群组: {group_id} 发送直播间: {room_id}/{up_name} 直播通知失败, error: {repr(_e)}")
                         continue
+            # 通知有通知权限且订阅了该直播间的好友
+            for user_id in notice_friends:
+                for _bot in bots:
+                    try:
+                        await _bot.call_api(api='send_private_msg', user_id=user_id, message=msg)
+                        logger.info(
+                            f"向好友: {user_id} 发送直播间: {room_id}/{up_name} 直播通知, status: {live_info['status']}")
+                    except Exception as _e:
+                        logger.warning(f"向好友: {user_id} 发送直播间: {room_id}/{up_name} 直播通知失败, error: {repr(_e)}")
+                        continue
 
 
 # 创建直播检查函数
@@ -320,6 +355,10 @@ async def bilibili_live_monitor():
     t = DBTable(table_name='Group')
     group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
     all_noitce_groups = [int(x) for x in group_res.result]
+
+    # 获取所有启用了私聊功能的好友
+    friend_res = await DBFriend.list_exist_friends_by_private_permission(private_permission=1)
+    all_noitce_friends = [int(x) for x in friend_res.result]
 
     # 获取订阅表中的所有直播间订阅
     t = DBTable(table_name='Subscription')
@@ -340,7 +379,8 @@ async def bilibili_live_monitor():
         live_info = _res.result
 
         try:
-            await live_status_sender(room_id=room_id, live_info=live_info, bots=bots, all_groups=all_noitce_groups)
+            await live_status_sender(room_id=room_id, live_info=live_info,
+                                     bots=bots, all_groups=all_noitce_groups, all_friends=all_noitce_friends)
         except Exception as _e:
             logger.error(f'bilibili_live_monitor: 处理直播间 {room_id} 状态信息是发生错误: {repr(_e)}')
 
@@ -373,7 +413,8 @@ async def bilibili_live_monitor():
         # 依次处理各直播间信息
         for room_id, live_info in live_info_.items():
             try:
-                await live_status_sender(room_id=room_id, live_info=live_info, bots=bots, all_groups=all_noitce_groups)
+                await live_status_sender(room_id=room_id, live_info=live_info,
+                                         bots=bots, all_groups=all_noitce_groups, all_friends=all_noitce_friends)
             except Exception as _e:
                 logger.error(f'bilibili_live_monitor: 处理直播间 {room_id} 状态信息是发生错误: {repr(_e)}')
                 continue

@@ -2,7 +2,7 @@ import asyncio
 import random
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
+from omega_miya.utils.Omega_Base import DBFriend, DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
 from .utils import ENABLE_DYNAMIC_CHECK_POOL_MODE
 
@@ -64,6 +64,10 @@ async def bilibili_dynamic_monitor():
     group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
     all_noitce_groups = [int(x) for x in group_res.result]
 
+    # 获取所有启用了私聊功能的好友
+    friend_res = await DBFriend.list_exist_friends_by_private_permission(private_permission=1)
+    all_noitce_friends = [int(x) for x in friend_res.result]
+
     # 获取订阅表中的所有动态订阅
     t = DBTable(table_name='Subscription')
     sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
@@ -100,7 +104,13 @@ async def bilibili_dynamic_monitor():
         sub_group_res = await sub.sub_group_list()
         sub_group = sub_group_res.result
         # 需通知的群
-        notice_group = list(set(all_noitce_groups) & set(sub_group))
+        notice_groups = list(set(all_noitce_groups) & set(sub_group))
+
+        # 获取订阅了该直播间的所有好友
+        sub_friend_res = await sub.sub_user_list()
+        sub_friend = sub_friend_res.result
+        # 需通知的好友
+        notice_friends = list(set(all_noitce_friends) & set(sub_friend))
 
         for num in range(len(dynamic_info)):
             try:
@@ -188,15 +198,25 @@ async def bilibili_dynamic_monitor():
                         logger.warning(f"未知的动态类型: {dynamic_info[num]['type']}, id: {dynamic_info[num]['id']}")
                         msg = None
 
-                    # 向群组发送消息
                     if msg:
-                        for group_id in notice_group:
+                        # 向群组发送消息
+                        for group_id in notice_groups:
                             for _bot in bots:
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
                                 except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
+                                                   f"error: {repr(_e)}")
+                                    continue
+                        # 向好友发送消息
+                        for user_id in notice_friends:
+                            for _bot in bots:
+                                try:
+                                    await _bot.call_api(api='send_private_msg', user_id=user_id, message=msg)
+                                    logger.info(f"向好友: {user_id} 发送新动态通知: {dynamic_info[num]['id']}")
+                                except Exception as _e:
+                                    logger.warning(f"向好友: {user_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
                                                    f"error: {repr(_e)}")
                                     continue
 

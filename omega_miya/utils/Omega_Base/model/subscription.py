@@ -1,6 +1,6 @@
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Subscription, Group, GroupSub
+from omega_miya.utils.Omega_Base.tables import Subscription, Group, GroupSub, User, UserSub
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -131,6 +131,47 @@ class DBSubscription(object):
                     )
                     for exist_group_sub in session_result.scalars().all():
                         await session.delete(exist_group_sub)
+                await session.commit()
+                result = Result.IntResult(error=False, info='Success', result=0)
+            except Exception as e:
+                await session.rollback()
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    async def sub_user_list(self) -> Result.ListResult:
+        id_result = await self.id()
+        if id_result.error:
+            return Result.ListResult(error=True, info='Subscription not exist', result=[])
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(User.qq).join(UserSub).
+                        where(User.id == UserSub.user_id).
+                        where(UserSub.sub_id == id_result.result)
+                    )
+                    res = [x for x in session_result.scalars().all()]
+                    result = Result.ListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
+        return result
+
+    async def sub_user_clear(self) -> Result.IntResult:
+        id_result = await self.id()
+        if id_result.error:
+            return Result.IntResult(error=True, info='Subscription not exist', result=-1)
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    session_result = await session.execute(
+                        select(UserSub).where(UserSub.sub_id == id_result.result)
+                    )
+                    for exist_user_sub in session_result.scalars().all():
+                        await session.delete(exist_user_sub)
                 await session.commit()
                 result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:

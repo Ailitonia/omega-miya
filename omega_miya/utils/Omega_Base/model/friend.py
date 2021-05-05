@@ -31,6 +31,28 @@ class DBFriend(DBUser):
                 result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
+    @classmethod
+    async def list_exist_friends_by_private_permission(cls, private_permission: int) -> Result.ListResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    session_result = await session.execute(
+                        select(User.qq).
+                        join(Friends).
+                        where(User.id == Friends.user_id).
+                        where(Friends.private_permissions == private_permission)
+                    )
+                    exist_friends = [x for x in session_result.scalars().all()]
+                result = Result.ListResult(error=False, info='Success', result=exist_friends)
+            except NoResultFound:
+                result = Result.ListResult(error=True, info='NoResultFound', result=[])
+            except MultipleResultsFound:
+                result = Result.ListResult(error=True, info='MultipleResultsFound', result=[])
+            except Exception as e:
+                result = Result.ListResult(error=True, info=repr(e), result=[])
+        return result
+
     async def exist(self) -> bool:
         user_id_result = await self.id()
         if user_id_result.error:
