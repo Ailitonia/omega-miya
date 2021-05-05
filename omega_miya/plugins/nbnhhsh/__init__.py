@@ -2,8 +2,8 @@ import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from .utils import get_guess
 
@@ -12,8 +12,10 @@ from .utils import get_guess
 __plugin_name__ = '好好说话'
 __plugin_usage__ = r'''【能不能好好说话？】
 拼音首字母缩写释义
+群组/私聊可用
 
 **Permission**
+Friend Private
 Command & Lv.30
 
 **Usage**
@@ -33,14 +35,14 @@ nbnhhsh = on_command(
         command=True,
         level=30),
     aliases={'hhsh', 'nbnhhsh'},
-    permission=GROUP,
+    permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
 
 
 # 修改默认参数处理
 @nbnhhsh.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await nbnhhsh.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -50,7 +52,7 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 @nbnhhsh.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -61,7 +63,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 @nbnhhsh.got('guess', prompt='有啥缩写搞不懂?')
-async def handle_nbnhhsh(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_nbnhhsh(bot: Bot, event: MessageEvent, state: T_State):
     guess = state['guess']
     if re.match(r'^[a-zA-Z0-9]+$', guess):
         res = await get_guess(guess=guess)

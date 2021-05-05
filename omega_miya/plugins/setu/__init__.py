@@ -4,8 +4,8 @@ from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent, Event
-from nonebot.adapters.cqhttp.permission import GROUP
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 from omega_miya.utils.Omega_Base import DBPixivillust
@@ -17,8 +17,10 @@ from .utils import add_illust
 __plugin_name__ = '来点萌图'
 __plugin_usage__ = r'''【来点萌图】
 测试群友LSP成分
+群组/私聊可用
 
 **Permission**
+Friend Private
 Command & Lv.50
 or AuthNode
 
@@ -58,7 +60,7 @@ init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, _
 
 
 # 注册事件响应器
-Setu = CommandGroup('sepic', permission=GROUP, priority=20, block=True)
+Setu = CommandGroup('sepic', permission=GROUP | PRIVATE_FRIEND, priority=20, block=True)
 
 setu = Setu.command(
     'setu',
@@ -72,7 +74,7 @@ setu = Setu.command(
 
 
 @setu.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
     # 处理r18
     state['nsfw_tag'] = 1
@@ -84,7 +86,12 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 @setu.got('tags', prompt='tag?')
-async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
+    if isinstance(event, GroupMessageEvent):
+        group_id = event.group_id
+    else:
+        group_id = 'Private event'
+
     nsfw_tag = state['nsfw_tag']
     tags = state['tags']
 
@@ -97,7 +104,7 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
         pid_list = pid_res.result
 
     if not pid_list:
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的涩图")
+        logger.info(f"{group_id} / {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
     await setu.send('稍等, 正在下载图片~')
     # 处理article中图片内容
@@ -117,14 +124,14 @@ async def handle_setu(bot: Bot, event: GroupMessageEvent, state: T_State):
             # 发送图片
             await setu.send(img_seg)
         except Exception as e:
-            logger.warning(f"图片发送失败, group: {event.group_id}. error: {repr(e)}")
+            logger.warning(f"图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}")
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的涩图, {pid_list}")
+        logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的涩图, 图片下载失败, {pid_list}")
         await setu.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的涩图, {pid_list}")
+        logger.info(f"{group_id} / {event.user_id} 找到了他/她想要的涩图, {pid_list}")
 
 
 # 注册事件响应器
@@ -140,7 +147,7 @@ moepic = Setu.command(
 
 
 @moepic.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
     # 排除r18
     for tag in args.copy():
@@ -150,7 +157,12 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 @moepic.got('tags', prompt='tag?')
-async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
+    if isinstance(event, GroupMessageEvent):
+        group_id = event.group_id
+    else:
+        group_id = 'Private event'
+
     tags = state['tags']
 
     if tags:
@@ -162,7 +174,7 @@ async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
         pid_list = pid_res.result
 
     if not pid_list:
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没有找到他/她想要的萌图")
+        logger.info(f"{group_id} / {event.user_id} 没有找到他/她想要的萌图")
         await moepic.finish('找不到萌图QAQ')
 
     await moepic.send('稍等, 正在下载图片~')
@@ -183,14 +195,14 @@ async def handle_moepic(bot: Bot, event: GroupMessageEvent, state: T_State):
             # 发送图片
             await moepic.send(img_seg)
         except Exception as e:
-            logger.warning(f"图片发送失败, group: {event.group_id}. error: {repr(e)}")
+            logger.warning(f"图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}")
             continue
 
     if fault_count == len(pid_list):
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 没能看到他/她想要的萌图, {pid_list}")
+        logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的萌图, 图片下载失败, {pid_list}")
         await moepic.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"Group: {event.group_id}, User: {event.user_id} 找到了他/她想要的萌图, {pid_list}")
+        logger.info(f"{group_id} / {event.user_id} 找到了他/她想要的萌图, {pid_list}")
 
 
 # 注册事件响应器
@@ -198,7 +210,7 @@ setu_stat = on_command('图库统计', rule=to_me(), permission=SUPERUSER, prior
 
 
 @setu_stat.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     status_res = await DBPixivillust.status()
     msg = f"本地数据库统计:\n\n" \
           f"全部: {status_res.result.get('total')}\n" \
@@ -214,7 +226,7 @@ setu_import = on_command('导入图库', rule=to_me(), permission=SUPERUSER, pri
 
 # 修改默认参数处理
 @setu_import.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await setu_import.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -224,7 +236,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @setu_import.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -235,7 +247,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @setu_import.got('mode', prompt='模式: 【setu/moe】')
-async def handle_setu_import(bot: Bot, event: Event, state: T_State):
+async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
     mode = state['mode']
     if mode not in ['setu', 'moe']:
         await setu_import.reject('参数错误, 重新输入: 【setu/moe】, 取消命令请发送【取消】:')

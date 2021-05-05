@@ -2,8 +2,8 @@ from nonebot import on_command, export
 from nonebot.plugin import get_loaded_plugins
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 
 
@@ -38,13 +38,13 @@ bot_help = on_command(
         command=True,
         level=10,
         auth_node='basic'),
-    permission=GROUP,
+    permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)
 
 
 @bot_help.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     # 获取设置了名称的插件列表
     plugins = list(filter(lambda p: set(p.export.keys()).issuperset({'custom_name', 'usage'}), get_loaded_plugins()))
     if not plugins:
@@ -58,11 +58,13 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     else:
         # 如果用户没有发送参数, 则发送功能列表并结束此命令
         plugins_list = '\n'.join(p.export.custom_name for p in plugins)
-        await bot_help.finish(f'我现在支持的插件有: \n\n{plugins_list}\n\n注意: 群组权限等级未达到要求的命令不会被响应\n输入"/help [插件]"即可查看插件详情及帮助')
+        await bot_help.finish(f'我现在支持的插件有: \n\n{plugins_list}\n\n'
+                              f'注意: 群组权限等级未达到要求的, 或非好友或未启用私聊功能的命令不会被响应\n\n'
+                              f'输入"/help [插件]"即可查看插件详情及帮助')
 
 
 @bot_help.got('plugin_name', prompt='你想查询哪个插件的用法呢？')
-async def handle_plugin_name(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_plugin_name(bot: Bot, event: MessageEvent, state: T_State):
     plugin_custom_name = state["plugin_name"]
     # 如果发了参数则发送相应命令的使用帮助
     for p in state['plugin_list']:
