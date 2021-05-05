@@ -15,7 +15,11 @@ async def handle_friend_request(bot: Bot, event: FriendRequestEvent, state: T_St
     user_id = event.user_id
     detail_type = event.request_type
     comment = event.comment
-    if detail_type == 'friend' and comment == 'Miya好萌好可爱':
+
+    # 加好友验证消息
+    auth_str = f'Miya好萌好可爱{int(user_id) % 9}'
+
+    if detail_type == 'friend' and comment == auth_str:
         await bot.call_api('set_friend_add_request', flag=event.flag, approve=True)
         logger.info(f'已同意用户: {user_id} 的好友申请')
     elif detail_type == 'friend':
