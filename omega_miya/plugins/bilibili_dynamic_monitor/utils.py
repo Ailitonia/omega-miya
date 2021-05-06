@@ -200,7 +200,9 @@ async def get_user_dynamic_history(dy_uid) -> Result.DictResult:
             # 这是视频的简介和标题
             content = card['dynamic']
             title = card['title']
-            card_dic = dict({'id': dy_id, 'type': 8, 'url': url,
+            # 这是视频封面
+            cover_pic_url = card.get('pic')
+            card_dic = dict({'id': dy_id, 'type': 8, 'url': url, 'cover_pic_url': cover_pic_url,
                              'name': name, 'content': content, 'origin': title})
             _DYNAMIC_INFO[card_num] = card_dic
         # type=16, 这是小视频(现在似乎已经失效？)
@@ -327,6 +329,10 @@ async def get_dynamic_info(dynamic_id) -> Result.DictResult:
                 origin_description = json.loads(origin_card['card'])['dynamic']
                 if not origin_description:
                     origin_description = json.loads(origin_card['card'])['title']
+                try:
+                    origin_pics_list.append(json.loads(origin_card['card'])['pic'])
+                except (KeyError, TypeError):
+                    pass
             elif origin_card['desc']['type'] == 16:
                 origin_description = json.loads(origin_card['card'])['item']['description']
             elif origin_card['desc']['type'] == 32:

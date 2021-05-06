@@ -130,8 +130,8 @@ async def bilibili_dynamic_monitor():
                             )
                         else:
                             origin_dynamic_info = _dy_res.result
-                            # 原动态type=2, 带图片
-                            if origin_dynamic_info['type'] == 2:
+                            # 原动态type=2 或 8, 带图片
+                            if origin_dynamic_info['type'] in [2, 8]:
                                 # 处理图片序列
                                 pic_segs = ''
                                 for pic_url in origin_dynamic_info['origin_pics']:
@@ -168,9 +168,17 @@ async def bilibili_dynamic_monitor():
                             dynamic_info[num]['name'], dynamic_info[num]['content'], dynamic_info[num]['url'])
                     # 视频
                     elif dynamic_info[num]['type'] == 8:
-                        msg = '{}发布了新的视频！\n\n《{}》\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                            dynamic_info[num]['content'], dynamic_info[num]['url'])
+                        cover_pic_url = dynamic_info[num].get('cover_pic_url')
+                        _res = await pic_2_base64(cover_pic_url)
+                        pic_seg = MessageSegment.image(_res.result)
+                        if dynamic_info[num]['content']:
+                            msg = '{}发布了新的视频！\n\n《{}》\n“{}”\n{}\n{}'.format(
+                                dynamic_info[num]['name'], dynamic_info[num]['origin'],
+                                dynamic_info[num]['content'], dynamic_info[num]['url'], pic_seg)
+                        else:
+                            msg = '{}发布了新的视频！\n\n《{}》\n{}\n{}'.format(
+                                dynamic_info[num]['name'], dynamic_info[num]['origin'],
+                                dynamic_info[num]['url'], pic_seg)
                     # 小视频
                     elif dynamic_info[num]['type'] == 16:
                         msg = '{}发布了新的小视频动态！\n\n“{}”\n{}'.format(
