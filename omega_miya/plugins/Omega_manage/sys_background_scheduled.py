@@ -3,7 +3,7 @@
 """
 import nonebot
 from nonebot import logger, require
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent
+from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent, DBTable
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 
 
@@ -42,6 +42,21 @@ async def refresh_group_info():
 
     for bot_id, bot in get_bots().items():
         group_list = await bot.call_api('get_group_list')
+
+        # 首先获取所有群组列表 禁用不在的群组
+        t = DBTable(table_name='Group')
+        exist_group_result = await t.list_col('group_id')
+        exist_group_list = [int(x) for x in exist_group_result.result]
+
+        actual_group_list = [int(x.get('group_id')) for x in group_list]
+        disable_group_list = list(set(exist_group_list).difference(set(actual_group_list)))
+
+        for group in disable_group_list:
+            disable_result = await DBGroup(group_id=group).permission_set(notice=-1, command=-1, level=-1)
+            if disable_result.error:
+                logger.warning(f'Disable expire group {group} failed, {disable_result.info}')
+
+        # 执行群组信息更新
         for group in group_list:
             group_id = group.get('group_id')
             # 调用api获取群信息
