@@ -52,13 +52,13 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
                 raise IgnoredException('没有群组命令权限')
 
     # 检查权限等级 好友私聊跳过
-    if private_mode:
-        level_checker = True
-    else:
-        if matcher_permission_level:
-            level_checker = await check_permission_level(group_id=group_id, level=matcher_permission_level)
+    if matcher_permission_level:
+        if private_mode:
+            level_checker = True
         else:
-            level_checker = False
+            level_checker = await check_permission_level(group_id=group_id, level=matcher_permission_level)
+    else:
+        level_checker = False
 
     # 检查权限节点
     if matcher_auth_node:
