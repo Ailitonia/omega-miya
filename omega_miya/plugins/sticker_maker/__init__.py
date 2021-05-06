@@ -71,8 +71,6 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
-        # '王境泽': {'name': 'wangjingze', 'type': 'gif', 'text_part': 4, 'help_msg': '请检查文本分段'},
-        # '为所欲为': {'name': 'sorry', 'type': 'gif', 'text_part': 9, 'help_msg': '请检查文本分段'},
         'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'}
     }
 
@@ -147,13 +145,11 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
             raise Exception('sticker_maker_main return null')
 
         # 发送base64图片
-        sticker_b64 = PicEncoder.file_to_b64(sticker_path).result
-        sticker_seg = MessageSegment.image(sticker_b64)
+        # sticker_b64 = PicEncoder.file_to_b64(sticker_path).result
+        # sticker_seg = MessageSegment.image(sticker_b64)
 
-        """
         # 直接用文件构造消息段
         sticker_seg = MessageSegment.image(f'file:///{sticker_path}')
-        """
 
         # 发送图片
         await sticker.send(sticker_seg)
