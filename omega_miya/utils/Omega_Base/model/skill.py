@@ -1,4 +1,5 @@
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Skill, User, UserSkill
 from datetime import datetime
 from sqlalchemy.future import select
@@ -9,7 +10,7 @@ class DBSkill(object):
     def __init__(self, name: str):
         self.name = name
 
-    async def id(self) -> DBResult:
+    async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -18,20 +19,20 @@ class DBSkill(object):
                         select(Skill.id).where(Skill.name == self.name)
                     )
                     skill_table_id = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=skill_table_id)
+                    result = Result.IntResult(error=False, info='Success', result=skill_table_id)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                    result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                    result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     async def exist(self) -> bool:
         result = await self.id()
         return result.success()
 
-    async def add(self, description: str) -> DBResult:
+    async def add(self, description: str) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -43,24 +44,24 @@ class DBSkill(object):
                         exist_skill = session_result.scalar_one()
                         exist_skill.description = description
                         exist_skill.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_skill = Skill(name=self.name, description=description, created_at=datetime.now())
                         session.add(new_skill)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def delete(self) -> DBResult:
+    async def delete(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Skill not exist', result=-1)
+            return Result.IntResult(error=True, info='Skill not exist', result=-1)
 
         # 清空持有这个技能人的技能
         await self.able_member_clear()
@@ -75,22 +76,22 @@ class DBSkill(object):
                     exist_skill = session_result.scalar_one()
                     await session.delete(exist_skill)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def able_member_list(self) -> DBResult:
+    async def able_member_list(self) -> Result.ListResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Skill not exist', result=[])
+            return Result.ListResult(error=True, info='Skill not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -102,15 +103,15 @@ class DBSkill(object):
                         where(UserSkill.skill_id == id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def able_member_clear(self) -> DBResult:
+    async def able_member_clear(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Skill not exist', result=-1)
+            return Result.IntResult(error=True, info='Skill not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -123,8 +124,8 @@ class DBSkill(object):
                     for exist_user_skill in session_result.scalars().all():
                         await session.delete(exist_user_skill)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result

@@ -3,7 +3,7 @@
 """
 import nonebot
 from nonebot import logger, require
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBStatus, DBCoolDownEvent
+from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 
 
@@ -37,6 +37,7 @@ logger.opt(colors=True).debug('<lg>初始化 Omega 后台任务...</lg>')
     misfire_grace_time=300
 )
 async def refresh_group_info():
+    logger.debug('refresh_group_info: Start task')
     from nonebot import get_bots
 
     for bot_id, bot in get_bots().items():
@@ -88,6 +89,70 @@ async def refresh_group_info():
 
             await group.init_member_status()
             logger.info(f'Refresh group info completed, Bot: {bot_id}, Group: {group_id}')
+    logger.debug('refresh_group_info: Task finish')
+
+
+# 创建自动更新好友信息的定时任务
+@scheduler.scheduled_job(
+    'cron',
+    # year=None,
+    # month=None,
+    # day='*/1',
+    # week=None,
+    # day_of_week=None,
+    hour='*/1',
+    # minute='*/1',
+    # second='*/10',
+    # start_date=None,
+    # end_date=None,
+    # timezone=None,
+    id='refresh_friends_info',
+    coalesce=True,
+    misfire_grace_time=120
+)
+async def refresh_friends_info():
+    logger.debug('refresh_friends_info: Start task')
+    from nonebot import get_bots
+
+    for bot_id, bot in get_bots().items():
+        friends_list = await bot.call_api('get_friend_list')
+        # 首先清除非好友
+        exist_friend_result = await DBFriend.list_exist_friends()
+        if exist_friend_result.error:
+            logger.error(f'Refresh friends info failed, get exist friend list failed: {exist_friend_result.info}')
+            return
+
+        exist_friend_list = exist_friend_result.result
+        actual_friend_list = [int(x.get('user_id')) for x in friends_list]
+        del_member_list = list(set(exist_friend_list).difference(set(actual_friend_list)))
+
+        for user in del_member_list:
+            del_result = await DBFriend(user_id=user).del_friend()
+            if del_result.error:
+                logger.warning(f'Del expire friend user {user} failed, {del_result.info}')
+
+        # 更新好友信息
+        for friend in friends_list:
+            user_id = int(friend.get('user_id'))
+            nickname = friend.get('nickname')
+            remark = friend.get('remark')
+
+            friend = DBFriend(user_id=user_id)
+            # 更新用户表
+            add_user_result = await friend.add(nickname=nickname)
+            if add_user_result.error:
+                logger.warning(f'Add friend user {user_id} failed, {add_user_result.info}')
+                continue
+
+            # 更新好友表
+            add_friend_result = await friend.set_friend(nickname=nickname, remark=remark)
+            if add_friend_result.error:
+                logger.warning(f'Add friend user {user_id} failed, {add_user_result.info}')
+
+            logger.debug(f'Refresh friends info, upgrade friend user {user_id} info')
+
+        logger.info(f'Refresh friends info completed, Bot: {bot_id}')
+    logger.debug('refresh_friends_info: Task finish')
 
 
 # 创建用于刷新冷却事件的定时任务

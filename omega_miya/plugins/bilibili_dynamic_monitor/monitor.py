@@ -2,7 +2,7 @@ import asyncio
 import random
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic, DBTable
+from omega_miya.utils.Omega_Base import DBFriend, DBSubscription, DBDynamic, DBTable
 from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
 from .utils import ENABLE_DYNAMIC_CHECK_POOL_MODE
 
@@ -64,10 +64,18 @@ async def bilibili_dynamic_monitor():
     group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
     all_noitce_groups = [int(x) for x in group_res.result]
 
+    # 获取所有启用了私聊功能的好友
+    friend_res = await DBFriend.list_exist_friends_by_private_permission(private_permission=1)
+    all_noitce_friends = [int(x) for x in friend_res.result]
+
     # 获取订阅表中的所有动态订阅
     t = DBTable(table_name='Subscription')
     sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
     check_sub = [int(x) for x in sub_res.result]
+
+    if not check_sub:
+        logger.debug(f'bilibili_dynamic_monitor: no dynamic subscription, ignore.')
+        return
 
     # 注册一个异步函数用于检查动态
     async def check_dynamic(dy_uid):
@@ -96,7 +104,13 @@ async def bilibili_dynamic_monitor():
         sub_group_res = await sub.sub_group_list()
         sub_group = sub_group_res.result
         # 需通知的群
-        notice_group = list(set(all_noitce_groups) & set(sub_group))
+        notice_groups = list(set(all_noitce_groups) & set(sub_group))
+
+        # 获取订阅了该直播间的所有好友
+        sub_friend_res = await sub.sub_user_list()
+        sub_friend = sub_friend_res.result
+        # 需通知的好友
+        notice_friends = list(set(all_noitce_friends) & set(sub_friend))
 
         for num in range(len(dynamic_info)):
             try:
@@ -116,8 +130,8 @@ async def bilibili_dynamic_monitor():
                             )
                         else:
                             origin_dynamic_info = _dy_res.result
-                            # 原动态type=2, 带图片
-                            if origin_dynamic_info['type'] == 2:
+                            # 原动态type=2 或 8, 带图片
+                            if origin_dynamic_info['type'] in [2, 8]:
                                 # 处理图片序列
                                 pic_segs = ''
                                 for pic_url in origin_dynamic_info['origin_pics']:
@@ -154,9 +168,17 @@ async def bilibili_dynamic_monitor():
                             dynamic_info[num]['name'], dynamic_info[num]['content'], dynamic_info[num]['url'])
                     # 视频
                     elif dynamic_info[num]['type'] == 8:
-                        msg = '{}发布了新的视频！\n\n《{}》\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                            dynamic_info[num]['content'], dynamic_info[num]['url'])
+                        cover_pic_url = dynamic_info[num].get('cover_pic_url')
+                        _res = await pic_2_base64(cover_pic_url)
+                        pic_seg = MessageSegment.image(_res.result)
+                        if dynamic_info[num]['content']:
+                            msg = '{}发布了新的视频！\n\n《{}》\n“{}”\n{}\n{}'.format(
+                                dynamic_info[num]['name'], dynamic_info[num]['origin'],
+                                dynamic_info[num]['content'], dynamic_info[num]['url'], pic_seg)
+                        else:
+                            msg = '{}发布了新的视频！\n\n《{}》\n{}\n{}'.format(
+                                dynamic_info[num]['name'], dynamic_info[num]['origin'],
+                                dynamic_info[num]['url'], pic_seg)
                     # 小视频
                     elif dynamic_info[num]['type'] == 16:
                         msg = '{}发布了新的小视频动态！\n\n“{}”\n{}'.format(
@@ -184,15 +206,25 @@ async def bilibili_dynamic_monitor():
                         logger.warning(f"未知的动态类型: {dynamic_info[num]['type']}, id: {dynamic_info[num]['id']}")
                         msg = None
 
-                    # 向群组发送消息
                     if msg:
-                        for group_id in notice_group:
+                        # 向群组发送消息
+                        for group_id in notice_groups:
                             for _bot in bots:
                                 try:
                                     await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
                                     logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
                                 except Exception as _e:
                                     logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
+                                                   f"error: {repr(_e)}")
+                                    continue
+                        # 向好友发送消息
+                        for user_id in notice_friends:
+                            for _bot in bots:
+                                try:
+                                    await _bot.call_api(api='send_private_msg', user_id=user_id, message=msg)
+                                    logger.info(f"向好友: {user_id} 发送新动态通知: {dynamic_info[num]['id']}")
+                                except Exception as _e:
+                                    logger.warning(f"向好友: {user_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
                                                    f"error: {repr(_e)}")
                                     continue
 

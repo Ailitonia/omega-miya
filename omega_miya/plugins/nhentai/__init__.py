@@ -10,13 +10,14 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from omega_miya.utils.nhentai_utils import search_gallery_by_tag, download_gallery
+from omega_miya.utils.nhentai_utils import NhentaiGallery
 
 
 # Custom plugin usage text
 __plugin_name__ = 'nh'
 __plugin_usage__ = r'''【nh】
 神秘的插件
+仅限群聊使用
 
 **Permission**
 Command
@@ -78,15 +79,24 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 @nhentai.got('sub_command', prompt='执行操作?\n【search / download】')
-@nhentai.got('sub_arg', prompt='tag 或 id?')
-async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State):
     sub_command = state["sub_command"]
-    sub_arg = state["sub_arg"]
     if sub_command not in ['search', 'download']:
         await nhentai.finish('没有这个命令哦QAQ')
 
+
+@nhentai.got('sub_arg', prompt='tag 或 id?')
+async def handle_sub_arg(bot: Bot, event: GroupMessageEvent, state: T_State):
+    pass
+
+
+@nhentai.handle()
+async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
+    sub_command = state["sub_command"]
+    sub_arg = state["sub_arg"]
+
     if sub_command == 'search':
-        search_result = await search_gallery_by_tag(keyword=sub_arg)
+        search_result = await NhentaiGallery.search_gallery_by_keyword(keyword=sub_arg)
         if search_result.success():
             nh_list = list(search_result.result)
             msg = ''
@@ -105,15 +115,21 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
             await nhentai.finish('错误QAQ, id应为纯数字')
         else:
             await nhentai.send('正在下载资源, 请稍后~')
-            status, password, path = await download_gallery(gallery_id=sub_arg)
-            if not status:
-                logger.warning(f"Group: {event.group_id}, User: {event.user_id} 下载失败")
+            download_result = await NhentaiGallery(gallery_id=sub_arg).fetch_gallery()
+            if download_result.error:
+                logger.error(f"Group: {event.group_id}, User: {event.user_id} 下载失败, {download_result.info}")
                 await nhentai.finish('下载失败QAQ, 请稍后再试')
             else:
-                file_abs = os.path.abspath(path)
-                await bot.call_api(api='upload_group_file',
-                                   group_id=event.group_id, file=file_abs, name=f'{sub_arg}.7z')
-                logger.info(f"Group: {event.group_id}, User: {event.user_id} 下载成功")
-                await nhentai.finish(f'成功, 解压密码: {password}')
+                password = download_result.result.get('password')
+                file_name = download_result.result.get('file_name')
+                file_path = os.path.abspath(download_result.result.get('file_path'))
+                await nhentai.send(f'下载完成, 密码: {password}, 正在上传文件, 可能需要一段时间...')
+                try:
+                    await bot.call_api(api='upload_group_file',
+                                       group_id=event.group_id, file=file_path, name=file_name)
+                    logger.info(f"Group: {event.group_id}, User: {event.user_id} 下载成功")
+                except Exception as e:
+                    logger.error(f'Group: {event.group_id}, User: {event.user_id} 上传文件失败, {repr(e)}')
+                    await nhentai.finish(f'获取上传结果超时或上传失败QAQ, 上传可能仍在进行中, 请等待2~5分钟后再重试')
     else:
-        pass
+        await nhentai.finish('没有这个命令哦QAQ')

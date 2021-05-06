@@ -2,7 +2,7 @@ from omega_miya.utils.Omega_Base import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 
-async def add_illust(pid: int, nsfw_tag: int) -> Result:
+async def add_illust(pid: int, nsfw_tag: int) -> Result.IntResult:
     illust_result = await PixivIllust(pid=pid).get_illust_data()
 
     if illust_result.success():
@@ -21,4 +21,4 @@ async def add_illust(pid: int, nsfw_tag: int) -> Result:
         _res = await illust.add(uid=uid, title=title, uname=uname, nsfw_tag=nsfw_tag, tags=tags, url=url)
         return _res
     else:
-        return illust_result
+        return Result.IntResult(error=True, info=illust_result.info, result=-1)

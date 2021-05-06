@@ -2,7 +2,7 @@ from nonebot import on_command, export, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import Event, GroupMessageEvent
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBTable, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
@@ -11,6 +11,7 @@ from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_sta
 __plugin_name__ = '技能'
 __plugin_usage__ = r'''【Omega 技能插件】
 用来设置/查询自己的技能
+仅限群聊使用
 
 **Permission**
 Command
@@ -44,7 +45,7 @@ skill_admin = on_command('Skill', aliases={'skill'}, permission=SUPERUSER, prior
 
 # 修改默认参数处理
 @skill_admin.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await skill_admin.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -54,7 +55,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @skill_admin.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -72,7 +73,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @skill_admin.got('sub_command', prompt='执行操作?\n【add/del】')
-async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
+async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State):
     if state['sub_command'] not in ['add', 'del']:
         await skill_admin.finish('没有这个命令哦, 请在【add/del】中选择并重新发送')
     if state['sub_command'] == 'del':
@@ -81,7 +82,7 @@ async def handle_sub_command_args(bot: Bot, event: Event, state: T_State):
 
 @skill_admin.got('skill_name', prompt='请输入技能名称:')
 @skill_admin.got('skill_description', prompt='请输入技能描述:')
-async def handle_sub_command(bot: Bot, event: Event, state: T_State):
+async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
     # 子命令列表
     command = {
         'add': skill_add,
@@ -100,7 +101,7 @@ async def handle_sub_command(bot: Bot, event: Event, state: T_State):
         await skill_admin.finish('Failed QAQ')
 
 
-async def skill_add(bot: Bot, event: Event, state: T_State) -> Result:
+async def skill_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
     skill_name = state["skill_name"]
     skill_description = state["skill_description"]
     skill = DBSkill(name=skill_name)
@@ -108,7 +109,7 @@ async def skill_add(bot: Bot, event: Event, state: T_State) -> Result:
     return result
 
 
-async def skill_del(bot: Bot, event: Event, state: T_State) -> Result:
+async def skill_del(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
     skill_name = state["skill_name"]
     skill = DBSkill(name=skill_name)
     result = await skill.delete()
@@ -215,20 +216,20 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await skill_group_user.finish('Failed QAQ')
 
 
-async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     skill_table = DBTable(table_name='Skill')
     _res = await skill_table.list_col(col_name='name')
     if _res.success():
         msg = '目前已有的技能列表如下:'
         for skill_name in _res.result:
             msg += f'\n{skill_name}'
-        result = Result(False, _res.info, msg)
+        result = Result.TextResult(False, _res.info, msg)
     else:
-        result = Result(True, _res.info, '')
+        result = Result.TextResult(True, _res.info, '')
     return result
 
 
-async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     _res = await user.skill_list()
@@ -245,13 +246,13 @@ async def user_skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) ->
                 elif skill_level == 3:
                     skill_level = '专业'
                 msg += f'\n【{skill_name}/{skill_level}】'
-        result = Result(False, _res.info, msg)
+        result = Result.TextResult(False, _res.info, msg)
     else:
-        result = Result(True, _res.info, '')
+        result = Result.TextResult(True, _res.info, '')
     return result
 
 
-async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
@@ -265,30 +266,30 @@ async def user_skill_set(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         skill_level = 3
     _res = await user.skill_add(skill=DBSkill(name=skill_name), skill_level=skill_level)
     if _res.success():
-        result = Result(False, _res.info, msg)
+        result = Result.TextResult(False, _res.info, msg)
     else:
-        result = Result(True, _res.info, '')
+        result = Result.TextResult(True, _res.info, '')
     return result
 
 
-async def user_skill_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     skill_name = state['skill_name']
     _res = await user.skill_del(skill=DBSkill(name=skill_name))
     if _res.success():
-        result = Result(False, _res.info, 0)
+        result = Result.IntResult(False, _res.info, 0)
     else:
-        result = Result(True, _res.info, -1)
+        result = Result.IntResult(True, _res.info, -1)
     return result
 
 
-async def user_skill_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def user_skill_clear(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     user_id = event.user_id
     user = DBUser(user_id=user_id)
     _res = await user.skill_clear()
     if _res.success():
-        result = Result(False, _res.info, 0)
+        result = Result.IntResult(False, _res.info, 0)
     else:
-        result = Result(True, _res.info, -1)
+        result = Result.IntResult(True, _res.info, -1)
     return result

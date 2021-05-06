@@ -1,10 +1,10 @@
 import nonebot
-from typing import Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
 from .tables import Base
+from .class_result import Result
 
 global_config = nonebot.get_driver().config
 __DATABASE = 'mysql'
@@ -20,9 +20,16 @@ __DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{__DB_PASSWORD}@{__DB_H
 
 
 # 创建数据库连接
-engine = create_async_engine(__DB_ENGINE, encoding='utf8',
-                             connect_args={"use_unicode": True, "charset": "utf8mb4"},
-                             pool_recycle=3600, pool_pre_ping=True, echo=False)
+try:
+    engine = create_async_engine(
+        __DB_ENGINE, encoding='utf8',
+        connect_args={"use_unicode": True, "charset": "utf8mb4"},
+        pool_recycle=3600, pool_pre_ping=True, echo=False
+    )
+except Exception as exp:
+    import sys
+    nonebot.logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, error: {repr(exp)}')
+    sys.exit('创建数据库连接失败')
 
 
 async def database_init():
@@ -60,22 +67,6 @@ class NBdb(object):
         return self.__async_session
 
 
-class DBResult(object):
-    def __init__(self, error: bool, info: str, result: Union[int, str, list, set, tuple, dict]):
-        self.error = error
-        self.info = info
-        self.result = result
-
-    def success(self) -> bool:
-        if not self.error:
-            return True
-        else:
-            return False
-
-    def __repr__(self):
-        return f'<DBResult(error={self.error}, info={self.info}, result={self.result})>'
-
-
 class DBTable(object):
     def __init__(self, table_name):
         self.__tables = Base
@@ -89,10 +80,10 @@ class DBTable(object):
         else:
             return None
 
-    async def list_col(self, col_name) -> DBResult:
+    async def list_col(self, col_name) -> Result.ListResult:
         res = []
         if not self.__table:
-            result = DBResult(error=True, info='Table not exist', result=res)
+            result = Result.ListResult(error=True, info='Table not exist', result=res)
         else:
             async_session = NBdb().get_async_session()
             async with async_session() as session:
@@ -102,15 +93,15 @@ class DBTable(object):
                         session_result = await session.execute(select(col))
                         for item in session_result.scalars().all():
                             res.append(item)
-                        result = DBResult(error=False, info='Success', result=res)
+                        result = Result.ListResult(error=False, info='Success', result=res)
                     except Exception as e:
-                        result = DBResult(error=True, info=repr(e), result=res)
+                        result = Result.ListResult(error=True, info=repr(e), result=res)
         return result
 
-    async def list_col_with_condition(self, col_name, condition_col_name, condition) -> DBResult:
+    async def list_col_with_condition(self, col_name, condition_col_name, condition) -> Result.ListResult:
         res = []
         if not self.__table:
-            result = DBResult(error=True, info='Table not exist', result=res)
+            result = Result.ListResult(error=True, info='Table not exist', result=res)
         else:
             async_session = NBdb().get_async_session()
             async with async_session() as session:
@@ -121,14 +112,13 @@ class DBTable(object):
                         session_result = await session.execute(select(col).where(condition_col == condition))
                         for item in session_result.scalars().all():
                             res.append(item)
-                        result = DBResult(error=False, info='Success', result=res)
+                        result = Result.ListResult(error=False, info='Success', result=res)
                     except Exception as e:
-                        result = DBResult(error=True, info=repr(e), result=res)
+                        result = Result.ListResult(error=True, info=repr(e), result=res)
         return result
 
 
 __all__ = [
     'NBdb',
-    'DBResult',
     'DBTable'
 ]

@@ -1,4 +1,5 @@
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Bilidynamic
 from datetime import datetime
 from sqlalchemy.future import select
@@ -10,7 +11,7 @@ class DBDynamic(object):
         self.uid = uid
         self.dynamic_id = dynamic_id
 
-    async def id(self) -> DBResult:
+    async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -21,20 +22,20 @@ class DBDynamic(object):
                         where(Bilidynamic.dynamic_id == self.dynamic_id)
                     )
                     bilidynamic_table_id = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=bilidynamic_table_id)
+                    result = Result.IntResult(error=False, info='Success', result=bilidynamic_table_id)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                    result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                    result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     async def exist(self) -> bool:
         result = await self.id()
         return result.success()
 
-    async def add(self, dynamic_type: int, content: str) -> DBResult:
+    async def add(self, dynamic_type: int, content: str) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -48,18 +49,18 @@ class DBDynamic(object):
                         exist_dynamic = session_result.scalar_one()
                         exist_dynamic.content += f'\nupdate: {datetime.now()}\n{content}'
                         exist_dynamic.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgrade', result=0)
+                        result = Result.IntResult(error=False, info='Success upgrade', result=0)
                     except NoResultFound:
                         # 动态表中添加新动态
                         new_dynamic = Bilidynamic(uid=self.uid, dynamic_id=self.dynamic_id, dynamic_type=dynamic_type,
                                                   content=content, created_at=datetime.now())
                         session.add(new_dynamic)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result

@@ -12,6 +12,7 @@ from omega_miya.utils.pixiv_utils import PixivIllust
 __plugin_name__ = 'Pixiv'
 __plugin_usage__ = r'''【Pixiv助手】
 查看Pixiv插画, 以及日榜、周榜、月榜
+仅限群聊使用
 
 **Permission**
 Command & Lv.50
@@ -19,6 +20,7 @@ or AuthNode
 
 **AuthNode**
 basic
+download
 
 **CoolDown**
 群组共享冷却时间
@@ -27,15 +29,18 @@ basic
 10 Minutes
 
 **Usage**
-/pixiv [PID]
+/pixiv <PID>
 /pixiv 日榜
 /pixiv 周榜
-/pixiv 月榜'''
+/pixiv 月榜
+**Need AuthNode**
+/pixivdl <PID> [页码]'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
     PluginCoolDown.skip_auth_node,
-    'basic'
+    'basic',
+    'download'
 ]
 
 # 声明本插件的冷却时间配置
@@ -170,3 +175,74 @@ async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
             await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
     else:
         await pixiv.reject('你输入的命令好像不对呢……请输入"月榜"、"周榜"、"日榜"或者PixivID, 取消命令请发送【取消】:')
+
+
+# 注册事件响应器
+pixiv_dl = on_command(
+    'pixivdl',
+    aliases={'Pixivdl'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='pixivdl',
+        command=True,
+        auth_node='download'),
+    permission=GROUP,
+    priority=20,
+    block=True)
+
+
+# 修改默认参数处理
+@pixiv_dl.args_parser
+async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
+    if not args:
+        await pixiv_dl.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
+    state[state["_current_key"]] = args[0]
+    if state[state["_current_key"]] == '取消':
+        await pixiv_dl.finish('操作已取消')
+
+
+@pixiv_dl.handle()
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    args = str(event.get_plaintext()).strip().lower().split()
+    if not args:
+        state['page'] = None
+    elif args and len(args) == 1:
+        state['pid'] = args[0]
+        state['page'] = None
+    elif args and len(args) == 2:
+        state['pid'] = args[0]
+        state['page'] = args[1]
+    else:
+        await pixiv_dl.finish('参数错误QAQ')
+
+    if state['page']:
+        try:
+            state['page'] = int(state['page'])
+        except ValueError:
+            await pixiv_dl.finish('参数错误QAQ, 页码应为数字')
+
+
+@pixiv_dl.got('pid', prompt='请输入PixivID:')
+async def handle_pixiv_dl(bot: Bot, event: GroupMessageEvent, state: T_State):
+    pid = state['pid']
+    page = state['page']
+    if re.match(r'^\d+$', pid):
+        pid = int(pid)
+        logger.debug(f'获取Pixiv资源: {pid}.')
+        await pixiv_dl.send('稍等, 正在下载图片~')
+        download_result = await PixivIllust(pid=pid).download_illust(page=page)
+        if download_result.error:
+            logger.warning(f"User: {event.user_id} 下载Pixiv资源失败, 网络超时或 {pid} 不存在, {download_result.info}")
+            await pixiv_dl.finish('下载失败, 网络超时或没有这张图QAQ')
+        else:
+            file_path = download_result.result
+            file_name = download_result.info
+            try:
+                await bot.call_api(api='upload_group_file', group_id=event.group_id, file=file_path, name=file_name)
+            except Exception as e:
+                logger.warning(f'User: {event.user_id} 下载Pixiv资源失败, 上传群文件失败: {repr(e)}')
+                await pixiv_dl.finish('上传图片到群文件失败QAQ, 请稍后再试')
+
+    else:
+        await pixiv_dl.finish('参数错误, pid应为纯数字')

@@ -13,6 +13,7 @@ __plugin_name__ = 'roll'
 __plugin_usage__ = r'''【Roll & 抽奖】
 一个整合了各种roll机制的插件
 更多功能待加入
+仅限群聊使用
 
 **Permission**
 Command & Lv.10

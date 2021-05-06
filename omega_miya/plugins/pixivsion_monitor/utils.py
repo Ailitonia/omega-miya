@@ -2,10 +2,10 @@ from omega_miya.utils.Omega_Base import DBPixivision, Result
 from omega_miya.utils.pixiv_utils import PixivisionArticle
 
 
-async def pixivsion_article_parse(aid: int, tags: list) -> Result:
+async def pixivsion_article_parse(aid: int, tags: list) -> Result.DictResult:
     article_result = await PixivisionArticle(aid=aid).get_article_info()
     if article_result.error:
-        return Result(error=True, info=article_result.info, result={})
+        return Result.DictResult(error=True, info=article_result.info, result={})
 
     try:
         article_info = dict(article_result.result)
@@ -29,9 +29,9 @@ async def pixivsion_article_parse(aid: int, tags: list) -> Result:
                 'image:': article_info['article_eyecatch_image'],
                 'illusts_list': illusts_list
             }
-            result = Result(error=False, info='Success', result=__res)
+            result = Result.DictResult(error=False, info='Success', result=__res)
         else:
-            result = Result(error=True, info=db_res.info, result={})
+            result = Result.DictResult(error=True, info=db_res.info, result={})
     except Exception as e:
-        result = Result(error=True, info=repr(e), result={})
+        result = Result.DictResult(error=True, info=repr(e), result={})
     return result

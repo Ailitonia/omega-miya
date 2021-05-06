@@ -11,7 +11,7 @@ from nonebot.message import run_preprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import Event
+from nonebot.adapters.cqhttp.event import MessageEvent
 from omega_miya.utils.Omega_plugin_utils import \
     check_and_set_global_cool_down, check_and_set_plugin_cool_down, \
     check_and_set_group_cool_down, check_and_set_user_cool_down, PluginCoolDown
@@ -19,7 +19,7 @@ from omega_miya.utils.Omega_Base import DBCoolDownEvent, DBAuth
 
 
 @run_preprocessor
-async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event, state: T_State):
+async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
     group_id = event.dict().get('group_id')
     user_id = event.dict().get('user_id')
 

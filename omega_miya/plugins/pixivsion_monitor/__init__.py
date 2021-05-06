@@ -13,6 +13,7 @@ from .monitor import *
 __plugin_name__ = 'Pixivision'
 __plugin_usage__ = r'''【Pixivision订阅】
 推送最新的Pixivision特辑
+仅限群聊使用
 
 **Permission**
 Command & Lv.30
@@ -72,7 +73,7 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
     elif sub_command == '取消订阅':
         _res = await sub_del(bot=bot, event=event, state=state)
     else:
-        _res = Result(error=True, info='Unknown error, except sub_command', result=-1)
+        _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
         logger.info(f"{sub_command}Pixivision成功, group_id: {event.group_id}, {_res.info}")
         await pixivision.finish(f'{sub_command}成功!')
@@ -81,7 +82,7 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
         await pixivision.finish(f'{sub_command}失败了QAQ, 可能并未订阅Pixivision, 或请稍后再试~')
 
 
-async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     sub_id = -1
@@ -92,16 +93,16 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
     _res = await group.subscription_add(sub=sub)
     if not _res.success():
         return _res
-    result = Result(error=False, info='Success', result=0)
+    result = Result.IntResult(error=False, info='Success', result=0)
     return result
 
 
-async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     sub_id = -1
     _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
     if not _res.success():
         return _res
-    result = Result(error=False, info='Success', result=0)
+    result = Result.IntResult(error=False, info='Success', result=0)
     return result

@@ -1,4 +1,5 @@
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import \
     User, Group, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub, AuthGroup, EmailBox, GroupEmailBox
 from .user import DBUser, DBSkill
@@ -13,7 +14,7 @@ class DBGroup(object):
     def __init__(self, group_id: int):
         self.group_id = group_id
 
-    async def id(self) -> DBResult:
+    async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -22,20 +23,20 @@ class DBGroup(object):
                         select(Group.id).where(Group.group_id == self.group_id)
                     )
                     group_table_id = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=group_table_id)
+                    result = Result.IntResult(error=False, info='Success', result=group_table_id)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=-1)
+                    result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                    result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
     async def exist(self) -> bool:
         result = await self.id()
         return result.success()
 
-    async def name(self) -> DBResult:
+    async def name(self) -> Result.TextResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -44,16 +45,16 @@ class DBGroup(object):
                         select(Group.name).where(Group.group_id == self.group_id)
                     )
                     group_name = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=group_name)
+                    result = Result.TextResult(error=False, info='Success', result=group_name)
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result='')
+                    result = Result.TextResult(error=True, info='NoResultFound', result='')
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result='')
+                    result = Result.TextResult(error=True, info='MultipleResultsFound', result='')
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result='')
+                    result = Result.TextResult(error=True, info=repr(e), result='')
         return result
 
-    async def add(self, name: str) -> DBResult:
+    async def add(self, name: str) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -65,25 +66,25 @@ class DBGroup(object):
                         exist_group = session_result.scalar_one()
                         exist_group.name = name
                         exist_group.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_group = Group(group_id=self.group_id, name=name, notice_permissions=0,
                                           command_permissions=0, permission_level=0, created_at=datetime.now())
                         session.add(new_group)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def delete(self) -> DBResult:
+    async def delete(self) -> Result.IntResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -124,22 +125,22 @@ class DBGroup(object):
                     exist_group = session_result.scalar_one()
                     await session.delete(exist_group)
                 await session.commit()
-                result = DBResult(error=False, info='Success Delete', result=0)
+                result = Result.IntResult(error=False, info='Success Delete', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def member_list(self) -> DBResult:
+    async def member_list(self) -> Result.ListResult:
         id_result = await self.id()
         if id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -151,19 +152,19 @@ class DBGroup(object):
                         where(UserGroup.group_id == id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def member_add(self, user: DBUser, user_group_nickname: str) -> DBResult:
+    async def member_add(self, user: DBUser, user_group_nickname: str) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         user_id_result = await user.id()
         if user_id_result.error:
-            return DBResult(error=True, info='User not exist', result=-1)
+            return Result.IntResult(error=True, info='User not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -180,30 +181,30 @@ class DBGroup(object):
                         exist_user = session_result.scalar_one()
                         exist_user.user_group_nickname = user_group_nickname
                         exist_user.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         # 不存在关系则添加新成员
                         new_user = UserGroup(user_id=user_id_result.result, group_id=group_id_result.result,
                                              user_group_nickname=user_group_nickname, created_at=datetime.now())
                         session.add(new_user)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def member_del(self, user: DBUser) -> DBResult:
+    async def member_del(self, user: DBUser) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         user_id_result = await user.id()
         if user_id_result.error:
-            return DBResult(error=True, info='User not exist', result=-1)
+            return Result.IntResult(error=True, info='User not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -217,22 +218,22 @@ class DBGroup(object):
                     exist_user = session_result.scalar_one()
                     await session.delete(exist_user)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def member_clear(self) -> DBResult:
+    async def member_clear(self) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -244,13 +245,13 @@ class DBGroup(object):
                     for exist_user in session_result.scalars().all():
                         await session.delete(exist_user)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def permission_reset(self) -> DBResult:
+    async def permission_reset(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -263,20 +264,20 @@ class DBGroup(object):
                     exist_group.command_permissions = 0
                     exist_group.permission_level = 0
                     exist_group.updated_at = datetime.now()
-                    result = DBResult(error=False, info='Success upgraded', result=0)
+                    result = Result.IntResult(error=False, info='Success upgraded', result=0)
                 await session.commit()
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def permission_set(self, notice: int = 0, command: int = 0, level: int = 0) -> DBResult:
+    async def permission_set(self, notice: int = 0, command: int = 0, level: int = 0) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -289,20 +290,20 @@ class DBGroup(object):
                     exist_group.command_permissions = command
                     exist_group.permission_level = level
                     exist_group.updated_at = datetime.now()
-                    result = DBResult(error=False, info='Success upgraded', result=0)
+                    result = Result.IntResult(error=False, info='Success upgraded', result=0)
                 await session.commit()
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def permission_info(self) -> DBResult:
+    async def permission_info(self) -> Result.IntTupleResult:
         """
         :return: Result: Tuple[Notice_permission, Command_permission, Permission_level]
         """
@@ -315,16 +316,16 @@ class DBGroup(object):
                         where(Group.group_id == self.group_id)
                     )
                     notice, command, level = session_result.one()
-                    result = DBResult(error=False, info='Success', result=(notice, command, level))
+                    result = Result.IntTupleResult(error=False, info='Success', result=(notice, command, level))
                 except NoResultFound:
-                    result = DBResult(error=True, info='NoResultFound', result=(-1, -1, -1))
+                    result = Result.IntTupleResult(error=True, info='NoResultFound', result=(-1, -1, -1))
                 except MultipleResultsFound:
-                    result = DBResult(error=True, info='MultipleResultsFound', result=(-1, -1, -1))
+                    result = Result.IntTupleResult(error=True, info='MultipleResultsFound', result=(-1, -1, -1))
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=(-1, -1, -1))
+                    result = Result.IntTupleResult(error=True, info=repr(e), result=(-1, -1, -1))
         return result
 
-    async def permission_notice(self) -> DBResult:
+    async def permission_notice(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -333,12 +334,12 @@ class DBGroup(object):
                         select(Group.notice_permissions).where(Group.group_id == self.group_id)
                     )
                     res = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.IntResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def permission_command(self) -> DBResult:
+    async def permission_command(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -347,12 +348,12 @@ class DBGroup(object):
                         select(Group.command_permissions).where(Group.group_id == self.group_id)
                     )
                     res = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.IntResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def permission_level(self) -> DBResult:
+    async def permission_level(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -361,15 +362,15 @@ class DBGroup(object):
                         select(Group.permission_level).where(Group.group_id == self.group_id)
                     )
                     res = session_result.scalar_one()
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.IntResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=-1)
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def idle_member_list(self) -> DBResult:
+    async def idle_member_list(self) -> Result.ListResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         res = []
         async_session = NBdb().get_async_session()
@@ -400,19 +401,19 @@ class DBGroup(object):
                         else:
                             user_skill_text = '暂无技能'
                         res.append((nickname, user_skill_text))
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def idle_skill_list(self, skill: DBSkill) -> DBResult:
+    async def idle_skill_list(self, skill: DBSkill) -> Result.ListResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         skill_id_result = await skill.id()
         if skill_id_result.error:
-            return DBResult(error=True, info='Skill not exist', result=[])
+            return Result.ListResult(error=True, info='Skill not exist', result=[])
 
         res = []
         async_session = NBdb().get_async_session()
@@ -437,15 +438,15 @@ class DBGroup(object):
                         # 如果空闲则把这个人昵称放进结果列表里面
                         if session_result.scalar_one() == 0:
                             res.append(nickname)
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def vocation_member_list(self) -> DBResult:
+    async def vocation_member_list(self) -> Result.ListResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -461,27 +462,27 @@ class DBGroup(object):
                         where(UserGroup.group_id == group_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def init_member_status(self) -> DBResult:
+    async def init_member_status(self) -> Result.IntResult:
         member_list_res = await self.member_list()
         for user_qq, nickname in member_list_res.result:
             user = DBUser(user_id=user_qq)
             user_status_res = await user.status()
             if user_status_res.error:
                 await user.status_set(status=0)
-        return DBResult(error=False, info='ignore', result=0)
+        return Result.IntResult(error=False, info='ignore', result=0)
 
-    async def subscription_list(self) -> DBResult:
+    async def subscription_list(self) -> Result.ListResult:
         """
         :return: Result: List[Tuple[sub_type, sub_id, up_name]]
         """
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -494,19 +495,19 @@ class DBGroup(object):
                         where(GroupSub.group_id == group_id_result.result)
                     )
                     res = [(x[0], x[1], x[2]) for x in session_result.all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def subscription_list_by_type(self, sub_type: int) -> DBResult:
+    async def subscription_list_by_type(self, sub_type: int) -> Result.ListResult:
         """
         :param sub_type: 订阅类型
         :return: Result: List[Tuple[sub_id, up_name]]
         """
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -520,19 +521,19 @@ class DBGroup(object):
                         where(GroupSub.group_id == group_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def subscription_add(self, sub: DBSubscription, group_sub_info: str = None) -> DBResult:
+    async def subscription_add(self, sub: DBSubscription, group_sub_info: str = None) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         sub_id_result = await sub.id()
         if sub_id_result.error:
-            return DBResult(error=True, info='Subscription not exist', result=-1)
+            return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -548,29 +549,29 @@ class DBGroup(object):
                         exist_subscription = session_result.scalar_one()
                         exist_subscription.group_sub_info = group_sub_info
                         exist_subscription.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         subscription = GroupSub(sub_id=sub_id_result.result, group_id=group_id_result.result,
                                                 group_sub_info=group_sub_info, created_at=datetime.now())
                         session.add(subscription)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def subscription_del(self, sub: DBSubscription) -> DBResult:
+    async def subscription_del(self, sub: DBSubscription) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         sub_id_result = await sub.id()
         if sub_id_result.error:
-            return DBResult(error=True, info='Subscription not exist', result=-1)
+            return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -584,22 +585,22 @@ class DBGroup(object):
                     exist_subscription = session_result.scalar_one()
                     await session.delete(exist_subscription)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def subscription_clear(self) -> DBResult:
+    async def subscription_clear(self) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -611,16 +612,16 @@ class DBGroup(object):
                     for exist_group_sub in session_result.scalars().all():
                         await session.delete(exist_group_sub)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def subscription_clear_by_type(self, sub_type: int) -> DBResult:
+    async def subscription_clear_by_type(self, sub_type: int) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -635,16 +636,16 @@ class DBGroup(object):
                     for exist_group_sub in session_result.scalars().all():
                         await session.delete(exist_group_sub)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def mailbox_list(self) -> DBResult:
+    async def mailbox_list(self) -> Result.ListResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=[])
+            return Result.ListResult(error=True, info='Group not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -657,19 +658,19 @@ class DBGroup(object):
                         where(GroupEmailBox.group_id == group_id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = DBResult(error=False, info='Success', result=res)
+                    result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = DBResult(error=True, info=repr(e), result=[])
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def mailbox_add(self, mailbox: DBEmailBox, mailbox_info: str = None) -> DBResult:
+    async def mailbox_add(self, mailbox: DBEmailBox, mailbox_info: str = None) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         mailbox_id_result = await mailbox.id()
         if mailbox_id_result.error:
-            return DBResult(error=True, info='Mailbox not exist', result=-1)
+            return Result.IntResult(error=True, info='Mailbox not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -685,30 +686,30 @@ class DBGroup(object):
                         exist_mailbox = session_result.scalar_one()
                         exist_mailbox.box_info = mailbox_info
                         exist_mailbox.updated_at = datetime.now()
-                        result = DBResult(error=False, info='Success upgraded', result=0)
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_mailbox = GroupEmailBox(email_box_id=mailbox_id_result.result,
                                                     group_id=group_id_result.result,
                                                     box_info=mailbox_info, created_at=datetime.now())
                         session.add(new_mailbox)
-                        result = DBResult(error=False, info='Success added', result=0)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def mailbox_del(self, mailbox: DBEmailBox) -> DBResult:
+    async def mailbox_del(self, mailbox: DBEmailBox) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         mailbox_id_result = await mailbox.id()
         if mailbox_id_result.error:
-            return DBResult(error=True, info='Mailbox not exist', result=-1)
+            return Result.IntResult(error=True, info='Mailbox not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -722,22 +723,22 @@ class DBGroup(object):
                     exist_mailbox = session_result.scalar_one()
                     await session.delete(exist_mailbox)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except NoResultFound:
                 await session.rollback()
-                result = DBResult(error=True, info='NoResultFound', result=-1)
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
             except MultipleResultsFound:
                 await session.rollback()
-                result = DBResult(error=True, info='MultipleResultsFound', result=-1)
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def mailbox_clear(self) -> DBResult:
+    async def mailbox_clear(self) -> Result.IntResult:
         group_id_result = await self.id()
         if group_id_result.error:
-            return DBResult(error=True, info='Group not exist', result=-1)
+            return Result.IntResult(error=True, info='Group not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -749,8 +750,8 @@ class DBGroup(object):
                     for exist_mailbox in session_result.scalars().all():
                         await session.delete(exist_mailbox)
                 await session.commit()
-                result = DBResult(error=False, info='Success', result=0)
+                result = Result.IntResult(error=False, info='Success', result=0)
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result

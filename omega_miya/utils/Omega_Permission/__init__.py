@@ -4,12 +4,20 @@ from nonebot.message import run_preprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import Event
-from omega_miya.utils.Omega_plugin_utils import check_command_permission, check_permission_level, check_auth_node
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from omega_miya.utils.Omega_plugin_utils import \
+    check_command_permission, check_permission_level, check_auth_node, check_friend_private_permission
 
 
 @run_preprocessor
-async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: Event, state: T_State):
+async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+    if isinstance(event, PrivateMessageEvent):
+        private_mode = True
+    elif isinstance(event, GroupMessageEvent):
+        private_mode = False
+    else:
+        private_mode = False
+
     group_id = event.dict().get('group_id')
     user_id = event.dict().get('user_id')
 
@@ -25,18 +33,30 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: Event, sta
     matcher_permission_level = matcher_default_state.get('_permission_level')
     matcher_auth_node = matcher_default_state.get('_auth_node')
 
-    # 检查command权限
-    if matcher_command_permission:
-        command_checker = await check_command_permission(group_id=group_id)
-        if command_checker:
-            pass
-        else:
-            await bot.send(event=event, message=f'没有群组命令权限QAQ')
-            raise IgnoredException('没有群组命令权限')
+    # 检查command/friend_private权限
+    if private_mode:
+        if matcher_command_permission:
+            command_checker = await check_friend_private_permission(user_id=user_id)
+            if command_checker:
+                pass
+            else:
+                await bot.send(event=event, message=f'没有好友命令权限QAQ, 请添加好友后使用"/Omega Enable"或"/Omega Init"启用')
+                raise IgnoredException('没有好友命令权限')
+    else:
+        if matcher_command_permission:
+            command_checker = await check_command_permission(group_id=group_id)
+            if command_checker:
+                pass
+            else:
+                await bot.send(event=event, message=f'没有群组命令权限QAQ')
+                raise IgnoredException('没有群组命令权限')
 
-    # 检查权限等级
+    # 检查权限等级 好友私聊跳过
     if matcher_permission_level:
-        level_checker = await check_permission_level(group_id=group_id, level=matcher_permission_level)
+        if private_mode:
+            level_checker = True
+        else:
+            level_checker = await check_permission_level(group_id=group_id, level=matcher_permission_level)
     else:
         level_checker = False
 
@@ -45,7 +65,10 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: Event, sta
         auth_node = '.'.join([matcher.module, matcher_auth_node])
         # 分别检查用户及群组权限节点
         user_auth_checker = await check_auth_node(auth_id=user_id, auth_type='user', auth_node=auth_node)
-        group_auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node=auth_node)
+        if private_mode:
+            group_auth_checker = 0
+        else:
+            group_auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node=auth_node)
         # 优先级: 用户权限节点>群组权限节点>权限等级
         if user_auth_checker == -1 or group_auth_checker == -1:
             await bot.send(event=event, message=f'权限受限QAQ')

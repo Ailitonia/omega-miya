@@ -4,7 +4,7 @@ from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import Event
+from nonebot.adapters.cqhttp.event import MessageEvent
 from omega_miya.utils.Omega_Base import DBUser, DBGroup, DBAuth
 from omega_miya.utils.Omega_plugin_utils import init_export
 
@@ -13,6 +13,7 @@ from omega_miya.utils.Omega_plugin_utils import init_export
 __plugin_name__ = 'OmegaAuth'
 __plugin_usage__ = r'''【OmegaAuth 授权管理插件】
 插件特殊权限授权管理
+仅限管理员使用
 
 **Usage**
 **SuperUser Only**
@@ -28,7 +29,7 @@ omegaauth = on_command('OmegaAuth', rule=to_me(), aliases={'omegaauth', 'oauth'}
 
 # 修改默认参数处理
 @omegaauth.args_parser
-async def parse(bot: Bot, event: Event, state: T_State):
+async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().split()
     if not args:
         await omegaauth.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -38,7 +39,7 @@ async def parse(bot: Bot, event: Event, state: T_State):
 
 
 @omegaauth.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().split()
     if not args:
         pass
@@ -49,7 +50,7 @@ async def handle_first_receive(bot: Bot, event: Event, state: T_State):
 
 
 @omegaauth.got('sub_command', prompt='执行操作?\n【allow/deny/clear/list】')
-async def handle_sub_command(bot: Bot, event: Event, state: T_State):
+async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
     sub_command = state["sub_command"]
     if sub_command not in ['allow', 'deny', 'clear', 'list']:
         await omegaauth.finish('参数错误QAQ')
@@ -57,7 +58,7 @@ async def handle_sub_command(bot: Bot, event: Event, state: T_State):
 
 # 处理显示权限节点列表事件
 @omegaauth.got('sub_command', prompt='list:')
-async def handle_list_node(bot: Bot, event: Event, state: T_State):
+async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
     sub_command = state["sub_command"]
     if sub_command == 'list':
         detail_type = event.dict().get(f'{event.get_type()}_type')
@@ -84,14 +85,14 @@ async def handle_list_node(bot: Bot, event: Event, state: T_State):
 
 
 @omegaauth.got('auth_type', prompt='授权类型?\n【user/group】')
-async def handle_auth_type(bot: Bot, event: Event, state: T_State):
+async def handle_auth_type(bot: Bot, event: MessageEvent, state: T_State):
     auth_type = state["auth_type"]
     if auth_type not in ['user', 'group']:
         await omegaauth.finish('参数错误QAQ')
 
 
 @omegaauth.got('auth_id', prompt='请输入授权用户qq或授权群组群号:')
-async def handle_auth_id(bot: Bot, event: Event, state: T_State):
+async def handle_auth_id(bot: Bot, event: MessageEvent, state: T_State):
     auth_type = state["auth_type"]
     auth_id = state["auth_id"]
     if not re.match(r'^\d+$', auth_id):
@@ -129,7 +130,7 @@ async def handle_auth_id(bot: Bot, event: Event, state: T_State):
 
 
 @omegaauth.got('plugin', prompt='请输入想要配置权限节点的插件名称:')
-async def handle_plugin(bot: Bot, event: Event, state: T_State):
+async def handle_plugin(bot: Bot, event: MessageEvent, state: T_State):
     plugin = state["plugin"]
     auth_node_plugin = state["auth_node_plugin"]
     if plugin not in auth_node_plugin:
@@ -142,7 +143,7 @@ async def handle_plugin(bot: Bot, event: Event, state: T_State):
 
 
 @omegaauth.got('auth_node', prompt='请输入想要配置的权限节点名称:')
-async def handle_auth_node(bot: Bot, event: Event, state: T_State):
+async def handle_auth_node(bot: Bot, event: MessageEvent, state: T_State):
     auth_node = state["auth_node"]
     plugin = state["plugin"]
     plugin_auth_nodes = state["plugin_auth_nodes"]

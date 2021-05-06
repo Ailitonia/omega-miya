@@ -1,4 +1,5 @@
-from omega_miya.utils.Omega_Base.database import NBdb, DBResult
+from omega_miya.utils.Omega_Base.database import NBdb
+from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import History
 from datetime import datetime
 
@@ -12,7 +13,7 @@ class DBHistory(object):
 
     async def add(self, sub_type: str = None, event_id: int = None, group_id: int = None,
                   user_id: int = None, user_name: str = None,
-                  raw_data: str = None, msg_data: str = None) -> DBResult:
+                  raw_data: str = None, msg_data: str = None) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -22,9 +23,9 @@ class DBHistory(object):
                                         event_id=event_id, group_id=group_id, user_id=user_id, user_name=user_name,
                                         raw_data=raw_data, msg_data=msg_data, created_at=datetime.now())
                     session.add(new_event)
-                    result = DBResult(error=False, info='Success added', result=0)
+                    result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except Exception as e:
                 await session.rollback()
-                result = DBResult(error=True, info=repr(e), result=-1)
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result

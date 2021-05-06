@@ -15,6 +15,7 @@ from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decryp
 __plugin_name__ = 'OmegaEmail'
 __plugin_usage__ = r'''【OmegaEmail 邮箱插件】
 主要是用来收验证码OvO
+仅限群聊使用
 
 **Permission**
 Command

@@ -1,9 +1,12 @@
 import os
 import datetime
 from typing import Tuple, List
-from nonebot import logger
+from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 from omega_miya.utils.Omega_Base import Result
+
+global_config = get_driver().config
+TMP_PATH = global_config.tmp_path_
 
 
 class AssScriptException(Exception):
@@ -429,15 +432,15 @@ class ZhouChecker(object):
         self.__header_lines: List[AssScriptLine] = list()
         self.__styles = set()
 
-    def init_file(self, auto_style: bool = False) -> Result:
+    def init_file(self, auto_style: bool = False) -> Result.IntResult:
         """
         :param auto_style: 是否启用智能样式, 启用后会检查字幕文件使用样式数, 若只使用一种则自动停用style_mode
         """
         if not os.path.exists(self.__file_path):
-            return Result(error=True, info='File not exist', result=-1)
+            return Result.IntResult(error=True, info='File not exist', result=-1)
 
         if os.path.splitext(self.__file_path)[-1] not in ['.ass', '.ASS']:
-            return Result(error=True, info='File type error, not ass', result=-1)
+            return Result.IntResult(error=True, info='File type error, not ass', result=-1)
 
         with open(self.__file_path, 'r', encoding='utf8') as f_ass:
             line_count = 0
@@ -468,12 +471,12 @@ class ZhouChecker(object):
                     self.__style_mode = True
 
         self.__is_init = True
-        return Result(error=False, info='Success', result=0)
+        return Result.IntResult(error=False, info='Success', result=0)
 
-    def handle(self):
+    def handle(self) -> Result.DictResult:
         if not self.__is_init:
             logger.error('Handle processing error: 时轴文件未未初始化')
-            return Result(error=True, info='Handle without init file', result={})
+            return Result.DictResult(error=True, info='Handle without init file', result={})
         logger.info('Handle processing started')
 
         flash_mode = self.__flash_mode
@@ -643,21 +646,19 @@ class ZhouChecker(object):
         result_dict = {'output_txt_path': output_txt_path, 'output_ass_path': output_ass_path,
                        'character_count': character_count, 'overlap_count': overlap_count, 'flash_count': flash_count}
 
-        return Result(error=False, info='Success', result=result_dict)
+        return Result.DictResult(error=False, info='Success', result=result_dict)
 
 
-async def download_file(url: str, file_path: str) -> Result:
+async def download_file(url: str, file_name: str) -> Result.TextResult:
     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                              'Chrome/89.0.4389.114 Safari/537.36'}
     # 尝试从服务器下载资源
     fetcher = HttpFetcher(timeout=10, flag=f'zhoushen_hime', headers=headers)
-    download_result = await fetcher.get_bytes(url=url)
-    if download_result.error:
-        return Result(error=True, info=f'Download failed, error info: {download_result.info}', result=-1)
+    file_path = os.path.abspath(os.path.join(TMP_PATH, 'zhoushen_hime'))
 
-    try:
-        with open(file_path, 'wb+') as f:
-            f.write(download_result.result)
-        return Result(error=False, info='Success', result=1)
-    except Exception as e:
-        return Result(error=True, info=f'Write file failed, error info: {repr(e)}', result=-1)
+    download_result = await fetcher.download_file(url=url, path=file_path, file_name=file_name)
+
+    if download_result.success():
+        return Result.TextResult(error=False, info=file_name, result=download_result.result)
+    else:
+        return Result.TextResult(error=True, info=download_result.info, result='')

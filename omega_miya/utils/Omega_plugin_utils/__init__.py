@@ -7,6 +7,7 @@ from .cooldown import *
 from .permission import *
 from .http_fetcher import HttpFetcher
 from .picture_encoder import PicEncoder
+from .zip_utils import create_zip_file, create_7z_file
 
 
 def init_export(
@@ -48,6 +49,7 @@ __all__ = [
     'has_auth_node',
     'has_level_or_node',
     'permission_level',
+    'has_friend_private_permission',
     'AESEncryptStr',
     'PluginCoolDown',
     'check_and_set_global_cool_down',
@@ -58,6 +60,9 @@ __all__ = [
     'check_command_permission',
     'check_permission_level',
     'check_auth_node',
+    'check_friend_private_permission',
     'HttpFetcher',
-    'PicEncoder'
+    'PicEncoder',
+    'create_zip_file',
+    'create_7z_file'
 ]

@@ -1,7 +1,7 @@
 """
 Omega Miya 使用指南
 
-- /Omega Init - bot首次加入新群组后须使用本命令进行初始化
+- /Omega Init - bot首次加入新群组/首次添加bot好友后, 须使用本命令进行初始化
 - /Omega Upgrade - 手动更新本群组信息
 - /Omega Notice <on|off> - 为本群组配置通知权限(订阅类插件是否通知)
 - /Omega Command <on|off> - 为本群组配置命令权限(是否允许使用命令)
@@ -12,9 +12,9 @@ from nonebot import on_command, export, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBAuth, Result
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
+from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBAuth, DBFriend, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
 from .sys_background_scheduled import scheduler
 
@@ -31,19 +31,24 @@ Omega机器人管理
 /Omega Command <on|off>
 /Omega SetLevel <PermissionLevel>
 /Omega ShowPermission
-/Omega ResetPermission'''
+/Omega ResetPermission
+
+**Friend Private Only**
+/Omega Init
+/Omega Enable
+/Omega Disable'''
 
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
 
 # 注册事件响应器
 omega = on_command('Omega', rule=None, aliases={'omega'},
-                   permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER, priority=10, block=True)
+                   permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND, priority=10, block=True)
 
 
 # 修改默认参数处理
 @omega.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await omega.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -53,7 +58,7 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 @omega.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if args and len(args) == 1:
         state['sub_command'] = args[0]
@@ -67,6 +72,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 @omega.got('sub_command', prompt='执行操作?\n【Init/Upgrade/Notice/Command/SetLevel/ShowPermission/ResetPermission】')
 async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State):
+    if not isinstance(event, GroupMessageEvent):
+        return
     # 子命令列表
     command = {
         'init': group_init,
@@ -97,7 +104,99 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await omega.finish('Failed QAQ')
 
 
-async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+@omega.got('sub_command', prompt='执行操作?\n【Init/Enable/Disable】')
+async def handle_sub_command(bot: Bot, event: PrivateMessageEvent, state: T_State):
+    if not isinstance(event, PrivateMessageEvent):
+        return
+    # 子命令列表
+    command = {
+        'init': friend_init,
+        'enable': friend_private_enable,
+        'disable': friend_private_disable
+    }
+    # 需要回复信息的命令列表
+    need_reply = [
+        'init',
+        'enable',
+        'disable'
+    ]
+    sub_command = state["sub_command"]
+    # 在这里对参数进行验证
+    if sub_command not in command.keys():
+        await omega.finish('没有这个命令哦QAQ')
+    result = await command[sub_command](bot=bot, event=event, state=state)
+    if result.success():
+        logger.info(f"Private friend: {event.user_id}, {sub_command}, Success, {result.info}")
+        if sub_command in need_reply:
+            await omega.finish(result.result)
+        else:
+            await omega.finish('Success')
+    else:
+        logger.error(f"Private friend: {event.user_id}, {sub_command}, Failed, {result.info}")
+        if sub_command in need_reply:
+            await omega.finish(result.result)
+        else:
+            await omega.finish('Failed QAQ')
+
+
+async def friend_init(bot: Bot, event: PrivateMessageEvent, state: T_State) -> Result.TextResult:
+    user_id = event.user_id
+    # 调用api获取好友列表
+    friends_list = await bot.call_api('get_friend_list')
+    actual_friend_list = [int(x.get('user_id')) for x in friends_list]
+    if user_id not in actual_friend_list:
+        return Result.TextResult(error=True, info='Not in friends list', result='错误, 不在好友列表中')
+
+    user_info = [x for x in friends_list if int(x.get('user_id')) == user_id][0]
+    nickname = user_info.get('nickname')
+    remark = user_info.get('remark')
+
+    friend = DBFriend(user_id=user_id)
+
+    # 更新用户表
+    add_user_result = await friend.add(nickname=nickname)
+    if add_user_result.error:
+        return Result.TextResult(error=True, info=add_user_result.info, result='错误, 请联系管理员处理')
+
+    # 初始化好友authnode
+    await init_user_auth_node(user_id=user_id)
+
+    set_friend_result = await friend.set_friend(nickname=nickname, remark=remark, private_permissions=1)
+    if set_friend_result.success():
+        return Result.TextResult(error=False, info='Success', result='成功, 现在可以使用私聊命令了')
+    else:
+        return Result.TextResult(error=True, info=set_friend_result.info, result='错误, 请联系管理员处理')
+
+
+async def friend_private_enable(bot: Bot, event: PrivateMessageEvent, state: T_State) -> Result.TextResult:
+    user_id = event.user_id
+
+    # 初始化好友authnode
+    await init_user_auth_node(user_id=user_id)
+
+    friend = DBFriend(user_id=user_id)
+    result = await friend.set_private_permission(private_permissions=1)
+    if result.success():
+        return Result.TextResult(error=False, info='Success', result='成功, 已启用私聊功能, 权限节点已设置为默认值')
+    else:
+        return Result.TextResult(error=True, info=result.info, result='失败, 请先尝试"/Omega Init", 若仍失败请联系管理员处理')
+
+
+async def friend_private_disable(bot: Bot, event: PrivateMessageEvent, state: T_State) -> Result.TextResult:
+    user_id = event.user_id
+
+    # 初始化好友authnode
+    await init_user_auth_node(user_id=user_id)
+
+    friend = DBFriend(user_id=user_id)
+    result = await friend.set_private_permission(private_permissions=0)
+    if result.success():
+        return Result.TextResult(error=False, info='Success', result='成功, 已禁用私聊功能, 权限节点已重置为默认值')
+    else:
+        return Result.TextResult(error=True, info=result.info, result='失败, 请先尝试"/Omega Init", 若仍失败请联系管理员处理')
+
+
+async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     # 调用api获取群信息
     group_info = await bot.call_api(api='get_group_info', group_id=group_id)
@@ -107,18 +206,18 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
     # 添加并初始化群信息
     _result = await group.add(name=group_name)
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     _result = await group.permission_set(notice=1, command=1, level=10)
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     # 初始化群组authnode
     await init_group_auth_node(group_id=group_id)
 
     _result = await group.member_clear()
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     # 添加用户
     group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
@@ -145,10 +244,10 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
 
     await group.init_member_status()
 
-    return Result(False, f'Success with ignore user: {failed_user}', 0)
+    return Result.IntResult(False, f'Success with ignore user: {failed_user}', 0)
 
 
-async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     # 调用api获取群信息
     group_info = await bot.call_api(api='get_group_info', group_id=group_id)
@@ -158,7 +257,7 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
     # 更新群信息
     _result = await group.add(name=group_name)
     if not _result.success():
-        return Result(True, _result.info, -1)
+        return Result.IntResult(True, _result.info, -1)
 
     # 更新用户
     group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
@@ -202,15 +301,15 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
 
     await group.init_member_status()
 
-    return Result(False, f'Success with ignore user: {failed_user}', 0)
+    return Result.IntResult(False, f'Success with ignore user: {failed_user}', 0)
 
 
-async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, -1)
+        return Result.IntResult(True, permission_res.info, -1)
 
     _notice, group_command, group_level = permission_res.result
 
@@ -219,17 +318,17 @@ async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -
     elif state['sub_arg'] == 'off':
         result = await group.permission_set(notice=0, command=group_command, level=group_level)
     else:
-        result = Result(True, 'Missing parameters or Illegal parameter', -1)
+        result = Result.IntResult(True, 'Missing parameters or Illegal parameter', -1)
 
     return result
 
 
-async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, -1)
+        return Result.IntResult(True, permission_res.info, -1)
 
     group_notice, _command, group_level = permission_res.result
 
@@ -238,17 +337,17 @@ async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) 
     elif state['sub_arg'] == 'off':
         result = await group.permission_set(notice=group_notice, command=0, level=group_level)
     else:
-        result = Result(True, 'Missing parameters or Illegal parameter', -1)
+        result = Result.IntResult(True, 'Missing parameters or Illegal parameter', -1)
 
     return result
 
 
-async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, -1)
+        return Result.IntResult(True, permission_res.info, -1)
 
     group_notice, group_command, _level = permission_res.result
 
@@ -256,26 +355,26 @@ async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) ->
         group_level = int(state['sub_arg'])
         result = await group.permission_set(notice=group_notice, command=group_command, level=group_level)
     except Exception as e:
-        result = Result(True, f'Missing parameters or Illegal parameter, {e}', -1)
+        result = Result.IntResult(True, f'Missing parameters or Illegal parameter, {e}', -1)
 
     return result
 
 
-async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
     permission_res = await group.permission_info()
     if permission_res.error:
-        return Result(True, permission_res.info, '')
+        return Result.TextResult(True, permission_res.info, '')
 
     group_notice, group_command, group_level = permission_res.result
 
     msg = f'当前群组权限: \n\nNotice: {group_notice}\nCommand: {group_command}\nPermissionLevel: {group_level}'
-    result = Result(False, 'Success', msg)
+    result = Result.TextResult(False, 'Success', msg)
     return result
 
 
-async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result:
+async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
     group = DBGroup(group_id=group_id)
 
@@ -306,3 +405,26 @@ async def init_group_auth_node(group_id: int):
         res = await auth.set(allow_tag=auth_node.allow_tag, deny_tag=auth_node.deny_tag, auth_info=auth_node.auth_info)
         if res.error:
             logger.opt(colors=True).error(f'配置默认权限失败, <ly>{auth_node.node}/{group_id}</ly>, error: {res.info}')
+
+
+async def init_user_auth_node(user_id: int):
+    """
+    为好友配置权限节点默认值
+    """
+    @dataclass
+    class AuthNode:
+        node: str
+        allow_tag: int
+        deny_tag: int
+        auth_info: str
+
+    default_auth_nodes = [
+        AuthNode(node='Omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd'),
+        AuthNode(node='setu.setu', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用setu')
+    ]
+
+    for auth_node in default_auth_nodes:
+        auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node.node)
+        res = await auth.set(allow_tag=auth_node.allow_tag, deny_tag=auth_node.deny_tag, auth_info=auth_node.auth_info)
+        if res.error:
+            logger.opt(colors=True).error(f'配置默认权限失败, <ly>{auth_node.node}/{user_id}</ly>, error: {res.info}')

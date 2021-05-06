@@ -12,6 +12,7 @@ __plugin_usage__ = r'''【抽卡】
 模拟各种抽卡
 没有保底的啦!
 不要上头啊喂!
+仅限群聊使用
 
 **Permission**
 Command & Lv.10

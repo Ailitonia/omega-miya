@@ -14,7 +14,7 @@ class PluginCoolDown:
     skip_auth_node: str = field(default='skip_cd', init=False)
 
 
-async def check_and_set_global_cool_down(minutes: int) -> Result:
+async def check_and_set_global_cool_down(minutes: int) -> Result.IntResult:
     check = await DBCoolDownEvent.check_global_cool_down_event()
     if check.result == 1:
         return check
@@ -28,7 +28,7 @@ async def check_and_set_global_cool_down(minutes: int) -> Result:
         return check
 
 
-async def check_and_set_plugin_cool_down(minutes: int, plugin: str) -> Result:
+async def check_and_set_plugin_cool_down(minutes: int, plugin: str) -> Result.IntResult:
     check = await DBCoolDownEvent.check_plugin_cool_down_event(plugin=plugin)
     if check.result == 1:
         return check
@@ -42,7 +42,7 @@ async def check_and_set_plugin_cool_down(minutes: int, plugin: str) -> Result:
         return check
 
 
-async def check_and_set_group_cool_down(minutes: int, plugin: str, group_id: int) -> Result:
+async def check_and_set_group_cool_down(minutes: int, plugin: str, group_id: int) -> Result.IntResult:
     check = await DBCoolDownEvent.check_group_cool_down_event(plugin=plugin, group_id=group_id)
     if check.result == 1:
         return check
@@ -56,7 +56,7 @@ async def check_and_set_group_cool_down(minutes: int, plugin: str, group_id: int
         return check
 
 
-async def check_and_set_user_cool_down(minutes: int, plugin: str, user_id: int) -> Result:
+async def check_and_set_user_cool_down(minutes: int, plugin: str, user_id: int) -> Result.IntResult:
     check = await DBCoolDownEvent.check_user_cool_down_event(plugin=plugin, user_id=user_id)
     if check.result == 1:
         return check
