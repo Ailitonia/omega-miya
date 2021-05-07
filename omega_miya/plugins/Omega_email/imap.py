@@ -109,6 +109,8 @@ class EmailImap(object):
                 if part.get_content_type() == "text/plain":
                     charset = part.get_content_charset()
                     body = part.get_payload(decode=True)
+                    if not body:
+                        continue
                     if charset and type(body) == bytes:
                         body = str(body, encoding=charset)
                     elif type(body) == bytes:
@@ -119,6 +121,8 @@ class EmailImap(object):
                 elif part.get_content_type() == "text/html":
                     charset = part.get_content_charset()
                     html = part.get_payload(decode=True)
+                    if not html:
+                        continue
                     if charset and type(html) == bytes:
                         html = str(html, encoding=charset)
                     elif type(html) == bytes:

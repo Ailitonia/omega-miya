@@ -40,9 +40,9 @@ async def get_unseen_mail_info(address: str, server_host: str, password: str) ->
 
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, __get_unseen_mail_info)
-    for email in result.result:
-        await DBEmail(mail_hash=email.hash).add(date=email.date, header=email.header, sender=email.sender,
-                                                to=email.to, body=email.body, html=email.html)
+    # for email in result.result:
+    #     await DBEmail(mail_hash=email.hash).add(date=email.date, header=email.header, sender=email.sender,
+    #                                             to=email.to, body=email.body, html=email.html)
 
     return result
 
