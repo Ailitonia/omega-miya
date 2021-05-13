@@ -1,10 +1,15 @@
 import asyncio
 import random
-from nonebot import logger, require, get_bots
+from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBFriend, DBSubscription, DBDynamic, DBTable
-from .utils import get_user_dynamic_history, get_user_info, get_user_dynamic, get_dynamic_info, pic_2_base64
-from .utils import ENABLE_DYNAMIC_CHECK_POOL_MODE
+from omega_miya.utils.bilibili_utils import BiliUser, BiliDynamic, BiliRequestUtils
+from .config import Config
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_DYNAMIC_CHECK_POOL_MODE = plugin_config.enable_dynamic_check_pool_mode
 
 
 # 检查池模式使用的检查队列
@@ -38,10 +43,11 @@ async def dynamic_db_upgrade():
     sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 2)
     for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=2, sub_id=sub_id)
-        _res = await get_user_info(user_uid=sub_id)
-        if not _res.success():
-            logger.error(f'获取用户信息失败, uid: {sub_id}, error: {_res.info}')
-        up_name = _res.result.get('name')
+        user_info_result = await BiliUser(user_id=sub_id).get_info()
+        if user_info_result.error:
+            logger.error(f'dynamic_db_upgrade: 更新用户信息失败, uid: {sub_id}, error: {user_info_result.info}')
+            continue
+        up_name = user_info_result.result.name
         _res = await sub.add(up_name=up_name, live_info='B站动态')
         if not _res.success():
             logger.error(f'dynamic_db_upgrade: 更新用户信息失败, uid: {sub_id}, error: {_res.info}')
@@ -77,28 +83,44 @@ async def bilibili_dynamic_monitor():
         logger.debug(f'bilibili_dynamic_monitor: no dynamic subscription, ignore.')
         return
 
-    # 注册一个异步函数用于检查动态
-    async def check_dynamic(dy_uid):
-        # 获取动态并返回动态类型及内容
-        try:
-            _res = await get_user_dynamic_history(dy_uid=dy_uid)
-            if not _res.success():
-                logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {_res.info}')
-                return
-        except Exception as _e:
-            logger.error(f'bilibili_dynamic_monitor: 获取动态失败, uid: {dy_uid}, error: {repr(_e)}')
-            return
+    # 处理图片序列
+    async def pic2base64(pic_list: list) -> str:
+        # 处理图片序列
+        pic_segs = []
+        for pic_url in pic_list:
+            pic_result = await BiliRequestUtils.pic_2_base64(url=pic_url)
+            pic_b64 = pic_result.result
+            pic_segs.append(str(MessageSegment.image(pic_b64)))
+        pic_seg = '\n'.join(pic_segs)
+        return pic_seg
 
-        dynamic_info = dict(_res.result)
+    # 注册一个异步函数用于检查动态
+    async def check_dynamic(user_id: int):
+        # 获取动态并返回动态类型及内容
+        user_dynamic_result = await BiliUser(user_id=user_id).get_dynamic_history()
+        if user_dynamic_result.error:
+            logger.error(f'bilibili_dynamic_monitor: 获取用户 {user_id} 动态失败, error: {user_dynamic_result.info}')
+
+        # 解析动态内容
+        dynamics_data = []
+        for data in user_dynamic_result.result:
+            data_parse_result = BiliDynamic.data_parser(dynamic_data=data)
+            if data_parse_result.error:
+                logger.error(f'bilibili_dynamic_monitor: 解析新动态时发生了错误, error: {data_parse_result.info}')
+                continue
+            dynamics_data.append(data_parse_result)
 
         # 用户所有的动态id
-        _res = await get_user_dynamic(user_id=dy_uid)
-        if not _res.success():
-            logger.error(f'bilibili_dynamic_monitor: 获取用户已有动态失败, uid: {dy_uid}, error: {_res.info}')
+        dynamic_table = DBTable(table_name='Bilidynamic')
+        exist_dynamic_result = await dynamic_table.list_col_with_condition('dynamic_id', 'uid', user_id)
+        if exist_dynamic_result.error:
+            logger.error(f'bilibili_dynamic_monitor: 获取用户 {user_id} 已有动态失败, error: {exist_dynamic_result.info}')
             return
-        user_dy_id_list = list(_res.result)
+        user_dynamic_list = [int(x) for x in exist_dynamic_result.result]
 
-        sub = DBSubscription(sub_type=2, sub_id=dy_uid)
+        new_dynamic_data = [data for data in dynamics_data if data.result.dynamic_id not in user_dynamic_list]
+
+        sub = DBSubscription(sub_type=2, sub_id=user_id)
 
         # 获取订阅了该直播间的所有群
         sub_group_res = await sub.sub_group_list()
@@ -112,135 +134,115 @@ async def bilibili_dynamic_monitor():
         # 需通知的好友
         notice_friends = list(set(all_noitce_friends) & set(sub_friend))
 
-        for num in range(len(dynamic_info)):
-            try:
-                # 如果有新的动态
-                if dynamic_info[num]['id'] not in user_dy_id_list:
-                    logger.info(f"用户: {dy_uid}/{dynamic_info[num]['name']} 新动态: {dynamic_info[num]['id']}")
-                    # 转发的动态
-                    if dynamic_info[num]['type'] == 1:
-                        # 获取原动态信息
-                        origin_dynamic_id = dynamic_info[num]['origin']
-                        _dy_res = await get_dynamic_info(dynamic_id=origin_dynamic_id)
-                        if not _dy_res.success():
-                            msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}'.format(
-                                dynamic_info[num]['name'], 'Unknown',
-                                dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
-                                'Unknown', '获取原动态失败'
-                            )
-                        else:
-                            origin_dynamic_info = _dy_res.result
-                            # 原动态type=2 或 8, 带图片
-                            if origin_dynamic_info['type'] in [2, 8]:
-                                # 处理图片序列
-                                pic_segs = ''
-                                for pic_url in origin_dynamic_info['origin_pics']:
-                                    _res = await pic_2_base64(pic_url)
-                                    pic_b64 = _res.result
-                                    pic_segs += f'{MessageSegment.image(pic_b64)}\n'
-                                msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}\n{}'.format(
-                                    dynamic_info[num]['name'], origin_dynamic_info['name'],
-                                    dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
-                                    origin_dynamic_info['name'], origin_dynamic_info['content'],
-                                    pic_segs
-                                )
-                            # 原动态为其他类型, 无图
-                            else:
-                                msg = '{}转发了{}的动态！\n\n“{}”\n{}\n{}\n@{}: {}'.format(
-                                    dynamic_info[num]['name'], origin_dynamic_info['name'],
-                                    dynamic_info[num]['content'], dynamic_info[num]['url'], '=' * 16,
-                                    origin_dynamic_info['name'], origin_dynamic_info['content']
-                                )
-                    # 原创的动态（有图片）
-                    elif dynamic_info[num]['type'] == 2:
-                        # 处理图片序列
-                        pic_segs = ''
-                        for pic_url in dynamic_info[num]['pic_urls']:
-                            _res = await pic_2_base64(pic_url)
-                            pic_b64 = _res.result
-                            pic_segs += f'{MessageSegment.image(pic_b64)}\n'
-                        msg = '{}发布了新动态！\n\n“{}”\n{}\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['content'],
-                            dynamic_info[num]['url'], pic_segs)
-                    # 原创的动态（无图片）
-                    elif dynamic_info[num]['type'] == 4:
-                        msg = '{}发布了新动态！\n\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['content'], dynamic_info[num]['url'])
-                    # 视频
-                    elif dynamic_info[num]['type'] == 8:
-                        cover_pic_url = dynamic_info[num].get('cover_pic_url')
-                        _res = await pic_2_base64(cover_pic_url)
-                        pic_seg = MessageSegment.image(_res.result)
-                        if dynamic_info[num]['content']:
-                            msg = '{}发布了新的视频！\n\n《{}》\n“{}”\n{}\n{}'.format(
-                                dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                                dynamic_info[num]['content'], dynamic_info[num]['url'], pic_seg)
-                        else:
-                            msg = '{}发布了新的视频！\n\n《{}》\n{}\n{}'.format(
-                                dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                                dynamic_info[num]['url'], pic_seg)
-                    # 小视频
-                    elif dynamic_info[num]['type'] == 16:
-                        msg = '{}发布了新的小视频动态！\n\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['content'], dynamic_info[num]['url'])
-                    # 番剧
-                    elif dynamic_info[num]['type'] in [32, 512]:
-                        msg = '{}发布了新的番剧！\n\n《{}》\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['origin'], dynamic_info[num]['url'])
-                    # 文章
-                    elif dynamic_info[num]['type'] == 64:
-                        msg = '{}发布了新的文章！\n\n《{}》\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                            dynamic_info[num]['content'], dynamic_info[num]['url'])
-                    # 音频
-                    elif dynamic_info[num]['type'] == 256:
-                        msg = '{}发布了新的音乐！\n\n《{}》\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                            dynamic_info[num]['content'], dynamic_info[num]['url'])
-                    # B站活动相关
-                    elif dynamic_info[num]['type'] == 2048:
-                        msg = '{}发布了一条活动相关动态！\n\n【{}】\n“{}”\n{}'.format(
-                            dynamic_info[num]['name'], dynamic_info[num]['origin'],
-                            dynamic_info[num]['content'], dynamic_info[num]['url'])
-                    else:
-                        logger.warning(f"未知的动态类型: {dynamic_info[num]['type']}, id: {dynamic_info[num]['id']}")
-                        msg = None
+        for data in new_dynamic_data:
+            dynamic_info = data.result
+            dynamic_card = dynamic_info.data
 
-                    if msg:
-                        # 向群组发送消息
-                        for group_id in notice_groups:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                                    logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
-                        # 向好友发送消息
-                        for user_id in notice_friends:
-                            for _bot in bots:
-                                try:
-                                    await _bot.call_api(api='send_private_msg', user_id=user_id, message=msg)
-                                    logger.info(f"向好友: {user_id} 发送新动态通知: {dynamic_info[num]['id']}")
-                                except Exception as _e:
-                                    logger.warning(f"向好友: {user_id} 发送新动态通知: {dynamic_info[num]['id']} 失败, "
-                                                   f"error: {repr(_e)}")
-                                    continue
+            dynamic_id = dynamic_info.dynamic_id
+            user_name = dynamic_info.user_name
+            desc = dynamic_info.desc
+            url = dynamic_info.url
 
-                    # 更新动态内容到数据库
-                    dy_id = dynamic_info[num]['id']
-                    dy_type = dynamic_info[num]['type']
-                    content = dynamic_info[num]['content']
-                    # 向数据库中写入动态信息
-                    dynamic = DBDynamic(uid=dy_uid, dynamic_id=dy_id)
-                    _res = await dynamic.add(dynamic_type=dy_type, content=content)
-                    if _res.success():
-                        logger.info(f"向数据库写入动态信息: {dynamic_info[num]['id']} 成功")
+            content = dynamic_card.content
+            title = dynamic_card.title
+            description = dynamic_card.description
+
+            # 转发的动态
+            if dynamic_info.type == 1:
+                # 转发的动态还需要获取原动态信息
+                orig_dy_info_result = await BiliDynamic(dynamic_id=dynamic_info.orig_dy_id).get_info()
+                if orig_dy_info_result.success():
+                    orig_dy_data_result = BiliDynamic.data_parser(dynamic_data=orig_dy_info_result.result)
+                    if orig_dy_data_result.success():
+                        # 原动态type=2 或 8, 带图片
+                        if orig_dy_data_result.result.type in [2, 8]:
+                            # 处理图片序列
+                            pic_seg = await pic2base64(pic_list=orig_dy_data_result.result.data.pictures)
+                            orig_user = orig_dy_data_result.result.user_name
+                            orig_contant = orig_dy_data_result.result.data.content
+                            msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n" \
+                                  f"@{orig_user}: {orig_contant}\n{pic_seg}"
+                        # 原动态为其他类型, 无图
+                        else:
+                            orig_user = orig_dy_data_result.result.user_name
+                            orig_contant = orig_dy_data_result.result.data.content
+                            msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n" \
+                                  f"@{orig_user}: {orig_contant}"
                     else:
-                        logger.error(f"向数据库写入动态信息: {dynamic_info[num]['id']} 失败")
-            except Exception as _e:
-                logger.error(f'bilibili_dynamic_monitor: 解析新动态: {dy_uid} 的时发生了错误, error info: {repr(_e)}')
+                        msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n@Unknown: 获取原动态失败"
+                else:
+                    msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n@Unknown: 获取原动态失败"
+            # 原创的动态（有图片）
+            elif dynamic_info.type == 2:
+                # 处理图片序列
+                pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+                msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{pic_seg}"
+            # 原创的动态（无图片）
+            elif dynamic_info.type == 4:
+                msg = f"{user_name}{desc}!\n\n“{content}”\n{url}"
+            # 视频
+            elif dynamic_info.type == 8:
+                # 处理图片序列
+                pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+                if content:
+                    msg = f"{user_name}{desc}!\n\n《{title}》\n\n“{content}”\n{url}\n{pic_seg}"
+                else:
+                    msg = f"{user_name}{desc}!\n\n《{title}》\n\n{description}\n{url}\n{pic_seg}"
+            # 小视频
+            elif dynamic_info.type == 16:
+                msg = f"{user_name}{desc}!\n\n“{content}”\n{url}"
+            # 番剧
+            elif dynamic_info.type in [32, 512]:
+                # 处理图片序列
+                pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+                msg = f"{user_name}{desc}!\n\n《{title}》\n\n{content}\n{url}\n{pic_seg}"
+            # 文章
+            elif dynamic_info.type == 64:
+                # 处理图片序列
+                pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+                msg = f"{user_name}{desc}!\n\n《{title}》\n\n{content}\n{url}\n{pic_seg}"
+            # 音频
+            elif dynamic_info.type == 256:
+                # 处理图片序列
+                pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+                msg = f"{user_name}{desc}!\n\n《{title}》\n\n{content}\n{url}\n{pic_seg}"
+            # B站活动相关
+            elif dynamic_info.type == 2048:
+                if description:
+                    msg = f"{user_name}{desc}!\n\n【{title} - {description}】\n\n“{content}”\n{url}"
+                else:
+                    msg = f"{user_name}{desc}!\n\n【{title}】\n“{content}”\n\n{url}"
+            else:
+                logger.warning(f"未知的动态类型: {type}, id: {dynamic_id}")
+                continue
+
+            # 向群组发送消息
+            for group_id in notice_groups:
+                for _bot in bots:
+                    try:
+                        await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
+                        logger.info(f"向群组: {group_id} 发送新动态通知: {dynamic_id}")
+                    except Exception as _e:
+                        logger.warning(f"向群组: {group_id} 发送新动态通知: {dynamic_id} 失败, error: {repr(_e)}")
+                        continue
+            # 向好友发送消息
+            for friend_user_id in notice_friends:
+                for _bot in bots:
+                    try:
+                        await _bot.call_api(api='send_private_msg', user_id=friend_user_id, message=msg)
+                        logger.info(f"向好友: {friend_user_id} 发送新动态通知: {dynamic_id}")
+                    except Exception as _e:
+                        logger.warning(f"向好友: {friend_user_id} 发送新动态通知: {dynamic_id} 失败, error: {repr(_e)}")
+                        continue
+
+            # 更新动态内容到数据库
+            # 向数据库中写入动态信息
+            dynamic = DBDynamic(uid=user_id, dynamic_id=dynamic_id)
+            _res = await dynamic.add(dynamic_type=dynamic_info.type, content=content)
+            if _res.success():
+                logger.info(f"向数据库写入动态信息: {dynamic_id} 成功")
+            else:
+                logger.error(f"向数据库写入动态信息: {dynamic_id} 失败, error: {_res.info}")
 
     # 启用了检查池模式
     if ENABLE_DYNAMIC_CHECK_POOL_MODE:
@@ -275,7 +277,7 @@ async def bilibili_dynamic_monitor():
             logger.debug(f"bilibili_dynamic_monitor: pool mode enable, checking completed, "
                          f"checked: {', '.join([str(x) for x in now_checking])}.")
         except Exception as e:
-            logger.error(f'bilibili_dynamic_monitor: pool mode enable, error occurred in checking  {repr(e)}')
+            logger.error(f'bilibili_dynamic_monitor: pool mode enable, error occurred in checking: {repr(e)}')
 
     # 没有启用检查池模式
     else:

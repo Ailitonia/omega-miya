@@ -7,8 +7,8 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from omega_miya.utils.Omega_Base import DBGroup, DBFriend, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import get_user_info
-from .monitor import *
+from omega_miya.utils.bilibili_utils import BiliUser
+from .monitor import scheduler
 
 
 # Custom plugin usage text
@@ -107,11 +107,11 @@ async def handle_uid(bot: Bot, event: MessageEvent, state: T_State):
     uid = state['uid']
     if not re.match(r'^\d+$', uid):
         await bilibili_dynamic.reject('这似乎不是UID呢, 请重新输入:')
-    _res = await get_user_info(user_uid=uid)
+    _res = await BiliUser(user_id=int(uid)).get_info()
     if not _res.success():
         logger.error(f'获取用户信息失败, uid: {uid}, error: {_res.info}')
         await bilibili_dynamic.finish('获取用户信息失败了QAQ, 请稍后再试~')
-    up_name = _res.result.get('name')
+    up_name = _res.result.name
     state['up_name'] = up_name
     msg = f'即将{sub_command}【{up_name}】的动态!'
     await bilibili_dynamic.send(msg)
