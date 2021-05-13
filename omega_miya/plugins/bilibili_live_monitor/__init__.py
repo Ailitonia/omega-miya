@@ -7,8 +7,9 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from omega_miya.utils.Omega_Base import DBGroup, DBFriend, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import get_live_info, get_user_info
-from .monitor import *
+from omega_miya.utils.bilibili_utils import BiliLiveRoom
+from .data_source import BiliLiveChecker
+from .monitor import scheduler
 
 
 # Custom plugin usage text
@@ -108,16 +109,11 @@ async def handle_room_id(bot: Bot, event: MessageEvent, state: T_State):
     room_id = state['room_id']
     if not re.match(r'^\d+$', room_id):
         await bilibili_live.reject('这似乎不是房间号呢, 房间号应为纯数字, 请重新输入:')
-    _res = await get_live_info(room_id=room_id)
-    if not _res.success():
-        logger.error(f'获取直播间信息失败, room_id: {room_id}, error: {_res.info}')
+    up_name_result = await BiliLiveRoom(room_id=int(room_id)).get_user_info()
+    if up_name_result.error:
+        logger.error(f'获取直播间信息失败, room_id: {room_id}, error: {up_name_result.info}')
         await bilibili_live.finish('获取直播间信息失败了QAQ, 请稍后再试~')
-    up_uid = _res.result.get('uid')
-    _res = await get_user_info(user_uid=up_uid)
-    if not _res.success():
-        logger.error(f'获取直播间信息失败, room_id: {room_id}, error: {_res.info}')
-        await bilibili_live.finish('获取直播间信息失败了QAQ, 请稍后再试~')
-    up_name = _res.result.get('name')
+    up_name = up_name_result.result.name
     state['up_name'] = up_name
     msg = f'即将{sub_command}【{up_name}】的直播间!'
     await bilibili_live.send(msg)
@@ -181,7 +177,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
             return _res
         # 添加直播间时需要刷新全局监控列表
         # 执行一次初始化
-        await init_add_live_info(room_id=room_id)
+        await BiliLiveChecker(room_id=int(room_id)).init_live_info()
         result = Result.IntResult(error=False, info='Success', result=0)
         return result
     elif isinstance(event, PrivateMessageEvent):
@@ -197,7 +193,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
             return _res
         # 添加直播间时需要刷新全局监控列表
         # 执行一次初始化
-        await init_add_live_info(room_id=room_id)
+        await BiliLiveChecker(room_id=int(room_id)).init_live_info()
         result = Result.IntResult(error=False, info='Success', result=0)
         return result
     else:
