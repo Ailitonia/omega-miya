@@ -97,8 +97,12 @@ class BiliDynamic(object):
             pictures = []
             # type=1, 这是一条转发的动态
             if type_ == 1:
-                origin_user = dynamic_card['origin_user']['info']['uname']
-                desc = f'转发了{origin_user}的动态'
+                origin_user = dynamic_card.get('origin_user')
+                if origin_user:
+                    origin_user_name = origin_user['info'].get('uname')
+                    desc = f'转发了{origin_user_name}的动态'
+                else:
+                    desc = f'转发了一条动态'
                 content = dynamic_card['item']['content']
                 title = None
                 description = None
@@ -153,6 +157,7 @@ class BiliDynamic(object):
             elif type_ == 512:
                 desc = '发布了新的番剧'
                 content = dynamic_card['index_title']
+                pictures.append(dynamic_card['cover'])
                 title = dynamic_card['apiSeasonInfo']['title']
                 description = None
             # type=2048, B站活动相关
