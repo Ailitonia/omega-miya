@@ -57,10 +57,10 @@ class BiliDynamic(object):
         try:
             dynamic_desc = dynamic_data['desc']
             dynamic_id = dynamic_desc['dynamic_id']
-            user_id = dynamic_desc['user_profile']['info']['uid']
-            user_name = dynamic_desc['user_profile']['info']['uname']
             type_ = dynamic_desc['type']
             url = f"{cls.__DYNAMIC_ROOT_URL}{dynamic_id}"
+
+            # 处理一些特殊情况
             if type_ == 1:
                 # type=1, 这是一条转发的动态
                 orig_dy_id = dynamic_desc['origin']['dynamic_id']
@@ -71,6 +71,15 @@ class BiliDynamic(object):
             else:
                 orig_dy_id = 0
                 orig_type = 0
+
+            if type_ == 512:
+                # 番剧特殊动态类型, 无用户信息
+                user_id = 0
+                user_name = '哔哩哔哩番剧'
+            else:
+                user_id = dynamic_desc['user_profile']['info']['uid']
+                user_name = dynamic_desc['user_profile']['info']['uname']
+
         except Exception as e:
             logger.error(f'BiliDynamic: Parse dynamic desc failed, error info: {repr(e)}')
             return BiliResult.DynamicInfoResult(
