@@ -8,7 +8,7 @@ from nonebot.adapters.cqhttp.message import MessageSegment
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_plugin_utils import init_permission_state
-from .resources import MiyaVoice
+from .resources import miya_voices
 
 """
 miya按钮bot实现版本
@@ -36,7 +36,7 @@ miya_button = button.on_endswith(msg='喵一个')
 async def handle_miya_button(bot: Bot, event: GroupMessageEvent, state: T_State):
     arg = str(event.get_plaintext()).strip().lower()
     voice = re.sub('喵一个', '', arg)
-    voice_file = MiyaVoice().get_voice_filepath(voice=voice)
+    voice_file = miya_voices.get_voice(keyword=voice)
     if not os.path.exists(voice_file):
         await miya_button.send('喵？')
     else:
