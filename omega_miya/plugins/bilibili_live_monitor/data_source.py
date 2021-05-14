@@ -15,9 +15,6 @@ live_status = {}
 live_up_name = {}
 live_uid_by_rid = {}
 
-# 检查池模式使用的检查队列
-checking_pool = []
-
 
 class BiliLiveChecker(object):
     def __init__(self, room_id: int):
