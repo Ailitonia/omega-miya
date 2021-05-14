@@ -28,20 +28,15 @@ def __text_to_img(text: str, image_wight: int = 512) -> Image:
             spl_num = num
     else:
         spl_list.append(text[spl_num:])
-    test_main_fin = ''
-    for item in spl_list:
-        test_main_fin += item + '\n'
+    test_main_fin = '\n' + '\n'.join(spl_list) + '\n'
 
+    # 绘制文字图层
     text_w, text_h = font_main.getsize_multiline(test_main_fin)
-
-    image_height = text_h + 100
-
-    text_main_img = Image.new(mode="RGBA", size=(image_wight, text_h), color=(0, 0, 0, 0))
-
-    ImageDraw.Draw(text_main_img).multiline_text(
-        xy=(0, 0), text=test_main_fin, font=font_main, fill=(0, 0, 0))
+    text_main_img = Image.new(mode="RGBA", size=(text_w, text_h), color=(0, 0, 0, 0))
+    ImageDraw.Draw(text_main_img).multiline_text(xy=(0, 0), text=test_main_fin, font=font_main, fill=(0, 0, 0))
 
     # 初始化背景图层
+    image_height = text_h + 100
     background = Image.new(mode="RGB", size=(image_wight, image_height), color=(255, 255, 255))
 
     # 向背景图层中置入文字图层
