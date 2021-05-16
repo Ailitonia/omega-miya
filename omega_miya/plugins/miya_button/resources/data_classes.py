@@ -25,7 +25,7 @@ class Voice:
         if not result:
             result = [x for x in self.voices if x.tag == keyword]
         if not result:
-            return None
+            result = self.voices
 
         voice = random.choice(result)
         return os.path.abspath(os.path.join(voice.folder_path, voice.file_name))
