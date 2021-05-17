@@ -25,25 +25,31 @@ UP_OPERATOR = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='异客/Passenger', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='森蚺/Eunectes', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
+            Operator(name='阿/Aak', star=6, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
         zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='熔泉/Toddifons', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='白面鸮/Ptilopsis', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='慑砂/Sesa', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='真理/Истина', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+            Operator(name='蓝毒/Blue Poison', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
     )
 ]
 
-
 ALL_OPERATOR = [
+    Operator(name='浊心斯卡蒂/Skadi the Corrupting Heart', star=6, limited=True, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name="凯尔希/Kal'tsit", star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='歌蕾蒂娅/Gladiia', star=6, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='赤冬/Akafuyu', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='异客/Passenger', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='熔泉/Toddifons', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='暴雨/Heavyrain', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
@@ -258,9 +264,9 @@ def draw_one_operator() -> str:
     else:
         # 对应星级无up活动
         acquire_operator = random.sample(
-                [x.name for x in ALL_OPERATOR if (
-                        x.star == star and not any([x.limited, x.event_only, x.recruit_only, x.special_only]))],
-                k=1)[0]
+            [x.name for x in ALL_OPERATOR if (
+                    x.star == star and not any([x.limited, x.event_only, x.recruit_only, x.special_only]))],
+            k=1)[0]
 
     return f"【{star}★】{acquire_operator}"
 
