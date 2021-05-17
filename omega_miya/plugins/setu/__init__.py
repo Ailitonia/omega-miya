@@ -32,7 +32,7 @@ moepic
 群组共享冷却时间
 1 Minutes
 用户冷却时间
-5 Minutes
+1 Minutes
 
 **Usage**
 /来点涩图 [tag]
@@ -51,7 +51,7 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 5),
+    PluginCoolDown(PluginCoolDown.user_type, 1),
     PluginCoolDown(PluginCoolDown.group_type, 1)
 ]
 

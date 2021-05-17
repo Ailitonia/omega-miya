@@ -420,9 +420,7 @@ async def init_user_auth_node(user_id: int):
         auth_info: str
 
     default_auth_nodes = [
-        AuthNode(node='Omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd'),
-        AuthNode(node='setu.setu', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用setu'),
-        AuthNode(node='pixiv.allow_r18', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用pivix r18')
+        AuthNode(node='Omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd')
     ]
 
     for auth_node in default_auth_nodes:
