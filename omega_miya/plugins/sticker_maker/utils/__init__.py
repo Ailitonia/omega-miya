@@ -2,11 +2,13 @@ import os
 from io import BytesIO
 from datetime import datetime
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-from nonebot import logger
+from nonebot import logger, get_driver
 from PIL import Image
 from .default_render import *
 from .static_render import *
-from .sorry_render import render_gif
+
+global_config = get_driver().config
+TMP_PATH = global_config.tmp_path_
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/89.0.4389.114 Safari/537.36'}
@@ -21,16 +23,16 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'littleangel': stick_maker_temp_littleangel,
         'traitor': stick_maker_static_traitor,
         'jichou': stick_maker_static_jichou,
-        'phlogo': stick_maker_static_phlogo,
-        'sorry': render_gif,
-        'wangjingze': render_gif
+        'phlogo': stick_maker_static_phlogo
     }
 
     # 检查生成表情包路径
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'sticker')):
-        os.makedirs(os.path.join(os.path.dirname(__file__), 'sticker'))
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'gif_sticker')):
-        os.makedirs(os.path.join(os.path.dirname(__file__), 'gif_sticker'))
+    sticker_folder_path = os.path.abspath(os.path.join(TMP_PATH, 'sticker'))
+    if not os.path.exists(sticker_folder_path):
+        os.makedirs(sticker_folder_path)
+
+    # 插件路径
+    plugin_src_path = os.path.abspath(os.path.dirname(__file__))
 
     # 默认模式
     if sticker_temp_type == 'default':
@@ -44,11 +46,10 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         image_bytes_f.write(image_result.result)
 
         # 字体路径
-        plugin_src_path = os.path.dirname(__file__)
         font_path = os.path.join(plugin_src_path, 'fonts', 'msyhbd.ttc')
         # 生成表情包路径
         sticker_path = os.path.abspath(
-            os.path.join(plugin_src_path, 'sticker', f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
+            os.path.join(sticker_folder_path, f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
         # 调整图片大小（宽度512像素）
         make_image = Image.open(image_bytes_f)
         image_resize_width = 512
@@ -67,7 +68,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
 
     # 静态模板模式
     elif sticker_temp_type == 'static':
-        plugin_src_path = os.path.dirname(__file__)
+        # 模板路径
         static_temp_path = os.path.join(plugin_src_path, 'static', temp)
 
         # 检查预置背景图
@@ -89,7 +90,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
 
         # 生成表情包路径
         sticker_path = os.path.abspath(
-            os.path.join(plugin_src_path, 'sticker', f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
+            os.path.join(sticker_folder_path, f"{temp}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
 
         # 读取模板的预置背景并获取图片大小
         make_image = Image.open(bg_image_path)
@@ -101,17 +102,6 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
 
         # 输出图片
         make_image.save(sticker_path, 'JPEG')
-
-        return sticker_path
-
-    # 动图模式
-    elif sticker_temp_type == 'gif':
-        test_sentences = text.strip().split('#')
-        path = render_gif(temp, test_sentences)
-        if path == -1:
-            sticker_path = None
-        else:
-            sticker_path = os.path.abspath(path)
 
         return sticker_path
 

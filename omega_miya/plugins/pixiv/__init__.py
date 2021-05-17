@@ -2,10 +2,10 @@ import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, check_auth_node
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 # Custom plugin usage text
@@ -24,9 +24,9 @@ download
 
 **CoolDown**
 群组共享冷却时间
-2 Minutes
+1 Minutes
 用户冷却时间
-10 Minutes
+1 Minutes
 
 **Usage**
 /pixiv <PID>
@@ -40,13 +40,14 @@ download
 __plugin_auth_node__ = [
     PluginCoolDown.skip_auth_node,
     'basic',
+    'allow_r18',
     'download'
 ]
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 10),
-    PluginCoolDown(PluginCoolDown.group_type, 2)
+    PluginCoolDown(PluginCoolDown.user_type, 1),
+    PluginCoolDown(PluginCoolDown.group_type, 1)
 ]
 
 # Init plugin export
@@ -63,14 +64,14 @@ pixiv = on_command(
         command=True,
         level=50,
         auth_node='basic'),
-    permission=GROUP,
+    permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
 
 
 # 修改默认参数处理
 @pixiv.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         await pixiv.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -80,7 +81,7 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 @pixiv.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
     if not args:
         pass
@@ -91,7 +92,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
 
 @pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID~')
-async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
     mode = state['mode']
     if mode == '日榜':
         await pixiv.send('稍等, 正在下载图片~')
@@ -161,10 +162,31 @@ async def handle_pixiv(bot: Bot, event: GroupMessageEvent, state: T_State):
                 break
     elif re.match(r'^\d+$', mode):
         pid = mode
-        logger.debug(f'获取Pixiv资源: {pid}.')
-        await pixiv.send('稍等, 正在下载图片~')
+        logger.debug(f'开始获取Pixiv资源: {pid}.')
         # 获取illust
-        illust_result = await PixivIllust(pid=pid).pic_2_base64()
+        illust = PixivIllust(pid=pid)
+        illust_data_result = await illust.get_illust_data()
+        if illust_data_result.error:
+            logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, {illust_data_result.info}")
+            await pixiv.finish('加载失败, 网络超时或没有这张图QAQ')
+
+        # 处理r18权限
+        if illust_data_result.result.get('is_r18'):
+            if isinstance(event, PrivateMessageEvent):
+                user_id = event.user_id
+                auth_checker = await check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
+            elif isinstance(event, GroupMessageEvent):
+                group_id = event.group_id
+                auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
+            else:
+                auth_checker = 0
+
+            if auth_checker != 1:
+                logger.warning(f"User: {event.user_id} 获取Pixiv资源 {pid} 被拒绝, 没有 allow_r18 权限")
+                await pixiv.finish('R18禁止! 不准开车车!')
+
+        await pixiv.send('稍等, 正在下载图片~')
+        illust_result = await illust.pic_2_base64()
         if illust_result.success():
             msg = illust_result.info
             img_seg = MessageSegment.image(illust_result.result)

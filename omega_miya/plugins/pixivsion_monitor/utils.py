@@ -8,6 +8,9 @@ async def pixivsion_article_parse(aid: int, tags: list) -> Result.DictResult:
         return Result.DictResult(error=True, info=article_result.info, result={})
 
     try:
+        if not tags:
+            tags = [x.get('tag_name') for x in article_result.result.get('tags_list')]
+
         article_info = dict(article_result.result)
 
         title = str(article_info['article_title'])

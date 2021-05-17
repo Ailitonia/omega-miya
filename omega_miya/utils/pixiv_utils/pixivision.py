@@ -76,8 +76,22 @@ class PixivisionArticle(Pixivision):
             try:
                 article_eyecatch_image = article_main.find(name='img', attrs={'class': 'aie__image'}).attrs['src']
             except Exception as e:
-                logger.debug(f'PixivisionArticle | Article eyecatch image not found, ignored. {repr(e)},')
+                logger.debug(f'PixivisionArticle | Article {self.__aid} eyecatch image not found, ignored. {repr(e)},')
                 article_eyecatch_image = ''
+
+            # 解析tag
+            tags_list = []
+            try:
+                tag_tag = __bs.find(name='ul', attrs={'class': '_tag-list'}).find_all(name='a')
+                for tag in tag_tag:
+                    tag_name = tag.attrs['data-gtm-label']
+                    tag_r_url = tag.attrs['href']
+                    tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_r_url)
+                    tag_url = self.ROOT_URL + tag_r_url
+                    tags_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
+            except Exception as e:
+                logger.debug(f'PixivisionArticle | Article {self.__aid} tags parse failed, ignored. {repr(e)},')
+
             article_body = article_main.find(name='div', attrs={'class': 'am__body'})
             # article_illusts = article_body.find_all(name='div', recursive=False)
 
@@ -98,7 +112,8 @@ class PixivisionArticle(Pixivision):
                         image_url = item.find(name='img', attrs={'class': 'am__work__illust'}).attrs['src']
                         illusts_list.append({'illusts_id': pid, 'illusts_url': url, 'illusts_image': image_url})
                     except Exception as e:
-                        logger.debug(f'PixivisionArticle | Illust in article parse failed, ignored. {repr(e)}')
+                        logger.debug(
+                            f'PixivisionArticle | Illust in article {self.__aid} parse failed, ignored. {repr(e)}')
                         continue
             # 排行榜样式
             elif article_illusts_feature_type:
@@ -125,24 +140,26 @@ class PixivisionArticle(Pixivision):
                             pid = re.search(r'[0-9]+', text_p[0]).group()
                             url = f'https://www.pixiv.net/artworks/{pid}'
                         else:
-                            logger.debug(f'PixivisionArticle | Illust in article not found, ignored.')
+                            logger.debug(f'PixivisionArticle | Illust in article {self.__aid} not found, ignored.')
                             continue
                         illusts_list.append({'illusts_id': pid, 'illusts_url': url, 'illusts_image': None})
                     except Exception as e:
-                        logger.debug(f'PixivisionArticle | Illust in article parse failed, ignored. {repr(e)}')
+                        logger.debug(
+                            f'PixivisionArticle | Illust in article {self.__aid} parse failed, ignored. {repr(e)}')
                         continue
             else:
-                logger.warning(f'PixivisionArticle | Something wrong in parse article, no illusts found')
+                logger.warning(f'PixivisionArticle | Something wrong in parse article {self.__aid}, no illusts found')
 
             result = {
                 'article_title': article_title,
                 'article_description': article_description,
                 'article_eyecatch_image': article_eyecatch_image,
-                'illusts_list': illusts_list
+                'illusts_list': illusts_list,
+                'tags_list': tags_list
             }
             return Result.DictResult(error=False, info='Success', result=result)
         except Exception as e:
-            logger.error(f'PixivisionArticle | Parse article failed, error: {repr(e)}')
+            logger.error(f'PixivisionArticle | Parse article {self.__aid} failed, error: {repr(e)}')
             return Result.DictResult(error=True, info=f'Parse article failed', result={})
 
 

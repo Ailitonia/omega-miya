@@ -18,8 +18,8 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     # day='*/1',
     # week=None,
     # day_of_week=None,
-    hour='*/1',
-    # minute='*/30',
+    # hour='*/1',
+    minute='*/30',
     # second='*/30',
     # start_date=None,
     # end_date=None,
@@ -125,6 +125,8 @@ async def pixivision_monitor():
                     for _bot in bots:
                         try:
                             await _bot.call_api(api='send_group_msg', group_id=group_id, message=img_seg)
+                            # 避免风控控制推送间隔
+                            await asyncio.sleep(1)
                         except Exception as e:
                             logger.warning(f"向群组: {group_id} 发送图片内容失败, error: {repr(e)}")
                             continue

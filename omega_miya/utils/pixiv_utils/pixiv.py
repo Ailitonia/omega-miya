@@ -132,7 +132,9 @@ class Pixiv(object):
 
 class PixivIllust(Pixiv):
     def __init__(self, pid: int):
-        self.__pid = pid
+        self.__pid: int = pid
+        self.__is_loaded: bool = False
+        self.__illust_data: dict = {}
 
     # 获取作品完整信息（pixiv api 获取 json）
     # 返回格式化后的作品信息
@@ -248,6 +250,11 @@ class PixivIllust(Pixiv):
                 'tags': illusttag,
                 'is_r18': is_r18
             }
+
+            # 保存对象状态便于其他方法调用
+            self.__is_loaded = True
+            self.__illust_data.update(result)
+
             return Result.DictResult(error=False, info='Success', result=result)
         except Exception as e:
             logger.error(f'PixivIllust | Parse illust data failed, error: {repr(e)}')
@@ -255,11 +262,14 @@ class PixivIllust(Pixiv):
 
     # 图片转base64
     async def pic_2_base64(self, original: bool = False) -> Result.TextResult:
-        illust_data_result = await self.get_illust_data()
-        if illust_data_result.error:
-            return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+        if self.__is_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+            illust_data = dict(illust_data_result.result)
 
-        illust_data = dict(illust_data_result.result)
         title = illust_data.get('title')
         author = illust_data.get('uname')
         url = illust_data.get('url')

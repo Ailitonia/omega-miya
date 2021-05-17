@@ -580,7 +580,7 @@ class PixivTag(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('pixiv_tag_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    tagname = Column(String(256), nullable=False, index=True, unique=True, comment='tag名称')
+    tagname = Column(String(128), nullable=False, index=True, unique=True, comment='tag名称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
@@ -606,8 +606,8 @@ class Pixiv(Base):
     id = Column(Integer, Sequence('upixiv_illusts_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     pid = Column(Integer, nullable=False, index=True, unique=True, comment='pid')
     uid = Column(Integer, nullable=False, index=True, comment='uid')
-    title = Column(String(256), nullable=False, index=True, comment='title')
-    uname = Column(String(256), nullable=False, index=True, comment='author')
+    title = Column(String(128), nullable=False, index=True, comment='title')
+    uname = Column(String(128), nullable=False, index=True, comment='author')
     nsfw_tag = Column(Integer, nullable=False, comment='nsfw标签, 0=safe, 1=setu. 2=r18')
     tags = Column(String(1024), nullable=False, comment='tags')
     url = Column(String(1024), nullable=False, comment='url')

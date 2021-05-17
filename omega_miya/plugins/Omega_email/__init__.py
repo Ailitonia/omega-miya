@@ -3,11 +3,13 @@ from nonebot import MatcherGroup, export, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
+from nonebot.adapters.cqhttp import MessageSegment, Message
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.utils.Omega_Base import DBEmailBox, DBGroup
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.text_to_img import text_to_img
 from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decrypt_password
 
 
@@ -219,11 +221,19 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
             continue
         else:
             for mail in unseen_mail_res.result:
-                html = mail.html
-                content = re.sub(r'<[^>]*>', '', html)
-                content = re.sub(r'\s', '', content)
-                content = content.replace('&nbsp;', '').replace('\n', '').replace(' ', '')
-                msg = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'='*16}\n{content}"
-                await mail_receive.send(msg)
+                try:
+                    html = mail.html
+                    content = re.sub(r'<[^>]*>', '', html)
+                    content = re.sub(r'\s', '', content)
+                    content = content.replace('&nbsp;', '').replace('\n', '').replace(' ', '')
+                    msg = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
+                    text_img_result = await text_to_img(text=msg)
+                    if text_img_result.error:
+                        raise Exception(f'Text to img failed, {text_img_result.info}')
+                    img_seg = MessageSegment.image(f'file:///{text_img_result.result}')
+                    await mail_receive.send(img_seg)
+                except Exception as e:
+                    logger.error(f'发送邮件信息失败, {repr(e)}')
+                    continue
             logger.info(f'邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail_res.result)}封新的邮件')
             await mail_receive.send(f'邮箱: {mailbox_address}\n收件完成, 共{len(unseen_mail_res.result)}封新的邮件~')
