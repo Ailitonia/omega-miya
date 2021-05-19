@@ -45,6 +45,10 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
     if not plugin_cool_down_list:
         return
 
+    # 跳过由 got 等事件处理函数创建临时 matcher 避免冷却在命令交互中被不正常触发
+    if matcher.temp:
+        return
+
     # 检查用户或群组是否有skip_cd权限, 跳过冷却检查
     skip_cd_auth_node = f'{plugin_name}.{PluginCoolDown.skip_auth_node}'
     user_auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=skip_cd_auth_node)
