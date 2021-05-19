@@ -394,21 +394,21 @@ class History(Base):
     # 表结构
     id = Column(Integer, Sequence('history_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     time = Column(BigInteger, nullable=False, comment='事件发生的时间戳')
-    self_id = Column(BigInteger, nullable=False, comment='收到事件的机器人QQ号')
-    post_type = Column(String(64), nullable=False, comment='事件类型')
-    detail_type = Column(String(64), nullable=False, comment='消息/通知/请求/元事件类型')
-    sub_type = Column(String(64), nullable=True, comment='子事件类型')
-    event_id = Column(BigInteger, nullable=True, comment='事件id, 消息事件为message_id')
-    group_id = Column(BigInteger, nullable=True, comment='群号')
-    user_id = Column(BigInteger, nullable=True, comment='发送者QQ号')
+    self_id = Column(BigInteger, nullable=False, index=True, comment='收到事件的机器人QQ号')
+    post_type = Column(String(64), nullable=False, index=True, comment='事件类型')
+    detail_type = Column(String(64), nullable=False, index=True, comment='消息/通知/请求/元事件类型')
+    sub_type = Column(String(64), nullable=False, index=True, comment='子事件类型')
+    event_id = Column(BigInteger, nullable=False, index=True, comment='事件id, 消息事件为message_id')
+    group_id = Column(BigInteger, nullable=False, index=True, comment='群号')
+    user_id = Column(BigInteger, nullable=False, index=True, comment='发送者QQ号')
     user_name = Column(String(64), nullable=True, comment='发送者名称')
     raw_data = Column(String(4096), nullable=True, comment='原始事件内容')
     msg_data = Column(String(4096), nullable=True, comment='经处理的事件内容')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, time, self_id, post_type, detail_type, sub_type=None, event_id=None,
-                 group_id=None, user_id=None, user_name=None, raw_data=None, msg_data=None,
+    def __init__(self, time, self_id, post_type, detail_type, sub_type='Undefined', event_id=0,
+                 group_id=-1, user_id=-1, user_name=None, raw_data=None, msg_data=None,
                  created_at=None, updated_at=None):
         self.time = time
         self.self_id = self_id

@@ -69,7 +69,7 @@ def has_auth_node(*auth_nodes: str) -> Rule:
             user_tag_res = await user_auth.tags_info()
             allow_tag = user_tag_res.result[0]
             deny_tag = user_tag_res.result[1]
-        elif detail_type == 'group' or detail_type == 'group_upload':
+        elif str(detail_type).startswith('group'):
             group_auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node)
             group_tag_res = await group_auth.tags_info()
             allow_tag = group_tag_res.result[0]
@@ -114,7 +114,7 @@ def has_level_or_node(level: int, *auth_nodes: str) -> Rule:
             user_tag_res = await user_auth.tags_info()
             allow_tag = user_tag_res.result[0]
             deny_tag = user_tag_res.result[1]
-        elif detail_type == 'group':
+        elif str(detail_type).startswith('group'):
             group_auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node)
             group_tag_res = await group_auth.tags_info()
             allow_tag = group_tag_res.result[0]
