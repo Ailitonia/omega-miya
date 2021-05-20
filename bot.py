@@ -37,7 +37,6 @@ config = nonebot.get_driver().config
 config.root_path_ = bot_root_path
 config.tmp_path_ = bot_tmp_path
 
-
 # 注册 cqhttp adapter
 driver = nonebot.get_driver()
 driver.register_adapter("cqhttp", CQHTTPBot)

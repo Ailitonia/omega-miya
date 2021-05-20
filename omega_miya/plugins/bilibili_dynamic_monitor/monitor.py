@@ -255,11 +255,11 @@ async def bilibili_dynamic_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为2, 默认检查间隔为20s
+        # 默认单次检查并发数为3, 默认检查间隔为20s
         logger.debug(f'bili dynamic pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 2:
+        if waiting_num >= 3:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=2)
+            now_checking = random.sample(checking_pool, k=3)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:
@@ -293,7 +293,6 @@ async def bilibili_dynamic_monitor():
             logger.error(f'bilibili_dynamic_monitor: pool mode disable, error occurred in checking  {repr(e)}')
 
 
-# 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
 if ENABLE_DYNAMIC_CHECK_POOL_MODE:
     # 检查池启用
@@ -313,7 +312,7 @@ if ENABLE_DYNAMIC_CHECK_POOL_MODE:
         # timezone=None,
         id='bilibili_dynamic_monitor_pool_enable',
         coalesce=True,
-        misfire_grace_time=30
+        misfire_grace_time=20
     )
 else:
     # 检查池禁用

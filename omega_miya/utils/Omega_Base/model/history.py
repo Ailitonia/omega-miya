@@ -37,10 +37,10 @@ class DBHistory(object):
             self_id: int,
             post_type: str,
             detail_type: str,
-            sub_type: str = 'Undefined',
-            event_id: int = 0,
-            group_id: int = -1,
-            user_id: int = -1
+            sub_type: str,
+            event_id: int,
+            group_id: int,
+            user_id: int
     ) -> Result.AnyResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -67,6 +67,40 @@ class DBHistory(object):
         return result
 
     @classmethod
+    async def search_msgs(
+            cls,
+            self_id: int,
+            post_type: str,
+            detail_type: str,
+            sub_type: str = 'Undefined',
+            event_id: int = 0,
+            group_id: int = -1,
+            user_id: int = -1
+    ) -> Result.ListResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    session_result = await session.execute(
+                        select(History).
+                        where(History.self_id == self_id).
+                        where(History.post_type == post_type).
+                        where(History.detail_type == detail_type).
+                        where(History.sub_type == sub_type).
+                        where(History.event_id == event_id).
+                        where(History.group_id == group_id).
+                        where(History.user_id == user_id).
+                        order_by(History.time.desc())
+                    )
+                    exist_history = [x for x in session_result.scalars()]
+                result = Result.ListResult(error=False, info='Success', result=exist_history)
+            except NoResultFound:
+                result = Result.ListResult(error=True, info='NoResultFound', result=[])
+            except Exception as e:
+                result = Result.ListResult(error=True, info=repr(e), result=[])
+        return result
+
+    @classmethod
     async def search_msgs_data(
             cls,
             self_id: int,
@@ -83,40 +117,6 @@ class DBHistory(object):
                 async with session.begin():
                     session_result = await session.execute(
                         select(History.msg_data).
-                        where(History.self_id == self_id).
-                        where(History.post_type == post_type).
-                        where(History.detail_type == detail_type).
-                        where(History.sub_type == sub_type).
-                        where(History.event_id == event_id).
-                        where(History.group_id == group_id).
-                        where(History.user_id == user_id).
-                        order_by(History.time.desc())
-                    )
-                    exist_history = [x for x in session_result.scalars()]
-                result = Result.TextListResult(error=False, info='Success', result=exist_history)
-            except NoResultFound:
-                result = Result.TextListResult(error=True, info='NoResultFound', result=[])
-            except Exception as e:
-                result = Result.TextListResult(error=True, info=repr(e), result=[])
-        return result
-
-    @classmethod
-    async def search_msgs_raw_data(
-            cls,
-            self_id: int,
-            post_type: str,
-            detail_type: str,
-            sub_type: str = 'Undefined',
-            event_id: int = 0,
-            group_id: int = -1,
-            user_id: int = -1
-    ) -> Result.TextListResult:
-        async_session = NBdb().get_async_session()
-        async with async_session() as session:
-            try:
-                async with session.begin():
-                    session_result = await session.execute(
-                        select(History.raw_data).
                         where(History.self_id == self_id).
                         where(History.post_type == post_type).
                         where(History.detail_type == detail_type).
