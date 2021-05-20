@@ -137,6 +137,39 @@ class DBPixivillust(object):
         return result
 
     @classmethod
+    async def count_keywords(cls, keywords: List[str]) -> Result.DictResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    # 构造查询, 模糊搜索标题, 用户和tag
+                    query = select(func.count(Pixiv.id))
+                    for keyword in keywords:
+                        query = query.where(or_(
+                            Pixiv.tags.ilike(f'%{keyword}%'),
+                            Pixiv.uname.ilike(f'%{keyword}%'),
+                            Pixiv.title.ilike(f'%{keyword}%')
+                        ))
+                    session_all_result = await session.execute(query)
+                    all_count = session_all_result.scalar()
+
+                    session_moe_result = await session.execute(query.where(Pixiv.nsfw_tag == 0))
+                    moe_count = session_moe_result.scalar()
+
+                    session_setu_result = await session.execute(query.where(Pixiv.nsfw_tag == 1))
+                    setu_count = session_setu_result.scalar()
+
+                    session_r18_result = await session.execute(query.where(Pixiv.nsfw_tag == 2))
+                    r18_count = session_r18_result.scalar()
+
+                    res = {'total': int(all_count), 'moe': int(moe_count),
+                           'setu': int(setu_count), 'r18': int(r18_count)}
+                    result = Result.DictResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.DictResult(error=True, info=repr(e), result={})
+        return result
+
+    @classmethod
     async def list_illust(
             cls, keywords: List[str], num: int, nsfw_tag: int, acc_mode: bool = False) -> Result.ListResult:
         async_session = NBdb().get_async_session()

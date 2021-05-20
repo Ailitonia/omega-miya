@@ -40,6 +40,7 @@ moepic
 
 **SuperUser Only**
 /图库统计
+/图库查询 [*keywords]
 /导入图库'''
 
 # 声明本插件可配置的权限节点
@@ -212,12 +213,41 @@ setu_stat = on_command('图库统计', rule=to_me(), permission=SUPERUSER, prior
 @setu_stat.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     status_res = await DBPixivillust.status()
+    if status_res.error:
+        logger.error(f'{event.user_id} 执行图库统计失败, {status_res.info}')
+        await setu_stat.finish('查询失败了QAQ, 请稍后再试')
+
     msg = f"本地数据库统计:\n\n" \
           f"全部: {status_res.result.get('total')}\n" \
           f"萌图: {status_res.result.get('moe')}\n" \
           f"涩图: {status_res.result.get('setu')}\n" \
           f"R18: {status_res.result.get('r18')}"
+    logger.info(f'{event.user_id} 执行图库统计成功')
     await setu_stat.finish(msg)
+
+
+# 注册事件响应器
+setu_count = on_command('图库查询', rule=to_me(), permission=SUPERUSER, priority=20, block=True)
+
+
+@setu_count.handle()
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
+    args = str(event.get_plaintext()).strip().split()
+    if not args:
+        logger.info(f'{event.user_id} 执行图库查询被取消, 未指定查询关键字')
+        await setu_count.finish('无查询关键字QAQ, 查询取消')
+
+    count_res = await DBPixivillust.count_keywords(keywords=args)
+    if count_res.error:
+        logger.error(f'{event.user_id} 执行图库查询失败, {count_res.info}')
+        await setu_count.finish('无查询关键字QAQ, 查询取消')
+
+    msg = f"查询关键字 {'/'.join(args)} 结果:\n\n" \
+          f"全部: {count_res.result.get('total')}\n" \
+          f"萌图: {count_res.result.get('moe')}\n" \
+          f"涩图: {count_res.result.get('setu')}\n" \
+          f"R18: {count_res.result.get('r18')}"
+    await setu_count.finish(msg)
 
 
 # 注册事件响应器
