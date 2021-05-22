@@ -4,7 +4,7 @@ from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from omega_miya.utils.Omega_Base import DBUser, DBGroup, DBAuth
 from omega_miya.utils.Omega_plugin_utils import init_export
 
@@ -61,9 +61,8 @@ async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
 async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
     sub_command = state["sub_command"]
     if sub_command == 'list':
-        detail_type = event.dict().get(f'{event.get_type()}_type')
-        if detail_type == 'group':
-            group_id = event.dict().get('group_id')
+        if isinstance(event, GroupMessageEvent):
+            group_id = event.group_id
             _res = await DBAuth.list(auth_type='group', auth_id=group_id)
             if _res.success():
                 node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
@@ -71,8 +70,8 @@ async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
                 await omegaauth.finish(msg)
             else:
                 await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
-        elif detail_type == 'private':
-            user_id = event.dict().get('user_id')
+        elif isinstance(event, PrivateMessageEvent):
+            user_id = event.user_id
             _res = await DBAuth.list(auth_type='user', auth_id=user_id)
             if _res.success():
                 node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
