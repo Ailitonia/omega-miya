@@ -86,7 +86,7 @@ async def get_ascii2d_identify_result(url: str) -> Result.ListResult:
 
     ascii2d_color_url = saucenao_redirects_result.headers.get('Location')
     if not ascii2d_color_url:
-        logger.error(f'get_ascii2d_identify_result failed: 获取识别结果url发生错误, 可能被流量限制.')
+        logger.error(f'get_ascii2d_identify_result failed: 获取识别结果url发生错误, 可能被流量限制, 或图片大小超过5Mb.')
         return Result.ListResult(error=True, info=f'Get identify result url failed, may be limited', result=[])
     ascii2d_bovw_url = re.sub(
         r'https://ascii2d\.net/search/color/', r'https://ascii2d.net/search/bovw/', ascii2d_color_url)

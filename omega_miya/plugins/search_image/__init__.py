@@ -1,4 +1,3 @@
-import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -55,21 +54,38 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_message()).strip().split()
     if not args:
         await search_image.reject('你似乎没有发送有效的消息呢QAQ, 请重新发送:')
+
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await search_image.finish('操作已取消')
 
+    for msg_seg in event.message:
+        if msg_seg.type == 'image':
+            state[state["_current_key"]] = msg_seg.data.get('url')
+            return
+
 
 @search_image.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
+    # 提取图片链接, 默认只取消息中的第一张图
+    img_url = None
     if event.reply:
-        img_url = str(event.reply.message).strip()
-        if re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+?])$', img_url):
-            state['image_url'] = img_url
+        for msg_seg in event.reply.message:
+            if msg_seg.type == 'image':
+                img_url = msg_seg.data.get('url')
+                break
+    else:
+        for msg_seg in event.message:
+            if msg_seg.type == 'image':
+                img_url = msg_seg.data.get('url')
+                break
+    if img_url:
+        state['image_url'] = img_url
+        return
 
     args = str(event.get_plaintext()).strip().lower().split()
     if args:
-        await search_image.finish('该命令不支持参数QAQ')
+        await search_image.finish('你发送的好像不是图片呢QAQ')
 
 
 @search_image.got('image_url', prompt='请发送你想要识别的图片:')
@@ -80,13 +96,6 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
         group_id = 'Private event'
 
     image_url = state['image_url']
-    if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+?])$', image_url):
-        await search_image.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
-
-    # 提取图片url
-    image_url = re.sub(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=)', '', image_url)
-    image_url = re.sub(r'(])$', '', image_url)
-
     try:
         has_error = False
         await search_image.send('获取识别结果中, 请稍后~')
@@ -130,7 +139,7 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
             logger.info(f"{group_id} / {event.user_id} 使用searchimage成功搜索了一张图片")
             return
         elif not identify_result and has_error:
-            await search_image.send('识图过程中获取信息失败QAQ, 请重试一下吧')
+            await search_image.send('识图过程中获取信息失败QAQ, 可能被流量限制, 或图片大小超过5Mb限制, 请重试一下吧')
             logger.info(f"{group_id} / {event.user_id} 使用了searchimage, 但在识图过程中获取信息失败")
             return
         else:
