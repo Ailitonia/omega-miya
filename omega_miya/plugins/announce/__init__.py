@@ -5,7 +5,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import PrivateMessageEvent
-from omega_miya.utils.Omega_Base import DBTable
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup
 
 
 # 注册事件响应器
@@ -42,37 +42,37 @@ async def handle_first_receive(bot: Bot, event: PrivateMessageEvent, state: T_St
 async def handle_announce(bot: Bot, event: PrivateMessageEvent, state: T_State):
     group = state['group']
     msg = state['announce_text']
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if group == 'all':
-        t = DBTable(table_name='Group')
-        group_res = await t.list_col(col_name='group_id')
+        group_res = await DBBotGroup.list_exist_bot_groups(self_bot=self_bot)
         for group_id in group_res.result:
             try:
-                await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
+                await bot.send_group_msg(group_id=group_id, message=msg)
             except Exception as e:
                 logger.warning(f'向群组发送公告失败, group: {group_id}, error: {repr(e)}')
                 continue
     elif group == 'notice':
-        t = DBTable(table_name='Group')
-        group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
+        group_res = await DBBotGroup.list_exist_bot_groups_by_notice_permissions(
+            notice_permissions=1, self_bot=self_bot)
         for group_id in group_res.result:
             try:
-                await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
+                await bot.send_group_msg(group_id=group_id, message=msg)
             except Exception as e:
                 logger.warning(f'向群组发送公告失败, group: {group_id}, error: {repr(e)}')
                 continue
     elif group == 'command':
-        t = DBTable(table_name='Group')
-        group_res = await t.list_col_with_condition('group_id', 'command_permissions', 1)
+        group_res = await DBBotGroup.list_exist_bot_groups_by_command_permissions(
+            command_permissions=1, self_bot=self_bot)
         for group_id in group_res.result:
             try:
-                await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
+                await bot.send_group_msg(group_id=group_id, message=msg)
             except Exception as e:
                 logger.warning(f'向群组发送公告失败, group: {group_id}, error: {repr(e)}')
                 continue
     elif re.match(r'^\d+$', group):
         group_id = int(group)
         try:
-            await bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
+            await bot.send_group_msg(group_id=group_id, message=msg)
         except Exception as e:
             logger.warning(f'向群组发送公告失败, group: {group_id}, error: {repr(e)}')
     else:

@@ -129,3 +129,18 @@ class DBSkill(object):
                 await session.rollback()
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
+
+    @classmethod
+    async def list_available_skill(cls) -> Result.TextListResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(Skill.name).order_by(Skill.name)
+                    )
+                    res = [x for x in session_result.scalars().all()]
+                    result = Result.TextListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.TextListResult(error=True, info=repr(e), result=[])
+        return result

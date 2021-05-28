@@ -4,7 +4,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import has_command_permission
+from omega_miya.utils.Omega_plugin_utils import OmegaRules
 from omega_miya.utils.tencent_cloud_api import TencentNLP
 
 """
@@ -14,7 +14,7 @@ from omega_miya.utils.tencent_cloud_api import TencentNLP
 
 Nlp = MatcherGroup(
     type='message',
-    rule=has_command_permission(),
+    rule=OmegaRules.has_group_command_permission(),
     permission=GROUP,
     priority=100,
     block=False)

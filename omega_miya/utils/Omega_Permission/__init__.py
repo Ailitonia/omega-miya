@@ -1,12 +1,12 @@
-from nonebot import get_driver, logger
+from nonebot import get_driver
 from nonebot.exception import IgnoredException
 from nonebot.message import run_preprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from omega_miya.utils.Omega_plugin_utils import \
-    check_command_permission, check_permission_level, check_auth_node, check_friend_private_permission
+from omega_miya.utils.Omega_plugin_utils import PermissionChecker
+from omega_miya.utils.Omega_Base import DBBot
 
 
 @run_preprocessor
@@ -33,10 +33,14 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
     matcher_permission_level = matcher_default_state.get('_permission_level')
     matcher_auth_node = matcher_default_state.get('_auth_node')
 
+    # 处理不同bot权限
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    permission_checker = PermissionChecker(self_bot=self_bot)
+
     # 检查command/friend_private权限
     if private_mode:
         if matcher_command_permission:
-            command_checker = await check_friend_private_permission(user_id=user_id)
+            command_checker = await permission_checker.check_friend_private_permission(user_id=user_id)
             if command_checker:
                 pass
             else:
@@ -44,7 +48,7 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
                 raise IgnoredException('没有好友命令权限')
     else:
         if matcher_command_permission:
-            command_checker = await check_command_permission(group_id=group_id)
+            command_checker = await permission_checker.check_command_permission(group_id=group_id)
             if command_checker:
                 pass
             else:
@@ -56,7 +60,8 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
         if private_mode:
             level_checker = True
         else:
-            level_checker = await check_permission_level(group_id=group_id, level=matcher_permission_level)
+            level_checker = await permission_checker.check_permission_level(group_id=group_id,
+                                                                            level=matcher_permission_level)
     else:
         level_checker = False
 
@@ -64,11 +69,17 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
     if matcher_auth_node:
         auth_node = '.'.join([matcher.module, matcher_auth_node])
         # 分别检查用户及群组权限节点
-        user_auth_checker = await check_auth_node(auth_id=user_id, auth_type='user', auth_node=auth_node)
+        user_auth_checker = await permission_checker.check_auth_node(auth_id=user_id,
+                                                                     auth_type='user',
+                                                                     auth_node=auth_node)
+
         if private_mode:
             group_auth_checker = 0
         else:
-            group_auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node=auth_node)
+            group_auth_checker = await permission_checker.check_auth_node(auth_id=group_id,
+                                                                          auth_type='group',
+                                                                          auth_node=auth_node)
+
         # 优先级: 用户权限节点>群组权限节点>权限等级
         if user_auth_checker == -1 or group_auth_checker == -1:
             await bot.send(event=event, message=f'权限受限QAQ')

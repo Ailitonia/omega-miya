@@ -107,7 +107,7 @@ class BiliDynamic(object):
             # type=1, 这是一条转发的动态
             if type_ == 1:
                 origin_user = dynamic_card.get('origin_user')
-                if origin_user:
+                if origin_user and origin_user['info'].get('uname'):
                     origin_user_name = origin_user['info'].get('uname')
                     desc = f'转发了{origin_user_name}的动态'
                 else:

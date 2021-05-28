@@ -4,7 +4,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBTable, Result
+from omega_miya.utils.Omega_Base import DBSkill, DBUser, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 
 # Custom plugin usage text
@@ -206,26 +206,25 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await skill_group_user.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f"Group: {event.group_id}, {sub_command}, Success, {result.info}")
+        logger.info(f"Group: {event.group_id}, User: {event.user_id}, {sub_command}, Success, {result.info}")
         if sub_command in need_reply:
             await skill_group_user.finish(result.result)
         else:
             await skill_group_user.finish('Success')
     else:
-        logger.error(f"Group: {event.group_id}, {sub_command}, Failed, {result.info}")
+        logger.error(f"Group: {event.group_id}, User: {event.user_id}, {sub_command}, Failed, {result.info}")
         await skill_group_user.finish('Failed QAQ')
 
 
 async def skill_list(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
-    skill_table = DBTable(table_name='Skill')
-    _res = await skill_table.list_col(col_name='name')
-    if _res.success():
+    skill_res = await DBSkill.list_available_skill()
+    if skill_res.success():
         msg = '目前已有的技能列表如下:'
-        for skill_name in _res.result:
+        for skill_name in skill_res.result:
             msg += f'\n{skill_name}'
-        result = Result.TextResult(False, _res.info, msg)
+        result = Result.TextResult(False, skill_res.info, msg)
     else:
-        result = Result.TextResult(True, _res.info, '')
+        result = Result.TextResult(True, skill_res.info, '')
     return result
 
 

@@ -1,5 +1,7 @@
 from .auth import DBAuth
 from .bilidynamic import DBDynamic
+from .bot_group import DBBotGroup
+from .bot_self import DBBot
 from .cooldown import DBCoolDownEvent
 from .friend import DBFriend
 from .group import DBGroup
@@ -16,6 +18,8 @@ from .status import DBStatus
 __all__ = [
     'DBAuth',
     'DBDynamic',
+    'DBBotGroup',
+    'DBBot',
     'DBCoolDownEvent',
     'DBFriend',
     'DBGroup',

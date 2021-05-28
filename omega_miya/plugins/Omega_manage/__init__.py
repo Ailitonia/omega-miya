@@ -14,7 +14,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBAuth, DBFriend, Result
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBUser, DBAuth, DBFriend, Result
 from omega_miya.utils.Omega_plugin_utils import init_export
 from .sys_background_scheduled import scheduler
 
@@ -141,8 +141,9 @@ async def handle_sub_command(bot: Bot, event: PrivateMessageEvent, state: T_Stat
 
 async def friend_init(bot: Bot, event: PrivateMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
+    self_bot = DBBot(self_qq=int(bot.self_id))
     # 调用api获取好友列表
-    friends_list = await bot.call_api('get_friend_list')
+    friends_list = await bot.get_friend_list()
     actual_friend_list = [int(x.get('user_id')) for x in friends_list]
     if user_id not in actual_friend_list:
         return Result.TextResult(error=True, info='Not in friends list', result='错误, 不在好友列表中')
@@ -151,7 +152,7 @@ async def friend_init(bot: Bot, event: PrivateMessageEvent, state: T_State) -> R
     nickname = user_info.get('nickname')
     remark = user_info.get('remark')
 
-    friend = DBFriend(user_id=user_id)
+    friend = DBFriend(user_id=user_id, self_bot=self_bot)
 
     # 更新用户表
     add_user_result = await friend.add(nickname=nickname)
@@ -159,7 +160,7 @@ async def friend_init(bot: Bot, event: PrivateMessageEvent, state: T_State) -> R
         return Result.TextResult(error=True, info=add_user_result.info, result='错误, 请联系管理员处理')
 
     # 初始化好友authnode
-    await init_user_auth_node(user_id=user_id)
+    await init_user_auth_node(user_id=user_id, self_bot=self_bot)
 
     set_friend_result = await friend.set_friend(nickname=nickname, remark=remark, private_permissions=1)
     if set_friend_result.success():
@@ -170,11 +171,11 @@ async def friend_init(bot: Bot, event: PrivateMessageEvent, state: T_State) -> R
 
 async def friend_private_enable(bot: Bot, event: PrivateMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
-
+    self_bot = DBBot(self_qq=int(bot.self_id))
     # 初始化好友authnode
-    await init_user_auth_node(user_id=user_id)
+    await init_user_auth_node(user_id=user_id, self_bot=self_bot)
 
-    friend = DBFriend(user_id=user_id)
+    friend = DBFriend(user_id=user_id, self_bot=self_bot)
     result = await friend.set_private_permission(private_permissions=1)
     if result.success():
         return Result.TextResult(error=False, info='Success', result='成功, 已启用私聊功能, 权限节点已设置为默认值')
@@ -184,11 +185,11 @@ async def friend_private_enable(bot: Bot, event: PrivateMessageEvent, state: T_S
 
 async def friend_private_disable(bot: Bot, event: PrivateMessageEvent, state: T_State) -> Result.TextResult:
     user_id = event.user_id
-
+    self_bot = DBBot(self_qq=int(bot.self_id))
     # 初始化好友authnode
-    await init_user_auth_node(user_id=user_id)
+    await init_user_auth_node(user_id=user_id, self_bot=self_bot)
 
-    friend = DBFriend(user_id=user_id)
+    friend = DBFriend(user_id=user_id, self_bot=self_bot)
     result = await friend.set_private_permission(private_permissions=0)
     if result.success():
         return Result.TextResult(error=False, info='Success', result='成功, 已禁用私聊功能, 权限节点已重置为默认值')
@@ -198,13 +199,19 @@ async def friend_private_disable(bot: Bot, event: PrivateMessageEvent, state: T_
 
 async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
+    self_bot = DBBot(self_qq=int(bot.self_id))
     # 调用api获取群信息
-    group_info = await bot.call_api(api='get_group_info', group_id=group_id)
+    group_info = await bot.get_group_info(group_id=group_id)
     group_name = group_info['group_name']
-    group = DBGroup(group_id=group_id)
+    group_memo = group_info.get('group_memo')
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
 
     # 添加并初始化群信息
     _result = await group.add(name=group_name)
+    if not _result.success():
+        return Result.IntResult(True, _result.info, -1)
+
+    _result = await group.set_bot_group(group_memo=group_memo)
     if not _result.success():
         return Result.IntResult(True, _result.info, -1)
 
@@ -213,14 +220,14 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
         return Result.IntResult(True, _result.info, -1)
 
     # 初始化群组authnode
-    await init_group_auth_node(group_id=group_id)
+    await init_group_auth_node(group_id=group_id, self_bot=self_bot)
 
     _result = await group.member_clear()
     if not _result.success():
         return Result.IntResult(True, _result.info, -1)
 
     # 添加用户
-    group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
+    group_member_list = await bot.get_group_member_list(group_id=group_id)
     failed_user = []
     for user_info in group_member_list:
         # 用户信息
@@ -234,13 +241,13 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
         _result = await _user.add(nickname=user_nickname)
         if not _result.success():
             failed_user.append(_user.qq)
-            logger.warning(f'User: {user_qq}, {_result.info}')
+            logger.warning(f'Add group user: {user_qq}, {_result.info}')
             continue
 
         _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
         if not _result.success():
             failed_user.append(_user.qq)
-            logger.warning(f'User: {user_qq}, {_result.info}')
+            logger.warning(f'Upgrade group user: {user_qq}, {_result.info}')
 
     await group.init_member_status()
 
@@ -249,30 +256,30 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
 
 async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
+    self_bot = DBBot(self_qq=int(bot.self_id))
     # 调用api获取群信息
-    group_info = await bot.call_api(api='get_group_info', group_id=group_id)
+    group_info = await bot.get_group_info(group_id=group_id)
     group_name = group_info['group_name']
-    group = DBGroup(group_id=group_id)
+    group_memo = group_info.get('group_memo')
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
 
     # 更新群信息
     _result = await group.add(name=group_name)
     if not _result.success():
         return Result.IntResult(True, _result.info, -1)
 
+    _result = await group.set_bot_group(group_memo=group_memo)
+    if not _result.success():
+        return Result.IntResult(True, _result.info, -1)
+
     # 更新用户
-    group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
+    group_member_list = await bot.get_group_member_list(group_id=group_id)
     failed_user = []
 
     # 首先清除数据库中退群成员
-    exist_member_list = []
-    for user_info in group_member_list:
-        user_qq = user_info['user_id']
-        exist_member_list.append(int(user_qq))
-
-    db_member_list = []
+    exist_member_list = [int(x.get('user_id')) for x in group_member_list]
     member_res = await group.member_list()
-    for user_id, nickname in member_res.result:
-        db_member_list.append(user_id)
+    db_member_list = [user_id for user_id, nickname in member_res.result]
     del_member_list = list(set(db_member_list).difference(set(exist_member_list)))
 
     for user_id in del_member_list:
@@ -281,9 +288,9 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
     # 更新群成员
     for user_info in group_member_list:
         # 用户信息
-        user_qq = user_info['user_id']
-        user_nickname = user_info['nickname']
-        user_group_nickmane = user_info['card']
+        user_qq = user_info.get('user_id')
+        user_nickname = user_info.get('nickname')
+        user_group_nickmane = user_info.get('card')
         if not user_group_nickmane:
             user_group_nickmane = user_nickname
 
@@ -291,13 +298,13 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
         _result = await _user.add(nickname=user_nickname)
         if not _result.success():
             failed_user.append(_user.qq)
-            logger.warning(f'User: {user_qq}, {_result.info}')
+            logger.warning(f'Add group user: {user_qq}, {_result.info}')
             continue
 
         _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
         if not _result.success():
             failed_user.append(_user.qq)
-            logger.warning(f'User: {user_qq}, {_result.info}')
+            logger.warning(f'Upgrade group user: {user_qq}, {_result.info}')
 
     await group.init_member_status()
 
@@ -306,7 +313,8 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
 
 async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     permission_res = await group.permission_info()
     if permission_res.error:
         return Result.IntResult(True, permission_res.info, -1)
@@ -325,7 +333,8 @@ async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -
 
 async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     permission_res = await group.permission_info()
     if permission_res.error:
         return Result.IntResult(True, permission_res.info, -1)
@@ -344,7 +353,8 @@ async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) 
 
 async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     permission_res = await group.permission_info()
     if permission_res.error:
         return Result.IntResult(True, permission_res.info, -1)
@@ -362,7 +372,8 @@ async def set_group_level(bot: Bot, event: GroupMessageEvent, state: T_State) ->
 
 async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.TextResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     permission_res = await group.permission_info()
     if permission_res.error:
         return Result.TextResult(True, permission_res.info, '')
@@ -376,14 +387,13 @@ async def show_group_permission(bot: Bot, event: GroupMessageEvent, state: T_Sta
 
 async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
-
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     result = await group.permission_reset()
-
     return result
 
 
-async def init_group_auth_node(group_id: int):
+async def init_group_auth_node(group_id: int, self_bot: DBBot):
     """
     为群组配置权限节点默认值
     """
@@ -402,13 +412,13 @@ async def init_group_auth_node(group_id: int):
     ]
 
     for auth_node in default_auth_nodes:
-        auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=auth_node.node)
+        auth = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=auth_node.node)
         res = await auth.set(allow_tag=auth_node.allow_tag, deny_tag=auth_node.deny_tag, auth_info=auth_node.auth_info)
         if res.error:
             logger.opt(colors=True).error(f'配置默认权限失败, <ly>{auth_node.node}/{group_id}</ly>, error: {res.info}')
 
 
-async def init_user_auth_node(user_id: int):
+async def init_user_auth_node(user_id: int, self_bot: DBBot):
     """
     为好友配置权限节点默认值
     """
@@ -424,7 +434,7 @@ async def init_user_auth_node(user_id: int):
     ]
 
     for auth_node in default_auth_nodes:
-        auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=auth_node.node)
+        auth = DBAuth(self_bot=self_bot, auth_id=user_id, auth_type='user', auth_node=auth_node.node)
         res = await auth.set(allow_tag=auth_node.allow_tag, deny_tag=auth_node.deny_tag, auth_info=auth_node.auth_info)
         if res.error:
             logger.opt(colors=True).error(f'配置默认权限失败, <ly>{auth_node.node}/{user_id}</ly>, error: {res.info}')

@@ -227,7 +227,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
 
 
 # 注册事件响应器
-setu_count = on_command('图库查询', rule=to_me(), permission=SUPERUSER, priority=20, block=True)
+setu_count = on_command('图库查询', aliases={'查询图库'}, rule=to_me(), permission=SUPERUSER, priority=20, block=True)
 
 
 @setu_count.handle()
@@ -251,7 +251,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
 
 
 # 注册事件响应器
-setu_import = on_command('导入图库', rule=to_me(), permission=SUPERUSER, priority=20, block=True)
+setu_import = on_command('导入图库', aliases={'图库导入'}, rule=to_me(), permission=SUPERUSER, priority=20, block=True)
 
 
 # 修改默认参数处理

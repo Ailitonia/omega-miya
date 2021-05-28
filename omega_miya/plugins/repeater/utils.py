@@ -1,12 +1,12 @@
 import re
 import os
 from nonebot.adapters import Event
-from nonebot.adapters.cqhttp import Message
+from nonebot.adapters.cqhttp import Message, MessageSegment
 
 
 def img_message(img_name: str) -> Message:
     img_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'img_res', img_name))
-    return Message(f"[CQ:image,file=file:///{img_path}]")
+    return Message(MessageSegment.image(f'file:///{img_path}'))
 
 
 sp_msg = {

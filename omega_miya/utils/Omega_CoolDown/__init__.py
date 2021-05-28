@@ -12,10 +12,8 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent
-from omega_miya.utils.Omega_plugin_utils import \
-    check_and_set_global_cool_down, check_and_set_plugin_cool_down, \
-    check_and_set_group_cool_down, check_and_set_user_cool_down, PluginCoolDown
-from omega_miya.utils.Omega_Base import DBCoolDownEvent, DBAuth
+from omega_miya.utils.Omega_plugin_utils import PluginCoolDown
+from omega_miya.utils.Omega_Base import DBCoolDownEvent, DBAuth, DBBot
 
 
 @run_preprocessor
@@ -49,14 +47,17 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
     if matcher.temp:
         return
 
+    # 处理不同bot权限
+    self_bot = DBBot(self_qq=int(bot.self_id))
+
     # 检查用户或群组是否有skip_cd权限, 跳过冷却检查
     skip_cd_auth_node = f'{plugin_name}.{PluginCoolDown.skip_auth_node}'
-    user_auth = DBAuth(auth_id=user_id, auth_type='user', auth_node=skip_cd_auth_node)
+    user_auth = DBAuth(self_bot=self_bot, auth_id=user_id, auth_type='user', auth_node=skip_cd_auth_node)
     user_tag_res = await user_auth.tags_info()
     if user_tag_res.result[0] == 1 and user_tag_res.result[1] == 0:
         return
 
-    group_auth = DBAuth(auth_id=group_id, auth_type='group', auth_node=skip_cd_auth_node)
+    group_auth = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=skip_cd_auth_node)
     group_tag_res = await group_auth.tags_info()
     if group_tag_res.result[0] == 1 and group_tag_res.result[1] == 0:
         return
@@ -84,7 +85,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if plugin_check.result == 1 or group_check.result == 1 or user_check.result == 1:
             break
 
-        res = await check_and_set_global_cool_down(minutes=time)
+        res = await PluginCoolDown.check_and_set_global_cool_down(minutes=time)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('全局命令冷却中')
@@ -99,7 +100,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if group_check.result == 1 or user_check.result == 1:
             break
 
-        res = await check_and_set_plugin_cool_down(minutes=time, plugin=plugin_name)
+        res = await PluginCoolDown.check_and_set_plugin_cool_down(minutes=time, plugin=plugin_name)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('插件命令冷却中')
@@ -117,7 +118,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if user_check.result == 1:
             break
 
-        res = await check_and_set_group_cool_down(minutes=time, plugin=plugin_name, group_id=group_id)
+        res = await PluginCoolDown.check_and_set_group_cool_down(minutes=time, plugin=plugin_name, group_id=group_id)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('群组命令冷却中')
@@ -131,7 +132,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if not user_id:
             break
 
-        res = await check_and_set_user_cool_down(minutes=time, plugin=plugin_name, user_id=user_id)
+        res = await PluginCoolDown.check_and_set_user_cool_down(minutes=time, plugin=plugin_name, user_id=user_id)
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('用户命令冷却中')

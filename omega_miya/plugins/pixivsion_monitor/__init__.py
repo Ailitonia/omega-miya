@@ -4,9 +4,9 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
-from omega_miya.utils.Omega_Base import DBGroup, DBSubscription, Result
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .monitor import *
+from .monitor import scheduler
 
 
 # Custom plugin usage text
@@ -84,13 +84,14 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
 
 async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     sub_id = -1
     sub = DBSubscription(sub_type=8, sub_id=sub_id)
     _res = await sub.add(up_name='Pixivision', live_info='Pixivision订阅')
     if not _res.success():
         return _res
-    _res = await group.subscription_add(sub=sub)
+    _res = await group.subscription_add(sub=sub, group_sub_info='Pixivision订阅')
     if not _res.success():
         return _res
     result = Result.IntResult(error=False, info='Success', result=0)
@@ -99,7 +100,8 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.
 
 async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     sub_id = -1
     _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
     if not _res.success():

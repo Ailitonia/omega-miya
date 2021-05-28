@@ -37,6 +37,37 @@ class OmegaStatus(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
+# Bot表 对应不同机器人协议端
+class BotSelf(Base):
+    __tablename__ = f'{TABLE_PREFIX}bots'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('bots_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    self_qq = Column(BigInteger, nullable=False, index=True, unique=True, comment='Bot的QQ号')
+    status = Column(Integer, nullable=False, comment='在线状态')
+    info = Column(String(1024), nullable=True, comment='信息')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    # 设置级联和关系加载
+    bots_bot_friends = relationship('Friends', back_populates='bot_friends_back_bots',
+                                    cascade='all, delete-orphan', passive_deletes=True)
+    bots_bot_groups = relationship('BotGroup', back_populates='bot_groups_back_bots',
+                                   cascade='all, delete-orphan', passive_deletes=True)
+
+    def __init__(self, self_qq, status, info=None, created_at=None, updated_at=None):
+        self.self_qq = self_qq
+        self.status = status
+        self.info = info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<BotSelf(self_qq='{self.self_qq}', info='{self.info}', status='{self.status}' " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
 # 成员表
 class User(Base):
     __tablename__ = f'{TABLE_PREFIX}users'
@@ -46,56 +77,59 @@ class User(Base):
     id = Column(Integer, Sequence('users_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     qq = Column(BigInteger, nullable=False, index=True, unique=True, comment='QQ号')
     nickname = Column(String(64), nullable=False, comment='昵称')
-    is_friend = Column(Integer, nullable=False, comment='是否为好友(已弃用)')
     aliasname = Column(String(64), nullable=True, comment='自定义名称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    # 声明外键联系
-    has_friends = relationship('Friends', back_populates='user_friend', uselist=False,
-                               cascade="all, delete", passive_deletes=True)
-    has_skills = relationship('UserSkill', back_populates='user_skill',
-                              cascade="all, delete", passive_deletes=True)
-    in_which_groups = relationship('UserGroup', back_populates='user_groups',
-                                   cascade="all, delete", passive_deletes=True)
-    vocation = relationship('Vocation', back_populates='vocation_for_user', uselist=False,
-                            cascade="all, delete", passive_deletes=True)
-    user_auth = relationship('AuthUser', back_populates='auth_for_user', uselist=False,
-                             cascade="all, delete", passive_deletes=True)
-    users_sub_what = relationship('UserSub', back_populates='users_sub',
-                                  cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    users_bot_friends = relationship('Friends', back_populates='bot_friends_back_users',
+                                     cascade='all, delete-orphan', passive_deletes=True)
+    users_users_groups = relationship('UserGroup', back_populates='users_groups_back_users',
+                                      cascade='all, delete-orphan', passive_deletes=True)
+    users_users_skills = relationship('UserSkill', back_populates='users_skills_back_users',
+                                      cascade='all, delete-orphan', passive_deletes=True)
+    users_vocations = relationship('Vocation', back_populates='vocations_back_users',
+                                   cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, qq, nickname, is_friend=0, aliasname=None, created_at=None, updated_at=None):
+    def __init__(self, qq, nickname, aliasname=None, created_at=None, updated_at=None):
         self.qq = qq
         self.nickname = nickname
-        self.is_friend = is_friend
         self.aliasname = aliasname
         self.created_at = created_at
         self.updated_at = updated_at
 
     def __repr__(self):
         return f"<User(qq='{self.qq}', nickname='{self.nickname}', aliasname='{self.aliasname}', " \
-               f"is_friend='{self.is_friend}', created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
 # 好友表
 class Friends(Base):
-    __tablename__ = f'{TABLE_PREFIX}friends'
+    __tablename__ = f'{TABLE_PREFIX}bot_friends'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('friends_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    id = Column(Integer, Sequence('bot_friends_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
+    bot_self_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bots.id', ondelete='CASCADE'), nullable=False)
     nickname = Column(String(64), nullable=False, comment='昵称')
     remark = Column(String(64), nullable=True, comment='备注')
     private_permissions = Column(Integer, nullable=False, comment='是否启用私聊权限')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    user_friend = relationship('User', back_populates='has_friends')
+    # 设置级联和关系加载
+    bot_friends_back_bots = relationship(BotSelf, back_populates='bots_bot_friends', lazy='joined', innerjoin=True)
+    bot_friends_back_users = relationship(User, back_populates='users_bot_friends', lazy='joined', innerjoin=True)
+    bot_friends_auth_user = relationship('AuthUser', back_populates='auth_user_back_bot_friends',
+                                         cascade='all, delete-orphan', passive_deletes=True)
+    bot_friends_users_subs = relationship('UserSub', back_populates='users_subs_back_bot_friends',
+                                          cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, user_id, nickname, remark=None, private_permissions=0, created_at=None, updated_at=None):
+    def __init__(self, user_id, bot_self_id, nickname,
+                 remark=None, private_permissions=0, created_at=None, updated_at=None):
         self.user_id = user_id
+        self.bot_self_id = bot_self_id
         self.nickname = nickname
         self.remark = remark
         self.private_permissions = private_permissions
@@ -103,7 +137,8 @@ class Friends(Base):
         self.updated_at = updated_at
 
     def __repr__(self):
-        return f"<Friends(user_id='{self.user_id}', nickname='{self.nickname}', remark='{self.remark}', " \
+        return f"<Friends(user_id='{self.user_id}', bot_self_id='{self.bot_self_id}', " \
+               f"nickname='{self.nickname}', remark='{self.remark}', " \
                f"private_permissions='{self.private_permissions}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
@@ -119,8 +154,9 @@ class Skill(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    avaiable_skills = relationship('UserSkill', back_populates='skill_used',
-                                   cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    skills_users_skills = relationship('UserSkill', back_populates='users_skills_back_skills',
+                                       cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, name, description=None, created_at=None, updated_at=None):
         self.name = name
@@ -139,14 +175,15 @@ class UserSkill(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('users_skills_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
-    skill_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}skills.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
+    skill_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}skills.id', ondelete='CASCADE'), nullable=False)
     skill_level = Column(Integer, nullable=False, comment='技能等级')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    user_skill = relationship('User', back_populates='has_skills')
-    skill_used = relationship('Skill', back_populates='avaiable_skills')
+    # 设置级联和关系加载
+    users_skills_back_users = relationship(User, back_populates='users_users_skills', lazy='joined', innerjoin=True)
+    users_skills_back_skills = relationship(Skill, back_populates='skills_users_skills', lazy='joined', innerjoin=True)
 
     def __init__(self, user_id, skill_id, skill_level, created_at=None, updated_at=None):
         self.user_id = user_id
@@ -168,25 +205,56 @@ class Group(Base):
     id = Column(Integer, Sequence('groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     name = Column(String(64), nullable=False, comment='qq群名称')
     group_id = Column(BigInteger, nullable=False, index=True, unique=True, comment='qq群号')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    # 设置级联和关系加载
+    groups_bot_groups = relationship('BotGroup', back_populates='bot_groups_back_groups',
+                                     cascade='all, delete-orphan', passive_deletes=True)
+
+    def __init__(self, name, group_id, created_at=None, updated_at=None):
+        self.name = name
+        self.group_id = group_id
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<Group(name='{self.name}', group_id='{self.group_id}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# Bot对应qq群表
+class BotGroup(Base):
+    __tablename__ = f'{TABLE_PREFIX}bot_groups'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('bot_groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id', ondelete='CASCADE'), nullable=False)
+    bot_self_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bots.id', ondelete='CASCADE'), nullable=False)
+    group_memo = Column(String(64), nullable=True, comment='群备注')
     notice_permissions = Column(Integer, nullable=False, comment='通知权限')
     command_permissions = Column(Integer, nullable=False, comment='命令权限')
     permission_level = Column(Integer, nullable=False, comment='权限等级, 越大越高')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    avaiable_groups = relationship('UserGroup', back_populates='groups_have_users',
-                                   cascade="all, delete", passive_deletes=True)
-    sub_what = relationship('GroupSub', back_populates='groups_sub',
-                            cascade="all, delete", passive_deletes=True)
-    group_auth = relationship('AuthGroup', back_populates='auth_for_group', uselist=False,
-                              cascade="all, delete", passive_deletes=True)
-    group_box = relationship('GroupEmailBox', back_populates='box_for_group',
-                             cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    bot_groups_back_bots = relationship(BotSelf, back_populates='bots_bot_groups', lazy='joined', innerjoin=True)
+    bot_groups_back_groups = relationship(Group, back_populates='groups_bot_groups', lazy='joined', innerjoin=True)
+    bot_groups_users_groups = relationship('UserGroup', back_populates='users_groups_back_bot_groups',
+                                           cascade='all, delete-orphan', passive_deletes=True)
+    bot_groups_groups_subs = relationship('GroupSub', back_populates='groups_subs_back_bot_groups',
+                                          cascade='all, delete-orphan', passive_deletes=True)
+    bot_groups_auth_group = relationship('AuthGroup', back_populates='auth_group_back_bot_groups',
+                                         cascade='all, delete-orphan', passive_deletes=True)
+    bot_groups_group_email_box = relationship('GroupEmailBox', back_populates='group_email_box_back_bot_groups',
+                                              cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, name, group_id, notice_permissions, command_permissions,
-                 permission_level, created_at=None, updated_at=None):
-        self.name = name
+    def __init__(self, group_id, bot_self_id, notice_permissions, command_permissions,
+                 permission_level, group_memo=None, created_at=None, updated_at=None):
         self.group_id = group_id
+        self.bot_self_id = bot_self_id
+        self.group_memo = group_memo
         self.notice_permissions = notice_permissions
         self.command_permissions = command_permissions
         self.permission_level = permission_level
@@ -194,9 +262,9 @@ class Group(Base):
         self.updated_at = updated_at
 
     def __repr__(self):
-        return f"<Group(name='{self.name}', group_id='{self.group_id}', " \
-               f"notice_permissions='{self.notice_permissions}', command_permissions='{self.command_permissions}', " \
-               f"permission_level='{self.permission_level}', " \
+        return f"<Group(group_id='{self.group_id}', bot_self_id='{self.bot_self_id}', " \
+               f"group_memo='{self.group_memo}', notice_permissions='{self.notice_permissions}', " \
+               f"command_permissions='{self.command_permissions}', permission_level='{self.permission_level}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
@@ -206,14 +274,16 @@ class UserGroup(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('users_groups_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
-    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_groups.id', ondelete='CASCADE'), nullable=False)
     user_group_nickname = Column(String(64), nullable=True, comment='用户群昵称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    user_groups = relationship('User', back_populates='in_which_groups')
-    groups_have_users = relationship('Group', back_populates='avaiable_groups')
+    # 设置级联和关系加载
+    users_groups_back_users = relationship(User, back_populates='users_users_groups', lazy='joined', innerjoin=True)
+    users_groups_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_users_groups',
+                                                lazy='joined', innerjoin=True)
 
     def __init__(self, user_id, group_id, user_group_nickname=None, created_at=None, updated_at=None):
         self.user_id = user_id
@@ -234,7 +304,7 @@ class AuthUser(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('auth_user_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_friends.id', ondelete='CASCADE'), nullable=False)
     auth_node = Column(String(128), nullable=False, index=True, comment='授权节点, 由插件检查')
     allow_tag = Column(Integer, nullable=False, comment='授权标签')
     deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
@@ -242,7 +312,9 @@ class AuthUser(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    auth_for_user = relationship('User', back_populates='user_auth')
+    # 设置级联和关系加载
+    auth_user_back_bot_friends = relationship(Friends, back_populates='bot_friends_auth_user',
+                                              lazy='joined', innerjoin=True)
 
     def __init__(self, user_id, auth_node, allow_tag=0, deny_tag=0, auth_info=None, created_at=None, updated_at=None):
         self.user_id = user_id
@@ -265,7 +337,7 @@ class AuthGroup(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('auth_group_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_groups.id', ondelete='CASCADE'), nullable=False)
     auth_node = Column(String(128), nullable=False, index=True, comment='授权节点, 由插件检查')
     allow_tag = Column(Integer, nullable=False, comment='授权标签')
     deny_tag = Column(Integer, nullable=False, comment='拒绝标签')
@@ -273,7 +345,9 @@ class AuthGroup(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    auth_for_group = relationship('Group', back_populates='group_auth')
+    # 设置级联和关系加载
+    auth_group_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_auth_group',
+                                              lazy='joined', innerjoin=True)
 
     def __init__(self, group_id, auth_node, allow_tag=0, deny_tag=0, auth_info=None, created_at=None, updated_at=None):
         self.group_id = group_id
@@ -304,8 +378,9 @@ class EmailBox(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    used_box = relationship('GroupEmailBox', back_populates='has_box',
-                            cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    email_box_group_email_box = relationship('GroupEmailBox', back_populates='group_email_box_back_email_box',
+                                             cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, address: str, server_host: str, password: str,
                  protocol: str = 'imap', port: int = 993, created_at=None, updated_at=None):
@@ -329,15 +404,17 @@ class GroupEmailBox(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('group_email_box_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    email_box_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}email_box.id'), nullable=False)
-    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
+    email_box_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}email_box.id', ondelete='CASCADE'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_groups.id', ondelete='CASCADE'), nullable=False)
     box_info = Column(String(64), nullable=True, comment='群邮箱信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    box_for_group = relationship('Group', back_populates='group_box')
-
-    has_box = relationship('EmailBox', back_populates='used_box')
+    # 设置级联和关系加载
+    group_email_box_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_group_email_box',
+                                                   lazy='joined', innerjoin=True)
+    group_email_box_back_email_box = relationship(EmailBox, back_populates='email_box_group_email_box',
+                                                  lazy='joined', innerjoin=True)
 
     def __init__(self, email_box_id, group_id, box_info=None, created_at=None, updated_at=None):
         self.email_box_id = email_box_id
@@ -446,8 +523,11 @@ class Subscription(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    be_sub = relationship('GroupSub', back_populates='sub_by', cascade="all, delete", passive_deletes=True)
-    be_sub_users = relationship('UserSub', back_populates='sub_by_users', cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    subscription_groups_subs = relationship('GroupSub', back_populates='groups_subs_back_subscription',
+                                            cascade='all, delete-orphan', passive_deletes=True)
+    subscription_users_subs = relationship('UserSub', back_populates='users_subs_back_subscription',
+                                           cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, sub_type, sub_id, up_name, live_info=None, created_at=None, updated_at=None):
         self.sub_type = sub_type
@@ -468,14 +548,17 @@ class GroupSub(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('groups_subs_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    sub_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}subscription.id'), nullable=False)
-    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}groups.id'), nullable=False)
+    sub_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}subscription.id', ondelete='CASCADE'), nullable=False)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_groups.id', ondelete='CASCADE'), nullable=False)
     group_sub_info = Column(String(64), nullable=True, comment='群订阅信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    groups_sub = relationship('Group', back_populates='sub_what')
-    sub_by = relationship('Subscription', back_populates='be_sub')
+    # 设置级联和关系加载
+    groups_subs_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_groups_subs',
+                                               lazy='joined', innerjoin=True)
+    groups_subs_back_subscription = relationship(Subscription, back_populates='subscription_groups_subs',
+                                                 lazy='joined', innerjoin=True)
 
     def __init__(self, sub_id, group_id, group_sub_info=None, created_at=None, updated_at=None):
         self.sub_id = sub_id
@@ -496,14 +579,17 @@ class UserSub(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('users_subs_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    sub_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}subscription.id'), nullable=False)
-    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    sub_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}subscription.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_friends.id', ondelete='CASCADE'), nullable=False)
     user_sub_info = Column(String(64), nullable=True, comment='用户订阅信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    users_sub = relationship('User', back_populates='users_sub_what')
-    sub_by_users = relationship('Subscription', back_populates='be_sub_users')
+    # 设置级联和关系加载
+    users_subs_back_bot_friends = relationship(Friends, back_populates='bot_friends_users_subs',
+                                               lazy='joined', innerjoin=True)
+    users_subs_back_subscription = relationship(Subscription, back_populates='subscription_users_subs',
+                                                lazy='joined', innerjoin=True)
 
     def __init__(self, sub_id, user_id, user_sub_info=None, created_at=None, updated_at=None):
         self.sub_id = sub_id
@@ -552,14 +638,15 @@ class Vocation(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('vocations_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
     status = Column(Integer, nullable=False, comment='请假状态 0-空闲 1-请假 2-工作中')
     stop_at = Column(DateTime, nullable=True, comment='假期结束时间')
     reason = Column(String(64), nullable=True, comment='请假理由')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    vocation_for_user = relationship('User', back_populates='vocation')
+    # 设置级联和关系加载
+    vocations_back_users = relationship(User, back_populates='users_vocations', lazy='joined', innerjoin=True)
 
     def __init__(self, user_id, status, stop_at=None, reason=None, created_at=None, updated_at=None):
         self.user_id = user_id
@@ -584,8 +671,9 @@ class PixivTag(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    has_illusts = relationship('PixivT2I', back_populates='tag_has_illusts',
-                               cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    pixiv_tag_pixiv_tag_to_illusts = relationship('PixivT2I', back_populates='pixiv_tag_to_illusts_back_pixiv_tag',
+                                                  cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, tagname, created_at=None, updated_at=None):
         self.tagname = tagname
@@ -614,8 +702,10 @@ class Pixiv(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    has_tags = relationship('PixivT2I', back_populates='illust_tags',
-                            cascade="all, delete", passive_deletes=True)
+    # 设置级联和关系加载
+    pixiv_illusts_pixiv_tag_to_illusts = relationship('PixivT2I',
+                                                      back_populates='pixiv_tag_to_illusts_back_pixiv_illusts',
+                                                      cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, pid, uid, title, uname, nsfw_tag, tags, url, created_at=None, updated_at=None):
         self.pid = pid
@@ -641,13 +731,16 @@ class PixivT2I(Base):
 
     id = Column(Integer, Sequence('pixiv_tag_to_illusts_id_seq'),
                 primary_key=True, nullable=False, index=True, unique=True)
-    illust_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_illusts.id'), nullable=False)
-    tag_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_tag.id'), nullable=False)
+    illust_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_illusts.id', ondelete='CASCADE'), nullable=False)
+    tag_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_tag.id', ondelete='CASCADE'), nullable=False)
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    illust_tags = relationship('Pixiv', back_populates='has_tags')
-    tag_has_illusts = relationship('PixivTag', back_populates='has_illusts')
+    # 设置级联和关系加载
+    pixiv_tag_to_illusts_back_pixiv_illusts = relationship(Pixiv, back_populates='pixiv_illusts_pixiv_tag_to_illusts',
+                                                           lazy='joined', innerjoin=True)
+    pixiv_tag_to_illusts_back_pixiv_tag = relationship(PixivTag, back_populates='pixiv_tag_pixiv_tag_to_illusts',
+                                                       lazy='joined', innerjoin=True)
 
     def __init__(self, illust_id, tag_id, created_at=None, updated_at=None):
         self.illust_id = illust_id

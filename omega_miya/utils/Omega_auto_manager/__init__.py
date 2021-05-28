@@ -3,7 +3,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import FriendRequestEvent, GroupRequestEvent, GroupIncreaseNoticeEvent
-from omega_miya.utils.Omega_Base import DBGroup
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup
 
 # 注册事件响应器
 add_and_invite_request = on_request(priority=100)
@@ -48,7 +48,8 @@ async def handle_group_increase(bot: Bot, event: GroupIncreaseNoticeEvent, state
     user_id = event.user_id
     group_id = event.group_id
     detail_type = event.notice_type
-    group_c_permission_res = await DBGroup(group_id=group_id).permission_command()
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group_c_permission_res = await DBBotGroup(group_id=group_id, self_bot=self_bot).permission_command()
     if detail_type == 'group_increase' and group_c_permission_res.result == 1:
         # 发送欢迎消息
         at_seg = MessageSegment.at(user_id=user_id)

@@ -1,6 +1,6 @@
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import User, UserGroup, Skill, UserSkill, UserSub, Vocation, AuthUser
+from omega_miya.utils.Omega_Base.tables import User, Skill, UserSkill, Vocation
 from .skill import DBSkill
 from datetime import datetime
 from sqlalchemy.future import select
@@ -51,7 +51,7 @@ class DBUser(object):
                     result = Result.TextResult(error=True, info=repr(e), result='')
         return result
 
-    async def add(self, nickname: str, is_friend: int = 0, aliasname: str = None) -> Result.IntResult:
+    async def add(self, nickname: str, aliasname: str = None) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -66,14 +66,12 @@ class DBUser(object):
                             result = Result.IntResult(error=False, info='Nickname not change', result=0)
                         else:
                             exist_user.nickname = nickname
-                            exist_user.is_friend = is_friend
                             exist_user.aliasname = aliasname
                             exist_user.updated_at = datetime.now()
                             result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         # 不存在则成员表中添加新成员
-                        new_user = User(qq=self.qq, nickname=nickname, is_friend=is_friend,
-                                        aliasname=aliasname, created_at=datetime.now())
+                        new_user = User(qq=self.qq, nickname=nickname, aliasname=aliasname, created_at=datetime.now())
                         session.add(new_user)
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
@@ -94,41 +92,6 @@ class DBUser(object):
         async with async_session() as session:
             try:
                 async with session.begin():
-                    # 清空该用户权限节点
-                    session_result = await session.execute(
-                        select(AuthUser).where(AuthUser.user_id == id_result.result)
-                    )
-                    for exist_auth_node in session_result.scalars().all():
-                        await session.delete(exist_auth_node)
-
-                    # 清空技能
-                    session_result = await session.execute(
-                        select(UserSkill).where(UserSkill.user_id == id_result.result)
-                    )
-                    for exist_skill in session_result.scalars().all():
-                        await session.delete(exist_skill)
-
-                    # 删除状态和假期
-                    session_result = await session.execute(
-                        select(Vocation).where(Vocation.user_id == id_result.result)
-                    )
-                    exist_status = session_result.scalar_one()
-                    await session.delete(exist_status)
-
-                    # 清空订阅
-                    session_result = await session.execute(
-                        select(UserSub).where(UserSub.user_id == id_result.result)
-                    )
-                    for exist_user_sub in session_result.scalars().all():
-                        await session.delete(exist_user_sub)
-
-                    # 清空群成员表中该用户
-                    session_result = await session.execute(
-                        select(UserGroup).where(UserGroup.user_id == id_result.result)
-                    )
-                    for exist_user in session_result.scalars().all():
-                        await session.delete(exist_user)
-
                     # 删除用户表中用户
                     session_result = await session.execute(
                         select(User).where(User.qq == self.qq)

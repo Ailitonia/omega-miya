@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp import MessageSegment, Message
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_Base import DBEmailBox, DBGroup
+from omega_miya.utils.Omega_Base import DBEmailBox, DBBot, DBBotGroup
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from omega_miya.utils.text_to_img import text_to_img
 from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decrypt_password
@@ -126,13 +126,14 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 async def handle_admin_mail_bind(bot: Bot, event: GroupMessageEvent, state: T_State):
     mailbox_list = state['mailbox_list']
     email_address = state['email_address']
+    self_bot = DBBot(self_qq=int(bot.self_id))
 
     if email_address not in mailbox_list:
         logger.warning(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 失败, 不在可绑定邮箱中的邮箱')
         await admin_mail_bind.finish('该邮箱不在可绑定邮箱中!')
 
     group_id = event.group_id
-    res = await DBGroup(group_id=group_id).mailbox_add(mailbox=DBEmailBox(address=email_address))
+    res = await DBBotGroup(group_id=group_id, self_bot=self_bot).mailbox_add(mailbox=DBEmailBox(address=email_address))
 
     if res.success():
         logger.info(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 成功')
@@ -152,7 +153,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         await mail_receive.finish('该命令不支持参数QAQ')
 
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     res = await group.mailbox_clear()
 
     if res.success():
@@ -185,7 +187,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         await mail_receive.finish('该命令不支持参数QAQ')
 
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     group_bind_mailbox = await group.mailbox_list()
     if not group_bind_mailbox.success() or not group_bind_mailbox.result:
         logger.info(f'{group_id} 收邮件失败: 没有绑定的邮箱')
