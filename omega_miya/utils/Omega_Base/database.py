@@ -6,7 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from .tables import Base
 from .class_result import Result
 
-global_config = nonebot.get_driver().config
+driver = nonebot.get_driver()
+
+global_config = driver.config
 __DATABASE = 'mysql'
 __DB_DRIVER = 'aiomysql'
 __DB_USER = global_config.db_user
@@ -32,6 +34,8 @@ except Exception as exp:
     sys.exit('创建数据库连接失败')
 
 
+# 初始化化数据库
+@driver.on_startup
 async def database_init():
     try:
         # 初始化数据库结构
@@ -48,10 +52,6 @@ async def database_init():
         import sys
         nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e)}')
         sys.exit('数据库初始化失败')
-
-
-# 初始化化数据库
-nonebot.get_driver().on_startup(database_init)
 
 
 class NBdb(object):
