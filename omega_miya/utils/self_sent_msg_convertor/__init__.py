@@ -32,7 +32,7 @@ async def _handle(bot: Bot, event: Event, state: T_State):
     user_id = event.dict().get('user_id', -1)
 
     try:
-        if self_id == user_id and str(self_id) in bot.config.superusers:
+        if self_id == user_id and str(self_id) == bot.self_id and str(self_id) in bot.config.superusers:
             raw_message = event.dict().get('raw_message', '')
             if str(raw_message).startswith('!SC'):
                 raw_message = re.sub(r'^!SC', '', str(raw_message)).strip()
