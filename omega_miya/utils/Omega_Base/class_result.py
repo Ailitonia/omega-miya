@@ -135,6 +135,13 @@ class Result(object):
             return f'<BoolResult(error={self.error}, info={self.info}, result={self.result})>'
 
     @dataclass
+    class BytesResult(BaseResult):
+        result: bytes
+
+        def __repr__(self):
+            return f'<BytesResult(error={self.error}, info={self.info}, result={self.result})>'
+
+    @dataclass
     class AnyResult(BaseResult):
         result: Any
 
