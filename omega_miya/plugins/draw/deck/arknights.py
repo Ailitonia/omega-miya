@@ -25,26 +25,34 @@ UP_OPERATOR = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='森蚺/Eunectes', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='阿/Aak', star=6, limited=False, recruit_only=False, event_only=False, special_only=False)
+            Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False)
         ],
         zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='白面鸮/Ptilopsis', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='真理/Истина', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='蓝毒/Blue Poison', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+            Operator(name='崖心/Cliffheart', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
+    ),
+    UpEvent(
+        star=4,
+        operator=[
+            Operator(name='深靛/Indigo', star=4, limited=False, recruit_only=False, event_only=False, special_only=False)
+        ],
+        zoom=0.2
     )
 ]
 
 ALL_OPERATOR = [
+    Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='贝娜/Bena', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='深靛/Indigo', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='浊心斯卡蒂/Skadi the Corrupting Heart', star=6, limited=True, recruit_only=False, event_only=False,
              special_only=False),
     Operator(name="凯尔希/Kal'tsit", star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
