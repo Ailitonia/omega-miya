@@ -172,7 +172,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
         if not _res.success():
             return _res
-        _res = await group.subscription_add(sub=sub)
+        _res = await group.subscription_add(sub=sub, group_sub_info='B站动态')
         if not _res.success():
             return _res
         result = Result.IntResult(error=False, info='Success', result=0)
@@ -185,7 +185,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
         if not _res.success():
             return _res
-        _res = await friend.subscription_add(sub=sub)
+        _res = await friend.subscription_add(sub=sub, user_sub_info='B站动态')
         if not _res.success():
             return _res
         result = Result.IntResult(error=False, info='Success', result=0)

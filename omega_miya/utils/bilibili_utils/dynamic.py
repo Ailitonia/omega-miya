@@ -175,6 +175,13 @@ class BiliDynamic(object):
                 content = dynamic_card['vest']['content']
                 title = dynamic_card['sketch']['title']
                 description = dynamic_card['sketch']['desc_text']
+            # type=4200, 直播间动态(疑似)
+            elif type_ == 4200:
+                desc = '发布了一条直播间动态'
+                content = f"{dynamic_card['uname']}的直播间 - {dynamic_card['title']}"
+                pictures.append(dynamic_card['cover'])
+                title = dynamic_card['title']
+                description = None
             # 其他未知类型
             else:
                 desc = 'Unknown'

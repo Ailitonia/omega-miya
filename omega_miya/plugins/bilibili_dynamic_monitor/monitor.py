@@ -129,8 +129,8 @@ async def bilibili_dynamic_monitor():
                 if orig_dy_info_result.success():
                     orig_dy_data_result = BiliDynamic.data_parser(dynamic_data=orig_dy_info_result.result)
                     if orig_dy_data_result.success():
-                        # 原动态type=2 或 8, 带图片
-                        if orig_dy_data_result.result.type in [2, 8]:
+                        # 原动态type=2, 8 或 4200, 带图片
+                        if orig_dy_data_result.result.type in [2, 8, 4200]:
                             # 处理图片序列
                             pic_seg = await pic2base64(pic_list=orig_dy_data_result.result.data.pictures)
                             orig_user = orig_dy_data_result.result.user_name
@@ -251,7 +251,7 @@ async def bilibili_dynamic_monitor():
 
     # 没有启用检查池模式
     else:
-        # 检查所有在订阅表里面的直播间(异步)
+        # 检查所有在订阅表里面的动态(异步)
         tasks = []
         for uid in check_sub:
             tasks.append(check_dynamic(uid))
@@ -260,7 +260,7 @@ async def bilibili_dynamic_monitor():
             logger.debug(f"bilibili_dynamic_monitor: pool mode disable, checking completed, "
                          f"checked: {', '.join([str(x) for x in check_sub])}.")
         except Exception as e:
-            logger.error(f'bilibili_dynamic_monitor: pool mode disable, error occurred in checking  {repr(e)}')
+            logger.error(f'bilibili_dynamic_monitor: pool mode disable, error occurred in checking {repr(e)}')
 
 
 # 根据检查池模式初始化检查时间间隔

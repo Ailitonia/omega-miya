@@ -174,7 +174,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
         if not _res.success():
             return _res
-        _res = await group.subscription_add(sub=sub)
+        _res = await group.subscription_add(sub=sub, group_sub_info='B站直播间')
         if not _res.success():
             return _res
         # 添加直播间时需要刷新全局监控列表
@@ -190,7 +190,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
         if not _res.success():
             return _res
-        _res = await friend.subscription_add(sub=sub)
+        _res = await friend.subscription_add(sub=sub, user_sub_info='B站直播间')
         if not _res.success():
             return _res
         # 添加直播间时需要刷新全局监控列表
