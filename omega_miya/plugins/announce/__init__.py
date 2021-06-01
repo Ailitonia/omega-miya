@@ -15,7 +15,7 @@ announce = on_command('公告', rule=to_me(), aliases={'announce'}, permission=S
 # 修改默认参数处理
 @announce.args_parser
 async def parse(bot: Bot, event: PrivateMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower()
+    args = str(event.get_plaintext()).strip()
     if not args:
         await announce.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args
