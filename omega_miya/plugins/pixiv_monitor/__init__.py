@@ -25,10 +25,9 @@ from .monitor import scheduler, init_new_add_sub
 __plugin_name__ = 'Pixiv画师订阅'
 __plugin_usage__ = r'''【Pixiv画师订阅】
 随时更新Pixiv画师作品
-群组/私聊可用
+仅限群聊使用
 
 **Permission**
-Friend Private
 Command & Lv.50
 
 **Usage**
@@ -41,7 +40,6 @@ Command & Lv.50
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__)
 
-
 # 注册事件响应器
 pixiv_user_artwork = on_command(
     'Pixiv画师',
@@ -51,7 +49,7 @@ pixiv_user_artwork = on_command(
         name='pixiv_user_artwork',
         command=True,
         level=50),
-    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=20,
     block=True)
 

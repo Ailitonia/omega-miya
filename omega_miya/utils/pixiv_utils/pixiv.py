@@ -134,12 +134,17 @@ class Pixiv(object):
 class PixivIllust(Pixiv):
     def __init__(self, pid: int):
         self.__pid: int = pid
-        self.__is_loaded: bool = False
+        self.__is_data_loaded: bool = False
+        self.__is_pic_loaded: bool = False
         self.__illust_data: dict = {}
+        self.__pic: bytes = b''
 
     # 获取作品完整信息（pixiv api 获取 json）
     # 返回格式化后的作品信息
     async def get_illust_data(self) -> Result.DictResult:
+        if self.__is_data_loaded:
+            return Result.DictResult(error=False, info='Success', result=self.__illust_data)
+
         illust_url = f'{self.ILLUST_DATA_URL}{self.__pid}'
         illust_artworks_url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
 
@@ -253,7 +258,7 @@ class PixivIllust(Pixiv):
             }
 
             # 保存对象状态便于其他方法调用
-            self.__is_loaded = True
+            self.__is_data_loaded = True
             self.__illust_data.update(result)
 
             return Result.DictResult(error=False, info='Success', result=result)
@@ -261,15 +266,58 @@ class PixivIllust(Pixiv):
             logger.error(f'PixivIllust | Parse illust data failed, error: {repr(e)}')
             return Result.DictResult(error=True, info=f'Parse illust data failed', result={})
 
+    # 加载作品图片
+    async def load_illust_pic(self, original: bool = False) -> Result.BytesResult:
+        if self.__is_pic_loaded:
+            return Result.BytesResult(error=False, info='Success', result=self.__pic)
+
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.BytesResult(error=True, info='Fetch illust data failed', result=b'')
+            illust_data = dict(illust_data_result.result)
+
+        if original:
+            url = illust_data.get('orig_url')
+        else:
+            url = illust_data.get('regular_url')
+
+        headers = self.HEADERS.copy()
+        headers.update({
+            'sec-fetch-dest': 'image',
+            'sec-fetch-mode': 'no-cors',
+            'sec-fetch-site': 'cross-site'
+        })
+
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_load_illust_pic', headers=headers)
+        bytes_result = await fetcher.get_bytes(url=url)
+        if bytes_result.error:
+            return Result.BytesResult(error=True, info='Image download failed', result=b'')
+        else:
+            # 保存对象状态便于其他方法调用
+            self.__is_pic_loaded = True
+            self.__pic = bytes_result.result
+            return Result.BytesResult(error=False, info='Success', result=bytes_result.result)
+
     # 图片转base64
     async def get_illust_base64(self, original: bool = False) -> Result.TextResult:
-        if self.__is_loaded:
+        if self.__is_data_loaded:
             illust_data = self.__illust_data
         else:
             illust_data_result = await self.get_illust_data()
             if illust_data_result.error:
                 return Result.TextResult(error=True, info='Fetch illust data failed', result='')
             illust_data = dict(illust_data_result.result)
+
+        if self.__is_pic_loaded:
+            illust_pic = self.__pic
+        else:
+            illust_pic_result = await self.load_illust_pic(original=original)
+            if illust_pic_result.error:
+                return Result.TextResult(error=True, info='Image download failed', result='')
+            illust_pic = illust_pic_result.result
 
         title = illust_data.get('title')
         author = illust_data.get('uname')
@@ -284,24 +332,7 @@ class PixivIllust(Pixiv):
         else:
             info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:28]}......'
 
-        if original:
-            url = illust_data.get('orig_url')
-        else:
-            url = illust_data.get('regular_url')
-
-        headers = self.HEADERS.copy()
-        headers.update({
-            'sec-fetch-dest': 'image',
-            'sec-fetch-mode': 'no-cors',
-            'sec-fetch-site': 'cross-site'
-        })
-
-        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_get_image', headers=headers)
-        bytes_result = await fetcher.get_bytes(url=url)
-        if bytes_result.error:
-            return Result.TextResult(error=True, info='Image download failed', result='')
-
-        encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
+        encode_result = PicEncoder.bytes_to_b64(image=illust_pic)
 
         if encode_result.success():
             return Result.TextResult(error=False, info=info, result=encode_result.result)
