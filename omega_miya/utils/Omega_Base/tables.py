@@ -511,12 +511,18 @@ class History(Base):
 
 # 订阅表
 class Subscription(Base):
+    """sub_type 订阅类型:
+        0-暂留
+        1-B站直播间
+        2-B站动态
+        8-Pixivsion特辑
+        9-Pixiv画师
+    """
     __tablename__ = f'{TABLE_PREFIX}subscription'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, Sequence('subscription_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    # 订阅类型, 0暂留, 1直播间, 2动态, 8Pixivsion
-    sub_type = Column(Integer, nullable=False, comment='订阅类型，0暂留，1直播间，2动态')
+    sub_type = Column(Integer, nullable=False, comment='订阅类型')
     sub_id = Column(Integer, nullable=False, index=True, comment='订阅id，直播为直播间房间号，动态为用户uid')
     up_name = Column(String(64), nullable=False, comment='up名称')
     live_info = Column(String(64), nullable=True, comment='相关信息，暂空备用')
@@ -783,6 +789,35 @@ class Pixivision(Base):
     def __repr__(self):
         return f"<Pixivision(aid='{self.aid}', title='{self.title}', description='{self.description}', " \
                f"tags='{self.tags}', illust_id='{self.illust_id}', url='{self.url}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# Pixiv用户作品表, 用于P站订阅插件
+# 因画师作品内容不定，将不与萌图/涩图插件共用pixiv_illust表, 避免混入奇怪的东西
+class PixivUserArtwork(Base):
+    __tablename__ = f'{TABLE_PREFIX}pixiv_users_artworks'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('pixiv_users_artworks_id_seq'),
+                primary_key=True, nullable=False, index=True, unique=True)
+    pid = Column(Integer, nullable=False, index=True, unique=True, comment='pid')
+    uid = Column(Integer, nullable=False, index=True, comment='uid')
+    uname = Column(String(128), nullable=False, index=True, comment='author')
+    title = Column(String(128), nullable=False, index=True, comment='title')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, pid, uid, uname, title, created_at=None, updated_at=None):
+        self.pid = pid
+        self.uid = uid
+        self.uname = uname
+        self.title = title
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<PixivUserArtwork(pid='{self.pid}', uid='{self.uid}', uname='{self.uname}', title='{self.title}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 

@@ -111,7 +111,7 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
     # 处理article中图片内容
     tasks = []
     for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).pic_2_base64())
+        tasks.append(PixivIllust(pid=pid).get_illust_base64())
     p_res = await asyncio.gather(*tasks)
     fault_count = 0
     for image_res in p_res:
@@ -182,7 +182,7 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     # 处理article中图片内容
     tasks = []
     for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).pic_2_base64())
+        tasks.append(PixivIllust(pid=pid).get_illust_base64())
     p_res = await asyncio.gather(*tasks)
     fault_count = 0
     for image_res in p_res:

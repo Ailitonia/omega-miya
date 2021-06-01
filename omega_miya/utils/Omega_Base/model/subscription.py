@@ -98,6 +98,26 @@ class DBSubscription(object):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
+    async def get_name(self) -> Result.TextResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(Subscription.up_name).
+                        where(Subscription.sub_type == self.sub_type).
+                        where(Subscription.sub_id == self.sub_id)
+                    )
+                    subscription_up_name = session_result.scalar_one()
+                    result = Result.TextResult(error=False, info='Success', result=subscription_up_name)
+                except NoResultFound:
+                    result = Result.TextResult(error=True, info='NoResultFound', result='')
+                except MultipleResultsFound:
+                    result = Result.TextResult(error=True, info='MultipleResultsFound', result='')
+                except Exception as e:
+                    result = Result.TextResult(error=True, info=repr(e), result='')
+        return result
+
     async def sub_group_list(self, self_bot: DBBot) -> Result.ListResult:
         id_result = await self.id()
         if id_result.error:

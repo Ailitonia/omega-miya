@@ -7,6 +7,7 @@ from .friend import DBFriend
 from .group import DBGroup
 from .history import DBHistory
 from .mail import DBEmail, DBEmailBox
+from .pixiv_user_artwork import DBPixivUserArtwork
 from .pixivillust import DBPixivillust
 from .pixivision import DBPixivision
 from .pixivtag import DBPixivtag
@@ -26,6 +27,7 @@ __all__ = [
     'DBHistory',
     'DBEmail',
     'DBEmailBox',
+    'DBPixivUserArtwork',
     'DBPixivillust',
     'DBPixivision',
     'DBPixivtag',

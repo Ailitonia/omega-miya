@@ -3,6 +3,7 @@ import os
 import json
 import asyncio
 import aiofiles
+from typing import List
 from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
 from omega_miya.utils.Omega_Base import Result
@@ -261,7 +262,7 @@ class PixivIllust(Pixiv):
             return Result.DictResult(error=True, info=f'Parse illust data failed', result={})
 
     # 图片转base64
-    async def pic_2_base64(self, original: bool = False) -> Result.TextResult:
+    async def get_illust_base64(self, original: bool = False) -> Result.TextResult:
         if self.__is_loaded:
             illust_data = self.__illust_data
         else:
@@ -383,7 +384,95 @@ class PixivIllust(Pixiv):
             return Result.TextResult(error=True, info='Get illust url failed', result='')
 
 
+class PixivUser(Pixiv):
+    def __init__(self, uid: int):
+        self.__uid: int = uid
+
+    async def get_info(self) -> Result.DictResult:
+        user_info_url = f'https://www.pixiv.net/ajax/user/{self.__uid}'
+
+        headers = self.HEADERS.copy()
+        headers.update({'referer': f'https://www.pixiv.net/users/{self.__uid}'})
+
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_user', headers=headers, cookies=COOKIES)
+
+        # 获取用户信息
+        params = {'lang': 'zh'}
+        user_info_result = await fetcher.get_json(url=user_info_url, params=params)
+        if user_info_result.error:
+            return Result.DictResult(error=True, info=f'Fetch user info failed, {user_info_result.info}', result={})
+
+        # 检查返回状态
+        if user_info_result.result.get('error') or not user_info_result.result:
+            return Result.DictResult(error=True, info=f'PixivApiError: {user_info_result.result}', result={})
+
+        user_info = user_info_result.result
+
+        try:
+            # 处理用户基本信息
+            name = user_info['body'].get('name')
+            image = user_info['body'].get('image')
+            image_big = user_info['body'].get('imageBig')
+            partial = user_info['body'].get('partial')
+            premium = user_info['body'].get('premium')
+            sketch_live_id = user_info['body'].get('sketchLiveId')
+            sketch_lives = user_info['body'].get('sketchLives')
+            user_id = user_info['body'].get('userId')
+
+            result = {
+                'name': name,
+                'image': image,
+                'image_big': image_big,
+                'partial': partial,
+                'premium': premium,
+                'sketch_live_id': sketch_live_id,
+                'sketch_lives': sketch_lives,
+                'user_id': user_id
+            }
+            return Result.DictResult(error=False, info='Success', result=result)
+        except Exception as e:
+            logger.error(f'PixivUser | Parse user info failed, error: {repr(e)}')
+            return Result.DictResult(error=True, info=f'Parse user info failed', result={})
+
+    async def get_artworks_info(self) -> Result.DictResult:
+        user_data_url = f'https://www.pixiv.net/ajax/user/{self.__uid}/profile/all'
+
+        headers = self.HEADERS.copy()
+        headers.update({'referer': f'https://www.pixiv.net/users/{self.__uid}'})
+
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_user', headers=headers, cookies=COOKIES)
+
+        # 获取作品信息
+        params = {'lang': 'zh'}
+        user_data_result = await fetcher.get_json(url=user_data_url, params=params)
+        if user_data_result.error:
+            return Result.DictResult(error=True, info=f'Fetch user data failed, {user_data_result.info}', result={})
+
+        # 检查返回状态
+        if user_data_result.result.get('error') or not user_data_result.result:
+            return Result.DictResult(error=True, info=f'PixivApiError: {user_data_result.result}', result={})
+
+        user_data = user_data_result.result
+
+        try:
+            # 处理作品基本信息
+            illust_list = [int(pid) for pid in dict(user_data['body']['illusts']).keys()]
+            manga_list = [int(pid) for pid in dict(user_data['body']['manga']).keys()]
+            novels_list = [int(nid) for nid in dict(user_data['body']['novels']).keys()]
+
+            result = {
+                'illust_list': illust_list,
+                'manga_list': manga_list,
+                'novels_list': novels_list
+            }
+            return Result.DictResult(error=False, info='Success', result=result)
+        except Exception as e:
+            logger.error(f'PixivUser | Parse user data failed, error: {repr(e)}')
+            return Result.DictResult(error=True, info=f'Parse user data failed', result={})
+
+
 __all__ = [
     'Pixiv',
-    'PixivIllust'
+    'PixivIllust',
+    'PixivUser'
 ]

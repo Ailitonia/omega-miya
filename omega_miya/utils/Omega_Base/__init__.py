@@ -7,7 +7,7 @@ from .database import DBTable
 from .class_result import Result
 from .model import \
     DBUser, DBFriend, DBBot, DBBotGroup, DBGroup, DBSkill, DBSubscription, DBDynamic, \
-    DBPixivillust, DBPixivtag, DBPixivision, \
+    DBPixivUserArtwork, DBPixivillust, DBPixivtag, DBPixivision, \
     DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus
 
 
@@ -21,6 +21,7 @@ __all__ = [
     'DBSkill',
     'DBSubscription',
     'DBDynamic',
+    'DBPixivUserArtwork',
     'DBPixivillust',
     'DBPixivtag',
     'DBPixivision',

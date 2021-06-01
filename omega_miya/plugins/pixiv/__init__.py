@@ -108,7 +108,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
+            image_result = await PixivIllust(pid=illust_id).get_illust_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
@@ -130,7 +130,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
+            image_result = await PixivIllust(pid=illust_id).get_illust_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
@@ -152,7 +152,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
+            image_result = await PixivIllust(pid=illust_id).get_illust_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
@@ -189,7 +189,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                 await pixiv.finish('R18禁止! 不准开车车!')
 
         await pixiv.send('稍等, 正在下载图片~')
-        illust_result = await illust.pic_2_base64()
+        illust_result = await illust.get_illust_base64()
         if illust_result.success():
             msg = illust_result.info
             img_seg = MessageSegment.image(illust_result.result)
