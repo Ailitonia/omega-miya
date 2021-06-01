@@ -48,7 +48,7 @@ class DBBot(object):
             try:
                 async with session.begin():
                     try:
-                        # 用户已存在则更新成员表昵称
+                        # 已存在则更新表中已有信息
                         session_result = await session.execute(
                             select(BotSelf).where(BotSelf.self_qq == self.self_qq)
                         )
@@ -59,7 +59,7 @@ class DBBot(object):
                         exist_bot.updated_at = datetime.now()
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
-                        # 不存在则成员表中添加新成员
+                        # 不存在则在表中添加新信息
                         new_bot = BotSelf(self_qq=self.self_qq, status=status, info=info,
                                           created_at=datetime.now())
                         session.add(new_bot)
