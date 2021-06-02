@@ -3,11 +3,13 @@
 @Date           : 2021/05/31 21:14
 @FileName       : __init__.py.py
 @Project        : nonebot2_miya
-@Description    : go-cqhttp 适配专用, 用于人工登陆 bot 时将自己发送的消息转成 message 类型便于执行命令, 需将 bot 设置为 SUPERUSER
-                  bot 账号发送命令前添加 !SC 即可将消息事件由 message_sent 转换为 group_message, 仅限群组中生效
+@Description    : go-cqhttp 适配专用, 用于人工同时登陆 bot 账号时将自己发送的消息转成 message 类型便于执行命令,
+                  bot 账号发送命令前添加 !SC 即可将消息事件由 message_sent 转换为 group_message, 仅限群组中生效,
+                  为避免命令恶意执行, bot 不能为 superuser
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
+
 import re
 from datetime import datetime
 from nonebot import logger
@@ -32,7 +34,7 @@ async def _handle(bot: Bot, event: Event, state: T_State):
     user_id = event.dict().get('user_id', -1)
 
     try:
-        if self_id == user_id and str(self_id) == bot.self_id and str(self_id) in bot.config.superusers:
+        if self_id == user_id and str(self_id) == bot.self_id and str(self_id) not in bot.config.superusers:
             raw_message = event.dict().get('raw_message', '')
             if str(raw_message).startswith('!SC'):
                 raw_message = re.sub(r'^!SC', '', str(raw_message)).strip()
