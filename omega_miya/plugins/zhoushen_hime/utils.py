@@ -271,7 +271,7 @@ class AssScriptLineTool(object):
     __Comment: str = 'Comment'
     __Header: str = 'Header'
 
-    @ classmethod
+    @classmethod
     def check_continuous(cls, start_line: AssScriptLine, end_line: AssScriptLine, style_mode: bool) \
             -> Tuple[int, datetime.timedelta]:
         """
@@ -306,7 +306,7 @@ class AssScriptLineTool(object):
         else:
             return 0, lines_duration
 
-    @ classmethod
+    @classmethod
     def check_overlap(cls, start_line: AssScriptLine, end_line: AssScriptLine, style_mode: bool) \
             -> Tuple[int, datetime.timedelta]:
         """
@@ -341,7 +341,7 @@ class AssScriptLineTool(object):
         else:
             return 0, lines_duration
 
-    @ classmethod
+    @classmethod
     def check_flash(cls, start_line: AssScriptLine, end_line: AssScriptLine,
                     threshold_time: int, style_mode: bool) -> Tuple[int, datetime.timedelta]:
         """
@@ -387,7 +387,7 @@ class AssScriptLineTool(object):
 # 构造ass字幕文件处理工具类
 class ZhouChecker(object):
     # 需要校对的关键词
-    __proofreading_words = ['ong', '???', '？？？']
+    __proofreading_words = ['???', '？？？']
 
     # 要替换的标点, key为替换前, value为替换后
     __punctuation_replace = {
@@ -404,12 +404,14 @@ class ZhouChecker(object):
         '!': '！',
         '?': '？',
         '　': ' ',
+        '[': '「',
+        ']': '」',
         '【': '「',
         '】': '」'
     }
 
     # 不知道咋换的标点
-    __punctuation_ignore = ["'", '"', '，']
+    __punctuation_ignore = ["'", '"', '，', '/']
 
     def __init__(self, file_path: str, single_threshold_time: int = 500, multi_threshold_time: int = 300,
                  flash_mode: bool = False, style_mode: bool = False, fx_mode: bool = True):

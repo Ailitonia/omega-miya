@@ -3,9 +3,8 @@
 """
 import nonebot
 from nonebot import logger, require
-from omega_miya.utils.Omega_Base import DBGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent, DBTable
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-
 
 global_config = nonebot.get_driver().config
 ENABLE_PROXY = global_config.enable_proxy
@@ -41,18 +40,19 @@ async def refresh_group_info():
     from nonebot import get_bots
 
     for bot_id, bot in get_bots().items():
+        self_bot = DBBot(self_qq=int(bot.self_id))
         group_list = await bot.call_api('get_group_list')
 
         # 首先获取所有群组列表 禁用不在的群组
-        t = DBTable(table_name='Group')
-        exist_group_result = await t.list_col('group_id')
+        exist_group_result = await DBBotGroup.list_exist_bot_groups(self_bot=self_bot)
         exist_group_list = [int(x) for x in exist_group_result.result]
 
         actual_group_list = [int(x.get('group_id')) for x in group_list]
         disable_group_list = list(set(exist_group_list).difference(set(actual_group_list)))
 
         for group in disable_group_list:
-            disable_result = await DBGroup(group_id=group).permission_set(notice=-1, command=-1, level=-1)
+            disable_result = await DBBotGroup(group_id=group, self_bot=self_bot).\
+                permission_set(notice=-1, command=-1, level=-1)
             if disable_result.error:
                 logger.warning(f'Disable expire group {group} failed, {disable_result.info}')
 
@@ -62,24 +62,26 @@ async def refresh_group_info():
             # 调用api获取群信息
             group_info = await bot.call_api(api='get_group_info', group_id=group_id)
             group_name = group_info['group_name']
-            group = DBGroup(group_id=group_id)
+            group_memo = group_info.get('group_memo')
+            group = DBBotGroup(group_id=group_id, self_bot=self_bot)
 
             # 更新群信息
-            await group.add(name=group_name)
+            add_group_res = await group.add(name=group_name)
+            if add_group_res.error:
+                logger.error(f'Add group {group_id} failed, {add_group_res.info}')
+                continue
+            set_bot_group_res = await group.set_bot_group(group_memo=group_memo)
+            if set_bot_group_res.error:
+                logger.error(f'Add group {group_id} failed, {set_bot_group_res.info}')
+                continue
 
             # 更新用户
             group_member_list = await bot.call_api(api='get_group_member_list', group_id=group_id)
 
             # 首先清除数据库中退群成员
-            exist_member_list = []
-            for user_info in group_member_list:
-                user_qq = user_info['user_id']
-                exist_member_list.append(int(user_qq))
-
-            db_member_list = []
+            exist_member_list = [int(x.get('user_id')) for x in group_member_list]
             member_res = await group.member_list()
-            for user_id, nickname in member_res.result:
-                db_member_list.append(user_id)
+            db_member_list = [user_id for user_id, nickname in member_res.result]
             del_member_list = list(set(db_member_list).difference(set(exist_member_list)))
 
             for user_id in del_member_list:
@@ -88,19 +90,19 @@ async def refresh_group_info():
             # 更新群成员
             for user_info in group_member_list:
                 # 用户信息
-                user_qq = user_info['user_id']
-                user_nickname = user_info['nickname']
-                user_group_nickmane = user_info['card']
+                user_qq = user_info.get('user_id')
+                user_nickname = user_info.get('nickname')
+                user_group_nickmane = user_info.get('card')
                 if not user_group_nickmane:
                     user_group_nickmane = user_nickname
                 _user = DBUser(user_id=user_qq)
                 _result = await _user.add(nickname=user_nickname)
                 if not _result.success():
-                    logger.warning(f'Refresh group info, User: {user_qq}, {_result.info}')
+                    logger.warning(f'Refresh group info, Add group user: {user_qq}, {_result.info}')
                     continue
                 _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
                 if not _result.success():
-                    logger.warning(f'Refresh group info, User: {user_qq}, {_result.info}')
+                    logger.warning(f'Refresh group info, Upgrade group user: {user_qq}, {_result.info}')
 
             await group.init_member_status()
             logger.info(f'Refresh group info completed, Bot: {bot_id}, Group: {group_id}')
@@ -130,9 +132,10 @@ async def refresh_friends_info():
     from nonebot import get_bots
 
     for bot_id, bot in get_bots().items():
+        self_bot = DBBot(self_qq=int(bot.self_id))
         friends_list = await bot.call_api('get_friend_list')
         # 首先清除非好友
-        exist_friend_result = await DBFriend.list_exist_friends()
+        exist_friend_result = await DBFriend.list_exist_friends(self_bot=self_bot)
         if exist_friend_result.error:
             logger.error(f'Refresh friends info failed, get exist friend list failed: {exist_friend_result.info}')
             return
@@ -142,7 +145,7 @@ async def refresh_friends_info():
         del_member_list = list(set(exist_friend_list).difference(set(actual_friend_list)))
 
         for user in del_member_list:
-            del_result = await DBFriend(user_id=user).del_friend()
+            del_result = await DBFriend(user_id=user, self_bot=self_bot).del_friend()
             if del_result.error:
                 logger.warning(f'Del expire friend user {user} failed, {del_result.info}')
 
@@ -152,17 +155,17 @@ async def refresh_friends_info():
             nickname = friend.get('nickname')
             remark = friend.get('remark')
 
-            friend = DBFriend(user_id=user_id)
+            friend = DBFriend(user_id=user_id, self_bot=self_bot)
             # 更新用户表
             add_user_result = await friend.add(nickname=nickname)
             if add_user_result.error:
-                logger.warning(f'Add friend user {user_id} failed, {add_user_result.info}')
+                logger.error(f'Add user {user_id} failed, {add_user_result.info}')
                 continue
 
             # 更新好友表
             add_friend_result = await friend.set_friend(nickname=nickname, remark=remark)
             if add_friend_result.error:
-                logger.warning(f'Add friend user {user_id} failed, {add_user_result.info}')
+                logger.error(f'Add friend user {user_id} failed, {add_user_result.info}')
 
             logger.debug(f'Refresh friends info, upgrade friend user {user_id} info')
 

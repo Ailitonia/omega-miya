@@ -5,7 +5,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from omega_miya.utils.Omega_Base import DBUser, DBGroup, DBAuth
+from omega_miya.utils.Omega_Base import DBBot, DBFriend, DBBotGroup, DBAuth
 from omega_miya.utils.Omega_plugin_utils import init_export
 
 
@@ -60,10 +60,11 @@ async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
 @omegaauth.got('sub_command', prompt='list:')
 async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
     sub_command = state["sub_command"]
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if sub_command == 'list':
         if isinstance(event, GroupMessageEvent):
             group_id = event.group_id
-            _res = await DBAuth.list(auth_type='group', auth_id=group_id)
+            _res = await DBAuth.list(auth_type='group', auth_id=group_id, self_bot=self_bot)
             if _res.success():
                 node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
                 msg = f'当前群组权限列表为:\n\n{node_text}'
@@ -72,7 +73,7 @@ async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
                 await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
         elif isinstance(event, PrivateMessageEvent):
             user_id = event.user_id
-            _res = await DBAuth.list(auth_type='user', auth_id=user_id)
+            _res = await DBAuth.list(auth_type='user', auth_id=user_id, self_bot=self_bot)
             if _res.success():
                 node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
                 msg = f'当前用户权限列表为:\n\n{node_text}'
@@ -94,11 +95,12 @@ async def handle_auth_type(bot: Bot, event: MessageEvent, state: T_State):
 async def handle_auth_id(bot: Bot, event: MessageEvent, state: T_State):
     auth_type = state["auth_type"]
     auth_id = state["auth_id"]
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if not re.match(r'^\d+$', auth_id):
         await omegaauth.finish('参数错误QAQ, qq或群号应为纯数字')
 
     if auth_type == 'user':
-        user = DBUser(user_id=auth_id)
+        user = DBFriend(user_id=auth_id, self_bot=self_bot)
         user_name_res = await user.nickname()
         if user_name_res.success():
             await omegaauth.send(f'即将对用户: 【{user_name_res.result}】执行操作')
@@ -106,7 +108,7 @@ async def handle_auth_id(bot: Bot, event: MessageEvent, state: T_State):
             logger.error(f'为 {auth_type}/{auth_id} 配置权限节点失败, 数据库中不存在该用户')
             await omegaauth.finish('数据库中不存在该用户QAQ')
     elif auth_type == 'group':
-        group = DBGroup(group_id=auth_id)
+        group = DBBotGroup(group_id=auth_id, self_bot=self_bot)
         group_name_res = await group.name()
         if group_name_res.success():
             await omegaauth.send(f'即将对群组: 【{group_name_res.result}】执行操作')
@@ -153,8 +155,9 @@ async def handle_auth_node(bot: Bot, event: MessageEvent, state: T_State):
     auth_id = state["auth_id"]
     sub_command = state["sub_command"]
     auth_type = state["auth_type"]
+    self_bot = DBBot(self_qq=int(bot.self_id))
 
-    auth = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=r_auth_node)
+    auth = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=r_auth_node, self_bot=self_bot)
 
     if sub_command == 'allow':
         res = await auth.set(allow_tag=1, deny_tag=0)

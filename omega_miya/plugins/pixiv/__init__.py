@@ -5,7 +5,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, check_auth_node
+from omega_miya.utils.Omega_Base import DBBot
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 # Custom plugin usage text
@@ -107,7 +108,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
+            image_result = await PixivIllust(pid=illust_id).get_illust_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
@@ -129,7 +130,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
+            image_result = await PixivIllust(pid=illust_id).get_illust_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
@@ -151,7 +152,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
+            image_result = await PixivIllust(pid=illust_id).get_illust_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
@@ -174,10 +175,12 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         if illust_data_result.result.get('is_r18'):
             if isinstance(event, PrivateMessageEvent):
                 user_id = event.user_id
-                auth_checker = await check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
+                auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))).\
+                    check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
             elif isinstance(event, GroupMessageEvent):
                 group_id = event.group_id
-                auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
+                auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))).\
+                    check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
             else:
                 auth_checker = 0
 
@@ -186,7 +189,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                 await pixiv.finish('R18禁止! 不准开车车!')
 
         await pixiv.send('稍等, 正在下载图片~')
-        illust_result = await illust.pic_2_base64()
+        illust_result = await illust.get_illust_base64()
         if illust_result.success():
             msg = illust_result.info
             img_seg = MessageSegment.image(illust_result.result)
@@ -264,7 +267,7 @@ async def handle_pixiv_dl(bot: Bot, event: GroupMessageEvent, state: T_State):
                 await bot.call_api(api='upload_group_file', group_id=event.group_id, file=file_path, name=file_name)
             except Exception as e:
                 logger.warning(f'User: {event.user_id} 下载Pixiv资源失败, 上传群文件失败: {repr(e)}')
-                await pixiv_dl.finish('上传图片到群文件失败QAQ, 请稍后再试')
+                await pixiv_dl.finish('上传图片到群文件失败QAQ, 可能获取上传结果超时但上传仍在进行中, 请等待1~2分钟后再重试')
 
     else:
         await pixiv_dl.finish('参数错误, pid应为纯数字')

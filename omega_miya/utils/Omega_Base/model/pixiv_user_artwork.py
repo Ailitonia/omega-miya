@@ -1,15 +1,25 @@
+"""
+@Author         : Ailitonia
+@Date           : 2021/06/01 21:02
+@FileName       : pixiv_user_artwork.py
+@Project        : nonebot2_miya 
+@Description    : PixivUserArtwork Model
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm 
+"""
+
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Bilidynamic
+from omega_miya.utils.Omega_Base.tables import PixivUserArtwork
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
-class DBDynamic(object):
-    def __init__(self, uid: int, dynamic_id: int):
+class DBPixivUserArtwork(object):
+    def __init__(self, pid: int, uid: int):
+        self.pid = pid
         self.uid = uid
-        self.dynamic_id = dynamic_id
 
     async def id(self) -> Result.IntResult:
         async_session = NBdb().get_async_session()
@@ -17,12 +27,12 @@ class DBDynamic(object):
             async with session.begin():
                 try:
                     session_result = await session.execute(
-                        select(Bilidynamic.id).
-                        where(Bilidynamic.uid == self.uid).
-                        where(Bilidynamic.dynamic_id == self.dynamic_id)
+                        select(PixivUserArtwork.id).
+                        where(PixivUserArtwork.pid == self.pid).
+                        where(PixivUserArtwork.uid == self.uid)
                     )
-                    bilidynamic_table_id = session_result.scalar_one()
-                    result = Result.IntResult(error=False, info='Success', result=bilidynamic_table_id)
+                    artwork_table_id = session_result.scalar_one()
+                    result = Result.IntResult(error=False, info='Success', result=artwork_table_id)
                 except NoResultFound:
                     result = Result.IntResult(error=True, info='NoResultFound', result=-1)
                 except MultipleResultsFound:
@@ -35,26 +45,26 @@ class DBDynamic(object):
         result = await self.id()
         return result.success()
 
-    async def add(self, dynamic_type: int, content: str) -> Result.IntResult:
+    async def add(self, uname: str, title: str) -> Result.IntResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
                     try:
                         session_result = await session.execute(
-                            select(Bilidynamic).
-                            where(Bilidynamic.uid == self.uid).
-                            where(Bilidynamic.dynamic_id == self.dynamic_id)
+                            select(PixivUserArtwork).
+                            where(PixivUserArtwork.pid == self.pid).
+                            where(PixivUserArtwork.uid == self.uid)
                         )
-                        exist_dynamic = session_result.scalar_one()
-                        exist_dynamic.content += f'\nupdate: {datetime.now()}\n{content}'
-                        exist_dynamic.updated_at = datetime.now()
-                        result = Result.IntResult(error=False, info='Success upgrade', result=0)
+                        exist_artwork = session_result.scalar_one()
+                        exist_artwork.uname = uname
+                        exist_artwork.title = title
+                        exist_artwork.updated_at = datetime.now()
+                        result = Result.IntResult(error=False, info='Exist artwork updated', result=0)
                     except NoResultFound:
-                        # 动态表中添加新动态
-                        new_dynamic = Bilidynamic(uid=self.uid, dynamic_id=self.dynamic_id, dynamic_type=dynamic_type,
-                                                  content=content, created_at=datetime.now())
-                        session.add(new_dynamic)
+                        new_artwork = PixivUserArtwork(pid=self.pid, uid=self.uid,
+                                                       title=title, uname=uname, created_at=datetime.now())
+                        session.add(new_artwork)
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
             except MultipleResultsFound:
@@ -66,13 +76,13 @@ class DBDynamic(object):
         return result
 
     @classmethod
-    async def list_all_dynamic(cls) -> Result.IntListResult:
+    async def list_all_artwork(cls) -> Result.IntListResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
                     session_result = await session.execute(
-                        select(Bilidynamic.dynamic_id).order_by(Bilidynamic.dynamic_id)
+                        select(PixivUserArtwork.pid).order_by(PixivUserArtwork.pid)
                     )
                     res = [x for x in session_result.scalars().all()]
                     result = Result.IntListResult(error=False, info='Success', result=res)
@@ -81,15 +91,15 @@ class DBDynamic(object):
         return result
 
     @classmethod
-    async def list_dynamic_by_uid(cls, uid: int) -> Result.IntListResult:
+    async def list_artwork_by_uid(cls, uid: int) -> Result.IntListResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
                     session_result = await session.execute(
-                        select(Bilidynamic.dynamic_id).
-                        where(Bilidynamic.uid == uid).
-                        order_by(Bilidynamic.dynamic_id)
+                        select(PixivUserArtwork.pid).
+                        where(PixivUserArtwork.uid == uid).
+                        order_by(PixivUserArtwork.pid)
                     )
                     res = [x for x in session_result.scalars().all()]
                     result = Result.IntListResult(error=False, info='Success', result=res)

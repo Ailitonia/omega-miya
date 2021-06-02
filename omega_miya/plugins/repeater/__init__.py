@@ -4,14 +4,14 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import has_notice_permission
+from omega_miya.utils.Omega_plugin_utils import OmegaRules
 from .utils import sp_event_check
 
 last_msg = {}
 last_repeat_msg = {}
 repeat_count = {}
 
-repeater = on_message(rule=has_notice_permission(), permission=GROUP, priority=100, block=False)
+repeater = on_message(rule=OmegaRules.has_group_command_permission(), permission=GROUP, priority=100, block=False)
 
 
 @repeater.handle()
@@ -37,6 +37,9 @@ async def handle_repeater(bot: Bot, event: GroupMessageEvent, state: T_State):
 
     t_msg = event.message
     msg = event.raw_message
+
+    if msg.startswith('!SC'):
+        return
 
     if re.match(r'^/', msg):
         return

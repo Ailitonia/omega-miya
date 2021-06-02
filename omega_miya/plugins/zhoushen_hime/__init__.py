@@ -9,8 +9,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupUploadNoticeEvent
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, has_auth_node
-from omega_miya.utils.Omega_Base import DBGroup, DBAuth, Result
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBAuth, Result
 from .utils import ZhouChecker, download_file
 
 
@@ -99,29 +99,31 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
 
 async def zhoushen_hime_on(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     group_exist = await group.exist()
     if not group_exist:
         return Result.IntResult(error=False, info='Group not exist', result=-1)
 
-    auth_node = DBAuth(auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
+    auth_node = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
     result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用自动审轴姬')
     return result
 
 
 async def zhoushen_hime_off(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     group_exist = await group.exist()
     if not group_exist:
         return Result.IntResult(error=False, info='Group not exist', result=-1)
 
-    auth_node = DBAuth(auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
+    auth_node = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
     result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用自动审轴姬')
     return result
 
 
-zhoushen_hime = on_notice(rule=has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
+zhoushen_hime = on_notice(rule=OmegaRules.has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
 
 
 @zhoushen_hime.handle()

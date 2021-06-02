@@ -5,8 +5,8 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBGroup, DBTable
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, check_auth_node
+from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBBot, DBBotGroup
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PermissionChecker
 
 # Custom plugin usage text
 __plugin_name__ = '请假'
@@ -212,7 +212,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
     skill = state['skill']
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     if not skill:
         result = await group.idle_member_list()
         if result.success() and result.result:
@@ -228,10 +229,8 @@ async def handle_skill(bot: Bot, event: GroupMessageEvent, state: T_State):
             logger.error(f"Group: {event.group_id}, get_idle, Failed, {result.info}")
             await get_idle.finish(f'似乎发生了点错误QAQ')
     else:
-        skill_table = DBTable(table_name='Skill')
-        skill_res = await skill_table.list_col(col_name='name')
-        exist_skill = [x for x in skill_res.result]
-        if skill not in exist_skill:
+        skill_res = await DBSkill.list_available_skill()
+        if skill not in skill_res.result:
             await get_idle.reject(f'没有{skill}这个技能, 请重新输入, 取消命令请发送【取消】:')
         result = await group.idle_skill_list(skill=DBSkill(name=skill))
         if result.success() and result.result:
@@ -254,7 +253,8 @@ get_vocation = vocation.on_command('谁在休假')
 @get_vocation.handle()
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
     group_id = event.group_id
-    group = DBGroup(group_id=group_id)
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     result = await group.vocation_member_list()
     if result.success() and result.result:
         msg = ''
@@ -304,7 +304,8 @@ async def member_vocations_monitor():
             group_id = group.get('group_id')
 
             # 跳过不具备权限的组
-            auth_check_res = await check_auth_node(
+            self_bot = DBBot(self_qq=int(bot.self_id))
+            auth_check_res = await PermissionChecker(self_bot=self_bot).check_auth_node(
                 auth_id=group_id, auth_type='group', auth_node='Omega_vocation.basic')
             if auth_check_res != 1:
                 continue

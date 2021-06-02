@@ -80,6 +80,8 @@ class BiliUser(object):
             return Result.DictListResult(error=True, info=result.result.get('message'), result=[])
 
         try:
+            if not result.result['data'].get('cards'):
+                return Result.DictListResult(error=False, info='Success. But user has no dynamic.', result=[])
             data_list = [dict(card) for card in result.result['data']['cards']]
             return Result.DictListResult(error=False, info='Success', result=data_list)
         except Exception as e:

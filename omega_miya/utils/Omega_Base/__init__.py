@@ -6,8 +6,8 @@
 from .database import DBTable
 from .class_result import Result
 from .model import \
-    DBUser, DBFriend, DBGroup, DBSkill, DBSubscription, DBDynamic, \
-    DBPixivillust, DBPixivtag, DBPixivision, \
+    DBUser, DBFriend, DBBot, DBBotGroup, DBGroup, DBSkill, DBSubscription, DBDynamic, \
+    DBPixivUserArtwork, DBPixivillust, DBPixivtag, DBPixivision, \
     DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus
 
 
@@ -15,10 +15,13 @@ __all__ = [
     'DBTable',
     'DBUser',
     'DBFriend',
+    'DBBot',
+    'DBBotGroup',
     'DBGroup',
     'DBSkill',
     'DBSubscription',
     'DBDynamic',
+    'DBPixivUserArtwork',
     'DBPixivillust',
     'DBPixivtag',
     'DBPixivision',
