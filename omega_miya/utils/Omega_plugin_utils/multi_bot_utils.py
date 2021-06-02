@@ -30,7 +30,7 @@ class MultiBotUtils(object):
         _original_session_id = state.get('_original_session_id')
 
         async def _first_response_bot(_bot: Bot, _event: Event) -> bool:
-            return _bot.self_id == _bot_self_id and _event.get_session_id(
+            return _bot.self_id == _bot_self_id and str(event.self_id) == _bot_self_id and _event.get_session_id(
             ) == _original_session_id and await _original_permission(bot, event)
 
         return Permission(_first_response_bot)
