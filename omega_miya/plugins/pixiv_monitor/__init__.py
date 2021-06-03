@@ -181,12 +181,12 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='Pixiv用户作品订阅')
         if not _res.success():
             return _res
-        _res = await group.subscription_add(sub=sub, group_sub_info='Pixiv用户作品订阅')
-        if not _res.success():
-            return _res
         if need_init:
             await bot.send(event=event, message='初次订阅, 正在初始化作品信息, 可能需要1~2分钟, 请稍后...')
             await init_new_add_sub(user_id=uid)
+        _res = await group.subscription_add(sub=sub, group_sub_info='Pixiv用户作品订阅')
+        if not _res.success():
+            return _res
         result = Result.IntResult(error=False, info='Success', result=0)
         return result
     elif isinstance(event, PrivateMessageEvent):
@@ -195,12 +195,12 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='Pixiv用户作品订阅')
         if not _res.success():
             return _res
-        _res = await friend.subscription_add(sub=sub, user_sub_info='Pixiv用户作品订阅')
-        if not _res.success():
-            return _res
         if need_init:
             await bot.send(event=event, message='初次订阅, 正在初始化作品信息, 可能需要1~2分钟, 请稍后...')
             await init_new_add_sub(user_id=uid)
+        _res = await friend.subscription_add(sub=sub, user_sub_info='Pixiv用户作品订阅')
+        if not _res.success():
+            return _res
         result = Result.IntResult(error=False, info='Success', result=0)
         return result
     else:
