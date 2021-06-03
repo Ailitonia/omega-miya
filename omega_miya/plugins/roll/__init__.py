@@ -17,13 +17,23 @@ __plugin_usage__ = r'''【Roll & 抽奖】
 
 **Permission**
 Command & Lv.10
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /roll <x>d<y>
 /抽奖 <人数>'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+
 
 Roll = CommandGroup(
     'R0ll',
@@ -31,7 +41,8 @@ Roll = CommandGroup(
     state=init_permission_state(
         name='roll',
         command=True,
-        level=10),
+        level=10,
+        auth_node='basic'),
     permission=GROUP,
     priority=10,
     block=True)

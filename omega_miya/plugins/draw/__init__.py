@@ -16,6 +16,10 @@ __plugin_usage__ = r'''【抽卡】
 
 **Permission**
 Command & Lv.10
+or AuthNode
+
+**AuthNode**
+basic
 
 **CoolDown**
 用户冷却时间
@@ -26,7 +30,8 @@ Command & Lv.10
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node
+    PluginCoolDown.skip_auth_node,
+    'basic'
 ]
 
 # 声明本插件的冷却时间配置
@@ -44,7 +49,8 @@ Draw = CommandGroup(
     state=init_permission_state(
         name='draw',
         command=True,
-        level=10),
+        level=10,
+        auth_node='basic'),
     permission=GROUP,
     priority=10,
     block=True)

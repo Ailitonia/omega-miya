@@ -17,14 +17,23 @@ __plugin_usage__ = r'''【Pixivision订阅】
 
 **Permission**
 Command & Lv.30
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 **GroupAdmin and SuperUser Only**
 /Pixivision 订阅
 /Pixivision 取消订阅'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 pixivision = on_command(
@@ -34,7 +43,8 @@ pixivision = on_command(
     state=init_permission_state(
         name='pixivision',
         command=True,
-        level=30),
+        level=30,
+        auth_node='basic'),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=20,
     block=True)

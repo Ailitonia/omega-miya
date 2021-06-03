@@ -27,13 +27,21 @@ __plugin_usage__ = r'''【Http Cat】
 **Permission**
 Friend Private
 Command & Lv.30
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /HttpCat <code>'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -43,7 +51,8 @@ httpcat = on_command(
     state=init_permission_state(
         name='httpcat',
         command=True,
-        level=30),
+        level=30,
+        auth_node='basic'),
     aliases={'httpcat', 'HTTPCAT'},
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,

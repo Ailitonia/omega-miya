@@ -18,12 +18,21 @@ __plugin_usage__ = r'''【表情包助手】
 **Permission**
 Friend Private
 Command & Lv.10
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /表情包 [模板名]'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 sticker = on_command(
@@ -33,7 +42,8 @@ sticker = on_command(
     state=init_permission_state(
         name='sticker',
         command=True,
-        level=10),
+        level=10,
+        auth_node='basic'),
     permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)

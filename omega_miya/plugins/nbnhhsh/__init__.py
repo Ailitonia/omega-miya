@@ -16,13 +16,21 @@ __plugin_usage__ = r'''【能不能好好说话？】
 **Permission**
 Friend Private
 Command & Lv.30
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /好好说话 [缩写]'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -32,7 +40,8 @@ nbnhhsh = on_command(
     state=init_permission_state(
         name='nbnhhsh',
         command=True,
-        level=30),
+        level=30,
+        auth_node='basic'),
     aliases={'hhsh', 'nbnhhsh'},
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,

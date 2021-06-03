@@ -29,6 +29,10 @@ __plugin_usage__ = r'''【Pixiv画师订阅】
 
 **Permission**
 Command & Lv.50
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 **GroupAdmin and SuperUser Only**
@@ -37,8 +41,13 @@ Command & Lv.50
 /Pixiv画师 清空订阅
 /Pixiv画师 订阅列表'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 pixiv_user_artwork = on_command(
@@ -48,7 +57,8 @@ pixiv_user_artwork = on_command(
     state=init_permission_state(
         name='pixiv_user_artwork',
         command=True,
-        level=50),
+        level=50,
+        auth_node='basic'),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=20,
     block=True)

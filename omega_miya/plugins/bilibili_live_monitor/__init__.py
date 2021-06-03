@@ -22,6 +22,10 @@ __plugin_usage__ = r'''【B站直播间订阅】
 **Permission**
 Friend Private
 Command & Lv.20
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 **GroupAdmin and SuperUser Only**
@@ -30,8 +34,13 @@ Command & Lv.20
 /B站直播间 清空订阅
 /B站直播间 订阅列表'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -42,7 +51,8 @@ bilibili_live = on_command(
     state=init_permission_state(
         name='bilibili_live',
         command=True,
-        level=20),
+        level=20,
+        auth_node='basic'),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
     priority=20,
     block=True)
