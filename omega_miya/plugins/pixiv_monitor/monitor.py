@@ -137,7 +137,7 @@ async def pixiv_user_artwork_monitor():
 
             if is_r18:
                 # 添加图片处理模块, 模糊后发送
-                blur_img_result = await PicEffector.gaussian_blur(image=illust_pic_bytes_result.result)
+                blur_img_result = await PicEffector(image=illust_pic_bytes_result.result).gaussian_blur()
                 b64_img_result = PicEncoder.bytes_to_b64(image=blur_img_result.result)
                 img_seg = MessageSegment.image(b64_img_result.result)
             else:

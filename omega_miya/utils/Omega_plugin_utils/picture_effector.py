@@ -16,15 +16,16 @@ from omega_miya.utils.Omega_Base import Result
 
 
 class PicEffector(object):
-    @classmethod
-    def add_blank_bytes(cls, image: bytes, bytes_num: int = 16) -> bytes:
-        return image + b''*bytes_num
+    def __init__(self, image: bytes):
+        self.image = image
 
-    @classmethod
-    async def gaussian_blur(cls, image: bytes, radius: Optional[int] = None) -> Result.BytesResult:
+    def add_blank_bytes(self, bytes_num: int = 16) -> bytes:
+        return self.image + b' '*bytes_num
+
+    async def gaussian_blur(self, radius: Optional[int] = None) -> Result.BytesResult:
         def __handle() -> Result.BytesResult:
             with BytesIO() as byte_file:
-                byte_file.write(image)
+                byte_file.write(self.image)
                 # 处理图片
                 mk_image = Image.open(byte_file)
                 if radius:
