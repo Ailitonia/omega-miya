@@ -1,5 +1,5 @@
 import asyncio
-from nonebot import CommandGroup, on_command, export, logger
+from nonebot import CommandGroup, on_command, export, get_driver, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -8,9 +8,18 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
+from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector
 from omega_miya.utils.Omega_Base import DBPixivillust
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import add_illust
+from .config import Config
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_MOE_FLASH = plugin_config.enable_moe_flash
+ENABLE_SETU_FLASH = plugin_config.enable_setu_flash
+ENABLE_SETU_GAUSSIAN_BLUR = plugin_config.enable_setu_gaussian_blur
 
 
 # Custom plugin usage text
@@ -111,17 +120,31 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
     # 处理article中图片内容
     tasks = []
     for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).get_illust_base64())
+        tasks.append(PixivIllust(pid=pid).load_illust_pic())
     p_res = await asyncio.gather(*tasks)
     fault_count = 0
     for image_res in p_res:
         try:
-            if not image_res.success():
+            if image_res.error:
                 fault_count += 1
                 logger.warning(f'图片下载失败, error: {image_res.info}')
                 continue
+            if ENABLE_SETU_GAUSSIAN_BLUR:
+                image_res = await PicEffector(image=image_res.result).gaussian_blur(radius=4)
+                if image_res.error:
+                    fault_count += 1
+                    logger.warning(f'处理图片高斯模糊失败, error: {image_res.info}')
+                    continue
+            image_res = PicEncoder.bytes_to_b64(image=image_res.result)
+            if image_res.error:
+                fault_count += 1
+                logger.warning(f'图片转换Base64失败, error: {image_res.info}')
+                continue
             else:
-                img_seg = MessageSegment.image(image_res.result)
+                if ENABLE_SETU_FLASH:
+                    img_seg = MessageSegment.image(image_res.result, type_='flash')
+                else:
+                    img_seg = MessageSegment.image(image_res.result)
             # 发送图片
             await setu.send(img_seg)
         except Exception as e:
@@ -182,17 +205,25 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     # 处理article中图片内容
     tasks = []
     for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).get_illust_base64())
+        tasks.append(PixivIllust(pid=pid).load_illust_pic())
     p_res = await asyncio.gather(*tasks)
     fault_count = 0
     for image_res in p_res:
         try:
-            if not image_res.success():
+            if image_res.error:
                 fault_count += 1
                 logger.warning(f'图片下载失败, error: {image_res.info}')
                 continue
+            image_res = PicEncoder.bytes_to_b64(image=image_res.result)
+            if image_res.error:
+                fault_count += 1
+                logger.warning(f'图片转换Base64失败, error: {image_res.info}')
+                continue
             else:
-                img_seg = MessageSegment.image(image_res.result)
+                if ENABLE_MOE_FLASH:
+                    img_seg = MessageSegment.image(image_res.result, type_='flash')
+                else:
+                    img_seg = MessageSegment.image(image_res.result)
             # 发送图片
             await moepic.send(img_seg)
         except Exception as e:
