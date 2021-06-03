@@ -17,10 +17,10 @@ class AssScriptException(Exception):
 # 构造ass字幕类
 class AssScriptLine(object):
     # 标记属性
-    __Style: str = 'Style'
-    __Dialogue: str = 'Dialogue'
-    __Comment: str = 'Comment'
-    __Header: str = 'Header'
+    __STYLE: str = 'Style'
+    __DIALOGUE: str = 'Dialogue'
+    __COMMENT: str = 'Comment'
+    __HEADER: str = 'Header'
 
     # 为方便时间计算, 字幕时间起点以0点为基准
     @classmethod
@@ -140,16 +140,16 @@ class AssScriptLine(object):
         self.__raw_text = self.__raw_text.strip()
 
         # 判断类型
-        if self.__raw_text.startswith(AssScriptLine.__Style):
-            self.__type = AssScriptLine.__Style
+        if self.__raw_text.startswith(self.__STYLE):
+            self.__type = self.__STYLE
             split_line = self.__raw_text.split(',', maxsplit=22)
 
             self.__style = split_line[0].split(':')[1].strip()
 
             self.__is_init = True
 
-        elif self.__raw_text.startswith(AssScriptLine.__Dialogue):
-            self.__type = AssScriptLine.__Dialogue
+        elif self.__raw_text.startswith(self.__DIALOGUE):
+            self.__type = self.__DIALOGUE
             split_line = self.__raw_text.split(',', maxsplit=9)
 
             self.__start_time = self.__time_handle(time=split_line[1])
@@ -167,8 +167,8 @@ class AssScriptLine(object):
 
             self.__is_init = True
 
-        elif self.__raw_text.startswith(AssScriptLine.__Comment):
-            self.__type = AssScriptLine.__Comment
+        elif self.__raw_text.startswith(self.__COMMENT):
+            self.__type = self.__COMMENT
             split_line = self.__raw_text.split(',', maxsplit=9)
 
             self.__start_time = self.__time_handle(time=split_line[1])
@@ -187,7 +187,7 @@ class AssScriptLine(object):
             self.__is_init = True
 
         else:
-            self.__type = AssScriptLine.__Header
+            self.__type = self.__HEADER
 
             self.__is_init = True
 
@@ -198,7 +198,7 @@ class AssScriptLine(object):
         if not self.__is_init:
             return self.raw_text
 
-        if self.__type in [AssScriptLine.__Header, AssScriptLine.__Style]:
+        if self.__type in [self.__HEADER, self.__STYLE]:
             return self.raw_text
 
         start_time = self.start_time.strftime('%H:%M:%S.%f')[:-4]
@@ -229,7 +229,7 @@ class AssScriptLine(object):
         if not self.__is_init:
             return -1, datetime.timedelta(0)
 
-        if self.__type != AssScriptLine.__Dialogue:
+        if self.__type != self.__DIALOGUE:
             return -1, datetime.timedelta(0)
 
         threshold_duration = datetime.timedelta(microseconds=threshold_time * 1000)
@@ -266,10 +266,10 @@ class AssScriptLine(object):
 # 构造ass字幕event行工具类
 class AssScriptLineTool(object):
     # 标记属性
-    __Style: str = 'Style'
-    __Dialogue: str = 'Dialogue'
-    __Comment: str = 'Comment'
-    __Header: str = 'Header'
+    __STYLE: str = 'Style'
+    __DIALOGUE: str = 'Dialogue'
+    __COMMENT: str = 'Comment'
+    __HEADER: str = 'Header'
 
     @classmethod
     def check_continuous(cls, start_line: AssScriptLine, end_line: AssScriptLine, style_mode: bool) \
@@ -290,7 +290,7 @@ class AssScriptLineTool(object):
         if not all([start_line.is_init, end_line.is_init]):
             return -1, datetime.timedelta(0)
 
-        if start_line.type != AssScriptLineTool.__Dialogue or end_line.type != AssScriptLineTool.__Dialogue:
+        if start_line.type != cls.__DIALOGUE or end_line.type != cls.__DIALOGUE:
             return -1, datetime.timedelta(0)
 
         lines_duration = \
@@ -325,7 +325,7 @@ class AssScriptLineTool(object):
         if not all([start_line.is_init, end_line.is_init]):
             return -1, datetime.timedelta(0)
 
-        if start_line.type != AssScriptLineTool.__Dialogue or end_line.type != AssScriptLineTool.__Dialogue:
+        if start_line.type != cls.__DIALOGUE or end_line.type != cls.__DIALOGUE:
             return -1, datetime.timedelta(0)
 
         if style_mode:
@@ -361,7 +361,7 @@ class AssScriptLineTool(object):
         if not all([start_line.is_init, end_line.is_init]):
             return -1, datetime.timedelta(0)
 
-        if start_line.type != AssScriptLineTool.__Dialogue or end_line.type != AssScriptLineTool.__Dialogue:
+        if start_line.type != cls.__DIALOGUE or end_line.type != cls.__DIALOGUE:
             return -1, datetime.timedelta(0)
 
         lines_duration = \
@@ -385,7 +385,7 @@ class AssScriptLineTool(object):
 
 
 # 构造ass字幕文件处理工具类
-class ZhouChecker(object):
+class ZhouChecker(AssScriptLineTool):
     # 需要校对的关键词
     __proofreading_words = ['???', '？？？']
 
@@ -540,15 +540,15 @@ class ZhouChecker(object):
                     threshold_time=self.__single_threshold_time)
 
                 # 检查连轴
-                continuous, continuous_lines_duration = AssScriptLineTool.check_continuous(
+                continuous, continuous_lines_duration = self.check_continuous(
                     start_line=start_line, end_line=end_line, style_mode=style_mode)
 
                 # 检查叠轴
-                overlap, overlap_duration = AssScriptLineTool.check_overlap(
+                overlap, overlap_duration = self.check_overlap(
                     start_line=start_line, end_line=end_line, style_mode=style_mode)
 
                 # 检查轴间闪轴
-                multi_flash, multi_flash_lines_duration = AssScriptLineTool.check_flash(
+                multi_flash, multi_flash_lines_duration = self.check_flash(
                     start_line=start_line, end_line=end_line,
                     threshold_time=self.__multi_threshold_time, style_mode=style_mode)
 
