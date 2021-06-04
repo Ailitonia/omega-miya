@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+from typing import Dict
 from nonebot import get_driver, logger
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -19,10 +20,13 @@ from omega_miya.utils.Omega_Base import DBBot
 from omega_miya.utils.Omega_plugin_utils import MultiBotUtils
 
 driver = get_driver()
+ONLINE_BOTS: Dict[str, Bot] = {}
 
 
 @driver.on_bot_connect
 async def upgrade_connected_bot(bot: Bot):
+    global ONLINE_BOTS
+    ONLINE_BOTS.update({bot.self_id: bot})
     # bot_info = await bot.get_login_info()
     bot_info = await bot.get_version_info()
     info = '||'.join([f'{k}:{v}' for (k, v) in bot_info.items()])
@@ -37,6 +41,8 @@ async def upgrade_connected_bot(bot: Bot):
 
 @driver.on_bot_disconnect
 async def upgrade_disconnected_bot(bot: Bot):
+    global ONLINE_BOTS
+    ONLINE_BOTS.pop(bot.self_id, None)
     bot_result = await DBBot(self_qq=int(bot.self_id)).upgrade(status=0)
     if bot_result.success():
         logger.opt(colors=True).warning(f'Bot: {bot.self_id} <ly>已离线</ly>, '
@@ -47,10 +53,17 @@ async def upgrade_disconnected_bot(bot: Bot):
 
 
 @run_preprocessor
-async def set_first_response_bot_state(matcher: Matcher, bot: Bot, event: Event, state: T_State):
+async def unique_bot_responding_limit(matcher: Matcher, bot: Bot, event: Event, state: T_State):
     # 对于多协议端同时接入, 需匹配event.self_id与bot.self_id, 以保证会话不会被跨bot, 跨群, 跨用户触发
     if bot.self_id != str(event.self_id):
-        raise IgnoredException(f'Bot {bot.self_id} does not match the event self_id {event.self_id}')
+        logger.debug(f'Bot {bot.self_id} ignored event which not match self_id with {event.self_id}.')
+        raise IgnoredException(f'Bot {bot.self_id} ignored event which not match self_id with {event.self_id}.')
+
+    # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
+    event_user_id = str(event.dict().get('user_id'))
+    if event_user_id in [x for x in ONLINE_BOTS.keys() if x != bot.self_id]:
+        logger.debug(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}.')
+        raise IgnoredException(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}.')
 
     # 对于多协议端同时接入, 需要使用permission_updater限制bot id避免响应混乱
     # 在matcher首次运行时在statue中写入首次执行matcher的bot id
