@@ -203,50 +203,57 @@ async def pixiv_user_artwork_monitor():
         logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
 
 
+# 用于首次订阅时刷新数据库信息
 async def init_new_add_sub(user_id: int):
-    # 获取pixiv用户作品内容
-    user_artwork_result = await PixivUser(uid=user_id).get_artworks_info()
-    if user_artwork_result.error:
-        logger.error(f'init_new_add_sub: 获取用户 {user_id} 作品失败, error: {user_artwork_result.info}')
+    # 暂停计划任务避免中途检查更新
+    scheduler.pause()
+    try:
+        # 获取pixiv用户作品内容
+        user_artwork_result = await PixivUser(uid=user_id).get_artworks_info()
+        if user_artwork_result.error:
+            logger.error(f'init_new_add_sub: 获取用户 {user_id} 作品失败, error: {user_artwork_result.info}')
 
-    all_artwork_list = user_artwork_result.result.get('illust_list')
-    manga_list = user_artwork_result.result.get('manga_list')
-    all_artwork_list.extend(manga_list)
+        all_artwork_list = user_artwork_result.result.get('illust_list')
+        manga_list = user_artwork_result.result.get('manga_list')
+        all_artwork_list.extend(manga_list)
 
-    async def _handle(pid_: int):
-        illust = PixivIllust(pid=pid_)
-        illust_info_result = await illust.get_illust_data()
-        if illust_info_result.error:
-            logger.error(f'init_new_add_sub: 获取用户 {user_id} 作品 {pid_} 信息失败, error: {illust_info_result.info}')
-            return
+        async def _handle(pid_: int):
+            illust = PixivIllust(pid=pid_)
+            illust_info_result = await illust.get_illust_data()
+            if illust_info_result.error:
+                logger.error(f'init_new_add_sub: 获取用户 {user_id} 作品 {pid_} 信息失败, error: {illust_info_result.info}')
+                return
 
-        uname = illust_info_result.result.get('uname')
-        title = illust_info_result.result.get('title')
+            uname = illust_info_result.result.get('uname')
+            title = illust_info_result.result.get('title')
 
-        # 更新作品内容到数据库
-        pixiv_user_artwork = DBPixivUserArtwork(pid=pid_, uid=user_id)
-        _res = await pixiv_user_artwork.add(uname=uname, title=title)
-        if _res.success():
-            logger.debug(f'向数据库写入pixiv用户作品信息: {pid_} 成功')
-        else:
-            logger.error(f'向数据库写入pixiv用户作品信息: {pid_} 失败, error: {_res.info}')
+            # 更新作品内容到数据库
+            pixiv_user_artwork = DBPixivUserArtwork(pid=pid_, uid=user_id)
+            _res = await pixiv_user_artwork.add(uname=uname, title=title)
+            if _res.success():
+                logger.debug(f'向数据库写入pixiv用户作品信息: {pid_} 成功')
+            else:
+                logger.error(f'向数据库写入pixiv用户作品信息: {pid_} 失败, error: {_res.info}')
 
-    # 写入操作
-    all_count = len(all_artwork_list)
-    # 全部一起并发网络撑不住, 做适当切分
-    # 每个切片数量
-    seg_n = 10
-    pid_seg_list = []
-    for i in range(0, all_count, seg_n):
-        pid_seg_list.append(all_artwork_list[i:i + seg_n])
-    # 每个切片打包一个任务
-    for seg_list in pid_seg_list:
-        tasks = []
-        for pid in seg_list:
-            tasks.append(_handle(pid_=pid))
-        # 进行异步处理
-        await asyncio.gather(*tasks)
+        # 写入操作
+        all_count = len(all_artwork_list)
+        # 全部一起并发网络撑不住, 做适当切分
+        # 每个切片数量
+        seg_n = 10
+        pid_seg_list = []
+        for i in range(0, all_count, seg_n):
+            pid_seg_list.append(all_artwork_list[i:i + seg_n])
+        # 每个切片打包一个任务
+        for seg_list in pid_seg_list:
+            tasks = []
+            for pid in seg_list:
+                tasks.append(_handle(pid_=pid))
+            # 进行异步处理
+            await asyncio.gather(*tasks)
+    except Exception as e:
+        logger.error(f'初始化pixiv用户 {user_id} 作品发生错误, error: {repr(e)}.')
 
+    scheduler.resume()
     logger.info(f'初始化pixiv用户 {user_id} 作品完成, 已将作品信息写入数据库.')
 
 

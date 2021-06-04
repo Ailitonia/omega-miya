@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from typing import List, Union
 from nonebot import logger
-from nonebot.adapters import Bot
+from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, Result
 from omega_miya.utils.bilibili_utils import BiliLiveRoom, BiliUser, BiliRequestUtils, BiliInfo

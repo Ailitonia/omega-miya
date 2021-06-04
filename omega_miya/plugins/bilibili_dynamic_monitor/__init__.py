@@ -8,7 +8,7 @@ from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE
 from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from omega_miya.utils.bilibili_utils import BiliUser
-from .monitor import scheduler
+from .monitor import init_user_dynamic, scheduler
 
 
 # Custom plugin usage text
@@ -174,14 +174,18 @@ async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.List
 
 async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
     self_bot = DBBot(self_qq=int(bot.self_id))
+    uid = state['uid']
+    sub = DBSubscription(sub_type=2, sub_id=uid)
+    need_init = not (await sub.exist())
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
         group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        uid = state['uid']
-        sub = DBSubscription(sub_type=2, sub_id=uid)
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
         if not _res.success():
             return _res
+        # 初次订阅时立即刷新, 避免订阅后发送旧动态的问题
+        if need_init:
+            await init_user_dynamic(user_id=uid)
         _res = await group.subscription_add(sub=sub, group_sub_info='B站动态')
         if not _res.success():
             return _res
@@ -190,11 +194,12 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
     elif isinstance(event, PrivateMessageEvent):
         user_id = event.user_id
         friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        uid = state['uid']
-        sub = DBSubscription(sub_type=2, sub_id=uid)
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
         if not _res.success():
             return _res
+        # 初次订阅时立即刷新, 避免订阅后发送旧动态的问题
+        if need_init:
+            await init_user_dynamic(user_id=uid)
         _res = await friend.subscription_add(sub=sub, user_sub_info='B站动态')
         if not _res.success():
             return _res

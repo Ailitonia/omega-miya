@@ -114,6 +114,41 @@ async def pixivision_monitor():
             logger.error(f"article: {aid} 信息解析失败, info: {a_res.info}")
     logger.info(f'pixivision_monitor: checking completed, 已处理新的article: {repr(new_article)}')
 
+
+# 用于首次订阅时刷新数据库信息
+async def init_pixivsion_article():
+    # 暂停计划任务避免中途检查更新
+    scheduler.pause()
+    try:
+        # 获取最新一页pixivision的article
+        new_article = []
+        articles_result = await PixivisionArticle.get_illustration_list()
+        if articles_result.error:
+            return
+        for article in articles_result.result:
+            try:
+                article = dict(article)
+                article_tags_id = []
+                article_tags_name = []
+                for tag in article['tags']:
+                    article_tags_id.append(int(tag['tag_id']))
+                    article_tags_name.append(str(tag['tag_name']))
+                new_article.append({'aid': int(article['id']), 'tags': article_tags_name})
+            except Exception:
+                continue
+        # 处理新的aritcle
+        for article in new_article:
+            aid = int(article['aid'])
+            tags = list(article['tags'])
+            await pixivsion_article_parse(aid=aid, tags=tags)
+    except Exception as e:
+        logger.info(f'初始化pixivsion article错误, error: {repr(e)}.')
+
+    scheduler.resume()
+    logger.info(f'初始化pixivsion article完成, 已将作品信息写入数据库.')
+
+
 __all__ = [
-    'scheduler'
+    'scheduler',
+    'init_pixivsion_article'
 ]

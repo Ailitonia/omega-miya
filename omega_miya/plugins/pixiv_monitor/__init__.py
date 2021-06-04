@@ -191,6 +191,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='Pixiv用户作品订阅')
         if not _res.success():
             return _res
+        # 初次订阅时立即刷新, 避免订阅后发送旧作品的问题
         if need_init:
             await bot.send(event=event, message='初次订阅, 正在初始化作品信息, 可能需要1~2分钟, 请稍后...')
             await init_new_add_sub(user_id=uid)
@@ -205,6 +206,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         _res = await sub.add(up_name=state.get('up_name'), live_info='Pixiv用户作品订阅')
         if not _res.success():
             return _res
+        # 初次订阅时立即刷新, 避免订阅后发送旧作品的问题
         if need_init:
             await bot.send(event=event, message='初次订阅, 正在初始化作品信息, 可能需要1~2分钟, 请稍后...')
             await init_new_add_sub(user_id=uid)
