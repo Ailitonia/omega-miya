@@ -2,7 +2,7 @@ import asyncio
 from nonebot import logger, require, get_bots
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBPixivision
-from omega_miya.utils.Omega_plugin_utils import MsgSender
+from omega_miya.utils.Omega_plugin_utils import MsgSender, PicEncoder
 from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
 from .utils import pixivsion_article_parse
 from .block_tag import TAG_BLOCK_LIST
@@ -95,7 +95,7 @@ async def pixivision_monitor():
             # 处理article中图片内容
             tasks = []
             for pid in article_data['illusts_list']:
-                tasks.append(PixivIllust(pid=pid).get_illust_base64())
+                tasks.append(PixivIllust(pid=pid).load_illust_pic())
             p_res = await asyncio.gather(*tasks)
             image_error = 0
             for image_res in p_res:
@@ -103,7 +103,8 @@ async def pixivision_monitor():
                     image_error += 1
                     continue
                 else:
-                    img_seg = MessageSegment.image(image_res.result)
+                    image_result = PicEncoder.bytes_to_b64(image=image_res.result)
+                    img_seg = MessageSegment.image(image_result.result)
                 # 发送图片
                 for _bot in bots:
                     msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionImage')

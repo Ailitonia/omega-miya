@@ -3,7 +3,10 @@ import os
 import json
 import asyncio
 import aiofiles
-from typing import List
+import zipfile
+import imageio
+from io import BytesIO
+from typing import Dict
 from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
 from omega_miya.utils.Omega_Base import Result
@@ -136,8 +139,10 @@ class PixivIllust(Pixiv):
         self.__pid: int = pid
         self.__is_data_loaded: bool = False
         self.__is_pic_loaded: bool = False
+        self.__is_downloaded: bool = False
         self.__illust_data: dict = {}
         self.__pic: bytes = b''
+        self.__downloaded_file_path: str = ''
 
     # 获取作品完整信息（pixiv api 获取 json）
     # 返回格式化后的作品信息
@@ -266,6 +271,29 @@ class PixivIllust(Pixiv):
             logger.error(f'PixivIllust | Parse illust data failed, error: {repr(e)}')
             return Result.DictResult(error=True, info=f'Parse illust data failed', result={})
 
+    async def get_format_info_msg(self, desc_len: int = 32) -> Result.TextResult:
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+            illust_data = dict(illust_data_result.result)
+
+        title = illust_data.get('title')
+        author = illust_data.get('uname')
+        url = illust_data.get('url')
+        description = illust_data.get('description')
+        tags = ''
+        for tag in illust_data.get('tags'):
+            tags += f'#{tag}  '
+
+        if not description:
+            info = f'「{title}」/「{author}」\n{tags}\n{url}'
+        else:
+            info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:desc_len]}......'
+        return Result.TextResult(error=False, info='Success', result=info)
+
     # 加载作品图片
     async def load_illust_pic(self, original: bool = False) -> Result.BytesResult:
         if self.__is_pic_loaded:
@@ -302,15 +330,7 @@ class PixivIllust(Pixiv):
             return Result.BytesResult(error=False, info='Success', result=bytes_result.result)
 
     # 图片转base64
-    async def get_illust_base64(self, original: bool = False) -> Result.TextResult:
-        if self.__is_data_loaded:
-            illust_data = self.__illust_data
-        else:
-            illust_data_result = await self.get_illust_data()
-            if illust_data_result.error:
-                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
-            illust_data = dict(illust_data_result.result)
-
+    async def get_base64(self, original: bool = False) -> Result.TextResult:
         if self.__is_pic_loaded:
             illust_pic = self.__pic
         else:
@@ -319,25 +339,89 @@ class PixivIllust(Pixiv):
                 return Result.TextResult(error=True, info='Image download failed', result='')
             illust_pic = illust_pic_result.result
 
-        title = illust_data.get('title')
-        author = illust_data.get('uname')
-        url = illust_data.get('url')
-        description = illust_data.get('description')
-        tags = ''
-        for tag in illust_data.get('tags'):
-            tags += f'#{tag}  '
-
-        if not description:
-            info = f'「{title}」/「{author}」\n{tags}\n{url}'
-        else:
-            info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:28]}......'
-
         encode_result = PicEncoder.bytes_to_b64(image=illust_pic)
-
         if encode_result.success():
-            return Result.TextResult(error=False, info=info, result=encode_result.result)
+            return Result.TextResult(error=False, info='Success', result=encode_result.result)
         else:
             return Result.TextResult(error=True, info=encode_result.info, result='')
+
+    def __load_ugoira_pics(self, file_path: str) -> Dict[str, bytes]:
+        if not self.__is_data_loaded:
+            raise RuntimeError('Illust data not loaded!')
+        if not os.path.exists(file_path):
+            raise RuntimeError(f'File: {file_path}, Not found.')
+        result_list = {}
+        with zipfile.ZipFile(file_path, 'r') as zip_f:
+            name_list = zip_f.namelist()
+            for file_name in name_list:
+                result_list.update({
+                    file_name: zip_f.open(file_name, 'r').read()
+                })
+        return result_list
+
+    def __generate_ugoira_gif(self, ugoira_pics: Dict[str, bytes]) -> bytes:
+        if not self.__is_data_loaded:
+            raise RuntimeError('Illust data not loaded!')
+        frames_list = []
+        sum_delay = []
+        for file, delay in [(item['file'], item['delay']) for item in self.__illust_data['ugoira_meta']['frames']]:
+            frames_list.append(imageio.imread(ugoira_pics[file]))
+            sum_delay.append(delay)
+        avg_delay = sum(sum_delay) / len(sum_delay)
+        avg_duration = avg_delay / 1000
+        with BytesIO() as bytes_f:
+            imageio.mimsave(bytes_f, frames_list, 'GIF', duration=avg_duration)
+            return bytes_f.getvalue()
+
+    async def __prepare_ugoira_gif(self) -> bytes:
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                raise RuntimeError('Fetch illust data failed')
+            illust_data = dict(illust_data_result.result)
+
+        illust_type = illust_data.get('illust_type')
+        if illust_type != 2:
+            raise RuntimeError('Illust not ugoira!')
+
+        ugoira_zip_dl_url = illust_data.get('ugoira_meta').get('originalsrc')
+        if not ugoira_zip_dl_url:
+            raise RuntimeError('Can not get ugoira download url!')
+
+        zip_file_name = os.path.split(ugoira_zip_dl_url)[-1]
+        download_result = await self.download_illust()
+        if download_result.error:
+            raise RuntimeError(f'Download ugoira Illust failed: {download_result.info}')
+
+        folder_path = os.path.split(download_result.result)[0]
+        ugoira_zip_path = os.path.abspath(os.path.join(folder_path, zip_file_name))
+
+        loop = asyncio.get_running_loop()
+        ugoira_pics = await loop.run_in_executor(None, self.__load_ugoira_pics, ugoira_zip_path)
+        gif_bytes = await loop.run_in_executor(None, self.__generate_ugoira_gif, ugoira_pics)
+        return gif_bytes
+
+    async def get_ugoira_gif_base64(self) -> Result.TextResult:
+        try:
+            gif_bytes = await self.__prepare_ugoira_gif()
+            base64_result = PicEncoder.bytes_to_b64(image=gif_bytes)
+            return base64_result
+        except Exception as e:
+            return Result.TextResult(error=True, info=repr(e), result='')
+
+    async def get_ugoira_gif_filepath(self) -> Result.TextResult:
+        try:
+            gif_bytes = await self.__prepare_ugoira_gif()
+            folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
+            file_name = f'{self.__pid}.gif'
+            file_path = os.path.abspath(os.path.join(folder_path, file_name))
+            async with aiofiles.open(file_path, 'wb') as aio_f:
+                await aio_f.write(gif_bytes)
+            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+        except Exception as e:
+            return Result.TextResult(error=True, info=repr(e), result='')
 
     async def download_illust(self, page: int = None) -> Result.TextResult:
         """
@@ -383,6 +467,8 @@ class PixivIllust(Pixiv):
 
             download_result = await fetcher.download_file(url=download_url_list[0], path=file_path, file_name=file_name)
             if download_result.success():
+                self.__is_downloaded = True
+                self.__downloaded_file_path = download_result.result
                 return Result.TextResult(error=False, info=file_name, result=download_result.result)
             else:
                 return Result.TextResult(error=True, info=download_result.info, result='')
@@ -410,6 +496,9 @@ class PixivIllust(Pixiv):
 
             # 打包
             zip_result = await create_zip_file(files=downloaded_list, file_path=file_path, file_name=str(self.__pid))
+            if zip_result.success():
+                self.__is_downloaded = True
+                self.__downloaded_file_path = zip_result.result
             return zip_result
         else:
             return Result.TextResult(error=True, info='Get illust url failed', result='')

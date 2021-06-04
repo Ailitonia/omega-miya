@@ -127,12 +127,14 @@ async def pixiv_user_artwork_monitor():
             is_r18 = illust_info_result.result.get('is_r18')
 
             # 下载图片
+            illust_info_msg_result = await illust.get_format_info_msg()
             illust_pic_bytes_result = await illust.load_illust_pic()
             # base64预处理
-            illust_b64_result = await illust.get_illust_base64()
-            if illust_b64_result.error or illust_pic_bytes_result.error:
-                logger.error(f'pixiv_user_artwork_monitor: 下载用户 {user_id} 作品 {pid} 失败,'
-                             f'error: {illust_b64_result.info}')
+            illust_b64_result = await illust.get_base64()
+            if illust_b64_result.error or illust_pic_bytes_result.error or illust_info_msg_result.error:
+                logger.error(f'pixiv_user_artwork_monitor: 下载用户 {user_id} 作品 {pid} 失败, '
+                             f'error: {illust_info_msg_result.info} // {illust_pic_bytes_result.info} // '
+                             f'{illust_b64_result.info}')
                 continue
 
             if is_r18:
@@ -144,7 +146,7 @@ async def pixiv_user_artwork_monitor():
                 img_seg = MessageSegment.image(illust_b64_result.result)
 
             intro_msg = f'【Pixiv】{uname}发布了新的作品!\n\n'
-            info_msg = illust_b64_result.info
+            info_msg = illust_info_msg_result.result
             msg = Message(intro_msg).append(img_seg).append(info_msg)
 
             # 向群组和好友推送消息
