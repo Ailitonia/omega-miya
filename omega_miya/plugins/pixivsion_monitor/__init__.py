@@ -104,6 +104,7 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.
         return _res
     # 初次订阅时立即刷新, 避免订阅后发送旧特辑的问题
     if need_init:
+        await bot.send(event=event, message='初次订阅, 正在初始化Pixivision信息, 可能需要1~2分钟, 请稍后...')
         await init_pixivsion_article()
     _res = await group.subscription_add(sub=sub, group_sub_info='Pixivision订阅')
     if not _res.success():

@@ -185,6 +185,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
             return _res
         # 初次订阅时立即刷新, 避免订阅后发送旧动态的问题
         if need_init:
+            await bot.send(event=event, message='初次订阅, 正在初始化动态信息, 请稍后...')
             await init_user_dynamic(user_id=uid)
         _res = await group.subscription_add(sub=sub, group_sub_info='B站动态')
         if not _res.success():
@@ -199,6 +200,7 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
             return _res
         # 初次订阅时立即刷新, 避免订阅后发送旧动态的问题
         if need_init:
+            await bot.send(event=event, message='初次订阅, 正在初始化动态信息, 请稍后...')
             await init_user_dynamic(user_id=uid)
         _res = await friend.subscription_add(sub=sub, user_sub_info='B站动态')
         if not _res.success():
