@@ -342,8 +342,12 @@ async def set_group_command(bot: Bot, event: GroupMessageEvent, state: T_State) 
     group_notice, _command, group_level = permission_res.result
 
     if state['sub_arg'] == 'on':
+        # 初始化群组authnode
+        await init_group_auth_node(group_id=group_id, self_bot=self_bot)
         result = await group.permission_set(notice=group_notice, command=1, level=group_level)
     elif state['sub_arg'] == 'off':
+        # 初始化群组authnode
+        await init_group_auth_node(group_id=group_id, self_bot=self_bot)
         result = await group.permission_set(notice=group_notice, command=0, level=group_level)
     else:
         result = Result.IntResult(True, 'Missing parameters or Illegal parameter', -1)
