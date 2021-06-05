@@ -78,6 +78,8 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '默认': {'name': 'default', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '白底': {'name': 'whitebg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '黑框': {'name': 'blackbg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
+        '黑白': {'name': 'decolorize', 'type': 'default', 'text_part': 0, 'help_msg': '该模板不支持gif'},
+        '生草日语': {'name': 'grassja', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
@@ -99,6 +101,10 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
     if state['temp_type'] in ['static', 'gif']:
         state['image_url'] = None
 
+    # 判断是否需要文字
+    if state['temp_text_part'] == 0:
+        state['sticker_text'] = ''
+
 
 @sticker.got('image_url', prompt='请发送你想要制作的表情包的图片:')
 async def handle_img(bot: Bot, event: MessageEvent, state: T_State):
@@ -112,7 +118,6 @@ async def handle_img(bot: Bot, event: MessageEvent, state: T_State):
         image_url = re.sub(r'(])$', '', image_url)
 
     state['image_url'] = image_url
-    state['sticker_text'] = None
 
 
 @sticker.got('sticker_text', prompt='请输入你想要制作的表情包的文字:')
@@ -130,17 +135,21 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
                    f'\n\n注意: 请用【#】号分割文本不同段落，不同模板适用的文字字数及段落数有所区别'
     else:
         text_msg = f'请输入你想要制作的表情包的文字: \n注意: 不同模板适用的文字字数有所区别'
-    if not sticker_text:
-        await sticker.reject(text_msg)
 
-    # 过滤CQ码
-    if re.match(r'\[CQ:', sticker_text, re.I):
-        await sticker.finish('含非法字符QAQ')
+    if sticker_temp_text_part == 0:
+        pass
+    else:
+        if not sticker_text:
+            await sticker.reject(text_msg)
 
-    if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
-        eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'
-        await sticker.finish(f"表情制作失败QAQ, 文本分段数错误\n"
-                             f"当前模板文本分段数:【{sticker_temp_text_part}】\n\n示例: \n{eg_msg}")
+        # 过滤CQ码
+        if re.match(r'\[CQ:', sticker_text, re.I):
+            await sticker.finish('含非法字符QAQ')
+
+        if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
+            eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'
+            await sticker.finish(f"表情制作失败QAQ, 文本分段数错误\n"
+                                 f"当前模板文本分段数:【{sticker_temp_text_part}】\n\n示例: \n{eg_msg}")
 
     sticker_image_url = state['image_url']
     sticker_temp_name = state['temp_name']
