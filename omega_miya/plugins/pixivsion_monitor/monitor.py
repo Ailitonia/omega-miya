@@ -95,7 +95,7 @@ async def pixivision_monitor():
             # 处理article中图片内容
             tasks = []
             for pid in article_data['illusts_list']:
-                tasks.append(PixivIllust(pid=pid).load_illust_pic())
+                tasks.append(PixivIllust(pid=pid).get_base64())
             p_res = await asyncio.gather(*tasks)
             image_error = 0
             for image_res in p_res:
@@ -103,8 +103,7 @@ async def pixivision_monitor():
                     image_error += 1
                     continue
                 else:
-                    image_result = PicEncoder.bytes_to_b64(image=image_res.result)
-                    img_seg = MessageSegment.image(image_result.result)
+                    img_seg = MessageSegment.image(image_res.result)
                 # 发送图片
                 for _bot in bots:
                     msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionImage')

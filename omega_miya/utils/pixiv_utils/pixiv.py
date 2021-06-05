@@ -430,20 +430,24 @@ class PixivIllust(Pixiv):
         if page and page < 1:
             page = None
 
-        illust_data_result = await self.get_illust_data()
-        if illust_data_result.error:
-            return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+            illust_data = dict(illust_data_result.result)
 
         download_url_list = []
-        page_count = illust_data_result.result.get('page_count')
-        illust_type = illust_data_result.result.get('illust_type')
+        page_count = illust_data.get('page_count')
+        illust_type = illust_data.get('illust_type')
         if illust_type == 2:
             # 作品类型为动图
-            download_url_list.append(illust_data_result.result.get('ugoira_meta').get('originalsrc'))
+            download_url_list.append(illust_data.get('ugoira_meta').get('originalsrc'))
         if page_count == 1:
-            download_url_list.append(illust_data_result.result.get('orig_url'))
+            download_url_list.append(illust_data.get('orig_url'))
         else:
-            download_url_list.extend(illust_data_result.result.get('all_url').get('original'))
+            download_url_list.extend(illust_data.get('all_url').get('original'))
 
         if page and page <= page_count:
             download_url_list = [download_url_list[page - 1]]
@@ -487,8 +491,8 @@ class PixivIllust(Pixiv):
 
             # 动图额外保存原始ugoira_meta信息
             if illust_type == 2:
-                pid = illust_data_result.result.get('pid')
-                ugoira_meta = illust_data_result.result.get('ugoira_meta')
+                pid = illust_data.get('pid')
+                ugoira_meta = illust_data.get('ugoira_meta')
                 ugoira_meta_file = os.path.abspath(os.path.join(file_path, f'{pid}_ugoira_meta'))
                 async with aiofiles.open(ugoira_meta_file, 'w') as f:
                     await f.write(json.dumps(ugoira_meta))

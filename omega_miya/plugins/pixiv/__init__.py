@@ -112,17 +112,13 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_load_result = await PixivIllust(pid=illust_id).load_illust_pic()
-            if image_load_result.error:
-                logger.warning(f"下载图片失败, pid: {illust_id}, {image_load_result.info}")
-                continue
-            image_result = PicEncoder.bytes_to_b64(image=image_load_result.result)
+            image_result = await PixivIllust(pid=illust_id).get_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
                 await pixiv.send(Message(img_seg).append(msg))
             else:
-                logger.warning(f"转换图片失败, pid: {illust_id}, {image_result.info}")
+                logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
     elif mode == '周榜':
         await pixiv.send('稍等, 正在下载图片~')
         rank_result = await PixivIllust.weekly_ranking()
@@ -139,17 +135,13 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_load_result = await PixivIllust(pid=illust_id).load_illust_pic()
-            if image_load_result.error:
-                logger.warning(f"下载图片失败, pid: {illust_id}, {image_load_result.info}")
-                continue
-            image_result = PicEncoder.bytes_to_b64(image=image_load_result.result)
+            image_result = await PixivIllust(pid=illust_id).get_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
                 await pixiv.send(Message(img_seg).append(msg))
             else:
-                logger.warning(f"转换图片失败, pid: {illust_id}, {image_result.info}")
+                logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
     elif mode == '月榜':
         await pixiv.send('稍等, 正在下载图片~')
         rank_result = await PixivIllust.monthly_ranking()
@@ -166,17 +158,13 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_title = illust_data.get('illust_title')
             illust_uname = illust_data.get('illust_uname')
 
-            image_load_result = await PixivIllust(pid=illust_id).load_illust_pic()
-            if image_load_result.error:
-                logger.warning(f"下载图片失败, pid: {illust_id}, {image_load_result.info}")
-                continue
-            image_result = PicEncoder.bytes_to_b64(image=image_load_result.result)
+            image_result = await PixivIllust(pid=illust_id).get_base64()
             if image_result.success():
                 msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
                 img_seg = MessageSegment.image(image_result.result)
                 await pixiv.send(Message(img_seg).append(msg))
             else:
-                logger.warning(f"转换图片失败, pid: {illust_id}, {image_result.info}")
+                logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
     elif re.match(r'^\d+$', mode):
         pid = mode
         logger.debug(f'开始获取Pixiv资源: {pid}.')
