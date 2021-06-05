@@ -122,6 +122,8 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
                         pic_seg = await pic2base64(pic_list=orig_dy_data_result.result.data.pictures)
                         orig_user = orig_dy_data_result.result.user_name
                         orig_contant = orig_dy_data_result.result.data.content
+                        if not orig_contant:
+                            orig_contant = orig_dy_data_result.result.data.title
                         msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n" \
                               f"@{orig_user}: {orig_contant}\n{pic_seg}"
                     # 原动态type=32 或 512, 为番剧类型
@@ -136,6 +138,8 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
                     else:
                         orig_user = orig_dy_data_result.result.user_name
                         orig_contant = orig_dy_data_result.result.data.content
+                        if not orig_contant:
+                            orig_contant = orig_dy_data_result.result.data.title
                         msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n" \
                               f"@{orig_user}: {orig_contant}"
                 else:
