@@ -340,13 +340,12 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
         logger.error(f'setu_import: 读取导入列表失败, error: {repr(e)}')
         await setu_import.finish('错误: 读取导入列表失败QAQ')
 
-    await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
-
     # 对列表去重
     pid_list = list(set(pid_list))
-
-    # 导入操作
     all_count = len(pid_list)
+    await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
+    logger.info(f'setu_import: 读取导入文件列表完成, 总计: {all_count}, 开始导入...')
+    # 开始导入操作
     success_count = 0
     # 全部一起并发api撑不住, 做适当切分
     # 每个切片数量
