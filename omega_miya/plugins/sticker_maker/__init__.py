@@ -110,13 +110,15 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
 async def handle_img(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
     if state['temp_type'] not in ['static', 'gif']:
-        if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
-            await sticker.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
-
         # 提取图片url
-        image_url = re.sub(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=)', '', image_url)
-        image_url = re.sub(r'(])$', '', image_url)
-
+        image_url = None
+        for msg_seg in event.message:
+            if msg_seg.type == 'image':
+                image_url = msg_seg.data.get('url')
+                break
+        # 没有提取到图片url
+        if not image_url:
+            await sticker.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
     state['image_url'] = image_url
 
 
