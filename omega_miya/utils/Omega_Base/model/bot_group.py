@@ -1,7 +1,8 @@
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import \
-    User, Group, BotGroup, UserGroup, Vocation, Skill, UserSkill, Subscription, GroupSub, EmailBox, GroupEmailBox
+    User, Group, BotGroup, UserGroup, Vocation, Skill, UserSkill, \
+    Subscription, GroupSub, GroupSetting, EmailBox, GroupEmailBox
 from .user import DBUser
 from .skill import DBSkill
 from .group import DBGroup
@@ -936,6 +937,133 @@ class DBBotGroup(DBGroup):
                         await session.delete(exist_mailbox)
                 await session.commit()
                 result = Result.IntResult(error=False, info='Success', result=0)
+            except Exception as e:
+                await session.rollback()
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    async def setting_list(self) -> Result.ListResult:
+        """
+        :return: Result: List[Tuple[setting_name, main_config, secondary_config, extra_config]]
+        """
+        bot_group_id_result = await self.bot_group_id()
+        if bot_group_id_result.error:
+            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(GroupSetting.setting_name, GroupSetting.main_config,
+                               GroupSetting.secondary_config, GroupSetting.extra_config).
+                        where(GroupSetting.group_id == bot_group_id_result.result)
+                    )
+                    res = [(x[0], x[1], x[2], x[3]) for x in session_result.all()]
+                    result = Result.ListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
+        return result
+
+    async def setting_get(self, setting_name: str) -> Result.TextTupleResult:
+        """
+        :param setting_name: 配置名称
+        :return: Result: Tuple[main_config, secondary_config, extra_config]
+        """
+        bot_group_id_result = await self.bot_group_id()
+        if bot_group_id_result.error:
+            return Result.TextTupleResult(error=True, info='BotGroup not exist', result=('', '', ''))
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(GroupSetting.main_config, GroupSetting.secondary_config, GroupSetting.extra_config).
+                        where(GroupSetting.setting_name == setting_name).
+                        where(GroupSetting.group_id == bot_group_id_result.result)
+                    )
+                    main, second, extra = session_result.one()
+                    result = Result.TextTupleResult(error=False, info='Success', result=(main, second, extra))
+                except NoResultFound:
+                    result = Result.TextTupleResult(error=True, info='NoResultFound', result=('', '', ''))
+                except MultipleResultsFound:
+                    result = Result.TextTupleResult(error=True, info='MultipleResultsFound', result=('', '', ''))
+                except Exception as e:
+                    result = Result.TextTupleResult(error=True, info=repr(e), result=('', '', ''))
+        return result
+
+    async def setting_set(
+            self,
+            setting_name: str,
+            main_config: str,
+            *,
+            secondary_config: str = 'None',
+            extra_config: str = 'None',
+            setting_info: str = 'None') -> Result.IntResult:
+
+        bot_group_id_result = await self.bot_group_id()
+        if bot_group_id_result.error:
+            return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    try:
+                        session_result = await session.execute(
+                            select(GroupSetting).
+                            where(GroupSetting.setting_name == setting_name).
+                            where(GroupSetting.group_id == bot_group_id_result.result)
+                        )
+                        # 已存在, 更新信息
+                        exist_setting = session_result.scalar_one()
+                        exist_setting.main_config = main_config
+                        exist_setting.secondary_config = secondary_config
+                        exist_setting.extra_config = extra_config
+                        exist_setting.setting_info = setting_info
+                        exist_setting.updated_at = datetime.now()
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
+                    except NoResultFound:
+                        new_setting = GroupSetting(group_id=bot_group_id_result.result, setting_name=setting_name,
+                                                   main_config=main_config, secondary_config=secondary_config,
+                                                   extra_config=extra_config, setting_info=setting_info,
+                                                   created_at=datetime.now())
+                        session.add(new_setting)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
+                await session.commit()
+            except MultipleResultsFound:
+                await session.rollback()
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                await session.rollback()
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    async def setting_del(self, setting_name: str) -> Result.IntResult:
+        bot_group_id_result = await self.bot_group_id()
+        if bot_group_id_result.error:
+            return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    session_result = await session.execute(
+                        select(GroupSetting).
+                        where(GroupSetting.setting_name == setting_name).
+                        where(GroupSetting.group_id == bot_group_id_result.result)
+                    )
+                    exist_setting = session_result.scalar_one()
+                    await session.delete(exist_setting)
+                await session.commit()
+                result = Result.IntResult(error=False, info='Success', result=0)
+            except NoResultFound:
+                await session.rollback()
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
+            except MultipleResultsFound:
+                await session.rollback()
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
                 result = Result.IntResult(error=True, info=repr(e), result=-1)

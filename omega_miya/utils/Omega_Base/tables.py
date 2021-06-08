@@ -249,6 +249,8 @@ class BotGroup(Base):
                                          cascade='all, delete-orphan', passive_deletes=True)
     bot_groups_group_email_box = relationship('GroupEmailBox', back_populates='group_email_box_back_bot_groups',
                                               cascade='all, delete-orphan', passive_deletes=True)
+    bot_groups_groups_settings = relationship('GroupSetting', back_populates='groups_settings_back_bot_groups',
+                                              cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, group_id, bot_self_id, notice_permissions, command_permissions,
                  permission_level, group_memo=None, created_at=None, updated_at=None):
@@ -361,6 +363,52 @@ class AuthGroup(Base):
     def __repr__(self):
         return f"<AuthGroup(group_id='{self.group_id}', auth_node='{self.auth_node}', " \
                f"allow_tag='{self.allow_tag}', deny_tag='{self.deny_tag}', auth_info='{self.auth_info}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# 群组设置信息表, 用于群管/定时任务/欢迎各种需要持久化群设定信息的插件
+class GroupSetting(Base):
+    __tablename__ = f'{TABLE_PREFIX}groups_settings'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('groups_settings_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_groups.id', ondelete='CASCADE'), nullable=False)
+    setting_name = Column(String(64), nullable=False, index=True, comment='配置项名称')
+    main_config = Column(String(128), nullable=False, index=True, comment='主要配置')
+    secondary_config = Column(String(128), nullable=False, index=True, comment='次要配置, 用于需要多个配置项的情况')
+    extra_config = Column(String(128), nullable=False, index=True, comment='额外配置, 用于需要多个配置项的情况')
+    setting_info = Column(String(128), nullable=True, comment='配置信息')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    # 设置级联和关系加载
+    groups_settings_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_groups_settings',
+                                                   lazy='joined', innerjoin=True)
+
+    def __init__(
+            self,
+            group_id: int,
+            setting_name: str,
+            main_config: str,
+            *,
+            secondary_config: str = 'None',
+            extra_config: str = 'None',
+            setting_info: str = 'None',
+            created_at=None,
+            updated_at=None):
+        self.group_id = group_id
+        self.setting_name = setting_name
+        self.main_config = main_config
+        self.secondary_config = secondary_config
+        self.extra_config = extra_config
+        self.setting_info = setting_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<GroupSetting(group_id='{self.group_id}', setting_name='{self.setting_name}', " \
+               f"main_config='{self.main_config}', secondary_config='{self.secondary_config}', " \
+               f"extra_config='{self.extra_config}', setting_info='{self.setting_info}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
