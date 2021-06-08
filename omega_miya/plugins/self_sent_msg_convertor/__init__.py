@@ -4,7 +4,7 @@
 @FileName       : __init__.py.py
 @Project        : nonebot2_miya
 @Description    : go-cqhttp 适配专用, 用于人工同时登陆 bot 账号时将自己发送的消息转成 message 类型便于执行命令,
-                  bot 账号发送命令前添加 !SC 即可将消息事件由 message_sent 转换为 group_message, 仅限群组中生效,
+                  bot 账号发送命令前添加 !SU 即可将消息事件由 message_sent 转换为 group_message, 仅限群组中生效,
                   为避免命令恶意执行, bot 不能为 superuser
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
@@ -13,12 +13,39 @@
 import re
 from datetime import datetime
 from nonebot import logger
-from nonebot.plugin import on
+from nonebot.plugin import on, CommandGroup
 from nonebot.typing import T_State
 from nonebot.message import handle_event
+from nonebot.rule import to_me
+from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message
-from nonebot.adapters.cqhttp.event import Event, GroupMessageEvent
+from nonebot.adapters.cqhttp.event import Event, MessageEvent, GroupMessageEvent
+
+
+SU_TAG: bool = False
+
+# 注册事件响应器
+Su = CommandGroup('Su', rule=to_me(), permission=SUPERUSER, priority=10, block=True)
+
+su_on = Su.command('on')
+su_off = Su.command('off')
+
+
+@su_on.handle()
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
+    global SU_TAG
+    SU_TAG = True
+    logger.info(f'Su: 特权命令已启用, 下一条!SU命令将以管理员身份执行')
+    await su_on.finish(f'特权命令已启用, 下一条!SU命令将以管理员身份执行')
+
+
+@su_off.handle()
+async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
+    global SU_TAG
+    SU_TAG = False
+    logger.info(f'Su: 特权命令已禁用')
+    await su_off.finish(f'特权命令已禁用')
 
 
 self_sent_msg_convertor = on(
@@ -32,12 +59,14 @@ self_sent_msg_convertor = on(
 async def _handle(bot: Bot, event: Event, state: T_State):
     self_id = event.dict().get('self_id', -1)
     user_id = event.dict().get('user_id', -1)
-
-    try:
-        if self_id == user_id and str(self_id) == bot.self_id and str(self_id) not in bot.config.superusers:
-            raw_message = event.dict().get('raw_message', '')
-            if str(raw_message).startswith('!SC'):
-                raw_message = re.sub(r'^!SC', '', str(raw_message)).strip()
+    if self_id == user_id and str(self_id) == bot.self_id and str(self_id) not in bot.config.superusers:
+        raw_message = event.dict().get('raw_message', '')
+        if str(raw_message).startswith('!SU'):
+            global SU_TAG
+            try:
+                if SU_TAG and list(bot.config.superusers):
+                    user_id = int(list(bot.config.superusers)[0])
+                raw_message = re.sub(r'^!SU', '', str(raw_message)).strip()
                 message = Message(raw_message)
                 time = event.dict().get('time', int(datetime.now().timestamp()))
                 sub_type = event.dict().get('sub_type', 'normal')
@@ -63,5 +92,9 @@ async def _handle(bot: Bot, event: Event, state: T_State):
                 })
 
                 await handle_event(bot=bot, event=new_event)
-    except Exception as e:
-        logger.error(f'Self sent msg convertor convert an self_sent event failed, error: {repr(e)}, event: {event}.')
+            except Exception as e:
+                logger.error(f'Self sent msg convertor convert an self_sent event failed, '
+                             f'error: {repr(e)}, event: {event}.')
+            finally:
+                SU_TAG = False
+                logger.info(f'Su: !SU命令已执行, SU_TAG已复位.')

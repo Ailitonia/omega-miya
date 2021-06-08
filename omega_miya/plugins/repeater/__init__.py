@@ -38,7 +38,7 @@ async def handle_repeater(bot: Bot, event: GroupMessageEvent, state: T_State):
     t_msg = event.message
     msg = event.raw_message
 
-    if msg.startswith('!SC'):
+    if msg.startswith('!SU'):
         return
 
     if re.match(r'^/', msg):
