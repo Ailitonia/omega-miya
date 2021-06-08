@@ -21,7 +21,7 @@ class UpEvent:
 
 
 # 当期up干员
-UP_OPERATOR = [
+UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
@@ -48,7 +48,7 @@ UP_OPERATOR = [
     )
 ]
 
-ALL_OPERATOR = [
+ALL_OPERATOR: List[Operator] = [
     Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='贝娜/Bena', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
