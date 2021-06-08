@@ -20,6 +20,7 @@ plugin_config = Config(**__global_config.dict())
 ENABLE_MOE_FLASH = plugin_config.enable_moe_flash
 ENABLE_SETU_FLASH = plugin_config.enable_setu_flash
 ENABLE_SETU_GAUSSIAN_BLUR = plugin_config.enable_setu_gaussian_blur
+ENABLE_SETU_GAUSSIAN_NOISE = plugin_config.enable_setu_gaussian_noise
 
 
 # Custom plugin usage text
@@ -129,6 +130,12 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
                 fault_count += 1
                 logger.warning(f'图片下载失败, error: {image_res.info}')
                 continue
+            if ENABLE_SETU_GAUSSIAN_NOISE:
+                image_res = await PicEffector(image=image_res.result).gaussian_noise(sigma=16)
+                if image_res.error:
+                    fault_count += 1
+                    logger.warning(f'处理图片高斯噪声处理失败, error: {image_res.info}')
+                    continue
             if ENABLE_SETU_GAUSSIAN_BLUR:
                 image_res = await PicEffector(image=image_res.result).gaussian_blur(radius=4)
                 if image_res.error:

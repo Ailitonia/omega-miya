@@ -19,8 +19,10 @@ class Config(BaseSettings):
     enable_moe_flash: bool = False
     # 启用使用闪照模式发送涩图, 仅影响"/来点涩图"命令
     enable_setu_flash: bool = False
-    # 启用使用高斯模糊提前处理待发送的涩图, 仅影响"/来点涩图"命令
+    # 启用使用高斯模糊提前处理待发送的涩图, 仅影响"/来点涩图"命令, 可与enable_setu_gaussian_noise一同使用, 会导致处理时间提升
     enable_setu_gaussian_blur: bool = False
+    # 启用使用高斯噪声提前处理待发送的涩图, 仅影响"/来点涩图"命令, 可与enable_setu_gaussian_blur一同使用, 会导致处理时间提升
+    enable_setu_gaussian_noise: bool = False
 
     class Config:
         extra = "ignore"
