@@ -69,10 +69,16 @@ async def unique_bot_responding_limit(matcher: Matcher, bot: Bot, event: Event, 
     # 在matcher首次运行时在statue中写入首次执行matcher的bot id
     # permission_updater函数见omega_miya.utils.Omega_plugin_utils.multi_bot_utils.MultiBotUtils
     if isinstance(event, (MessageEvent, NoticeEvent, RequestEvent)) and not matcher.temp:
-        state.update({
-            '_first_response_bot': bot.self_id,
-            '_original_session_id': event.get_session_id(),
-            '_original_permission': matcher.permission,
+        try:
+            state.update({
+                '_first_response_bot': bot.self_id,
+                '_original_session_id': event.get_session_id(),
+                '_original_permission': matcher.permission,
 
-        })
-        matcher.permission_updater(MultiBotUtils.first_response_bot_permission_updater)
+            })
+            matcher.permission_updater(MultiBotUtils.first_response_bot_permission_updater)
+        except ValueError:
+            logger.error(f'Unique bot responding limit preprocessor running failed with ValueError. '
+                         f'The high probability is event had no session_id. Unsupported event: {repr(event)}.')
+        except Exception as e:
+            logger.error(f'Unique bot responding limit preprocessor running failed with error: {repr(e)}.')
