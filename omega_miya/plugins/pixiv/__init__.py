@@ -7,7 +7,6 @@ from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_Base import DBBot
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
-from omega_miya.utils.Omega_plugin_utils import PicEncoder
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 # Custom plugin usage text
