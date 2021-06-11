@@ -412,6 +412,7 @@ async def init_group_auth_node(group_id: int, self_bot: DBBot):
         AuthNode(node='Omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: help免cd'),
         AuthNode(node='nhentai.basic', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用nhentai'),
         AuthNode(node='setu.setu', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用setu'),
+        AuthNode(node='setu.allow_r18', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用setu r18'),
         AuthNode(node='pixiv.allow_r18', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用pivix r18')
     ]
 
