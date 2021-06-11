@@ -25,7 +25,9 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='莫斯提马/Mostima', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='推进之王/Siege', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -33,18 +35,12 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=5,
         operator=[
-            Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='崖心/Cliffheart', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='星极/Astesia', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='爱丽丝/Iris', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+            Operator(name='诗怀雅/Swire', star=5, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
         zoom=0.5
-    ),
-    UpEvent(
-        star=4,
-        operator=[
-            Operator(name='深靛/Indigo', star=4, limited=False, recruit_only=False, event_only=False, special_only=False)
-        ],
-        zoom=0.2
     )
 ]
 
