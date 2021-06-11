@@ -7,9 +7,9 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
 from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector
-from omega_miya.utils.Omega_Base import DBPixivillust
+from omega_miya.utils.Omega_Base import DBBot, DBPixivillust
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import add_illust
 from .config import Config
@@ -57,6 +57,7 @@ moepic
 __plugin_auth_node__ = [
     PluginCoolDown.skip_auth_node,
     'setu',
+    'allow_r18',
     'moepic'
 ]
 
@@ -105,6 +106,23 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
 
     nsfw_tag = state['nsfw_tag']
     tags = state['tags']
+
+    # 处理R18权限
+    if nsfw_tag > 1:
+        if isinstance(event, PrivateMessageEvent):
+            user_id = event.user_id
+            auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+                check_auth_node(auth_id=user_id, auth_type='user', auth_node='setu.allow_r18')
+        elif isinstance(event, GroupMessageEvent):
+            group_id = event.group_id
+            auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+                check_auth_node(auth_id=group_id, auth_type='group', auth_node='setu.allow_r18')
+        else:
+            auth_checker = 0
+
+        if auth_checker != 1:
+            logger.warning(f"User: {event.user_id} 请求涩图被拒绝, 没有 allow_r18 权限")
+            await setu.finish('R18禁止! 不准开车车!')
 
     if tags:
         pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=nsfw_tag)
