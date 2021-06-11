@@ -63,6 +63,8 @@ async def pic2base64(pic_list: list) -> str:
     pic_segs = []
     for pic_url in pic_list:
         pic_result = await BiliRequestUtils.pic_2_base64(url=pic_url)
+        if pic_result.error:
+            logger.warning(f'BiliDynamic get base64pic failed, error: {pic_result.info}, pic url: {pic_url}')
         pic_b64 = pic_result.result
         pic_segs.append(str(MessageSegment.image(pic_b64)))
     pic_seg = '\n'.join(pic_segs)

@@ -162,6 +162,8 @@ class BiliLiveChecker(object):
                     msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】\n" \
                           f"{MessageSegment.image(cover_pic_result.result)}"
                 else:
+                    logger.warning(f'BiliLive get base64pic failed, '
+                                   f'error: {cover_pic_result.info}, pic url: {live_info.cover_img}')
                     msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】"
             else:
                 msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】"
@@ -227,6 +229,8 @@ class BiliLiveChecker(object):
                         msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】" \
                               f"\n{MessageSegment.image(cover_pic_result.result)}"
                     else:
+                        logger.warning(f'BiliLive get base64pic failed, '
+                                       f'error: {cover_pic_result.info}, pic url: {live_info.cover_img}')
                         msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】"
                 else:
                     msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】"
