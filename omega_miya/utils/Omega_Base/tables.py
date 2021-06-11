@@ -373,10 +373,10 @@ class GroupSetting(Base):
 
     id = Column(Integer, Sequence('groups_settings_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     group_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}bot_groups.id', ondelete='CASCADE'), nullable=False)
-    setting_name = Column(String(64), nullable=False, index=True, comment='配置项名称')
+    setting_name = Column(String(128), nullable=False, index=True, comment='配置项名称')
     main_config = Column(String(128), nullable=False, index=True, comment='主要配置')
     secondary_config = Column(String(128), nullable=False, index=True, comment='次要配置, 用于需要多个配置项的情况')
-    extra_config = Column(String(128), nullable=False, index=True, comment='额外配置, 用于需要多个配置项的情况')
+    extra_config = Column(String(8192), nullable=False, comment='额外配置, 用于存放无需索引的超长数据')
     setting_info = Column(String(128), nullable=True, comment='配置信息')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
