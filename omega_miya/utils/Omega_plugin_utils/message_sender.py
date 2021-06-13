@@ -19,7 +19,7 @@ class MsgSender(object):
     def __init__(self, bot: Bot, log_flag: Optional[str] = 'DefaultSender'):
         self.bot = bot
         self.self_bot = DBBot(self_qq=int(bot.self_id))
-        self.log_flag = f'MsgSender/{log_flag}/Bot<{bot.self_id}>'
+        self.log_flag = f'MsgSender/{log_flag}/Bot[{bot.self_id}]'
 
     async def safe_broadcast_groups_subscription(
             self, subscription: DBSubscription, message: Union[str, Message, MessageSegment]):
