@@ -9,7 +9,7 @@
 """
 
 from nonebot import logger
-from typing import Optional, Union
+from typing import Optional, List, Union
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription
@@ -45,6 +45,85 @@ class MsgSender(object):
                     f'{subscription.sub_type}/{subscription.sub_id} broadcast message '
                     f'to group: {group_id} failed, error: {repr(e)}')
                 continue
+
+    async def safe_broadcast_groups_subscription_node_custom(
+            self, subscription: DBSubscription, message_list: List[Union[str, Message, MessageSegment]],
+            *,
+            custom_nickname: str = 'Ωμεγα'
+    ):
+        """
+        向所有具有某个订阅且启用了通知权限 notice permission 的群组发送自定义转发消息节点
+        仅支持 cq-http
+        """
+        # 获取所有需要通知的群组
+        notice_group_res = await subscription.sub_group_list_by_notice_permission(self_bot=self.self_bot,
+                                                                                  notice_permission=1)
+        if notice_group_res.error:
+            logger.opt(colors=True).error(
+                f'<Y><lw>{self.log_flag}</lw></Y> | Can not send subscription '
+                f'{subscription.sub_type}/{subscription.sub_id} broadcast node_custom message, '
+                f'getting sub group list with notice permission failed, error: {notice_group_res.info}')
+            return
+
+        # 构造自定义消息节点
+        custom_user_id = self.bot.self_id
+        node_message = []
+        for msg in message_list:
+            if not msg:
+                logger.opt(colors=True).warning(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | A None-type message in message_list.')
+                continue
+            node_message.append({
+                "type": "node",
+                "data": {
+                    "name": custom_nickname,
+                    "uin": custom_user_id,
+                    "content": msg
+                }
+            })
+
+        for group_id in notice_group_res.result:
+            try:
+                await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
+            except Exception as e:
+                logger.opt(colors=True).warning(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | Sending subscription '
+                    f'{subscription.sub_type}/{subscription.sub_id} broadcast node_custom message '
+                    f'to group: {group_id} failed, error: {repr(e)}')
+                continue
+
+    async def safe_send_group_node_custom(
+            self, group_id: int, message_list: List[Union[str, Message, MessageSegment]],
+            *,
+            custom_nickname: str = 'Ωμεγα'
+    ):
+        """
+        向某个群组发送自定义转发消息节点
+        仅支持 cq-http
+        """
+        # 构造自定义消息节点
+        custom_user_id = self.bot.self_id
+        node_message = []
+        for msg in message_list:
+            if not msg:
+                logger.opt(colors=True).warning(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | A None-type message in message_list.')
+                continue
+            node_message.append({
+                "type": "node",
+                "data": {
+                    "name": custom_nickname,
+                    "uin": custom_user_id,
+                    "content": msg
+                }
+            })
+
+        try:
+            await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
+        except Exception as e:
+            logger.opt(colors=True).warning(
+                f'<Y><lw>{self.log_flag}</lw></Y> | Sending node_custom message '
+                f'to group: {group_id} failed, error: {repr(e)}')
 
     async def safe_broadcast_friends_subscription(
             self, subscription: DBSubscription, message: Union[str, Message, MessageSegment]):
