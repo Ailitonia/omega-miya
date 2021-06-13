@@ -1,11 +1,17 @@
 import asyncio
-from nonebot import logger, require, get_bots
+from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_Base import DBSubscription, DBPixivision
-from omega_miya.utils.Omega_plugin_utils import MsgSender, PicEncoder
+from omega_miya.utils.Omega_plugin_utils import MsgSender
 from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
 from .utils import pixivsion_article_parse
 from .block_tag import TAG_BLOCK_LIST
+from .config import Config
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 
 
 # 启用检查动态状态的定时任务
@@ -98,16 +104,31 @@ async def pixivision_monitor():
                 tasks.append(PixivIllust(pid=pid).get_base64())
             p_res = await asyncio.gather(*tasks)
             image_error = 0
-            for image_res in p_res:
-                if not image_res.success():
-                    image_error += 1
-                    continue
-                else:
-                    img_seg = MessageSegment.image(image_res.result)
-                # 发送图片
+
+            if ENABLE_NODE_CUSTOM:
+                node_messages = []
+                for image_res in p_res:
+                    if not image_res.success():
+                        image_error += 1
+                        continue
+                    # 构造自定义消息节点
+                    node_messages.append(MessageSegment.image(image_res.result))
+                # 发送消息
                 for _bot in bots:
                     msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionImage')
-                    await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=img_seg)
+                    await msg_sender.safe_broadcast_groups_subscription_node_custom(
+                        subscription=subscription, message_list=node_messages)
+            else:
+                for image_res in p_res:
+                    if not image_res.success():
+                        image_error += 1
+                        continue
+                    else:
+                        img_seg = MessageSegment.image(image_res.result)
+                    # 发送图片
+                    for _bot in bots:
+                        msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionImage')
+                        await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=img_seg)
 
             logger.info(f"article: {aid} 图片已发送完成, 失败: {image_error}")
         else:
