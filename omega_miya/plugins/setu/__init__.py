@@ -8,7 +8,7 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
-from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector
+from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector, MsgSender
 from omega_miya.utils.Omega_Base import DBBot, DBPixivillust
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import add_illust
@@ -17,6 +17,8 @@ from .config import Config
 
 __global_config = get_driver().config
 plugin_config = Config(**__global_config.dict())
+IMAGE_NUM_LIMIT = plugin_config.image_num_limit
+ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 ENABLE_MOE_FLASH = plugin_config.enable_moe_flash
 ENABLE_SETU_FLASH = plugin_config.enable_setu_flash
 ENABLE_SETU_GAUSSIAN_BLUR = plugin_config.enable_setu_gaussian_blur
@@ -125,11 +127,11 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
             await setu.finish('R18禁止! 不准开车车!')
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=nsfw_tag)
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_res = await DBPixivillust.rand_illust(num=3, nsfw_tag=nsfw_tag)
+        pid_res = await DBPixivillust.rand_illust(num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag)
         pid_list = pid_res.result
 
     if not pid_list:
@@ -141,7 +143,10 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
     for pid in pid_list:
         tasks.append(PixivIllust(pid=pid).load_illust_pic())
     p_res = await asyncio.gather(*tasks)
+
+    # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
     fault_count = 0
+    image_seg_list = []
     for image_res in p_res:
         try:
             if image_res.error:
@@ -167,14 +172,23 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
                 continue
             else:
                 if ENABLE_SETU_FLASH:
-                    img_seg = MessageSegment.image(image_res.result, type_='flash')
+                    image_seg_list.append(MessageSegment.image(image_res.result, type_='flash'))
                 else:
-                    img_seg = MessageSegment.image(image_res.result)
-            # 发送图片
-            await setu.send(img_seg)
+                    image_seg_list.append(MessageSegment.image(image_res.result))
         except Exception as e:
-            logger.warning(f"图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}")
+            logger.warning(f'预处理图片失败: {repr(e)}')
             continue
+
+    # 根据ENABLE_NODE_CUSTOM处理消息发送
+    if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+        msg_sender = MsgSender(bot=bot, log_flag='Setu')
+        await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=image_seg_list)
+    else:
+        for msg_seg in image_seg_list:
+            try:
+                await setu.send(msg_seg)
+            except Exception as e:
+                logger.warning(f'图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}')
 
     if fault_count == len(pid_list):
         logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的涩图, 图片下载失败, {pid_list}")
@@ -215,11 +229,11 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     tags = state['tags']
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=3, nsfw_tag=0)
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_res = await DBPixivillust.rand_illust(num=3, nsfw_tag=0)
+        pid_res = await DBPixivillust.rand_illust(num=IMAGE_NUM_LIMIT, nsfw_tag=0)
         pid_list = pid_res.result
 
     if not pid_list:
@@ -232,7 +246,10 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     for pid in pid_list:
         tasks.append(PixivIllust(pid=pid).load_illust_pic())
     p_res = await asyncio.gather(*tasks)
+
+    # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
     fault_count = 0
+    image_seg_list = []
     for image_res in p_res:
         try:
             if image_res.error:
@@ -246,14 +263,23 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
                 continue
             else:
                 if ENABLE_MOE_FLASH:
-                    img_seg = MessageSegment.image(image_res.result, type_='flash')
+                    image_seg_list.append(MessageSegment.image(image_res.result, type_='flash'))
                 else:
-                    img_seg = MessageSegment.image(image_res.result)
-            # 发送图片
-            await moepic.send(img_seg)
+                    image_seg_list.append(MessageSegment.image(image_res.result))
         except Exception as e:
-            logger.warning(f"图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}")
+            logger.warning(f'预处理图片失败: {repr(e)}')
             continue
+
+    # 根据ENABLE_NODE_CUSTOM处理消息发送
+    if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+        msg_sender = MsgSender(bot=bot, log_flag='Moepic')
+        await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=image_seg_list)
+    else:
+        for msg_seg in image_seg_list:
+            try:
+                await moepic.send(msg_seg)
+            except Exception as e:
+                logger.warning(f'图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}')
 
     if fault_count == len(pid_list):
         logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的萌图, 图片下载失败, {pid_list}")
