@@ -8,8 +8,9 @@ from omega_miya.utils.Omega_Base import Result
 
 global_config = nonebot.get_driver().config
 API_KEY = global_config.saucenao_api_key
-API_URL = 'https://saucenao.com/search.php'
+API_URL_SAUCENAO = 'https://saucenao.com/search.php'
 API_URL_ASCII2D = 'https://ascii2d.net/search/url/'
+API_URL_IQDB = 'https://iqdb.org/'
 
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -45,7 +46,7 @@ async def get_saucenao_identify_result(url: str) -> Result.ListResult:
                  'numres': 6,
                  'db': 999,
                  'url': url}
-    saucenao_result = await fetcher.get_json(url=API_URL, params=__payload)
+    saucenao_result = await fetcher.get_json(url=API_URL_SAUCENAO, params=__payload)
     if saucenao_result.error:
         logger.warning(f'get_saucenao_identify_result failed, Network error: {saucenao_result.info}')
         return Result.ListResult(error=True, info=f'Network error: {saucenao_result.info}', result=[])
@@ -153,3 +154,96 @@ async def get_ascii2d_identify_result(url: str) -> Result.ListResult:
                 logger.warning(f'get_ascii2d_identify_result ERROR: {repr(row_err)}, 解搜索结果条目时发生错误.')
                 continue
     return Result.ListResult(error=False, info=f'Success', result=__result)
+
+
+# 获取识别结果 iqdb模块
+async def get_iqdb_identify_result(url: str) -> Result.ListResult:
+    headers = HEADERS.copy().update({
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
+                  'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        'accept-encoding': 'gzip, deflate',
+        'accept-language': 'zh-CN,zh;q=0.9',
+        'Cache-Control': 'max-age=0',
+        'Connection': 'keep-alive',
+        'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundarycljlxd876c1ld4Zr',
+        'dnt': '1',
+        'Host': 'iqdb.org',
+        'Origin': 'https://iqdb.org',
+        'Referer': 'https://iqdb.org/',
+        'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"',
+        'sec-ch-ua-mobile': '?0',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'sec-gpc': '1',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36'
+    })
+    fetcher = HttpFetcher(timeout=30, flag='search_image_iqdb', headers=headers)
+    data = fetcher.FormData(boundary='----WebKitFormBoundarycljlxd876c1ld4Zr')
+    data.add_field(name='MAX_FILE_SIZE', value='')
+    for i in [1, 2, 3, 4, 5, 6, 11, 13]:
+        data.add_field(name='service[]', value=str(i))
+    data.add_field(name='file', value=b'', content_type='application/octet-stream', filename='')
+    data.add_field(name='url', value=url)
+    iqdb_result = await fetcher.post_text(url=API_URL_IQDB, data=data)
+
+    if iqdb_result.error or iqdb_result.status != 200:
+        logger.warning(f'get_iqdb_identify_result failed, 获取识别结果失败: {iqdb_result.status}, {iqdb_result.info}')
+        return Result.ListResult(error=True, info=f'Get identify result failed: {iqdb_result.info}', result=[])
+
+    try:
+        gallery_soup = BeautifulSoup(iqdb_result.result, 'lxml')
+        # 搜索结果
+        result_div = gallery_soup.find('div', {'id': 'pages', 'class': 'pages'}).children
+        # 从搜索结果中解析具体每一个结果
+        result_list = [x.find_all('tr') for x in result_div if x.name == 'div']
+    except Exception as page_err:
+        logger.warning(f'get_iqdb_identify_result failed: {repr(page_err)}, 解析结果页时发生错误.')
+        return Result.ListResult(error=True, info=f'Parse identify result failed: {repr(page_err)}', result=[])
+
+    result = []
+    for item in result_list:
+        try:
+            if item[0].get_text() == 'Best match':
+                # 第二行是匹配缩略图及链接
+                urls = [str(x.find('a').get('href')).strip('/') for x in item if x.find('a')]
+                img = item[1].find('img').get('src')
+                # 最后一行是相似度
+                similarity = item[-1].get_text()
+                result.append({
+                    'similarity': similarity,
+                    'thumbnail': f'https://iqdb.org{img}',
+                    'index_name': f'iqdb - Best match',
+                    'ext_urls': urls
+                })
+            elif item[0].get_text() == 'Additional match':
+                # 第二行是匹配缩略图及链接
+                urls = [str(x.find('a').get('href')).strip('/') for x in item if x.find('a')]
+                img = item[1].find('img').get('src')
+                # 最后一行是相似度
+                similarity = item[-1].get_text()
+                result.append({
+                    'similarity': similarity,
+                    'thumbnail': f'https://iqdb.org{img}',
+                    'index_name': f'iqdb - Additional match',
+                    'ext_urls': urls
+                })
+            elif item[0].get_text() == 'Possible match':
+                # # 第二行是匹配缩略图及链接
+                # urls = [str(x.find('a').get('href')).strip('/') for x in item if x.find('a')]
+                # img = item[1].find('img').get('src')
+                # # 最后一行是相似度
+                # similarity = item[-1].get_text()
+                # result.append({
+                #     'similarity': similarity,
+                #     'thumbnail': f'https://iqdb.org{img}',
+                #     'index_name': f'iqdb - Possible match',
+                #     'ext_urls': urls
+                # })
+                pass
+        except Exception as parse_err:
+            logger.warning(f'get_iqdb_identify_result parse error: {repr(parse_err)}, 解搜索结果条目时发生错误..')
+    return Result.ListResult(error=False, info='Success', result=result)

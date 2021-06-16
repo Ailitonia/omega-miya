@@ -4,7 +4,7 @@ import aiofiles
 import nonebot
 from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
-from typing import Dict, Union, Optional, Any
+from typing import Dict, List, Union, Iterable, Optional, Any
 from nonebot import logger
 from omega_miya.utils.Omega_Base import DBStatus
 
@@ -53,6 +53,31 @@ class HttpFetcher(object):
         def __repr__(self):
             return f'<FetcherBytesResult(' \
                    f'error={self.error}, status={self.status}, info={self.info}, result={self.result})>'
+
+    @dataclass
+    class FormData(aiohttp.FormData):
+        def __init__(
+                self,
+                fields: Iterable[Any] = (),
+                *,
+                is_multipart: bool = False,
+                is_processed: bool = False,
+                quote_fields: bool = True,
+                charset: Optional[str] = None,
+                boundary: Optional[str] = None
+        ) -> None:
+            self._writer = aiohttp.multipart.MultipartWriter("form-data", boundary=boundary)
+            self._fields: List[Any] = []
+            self._is_multipart = is_multipart
+            self._is_processed = is_processed
+            self._quote_fields = quote_fields
+            self._charset = charset
+
+            if isinstance(fields, dict):
+                fields = list(fields.items())
+            elif not isinstance(fields, (list, tuple)):
+                fields = (fields,)
+            self.add_fields(*fields)
 
     @classmethod
     async def __get_proxy(cls, always_return_proxy: bool = False) -> Optional[str]:
@@ -274,7 +299,7 @@ class HttpFetcher(object):
             url: str,
             params: Dict[str, str] = None,
             json: Dict[str, Any] = None,
-            data: Dict[str, Any] = None,
+            data: Union[FormData, Dict[str, Any]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherJsonResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -316,7 +341,7 @@ class HttpFetcher(object):
             url: str,
             params: Dict[str, str] = None,
             json: Dict[str, Any] = None,
-            data: Dict[str, Any] = None,
+            data: Union[FormData, Dict[str, Any]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherTextResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -358,7 +383,7 @@ class HttpFetcher(object):
             url: str,
             params: Dict[str, str] = None,
             json: Dict[str, Any] = None,
-            data: Dict[str, Any] = None,
+            data: Union[FormData, Dict[str, Any]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherBytesResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
