@@ -191,6 +191,11 @@ class BiliLiveChecker(object):
         if live_info.status != live_status[self.room_id]:
             # 现在状态为未开播
             if live_info.status == 0:
+                # 只有当从直播中状态切换到下播状态时才通知, 避免下播与轮播之间切换时发送通知
+                if live_status[self.room_id] == 1:
+                    action = True
+                else:
+                    action = False
                 # 事件记录写入数据库
                 live_end_info = f"LiveEnd! Room: {self.room_id}/{up_name}"
                 new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili',
@@ -200,12 +205,12 @@ class BiliLiveChecker(object):
 
                 # 更新直播间状态
                 live_status[self.room_id] = live_info.status
-                logger.info(f"直播间: {self.room_id}/{up_name} 下播了")
+                logger.info(f"直播间: {self.room_id}/{up_name} 状态切换为下播.")
 
                 # 发送的消息
                 msg = f'{up_name}下播了'
 
-                return self.LiveRoomCheckerResult(error=False, changed=True, action=True, info='Success',
+                return self.LiveRoomCheckerResult(error=False, changed=True, action=action, info='Success',
                                                   original=old_status, new=live_info.status, result=msg)
 
             # 现在状态为直播中
@@ -220,7 +225,7 @@ class BiliLiveChecker(object):
 
                 # 更新直播间状态
                 live_status[self.room_id] = live_info.status
-                logger.info(f"直播间: {self.room_id}/{up_name} 开播了")
+                logger.info(f"直播间: {self.room_id}/{up_name} 状态切换为开播.")
 
                 # 发送的消息
                 if live_info.cover_img:
@@ -240,6 +245,11 @@ class BiliLiveChecker(object):
 
             # 现在状态为未开播（轮播中）
             elif live_info.status == 2:
+                # 只有当从直播中状态切换到下播状态时才通知, 避免下播与轮播之间切换时发送通知
+                if live_status[self.room_id] == 1:
+                    action = True
+                else:
+                    action = False
                 # 事件记录写入数据库
                 live_end_info = f"LiveEnd! Room: {self.room_id}/{up_name}"
                 new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili',
@@ -249,12 +259,12 @@ class BiliLiveChecker(object):
 
                 # 更新直播间状态
                 live_status[self.room_id] = live_info.status
-                logger.info(f"直播间: {self.room_id}/{up_name} 下播了（轮播中）")
+                logger.info(f"直播间: {self.room_id}/{up_name} 状态切换为下播(轮播中).")
 
                 # 发送的消息
                 msg = f'{up_name}下播了（轮播中）'
 
-                return self.LiveRoomCheckerResult(error=False, changed=True, action=True, info='Success',
+                return self.LiveRoomCheckerResult(error=False, changed=True, action=action, info='Success',
                                                   original=old_status, new=live_info.status, result=msg)
 
             # 遇到的奇怪的状态
