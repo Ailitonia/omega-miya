@@ -10,7 +10,6 @@ from .mail import DBEmail, DBEmailBox
 from .pixiv_user_artwork import DBPixivUserArtwork
 from .pixivillust import DBPixivillust
 from .pixivision import DBPixivision
-from .pixivtag import DBPixivtag
 from .skill import DBSkill
 from .subscription import DBSubscription
 from .user import DBUser
@@ -30,7 +29,6 @@ __all__ = [
     'DBPixivUserArtwork',
     'DBPixivillust',
     'DBPixivision',
-    'DBPixivtag',
     'DBSkill',
     'DBSubscription',
     'DBUser',

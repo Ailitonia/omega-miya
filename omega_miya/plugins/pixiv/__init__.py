@@ -107,7 +107,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
     mode = state['mode']
     if mode == '日榜':
         await pixiv.send('稍等, 正在下载图片~')
-        rank_result = await PixivIllust.daily_ranking()
+        rank_result = await PixivIllust.get_ranking(mode='daily')
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')
@@ -131,7 +131,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                     logger.warning(f'图片发送失败, user: {event.user_id}. error: {repr(e)}')
     elif mode == '周榜':
         await pixiv.send('稍等, 正在下载图片~')
-        rank_result = await PixivIllust.weekly_ranking()
+        rank_result = await PixivIllust.get_ranking(mode='weekly')
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')
@@ -155,7 +155,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                     logger.warning(f'图片发送失败, user: {event.user_id}. error: {repr(e)}')
     elif mode == '月榜':
         await pixiv.send('稍等, 正在下载图片~')
-        rank_result = await PixivIllust.monthly_ranking()
+        rank_result = await PixivIllust.get_ranking(mode='monthly')
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')

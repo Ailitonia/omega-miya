@@ -6,7 +6,7 @@ import aiofiles
 import zipfile
 import imageio
 from io import BytesIO
-from typing import Dict
+from typing import Dict, Optional
 from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
 from omega_miya.utils.Omega_Base import Result
@@ -41,95 +41,48 @@ class Pixiv(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
-    async def daily_ranking(cls) -> Result.DictResult:
-        payload_daily = {'format': 'json', 'mode': 'daily',
-                         'content': 'illust', 'p': 1}
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_daily_ranking', headers=cls.HEADERS)
-        daily_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_daily)
-        if daily_ranking_result.error:
+    async def get_ranking(
+            cls,
+            mode: str,
+            *,
+            page: int = 1,
+            content: Optional[str] = 'illust'
+    ) -> Result.DictResult:
+        """
+        获取 Pixiv 排行榜
+        :param mode: 排行榜类型
+        :param page: 页数
+        :param content: 作品类型
+        :return:
+        """
+        if not content:
+            payload = {'format': 'json', 'mode': mode, 'p': page}
+        else:
+            payload = {'format': 'json', 'mode': mode, 'content': content, 'p': page}
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_get_ranking', headers=cls.HEADERS)
+        ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload)
+        if ranking_result.error:
             return Result.DictResult(
-                error=True, info=f'Fetch daily ranking failed, {daily_ranking_result.info}', result={})
+                error=True, info=f'Fetch ranking result failed, {ranking_result.info}', result={})
 
-        daily_ranking_data = daily_ranking_result.result.get('contents')
-        if type(daily_ranking_data) != list:
+        ranking_data = ranking_result.result.get('contents')
+        if type(ranking_data) != list:
             return Result.DictResult(
-                error=True, info=f'Daily ranking data error, {daily_ranking_result.result}', result={})
+                error=True, info=f'Getting ranking data error, {ranking_result.result}', result={})
 
         result = {}
-        for num in range(len(daily_ranking_data)):
+        for num in range(len(ranking_data)):
             try:
-                illust_id = daily_ranking_data[num].get('illust_id')
-                illust_title = daily_ranking_data[num].get('title')
-                illust_uname = daily_ranking_data[num].get('user_name')
+                illust_id = ranking_data[num].get('illust_id')
+                illust_title = ranking_data[num].get('title')
+                illust_uname = ranking_data[num].get('user_name')
                 result.update({num: {
                     'illust_id': illust_id,
                     'illust_title': illust_title,
                     'illust_uname': illust_uname
                 }})
             except Exception as e:
-                logger.debug(f'Pixiv | Daily ranking data error at {num}, ignored. {str(e)},')
-                continue
-        return Result.DictResult(error=False, info='Success', result=result)
-
-    @classmethod
-    async def weekly_ranking(cls) -> Result.DictResult:
-        payload_weekly = {'format': 'json', 'mode': 'weekly',
-                          'content': 'illust', 'p': 1}
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_weekly_ranking', headers=cls.HEADERS)
-        weekly_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_weekly)
-        if weekly_ranking_result.error:
-            return Result.DictResult(
-                error=True, info=f'Fetch weekly ranking failed, {weekly_ranking_result.info}', result={})
-
-        weekly_ranking_data = weekly_ranking_result.result.get('contents')
-        if type(weekly_ranking_data) != list:
-            return Result.DictResult(
-                error=True, info=f'Weekly ranking data error, {weekly_ranking_result.result}', result={})
-
-        result = {}
-        for num in range(len(weekly_ranking_data)):
-            try:
-                illust_id = weekly_ranking_data[num].get('illust_id')
-                illust_title = weekly_ranking_data[num].get('title')
-                illust_uname = weekly_ranking_data[num].get('user_name')
-                result.update({num: {
-                    'illust_id': illust_id,
-                    'illust_title': illust_title,
-                    'illust_uname': illust_uname
-                }})
-            except Exception as e:
-                logger.debug(f'Pixiv | Weekly ranking data error at {num}, ignored. {str(e)},')
-                continue
-        return Result.DictResult(error=False, info='Success', result=result)
-
-    @classmethod
-    async def monthly_ranking(cls) -> Result.DictResult:
-        payload_monthly = {'format': 'json', 'mode': 'monthly',
-                           'content': 'illust', 'p': 1}
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_monthly_ranking', headers=cls.HEADERS)
-        monthly_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_monthly)
-        if monthly_ranking_result.error:
-            return Result.DictResult(
-                error=True, info=f'Fetch monthly ranking failed, {monthly_ranking_result.info}', result={})
-
-        monthly_ranking_data = monthly_ranking_result.result.get('contents')
-        if type(monthly_ranking_data) != list:
-            return Result.DictResult(
-                error=True, info=f'Monthly ranking data error, {monthly_ranking_result.result}', result={})
-
-        result = {}
-        for num in range(len(monthly_ranking_data)):
-            try:
-                illust_id = monthly_ranking_data[num].get('illust_id')
-                illust_title = monthly_ranking_data[num].get('title')
-                illust_uname = monthly_ranking_data[num].get('user_name')
-                result.update({num: {
-                    'illust_id': illust_id,
-                    'illust_title': illust_title,
-                    'illust_uname': illust_uname
-                }})
-            except Exception as e:
-                logger.debug(f'Pixiv | Monthly ranking data error at {num}, ignored. {repr(e)},')
+                logger.debug(f'Pixiv | Getting ranking data error at {num}, ignored. {repr(e)},')
                 continue
         return Result.DictResult(error=False, info='Success', result=result)
 
@@ -218,7 +171,10 @@ class PixivIllust(Pixiv):
                 'regular': [],
                 'original': [],
             }
+            # PixivPage数据库用, 图片列表原始数据
+            origin_pages = {}
             if not illust_pages.get('error') and illust_pages:
+                origin_pages.update(dict(enumerate([x.get('urls') for x in illust_pages.get('body')])))
                 for item in illust_pages.get('body'):
                     all_url.get('thumb_mini').append(item['urls']['thumb_mini'])
                     all_url.get('small').append(item['urls']['small'])
@@ -256,6 +212,7 @@ class PixivIllust(Pixiv):
                 'orig_url': illust_orig_url,
                 'regular_url': illust_regular_url,
                 'all_url': all_url,
+                'illust_pages': origin_pages,
                 'ugoira_meta': ugoira_meta,
                 'description': illust_description,
                 'tags': illusttag,

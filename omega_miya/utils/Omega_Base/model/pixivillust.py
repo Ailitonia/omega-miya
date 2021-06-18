@@ -1,8 +1,7 @@
 from typing import List
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Pixiv, PixivT2I
-from .pixivtag import DBPixivtag
+from omega_miya.utils.Omega_Base.tables import Pixiv, PixivPage
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -37,17 +36,11 @@ class DBPixivillust(object):
         return result.success()
 
     async def add(self, uid: int, title: str, uname: str, nsfw_tag: int, tags: List[str], url: str) -> Result.IntResult:
-        # 将tag写入pixiv_tag表
-        for tag in tags:
-            _tag = DBPixivtag(tagname=tag)
-            await _tag.add()
-
         tag_text = ','.join(tags)
         # 将作品信息写入pixiv_illust表
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
-                need_upgrade_pixivt2i = False
                 async with session.begin():
                     try:
                         session_result = await session.execute(
@@ -65,37 +58,111 @@ class DBPixivillust(object):
                         new_illust = Pixiv(pid=self.pid, uid=uid, title=title, uname=uname, url=url, nsfw_tag=nsfw_tag,
                                            tags=tag_text, created_at=datetime.now())
                         session.add(new_illust)
-                        need_upgrade_pixivt2i = True
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
-
-                # 写入tag_pixiv关联表
-                # 获取本作品在illust表中的id
-                id_result = await self.id()
-                if id_result.success() and need_upgrade_pixivt2i:
-                    _illust_id = id_result.result
-                    # 根据作品tag依次写入tag_illust表
-                    async with session.begin():
-                        for tag in tags:
-                            _tag = DBPixivtag(tagname=tag)
-                            _tag_id_res = await _tag.id()
-                            if not _tag_id_res.success():
-                                continue
-                            _tag_id = _tag_id_res.result
-                            try:
-                                new_tag_illust = PixivT2I(illust_id=_illust_id, tag_id=_tag_id,
-                                                          created_at=datetime.now())
-                                session.add(new_tag_illust)
-                            except Exception as e:
-                                continue
-                    await session.commit()
-                    result = Result.IntResult(error=False, info='Success added with tags', result=0)
             except MultipleResultsFound:
                 await session.rollback()
                 result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
             except Exception as e:
                 await session.rollback()
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    async def upgrade_page(
+            self,
+            page: int,
+            original: str,
+            regular: str,
+            small: str,
+            thumb_mini: str
+    ) -> Result.IntResult:
+        pixiv_id_result = await self.id()
+        if pixiv_id_result.error:
+            return Result.IntResult(error=True, info='PixivIllust not exist', result=-1)
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    try:
+                        session_result = await session.execute(
+                            select(PixivPage).
+                            where(PixivPage.page == page).
+                            where(PixivPage.illust_id == pixiv_id_result.result)
+                        )
+                        # 已存在, 更新信息
+                        exist_page = session_result.scalar_one()
+                        exist_page.original = original
+                        exist_page.regular = regular
+                        exist_page.small = small
+                        exist_page.thumb_mini = thumb_mini
+                        exist_page.updated_at = datetime.now()
+                        result = Result.IntResult(error=False, info='Success upgraded', result=0)
+                    except NoResultFound:
+                        new_page = PixivPage(illust_id=pixiv_id_result.result, page=page,
+                                             original=original, regular=regular, small=small, thumb_mini=thumb_mini,
+                                             created_at=datetime.now())
+                        session.add(new_page)
+                        result = Result.IntResult(error=False, info='Success added', result=0)
+                await session.commit()
+            except MultipleResultsFound:
+                await session.rollback()
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                await session.rollback()
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    async def get_page(self, page: int = 0) -> Result.TextTupleResult:
+        """
+        :param page: 页码
+        :return: Result: Tuple[original, regular, small, thumb_mini]
+        """
+        pixiv_id_result = await self.id()
+        if pixiv_id_result.error:
+            return Result.TextTupleResult(error=True, info='PixivIllust not exist', result=('', '', '', ''))
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(PixivPage.original, PixivPage.regular, PixivPage.small, PixivPage.thumb_mini).
+                        where(PixivPage.page == page).
+                        where(PixivPage.illust_id == pixiv_id_result.result)
+                    )
+                    original, regular, small, thumb_mini = session_result.one()
+                    result = Result.TextTupleResult(error=False, info='Success',
+                                                    result=(original, regular, small, thumb_mini))
+                except NoResultFound:
+                    result = Result.TextTupleResult(error=True, info='NoResultFound', result=('', '', '', ''))
+                except MultipleResultsFound:
+                    result = Result.TextTupleResult(error=True, info='MultipleResultsFound', result=('', '', '', ''))
+                except Exception as e:
+                    result = Result.TextTupleResult(error=True, info=repr(e), result=('', '', '', ''))
+        return result
+
+    async def get_all_page(self) -> Result.ListResult:
+        """
+        :return: Result: List[Tuple[original, regular, small, thumb_mini]]
+        """
+        pixiv_id_result = await self.id()
+        if pixiv_id_result.error:
+            return Result.ListResult(error=True, info='PixivIllust not exist', result=[])
+
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(PixivPage.page,
+                               PixivPage.original, PixivPage.regular, PixivPage.small, PixivPage.thumb_mini).
+                        where(PixivPage.illust_id == pixiv_id_result.result)
+                    )
+                    res = [(x[0], x[1], x[2], x[3], x[4]) for x in session_result.all()]
+                    result = Result.ListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
     @classmethod
@@ -205,4 +272,17 @@ class DBPixivillust(object):
                     result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
                     result = Result.ListResult(error=True, info=repr(e), result=[])
+        return result
+
+    @classmethod
+    async def list_all_illust(cls) -> Result.IntListResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(select(Pixiv.pid))
+                    res = [x for x in session_result.scalars().all()]
+                    result = Result.IntListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.IntListResult(error=True, info=repr(e), result=[])
         return result

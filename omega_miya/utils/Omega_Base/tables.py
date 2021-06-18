@@ -715,30 +715,6 @@ class Vocation(Base):
                f"reason='{self.reason}', created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
-# Pixiv tag表
-class PixivTag(Base):
-    __tablename__ = f'{TABLE_PREFIX}pixiv_tag'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
-
-    id = Column(Integer, Sequence('pixiv_tag_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
-    tagname = Column(String(128), nullable=False, index=True, unique=True, comment='tag名称')
-    created_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, nullable=True)
-
-    # 设置级联和关系加载
-    pixiv_tag_pixiv_tag_to_illusts = relationship('PixivT2I', back_populates='pixiv_tag_to_illusts_back_pixiv_tag',
-                                                  cascade='all, delete-orphan', passive_deletes=True)
-
-    def __init__(self, tagname, created_at=None, updated_at=None):
-        self.tagname = tagname
-        self.created_at = created_at
-        self.updated_at = updated_at
-
-    def __repr__(self):
-        return f"<PixivTag(tagname='{self.tagname}', " \
-               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
-
-
 # Pixiv作品表
 class Pixiv(Base):
     __tablename__ = f'{TABLE_PREFIX}pixiv_illusts'
@@ -757,9 +733,8 @@ class Pixiv(Base):
     updated_at = Column(DateTime, nullable=True)
 
     # 设置级联和关系加载
-    pixiv_illusts_pixiv_tag_to_illusts = relationship('PixivT2I',
-                                                      back_populates='pixiv_tag_to_illusts_back_pixiv_illusts',
-                                                      cascade='all, delete-orphan', passive_deletes=True)
+    pixiv_illusts_pixiv_pages = relationship('PixivPage', back_populates='pixiv_pages_back_pixiv_illusts',
+                                             cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, pid, uid, title, uname, nsfw_tag, tags, url, created_at=None, updated_at=None):
         self.pid = pid
@@ -778,32 +753,38 @@ class Pixiv(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
-# Pixiv作品-tag表
-class PixivT2I(Base):
-    __tablename__ = f'{TABLE_PREFIX}pixiv_tag_to_illusts'
+# Pixiv作品图片表
+class PixivPage(Base):
+    __tablename__ = f'{TABLE_PREFIX}pixiv_pages'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('pixiv_tag_to_illusts_id_seq'),
-                primary_key=True, nullable=False, index=True, unique=True)
+    id = Column(Integer, Sequence('pixiv_pages_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     illust_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_illusts.id', ondelete='CASCADE'), nullable=False)
-    tag_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}pixiv_tag.id', ondelete='CASCADE'), nullable=False)
+    page = Column(Integer, nullable=False, index=True, comment='页码')
+    original = Column(String(1024), nullable=False, comment='original image url')
+    regular = Column(String(1024), nullable=False, comment='regular image url')
+    small = Column(String(1024), nullable=False, comment='small image url')
+    thumb_mini = Column(String(1024), nullable=False, comment='thumb_mini image url')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
     # 设置级联和关系加载
-    pixiv_tag_to_illusts_back_pixiv_illusts = relationship(Pixiv, back_populates='pixiv_illusts_pixiv_tag_to_illusts',
-                                                           lazy='joined', innerjoin=True)
-    pixiv_tag_to_illusts_back_pixiv_tag = relationship(PixivTag, back_populates='pixiv_tag_pixiv_tag_to_illusts',
-                                                       lazy='joined', innerjoin=True)
+    pixiv_pages_back_pixiv_illusts = relationship(Pixiv, back_populates='pixiv_illusts_pixiv_pages',
+                                                  lazy='joined', innerjoin=True)
 
-    def __init__(self, illust_id, tag_id, created_at=None, updated_at=None):
+    def __init__(self, illust_id, page, original, regular, small, thumb_mini, created_at=None, updated_at=None):
         self.illust_id = illust_id
-        self.tag_id = tag_id
+        self.page = page
+        self.original = original
+        self.regular = regular
+        self.small = small
+        self.thumb_mini = thumb_mini
         self.created_at = created_at
         self.updated_at = updated_at
 
     def __repr__(self):
-        return f"<PixivT2I(illust_id='{self.illust_id}', tag_id='{self.tag_id}', " \
+        return f"<PixivPage(illust_id='{self.illust_id}', page='{self.page}', original='{self.original}', " \
+               f"regular='{self.regular}', small='{self.small}', thumb_mini='{self.thumb_mini}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
