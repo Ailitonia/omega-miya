@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import json
 from nonebot import on_command, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
@@ -58,6 +59,29 @@ async def add_illust(pid: int, nsfw_tag: int) -> Result.IntResult:
         return Result.IntResult(error=True, info=illust_result.info, result=pid)
 
 
+async def output_nsfw():
+    nsfw_tag = 2
+    res = await DBPixivillust.list_all_illust_by_nsfw_tag(nsfw_tag=nsfw_tag)
+    dict_res = {x: nsfw_tag for x in res.result}
+    nsfw_json = f'C:\\nsfw_{nsfw_tag}.json'
+    with open(nsfw_json, 'w+') as f:
+        json.dump(dict_res, f)
+
+
+async def reset_nsfw_tag():
+    res = await DBPixivillust.reset_all_nsfw_tag()
+    print(res)
+
+
+async def set_nsfw_tag():
+    nsfw_tag = 2
+    nsfw_json = f'C:\\nsfw_{nsfw_tag}.json'
+    with open(nsfw_json, 'r') as f:
+        tags = json.load(f)
+    res = await DBPixivillust.set_nsfw_tag(tags=tags)
+    print(res)
+
+
 # 注册事件响应器
 pixiv_illust_page_updater = on_command('update_pages', rule=to_me(), permission=SUPERUSER, priority=10, block=True)
 
@@ -96,7 +120,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     for seg_list in pid_seg_list:
         tasks = []
         for pid in seg_list:
-            tasks.append(add_illust(pid=pid, nsfw_tag=1))
+            tasks.append(add_illust(pid=pid, nsfw_tag=0))
         # 进行异步处理
         _res = await asyncio.gather(*tasks)
         # 对结果进行计数

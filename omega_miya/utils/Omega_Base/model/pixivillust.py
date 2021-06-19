@@ -286,3 +286,59 @@ class DBPixivillust(object):
                 except Exception as e:
                     result = Result.IntListResult(error=True, info=repr(e), result=[])
         return result
+
+    @classmethod
+    async def list_all_illust_by_nsfw_tag(cls, nsfw_tag: int) -> Result.IntListResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(select(Pixiv.pid).where(Pixiv.nsfw_tag == nsfw_tag))
+                    res = [x for x in session_result.scalars().all()]
+                    result = Result.IntListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.IntListResult(error=True, info=repr(e), result=[])
+        return result
+
+    @classmethod
+    async def reset_all_nsfw_tag(cls) -> Result.IntResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    session_result = await session.execute(select(Pixiv.pid))
+                    res = [x for x in session_result.scalars().all()]
+                    for pid in res:
+                        # print(f'reset nsfw tag: {pid}')
+                        session_result = await session.execute(
+                            select(Pixiv).where(Pixiv.pid == pid)
+                        )
+                        exist_illust = session_result.scalar_one()
+                        exist_illust.nsfw_tag = 0
+                    result = Result.IntResult(error=False, info='Exist illust updated', result=0)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    @classmethod
+    async def set_nsfw_tag(cls, tags: dict) -> Result.IntResult:
+        async_session = NBdb().get_async_session()
+        async with async_session() as session:
+            try:
+                async with session.begin():
+                    for pid, nsfw_tag in tags.items():
+                        # print(f'set nsfw tag: {pid}, {nsfw_tag}')
+                        nsfw_tag = str(nsfw_tag)
+                        session_result = await session.execute(
+                            select(Pixiv).where(Pixiv.pid == pid)
+                        )
+                        exist_illust = session_result.scalar_one()
+                        exist_illust.nsfw_tag = nsfw_tag
+                    result = Result.IntResult(error=False, info='Exist illust updated', result=0)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
