@@ -35,7 +35,12 @@ class DBPixivillust(object):
         result = await self.id()
         return result.success()
 
-    async def add(self, uid: int, title: str, uname: str, nsfw_tag: int, tags: List[str], url: str) -> Result.IntResult:
+    async def add(
+            self,
+            uid: int, title: str, uname: str, nsfw_tag: int, tags: List[str], url: str,
+            *,
+            force_tag: bool = False
+    ) -> Result.IntResult:
         tag_text = ','.join(tags)
         # 将作品信息写入pixiv_illust表
         async_session = NBdb().get_async_session()
@@ -49,7 +54,9 @@ class DBPixivillust(object):
                         exist_illust = session_result.scalar_one()
                         exist_illust.title = title
                         exist_illust.uname = uname
-                        if nsfw_tag > exist_illust.nsfw_tag:
+                        if force_tag:
+                            exist_illust.nsfw_tag = nsfw_tag
+                        elif nsfw_tag > exist_illust.nsfw_tag:
                             exist_illust.nsfw_tag = nsfw_tag
                         exist_illust.tags = tag_text
                         exist_illust.updated_at = datetime.now()
@@ -324,6 +331,10 @@ class DBPixivillust(object):
 
     @classmethod
     async def set_nsfw_tag(cls, tags: dict) -> Result.IntResult:
+        """
+        :param tags: Dict[pid: int, nsfw_tag: int]
+        :return:
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
