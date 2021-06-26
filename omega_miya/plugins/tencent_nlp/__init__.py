@@ -30,14 +30,21 @@ async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 排除列表
     ignore_pattern = [
         re.compile(r'喵一个'),
-        re.compile(r'[这那]个?是[(什么)谁啥]')
+        re.compile(r'[这那谁你我他她它]个?是[(什么)谁啥]')
     ]
     for pattern in ignore_pattern:
         if re.search(pattern, arg):
             await nlp.finish()
 
     # describe_entity实体查询
-    if re.match(r'^(你?知道)?(.{1,32})是(什么|谁|啥)吗?[?？]?$', arg):
+    if re.match(r'^(你?知道)?(.{1,32}?)的(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg):
+        item, attr = re.findall(r'^(你?知道)?(.{1,32}?)的(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg)[0][1:3]
+        res = await TencentNLP().describe_entity(entity_name=item, attr=attr)
+        if not res.error and res.result:
+            await nlp.finish(f'{item}的{attr}是{res.result}')
+        else:
+            logger.warning(f'nlp handling describe entity failed: {res.info}')
+    elif re.match(r'^(你?知道)?(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg):
         item = re.findall(r'^(你?知道)?(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg)[0][1]
         res = await TencentNLP().describe_entity(entity_name=item)
         if not res.error and res.result:

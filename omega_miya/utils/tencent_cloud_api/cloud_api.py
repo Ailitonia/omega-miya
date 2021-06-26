@@ -2,9 +2,9 @@ import json
 import hashlib
 import hmac
 import datetime
-from dataclasses import dataclass
 from typing import Dict, Any
 import nonebot
+from omega_miya.utils.Omega_Base import Result
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 
 global_config = nonebot.get_driver().config
@@ -13,18 +13,6 @@ SECRET_KEY = global_config.secret_key
 
 
 class TencentCloudApi(object):
-    @dataclass
-    class ApiRes:
-        error: bool
-        info: str
-        result: dict
-
-        def success(self) -> bool:
-            if not self.error:
-                return True
-            else:
-                return False
-
     def __init__(self,
                  secret_id: str,
                  secret_key: str,
@@ -115,13 +103,13 @@ class TencentCloudApi(object):
 
         return authorization
 
-    async def post_request(self, action: str, region: str, version: str, payload: Dict[str, Any]) -> ApiRes:
+    async def post_request(self, action: str, region: str, version: str, payload: Dict[str, Any]) -> Result.DictResult:
         self.__upgrade_signed_header(action=action, region=region, version=version, payload=payload)
 
         fetcher = HttpFetcher(timeout=10, flag=f'tencent_cloud_api_{action}', headers=self.__headers)
         result = await fetcher.post_json(url=self.__endpoint, json=payload)
 
-        return self.ApiRes(error=result.error, info=result.info, result=result.result)
+        return Result.DictResult(error=result.error, info=result.info, result=result.result)
 
 
 __all__ = [
