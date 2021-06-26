@@ -49,17 +49,13 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
         await omegaauth.finish('参数错误QAQ')
 
 
-@omegaauth.got('sub_command', prompt='执行操作?\n【allow/deny/clear/list】')
+# 处理显示权限节点列表事件
+@omegaauth.got('sub_command', prompt='执行操作?\n【allow/deny/clear/custom_*/list】')
 async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
     sub_command = state["sub_command"]
-    if sub_command not in ['allow', 'deny', 'clear', 'list']:
+    if sub_command not in ['allow', 'deny', 'clear', 'list', 'custom_allow', 'custom_deny', 'custom_clear']:
         await omegaauth.finish('参数错误QAQ')
 
-
-# 处理显示权限节点列表事件
-@omegaauth.got('sub_command', prompt='list:')
-async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
-    sub_command = state["sub_command"]
     self_bot = DBBot(self_qq=int(bot.self_id))
     if sub_command == 'list':
         if isinstance(event, GroupMessageEvent):
@@ -82,6 +78,13 @@ async def handle_list_node(bot: Bot, event: MessageEvent, state: T_State):
                 await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
         else:
             await omegaauth.finish('非授权会话, 操作中止')
+    elif sub_command in ['allow', 'deny', 'clear']:
+        if isinstance(event, GroupMessageEvent):
+            state["auth_type"] = 'group'
+            state["auth_id"] = str(event.group_id)
+        elif isinstance(event, PrivateMessageEvent):
+            state["auth_type"] = 'user'
+            state["auth_id"] = str(event.user_id)
 
 
 @omegaauth.got('auth_type', prompt='授权类型?\n【user/group】')
@@ -153,7 +156,7 @@ async def handle_auth_node(bot: Bot, event: MessageEvent, state: T_State):
 
     r_auth_node = '.'.join([plugin, auth_node])
     auth_id = state["auth_id"]
-    sub_command = state["sub_command"]
+    sub_command = re.sub(r'^custom_', '', str(state["sub_command"]))
     auth_type = state["auth_type"]
     self_bot = DBBot(self_qq=int(bot.self_id))
 
@@ -166,7 +169,7 @@ async def handle_auth_node(bot: Bot, event: MessageEvent, state: T_State):
     elif sub_command == 'clear':
         res = await auth.delete()
     else:
-        logger.error(f'handle_auth_node 执行时 sub_command 变量检验错误')
+        logger.error(f'handle_auth_node 执行时 sub_command 命令检验错误')
         return
 
     if res.success():
