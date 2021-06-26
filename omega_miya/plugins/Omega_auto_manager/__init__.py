@@ -32,8 +32,7 @@ init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 __all__ = [
-    'welcome_msg_set',
-    'welcome_msg_clear',
+    'WelcomeMsg',
     'group_increase',
     'add_and_invite_request'
 ]

@@ -107,7 +107,6 @@ async def handle_group_increase(bot: Bot, event: GroupIncreaseNoticeEvent, state
 
 
 __all__ = [
-    'welcome_msg_set',
-    'welcome_msg_clear',
+    'WelcomeMsg',
     'group_increase'
 ]
