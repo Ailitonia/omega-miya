@@ -83,7 +83,8 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
-        'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'}
+        'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'},
+        'petpet': {'name': 'petpet', 'type': 'gif', 'text_part': 0, 'help_msg': '最好使用长宽比接近正方形的图片'}
     }
 
     get_sticker_temp = state['temp']
@@ -98,7 +99,7 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
     state['temp_help_msg'] = sticker_temp[get_sticker_temp]['help_msg']
 
     # 判断该模板表情图片来源
-    if state['temp_type'] in ['static', 'gif']:
+    if state['temp_type'] in ['static']:
         state['image_url'] = None
 
     # 判断是否需要文字
@@ -109,7 +110,7 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
 @sticker.got('image_url', prompt='请发送你想要制作的表情包的图片:')
 async def handle_img(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
-    if state['temp_type'] not in ['static', 'gif']:
+    if state['temp_type'] not in ['static']:
         # 提取图片url
         image_url = None
         for msg_seg in event.message:
