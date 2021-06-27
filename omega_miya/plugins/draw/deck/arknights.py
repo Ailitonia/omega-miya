@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
 import random
 
 
@@ -18,6 +18,10 @@ class UpEvent:
     star: int  # 对应up星级
     operator: List[Operator]  # 干员列表
     zoom: float  # up提升倍率
+
+
+# 用户抽取的保底概率提升计数
+USERS_UP_COUNT: Dict[int, int] = {}
 
 
 # 当期up干员
@@ -247,9 +251,32 @@ ALL_OPERATOR: List[Operator] = [
 ]
 
 
-def draw_one_operator() -> str:
-    # 先决定出的星级
-    star = random.sample([6, 5, 4, 3], counts=[2, 8, 50, 40], k=1)[0]
+def draw_one_operator(user_id: int) -> str:
+    global USERS_UP_COUNT
+    draw_count = USERS_UP_COUNT.get(user_id, 0)
+
+    # 首先要先决定出的星级
+    if 0 <= draw_count <= 50:
+        # 没有抽过或者刚刚重置过, 无概率提升
+        star = random.sample([6, 5, 4, 3], counts=[2, 8, 50, 40], k=1)[0]
+        USERS_UP_COUNT.update({user_id: draw_count + 1})
+    elif 50 < draw_count <= 99:
+        # 触发概率提升
+        if random.randint(1, 100) <= (draw_count - 49) * 2:
+            # 触发概率提升则为6星
+            star = 6
+        else:
+            # 否则则在5, 4, 3星中随机
+            star = random.sample([5, 4, 3], counts=[8, 50, 40], k=1)[0]
+        USERS_UP_COUNT.update({user_id: draw_count + 1})
+    else:
+        # 多半是出bug了, 强制重置次数
+        star = random.sample([6, 5, 4, 3], counts=[2, 8, 50, 40], k=1)[0]
+        USERS_UP_COUNT.update({user_id: 1})
+
+    # 如果出6星了就重置up次数
+    if star == 6:
+        USERS_UP_COUNT.update({user_id: 0})
 
     # 生成对应卡池和处理up事件
     up_event = [(x.zoom, x.operator) for x in UP_OPERATOR if x.star == star]
@@ -285,7 +312,7 @@ def draw_one_arknights(user_id: int) -> str:
     up_up_operator = '\n'.join(up_operators)
     up_info = f'当期UP干员:\n{up_up_operator}'
 
-    acquire_operator = draw_one_operator()
+    acquire_operator = draw_one_operator(user_id=user_id)
 
     return f"获得了以下干员:\n{acquire_operator}\n{'='*12}\n{up_info}"
 
@@ -300,7 +327,7 @@ def draw_ten_arknights(user_id: int) -> str:
 
     acquire_operators = []
     for i in range(10):
-        acquire_operators.append(draw_one_operator())
+        acquire_operators.append(draw_one_operator(user_id=user_id))
 
     acquire_operator = '\n'.join(acquire_operators)
 
