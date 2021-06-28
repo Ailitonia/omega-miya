@@ -69,7 +69,7 @@ class ShindanMaker(object):
 
         html_result = await fetcher.get_text(url=url)
         if html_result.error:
-            return Result.TextResult(error=True, info=f'Fetch shindanmaker page failed, {html_result.info}', result='')
+            return Result.TextResult(error=True, info=f'Fetch shindan_maker page failed, {html_result.info}', result='')
 
         try:
             _bs = BeautifulSoup(html_result.result, 'lxml')
@@ -95,11 +95,14 @@ class ShindanMaker(object):
 
         if maker_result.error:
             return Result.TextResult(
-                error=True, info=f'Fetch shindanmaker result failed, {maker_result.info}', result='')
+                error=True, info=f'Fetch shindan_maker result failed, {maker_result.info}', result='')
 
         try:
             _bs = BeautifulSoup(maker_result.result, 'lxml')
-            _result = _bs.find(name='span', attrs={'id': 'shindanResult'}).get_text()
+            _result = _bs.find(name='span', attrs={'id': 'shindanResult'})
+            for line_break in _result.findAll(name='br'):
+                line_break.replaceWith('\n')
+            _result = _result.get_text()
         except Exception as e:
             logger.error(f'ShindanMaker | Parse result page failed, error: {repr(e)}')
             return Result.TextResult(error=True, info=f'Parse result page failed', result='')

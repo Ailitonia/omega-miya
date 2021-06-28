@@ -3,7 +3,7 @@
 @Date           : 2021/06/28 21:41
 @FileName       : __init__.py.py
 @Project        : nonebot2_miya 
-@Description    : shindanmaker 无聊的占卜插件
+@Description    : shindan_maker 无聊的占卜插件
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -20,7 +20,7 @@ from .data_source import ShindanMaker
 
 
 # Custom plugin usage text
-__plugin_name__ = 'ShindanMaker 占卜'
+__plugin_name__ = 'ShindanMaker'
 __plugin_usage__ = r'''【ShindanMaker 占卜】
 使用ShindanMaker进行各种奇怪的占卜
 只能在群里使用
@@ -40,8 +40,7 @@ basic
 1 Minutes
 
 **Usage**
-/ShindanMaker [占卜名称] [占卜对象名称]
-/占卜 [占卜名称] [占卜对象名称]'''
+/ShindanMaker [占卜名称] [占卜对象名称]'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
@@ -135,9 +134,9 @@ async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State
             shindan_id = SHINDANMAKER_CACHE.get(shindan_name, 0)
             if shindan_id == 0:
                 shindan_list = '】\n【'.join([x.get('name') for x in shindan_name_result.result if x.get('name')])
-                msg = f'已为你找到了以下占卜\n{"="*12}\n【{shindan_list}】\n{"="*12}\n' \
-                      f'请输入您想要进行的占卜名称(方括号里面的完整名称):'
-                await shindan_maker.reject(msg)
+                msg = f'搜索到了以下占卜\n{"="*12}\n【{shindan_list}】\n{"="*12}\n' \
+                      f'请使用占卜名称(方括号里面的完整名称)重新开始!'
+                await shindan_maker.finish(msg)
 
     state['id'] = shindan_id
 
