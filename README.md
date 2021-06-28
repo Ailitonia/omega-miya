@@ -41,6 +41,7 @@
 - Pixivision订阅 (需要 HTTP 代理, 除非部署在外网) (仅支持群聊)
 - 复读姬 (仅支持群聊)
 - roll点抽奖 (仅支持群聊)
+- ShindanMaker占卜 (shindanmaker.com / 建议使用 HTTP 代理) (支持群聊 / 私聊)
 - 搜番剧 (trace.moe API / 建议使用 HTTP 代理) (支持群聊 / 私聊)
 - 搜二次元图 (Saucenao API, iqbb 和 ascii2d / 建议使用 HTTP 代理) (支持群聊 / 私聊)
 - 来点萌图 / 来点涩图 (需要 HTTP 代理, 除非部署在外网 / 图片数据库需要自己导入) (支持群聊 / 私聊)
