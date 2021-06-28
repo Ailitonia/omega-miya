@@ -2,6 +2,7 @@ import os
 import aiohttp
 import aiofiles
 import nonebot
+from http.cookies import SimpleCookie as SimpleCookie_
 from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
 from typing import Dict, List, Union, Iterable, Optional, Any
@@ -23,6 +24,7 @@ class HttpFetcher(object):
         info: str
         status: int
         headers: dict
+        cookies: Optional[SimpleCookie_]
 
         def success(self) -> bool:
             if not self.error:
@@ -151,10 +153,12 @@ class HttpFetcher(object):
                         file_bytes = await rp.read()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     async with aiofiles.open(file_path, 'wb') as f:
                         await f.write(file_bytes)
                     result = self.FetcherTextResult(
-                        error=False, info='Success', status=status, headers=headers, result=file_path)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=file_path)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -172,7 +176,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>download_file</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherTextResult(
-                error=True, info='Failed too many times in download_file', status=-1, headers={}, result='')
+                error=True, info='Failed too many times in download_file',
+                status=-1, headers={}, cookies=None, result='')
 
     async def get_json(
             self,
@@ -193,8 +198,10 @@ class HttpFetcher(object):
                         result_json = await rp.json()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherJsonResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_json)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_json)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -212,7 +219,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>get_json</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherJsonResult(
-                error=True, info='Failed too many times in get_json', status=-1, headers={}, result={})
+                error=True, info='Failed too many times in get_json',
+                status=-1, headers={}, cookies=cookies, result={})
 
     async def get_text(
             self,
@@ -233,8 +241,10 @@ class HttpFetcher(object):
                         result_text = await rp.text()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherTextResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_text)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_text)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -252,7 +262,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>get_text</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherTextResult(
-                error=True, info='Failed too many times in get_text', status=-1, headers={}, result='')
+                error=True, info='Failed too many times in get_text',
+                status=-1, headers={}, cookies=cookies, result='')
 
     async def get_bytes(
             self,
@@ -273,8 +284,10 @@ class HttpFetcher(object):
                         result_bytes = await rp.read()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherBytesResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_bytes)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_bytes)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -292,7 +305,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>get_bytes</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherBytesResult(
-                error=True, info='Failed too many times in get_bytes', status=-1, headers={}, result=b'')
+                error=True, info='Failed too many times in get_bytes',
+                status=-1, headers={}, cookies=cookies, result=b'')
 
     async def post_json(
             self,
@@ -315,8 +329,10 @@ class HttpFetcher(object):
                         result_json = await rp.json()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherJsonResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_json)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_json)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -334,7 +350,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>post_json</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherJsonResult(
-                error=True, info='Failed too many times in post_json', status=-1, headers={}, result={})
+                error=True, info='Failed too many times in post_json',
+                status=-1, headers={}, cookies=cookies, result={})
 
     async def post_text(
             self,
@@ -357,8 +374,10 @@ class HttpFetcher(object):
                         result_text = await rp.text()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherTextResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_text)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_text)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -376,7 +395,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>post_text</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherTextResult(
-                error=True, info='Failed too many times in post_text', status=-1, headers={}, result='')
+                error=True, info='Failed too many times in post_text',
+                status=-1, headers={}, cookies=cookies, result='')
 
     async def post_bytes(
             self,
@@ -399,8 +419,10 @@ class HttpFetcher(object):
                         result_bytes = await rp.read()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherBytesResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_bytes)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_bytes)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -418,4 +440,5 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>post_bytes</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherBytesResult(
-                error=True, info='Failed too many times in post_bytes', status=-1, headers={}, result=b'')
+                error=True, info='Failed too many times in post_bytes',
+                status=-1, headers={}, cookies=cookies, result=b'')
