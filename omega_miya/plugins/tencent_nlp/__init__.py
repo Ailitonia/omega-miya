@@ -30,6 +30,7 @@ async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 排除列表
     ignore_pattern = [
         re.compile(r'喵一个'),
+        re.compile(r'^今天'),
         re.compile(r'[这那谁你我他她它]个?是[(什么)谁啥]')
     ]
     for pattern in ignore_pattern:
