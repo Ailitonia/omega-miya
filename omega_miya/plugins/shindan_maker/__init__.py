@@ -34,12 +34,6 @@ or AuthNode
 **AuthNode**
 basic
 
-**CoolDown**
-群组共享冷却时间
-1 Minutes
-用户冷却时间
-1 Minutes
-
 **Usage**
 /ShindanMaker [占卜名称] [占卜对象名称]'''
 
@@ -49,14 +43,14 @@ __plugin_auth_node__ = [
     'basic'
 ]
 
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 1),
-    PluginCoolDown(PluginCoolDown.group_type, 1)
-]
+# # 声明本插件的冷却时间配置
+# __plugin_cool_down__ = [
+#     PluginCoolDown(PluginCoolDown.user_type, 1),
+#     PluginCoolDown(PluginCoolDown.group_type, 1)
+# ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 缓存占卜名称与对应id
@@ -84,7 +78,7 @@ shindan_maker_default = shindan_maker.on_command(
 # 修改默认参数处理
 @shindan_maker_default.args_parser
 async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split()
     if not args:
         await shindan_maker_default.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -94,7 +88,7 @@ async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 @shindan_maker_default.handle()
 async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split()
     state['id'] = 0
     if not args:
         pass
@@ -137,7 +131,8 @@ async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State
                     })
             shindan_id = SHINDANMAKER_CACHE.get(shindan_name, 0)
             if shindan_id == 0:
-                shindan_list = '】\n【'.join([x for x in SHINDANMAKER_CACHE.keys() if x])
+                shindan_list = '】\n【'.join(
+                    [re.sub(r'\s', '', x.get('name')) for x in shindan_name_result.result if x.get('name')])
                 msg = f'搜索到了以下占卜\n{"="*12}\n【{shindan_list}】\n{"="*12}\n' \
                       f'请使用占卜名称(方括号里面的完整名称)重新开始!'
                 await shindan_maker_default.finish(msg)
@@ -172,7 +167,7 @@ async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 固定的id
     shindan_id = 162207
 
-    args = str(event.get_plaintext()).strip().lower()
+    args = str(event.get_plaintext()).strip()
     input_name = re.findall(r'^今天的?(.+?)是什么少女[?？]?$', args)[0]
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
     # 加入日期使每天的结果不一样
@@ -195,7 +190,7 @@ async def handle_mahoshojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 固定的id
     shindan_id = 828741
 
-    args = str(event.get_plaintext()).strip().lower()
+    args = str(event.get_plaintext()).strip()
     input_name = re.findall(r'^今天的?(.+?)是什么魔法少女[?？]?$', args)[0]
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
     # 加入日期使每天的结果不一样
@@ -218,7 +213,7 @@ async def handle_idole(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 固定的id
     shindan_id = 828727
 
-    args = str(event.get_plaintext()).strip().lower()
+    args = str(event.get_plaintext()).strip()
     input_name = re.findall(r'^今天的?(.+?)是什么偶像[?？]?$', args)[0]
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
     # 加入日期使每天的结果不一样
