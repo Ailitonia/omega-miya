@@ -103,8 +103,7 @@ class ShindanMaker(object):
             for line_break in _result.findAll(name='br'):
                 line_break.replaceWith('\n')
             _result = _result.get_text()
+            return Result.TextResult(error=False, info='Success', result=_result)
         except Exception as e:
             logger.error(f'ShindanMaker | Parse result page failed, error: {repr(e)}')
             return Result.TextResult(error=True, info=f'Parse result page failed', result='')
-
-        return Result.TextResult(error=False, info='Success', result=_result)
