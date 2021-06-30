@@ -77,7 +77,7 @@ async def pic_2_base64(url: str) -> Result.TextResult:
 
 
 # 获取识别结果
-async def get_identify_result(img_url: str) -> Result.ListResult:
+async def get_identify_result(img_url: str, *, sensitivity: float = 0.8) -> Result.ListResult:
     fetcher = HttpFetcher(timeout=10, flag='search_anime', headers=HEADERS)
 
     payload = {'url': img_url}
@@ -88,7 +88,7 @@ async def get_identify_result(img_url: str) -> Result.ListResult:
     _result = []
     for item in result_json.result.get('result'):
         try:
-            if item.get('similarity') < 0.9:
+            if item.get('similarity') < sensitivity:
                 continue
             anilist = item.get('anilist')
             # 获取番剧信息
