@@ -1,3 +1,4 @@
+from typing import Dict
 from nonebot import on_command, export, logger, get_driver
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -5,7 +6,8 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import pic_2_base64, get_saucenao_identify_result, get_ascii2d_identify_result, get_iqdb_identify_result
+from .utils import (T_SearchEngine, pic_2_base64,
+                    get_saucenao_identify_result, get_ascii2d_identify_result, get_iqdb_identify_result)
 from .config import Config
 
 
@@ -15,6 +17,13 @@ ENABLE_SAUCENAO = plugin_config.enable_saucenao
 ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
 
+
+# 可用的识图api
+SEARCH_ENGINE: Dict[str, T_SearchEngine] = {
+    'saucenao': get_saucenao_identify_result,
+    'iqdb': get_iqdb_identify_result,
+    'ascii2d': get_ascii2d_identify_result
+}
 
 # Custom plugin usage text
 __plugin_name__ = '识图'
@@ -64,6 +73,12 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
     if not args:
         await search_image.reject('你似乎没有发送有效的消息呢QAQ, 请重新发送:')
 
+    if state["_current_key"] == 'using_engine':
+        if args[0] == '是':
+            return
+        else:
+            await search_image.finish('操作已取消')
+
     state[state["_current_key"]] = args[0]
     if state[state["_current_key"]] == '取消':
         await search_image.finish('操作已取消')
@@ -77,12 +92,16 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 @search_image.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     # 识图引擎开关
-    state['enable_saucenao'] = ENABLE_SAUCENAO
-    state['enable_iqdb'] = ENABLE_IQDB
-    state['enable_ascii2d'] = ENABLE_ASCII2D
-    state['saucenao_checker'] = ENABLE_SAUCENAO
-    state['iqdb_checker'] = ENABLE_IQDB
-    state['ascii2d_checker'] = ENABLE_ASCII2D
+    usable_engine = []
+    if ENABLE_SAUCENAO:
+        usable_engine.append('saucenao')
+    if ENABLE_IQDB:
+        usable_engine.append('iqdb')
+    if ENABLE_ASCII2D:
+        usable_engine.append('ascii2d')
+
+    state['using_engine'] = usable_engine.pop(0) if usable_engine else None
+    state['usable_engine'] = usable_engine
 
     # 提取图片链接, 默认只取消息中的第一张图
     img_url = None
@@ -110,72 +129,43 @@ async def handle_got_image(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
     if not str(image_url).startswith('http'):
         await search_image.finish('错误QAQ，你发送的不是有效的图片')
-    state['identify_result'] = []
     await search_image.send('获取识别结果中, 请稍后~')
 
 
-@search_image.got('saucenao_checker', prompt='使用saucenao引擎识图?')
+@search_image.got('using_engine', prompt='使用识图引擎识图:')
 async def handle_saucenao(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
-    enable_saucenao = state['enable_saucenao']
-    enable_iqdb = state['enable_iqdb']
-    enable_ascii2d = state['enable_ascii2d']
-    identify_result = state['identify_result']
+    using_engine = state['using_engine']
+    usable_engine = list(state['usable_engine'])
 
-    # 获取saucenao识图结果
-    if enable_saucenao:
-        identify_saucenao_result = await get_saucenao_identify_result(url=image_url)
-        if identify_saucenao_result.success():
-            identify_result.extend(identify_saucenao_result.result)
+    # 获取识图结果
+    search_engine = SEARCH_ENGINE.get(using_engine, None)
+    if using_engine and search_engine:
+        identify_result = await search_engine(image_url)
+        if identify_result.success() and identify_result.result:
+            # 有结果了, 继续执行接下来的结果解析handler
+            pass
+        else:
+            # 没有结果
+            if identify_result.error:
+                logger.warning(f'{using_engine}引擎获取识别结果失败: {identify_result.info}')
+            if usable_engine:
+                # 还有可用的识图引擎
+                next_using_engine = usable_engine.pop(0)
+                msg = f'{using_engine}引擎没有找到相似度足够高的图片，是否继续使用{next_using_engine}引擎识别图片?\n\n【是/否】'
+                state['using_engine'] = next_using_engine
+                state['usable_engine'] = usable_engine
+                await search_image.reject(msg)
+            else:
+                # 没有可用的识图引擎了
+                logger.info(f'{event.user_id} 使用了searchimage所有的识图引擎, 但没有找到相似的图片')
+                await search_image.finish('没有找到相似度足够高的图片QAQ')
+    else:
+        logger.error(f'获取识图引擎异常, using_engine: {using_engine}')
+        await search_image.finish('发生了意外的错误QAQ, 请稍后再试或联系管理员')
+        return
 
-        if identify_result:
-            state['enable_iqdb'] = False
-            state['enable_ascii2d'] = False
-        elif not identify_result and enable_iqdb:
-            state['enable_saucenao'] = False
-            await search_image.reject('Saucenao引擎没有找到相似度足够高的图片，是否继续使用iqdb引擎识别图片?\n取消请发送“取消”')
-        elif not identify_result and enable_ascii2d:
-            state['enable_saucenao'] = False
-            await search_image.reject('Saucenao引擎没有找到相似度足够高的图片，是否继续使用ascii2d引擎识别图片?\n取消请发送“取消”')
-
-    state['identify_result'] = identify_result
-
-
-@search_image.got('iqdb_checker', prompt='使用iqdb引擎识图?')
-async def handle_iqdb(bot: Bot, event: MessageEvent, state: T_State):
-    image_url = state['image_url']
-    enable_iqdb = state['enable_iqdb']
-    enable_ascii2d = state['enable_ascii2d']
-    identify_result = state['identify_result']
-
-    # 获取iqdb识图结果
-    if enable_iqdb:
-        identify_iqdb_result = await get_iqdb_identify_result(url=image_url)
-        if identify_iqdb_result.success():
-            identify_result.extend(identify_iqdb_result.result)
-
-        if identify_result:
-            state['enable_ascii2d'] = False
-        elif not identify_result and enable_ascii2d:
-            state['enable_iqdb'] = False
-            await search_image.reject('iqdb引擎没有找到相似度足够高的图片，是否继续使用ascii2d引擎识别图片?\n取消请发送“取消”')
-
-    state['identify_result'] = identify_result
-
-
-@search_image.got('ascii2d_checker', prompt='使用ascii2d引擎识图?')
-async def handle_ascii2d(bot: Bot, event: MessageEvent, state: T_State):
-    image_url = state['image_url']
-    enable_ascii2d = state['enable_ascii2d']
-    identify_result = state['identify_result']
-
-    # 获取ascii2d识图结果
-    if enable_ascii2d:
-        identify_ascii2d_result = await get_ascii2d_identify_result(url=image_url)
-        if identify_ascii2d_result.success():
-            identify_result.extend(identify_ascii2d_result.result)
-
-    state['identify_result'] = identify_result
+    state['identify_result'] = identify_result.result
 
 
 @search_image.handle()
