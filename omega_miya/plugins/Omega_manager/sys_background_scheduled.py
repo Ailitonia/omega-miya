@@ -181,9 +181,9 @@ async def refresh_friends_info():
     # day='*/1',
     # week=None,
     # day_of_week=None,
-    # hour='*/8',
+    hour='*/12',
     # minute='*/1',
-    second='*/20',
+    # second='*/20',
     # start_date=None,
     # end_date=None,
     # timezone=None,
@@ -193,7 +193,7 @@ async def refresh_friends_info():
 )
 async def cool_down_refresh():
     await DBCoolDownEvent.clear_time_out_event()
-    logger.debug('cool_down_refresh: cleaning time out event')
+    logger.info('cool_down_refresh: cleaning all expired event')
 
 
 # 创建用于检查代理可用性的状态的定时任务

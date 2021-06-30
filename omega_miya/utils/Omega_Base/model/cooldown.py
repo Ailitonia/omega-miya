@@ -9,6 +9,11 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 class DBCoolDownEvent(object):
     @classmethod
     async def add_global_cool_down_event(cls, stop_at: datetime, description: str = None) -> Result.IntResult:
+        """
+        :return:
+            result = 0: Success
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -39,6 +44,13 @@ class DBCoolDownEvent(object):
 
     @classmethod
     async def check_global_cool_down_event(cls) -> Result.IntResult:
+        """
+        :return:
+            result = 2: Success with CoolDown Event expired
+            result = 1: Success with CoolDown Event exist
+            result = 0: Success with CoolDown Event not found
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -49,7 +61,10 @@ class DBCoolDownEvent(object):
                     )
                     event = session_result.scalar_one()
                     stop_at = event.stop_at
-                    result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
+                    if datetime.now() > stop_at:
+                        result = Result.IntResult(error=False, info='Success, CoolDown expired', result=2)
+                    else:
+                        result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
                 except NoResultFound:
                     result = Result.IntResult(error=False, info='NoResultFound', result=0)
                 except MultipleResultsFound:
@@ -61,6 +76,11 @@ class DBCoolDownEvent(object):
     @classmethod
     async def add_plugin_cool_down_event(
             cls, plugin: str, stop_at: datetime, description: str = None) -> Result.IntResult:
+        """
+        :return:
+            result = 0: Success
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -93,6 +113,13 @@ class DBCoolDownEvent(object):
 
     @classmethod
     async def check_plugin_cool_down_event(cls, plugin: str) -> Result.IntResult:
+        """
+        :return:
+            result = 2: Success with CoolDown Event expired
+            result = 1: Success with CoolDown Event exist
+            result = 0: Success with CoolDown Event not found
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -104,7 +131,10 @@ class DBCoolDownEvent(object):
                     )
                     event = session_result.scalar_one()
                     stop_at = event.stop_at
-                    result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
+                    if datetime.now() > stop_at:
+                        result = Result.IntResult(error=False, info='Success, CoolDown expired', result=2)
+                    else:
+                        result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
                 except NoResultFound:
                     result = Result.IntResult(error=False, info='NoResultFound', result=0)
                 except MultipleResultsFound:
@@ -116,6 +146,11 @@ class DBCoolDownEvent(object):
     @classmethod
     async def add_group_cool_down_event(
             cls, plugin: str, group_id: int, stop_at: datetime, description: str = None) -> Result.IntResult:
+        """
+        :return:
+            result = 0: Success
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -149,6 +184,13 @@ class DBCoolDownEvent(object):
 
     @classmethod
     async def check_group_cool_down_event(cls, plugin: str, group_id: int) -> Result.IntResult:
+        """
+        :return:
+            result = 2: Success with CoolDown Event expired
+            result = 1: Success with CoolDown Event exist
+            result = 0: Success with CoolDown Event not found
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -161,7 +203,10 @@ class DBCoolDownEvent(object):
                     )
                     event = session_result.scalar_one()
                     stop_at = event.stop_at
-                    result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
+                    if datetime.now() > stop_at:
+                        result = Result.IntResult(error=False, info='Success, CoolDown expired', result=2)
+                    else:
+                        result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
                 except NoResultFound:
                     result = Result.IntResult(error=False, info='NoResultFound', result=0)
                 except MultipleResultsFound:
@@ -173,6 +218,11 @@ class DBCoolDownEvent(object):
     @classmethod
     async def add_user_cool_down_event(
             cls,  plugin: str, user_id: int, stop_at: datetime, description: str = None) -> Result.IntResult:
+        """
+        :return:
+            result = 0: Success
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -206,6 +256,13 @@ class DBCoolDownEvent(object):
 
     @classmethod
     async def check_user_cool_down_event(cls, plugin: str, user_id: int) -> Result.IntResult:
+        """
+        :return:
+            result = 2: Success with CoolDown Event expired
+            result = 1: Success with CoolDown Event exist
+            result = 0: Success with CoolDown Event not found
+            result = -1: Error
+        """
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -218,7 +275,10 @@ class DBCoolDownEvent(object):
                     )
                     event = session_result.scalar_one()
                     stop_at = event.stop_at
-                    result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
+                    if datetime.now() > stop_at:
+                        result = Result.IntResult(error=False, info='Success, CoolDown expired', result=2)
+                    else:
+                        result = Result.IntResult(error=False, info=f'CoolDown until: {stop_at}', result=1)
                 except NoResultFound:
                     result = Result.IntResult(error=False, info='NoResultFound', result=0)
                 except MultipleResultsFound:

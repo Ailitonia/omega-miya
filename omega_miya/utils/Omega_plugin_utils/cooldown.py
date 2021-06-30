@@ -18,7 +18,7 @@ class PluginCoolDown:
         check = await DBCoolDownEvent.check_global_cool_down_event()
         if check.result == 1:
             return check
-        elif check.result == 0:
+        elif check.result in [0, 2]:
             if minutes <= 0:
                 return check
             await DBCoolDownEvent.add_global_cool_down_event(
@@ -32,7 +32,7 @@ class PluginCoolDown:
         check = await DBCoolDownEvent.check_plugin_cool_down_event(plugin=plugin)
         if check.result == 1:
             return check
-        elif check.result == 0:
+        elif check.result in [0, 2]:
             if minutes <= 0:
                 return check
             await DBCoolDownEvent.add_plugin_cool_down_event(
@@ -46,7 +46,7 @@ class PluginCoolDown:
         check = await DBCoolDownEvent.check_group_cool_down_event(plugin=plugin, group_id=group_id)
         if check.result == 1:
             return check
-        elif check.result == 0:
+        elif check.result in [0, 2]:
             if minutes <= 0:
                 return check
             await DBCoolDownEvent.add_group_cool_down_event(
@@ -60,7 +60,7 @@ class PluginCoolDown:
         check = await DBCoolDownEvent.check_user_cool_down_event(plugin=plugin, user_id=user_id)
         if check.result == 1:
             return check
-        elif check.result == 0:
+        elif check.result in [0, 2]:
             if minutes <= 0:
                 return check
             await DBCoolDownEvent.add_user_cool_down_event(

@@ -75,7 +75,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
     elif global_check.result == 1:
         await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{global_check.info}'))
         raise IgnoredException('全局命令冷却中')
-    elif global_check.result == 0:
+    elif global_check.result in [0, 2]:
         pass
     else:
         logger.error(f'全局冷却事件异常! group: {group_id}, user: {user_id}, error: {global_check.info}')
@@ -89,7 +89,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('全局命令冷却中')
-        elif res.result == 0:
+        elif res.result in [0, 2]:
             pass
         else:
             logger.error(f'全局冷却事件异常! group: {group_id}, user: {user_id}, error: {res.info}')
@@ -104,7 +104,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('插件命令冷却中')
-        elif res.result == 0:
+        elif res.result in [0, 2]:
             pass
         else:
             logger.error(f'插件冷却事件异常! group: {group_id}, user: {user_id}, plugin: {plugin_name}, error: {res.info}')
@@ -122,7 +122,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('群组命令冷却中')
-        elif res.result == 0:
+        elif res.result in [0, 2]:
             pass
         else:
             logger.error(f'群组冷却事件异常! group: {group_id}, user: {user_id}, plugin: {plugin_name}, error: {res.info}')
@@ -136,7 +136,7 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
         if res.result == 1:
             await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
             raise IgnoredException('用户命令冷却中')
-        elif res.result == 0:
+        elif res.result in [0, 2]:
             pass
         else:
             logger.error(f'用户冷却事件异常! group: {group_id}, user: {user_id}, plugin: {plugin_name}, error: {res.info}')
