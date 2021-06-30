@@ -220,7 +220,7 @@ class HttpFetcher(object):
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherJsonResult(
                 error=True, info='Failed too many times in get_json',
-                status=-1, headers={}, cookies=cookies, result={})
+                status=-1, headers={}, cookies=None, result={})
 
     async def get_text(
             self,
@@ -263,7 +263,7 @@ class HttpFetcher(object):
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherTextResult(
                 error=True, info='Failed too many times in get_text',
-                status=-1, headers={}, cookies=cookies, result='')
+                status=-1, headers={}, cookies=None, result='')
 
     async def get_bytes(
             self,
@@ -306,7 +306,7 @@ class HttpFetcher(object):
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherBytesResult(
                 error=True, info='Failed too many times in get_bytes',
-                status=-1, headers={}, cookies=cookies, result=b'')
+                status=-1, headers={}, cookies=None, result=b'')
 
     async def post_json(
             self,
@@ -351,7 +351,7 @@ class HttpFetcher(object):
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherJsonResult(
                 error=True, info='Failed too many times in post_json',
-                status=-1, headers={}, cookies=cookies, result={})
+                status=-1, headers={}, cookies=None, result={})
 
     async def post_text(
             self,
@@ -396,7 +396,7 @@ class HttpFetcher(object):
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherTextResult(
                 error=True, info='Failed too many times in post_text',
-                status=-1, headers={}, cookies=cookies, result='')
+                status=-1, headers={}, cookies=None, result='')
 
     async def post_bytes(
             self,
@@ -441,4 +441,4 @@ class HttpFetcher(object):
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherBytesResult(
                 error=True, info='Failed too many times in post_bytes',
-                status=-1, headers={}, cookies=cookies, result=b'')
+                status=-1, headers={}, cookies=None, result=b'')
