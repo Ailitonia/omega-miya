@@ -70,6 +70,8 @@ class ShindanMaker(object):
         html_result = await fetcher.get_text(url=url)
         if html_result.error:
             return Result.TextResult(error=True, info=f'Fetch shindan_maker page failed, {html_result.info}', result='')
+        elif html_result.status == 404:
+            return Result.TextResult(error=True, info=f'Shindan_maker page not found, 404 error', result='')
 
         try:
             _bs = BeautifulSoup(html_result.result, 'lxml')

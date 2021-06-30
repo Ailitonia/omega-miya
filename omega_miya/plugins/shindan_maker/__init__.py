@@ -13,6 +13,7 @@ import datetime
 from typing import Dict
 from nonebot import MatcherGroup, export, logger
 from nonebot.typing import T_State
+from nonebot.exception import FinishedException
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
@@ -158,70 +159,37 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
     await shindan_maker_default.finish(msg)
 
 
-shindan_maker_shojo = shindan_maker.on_regex(
-    r'^今天的?(.+?)是什么少女[?？]?$', rule=OmegaRules.has_group_command_permission())
+shindan_pattern = r'^今天的?(.+?)是什么(样的)?(.+?)[?？]?$'
+shindan_maker_today_custom = shindan_maker.on_regex(shindan_pattern, rule=OmegaRules.has_group_command_permission())
 
 
-@shindan_maker_shojo.handle()
+@shindan_maker_today_custom.handle()
 async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 固定的id
-    shindan_id = 162207
+    shindan_custon_id: Dict[str, int] = {
+        '少女': 162207,
+        '魔法少女': 828741,
+        '偶像': 828727,
+        '做成的': 761425,
+        '做的': 761425,
+        '明日方舟干员': 959146,
+        '干员': 959146
+    }
 
     args = str(event.get_plaintext()).strip()
-    input_name = re.findall(r'^今天的?(.+?)是什么少女[?？]?$', args)[0]
+    input_name, shindan_name = re.findall(shindan_pattern, args)[0][0], re.findall(shindan_pattern, args)[0][2]
+    shindan_id = shindan_custon_id.get(shindan_name, None)
+    if not shindan_id:
+        logger.debug(f'User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, 没有对应的预置占卜, shindan_id not found')
+        raise FinishedException('shindan_maker_today_custom: shindan_id not found')
+
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
     # 加入日期使每天的结果不一样
     _input_name = f'{input_name}{today}'
     result = await ShindanMaker(maker_id=shindan_id).get_result(input_name=_input_name)
     if result.error:
         logger.error(f'User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
-        await shindan_maker_shojo.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
+        await shindan_maker_today_custom.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
     result_text = result.result.replace(today, '')
-    await shindan_maker_shojo.finish(result_text)
-
-
-shindan_maker_mahoshojo = shindan_maker.on_regex(
-    r'^今天的?(.+?)是什么魔法少女[?？]?$', rule=OmegaRules.has_group_command_permission())
-
-
-@shindan_maker_mahoshojo.handle()
-async def handle_mahoshojo(bot: Bot, event: GroupMessageEvent, state: T_State):
-    # 固定的id
-    shindan_id = 828741
-
-    args = str(event.get_plaintext()).strip()
-    input_name = re.findall(r'^今天的?(.+?)是什么魔法少女[?？]?$', args)[0]
-    today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
-    # 加入日期使每天的结果不一样
-    _input_name = f'{input_name}{today}'
-    result = await ShindanMaker(maker_id=shindan_id).get_result(input_name=_input_name)
-    if result.error:
-        logger.error(f'User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
-        await shindan_maker_mahoshojo.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
-
-    result_text = result.result.replace(today, '')
-    await shindan_maker_mahoshojo.finish(result_text)
-
-
-shindan_maker_idole = shindan_maker.on_regex(
-    r'^今天的?(.+?)是什么偶像[?？]?$', rule=OmegaRules.has_group_command_permission())
-
-
-@shindan_maker_idole.handle()
-async def handle_idole(bot: Bot, event: GroupMessageEvent, state: T_State):
-    # 固定的id
-    shindan_id = 828727
-
-    args = str(event.get_plaintext()).strip()
-    input_name = re.findall(r'^今天的?(.+?)是什么偶像[?？]?$', args)[0]
-    today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
-    # 加入日期使每天的结果不一样
-    _input_name = f'{input_name}{today}'
-    result = await ShindanMaker(maker_id=shindan_id).get_result(input_name=_input_name)
-    if result.error:
-        logger.error(f'User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
-        await shindan_maker_idole.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
-
-    result_text = result.result.replace(today, '')
-    await shindan_maker_idole.finish(result_text)
+    await shindan_maker_today_custom.finish(result_text)
