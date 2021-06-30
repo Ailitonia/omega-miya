@@ -76,10 +76,16 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
     _roll = state['roll']
     if re.match(r'^\d+[d]\d+$', _roll):
+        # <x>d<y>
         dice_info = _roll.split('d')
         dice_num = int(dice_info[0])
         dice_side = int(dice_info[1])
+    elif re.match(r'^[d]\d+$', _roll):
+        # d<x>
+        dice_num = 1
+        dice_side = int(_roll[1:])
     elif re.match(r'^\d+$', _roll):
+        # Any number
         dice_num = 1
         dice_side = int(_roll)
     else:
@@ -131,7 +137,7 @@ async def handle_lottery(bot: Bot, event: GroupMessageEvent, state: T_State):
     if re.match(r'^\d+$', _lottery):
         people_num = int(_lottery)
 
-        group_member_list = await bot.call_api(api='get_group_member_list', group_id=event.group_id)
+        group_member_list = await bot.get_group_member_list(group_id=event.group_id)
         group_user_name_list = []
 
         for user_info in group_member_list:
