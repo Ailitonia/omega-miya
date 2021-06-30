@@ -161,6 +161,8 @@ class PixivIllust(Pixiv):
                     continue
             if 'R-18' in illusttag:
                 is_r18 = True
+            elif 'R-18G' in illusttag:
+                is_r18 = True
             else:
                 is_r18 = False
 
