@@ -1,7 +1,7 @@
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import \
-    User, Group, BotGroup, UserGroup, Vocation, Skill, UserSkill, \
+    User, Group, BotGroup, UserGroup, Vacation, Skill, UserSkill, \
     Subscription, GroupSub, GroupSetting, EmailBox, GroupEmailBox
 from .user import DBUser
 from .skill import DBSkill
@@ -566,10 +566,10 @@ class DBBotGroup(DBGroup):
                     # 查询该群组中所有没有假的人
                     session_result = await session.execute(
                         select(User.id, UserGroup.user_group_nickname).
-                        join(Vocation).join(UserGroup).
-                        where(User.id == Vocation.user_id).
+                        join(Vacation).join(UserGroup).
+                        where(User.id == Vacation.user_id).
                         where(User.id == UserGroup.user_id).
-                        where(Vocation.status == 0).
+                        where(Vacation.status == 0).
                         where(UserGroup.group_id == bot_group_id_result.result)
                     )
                     user_res = [(x[0], x[1]) for x in session_result.all()]
@@ -619,7 +619,7 @@ class DBBotGroup(DBGroup):
                     # 查这个人是不是空闲
                     for user_id, nickname in user_res:
                         session_result = await session.execute(
-                            select(Vocation.status).where(Vocation.user_id == user_id)
+                            select(Vacation.status).where(Vacation.user_id == user_id)
                         )
                         # 如果空闲则把这个人昵称放进结果列表里面
                         if session_result.scalar_one() == 0:
@@ -629,7 +629,7 @@ class DBBotGroup(DBGroup):
                     result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def vocation_member_list(self) -> Result.ListResult:
+    async def vacation_member_list(self) -> Result.ListResult:
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
             return Result.ListResult(error=True, info='BotGroup not exist', result=[])
@@ -640,11 +640,11 @@ class DBBotGroup(DBGroup):
                 try:
                     # 查询所有没有假的人
                     session_result = await session.execute(
-                        select(UserGroup.user_group_nickname, Vocation.stop_at).
+                        select(UserGroup.user_group_nickname, Vacation.stop_at).
                         select_from(UserGroup).join(User).
                         where(UserGroup.user_id == User.id).
-                        where(User.id == Vocation.user_id).
-                        where(Vocation.status == 1).
+                        where(User.id == Vacation.user_id).
+                        where(Vacation.status == 1).
                         where(UserGroup.group_id == bot_group_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]

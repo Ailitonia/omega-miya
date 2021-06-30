@@ -88,7 +88,7 @@ class User(Base):
                                       cascade='all, delete-orphan', passive_deletes=True)
     users_users_skills = relationship('UserSkill', back_populates='users_skills_back_users',
                                       cascade='all, delete-orphan', passive_deletes=True)
-    users_vocations = relationship('Vocation', back_populates='vocations_back_users',
+    users_vacations = relationship('Vacation', back_populates='vacations_back_users',
                                    cascade='all, delete-orphan', passive_deletes=True)
 
     def __init__(self, qq, nickname, aliasname=None, created_at=None, updated_at=None):
@@ -687,11 +687,11 @@ class Bilidynamic(Base):
 
 
 # 假期表
-class Vocation(Base):
-    __tablename__ = f'{TABLE_PREFIX}vocations'
+class Vacation(Base):
+    __tablename__ = f'{TABLE_PREFIX}vacations'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('vocations_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    id = Column(Integer, Sequence('vacations_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
     status = Column(Integer, nullable=False, comment='请假状态 0-空闲 1-请假 2-工作中')
     stop_at = Column(DateTime, nullable=True, comment='假期结束时间')
@@ -700,7 +700,7 @@ class Vocation(Base):
     updated_at = Column(DateTime, nullable=True)
 
     # 设置级联和关系加载
-    vocations_back_users = relationship(User, back_populates='users_vocations', lazy='joined', innerjoin=True)
+    vacations_back_users = relationship(User, back_populates='users_vacations', lazy='joined', innerjoin=True)
 
     def __init__(self, user_id, status, stop_at=None, reason=None, created_at=None, updated_at=None):
         self.user_id = user_id
@@ -711,7 +711,7 @@ class Vocation(Base):
         self.updated_at = updated_at
 
     def __repr__(self):
-        return f"<Vocation(user_id='{self.user_id}', status='{self.status}', stop_at='{self.stop_at}', " \
+        return f"<Vacation(user_id='{self.user_id}', status='{self.status}', stop_at='{self.stop_at}', " \
                f"reason='{self.reason}', created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 

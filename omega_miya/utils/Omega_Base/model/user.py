@@ -1,6 +1,6 @@
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import User, Skill, UserSkill, Vocation
+from omega_miya.utils.Omega_Base.tables import User, Skill, UserSkill, Vacation
 from .skill import DBSkill
 from datetime import datetime
 from sqlalchemy.future import select
@@ -235,7 +235,7 @@ class DBUser(object):
             async with session.begin():
                 try:
                     session_result = await session.execute(
-                        select(Vocation.status).where(Vocation.user_id == user_id_result.result)
+                        select(Vacation.status).where(Vacation.user_id == user_id_result.result)
                     )
                     res = session_result.scalar_one()
                     result = Result.IntResult(error=False, info='Success', result=res)
@@ -243,7 +243,7 @@ class DBUser(object):
                     result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def vocation_status(self) -> Result.ListResult:
+    async def vacation_status(self) -> Result.ListResult:
         user_id_result = await self.id()
         if user_id_result.error:
             return Result.ListResult(error=True, info='User not exist', result=[-1, None])
@@ -253,8 +253,8 @@ class DBUser(object):
             async with session.begin():
                 try:
                     session_result = await session.execute(
-                        select(Vocation.status, Vocation.stop_at).
-                        where(Vocation.user_id == user_id_result.result)
+                        select(Vacation.status, Vacation.stop_at).
+                        where(Vacation.user_id == user_id_result.result)
                     )
                     res = session_result.one()
                     result = Result.ListResult(error=False, info='Success', result=[res[0], res[1]])
@@ -273,7 +273,7 @@ class DBUser(object):
                 async with session.begin():
                     try:
                         session_result = await session.execute(
-                            select(Vocation).where(Vocation.user_id == user_id_result.result)
+                            select(Vacation).where(Vacation.user_id == user_id_result.result)
                         )
                         exist_status = session_result.scalar_one()
                         exist_status.status = status
@@ -282,7 +282,7 @@ class DBUser(object):
                         exist_status.updated_at = datetime.now()
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
-                        new_status = Vocation(user_id=user_id_result.result, status=status, created_at=datetime.now())
+                        new_status = Vacation(user_id=user_id_result.result, status=status, created_at=datetime.now())
                         session.add(new_status)
                         result = Result.IntResult(error=False, info='Success set', result=0)
                 await session.commit()
@@ -294,7 +294,7 @@ class DBUser(object):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def vocation_set(self, stop_time: datetime, reason: str = None) -> Result.IntResult:
+    async def vacation_set(self, stop_time: datetime, reason: str = None) -> Result.IntResult:
         user_id_result = await self.id()
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
@@ -305,7 +305,7 @@ class DBUser(object):
                 async with session.begin():
                     try:
                         session_result = await session.execute(
-                            select(Vocation).where(Vocation.user_id == user_id_result.result)
+                            select(Vacation).where(Vacation.user_id == user_id_result.result)
                         )
                         exist_status = session_result.scalar_one()
                         exist_status.status = 1
@@ -314,7 +314,7 @@ class DBUser(object):
                         exist_status.updated_at = datetime.now()
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
-                        new_status = Vocation(user_id=user_id_result.result, status=1,
+                        new_status = Vacation(user_id=user_id_result.result, status=1,
                                               stop_at=stop_time, reason=reason, created_at=datetime.now())
                         session.add(new_status)
                         result = Result.IntResult(error=False, info='Success set', result=0)
@@ -337,7 +337,7 @@ class DBUser(object):
             try:
                 async with session.begin():
                     session_result = await session.execute(
-                        select(Vocation).where(Vocation.user_id == user_id_result.result)
+                        select(Vacation).where(Vacation.user_id == user_id_result.result)
                     )
                     exist_status = session_result.scalar_one()
                     await session.delete(exist_status)
