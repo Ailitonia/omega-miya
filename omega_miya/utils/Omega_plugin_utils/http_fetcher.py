@@ -2,6 +2,7 @@ import os
 import aiohttp
 import aiofiles
 import nonebot
+from urllib.parse import urlparse
 from http.cookies import SimpleCookie as SimpleCookie_
 from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
@@ -120,8 +121,9 @@ class HttpFetcher(object):
             self,
             url: str,
             path: str,
-            file_name: str,
-            params: Dict[str, str] = None,
+            *,
+            file_name: Optional[str] = None,
+            params: Optional[Dict[str, str]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherTextResult:
         """
@@ -138,7 +140,12 @@ class HttpFetcher(object):
         folder_path = os.path.abspath(path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-        file_path = os.path.abspath(os.path.join(folder_path, file_name))
+
+        if file_name:
+            file_path = os.path.abspath(os.path.join(folder_path, file_name))
+        else:
+            file_name = os.path.basename(urlparse(url).path) if os.path.basename(urlparse(url).path) else str(hash(url))
+            file_path = os.path.abspath(os.path.join(folder_path, file_name))
 
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
