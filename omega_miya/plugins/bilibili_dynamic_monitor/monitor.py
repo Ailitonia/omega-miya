@@ -58,15 +58,14 @@ async def dynamic_db_upgrade():
 
 
 # 处理图片序列
-async def pic2base64(pic_list: list) -> str:
+async def pic_to_seg(pic_list: list) -> str:
     # 处理图片序列
     pic_segs = []
     for pic_url in pic_list:
-        pic_result = await BiliRequestUtils.pic_2_base64(url=pic_url)
+        pic_result = await BiliRequestUtils.pic_to_file(url=pic_url)
         if pic_result.error:
             logger.warning(f'BiliDynamic get base64pic failed, error: {pic_result.info}, pic url: {pic_url}')
-        pic_b64 = pic_result.result
-        pic_segs.append(str(MessageSegment.image(pic_b64)))
+        pic_segs.append(str(MessageSegment.image(pic_result.result)))
     pic_seg = '\n'.join(pic_segs)
     return pic_seg
 
@@ -121,7 +120,7 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
                     # 原动态type=2, 8 或 4200, 带图片
                     if orig_dy_data_result.result.type in [2, 8, 4200]:
                         # 处理图片序列
-                        pic_seg = await pic2base64(pic_list=orig_dy_data_result.result.data.pictures)
+                        pic_seg = await pic_to_seg(pic_list=orig_dy_data_result.result.data.pictures)
                         orig_user = orig_dy_data_result.result.user_name
                         orig_contant = orig_dy_data_result.result.data.content
                         if not orig_contant:
@@ -131,7 +130,7 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
                     # 原动态type=32 或 512, 为番剧类型
                     elif orig_dy_data_result.result.type in [32, 512]:
                         # 处理图片序列
-                        pic_seg = await pic2base64(pic_list=orig_dy_data_result.result.data.pictures)
+                        pic_seg = await pic_to_seg(pic_list=orig_dy_data_result.result.data.pictures)
                         orig_user = orig_dy_data_result.result.user_name
                         orig_title = orig_dy_data_result.result.data.title
                         msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{'=' * 16}\n" \
@@ -151,7 +150,7 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
         # 原创的动态（有图片）
         elif dynamic_info.type == 2:
             # 处理图片序列
-            pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+            pic_seg = await pic_to_seg(pic_list=dynamic_info.data.pictures)
             msg = f"{user_name}{desc}!\n\n“{content}”\n{url}\n{pic_seg}"
         # 原创的动态（无图片）
         elif dynamic_info.type == 4:
@@ -159,7 +158,7 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
         # 视频
         elif dynamic_info.type == 8:
             # 处理图片序列
-            pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+            pic_seg = await pic_to_seg(pic_list=dynamic_info.data.pictures)
             if content:
                 msg = f"{user_name}{desc}!\n\n《{title}》\n\n“{content}”\n{url}\n{pic_seg}"
             else:
@@ -170,17 +169,17 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
         # 番剧
         elif dynamic_info.type in [32, 512]:
             # 处理图片序列
-            pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+            pic_seg = await pic_to_seg(pic_list=dynamic_info.data.pictures)
             msg = f"{user_name}{desc}!\n\n《{title}》\n\n{content}\n{url}\n{pic_seg}"
         # 文章
         elif dynamic_info.type == 64:
             # 处理图片序列
-            pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+            pic_seg = await pic_to_seg(pic_list=dynamic_info.data.pictures)
             msg = f"{user_name}{desc}!\n\n《{title}》\n\n{content}\n{url}\n{pic_seg}"
         # 音频
         elif dynamic_info.type == 256:
             # 处理图片序列
-            pic_seg = await pic2base64(pic_list=dynamic_info.data.pictures)
+            pic_seg = await pic_to_seg(pic_list=dynamic_info.data.pictures)
             msg = f"{user_name}{desc}!\n\n《{title}》\n\n{content}\n{url}\n{pic_seg}"
         # B站活动相关
         elif dynamic_info.type == 2048:

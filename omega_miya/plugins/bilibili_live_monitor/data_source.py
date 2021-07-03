@@ -156,7 +156,7 @@ class BiliLiveChecker(object):
         # 直播过程中标题更新
         elif live_info.status == 1 and live_info.title != live_title[self.room_id]:
             if live_info.cover_img:
-                cover_pic_result = await BiliRequestUtils.pic_2_base64(url=live_info.cover_img)
+                cover_pic_result = await BiliRequestUtils.pic_to_file(url=live_info.cover_img)
                 if cover_pic_result.success():
                     # 发送的消息
                     msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】\n" \
@@ -229,7 +229,7 @@ class BiliLiveChecker(object):
 
                 # 发送的消息
                 if live_info.cover_img:
-                    cover_pic_result = await BiliRequestUtils.pic_2_base64(url=live_info.cover_img)
+                    cover_pic_result = await BiliRequestUtils.pic_to_file(url=live_info.cover_img)
                     if cover_pic_result.success():
                         msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】" \
                               f"\n{MessageSegment.image(cover_pic_result.result)}"
