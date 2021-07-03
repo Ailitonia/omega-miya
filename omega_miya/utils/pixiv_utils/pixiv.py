@@ -304,6 +304,33 @@ class PixivIllust(Pixiv):
         else:
             return Result.TextResult(error=True, info=encode_result.info, result='')
 
+    # 图片转fileurl
+    async def get_file(self, original: bool = False) -> Result.TextResult:
+        folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
+        file_name = f'{self.__pid}_original_{original}'
+        file_path = os.path.abspath(os.path.join(folder_path, file_name))
+        # 如果已经存在则直接返回
+        if os.path.exists(file_path):
+            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+
+        # 没有的话再下载并保存文件
+        if self.__is_pic_loaded:
+            illust_pic = self.__pic
+        else:
+            illust_pic_result = await self.load_illust_pic(original=original)
+            if illust_pic_result.error:
+                return Result.TextResult(error=True, info='Image download failed', result='')
+            illust_pic = illust_pic_result.result
+        # 检查保存文件路径
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        try:
+            async with aiofiles.open(file_path, 'wb') as aio_f:
+                await aio_f.write(illust_pic)
+            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+        except Exception as e:
+            return Result.TextResult(error=True, info=repr(e), result='')
+
     def __load_ugoira_pics(self, file_path: str) -> Dict[str, bytes]:
         if not self.__is_data_loaded:
             raise RuntimeError('Illust data not loaded!')
@@ -374,6 +401,9 @@ class PixivIllust(Pixiv):
         try:
             gif_bytes = await self.__prepare_ugoira_gif()
             folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
+            # 检查保存文件路径
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
             file_name = f'{self.__pid}.gif'
             file_path = os.path.abspath(os.path.join(folder_path, file_name))
             async with aiofiles.open(file_path, 'wb') as aio_f:
