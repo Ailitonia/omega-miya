@@ -212,7 +212,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             # 动图作品生成动图后发送
             illust_result = await illust.get_ugoira_gif_filepath()
         else:
-            illust_result = await illust.get_base64()
+            illust_result = await illust.get_file()
         if illust_result.success() and illust_info_result.success():
             msg = illust_info_result.result
             img_seg = MessageSegment.image(illust_result.result)
@@ -305,7 +305,7 @@ async def __handle_ranking_msg(rank: int, illust_data: dict) -> Optional[Message
     illust_title = illust_data.get('illust_title')
     illust_uname = illust_data.get('illust_uname')
 
-    image_result = await PixivIllust(pid=illust_id).get_base64()
+    image_result = await PixivIllust(pid=illust_id).get_file()
     if image_result.success():
         msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
         img_seg = MessageSegment.image(image_result.result)

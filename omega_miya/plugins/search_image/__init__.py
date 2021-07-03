@@ -1,13 +1,11 @@
-from typing import Dict
 from nonebot import on_command, export, logger, get_driver
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import (T_SearchEngine, pic_2_base64,
-                    get_saucenao_identify_result, get_ascii2d_identify_result, get_iqdb_identify_result)
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
 
 
@@ -17,13 +15,6 @@ ENABLE_SAUCENAO = plugin_config.enable_saucenao
 ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
 
-
-# 可用的识图api
-SEARCH_ENGINE: Dict[str, T_SearchEngine] = {
-    'saucenao': get_saucenao_identify_result,
-    'iqdb': get_iqdb_identify_result,
-    'ascii2d': get_ascii2d_identify_result
-}
 
 # Custom plugin usage text
 __plugin_name__ = '识图'
@@ -184,12 +175,13 @@ async def handle_result(bot: Bot, event: MessageEvent, state: T_State):
                         ext_urls = '\n'.join(item['ext_urls'])
                     else:
                         ext_urls = item['ext_urls'].strip()
-                    img_b64 = await pic_2_base64(item['thumbnail'])
-                    if not img_b64.success():
+                    img_result = await PicEncoder(
+                        pic_url=item['thumbnail'], headers=HEADERS).get_file(folder_flag='search_image')
+                    if img_result.error:
                         msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}"
                         await search_image.send(msg)
                     else:
-                        img_seg = MessageSegment.image(img_b64.result)
+                        img_seg = MessageSegment.image(img_result.result)
                         msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}\n{img_seg}"
                         await search_image.send(Message(msg))
                 except Exception as e:

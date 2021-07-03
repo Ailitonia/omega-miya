@@ -101,7 +101,7 @@ async def pixivision_monitor():
             # 处理article中图片内容
             tasks = []
             for pid in article_data['illusts_list']:
-                tasks.append(PixivIllust(pid=pid).get_base64())
+                tasks.append(PixivIllust(pid=pid).get_file())
             p_res = await asyncio.gather(*tasks)
             image_error = 0
 

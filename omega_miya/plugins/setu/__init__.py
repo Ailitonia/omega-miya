@@ -172,10 +172,10 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
                     fault_count += 1
                     logger.warning(f'处理图片高斯模糊失败, error: {image_res.info}')
                     continue
-            image_res = PicEncoder.bytes_to_b64(image=image_res.result)
+            image_res = await PicEncoder.bytes_to_file(image=image_res.result, folder_flag='setu')
             if image_res.error:
                 fault_count += 1
-                logger.warning(f'图片转换Base64失败, error: {image_res.info}')
+                logger.warning(f'图片转换失败, error: {image_res.info}')
                 continue
             else:
                 if ENABLE_SETU_FLASH:
@@ -277,10 +277,10 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
                 fault_count += 1
                 logger.warning(f'图片下载失败, error: {image_res.info}')
                 continue
-            image_res = PicEncoder.bytes_to_b64(image=image_res.result)
+            image_res = await PicEncoder.bytes_to_file(image=image_res.result, folder_flag='moepic')
             if image_res.error:
                 fault_count += 1
-                logger.warning(f'图片转换Base64失败, error: {image_res.info}')
+                logger.warning(f'图片转换失败, error: {image_res.info}')
                 continue
             else:
                 if ENABLE_MOE_FLASH:

@@ -4,8 +4,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .utils import get_identify_result, pic_2_base64
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from .utils import get_identify_result
 
 
 # Custom plugin usage text
@@ -120,15 +120,15 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
             title_chinese = item.get('title_chinese')
             is_adult = item.get('is_adult')
 
-            img_b64 = await pic_2_base64(url=image)
+            img_result = await PicEncoder(pic_url=image).get_file(folder_flag='search_anime')
 
-            if not img_b64.success():
+            if img_result.error:
                 msg = f"识别结果:\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
                       f"相似度: {int(similarity*100)}\n\n来源文件: {filename}\n集数: 【{episode}】\n" \
                       f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}"
                 await search_anime.send(msg)
             else:
-                img_seg = MessageSegment.image(img_b64.result)
+                img_seg = MessageSegment.image(img_result.result)
                 msg = f"识别结果:\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
                       f"相似度: {int(similarity*100)}\n\n来源文件: {filename}\n集数: 【{episode}】\n" \
                       f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}"

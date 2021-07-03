@@ -1,9 +1,9 @@
 import re
-from typing import Callable, Awaitable
+from typing import Dict, Callable, Awaitable
 import nonebot
 from bs4 import BeautifulSoup
 from nonebot import logger
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 from omega_miya.utils.Omega_Base import Result
 
 
@@ -18,21 +18,6 @@ HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
                          'Chrome/89.0.4389.114 Safari/537.36'}
 
 T_SearchEngine = Callable[[str], Awaitable[Result.DictListResult]]
-
-
-# 图片转base64
-async def pic_2_base64(url: str) -> Result.TextResult:
-    fetcher = HttpFetcher(timeout=10, flag='search_image_get_image', headers=HEADERS)
-    bytes_result = await fetcher.get_bytes(url=url)
-    if bytes_result.error:
-        return Result.TextResult(error=True, info='Image download failed', result='')
-
-    encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
-
-    if encode_result.success():
-        return Result.TextResult(error=False, info='Success', result=encode_result.result)
-    else:
-        return Result.TextResult(error=True, info=encode_result.info, result='')
 
 
 # 获取识别结果 Saucenao模块
@@ -250,3 +235,17 @@ async def get_iqdb_identify_result(url: str) -> Result.DictListResult:
         except Exception as parse_err:
             logger.warning(f'get_iqdb_identify_result parse error: {repr(parse_err)}, 解搜索结果条目时发生错误..')
     return Result.DictListResult(error=False, info='Success', result=result)
+
+
+# 可用的识图api
+SEARCH_ENGINE: Dict[str, T_SearchEngine] = {
+    'saucenao': get_saucenao_identify_result,
+    'iqdb': get_iqdb_identify_result,
+    'ascii2d': get_ascii2d_identify_result
+}
+
+
+__all__ = [
+    'HEADERS',
+    'SEARCH_ENGINE'
+]

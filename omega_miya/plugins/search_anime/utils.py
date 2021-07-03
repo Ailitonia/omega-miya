@@ -1,6 +1,5 @@
 from nonebot import logger
-from urllib.parse import unquote_plus
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
+from omega_miya.utils.Omega_plugin_utils import HttpFetcher
 from omega_miya.utils.Omega_Base import Result
 
 
@@ -31,49 +30,6 @@ HEADERS = {'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,imag
            'upgrade-insecure-requests': '1',
            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/90.0.4430.212 Safari/537.36'}
-
-
-# 图片转base64
-async def thumbnail_pic_2_base64(anilist_id: int, filename: str, raw_at: float, tokenthumb: str) -> Result.TextResult:
-    url = 'https://trace.moe/thumbnail.php'
-    params = {
-        'anilist_id': anilist_id,
-        'file': filename,
-        't': raw_at,
-        'token': tokenthumb
-    }
-    fetcher = HttpFetcher(timeout=10, flag='search_anime_get_image', headers=HEADERS)
-
-    image_redirects_result = await fetcher.get_text(url=url, params=params, allow_redirects=False)
-    if image_redirects_result.error:
-        return Result.TextResult(error=True, info='Get image url failed', result='')
-
-    image_url = unquote_plus(image_redirects_result.headers.get('Location'))
-    bytes_result = await fetcher.get_bytes(url=image_url)
-    if bytes_result.error:
-        return Result.TextResult(error=True, info='Image download failed', result='')
-
-    encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
-
-    if encode_result.success():
-        return Result.TextResult(error=False, info='Success', result=encode_result.result)
-    else:
-        return Result.TextResult(error=True, info=encode_result.info, result='')
-
-
-# 图片转base64
-async def pic_2_base64(url: str) -> Result.TextResult:
-    fetcher = HttpFetcher(timeout=10, flag='search_anime_get_image', headers=HEADERS)
-    bytes_result = await fetcher.get_bytes(url=url)
-    if bytes_result.error:
-        return Result.TextResult(error=True, info='Image download failed', result='')
-
-    encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
-
-    if encode_result.success():
-        return Result.TextResult(error=False, info='Success', result=encode_result.result)
-    else:
-        return Result.TextResult(error=True, info=encode_result.info, result='')
 
 
 # 获取识别结果
