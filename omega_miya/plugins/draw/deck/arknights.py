@@ -29,9 +29,7 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='风笛/Bagpipe', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='空弦/Archetto', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='帕拉斯/Pallas', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -39,11 +37,9 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=5,
         operator=[
-            Operator(name='初雪/Pramanix', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='幽灵鲨/Specter', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='月禾/Tsukinogi', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='蜜蜡/Beeswax', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='红/Projekt Red', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -51,6 +47,7 @@ UP_OPERATOR: List[UpEvent] = [
 ]
 
 ALL_OPERATOR: List[Operator] = [
+    Operator(name='帕拉斯/Pallas', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='贝娜/Bena', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
