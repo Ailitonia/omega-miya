@@ -7,7 +7,6 @@ plugin/draw
 from nonebot import get_plugin, get_driver, logger
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from nonebot.exception import IgnoredException
-from nonebot.message import run_preprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
@@ -16,16 +15,20 @@ from omega_miya.utils.Omega_plugin_utils import PluginCoolDown
 from omega_miya.utils.Omega_Base import DBCoolDownEvent, DBAuth, DBBot
 
 
-@run_preprocessor
-async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+global_config = get_driver().config
+SUPERUSERS = global_config.superusers
+
+
+async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+    """
+    冷却处理 T_RunPreProcessor
+    """
+
     group_id = event.dict().get('group_id')
     user_id = event.dict().get('user_id')
 
-    global_config = get_driver().config
-    superusers = global_config.superusers
-
     # 忽略超级用户
-    if user_id in [int(x) for x in superusers]:
+    if user_id in [int(x) for x in SUPERUSERS]:
         return
 
     # 只处理message事件
@@ -140,3 +143,8 @@ async def handle_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent
             pass
         else:
             logger.error(f'用户冷却事件异常! group: {group_id}, user: {user_id}, plugin: {plugin_name}, error: {res.info}')
+
+
+__all__ = [
+    'preprocessor_cooldown'
+]

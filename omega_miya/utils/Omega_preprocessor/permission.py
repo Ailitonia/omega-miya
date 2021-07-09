@@ -1,6 +1,5 @@
 from nonebot import get_driver
 from nonebot.exception import IgnoredException
-from nonebot.message import run_preprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
@@ -9,8 +8,15 @@ from omega_miya.utils.Omega_plugin_utils import PermissionChecker
 from omega_miya.utils.Omega_Base import DBBot
 
 
-@run_preprocessor
-async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+global_config = get_driver().config
+SUPERUSERS = global_config.superusers
+
+
+async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+    """
+    权限处理 T_RunPreProcessor
+    """
+
     if isinstance(event, PrivateMessageEvent):
         private_mode = True
     elif isinstance(event, GroupMessageEvent):
@@ -21,11 +27,8 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
     group_id = event.dict().get('group_id')
     user_id = event.dict().get('user_id')
 
-    global_config = get_driver().config
-    superusers = global_config.superusers
-
     # 忽略超级用户
-    if user_id in [int(x) for x in superusers]:
+    if user_id in [int(x) for x in SUPERUSERS]:
         return
 
     matcher_default_state = matcher.state
@@ -98,3 +101,8 @@ async def handle_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEve
     elif matcher_permission_level and not level_checker:
         await bot.send(event=event, message=f'群组权限等级不足QAQ')
         raise IgnoredException('群组权限等级不足')
+
+
+__all__ = [
+    'preprocessor_permission'
+]
