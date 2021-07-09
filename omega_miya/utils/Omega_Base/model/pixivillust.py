@@ -151,7 +151,7 @@ class DBPixivillust(object):
 
     async def get_all_page(self) -> Result.ListResult:
         """
-        :return: Result: List[Tuple[original, regular, small, thumb_mini]]
+        :return: Result: List[Tuple[page, original, regular, small, thumb_mini]]
         """
         pixiv_id_result = await self.id()
         if pixiv_id_result.error:
