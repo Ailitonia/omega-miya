@@ -72,7 +72,7 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 1),
+    PluginCoolDown(PluginCoolDown.user_type, 2),
     PluginCoolDown(PluginCoolDown.group_type, 1)
 ]
 
@@ -427,6 +427,7 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
 
     # 对列表去重
     pid_list = list(set(pid_list))
+    pid_list.sort()
     all_count = len(pid_list)
     await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
     logger.info(f'setu_import: 读取导入文件列表完成, 总计: {all_count}, 开始导入...')
