@@ -13,7 +13,6 @@ import datetime
 from typing import Dict
 from nonebot import MatcherGroup, export, logger
 from nonebot.typing import T_State
-from nonebot.exception import FinishedException
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
@@ -170,18 +169,22 @@ async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
         '少女': 162207,
         '魔法少女': 828741,
         '偶像': 828727,
-        '做成的': 761425,
         '做的': 761425,
-        '明日方舟干员': 959146,
-        '干员': 959146
+        '干员': 959146,
+        '小动物': 828905,
+        '猫': 28998,
+        '主角': 828977,
+        '宝石': 890951,
+        '花': 829525
     }
 
     args = str(event.get_plaintext()).strip()
     input_name, shindan_name = re.findall(shindan_pattern, args)[0][0], re.findall(shindan_pattern, args)[0][2]
     shindan_id = shindan_custon_id.get(shindan_name, None)
     if not shindan_id:
-        logger.debug(f'User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, 没有对应的预置占卜, shindan_id not found')
-        raise FinishedException('shindan_maker_today_custom: shindan_id not found')
+        logger.info(f'User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, 没有对应的预置占卜, {shindan_name} not found')
+        await shindan_maker_today_custom.finish(
+            f'没有你想问的东西哦, 或者你是想知道, 今天的XX是什么{"/".join(shindan_custon_id.keys())}吗?')
 
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
     # 加入日期使每天的结果不一样
