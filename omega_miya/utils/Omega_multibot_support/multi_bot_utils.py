@@ -19,6 +19,7 @@ class MultiBotUtils(object):
     async def first_response_bot_permission_updater(
             cls, bot: Bot, event: Event, state: T_State, permission: Permission) -> Permission:
         """
+        T_PermissionUpdater
         :param bot: 事件响应 bot
         :param event: 事件
         :param state: matcher 运行时 state

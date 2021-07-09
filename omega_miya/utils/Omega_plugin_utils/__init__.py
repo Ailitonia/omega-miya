@@ -7,7 +7,6 @@ from .cooldown import PluginCoolDown
 from .permission import PermissionChecker
 from .http_fetcher import HttpFetcher
 from .message_sender import MsgSender
-from .multi_bot_utils import MultiBotUtils
 from .picture_encoder import PicEncoder
 from .picture_effector import PicEffector
 from .zip_utils import create_zip_file, create_7z_file
@@ -53,7 +52,6 @@ __all__ = [
     'PermissionChecker',
     'HttpFetcher',
     'MsgSender',
-    'MultiBotUtils',
     'PicEncoder',
     'PicEffector',
     'create_zip_file',

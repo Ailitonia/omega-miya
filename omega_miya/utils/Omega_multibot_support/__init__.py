@@ -3,7 +3,7 @@
 @Date           : 2021/05/23 19:40
 @FileName       : __init__.py
 @Project        : nonebot2_miya 
-@Description    : Bot Auto Manager
+@Description    : Multi-Bot 多协议端接入支持
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -17,7 +17,7 @@ from nonebot.message import run_preprocessor
 from nonebot.exception import IgnoredException
 from nonebot.adapters.cqhttp.bot import Bot
 from omega_miya.utils.Omega_Base import DBBot
-from omega_miya.utils.Omega_plugin_utils import MultiBotUtils
+from .multi_bot_utils import MultiBotUtils
 
 driver = get_driver()
 ONLINE_BOTS: Dict[str, Bot] = {}
@@ -67,14 +67,12 @@ async def unique_bot_responding_limit(matcher: Matcher, bot: Bot, event: Event, 
 
     # 对于多协议端同时接入, 需要使用permission_updater限制bot id避免响应混乱
     # 在matcher首次运行时在statue中写入首次执行matcher的bot id
-    # permission_updater函数见omega_miya.utils.Omega_plugin_utils.multi_bot_utils.MultiBotUtils
     if isinstance(event, (MessageEvent, NoticeEvent, RequestEvent)) and not matcher.temp:
         try:
             state.update({
                 '_first_response_bot': bot.self_id,
                 '_original_session_id': event.get_session_id(),
                 '_original_permission': matcher.permission,
-
             })
             matcher.permission_updater(MultiBotUtils.first_response_bot_permission_updater)
         except ValueError:
