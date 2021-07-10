@@ -91,7 +91,7 @@ class ShindanMaker(object):
         fetcher = HttpFetcher(timeout=10, flag='shindanmaker_get_result', cookies=html_result.cookies, headers=_header)
         data = fetcher.FormData()
         data.add_field(name='_token', value=_token)
-        data.add_field(name='name', value=input_name)
+        data.add_field(name='shindanName', value=input_name)
         data.add_field(name='hiddenName', value='无名的X')
         maker_result = await fetcher.post_text(url=url, data=data)
 
