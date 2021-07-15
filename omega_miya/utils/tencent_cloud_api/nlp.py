@@ -82,6 +82,45 @@ class TencentNLP(object):
         else:
             return Result.TextResult(error=True, info=result.info, result='')
 
+    async def sentiment_analysis(self, text: str, *, flag: int = 4, mode: str = '2class') -> Result.DictResult:
+        """
+        :param text: 待分析的文本（仅支持UTF-8格式，不超过200字）
+        :param flag: 待分析文本所属的类型，仅当输入参数Mode取值为2class时有效（默认取4值）：
+            1 - 商品评论类
+            2 - 社交类
+            3 - 美食酒店类
+            4 - 通用领域类
+        :param mode: 情感分类模式选项，可取2class或3class（默认值为2class）
+            2class - 返回正负面二分类情感结果
+            3class - 返回正负面及中性三分类情感结果
+        :return: DictResult
+            Positive：Float，正面情感概率
+            Neutral：Float，中性情感概率，当输入参数Mode取值为3class时有效，否则值为空。注意：此字段可能返回 null，表示取不到有效值。
+            Negative：Float，负面情感概率
+            Sentiment：String，情感分类结果：
+                1 - positive，表示正面情感
+                2 - negative，表示负面情感
+                3 - neutral，表示中性、无情感
+            RequestId：String，唯一请求 ID，每次请求都会返回。定位问题时需要提供该次请求的 RequestId。
+        """
+        payload = {'Text': text, 'Flag': flag, 'Mode': mode}
+        api = TencentCloudApi(
+            secret_id=self.__secret_id,
+            secret_key=self.__secret_key,
+            host='nlp.tencentcloudapi.com')
+        result = await api.post_request(
+            action='SentimentAnalysis', version='2019-04-08', region='ap-guangzhou', payload=payload)
+
+        if result.success():
+            if result.result['Response'].get('Error'):
+                return Result.DictResult(
+                    error=True, info=f"API error: {result.result['Response'].get('Error')}", result={})
+            else:
+                response = dict(result.result['Response'])
+                return Result.DictResult(error=False, info='Success', result=response)
+        else:
+            return Result.DictResult(error=True, info=result.info, result={})
+
 
 __all__ = [
     'TencentNLP'
