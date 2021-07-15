@@ -29,18 +29,19 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='帕拉斯/Pallas', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='塞雷娅/Saria', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+            Operator(name='嵯峨/Saga', star=6, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
         zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='幽灵鲨/Specter', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='食铁兽/FEater', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='红/Projekt Red', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='灰喉/GreyThroat', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='四月/April', star=5, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
         zoom=0.5
     )

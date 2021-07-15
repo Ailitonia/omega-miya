@@ -100,7 +100,7 @@ async def handle_deck(bot: Bot, event: GroupMessageEvent, state: T_State):
     if not draw_user:
         draw_user = event.sender.nickname
 
-    draw_result = draw_deck(_draw)(user_id=user_id)
+    draw_result = draw_deck(_draw)(user_id)
 
     # 向用户发送结果
     msg = f"{draw_user}抽卡【{_draw}】!!\n{'='*12}\n{draw_result}"

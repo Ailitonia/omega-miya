@@ -1,8 +1,11 @@
 from .deck import *
+from typing import Dict, Callable
 
+
+T_DrawDeck = Callable[[int], str]
 
 # Deck事件
-deck_list = {
+deck_list: Dict[str, T_DrawDeck] = {
     '单张塔罗牌': one_tarot,
     '超能力': superpower,
     '程序员修行': course,
@@ -11,5 +14,5 @@ deck_list = {
 }
 
 
-def draw_deck(deck: str):
+def draw_deck(deck: str) -> T_DrawDeck:
     return deck_list.get(deck)
