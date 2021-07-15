@@ -100,7 +100,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     # 处理r18
     state['nsfw_tag'] = 1
     for tag in args.copy():
-        if tag in ['r18', 'R18', 'r-18', 'R-18']:
+        if re.match(r'[Rr]-?18[Gg]?', tag):
             args.remove(tag)
             state['nsfw_tag'] = 2
     state['tags'] = list(args)
@@ -235,7 +235,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
     # 排除r18
     for tag in args.copy():
-        if tag in ['r18', 'R18', 'r-18', 'R-18']:
+        if re.match(r'[Rr]-?18[Gg]?', tag):
             args.remove(tag)
     state['tags'] = list(args)
 
