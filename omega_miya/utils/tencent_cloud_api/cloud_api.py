@@ -41,7 +41,7 @@ class TencentCloudApi(object):
                                 region: str,
                                 version: str,
                                 payload: Dict[str, Any]):
-        self.__headers = {
+        self.__headers.update({
             'Authorization': self.__sign_v3(payload=payload),
             'Content-Type': 'application/json',
             'Host': self.__host,
@@ -49,7 +49,7 @@ class TencentCloudApi(object):
             'X-TC-Region': region,
             'X-TC-Timestamp': str(self.__request_timestamp),
             'X-TC-Version': version
-        }
+        })
 
     def __canonical_request(self,
                             payload: Dict[str, Any],
