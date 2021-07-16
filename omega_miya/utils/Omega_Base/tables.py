@@ -1,6 +1,8 @@
 import nonebot
+from datetime import datetime, date as date_
+from typing import Optional
 from sqlalchemy import Sequence, ForeignKey
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime
+from sqlalchemy import Column, Integer, BigInteger, Float, String, Date, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -25,7 +27,13 @@ class OmegaStatus(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, name, status, info, created_at=None, updated_at=None):
+    def __init__(self,
+                 name: str,
+                 status: int,
+                 *,
+                 info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.name = name
         self.status = status
         self.info = info
@@ -56,7 +64,13 @@ class BotSelf(Base):
     bots_bot_groups = relationship('BotGroup', back_populates='bot_groups_back_bots',
                                    cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, self_qq, status, info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 self_qq: int,
+                 status: int,
+                 *,
+                 info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.self_qq = self_qq
         self.status = status
         self.info = info
@@ -68,7 +82,7 @@ class BotSelf(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
-# 成员表
+# 用户表
 class User(Base):
     __tablename__ = f'{TABLE_PREFIX}users'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
@@ -90,8 +104,18 @@ class User(Base):
                                       cascade='all, delete-orphan', passive_deletes=True)
     users_vacations = relationship('Vacation', back_populates='vacations_back_users',
                                    cascade='all, delete-orphan', passive_deletes=True)
+    user_user_favorability = relationship('UserFavorability', back_populates='user_favorability_back_user',
+                                          cascade='all, delete-orphan', passive_deletes=True)
+    user_friend_sign_in = relationship('UserSignIn', back_populates='user_sign_in_back_user',
+                                       cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, qq, nickname, aliasname=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 qq: int,
+                 nickname: str,
+                 *,
+                 aliasname: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.qq = qq
         self.nickname = nickname
         self.aliasname = aliasname
@@ -126,8 +150,15 @@ class Friends(Base):
     bot_friends_users_subs = relationship('UserSub', back_populates='users_subs_back_bot_friends',
                                           cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, user_id, bot_self_id, nickname,
-                 remark=None, private_permissions=0, created_at=None, updated_at=None):
+    def __init__(self,
+                 user_id: int,
+                 bot_self_id: int,
+                 nickname: str,
+                 private_permissions: int = 0,
+                 *,
+                 remark: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.user_id = user_id
         self.bot_self_id = bot_self_id
         self.nickname = nickname
@@ -140,6 +171,89 @@ class Friends(Base):
         return f"<Friends(user_id='{self.user_id}', bot_self_id='{self.bot_self_id}', " \
                f"nickname='{self.nickname}', remark='{self.remark}', " \
                f"private_permissions='{self.private_permissions}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# 好感度及状态表, 养成系统基础表单
+class UserFavorability(Base):
+    __tablename__ = f'{TABLE_PREFIX}user_favorability'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('user_fav_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
+    status = Column(String(64), nullable=False, comment='当前状态')
+    mood = Column(Float, nullable=False, comment='情绪值, 大于0: 好心情, 小于零: 坏心情')
+    favorability = Column(Float, nullable=False, comment='好感度, 大于0: 友善, 小于0: 敌对')
+    energy = Column(Float, nullable=False, comment='能量值')
+    currency = Column(Float, nullable=False, comment='持有货币')
+    response_threshold = Column(Float, nullable=False, comment='响应阈值, 控制对交互做出响应的概率或频率, 根据具体插件使用数值')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    # 设置级联和关系加载
+    user_favorability_back_user = relationship(User, back_populates='user_user_favorability',
+                                               lazy='joined', innerjoin=True)
+
+    def __init__(self,
+                 user_id: int,
+                 status: str,
+                 mood: float,
+                 favorability: float,
+                 energy: float,
+                 currency: float,
+                 response_threshold: float,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
+        self.user_id = user_id
+        self.status = status
+        self.mood = mood
+        self.favorability = favorability
+        self.energy = energy
+        self.currency = currency
+        self.response_threshold = response_threshold
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<UserFavorability(user_id='{self.user_id}', status='{self.status}', mood='{self.mood}', " \
+               f"favorability='{self.favorability}', energy='{self.energy}', currency='{self.currency}', " \
+               f"response_threshold='{self.response_threshold}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
+# 签到表, 养成系统基础表单
+class UserSignIn(Base):
+    __tablename__ = f'{TABLE_PREFIX}user_sign_in'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('user_sign_in_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    user_id = Column(Integer, ForeignKey(f'{TABLE_PREFIX}users.id', ondelete='CASCADE'), nullable=False)
+    sign_in_date = Column(Date, nullable=False, comment='签到日期')
+    sign_in_info = Column(String(64), nullable=True, comment='签到信息')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    # 设置级联和关系加载
+    user_sign_in_back_user = relationship(User, back_populates='user_friend_sign_in',
+                                          lazy='joined', innerjoin=True)
+
+    def __init__(self,
+                 user_id: int,
+                 sign_in_date: date_,
+                 *,
+                 sign_in_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
+        self.user_id = user_id
+        self.sign_in_date = sign_in_date
+        self.sign_in_info = sign_in_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<UserSignIn(user_id='{self.user_id}', sign_in_date='{self.sign_in_date}', " \
+               f"sign_in_info='{self.sign_in_info}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
@@ -158,7 +272,12 @@ class Skill(Base):
     skills_users_skills = relationship('UserSkill', back_populates='users_skills_back_skills',
                                        cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, name, description=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 name: str,
+                 *,
+                 description: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.name = name
         self.description = description
         self.created_at = created_at
@@ -185,7 +304,13 @@ class UserSkill(Base):
     users_skills_back_users = relationship(User, back_populates='users_users_skills', lazy='joined', innerjoin=True)
     users_skills_back_skills = relationship(Skill, back_populates='skills_users_skills', lazy='joined', innerjoin=True)
 
-    def __init__(self, user_id, skill_id, skill_level, created_at=None, updated_at=None):
+    def __init__(self,
+                 user_id: int,
+                 skill_id: int,
+                 skill_level: int,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.user_id = user_id
         self.skill_id = skill_id
         self.skill_level = skill_level
@@ -212,7 +337,12 @@ class Group(Base):
     groups_bot_groups = relationship('BotGroup', back_populates='bot_groups_back_groups',
                                      cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, name, group_id, created_at=None, updated_at=None):
+    def __init__(self,
+                 name: str,
+                 group_id: int,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.name = name
         self.group_id = group_id
         self.created_at = created_at
@@ -252,8 +382,16 @@ class BotGroup(Base):
     bot_groups_groups_settings = relationship('GroupSetting', back_populates='groups_settings_back_bot_groups',
                                               cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, group_id, bot_self_id, notice_permissions, command_permissions,
-                 permission_level, group_memo=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 group_id: int,
+                 bot_self_id: int,
+                 notice_permissions: int,
+                 command_permissions: int,
+                 permission_level: int,
+                 *,
+                 group_memo: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.group_id = group_id
         self.bot_self_id = bot_self_id
         self.group_memo = group_memo
@@ -287,7 +425,13 @@ class UserGroup(Base):
     users_groups_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_users_groups',
                                                 lazy='joined', innerjoin=True)
 
-    def __init__(self, user_id, group_id, user_group_nickname=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 user_id: int,
+                 group_id: int,
+                 *,
+                 user_group_nickname: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.user_id = user_id
         self.group_id = group_id
         self.user_group_nickname = user_group_nickname
@@ -318,7 +462,15 @@ class AuthUser(Base):
     auth_user_back_bot_friends = relationship(Friends, back_populates='bot_friends_auth_user',
                                               lazy='joined', innerjoin=True)
 
-    def __init__(self, user_id, auth_node, allow_tag=0, deny_tag=0, auth_info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 user_id: int,
+                 auth_node: str,
+                 allow_tag: int = 0,
+                 deny_tag: int = 0,
+                 *,
+                 auth_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.user_id = user_id
         self.auth_node = auth_node
         self.allow_tag = allow_tag
@@ -351,7 +503,15 @@ class AuthGroup(Base):
     auth_group_back_bot_groups = relationship(BotGroup, back_populates='bot_groups_auth_group',
                                               lazy='joined', innerjoin=True)
 
-    def __init__(self, group_id, auth_node, allow_tag=0, deny_tag=0, auth_info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 group_id: int,
+                 auth_node: str,
+                 allow_tag: int = 0,
+                 deny_tag: int = 0,
+                 *,
+                 auth_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.group_id = group_id
         self.auth_node = auth_node
         self.allow_tag = allow_tag
@@ -393,9 +553,9 @@ class GroupSetting(Base):
             *,
             secondary_config: str = 'None',
             extra_config: str = 'None',
-            setting_info: str = 'None',
-            created_at=None,
-            updated_at=None):
+            setting_info: Optional[str] = 'None',
+            created_at: Optional[datetime] = None,
+            updated_at: Optional[datetime] = datetime.now()):
         self.group_id = group_id
         self.setting_name = setting_name
         self.main_config = main_config
@@ -430,8 +590,15 @@ class EmailBox(Base):
     email_box_group_email_box = relationship('GroupEmailBox', back_populates='group_email_box_back_email_box',
                                              cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, address: str, server_host: str, password: str,
-                 protocol: str = 'imap', port: int = 993, created_at=None, updated_at=None):
+    def __init__(self,
+                 address: str,
+                 server_host: str,
+                 password: str,
+                 *,
+                 protocol: str = 'imap',
+                 port: int = 993,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.address = address
         self.server_host = server_host
         self.protocol = protocol
@@ -464,7 +631,13 @@ class GroupEmailBox(Base):
     group_email_box_back_email_box = relationship(EmailBox, back_populates='email_box_group_email_box',
                                                   lazy='joined', innerjoin=True)
 
-    def __init__(self, email_box_id, group_id, box_info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 email_box_id: int,
+                 group_id: int,
+                 *,
+                 box_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.email_box_id = email_box_id
         self.group_id = group_id
         self.box_info = box_info
@@ -493,7 +666,17 @@ class Email(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, mail_hash, date, header, sender, to, body, html, created_at=None, updated_at=None):
+    def __init__(self,
+                 mail_hash: str,
+                 date: str,
+                 header: str,
+                 sender: str,
+                 to: str,
+                 *,
+                 body: Optional[str] = 'Null',
+                 html: Optional[str] = 'Null',
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.mail_hash = mail_hash
         self.date = date
         self.header = header
@@ -532,9 +715,21 @@ class History(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, time, self_id, post_type, detail_type, sub_type='Undefined', event_id=0,
-                 group_id=-1, user_id=-1, user_name=None, raw_data=None, msg_data=None,
-                 created_at=None, updated_at=None):
+    def __init__(self,
+                 time: int,
+                 self_id: int,
+                 post_type: str,
+                 detail_type: str,
+                 sub_type: str = 'Undefined',
+                 event_id: int = 0,
+                 group_id: int = -1,
+                 user_id: int = -1,
+                 *,
+                 user_name: Optional[str] = None,
+                 raw_data: Optional[str] = None,
+                 msg_data: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.time = time
         self.self_id = self_id
         self.post_type = post_type
@@ -583,7 +778,14 @@ class Subscription(Base):
     subscription_users_subs = relationship('UserSub', back_populates='users_subs_back_subscription',
                                            cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, sub_type, sub_id, up_name, live_info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 sub_type: int,
+                 sub_id: int,
+                 up_name: str,
+                 *,
+                 live_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.sub_type = sub_type
         self.sub_id = sub_id
         self.up_name = up_name
@@ -614,7 +816,13 @@ class GroupSub(Base):
     groups_subs_back_subscription = relationship(Subscription, back_populates='subscription_groups_subs',
                                                  lazy='joined', innerjoin=True)
 
-    def __init__(self, sub_id, group_id, group_sub_info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 sub_id: int,
+                 group_id: int,
+                 *,
+                 group_sub_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.sub_id = sub_id
         self.group_id = group_id
         self.group_sub_info = group_sub_info
@@ -645,7 +853,13 @@ class UserSub(Base):
     users_subs_back_subscription = relationship(Subscription, back_populates='subscription_users_subs',
                                                 lazy='joined', innerjoin=True)
 
-    def __init__(self, sub_id, user_id, user_sub_info=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 sub_id: int,
+                 user_id: int,
+                 *,
+                 user_sub_info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.sub_id = sub_id
         self.user_id = user_id
         self.user_sub_info = user_sub_info
@@ -672,7 +886,14 @@ class Bilidynamic(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, uid, dynamic_id, dynamic_type, content, created_at=None, updated_at=None):
+    def __init__(self,
+                 uid: int,
+                 dynamic_id: int,
+                 dynamic_type: int,
+                 content: str,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.uid = uid
         self.dynamic_id = dynamic_id
         self.dynamic_type = dynamic_type
@@ -702,7 +923,14 @@ class Vacation(Base):
     # 设置级联和关系加载
     vacations_back_users = relationship(User, back_populates='users_vacations', lazy='joined', innerjoin=True)
 
-    def __init__(self, user_id, status, stop_at=None, reason=None, created_at=None, updated_at=None):
+    def __init__(self,
+                 user_id: int,
+                 status: int,
+                 *,
+                 stop_at: Optional[datetime] = None,
+                 reason: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.user_id = user_id
         self.status = status
         self.stop_at = stop_at
@@ -736,7 +964,17 @@ class Pixiv(Base):
     pixiv_illusts_pixiv_pages = relationship('PixivPage', back_populates='pixiv_pages_back_pixiv_illusts',
                                              cascade='all, delete-orphan', passive_deletes=True)
 
-    def __init__(self, pid, uid, title, uname, nsfw_tag, tags, url, created_at=None, updated_at=None):
+    def __init__(self,
+                 pid: int,
+                 uid: int,
+                 title: str,
+                 uname: str,
+                 nsfw_tag: int,
+                 tags: str,
+                 url: str,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.pid = pid
         self.uid = uid
         self.title = title
@@ -772,7 +1010,16 @@ class PixivPage(Base):
     pixiv_pages_back_pixiv_illusts = relationship(Pixiv, back_populates='pixiv_illusts_pixiv_pages',
                                                   lazy='joined', innerjoin=True)
 
-    def __init__(self, illust_id, page, original, regular, small, thumb_mini, created_at=None, updated_at=None):
+    def __init__(self,
+                 illust_id: int,
+                 page: int,
+                 original: str,
+                 regular: str,
+                 small: str,
+                 thumb_mini: str,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.illust_id = illust_id
         self.page = page
         self.original = original
@@ -800,12 +1047,21 @@ class Pixivision(Base):
     title = Column(String(256), nullable=False, comment='title')
     description = Column(String(1024), nullable=False, comment='description')
     tags = Column(String(1024), nullable=False, comment='tags')
-    illust_id = Column(String(1024), nullable=False, comment='tags')
+    illust_id = Column(String(1024), nullable=False, comment='article illust_id')
     url = Column(String(1024), nullable=False, comment='url')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, aid, title, description, tags, illust_id, url, created_at=None, updated_at=None):
+    def __init__(self,
+                 aid: int,
+                 title: str,
+                 description: str,
+                 tags: str,
+                 illust_id: str,
+                 url: str,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.aid = aid
         self.title = title
         self.description = description
@@ -837,7 +1093,14 @@ class PixivUserArtwork(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, pid, uid, uname, title, created_at=None, updated_at=None):
+    def __init__(self,
+                 pid: int,
+                 uid: int,
+                 uname: str,
+                 title: str,
+                 *,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.pid = pid
         self.uid = uid
         self.uname = uname
@@ -867,8 +1130,16 @@ class CoolDownEvent(Base):
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, event_type, stop_at, plugin=None, group_id=None, user_id=None, description=None,
-                 created_at=None, updated_at=None):
+    def __init__(self,
+                 event_type: str,
+                 stop_at: datetime,
+                 *,
+                 plugin: Optional[str] = None,
+                 group_id: Optional[int] = None,
+                 user_id: Optional[int] = None,
+                 description: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = datetime.now()):
         self.event_type = event_type
         self.stop_at = stop_at
         self.plugin = plugin

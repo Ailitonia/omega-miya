@@ -263,10 +263,10 @@ class DBBotGroup(DBGroup):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def member_list(self) -> Result.ListResult:
+    async def member_list(self) -> Result.TupleListResult:
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
-            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+            return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -279,9 +279,9 @@ class DBBotGroup(DBGroup):
                         where(UserGroup.group_id == bot_group_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
     async def member_add(self, user: DBUser, user_group_nickname: str) -> Result.IntResult:
@@ -592,14 +592,14 @@ class DBBotGroup(DBGroup):
                     result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def idle_skill_list(self, skill: DBSkill) -> Result.ListResult:
+    async def idle_skill_list(self, skill: DBSkill) -> Result.TupleListResult:
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
-            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+            return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
         skill_id_result = await skill.id()
         if skill_id_result.error:
-            return Result.ListResult(error=True, info='Skill not exist', result=[])
+            return Result.TupleListResult(error=True, info='Skill not exist', result=[])
 
         res = []
         async_session = NBdb().get_async_session()
@@ -624,15 +624,15 @@ class DBBotGroup(DBGroup):
                         # 如果空闲则把这个人昵称放进结果列表里面
                         if session_result.scalar_one() == 0:
                             res.append(nickname)
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def vacation_member_list(self) -> Result.ListResult:
+    async def vacation_member_list(self) -> Result.TupleListResult:
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
-            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+            return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -648,9 +648,9 @@ class DBBotGroup(DBGroup):
                         where(UserGroup.group_id == bot_group_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
     async def init_member_status(self) -> Result.IntResult:
@@ -662,13 +662,13 @@ class DBBotGroup(DBGroup):
                 await user.status_set(status=0)
         return Result.IntResult(error=False, info='ignore', result=0)
 
-    async def subscription_list(self) -> Result.ListResult:
+    async def subscription_list(self) -> Result.TupleListResult:
         """
         :return: Result: List[Tuple[sub_type, sub_id, up_name]]
         """
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
-            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+            return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -681,19 +681,19 @@ class DBBotGroup(DBGroup):
                         where(GroupSub.group_id == bot_group_id_result.result)
                     )
                     res = [(x[0], x[1], x[2]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def subscription_list_by_type(self, sub_type: int) -> Result.ListResult:
+    async def subscription_list_by_type(self, sub_type: int) -> Result.TupleListResult:
         """
         :param sub_type: 订阅类型
         :return: Result: List[Tuple[sub_id, up_name]]
         """
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
-            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+            return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -707,9 +707,9 @@ class DBBotGroup(DBGroup):
                         where(GroupSub.group_id == bot_group_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
     async def subscription_add(self, sub: DBSubscription, group_sub_info: str = None) -> Result.IntResult:
@@ -942,13 +942,13 @@ class DBBotGroup(DBGroup):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def setting_list(self) -> Result.ListResult:
+    async def setting_list(self) -> Result.TupleListResult:
         """
         :return: Result: List[Tuple[setting_name, main_config, secondary_config, extra_config]]
         """
         bot_group_id_result = await self.bot_group_id()
         if bot_group_id_result.error:
-            return Result.ListResult(error=True, info='BotGroup not exist', result=[])
+            return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -960,9 +960,9 @@ class DBBotGroup(DBGroup):
                         where(GroupSetting.group_id == bot_group_id_result.result)
                     )
                     res = [(x[0], x[1], x[2], x[3]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
     async def setting_get(self, setting_name: str) -> Result.TextTupleResult:

@@ -1,11 +1,11 @@
+from typing import Optional
+from datetime import datetime
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Friends, User, Subscription, UserSub
 from .user import DBUser
 from .bot_self import DBBot
 from .subscription import DBSubscription
-from typing import Optional
-from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
@@ -241,13 +241,13 @@ class DBFriend(DBUser):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def subscription_list(self) -> Result.ListResult:
+    async def subscription_list(self) -> Result.TupleListResult:
         """
         :return: Result: List[Tuple[sub_type, sub_id, up_name]]
         """
         friend_id_result = await self.friend_id()
         if friend_id_result.error:
-            return Result.ListResult(error=True, info='Friend not exist', result=[])
+            return Result.TupleListResult(error=True, info='Friend not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -260,19 +260,19 @@ class DBFriend(DBUser):
                         where(UserSub.user_id == friend_id_result.result)
                     )
                     res = [(x[0], x[1], x[2]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def subscription_list_by_type(self, sub_type: int) -> Result.ListResult:
+    async def subscription_list_by_type(self, sub_type: int) -> Result.TupleListResult:
         """
         :param sub_type: 订阅类型
         :return: Result: List[Tuple[sub_id, up_name]]
         """
         friend_id_result = await self.friend_id()
         if friend_id_result.error:
-            return Result.ListResult(error=True, info='Friend not exist', result=[])
+            return Result.TupleListResult(error=True, info='Friend not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -286,9 +286,9 @@ class DBFriend(DBUser):
                         where(UserSub.user_id == friend_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
     async def subscription_add(self, sub: DBSubscription, user_sub_info: str = None) -> Result.IntResult:

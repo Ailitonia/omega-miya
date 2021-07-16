@@ -5,10 +5,9 @@
 
 from .database import DBTable
 from .class_result import Result
-from .model import \
-    DBUser, DBFriend, DBBot, DBBotGroup, DBGroup, DBSkill, DBSubscription, DBDynamic, \
-    DBPixivUserArtwork, DBPixivillust, DBPixivision, \
-    DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus
+from .model import (
+    DBUser, DBFriend, DBBot, DBBotGroup, DBGroup, DBSkill, DBSubscription, DBDynamic,
+    DBPixivUserArtwork, DBPixivillust, DBPixivision, DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus)
 
 
 __all__ = [
