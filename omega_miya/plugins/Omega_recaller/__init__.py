@@ -13,6 +13,7 @@ from datetime import datetime
 from nonebot import export, logger
 from nonebot.plugin import CommandGroup
 from nonebot.typing import T_State
+from nonebot.exception import FinishedException
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.permission import GROUP, GROUP_OWNER, GROUP_ADMIN
 from nonebot.adapters.cqhttp.bot import Bot
@@ -75,6 +76,26 @@ SelfHelpRecall = CommandGroup(
 
 
 recall = SelfHelpRecall.command('recall', aliases={'撤回'})
+
+
+@recall.handle()
+async def handle_super_recall_self_msg(bot: Bot, event: GroupMessageEvent, state: T_State):
+    # 特别处理管理员撤回bot发送的消息
+    if event.reply and str(event.user_id) in bot.config.superusers:
+        if event.reply.sender.user_id == event.self_id:
+            recall_msg_id = event.reply.message_id
+            try:
+                await bot.delete_msg(message_id=recall_msg_id)
+                logger.info(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
+                            f'撤回了Bot消息: {recall_msg_id}, "{event.reply.message}"')
+                await recall.finish()
+            except FinishedException:
+                raise FinishedException
+            except Exception as e:
+                logger.error(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
+                             f'撤回Bot消息失败, error: {repr(e)}')
+                msg = f'{MessageSegment.at(user_id=event.user_id)}撤回消息部分或全部失败了QAQ'
+                await recall.finish(Message(msg))
 
 
 @recall.handle()
