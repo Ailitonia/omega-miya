@@ -1,5 +1,6 @@
 import re
 import os
+import pathlib
 from nonebot import MatcherGroup, logger
 from nonebot.typing import T_State
 from nonebot.rule import to_me
@@ -42,5 +43,6 @@ async def handle_miya_button(bot: Bot, event: GroupMessageEvent, state: T_State)
     elif not os.path.exists(voice_file):
         await miya_button.finish('喵？')
     else:
-        msg = MessageSegment.record(file=f'file:///{voice_file}')
+        file_url = pathlib.Path(voice_file).as_uri()
+        msg = MessageSegment.record(file=file_url)
         await miya_button.finish(msg)

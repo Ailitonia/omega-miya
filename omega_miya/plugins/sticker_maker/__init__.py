@@ -1,4 +1,5 @@
 import re
+import pathlib
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -171,7 +172,8 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
         # sticker_seg = MessageSegment.image(sticker_b64)
 
         # 直接用文件构造消息段
-        sticker_seg = MessageSegment.image(f'file:///{sticker_path}')
+        file_url = pathlib.Path(sticker_path).as_uri()
+        sticker_seg = MessageSegment.image(file=file_url)
 
         # 发送图片
         await sticker.send(sticker_seg)

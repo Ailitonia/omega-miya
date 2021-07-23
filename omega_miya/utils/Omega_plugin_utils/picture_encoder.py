@@ -1,6 +1,7 @@
 import os
 import base64
 import aiofiles
+import pathlib
 from nonebot import get_driver, logger
 from omega_miya.utils.Omega_Base import Result
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher
@@ -38,7 +39,8 @@ class PicEncoder(object):
         try:
             async with aiofiles.open(file_path, 'wb') as af:
                 await af.write(image)
-            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
         except Exception as e:
             logger.opt(colors=True).warning(f'<Y><lw>PicEncoder</lw></Y> bytes_to_file failed, <y>Error</y>: {repr(e)}')
             return Result.TextResult(error=True, info=repr(e), result='')

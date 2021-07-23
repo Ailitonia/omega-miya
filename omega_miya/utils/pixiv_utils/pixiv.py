@@ -1,5 +1,6 @@
 import re
 import os
+import pathlib
 import json
 import asyncio
 import aiofiles
@@ -311,7 +312,8 @@ class PixivIllust(Pixiv):
         file_path = os.path.abspath(os.path.join(folder_path, file_name))
         # 如果已经存在则直接返回
         if os.path.exists(file_path):
-            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
 
         # 没有的话再下载并保存文件
         if self.__is_pic_loaded:
@@ -327,7 +329,8 @@ class PixivIllust(Pixiv):
         try:
             async with aiofiles.open(file_path, 'wb') as aio_f:
                 await aio_f.write(illust_pic)
-            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
         except Exception as e:
             return Result.TextResult(error=True, info=repr(e), result='')
 
@@ -408,7 +411,8 @@ class PixivIllust(Pixiv):
             file_path = os.path.abspath(os.path.join(folder_path, file_name))
             async with aiofiles.open(file_path, 'wb') as aio_f:
                 await aio_f.write(gif_bytes)
-            return Result.TextResult(error=False, info='Success', result=f'file:///{file_path}')
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
         except Exception as e:
             return Result.TextResult(error=True, info=repr(e), result='')
 

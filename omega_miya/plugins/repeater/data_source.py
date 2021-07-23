@@ -10,6 +10,7 @@
 
 import os
 import re
+import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
@@ -23,11 +24,13 @@ class ResourceMsg(object):
 
     def img_msg(self) -> MessageSegment:
         img_file_path = os.path.abspath(os.path.join(RESOURCE_PATH, self.resource_name))
-        return MessageSegment.image(f'file:///{img_file_path}')
+        file_url = pathlib.Path(img_file_path).as_uri()
+        return MessageSegment.image(file=file_url)
 
     def record_msg(self) -> MessageSegment:
         record_file_path = os.path.abspath(os.path.join(RESOURCE_PATH, self.resource_name))
-        return MessageSegment.record(f'file:///{record_file_path}')
+        file_url = pathlib.Path(record_file_path).as_uri()
+        return MessageSegment.record(file=file_url)
 
 
 @dataclass

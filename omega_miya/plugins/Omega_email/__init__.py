@@ -1,4 +1,5 @@
 import re
+import pathlib
 from nonebot import MatcherGroup, export, logger
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
@@ -233,7 +234,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
                     text_img_result = await text_to_img(text=msg)
                     if text_img_result.error:
                         raise Exception(f'Text to img failed, {text_img_result.info}')
-                    img_seg = MessageSegment.image(f'file:///{text_img_result.result}')
+                    file_url = pathlib.Path(text_img_result.result).as_uri()
+                    img_seg = MessageSegment.image(file=file_url)
                     await mail_receive.send(img_seg)
                 except Exception as e:
                     logger.error(f'发送邮件信息失败, {repr(e)}')
