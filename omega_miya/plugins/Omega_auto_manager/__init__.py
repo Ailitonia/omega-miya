@@ -22,9 +22,8 @@ Omega机器人自动化综合/群管/好友管理
 以下命令均需要@机器人
 **Usage**
 **GroupAdmin and SuperUser Only**
-[设置和重置群组加群欢迎信息]
-/WelcomeMsg.set
-/WelcomeMsg.clear
+/设置欢迎消息
+/清空欢迎消息
 '''
 
 # Init plugin export

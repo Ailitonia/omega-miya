@@ -3,7 +3,7 @@
 @Date           : 2021/06/11 23:42
 @FileName       : group_welcome_message.py
 @Project        : nonebot2_miya 
-@Description    : 
+@Description    : 群自定义欢迎信息
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -34,8 +34,8 @@ WelcomeMsg = CommandGroup(
     block=True
 )
 
-welcome_msg_set = WelcomeMsg.command('set')
-welcome_msg_clear = WelcomeMsg.command('clear')
+welcome_msg_set = WelcomeMsg.command('set', aliases={'设置欢迎消息'})
+welcome_msg_clear = WelcomeMsg.command('clear', aliases={'清空欢迎消息'})
 
 
 # 修改默认参数处理
