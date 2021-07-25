@@ -1,20 +1,22 @@
+import random
+import asyncio
 from nonebot import on_command, export, logger, get_driver
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from omega_miya.utils.Omega_Base import DBBot
+from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder, PermissionChecker
+from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
-
 
 __global_config = get_driver().config
 plugin_config = Config(**__global_config.dict())
 ENABLE_SAUCENAO = plugin_config.enable_saucenao
 ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
-
 
 # Custom plugin usage text
 __plugin_name__ = '识图'
@@ -31,16 +33,20 @@ or AuthNode
 basic
 
 **Usage**
-/识图'''
+/识图
+
+**Hidden Command**
+/再来点'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
-    'basic'
+    'basic',
+    'recommend_image',
+    'allow_recommend_r18'
 ]
 
 # Init plugin export
 init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
-
 
 # 注册事件响应器
 search_image = on_command(
@@ -197,3 +203,126 @@ async def handle_result(bot: Bot, event: MessageEvent, state: T_State):
         await search_image.send('识图失败, 发生了意外的错误QAQ, 请稍后重试')
         logger.error(f"{group_id} / {event.user_id} 使用命令searchimage时发生了错误: {repr(e)}")
         return
+
+
+# 注册事件响应器
+recommend_image = on_command(  # 使用 pixiv api 的相关作品推荐功能查找相似作品
+    '再来点',
+    aliases={'多来点', '相似作品', '类似作品'},
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_permission_state(
+        name='search_image_recommend_image',
+        command=True,
+        auth_node='recommend_image'),
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True)
+
+
+@recommend_image.handle()
+async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+    # 从回复消息中捕获待匹配的图片信息
+    # 只返回匹配到的第一个符合要求的链接或图片
+    if event.reply:
+        # 首先筛查链接
+        for msg_seg in event.reply.message:
+            if msg_seg.type == 'text':
+                text = msg_seg.data.get('text')
+                if pid := PixivIllust.parse_pid_from_url(text=text):
+                    state['pid'] = pid
+                    logger.debug(f"Recommend image | 已从消息段文本匹配到 pixiv url, pid: {pid}")
+                    return
+
+        # 若消息被分片可能导致链接被拆分
+        raw_text = event.reply.dict().get('raw_message')
+        if pid := PixivIllust.parse_pid_from_url(text=raw_text):
+            state['pid'] = pid
+            logger.debug(f"Recommend image | 已从消息 raw 文本匹配到 pixiv url, pid: {pid}")
+            return
+
+        # 没有发现则开始对图片进行识别, 为保证准确性只使用 saucenao api
+        for msg_seg in event.reply.message:
+            if msg_seg.type == 'image':
+                img_url = msg_seg.data.get('url')
+                saucenao_search_engine = SEARCH_ENGINE.get('saucenao')
+                identify_result = await saucenao_search_engine(img_url)
+                # 从识别结果中匹配图片
+                for url_list in [x.get('ext_urls') for x in identify_result.result]:
+                    for url in url_list:
+                        if pid := PixivIllust.parse_pid_from_url(text=url):
+                            state['pid'] = pid
+                            logger.debug(f"Recommend image | 已从识别图片匹配到 pixiv url, pid: {pid}")
+                            return
+    else:
+        logger.debug(f'Recommend image | 命令没有引用消息, 操作已取消')
+        await recommend_image.finish('没有引用需要查找的图片QAQ, 请使用本命令时直接回复相关消息')
+
+
+@recommend_image.handle()
+async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_State):
+    pid = state.get('pid')
+    if not pid:
+        logger.debug(f'Recommend image | 没有匹配到图片pid, 操作已取消')
+        await recommend_image.finish('没有匹配到相关图片QAQ, 请确认搜索的图片是在 Pixiv 上的作品')
+
+    recommend_result = await PixivIllust(pid=pid).get_recommend(init_limit=30)
+    if recommend_result.error:
+        logger.warning(f'Recommend image | 获取相似作品信息失败, pid: {pid}, error: {recommend_result.info}')
+        await recommend_image.finish('获取相关作品信息失败QAQ, 原作品可能已经被删除')
+
+    # 获取推荐作品的信息
+    await recommend_image.send('稍等, 正在获取相似作品~')
+    pid_list = [x.get('id') for x in recommend_result.result.get('illusts') if x.get('illustType') == 0]
+    tasks = [PixivIllust(pid=x).get_illust_data() for x in pid_list]
+    recommend_illust_data_result = await asyncio.gather(*tasks)
+
+    # 执行 r18 权限检查
+    if isinstance(event, PrivateMessageEvent):
+        user_id = event.user_id
+        auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+            check_auth_node(auth_id=user_id, auth_type='user', auth_node='search_image.allow_recommend_r18')
+    elif isinstance(event, GroupMessageEvent):
+        group_id = event.group_id
+        auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+            check_auth_node(auth_id=group_id, auth_type='group', auth_node='search_image.allow_recommend_r18')
+    else:
+        auth_checker = 0
+
+    # 筛选推荐作品 筛选条件 收藏不少于2k 点赞数不少于收藏一半 点赞率大于百分之五
+    if auth_checker == 1:
+        filtered_illust_data_result = [x for x in recommend_illust_data_result if (
+                x.success() and
+                2000 <= x.result.get('bookmark_count') <= 2 * x.result.get('like_count') and
+                x.result.get('view_count') <= 20 * x.result.get('like_count')
+        )]
+    else:
+        filtered_illust_data_result = [x for x in recommend_illust_data_result if (
+                x.success() and
+                not x.result.get('is_r18') and
+                2000 <= x.result.get('bookmark_count') <= 2 * x.result.get('like_count') and
+                x.result.get('view_count') <= 20 * x.result.get('like_count')
+        )]
+
+    # 从筛选结果里面随机挑三个
+    if len(filtered_illust_data_result) > 3:
+        url_list = random.sample([x.result.get('regular_url') for x in filtered_illust_data_result], k=3)
+    else:
+        url_list = [x.result.get('regular_url') for x in filtered_illust_data_result]
+
+    if not url_list:
+        logger.info(f'Recommend image | 筛选结果为0, 没有找到符合要求的相似作品')
+        await recommend_image.finish('没有找到符合要求的相似作品QAQ')
+
+    # 直接下载图片
+    tasks = [PicEncoder(
+        pic_url=url, headers=PixivIllust.HEADERS).get_file(folder_flag='search_image') for url in url_list]
+    pic_path_list = await asyncio.gather(*tasks)
+
+    for pic_path in [x.result for x in pic_path_list if x.success()]:
+        msg = MessageSegment.image(file=pic_path)
+        try:
+            await recommend_image.send(msg)
+        except Exception as e:
+            logger.warning(f'Recommend image | 发送图片失败, error: {repr(e)}')
+            continue
+    logger.info(f'Recommend image | User: {event.user_id} 已获取相似图片')
