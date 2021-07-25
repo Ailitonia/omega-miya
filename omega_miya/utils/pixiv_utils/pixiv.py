@@ -42,6 +42,25 @@ class Pixiv(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
+    def parse_pid_from_url(cls, text: str, *, url_mode: bool = False) -> Optional[int]:
+        if url_mode:
+            # 分别匹配不同格式pivix链接格式 仅能匹配特定 url 格式的字符串
+            if url_new := re.search(r'^https?://.*?pixiv\.net/(artworks|i)/(\d+?)$', text):
+                return int(url_new.groups()[1])
+            elif url_old := re.search(r'^https?://.*?pixiv\.net.*?illust_id=(\d+?)(&mode=\w+?)?$', text):
+                return int(url_old.groups()[0])
+            else:
+                return None
+        else:
+            # 分别匹配不同格式pivix链接格式 可匹配任何字符串中的url
+            if url_new := re.search(r'https?://.*?pixiv\.net/(artworks|i)/(\d+)', text):
+                return int(url_new.groups()[1])
+            elif url_old := re.search(r'https?://.*?pixiv\.net.*?illust_id=(\d+)', text):
+                return int(url_old.groups()[0])
+            else:
+                return None
+
+    @classmethod
     async def get_ranking(
             cls,
             mode: str,
@@ -147,6 +166,11 @@ class PixivIllust(Pixiv):
             re_std_description_s2 = r'<[^>]+>'
             illust_description = re.sub(re_std_description_s1, '\n', illust_description)
             illust_description = re.sub(re_std_description_s2, '', illust_description)
+            # 作品相关统计信息
+            like_count = int(illust_data['body']['likeCount'])
+            bookmark_count = int(illust_data['body']['bookmarkCount'])
+            view_count = int(illust_data['body']['viewCount'])
+            comment_count = int(illust_data['body']['commentCount'])
 
             # 处理作品tag
             illusttag = []
@@ -211,6 +235,10 @@ class PixivIllust(Pixiv):
                 'uid': userid,
                 'uname': username,
                 'url': url,
+                'like_count': like_count,
+                'bookmark_count': bookmark_count,
+                'view_count': view_count,
+                'comment_count': comment_count,
                 'page_count': page_count,
                 'orig_url': illust_orig_url,
                 'regular_url': illust_regular_url,
@@ -499,6 +527,39 @@ class PixivIllust(Pixiv):
             return zip_result
         else:
             return Result.TextResult(error=True, info='Get illust url failed', result='')
+
+    async def get_recommend(self, *, init_limit: int = 18, lang: str = 'zh') -> Result.DictResult:
+        """
+        获取作品对应的相关作品推荐
+        :param init_limit: 初始化作品推荐时首次加载的作品数量
+        :param lang: 语言
+        :return: DictResult
+            illusts: List[Dict], 首次加载的推荐作品的详细信息
+            nextIds: List, 剩余未加载推荐作品的pid列表
+            details: Dict, 所有推荐作品获取关联信息
+        """
+        recommend_url = f'{self.ILLUST_DATA_URL}{self.__pid}/recommend/init'
+        illust_artworks_url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
+
+        headers = self.HEADERS.copy()
+        headers.update({
+            'accept': 'application/json',
+            'referer': illust_artworks_url
+        })
+        params = {'limit': init_limit, 'lang': lang}
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_illust_recommend', headers=headers, cookies=COOKIES)
+        recommend_data_result = await fetcher.get_json(url=recommend_url, params=params)
+
+        if recommend_data_result.error:
+            return Result.DictResult(
+                error=True, info=f'Fetch illust recommend failed, {recommend_data_result.info}', result={})
+
+        # 检查返回状态
+        if recommend_data_result.result.get('error') or not recommend_data_result.result:
+            return Result.DictResult(error=True, info=f'PixivApiError: {recommend_data_result.result}', result={})
+
+        # 直接返回原始结果
+        return Result.DictResult(error=False, info='Success', result=recommend_data_result.result.get('body'))
 
 
 class PixivUser(Pixiv):
