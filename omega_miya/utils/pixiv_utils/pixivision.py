@@ -127,17 +127,11 @@ class PixivisionArticle(Pixivision):
                         url = illust_info.attrs['href']
                         # info = illust_info.get_text(strip=True)
                         # 识别pid
-                        text_o = re.findall(r'illust_id=[0-9]+', url)
-                        text_n = re.findall(r'net/artworks/[0-9]+', url)
-                        text_p = re.findall(r'pixiv\.net/i/[0-9]+', url)
-                        if text_o:
-                            pid = re.search(r'[0-9]+', text_o[0]).group()
+                        if url_new := re.search(r'https?://.*?pixiv\.net/(artworks|i)/(\d+)', url):
+                            pid = int(url_new.groups()[1])
                             url = f'https://www.pixiv.net/artworks/{pid}'
-                        elif text_n:
-                            pid = re.search(r'[0-9]+', text_n[0]).group()
-                            url = f'https://www.pixiv.net/artworks/{pid}'
-                        elif text_p:
-                            pid = re.search(r'[0-9]+', text_p[0]).group()
+                        elif url_old := re.search(r'https?://.*?pixiv\.net.*?illust_id=(\d+)', url):
+                            pid = int(url_old.groups()[0])
                             url = f'https://www.pixiv.net/artworks/{pid}'
                         else:
                             logger.debug(f'PixivisionArticle | Illust in article {self.__aid} not found, ignored.')
