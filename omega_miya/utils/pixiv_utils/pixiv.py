@@ -362,6 +362,31 @@ class PixivIllust(Pixiv):
         except Exception as e:
             return Result.TextResult(error=True, info=repr(e), result='')
 
+    async def get_sending_msg(self, *, mode: str = 'file') -> Result.TextTupleResult:
+        """
+        :param mode: 发送图片方式
+            file: 下载为本地文件发送
+            base64: 使用base64发送
+        :return: Tuple[image_url: str, info_msg: str]
+        """
+        if mode == 'file':
+            img_result = await self.get_file()
+        elif mode == 'base64':
+            img_result = await self.get_base64()
+        else:
+            return Result.TextTupleResult(error=True, info='Illegal mode', result=())
+
+        if img_result.error:
+            return Result.TextTupleResult(
+                error=True, info=f'Getting img failed, error: {img_result.info}', result=())
+
+        info_msg_result = await self.get_format_info_msg()
+        if info_msg_result.error:
+            return Result.TextTupleResult(
+                error=True, info=f'Getting info msg failed, error: {info_msg_result.info}', result=())
+
+        return Result.TextTupleResult(error=False, info='Success', result=(img_result.result, info_msg_result.result))
+
     def __load_ugoira_pics(self, file_path: str) -> Dict[str, bytes]:
         if not self.__is_data_loaded:
             raise RuntimeError('Illust data not loaded!')
