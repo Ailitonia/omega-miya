@@ -265,7 +265,7 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
         logger.debug(f'Recommend image | 没有匹配到图片pid, 操作已取消')
         await recommend_image.finish('没有匹配到相关图片QAQ, 请确认搜索的图片是在 Pixiv 上的作品')
 
-    recommend_result = await PixivIllust(pid=pid).get_recommend(init_limit=30)
+    recommend_result = await PixivIllust(pid=pid).get_recommend(init_limit=36)
     if recommend_result.error:
         logger.warning(f'Recommend image | 获取相似作品信息失败, pid: {pid}, error: {recommend_result.info}')
         await recommend_image.finish('获取相关作品信息失败QAQ, 原作品可能已经被删除')
@@ -305,23 +305,22 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
 
     # 从筛选结果里面随机挑三个
     if len(filtered_illust_data_result) > 3:
-        url_list = random.sample([x.result.get('regular_url') for x in filtered_illust_data_result], k=3)
+        illust_list = [PixivIllust(pid=x.result.get('pid')) for x in random.sample(filtered_illust_data_result, k=3)]
     else:
-        url_list = [x.result.get('regular_url') for x in filtered_illust_data_result]
+        illust_list = [PixivIllust(pid=x.result.get('pid')) for x in filtered_illust_data_result]
 
-    if not url_list:
+    if not illust_list:
         logger.info(f'Recommend image | 筛选结果为0, 没有找到符合要求的相似作品')
         await recommend_image.finish('没有找到符合要求的相似作品QAQ')
 
     # 直接下载图片
-    tasks = [PicEncoder(
-        pic_url=url, headers=PixivIllust.HEADERS).get_file(folder_flag='search_image') for url in url_list]
-    pic_path_list = await asyncio.gather(*tasks)
+    tasks = [x.get_sending_msg() for x in illust_list]
+    illust_download_result = await asyncio.gather(*tasks)
 
-    for pic_path in [x.result for x in pic_path_list if x.success()]:
-        msg = MessageSegment.image(file=pic_path)
+    for img, info in [x.result for x in illust_download_result if x.success()]:
+        img_seg = MessageSegment.image(file=img)
         try:
-            await recommend_image.send(msg)
+            await recommend_image.send(Message(img_seg).append(info))
         except Exception as e:
             logger.warning(f'Recommend image | 发送图片失败, error: {repr(e)}')
             continue
