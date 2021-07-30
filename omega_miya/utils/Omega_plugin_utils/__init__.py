@@ -9,6 +9,7 @@ from .http_fetcher import HttpFetcher
 from .message_sender import MsgSender
 from .picture_encoder import PicEncoder
 from .picture_effector import PicEffector
+from .process_utils import ProcessUtils
 from .zip_utils import create_zip_file, create_7z_file
 
 
@@ -54,6 +55,7 @@ __all__ = [
     'MsgSender',
     'PicEncoder',
     'PicEffector',
+    'ProcessUtils',
     'create_zip_file',
     'create_7z_file'
 ]
