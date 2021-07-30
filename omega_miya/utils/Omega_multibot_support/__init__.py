@@ -76,7 +76,7 @@ async def unique_bot_responding_limit(matcher: Matcher, bot: Bot, event: Event, 
             })
             matcher.permission_updater(MultiBotUtils.first_response_bot_permission_updater)
         except ValueError:
-            logger.error(f'Unique bot responding limit preprocessor running failed with ValueError. '
-                         f'The high probability is event had no session_id. Unsupported event: {repr(event)}.')
+            logger.warning(f'Unique bot responding limit preprocessor running failed with ValueError. '
+                           f'The high probability is event had no session_id. Unsupported event: {repr(event)}.')
         except Exception as e:
             logger.error(f'Unique bot responding limit preprocessor running failed with error: {repr(e)}.')
