@@ -33,7 +33,7 @@ class OmegaStatus(Base):
                  *,
                  info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.name = name
         self.status = status
         self.info = info
@@ -70,7 +70,7 @@ class BotSelf(Base):
                  *,
                  info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.self_qq = self_qq
         self.status = status
         self.info = info
@@ -115,7 +115,7 @@ class User(Base):
                  *,
                  aliasname: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.qq = qq
         self.nickname = nickname
         self.aliasname = aliasname
@@ -158,7 +158,7 @@ class Friends(Base):
                  *,
                  remark: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.bot_self_id = bot_self_id
         self.nickname = nickname
@@ -204,7 +204,7 @@ class UserFavorability(Base):
                  response_threshold: float,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.status = status
         self.mood = mood
@@ -244,7 +244,7 @@ class UserSignIn(Base):
                  *,
                  sign_in_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.sign_in_date = sign_in_date
         self.sign_in_info = sign_in_info
@@ -277,7 +277,7 @@ class Skill(Base):
                  *,
                  description: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.name = name
         self.description = description
         self.created_at = created_at
@@ -310,7 +310,7 @@ class UserSkill(Base):
                  skill_level: int,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.skill_id = skill_id
         self.skill_level = skill_level
@@ -342,7 +342,7 @@ class Group(Base):
                  group_id: int,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.name = name
         self.group_id = group_id
         self.created_at = created_at
@@ -391,7 +391,7 @@ class BotGroup(Base):
                  *,
                  group_memo: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.group_id = group_id
         self.bot_self_id = bot_self_id
         self.group_memo = group_memo
@@ -431,7 +431,7 @@ class UserGroup(Base):
                  *,
                  user_group_nickname: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.group_id = group_id
         self.user_group_nickname = user_group_nickname
@@ -470,7 +470,7 @@ class AuthUser(Base):
                  *,
                  auth_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.auth_node = auth_node
         self.allow_tag = allow_tag
@@ -511,7 +511,7 @@ class AuthGroup(Base):
                  *,
                  auth_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.group_id = group_id
         self.auth_node = auth_node
         self.allow_tag = allow_tag
@@ -555,7 +555,7 @@ class GroupSetting(Base):
             extra_config: str = 'None',
             setting_info: Optional[str] = 'None',
             created_at: Optional[datetime] = None,
-            updated_at: Optional[datetime] = datetime.now()):
+            updated_at: Optional[datetime] = None):
         self.group_id = group_id
         self.setting_name = setting_name
         self.main_config = main_config
@@ -598,7 +598,7 @@ class EmailBox(Base):
                  protocol: str = 'imap',
                  port: int = 993,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.address = address
         self.server_host = server_host
         self.protocol = protocol
@@ -637,7 +637,7 @@ class GroupEmailBox(Base):
                  *,
                  box_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.email_box_id = email_box_id
         self.group_id = group_id
         self.box_info = box_info
@@ -676,7 +676,7 @@ class Email(Base):
                  body: Optional[str] = 'Null',
                  html: Optional[str] = 'Null',
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.mail_hash = mail_hash
         self.date = date
         self.header = header
@@ -729,7 +729,7 @@ class History(Base):
                  raw_data: Optional[str] = None,
                  msg_data: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.time = time
         self.self_id = self_id
         self.post_type = post_type
@@ -785,7 +785,7 @@ class Subscription(Base):
                  *,
                  live_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.sub_type = sub_type
         self.sub_id = sub_id
         self.up_name = up_name
@@ -822,7 +822,7 @@ class GroupSub(Base):
                  *,
                  group_sub_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.sub_id = sub_id
         self.group_id = group_id
         self.group_sub_info = group_sub_info
@@ -859,7 +859,7 @@ class UserSub(Base):
                  *,
                  user_sub_info: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.sub_id = sub_id
         self.user_id = user_id
         self.user_sub_info = user_sub_info
@@ -893,7 +893,7 @@ class Bilidynamic(Base):
                  content: str,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.uid = uid
         self.dynamic_id = dynamic_id
         self.dynamic_type = dynamic_type
@@ -930,7 +930,7 @@ class Vacation(Base):
                  stop_at: Optional[datetime] = None,
                  reason: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.user_id = user_id
         self.status = status
         self.stop_at = stop_at
@@ -974,7 +974,7 @@ class Pixiv(Base):
                  url: str,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.pid = pid
         self.uid = uid
         self.title = title
@@ -1019,7 +1019,7 @@ class PixivPage(Base):
                  thumb_mini: str,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.illust_id = illust_id
         self.page = page
         self.original = original
@@ -1061,7 +1061,7 @@ class Pixivision(Base):
                  url: str,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.aid = aid
         self.title = title
         self.description = description
@@ -1100,7 +1100,7 @@ class PixivUserArtwork(Base):
                  title: str,
                  *,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.pid = pid
         self.uid = uid
         self.uname = uname
@@ -1139,7 +1139,7 @@ class CoolDownEvent(Base):
                  user_id: Optional[int] = None,
                  description: Optional[str] = None,
                  created_at: Optional[datetime] = None,
-                 updated_at: Optional[datetime] = datetime.now()):
+                 updated_at: Optional[datetime] = None):
         self.event_type = event_type
         self.stop_at = stop_at
         self.plugin = plugin
