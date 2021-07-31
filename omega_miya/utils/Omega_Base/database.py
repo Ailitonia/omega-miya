@@ -37,6 +37,7 @@ except Exception as exp:
 # 初始化化数据库
 @driver.on_startup
 async def database_init():
+    nonebot.logger.opt(colors=True).info(f'<lc>正在初始化数据库......</lc>')
     try:
         # 初始化数据库结构
         # conn is an instance of AsyncConnection
@@ -47,7 +48,7 @@ async def database_init():
             # where synchronous IO calls will be transparently translated for
             # await.
             await conn.run_sync(Base.metadata.create_all)
-        nonebot.logger.opt(colors=True).debug(f'<lc>初始化数据库...</lc><lg>完成</lg>')
+        nonebot.logger.opt(colors=True).info(f'<lg>数据库初始化已完成.</lg>')
     except Exception as e:
         import sys
         nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e)}')
@@ -68,6 +69,10 @@ class NBdb(object):
 
 
 class DBTable(object):
+    """
+    已弃用, 保留相关代码仅供参考
+    任何情况下请直接调用 model 中相关类, 不要使用本类构造实例
+    """
     def __init__(self, table_name):
         self.__tables = Base
         self.table_name = table_name
@@ -119,6 +124,5 @@ class DBTable(object):
 
 
 __all__ = [
-    'NBdb',
-    'DBTable'
+    'NBdb'
 ]
