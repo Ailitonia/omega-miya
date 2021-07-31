@@ -37,7 +37,7 @@ class DBPixivillust(object):
 
     async def add(
             self,
-            uid: int, title: str, uname: str, nsfw_tag: int, tags: List[str], url: str,
+            uid: int, title: str, uname: str, nsfw_tag: int, width: int, height: int, tags: List[str], url: str,
             *,
             force_tag: bool = False
     ) -> Result.IntResult:
@@ -58,12 +58,14 @@ class DBPixivillust(object):
                             exist_illust.nsfw_tag = nsfw_tag
                         elif nsfw_tag > exist_illust.nsfw_tag:
                             exist_illust.nsfw_tag = nsfw_tag
+                        exist_illust.width = width
+                        exist_illust.height = height
                         exist_illust.tags = tag_text
                         exist_illust.updated_at = datetime.now()
                         result = Result.IntResult(error=False, info='Exist illust updated', result=0)
                     except NoResultFound:
                         new_illust = Pixiv(pid=self.pid, uid=uid, title=title, uname=uname, url=url, nsfw_tag=nsfw_tag,
-                                           tags=tag_text, created_at=datetime.now())
+                                           width=width, height=height, tags=tag_text, created_at=datetime.now())
                         session.add(new_illust)
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()

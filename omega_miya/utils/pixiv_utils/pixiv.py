@@ -158,6 +158,8 @@ class PixivIllust(Pixiv):
             userid = int(illust_data['body']['userId'])
             username = str(illust_data['body']['userName'])
             url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
+            width = int(illust_data['body']['width'])
+            height = int(illust_data['body']['height'])
             page_count = int(illust_data['body']['pageCount'])
             illust_orig_url = str(illust_data['body']['urls']['original'])
             illust_regular_url = str(illust_data['body']['urls']['regular'])
@@ -235,6 +237,8 @@ class PixivIllust(Pixiv):
                 'uid': userid,
                 'uname': username,
                 'url': url,
+                'width': width,
+                'height': height,
                 'like_count': like_count,
                 'bookmark_count': bookmark_count,
                 'view_count': view_count,

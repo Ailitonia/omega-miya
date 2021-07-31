@@ -45,6 +45,15 @@ class OmegaStatus(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
+# 统计信息表, 存放插件运行统计
+# class OmegaStatistics(Base):
+#     __tablename__ = f'{TABLE_PREFIX}statistics'
+#     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+#
+#     # 表结构
+#     pass
+#
+
 # Bot表 对应不同机器人协议端
 class BotSelf(Base):
     __tablename__ = f'{TABLE_PREFIX}bots'
@@ -954,7 +963,9 @@ class Pixiv(Base):
     uid = Column(Integer, nullable=False, index=True, comment='uid')
     title = Column(String(128), nullable=False, index=True, comment='title')
     uname = Column(String(128), nullable=False, index=True, comment='author')
-    nsfw_tag = Column(Integer, nullable=False, comment='nsfw标签, 0=safe, 1=setu. 2=r18')
+    nsfw_tag = Column(Integer, nullable=False, index=True, comment='nsfw标签, 0=safe, 1=setu. 2=r18')
+    width = Column(Integer, nullable=False, comment='原始图片宽度')
+    height = Column(Integer, nullable=False, comment='原始图片高度')
     tags = Column(String(1024), nullable=False, comment='tags')
     url = Column(String(1024), nullable=False, comment='url')
     created_at = Column(DateTime, nullable=True)
@@ -973,6 +984,8 @@ class Pixiv(Base):
                  tags: str,
                  url: str,
                  *,
+                 width: int = 0,
+                 height: int = 0,
                  created_at: Optional[datetime] = None,
                  updated_at: Optional[datetime] = None):
         self.pid = pid
@@ -980,6 +993,8 @@ class Pixiv(Base):
         self.title = title
         self.uname = uname
         self.nsfw_tag = nsfw_tag
+        self.width = width
+        self.height = height
         self.tags = tags
         self.url = url
         self.created_at = created_at
@@ -987,7 +1002,8 @@ class Pixiv(Base):
 
     def __repr__(self):
         return f"<Pixiv(pid='{self.pid}', uid='{self.uid}', title='{self.title}', uname='{self.uname}', " \
-               f"nsfw_tag='{self.nsfw_tag}', tags='{self.tags}', url='{self.url}', " \
+               f"nsfw_tag='{self.nsfw_tag}', width='{self.width}', height='{self.height}', " \
+               f"tags='{self.tags}', url='{self.url}', " \
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
