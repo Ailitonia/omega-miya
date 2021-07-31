@@ -61,7 +61,7 @@ class ProcessUtils(object):
 
             # 显示进度
             process_rate_count += 1
-            logger.debug(f'Fragment process | {log_flag} processing: {process_rate_count}/{fragment_count}')
+            logger.info(f'Fragment process | {log_flag} processing: {process_rate_count}/{fragment_count}')
 
         logger.info(f'Fragment process | {log_flag} process complete, total tasks: {all_count}')
         return tuple(result)
