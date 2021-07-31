@@ -11,7 +11,7 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
-from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector, MsgSender
+from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector, MsgSender, ProcessUtils
 from omega_miya.utils.Omega_Base import DBBot, DBPixivillust
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import add_illust
@@ -432,30 +432,10 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
     await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
     logger.info(f'setu_import: 读取导入文件列表完成, 总计: {all_count}, 开始导入...')
     # 开始导入操作
-    success_count = 0
-    # 全部一起并发api撑不住, 做适当切分
-    # 每个切片数量
-    seg_n = 10
-    pid_seg_list = []
-    for i in range(0, all_count, seg_n):
-        pid_seg_list.append(pid_list[i:i + seg_n])
-    # 每个切片打包一个任务
-    seg_len = len(pid_seg_list)
-    process_rate = 0
-    for seg_list in pid_seg_list:
-        tasks = []
-        for pid in seg_list:
-            tasks.append(add_illust(pid=pid, nsfw_tag=nsfw_tag, force_tag=force_tag))
-        # 进行异步处理
-        _res = await asyncio.gather(*tasks)
-        # 对结果进行计数
-        for item in _res:
-            if item.success():
-                success_count += 1
-        # 显示进度
-        process_rate += 1
-        if process_rate % 10 == 0:
-            await setu_import.send(f'导入操作中，已完成: {process_rate}/{seg_len}')
+    # 全部一起并发网络撑不住, 做适当切分
+    tasks = [add_illust(pid=pid, nsfw_tag=nsfw_tag, force_tag=force_tag) for pid in pid_list]
+    _res = await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50, log_flag='Setu Import')
+    success_count = len([x for x in _res if x.success()])
 
     logger.info(f'setu_import: 导入操作已完成, 成功: {success_count}, 总计: {all_count}')
     await setu_import.send(f'导入操作已完成, 成功: {success_count}, 总计: {all_count}')
