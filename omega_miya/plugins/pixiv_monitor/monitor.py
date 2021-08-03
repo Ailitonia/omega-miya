@@ -10,11 +10,17 @@
 
 import asyncio
 import random
-from nonebot import logger, require, get_bots
+from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_Base import DBSubscription, DBPixivUserArtwork
 from omega_miya.utils.pixiv_utils import PixivUser, PixivIllust
 from omega_miya.utils.Omega_plugin_utils import MsgSender, PicEffector, PicEncoder
+from .config import Config
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_CHECK_POOL_MODE = plugin_config.enable_check_pool_mode
 
 
 # 检查队列
@@ -69,7 +75,7 @@ async def dynamic_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour=None,
-    minute='*/2',
+    minute='*/5',
     # second='*/30',
     # start_date=None,
     # end_date=None,
@@ -163,46 +169,52 @@ async def pixiv_user_artwork_monitor():
             else:
                 logger.error(f'向数据库写入pixiv用户作品信息: {pid} 失败, error: {_res.info}')
 
-    # # 检查所有在订阅表里面的直播间(异步)
-    # tasks = []
-    # for uid in check_sub:
-    #     tasks.append(check_user_artwork(user_id=uid))
-    # try:
-    #     await asyncio.gather(*tasks)
-    # except Exception as e:
-    #     logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+    # 启用了检查池模式
+    if ENABLE_CHECK_POOL_MODE:
+        global CHECKING_POOL
+        # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的uid
+        if not CHECKING_POOL:
+            CHECKING_POOL.extend(check_sub)
 
-    global CHECKING_POOL
-    # checking_pool为空则上一轮检查完了, 重新往里面放新一轮的uid
-    if not CHECKING_POOL:
-        CHECKING_POOL.extend(check_sub)
+        # 看下checking_pool里面还剩多少
+        waiting_num = len(CHECKING_POOL)
 
-    # 看下checking_pool里面还剩多少
-    waiting_num = len(CHECKING_POOL)
+        # 默认单次检查并发数为50, 默认检查间隔为5min
+        logger.debug(f'Pixiv user artwork checker pool mode debug info, Before checking_pool: {CHECKING_POOL}')
+        if waiting_num >= 50:
+            # 抽取检查对象
+            now_checking = random.sample(CHECKING_POOL, k=50)
+            # 更新checking_pool
+            CHECKING_POOL = [x for x in CHECKING_POOL if x not in now_checking]
+        else:
+            now_checking = CHECKING_POOL.copy()
+            CHECKING_POOL.clear()
+        logger.debug(f'Pixiv user artwork checker pool mode debug info, After checking_pool: {CHECKING_POOL}')
+        logger.debug(f'Pixiv user artwork checker pool mode debug info, now_checking: {now_checking}')
 
-    # 默认单次检查并发数为5, 默认检查间隔为2min
-    logger.debug(f'Pixiv user artwork checker pool mode debug info, Before checking_pool: {CHECKING_POOL}')
-    if waiting_num >= 5:
-        # 抽取检查对象
-        now_checking = random.sample(CHECKING_POOL, k=5)
-        # 更新checking_pool
-        CHECKING_POOL = [x for x in CHECKING_POOL if x not in now_checking]
+        # 检查now_checking里面的直播间(异步)
+        tasks = []
+        for uid in now_checking:
+            tasks.append(check_user_artwork(user_id=uid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"pixiv_user_artwork_monitor: pool mode enable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in now_checking])}.")
+        except Exception as e:
+            logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+
+    # 没有启用检查池模式
     else:
-        now_checking = CHECKING_POOL.copy()
-        CHECKING_POOL.clear()
-    logger.debug(f'Pixiv user artwork checker pool mode debug info, After checking_pool: {CHECKING_POOL}')
-    logger.debug(f'Pixiv user artwork checker pool mode debug info, now_checking: {now_checking}')
-
-    # 检查now_checking里面的直播间(异步)
-    tasks = []
-    for uid in now_checking:
-        tasks.append(check_user_artwork(user_id=uid))
-    try:
-        await asyncio.gather(*tasks)
-        logger.debug(f"pixiv_user_artwork_monitor: pool mode enable, checking completed, "
-                     f"checked: {', '.join([str(x) for x in now_checking])}.")
-    except Exception as e:
-        logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+        # 检查所有在订阅表里面的画师作品(异步)
+        tasks = []
+        for uid in check_sub:
+            tasks.append(check_user_artwork(user_id=uid))
+        try:
+            await asyncio.gather(*tasks)
+            logger.debug(f"pixiv_user_artwork_monitor: pool mode disable, checking completed, "
+                         f"checked: {', '.join([str(x) for x in check_sub])}.")
+        except Exception as e:
+            logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
 
 
 # 用于首次订阅时刷新数据库信息
@@ -252,11 +264,11 @@ async def init_new_add_sub(user_id: int):
                 tasks.append(_handle(pid_=pid))
             # 进行异步处理
             await asyncio.gather(*tasks)
+        logger.info(f'初始化pixiv用户 {user_id} 作品完成, 已将作品信息写入数据库.')
     except Exception as e:
         logger.error(f'初始化pixiv用户 {user_id} 作品发生错误, error: {repr(e)}.')
 
     scheduler.resume()
-    logger.info(f'初始化pixiv用户 {user_id} 作品完成, 已将作品信息写入数据库.')
 
 
 __all__ = [
