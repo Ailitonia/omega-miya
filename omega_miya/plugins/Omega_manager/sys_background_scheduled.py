@@ -31,12 +31,12 @@ logger.opt(colors=True).debug('<lg>初始化 Omega 后台任务...</lg>')
     # start_date=None,
     # end_date=None,
     # timezone=None,
-    id='refresh_group_info',
+    id='refresh_groups_info',
     coalesce=True,
     misfire_grace_time=300
 )
-async def refresh_group_info():
-    logger.debug('refresh_group_info: Start task')
+async def refresh_groups_info():
+    logger.opt(colors=True).info('<lc>Refresh groups info</lc> | Started all bots groups refreshing tasks...')
     from nonebot import get_bots
 
     for bot_id, bot in get_bots().items():
@@ -54,7 +54,7 @@ async def refresh_group_info():
             disable_result = await DBBotGroup(group_id=group, self_bot=self_bot).\
                 permission_set(notice=-1, command=-1, level=-1)
             if disable_result.error:
-                logger.warning(f'Disable expire group {group} failed, {disable_result.info}')
+                logger.warning(f'Refresh groups info | Disable expire group {group} failed, {disable_result.info}')
 
         # 执行群组信息更新
         for group in group_list:
@@ -68,11 +68,11 @@ async def refresh_group_info():
             # 更新群信息
             add_group_res = await group.add(name=group_name)
             if add_group_res.error:
-                logger.error(f'Add group {group_id} failed, {add_group_res.info}')
+                logger.error(f'Refresh groups info | Add group {group_id} failed, {add_group_res.info}')
                 continue
             set_bot_group_res = await group.set_bot_group(group_memo=group_memo)
             if set_bot_group_res.error:
-                logger.error(f'Add group {group_id} failed, {set_bot_group_res.info}')
+                logger.error(f'Refresh groups info | Add group {group_id} failed, {set_bot_group_res.info}')
                 continue
 
             # 更新用户
@@ -98,15 +98,15 @@ async def refresh_group_info():
                 _user = DBUser(user_id=user_qq)
                 _result = await _user.add(nickname=user_nickname)
                 if not _result.success():
-                    logger.warning(f'Refresh group info, Add group user: {user_qq}, {_result.info}')
+                    logger.warning(f'Refresh groups info | Add group user: {user_qq}, {_result.info}')
                     continue
                 _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
                 if not _result.success():
-                    logger.warning(f'Refresh group info, Upgrade group user: {user_qq}, {_result.info}')
+                    logger.warning(f'Refresh groups info | Upgrade group user: {user_qq}, {_result.info}')
 
             await group.init_member_status()
-            logger.info(f'Refresh group info completed, Bot: {bot_id}, Group: {group_id}')
-    logger.debug('refresh_group_info: Task finish')
+            logger.info(f'Refresh groups info | Task completed, Bot: {bot_id}, Group: {group_id}')
+    logger.opt(colors=True).info('<lc>Refresh groups info</lc> | <lg>All tasks completed</lg>')
 
 
 # 创建自动更新好友信息的定时任务
@@ -128,7 +128,7 @@ async def refresh_group_info():
     misfire_grace_time=120
 )
 async def refresh_friends_info():
-    logger.debug('refresh_friends_info: Start task')
+    logger.opt(colors=True).info('<lc>Refresh friends info</lc> | Started all bots friends refreshing tasks...')
     from nonebot import get_bots
 
     for bot_id, bot in get_bots().items():
@@ -137,7 +137,7 @@ async def refresh_friends_info():
         # 首先清除非好友
         exist_friend_result = await DBFriend.list_exist_friends(self_bot=self_bot)
         if exist_friend_result.error:
-            logger.error(f'Refresh friends info failed, get exist friend list failed: {exist_friend_result.info}')
+            logger.error(f'Refresh friends info | Getting exist friend list failed: {exist_friend_result.info}')
             return
 
         exist_friend_list = exist_friend_result.result
@@ -147,7 +147,7 @@ async def refresh_friends_info():
         for user in del_member_list:
             del_result = await DBFriend(user_id=user, self_bot=self_bot).del_friend()
             if del_result.error:
-                logger.warning(f'Del expire friend user {user} failed, {del_result.info}')
+                logger.warning(f'Refresh friends info | Del expire friend user {user} failed, {del_result.info}')
 
         # 更新好友信息
         for friend in friends_list:
@@ -159,18 +159,17 @@ async def refresh_friends_info():
             # 更新用户表
             add_user_result = await friend.add(nickname=nickname)
             if add_user_result.error:
-                logger.error(f'Add user {user_id} failed, {add_user_result.info}')
+                logger.error(f'Refresh friends info | Add user {user_id} failed, {add_user_result.info}')
                 continue
 
             # 更新好友表
             add_friend_result = await friend.set_friend(nickname=nickname, remark=remark)
             if add_friend_result.error:
-                logger.error(f'Add friend user {user_id} failed, {add_user_result.info}')
+                logger.error(f'Refresh friends info | Add friend user {user_id} failed, {add_user_result.info}')
+            logger.debug(f'Refresh friends info | Upgrade friend user {user_id} info')
 
-            logger.debug(f'Refresh friends info, upgrade friend user {user_id} info')
-
-        logger.info(f'Refresh friends info completed, Bot: {bot_id}')
-    logger.debug('refresh_friends_info: Task finish')
+        logger.info(f'Refresh friends info | Task completed, Bot: {bot_id}')
+    logger.opt(colors=True).info('<lc>Refresh friends info</lc> | <lg>All tasks completed</lg>')
 
 
 # 创建用于刷新冷却事件的定时任务
@@ -193,7 +192,7 @@ async def refresh_friends_info():
 )
 async def cool_down_refresh():
     await DBCoolDownEvent.clear_time_out_event()
-    logger.info('cool_down_refresh: cleaning all expired event')
+    logger.opt(colors=True).info('<lc>Cool down refresh</lc> | Cleaned all expired event')
 
 
 # 创建用于检查代理可用性的状态的定时任务

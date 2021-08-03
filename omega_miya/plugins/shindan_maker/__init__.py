@@ -159,7 +159,10 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 shindan_pattern = r'^今天的?(.+?)是什么(样的)?(.+?)[?？]?$'
-shindan_maker_today_custom = shindan_maker.on_regex(shindan_pattern, rule=OmegaRules.has_group_command_permission())
+shindan_maker_today_custom = shindan_maker.on_regex(
+    shindan_pattern,
+    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'shindan_maker.basic')
+)
 
 
 @shindan_maker_today_custom.handle()

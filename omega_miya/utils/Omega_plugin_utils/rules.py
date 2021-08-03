@@ -91,14 +91,13 @@ class OmegaRules(object):
 
     # 由于目前nb2暂不支持or连接rule, 因此将or逻辑放在rule内处理
     @classmethod
-    def has_level_or_node(cls, level: int, *auth_nodes: str) -> Rule:
+    def has_level_or_node(cls, level: int, auth_node: str) -> Rule:
         """
         :param level: 需要群组权限等级
-        :param auth_nodes: 需要的权限节点
+        :param auth_node: 需要的权限节点
         :return: 群组权限等级大于要求等级或者具备权限节点, 权限节点为deny则拒绝
         """
         async def _has_level_or_node(bot: Bot, event: Event, state: T_State) -> bool:
-            auth_node = '.'.join(auth_nodes)
             detail_type = event.dict().get(f'{event.get_type()}_type')
             group_id = event.dict().get('group_id')
             user_id = event.dict().get('user_id')
