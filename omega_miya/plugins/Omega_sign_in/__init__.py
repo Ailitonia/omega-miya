@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import CommandGroup, logger, export, get_driver
+from nonebot import CommandGroup, logger, get_driver
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent

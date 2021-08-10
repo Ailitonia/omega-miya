@@ -1,6 +1,7 @@
 import logging
 
-from nonebot import get_driver, export
+from nonebot import get_driver
+from nonebot.plugin.export import export
 from nonebot.log import logger, LoguruHandler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 

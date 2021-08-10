@@ -9,7 +9,8 @@
 """
 
 import re
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
@@ -89,6 +90,8 @@ async def handle_httpcat(bot: Bot, event: MessageEvent, state: T_State):
     res = await get_http_cat(http_code=code)
     if res.success() and res.result:
         img_seg = MessageSegment.image(res.result)
+        logger.info(f'{event.user_id} 进获取了HttpCat: {code}')
         await httpcat.finish(img_seg)
     else:
+        logger.warning(f'{event.user_id} 进获取HttpCat失败: {repr(res)}')
         await httpcat.finish('^QAQ^')

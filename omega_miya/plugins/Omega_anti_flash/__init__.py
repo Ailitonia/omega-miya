@@ -1,4 +1,5 @@
-from nonebot import MatcherGroup, export, logger
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp import Message

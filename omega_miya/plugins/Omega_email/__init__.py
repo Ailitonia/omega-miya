@@ -1,6 +1,7 @@
 import re
 import pathlib
-from nonebot import MatcherGroup, export, logger
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State

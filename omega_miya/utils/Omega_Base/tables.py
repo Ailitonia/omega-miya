@@ -45,6 +45,15 @@ class OmegaStatus(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
+# 统计信息表, 存放插件运行统计
+# class OmegaStatistics(Base):
+#     __tablename__ = f'{TABLE_PREFIX}statistics'
+#     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+#
+#     # 表结构
+#     pass
+#
+
 # Bot表 对应不同机器人协议端
 class BotSelf(Base):
     __tablename__ = f'{TABLE_PREFIX}bots'

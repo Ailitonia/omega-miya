@@ -1,4 +1,5 @@
-from nonebot import on_command, export
+from nonebot import on_command
+from nonebot.plugin.export import export
 from nonebot.plugin import get_loaded_plugins
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot

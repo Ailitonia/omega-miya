@@ -28,8 +28,8 @@ SU_TAG: bool = False
 # 注册事件响应器
 Su = CommandGroup('Su', rule=to_me(), permission=SUPERUSER, priority=10, block=True)
 
-su_on = Su.command('on')
-su_off = Su.command('off')
+su_on = Su.command('on', aliases={'EnableSu'})
+su_off = Su.command('off', aliases={'DisableSu'})
 
 
 @su_on.handle()
@@ -57,10 +57,10 @@ self_sent_msg_convertor = on(
 
 @self_sent_msg_convertor.handle()
 async def _handle(bot: Bot, event: Event, state: T_State):
-    self_id = event.dict().get('self_id', -1)
-    user_id = event.dict().get('user_id', -1)
+    self_id = event.self_id
+    user_id = getattr(event, 'user_id', -1)
     if self_id == user_id and str(self_id) == bot.self_id and str(self_id) not in bot.config.superusers:
-        raw_message = event.dict().get('raw_message', '')
+        raw_message = getattr(event, 'raw_message', '')
         if str(raw_message).startswith('!SU'):
             global SU_TAG
             try:
@@ -68,13 +68,13 @@ async def _handle(bot: Bot, event: Event, state: T_State):
                     user_id = int(list(bot.config.superusers)[0])
                 raw_message = re.sub(r'^!SU', '', str(raw_message)).strip()
                 message = Message(raw_message)
-                time = event.dict().get('time', int(datetime.now().timestamp()))
-                sub_type = event.dict().get('sub_type', 'normal')
-                group_id = event.dict().get('group_id', -1)
-                message_type = event.dict().get('message_type', 'group')
-                message_id = event.dict().get('message_id', -1)
-                font = event.dict().get('font', 0)
-                sender = event.dict().get('sender', {'user_id': user_id})
+                time = getattr(event, 'time', int(datetime.now().timestamp()))
+                sub_type = getattr(event, 'sub_type', 'normal')
+                group_id = getattr(event, 'group_id', -1)
+                message_type = getattr(event, 'message_type', 'group')
+                message_id = getattr(event, 'message_id', -1)
+                font = getattr(event, 'font', 0)
+                sender = getattr(event, 'sender', {'user_id': user_id})
 
                 new_event = GroupMessageEvent(**{
                     'time': time,

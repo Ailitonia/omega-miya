@@ -2,7 +2,8 @@ import os
 import re
 import asyncio
 import aiofiles
-from nonebot import CommandGroup, on_command, export, get_driver, logger
+from nonebot import CommandGroup, on_command, get_driver, logger
+from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State

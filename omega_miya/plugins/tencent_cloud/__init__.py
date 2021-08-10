@@ -1,5 +1,6 @@
 import re
-from nonebot import MatcherGroup, logger, export
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent

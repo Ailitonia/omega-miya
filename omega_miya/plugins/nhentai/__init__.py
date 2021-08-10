@@ -4,7 +4,8 @@
 """
 import re
 import os
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent

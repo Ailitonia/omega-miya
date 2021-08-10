@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, timedelta
-from nonebot import MatcherGroup, export, logger, require
+from nonebot import MatcherGroup, logger, require
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent

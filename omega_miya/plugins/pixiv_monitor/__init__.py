@@ -9,7 +9,8 @@
 """
 
 import re
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -164,7 +165,7 @@ async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
         await pixiv_user_artwork.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
-async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.ListResult:
+async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.TupleListResult:
     self_bot = DBBot(self_qq=int(bot.self_id))
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
@@ -177,7 +178,7 @@ async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.List
         result = await friend.subscription_list_by_type(sub_type=9)
         return result
     else:
-        return Result.ListResult(error=True, info='Illegal event', result=[])
+        return Result.TupleListResult(error=True, info='Illegal event', result=[])
 
 
 async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:

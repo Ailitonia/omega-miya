@@ -1,6 +1,7 @@
 import re
 import random
-from nonebot import CommandGroup, export
+from nonebot import CommandGroup
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent

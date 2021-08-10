@@ -12,7 +12,8 @@ import nonebot
 import re
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from nonebot import MatcherGroup, export, logger, require
+from nonebot import MatcherGroup, logger, require
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER

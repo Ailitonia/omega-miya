@@ -8,7 +8,8 @@ Omega Miya 使用指南
 - /Omega SetLevel <PermissionLevel> - 为本群组配置命令等级(对于低于命令要求等级的群组, 该命令不会被响应)
 """
 from dataclasses import dataclass
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot

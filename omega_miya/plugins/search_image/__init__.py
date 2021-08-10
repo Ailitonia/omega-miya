@@ -1,6 +1,7 @@
 import random
 import asyncio
-from nonebot import on_command, export, logger, get_driver
+from nonebot import on_command, logger, get_driver
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
@@ -234,7 +235,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
                     return
 
         # 若消息被分片可能导致链接被拆分
-        raw_text = event.reply.dict().get('raw_message')
+        raw_text = getattr(event.reply, 'raw_message', None)
         if pid := PixivIllust.parse_pid_from_url(text=raw_text):
             state['pid'] = pid
             logger.debug(f"Recommend image | 已从消息 raw 文本匹配到 pixiv url, pid: {pid}")

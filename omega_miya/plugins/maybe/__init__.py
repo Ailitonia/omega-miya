@@ -1,5 +1,6 @@
 import datetime
-from nonebot import CommandGroup, export, logger
+from nonebot import CommandGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
@@ -92,6 +93,7 @@ async def handle_luck(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 向用户发送结果
     today = datetime.date.today().strftime('%Y年%m月%d日')
     msg = f'今天是{today}\n{draw_user}{draw_result}'
+    logger.info(f'{event.group_id}/{event.user_id} 进行了一次求签')
     await luck.finish(msg)
 
 
@@ -118,4 +120,5 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     # 向用户发送结果
     today = datetime.date.today().strftime('%Y年%m月%d日')
     msg = f"今天是{today}\n{draw_user}今日:\n{'='*12}\n{draw_result}"
+    logger.info(f'{event.group_id}/{event.user_id} 进行了一次dd老黄历查询')
     await almanac.finish(msg)

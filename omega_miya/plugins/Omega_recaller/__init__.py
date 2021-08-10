@@ -10,7 +10,8 @@
 
 from typing import Dict
 from datetime import datetime
-from nonebot import export, logger
+from nonebot import logger
+from nonebot.plugin.export import export
 from nonebot.plugin import CommandGroup
 from nonebot.typing import T_State
 from nonebot.exception import FinishedException

@@ -288,7 +288,7 @@ class DBCoolDownEvent(object):
         return result
 
     @classmethod
-    async def clear_time_out_event(cls):
+    async def clear_time_out_event(cls) -> Result.DictResult:
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -296,11 +296,14 @@ class DBCoolDownEvent(object):
                     select(CoolDownEvent).order_by(CoolDownEvent.id)
                 )
                 events = session_result.scalars().all()
+            failed_events = []
             for event in events:
                 try:
                     if datetime.now() >= event.stop_at:
                         await session.delete(event)
                         await session.commit()
-                except Exception:
+                except Exception as e:
                     await session.rollback()
+                    failed_events.append((event, e))
                     continue
+        return Result.DictResult(error=False, info='Tasks completed', result={'all': events, 'failed': failed_events})

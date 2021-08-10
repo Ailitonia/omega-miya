@@ -1,5 +1,5 @@
 from typing import Optional
-from nonebot.plugin import Export
+from nonebot.plugin.export import Export
 from nonebot.typing import T_State
 from .rules import OmegaRules
 from .encrypt import AESEncryptStr

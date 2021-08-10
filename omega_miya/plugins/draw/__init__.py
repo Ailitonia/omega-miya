@@ -1,6 +1,7 @@
 import re
 import random
-from nonebot import CommandGroup, export, logger
+from nonebot import CommandGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
@@ -108,6 +109,7 @@ async def handle_deck(bot: Bot, event: GroupMessageEvent, state: T_State):
 
     # 向用户发送结果
     msg = f"{draw_user}抽卡【{_draw}】!!\n{'='*12}\n{draw_result}"
+    logger.info(f'{event.group_id}/{event.user_id} 进行了一次抽卡: {_draw}')
     await deck.finish(msg)
 
 
@@ -160,6 +162,8 @@ async def handle_lottery(bot: Bot, event: GroupMessageEvent, state: T_State):
 
         lottery_result = random.sample(group_user_name_list, k=people_num)
         msg = '【' + str.join('】\n【', lottery_result) + '】'
+        logger.info(f'{event.group_id}/{event.user_id} 进行了一次抽奖')
         await lottery.finish(f"抽奖人数: 【{people_num}】\n以下是中奖名单:\n{msg}")
     else:
+        logger.info(f'{event.group_id}/{event.user_id} 抽奖被取消')
         await lottery.finish(f'格式不对呢, 人数应该是数字')

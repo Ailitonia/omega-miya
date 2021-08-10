@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from nonebot import export
+from nonebot.plugin.export import export
 from omega_miya.utils.Omega_plugin_utils import init_export
 from .group_welcome_message import *
 from .invite_request import *

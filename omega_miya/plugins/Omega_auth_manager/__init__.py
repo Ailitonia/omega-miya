@@ -1,5 +1,6 @@
 import re
-from nonebot import on_command, export, get_plugin, get_loaded_plugins, logger
+from nonebot import on_command, get_plugin, get_loaded_plugins, logger
+from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State

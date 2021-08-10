@@ -155,7 +155,8 @@ async def init_pixivsion_article():
                     article_tags_id.append(int(tag['tag_id']))
                     article_tags_name.append(str(tag['tag_name']))
                 new_article.append({'aid': int(article['id']), 'tags': article_tags_name})
-            except Exception:
+            except Exception as e:
+                logger.debug(f'解析pixivsion article失败, error: {repr(e)}, article data: {article}')
                 continue
         # 处理新的aritcle
         for article in new_article:

@@ -1,7 +1,8 @@
 import re
 import asyncio
 from typing import Optional
-from nonebot import on_command, export, logger, get_driver
+from nonebot import on_command, logger, get_driver
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
