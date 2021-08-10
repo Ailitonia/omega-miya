@@ -65,6 +65,13 @@ class Result(object):
             return f'<TextListResult(error={self.error}, info={self.info}, result={self.result})>'
 
     @dataclass
+    class TupleListResult(BaseResult):
+        result: List[tuple]
+
+        def __repr__(self):
+            return f'<TupleListResult(error={self.error}, info={self.info}, result={self.result})>'
+
+    @dataclass
     class DictListResult(BaseResult):
         result: List[dict]
 
@@ -133,6 +140,13 @@ class Result(object):
 
         def __repr__(self):
             return f'<BoolResult(error={self.error}, info={self.info}, result={self.result})>'
+
+    @dataclass
+    class BytesResult(BaseResult):
+        result: bytes
+
+        def __repr__(self):
+            return f'<BytesResult(error={self.error}, info={self.info}, result={self.result})>'
 
     @dataclass
     class AnyResult(BaseResult):

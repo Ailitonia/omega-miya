@@ -3,10 +3,11 @@ import time
 from dataclasses import dataclass
 from typing import List, Union
 from nonebot import logger
-from nonebot.adapters import Bot
+from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, DBTable, Result
+from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, Result
 from omega_miya.utils.bilibili_utils import BiliLiveRoom, BiliUser, BiliRequestUtils, BiliInfo
+from omega_miya.utils.Omega_plugin_utils import MsgSender
 
 
 # 初始化直播间标题, 状态
@@ -72,9 +73,9 @@ class BiliLiveChecker(object):
             logger.opt(colors=True).warning(f'<r>Bilibili 登录状态异常: {cookies_result.info}!</r> 建议在配置中正确设置cookies!')
 
         logger.opt(colors=True).info('init_live_info: <y>初始化B站直播间监控列表...</y>')
-        t = DBTable(table_name='Subscription')
+
         tasks = []
-        sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
+        sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
         for sub_id in sub_res.result:
             tasks.append(BiliLiveChecker(room_id=sub_id).init_live_info())
         try:
@@ -155,12 +156,14 @@ class BiliLiveChecker(object):
         # 直播过程中标题更新
         elif live_info.status == 1 and live_info.title != live_title[self.room_id]:
             if live_info.cover_img:
-                cover_pic_result = await BiliRequestUtils.pic_2_base64(url=live_info.cover_img)
+                cover_pic_result = await BiliRequestUtils.pic_to_file(url=live_info.cover_img)
                 if cover_pic_result.success():
                     # 发送的消息
                     msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】\n" \
                           f"{MessageSegment.image(cover_pic_result.result)}"
                 else:
+                    logger.warning(f'BiliLive get base64pic failed, '
+                                   f'error: {cover_pic_result.info}, pic url: {live_info.cover_img}')
                     msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】"
             else:
                 msg = f"{up_name}的直播间换标题啦！\n\n【{live_info.title}】"
@@ -188,6 +191,11 @@ class BiliLiveChecker(object):
         if live_info.status != live_status[self.room_id]:
             # 现在状态为未开播
             if live_info.status == 0:
+                # 只有当从直播中状态切换到下播状态时才通知, 避免下播与轮播之间切换时发送通知
+                if live_status[self.room_id] == 1:
+                    action = True
+                else:
+                    action = False
                 # 事件记录写入数据库
                 live_end_info = f"LiveEnd! Room: {self.room_id}/{up_name}"
                 new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili',
@@ -197,12 +205,12 @@ class BiliLiveChecker(object):
 
                 # 更新直播间状态
                 live_status[self.room_id] = live_info.status
-                logger.info(f"直播间: {self.room_id}/{up_name} 下播了")
+                logger.info(f"直播间: {self.room_id}/{up_name} 状态切换为下播.")
 
                 # 发送的消息
                 msg = f'{up_name}下播了'
 
-                return self.LiveRoomCheckerResult(error=False, changed=True, action=True, info='Success',
+                return self.LiveRoomCheckerResult(error=False, changed=True, action=action, info='Success',
                                                   original=old_status, new=live_info.status, result=msg)
 
             # 现在状态为直播中
@@ -217,15 +225,17 @@ class BiliLiveChecker(object):
 
                 # 更新直播间状态
                 live_status[self.room_id] = live_info.status
-                logger.info(f"直播间: {self.room_id}/{up_name} 开播了")
+                logger.info(f"直播间: {self.room_id}/{up_name} 状态切换为开播.")
 
                 # 发送的消息
                 if live_info.cover_img:
-                    cover_pic_result = await BiliRequestUtils.pic_2_base64(url=live_info.cover_img)
+                    cover_pic_result = await BiliRequestUtils.pic_to_file(url=live_info.cover_img)
                     if cover_pic_result.success():
                         msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】" \
                               f"\n{MessageSegment.image(cover_pic_result.result)}"
                     else:
+                        logger.warning(f'BiliLive get base64pic failed, '
+                                       f'error: {cover_pic_result.info}, pic url: {live_info.cover_img}')
                         msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】"
                 else:
                     msg = f"{live_info.live_time}\n{up_name}开播啦！\n\n【{live_info.title}】"
@@ -235,6 +245,11 @@ class BiliLiveChecker(object):
 
             # 现在状态为未开播（轮播中）
             elif live_info.status == 2:
+                # 只有当从直播中状态切换到下播状态时才通知, 避免下播与轮播之间切换时发送通知
+                if live_status[self.room_id] == 1:
+                    action = True
+                else:
+                    action = False
                 # 事件记录写入数据库
                 live_end_info = f"LiveEnd! Room: {self.room_id}/{up_name}"
                 new_event = DBHistory(time=int(time.time()), self_id=-1, post_type='bilibili',
@@ -244,12 +259,12 @@ class BiliLiveChecker(object):
 
                 # 更新直播间状态
                 live_status[self.room_id] = live_info.status
-                logger.info(f"直播间: {self.room_id}/{up_name} 下播了（轮播中）")
+                logger.info(f"直播间: {self.room_id}/{up_name} 状态切换为下播(轮播中).")
 
                 # 发送的消息
                 msg = f'{up_name}下播了（轮播中）'
 
-                return self.LiveRoomCheckerResult(error=False, changed=True, action=True, info='Success',
+                return self.LiveRoomCheckerResult(error=False, changed=True, action=action, info='Success',
                                                   original=old_status, new=live_info.status, result=msg)
 
             # 遇到的奇怪的状态
@@ -271,84 +286,37 @@ class BiliLiveChecker(object):
             return self.LiveRoomCheckerResult(error=False, changed=False, action=False, info='Success',
                                               original=old_status, new=live_info.status, result='')
 
-    async def broadcaster(
-            self, live_info: BiliInfo.LiveRoomInfo, bots: List[Bot], all_groups: List[int], all_friends: List[int]):
+    async def broadcaster(self, live_info: BiliInfo.LiveRoomInfo, bots: List[Bot]):
         """
         检查直播间状态并向群组发送消息
         :param live_info: 由 get_live_info 或 get_live_info_by_uid_list 获取的直播间信息
         :param bots: bots 列表
-        :param all_groups: 所有可能需要通知的群组列表
-        :param all_friends: 所有可能需要通知的好友列表
         """
         global_check_result = await self.check_global_status()
         if global_check_result.error:
             return
 
-        sub = DBSubscription(sub_type=1, sub_id=self.room_id)
-
-        # 获取订阅了该直播间的所有群
-        sub_group_res = await sub.sub_group_list()
-        sub_group = sub_group_res.result
-        # 需通知的群
-        notice_group = list(set(all_groups) & set(sub_group))
-
-        # 获取订阅了该直播间的所有好友
-        sub_friend_res = await sub.sub_user_list()
-        sub_friend = sub_friend_res.result
-        # 需通知的好友
-        notice_friends = list(set(all_friends) & set(sub_friend))
+        subscription = DBSubscription(sub_type=1, sub_id=self.room_id)
 
         # 标题变更检测
         title_checker_result = await self.title_change_checker(live_info=live_info)
         if title_checker_result.success() and title_checker_result.action:
             # 通知有通知权限且订阅了该直播间的群
-            for group_id in notice_group:
-                for _bot in bots:
-                    try:
-                        await _bot.call_api(
-                            api='send_group_msg', group_id=group_id, message=title_checker_result.result)
-                        logger.info(f"向群组: {group_id} 发送直播间: {self.room_id} 标题变更通知")
-                    except Exception as e:
-                        logger.warning(f"向群组: {group_id} 发送直播间: {self.room_id} 标题变更通知失败, error: {repr(e)}")
-                        continue
-            # 通知有通知权限且订阅了该直播间的好友
-            for user_id in notice_friends:
-                for _bot in bots:
-                    try:
-                        await _bot.call_api(
-                            api='send_private_msg', user_id=user_id, message=title_checker_result.result)
-                        logger.info(f"向好友: {user_id} 发送直播间: {self.room_id} 标题变更通知")
-                    except Exception as e:
-                        logger.warning(f"向好友: {user_id} 发送直播间: {self.room_id} 标题变更通知失败, error: {repr(e)}")
-                        continue
+            msg = title_checker_result.result
+            for _bot in bots:
+                msg_sender = MsgSender(bot=_bot, log_flag='BiliLiveTitleNotice')
+                await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=msg)
+                await msg_sender.safe_broadcast_friends_subscription(subscription=subscription, message=msg)
 
         # 状态变更检测
         status_checker_result = await self.status_change_checker(live_info=live_info)
         if status_checker_result.success() and status_checker_result.action:
             # 通知有通知权限且订阅了该直播间的群
-            up_name = live_up_name[self.room_id]
-            status = live_status[self.room_id]
-            for group_id in notice_group:
-                for _bot in bots:
-                    try:
-                        await _bot.call_api(
-                            api='send_group_msg', group_id=group_id, message=status_checker_result.result)
-                        logger.info(
-                            f"向群组: {group_id} 发送直播间: {self.room_id}/{up_name} 直播通知, status: {status}")
-                    except Exception as e:
-                        logger.warning(f"向群组: {group_id} 发送直播间: {self.room_id}/{up_name} 直播通知失败, error: {repr(e)}")
-                        continue
-            # 通知有通知权限且订阅了该直播间的好友
-            for user_id in notice_friends:
-                for _bot in bots:
-                    try:
-                        await _bot.call_api(
-                            api='send_private_msg', user_id=user_id, message=status_checker_result.result)
-                        logger.info(
-                            f"向好友: {user_id} 发送直播间: {self.room_id}/{up_name} 直播通知, status: {status}")
-                    except Exception as e:
-                        logger.warning(f"向好友: {user_id} 发送直播间: {self.room_id}/{up_name} 直播通知失败, error: {repr(e)}")
-                        continue
+            msg = status_checker_result.result
+            for _bot in bots:
+                msg_sender = MsgSender(bot=_bot, log_flag='BiliLiveStatusNotice')
+                await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=msg)
+                await msg_sender.safe_broadcast_friends_subscription(subscription=subscription, message=msg)
 
 
 __all__ = [

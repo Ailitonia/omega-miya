@@ -1,12 +1,23 @@
 import re
-from nonebot import on_command, export, logger
+import asyncio
+from typing import Optional
+from nonebot import on_command, export, logger, get_driver
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, check_auth_node
+from omega_miya.utils.Omega_Base import DBBot
+from omega_miya.utils.Omega_plugin_utils import \
+    init_export, init_permission_state, PluginCoolDown, PermissionChecker, MsgSender
 from omega_miya.utils.pixiv_utils import PixivIllust
+from .config import Config
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
+
 
 # Custom plugin usage text
 __plugin_name__ = 'Pixiv'
@@ -96,70 +107,76 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
     mode = state['mode']
     if mode == '日榜':
         await pixiv.send('稍等, 正在下载图片~')
-        rank_result = await PixivIllust.daily_ranking()
+        rank_result = await PixivIllust.get_ranking(mode='daily')
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')
 
+        tasks = []
         for rank, illust_data in dict(rank_result.result).items():
-            rank += 1
-            illust_id = illust_data.get('illust_id')
-            illust_title = illust_data.get('illust_title')
-            illust_uname = illust_data.get('illust_uname')
-
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
-            if image_result.success():
-                msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
-                img_seg = MessageSegment.image(image_result.result)
-                await pixiv.send(Message(img_seg).append(msg))
-            else:
-                logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
             if rank >= 10:
                 break
+            tasks.append(__handle_ranking_msg(rank=rank, illust_data=illust_data))
+        ranking_msg_result = list(await asyncio.gather(*tasks))
+
+        # 根据ENABLE_NODE_CUSTOM处理消息发送
+        if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+            msg_sender = MsgSender(bot=bot, log_flag='PixivDailyRanking')
+            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=ranking_msg_result)
+        else:
+            for msg_seg in ranking_msg_result:
+                try:
+                    await pixiv.send(msg_seg)
+                except Exception as e:
+                    logger.warning(f'图片发送失败, user: {event.user_id}. error: {repr(e)}')
     elif mode == '周榜':
         await pixiv.send('稍等, 正在下载图片~')
-        rank_result = await PixivIllust.weekly_ranking()
+        rank_result = await PixivIllust.get_ranking(mode='weekly')
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')
 
+        tasks = []
         for rank, illust_data in dict(rank_result.result).items():
-            rank += 1
-            illust_id = illust_data.get('illust_id')
-            illust_title = illust_data.get('illust_title')
-            illust_uname = illust_data.get('illust_uname')
-
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
-            if image_result.success():
-                msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
-                img_seg = MessageSegment.image(image_result.result)
-                await pixiv.send(Message(img_seg).append(msg))
-            else:
-                logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
             if rank >= 10:
                 break
+            tasks.append(__handle_ranking_msg(rank=rank, illust_data=illust_data))
+        ranking_msg_result = list(await asyncio.gather(*tasks))
+
+        # 根据ENABLE_NODE_CUSTOM处理消息发送
+        if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+            msg_sender = MsgSender(bot=bot, log_flag='PixivWeeklyRanking')
+            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=ranking_msg_result)
+        else:
+            for msg_seg in ranking_msg_result:
+                try:
+                    await pixiv.send(msg_seg)
+                except Exception as e:
+                    logger.warning(f'图片发送失败, user: {event.user_id}. error: {repr(e)}')
     elif mode == '月榜':
         await pixiv.send('稍等, 正在下载图片~')
-        rank_result = await PixivIllust.monthly_ranking()
+        rank_result = await PixivIllust.get_ranking(mode='monthly')
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')
 
+        tasks = []
         for rank, illust_data in dict(rank_result.result).items():
-            rank += 1
-            illust_id = illust_data.get('illust_id')
-            illust_title = illust_data.get('illust_title')
-            illust_uname = illust_data.get('illust_uname')
-
-            image_result = await PixivIllust(pid=illust_id).pic_2_base64()
-            if image_result.success():
-                msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
-                img_seg = MessageSegment.image(image_result.result)
-                await pixiv.send(Message(img_seg).append(msg))
-            else:
-                logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
             if rank >= 10:
                 break
+            tasks.append(__handle_ranking_msg(rank=rank, illust_data=illust_data))
+        ranking_msg_result = list(await asyncio.gather(*tasks))
+
+        # 根据ENABLE_NODE_CUSTOM处理消息发送
+        if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+            msg_sender = MsgSender(bot=bot, log_flag='PixivMonthlyRanking')
+            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=ranking_msg_result)
+        else:
+            for msg_seg in ranking_msg_result:
+                try:
+                    await pixiv.send(msg_seg)
+                except Exception as e:
+                    logger.warning(f'图片发送失败, user: {event.user_id}. error: {repr(e)}')
     elif re.match(r'^\d+$', mode):
         pid = mode
         logger.debug(f'开始获取Pixiv资源: {pid}.')
@@ -174,10 +191,12 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         if illust_data_result.result.get('is_r18'):
             if isinstance(event, PrivateMessageEvent):
                 user_id = event.user_id
-                auth_checker = await check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
+                auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))).\
+                    check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
             elif isinstance(event, GroupMessageEvent):
                 group_id = event.group_id
-                auth_checker = await check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
+                auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))).\
+                    check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
             else:
                 auth_checker = 0
 
@@ -185,15 +204,23 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                 logger.warning(f"User: {event.user_id} 获取Pixiv资源 {pid} 被拒绝, 没有 allow_r18 权限")
                 await pixiv.finish('R18禁止! 不准开车车!')
 
+        # 区分作品类型
+        illust_type = illust_data_result.result.get('illust_type')
         await pixiv.send('稍等, 正在下载图片~')
-        illust_result = await illust.pic_2_base64()
-        if illust_result.success():
-            msg = illust_result.info
+        illust_info_result = await illust.get_format_info_msg()
+        if illust_type == 2:
+            # 动图作品生成动图后发送
+            illust_result = await illust.get_ugoira_gif_filepath()
+        else:
+            illust_result = await illust.get_file()
+        if illust_result.success() and illust_info_result.success():
+            msg = illust_info_result.result
             img_seg = MessageSegment.image(illust_result.result)
             # 发送图片和图片信息
             await pixiv.send(Message(img_seg).append(msg))
         else:
-            logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, {illust_result.info}")
+            logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, "
+                           f"{illust_info_result.info} // {illust_result.info}")
             await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
     else:
         await pixiv.reject('你输入的命令好像不对呢……请输入"月榜"、"周榜"、"日榜"或者PixivID, 取消命令请发送【取消】:')
@@ -264,7 +291,25 @@ async def handle_pixiv_dl(bot: Bot, event: GroupMessageEvent, state: T_State):
                 await bot.call_api(api='upload_group_file', group_id=event.group_id, file=file_path, name=file_name)
             except Exception as e:
                 logger.warning(f'User: {event.user_id} 下载Pixiv资源失败, 上传群文件失败: {repr(e)}')
-                await pixiv_dl.finish('上传图片到群文件失败QAQ, 请稍后再试')
+                await pixiv_dl.finish('上传图片到群文件失败QAQ, 可能获取上传结果超时但上传仍在进行中, 请等待1~2分钟后再重试')
 
     else:
         await pixiv_dl.finish('参数错误, pid应为纯数字')
+
+
+# 处理Pixiv.__ranking榜单消息
+async def __handle_ranking_msg(rank: int, illust_data: dict) -> Optional[Message]:
+    rank += 1
+
+    illust_id = illust_data.get('illust_id')
+    illust_title = illust_data.get('illust_title')
+    illust_uname = illust_data.get('illust_uname')
+
+    image_result = await PixivIllust(pid=illust_id).get_file()
+    if image_result.success():
+        msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
+        img_seg = MessageSegment.image(image_result.result)
+        return Message(img_seg).append(msg)
+    else:
+        logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
+        return None

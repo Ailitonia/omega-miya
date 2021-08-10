@@ -29,6 +29,11 @@ log_error_path = os.path.join(bot_log_path, log_error_name)
 logger.add(log_info_path, rotation="00:00", diagnose=False, level="INFO", format=default_format, encoding='utf-8')
 logger.add(log_error_path, rotation="00:00", diagnose=False, level="ERROR", format=default_format, encoding='utf-8')
 
+# Add extra debug log file
+# log_debug_name = f"{datetime.today().strftime('%Y%m%d-%H%M%S')}-DEBUG.log"
+# log_debug_path = os.path.join(bot_log_path, log_debug_name)
+# logger.add(log_debug_path, rotation="00:00", diagnose=False, level="DEBUG", format=default_format, encoding='utf-8')
+
 # You can pass some keyword args config to init function
 nonebot.init()
 
@@ -36,7 +41,6 @@ nonebot.init()
 config = nonebot.get_driver().config
 config.root_path_ = bot_root_path
 config.tmp_path_ = bot_tmp_path
-
 
 # 注册 cqhttp adapter
 driver = nonebot.get_driver()

@@ -18,24 +18,33 @@
 ## 功能 & 特点
 
 - 基于异步 SQLAlchemy / MySQL 的数据存储
-- 基于群组的通知权限、命令权限以及权限等级系统
-- 基于插件节点的权限管理系统
+- 权限控制及管理系统
+    - 针对不同群组可选启用通知权限、命令权限、权限等级控制
+    - 针对不同好友可选启用 Bot 功能
+    - 针对不同群组、好友独立配置插件权限节点
+- 支持多协议端连接, 各协议端权限及订阅配置相互独立
 - 命令冷却系统
 - HTTP 代理功能
 - 自动处理加好友和被邀请进群
 - 插件帮助功能 (支持群聊 / 私聊)
 - Bot对群组公告功能 (仅支持对群组)
+- 定时消息功能 (仅支持对群组)
+- 反闪照 (仅支持群聊)
+- 反撤回 (仅支持群聊)
 - B站动态订阅 (建议配置B站cookies) (支持群聊 / 私聊)
 - B站直播间监控 (建议配置B站cookies) (支持群聊 / 私聊)
+- 签到 (仅支持群聊)
 - 求签 (仅支持群聊)
 - 抽卡 (仅支持群聊)
 - 能不能好好说话 (lab.magiconch.com API) (支持群聊 / 私聊)
 - Pixiv助手 (需要 HTTP 代理, 除非部署在外网) (需要 go-cqhttp v0.9.40 及以上版本) (仅支持群聊)
+- Pixiv订阅 (需要 HTTP 代理, 除非部署在外网) (仅支持群聊)
 - Pixivision订阅 (需要 HTTP 代理, 除非部署在外网) (仅支持群聊)
 - 复读姬 (仅支持群聊)
 - roll点抽奖 (仅支持群聊)
+- ShindanMaker占卜 (shindanmaker.com / 建议使用 HTTP 代理) (仅支持群聊)
 - 搜番剧 (trace.moe API / 建议使用 HTTP 代理) (支持群聊 / 私聊)
-- 搜二次元图 (Saucenao API 和 ascii2d / 建议使用 HTTP 代理) (支持群聊 / 私聊)
+- 搜二次元图 (Saucenao API, iqbb 和 ascii2d / 建议使用 HTTP 代理) (支持群聊 / 私聊)
 - 来点萌图 / 来点涩图 (需要 HTTP 代理, 除非部署在外网 / 图片数据库需要自己导入) (支持群聊 / 私聊)
 - 表情包制作器 (支持群聊 / 私聊)
 - 猫按钮 (测试) (仅支持群聊)
@@ -45,29 +54,21 @@
 
 ## 如何使用
 
-0. 首先得有个MySQL数据库
-
-1. 安装依赖: `pip install -r requirements.txt`
-
-2. 配置.env中数据库相关配置(必需), 其他配置可选
-
-3. 运行`python bot.py`
-
-4. 在群组中使用 `/Omega` `/OmegaAuth` 等命令配置群组权限
+请参考本仓库 [Wiki](https://github.com/Ailitonia/omega-miya/wiki)
 
 ## 关于图片数据
 
 如果你不想自己收集图片数据, 可以将
-[这组图片数据集](https://github.com/Ailitonia/omega-miya/raw/main/archive_data/db_pixiv.7z)
-导入数据库
+[这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/main/archive_data/db_pixiv.7z)
+导入, 基本都是按我自己口味收集的图片
 
-这个图片集大概有5万条左右, 基本都是按我自己口味收集的图片
+Update 2021.8.10: 最新发布图片数据库共 9w7 条图片数据 (包含已失效或画师已删除作品)
 
 解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表就好了
 
-MD5: `8BF375B9687C397AE2040C8F9E28F68E`
+MD5: `7AC9A77545E37F1B99F8D1948D0A9A78`
 
-SHA1: `7CFF3593A85979B5D966773F3857577CFCC2FFBD`
+SHA1: `1F129A18905D1590379AC761E2EAC69DAC2D42DA`
 
 数据集来源是我的
 [这个频道](https://t.me/amoeloli)

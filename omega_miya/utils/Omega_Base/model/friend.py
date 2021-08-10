@@ -1,17 +1,26 @@
+from typing import Optional
+from datetime import datetime
 from omega_miya.utils.Omega_Base.database import NBdb
 from omega_miya.utils.Omega_Base.class_result import Result
 from omega_miya.utils.Omega_Base.tables import Friends, User, Subscription, UserSub
 from .user import DBUser
+from .bot_self import DBBot
 from .subscription import DBSubscription
-from typing import Optional
-from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
 class DBFriend(DBUser):
+    def __init__(self, user_id: int, self_bot: DBBot):
+        super().__init__(user_id)
+        self.self_bot = self_bot
+
     @classmethod
-    async def list_exist_friends(cls) -> Result.ListResult:
+    async def list_exist_friends(cls, self_bot: DBBot) -> Result.ListResult:
+        self_bot_id_result = await self_bot.id()
+        if self_bot_id_result.error:
+            return Result.ListResult(error=True, info='Bot not exist', result=[])
+
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -19,7 +28,8 @@ class DBFriend(DBUser):
                     session_result = await session.execute(
                         select(User.qq).
                         join(Friends).
-                        where(User.id == Friends.user_id)
+                        where(User.id == Friends.user_id).
+                        where(Friends.bot_self_id == self_bot_id_result.result)
                     )
                     exist_friends = [x for x in session_result.scalars().all()]
                 result = Result.ListResult(error=False, info='Success', result=exist_friends)
@@ -32,7 +42,12 @@ class DBFriend(DBUser):
         return result
 
     @classmethod
-    async def list_exist_friends_by_private_permission(cls, private_permission: int) -> Result.ListResult:
+    async def list_exist_friends_by_private_permission(
+            cls, private_permission: int, self_bot: DBBot) -> Result.ListResult:
+        self_bot_id_result = await self_bot.id()
+        if self_bot_id_result.error:
+            return Result.ListResult(error=True, info='Bot not exist', result=[])
+
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
@@ -41,6 +56,7 @@ class DBFriend(DBUser):
                         select(User.qq).
                         join(Friends).
                         where(User.id == Friends.user_id).
+                        where(Friends.bot_self_id == self_bot_id_result.result).
                         where(Friends.private_permissions == private_permission)
                     )
                     exist_friends = [x for x in session_result.scalars().all()]
@@ -53,10 +69,14 @@ class DBFriend(DBUser):
                 result = Result.ListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def exist(self) -> bool:
+    async def friend_id(self) -> Result.IntResult:
         user_id_result = await self.id()
         if user_id_result.error:
-            return False
+            return Result.IntResult(error=True, info='User not exist', result=-1)
+
+        self_bot_id_result = await self.self_bot.id()
+        if self_bot_id_result.error:
+            return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -64,14 +84,22 @@ class DBFriend(DBUser):
                 async with session.begin():
                     session_result = await session.execute(
                         select(Friends.id).
-                        join(User).
-                        where(Friends.user_id == User.id).
+                        where(Friends.bot_self_id == self_bot_id_result.result).
                         where(Friends.user_id == user_id_result.result)
                     )
-                    exist_friend = session_result.scalar_one()
-                return True
-            except Exception:
-                return False
+                    friend_table_id = session_result.scalar_one()
+                    result = Result.IntResult(error=False, info='Success', result=friend_table_id)
+            except NoResultFound:
+                result = Result.IntResult(error=True, info='NoResultFound', result=-1)
+            except MultipleResultsFound:
+                result = Result.IntResult(error=True, info='MultipleResultsFound', result=-1)
+            except Exception as e:
+                result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
+    async def exist(self) -> bool:
+        result = await self.friend_id()
+        return result.success()
 
     async def set_friend(
             self, nickname: str, remark: Optional[str] = None, private_permissions: Optional[int] = None
@@ -81,13 +109,19 @@ class DBFriend(DBUser):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
+        self_bot_id_result = await self.self_bot.id()
+        if self_bot_id_result.error:
+            return Result.IntResult(error=True, info='Bot not exist', result=-1)
+
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
                     try:
                         session_result = await session.execute(
-                            select(Friends).where(Friends.user_id == user_id_result.result)
+                            select(Friends).
+                            where(Friends.user_id == user_id_result.result).
+                            where(Friends.bot_self_id == self_bot_id_result.result)
                         )
                         exist_friend = session_result.scalar_one()
                         exist_friend.nickname = nickname
@@ -98,10 +132,12 @@ class DBFriend(DBUser):
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         if private_permissions:
-                            new_friend = Friends(user_id=user_id_result.result, nickname=nickname, remark=remark,
+                            new_friend = Friends(user_id=user_id_result.result, bot_self_id=self_bot_id_result.result,
+                                                 nickname=nickname, remark=remark,
                                                  private_permissions=private_permissions, created_at=datetime.now())
                         else:
-                            new_friend = Friends(user_id=user_id_result.result, nickname=nickname, remark=remark,
+                            new_friend = Friends(user_id=user_id_result.result, bot_self_id=self_bot_id_result.result,
+                                                 nickname=nickname, remark=remark,
                                                  private_permissions=0, created_at=datetime.now())
                         session.add(new_friend)
                         result = Result.IntResult(error=False, info='Success added', result=0)
@@ -115,24 +151,18 @@ class DBFriend(DBUser):
         return result
 
     async def del_friend(self) -> Result.IntResult:
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.IntResult(error=True, info='User not exist', result=-1)
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
-                    # 清空订阅
+                    # 删除好友表中该好友信息
                     session_result = await session.execute(
-                        select(UserSub).where(UserSub.user_id == user_id_result.result)
-                    )
-                    for exist_user_sub in session_result.scalars().all():
-                        await session.delete(exist_user_sub)
-
-                    # 删除好友表中该群组
-                    session_result = await session.execute(
-                        select(Friends).where(Friends.user_id == user_id_result.result)
+                        select(Friends).
+                        where(Friends.id == friend_id_result.result)
                     )
                     exist_friend = session_result.scalar_one()
                     await session.delete(exist_friend)
@@ -154,12 +184,18 @@ class DBFriend(DBUser):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
+        self_bot_id_result = await self.self_bot.id()
+        if self_bot_id_result.error:
+            return Result.IntResult(error=True, info='Bot not exist', result=-1)
+
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
                     session_result = await session.execute(
-                        select(Friends).where(Friends.user_id == user_id_result.result)
+                        select(Friends).
+                        where(Friends.user_id == user_id_result.result).
+                        where(Friends.bot_self_id == self_bot_id_result.result)
                     )
                     exist_friend = session_result.scalar_one()
                     exist_friend.private_permissions = private_permissions
@@ -182,12 +218,18 @@ class DBFriend(DBUser):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
+        self_bot_id_result = await self.self_bot.id()
+        if self_bot_id_result.error:
+            return Result.IntResult(error=True, info='Bot not exist', result=-1)
+
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
                     session_result = await session.execute(
-                        select(Friends.private_permissions).where(Friends.user_id == user_id_result.result)
+                        select(Friends.private_permissions).
+                        where(Friends.user_id == user_id_result.result).
+                        where(Friends.bot_self_id == self_bot_id_result.result)
                     )
                     private_permissions = session_result.scalar_one()
                 result = Result.IntResult(error=False, info='Success', result=private_permissions)
@@ -199,17 +241,13 @@ class DBFriend(DBUser):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def subscription_list(self) -> Result.ListResult:
+    async def subscription_list(self) -> Result.TupleListResult:
         """
         :return: Result: List[Tuple[sub_type, sub_id, up_name]]
         """
-        friend_check = await self.exist()
-        if not friend_check:
-            return Result.ListResult(error=True, info='Not friend', result=[])
-
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.ListResult(error=True, info='User not exist', result=[])
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.TupleListResult(error=True, info='Friend not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -219,26 +257,22 @@ class DBFriend(DBUser):
                         select(Subscription.sub_type, Subscription.sub_id, Subscription.up_name).
                         join(UserSub).
                         where(Subscription.id == UserSub.sub_id).
-                        where(UserSub.user_id == user_id_result.result)
+                        where(UserSub.user_id == friend_id_result.result)
                     )
                     res = [(x[0], x[1], x[2]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def subscription_list_by_type(self, sub_type: int) -> Result.ListResult:
+    async def subscription_list_by_type(self, sub_type: int) -> Result.TupleListResult:
         """
         :param sub_type: 订阅类型
         :return: Result: List[Tuple[sub_id, up_name]]
         """
-        friend_check = await self.exist()
-        if not friend_check:
-            return Result.ListResult(error=True, info='Not friend', result=[])
-
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.ListResult(error=True, info='User not exist', result=[])
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.TupleListResult(error=True, info='Friend not exist', result=[])
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -249,22 +283,18 @@ class DBFriend(DBUser):
                         join(UserSub).
                         where(Subscription.sub_type == sub_type).
                         where(Subscription.id == UserSub.sub_id).
-                        where(UserSub.user_id == user_id_result.result)
+                        where(UserSub.user_id == friend_id_result.result)
                     )
                     res = [(x[0], x[1]) for x in session_result.all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.TupleListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.TupleListResult(error=True, info=repr(e), result=[])
         return result
 
     async def subscription_add(self, sub: DBSubscription, user_sub_info: str = None) -> Result.IntResult:
-        friend_check = await self.exist()
-        if not friend_check:
-            return Result.IntResult(error=True, info='Not friend', result=-1)
-
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.IntResult(error=True, info='User not exist', result=-1)
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
         sub_id_result = await sub.id()
         if sub_id_result.error:
@@ -277,7 +307,7 @@ class DBFriend(DBUser):
                     try:
                         session_result = await session.execute(
                             select(UserSub).
-                            where(UserSub.user_id == user_id_result.result).
+                            where(UserSub.user_id == friend_id_result.result).
                             where(UserSub.sub_id == sub_id_result.result)
                         )
                         # 订阅关系已存在, 更新信息
@@ -286,7 +316,7 @@ class DBFriend(DBUser):
                         exist_subscription.updated_at = datetime.now()
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
-                        subscription = UserSub(sub_id=sub_id_result.result, user_id=user_id_result.result,
+                        subscription = UserSub(sub_id=sub_id_result.result, user_id=friend_id_result.result,
                                                user_sub_info=user_sub_info, created_at=datetime.now())
                         session.add(subscription)
                         result = Result.IntResult(error=False, info='Success added', result=0)
@@ -300,9 +330,9 @@ class DBFriend(DBUser):
         return result
 
     async def subscription_del(self, sub: DBSubscription) -> Result.IntResult:
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.IntResult(error=True, info='User not exist', result=-1)
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
         sub_id_result = await sub.id()
         if sub_id_result.error:
@@ -314,7 +344,7 @@ class DBFriend(DBUser):
                 async with session.begin():
                     session_result = await session.execute(
                         select(UserSub).
-                        where(UserSub.user_id == user_id_result.result).
+                        where(UserSub.user_id == friend_id_result.result).
                         where(UserSub.sub_id == sub_id_result.result)
                     )
                     exist_subscription = session_result.scalar_one()
@@ -333,16 +363,16 @@ class DBFriend(DBUser):
         return result
 
     async def subscription_clear(self) -> Result.IntResult:
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.IntResult(error=True, info='User not exist', result=-1)
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
                     session_result = await session.execute(
-                        select(UserSub).where(UserSub.user_id == user_id_result.result)
+                        select(UserSub).where(UserSub.user_id == friend_id_result.result)
                     )
                     for exist_user_sub in session_result.scalars().all():
                         await session.delete(exist_user_sub)
@@ -354,9 +384,9 @@ class DBFriend(DBUser):
         return result
 
     async def subscription_clear_by_type(self, sub_type: int) -> Result.IntResult:
-        user_id_result = await self.id()
-        if user_id_result.error:
-            return Result.IntResult(error=True, info='User not exist', result=-1)
+        friend_id_result = await self.friend_id()
+        if friend_id_result.error:
+            return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
         async_session = NBdb().get_async_session()
         async with async_session() as session:
@@ -366,7 +396,7 @@ class DBFriend(DBUser):
                         select(UserSub).join(Subscription).
                         where(UserSub.sub_id == Subscription.id).
                         where(Subscription.sub_type == sub_type).
-                        where(UserSub.user_id == user_id_result.result)
+                        where(UserSub.user_id == friend_id_result.result)
                     )
                     for exist_user_sub in session_result.scalars().all():
                         await session.delete(exist_user_sub)

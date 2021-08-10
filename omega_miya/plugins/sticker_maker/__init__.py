@@ -1,4 +1,5 @@
 import re
+import pathlib
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -18,12 +19,21 @@ __plugin_usage__ = r'''【表情包助手】
 **Permission**
 Friend Private
 Command & Lv.10
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /表情包 [模板名]'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 sticker = on_command(
@@ -33,7 +43,8 @@ sticker = on_command(
     state=init_permission_state(
         name='sticker',
         command=True,
-        level=10),
+        level=10,
+        auth_node='basic'),
     permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)
@@ -68,10 +79,13 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '默认': {'name': 'default', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '白底': {'name': 'whitebg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '黑框': {'name': 'blackbg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
+        '黑白': {'name': 'decolorize', 'type': 'default', 'text_part': 0, 'help_msg': '该模板不支持gif'},
+        '生草日语': {'name': 'grassja', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
-        'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'}
+        'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'},
+        'petpet': {'name': 'petpet', 'type': 'gif', 'text_part': 0, 'help_msg': '最好使用长宽比接近正方形的图片'}
     }
 
     get_sticker_temp = state['temp']
@@ -86,23 +100,28 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
     state['temp_help_msg'] = sticker_temp[get_sticker_temp]['help_msg']
 
     # 判断该模板表情图片来源
-    if state['temp_type'] in ['static', 'gif']:
+    if state['temp_type'] in ['static']:
         state['image_url'] = None
+
+    # 判断是否需要文字
+    if state['temp_text_part'] == 0:
+        state['sticker_text'] = ''
 
 
 @sticker.got('image_url', prompt='请发送你想要制作的表情包的图片:')
 async def handle_img(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
-    if state['temp_type'] not in ['static', 'gif']:
-        if not re.match(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=.+])', image_url):
-            await sticker.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
-
+    if state['temp_type'] not in ['static']:
         # 提取图片url
-        image_url = re.sub(r'^(\[CQ:image,file=[abcdef\d]{32}\.image,url=)', '', image_url)
-        image_url = re.sub(r'(])$', '', image_url)
-
+        image_url = None
+        for msg_seg in event.message:
+            if msg_seg.type == 'image':
+                image_url = msg_seg.data.get('url')
+                break
+        # 没有提取到图片url
+        if not image_url:
+            await sticker.reject('你发送的似乎不是图片呢, 请重新发送, 取消命令请发送【取消】:')
     state['image_url'] = image_url
-    state['sticker_text'] = None
 
 
 @sticker.got('sticker_text', prompt='请输入你想要制作的表情包的文字:')
@@ -120,17 +139,21 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
                    f'\n\n注意: 请用【#】号分割文本不同段落，不同模板适用的文字字数及段落数有所区别'
     else:
         text_msg = f'请输入你想要制作的表情包的文字: \n注意: 不同模板适用的文字字数有所区别'
-    if not sticker_text:
-        await sticker.reject(text_msg)
 
-    # 过滤CQ码
-    if re.match(r'\[CQ:', sticker_text, re.I):
-        await sticker.finish('含非法字符QAQ')
+    if sticker_temp_text_part == 0:
+        pass
+    else:
+        if not sticker_text:
+            await sticker.reject(text_msg)
 
-    if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
-        eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'
-        await sticker.finish(f"表情制作失败QAQ, 文本分段数错误\n"
-                             f"当前模板文本分段数:【{sticker_temp_text_part}】\n\n示例: \n{eg_msg}")
+        # 过滤CQ码
+        if re.match(r'\[CQ:', sticker_text, re.I):
+            await sticker.finish('含非法字符QAQ')
+
+        if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
+            eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'
+            await sticker.finish(f"表情制作失败QAQ, 文本分段数错误\n"
+                                 f"当前模板文本分段数:【{sticker_temp_text_part}】\n\n示例: \n{eg_msg}")
 
     sticker_image_url = state['image_url']
     sticker_temp_name = state['temp_name']
@@ -149,7 +172,8 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
         # sticker_seg = MessageSegment.image(sticker_b64)
 
         # 直接用文件构造消息段
-        sticker_seg = MessageSegment.image(f'file:///{sticker_path}')
+        file_url = pathlib.Path(sticker_path).as_uri()
+        sticker_seg = MessageSegment.image(file=file_url)
 
         # 发送图片
         await sticker.send(sticker_seg)

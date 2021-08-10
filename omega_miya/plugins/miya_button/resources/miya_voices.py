@@ -43,7 +43,25 @@ miya_voices = Voice(
         VoiceFile(name='起床了大笨蛋', file_name='34.mp3', folder_path=__voices_folder, tag='阴阳'),
         VoiceFile(name='起来了dd', file_name='35.mp3', folder_path=__voices_folder, tag='阴阳'),
         VoiceFile(name='作业写了吗', file_name='36.mp3', folder_path=__voices_folder, tag='阴阳'),
-        VoiceFile(name='异世相遇尽享美味', file_name='37.mp3', folder_path=__voices_folder, tag='卖萌')
+        VoiceFile(name='异世相遇尽享美味', file_name='37.mp3', folder_path=__voices_folder, tag='卖萌'),
+        VoiceFile(name='猫猫坏笑', file_name='38.mp3', folder_path=__voices_folder, tag='阴阳'),
+        VoiceFile(name='猫猫反派笑', file_name='39.mp3', folder_path=__voices_folder, tag='阴阳'),
+        VoiceFile(name='猫猫反派笑', file_name='40.mp3', folder_path=__voices_folder, tag='阴阳'),
+        VoiceFile(name='猫猫反派笑', file_name='41.mp3', folder_path=__voices_folder, tag='阴阳'),
+        VoiceFile(name='niya异世相遇', file_name='42.mp3', folder_path=__voices_folder, tag='卖萌'),
+        VoiceFile(name='啊啊啊啊~', file_name='43.mp3', folder_path=__voices_folder, tag='怪叫'),
+        VoiceFile(name='这游戏有问题', file_name='44.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='嗷呜', file_name='45.mp3', folder_path=__voices_folder, tag='怪叫'),
+        VoiceFile(name='不要吃我', file_name='46.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='不要打我', file_name='47.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='别别别', file_name='48.mp3', folder_path=__voices_folder, tag='怪叫'),
+        VoiceFile(name='擦盘子', file_name='49.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='吵死了', file_name='50.mp3', folder_path=__voices_folder, tag='卖萌'),
+        VoiceFile(name='打嗝', file_name='51.mp3', folder_path=__voices_folder, tag='怪叫'),
+        VoiceFile(name='打哈欠', file_name='52.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='打嗝嗷嗷', file_name='53.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='喵喵喵喵喵喵', file_name='54.mp3', folder_path=__voices_folder, tag='普通'),
+        VoiceFile(name='晚安臭DD', file_name='55.mp3', folder_path=__voices_folder, tag='卖萌')
     ]
 )
 

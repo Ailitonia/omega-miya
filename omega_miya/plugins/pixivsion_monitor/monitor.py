@@ -1,10 +1,17 @@
 import asyncio
-from nonebot import logger, require, get_bots
+from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBTable
+from omega_miya.utils.Omega_Base import DBSubscription, DBPixivision
+from omega_miya.utils.Omega_plugin_utils import MsgSender
 from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
 from .utils import pixivsion_article_parse
 from .block_tag import TAG_BLOCK_LIST
+from .config import Config
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 
 
 # 启用检查动态状态的定时任务
@@ -32,14 +39,7 @@ async def pixivision_monitor():
     logger.debug(f"pixivision_monitor: checking started")
 
     # 获取当前bot列表
-    bots = []
-    for bot_id, bot in get_bots().items():
-        bots.append(bot)
-
-    # 获取所有有通知权限的群组
-    t = DBTable(table_name='Group')
-    group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
-    all_noitce_groups = [int(x) for x in group_res.result]
+    bots = [bot for bot_id, bot in get_bots().items()]
 
     # 初始化tag黑名单
     block_tag_id = []
@@ -49,8 +49,7 @@ async def pixivision_monitor():
         block_tag_name.append(block_tag.get('name'))
 
     # 提取数据库中已有article的id列表
-    t = DBTable(table_name='Pixivision')
-    pixivision_res = await t.list_col(col_name='aid')
+    pixivision_res = await DBPixivision.list_article_id()
     exist_article = [int(x) for x in pixivision_res.result]
 
     # 获取最新一页pixivision的article
@@ -83,12 +82,7 @@ async def pixivision_monitor():
         logger.info(f'pixivision_monitor: checking completed, 没有新的article')
         return
 
-    sub = DBSubscription(sub_type=8, sub_id=-1)
-    # 获取订阅了该直播间的所有群
-    sub_group_res = await sub.sub_group_list()
-    sub_group = sub_group_res.result
-    # 需通知的群
-    notice_group = list(set(all_noitce_groups) & set(sub_group))
+    subscription = DBSubscription(sub_type=8, sub_id=-1)
 
     # 处理新的aritcle
     for article in new_article:
@@ -96,45 +90,86 @@ async def pixivision_monitor():
         tags = list(article['tags'])
         a_res = await pixivsion_article_parse(aid=aid, tags=tags)
         if a_res.success():
-            if not notice_group:
-                continue
             article_data = a_res.result
             msg = f"新的Pixivision特辑！\n\n" \
                   f"《{article_data['title']}》\n\n{article_data['description']}\n{article_data['url']}"
-            for group_id in notice_group:
-                for _bot in bots:
-                    try:
-                        await _bot.call_api(api='send_group_msg', group_id=group_id, message=msg)
-                    except Exception as e:
-                        logger.warning(f"向群组: {group_id} 发送article简介信息失败, error: {repr(e)}")
-                        continue
+
+            for _bot in bots:
+                msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionArticle')
+                await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=msg)
+
             # 处理article中图片内容
             tasks = []
             for pid in article_data['illusts_list']:
-                tasks.append(PixivIllust(pid=pid).pic_2_base64())
+                tasks.append(PixivIllust(pid=pid).get_file())
             p_res = await asyncio.gather(*tasks)
             image_error = 0
-            for image_res in p_res:
-                if not image_res.success():
-                    image_error += 1
-                    continue
-                else:
-                    img_seg = MessageSegment.image(image_res.result)
-                # 发送图片
-                for group_id in notice_group:
+
+            if ENABLE_NODE_CUSTOM:
+                node_messages = []
+                for image_res in p_res:
+                    if not image_res.success():
+                        image_error += 1
+                        continue
+                    # 构造自定义消息节点
+                    node_messages.append(MessageSegment.image(image_res.result))
+                # 发送消息
+                for _bot in bots:
+                    msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionImage')
+                    await msg_sender.safe_broadcast_groups_subscription_node_custom(
+                        subscription=subscription, message_list=node_messages)
+            else:
+                for image_res in p_res:
+                    if not image_res.success():
+                        image_error += 1
+                        continue
+                    else:
+                        img_seg = MessageSegment.image(image_res.result)
+                    # 发送图片
                     for _bot in bots:
-                        try:
-                            await _bot.call_api(api='send_group_msg', group_id=group_id, message=img_seg)
-                            # 避免风控控制推送间隔
-                            await asyncio.sleep(1)
-                        except Exception as e:
-                            logger.warning(f"向群组: {group_id} 发送图片内容失败, error: {repr(e)}")
-                            continue
+                        msg_sender = MsgSender(bot=_bot, log_flag='NewPixivisionImage')
+                        await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=img_seg)
+
             logger.info(f"article: {aid} 图片已发送完成, 失败: {image_error}")
         else:
             logger.error(f"article: {aid} 信息解析失败, info: {a_res.info}")
     logger.info(f'pixivision_monitor: checking completed, 已处理新的article: {repr(new_article)}')
 
+
+# 用于首次订阅时刷新数据库信息
+async def init_pixivsion_article():
+    # 暂停计划任务避免中途检查更新
+    scheduler.pause()
+    try:
+        # 获取最新一页pixivision的article
+        new_article = []
+        articles_result = await PixivisionArticle.get_illustration_list()
+        if articles_result.error:
+            return
+        for article in articles_result.result:
+            try:
+                article = dict(article)
+                article_tags_id = []
+                article_tags_name = []
+                for tag in article['tags']:
+                    article_tags_id.append(int(tag['tag_id']))
+                    article_tags_name.append(str(tag['tag_name']))
+                new_article.append({'aid': int(article['id']), 'tags': article_tags_name})
+            except Exception:
+                continue
+        # 处理新的aritcle
+        for article in new_article:
+            aid = int(article['aid'])
+            tags = list(article['tags'])
+            await pixivsion_article_parse(aid=aid, tags=tags)
+    except Exception as e:
+        logger.info(f'初始化pixivsion article错误, error: {repr(e)}.')
+
+    scheduler.resume()
+    logger.info(f'初始化pixivsion article完成, 已将作品信息写入数据库.')
+
+
 __all__ = [
-    'scheduler'
+    'scheduler',
+    'init_pixivsion_article'
 ]

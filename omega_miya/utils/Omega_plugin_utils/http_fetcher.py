@@ -2,9 +2,11 @@ import os
 import aiohttp
 import aiofiles
 import nonebot
+from urllib.parse import urlparse
+from http.cookies import SimpleCookie as SimpleCookie_
 from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
-from typing import Dict, Union, Optional, Any
+from typing import Dict, List, Union, Iterable, Optional, Any
 from nonebot import logger
 from omega_miya.utils.Omega_Base import DBStatus
 
@@ -23,6 +25,7 @@ class HttpFetcher(object):
         info: str
         status: int
         headers: dict
+        cookies: Optional[SimpleCookie_]
 
         def success(self) -> bool:
             if not self.error:
@@ -53,6 +56,31 @@ class HttpFetcher(object):
         def __repr__(self):
             return f'<FetcherBytesResult(' \
                    f'error={self.error}, status={self.status}, info={self.info}, result={self.result})>'
+
+    @dataclass
+    class FormData(aiohttp.FormData):
+        def __init__(
+                self,
+                fields: Iterable[Any] = (),
+                *,
+                is_multipart: bool = False,
+                is_processed: bool = False,
+                quote_fields: bool = True,
+                charset: Optional[str] = None,
+                boundary: Optional[str] = None
+        ) -> None:
+            self._writer = aiohttp.multipart.MultipartWriter("form-data", boundary=boundary)
+            self._fields: List[Any] = []
+            self._is_multipart = is_multipart
+            self._is_processed = is_processed
+            self._quote_fields = quote_fields
+            self._charset = charset
+
+            if isinstance(fields, dict):
+                fields = list(fields.items())
+            elif not isinstance(fields, (list, tuple)):
+                fields = (fields,)
+            self.add_fields(*fields)
 
     @classmethod
     async def __get_proxy(cls, always_return_proxy: bool = False) -> Optional[str]:
@@ -93,8 +121,9 @@ class HttpFetcher(object):
             self,
             url: str,
             path: str,
-            file_name: str,
-            params: Dict[str, str] = None,
+            *,
+            file_name: Optional[str] = None,
+            params: Optional[Dict[str, str]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherTextResult:
         """
@@ -111,7 +140,12 @@ class HttpFetcher(object):
         folder_path = os.path.abspath(path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-        file_path = os.path.abspath(os.path.join(folder_path, file_name))
+
+        if file_name:
+            file_path = os.path.abspath(os.path.join(folder_path, file_name))
+        else:
+            file_name = os.path.basename(urlparse(url).path) if os.path.basename(urlparse(url).path) else str(hash(url))
+            file_path = os.path.abspath(os.path.join(folder_path, file_name))
 
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
         num_of_attempts = 0
@@ -126,10 +160,12 @@ class HttpFetcher(object):
                         file_bytes = await rp.read()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     async with aiofiles.open(file_path, 'wb') as f:
                         await f.write(file_bytes)
                     result = self.FetcherTextResult(
-                        error=False, info='Success', status=status, headers=headers, result=file_path)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=file_path)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -147,7 +183,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>download_file</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherTextResult(
-                error=True, info='Failed too many times in download_file', status=-1, headers={}, result='')
+                error=True, info='Failed too many times in download_file',
+                status=-1, headers={}, cookies=None, result='')
 
     async def get_json(
             self,
@@ -168,8 +205,10 @@ class HttpFetcher(object):
                         result_json = await rp.json()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherJsonResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_json)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_json)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -187,7 +226,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>get_json</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherJsonResult(
-                error=True, info='Failed too many times in get_json', status=-1, headers={}, result={})
+                error=True, info='Failed too many times in get_json',
+                status=-1, headers={}, cookies=None, result={})
 
     async def get_text(
             self,
@@ -208,8 +248,10 @@ class HttpFetcher(object):
                         result_text = await rp.text()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherTextResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_text)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_text)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -227,7 +269,8 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>get_text</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherTextResult(
-                error=True, info='Failed too many times in get_text', status=-1, headers={}, result='')
+                error=True, info='Failed too many times in get_text',
+                status=-1, headers={}, cookies=None, result='')
 
     async def get_bytes(
             self,
@@ -248,8 +291,10 @@ class HttpFetcher(object):
                         result_bytes = await rp.read()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherBytesResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_bytes)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_bytes)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -267,14 +312,15 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>get_bytes</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}')
             return self.FetcherBytesResult(
-                error=True, info='Failed too many times in get_bytes', status=-1, headers={}, result=b'')
+                error=True, info='Failed too many times in get_bytes',
+                status=-1, headers={}, cookies=None, result=b'')
 
     async def post_json(
             self,
             url: str,
             params: Dict[str, str] = None,
             json: Dict[str, Any] = None,
-            data: Dict[str, Any] = None,
+            data: Union[FormData, Dict[str, Any]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherJsonResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -290,8 +336,10 @@ class HttpFetcher(object):
                         result_json = await rp.json()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherJsonResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_json)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_json)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -309,14 +357,15 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>post_json</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherJsonResult(
-                error=True, info='Failed too many times in post_json', status=-1, headers={}, result={})
+                error=True, info='Failed too many times in post_json',
+                status=-1, headers={}, cookies=None, result={})
 
     async def post_text(
             self,
             url: str,
             params: Dict[str, str] = None,
             json: Dict[str, Any] = None,
-            data: Dict[str, Any] = None,
+            data: Union[FormData, Dict[str, Any]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherTextResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -332,8 +381,10 @@ class HttpFetcher(object):
                         result_text = await rp.text()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherTextResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_text)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_text)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -351,14 +402,15 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>post_text</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherTextResult(
-                error=True, info='Failed too many times in post_text', status=-1, headers={}, result='')
+                error=True, info='Failed too many times in post_text',
+                status=-1, headers={}, cookies=None, result='')
 
     async def post_bytes(
             self,
             url: str,
             params: Dict[str, str] = None,
             json: Dict[str, Any] = None,
-            data: Dict[str, Any] = None,
+            data: Union[FormData, Dict[str, Any]] = None,
             force_proxy: bool = False,
             **kwargs: Any) -> FetcherBytesResult:
         proxy = await self.__get_proxy(always_return_proxy=force_proxy)
@@ -374,8 +426,10 @@ class HttpFetcher(object):
                         result_bytes = await rp.read()
                         status = rp.status
                         headers = dict(rp.headers)
+                        cookies = rp.cookies
                     result = self.FetcherBytesResult(
-                        error=False, info='Success', status=status, headers=headers, result=result_bytes)
+                        error=False, info='Success',
+                        status=status, headers=headers, cookies=cookies, result=result_bytes)
                 return result
             except TimeoutError_:
                 logger.opt(colors=True).warning(
@@ -393,4 +447,5 @@ class HttpFetcher(object):
                 f'Failed too many times in <lc>post_bytes</lc>.\n'
                 f'<y>url</y>: {url}\n<y>params</y>: {params}\n<y>json</y>: {json}\n<y>data</y>: {data}')
             return self.FetcherBytesResult(
-                error=True, info='Failed too many times in post_bytes', status=-1, headers={}, result=b'')
+                error=True, info='Failed too many times in post_bytes',
+                status=-1, headers={}, cookies=None, result=b'')

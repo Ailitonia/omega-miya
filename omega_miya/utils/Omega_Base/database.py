@@ -6,7 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from .tables import Base
 from .class_result import Result
 
-global_config = nonebot.get_driver().config
+driver = nonebot.get_driver()
+
+global_config = driver.config
 __DATABASE = 'mysql'
 __DB_DRIVER = 'aiomysql'
 __DB_USER = global_config.db_user
@@ -32,7 +34,10 @@ except Exception as exp:
     sys.exit('创建数据库连接失败')
 
 
+# 初始化化数据库
+@driver.on_startup
 async def database_init():
+    nonebot.logger.opt(colors=True).info(f'<lc>正在初始化数据库......</lc>')
     try:
         # 初始化数据库结构
         # conn is an instance of AsyncConnection
@@ -43,15 +48,11 @@ async def database_init():
             # where synchronous IO calls will be transparently translated for
             # await.
             await conn.run_sync(Base.metadata.create_all)
-        nonebot.logger.opt(colors=True).debug(f'<lc>初始化数据库...</lc><lg>完成</lg>')
+        nonebot.logger.opt(colors=True).info(f'<lg>数据库初始化已完成.</lg>')
     except Exception as e:
         import sys
         nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e)}')
         sys.exit('数据库初始化失败')
-
-
-# 初始化化数据库
-nonebot.get_driver().on_startup(database_init)
 
 
 class NBdb(object):
@@ -68,6 +69,10 @@ class NBdb(object):
 
 
 class DBTable(object):
+    """
+    已弃用, 保留相关代码仅供参考
+    任何情况下请直接调用 model 中相关类, 不要使用本类构造实例
+    """
     def __init__(self, table_name):
         self.__tables = Base
         self.table_name = table_name
@@ -119,6 +124,5 @@ class DBTable(object):
 
 
 __all__ = [
-    'NBdb',
-    'DBTable'
+    'NBdb'
 ]

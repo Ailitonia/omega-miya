@@ -5,7 +5,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.utils.Omega_Base import DBGroup, DBFriend, DBSubscription, Result
+from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
 from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
 from omega_miya.utils.bilibili_utils import BiliLiveRoom
 from .data_source import BiliLiveChecker
@@ -22,6 +22,10 @@ __plugin_usage__ = r'''【B站直播间订阅】
 **Permission**
 Friend Private
 Command & Lv.20
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 **GroupAdmin and SuperUser Only**
@@ -30,8 +34,13 @@ Command & Lv.20
 /B站直播间 清空订阅
 /B站直播间 订阅列表'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
+
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -42,7 +51,8 @@ bilibili_live = on_command(
     state=init_permission_state(
         name='bilibili_live',
         command=True,
-        level=20),
+        level=20,
+        auth_node='basic'),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
     priority=20,
     block=True)
@@ -148,31 +158,33 @@ async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
         await bilibili_live.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
-async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.ListResult:
+async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.TupleListResult:
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
-        group = DBGroup(group_id=group_id)
+        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
         result = await group.subscription_list_by_type(sub_type=1)
         return result
     elif isinstance(event, PrivateMessageEvent):
         user_id = event.user_id
-        friend = DBFriend(user_id=user_id)
+        friend = DBFriend(user_id=user_id, self_bot=self_bot)
         result = await friend.subscription_list_by_type(sub_type=1)
         return result
     else:
-        return Result.ListResult(error=True, info='Illegal event', result=[])
+        return Result.TupleListResult(error=True, info='Illegal event', result=[])
 
 
 async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
-        group = DBGroup(group_id=group_id)
+        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
         room_id = state['room_id']
         sub = DBSubscription(sub_type=1, sub_id=room_id)
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
         if not _res.success():
             return _res
-        _res = await group.subscription_add(sub=sub)
+        _res = await group.subscription_add(sub=sub, group_sub_info='B站直播间')
         if not _res.success():
             return _res
         # 添加直播间时需要刷新全局监控列表
@@ -182,13 +194,13 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         return result
     elif isinstance(event, PrivateMessageEvent):
         user_id = event.user_id
-        friend = DBFriend(user_id=user_id)
+        friend = DBFriend(user_id=user_id, self_bot=self_bot)
         room_id = state['room_id']
         sub = DBSubscription(sub_type=1, sub_id=room_id)
         _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
         if not _res.success():
             return _res
-        _res = await friend.subscription_add(sub=sub)
+        _res = await friend.subscription_add(sub=sub, user_sub_info='B站直播间')
         if not _res.success():
             return _res
         # 添加直播间时需要刷新全局监控列表
@@ -201,9 +213,10 @@ async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
 
 
 async def sub_del(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
-        group = DBGroup(group_id=group_id)
+        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
         room_id = state['room_id']
         _res = await group.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
         if not _res.success():
@@ -212,7 +225,7 @@ async def sub_del(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
         return result
     elif isinstance(event, PrivateMessageEvent):
         user_id = event.user_id
-        friend = DBFriend(user_id=user_id)
+        friend = DBFriend(user_id=user_id, self_bot=self_bot)
         room_id = state['room_id']
         _res = await friend.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
         if not _res.success():
@@ -224,9 +237,10 @@ async def sub_del(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntRe
 
 
 async def sub_clear(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
+    self_bot = DBBot(self_qq=int(bot.self_id))
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
-        group = DBGroup(group_id=group_id)
+        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
         _res = await group.subscription_clear_by_type(sub_type=1)
         if not _res.success():
             return _res
@@ -234,7 +248,7 @@ async def sub_clear(bot: Bot, event: MessageEvent, state: T_State) -> Result.Int
         return result
     elif isinstance(event, PrivateMessageEvent):
         user_id = event.user_id
-        friend = DBFriend(user_id=user_id)
+        friend = DBFriend(user_id=user_id, self_bot=self_bot)
         _res = await friend.subscription_clear_by_type(sub_type=1)
         if not _res.success():
             return _res

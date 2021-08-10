@@ -1,8 +1,13 @@
 import re
 import os
+import pathlib
 import json
 import asyncio
 import aiofiles
+import zipfile
+import imageio
+from io import BytesIO
+from typing import Dict, Optional
 from nonebot import logger, get_driver
 from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
 from omega_miya.utils.Omega_Base import Result
@@ -37,95 +42,67 @@ class Pixiv(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
-    async def daily_ranking(cls) -> Result.DictResult:
-        payload_daily = {'format': 'json', 'mode': 'daily',
-                         'content': 'illust', 'p': 1}
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_daily_ranking', headers=cls.HEADERS)
-        daily_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_daily)
-        if daily_ranking_result.error:
-            return Result.DictResult(
-                error=True, info=f'Fetch daily ranking failed, {daily_ranking_result.info}', result={})
-
-        daily_ranking_data = daily_ranking_result.result.get('contents')
-        if type(daily_ranking_data) != list:
-            return Result.DictResult(
-                error=True, info=f'Daily ranking data error, {daily_ranking_result.result}', result={})
-
-        result = {}
-        for num in range(len(daily_ranking_data)):
-            try:
-                illust_id = daily_ranking_data[num].get('illust_id')
-                illust_title = daily_ranking_data[num].get('title')
-                illust_uname = daily_ranking_data[num].get('user_name')
-                result.update({num: {
-                    'illust_id': illust_id,
-                    'illust_title': illust_title,
-                    'illust_uname': illust_uname
-                }})
-            except Exception as e:
-                logger.debug(f'Pixiv | Daily ranking data error at {num}, ignored. {str(e)},')
-                continue
-        return Result.DictResult(error=False, info='Success', result=result)
+    def parse_pid_from_url(cls, text: str, *, url_mode: bool = False) -> Optional[int]:
+        if url_mode:
+            # 分别匹配不同格式pivix链接格式 仅能匹配特定 url 格式的字符串
+            if url_new := re.search(r'^https?://.*?pixiv\.net/(artworks|i)/(\d+?)$', text):
+                return int(url_new.groups()[1])
+            elif url_old := re.search(r'^https?://.*?pixiv\.net.*?illust_id=(\d+?)(&mode=\w+?)?$', text):
+                return int(url_old.groups()[0])
+            else:
+                return None
+        else:
+            # 分别匹配不同格式pivix链接格式 可匹配任何字符串中的url
+            if url_new := re.search(r'https?://.*?pixiv\.net/(artworks|i)/(\d+)', text):
+                return int(url_new.groups()[1])
+            elif url_old := re.search(r'https?://.*?pixiv\.net.*?illust_id=(\d+)', text):
+                return int(url_old.groups()[0])
+            else:
+                return None
 
     @classmethod
-    async def weekly_ranking(cls) -> Result.DictResult:
-        payload_weekly = {'format': 'json', 'mode': 'weekly',
-                          'content': 'illust', 'p': 1}
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_weekly_ranking', headers=cls.HEADERS)
-        weekly_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_weekly)
-        if weekly_ranking_result.error:
+    async def get_ranking(
+            cls,
+            mode: str,
+            *,
+            page: int = 1,
+            content: Optional[str] = 'illust'
+    ) -> Result.DictResult:
+        """
+        获取 Pixiv 排行榜
+        :param mode: 排行榜类型
+        :param page: 页数
+        :param content: 作品类型
+        :return:
+        """
+        if not content:
+            payload = {'format': 'json', 'mode': mode, 'p': page}
+        else:
+            payload = {'format': 'json', 'mode': mode, 'content': content, 'p': page}
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_get_ranking', headers=cls.HEADERS)
+        ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload)
+        if ranking_result.error:
             return Result.DictResult(
-                error=True, info=f'Fetch weekly ranking failed, {weekly_ranking_result.info}', result={})
+                error=True, info=f'Fetch ranking result failed, {ranking_result.info}', result={})
 
-        weekly_ranking_data = weekly_ranking_result.result.get('contents')
-        if type(weekly_ranking_data) != list:
+        ranking_data = ranking_result.result.get('contents')
+        if type(ranking_data) != list:
             return Result.DictResult(
-                error=True, info=f'Weekly ranking data error, {weekly_ranking_result.result}', result={})
+                error=True, info=f'Getting ranking data error, {ranking_result.result}', result={})
 
         result = {}
-        for num in range(len(weekly_ranking_data)):
+        for num in range(len(ranking_data)):
             try:
-                illust_id = weekly_ranking_data[num].get('illust_id')
-                illust_title = weekly_ranking_data[num].get('title')
-                illust_uname = weekly_ranking_data[num].get('user_name')
+                illust_id = ranking_data[num].get('illust_id')
+                illust_title = ranking_data[num].get('title')
+                illust_uname = ranking_data[num].get('user_name')
                 result.update({num: {
                     'illust_id': illust_id,
                     'illust_title': illust_title,
                     'illust_uname': illust_uname
                 }})
             except Exception as e:
-                logger.debug(f'Pixiv | Weekly ranking data error at {num}, ignored. {str(e)},')
-                continue
-        return Result.DictResult(error=False, info='Success', result=result)
-
-    @classmethod
-    async def monthly_ranking(cls) -> Result.DictResult:
-        payload_monthly = {'format': 'json', 'mode': 'monthly',
-                           'content': 'illust', 'p': 1}
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_monthly_ranking', headers=cls.HEADERS)
-        monthly_ranking_result = await fetcher.get_json(url=cls.RANKING_URL, params=payload_monthly)
-        if monthly_ranking_result.error:
-            return Result.DictResult(
-                error=True, info=f'Fetch monthly ranking failed, {monthly_ranking_result.info}', result={})
-
-        monthly_ranking_data = monthly_ranking_result.result.get('contents')
-        if type(monthly_ranking_data) != list:
-            return Result.DictResult(
-                error=True, info=f'Monthly ranking data error, {monthly_ranking_result.result}', result={})
-
-        result = {}
-        for num in range(len(monthly_ranking_data)):
-            try:
-                illust_id = monthly_ranking_data[num].get('illust_id')
-                illust_title = monthly_ranking_data[num].get('title')
-                illust_uname = monthly_ranking_data[num].get('user_name')
-                result.update({num: {
-                    'illust_id': illust_id,
-                    'illust_title': illust_title,
-                    'illust_uname': illust_uname
-                }})
-            except Exception as e:
-                logger.debug(f'Pixiv | Monthly ranking data error at {num}, ignored. {repr(e)},')
+                logger.debug(f'Pixiv | Getting ranking data error at {num}, ignored. {repr(e)},')
                 continue
         return Result.DictResult(error=False, info='Success', result=result)
 
@@ -133,12 +110,19 @@ class Pixiv(object):
 class PixivIllust(Pixiv):
     def __init__(self, pid: int):
         self.__pid: int = pid
-        self.__is_loaded: bool = False
+        self.__is_data_loaded: bool = False
+        self.__is_pic_loaded: bool = False
+        self.__is_downloaded: bool = False
         self.__illust_data: dict = {}
+        self.__pic: bytes = b''
+        self.__downloaded_file_path: str = ''
 
     # 获取作品完整信息（pixiv api 获取 json）
     # 返回格式化后的作品信息
     async def get_illust_data(self) -> Result.DictResult:
+        if self.__is_data_loaded:
+            return Result.DictResult(error=False, info='Success', result=self.__illust_data)
+
         illust_url = f'{self.ILLUST_DATA_URL}{self.__pid}'
         illust_artworks_url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
 
@@ -174,6 +158,8 @@ class PixivIllust(Pixiv):
             userid = int(illust_data['body']['userId'])
             username = str(illust_data['body']['userName'])
             url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
+            width = int(illust_data['body']['width'])
+            height = int(illust_data['body']['height'])
             page_count = int(illust_data['body']['pageCount'])
             illust_orig_url = str(illust_data['body']['urls']['original'])
             illust_regular_url = str(illust_data['body']['urls']['regular'])
@@ -182,6 +168,11 @@ class PixivIllust(Pixiv):
             re_std_description_s2 = r'<[^>]+>'
             illust_description = re.sub(re_std_description_s1, '\n', illust_description)
             illust_description = re.sub(re_std_description_s2, '', illust_description)
+            # 作品相关统计信息
+            like_count = int(illust_data['body']['likeCount'])
+            bookmark_count = int(illust_data['body']['bookmarkCount'])
+            view_count = int(illust_data['body']['viewCount'])
+            comment_count = int(illust_data['body']['commentCount'])
 
             # 处理作品tag
             illusttag = []
@@ -197,6 +188,8 @@ class PixivIllust(Pixiv):
                     continue
             if 'R-18' in illusttag:
                 is_r18 = True
+            elif 'R-18G' in illusttag:
+                is_r18 = True
             else:
                 is_r18 = False
 
@@ -207,7 +200,10 @@ class PixivIllust(Pixiv):
                 'regular': [],
                 'original': [],
             }
+            # PixivPage数据库用, 图片列表原始数据
+            origin_pages = {}
             if not illust_pages.get('error') and illust_pages:
+                origin_pages.update(dict(enumerate([x.get('urls') for x in illust_pages.get('body')])))
                 for item in illust_pages.get('body'):
                     all_url.get('thumb_mini').append(item['urls']['thumb_mini'])
                     all_url.get('small').append(item['urls']['small'])
@@ -241,10 +237,17 @@ class PixivIllust(Pixiv):
                 'uid': userid,
                 'uname': username,
                 'url': url,
+                'width': width,
+                'height': height,
+                'like_count': like_count,
+                'bookmark_count': bookmark_count,
+                'view_count': view_count,
+                'comment_count': comment_count,
                 'page_count': page_count,
                 'orig_url': illust_orig_url,
                 'regular_url': illust_regular_url,
                 'all_url': all_url,
+                'illust_pages': origin_pages,
                 'ugoira_meta': ugoira_meta,
                 'description': illust_description,
                 'tags': illusttag,
@@ -252,7 +255,7 @@ class PixivIllust(Pixiv):
             }
 
             # 保存对象状态便于其他方法调用
-            self.__is_loaded = True
+            self.__is_data_loaded = True
             self.__illust_data.update(result)
 
             return Result.DictResult(error=False, info='Success', result=result)
@@ -260,9 +263,8 @@ class PixivIllust(Pixiv):
             logger.error(f'PixivIllust | Parse illust data failed, error: {repr(e)}')
             return Result.DictResult(error=True, info=f'Parse illust data failed', result={})
 
-    # 图片转base64
-    async def pic_2_base64(self, original: bool = False) -> Result.TextResult:
-        if self.__is_loaded:
+    async def get_format_info_msg(self, desc_len: int = 32) -> Result.TextResult:
+        if self.__is_data_loaded:
             illust_data = self.__illust_data
         else:
             illust_data_result = await self.get_illust_data()
@@ -281,7 +283,21 @@ class PixivIllust(Pixiv):
         if not description:
             info = f'「{title}」/「{author}」\n{tags}\n{url}'
         else:
-            info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:28]}......'
+            info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:desc_len]}......'
+        return Result.TextResult(error=False, info='Success', result=info)
+
+    # 加载作品图片
+    async def load_illust_pic(self, original: bool = False) -> Result.BytesResult:
+        if self.__is_pic_loaded:
+            return Result.BytesResult(error=False, info='Success', result=self.__pic)
+
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.BytesResult(error=True, info='Fetch illust data failed', result=b'')
+            illust_data = dict(illust_data_result.result)
 
         if original:
             url = illust_data.get('orig_url')
@@ -295,17 +311,167 @@ class PixivIllust(Pixiv):
             'sec-fetch-site': 'cross-site'
         })
 
-        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_get_image', headers=headers)
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_load_illust_pic', headers=headers)
         bytes_result = await fetcher.get_bytes(url=url)
         if bytes_result.error:
-            return Result.TextResult(error=True, info='Image download failed', result='')
+            return Result.BytesResult(error=True, info='Image download failed', result=b'')
+        else:
+            # 保存对象状态便于其他方法调用
+            self.__is_pic_loaded = True
+            self.__pic = bytes_result.result
+            return Result.BytesResult(error=False, info='Success', result=bytes_result.result)
 
-        encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
+    # 图片转base64
+    async def get_base64(self, original: bool = False) -> Result.TextResult:
+        if self.__is_pic_loaded:
+            illust_pic = self.__pic
+        else:
+            illust_pic_result = await self.load_illust_pic(original=original)
+            if illust_pic_result.error:
+                return Result.TextResult(error=True, info='Image download failed', result='')
+            illust_pic = illust_pic_result.result
 
+        encode_result = PicEncoder.bytes_to_b64(image=illust_pic)
         if encode_result.success():
-            return Result.TextResult(error=False, info=info, result=encode_result.result)
+            return Result.TextResult(error=False, info='Success', result=encode_result.result)
         else:
             return Result.TextResult(error=True, info=encode_result.info, result='')
+
+    # 图片转fileurl
+    async def get_file(self, original: bool = False) -> Result.TextResult:
+        folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
+        file_name = f'{self.__pid}_original_{original}'
+        file_path = os.path.abspath(os.path.join(folder_path, file_name))
+        # 如果已经存在则直接返回
+        if os.path.exists(file_path):
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
+
+        # 没有的话再下载并保存文件
+        if self.__is_pic_loaded:
+            illust_pic = self.__pic
+        else:
+            illust_pic_result = await self.load_illust_pic(original=original)
+            if illust_pic_result.error:
+                return Result.TextResult(error=True, info='Image download failed', result='')
+            illust_pic = illust_pic_result.result
+        # 检查保存文件路径
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        try:
+            async with aiofiles.open(file_path, 'wb') as aio_f:
+                await aio_f.write(illust_pic)
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
+        except Exception as e:
+            return Result.TextResult(error=True, info=repr(e), result='')
+
+    async def get_sending_msg(self, *, mode: str = 'file') -> Result.TextTupleResult:
+        """
+        :param mode: 发送图片方式
+            file: 下载为本地文件发送
+            base64: 使用base64发送
+        :return: Tuple[image_url: str, info_msg: str]
+        """
+        if mode == 'file':
+            img_result = await self.get_file()
+        elif mode == 'base64':
+            img_result = await self.get_base64()
+        else:
+            return Result.TextTupleResult(error=True, info='Illegal mode', result=())
+
+        if img_result.error:
+            return Result.TextTupleResult(
+                error=True, info=f'Getting img failed, error: {img_result.info}', result=())
+
+        info_msg_result = await self.get_format_info_msg()
+        if info_msg_result.error:
+            return Result.TextTupleResult(
+                error=True, info=f'Getting info msg failed, error: {info_msg_result.info}', result=())
+
+        return Result.TextTupleResult(error=False, info='Success', result=(img_result.result, info_msg_result.result))
+
+    def __load_ugoira_pics(self, file_path: str) -> Dict[str, bytes]:
+        if not self.__is_data_loaded:
+            raise RuntimeError('Illust data not loaded!')
+        if not os.path.exists(file_path):
+            raise RuntimeError(f'File: {file_path}, Not found.')
+        result_list = {}
+        with zipfile.ZipFile(file_path, 'r') as zip_f:
+            name_list = zip_f.namelist()
+            for file_name in name_list:
+                result_list.update({
+                    file_name: zip_f.open(file_name, 'r').read()
+                })
+        return result_list
+
+    def __generate_ugoira_gif(self, ugoira_pics: Dict[str, bytes]) -> bytes:
+        if not self.__is_data_loaded:
+            raise RuntimeError('Illust data not loaded!')
+        frames_list = []
+        sum_delay = []
+        for file, delay in [(item['file'], item['delay']) for item in self.__illust_data['ugoira_meta']['frames']]:
+            frames_list.append(imageio.imread(ugoira_pics[file]))
+            sum_delay.append(delay)
+        avg_delay = sum(sum_delay) / len(sum_delay)
+        avg_duration = avg_delay / 1000
+        with BytesIO() as bytes_f:
+            imageio.mimsave(bytes_f, frames_list, 'GIF', duration=avg_duration)
+            return bytes_f.getvalue()
+
+    async def __prepare_ugoira_gif(self) -> bytes:
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                raise RuntimeError('Fetch illust data failed')
+            illust_data = dict(illust_data_result.result)
+
+        illust_type = illust_data.get('illust_type')
+        if illust_type != 2:
+            raise RuntimeError('Illust not ugoira!')
+
+        ugoira_zip_dl_url = illust_data.get('ugoira_meta').get('originalsrc')
+        if not ugoira_zip_dl_url:
+            raise RuntimeError('Can not get ugoira download url!')
+
+        zip_file_name = os.path.split(ugoira_zip_dl_url)[-1]
+        download_result = await self.download_illust()
+        if download_result.error:
+            raise RuntimeError(f'Download ugoira Illust failed: {download_result.info}')
+
+        folder_path = os.path.split(download_result.result)[0]
+        ugoira_zip_path = os.path.abspath(os.path.join(folder_path, zip_file_name))
+
+        loop = asyncio.get_running_loop()
+        ugoira_pics = await loop.run_in_executor(None, self.__load_ugoira_pics, ugoira_zip_path)
+        gif_bytes = await loop.run_in_executor(None, self.__generate_ugoira_gif, ugoira_pics)
+        return gif_bytes
+
+    async def get_ugoira_gif_base64(self) -> Result.TextResult:
+        try:
+            gif_bytes = await self.__prepare_ugoira_gif()
+            base64_result = PicEncoder.bytes_to_b64(image=gif_bytes)
+            return base64_result
+        except Exception as e:
+            return Result.TextResult(error=True, info=repr(e), result='')
+
+    async def get_ugoira_gif_filepath(self) -> Result.TextResult:
+        try:
+            gif_bytes = await self.__prepare_ugoira_gif()
+            folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
+            # 检查保存文件路径
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+            file_name = f'{self.__pid}.gif'
+            file_path = os.path.abspath(os.path.join(folder_path, file_name))
+            async with aiofiles.open(file_path, 'wb') as aio_f:
+                await aio_f.write(gif_bytes)
+            file_url = pathlib.Path(file_path).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
+        except Exception as e:
+            return Result.TextResult(error=True, info=repr(e), result='')
 
     async def download_illust(self, page: int = None) -> Result.TextResult:
         """
@@ -314,20 +480,24 @@ class PixivIllust(Pixiv):
         if page and page < 1:
             page = None
 
-        illust_data_result = await self.get_illust_data()
-        if illust_data_result.error:
-            return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+            illust_data = dict(illust_data_result.result)
 
         download_url_list = []
-        page_count = illust_data_result.result.get('page_count')
-        illust_type = illust_data_result.result.get('illust_type')
+        page_count = illust_data.get('page_count')
+        illust_type = illust_data.get('illust_type')
         if illust_type == 2:
             # 作品类型为动图
-            download_url_list.append(illust_data_result.result.get('ugoira_meta').get('originalsrc'))
+            download_url_list.append(illust_data.get('ugoira_meta').get('originalsrc'))
         if page_count == 1:
-            download_url_list.append(illust_data_result.result.get('orig_url'))
+            download_url_list.append(illust_data.get('orig_url'))
         else:
-            download_url_list.extend(illust_data_result.result.get('all_url').get('original'))
+            download_url_list.extend(illust_data.get('all_url').get('original'))
 
         if page and page <= page_count:
             download_url_list = [download_url_list[page - 1]]
@@ -351,6 +521,8 @@ class PixivIllust(Pixiv):
 
             download_result = await fetcher.download_file(url=download_url_list[0], path=file_path, file_name=file_name)
             if download_result.success():
+                self.__is_downloaded = True
+                self.__downloaded_file_path = download_result.result
                 return Result.TextResult(error=False, info=file_name, result=download_result.result)
             else:
                 return Result.TextResult(error=True, info=download_result.info, result='')
@@ -369,8 +541,8 @@ class PixivIllust(Pixiv):
 
             # 动图额外保存原始ugoira_meta信息
             if illust_type == 2:
-                pid = illust_data_result.result.get('pid')
-                ugoira_meta = illust_data_result.result.get('ugoira_meta')
+                pid = illust_data.get('pid')
+                ugoira_meta = illust_data.get('ugoira_meta')
                 ugoira_meta_file = os.path.abspath(os.path.join(file_path, f'{pid}_ugoira_meta'))
                 async with aiofiles.open(ugoira_meta_file, 'w') as f:
                     await f.write(json.dumps(ugoira_meta))
@@ -378,12 +550,136 @@ class PixivIllust(Pixiv):
 
             # 打包
             zip_result = await create_zip_file(files=downloaded_list, file_path=file_path, file_name=str(self.__pid))
+            if zip_result.success():
+                self.__is_downloaded = True
+                self.__downloaded_file_path = zip_result.result
             return zip_result
         else:
             return Result.TextResult(error=True, info='Get illust url failed', result='')
 
+    async def get_recommend(self, *, init_limit: int = 18, lang: str = 'zh') -> Result.DictResult:
+        """
+        获取作品对应的相关作品推荐
+        :param init_limit: 初始化作品推荐时首次加载的作品数量
+        :param lang: 语言
+        :return: DictResult
+            illusts: List[Dict], 首次加载的推荐作品的详细信息
+            nextIds: List, 剩余未加载推荐作品的pid列表
+            details: Dict, 所有推荐作品获取关联信息
+        """
+        recommend_url = f'{self.ILLUST_DATA_URL}{self.__pid}/recommend/init'
+        illust_artworks_url = f'{self.ILLUST_ARTWORK_URL}{self.__pid}'
+
+        headers = self.HEADERS.copy()
+        headers.update({
+            'accept': 'application/json',
+            'referer': illust_artworks_url
+        })
+        params = {'limit': init_limit, 'lang': lang}
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_illust_recommend', headers=headers, cookies=COOKIES)
+        recommend_data_result = await fetcher.get_json(url=recommend_url, params=params)
+
+        if recommend_data_result.error:
+            return Result.DictResult(
+                error=True, info=f'Fetch illust recommend failed, {recommend_data_result.info}', result={})
+
+        # 检查返回状态
+        if recommend_data_result.result.get('error') or not recommend_data_result.result:
+            return Result.DictResult(error=True, info=f'PixivApiError: {recommend_data_result.result}', result={})
+
+        # 直接返回原始结果
+        return Result.DictResult(error=False, info='Success', result=recommend_data_result.result.get('body'))
+
+
+class PixivUser(Pixiv):
+    def __init__(self, uid: int):
+        self.__uid: int = uid
+
+    async def get_info(self) -> Result.DictResult:
+        user_info_url = f'https://www.pixiv.net/ajax/user/{self.__uid}'
+
+        headers = self.HEADERS.copy()
+        headers.update({'referer': f'https://www.pixiv.net/users/{self.__uid}'})
+
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_user', headers=headers, cookies=COOKIES)
+
+        # 获取用户信息
+        params = {'lang': 'zh'}
+        user_info_result = await fetcher.get_json(url=user_info_url, params=params)
+        if user_info_result.error:
+            return Result.DictResult(error=True, info=f'Fetch user info failed, {user_info_result.info}', result={})
+
+        # 检查返回状态
+        if user_info_result.result.get('error') or not user_info_result.result:
+            return Result.DictResult(error=True, info=f'PixivApiError: {user_info_result.result}', result={})
+
+        user_info = user_info_result.result
+
+        try:
+            # 处理用户基本信息
+            name = user_info['body'].get('name')
+            image = user_info['body'].get('image')
+            image_big = user_info['body'].get('imageBig')
+            partial = user_info['body'].get('partial')
+            premium = user_info['body'].get('premium')
+            sketch_live_id = user_info['body'].get('sketchLiveId')
+            sketch_lives = user_info['body'].get('sketchLives')
+            user_id = user_info['body'].get('userId')
+
+            result = {
+                'name': name,
+                'image': image,
+                'image_big': image_big,
+                'partial': partial,
+                'premium': premium,
+                'sketch_live_id': sketch_live_id,
+                'sketch_lives': sketch_lives,
+                'user_id': user_id
+            }
+            return Result.DictResult(error=False, info='Success', result=result)
+        except Exception as e:
+            logger.error(f'PixivUser | Parse user info failed, error: {repr(e)}')
+            return Result.DictResult(error=True, info=f'Parse user info failed', result={})
+
+    async def get_artworks_info(self) -> Result.DictResult:
+        user_data_url = f'https://www.pixiv.net/ajax/user/{self.__uid}/profile/all'
+
+        headers = self.HEADERS.copy()
+        headers.update({'referer': f'https://www.pixiv.net/users/{self.__uid}'})
+
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_user', headers=headers, cookies=COOKIES)
+
+        # 获取作品信息
+        params = {'lang': 'zh'}
+        user_data_result = await fetcher.get_json(url=user_data_url, params=params)
+        if user_data_result.error:
+            return Result.DictResult(error=True, info=f'Fetch user data failed, {user_data_result.info}', result={})
+
+        # 检查返回状态
+        if user_data_result.result.get('error') or not user_data_result.result:
+            return Result.DictResult(error=True, info=f'PixivApiError: {user_data_result.result}', result={})
+
+        user_data = user_data_result.result
+
+        try:
+            # 处理作品基本信息
+            illust_list = [int(pid) for pid in dict(user_data['body']['illusts']).keys()]
+            manga_list = [int(pid) for pid in dict(user_data['body']['manga']).keys()]
+            novels_list = [int(nid) for nid in dict(user_data['body']['novels']).keys()]
+
+            result = {
+                'illust_list': illust_list,
+                'manga_list': manga_list,
+                'novels_list': novels_list
+            }
+            return Result.DictResult(error=False, info='Success', result=result)
+        except Exception as e:
+            logger.error(f'PixivUser | Parse user data failed, error: {repr(e)}')
+            return Result.DictResult(error=True, info=f'Parse user data failed', result={})
+
 
 __all__ = [
     'Pixiv',
-    'PixivIllust'
+    'PixivIllust',
+    'PixivUser'
 ]

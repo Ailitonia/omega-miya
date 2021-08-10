@@ -1,7 +1,7 @@
 import asyncio
 import random
 from nonebot import logger, require, get_driver, get_bots
-from omega_miya.utils.Omega_Base import DBFriend, DBSubscription, DBTable
+from omega_miya.utils.Omega_Base import DBSubscription
 from omega_miya.utils.bilibili_utils import BiliLiveRoom
 from .data_source import BiliLiveChecker
 from .config import Config
@@ -42,8 +42,7 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
 )
 async def live_db_upgrade():
     logger.debug('live_db_upgrade: started upgrade subscription info')
-    t = DBTable(table_name='Subscription')
-    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
+    sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
     for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=1, sub_id=sub_id)
         live_user_info_result = await BiliLiveRoom(room_id=sub_id).get_user_info()
@@ -63,22 +62,10 @@ async def bilibili_live_monitor():
     logger.debug(f"bilibili_live_monitor: checking started")
 
     # 获取当前bot列表
-    bots = []
-    for bot_id, bot in get_bots().items():
-        bots.append(bot)
-
-    # 获取所有有通知权限的群组
-    t = DBTable(table_name='Group')
-    group_res = await t.list_col_with_condition('group_id', 'notice_permissions', 1)
-    all_noitce_groups = [int(x) for x in group_res.result]
-
-    # 获取所有启用了私聊功能的好友
-    friend_res = await DBFriend.list_exist_friends_by_private_permission(private_permission=1)
-    all_noitce_friends = [int(x) for x in friend_res.result]
+    bots = [bot for bot_id, bot in get_bots().items()]
 
     # 获取订阅表中的所有直播间订阅
-    t = DBTable(table_name='Subscription')
-    sub_res = await t.list_col_with_condition('sub_id', 'sub_type', 1)
+    sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
     check_sub = [int(x) for x in sub_res.result]
 
     if not check_sub:
@@ -94,8 +81,7 @@ async def bilibili_live_monitor():
             return
         live_info = live_info_result.result
         try:
-            await BiliLiveChecker(room_id=room_id).broadcaster(
-                live_info=live_info, bots=bots, all_groups=all_noitce_groups, all_friends=all_noitce_friends)
+            await BiliLiveChecker(room_id=room_id).broadcaster(live_info=live_info, bots=bots)
         except Exception as _e:
             logger.error(f'bilibili_live_monitor: 处理直播间 {room_id} 状态信息是发生错误: {repr(_e)}')
 
@@ -128,8 +114,7 @@ async def bilibili_live_monitor():
         # 依次处理各直播间信息
         for room_id, live_info in live_info_.items():
             try:
-                await BiliLiveChecker(room_id=room_id).broadcaster(
-                    live_info=live_info, bots=bots, all_groups=all_noitce_groups, all_friends=all_noitce_friends)
+                await BiliLiveChecker(room_id=room_id).broadcaster(live_info=live_info, bots=bots)
             except Exception as _e:
                 logger.error(f'bilibili_live_monitor: 处理直播间 {room_id} 状态信息是发生错误: {repr(_e)}')
                 continue
@@ -154,11 +139,11 @@ async def bilibili_live_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(checking_pool)
 
-        # 默认单次检查并发数为2, 默认检查间隔为20s
+        # 默认单次检查并发数为3, 默认检查间隔为20s
         logger.debug(f'bili live pool mode debug info, B_checking_pool: {checking_pool}')
-        if waiting_num >= 2:
+        if waiting_num >= 3:
             # 抽取检查对象
-            now_checking = random.sample(checking_pool, k=2)
+            now_checking = random.sample(checking_pool, k=3)
             # 更新checking_pool
             checking_pool = [x for x in checking_pool if x not in now_checking]
         else:
@@ -191,7 +176,6 @@ async def bilibili_live_monitor():
             logger.error(f'bilibili_live_monitor: pool mode disable, error occurred in checking  {repr(e)}')
 
 
-# 分时间段创建计划任务, 夜间闲时降低检查频率
 # 根据检查池模式初始化检查时间间隔
 if ENABLE_NEW_LIVE_API:
     # 使用新api

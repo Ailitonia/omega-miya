@@ -75,7 +75,7 @@ class BiliRequestUtils(object):
 
     @classmethod
     # 图片转base64
-    async def pic_2_base64(cls, url: str) -> Result.TextResult:
+    async def pic_to_base64(cls, url: str) -> Result.TextResult:
         headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                                  'Chrome/89.0.4389.114 Safari/537.36',
                    'origin': 'https://www.bilibili.com',
@@ -88,6 +88,26 @@ class BiliRequestUtils(object):
             return Result.TextResult(error=True, info='Image download failed', result='')
 
         encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
+
+        if encode_result.success():
+            return Result.TextResult(error=False, info='Success', result=encode_result.result)
+        else:
+            return Result.TextResult(error=True, info=encode_result.info, result='')
+
+    @classmethod
+    async def pic_to_file(cls, url: str) -> Result.TextResult:
+        headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                 'Chrome/89.0.4389.114 Safari/537.36',
+                   'origin': 'https://www.bilibili.com',
+                   'referer': 'https://www.bilibili.com/'}
+
+        fetcher = HttpFetcher(
+            timeout=30, attempt_limit=2, flag='bilibili_live_monitor_get_image', headers=headers)
+        bytes_result = await fetcher.get_bytes(url=url)
+        if bytes_result.error:
+            return Result.TextResult(error=True, info='Image download failed', result='')
+
+        encode_result = await PicEncoder.bytes_to_file(image=bytes_result.result, folder_flag='bilibili')
 
         if encode_result.success():
             return Result.TextResult(error=False, info='Success', result=encode_result.result)

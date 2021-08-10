@@ -1,4 +1,3 @@
-import re
 from nonebot import on_command, export, logger
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -17,13 +16,21 @@ __plugin_usage__ = r'''【能不能好好说话？】
 **Permission**
 Friend Private
 Command & Lv.30
+or AuthNode
+
+**AuthNode**
+basic
 
 **Usage**
 /好好说话 [缩写]'''
 
+# 声明本插件可配置的权限节点
+__plugin_auth_node__ = [
+    'basic'
+]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -33,7 +40,8 @@ nbnhhsh = on_command(
     state=init_permission_state(
         name='nbnhhsh',
         command=True,
-        level=30),
+        level=30,
+        auth_node='basic'),
     aliases={'hhsh', 'nbnhhsh'},
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
@@ -65,23 +73,20 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
 @nbnhhsh.got('guess', prompt='有啥缩写搞不懂?')
 async def handle_nbnhhsh(bot: Bot, event: MessageEvent, state: T_State):
     guess = state['guess']
-    if re.match(r'^[a-zA-Z0-9]+$', guess):
-        res = await get_guess(guess=guess)
-        if res.success() and res.result:
-            try:
-                data = dict(res.result[0])
-            except Exception as e:
-                logger.error(f'nbnhhsh error: {repr(e)}')
-                await nbnhhsh.finish('发生了意外的错误QAQ, 请稍后再试')
-                return
-            if data.get('trans'):
-                trans = str.join('\n', data.get('trans'))
-                msg = f"为你找到了{guess}的以下解释:\n\n{trans}"
-                await nbnhhsh.finish(msg)
-            elif data.get('inputting'):
-                trans = str.join('\n', data.get('inputting'))
-                msg = f"为你找到了{guess}的以下解释:\n\n{trans}"
-                await nbnhhsh.finish(msg)
-        await nbnhhsh.finish(f'没有找到{guess}的相关解释QAQ')
-    else:
-        await nbnhhsh.finish('缩写仅支持字母加数字, 请重新输入')
+    res = await get_guess(guess=guess)
+    if res.success() and res.result:
+        try:
+            data = dict(res.result[0])
+        except Exception as e:
+            logger.error(f'nbnhhsh error: {repr(e)}')
+            await nbnhhsh.finish('发生了意外的错误QAQ, 请稍后再试')
+            return
+        if data.get('trans'):
+            trans = str.join('\n', data.get('trans'))
+            msg = f"为你找到了{guess}的以下解释:\n\n{trans}"
+            await nbnhhsh.finish(msg)
+        elif data.get('inputting'):
+            trans = str.join('\n', data.get('inputting'))
+            msg = f"为你找到了{guess}的以下解释:\n\n{trans}"
+            await nbnhhsh.finish(msg)
+    await nbnhhsh.finish(f'没有找到{guess}的相关解释QAQ')
