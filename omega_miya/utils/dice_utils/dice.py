@@ -12,7 +12,6 @@ import re
 import random
 import asyncio
 from typing import List, Dict
-from dataclasses import dataclass
 
 
 class BaseDice(object):
@@ -70,25 +69,6 @@ class BaseDice(object):
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, self.dice)
         return result
-
-
-class ParseDice(object):
-    """
-    掷骰表达式解析与执行
-    """
-    @dataclass
-    class ParsedExpression:
-        num: int  # 骰子个数
-        side: int  # 骰子面数
-        check: bool  # 是否检定
-        hidden: bool  # 是否暗骰
-
-    def __init__(self, expression: str):
-        self.__raw_expression = expression
-        self.__is_parsed: bool = False
-
-    def __parse(self):
-        pass
 
 
 __all__ = [

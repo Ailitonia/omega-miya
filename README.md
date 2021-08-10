@@ -54,29 +54,21 @@
 
 ## 如何使用
 
-0. 首先得有个MySQL数据库
-
-1. 安装依赖: `pip install -r requirements.txt`
-
-2. 配置.env中数据库相关配置(必需), 其他配置可选
-
-3. 运行`python bot.py`
-
-4. 在群组中使用 `/Omega` `/OmegaAuth` 等命令配置群组权限
+请参考本仓库 [Wiki](https://github.com/Ailitonia/omega-miya/wiki)
 
 ## 关于图片数据
 
 如果你不想自己收集图片数据, 可以将
-[这组图片数据集](https://github.com/Ailitonia/omega-miya/raw/main/archive_data/db_pixiv.7z)
-导入数据库
+[这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/main/archive_data/db_pixiv.7z)
+导入, 基本都是按我自己口味收集的图片
 
-这个图片集大概有5万条左右, 基本都是按我自己口味收集的图片
+Update 2021.8.10: 最新发布图片数据库共 9w7 条图片数据 (包含已失效或画师已删除作品)
 
 解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表就好了
 
-MD5: `8BF375B9687C397AE2040C8F9E28F68E`
+MD5: `7AC9A77545E37F1B99F8D1948D0A9A78`
 
-SHA1: `7CFF3593A85979B5D966773F3857577CFCC2FFBD`
+SHA1: `1F129A18905D1590379AC761E2EAC69DAC2D42DA`
 
 数据集来源是我的
 [这个频道](https://t.me/amoeloli)

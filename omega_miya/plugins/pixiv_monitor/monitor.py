@@ -14,7 +14,7 @@ from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.utils.Omega_Base import DBSubscription, DBPixivUserArtwork
 from omega_miya.utils.pixiv_utils import PixivUser, PixivIllust
-from omega_miya.utils.Omega_plugin_utils import MsgSender, PicEffector, PicEncoder
+from omega_miya.utils.Omega_plugin_utils import MsgSender, PicEffector, PicEncoder, ProcessUtils
 from .config import Config
 
 
@@ -249,21 +249,10 @@ async def init_new_add_sub(user_id: int):
             else:
                 logger.error(f'向数据库写入pixiv用户作品信息: {pid_} 失败, error: {_res.info}')
 
-        # 写入操作
-        all_count = len(all_artwork_list)
+        # 开始导入操作
         # 全部一起并发网络撑不住, 做适当切分
-        # 每个切片数量
-        seg_n = 10
-        pid_seg_list = []
-        for i in range(0, all_count, seg_n):
-            pid_seg_list.append(all_artwork_list[i:i + seg_n])
-        # 每个切片打包一个任务
-        for seg_list in pid_seg_list:
-            tasks = []
-            for pid in seg_list:
-                tasks.append(_handle(pid_=pid))
-            # 进行异步处理
-            await asyncio.gather(*tasks)
+        tasks = [_handle(pid_=pid) for pid in all_artwork_list]
+        await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50, log_flag='Init Pixiv User Illust')
         logger.info(f'初始化pixiv用户 {user_id} 作品完成, 已将作品信息写入数据库.')
     except Exception as e:
         logger.error(f'初始化pixiv用户 {user_id} 作品发生错误, error: {repr(e)}.')
