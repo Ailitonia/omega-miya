@@ -63,7 +63,7 @@ async def handle_repeater(bot: Bot, event: GroupMessageEvent, state: T_State):
         LAST_REPEAT_MSG[group_id] = ''
         # 当复读计数等于2时说明已经有连续三条同样的消息了, 此时触发复读, 更新上次服务消息LAST_REPEAT_MSG, 并重置复读计数
         if REPEAT_COUNT[group_id] >= 2:
-            await repeater.send(message)
             REPEAT_COUNT[group_id] = 0
             LAST_MSG[group_id] = ''
             LAST_REPEAT_MSG[group_id] = raw_msg
+            await repeater.send(message)
