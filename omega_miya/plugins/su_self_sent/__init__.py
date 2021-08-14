@@ -13,6 +13,7 @@
 import re
 from datetime import datetime
 from nonebot import logger
+from nonebot.plugin.export import export
 from nonebot.plugin import on, CommandGroup
 from nonebot.typing import T_State
 from nonebot.message import handle_event
@@ -21,9 +22,28 @@ from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message
 from nonebot.adapters.cqhttp.event import Event, MessageEvent, GroupMessageEvent
+from omega_miya.utils.omega_plugin_utils import init_export
 
 
 SU_TAG: bool = False
+
+
+# Custom plugin usage text
+__plugin_name__ = '自调用消息'
+__plugin_usage__ = r'''【Omega 自调用消息】
+让人工登陆机器人账号时可以通过特殊命令来自己调用自己
+
+**Usage**
+**SuperUser Only**
+/Su.on
+/Su.off
+
+**Bot SelfSent Only**
+!SU [command]'''
+
+# Init plugin export
+init_export(export(), __plugin_name__, __plugin_usage__)
+
 
 # 注册事件响应器
 Su = CommandGroup('Su', rule=to_me(), permission=SUPERUSER, priority=10, block=True)
