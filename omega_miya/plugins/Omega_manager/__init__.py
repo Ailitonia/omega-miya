@@ -17,7 +17,7 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from omega_miya.database import DBBot, DBBotGroup, DBUser, DBAuth, DBFriend, Result
 from omega_miya.utils.omega_plugin_utils import init_export
-from .sys_background_scheduled import scheduler
+from .background_tasks import scheduler
 
 # Custom plugin usage text
 __plugin_name__ = 'Omega'
