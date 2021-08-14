@@ -5,7 +5,7 @@
 基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/omega-miya)
-![Python](https://img.shields.io/badge/Python-3.8+-blue)
+![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/omega-miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/omega-miya)
 
@@ -13,7 +13,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 Pre Release v2.0.0a13.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a13.post1)
+[Nonebot2 Pre Release v2.0.0a15](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a15)
 
 ## 功能 & 特点
 
