@@ -23,10 +23,13 @@ async def postprocessor_statistic(
     if matcher.temp:
         logger.debug('Postprocessor Statistic | Temp matcher, ignore')
         return
+    elif matcher.priority >= 100:
+        logger.debug('Postprocessor Statistic | Non-command matcher, ignore')
+        return
 
     module_name = matcher.module_name
     plugin_name = matcher.plugin_name
-    self_bot_id = event.self_id
+    self_bot_id = int(bot.self_id)
     group_id = getattr(event, 'group_id', -1)
     user_id = getattr(event, 'user_id', -1)
     if exception:
