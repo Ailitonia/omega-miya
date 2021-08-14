@@ -38,8 +38,17 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
             user_name = f'{event.sender.nickname}/{event.sender.card}'
             raw_data = repr(event)
             msg_data = str(event.message)
-        elif isinstance(event, (NoticeEvent, RequestEvent)):
+        elif isinstance(event, NoticeEvent):
             detail_type = event.notice_type
+            sub_type = getattr(event, 'sub_type', 'Undefined')
+            event_id = -1
+            group_id = getattr(event, 'group_id', -1)
+            user_id = getattr(event, 'user_id', -1)
+            user_name = ''
+            raw_data = repr(event)
+            msg_data = ''
+        elif isinstance(event, RequestEvent):
+            detail_type = event.request_type
             sub_type = getattr(event, 'sub_type', 'Undefined')
             event_id = -1
             group_id = getattr(event, 'group_id', -1)
