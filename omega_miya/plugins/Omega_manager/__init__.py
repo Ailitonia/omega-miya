@@ -8,14 +8,15 @@ Omega Miya 使用指南
 - /Omega SetLevel <PermissionLevel> - 为本群组配置命令等级(对于低于命令要求等级的群组, 该命令不会被响应)
 """
 from dataclasses import dataclass
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBUser, DBAuth, DBFriend, Result
-from omega_miya.utils.Omega_plugin_utils import init_export
+from omega_miya.database import DBBot, DBBotGroup, DBUser, DBAuth, DBFriend, Result
+from omega_miya.utils.omega_plugin_utils import init_export
 from .sys_background_scheduled import scheduler
 
 # Custom plugin usage text
@@ -409,7 +410,7 @@ async def init_group_auth_node(group_id: int, self_bot: DBBot):
         auth_info: str
 
     default_auth_nodes = [
-        AuthNode(node='Omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: help免cd'),
+        AuthNode(node='omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: help免cd'),
         AuthNode(node='nhentai.basic', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用nhentai'),
         AuthNode(node='setu.setu', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用setu'),
         AuthNode(node='setu.allow_r18', allow_tag=0, deny_tag=1, auth_info='默认规则: 禁用setu r18'),
@@ -435,7 +436,7 @@ async def init_user_auth_node(user_id: int, self_bot: DBBot):
         auth_info: str
 
     default_auth_nodes = [
-        AuthNode(node='Omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd')
+        AuthNode(node='omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd')
     ]
 
     for auth_node in default_auth_nodes:

@@ -9,8 +9,8 @@ import imageio
 from io import BytesIO
 from typing import Dict, Optional
 from nonebot import logger, get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
+from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
@@ -25,7 +25,7 @@ else:
 class Pixiv(object):
     ILLUST_DATA_URL = 'https://www.pixiv.net/ajax/illust/'
     ILLUST_ARTWORK_URL = 'https://www.pixiv.net/artworks/'
-    RANKING_URL = 'http://www.pixiv.net/ranking.php'
+    RANKING_URL = 'https://www.pixiv.net/ranking.php'
 
     HEADERS = {'accept': '*/*',
                'accept-encoding': 'gzip, deflate',

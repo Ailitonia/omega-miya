@@ -4,8 +4,8 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from omega_miya.utils.Omega_plugin_utils import PermissionChecker
-from omega_miya.utils.Omega_Base import DBBot
+from omega_miya.utils.omega_plugin_utils import PermissionChecker
+from omega_miya.database import DBBot
 
 
 global_config = get_driver().config
@@ -17,15 +17,15 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
     权限处理 T_RunPreProcessor
     """
 
+    group_id = getattr(event, 'group_id', None)
+    user_id = event.user_id
+
     if isinstance(event, PrivateMessageEvent):
         private_mode = True
     elif isinstance(event, GroupMessageEvent):
         private_mode = False
     else:
         private_mode = False
-
-    group_id = event.dict().get('group_id')
-    user_id = event.dict().get('user_id')
 
     # 忽略超级用户
     if user_id in [int(x) for x in SUPERUSERS]:
@@ -70,7 +70,7 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
 
     # 检查权限节点
     if matcher_auth_node:
-        auth_node = '.'.join([matcher.module, matcher_auth_node])
+        auth_node = '.'.join([matcher.module_name, matcher_auth_node])
         # 分别检查用户及群组权限节点
         user_auth_checker = await permission_checker.check_auth_node(auth_id=user_id,
                                                                      auth_type='user',

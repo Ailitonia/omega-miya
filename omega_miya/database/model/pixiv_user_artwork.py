@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import PixivUserArtwork
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import PixivUserArtwork
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -22,7 +22,7 @@ class DBPixivUserArtwork(object):
         self.uid = uid
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -46,7 +46,7 @@ class DBPixivUserArtwork(object):
         return result.success()
 
     async def add(self, uname: str, title: str) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -77,7 +77,7 @@ class DBPixivUserArtwork(object):
 
     @classmethod
     async def list_all_artwork(cls) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -92,7 +92,7 @@ class DBPixivUserArtwork(object):
 
     @classmethod
     async def list_artwork_by_uid(cls, uid: int) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:

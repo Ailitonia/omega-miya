@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.database import Result
 from .cloud_api import SECRET_ID, SECRET_KEY, TencentCloudApi
 
 

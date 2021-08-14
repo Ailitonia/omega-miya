@@ -8,7 +8,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import MessageSegment
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_permission_state
 from .resources import miya_voices
 
 """

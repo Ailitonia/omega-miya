@@ -1,4 +1,4 @@
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
 
 API_URL = 'https://lab.magiconch.com/api/nbnhhsh/guess/'
 

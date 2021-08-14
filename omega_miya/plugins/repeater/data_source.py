@@ -13,6 +13,7 @@ import re
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union
+from nonebot import logger
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 
 RESOURCE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'resources'))
@@ -58,7 +59,8 @@ class ReplyRules:
                             reply_msg = reply.reply_msg
                         # 按顺序匹配中立即返回, 忽略后续规则
                         return True, reply_msg
-            except Exception:
+            except Exception as e:
+                logger.debug(f'Checking reply: "{reply}" with rules: "{regular}" failed, error: {repr(e)}')
                 continue
         return False, ''
 

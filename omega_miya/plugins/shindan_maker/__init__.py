@@ -11,12 +11,13 @@
 import re
 import datetime
 from typing import Dict
-from nonebot import MatcherGroup, export, logger
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, OmegaRules
 from .data_source import ShindanMaker
 
 

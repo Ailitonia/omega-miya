@@ -1,8 +1,8 @@
 from nonebot.rule import Rule
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import Event
-from omega_miya.utils.Omega_Base import DBBot, DBFriend, DBBotGroup, DBAuth
+from nonebot.adapters.cqhttp.event import Event, MessageEvent, NoticeEvent, RequestEvent
+from omega_miya.database import DBBot, DBFriend, DBBotGroup, DBAuth
 
 
 class OmegaRules(object):
@@ -11,8 +11,15 @@ class OmegaRules(object):
     @classmethod
     def has_group_notice_permission(cls) -> Rule:
         async def _has_group_notice_permission(bot: Bot, event: Event, state: T_State) -> bool:
-            detail_type = event.dict().get(f'{event.get_type()}_type')
-            group_id = event.dict().get('group_id')
+            if isinstance(event, MessageEvent):
+                detail_type = event.message_type
+            elif isinstance(event, NoticeEvent):
+                detail_type = event.notice_type
+            elif isinstance(event, RequestEvent):
+                detail_type = event.request_type
+            else:
+                detail_type = None
+            group_id = getattr(event, 'group_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
             # 检查当前消息类型
             if not str(detail_type).startswith('group'):
@@ -28,8 +35,15 @@ class OmegaRules(object):
     @classmethod
     def has_group_command_permission(cls) -> Rule:
         async def _has_group_command_permission(bot: Bot, event: Event, state: T_State) -> bool:
-            detail_type = event.dict().get(f'{event.get_type()}_type')
-            group_id = event.dict().get('group_id')
+            if isinstance(event, MessageEvent):
+                detail_type = event.message_type
+            elif isinstance(event, NoticeEvent):
+                detail_type = event.notice_type
+            elif isinstance(event, RequestEvent):
+                detail_type = event.request_type
+            else:
+                detail_type = None
+            group_id = getattr(event, 'group_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
             # 检查当前消息类型
             if not str(detail_type).startswith('group'):
@@ -45,8 +59,15 @@ class OmegaRules(object):
     @classmethod
     def has_group_permission_level(cls, level: int) -> Rule:
         async def _has_group_permission_level(bot: Bot, event: Event, state: T_State) -> bool:
-            detail_type = event.dict().get(f'{event.get_type()}_type')
-            group_id = event.dict().get('group_id')
+            if isinstance(event, MessageEvent):
+                detail_type = event.message_type
+            elif isinstance(event, NoticeEvent):
+                detail_type = event.notice_type
+            elif isinstance(event, RequestEvent):
+                detail_type = event.request_type
+            else:
+                detail_type = None
+            group_id = getattr(event, 'group_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
             # 检查当前消息类型
             if not str(detail_type).startswith('group'):
@@ -64,9 +85,16 @@ class OmegaRules(object):
     def has_auth_node(cls, *auth_nodes: str) -> Rule:
         async def _has_auth_node(bot: Bot, event: Event, state: T_State) -> bool:
             auth_node = '.'.join(auth_nodes)
-            detail_type = event.dict().get(f'{event.get_type()}_type')
-            group_id = event.dict().get('group_id')
-            user_id = event.dict().get('user_id')
+            if isinstance(event, MessageEvent):
+                detail_type = event.message_type
+            elif isinstance(event, NoticeEvent):
+                detail_type = event.notice_type
+            elif isinstance(event, RequestEvent):
+                detail_type = event.request_type
+            else:
+                detail_type = None
+            group_id = getattr(event, 'group_id', None)
+            user_id = getattr(event, 'user_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
             # 检查当前消息类型
             if detail_type == 'private':
@@ -91,16 +119,24 @@ class OmegaRules(object):
 
     # 由于目前nb2暂不支持or连接rule, 因此将or逻辑放在rule内处理
     @classmethod
-    def has_level_or_node(cls, level: int, auth_node: str) -> Rule:
+    def has_level_or_node(cls, level: int, *auth_nodes: str) -> Rule:
         """
         :param level: 需要群组权限等级
-        :param auth_node: 需要的权限节点
+        :param auth_nodes: 需要的权限节点
         :return: 群组权限等级大于要求等级或者具备权限节点, 权限节点为deny则拒绝
         """
         async def _has_level_or_node(bot: Bot, event: Event, state: T_State) -> bool:
-            detail_type = event.dict().get(f'{event.get_type()}_type')
-            group_id = event.dict().get('group_id')
-            user_id = event.dict().get('user_id')
+            auth_node = '.'.join(auth_nodes)
+            if isinstance(event, MessageEvent):
+                detail_type = event.message_type
+            elif isinstance(event, NoticeEvent):
+                detail_type = event.notice_type
+            elif isinstance(event, RequestEvent):
+                detail_type = event.request_type
+            else:
+                detail_type = None
+            group_id = getattr(event, 'group_id', None)
+            user_id = getattr(event, 'user_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
 
             # level检查部分
@@ -139,8 +175,15 @@ class OmegaRules(object):
     @classmethod
     def has_friend_private_permission(cls) -> Rule:
         async def _has_friend_private_permission(bot: Bot, event: Event, state: T_State) -> bool:
-            detail_type = event.dict().get(f'{event.get_type()}_type')
-            user_id = event.dict().get('user_id')
+            if isinstance(event, MessageEvent):
+                detail_type = event.message_type
+            elif isinstance(event, NoticeEvent):
+                detail_type = event.notice_type
+            elif isinstance(event, RequestEvent):
+                detail_type = event.request_type
+            else:
+                detail_type = None
+            user_id = getattr(event, 'user_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
             # 检查当前消息类型
             if detail_type != 'private':

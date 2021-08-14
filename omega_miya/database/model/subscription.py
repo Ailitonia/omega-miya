@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Subscription, Group, BotGroup, GroupSub, User, Friends, UserSub
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Subscription, Group, BotGroup, GroupSub, User, Friends, UserSub
 from .bot_self import DBBot
 from datetime import datetime
 from sqlalchemy.future import select
@@ -13,7 +13,7 @@ class DBSubscription(object):
         self.sub_id = sub_id
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -37,7 +37,7 @@ class DBSubscription(object):
         return result.success()
 
     async def add(self, up_name: str, live_info: str = None) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -74,7 +74,7 @@ class DBSubscription(object):
         # 清空持已订阅这个sub的群组
         await self.sub_group_clear()
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -99,7 +99,7 @@ class DBSubscription(object):
         return result
 
     async def get_name(self) -> Result.TextResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -127,7 +127,7 @@ class DBSubscription(object):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -154,7 +154,7 @@ class DBSubscription(object):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -178,7 +178,7 @@ class DBSubscription(object):
         if id_result.error:
             return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -203,7 +203,7 @@ class DBSubscription(object):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -230,7 +230,7 @@ class DBSubscription(object):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -254,7 +254,7 @@ class DBSubscription(object):
         if id_result.error:
             return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -272,7 +272,7 @@ class DBSubscription(object):
 
     @classmethod
     async def list_all_sub(cls) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -287,7 +287,7 @@ class DBSubscription(object):
 
     @classmethod
     async def list_sub_by_type(cls, sub_type: int) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:

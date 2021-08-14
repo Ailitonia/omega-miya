@@ -13,7 +13,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import (Event, MessageEvent, PrivateMessageEvent, GroupMessageEvent,
                                            NoticeEvent, RequestEvent, MetaEvent)
-from omega_miya.utils.Omega_Base import DBHistory
+from omega_miya.database import DBHistory
 
 
 async def postprocessor_history(bot: Bot, event: Event, state: T_State):
@@ -40,31 +40,31 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
             msg_data = str(event.message)
         elif isinstance(event, NoticeEvent):
             detail_type = event.notice_type
-            sub_type = event.dict().get('sub_type', 'Undefined')
+            sub_type = getattr(event, 'sub_type', 'Undefined')
             event_id = -1
-            group_id = event.dict().get('group_id', -1)
-            user_id = event.dict().get('user_id', -1)
+            group_id = getattr(event, 'group_id', -1)
+            user_id = getattr(event, 'user_id', -1)
             user_name = ''
             raw_data = repr(event)
             msg_data = ''
         elif isinstance(event, RequestEvent):
             detail_type = event.request_type
-            sub_type = event.dict().get('sub_type', 'Undefined')
+            sub_type = getattr(event, 'sub_type', 'Undefined')
             event_id = -1
-            group_id = event.dict().get('group_id', -1)
-            user_id = event.dict().get('user_id', -1)
+            group_id = getattr(event, 'group_id', -1)
+            user_id = getattr(event, 'user_id', -1)
             user_name = ''
             raw_data = repr(event)
             msg_data = ''
         else:
             detail_type = event.get_event_name()
-            sub_type = event.dict().get('sub_type', 'Undefined')
+            sub_type = getattr(event, 'sub_type', 'Undefined')
             event_id = -1
-            group_id = event.dict().get('group_id', -1)
-            user_id = event.dict().get('user_id', -1)
+            group_id = getattr(event, 'group_id', -1)
+            user_id = getattr(event, 'user_id', -1)
             user_name = ''
             raw_data = repr(event)
-            msg_data = str(event.dict().get('message'))
+            msg_data = getattr(event, 'user_id', None)
 
         new_history = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
         add_result = await new_history.add(

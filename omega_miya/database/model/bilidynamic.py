@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Bilidynamic
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Bilidynamic
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -12,7 +12,7 @@ class DBDynamic(object):
         self.dynamic_id = dynamic_id
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -36,7 +36,7 @@ class DBDynamic(object):
         return result.success()
 
     async def add(self, dynamic_type: int, content: str) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -67,7 +67,7 @@ class DBDynamic(object):
 
     @classmethod
     async def list_all_dynamic(cls) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -82,7 +82,7 @@ class DBDynamic(object):
 
     @classmethod
     async def list_dynamic_by_uid(cls, uid: int) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:

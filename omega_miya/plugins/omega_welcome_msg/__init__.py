@@ -1,14 +1,16 @@
 """
 @Author         : Ailitonia
-@Date           : 2021/06/11 23:42
-@FileName       : group_welcome_message.py
+@Date           : 2021/08/14 19:09
+@FileName       : __init__.py.py
 @Project        : nonebot2_miya 
 @Description    : 群自定义欢迎信息
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
+
 from nonebot import logger
+from nonebot.plugin.export import export
 from nonebot.plugin import on_notice, CommandGroup
 from nonebot.typing import T_State
 from nonebot.rule import to_me
@@ -17,12 +19,28 @@ from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupIncreaseNoticeEvent
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup
-from omega_miya.utils.Omega_plugin_utils import OmegaRules
+from omega_miya.database import DBBot, DBBotGroup
+from omega_miya.utils.omega_plugin_utils import init_export, OmegaRules
 
 
 SETTING_NAME: str = 'group_welcome_message'
 DEFAULT_WELCOME_MSG: str = '欢迎新朋友～\n进群请先看群公告～\n一起愉快地聊天吧!'
+
+
+# Custom plugin usage text
+__plugin_name__ = '群欢迎消息'
+__plugin_usage__ = r'''【群自定义欢迎信息插件】
+向新入群的成员发送欢迎消息
+
+以下命令均需要@机器人
+**Usage**
+**GroupAdmin and SuperUser Only**
+/设置欢迎消息
+/清空欢迎消息
+'''
+
+# Init plugin export
+init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器
@@ -104,9 +122,3 @@ async def handle_group_increase(bot: Bot, event: GroupIncreaseNoticeEvent, state
     at_seg = MessageSegment.at(user_id=user_id)
     await bot.send(event=event, message=Message(at_seg).append(msg))
     logger.info(f'群组: {group_id}, 有新用户: {user_id} 进群')
-
-
-__all__ = [
-    'WelcomeMsg',
-    'group_increase'
-]

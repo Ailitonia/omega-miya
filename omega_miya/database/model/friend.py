@@ -1,8 +1,8 @@
 from typing import Optional
 from datetime import datetime
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Friends, User, Subscription, UserSub
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Friends, User, Subscription, UserSub
 from .user import DBUser
 from .bot_self import DBBot
 from .subscription import DBSubscription
@@ -21,7 +21,7 @@ class DBFriend(DBUser):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -48,7 +48,7 @@ class DBFriend(DBUser):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -78,7 +78,7 @@ class DBFriend(DBUser):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -113,7 +113,7 @@ class DBFriend(DBUser):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -155,7 +155,7 @@ class DBFriend(DBUser):
         if friend_id_result.error:
             return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -188,7 +188,7 @@ class DBFriend(DBUser):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -222,7 +222,7 @@ class DBFriend(DBUser):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -249,7 +249,7 @@ class DBFriend(DBUser):
         if friend_id_result.error:
             return Result.TupleListResult(error=True, info='Friend not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -274,7 +274,7 @@ class DBFriend(DBUser):
         if friend_id_result.error:
             return Result.TupleListResult(error=True, info='Friend not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -300,7 +300,7 @@ class DBFriend(DBUser):
         if sub_id_result.error:
             return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -338,7 +338,7 @@ class DBFriend(DBUser):
         if sub_id_result.error:
             return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -367,7 +367,7 @@ class DBFriend(DBUser):
         if friend_id_result.error:
             return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -388,7 +388,7 @@ class DBFriend(DBUser):
         if friend_id_result.error:
             return Result.IntResult(error=True, info='Friend not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():

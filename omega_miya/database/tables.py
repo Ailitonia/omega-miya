@@ -45,6 +45,54 @@ class OmegaStatus(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
+# 统计信息表, 存放插件运行统计
+class OmegaStatistics(Base):
+    __tablename__ = f'{TABLE_PREFIX}statistics'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('omega_statistics_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    module_name = Column(String(64), nullable=False, index=True, comment='插件模块名称')
+    plugin_name = Column(String(64), nullable=False, index=True, comment='插件显示名称')
+    self_bot_id = Column(BigInteger, nullable=False, index=True, comment='调用Bot的QQ号')
+    group_id = Column(Integer, nullable=False, index=True, comment='调用群组群号')
+    user_id = Column(Integer, nullable=False, index=True, comment='调用用户群号')
+    using_datetime = Column(DateTime, nullable=False, comment='调用插件时间')
+    raw_message = Column(String(4096), nullable=True, comment='调用原始消息')
+    info = Column(String(128), nullable=True, comment='调用结果说明')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self,
+                 module_name: str,
+                 plugin_name: str,
+                 self_bot_id: int,
+                 group_id: int,
+                 user_id: int,
+                 using_datetime: datetime,
+                 *,
+                 raw_message: Optional[str] = None,
+                 info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = None):
+        self.module_name = module_name
+        self.plugin_name = plugin_name
+        self.self_bot_id = self_bot_id
+        self.group_id = group_id
+        self.user_id = user_id
+        self.using_datetime = using_datetime
+        self.raw_message = raw_message
+        self.info = info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<OmegaStatistics(module_name='{self.module_name}', plugin_name='{self.plugin_name}', " \
+               f"self_bot_id='{self.self_bot_id}', group_id='{self.group_id}', user_id='{self.user_id}', " \
+               f"using_datetime='{self.using_datetime}', raw_message='{self.raw_message}', info='{self.info}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
 # Bot表 对应不同机器人协议端
 class BotSelf(Base):
     __tablename__ = f'{TABLE_PREFIX}bots'

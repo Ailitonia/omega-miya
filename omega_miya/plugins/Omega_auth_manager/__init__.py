@@ -1,12 +1,13 @@
 import re
-from nonebot import on_command, export, get_plugin, get_loaded_plugins, logger
+from nonebot import on_command, get_plugin, get_loaded_plugins, logger
+from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from omega_miya.utils.Omega_Base import DBBot, DBFriend, DBBotGroup, DBAuth
-from omega_miya.utils.Omega_plugin_utils import init_export
+from omega_miya.database import DBBot, DBFriend, DBBotGroup, DBAuth
+from omega_miya.utils.omega_plugin_utils import init_export
 
 
 # Custom plugin usage text

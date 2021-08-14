@@ -1,11 +1,28 @@
 import re
 from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import PrivateMessageEvent
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup
+from omega_miya.database import DBBot, DBBotGroup
+from omega_miya.utils.omega_plugin_utils import init_export
+
+
+# Custom plugin usage text
+__plugin_name__ = '公告'
+__plugin_usage__ = r'''【公告插件】
+让管理员快速批量发送通知公告
+
+**Permission**
+SuperUser Only
+
+**Usage**
+/公告'''
+
+# Init plugin export
+init_export(export(), __plugin_name__, __plugin_usage__)
 
 
 # 注册事件响应器

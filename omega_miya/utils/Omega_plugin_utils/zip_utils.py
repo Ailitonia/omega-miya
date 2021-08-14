@@ -4,7 +4,7 @@ import py7zr
 import asyncio
 from typing import List
 from nonebot.log import logger
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.database import Result
 
 
 def __create_zip_file(files: List[str], file_path: str, file_name: str) -> Result.TextResult:

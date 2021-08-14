@@ -2,15 +2,16 @@
 要求go-cqhttp v0.9.40以上
 """
 import os
-from nonebot import on_command, on_notice, export, logger
+from nonebot import on_command, on_notice, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupUploadNoticeEvent
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, OmegaRules
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBAuth, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
 from .utils import ZhouChecker, download_file
 
 
@@ -129,7 +130,7 @@ zhoushen_hime = on_notice(rule=OmegaRules.has_auth_node(__plugin_raw_name__, 'ba
 @zhoushen_hime.handle()
 async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     file_name = event.file.name
-    file_url = event.file.dict().get('url')
+    file_url = getattr(event.file, 'url', None)
     user_id = event.user_id
 
     # 不响应自己上传的文件

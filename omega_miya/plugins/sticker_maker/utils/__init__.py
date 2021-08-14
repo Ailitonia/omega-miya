@@ -3,7 +3,7 @@ import aiofiles
 from typing import Optional
 from io import BytesIO
 from datetime import datetime
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
 from nonebot import logger, get_driver
 from PIL import Image
 from .default_render import *

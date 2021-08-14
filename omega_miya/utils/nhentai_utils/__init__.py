@@ -8,8 +8,8 @@ import aiofiles
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
 from nonebot import logger, get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, create_7z_file
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, create_7z_file
+from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_

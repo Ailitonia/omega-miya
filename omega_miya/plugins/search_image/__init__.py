@@ -1,13 +1,14 @@
 import random
 import asyncio
-from nonebot import on_command, export, logger, get_driver
+from nonebot import on_command, logger, get_driver
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_Base import DBBot
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder, PermissionChecker
+from omega_miya.database import DBBot
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder, PermissionChecker
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -234,7 +235,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
                     return
 
         # 若消息被分片可能导致链接被拆分
-        raw_text = event.reply.dict().get('raw_message')
+        raw_text = getattr(event.reply, 'raw_message', None)
         if pid := PixivIllust.parse_pid_from_url(text=raw_text):
             state['pid'] = pid
             logger.debug(f"Recommend image | 已从消息 raw 文本匹配到 pixiv url, pid: {pid}")

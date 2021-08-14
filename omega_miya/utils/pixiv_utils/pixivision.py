@@ -1,8 +1,8 @@
 import re
 from bs4 import BeautifulSoup
 from nonebot import logger
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
 
 
 class Pixivision(object):

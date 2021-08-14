@@ -1,12 +1,13 @@
 import re
 from datetime import datetime, timedelta
-from nonebot import MatcherGroup, export, logger, require
+from nonebot import MatcherGroup, logger, require
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_Base import DBSkill, DBUser, DBBot, DBBotGroup
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PermissionChecker
+from omega_miya.database import DBSkill, DBUser, DBBot, DBBotGroup
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PermissionChecker
 
 # Custom plugin usage text
 __plugin_name__ = '请假'
@@ -306,7 +307,7 @@ async def member_vacations_monitor():
             # 跳过不具备权限的组
             self_bot = DBBot(self_qq=int(bot.self_id))
             auth_check_res = await PermissionChecker(self_bot=self_bot).check_auth_node(
-                auth_id=group_id, auth_type='group', auth_node='Omega_vacation.basic')
+                auth_id=group_id, auth_type='group', auth_node='omega_vacation.basic')
             if auth_check_res != 1:
                 continue
             logger.debug(f"member_vacations_monitor: checking group: {group_id}")

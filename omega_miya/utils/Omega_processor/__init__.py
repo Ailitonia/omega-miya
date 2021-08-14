@@ -17,6 +17,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
 from .history import postprocessor_history
+from .statistic import postprocessor_statistic
 
 
 # 事件预处理
@@ -42,7 +43,7 @@ async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, stat
 async def handle_run_postprocessor(
         matcher: Matcher, exception: Optional[Exception], bot: Bot, event: Event, state: T_State):
     # 处理插件统计
-    pass
+    await postprocessor_statistic(matcher=matcher, exception=exception, bot=bot, event=event, state=state)
 
 
 # 事件后处理

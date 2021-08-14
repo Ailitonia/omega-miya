@@ -1,15 +1,16 @@
 import re
-from nonebot import MatcherGroup, logger, export
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
 from omega_miya.utils.tencent_cloud_api import TencentNLP, TencentTMT
 
 
 # Custom plugin usage text
-__plugin_name__ = 'TencentCloudCore'
+__plugin_name__ = '腾讯云Core'
 __plugin_usage__ = r'''【TencentCloud API Support】
 腾讯云API插件
 测试中

@@ -1,6 +1,6 @@
 from nonebot import get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, PicEncoder
+from omega_miya.database import Result
 
 
 __GLOBAL_CONFIG = get_driver().config

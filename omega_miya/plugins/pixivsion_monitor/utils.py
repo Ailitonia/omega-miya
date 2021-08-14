@@ -1,4 +1,4 @@
-from omega_miya.utils.Omega_Base import DBPixivision, Result
+from omega_miya.database import DBPixivision, Result
 from omega_miya.utils.pixiv_utils import PixivisionArticle
 
 

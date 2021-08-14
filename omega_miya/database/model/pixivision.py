@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Pixivision
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Pixivision
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -11,7 +11,7 @@ class DBPixivision(object):
         self.aid = aid
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -33,7 +33,7 @@ class DBPixivision(object):
         return result.success()
 
     async def add(self, title: str, description: str, tags: str, illust_id: str, url: str) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -66,7 +66,7 @@ class DBPixivision(object):
 
     @classmethod
     async def list_article_id(cls) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:

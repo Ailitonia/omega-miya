@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import History
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import History
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from datetime import datetime
@@ -15,7 +15,7 @@ class DBHistory(object):
 
     async def add(self, sub_type: str = 'Undefined', event_id: int = 0, group_id: int = -1, user_id: int = -1,
                   user_name: str = None, raw_data: str = None, msg_data: str = None) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -42,7 +42,7 @@ class DBHistory(object):
             group_id: int,
             user_id: int
     ) -> Result.AnyResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -77,7 +77,7 @@ class DBHistory(object):
             group_id: int = -1,
             user_id: int = -1
     ) -> Result.ListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -111,7 +111,7 @@ class DBHistory(object):
             group_id: int = -1,
             user_id: int = -1
     ) -> Result.TextListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():

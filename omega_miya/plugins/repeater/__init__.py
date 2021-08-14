@@ -5,7 +5,7 @@ from nonebot.exception import FinishedException
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import OmegaRules
+from omega_miya.utils.omega_plugin_utils import OmegaRules
 from .data_source import REPLY_RULES
 
 
