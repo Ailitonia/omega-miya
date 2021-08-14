@@ -20,8 +20,8 @@ from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, Result
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.database import DBBot, DBBotGroup, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 
 
 # Custom plugin usage text

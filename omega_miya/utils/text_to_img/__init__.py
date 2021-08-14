@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime
 from nonebot import logger, get_driver
 from PIL import Image, ImageDraw, ImageFont
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_

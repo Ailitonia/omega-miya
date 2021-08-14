@@ -11,7 +11,7 @@ if sys.version_info[0] == 3 and sys.version_info[1] >= 8 and sys.platform.starts
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # File path
-bot_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'omega_miya'))
+bot_root_path = os.path.abspath(os.path.dirname(__file__))
 bot_tmp_path = os.path.abspath(os.path.join(bot_root_path, 'tmp'))
 if not os.path.exists(bot_tmp_path):
     os.makedirs(bot_tmp_path)

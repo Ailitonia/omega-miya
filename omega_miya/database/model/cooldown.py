@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import CoolDownEvent
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import CoolDownEvent
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -14,7 +14,7 @@ class DBCoolDownEvent(object):
             result = 0: Success
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -51,7 +51,7 @@ class DBCoolDownEvent(object):
             result = 0: Success with CoolDown Event not found
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -81,7 +81,7 @@ class DBCoolDownEvent(object):
             result = 0: Success
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -120,7 +120,7 @@ class DBCoolDownEvent(object):
             result = 0: Success with CoolDown Event not found
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -151,7 +151,7 @@ class DBCoolDownEvent(object):
             result = 0: Success
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -191,7 +191,7 @@ class DBCoolDownEvent(object):
             result = 0: Success with CoolDown Event not found
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -223,7 +223,7 @@ class DBCoolDownEvent(object):
             result = 0: Success
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -263,7 +263,7 @@ class DBCoolDownEvent(object):
             result = 0: Success with CoolDown Event not found
             result = -1: Error
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -289,7 +289,7 @@ class DBCoolDownEvent(object):
 
     @classmethod
     async def clear_time_out_event(cls) -> Result.DictResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 session_result = await session.execute(

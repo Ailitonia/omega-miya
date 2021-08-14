@@ -1,7 +1,7 @@
 import asyncio
 import random
 from nonebot import logger, require, get_driver, get_bots
-from omega_miya.utils.Omega_Base import DBSubscription
+from omega_miya.database import DBSubscription
 from omega_miya.utils.bilibili_utils import BiliLiveRoom
 from .data_source import BiliLiveChecker
 from .config import Config

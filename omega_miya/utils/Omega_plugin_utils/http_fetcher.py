@@ -8,7 +8,7 @@ from asyncio.exceptions import TimeoutError as TimeoutError_
 from dataclasses import dataclass
 from typing import Dict, List, Union, Iterable, Optional, Any
 from nonebot import logger
-from omega_miya.utils.Omega_Base import DBStatus
+from omega_miya.database import DBStatus
 
 
 global_config = nonebot.get_driver().config

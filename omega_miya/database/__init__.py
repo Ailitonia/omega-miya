@@ -6,7 +6,8 @@
 from .class_result import Result
 from .model import (
     DBUser, DBFriend, DBBot, DBBotGroup, DBGroup, DBSkill, DBSubscription, DBDynamic,
-    DBPixivUserArtwork, DBPixivillust, DBPixivision, DBEmail, DBEmailBox, DBHistory, DBAuth, DBCoolDownEvent, DBStatus)
+    DBPixivUserArtwork, DBPixivillust, DBPixivision, DBEmail, DBEmailBox, DBHistory,
+    DBAuth, DBCoolDownEvent, DBStatus, DBStatistic)
 
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     'DBAuth',
     'DBCoolDownEvent',
     'DBStatus',
+    'DBStatistic',
     'Result'
 ]

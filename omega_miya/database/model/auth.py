@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import AuthUser, AuthGroup, User, Friends, Group, BotGroup
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import AuthUser, AuthGroup, User, Friends, Group, BotGroup
 from .friend import DBFriend
 from .bot_group import DBBotGroup
 from .bot_self import DBBot
@@ -29,7 +29,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -76,7 +76,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -154,7 +154,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -197,7 +197,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -240,7 +240,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.IntTupleResult(error=True, info='Bot not exist', result=(-1, -1))
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -283,7 +283,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -333,7 +333,7 @@ class DBAuth(object):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:

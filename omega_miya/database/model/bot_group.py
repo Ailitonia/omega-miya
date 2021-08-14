@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import \
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import \
     User, Group, BotGroup, UserGroup, Vacation, Skill, UserSkill, \
     Subscription, GroupSub, GroupSetting, EmailBox, GroupEmailBox
 from .user import DBUser
@@ -25,7 +25,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -52,7 +52,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -80,7 +80,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -108,7 +108,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.ListResult(error=True, info='Bot not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -138,7 +138,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -170,7 +170,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.TextResult(error=True, info='Bot not exist', result='')
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -204,7 +204,7 @@ class DBBotGroup(DBGroup):
         elif len(group_memo) > 64:
             group_memo = group_memo[:63]
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -239,7 +239,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -268,7 +268,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -293,7 +293,7 @@ class DBBotGroup(DBGroup):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -333,7 +333,7 @@ class DBBotGroup(DBGroup):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -362,7 +362,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -387,7 +387,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -423,7 +423,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -462,7 +462,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntTupleResult(error=True, info='Bot not exist', result=(-1, -1, -1))
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -490,7 +490,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -514,7 +514,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -538,7 +538,7 @@ class DBBotGroup(DBGroup):
         if self_bot_id_result.error:
             return Result.IntResult(error=True, info='Bot not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -559,7 +559,7 @@ class DBBotGroup(DBGroup):
             return Result.ListResult(error=True, info='BotGroup not exist', result=[])
 
         res = []
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -602,7 +602,7 @@ class DBBotGroup(DBGroup):
             return Result.TupleListResult(error=True, info='Skill not exist', result=[])
 
         res = []
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -634,7 +634,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -670,7 +670,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -695,7 +695,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -721,7 +721,7 @@ class DBBotGroup(DBGroup):
         if sub_id_result.error:
             return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -759,7 +759,7 @@ class DBBotGroup(DBGroup):
         if sub_id_result.error:
             return Result.IntResult(error=True, info='Subscription not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -788,7 +788,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -809,7 +809,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -833,7 +833,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.ListResult(error=True, info='BotGroup not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -858,7 +858,7 @@ class DBBotGroup(DBGroup):
         if mailbox_id_result.error:
             return Result.IntResult(error=True, info='Mailbox not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -897,7 +897,7 @@ class DBBotGroup(DBGroup):
         if mailbox_id_result.error:
             return Result.IntResult(error=True, info='Mailbox not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -926,7 +926,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -950,7 +950,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.TupleListResult(error=True, info='BotGroup not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -974,7 +974,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.TextTupleResult(error=True, info='BotGroup not exist', result=('', '', ''))
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -1006,7 +1006,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -1045,7 +1045,7 @@ class DBBotGroup(DBGroup):
         if bot_group_id_result.error:
             return Result.IntResult(error=True, info='BotGroup not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():

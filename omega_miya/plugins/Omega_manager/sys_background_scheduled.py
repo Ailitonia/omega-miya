@@ -3,8 +3,8 @@
 """
 import nonebot
 from nonebot import logger, require
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.database import DBBot, DBBotGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
 
 global_config = nonebot.get_driver().config
 ENABLE_PROXY = global_config.enable_proxy

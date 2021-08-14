@@ -2,8 +2,8 @@ import os
 import datetime
 from typing import Tuple, List
 from nonebot import logger, get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_

@@ -14,8 +14,8 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from omega_miya.utils.Omega_Base import DBUser
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.database import DBUser
 from .config import Config
 
 

@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2021/07/17 22:36
-@FileName       : Omega_recaller.py
+@FileName       : omega_recaller.py
 @Project        : nonebot2_miya 
 @Description    : 自助撤回群内消息 需bot为管理员
 @GitHub         : https://github.com/Ailitonia
@@ -20,8 +20,8 @@ from nonebot.adapters.cqhttp.permission import GROUP, GROUP_OWNER, GROUP_ADMIN
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBAuth, DBHistory
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PermissionChecker
+from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PermissionChecker
 
 
 # Custom plugin usage text

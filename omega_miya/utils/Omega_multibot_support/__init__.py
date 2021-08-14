@@ -16,7 +16,7 @@ from nonebot.adapters.cqhttp.event import Event, MessageEvent, NoticeEvent, Requ
 from nonebot.message import run_preprocessor
 from nonebot.exception import IgnoredException
 from nonebot.adapters.cqhttp.bot import Bot
-from omega_miya.utils.Omega_Base import DBBot
+from omega_miya.database import DBBot
 from .multi_bot_utils import MultiBotUtils
 
 driver = get_driver()

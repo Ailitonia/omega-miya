@@ -1,5 +1,5 @@
 from nonebot import logger
-from omega_miya.utils.Omega_Base import DBPixivillust, Result
+from omega_miya.database import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 

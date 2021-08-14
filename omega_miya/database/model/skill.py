@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Skill, User, UserSkill
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Skill, User, UserSkill
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -11,7 +11,7 @@ class DBSkill(object):
         self.name = name
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -33,7 +33,7 @@ class DBSkill(object):
         return result.success()
 
     async def add(self, description: str) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -66,7 +66,7 @@ class DBSkill(object):
         # 清空持有这个技能人的技能
         await self.able_member_clear()
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -93,7 +93,7 @@ class DBSkill(object):
         if id_result.error:
             return Result.ListResult(error=True, info='Skill not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -113,7 +113,7 @@ class DBSkill(object):
         if id_result.error:
             return Result.IntResult(error=True, info='Skill not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -132,7 +132,7 @@ class DBSkill(object):
 
     @classmethod
     async def list_available_skill(cls) -> Result.TextListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:

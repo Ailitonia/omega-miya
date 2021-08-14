@@ -1,6 +1,6 @@
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Email, EmailBox, GroupEmailBox
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Email, EmailBox, GroupEmailBox
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -11,7 +11,7 @@ class DBEmailBox(object):
         self.address = address
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -35,7 +35,7 @@ class DBEmailBox(object):
 
     @classmethod
     async def list(cls) -> Result.ListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -49,7 +49,7 @@ class DBEmailBox(object):
         return result
 
     async def get_info(self) -> Result.DictResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -72,7 +72,7 @@ class DBEmailBox(object):
         return result
 
     async def add(self, server_host: str, password: str, port: int = 993) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -110,7 +110,7 @@ class DBEmailBox(object):
         # 清空持已绑定这个邮箱的群组
         await self.mailbox_group_clear()
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -138,7 +138,7 @@ class DBEmailBox(object):
         if id_result.error:
             return Result.IntResult(error=True, info='EmailBox not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -162,7 +162,7 @@ class DBEmail(object):
     async def add(
             self, date: str, header: str, sender: str, to: str, body: str = None, html: str = None
     ) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():

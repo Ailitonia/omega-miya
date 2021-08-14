@@ -4,9 +4,9 @@ from typing import List
 from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
 from nonebot.adapters.cqhttp.bot import Bot
-from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic
+from omega_miya.database import DBSubscription, DBDynamic
 from omega_miya.utils.bilibili_utils import BiliUser, BiliDynamic, BiliRequestUtils
-from omega_miya.utils.Omega_plugin_utils import MsgSender
+from omega_miya.utils.omega_plugin_utils import MsgSender
 from .config import Config
 
 

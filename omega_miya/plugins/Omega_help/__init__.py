@@ -3,16 +3,26 @@ from nonebot.plugin.export import export
 from nonebot.plugin import get_loaded_plugins
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.event import MessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
 
 
 # Custom plugin usage text
 __plugin_name__ = '帮助'
 __plugin_usage__ = r'''【帮助】
+一个简单的帮助插件
 
-一个简单的帮助插件'''
+**Permission**
+Friend Private
+Command & Lv.10
+or AuthNode
+
+**AuthNode**
+basic
+
+**Usage**
+/帮助 [插件名]'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [

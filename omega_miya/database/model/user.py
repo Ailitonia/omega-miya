@@ -1,9 +1,9 @@
 from typing import List, Optional
 from datetime import date, datetime
 from dataclasses import dataclass
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import User, UserFavorability, UserSignIn, Skill, UserSkill, Vacation
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import User, UserFavorability, UserSignIn, Skill, UserSkill, Vacation
 from .skill import DBSkill
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -21,7 +21,7 @@ class DBUser(object):
             return f'<DateListResult(error={self.error}, info={self.info}, result={self.result})>'
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -43,7 +43,7 @@ class DBUser(object):
         return result.success()
 
     async def nickname(self) -> Result.TextResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -61,7 +61,7 @@ class DBUser(object):
         return result
 
     async def add(self, nickname: str, aliasname: str = None) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -97,7 +97,7 @@ class DBUser(object):
         if id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -125,7 +125,7 @@ class DBUser(object):
         if id_result.error:
             return Result.ListResult(error=True, info='User not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -150,7 +150,7 @@ class DBUser(object):
         if skill_id_result.error:
             return Result.IntResult(error=True, info='Skill not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -189,7 +189,7 @@ class DBUser(object):
         if skill_id_result.error:
             return Result.IntResult(error=True, info='Skill not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -218,7 +218,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -239,7 +239,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -257,7 +257,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.ListResult(error=True, info='User not exist', result=[-1, None])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -276,7 +276,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -308,7 +308,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -341,7 +341,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -373,7 +373,7 @@ class DBUser(object):
         datetime_now = datetime.now()
         date_now = datetime_now.date()
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -411,7 +411,7 @@ class DBUser(object):
         if user_id_result.error:
             return self.DateListResult(error=True, info='User not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -468,7 +468,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.TupleResult(error=True, info='User not exist', result=())
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -505,7 +505,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -554,7 +554,7 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():

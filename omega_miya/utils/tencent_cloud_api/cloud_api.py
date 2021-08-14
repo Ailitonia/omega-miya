@@ -4,8 +4,8 @@ import hmac
 import datetime
 from typing import Dict, Any
 import nonebot
-from omega_miya.utils.Omega_Base import Result
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
 
 global_config = nonebot.get_driver().config
 SECRET_ID = global_config.secret_id

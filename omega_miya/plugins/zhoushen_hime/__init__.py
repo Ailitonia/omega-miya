@@ -10,8 +10,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupUploadNoticeEvent
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, OmegaRules
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBAuth, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
 from .utils import ZhouChecker, download_file
 
 

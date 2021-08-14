@@ -1,8 +1,8 @@
 import asyncio
 import nonebot
 import json
-from omega_miya.utils.Omega_Base import DBEmail, Result
-from omega_miya.utils.Omega_plugin_utils import AESEncryptStr
+from omega_miya.database import Result
+from omega_miya.utils.omega_plugin_utils import AESEncryptStr
 from .imap import EmailImap
 
 

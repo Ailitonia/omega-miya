@@ -12,7 +12,7 @@ from nonebot import logger
 from typing import Optional, List, Union
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription
+from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription
 
 
 class MsgSender(object):

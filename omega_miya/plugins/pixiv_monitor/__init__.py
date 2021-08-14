@@ -15,9 +15,9 @@ from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
+from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from omega_miya.utils.pixiv_utils import PixivUser
 from .monitor import scheduler, init_new_add_sub
 

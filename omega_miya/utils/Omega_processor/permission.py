@@ -4,8 +4,8 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from omega_miya.utils.Omega_plugin_utils import PermissionChecker
-from omega_miya.utils.Omega_Base import DBBot
+from omega_miya.utils.omega_plugin_utils import PermissionChecker
+from omega_miya.database import DBBot
 
 
 global_config = get_driver().config

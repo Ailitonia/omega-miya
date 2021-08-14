@@ -55,7 +55,7 @@ async def database_init():
         sys.exit('数据库初始化失败')
 
 
-class NBdb(object):
+class BaseDB(object):
     def __init__(self):
         # expire_on_commit=False will prevent attributes from being expired
         # after commit.
@@ -90,7 +90,7 @@ class DBTable(object):
         if not self.__table:
             result = Result.ListResult(error=True, info='Table not exist', result=res)
         else:
-            async_session = NBdb().get_async_session()
+            async_session = BaseDB().get_async_session()
             async with async_session() as session:
                 async with session.begin():
                     try:
@@ -108,7 +108,7 @@ class DBTable(object):
         if not self.__table:
             result = Result.ListResult(error=True, info='Table not exist', result=res)
         else:
-            async_session = NBdb().get_async_session()
+            async_session = BaseDB().get_async_session()
             async with async_session() as session:
                 async with session.begin():
                     try:
@@ -124,5 +124,5 @@ class DBTable(object):
 
 
 __all__ = [
-    'NBdb'
+    'BaseDB'
 ]

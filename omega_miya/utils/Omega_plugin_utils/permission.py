@@ -1,4 +1,4 @@
-from omega_miya.utils.Omega_Base import DBBot, DBFriend, DBBotGroup, DBAuth
+from omega_miya.database import DBBot, DBFriend, DBBotGroup, DBAuth
 
 
 class PermissionChecker(object):

@@ -13,7 +13,7 @@ import random
 from typing import Optional
 from io import BytesIO
 from PIL import Image, ImageFilter, ImageEnhance
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.database import Result
 
 
 class PicEffector(object):

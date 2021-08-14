@@ -5,12 +5,12 @@ from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp import MessageSegment, Message
+from nonebot.adapters.cqhttp import MessageSegment
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_Base import DBEmailBox, DBBot, DBBotGroup
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.database import DBEmailBox, DBBot, DBBotGroup
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from omega_miya.utils.text_to_img import text_to_img
 from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decrypt_password
 

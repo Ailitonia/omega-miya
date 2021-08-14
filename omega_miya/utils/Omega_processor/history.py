@@ -13,7 +13,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import (Event, MessageEvent, PrivateMessageEvent, GroupMessageEvent,
                                            NoticeEvent, RequestEvent, MetaEvent)
-from omega_miya.utils.Omega_Base import DBHistory
+from omega_miya.database import DBHistory
 
 
 async def postprocessor_history(bot: Bot, event: Event, state: T_State):

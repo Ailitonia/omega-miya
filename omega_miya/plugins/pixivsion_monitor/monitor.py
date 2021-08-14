@@ -1,8 +1,8 @@
 import asyncio
 from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBPixivision
-from omega_miya.utils.Omega_plugin_utils import MsgSender
+from omega_miya.database import DBSubscription, DBPixivision
+from omega_miya.utils.omega_plugin_utils import MsgSender
 from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
 from .utils import pixivsion_article_parse
 from .block_tag import TAG_BLOCK_LIST

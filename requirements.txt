@@ -1,10 +1,10 @@
-nonebot2==2.0.0a14
-nonebot-adapter-cqhttp==2.0.0a14
+nonebot2==2.0.0a15
+nonebot-adapter-cqhttp==2.0.0a15
 SQLAlchemy~=1.4.22
 mysqlclient~=2.0.3
 aiomysql~=0.0.21
 aiocqhttp~=1.4.1
-aiofiles==0.6.0
+aiofiles==0.7.0
 bs4~=0.0.1
 lxml~=4.6.3
 numpy~=1.21.1

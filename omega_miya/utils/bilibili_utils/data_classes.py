@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, List
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.database import Result
 
 
 class BiliInfo(object):

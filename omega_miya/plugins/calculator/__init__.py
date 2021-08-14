@@ -14,7 +14,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from omega_miya.utils.dice_utils import BaseCalculator
 from omega_miya.utils.dice_utils.exception import CalculateException
 

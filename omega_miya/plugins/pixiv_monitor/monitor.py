@@ -12,9 +12,9 @@ import asyncio
 import random
 from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_Base import DBSubscription, DBPixivUserArtwork
+from omega_miya.database import DBSubscription, DBPixivUserArtwork
 from omega_miya.utils.pixiv_utils import PixivUser, PixivIllust
-from omega_miya.utils.Omega_plugin_utils import MsgSender, PicEffector, PicEncoder, ProcessUtils
+from omega_miya.utils.omega_plugin_utils import MsgSender, PicEffector, PicEncoder, ProcessUtils
 from .config import Config
 
 

@@ -1,5 +1,5 @@
 import datetime
-from omega_miya.utils.Omega_Base import DBCoolDownEvent, Result
+from omega_miya.database import DBCoolDownEvent, Result
 from dataclasses import dataclass, field
 
 

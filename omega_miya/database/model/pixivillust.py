@@ -1,7 +1,7 @@
 from typing import List
-from omega_miya.utils.Omega_Base.database import NBdb
-from omega_miya.utils.Omega_Base.class_result import Result
-from omega_miya.utils.Omega_Base.tables import Pixiv, PixivPage
+from omega_miya.database.database import BaseDB
+from omega_miya.database.class_result import Result
+from omega_miya.database.tables import Pixiv, PixivPage
 from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -14,7 +14,7 @@ class DBPixivillust(object):
         self.pid = pid
 
     async def id(self) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -43,7 +43,7 @@ class DBPixivillust(object):
     ) -> Result.IntResult:
         tag_text = ','.join(tags)
         # 将作品信息写入pixiv_illust表
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -89,7 +89,7 @@ class DBPixivillust(object):
         if pixiv_id_result.error:
             return Result.IntResult(error=True, info='PixivIllust not exist', result=-1)
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -131,7 +131,7 @@ class DBPixivillust(object):
         if pixiv_id_result.error:
             return Result.TextTupleResult(error=True, info='PixivIllust not exist', result=('', '', '', ''))
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -159,7 +159,7 @@ class DBPixivillust(object):
         if pixiv_id_result.error:
             return Result.ListResult(error=True, info='PixivIllust not exist', result=[])
 
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -176,7 +176,7 @@ class DBPixivillust(object):
 
     @classmethod
     async def rand_illust(cls, num: int, nsfw_tag: int) -> Result.ListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -193,7 +193,7 @@ class DBPixivillust(object):
 
     @classmethod
     async def status(cls) -> Result.DictResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -214,7 +214,7 @@ class DBPixivillust(object):
 
     @classmethod
     async def count_keywords(cls, keywords: List[str]) -> Result.DictResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -248,7 +248,7 @@ class DBPixivillust(object):
     @classmethod
     async def list_illust(
             cls, keywords: List[str], num: int, nsfw_tag: int, acc_mode: bool = False) -> Result.ListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -285,7 +285,7 @@ class DBPixivillust(object):
 
     @classmethod
     async def list_all_illust(cls) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -298,7 +298,7 @@ class DBPixivillust(object):
 
     @classmethod
     async def list_all_illust_by_nsfw_tag(cls, nsfw_tag: int) -> Result.IntListResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
@@ -311,7 +311,7 @@ class DBPixivillust(object):
 
     @classmethod
     async def reset_all_nsfw_tag(cls) -> Result.IntResult:
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():
@@ -337,7 +337,7 @@ class DBPixivillust(object):
         :param tags: Dict[pid: int, nsfw_tag: int]
         :return:
         """
-        async_session = NBdb().get_async_session()
+        async_session = BaseDB().get_async_session()
         async with async_session() as session:
             try:
                 async with session.begin():

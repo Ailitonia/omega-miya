@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder
 from .utils import sticker_maker_main
 
 

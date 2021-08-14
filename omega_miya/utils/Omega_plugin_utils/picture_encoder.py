@@ -3,8 +3,8 @@ import base64
 import aiofiles
 import pathlib
 from nonebot import get_driver, logger
-from omega_miya.utils.Omega_Base import Result
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
 
 
 driver = get_driver()

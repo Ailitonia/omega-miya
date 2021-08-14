@@ -2,7 +2,7 @@ from nonebot.rule import Rule
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import Event, MessageEvent, NoticeEvent, RequestEvent
-from omega_miya.utils.Omega_Base import DBBot, DBFriend, DBBotGroup, DBAuth
+from omega_miya.database import DBBot, DBFriend, DBBotGroup, DBAuth
 
 
 class OmegaRules(object):
@@ -119,13 +119,14 @@ class OmegaRules(object):
 
     # 由于目前nb2暂不支持or连接rule, 因此将or逻辑放在rule内处理
     @classmethod
-    def has_level_or_node(cls, level: int, auth_node: str) -> Rule:
+    def has_level_or_node(cls, level: int, *auth_nodes: str) -> Rule:
         """
         :param level: 需要群组权限等级
-        :param auth_node: 需要的权限节点
+        :param auth_nodes: 需要的权限节点
         :return: 群组权限等级大于要求等级或者具备权限节点, 权限节点为deny则拒绝
         """
         async def _has_level_or_node(bot: Bot, event: Event, state: T_State) -> bool:
+            auth_node = '.'.join(auth_nodes)
             if isinstance(event, MessageEvent):
                 detail_type = event.message_type
             elif isinstance(event, NoticeEvent):
