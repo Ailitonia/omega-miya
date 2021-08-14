@@ -70,7 +70,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
 
 self_sent_msg_convertor = on(
     type='message_sent',
-    priority=10,
+    priority=100,
     block=False
 )
 
