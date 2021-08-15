@@ -30,10 +30,10 @@ class ProcessUtils(object):
         all_count = len(tasks)
         if all_count <= 0:
             raise ValueError('Param "tasks" must not be null')
-        elif not isinstance(fragment_size, int):
-            raise ValueError('Param "fragment_size" must be int')
         elif not fragment_size:
             fragment_size = all_count
+        elif not isinstance(fragment_size, int):
+            raise ValueError('Param "fragment_size" must be int')
         elif fragment_size > all_count:
             fragment_size = all_count
         elif fragment_size <= 0:
