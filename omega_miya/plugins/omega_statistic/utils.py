@@ -24,6 +24,7 @@ async def draw_statistics(data: List[Tuple[str, int]], *, title: str = '插件�
     def __handle() -> bytes:
         name = [x[0] for x in data]
         count = [x[1] for x in data]
+        plt.switch_backend('agg')  # Fix RuntimeError caused by GUI needed
         if sys.platform.startswith('win'):
             plt.rcParams['font.sans-serif'] = ['SimHei']
             plt.rcParams['axes.unicode_minus'] = False
