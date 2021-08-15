@@ -1,5 +1,6 @@
 import re
 import asyncio
+import random
 from typing import Optional
 from nonebot import on_command, logger, get_driver
 from nonebot.plugin.export import export
@@ -10,7 +11,7 @@ from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot
 from omega_miya.utils.omega_plugin_utils import \
-    init_export, init_permission_state, PluginCoolDown, PermissionChecker, MsgSender
+    init_export, init_permission_state, PluginCoolDown, PermissionChecker, PicEncoder, MsgSender, ProcessUtils
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .config import Config
 
@@ -45,6 +46,7 @@ download
 /pixiv 日榜
 /pixiv 周榜
 /pixiv 月榜
+/pixiv [搜索关键词]
 **Need AuthNode**
 /pixivdl <PID> [页码]'''
 
@@ -84,26 +86,24 @@ pixiv = on_command(
 # 修改默认参数处理
 @pixiv.args_parser
 async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().lower()
     if not args:
         await pixiv.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
+    state[state["_current_key"]] = args
     if state[state["_current_key"]] == '取消':
         await pixiv.finish('操作已取消')
 
 
 @pixiv.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().lower()
     if not args:
         pass
-    elif args and len(args) == 1:
-        state['mode'] = args[0]
     else:
-        await pixiv.finish('参数错误QAQ')
+        state['mode'] = args
 
 
-@pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID~')
+@pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID或关键词搜索~')
 async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
     mode = state['mode']
     if mode == '日榜':
@@ -218,13 +218,91 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             msg = illust_info_result.result
             img_seg = MessageSegment.image(illust_result.result)
             # 发送图片和图片信息
+            logger.info(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
             await pixiv.send(Message(img_seg).append(msg))
         else:
             logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, "
                            f"{illust_info_result.info} // {illust_result.info}")
             await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
     else:
-        await pixiv.reject('你输入的命令好像不对呢……请输入"月榜"、"周榜"、"日榜"或者PixivID, 取消命令请发送【取消】:')
+        text_ = mode
+        popular_order_ = True
+        near_year_ = True
+        nsfw_ = False
+        page_ = 1
+        random_ = True
+        if filter_ := re.search(r'^(#(.+?)#)', mode):
+            text_ = re.sub(r'^(#(.+?)#)', '', mode).strip()
+            filter_text = filter_.groups()[1]
+            # 处理r18权限
+            if isinstance(event, PrivateMessageEvent):
+                user_id = event.user_id
+                auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+                    check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
+            elif isinstance(event, GroupMessageEvent):
+                group_id = event.group_id
+                auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+                    check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
+            else:
+                auth_checker = 0
+
+            if 'nsfw' in filter_text:
+                if auth_checker != 1:
+                    logger.warning(f"User: {event.user_id} 搜索Pixiv nsfw资源 {mode} 被拒绝, 没有 allow_r18 权限")
+                    await pixiv.finish('NSFW禁止! 不准开车车!')
+                    return
+                else:
+                    nsfw_ = True
+
+            if '时间不限' in filter_text:
+                near_year_ = False
+
+            if '最新' in filter_text:
+                popular_order_ = False
+
+            if '顺序' in filter_text:
+                random_ = False
+
+            if page_text := re.search(r'第(\d+?)页', filter_text):
+                page_ = int(page_text.groups()[0])
+
+        logger.debug(f'搜索Pixiv作品: {text_}')
+        search_result = await PixivIllust.search_artwork(
+            word=text_, popular_order=popular_order_, near_year=near_year_, nsfw=nsfw_, page=page_)
+
+        if search_result.error or not search_result.result:
+            logger.warning(f'搜索Pixiv时没有找到相关作品, 或发生了意外的错误, result: {repr(search_result)}')
+            await pixiv.finish('没有找到相关作品QAQ, 也可能是发生了意外的错误, 请稍后再试~')
+        await pixiv.send(f'搜索Pixiv作品: {text_}\n图片下载中, 请稍等~')
+
+        # 选5张用于展示
+        if len(search_result.result) > 5:
+            if random_:
+                choice_illust = random.sample(search_result.result, k=5)
+            else:
+                choice_illust = search_result.result[:5]
+        else:
+            choice_illust = search_result.result
+        # 加载图片
+        tasks = [PicEncoder(pic_url=x.get('thumb_url'), headers=PixivIllust.HEADERS
+                            ).get_file(folder_flag='pixiv_search_thumb') for x in choice_illust]
+
+        thumb_img_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='pixiv_search_thumb')
+
+        msg = Message(f'Pixiv - {text_}:\n{"="*12}\n')
+        # 构造消息
+        for index, img_result in enumerate(thumb_img_result):
+            intro = f"Pid:{choice_illust[index].get('pid')}\n" \
+                    f"Title:{choice_illust[index].get('title')}\n" \
+                    f"Author:{choice_illust[index].get('author')}\n"
+            if img_result.error:
+                msg.append(intro).append(MessageSegment.text('-'*12))
+            else:
+                msg.append(intro).append(MessageSegment.image(img_result.result)).append(f"{'-'*12}\n")
+        msg.append('查看作品详情请使用 /pixiv [pid] 命令')
+
+        logger.info(f"User: {event.user_id} 搜索了Pixiv作品: {mode}")
+        await pixiv.finish(msg)
 
 
 # 注册事件响应器
