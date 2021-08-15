@@ -76,7 +76,7 @@ class PicEncoder(object):
         return encode_result
 
     async def get_file(self, *, folder_flag: str = 'PicEncoder') -> Result.TextResult:
-        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_base64', headers=self.__headers)
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_file', headers=self.__headers)
         bytes_result = await fetcher.get_bytes(url=self.__pic_url)
         if bytes_result.error:
             return Result.TextResult(error=True, info='Image download failed', result='')
