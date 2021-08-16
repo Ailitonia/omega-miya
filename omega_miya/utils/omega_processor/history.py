@@ -64,8 +64,10 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
             user_id = getattr(event, 'user_id', -1)
             user_name = ''
             raw_data = repr(event)
-            msg_data = getattr(event, 'user_id', None)
+            msg_data = getattr(event, 'message', None)
 
+        raw_data = str(raw_data) if not isinstance(raw_data, str) else raw_data
+        msg_data = str(msg_data) if not isinstance(msg_data, str) else msg_data
         if len(raw_data) > 4096:
             logger.warning(f'History raw_data is longer than field limited and it will be reduce, <{raw_data}>')
             raw_data = raw_data[:4096]
