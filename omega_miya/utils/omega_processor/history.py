@@ -66,6 +66,13 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
             raw_data = repr(event)
             msg_data = getattr(event, 'user_id', None)
 
+        if len(raw_data) > 4096:
+            logger.warning(f'History raw_data is longer than field limited and it will be reduce, <{raw_data}>')
+            raw_data = raw_data[:4096]
+        if len(msg_data) > 4096:
+            logger.warning(f'History raw_data is longer than field limited and it will be reduce, <{msg_data}>')
+            msg_data = msg_data[:4096]
+
         new_history = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
         add_result = await new_history.add(
             sub_type=sub_type, event_id=event_id, group_id=group_id, user_id=user_id, user_name=user_name,
