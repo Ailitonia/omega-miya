@@ -16,7 +16,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent
-from omega_miya.utils.Omega_Base import DBPixivillust, Result
+from omega_miya.database import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
 
 
@@ -32,6 +32,8 @@ async def add_illust(pid: int, nsfw_tag: int) -> Result.IntResult:
         uid = illust_data.get('uid')
         uname = illust_data.get('uname')
         url = illust_data.get('url')
+        width = illust_data.get('width')
+        height = illust_data.get('height')
         tags = illust_data.get('tags')
         is_r18 = illust_data.get('is_r18')
         illust_pages = illust_data.get('illust_pages')
@@ -40,7 +42,8 @@ async def add_illust(pid: int, nsfw_tag: int) -> Result.IntResult:
             nsfw_tag = 2
 
         illust = DBPixivillust(pid=pid)
-        illust_add_result = await illust.add(uid=uid, title=title, uname=uname, nsfw_tag=nsfw_tag, tags=tags, url=url)
+        illust_add_result = await illust.add(uid=uid, title=title, uname=uname, nsfw_tag=nsfw_tag,
+                                             width=width, height=height, tags=tags, url=url)
         if illust_add_result.error:
             logger.error(f'Add illust failed: {illust_add_result.info}')
             return Result.IntResult(error=True, info=illust_add_result.info, result=pid)
