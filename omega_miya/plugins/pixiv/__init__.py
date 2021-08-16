@@ -230,7 +230,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         near_year_ = True
         nsfw_ = False
         page_ = 1
-        random_ = True
+        random_ = False
         if filter_ := re.search(r'^(#(.+?)#)', mode):
             text_ = re.sub(r'^(#(.+?)#)', '', mode).strip()
             filter_text = filter_.groups()[1]
@@ -260,8 +260,8 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             if '最新' in filter_text:
                 popular_order_ = False
 
-            if '顺序' in filter_text:
-                random_ = False
+            if '随机' in filter_text:
+                random_ = True
 
             if page_text := re.search(r'第(\d+?)页', filter_text):
                 page_ = int(page_text.groups()[0])

@@ -9,6 +9,7 @@ import imageio
 from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Dict, Optional
+from urllib.parse import quote
 from nonebot import logger, get_driver
 from omega_miya.utils.omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
 from omega_miya.database import Result
@@ -145,6 +146,7 @@ class Pixiv(object):
             return Result.DictResult(
                 error=True, info='Cookies not configured, some order modes not supported in searching', result={})
         else:
+            word = quote(word, encoding='utf-8')
             params = {
                 'word': word,
                 'order': order,
