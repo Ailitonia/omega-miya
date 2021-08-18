@@ -25,7 +25,7 @@ from omega_miya.utils.omega_plugin_utils import init_export, init_permission_sta
 
 
 # Custom plugin usage text
-__plugin_name__ = '定时消息'
+__plugin_custom_name__ = '定时消息'
 __plugin_usage__ = r'''【定时消息】
 设置群组定时通知消息
 仅限群聊使用
@@ -49,7 +49,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 driver = nonebot.get_driver()
 scheduler: AsyncIOScheduler = require("nonebot_plugin_apscheduler").scheduler

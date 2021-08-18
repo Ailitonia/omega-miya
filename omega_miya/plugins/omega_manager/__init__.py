@@ -20,7 +20,7 @@ from omega_miya.utils.omega_plugin_utils import init_export
 from .background_tasks import scheduler
 
 # Custom plugin usage text
-__plugin_name__ = 'Omega'
+__plugin_custom_name__ = 'Omega'
 __plugin_usage__ = r'''【Omega 管理插件】
 Omega机器人管理
 
@@ -40,7 +40,7 @@ Omega机器人管理
 /Omega Disable'''
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 注册事件响应器
 omega = on_command('Omega', rule=None, aliases={'omega'},

@@ -26,7 +26,7 @@ from omega_miya.utils.omega_plugin_utils import init_export, init_permission_sta
 
 # Custom plugin usage text
 __plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_name__ = '自助撤回'
+__plugin_custom_name__ = '自助撤回'
 __plugin_usage__ = r'''【自助撤回】
 让非管理员自助撤回群消息
 Bot得是管理员才行
@@ -52,7 +52,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 存放bot在群组的身份
 BOT_ROLE: Dict[int, str] = {}

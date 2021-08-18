@@ -24,7 +24,7 @@ from .utils import draw_statistics
 
 
 # Custom plugin usage text
-__plugin_name__ = '统计信息'
+__plugin_custom_name__ = '统计信息'
 __plugin_usage__ = r'''【Omega 插件使用统计】
 查询插件使用统计信息
 
@@ -46,7 +46,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

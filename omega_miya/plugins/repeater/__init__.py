@@ -1,12 +1,25 @@
 from typing import Dict
 from nonebot import on_message
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.exception import FinishedException
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, OmegaRules
 from .data_source import REPLY_RULES
+
+
+# Custom plugin usage text
+__plugin_custom_name__ = '复读姬'
+__plugin_usage__ = r'''【复读姬】
+自动回复与复读
+
+**Permission**
+Command Group'''
+
+# Init plugin export
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 LAST_MSG: Dict[int, str] = {}

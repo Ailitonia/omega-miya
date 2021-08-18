@@ -22,7 +22,7 @@ from .data_source import ShindanMaker
 
 
 # Custom plugin usage text
-__plugin_name__ = 'ShindanMaker'
+__plugin_custom_name__ = 'ShindanMaker'
 __plugin_usage__ = r'''【ShindanMaker 占卜】
 使用ShindanMaker进行各种奇怪的占卜
 只能在群里使用
@@ -51,7 +51,7 @@ __plugin_auth_node__ = [
 # ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 缓存占卜名称与对应id

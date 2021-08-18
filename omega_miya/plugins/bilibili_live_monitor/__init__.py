@@ -14,7 +14,7 @@ from .monitor import scheduler
 
 
 # Custom plugin usage text
-__plugin_name__ = 'B站直播间订阅'
+__plugin_custom_name__ = 'B站直播间订阅'
 __plugin_usage__ = r'''【B站直播间订阅】
 监控直播间状态
 开播、下播、直播间换标题提醒
@@ -41,7 +41,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

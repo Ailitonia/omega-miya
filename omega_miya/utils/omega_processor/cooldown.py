@@ -38,7 +38,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
     # 处理插件冷却
     # 冷却处理优先级: 全局>插件>群组>用户
     # 冷却限制优先级: 用户>群组>插件>全局
-    plugin_name = matcher.module_name
+    plugin_name = matcher.plugin_name
     plugin = get_plugin(plugin_name)
     plugin_cool_down_list = plugin.export.get('cool_down')
 

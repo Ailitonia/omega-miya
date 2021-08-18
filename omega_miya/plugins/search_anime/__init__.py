@@ -10,7 +10,7 @@ from .utils import get_identify_result
 
 
 # Custom plugin usage text
-__plugin_name__ = '识番'
+__plugin_custom_name__ = '识番'
 __plugin_usage__ = r'''【识番助手】
 使用 trace.moe API 识别番剧
 群组/私聊可用
@@ -32,7 +32,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

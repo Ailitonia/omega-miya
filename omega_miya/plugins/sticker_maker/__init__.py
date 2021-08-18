@@ -12,7 +12,7 @@ from .utils import sticker_maker_main
 
 
 # Custom plugin usage text
-__plugin_name__ = '表情包'
+__plugin_custom_name__ = '表情包'
 __plugin_usage__ = r'''【表情包助手】
 使用模板快速制作表情包
 群组/私聊可用
@@ -34,7 +34,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 sticker = on_command(

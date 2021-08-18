@@ -10,7 +10,7 @@ from omega_miya.database import DBSkill, DBUser, DBBot, DBBotGroup
 from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PermissionChecker
 
 # Custom plugin usage text
-__plugin_name__ = '请假'
+__plugin_custom_name__ = '请假'
 __plugin_usage__ = r'''【Omega 请假插件】
 用来设置/查询自己以及群员的状态和假期
 仅限群聊使用
@@ -37,7 +37,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 vacation = MatcherGroup(

@@ -11,7 +11,7 @@ from omega_miya.utils.omega_plugin_utils import init_export
 
 
 # Custom plugin usage text
-__plugin_name__ = 'OmegaAuth'
+__plugin_custom_name__ = 'OmegaAuth'
 __plugin_usage__ = r'''【OmegaAuth 授权管理插件】
 插件特殊权限授权管理
 仅限管理员使用
@@ -21,7 +21,7 @@ __plugin_usage__ = r'''【OmegaAuth 授权管理插件】
 /OmegaAuth'''
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 注册事件响应器
 omegaauth = on_command('OmegaAuth', rule=to_me(), aliases={'omegaauth', 'oauth'},

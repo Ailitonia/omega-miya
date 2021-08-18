@@ -39,7 +39,7 @@ class FailedException(SignInException):
 
 
 # Custom plugin usage text
-__plugin_name__ = '签到'
+__plugin_custom_name__ = '签到'
 __plugin_usage__ = r'''【Omega 签到插件】
 轻量化签到插件
 好感度系统基础支持
@@ -61,7 +61,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 SignIn = CommandGroup(

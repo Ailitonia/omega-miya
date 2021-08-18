@@ -17,7 +17,7 @@ from .utils import ZhouChecker, download_file
 
 # Custom plugin usage text
 __plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_name__ = '自动审轴姬'
+__plugin_custom_name__ = '自动审轴姬'
 __plugin_usage__ = r'''【自动审轴姬】
 检测群内上传文件并自动锤轴
 仅限群聊使用
@@ -39,7 +39,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 zhoushen_hime_admin = on_command(

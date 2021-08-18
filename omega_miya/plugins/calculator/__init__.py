@@ -20,7 +20,7 @@ from omega_miya.utils.dice_utils.exception import CalculateException
 
 
 # Custom plugin usage text
-__plugin_name__ = '计算器'
+__plugin_custom_name__ = '计算器'
 __plugin_usage__ = r'''【简易计算器】
 只能计算加减乘除和乘方!
 
@@ -40,7 +40,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

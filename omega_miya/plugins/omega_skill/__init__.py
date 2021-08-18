@@ -9,7 +9,7 @@ from omega_miya.database import DBSkill, DBUser, Result
 from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 
 # Custom plugin usage text
-__plugin_name__ = '技能'
+__plugin_custom_name__ = '技能'
 __plugin_usage__ = r'''【Omega 技能插件】
 用来设置/查询自己的技能
 仅限群聊使用
@@ -38,7 +38,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 skill_admin = on_command('Skill', aliases={'skill'}, permission=SUPERUSER, priority=10, block=True)

@@ -33,7 +33,7 @@ ENABLE_SETU_AUTO_RECALL = plugin_config.enable_setu_auto_recall
 
 
 # Custom plugin usage text
-__plugin_name__ = '来点萌图'
+__plugin_custom_name__ = '来点萌图'
 __plugin_usage__ = r'''【来点萌图】
 测试群友LSP成分
 群组/私聊可用
@@ -73,12 +73,12 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 2),
-    PluginCoolDown(PluginCoolDown.group_type, 1)
+    PluginCoolDown(PluginCoolDown.user_type, 5),
+    PluginCoolDown(PluginCoolDown.group_type, 2)
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
 
 
 # 注册事件响应器

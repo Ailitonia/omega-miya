@@ -12,7 +12,7 @@ from omega_miya.utils.omega_plugin_utils import init_export, init_permission_sta
 
 # Custom plugin usage text
 __plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_name__ = 'AntiFlash'
+__plugin_custom_name__ = 'AntiFlash'
 __plugin_usage__ = r'''【AntiFlash 反闪照】
 检测闪照并提取原图
 
@@ -33,7 +33,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

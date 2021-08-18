@@ -27,7 +27,7 @@ FRIEND_ADD_VERIFY_CODE: Dict[int, str] = {}
 
 
 # Custom plugin usage text
-__plugin_name__ = '好友和群组请求管理'
+__plugin_custom_name__ = '好友和群组请求管理'
 __plugin_usage__ = r'''【Omega 好友和群组请求管理】
 处理加好友请求和加群、退群请求
 
@@ -42,7 +42,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

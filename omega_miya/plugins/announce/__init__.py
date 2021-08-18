@@ -11,7 +11,7 @@ from omega_miya.utils.omega_plugin_utils import init_export
 
 
 # Custom plugin usage text
-__plugin_name__ = '公告'
+__plugin_custom_name__ = '公告'
 __plugin_usage__ = r'''【公告插件】
 让管理员快速批量发送通知公告
 
@@ -22,7 +22,7 @@ SuperUser Only
 /公告'''
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器

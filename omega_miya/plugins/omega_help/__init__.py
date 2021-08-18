@@ -9,7 +9,7 @@ from omega_miya.utils.omega_plugin_utils import init_export, init_permission_sta
 
 
 # Custom plugin usage text
-__plugin_name__ = '帮助'
+__plugin_custom_name__ = '帮助'
 __plugin_usage__ = r'''【帮助】
 一个简单的帮助插件
 
@@ -37,7 +37,7 @@ __plugin_cool_down__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
 
 # 注册事件响应器
 bot_help = on_command(

@@ -11,7 +11,7 @@ from .monitor import scheduler, init_pixivsion_article
 
 
 # Custom plugin usage text
-__plugin_name__ = 'Pixivision'
+__plugin_custom_name__ = 'Pixivision'
 __plugin_usage__ = r'''【Pixivision订阅】
 推送最新的Pixivision特辑
 仅限群聊使用
@@ -34,7 +34,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 pixivision = on_command(

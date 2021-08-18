@@ -22,7 +22,7 @@ ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 
 
 # Custom plugin usage text
-__plugin_name__ = 'Pixiv'
+__plugin_custom_name__ = 'Pixiv'
 __plugin_usage__ = r'''【Pixiv助手】
 查看Pixiv插画, 以及日榜、周榜、月榜
 仅限群聊使用
@@ -65,7 +65,7 @@ __plugin_cool_down__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
 
 
 # 注册事件响应器
@@ -275,12 +275,12 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             await pixiv.finish('没有找到相关作品QAQ, 也可能是发生了意外的错误, 请稍后再试~')
         await pixiv.send(f'搜索Pixiv作品: {text_}\n图片下载中, 请稍等~')
 
-        # 选5张用于展示
-        if len(search_result.result) > 5:
+        # 选8张用于展示
+        if len(search_result.result) > 8:
             if random_:
-                choice_illust = random.sample(search_result.result, k=5)
+                choice_illust = random.sample(search_result.result, k=8)
             else:
-                choice_illust = search_result.result[:5]
+                choice_illust = search_result.result[:8]
         else:
             choice_illust = search_result.result
         # 加载图片

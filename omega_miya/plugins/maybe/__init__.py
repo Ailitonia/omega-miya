@@ -11,7 +11,7 @@ from .oldalmanac import old_almanac
 
 
 # Custom plugin usage text
-__plugin_name__ = '求签'
+__plugin_custom_name__ = '求签'
 __plugin_usage__ = r'''【求签】
 求签, 求运势, 包括且不限于抽卡、吃饭、睡懒觉、DD
 每个人每天求同一个东西的结果是一样的啦!
@@ -35,7 +35,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 Maybe = CommandGroup(

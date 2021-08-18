@@ -20,7 +20,7 @@ ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
 
 # Custom plugin usage text
-__plugin_name__ = '识图'
+__plugin_custom_name__ = '识图'
 __plugin_usage__ = r'''【识图助手】
 使用SauceNAO/ascii2d识别各类图片、插画
 群组/私聊可用
@@ -47,7 +47,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 # 注册事件响应器
 search_image = on_command(

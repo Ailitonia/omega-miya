@@ -15,7 +15,7 @@ from omega_miya.utils.nhentai_utils import NhentaiGallery
 
 
 # Custom plugin usage text
-__plugin_name__ = 'nh'
+__plugin_custom_name__ = 'nh'
 __plugin_usage__ = r'''【nh】
 神秘的插件
 仅限群聊使用
@@ -37,7 +37,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器

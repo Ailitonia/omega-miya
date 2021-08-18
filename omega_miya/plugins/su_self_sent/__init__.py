@@ -29,7 +29,7 @@ SU_TAG: bool = False
 
 
 # Custom plugin usage text
-__plugin_name__ = '自调用消息'
+__plugin_custom_name__ = '自调用消息'
 __plugin_usage__ = r'''【Omega 自调用消息】
 让人工登陆机器人账号时可以通过特殊命令来自己调用自己
 
@@ -42,7 +42,7 @@ __plugin_usage__ = r'''【Omega 自调用消息】
 !SU [command]'''
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器

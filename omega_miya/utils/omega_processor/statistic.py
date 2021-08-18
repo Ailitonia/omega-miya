@@ -10,7 +10,7 @@
 
 from datetime import datetime
 from typing import Optional
-from nonebot import logger
+from nonebot import logger, get_plugin
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.event import Event
@@ -27,8 +27,12 @@ async def postprocessor_statistic(
         logger.debug('Postprocessor Statistic | Non-command matcher, ignore')
         return
 
+    plugin_name = get_plugin(matcher.plugin_name).export.get('custom_name', None)
+    if not plugin_name:
+        logger.debug('Postprocessor Statistic | Not custom plugin name, ignore')
+        return
+
     module_name = matcher.module_name
-    plugin_name = matcher.plugin_name
     self_bot_id = int(bot.self_id)
     group_id = getattr(event, 'group_id', -1)
     user_id = getattr(event, 'user_id', -1)

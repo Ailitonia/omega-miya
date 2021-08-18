@@ -10,7 +10,7 @@ from omega_miya.utils.tencent_cloud_api import TencentNLP, TencentTMT
 
 
 # Custom plugin usage text
-__plugin_name__ = '腾讯云Core'
+__plugin_custom_name__ = '腾讯云Core'
 __plugin_usage__ = r'''【TencentCloud API Support】
 腾讯云API插件
 测试中
@@ -32,7 +32,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 tencent_cloud = MatcherGroup(

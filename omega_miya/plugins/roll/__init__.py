@@ -10,7 +10,7 @@ from omega_miya.utils.omega_plugin_utils import init_export, init_permission_sta
 
 
 # Custom plugin usage text
-__plugin_name__ = 'Roll'
+__plugin_custom_name__ = 'Roll'
 __plugin_usage__ = r'''【Roll & 抽奖】
 一个整合了各种roll机制的插件
 更多功能待加入
@@ -33,7 +33,7 @@ __plugin_auth_node__ = [
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 Roll = CommandGroup(

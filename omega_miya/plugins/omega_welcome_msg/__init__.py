@@ -28,7 +28,7 @@ DEFAULT_WELCOME_MSG: str = '欢迎新朋友～\n进群请先看群公告～\n一
 
 
 # Custom plugin usage text
-__plugin_name__ = '群欢迎消息'
+__plugin_custom_name__ = '群欢迎消息'
 __plugin_usage__ = r'''【群自定义欢迎信息插件】
 向新入群的成员发送欢迎消息
 
@@ -40,7 +40,7 @@ __plugin_usage__ = r'''【群自定义欢迎信息插件】
 '''
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器
