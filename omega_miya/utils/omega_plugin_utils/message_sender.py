@@ -77,6 +77,7 @@ class MsgSender(object):
                 "type": "node",
                 "data": {
                     "name": custom_nickname,
+                    "user_id": custom_user_id,
                     "uin": custom_user_id,
                     "content": msg
                 }

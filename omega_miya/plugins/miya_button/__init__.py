@@ -46,7 +46,7 @@ button = MatcherGroup(
         command=True,
         level=10),
     permission=GROUP,
-    priority=100,
+    priority=30,
     block=False)
 
 

@@ -497,11 +497,11 @@ class ZhouChecker(AssScriptLineTool):
         for line in self.__event_lines:
             # 检查需要校对的关键词
             if any(key in line.text for key in self.__proofreading_words):
-                out_log += f'第{line.event_line_num}行可能翻译没听懂, 校对请注意一下————{line.text}\n'
+                out_log += f'第{line.event_line_num}行可能翻译没听懂, 校对请注意一下: "{line.text}"\n'
                 character_count += 1
             # 检查标点符号
             if any(punctuation in line.text for punctuation in self.__punctuation_ignore):
-                out_log += f'第{line.event_line_num}行轴标点有问题（不确定怎么改）, 请注意一下————{line.text}\n'
+                out_log += f'第{line.event_line_num}行轴标点有问题（不确定怎么改）, 请注意一下: "{line.text}"\n'
                 character_count += 1
             elif any(punctuation in line.text for punctuation in self.__punctuation_replace.keys()):
                 for key, value in self.__punctuation_replace.items():

@@ -73,7 +73,7 @@ __plugin_auth_node__ = [
 
 # 声明本插件的冷却时间配置
 __plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 5),
+    PluginCoolDown(PluginCoolDown.user_type, 3),
     PluginCoolDown(PluginCoolDown.group_type, 2)
 ]
 
