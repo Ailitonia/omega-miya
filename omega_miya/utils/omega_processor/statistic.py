@@ -23,7 +23,7 @@ async def postprocessor_statistic(
     if matcher.temp:
         logger.debug('Postprocessor Statistic | Temp matcher, ignore')
         return
-    elif matcher.priority >= 100:
+    elif matcher.priority > 50:
         logger.debug('Postprocessor Statistic | Non-command matcher, ignore')
         return
 

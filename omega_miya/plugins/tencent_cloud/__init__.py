@@ -40,7 +40,7 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_no
 tencent_cloud = MatcherGroup(
     type='message',
     permission=GROUP,
-    priority=30,
+    priority=50,
     block=False)
 
 
@@ -88,7 +88,7 @@ async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 entity = tencent_cloud.on_message(
     rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'tencent_cloud.nlp'),
-    priority=35
+    priority=55
 )
 
 
