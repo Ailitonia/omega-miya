@@ -298,9 +298,8 @@ async def handle_pixiv_dl(bot: Bot, event: GroupMessageEvent, state: T_State):
         await pixiv_dl.finish('参数错误, pid应为纯数字')
 
 
-# 处理pixiv插件r18 权限
+# 处理 pixiv 插件 r18 权限
 async def __handle_r18_perm(bot: Bot, event: Event) -> int:
-    # 处理pixiv插件r18权限
     if isinstance(event, PrivateMessageEvent):
         user_id = event.user_id
         auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
