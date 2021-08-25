@@ -29,17 +29,21 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name="假日威龙陈/Ch'en the Holungday", star=6, limited=True, recruit_only=False, event_only=False,
+            Operator(name='闪灵/Shining', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='水月/Mizuki', star=6, limited=False, recruit_only=False, event_only=False, special_only=False)
+            Operator(name='异客/Passenger', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False)
         ],
-        zoom=0.7
+        zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='羽毛笔/La Pluma', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='天火/Skyfire', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='守林人/Firewatch', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='卡夫卡/Kafka', star=5, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
         zoom=0.5
     )
