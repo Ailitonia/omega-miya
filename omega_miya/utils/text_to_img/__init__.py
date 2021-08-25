@@ -7,11 +7,11 @@ from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
-FOLDER_PATH = os.path.abspath(os.path.dirname(__file__))
+RESOURCES_PATH = global_config.resources_path_
 
 
 def __text_to_img(text: str, image_wight: int = 512) -> Image:
-    font_path = os.path.abspath(os.path.join(FOLDER_PATH, 'default_font.otf'))
+    font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'NotoSansMonoCJKsc-Regular.otf'))
     if not os.path.exists(font_path):
         raise ValueError('Font not found')
 

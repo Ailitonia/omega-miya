@@ -12,6 +12,7 @@ from .gif_render import *
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
+RESOURCES_PATH = global_config.resources_path_
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/89.0.4389.114 Safari/537.36'}
@@ -69,7 +70,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
     plugin_src_path = os.path.abspath(os.path.dirname(__file__))
 
     # 字体路径
-    font_path = os.path.join(plugin_src_path, 'fonts', sticker_default_font.get(temp))
+    font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', sticker_default_font.get(temp)))
     # 检查预置字体
     if not os.path.exists(font_path):
         logger.error(f"Stick_maker: 模板预置文件错误, 字体{sticker_default_font.get(temp)}不存在")
