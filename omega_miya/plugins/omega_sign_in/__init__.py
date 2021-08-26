@@ -8,15 +8,19 @@
 @Software       : PyCharm 
 """
 
+import random
+import pathlib
 from nonebot import CommandGroup, logger, get_driver
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from nonebot.adapters.cqhttp.message import MessageSegment
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder
 from omega_miya.database import DBUser
 from .config import Config
+from .utils import scheduler, generate_sign_in_card
 
 
 __global_config = get_driver().config
@@ -99,13 +103,13 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
         # 尝试为用户增加好感度
         if continuous_days < 7:
-            favorability_inc = 10
+            favorability_inc = int(10 * (1 + random.gauss(0.25, 0.25)))
             currency_inc = 1
         elif continuous_days < 30:
-            favorability_inc = 30
+            favorability_inc = int(30 * (1 + random.gauss(0.35, 0.2)))
             currency_inc = 2
         else:
-            favorability_inc = 50
+            favorability_inc = int(30 * (1 + random.gauss(0.45, 0.15)))
             currency_inc = 5
 
         favorability_result = await user.favorability_add(favorability=favorability_inc, currency=currency_inc)
@@ -121,10 +125,18 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 
         status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
 
-        msg = f'签到成功! {FAVORABILITY_ALIAS}+{favorability_inc}, {CURRENCY_ALIAS}+{currency_inc}!\n\n' \
-              f'你已连续签到{continuous_days}天\n' \
-              f'当前{FAVORABILITY_ALIAS}: {favorability}\n' \
-              f'当前{CURRENCY_ALIAS}: {currency}'
+        nick_name = event.sender.card if event.sender.card else event.sender.nickname
+
+        user_text = f'@{nick_name} {FAVORABILITY_ALIAS}+{favorability_inc} {CURRENCY_ALIAS}+{currency_inc}\n' \
+                    f'已连续签到{continuous_days}天\n' \
+                    f'当前{FAVORABILITY_ALIAS}: {favorability}\n' \
+                    f'当前{CURRENCY_ALIAS}: {currency}'
+
+        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text)
+        if sign_in_card_result.error:
+            raise FailedException(f'生成签到卡片失败, {sign_in_card_result.info}')
+
+        msg = MessageSegment.image(pathlib.Path(sign_in_card_result.result).as_uri())
         logger.info(f'{event.group_id}/{event.user_id} 签到成功')
         await sign_in.finish(msg)
     except DuplicateException as e:
