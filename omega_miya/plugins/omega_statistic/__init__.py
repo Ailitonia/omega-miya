@@ -16,7 +16,7 @@ from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
+from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp.message import MessageSegment
 from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder
 from omega_miya.database import DBStatistic
@@ -59,7 +59,7 @@ statistic = on_command(
         level=10,
         auth_node='basic'),
     aliases={'插件统计', 'statistic'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
     priority=10,
     block=True)
 
