@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from omega_miya.database.database import BaseDB
 from omega_miya.database.class_result import Result
 from omega_miya.database.tables import Pixiv, PixivPage
@@ -175,16 +175,36 @@ class DBPixivillust(object):
         return result
 
     @classmethod
-    async def rand_illust(cls, num: int, nsfw_tag: int) -> Result.ListResult:
+    async def rand_illust(cls, num: int, nsfw_tag: int, *, ratio: Optional[int] = None) -> Result.ListResult:
+        """
+        随机抽取图库中的作品
+        :param num: 抽取数量
+        :param nsfw_tag: nsfw标签
+        :param ratio: 图片长宽, 1: 横图, -1: 纵图, 0: 正方形图
+        :return: ListResult, pid列表
+        """
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
-                    session_result = await session.execute(
-                        select(Pixiv.pid).
-                        where(Pixiv.nsfw_tag == nsfw_tag).
-                        order_by(func.random()).limit(num)
-                    )
+                    if ratio is None:
+                        query = select(Pixiv.pid).where(Pixiv.nsfw_tag == nsfw_tag).order_by(func.random()).limit(num)
+                    elif ratio < 0:
+                        query = (select(Pixiv.pid).
+                                 where(Pixiv.nsfw_tag == nsfw_tag).
+                                 where(Pixiv.width < Pixiv.height).
+                                 order_by(func.random()).limit(num))
+                    elif ratio > 0:
+                        query = (select(Pixiv.pid).
+                                 where(Pixiv.nsfw_tag == nsfw_tag).
+                                 where(Pixiv.width > Pixiv.height).
+                                 order_by(func.random()).limit(num))
+                    else:
+                        query = (select(Pixiv.pid).
+                                 where(Pixiv.nsfw_tag == nsfw_tag).
+                                 where(Pixiv.width == Pixiv.height).
+                                 order_by(func.random()).limit(num))
+                    session_result = await session.execute(query)
                     res = [x for x in session_result.scalars().all()]
                     result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
