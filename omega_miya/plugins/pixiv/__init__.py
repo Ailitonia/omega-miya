@@ -92,7 +92,7 @@ pixiv = on_command(
 # 修改默认参数处理
 @pixiv.args_parser
 async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower()
+    args = str(event.get_plaintext()).strip()
     if not args:
         await pixiv.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args
@@ -102,7 +102,7 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @pixiv.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower()
+    args = str(event.get_plaintext()).strip()
     if not args:
         pass
     else:
