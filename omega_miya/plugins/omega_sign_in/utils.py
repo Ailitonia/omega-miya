@@ -10,7 +10,6 @@
 
 import os
 import random
-import numpy
 import asyncio
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
@@ -87,7 +86,7 @@ scheduler.add_job(
 )
 
 
-async def __getting_reand_sign_in_pic() -> Result.TextResult:
+async def __get_reand_sign_in_pic() -> Result.TextResult:
     try_count = 0
     if not os.path.exists(SIGN_IN_PIC_PATH):
         os.makedirs(SIGN_IN_PIC_PATH)
@@ -103,9 +102,29 @@ async def __getting_reand_sign_in_pic() -> Result.TextResult:
     return Result.TextResult(error=False, info='Success', result=file_path)
 
 
-async def generate_sign_in_card(user_id: int, user_text: str, *, width: int = 1024) -> Result.TextResult:
+def __get_level(favorability: float) -> tuple[int, int, int]:
+    """
+    根据好感度获取等级及当前等级好感度
+    :param favorability: 总好感度
+    :return: (等级, 当前等级好感度, 当前等级好感度上限)
+    """
+    if favorability <= 0:
+        return 0, 0, 1
+    elif favorability < 10000:
+        return 1, int(favorability), 10000
+    elif favorability < 36000:
+        return 2, int(favorability - 10000), 26000
+    elif favorability < 78000:
+        return 4, int(favorability - 36000), 42000
+    elif favorability < 136000:
+        return 5, int(favorability - 78000), 58000
+    else:
+        return 6, int(favorability - 136000), 74000
+
+
+async def generate_sign_in_card(user_id: int, user_text: str, fav: float, *, width: int = 1024) -> Result.TextResult:
     # 获取头图
-    sign_pic_path_result = await __getting_reand_sign_in_pic()
+    sign_pic_path_result = await __get_reand_sign_in_pic()
     if sign_pic_path_result.error:
         return Result.TextResult(error=True, info=sign_pic_path_result.info, result='')
     sign_pic_path = sign_pic_path_result.result
@@ -135,6 +154,9 @@ async def generate_sign_in_card(user_id: int, user_text: str, *, width: int = 10
         main_font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'SourceHanSans_Regular.otf'))
         text_font = ImageFont.truetype(main_font_path, width // 28)
 
+        level_font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'pixel.ttf'))
+        level_font = ImageFont.truetype(level_font_path, width // 20)
+
         bottom_font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'fzzxhk.ttf'))
         bottom_text_font = ImageFont.truetype(bottom_font_path, width // 40)
 
@@ -143,13 +165,31 @@ async def generate_sign_in_card(user_id: int, user_text: str, *, width: int = 10
             top_text = '早上好'
         elif 11 <= datetime.now().hour < 14:
             top_text = '中午好'
-        elif 14 <= datetime.now().hour < 17:
+        elif 14 <= datetime.now().hour < 19:
             top_text = '下午好'
-        elif 17 <= datetime.now().hour < 22:
+        elif 19 <= datetime.now().hour < 22:
             top_text = '晚上好'
         else:
             top_text = '晚安'
         top_text_width, top_text_height = bd_font.getsize(top_text)
+
+        # 计算好感度等级条
+        level = __get_level(favorability=fav)
+        level_text = f'Level {level[0]}'
+        level_text_width, level_text_height = level_font.getsize(level_text)
+        fav_text = f'{level[1]}/{level[2]}'
+        fav_rat = level[1] / level[2] if level[1] < level[2] else 1
+        fav_text_width, fav_text_height = text_font.getsize(fav_text)
+        # 等级颜色
+        level_color: dict[int, tuple[int, int, int]] = {
+            0: (136, 136, 136),
+            1: (102, 102, 102),
+            2: (102, 204, 102),
+            3: (102, 204, 255),
+            4: (255, 204, 102),
+            5: (255, 102, 102),
+            6: (255, 102, 204)
+        }
 
         # 日期
         date_text = datetime.now().strftime('%m/%d')
@@ -163,9 +203,9 @@ async def generate_sign_in_card(user_id: int, user_text: str, *, width: int = 10
         bottom_text_width, bottom_text_height = bottom_text_font.getsize(user_text)
 
         # 总高度
-        height = (top_img_height + top_text_height + user_text_height +
-                  fortune_text_height * 3 + fortune_star_height * 5 + bottom_text_height * 4 +
-                  int(0.21875 * width))
+        height = (top_img_height + top_text_height + user_text_height + level_text_height +
+                  fortune_text_height * 3 + fortune_star_height * 6 + bottom_text_height * 4 +
+                  int(0.25 * width))
         # 生成背景
         background = Image.new(
             mode="RGB",
@@ -183,14 +223,33 @@ async def generate_sign_in_card(user_id: int, user_text: str, *, width: int = 10
 
         ImageDraw.Draw(background).text(xy=(width - int(width * 0.0625), this_height),
                                         text=date_text, font=bd_title_font, align='right', anchor='rt',
-                                        fill=(tuple(numpy.random.randint(0, 255, size=3))))  # 日期
+                                        fill=level_color.get(level[0], (136, 136, 136)))  # 日期
 
         this_height += top_text_height
         ImageDraw.Draw(background).multiline_text(xy=(int(width * 0.0625), this_height),
                                                   text=user_text, font=text_font, align='left',
                                                   fill=(128, 128, 128))  # 昵称、好感度、积分
 
-        this_height += user_text_height + int(0.0625 * width)
+        this_height += user_text_height + int(0.046875 * width)
+        ImageDraw.Draw(background).text(xy=(int(width * 0.065), this_height),
+                                        text=level_text, font=level_font, align='left', anchor='lt',
+                                        fill=level_color.get(level[0], (136, 136, 136)))  # 等级
+
+        this_height += level_text_height + int(0.03125 * width)
+        ImageDraw.Draw(background).text(xy=(width - int(width * 0.0625), this_height),
+                                        text=fav_text, font=text_font, align='right', anchor='rm',
+                                        fill=(208, 208, 208))  # 经验条数值
+
+        ImageDraw.Draw(background).line(xy=[(int(width * 0.0625), this_height),
+                                            (width - int(width * 0.09375 + fav_text_width), this_height)],
+                                        fill=(224, 224, 224), width=int(0.03125 * width))  # 经验条底
+
+        ImageDraw.Draw(background).line(
+            xy=[(int(width * 0.0625), this_height),
+                (int(width * 0.0625 + (width * 0.84375 - fav_text_width) * fav_rat), this_height)],
+            fill=level_color.get(level[0], (136, 136, 136)), width=int(0.03125 * width))  # 经验条内
+
+        this_height += fortune_star_height + int(0.015625 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
                                         text=f'今日运势: {fortune_text}', font=bd_text_font,
                                         align='left', anchor='lt', fill=(0, 0, 0))  # 今日运势

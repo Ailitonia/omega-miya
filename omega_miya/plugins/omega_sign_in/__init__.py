@@ -10,14 +10,15 @@
 
 import random
 import pathlib
-from nonebot import CommandGroup, logger, get_driver
+from typing import Union
+from nonebot import MatcherGroup, logger, get_driver
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from nonebot.adapters.cqhttp.message import Message, MessageSegment
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from omega_miya.database import DBUser
 from .config import Config
 from .utils import scheduler, generate_sign_in_card
@@ -68,8 +69,8 @@ __plugin_auth_node__ = [
 init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
-SignIn = CommandGroup(
-    'SignIn',
+SignIn = MatcherGroup(
+    type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_permission_state(
         name='sign_in',
@@ -80,13 +81,24 @@ SignIn = CommandGroup(
     priority=10,
     block=True)
 
-sign_in = SignIn.command('sign_in', aliases={'签到'})
+command_sign_in = SignIn.on_command('sign_in', aliases={'签到'})
+regex_sign_in = SignIn.on_regex(r'^签到$')
 
 
-@sign_in.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
+@command_sign_in.handle()
+async def handle_command_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
+    msg = await handle_sign_in(bot=bot, event=event, state=state)
+    await command_sign_in.finish(msg)
+
+
+@regex_sign_in.handle()
+async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
+    msg = await handle_sign_in(bot=bot, event=event, state=state)
+    await regex_sign_in.finish(msg)
+
+
+async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
     user = DBUser(user_id=event.user_id)
-
     try:
         # 尝试签到
         sign_in_result = await user.sign_in()
@@ -126,22 +138,29 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
 
         nick_name = event.sender.card if event.sender.card else event.sender.nickname
+        nick_name = f'{nick_name[:18]}...' if len(nick_name) > 18 else nick_name
 
         user_text = f'@{nick_name} {FAVORABILITY_ALIAS}+{favorability_inc} {CURRENCY_ALIAS}+{currency_inc}\n' \
                     f'已连续签到{continuous_days}天\n' \
-                    f'当前{FAVORABILITY_ALIAS}: {favorability}\n' \
-                    f'当前{CURRENCY_ALIAS}: {currency}'
+                    f'当前{FAVORABILITY_ALIAS}: {int(favorability)}\n' \
+                    f'当前{CURRENCY_ALIAS}: {int(currency)}'
 
-        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text)
+        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text, fav=favorability)
         if sign_in_card_result.error:
             raise FailedException(f'生成签到卡片失败, {sign_in_card_result.info}')
 
         msg = MessageSegment.image(pathlib.Path(sign_in_card_result.result).as_uri())
         logger.info(f'{event.group_id}/{event.user_id} 签到成功')
-        await sign_in.finish(msg)
+        return msg
     except DuplicateException as e:
+        msg = Message(MessageSegment.at(event.user_id)).append('你今天已经签到过了, 请明天再来吧~')
         logger.info(f'{event.group_id}/{event.user_id} 重复签到, {str(e)}')
-        await sign_in.finish('你今天已经签到过了, 请明天再来吧~')
+        return msg
     except FailedException as e:
+        msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
         logger.error(f'{event.group_id}/{event.user_id} 签到失败, {str(e)}')
-        await sign_in.finish('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        return msg
+    except Exception as e:
+        msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        logger.error(f'{event.group_id}/{event.user_id} 签到失败, 发生了预期外的错误, {str(e)}')
+        return msg
