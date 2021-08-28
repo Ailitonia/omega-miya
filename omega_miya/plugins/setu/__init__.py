@@ -21,6 +21,7 @@ from .config import Config
 
 __global_config = get_driver().config
 plugin_config = Config(**__global_config.dict())
+ACC_MODE = plugin_config.acc_mode
 IMAGE_NUM_LIMIT = plugin_config.image_num_limit
 ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 ENABLE_MOE_FLASH = plugin_config.enable_moe_flash
@@ -125,7 +126,8 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
             await setu.finish('R18禁止! 不准开车车!')
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag, acc_mode=True)
+        pid_res = await DBPixivillust.list_illust(
+            keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag, acc_mode=ACC_MODE)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
@@ -241,7 +243,7 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     tags = state['tags']
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0, acc_mode=True)
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0, acc_mode=ACC_MODE)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
