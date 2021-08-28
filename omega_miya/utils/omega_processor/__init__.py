@@ -16,6 +16,7 @@ from nonebot.adapters.cqhttp.event import Event, MessageEvent
 from nonebot.adapters.cqhttp.bot import Bot
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
+from .favorability import postprocessor_favorability
 from .history import postprocessor_history
 from .statistic import postprocessor_statistic
 
@@ -52,3 +53,6 @@ async def handle_run_postprocessor(
 async def handle_event_postprocessor(bot: Bot, event: Event, state: T_State):
     # 处理历史记录
     await postprocessor_history(bot=bot, event=event, state=state)
+    # 处理好感度
+    if isinstance(event, MessageEvent):
+        await postprocessor_favorability(bot=bot, event=event, state=state)

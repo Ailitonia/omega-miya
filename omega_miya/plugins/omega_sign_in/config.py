@@ -18,5 +18,8 @@ class Config(BaseSettings):
     energy_alias: str = '能量值'
     currency_alias: str = '硬币'
 
+    # 能量值与好感度的兑换比例 公式为(能量值 * 兑换比 = 好感度)
+    ef_exchange_rate: float = 0.15
+
     class Config:
         extra = "ignore"

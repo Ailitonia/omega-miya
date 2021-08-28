@@ -29,6 +29,7 @@ plugin_config = Config(**__global_config.dict())
 FAVORABILITY_ALIAS = plugin_config.favorability_alias
 ENERGY_ALIAS = plugin_config.energy_alias
 CURRENCY_ALIAS = plugin_config.currency_alias
+EF_EXCHANGE_RATE = plugin_config.ef_exchange_rate
 
 
 class SignInException(Exception):
@@ -130,38 +131,44 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
             raise FailedException(f'查询连续签到时间失败, {sign_in_c_d_result.info}')
         continuous_days = sign_in_c_d_result.result
 
+        # 获取当前好感度信息
+        favorability_status_result = await user.favorability_status()
+        if favorability_status_result.error:
+            raise FailedException(f'获取好感度信息失败, {favorability_status_result}')
+        status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
+
         # 尝试为用户增加好感度
+        # 根据连签日期设置不同增幅
         if continuous_days < 7:
-            favorability_inc = int(10 * (1 + random.gauss(0.25, 0.25)))
+            favorability_inc_ = int(10 * (1 + random.gauss(0.25, 0.25)))
             currency_inc = 1
         elif continuous_days < 30:
-            favorability_inc = int(30 * (1 + random.gauss(0.35, 0.2)))
+            favorability_inc_ = int(30 * (1 + random.gauss(0.35, 0.2)))
             currency_inc = 3
         else:
-            favorability_inc = int(50 * (1 + random.gauss(0.45, 0.15)))
+            favorability_inc_ = int(50 * (1 + random.gauss(0.45, 0.15)))
             currency_inc = 5
+        # 将能量值兑换为好感度
+        favorability_inc = energy * EF_EXCHANGE_RATE + favorability_inc_
+        # 增加后的好感度
+        favorability_ = favorability + favorability_inc
 
-        favorability_result = await user.favorability_add(favorability=favorability_inc, currency=currency_inc)
+        favorability_result = await user.favorability_add(favorability=favorability_inc, currency=currency_inc,
+                                                          energy=(- energy))
         if favorability_result.error and favorability_result.info == 'NoResultFound':
             favorability_result = await user.favorability_reset(favorability=favorability_inc, currency=currency_inc)
         if favorability_result.error:
             raise FailedException(f'增加好感度失败, {favorability_result.info}')
 
-        # 获取当前好感度信息
-        favorability_status_result = await user.favorability_status()
-        if favorability_status_result.error:
-            raise FailedException(f'获取好感度信息失败, {favorability_status_result}')
-
-        status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
-
         nick_name = event.sender.card if event.sender.card else event.sender.nickname
-
-        user_text = f'@{nick_name} {FAVORABILITY_ALIAS}+{favorability_inc} {CURRENCY_ALIAS}+{currency_inc}\n' \
+        user_text = f'@{nick_name} {FAVORABILITY_ALIAS}+{int(favorability_inc_)} ' \
+                    f'{CURRENCY_ALIAS}+{int(currency_inc)}\n' \
                     f'已连续签到{continuous_days}天\n' \
-                    f'当前{FAVORABILITY_ALIAS}: {int(favorability)}\n' \
+                    f'已将{int(energy)}{ENERGY_ALIAS}兑换为{int(energy * EF_EXCHANGE_RATE)}{FAVORABILITY_ALIAS}\n' \
+                    f'当前{FAVORABILITY_ALIAS}: {int(favorability_)}\n' \
                     f'当前{CURRENCY_ALIAS}: {int(currency)}'
 
-        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text, fav=favorability)
+        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text, fav=favorability_)
         if sign_in_card_result.error:
             raise FailedException(f'生成签到卡片失败, {sign_in_card_result.info}')
 
