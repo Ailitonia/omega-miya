@@ -21,7 +21,7 @@ from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from omega_miya.database import DBUser
 from .config import Config
-from .utils import scheduler, generate_sign_in_card
+from .utils import scheduler, get_hitokoto, generate_sign_in_card
 
 
 __global_config = get_driver().config
@@ -58,7 +58,10 @@ or AuthNode
 basic
 
 **Usage**
-/签到'''
+/签到
+/今日运势
+/今日人品
+/一言'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
@@ -75,14 +78,16 @@ SignIn = MatcherGroup(
     state=init_permission_state(
         name='sign_in',
         command=True,
-        level=10,
+        level=20,
         auth_node='basic'),
     permission=GROUP,
-    priority=10,
+    priority=20,
     block=True)
 
 command_sign_in = SignIn.on_command('sign_in', aliases={'签到'})
 regex_sign_in = SignIn.on_regex(r'^签到$')
+command_fortune_today = SignIn.on_command('fortune_today', aliases={'今日运势', '今日人品', '一言'})
+regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言)$')
 
 
 @command_sign_in.handle()
@@ -95,6 +100,18 @@ async def handle_command_sign_in(bot: Bot, event: GroupMessageEvent, state: T_St
 async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
     msg = await handle_sign_in(bot=bot, event=event, state=state)
     await regex_sign_in.finish(msg)
+
+
+@command_fortune_today.handle()
+async def handle_command_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
+    msg = await handle_fortune(bot=bot, event=event, state=state)
+    await command_fortune_today.finish(msg)
+
+
+@regex_fortune_today.handle()
+async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
+    msg = await handle_fortune(bot=bot, event=event, state=state)
+    await regex_fortune_today.finish(msg)
 
 
 async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
@@ -119,9 +136,9 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
             currency_inc = 1
         elif continuous_days < 30:
             favorability_inc = int(30 * (1 + random.gauss(0.35, 0.2)))
-            currency_inc = 2
+            currency_inc = 3
         else:
-            favorability_inc = int(30 * (1 + random.gauss(0.45, 0.15)))
+            favorability_inc = int(50 * (1 + random.gauss(0.45, 0.15)))
             currency_inc = 5
 
         favorability_result = await user.favorability_add(favorability=favorability_inc, currency=currency_inc)
@@ -138,7 +155,6 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
 
         nick_name = event.sender.card if event.sender.card else event.sender.nickname
-        nick_name = f'{nick_name[:18]}...' if len(nick_name) > 18 else nick_name
 
         user_text = f'@{nick_name} {FAVORABILITY_ALIAS}+{favorability_inc} {CURRENCY_ALIAS}+{currency_inc}\n' \
                     f'已连续签到{continuous_days}天\n' \
@@ -163,4 +179,41 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
     except Exception as e:
         msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
         logger.error(f'{event.group_id}/{event.user_id} 签到失败, 发生了预期外的错误, {str(e)}')
+        return msg
+
+
+async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
+    user = DBUser(user_id=event.user_id)
+    try:
+        # 获取当前好感度信息
+        favorability_status_result = await user.favorability_status()
+        if favorability_status_result.error or not favorability_status_result.result:
+            logger.info(f'{event.group_id}/{event.user_id} 尚未签到或无好感度信息, {favorability_status_result}')
+            status, mood, favorability, energy, currency, response_threshold = ('', 0, 0, 0, 0, 0)
+        else:
+            status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
+
+        nick_name = event.sender.card if event.sender.card else event.sender.nickname
+
+        # 获取一言
+        hitokoto_result = await get_hitokoto()
+        if hitokoto_result.error:
+            raise FailedException(f'获取一言失败, {hitokoto_result}')
+
+        user_text = f'{hitokoto_result.result}\n\n' \
+                    f'@{nick_name}\n' \
+                    f'当前{FAVORABILITY_ALIAS}: {int(favorability)}\n' \
+                    f'当前{CURRENCY_ALIAS}: {int(currency)}'
+
+        sign_in_card_result = await generate_sign_in_card(
+            user_id=event.user_id, user_text=user_text, fav=favorability, fortune_do=False)
+        if sign_in_card_result.error:
+            raise FailedException(f'生成运势卡片失败, {sign_in_card_result.info}')
+
+        msg = MessageSegment.image(pathlib.Path(sign_in_card_result.result).as_uri())
+        logger.info(f'{event.group_id}/{event.user_id} 获取运势卡片成功')
+        return msg
+    except Exception as e:
+        msg = Message(MessageSegment.at(event.user_id)).append('获取今日运势失败了QAQ, 请稍后再试或联系管理员处理')
+        logger.error(f'{event.group_id}/{event.user_id} 获取运势卡片失败, 发生了预期外的错误, {str(e)}')
         return msg

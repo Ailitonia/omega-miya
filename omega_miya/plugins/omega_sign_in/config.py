@@ -16,7 +16,7 @@ class Config(BaseSettings):
     # plugin custom config
     favorability_alias: str = '好感度'
     energy_alias: str = '能量值'
-    currency_alias: str = '金币'
+    currency_alias: str = '硬币'
 
     class Config:
         extra = "ignore"

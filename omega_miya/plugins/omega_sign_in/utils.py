@@ -11,6 +11,7 @@
 import os
 import random
 import asyncio
+from typing import Optional
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from nonebot import get_driver, require, logger
@@ -97,6 +98,11 @@ async def __get_reand_sign_in_pic() -> Result.TextResult:
         try_count += 1
     if not pic_file_list:
         return Result.TextResult(error=True, info='Can not pre-download sign in pic', result='')
+
+    # 每次重置随机种子
+    time_stamp = datetime.now().timestamp()
+    random_seed_str = f'{"/".join(random.sample(str(time_stamp), k=7))}//{time_stamp}'
+    random.seed(random_seed_str)
     rand_file = random.choice(pic_file_list)
     file_path = os.path.abspath(os.path.join(SIGN_IN_PIC_PATH, rand_file))
     return Result.TextResult(error=False, info='Success', result=file_path)
@@ -122,7 +128,56 @@ def __get_level(favorability: float) -> tuple[int, int, int]:
         return 6, int(favorability - 136000), 74000
 
 
-async def generate_sign_in_card(user_id: int, user_text: str, fav: float, *, width: int = 1024) -> Result.TextResult:
+def __split_multiline_text(text: str, width: int, font: ImageFont.FreeTypeFont) -> str:
+    """
+    按长度切分换行文本
+    :param text: 待换行文本
+    :return: 切分换行后的文本
+    """
+    spl_num = 0
+    spl_list = []
+    for num in range(len(text)):
+        text_width, text_height = font.getsize_multiline(text[spl_num:num])
+        if text_width > width:
+            spl_list.append(text[spl_num:num])
+            spl_num = num
+    else:
+        spl_list.append(text[spl_num:])
+    return '\n'.join(spl_list)
+
+
+async def get_hitokoto(*, c: Optional[str] = None) -> Result.TextResult:
+    """获取一言"""
+    url = 'https://v1.hitokoto.cn'
+    params = {
+        'encode': 'json',
+        'charset': 'utf-8'
+    }
+    if c is not None:
+        params.update({'c': c})
+
+    headers = HttpFetcher.DEFAULT_HEADERS.update({'accept': 'application/json'})
+    hitokoto_result = await HttpFetcher(flag='sign_hitokoto', headers=headers).get_json(url=url, params=params)
+    if hitokoto_result.error:
+        return Result.TextResult(error=True, info=hitokoto_result.info, result='')
+
+    text = f'{hitokoto_result.result.get("hitokoto")}\n——《{hitokoto_result.result.get("from")}》'
+    if hitokoto_result.result.get("from_who"):
+        text += f' {hitokoto_result.result.get("from_who")}'
+    return Result.TextResult(error=False, info='Success', result=text)
+
+
+async def generate_sign_in_card(
+        user_id: int, user_text: str, fav: float, *, width: int = 1024, fortune_do: bool = True) -> Result.TextResult:
+    """
+    生成卡片
+    :param user_id: 用户id
+    :param user_text: 头部自定义文本
+    :param fav: 用户好感度 用户计算等级
+    :param width: 生成图片宽度 自适应排版
+    :param fortune_do: 是否绘制老黄历当日宜与不宜
+    :return: 生成图片地址
+    """
     # 获取头图
     sign_pic_path_result = await __get_reand_sign_in_pic()
     if sign_pic_path_result.error:
@@ -193,19 +248,26 @@ async def generate_sign_in_card(user_id: int, user_text: str, fav: float, *, wid
 
         # 日期
         date_text = datetime.now().strftime('%m/%d')
-
         # 昵称、好感度、积分
-        user_text_width, user_text_height = text_font.getsize_multiline(user_text)
+        # 首先要对文本进行分割
+        user_text_ = __split_multiline_text(text=user_text, width=(width - int(width * 0.125)), font=text_font)
+        user_text_width, user_text_height = text_font.getsize_multiline(user_text_)
         # 今日运势
         fortune_text_width, fortune_text_height = bd_text_font.getsize(fortune_text)
         fortune_star_width, fortune_star_height = text_font.getsize(fortune_star)
         # 底部文字
-        bottom_text_width, bottom_text_height = bottom_text_font.getsize(user_text)
+        bottom_text_width, bottom_text_height = bottom_text_font.getsize(f'{"@@##" * 4}\n' * 4)
 
         # 总高度
-        height = (top_img_height + top_text_height + user_text_height + level_text_height +
-                  fortune_text_height * 3 + fortune_star_height * 6 + bottom_text_height * 4 +
-                  int(0.25 * width))
+        if fortune_do:
+            height = (top_img_height + top_text_height + user_text_height + level_text_height +
+                      fortune_text_height * 3 + fortune_star_height * 6 + bottom_text_height * 4 +
+                      int(0.25 * width))
+        else:
+            height = (top_img_height + top_text_height + user_text_height + level_text_height +
+                      fortune_text_height * 1 + fortune_star_height * 2 + bottom_text_height * 4 +
+                      int(0.1875 * width))
+
         # 生成背景
         background = Image.new(
             mode="RGB",
@@ -227,7 +289,7 @@ async def generate_sign_in_card(user_id: int, user_text: str, fav: float, *, wid
 
         this_height += top_text_height
         ImageDraw.Draw(background).multiline_text(xy=(int(width * 0.0625), this_height),
-                                                  text=user_text, font=text_font, align='left',
+                                                  text=user_text_, font=text_font, align='left',
                                                   fill=(128, 128, 128))  # 昵称、好感度、积分
 
         this_height += user_text_height + int(0.046875 * width)
@@ -259,35 +321,36 @@ async def generate_sign_in_card(user_id: int, user_text: str, fav: float, *, wid
                                         text=fortune_star, font=text_font, align='left', anchor='lt',
                                         fill=(128, 128, 128))  # 运势星星
 
-        this_height += fortune_star_height + int(0.03125 * width)
-        ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                        text=f'宜', font=bd_text_font, align='left', anchor='lt',
-                                        fill=(0, 0, 0))  # 宜
+        if fortune_do:
+            this_height += fortune_star_height + int(0.03125 * width)
+            ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
+                                            text=f'宜', font=bd_text_font, align='left', anchor='lt',
+                                            fill=(0, 0, 0))  # 宜
 
-        this_height += fortune_text_height
-        ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                        text=fortune_do_1, font=text_font, align='left', anchor='lt',
-                                        fill=(128, 128, 128))  # 今日宜1
+            this_height += fortune_text_height
+            ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
+                                            text=fortune_do_1, font=text_font, align='left', anchor='lt',
+                                            fill=(128, 128, 128))  # 今日宜1
 
-        this_height += fortune_star_height  # 反正这两字体都一样大
-        ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                        text=fortune_do_2, font=text_font, align='left', anchor='lt',
-                                        fill=(128, 128, 128))  # 今日宜2
+            this_height += fortune_star_height  # 反正这两字体都一样大
+            ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
+                                            text=fortune_do_2, font=text_font, align='left', anchor='lt',
+                                            fill=(128, 128, 128))  # 今日宜2
 
-        this_height += fortune_star_height + int(0.03125 * width)
-        ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                        text=f'不宜', font=bd_text_font, align='left', anchor='lt',
-                                        fill=(0, 0, 0))  # 不宜
+            this_height += fortune_star_height + int(0.03125 * width)
+            ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
+                                            text=f'不宜', font=bd_text_font, align='left', anchor='lt',
+                                            fill=(0, 0, 0))  # 不宜
 
-        this_height += fortune_text_height
-        ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                        text=fortune_not_do_1, font=text_font, align='left', anchor='lt',
-                                        fill=(128, 128, 128))  # 今日不宜1
+            this_height += fortune_text_height
+            ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
+                                            text=fortune_not_do_1, font=text_font, align='left', anchor='lt',
+                                            fill=(128, 128, 128))  # 今日不宜1
 
-        this_height += fortune_star_height
-        ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                        text=fortune_not_do_2, font=text_font, align='left', anchor='lt',
-                                        fill=(128, 128, 128))  # 今日不宜2
+            this_height += fortune_star_height
+            ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
+                                            text=fortune_not_do_2, font=text_font, align='left', anchor='lt',
+                                            fill=(128, 128, 128))  # 今日不宜2
 
         this_height += fortune_star_height + bottom_text_height * 2
         ImageDraw.Draw(background).text(xy=(width - int(width * 0.0625), this_height),
@@ -317,5 +380,6 @@ async def generate_sign_in_card(user_id: int, user_text: str, fav: float, *, wid
 
 __all__ = [
     'scheduler',
+    'get_hitokoto',
     'generate_sign_in_card'
 ]
