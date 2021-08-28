@@ -10,7 +10,6 @@ from typing import Dict, List, Union, Iterable, Optional, Any
 from nonebot import logger
 from omega_miya.database import DBStatus
 
-
 global_config = nonebot.get_driver().config
 ENABLE_PROXY = global_config.enable_proxy
 ENABLE_FORCED_PROXY = global_config.enable_forced_proxy
@@ -19,6 +18,19 @@ PROXY_PORT = global_config.proxy_port
 
 
 class HttpFetcher(object):
+    DEFAULT_HEADERS = {'accept': '*/*',
+                       'accept-encoding': 'gzip, deflate',
+                       'accept-language': 'zh-CN,zh;q=0.9',
+                       'dnt': '1',
+                       'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"',
+                       'sec-ch-ua-mobile': '?0',
+                       'sec-fetch-dest': 'empty',
+                       'sec-fetch-mode': 'cors',
+                       'sec-fetch-site': 'same-origin',
+                       'sec-gpc': '1',
+                       'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                     'Chrome/89.0.4389.114 Safari/537.36'}
+
     @dataclass
     class __FetcherResult:
         error: bool
