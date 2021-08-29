@@ -458,6 +458,36 @@ class DBUser(object):
             # 如果全部遍历完了那就说明全部没有断签
             return Result.IntResult(error=False, info='Success with all continuous', result=len(all_sign_in_list))
 
+    async def sign_in_check_today(self) -> Result.IntResult:
+        """
+        检查今天是否已经签到
+        :return: IntResult
+            1: 已签到
+            0: 未签到
+            -1: 错误
+        """
+        user_id_result = await self.id()
+        if user_id_result.error:
+            return Result.IntResult(error=True, info='User not exist', result=-1)
+
+        today = date.today()
+        async_session = BaseDB().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    session_result = await session.execute(
+                        select(UserSignIn.sign_in_date).
+                        where(UserSignIn.sign_in_date == today).
+                        where(UserSignIn.user_id == user_id_result.result)
+                    )
+                    res = session_result.scalar_one()
+                    result = Result.IntResult(error=False, info=f'Checked today: {res}', result=1)
+                except NoResultFound:
+                    result = Result.IntResult(error=False, info='Not Sign in today', result=0)
+                except Exception as e:
+                    result = Result.IntResult(error=True, info=repr(e), result=-1)
+        return result
+
     async def favorability_status(self) -> Result.TupleResult:
         """
         查询好感度记录
