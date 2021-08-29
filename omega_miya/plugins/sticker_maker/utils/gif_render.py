@@ -22,7 +22,9 @@ async def stick_maker_temp_petpet(
         font_path: str,
         image_wight: int,
         image_height: int,
-        temp_path: str) -> Optional[bytes]:
+        temp_path: str,
+        *args,
+        **kwargs) -> Optional[bytes]:
     """
     petpet 表情包模板
     """

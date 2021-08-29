@@ -28,6 +28,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'grassja': stick_maker_temp_grass_ja,
         'littleangel': stick_maker_temp_littleangel,
         'traitor': stick_maker_static_traitor,
+        'luxunshuo': stick_maker_static_luxun,
+        'luxunxie': stick_maker_static_luxun,
         'jichou': stick_maker_static_jichou,
         'phlogo': stick_maker_static_phlogo,
         'petpet': stick_maker_temp_petpet
@@ -42,6 +44,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'grassja': 'fzzxhk.ttf',
         'littleangel': 'msyhbd.ttc',
         'traitor': 'pixel.ttf',
+        'luxunshuo': 'SourceHanSans_Regular.otf',
+        'luxunxie': 'SourceHanSans_Regular.otf',
         'jichou': 'SourceHanSans_Regular.otf',
         'phlogo': 'SourceHanSans_Heavy.otf',
         'petpet': 'SourceHanSans_Regular.otf'
@@ -56,6 +60,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'grassja': 800,
         'littleangel': 512,
         'traitor': 512,
+        'luxunshuo': 512,
+        'luxunxie': 512,
         'jichou': 512,
         'phlogo': 512,
         'petpet': 512

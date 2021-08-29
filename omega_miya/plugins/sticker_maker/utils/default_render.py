@@ -4,14 +4,16 @@ from omega_miya.utils.tencent_cloud_api import TencentTMT
 
 
 async def stick_maker_temp_default(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     默认加字表情包模板
     """
     def __handle() -> Image.Image:
         # 处理图片
         draw = ImageDraw.Draw(image_file)
-        font_size = 72
+        font_size = image_wight // 8
+        text_stroke_width = int(font_size / 20)
         font = ImageFont.truetype(font_path, font_size)
         text_w, text_h = font.getsize_multiline(text)
         while text_w >= image_wight:
@@ -20,26 +22,11 @@ async def stick_maker_temp_default(
             text_w, text_h = font.getsize_multiline(text)
         # 计算居中文字位置
         text_coordinate = (((image_wight - text_w) // 2), 9 * (image_height - text_h) // 10)
-        # 为文字设置黑边
-        text_b_resize = 4
-        if font_size >= 72:
-            text_b_resize = 4
-        elif font_size >= 36:
-            text_b_resize = 3
-        elif font_size >= 24:
-            text_b_resize = 2
-        elif font_size < 12:
-            text_b_resize = 1
-        text_coordinate_b1 = (text_coordinate[0] + text_b_resize, text_coordinate[1])
-        text_coordinate_b2 = (text_coordinate[0] - text_b_resize, text_coordinate[1])
-        text_coordinate_b3 = (text_coordinate[0], text_coordinate[1] + text_b_resize)
-        text_coordinate_b4 = (text_coordinate[0], text_coordinate[1] - text_b_resize)
-        draw.multiline_text(text_coordinate_b1, text, font=font, fill=(0, 0, 0))
-        draw.multiline_text(text_coordinate_b2, text, font=font, fill=(0, 0, 0))
-        draw.multiline_text(text_coordinate_b3, text, font=font, fill=(0, 0, 0))
-        draw.multiline_text(text_coordinate_b4, text, font=font, fill=(0, 0, 0))
-        # 白字要后画，后画的在上层，不然就是黑滋在上面挡住了
-        draw.multiline_text(text_coordinate, text, font=font, fill=(255, 255, 255))
+        draw.multiline_text(xy=text_coordinate,
+                            text=text,
+                            font=font, fill=(255, 255, 255),
+                            stroke_width=text_stroke_width,
+                            stroke_fill=(0, 0, 0))
         return image_file
 
     loop = asyncio.get_running_loop()
@@ -48,7 +35,8 @@ async def stick_maker_temp_default(
 
 
 async def stick_maker_temp_littleangel(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     小天使表情包模板
     """
@@ -93,7 +81,8 @@ async def stick_maker_temp_littleangel(
 
 
 async def stick_maker_temp_whitebg(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     白底加字表情包模板
     """
@@ -131,7 +120,8 @@ async def stick_maker_temp_whitebg(
 
 
 async def stick_maker_temp_blackbg(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     黑边加底字表情包模板
     """
@@ -178,7 +168,8 @@ async def stick_maker_temp_blackbg(
 
 
 async def stick_maker_temp_decolorize(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     去色加字表情包模板
     """
@@ -193,7 +184,8 @@ async def stick_maker_temp_decolorize(
 
 
 async def stick_maker_temp_grass_ja(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     生草日语表情包模板
     """

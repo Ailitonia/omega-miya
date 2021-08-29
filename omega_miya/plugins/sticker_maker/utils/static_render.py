@@ -4,7 +4,8 @@ from datetime import date
 
 
 async def stick_maker_static_traitor(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     有内鬼表情包模板
     """
@@ -54,7 +55,8 @@ async def stick_maker_static_traitor(
 
 
 async def stick_maker_static_jichou(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     记仇表情包模板
     """
@@ -99,7 +101,8 @@ async def stick_maker_static_jichou(
 
 
 async def stick_maker_static_phlogo(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     ph表情包模板
     """
@@ -156,8 +159,69 @@ async def stick_maker_static_phlogo(
     return result
 
 
+async def stick_maker_static_luxun(
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
+    """
+    鲁迅说/鲁迅写表情包模板
+    """
+    def __handle() -> Image.Image:
+        # 处理文本主体
+        font_size = image_wight // 15
+        text_stroke_width = int(font_size / 15)
+        font = ImageFont.truetype(font_path, font_size)
+        text_width_limit = image_wight - int(image_wight * 0.1875)
+        # 分割文本
+        spl_num = 0
+        spl_list = []
+        for num in range(len(text)):
+            text_width, text_height = font.getsize_multiline(text[spl_num:num])
+            if text_width > text_width_limit:
+                spl_list.append(text[spl_num:num])
+                spl_num = num
+        else:
+            spl_list.append(text[spl_num:])
+        text_ = '\n'.join(spl_list)
+
+        # 文本大小
+        text_width, text_height = font.getsize_multiline(text_)
+        single_text_width, single_text_height = font.getsize(text_)
+
+        # 创建背景图层
+        # 因为文字增加的图片高度
+        bg_height_inc_ = (text_height - image_height * 0.25) * 1.125 + single_text_height * 2
+        bg_height_inc = bg_height_inc_ if bg_height_inc_ > 0 else 0
+        background = Image.new(
+            mode="RGB",
+            size=(image_wight, int(image_height + bg_height_inc)),
+            color=(32, 32, 32))
+
+        # 先把鲁迅图贴上去
+        background.paste(image_file, box=(0, 0))
+
+        # 再贴主体文本
+        ImageDraw.Draw(background).multiline_text(xy=(image_wight // 2, int(image_height * 0.75)),
+                                                  text=text_, font=font, align='center', anchor='ma',
+                                                  fill=(255, 255, 255),
+                                                  stroke_width=text_stroke_width,
+                                                  stroke_fill=(0, 0, 0))
+
+        ImageDraw.Draw(background).text(xy=(int(image_wight * 0.85), int((image_height * 0.95 + bg_height_inc))),
+                                        text='—— 鲁迅', font=font, align='right', anchor='rd',
+                                        fill=(255, 255, 255),
+                                        stroke_width=text_stroke_width,
+                                        stroke_fill=(0, 0, 0))
+
+        return background
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, __handle)
+    return result
+
+
 __all__ = [
     'stick_maker_static_traitor',
     'stick_maker_static_jichou',
-    'stick_maker_static_phlogo'
+    'stick_maker_static_phlogo',
+    'stick_maker_static_luxun'
 ]

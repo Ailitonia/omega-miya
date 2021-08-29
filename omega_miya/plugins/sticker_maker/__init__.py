@@ -84,6 +84,8 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '生草日语': {'name': 'grassja', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '鲁迅说': {'name': 'luxunshuo', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '鲁迅写': {'name': 'luxunxie', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'},
         'petpet': {'name': 'petpet', 'type': 'gif', 'text_part': 0, 'help_msg': '最好使用长宽比接近正方形的图片'}
