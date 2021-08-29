@@ -169,8 +169,9 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
             currency_inc = 5
         # 将能量值兑换为好感度
         favorability_inc = energy * EF_EXCHANGE_RATE + favorability_inc_
-        # 增加后的好感度
+        # 增加后的好感度及硬币
         favorability_ = favorability + favorability_inc
+        currency_ = currency + currency_inc
 
         favorability_result = await user.favorability_add(favorability=favorability_inc, currency=currency_inc,
                                                           energy=(- energy))
@@ -183,7 +184,7 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
                     f'已连续签到{continuous_days}天\n' \
                     f'已将{int(energy)}{ENERGY_ALIAS}兑换为{int(energy * EF_EXCHANGE_RATE)}{FAVORABILITY_ALIAS}\n' \
                     f'当前{FAVORABILITY_ALIAS}: {int(favorability_)}\n' \
-                    f'当前{CURRENCY_ALIAS}: {int(currency)}'
+                    f'当前{CURRENCY_ALIAS}: {int(currency_)}'
 
         sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text, fav=favorability_)
         if sign_in_card_result.error:
