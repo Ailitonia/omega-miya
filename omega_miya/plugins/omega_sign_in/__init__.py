@@ -11,14 +11,15 @@
 import random
 import pathlib
 from typing import Union
-from nonebot import MatcherGroup, logger, get_driver
+from nonebot import MatcherGroup, on_notice, logger, get_driver
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
+from nonebot.rule import to_me
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
+from nonebot.adapters.cqhttp.event import GroupMessageEvent, PokeNotifyEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
 from omega_miya.database import DBUser
 from .config import Config
 from .utils import scheduler, get_hitokoto, generate_sign_in_card
@@ -62,7 +63,9 @@ basic
 /签到
 /今日运势
 /今日人品
-/一言'''
+/一言
+
+可使用戳一戳触发'''
 
 # 声明本插件可配置的权限节点
 __plugin_auth_node__ = [
@@ -89,6 +92,60 @@ command_sign_in = SignIn.on_command('sign_in', aliases={'签到'})
 regex_sign_in = SignIn.on_regex(r'^签到$')
 command_fortune_today = SignIn.on_command('fortune_today', aliases={'今日运势', '今日人品', '一言'})
 regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言)$')
+
+
+poke_sign_in = on_notice(
+    rule=to_me() & OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(20, 'omega_sign_in.basic'),
+    priority=50,
+    block=False
+)
+
+
+@poke_sign_in.handle()
+async def handle_command_sign_in(bot: Bot, event: PokeNotifyEvent, state: T_State):
+    # 获取戳一戳用户身份
+    sender_ = await bot.get_group_member_info(group_id=event.group_id, user_id=event.user_id)
+    sender = {
+        'user_id': event.user_id,
+        'nickname': sender_.get('nickname', ''),
+        'sex': sender_.get('sex', ''),
+        'age': sender_.get('age', 0),
+        'card': sender_.get('card', ''),
+        'area': sender_.get('area', ''),
+        'level': sender_.get('level', ''),
+        'role': sender_.get('role', ''),
+        'title': sender_.get('title', '')
+    }
+    # 从 PokeNotifyEvent 构造一个 GroupMessageEvent
+    event_ = GroupMessageEvent(**{
+                    'time': event.time,
+                    'self_id': event.self_id,
+                    'post_type': 'message',
+                    'sub_type': 'normal',
+                    'user_id': event.user_id,
+                    'group_id': event.group_id,
+                    'message_type': 'group',
+                    'message_id': hash(repr(event)),
+                    'message': Message('签到'),
+                    'raw_message': '签到',
+                    'font': 0,
+                    'sender': sender
+                })
+    user = DBUser(user_id=event.user_id)
+    # 先检查签到状态
+    check_result = await user.sign_in_check_today()
+    if check_result.result == 1:
+        # 已签到
+        # 设置一个状态指示生成卡片中添加文字
+        state.update({'_poke_sign_in_text': '今天你已经签到过了哦~'})
+        msg = await handle_fortune(bot=bot, event=event_, state=state)
+        logger.info(f'Group: {event.group_id}, User: {event.user_id}, 通过戳一戳获取了运势卡片')
+        await poke_sign_in.finish(msg)
+    else:
+        # 未签到及异常交由签到函数处理
+        msg = await handle_sign_in(bot=bot, event=event_, state=state)
+        logger.info(f'Group: {event.group_id}, User: {event.user_id}, 通过戳一戳进行了签到')
+        await poke_sign_in.finish(msg)
 
 
 @command_sign_in.handle()
@@ -225,8 +282,11 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         if hitokoto_result.error:
             raise FailedException(f'获取一言失败, {hitokoto_result}')
 
+        # 插入poke签到特殊文本
+        pock_text = state.get('_poke_sign_in_text', None)
+        user_line = f'@{nick_name}\n' if not pock_text else f'@{nick_name} {pock_text}\n'
         user_text = f'{hitokoto_result.result}\n\n' \
-                    f'@{nick_name}\n' \
+                    f'{user_line}' \
                     f'当前{FAVORABILITY_ALIAS}: {int(favorability)}\n' \
                     f'当前{CURRENCY_ALIAS}: {int(currency)}'
 
