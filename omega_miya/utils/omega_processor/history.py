@@ -76,6 +76,9 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
             msg_data = msg_data[:4096]
 
         new_history = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
+        # 处理event中可能出现部分字段存在但为None的情况
+        group_id = -1 if group_id is None else group_id
+        user_id = -1 if user_id is None else user_id
         add_result = await new_history.add(
             sub_type=sub_type, event_id=event_id, group_id=group_id, user_id=user_id, user_name=user_name,
             raw_data=raw_data, msg_data=msg_data)
