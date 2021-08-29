@@ -61,8 +61,8 @@ basic
 
 **Usage**
 /签到
-/今日运势
-/今日人品
+/今日运势(今日人品)
+/好感度(我的好感)
 /一言
 
 可使用戳一戳触发'''
@@ -90,8 +90,8 @@ SignIn = MatcherGroup(
 
 command_sign_in = SignIn.on_command('sign_in', aliases={'签到'})
 regex_sign_in = SignIn.on_regex(r'^签到$')
-command_fortune_today = SignIn.on_command('fortune_today', aliases={'今日运势', '今日人品', '一言'})
-regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言)$')
+command_fortune_today = SignIn.on_command('fortune_today', aliases={'今日运势', '今日人品', '一言', '好感度', '我的好感'})
+regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言|好感度|我的好感)$')
 
 
 poke_sign_in = on_notice(
@@ -137,14 +137,14 @@ async def handle_command_sign_in(bot: Bot, event: PokeNotifyEvent, state: T_Stat
     if check_result.result == 1:
         # 已签到
         # 设置一个状态指示生成卡片中添加文字
-        state.update({'_poke_sign_in_text': '今天你已经签到过了哦~'})
+        state.update({'_checked_sign_in_text': '今天你已经签到过了哦~'})
         msg = await handle_fortune(bot=bot, event=event_, state=state)
-        logger.info(f'Group: {event.group_id}, User: {event.user_id}, 通过戳一戳获取了运势卡片')
+        logger.info(f'{event.group_id}/{event.user_id}, 重复签到, 通过戳一戳获取了运势卡片')
         await poke_sign_in.finish(msg)
     else:
         # 未签到及异常交由签到函数处理
         msg = await handle_sign_in(bot=bot, event=event_, state=state)
-        logger.info(f'Group: {event.group_id}, User: {event.user_id}, 通过戳一戳进行了签到')
+        logger.info(f'{event.group_id}/{event.user_id}, 通过戳一戳进行了签到')
         await poke_sign_in.finish(msg)
 
 
@@ -251,8 +251,11 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         logger.info(f'{event.group_id}/{event.user_id} 签到成功')
         return msg
     except DuplicateException as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('你今天已经签到过了, 请明天再来吧~')
-        logger.info(f'{event.group_id}/{event.user_id} 重复签到, {str(e)}')
+        # 已签到
+        # 设置一个状态指示生成卡片中添加文字
+        state.update({'_checked_sign_in_text': '今天你已经签到过了哦~'})
+        msg = await handle_fortune(bot=bot, event=event, state=state)
+        logger.info(f'{event.group_id}/{event.user_id} 重复签到, 生成运势卡片, {str(e)}')
         return msg
     except FailedException as e:
         msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
@@ -283,7 +286,7 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
             raise FailedException(f'获取一言失败, {hitokoto_result}')
 
         # 插入poke签到特殊文本
-        pock_text = state.get('_poke_sign_in_text', None)
+        pock_text = state.get('_checked_sign_in_text', None)
         user_line = f'@{nick_name}\n' if not pock_text else f'@{nick_name} {pock_text}\n'
         user_text = f'{hitokoto_result.result}\n\n' \
                     f'{user_line}' \

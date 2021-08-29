@@ -365,8 +365,13 @@ async def generate_sign_in_card(
 
         if not os.path.exists(SIGN_IN_CARD_PATH):
             os.makedirs(SIGN_IN_CARD_PATH)
+
+        if fortune_do:
+            name_prefix = 'fortune_sign_in'
+        else:
+            name_prefix = 'fortune'
         save_path = os.path.abspath(os.path.join(
-            SIGN_IN_CARD_PATH, f"sign_card_{user_id}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
+            SIGN_IN_CARD_PATH, f"{name_prefix}_card_{user_id}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
         background.save(save_path, 'JPEG')
         return save_path
 
