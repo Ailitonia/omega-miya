@@ -118,6 +118,31 @@ async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent, state: 
 async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
     user = DBUser(user_id=event.user_id)
     try:
+        # 获取当前好感度信息
+        favorability_status_result = await user.favorability_status()
+        if favorability_status_result.error and favorability_status_result.info == 'NoResultFound':
+            # 没有好感度记录的要重置
+            reset_favorability_result = await user.favorability_reset()
+            if reset_favorability_result.error:
+                raise FailedException(f'Sign-in add User {event.user_id} Failed, '
+                                      f'init user favorability status failed, {reset_favorability_result.info}')
+            favorability_status_result = await user.favorability_status()
+        elif favorability_status_result.error and favorability_status_result.info == 'User not exist':
+            # 没有用户的要先新增用户
+            user_add_result = await user.add(nickname=event.sender.nickname)
+            if user_add_result.error:
+                raise FailedException(f'Sign-in add User {event.user_id} Failed, '
+                                      f'add user to database failed, {user_add_result.info}')
+            # 新增了用户后同样要重置好感度记录
+            reset_favorability_result = await user.favorability_reset()
+            if reset_favorability_result.error:
+                raise FailedException(f'Sign-in add User {event.user_id} Failed, '
+                                      f'init user favorability status failed, {reset_favorability_result.info}')
+            favorability_status_result = await user.favorability_status()
+        if favorability_status_result.error:
+            raise FailedException(f'获取好感度信息失败, {favorability_status_result}')
+        status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
+
         # 尝试签到
         sign_in_result = await user.sign_in()
         if sign_in_result.error:
@@ -130,12 +155,6 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         if sign_in_c_d_result.error:
             raise FailedException(f'查询连续签到时间失败, {sign_in_c_d_result.info}')
         continuous_days = sign_in_c_d_result.result
-
-        # 获取当前好感度信息
-        favorability_status_result = await user.favorability_status()
-        if favorability_status_result.error:
-            raise FailedException(f'获取好感度信息失败, {favorability_status_result}')
-        status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
 
         # 尝试为用户增加好感度
         # 根据连签日期设置不同增幅
@@ -155,8 +174,6 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
 
         favorability_result = await user.favorability_add(favorability=favorability_inc, currency=currency_inc,
                                                           energy=(- energy))
-        if favorability_result.error and favorability_result.info == 'NoResultFound':
-            favorability_result = await user.favorability_reset(favorability=favorability_inc, currency=currency_inc)
         if favorability_result.error:
             raise FailedException(f'增加好感度失败, {favorability_result.info}')
 

@@ -89,37 +89,37 @@ def get_fortune(user_id: int) -> dict:
     # 生成求签种子, 9分一级
     fortune_result = random.randint(1, 108)
     # 大吉・中吉・小吉・吉・半吉・末吉・末小吉・凶・小凶・半凶・末凶・大凶
-    if fortune_result < 9:
+    if fortune_result < 4:
         fortune_star = '☆' * 11
         fortune_text = '大凶'
-    elif fortune_result < 18:
+    elif fortune_result < 9:
         fortune_star = '★' * 1 + '☆' * 10
         fortune_text = '末凶'
-    elif fortune_result < 27:
+    elif fortune_result < 16:
         fortune_star = '★' * 2 + '☆' * 9
         fortune_text = '半凶'
-    elif fortune_result < 36:
+    elif fortune_result < 25:
         fortune_star = '★' * 3 + '☆' * 8
         fortune_text = '小凶'
-    elif fortune_result < 45:
+    elif fortune_result < 36:
         fortune_star = '★' * 4 + '☆' * 7
         fortune_text = '凶'
-    elif fortune_result < 54:
+    elif fortune_result < 48:
         fortune_star = '★' * 5 + '☆' * 6
         fortune_text = '末小吉'
-    elif fortune_result < 63:
+    elif fortune_result < 60:
         fortune_star = '★' * 6 + '☆' * 5
         fortune_text = '末吉'
     elif fortune_result < 72:
         fortune_star = '★' * 7 + '☆' * 4
         fortune_text = '半吉'
-    elif fortune_result < 81:
+    elif fortune_result < 84:
         fortune_star = '★' * 8 + '☆' * 3
         fortune_text = '吉'
-    elif fortune_result < 90:
+    elif fortune_result < 96:
         fortune_star = '★' * 9 + '☆' * 2
         fortune_text = '小吉'
-    elif fortune_result < 99:
+    elif fortune_result < 102:
         fortune_star = '★' * 10 + '☆' * 1
         fortune_text = '中吉'
     else:

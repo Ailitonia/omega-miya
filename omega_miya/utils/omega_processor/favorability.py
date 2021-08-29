@@ -29,6 +29,16 @@ async def postprocessor_favorability(bot: Bot, event: MessageEvent, state: T_Sta
             result = await user.favorability_reset(energy=1)
         elif isinstance(event, PrivateMessageEvent):
             result = await user.favorability_reset(energy=0.01)
+    elif result.error and result.info == 'User not exist':
+        user_add_result = await user.add(nickname=event.sender.nickname)
+        if user_add_result.error:
+            logger.error(f'Add User {event.user_id} favorability-energy Failed, '
+                         f'add user to database failed, {user_add_result.info}')
+            return
+        if isinstance(event, GroupMessageEvent):
+            result = await user.favorability_reset(energy=1)
+        elif isinstance(event, PrivateMessageEvent):
+            result = await user.favorability_reset(energy=0.01)
 
     if result.error:
         logger.error(f'Add User {event.user_id} favorability-energy Failed, {result.info}')
