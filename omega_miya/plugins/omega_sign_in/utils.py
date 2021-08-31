@@ -197,7 +197,7 @@ async def generate_sign_in_card(
         # 加载头图
         draw_top_img: Image.Image = Image.open(sign_pic_path)
         # 调整头图宽度
-        top_img_height = width * draw_top_img.height // draw_top_img.width
+        top_img_height = int(width * draw_top_img.height / draw_top_img.width)
         draw_top_img = draw_top_img.resize((width, top_img_height))
 
         # 字体
@@ -216,7 +216,7 @@ async def generate_sign_in_card(
         bottom_text_font = ImageFont.truetype(bottom_font_path, width // 40)
 
         # 打招呼
-        if 0 <= datetime.now().hour < 11:
+        if 4 <= datetime.now().hour < 11:
             top_text = '早上好'
         elif 11 <= datetime.now().hour < 14:
             top_text = '中午好'

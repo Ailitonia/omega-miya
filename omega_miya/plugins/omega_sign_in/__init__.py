@@ -53,7 +53,7 @@ __plugin_usage__ = r'''【Omega 签到插件】
 仅限群聊使用
 
 **Permission**
-Command & Lv.10
+Command & Lv.20
 or AuthNode
 
 **AuthNode**
