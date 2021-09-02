@@ -6,7 +6,6 @@ T_DrawDeck = Callable[[int], str]
 
 # Deck事件
 deck_list: Dict[str, T_DrawDeck] = {
-    '单张塔罗牌': one_tarot,
     '超能力': superpower,
     '程序员修行': course,
     '明日方舟单抽': draw_one_arknights,
