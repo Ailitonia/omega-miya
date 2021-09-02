@@ -121,11 +121,37 @@ def __get_level(favorability: float) -> tuple[int, int, int]:
     elif favorability < 36000:
         return 2, int(favorability - 10000), 26000
     elif favorability < 78000:
-        return 4, int(favorability - 36000), 42000
+        return 3, int(favorability - 36000), 42000
     elif favorability < 136000:
-        return 5, int(favorability - 78000), 58000
+        return 4, int(favorability - 78000), 58000
+    elif favorability < 210000:
+        return 5, int(favorability - 136000), 74000
+    elif favorability < 300000:
+        return 6, int(favorability - 210000), 90000
+    elif favorability < 406000:
+        return 7, int(favorability - 300000), 106000
     else:
-        return 6, int(favorability - 136000), 74000
+        return 8, int(favorability - 406000), 122000
+
+
+def __get_level_color(level: int) -> tuple[int, int, int]:
+    """
+    根据等级获取相应等级颜色
+    :param level: 等级
+    :return: (int, int, int): RGB 颜色
+    """
+    level_color: dict[int, tuple[int, int, int]] = {
+        0: (136, 136, 136),
+        1: (102, 102, 102),
+        2: (153, 204, 153),
+        3: (221, 204, 136),
+        4: (255, 204, 51),
+        5: (255, 204, 204),
+        6: (247, 119, 127),
+        7: (102, 204, 255),
+        8: (175, 136, 250),
+    }
+    return level_color.get(level, (136, 136, 136))
 
 
 def __split_multiline_text(text: str, width: int, font: ImageFont.FreeTypeFont) -> str:
@@ -235,16 +261,6 @@ async def generate_sign_in_card(
         fav_text = f'{level[1]}/{level[2]}'
         fav_rat = level[1] / level[2] if level[1] < level[2] else 1
         fav_text_width, fav_text_height = text_font.getsize(fav_text)
-        # 等级颜色
-        level_color: dict[int, tuple[int, int, int]] = {
-            0: (136, 136, 136),
-            1: (102, 102, 102),
-            2: (102, 204, 102),
-            3: (102, 204, 255),
-            4: (255, 204, 102),
-            5: (255, 102, 102),
-            6: (255, 102, 204)
-        }
 
         # 日期
         date_text = datetime.now().strftime('%m/%d')
@@ -285,7 +301,7 @@ async def generate_sign_in_card(
 
         ImageDraw.Draw(background).text(xy=(width - int(width * 0.0625), this_height),
                                         text=date_text, font=bd_title_font, align='right', anchor='rt',
-                                        fill=level_color.get(level[0], (136, 136, 136)))  # 日期
+                                        fill=__get_level_color(level=level[0]))  # 日期
 
         this_height += top_text_height
         ImageDraw.Draw(background).multiline_text(xy=(int(width * 0.0625), this_height),
@@ -295,7 +311,7 @@ async def generate_sign_in_card(
         this_height += user_text_height + int(0.046875 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.065), this_height),
                                         text=level_text, font=level_font, align='left', anchor='lt',
-                                        fill=level_color.get(level[0], (136, 136, 136)))  # 等级
+                                        fill=__get_level_color(level=level[0]))  # 等级
 
         this_height += level_text_height + int(0.03125 * width)
         ImageDraw.Draw(background).text(xy=(width - int(width * 0.0625), this_height),
@@ -309,7 +325,7 @@ async def generate_sign_in_card(
         ImageDraw.Draw(background).line(
             xy=[(int(width * 0.0625), this_height),
                 (int(width * 0.0625 + (width * 0.84375 - fav_text_width) * fav_rat), this_height)],
-            fill=level_color.get(level[0], (136, 136, 136)), width=int(0.03125 * width))  # 经验条内
+            fill=__get_level_color(level=level[0]), width=int(0.03125 * width))  # 经验条内
 
         this_height += fortune_star_height + int(0.015625 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
