@@ -10,8 +10,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.database import DBEmailBox, DBBot, DBBotGroup
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
-from omega_miya.utils.text_to_img import text_to_img
+from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, TextUtils
 from .utils import check_mailbox, get_unseen_mail_info, encrypt_password, decrypt_password
 
 
@@ -232,7 +231,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
                     content = re.sub(r'\s', '', content)
                     content = content.replace('&nbsp;', '').replace('\n', '').replace(' ', '')
                     msg = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
-                    text_img_result = await text_to_img(text=msg)
+                    text_img_result = await TextUtils(text=msg).text_to_img()
                     if text_img_result.error:
                         raise Exception(f'Text to img failed, {text_img_result.info}')
                     file_url = pathlib.Path(text_img_result.result).as_uri()

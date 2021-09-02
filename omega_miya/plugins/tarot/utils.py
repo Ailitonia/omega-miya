@@ -13,32 +13,15 @@ import asyncio
 from datetime import datetime
 from nonebot import get_driver
 from PIL import Image, ImageDraw, ImageFont
-from .tarot_resources import BaseTarotResources
 from omega_miya.database import Result
+from omega_miya.utils.omega_plugin_utils import TextUtils
+from .tarot_resources import BaseTarotResources
 
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
 RESOURCES_PATH = global_config.resources_path_
 TAROT_CARD_PATH = os.path.abspath(os.path.join(TMP_PATH, 'tarot_card'))
-
-
-def __split_multiline_text(text: str, width: int, font: ImageFont.FreeTypeFont) -> str:
-    """
-    按长度切分换行文本
-    :param text: 待换行文本
-    :return: 切分换行后的文本
-    """
-    spl_num = 0
-    spl_list = []
-    for num in range(len(text)):
-        text_width, text_height = font.getsize_multiline(text[spl_num:num])
-        if text_width > width:
-            spl_list.append(text[spl_num:num])
-            spl_num = num
-    else:
-        spl_list.append(text[spl_num:])
-    return '\n'.join(spl_list)
 
 
 async def generate_tarot_card(
@@ -86,17 +69,17 @@ async def generate_tarot_card(
         m_title_width, m_title_height = m_title_font.getsize(tarot_card.name)
 
         # 描述
-        desc_text = __split_multiline_text(text=tarot_card.desc, width=(width - int(width * 0.125)), font=text_font)
+        desc_text = TextUtils(text=tarot_card.desc).split_multiline(width=(width - int(width * 0.125)), font=text_font)
         desc_text_width, desc_text_height = text_font.getsize_multiline(desc_text)
 
         # 正位描述
-        positive_text = __split_multiline_text(
-            text=tarot_card.positive, width=(width - int(width * 0.125)), font=text_font)
+        positive_text = TextUtils(
+            text=tarot_card.positive).split_multiline(width=(width - int(width * 0.125)), font=text_font)
         positive_text_width, positive_text_height = text_font.getsize_multiline(positive_text)
 
         # 逆位描述
-        negative_text = __split_multiline_text(
-            text=tarot_card.negative, width=(width - int(width * 0.125)), font=text_font)
+        negative_text = TextUtils(
+            text=tarot_card.negative).split_multiline(width=(width - int(width * 0.125)), font=text_font)
         negative_text_width, negative_text_height = text_font.getsize_multiline(negative_text)
 
         # 计算高度

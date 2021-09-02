@@ -11,6 +11,7 @@ from .message_sender import MsgSender
 from .picture_encoder import PicEncoder
 from .picture_effector import PicEffector
 from .process_utils import ProcessUtils
+from .text_utils import TextUtils
 from .zip_utils import create_zip_file, create_7z_file
 
 
@@ -58,6 +59,7 @@ __all__ = [
     'PicEncoder',
     'PicEffector',
     'ProcessUtils',
+    'TextUtils',
     'create_zip_file',
     'create_7z_file'
 ]

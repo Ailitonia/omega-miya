@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 from nonebot import get_driver, require, logger
 from omega_miya.database import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
-from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, TextUtils
 from .fortune import get_fortune
 
 
@@ -154,24 +154,6 @@ def __get_level_color(level: int) -> tuple[int, int, int]:
     return level_color.get(level, (136, 136, 136))
 
 
-def __split_multiline_text(text: str, width: int, font: ImageFont.FreeTypeFont) -> str:
-    """
-    按长度切分换行文本
-    :param text: 待换行文本
-    :return: 切分换行后的文本
-    """
-    spl_num = 0
-    spl_list = []
-    for num in range(len(text)):
-        text_width, text_height = font.getsize_multiline(text[spl_num:num])
-        if text_width > width:
-            spl_list.append(text[spl_num:num])
-            spl_num = num
-    else:
-        spl_list.append(text[spl_num:])
-    return '\n'.join(spl_list)
-
-
 async def get_hitokoto(*, c: Optional[str] = None) -> Result.TextResult:
     """获取一言"""
     url = 'https://v1.hitokoto.cn'
@@ -266,7 +248,7 @@ async def generate_sign_in_card(
         date_text = datetime.now().strftime('%m/%d')
         # 昵称、好感度、积分
         # 首先要对文本进行分割
-        user_text_ = __split_multiline_text(text=user_text, width=(width - int(width * 0.125)), font=text_font)
+        user_text_ = TextUtils(text=user_text).split_multiline(width=(width - int(width * 0.125)), font=text_font)
         user_text_width, user_text_height = text_font.getsize_multiline(user_text_)
         # 今日运势
         fortune_text_width, fortune_text_height = bd_text_font.getsize(fortune_text)
