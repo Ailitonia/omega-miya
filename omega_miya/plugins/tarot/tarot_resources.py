@@ -11,8 +11,8 @@
 import os
 from typing import List
 from nonebot import get_driver
-from .tarot_typing import TarotPack, TarotResourcesFile, TarotResources
-from .tarot_data import MajorArcana
+from .tarot_typing import TarotPack, TarotResourceFile, TarotResource
+from .tarot_data import TarotPacks
 
 
 global_config = get_driver().config
@@ -21,51 +21,50 @@ RESOURCES_PATH = global_config.resources_path_
 TAROT_RESOURCES_PATH = os.path.abspath(os.path.join(RESOURCES_PATH, 'images', 'tarot'))
 
 
-class BaseTarotResources(object):
+class BaseTarotResource(object):
     """
     资源基类
     """
-    pack: TarotPack
-    files: List[TarotResourcesFile]
-    resources: TarotResources
+    def __init__(self, pack: TarotPack, source_name: str, file_format: str, source_folder_name: str):
+        self.pack: TarotPack = pack
 
+        self.files: List[TarotResourceFile] = [
+            TarotResourceFile(id=card.id, index=card.index) for card in self.pack.cards]
 
-class BiliTarotResources(BaseTarotResources):
-    pack: TarotPack = MajorArcana
-
-    def __init__(self):
-        self.files: List[TarotResourcesFile] = [
-            TarotResourcesFile(id=card.id, index=card.index) for card in self.pack.cards]
-
-        self.resources: TarotResources = TarotResources(
-            source_name='BiliBili幻星集',
-            file_format='png',
-            file_path=os.path.abspath(os.path.join(TAROT_RESOURCES_PATH, 'bilibili')),
+        self.resources: TarotResource = TarotResource(
+            source_name=source_name,
+            file_format=file_format,
+            file_path=os.path.abspath(os.path.join(TAROT_RESOURCES_PATH, source_folder_name)),
             files=self.files
         )
 
         self.resources.check_source()
 
 
-class RWSTarotResources(BaseTarotResources):
-    pack: TarotPack = MajorArcana
+class TarotResources(object):
+    # 内置资源 BiliBili幻星集
+    BiliTarotResources = BaseTarotResource(
+        pack=TarotPacks.MajorArcana,
+        source_name='BiliBili幻星集',
+        file_format='png',
+        source_folder_name='bilibili')
 
-    def __init__(self):
-        self.files: List[TarotResourcesFile] = [
-            TarotResourcesFile(id=card.id, index=card.index) for card in self.pack.cards]
+    # 内置资源 RWS塔罗
+    RWSTarotResources = BaseTarotResource(
+        pack=TarotPacks.MajorArcana,
+        source_name='RWS',
+        file_format='jpg',
+        source_folder_name='RWS')
 
-        self.resources: TarotResources = TarotResources(
-            source_name='RWS',
-            file_format='jpg',
-            file_path=os.path.abspath(os.path.join(TAROT_RESOURCES_PATH, 'RWS')),
-            files=self.files
-        )
-
-        self.resources.check_source()
+    # 在这里自定义你的资源文件
+    # CustomTarotResources = BaseTarotResource(
+    #     pack=MajorArcana,
+    #     source_name='Custom',
+    #     file_format='png',
+    #     source_folder_name='Custom')
 
 
 __all__ = [
-    'BaseTarotResources',
-    'BiliTarotResources',
-    'RWSTarotResources'
+    'BaseTarotResource',
+    'TarotResources'
 ]

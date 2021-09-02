@@ -45,8 +45,6 @@ class TarotCard:
     name: str  # 显示名称
     intro: str  # 卡面描述
     words: str  # 相关词/关键词
-    element: Element  # 对应元素
-    constellation: Constellation  # 对应星象
     desc: str  # 卡片描述
     positive: str  # 正位释义
     negative: str  # 逆位释义
@@ -84,7 +82,7 @@ class TarotPack:
 
 
 @dataclass
-class TarotResourcesFile:
+class TarotResourceFile:
     """
     卡片资源文件
     """
@@ -93,14 +91,14 @@ class TarotResourcesFile:
 
 
 @dataclass
-class TarotResources:
+class TarotResource:
     """
     卡片资源信息
     """
     source_name: str  # 资源名称
     file_format: str  # 文件格式
     file_path: str  # 资源文件夹
-    files: List[TarotResourcesFile]  # 卡牌名称列表
+    files: List[TarotResourceFile]  # 卡牌名称列表
 
     def check_source(self):
         for file in self.files:
@@ -126,6 +124,6 @@ __all__ = [
     'Constellation',
     'TarotCard',
     'TarotPack',
-    'TarotResourcesFile',
-    'TarotResources'
+    'TarotResourceFile',
+    'TarotResource'
 ]

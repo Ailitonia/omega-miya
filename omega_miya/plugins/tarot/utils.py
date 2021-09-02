@@ -15,7 +15,7 @@ from nonebot import get_driver
 from PIL import Image, ImageDraw, ImageFont
 from omega_miya.database import Result
 from omega_miya.utils.omega_plugin_utils import TextUtils
-from .tarot_resources import BaseTarotResources
+from .tarot_resources import BaseTarotResource
 
 
 global_config = get_driver().config
@@ -26,7 +26,7 @@ TAROT_CARD_PATH = os.path.abspath(os.path.join(TMP_PATH, 'tarot_card'))
 
 async def generate_tarot_card(
         id_: int,
-        resources: BaseTarotResources,
+        resources: BaseTarotResource,
         direction: int = 1,
         *,
         need_desc: bool = True,
