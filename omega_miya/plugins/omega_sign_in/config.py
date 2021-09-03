@@ -14,6 +14,10 @@ from pydantic import BaseSettings
 class Config(BaseSettings):
 
     # plugin custom config
+    # 是否启用自动下载签到头图的定时任务
+    enable_pic_preparing_scheduler: bool = True
+
+    # 相关数值显示命令
     favorability_alias: str = '好感度'
     energy_alias: str = '能量值'
     currency_alias: str = '硬币'

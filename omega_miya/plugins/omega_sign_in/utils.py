@@ -18,14 +18,17 @@ from nonebot import get_driver, require, logger
 from omega_miya.database import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
 from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, TextUtils
+from .config import Config
 from .fortune import get_fortune
 
 
 global_config = get_driver().config
+plugin_config = Config(**global_config.dict())
 TMP_PATH = global_config.tmp_path_
 RESOURCES_PATH = global_config.resources_path_
 SIGN_IN_PIC_PATH = os.path.abspath(os.path.join(TMP_PATH, 'sign_in_pic'))
 SIGN_IN_CARD_PATH = os.path.abspath(os.path.join(TMP_PATH, 'sign_in_card'))
+ENABLE_PIC_PREPARING_SCHEDULER = plugin_config.enable_pic_preparing_scheduler
 
 
 async def __pre_download_sign_in_pic(pid: int, *, pic_size: str = 'regular') -> Result.IntResult:
@@ -65,26 +68,27 @@ async def __prepare_sign_in_pic() -> Result.TextResult:
     return Result.TextResult(error=True, info=f'Completed', result=result_text)
 
 
-# 启用下载签到图片的定时任务
-scheduler = require("nonebot_plugin_apscheduler").scheduler
-scheduler.add_job(
-    __prepare_sign_in_pic,
-    'cron',
-    # year=None,
-    # month=None,
-    # day='*/1',
-    # week=None,
-    # day_of_week=None,
-    hour='*/6',
-    # minute=None,
-    # second=None,
-    # start_date=None,
-    # end_date=None,
-    # timezone=None,
-    id='prepare_sign_in_pic',
-    coalesce=True,
-    misfire_grace_time=30
-)
+# 下载签到图片的定时任务
+if ENABLE_PIC_PREPARING_SCHEDULER:
+    scheduler = require("nonebot_plugin_apscheduler").scheduler
+    scheduler.add_job(
+        __prepare_sign_in_pic,
+        'cron',
+        # year=None,
+        # month=None,
+        # day='*/1',
+        # week=None,
+        # day_of_week=None,
+        hour='*/6',
+        # minute=None,
+        # second=None,
+        # start_date=None,
+        # end_date=None,
+        # timezone=None,
+        id='prepare_sign_in_pic',
+        coalesce=True,
+        misfire_grace_time=30
+    )
 
 
 async def __get_reand_sign_in_pic() -> Result.TextResult:
