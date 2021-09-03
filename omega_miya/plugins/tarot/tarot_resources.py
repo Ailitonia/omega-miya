@@ -44,21 +44,35 @@ class BaseTarotResource(object):
 class TarotResources(object):
     # 内置资源 BiliBili幻星集
     BiliTarotResources = BaseTarotResource(
-        pack=TarotPacks.MajorArcana,
+        pack=TarotPacks.RiderWaite,
         source_name='BiliBili幻星集',
         file_format='png',
         source_folder_name='bilibili')
 
-    # 内置资源 RWS塔罗
+    # 内置资源 莱德韦特塔罗
     RWSTarotResources = BaseTarotResource(
-        pack=TarotPacks.MajorArcana,
-        source_name='RWS',
+        pack=TarotPacks.RiderWaite,
+        source_name='莱德韦特塔罗',
         file_format='jpg',
         source_folder_name='RWS')
 
+    # 内置资源 莱德韦特塔罗 大阿卡那
+    RWSMTarotResources = BaseTarotResource(
+        pack=TarotPacks.MajorArcana,
+        source_name='莱德韦特塔罗_大阿卡那',
+        file_format='jpg',
+        source_folder_name='RWS_M')
+
+    # 内置资源 通用塔罗
+    UWTTarotResources = BaseTarotResource(
+        pack=TarotPacks.RiderWaite,
+        source_name='Universal Waite Tarot',
+        file_format='jpg',
+        source_folder_name='UWT')
+
     # 在这里自定义你的资源文件
     # CustomTarotResources = BaseTarotResource(
-    #     pack=MajorArcana,
+    #     pack=TarotPacks.MajorArcana,
     #     source_name='Custom',
     #     file_format='png',
     #     source_folder_name='Custom')

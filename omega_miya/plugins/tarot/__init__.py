@@ -10,7 +10,7 @@
 
 import random
 import pathlib
-from nonebot import MatcherGroup, logger
+from nonebot import get_driver, MatcherGroup, logger
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
@@ -20,6 +20,10 @@ from nonebot.adapters.cqhttp.message import MessageSegment
 from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from .config import Config
 from .utils import generate_tarot_card
+
+
+global_config = get_driver().config
+plugin_config = Config(**global_config.dict())
 
 
 # Custom plugin usage text
@@ -63,7 +67,7 @@ single_tarot = Tarot.on_command('单张塔罗牌')
 
 @single_tarot.handle()
 async def handle_single_tarot(bot: Bot, event: GroupMessageEvent, state: T_State):
-    group_resources = Config().get_group_resources(group_id=event.group_id)
+    group_resources = plugin_config.get_group_resources(group_id=event.group_id)
     # 随机一张出来
     card = random.choice(group_resources.pack.cards)
     # 再随机正逆
