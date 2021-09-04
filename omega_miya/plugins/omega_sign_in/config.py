@@ -16,6 +16,8 @@ class Config(BaseSettings):
     # plugin custom config
     # 是否启用自动下载签到头图的定时任务
     enable_pic_preparing_scheduler: bool = True
+    # 缓存的签到头图的数量限制
+    cache_pic_limit: int = 2000
 
     # 相关数值显示命令
     favorability_alias: str = '好感度'

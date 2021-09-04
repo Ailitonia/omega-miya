@@ -11,6 +11,7 @@
 import os
 import random
 import asyncio
+import aiofiles.os
 from typing import Optional
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
@@ -29,6 +30,7 @@ RESOURCES_PATH = global_config.resources_path_
 SIGN_IN_PIC_PATH = os.path.abspath(os.path.join(TMP_PATH, 'sign_in_pic'))
 SIGN_IN_CARD_PATH = os.path.abspath(os.path.join(TMP_PATH, 'sign_in_card'))
 ENABLE_PIC_PREPARING_SCHEDULER = plugin_config.enable_pic_preparing_scheduler
+CACHE_PIC_LIMIT = plugin_config.cache_pic_limit
 
 
 async def __pre_download_sign_in_pic(pid: int, *, pic_size: str = 'regular') -> Result.IntResult:
@@ -47,7 +49,19 @@ async def __pre_download_sign_in_pic(pid: int, *, pic_size: str = 'regular') -> 
 
 
 async def __prepare_sign_in_pic() -> Result.TextResult:
-    pic_list_result = await DBPixivillust.rand_illust(num=40, nsfw_tag=0, ratio=1)
+    # 检查当前缓存目录里面的图片是不是超出数量限制 是的话就删除超出的部分
+    if not os.path.exists(SIGN_IN_PIC_PATH):
+        os.makedirs(SIGN_IN_PIC_PATH)
+    pic_file_list = os.listdir(SIGN_IN_PIC_PATH)
+    if len(pic_file_list) > CACHE_PIC_LIMIT:
+        del_pic_file_list = random.sample(pic_file_list, k=(len(pic_file_list) - CACHE_PIC_LIMIT))
+        for pic_file in del_pic_file_list:
+            await aiofiles.os.remove(os.path.abspath(os.path.join(SIGN_IN_PIC_PATH, pic_file)))
+        logger.info(f'Preparing sign in pic processing, '
+                    f'removed pic "{"/".join(del_pic_file_list)}" exceed the limit of cache')
+
+    # 获取图片信息并下载图片
+    pic_list_result = await DBPixivillust.rand_illust(num=100, nsfw_tag=0, ratio=1)
     if pic_list_result.error or not pic_list_result.result:
         logger.error(f'Preparing sign in pic failed, DB Error or not result, result: {pic_list_result}')
         return Result.TextResult(error=True, info=pic_list_result.info, result='DB Error or not result')
@@ -87,7 +101,7 @@ if ENABLE_PIC_PREPARING_SCHEDULER:
         # timezone=None,
         id='prepare_sign_in_pic',
         coalesce=True,
-        misfire_grace_time=30
+        misfire_grace_time=120
     )
 
 
