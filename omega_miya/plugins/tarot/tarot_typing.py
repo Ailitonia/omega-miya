@@ -46,8 +46,8 @@ class TarotCard:
     intro: str  # 卡面描述
     words: str  # 相关词/关键词
     desc: str  # 卡片描述
-    positive: str  # 正位释义
-    negative: str  # 逆位释义
+    upright: str  # 正位释义
+    reversed: str  # 逆位释义
 
 
 @dataclass

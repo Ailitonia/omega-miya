@@ -73,24 +73,24 @@ async def handle_single_tarot(bot: Bot, event: GroupMessageEvent, state: T_State
     # 再随机正逆
     direction = random.choice([-1, 1])
     if direction == 1:
-        need_positive = True
-        need_negative = False
+        need_upright = True
+        need_reversed = False
     else:
-        need_positive = False
-        need_negative = True
+        need_upright = False
+        need_reversed = True
     # 绘制卡图
     card_result = await generate_tarot_card(
         id_=card.id,
         resources=group_resources,
         direction=direction,
         need_desc=False,
-        need_positive=need_positive,
-        need_negative=need_negative)
+        need_upright=need_upright,
+        need_reversed=need_reversed)
 
     if card_result.error:
         logger.error(f'{event.group_id}/{event.user_id} 生成塔罗牌图片失败, {card_result.info}')
         await single_tarot.finish('生成塔罗牌图片失败了QAQ, 请稍后再试或联系管理员处理')
     else:
         msg = MessageSegment.image(pathlib.Path(card_result.result).as_uri())
-        logger.info(f'{event.group_id}/{event.user_id} 获取生成塔罗牌图片成功')
+        logger.info(f'{event.group_id}/{event.user_id} 生成塔罗牌图片成功')
         await single_tarot.finish(msg)

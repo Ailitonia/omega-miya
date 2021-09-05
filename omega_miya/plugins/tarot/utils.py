@@ -30,8 +30,8 @@ async def generate_tarot_card(
         direction: int = 1,
         *,
         need_desc: bool = True,
-        need_positive: bool = True,
-        need_negative: bool = True,
+        need_upright: bool = True,
+        need_reversed: bool = True,
         width: int = 1024) -> Result.TextResult:
     """
     绘制塔罗卡片
@@ -39,8 +39,8 @@ async def generate_tarot_card(
     :param resources: 卡片资源
     :param direction: 方向, 1: 正, -1: 逆
     :param need_desc: 是否绘制描述
-    :param need_positive: 是否绘制正位描述
-    :param need_negative: 是否绘制逆位描述
+    :param need_upright: 是否绘制正位描述
+    :param need_reversed: 是否绘制逆位描述
     :param width: 绘制图片宽度
     :return:
     """
@@ -73,23 +73,23 @@ async def generate_tarot_card(
         desc_text_width, desc_text_height = text_font.getsize_multiline(desc_text)
 
         # 正位描述
-        positive_text = TextUtils(
-            text=tarot_card.positive).split_multiline(width=(width - int(width * 0.125)), font=text_font)
-        positive_text_width, positive_text_height = text_font.getsize_multiline(positive_text)
+        upright_text = TextUtils(
+            text=tarot_card.upright).split_multiline(width=(width - int(width * 0.125)), font=text_font)
+        upright_text_width, upright_text_height = text_font.getsize_multiline(upright_text)
 
         # 逆位描述
-        negative_text = TextUtils(
-            text=tarot_card.negative).split_multiline(width=(width - int(width * 0.125)), font=text_font)
-        negative_text_width, negative_text_height = text_font.getsize_multiline(negative_text)
+        reversed_text = TextUtils(
+            text=tarot_card.reversed).split_multiline(width=(width - int(width * 0.125)), font=text_font)
+        reversed_text_width, reversed_text_height = text_font.getsize_multiline(reversed_text)
 
         # 计算高度
         background_height = title_height + m_title_height + tarot_img_height + int(0.09375 * width)
         if need_desc:
             background_height += desc_text_height + int(0.125 * width)
-        if need_positive:
-            background_height += m_title_height + positive_text_height + int(0.125 * width)
-        if need_negative:
-            background_height += m_title_height + negative_text_height + int(0.125 * width)
+        if need_upright:
+            background_height += m_title_height + upright_text_height + int(0.125 * width)
+        if need_reversed:
+            background_height += m_title_height + reversed_text_height + int(0.125 * width)
 
         # 生成背景
         background = Image.new(
@@ -120,7 +120,7 @@ async def generate_tarot_card(
                                                       fill=(0, 0, 0))  # 描述
             this_height += desc_text_height
 
-        if need_positive:
+        if need_upright:
             this_height += int(0.0625 * width)
             ImageDraw.Draw(background).text(xy=(width // 2, this_height),
                                             text='【正位】', font=m_title_font, align='center', anchor='ma',
@@ -128,11 +128,11 @@ async def generate_tarot_card(
 
             this_height += m_title_height + int(0.03125 * width)
             ImageDraw.Draw(background).multiline_text(xy=(width // 2, this_height),
-                                                      text=positive_text, font=text_font, align='center', anchor='ma',
+                                                      text=upright_text, font=text_font, align='center', anchor='ma',
                                                       fill=(0, 0, 0))  # 正位描述
-            this_height += positive_text_height
+            this_height += upright_text_height
 
-        if need_negative:
+        if need_reversed:
             this_height += int(0.0625 * width)
             ImageDraw.Draw(background).text(xy=(width // 2, this_height),
                                             text='【逆位】', font=m_title_font, align='center', anchor='ma',
@@ -140,7 +140,7 @@ async def generate_tarot_card(
 
             this_height += m_title_height + int(0.03125 * width)
             ImageDraw.Draw(background).multiline_text(xy=(width // 2, this_height),
-                                                      text=negative_text, font=text_font, align='center', anchor='ma',
+                                                      text=reversed_text, font=text_font, align='center', anchor='ma',
                                                       fill=(0, 0, 0))  # 逆位描述
 
         if not os.path.exists(TAROT_CARD_PATH):
