@@ -9,7 +9,7 @@ from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
 from .utils import maybe, sp,  sp_event
-# from .oldalmanac import old_almanac
+# from ._oldalmanac import old_almanac
 
 
 # Custom plugin usage text
@@ -126,7 +126,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 async def handle_help_choice(bot: Bot, event: GroupMessageEvent, state: T_State):
     choices = state['choices']
     result = random.choice(str(choices).split())
-    result_text = '帮你从"' + '","'.join(str(choices).split()) + f'"中选择了: "{result}"'
+    result_text = f'''帮你从“{'”，“'.join(str(choices).split())}”中选择了：\n\n“{result}”'''
     msg = Message(MessageSegment.at(user_id=event.user_id)).append(result_text)
     await help_choice.finish(msg)
 

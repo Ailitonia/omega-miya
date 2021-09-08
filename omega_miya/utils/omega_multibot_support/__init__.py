@@ -32,8 +32,8 @@ async def upgrade_connected_bot(bot: Bot):
     info = '||'.join([f'{k}:{v}' for (k, v) in bot_info.items()])
     bot_result = await DBBot(self_qq=int(bot.self_id)).upgrade(status=1, info=info)
     if bot_result.success():
-        logger.opt(colors=True).info(f'Bot: {bot.self_id} <lg>已连接</lg>, '
-                                     f'<lg>Database upgrade Success</lg>: {bot_result.info}')
+        logger.opt(colors=True).success(f'Bot: {bot.self_id} <lg>已连接</lg>, '
+                                        f'<lg>Database upgrade Success</lg>: {bot_result.info}')
     else:
         logger.opt(colors=True).error(f'Bot: {bot.self_id} <ly>已连接</ly>, '
                                       f'<r>Database upgrade Failed</r>: {bot_result.info}')

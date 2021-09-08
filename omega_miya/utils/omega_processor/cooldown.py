@@ -5,7 +5,6 @@ plugins/setu
 plugin/draw
 """
 from nonebot import get_plugin, get_driver, logger
-from nonebot.adapters.cqhttp import MessageSegment, Message
 from nonebot.exception import IgnoredException
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -76,7 +75,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
     if plugin_check.result == 1 or group_check.result == 1 or user_check.result == 1:
         pass
     elif global_check.result == 1:
-        await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{global_check.info}'))
+        await bot.send(event=event, message=f'命令冷却中!\n{global_check.info}', at_sender=True)
         raise IgnoredException('全局命令冷却中')
     elif global_check.result in [0, 2]:
         pass
@@ -90,7 +89,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
 
         res = await PluginCoolDown.check_and_set_global_cool_down(minutes=time)
         if res.result == 1:
-            await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
+            await bot.send(event=event, message=f'命令冷却中!\n{res.info}', at_sender=True)
             raise IgnoredException('全局命令冷却中')
         elif res.result in [0, 2]:
             pass
@@ -105,7 +104,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
 
         res = await PluginCoolDown.check_and_set_plugin_cool_down(minutes=time, plugin=plugin_name)
         if res.result == 1:
-            await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
+            await bot.send(event=event, message=f'命令冷却中!\n{res.info}', at_sender=True)
             raise IgnoredException('插件命令冷却中')
         elif res.result in [0, 2]:
             pass
@@ -123,7 +122,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
 
         res = await PluginCoolDown.check_and_set_group_cool_down(minutes=time, plugin=plugin_name, group_id=group_id)
         if res.result == 1:
-            await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
+            await bot.send(event=event, message=f'命令冷却中!\n{res.info}', at_sender=True)
             raise IgnoredException('群组命令冷却中')
         elif res.result in [0, 2]:
             pass
@@ -137,7 +136,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
 
         res = await PluginCoolDown.check_and_set_user_cool_down(minutes=time, plugin=plugin_name, user_id=user_id)
         if res.result == 1:
-            await bot.send(event=event, message=Message(f'{MessageSegment.at(user_id=user_id)}命令冷却中!\n{res.info}'))
+            await bot.send(event=event, message=f'命令冷却中!\n{res.info}', at_sender=True)
             raise IgnoredException('用户命令冷却中')
         elif res.result in [0, 2]:
             pass
