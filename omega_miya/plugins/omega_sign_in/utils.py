@@ -117,10 +117,9 @@ async def __get_reand_sign_in_pic() -> Result.TextResult:
     if not pic_file_list:
         return Result.TextResult(error=True, info='Can not pre-download sign in pic', result='')
 
-    # 每次重置随机种子
-    time_stamp = datetime.now().timestamp()
-    random_seed_str = f'{"/".join(random.sample(str(time_stamp), k=7))}//{time_stamp}'
-    random.seed(random_seed_str)
+    # 重置随机种子
+    random.seed()
+
     rand_file = random.choice(pic_file_list)
     file_path = os.path.abspath(os.path.join(SIGN_IN_PIC_PATH, rand_file))
     return Result.TextResult(error=False, info='Success', result=file_path)

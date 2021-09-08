@@ -11,7 +11,7 @@ def maybe(draw: str, user_id: int) -> str:
     md5.update(random_seed_str.encode('utf-8'))
     random_seed = md5.hexdigest()
     random.seed(random_seed)
-    # 生成求签种子, 9分一级
+    # 生成求签随机数, 9分一级
     divination_result = random.randint(1, 109)
     # 大吉・中吉・小吉・吉・半吉・末吉・末小吉・凶・小凶・半凶・末凶・大凶
     if divination_result < 9:
@@ -38,7 +38,12 @@ def maybe(draw: str, user_id: int) -> str:
         result_text = '中吉'
     else:
         result_text = '大吉'
+
     msg = f'所求事项: 【{draw}】\n\n结果: 【{result_text}】'
+
+    # 重置随机种子
+    random.seed()
+
     return msg
 
 

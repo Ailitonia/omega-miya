@@ -119,7 +119,7 @@ def get_fortune(user_id: int) -> dict:
     random_seed = md5.hexdigest()
     random.seed(random_seed)
     # 今日运势
-    # 生成求签种子, 9分一级
+    # 生成运势随机数
     fortune_result = random.randint(1, 108)
     # 大吉・中吉・小吉・吉・半吉・末吉・末小吉・凶・小凶・半凶・末凶・大凶
     if fortune_result < 4:
@@ -169,4 +169,8 @@ def get_fortune(user_id: int) -> dict:
         'not_do_1': f"{do_and_not[1]['name']} —— {do_and_not[1]['bad']}",
         'not_do_2': f"{do_and_not[3]['name']} —— {do_and_not[3]['bad']}"
     }
+
+    # 重置随机种子
+    random.seed()
+
     return result

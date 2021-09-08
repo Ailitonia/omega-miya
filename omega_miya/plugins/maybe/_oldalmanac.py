@@ -203,4 +203,7 @@ def old_almanac(user_id: int) -> str:
              f"【忌】\n{dd_do_and_not[1]['name']} —— {dd_do_and_not[1]['bad']}\n\n" \
              f"今日宜D：{dd_vtb[0]}\n\n“{dd_saying[0]}”"
 
+    # 重置随机种子
+    random.seed()
+
     return result
