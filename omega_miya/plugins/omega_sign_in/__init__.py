@@ -27,6 +27,7 @@ from .utils import scheduler, get_hitokoto, generate_sign_in_card
 
 __global_config = get_driver().config
 plugin_config = Config(**__global_config.dict())
+ENABLE_REGEX_MATCHER = plugin_config.enable_regex_matcher
 FAVORABILITY_ALIAS = plugin_config.favorability_alias
 ENERGY_ALIAS = plugin_config.energy_alias
 CURRENCY_ALIAS = plugin_config.currency_alias
@@ -88,10 +89,9 @@ SignIn = MatcherGroup(
     priority=20,
     block=True)
 
+
 command_sign_in = SignIn.on_command('sign_in', aliases={'签到'})
-regex_sign_in = SignIn.on_regex(r'^签到$')
 command_fortune_today = SignIn.on_command('fortune_today', aliases={'今日运势', '今日人品', '一言', '好感度', '我的好感'})
-regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言|好感度|我的好感)$')
 
 
 poke_sign_in = on_notice(
@@ -154,22 +154,25 @@ async def handle_command_sign_in(bot: Bot, event: GroupMessageEvent, state: T_St
     await command_sign_in.finish(msg)
 
 
-@regex_sign_in.handle()
-async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
-    msg = await handle_sign_in(bot=bot, event=event, state=state)
-    await regex_sign_in.finish(msg)
-
-
 @command_fortune_today.handle()
 async def handle_command_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
     msg = await handle_fortune(bot=bot, event=event, state=state)
     await command_fortune_today.finish(msg)
 
 
-@regex_fortune_today.handle()
-async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
-    msg = await handle_fortune(bot=bot, event=event, state=state)
-    await regex_fortune_today.finish(msg)
+if ENABLE_REGEX_MATCHER:
+    regex_sign_in = SignIn.on_regex(r'^签到$')
+    regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言|好感度|我的好感)$')
+
+    @regex_sign_in.handle()
+    async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
+        msg = await handle_sign_in(bot=bot, event=event, state=state)
+        await regex_sign_in.finish(msg)
+
+    @regex_fortune_today.handle()
+    async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
+        msg = await handle_fortune(bot=bot, event=event, state=state)
+        await regex_fortune_today.finish(msg)
 
 
 async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
