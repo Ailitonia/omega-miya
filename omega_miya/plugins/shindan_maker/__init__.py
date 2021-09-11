@@ -17,7 +17,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown, OmegaRules
 from .data_source import ShindanMaker
 
 
@@ -62,11 +62,10 @@ SHINDANMAKER_CACHE: Dict[str, int] = {}
 shindan_maker = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='shindan_maker',
         command=True,
-        level=30,
-        auth_node='basic'),
+        level=30),
     permission=GROUP,
     priority=20,
     block=True)

@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from omega_miya.utils.bilibili_utils import BiliLiveRoom
 from .data_source import BiliLiveChecker
 from .monitor import scheduler
@@ -49,11 +49,10 @@ bilibili_live = on_command(
     'B站直播间',
     aliases={'b站直播间'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='bilibili_live',
         command=True,
-        level=20,
-        auth_node='basic'),
+        level=20),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
     priority=20,
     block=True)

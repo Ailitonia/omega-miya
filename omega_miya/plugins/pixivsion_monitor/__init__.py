@@ -6,7 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.database import DBBot, DBBotGroup, DBSubscription, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from .monitor import scheduler, init_pixivsion_article
 
 
@@ -41,11 +41,10 @@ pixivision = on_command(
     'pixivision',
     aliases={'Pixivision'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='pixivision',
         command=True,
-        level=30,
-        auth_node='basic'),
+        level=30),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=20,
     block=True)

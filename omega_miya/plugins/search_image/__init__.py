@@ -8,7 +8,7 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder, PermissionChecker
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -54,11 +54,10 @@ search_image = on_command(
     '识图',
     aliases={'搜图'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='search_image',
         command=True,
-        level=50,
-        auth_node='basic'),
+        level=50),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
@@ -211,7 +210,7 @@ recommend_image = on_command(  # 使用 pixiv api 的相关作品推荐功能查
     '再来点',
     aliases={'多来点', '相似作品', '类似作品'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='search_image_recommend_image',
         command=True,
         auth_node='recommend_image'),

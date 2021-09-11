@@ -19,7 +19,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, PokeNotifyEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from omega_miya.database import DBUser
 from .config import Config
 from .utils import scheduler, get_hitokoto, generate_sign_in_card
@@ -80,11 +80,10 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_no
 SignIn = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='sign_in',
         command=True,
-        level=20,
-        auth_node='basic'),
+        level=20),
     permission=GROUP,
     priority=20,
     block=True)

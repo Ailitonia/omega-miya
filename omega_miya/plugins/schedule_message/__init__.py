@@ -21,7 +21,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from omega_miya.database import DBBot, DBBotGroup, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 
 
 # Custom plugin usage text
@@ -58,11 +58,10 @@ scheduler: AsyncIOScheduler = require("nonebot_plugin_apscheduler").scheduler
 ScheduleMsg = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='schedule_message',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=10,
     block=True)

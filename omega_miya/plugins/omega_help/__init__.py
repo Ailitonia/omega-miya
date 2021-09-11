@@ -5,7 +5,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown
 
 
 # Custom plugin usage text
@@ -44,11 +44,10 @@ bot_help = on_command(
     'help',
     aliases={'Help', '帮助'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='help',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)

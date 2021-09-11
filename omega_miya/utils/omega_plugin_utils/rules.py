@@ -6,6 +6,9 @@ from omega_miya.database import DBBot, DBFriend, DBBotGroup, DBAuth
 
 
 class OmegaRules(object):
+    # Default basic auth mode name
+    basic_auth_node: str = 'basic'
+
     # Plugin permission rule
     # Only using for group
     @classmethod

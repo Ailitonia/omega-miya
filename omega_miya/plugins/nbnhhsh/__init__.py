@@ -4,7 +4,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from .utils import get_guess
 
 
@@ -38,11 +38,10 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_no
 nbnhhsh = on_command(
     '好好说话',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='nbnhhsh',
         command=True,
-        level=30,
-        auth_node='basic'),
+        level=30),
     aliases={'hhsh', 'nbnhhsh'},
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,

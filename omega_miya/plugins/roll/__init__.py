@@ -6,7 +6,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 
 
 # Custom plugin usage text
@@ -39,11 +39,10 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_no
 Roll = CommandGroup(
     'Roll',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='roll',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP,
     priority=10,
     block=True)

@@ -14,7 +14,7 @@ from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot, Result
 from omega_miya.utils.omega_plugin_utils import \
-    init_export, init_permission_state, PluginCoolDown, PermissionChecker, PicEncoder, MsgSender, ProcessUtils
+    init_export, init_processor_state, PluginCoolDown, PermissionChecker, PicEncoder, MsgSender, ProcessUtils
 from omega_miya.utils.pixiv_utils import PixivIllust
 from PIL import Image, ImageDraw, ImageFont
 from .config import Config
@@ -79,11 +79,10 @@ pixiv = on_command(
     'pixiv',
     aliases={'Pixiv'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='pixiv',
         command=True,
-        level=50,
-        auth_node='basic'),
+        level=50),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
@@ -232,7 +231,7 @@ pixiv_dl = on_command(
     'pixivdl',
     aliases={'Pixivdl'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='pixivdl',
         command=True,
         auth_node='download'),

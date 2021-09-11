@@ -18,7 +18,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
 from omega_miya.database import DBStatistic
 from .utils import draw_statistics
 
@@ -53,11 +53,10 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_no
 statistic = on_command(
     '统计信息',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='statistic',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     aliases={'插件统计', 'statistic'},
     permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
     priority=10,
@@ -129,11 +128,10 @@ admin_statistic = on_command(
     '全局统计信息',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     rule=to_me(),
-    state=init_permission_state(
+    state=init_processor_state(
         name='admin_statistic',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     aliases={'全局插件统计', 'total_stat'},
     permission=SUPERUSER,
     priority=10,

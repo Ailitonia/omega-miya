@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from omega_miya.utils.tencent_cloud_api import TencentNLP, TencentTMT
 
 
@@ -48,7 +48,7 @@ translate = tencent_cloud.on_command(
     '翻译',
     aliases={'translate'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='translate',
         command=True,
         level=30,

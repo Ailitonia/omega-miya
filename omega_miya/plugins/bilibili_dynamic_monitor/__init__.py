@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from omega_miya.utils.bilibili_utils import BiliUser
 from .monitor import init_user_dynamic, scheduler
 
@@ -47,11 +47,10 @@ bilibili_dynamic = on_command(
     'B站动态',
     aliases={'b站动态'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='bilibili_dynamic',
         command=True,
-        level=20,
-        auth_node='basic'),
+        level=20),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
     priority=20,
     block=True)

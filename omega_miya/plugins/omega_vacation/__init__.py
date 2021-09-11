@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from omega_miya.database import DBSkill, DBUser, DBBot, DBBotGroup
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PermissionChecker
 
 # Custom plugin usage text
 __plugin_custom_name__ = '请假'
@@ -43,10 +43,9 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_no
 vacation = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='vacation',
-        command=True,
-        auth_node='basic'),
+        command=True),
     permission=GROUP,
     priority=10,
     block=True)
