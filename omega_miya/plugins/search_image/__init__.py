@@ -39,15 +39,15 @@ basic
 **Hidden Command**
 /再来点'''
 
-# 声明本插件可配置的权限节点
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
-    'basic',
     'recommend_image',
     'allow_recommend_r18'
 ]
 
 # Init plugin export
 init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+
 
 # 注册事件响应器
 search_image = on_command(

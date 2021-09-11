@@ -39,6 +39,7 @@ __plugin_usage__ = r'''【群自定义欢迎信息插件】
 /清空欢迎消息
 '''
 
+
 # Init plugin export
 init_export(export(), __plugin_custom_name__, __plugin_usage__)
 

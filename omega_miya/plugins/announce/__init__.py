@@ -21,6 +21,7 @@ SuperUser Only
 **Usage**
 /公告'''
 
+
 # Init plugin export
 init_export(export(), __plugin_custom_name__, __plugin_usage__)
 

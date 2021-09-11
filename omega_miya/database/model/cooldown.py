@@ -7,8 +7,14 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
 class DBCoolDownEvent(object):
+    global_group_type: str = 'global_group'
+    global_user_type: str = 'global_user'
+    group_type: str = 'group'
+    user_type: str = 'user'
+
     @classmethod
-    async def add_global_cool_down_event(cls, stop_at: datetime, description: str = None) -> Result.IntResult:
+    async def add_global_group_cool_down_event(
+            cls, group_id: int, stop_at: datetime, description: str = None) -> Result.IntResult:
         """
         :return:
             result = 0: Success
@@ -21,7 +27,8 @@ class DBCoolDownEvent(object):
                     try:
                         session_result = await session.execute(
                             select(CoolDownEvent).
-                            where(CoolDownEvent.event_type == 'global')
+                            where(CoolDownEvent.event_type == cls.global_group_type).
+                            where(CoolDownEvent.group_id == group_id)
                         )
                         exist_event = session_result.scalar_one()
                         exist_event.stop_at = stop_at
@@ -30,7 +37,8 @@ class DBCoolDownEvent(object):
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_event = CoolDownEvent(
-                            event_type='global', stop_at=stop_at, description=description, created_at=datetime.now())
+                            event_type=cls.global_group_type, group_id=group_id, stop_at=stop_at,
+                            description=description, created_at=datetime.now())
                         session.add(new_event)
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
@@ -43,7 +51,7 @@ class DBCoolDownEvent(object):
         return result
 
     @classmethod
-    async def check_global_cool_down_event(cls) -> Result.IntResult:
+    async def check_global_group_cool_down_event(cls, group_id: int) -> Result.IntResult:
         """
         :return:
             result = 2: Success with CoolDown Event expired
@@ -57,7 +65,8 @@ class DBCoolDownEvent(object):
                 try:
                     session_result = await session.execute(
                         select(CoolDownEvent).
-                        where(CoolDownEvent.event_type == 'global')
+                        where(CoolDownEvent.event_type == cls.global_group_type).
+                        where(CoolDownEvent.group_id == group_id)
                     )
                     event = session_result.scalar_one()
                     stop_at = event.stop_at
@@ -74,8 +83,8 @@ class DBCoolDownEvent(object):
         return result
 
     @classmethod
-    async def add_plugin_cool_down_event(
-            cls, plugin: str, stop_at: datetime, description: str = None) -> Result.IntResult:
+    async def add_global_user_cool_down_event(
+            cls, user_id: int, stop_at: datetime, description: str = None) -> Result.IntResult:
         """
         :return:
             result = 0: Success
@@ -88,8 +97,8 @@ class DBCoolDownEvent(object):
                     try:
                         session_result = await session.execute(
                             select(CoolDownEvent).
-                            where(CoolDownEvent.event_type == 'plugin').
-                            where(CoolDownEvent.plugin == plugin)
+                            where(CoolDownEvent.event_type == cls.global_user_type).
+                            where(CoolDownEvent.user_id == user_id)
                         )
                         exist_event = session_result.scalar_one()
                         exist_event.stop_at = stop_at
@@ -98,8 +107,8 @@ class DBCoolDownEvent(object):
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_event = CoolDownEvent(
-                            event_type='plugin', plugin=plugin, stop_at=stop_at, description=description,
-                            created_at=datetime.now())
+                            event_type=cls.global_user_type, user_id=user_id, stop_at=stop_at,
+                            description=description, created_at=datetime.now())
                         session.add(new_event)
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
@@ -112,7 +121,7 @@ class DBCoolDownEvent(object):
         return result
 
     @classmethod
-    async def check_plugin_cool_down_event(cls, plugin: str) -> Result.IntResult:
+    async def check_global_user_cool_down_event(cls, user_id: int) -> Result.IntResult:
         """
         :return:
             result = 2: Success with CoolDown Event expired
@@ -126,8 +135,8 @@ class DBCoolDownEvent(object):
                 try:
                     session_result = await session.execute(
                         select(CoolDownEvent).
-                        where(CoolDownEvent.event_type == 'plugin').
-                        where(CoolDownEvent.plugin == plugin)
+                        where(CoolDownEvent.event_type == cls.global_user_type).
+                        where(CoolDownEvent.user_id == user_id)
                     )
                     event = session_result.scalar_one()
                     stop_at = event.stop_at
@@ -158,7 +167,7 @@ class DBCoolDownEvent(object):
                     try:
                         session_result = await session.execute(
                             select(CoolDownEvent).
-                            where(CoolDownEvent.event_type == 'group').
+                            where(CoolDownEvent.event_type == cls.group_type).
                             where(CoolDownEvent.plugin == plugin).
                             where(CoolDownEvent.group_id == group_id)
                         )
@@ -169,7 +178,7 @@ class DBCoolDownEvent(object):
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_event = CoolDownEvent(
-                            event_type='group', plugin=plugin, group_id=group_id, stop_at=stop_at,
+                            event_type=cls.group_type, plugin=plugin, group_id=group_id, stop_at=stop_at,
                             description=description, created_at=datetime.now())
                         session.add(new_event)
                         result = Result.IntResult(error=False, info='Success added', result=0)
@@ -197,7 +206,7 @@ class DBCoolDownEvent(object):
                 try:
                     session_result = await session.execute(
                         select(CoolDownEvent).
-                        where(CoolDownEvent.event_type == 'group').
+                        where(CoolDownEvent.event_type == cls.group_type).
                         where(CoolDownEvent.plugin == plugin).
                         where(CoolDownEvent.group_id == group_id)
                     )
@@ -230,7 +239,7 @@ class DBCoolDownEvent(object):
                     try:
                         session_result = await session.execute(
                             select(CoolDownEvent).
-                            where(CoolDownEvent.event_type == 'user').
+                            where(CoolDownEvent.event_type == cls.user_type).
                             where(CoolDownEvent.plugin == plugin).
                             where(CoolDownEvent.user_id == user_id)
                         )
@@ -241,8 +250,8 @@ class DBCoolDownEvent(object):
                         result = Result.IntResult(error=False, info='Success upgraded', result=0)
                     except NoResultFound:
                         new_event = CoolDownEvent(
-                            event_type='user', plugin=plugin, user_id=user_id, stop_at=stop_at, description=description,
-                            created_at=datetime.now())
+                            event_type=cls.user_type, plugin=plugin, user_id=user_id, stop_at=stop_at,
+                            description=description, created_at=datetime.now())
                         session.add(new_event)
                         result = Result.IntResult(error=False, info='Success added', result=0)
                 await session.commit()
@@ -269,7 +278,7 @@ class DBCoolDownEvent(object):
                 try:
                     session_result = await session.execute(
                         select(CoolDownEvent).
-                        where(CoolDownEvent.event_type == 'user').
+                        where(CoolDownEvent.event_type == cls.user_type).
                         where(CoolDownEvent.plugin == plugin).
                         where(CoolDownEvent.user_id == user_id)
                     )

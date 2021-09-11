@@ -33,19 +33,9 @@ basic
 /抽卡 [卡组]
 /抽奖 [人数]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
-    'basic'
-]
-
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 1)
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 注册事件响应器
 Draw = CommandGroup(
@@ -54,7 +44,8 @@ Draw = CommandGroup(
     state=init_processor_state(
         name='draw',
         command=True,
-        level=10),
+        level=10,
+        cool_down=[PluginCoolDown(PluginCoolDown.user_type, 60)]),
     permission=GROUP,
     priority=10,
     block=True)

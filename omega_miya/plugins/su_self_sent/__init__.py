@@ -41,6 +41,7 @@ __plugin_usage__ = r'''【Omega 自调用消息】
 **Bot SelfSent Only**
 !SU [command]'''
 
+
 # Init plugin export
 init_export(export(), __plugin_custom_name__, __plugin_usage__)
 

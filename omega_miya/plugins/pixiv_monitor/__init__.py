@@ -42,13 +42,10 @@ basic
 /Pixiv画师 清空订阅
 /Pixiv画师 订阅列表'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 # 注册事件响应器
 pixiv_user_artwork = on_command(

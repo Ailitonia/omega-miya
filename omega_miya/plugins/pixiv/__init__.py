@@ -56,22 +56,14 @@ download
 **Need AuthNode**
 /pixivdl <PID> [页码]'''
 
-# 声明本插件可配置的权限节点
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
-    'basic',
     'allow_r18',
     'download'
 ]
 
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 1),
-    PluginCoolDown(PluginCoolDown.group_type, 1)
-]
-
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -82,7 +74,11 @@ pixiv = on_command(
     state=init_processor_state(
         name='pixiv',
         command=True,
-        level=50),
+        level=50,
+        cool_down=[
+            PluginCoolDown(PluginCoolDown.user_type, 120),
+            PluginCoolDown(PluginCoolDown.group_type, 60)
+        ]),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)

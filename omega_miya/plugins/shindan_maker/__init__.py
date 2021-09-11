@@ -38,20 +38,9 @@ basic
 **Usage**
 /ShindanMaker [占卜名称] [占卜对象名称]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
-    'basic'
-]
-
-# # 声明本插件的冷却时间配置
-# __plugin_cool_down__ = [
-#     PluginCoolDown(PluginCoolDown.user_type, 1),
-#     PluginCoolDown(PluginCoolDown.group_type, 1)
-# ]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 缓存占卜名称与对应id

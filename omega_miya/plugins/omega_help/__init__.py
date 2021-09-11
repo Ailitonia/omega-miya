@@ -24,20 +24,10 @@ basic
 **Usage**
 /帮助 [插件名]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
-    'basic'
-]
-
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 5),
-    PluginCoolDown(PluginCoolDown.group_type, 1)
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 # 注册事件响应器
 bot_help = on_command(
@@ -47,7 +37,11 @@ bot_help = on_command(
     state=init_processor_state(
         name='help',
         command=True,
-        level=10),
+        level=10,
+        cool_down=[
+            PluginCoolDown(PluginCoolDown.user_type, 300),
+            PluginCoolDown(PluginCoolDown.group_type, 60)
+        ]),
     permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)
