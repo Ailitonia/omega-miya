@@ -54,12 +54,12 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
     if global_user_check.success() and global_user_check.result == 1:
         if NOTICE_GLOBAL_COOLDOWN:
             await bot.send(event=event, message=f'用户冷却中!\n{global_user_check.info}', at_sender=True)
-        logger.info(f'全局用户冷却中, user: {user_id}, {global_user_check.info}')
+        logger.info(f'CoolDown | 全局用户冷却中, user: {user_id}, {global_user_check.info}')
         raise IgnoredException('全局用户冷却中')
     elif global_user_check.success() and global_user_check.result in [0, 2]:
         pass
     else:
-        logger.error(f'全局用户冷却事件异常, user: {user_id}, {global_user_check}')
+        logger.error(f'CoolDown | 全局用户冷却事件异常, user: {user_id}, {global_user_check}')
 
     # 检查全局群组冷却
     if group_id is not None:
@@ -67,12 +67,12 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
         if global_group_check.success() and global_group_check.result == 1:
             if NOTICE_GLOBAL_COOLDOWN:
                 await bot.send(event=event, message=f'群组冷却中!\n{global_group_check.info}', at_sender=True)
-            logger.info(f'全局群组冷却中, group: {group_id}, {global_group_check.info}')
+            logger.info(f'CoolDown | 全局群组冷却中, group: {group_id}, {global_group_check.info}')
             raise IgnoredException('全局用户冷却中')
         elif global_group_check.success() and global_group_check.result in [0, 2]:
             pass
         else:
-            logger.error(f'全局群组冷却事件异常, user: {user_id}, {global_group_check}')
+            logger.error(f'CoolDown | 全局群组冷却事件异常, user: {user_id}, {global_group_check}')
 
     # 处理插件冷却
     # 跳过由 got 等事件处理函数创建临时 matcher 避免冷却在命令交互中被不正常触发
@@ -133,7 +133,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
         elif user_cool_down_result.success() and user_cool_down_result.result == 0:
             pass
         else:
-            logger.error(f'插件用户冷却事件异常, user: {user_id}, {user_cool_down_result}')
+            logger.error(f'CoolDown | 插件用户冷却事件异常, user: {user_id}, {user_cool_down_result}')
             pass
 
     # 检查并处理插件群组冷却
@@ -146,7 +146,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
         elif group_cool_down_result.success() and group_cool_down_result.result == 0:
             pass
         else:
-            logger.error(f'插件群组冷却事件异常, group:{group_id}, {group_cool_down_result}')
+            logger.error(f'CoolDown | 插件群组冷却事件异常, group:{group_id}, {group_cool_down_result}')
             pass
 
 

@@ -19,6 +19,7 @@ from .cooldown import preprocessor_cooldown
 from .favorability import postprocessor_favorability
 from .history import postprocessor_history
 from .statistic import postprocessor_statistic
+from .rate_limiting import preprocessor_rate_limiting
 
 
 # 事件预处理
@@ -30,13 +31,13 @@ async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
 # 运行预处理
 @run_preprocessor
 async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, state: T_State):
-    # 处理权限
     if isinstance(event, MessageEvent):
+        # 处理权限
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
-
-    # 处理冷却
-    if isinstance(event, MessageEvent):
+        # 处理冷却
         await preprocessor_cooldown(matcher=matcher, bot=bot, event=event, state=state)
+        # 处理速率控制
+        await preprocessor_rate_limiting(matcher=matcher, bot=bot, event=event, state=state)
 
 
 # 运行后处理
