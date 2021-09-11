@@ -1,4 +1,5 @@
 import nonebot
+from urllib.parse import quote
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.future import select
@@ -18,7 +19,7 @@ __DB_PORT = global_config.db_port
 __DB_NAME = global_config.db_name
 
 # 格式化数据库引擎链接
-__DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{__DB_PASSWORD}@{__DB_HOST}:{__DB_PORT}/{__DB_NAME}'
+__DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{quote(__DB_PASSWORD)}@{__DB_HOST}:{__DB_PORT}/{__DB_NAME}'
 
 
 # 创建数据库连接
@@ -28,10 +29,10 @@ try:
         connect_args={"use_unicode": True, "charset": "utf8mb4"},
         pool_recycle=3600, pool_pre_ping=True, echo=False
     )
-except Exception as exp:
+except Exception as e:
     import sys
-    nonebot.logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, error: {repr(exp)}')
-    sys.exit('创建数据库连接失败')
+    nonebot.logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, error: {repr(e)}')
+    sys.exit(f'创建数据库连接失败, {e}')
 
 
 # 初始化化数据库
@@ -49,10 +50,10 @@ async def database_init():
             # await.
             await conn.run_sync(Base.metadata.create_all)
         nonebot.logger.opt(colors=True).info(f'<lg>数据库初始化已完成.</lg>')
-    except Exception as e:
+    except Exception as e_:
         import sys
-        nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e)}')
-        sys.exit('数据库初始化失败')
+        nonebot.logger.opt(colors=True).critical(f'<r>数据库初始化失败</r>, error: {repr(e_)}')
+        sys.exit(f'数据库初始化失败, {e_}')
 
 
 class BaseDB(object):
@@ -99,8 +100,8 @@ class DBTable(object):
                         for item in session_result.scalars().all():
                             res.append(item)
                         result = Result.ListResult(error=False, info='Success', result=res)
-                    except Exception as e:
-                        result = Result.ListResult(error=True, info=repr(e), result=res)
+                    except Exception as e_:
+                        result = Result.ListResult(error=True, info=repr(e_), result=res)
         return result
 
     async def list_col_with_condition(self, col_name, condition_col_name, condition) -> Result.ListResult:
@@ -118,8 +119,8 @@ class DBTable(object):
                         for item in session_result.scalars().all():
                             res.append(item)
                         result = Result.ListResult(error=False, info='Success', result=res)
-                    except Exception as e:
-                        result = Result.ListResult(error=True, info=repr(e), result=res)
+                    except Exception as e_:
+                        result = Result.ListResult(error=True, info=repr(e_), result=res)
         return result
 
 
