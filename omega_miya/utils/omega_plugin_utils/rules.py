@@ -9,6 +9,11 @@ class OmegaRules(object):
     # Default basic auth mode name
     basic_auth_node: str = 'basic'
 
+    @classmethod
+    def basic_node(cls, t: str) -> str:
+        """传入任意字符串组装 basic auth node"""
+        return f'{t}.{cls.basic_auth_node}'
+
     # Plugin permission rule
     # Only using for group
     @classmethod
@@ -67,9 +72,8 @@ class OmegaRules(object):
 
     # 权限节点检查
     @classmethod
-    def has_auth_node(cls, *auth_nodes: str) -> Rule:
+    def has_auth_node(cls, auth_node: str) -> Rule:
         async def _has_auth_node(bot: Bot, event: Event, state: T_State) -> bool:
-            auth_node = '.'.join(auth_nodes)
             group_id = getattr(event, 'group_id', None)
             user_id = getattr(event, 'user_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))
@@ -96,14 +100,13 @@ class OmegaRules(object):
 
     # 由于目前nb2暂不支持or连接rule, 因此将or逻辑放在rule内处理
     @classmethod
-    def has_level_or_node(cls, level: int, *auth_nodes: str) -> Rule:
+    def has_level_or_node(cls, level: int, auth_node: str) -> Rule:
         """
         :param level: 需要群组权限等级
-        :param auth_nodes: 需要的权限节点
+        :param auth_node: 需要的权限节点
         :return: 群组权限等级大于要求等级或者具备权限节点, 权限节点为deny则拒绝
         """
         async def _has_level_or_node(bot: Bot, event: Event, state: T_State) -> bool:
-            auth_node = '.'.join(auth_nodes)
             group_id = getattr(event, 'group_id', None)
             user_id = getattr(event, 'user_id', None)
             self_bot = DBBot(self_qq=int(bot.self_id))

@@ -102,7 +102,8 @@ async def zhoushen_hime_on(bot: Bot, event: GroupMessageEvent, state: T_State) -
     if not group_exist:
         return Result.IntResult(error=False, info='Group not exist', result=-1)
 
-    auth_node = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
+    auth_node = DBAuth(
+        self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=OmegaRules.basic_node(__plugin_raw_name__))
     result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用自动审轴姬')
     return result
 
@@ -115,12 +116,16 @@ async def zhoushen_hime_off(bot: Bot, event: GroupMessageEvent, state: T_State) 
     if not group_exist:
         return Result.IntResult(error=False, info='Group not exist', result=-1)
 
-    auth_node = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
+    auth_node = DBAuth(
+        self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=OmegaRules.basic_node(__plugin_raw_name__))
     result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用自动审轴姬')
     return result
 
 
-zhoushen_hime = on_notice(rule=OmegaRules.has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
+zhoushen_hime = on_notice(
+    rule=OmegaRules.has_auth_node(OmegaRules.basic_node(__plugin_raw_name__)),
+    priority=100,
+    block=False)
 
 
 @zhoushen_hime.handle()
