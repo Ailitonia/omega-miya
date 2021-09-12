@@ -17,6 +17,9 @@ from omega_miya.database import DBHistory
 
 
 async def postprocessor_history(bot: Bot, event: Event, state: T_State):
+    """
+    历史记录处理 T_EventPostProcessor
+    """
     try:
         time = event.time
         self_id = event.self_id
@@ -69,10 +72,10 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
         raw_data = str(raw_data) if not isinstance(raw_data, str) else raw_data
         msg_data = str(msg_data) if not isinstance(msg_data, str) else msg_data
         if len(raw_data) > 4096:
-            logger.warning(f'History raw_data is longer than field limited and it will be reduce, <{raw_data}>')
+            logger.warning(f'History | Raw data is longer than field limited and it will be reduce, <{raw_data}>')
             raw_data = raw_data[:4096]
         if len(msg_data) > 4096:
-            logger.warning(f'History raw_data is longer than field limited and it will be reduce, <{msg_data}>')
+            logger.warning(f'History | Raw data is longer than field limited and it will be reduce, <{msg_data}>')
             msg_data = msg_data[:4096]
 
         new_history = DBHistory(time=time, self_id=self_id, post_type=post_type, detail_type=detail_type)
@@ -83,9 +86,9 @@ async def postprocessor_history(bot: Bot, event: Event, state: T_State):
             sub_type=sub_type, event_id=event_id, group_id=group_id, user_id=user_id, user_name=user_name,
             raw_data=raw_data, msg_data=msg_data)
         if add_result.error:
-            logger.error(f'History recording failed with database error: {add_result.info}, event: {repr(event)}')
+            logger.error(f'History | Recording failed with database error: {add_result.info}, event: {repr(event)}')
     except Exception as e:
-        logger.error(f'History recording Failed, error: {repr(e)}, event: {repr(event)}')
+        logger.error(f'History | Recording Failed, error: {repr(e)}, event: {repr(event)}')
 
 
 __all__ = [

@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
 from .utils import sticker_maker_main
 
 
@@ -28,24 +28,19 @@ basic
 **Usage**
 /表情包 [模板名]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 sticker = on_command(
     '表情包',
     aliases={'Sticker', 'sticker'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='sticker',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)

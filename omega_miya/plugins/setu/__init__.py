@@ -11,7 +11,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import Event, MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown, PermissionChecker
 from omega_miya.utils.omega_plugin_utils import PicEncoder, PicEffector, MsgSender, ProcessUtils
 from omega_miya.database import DBBot, DBPixivillust
 from omega_miya.utils.pixiv_utils import PixivIllust
@@ -64,22 +64,15 @@ allow_r18
 /图库查询 [*keywords]
 /导入图库'''
 
-# 声明本插件可配置的权限节点
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
     'setu',
     'allow_r18',
     'moepic'
 ]
 
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 3),
-    PluginCoolDown(PluginCoolDown.group_type, 2)
-]
-
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -89,11 +82,15 @@ setu = Setu.command(
     'setu',
     aliases={'来点涩图'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='setu',
         command=True,
         level=50,
-        auth_node='setu'))
+        auth_node='setu',
+        cool_down=[
+            PluginCoolDown(PluginCoolDown.user_type, 180),
+            PluginCoolDown(PluginCoolDown.group_type, 120)
+        ]))
 
 
 @setu.handle()
@@ -216,11 +213,15 @@ moepic = Setu.command(
     'moepic',
     aliases={'来点萌图'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='moepic',
         command=True,
         level=50,
-        auth_node='moepic'))
+        auth_node='moepic',
+        cool_down=[
+            PluginCoolDown(PluginCoolDown.user_type, 120),
+            PluginCoolDown(PluginCoolDown.group_type, 60)
+        ]))
 
 
 @moepic.handle()

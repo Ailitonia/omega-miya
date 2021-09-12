@@ -6,7 +6,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PluginCoolDown
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown
 from .data_source import deck_list, draw_deck
 
 # Custom plugin usage text
@@ -33,29 +33,19 @@ basic
 /抽卡 [卡组]
 /抽奖 [人数]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
-    'basic'
-]
-
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 1)
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 注册事件响应器
 Draw = CommandGroup(
     'Draw',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='draw',
         command=True,
         level=10,
-        auth_node='basic'),
+        cool_down=[PluginCoolDown(PluginCoolDown.user_type, 60)]),
     permission=GROUP,
     priority=10,
     block=True)

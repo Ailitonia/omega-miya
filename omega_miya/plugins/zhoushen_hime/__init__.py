@@ -10,7 +10,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupUploadNoticeEvent
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
 from .utils import ZhouChecker, download_file
 
@@ -33,20 +33,16 @@ basic
 **GroupAdmin and SuperUser Only**
 /ZhouShenHime <ON|OFF>'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 注册事件响应器
 zhoushen_hime_admin = on_command(
     'ZhouShenHime',
     aliases={'zhoushenhime', '审轴姬', '审轴机'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='zhoushen_hime',
         command=True,
         level=10),

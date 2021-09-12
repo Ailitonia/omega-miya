@@ -45,6 +45,41 @@ class OmegaStatus(Base):
                f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
 
 
+# 插件表, 存放插件信息
+class OmegaPlugins(Base):
+    __tablename__ = f'{TABLE_PREFIX}plugins'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('omega_plugins_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    plugin_name = Column(String(64), nullable=False, index=True, unique=True, comment='插件名称')
+    enabled = Column(Integer, nullable=False, index=True, comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装')
+    matchers = Column(Integer, nullable=True, comment='插件的matcher数')
+    info = Column(String(256), nullable=True, comment='附加说明')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self,
+                 plugin_name: str,
+                 enabled: int,
+                 *,
+                 matchers: int = 0,
+                 info: Optional[str] = None,
+                 created_at: Optional[datetime] = None,
+                 updated_at: Optional[datetime] = None):
+        self.plugin_name = plugin_name
+        self.enabled = enabled
+        self.matchers = matchers
+        self.info = info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return f"<OmegaPlugins(plugin_name='{self.plugin_name}', enabled='{self.enabled}', " \
+               f"matchers='{self.matchers}', info='{self.info}', " \
+               f"created_at='{self.created_at}', updated_at='{self.updated_at}')>"
+
+
 # 统计信息表, 存放插件运行统计
 class OmegaStatistics(Base):
     __tablename__ = f'{TABLE_PREFIX}statistics'
@@ -748,7 +783,7 @@ class History(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     # 表结构
-    id = Column(Integer, Sequence('history_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
+    id = Column(BigInteger, Sequence('history_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     time = Column(BigInteger, nullable=False, comment='事件发生的时间戳')
     self_id = Column(BigInteger, nullable=False, index=True, comment='收到事件的机器人QQ号')
     post_type = Column(String(64), nullable=False, index=True, comment='事件类型')

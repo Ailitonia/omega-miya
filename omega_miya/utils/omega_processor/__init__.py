@@ -9,16 +9,29 @@
 """
 
 from typing import Optional
+from nonebot import get_driver
 from nonebot.message import event_preprocessor, event_postprocessor, run_preprocessor, run_postprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.event import Event, MessageEvent
 from nonebot.adapters.cqhttp.bot import Bot
+from .plugins import startup_init_plugins, preprocessor_plugins_manager
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
 from .favorability import postprocessor_favorability
 from .history import postprocessor_history
 from .statistic import postprocessor_statistic
+from .rate_limiting import preprocessor_rate_limiting
+
+
+driver = get_driver()
+
+
+# 启动时预处理
+@driver.on_startup
+async def handle_on_startup():
+    # 初始化插件信息
+    await startup_init_plugins()
 
 
 # 事件预处理
@@ -30,13 +43,15 @@ async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
 # 运行预处理
 @run_preprocessor
 async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, state: T_State):
-    # 处理权限
     if isinstance(event, MessageEvent):
+        # 处理插件管理
+        await preprocessor_plugins_manager(matcher=matcher, bot=bot, event=event, state=state)
+        # 处理权限
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
-
-    # 处理冷却
-    if isinstance(event, MessageEvent):
+        # 处理冷却
         await preprocessor_cooldown(matcher=matcher, bot=bot, event=event, state=state)
+        # 处理速率控制
+        await preprocessor_rate_limiting(matcher=matcher, bot=bot, event=event, state=state)
 
 
 # 运行后处理

@@ -191,7 +191,8 @@ async def refresh_friends_info():
     misfire_grace_time=10
 )
 async def cool_down_refresh():
-    await DBCoolDownEvent.clear_time_out_event()
+    result = await DBCoolDownEvent.clear_time_out_event()
+    logger.debug(f'Cool down refresh | Task result, {", ".join([f"{k}: {v}" for (k,v) in result.result.items()])}')
     logger.opt(colors=True).info('<lc>Cool down refresh</lc> | Cleaned all expired event')
 
 

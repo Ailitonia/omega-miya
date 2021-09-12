@@ -20,8 +20,10 @@ __plugin_usage__ = r'''【OmegaAuth 授权管理插件】
 **SuperUser Only**
 /OmegaAuth'''
 
+
 # Init plugin export
 init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 # 注册事件响应器
 omegaauth = on_command('OmegaAuth', rule=to_me(), aliases={'omegaauth', 'oauth'},

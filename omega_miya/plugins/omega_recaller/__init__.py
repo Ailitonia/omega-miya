@@ -21,7 +21,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PermissionChecker
 
 
 # Custom plugin usage text
@@ -46,13 +46,10 @@ basic
 /禁用撤回 [@用户]
 '''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 # 存放bot在群组的身份
 BOT_ROLE: Dict[int, str] = {}
@@ -65,11 +62,10 @@ BOT_ROLE_EXPIRED: Dict[int, datetime] = {}
 SelfHelpRecall = CommandGroup(
     'SelfHelpRecall',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='search_anime',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=SUPERUSER | GROUP,
     priority=10,
     block=True

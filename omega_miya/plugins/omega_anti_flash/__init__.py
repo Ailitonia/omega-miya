@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, GROUP_ADMIN, GROUP_OWNER
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 
 
 # Custom plugin usage text
@@ -27,13 +27,9 @@ basic
 **GroupAdmin and SuperUser Only**
 /AntiFlash <ON|OFF>'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器
@@ -43,7 +39,7 @@ anti_flash_admin = AntiFlash.on_command(
     'AntiFlash',
     aliases={'antiflash', '反闪照'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='anti_flash',
         command=True,
         level=10),

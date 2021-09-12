@@ -16,6 +16,9 @@ from omega_miya.database import DBUser
 
 
 async def postprocessor_favorability(bot: Bot, event: MessageEvent, state: T_State):
+    """
+    用户能量值及好感度处理 T_EventPostProcessor
+    """
     user = DBUser(user_id=event.user_id)
     if isinstance(event, GroupMessageEvent):
         result = await user.favorability_add(energy=1)
@@ -32,7 +35,7 @@ async def postprocessor_favorability(bot: Bot, event: MessageEvent, state: T_Sta
     elif result.error and result.info == 'User not exist':
         user_add_result = await user.add(nickname=event.sender.nickname)
         if user_add_result.error:
-            logger.error(f'Add User {event.user_id} favorability-energy Failed, '
+            logger.error(f'Favorability | Add User {event.user_id} favorability-energy Failed, '
                          f'add user to database failed, {user_add_result.info}')
             return
         if isinstance(event, GroupMessageEvent):
@@ -41,9 +44,9 @@ async def postprocessor_favorability(bot: Bot, event: MessageEvent, state: T_Sta
             result = await user.favorability_reset(energy=0.01)
 
     if result.error:
-        logger.error(f'Add User {event.user_id} favorability-energy Failed, {result.info}')
+        logger.error(f'Favorability | Add User {event.user_id} favorability-energy Failed, {result.info}')
     else:
-        logger.debug(f'Add User {event.user_id} favorability-energy Success, energy increased')
+        logger.debug(f'Favorability | Add User {event.user_id} favorability-energy Success, energy increased')
 
 
 __all__ = [

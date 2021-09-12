@@ -17,7 +17,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
 from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from .config import Config
 from .utils import generate_tarot_card
 
@@ -41,23 +41,18 @@ basic
 **Usage**
 /单张塔罗牌'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 Tarot = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='tarot',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP,
     priority=10,
     block=True)

@@ -36,10 +36,12 @@ __plugin_usage__ = r'''【Omega 好友和群组请求管理】
 **SuperUser Only**
 /好友验证'''
 
-# 声明本插件可配置的权限节点
+
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
     'allow_invite_group'
 ]
+
 
 # Init plugin export
 init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
