@@ -38,6 +38,9 @@ RATE_LIMITING_COOL_DOWN: int = 1800
 
 
 async def preprocessor_rate_limiting(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+    """
+    速率限制处理 T_RunPreProcessor
+    """
     global USER_LAST_MSG_TIME
     global RATE_LIMITING_COUNT
 

@@ -15,7 +15,7 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.event import Event, MessageEvent
 from nonebot.adapters.cqhttp.bot import Bot
-from .plugins import startup_init_plugins
+from .plugins import startup_init_plugins, preprocessor_plugins_manager
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
 from .favorability import postprocessor_favorability
@@ -24,8 +24,11 @@ from .statistic import postprocessor_statistic
 from .rate_limiting import preprocessor_rate_limiting
 
 
+driver = get_driver()
+
+
 # 启动时预处理
-@get_driver().on_startup
+@driver.on_startup
 async def handle_on_startup():
     # 初始化插件信息
     await startup_init_plugins()
@@ -41,6 +44,8 @@ async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
 @run_preprocessor
 async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, state: T_State):
     if isinstance(event, MessageEvent):
+        # 处理插件管理
+        await preprocessor_plugins_manager(matcher=matcher, bot=bot, event=event, state=state)
         # 处理权限
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
         # 处理冷却

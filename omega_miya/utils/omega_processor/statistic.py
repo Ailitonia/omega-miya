@@ -20,6 +20,9 @@ from omega_miya.database import DBStatistic
 
 async def postprocessor_statistic(
         matcher: Matcher, exception: Optional[Exception], bot: Bot, event: Event, state: T_State):
+    """
+    插件统计处理 T_RunPostProcessor
+    """
     if matcher.temp:
         logger.debug('Postprocessor Statistic | Temp matcher, ignore')
         return

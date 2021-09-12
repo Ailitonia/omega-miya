@@ -8,9 +8,18 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_loaded_plugins, logger
+from nonebot import get_driver, get_loaded_plugins, logger
+from nonebot.exception import IgnoredException
+from nonebot.typing import T_State
+from nonebot.matcher import Matcher
+from nonebot.adapters.cqhttp.bot import Bot
+from nonebot.adapters.cqhttp.event import MessageEvent
 from omega_miya.database import DBPlugin
 from omega_miya.utils.omega_plugin_utils import ProcessUtils
+
+
+global_config = get_driver().config
+SUPERUSERS = global_config.superusers
 
 
 async def startup_init_plugins():
@@ -29,6 +38,29 @@ async def startup_init_plugins():
     logger.opt(colors=True).success(f'<lg>插件信息初始化已完成.</lg>')
 
 
+async def preprocessor_plugins_manager(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+    """
+    插件管理处理 T_RunPreProcessor
+    """
+    user_id = event.user_id
+
+    # 忽略超级用户
+    if user_id in [int(x) for x in SUPERUSERS]:
+        return
+
+    plugin_name = matcher.plugin_name
+    plugin_enable_result = await DBPlugin(plugin_name=plugin_name).get_enabled_status()
+    if plugin_enable_result.success() and plugin_enable_result.result == 1:
+        pass
+    elif plugin_enable_result.success() and plugin_enable_result.result != 1:
+        logger.warning(f'Plugins Manager | User: {user_id}, 尝试使用未启用的插件: {plugin_name}')
+        raise IgnoredException('插件未启用')
+    else:
+        logger.error(f'Plugins Manager | 获取插件: {plugin_name} 启用状态失败, 插件状态异常, {plugin_enable_result.info}')
+        raise IgnoredException('插件状态异常')
+
+
 __all__ = [
-    'startup_init_plugins'
+    'startup_init_plugins',
+    'preprocessor_plugins_manager'
 ]

@@ -85,6 +85,24 @@ class DBPlugin(object):
                     result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
+    @classmethod
+    async def list_plugins(cls, *, enabled: Optional[int] = None) -> Result.TextListResult:
+        async_session = BaseDB().get_async_session()
+        async with async_session() as session:
+            async with session.begin():
+                try:
+                    if enabled is None:
+                        session_result = await session.execute(select(OmegaPlugins.plugin_name))
+                    else:
+                        session_result = await session.execute(
+                            select(OmegaPlugins.plugin_name).where(OmegaPlugins.enabled == enabled)
+                        )
+                    res = [x for x in session_result.scalars().all()]
+                    result = Result.TextListResult(error=False, info='Success', result=res)
+                except Exception as e:
+                    result = Result.TextListResult(error=True, info=repr(e), result=[])
+        return result
+
 
 __all__ = [
     'DBPlugin'

@@ -17,6 +17,9 @@ from omega_miya.database import DBHistory
 
 
 async def postprocessor_history(bot: Bot, event: Event, state: T_State):
+    """
+    历史记录处理 T_EventPostProcessor
+    """
     try:
         time = event.time
         self_id = event.self_id

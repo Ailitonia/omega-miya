@@ -16,6 +16,9 @@ from omega_miya.database import DBUser
 
 
 async def postprocessor_favorability(bot: Bot, event: MessageEvent, state: T_State):
+    """
+    用户能量值及好感度处理 T_EventPostProcessor
+    """
     user = DBUser(user_id=event.user_id)
     if isinstance(event, GroupMessageEvent):
         result = await user.favorability_add(energy=1)
