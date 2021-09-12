@@ -39,6 +39,7 @@ def init_export(
         auth_node_.add(OmegaRules.basic_auth_node)
         auth_node_.add(PluginCoolDown.skip_auth_node)
         auth_node_ = list(auth_node_)
+        auth_node_.sort()
     else:
         auth_node_ = [OmegaRules.basic_auth_node,
                       PluginCoolDown.skip_auth_node]

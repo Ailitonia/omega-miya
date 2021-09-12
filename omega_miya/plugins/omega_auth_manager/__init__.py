@@ -130,7 +130,7 @@ async def handle_auth_id(bot: Bot, event: MessageEvent, state: T_State):
     for plugin in plugins:
         if plugin.export.get('auth_node'):
             auth_node_plugin.append(plugin.name)
-
+    auth_node_plugin.sort()
     state["auth_node_plugin"] = auth_node_plugin
     p_list = '\n'.join(auth_node_plugin)
     await omegaauth.send(f'可配置权限节点的插件有:\n\n{p_list}')
