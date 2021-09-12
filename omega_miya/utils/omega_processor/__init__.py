@@ -9,17 +9,26 @@
 """
 
 from typing import Optional
+from nonebot import get_driver
 from nonebot.message import event_preprocessor, event_postprocessor, run_preprocessor, run_postprocessor
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.event import Event, MessageEvent
 from nonebot.adapters.cqhttp.bot import Bot
+from .plugins import startup_init_plugins
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
 from .favorability import postprocessor_favorability
 from .history import postprocessor_history
 from .statistic import postprocessor_statistic
 from .rate_limiting import preprocessor_rate_limiting
+
+
+# 启动时预处理
+@get_driver().on_startup
+async def handle_on_startup():
+    # 初始化插件信息
+    await startup_init_plugins()
 
 
 # 事件预处理

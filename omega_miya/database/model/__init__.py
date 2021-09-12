@@ -10,11 +10,13 @@ from .mail import DBEmail, DBEmailBox
 from .pixiv_user_artwork import DBPixivUserArtwork
 from .pixivillust import DBPixivillust
 from .pixivision import DBPixivision
+from .plugins import DBPlugin
 from .skill import DBSkill
 from .statistic import DBStatistic
+from .status import DBStatus
 from .subscription import DBSubscription
 from .user import DBUser
-from .status import DBStatus
+
 
 __all__ = [
     'DBAuth',
@@ -30,9 +32,10 @@ __all__ = [
     'DBPixivUserArtwork',
     'DBPixivillust',
     'DBPixivision',
+    'DBPlugin',
     'DBSkill',
     'DBStatistic',
+    'DBStatus',
     'DBSubscription',
-    'DBUser',
-    'DBStatus'
+    'DBUser'
 ]
