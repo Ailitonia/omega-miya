@@ -43,9 +43,10 @@ async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
 # 运行预处理
 @run_preprocessor
 async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, state: T_State):
+    # 处理插件管理
+    await preprocessor_plugins_manager(matcher=matcher, bot=bot, event=event, state=state)
+    # 针对消息事件的处理
     if isinstance(event, MessageEvent):
-        # 处理插件管理
-        await preprocessor_plugins_manager(matcher=matcher, bot=bot, event=event, state=state)
         # 处理权限
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
         # 处理冷却

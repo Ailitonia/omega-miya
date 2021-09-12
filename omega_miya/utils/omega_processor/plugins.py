@@ -13,7 +13,7 @@ from nonebot.exception import IgnoredException
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent
+from nonebot.adapters.cqhttp.event import Event
 from omega_miya.database import DBPlugin
 from omega_miya.utils.omega_plugin_utils import ProcessUtils
 
@@ -38,11 +38,11 @@ async def startup_init_plugins():
     logger.opt(colors=True).success(f'<lg>插件信息初始化已完成.</lg>')
 
 
-async def preprocessor_plugins_manager(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+async def preprocessor_plugins_manager(matcher: Matcher, bot: Bot, event: Event, state: T_State):
     """
     插件管理处理 T_RunPreProcessor
     """
-    user_id = event.user_id
+    user_id = getattr(event, 'user_id', -1)
 
     # 忽略超级用户
     if user_id in [int(x) for x in SUPERUSERS]:
