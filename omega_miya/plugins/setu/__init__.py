@@ -135,11 +135,10 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
         logger.info(f"{group_id} / {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
     await setu.send('稍等, 正在下载图片~')
-    # 处理article中图片内容
-    tasks = []
-    for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).load_illust_pic())
-    p_res = await asyncio.gather(*tasks)
+
+    # 处理下载图片
+    tasks = [PixivIllust(pid=pid).load_illust_pic() for pid in pid_list]
+    p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='load_setu')
 
     # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
     fault_count = 0
@@ -256,11 +255,10 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
         await moepic.finish('找不到萌图QAQ')
 
     await moepic.send('稍等, 正在下载图片~')
-    # 处理article中图片内容
-    tasks = []
-    for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).load_illust_pic())
-    p_res = await asyncio.gather(*tasks)
+
+    # 处理下载图片
+    tasks = [PixivIllust(pid=pid).load_illust_pic() for pid in pid_list]
+    p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='load_moepic')
 
     # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
     fault_count = 0
