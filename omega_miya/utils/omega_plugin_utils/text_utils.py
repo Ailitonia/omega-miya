@@ -14,7 +14,7 @@ class TextUtils(object):
     def __init__(self, text: str):
         self.text = text
 
-    def split_multiline(self, width: int, font: ImageFont.FreeTypeFont) -> str:
+    def split_multiline(self, width: int, font: ImageFont.FreeTypeFont, *, stroke_width=0) -> str:
         """
         按长度切分换行文本
         :return: 切分换行后的文本
@@ -22,7 +22,7 @@ class TextUtils(object):
         spl_num = 0
         spl_list = []
         for num in range(len(self.text)):
-            text_width, text_height = font.getsize_multiline(self.text[spl_num:num])
+            text_width, text_height = font.getsize_multiline(self.text[spl_num:num], stroke_width=stroke_width)
             if text_width > width:
                 spl_list.append(self.text[spl_num:num])
                 spl_num = num
