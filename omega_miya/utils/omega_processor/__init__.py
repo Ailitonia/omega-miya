@@ -60,8 +60,10 @@ async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, stat
 @run_postprocessor
 async def handle_run_postprocessor(
         matcher: Matcher, exception: Optional[Exception], bot: Bot, event: Event, state: T_State):
-    # 处理插件统计
-    await postprocessor_statistic(matcher=matcher, exception=exception, bot=bot, event=event, state=state)
+    # 针对消息事件的处理
+    if isinstance(event, MessageEvent):
+        # 处理插件统计
+        await postprocessor_statistic(matcher=matcher, exception=exception, bot=bot, event=event, state=state)
 
 
 # 事件后处理
