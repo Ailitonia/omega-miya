@@ -37,7 +37,10 @@ async def handle_on_startup():
 # 事件预处理
 @event_preprocessor
 async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
-    pass
+    # 针对消息事件的处理
+    if isinstance(event, MessageEvent):
+        # 处理速率控制
+        await preprocessor_rate_limiting(bot=bot, event=event, state=state)
 
 
 # 运行预处理
@@ -51,8 +54,6 @@ async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, stat
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
         # 处理冷却
         await preprocessor_cooldown(matcher=matcher, bot=bot, event=event, state=state)
-        # 处理速率控制
-        await preprocessor_rate_limiting(matcher=matcher, bot=bot, event=event, state=state)
 
 
 # 运行后处理
@@ -60,8 +61,7 @@ async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, stat
 async def handle_run_postprocessor(
         matcher: Matcher, exception: Optional[Exception], bot: Bot, event: Event, state: T_State):
     # 处理插件统计
-    if isinstance(event, MessageEvent):
-        await postprocessor_statistic(matcher=matcher, exception=exception, bot=bot, event=event, state=state)
+    await postprocessor_statistic(matcher=matcher, exception=exception, bot=bot, event=event, state=state)
 
 
 # 事件后处理
@@ -69,6 +69,7 @@ async def handle_run_postprocessor(
 async def handle_event_postprocessor(bot: Bot, event: Event, state: T_State):
     # 处理历史记录
     await postprocessor_history(bot=bot, event=event, state=state)
-    # 处理好感度
+    # 针对消息事件的处理
     if isinstance(event, MessageEvent):
+        # 处理好感度
         await postprocessor_favorability(bot=bot, event=event, state=state)

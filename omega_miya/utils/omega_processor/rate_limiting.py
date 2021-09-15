@@ -14,7 +14,6 @@ from typing import Union, Dict
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.typing import T_State
-from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent
 from omega_miya.database import DBCoolDownEvent
@@ -37,9 +36,9 @@ RATE_LIMITING_COUNT: Dict[int, int] = {}
 RATE_LIMITING_COOL_DOWN: int = 1800
 
 
-async def preprocessor_rate_limiting(matcher: Matcher, bot: Bot, event: MessageEvent, state: T_State):
+async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_State):
     """
-    速率限制处理 T_RunPreProcessor
+    速率限制处理 T_EventPreProcessor
     """
     global USER_LAST_MSG_TIME
     global RATE_LIMITING_COUNT
@@ -73,6 +72,7 @@ async def preprocessor_rate_limiting(matcher: Matcher, bot: Bot, event: MessageE
     if this_msg_timestamp - last_msg_timestamp < RATE_LIMITING_TIME:
         # 小于时间阈值则计数 +1
         over_limiting_count += 1
+        logger.info(f'Rate Limiting | User: {user_id} over rate limiting, counting {over_limiting_count}')
     else:
         # 否则重置计数
         over_limiting_count = 0
@@ -91,11 +91,7 @@ async def preprocessor_rate_limiting(matcher: Matcher, bot: Bot, event: MessageE
         if result.error:
             logger.error(f'Rate Limiting | Set rate limiting cool down failed: {result.info}')
         else:
-            logger.info(f'Rate Limiting | User: {user_id} 触发速率限制, 已设置 {RATE_LIMITING_COOL_DOWN} 秒全局冷却限制')
-            await bot.send(
-                event=event,
-                message=f'你因发送消息频率过快触发了速率限制并被禁用服务, 速率限制将于 {RATE_LIMITING_COOL_DOWN} 秒后解除',
-                at_sender=True)
+            logger.success(f'Rate Limiting | User: {user_id} 触发速率限制, 已设置 {RATE_LIMITING_COOL_DOWN} 秒全局冷却限制')
         raise IgnoredException('触发速率限制')
 
 
