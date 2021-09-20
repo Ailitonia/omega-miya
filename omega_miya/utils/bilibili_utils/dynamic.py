@@ -174,7 +174,7 @@ class BiliDynamic(object):
                 desc = '发布了一条活动相关动态'
                 content = dynamic_card['vest']['content']
                 title = dynamic_card['sketch']['title']
-                description = dynamic_card['sketch']['desc_text']
+                description = dynamic_card['sketch'].get('desc_text')
             # type=4200, 直播间动态(疑似)
             elif type_ == 4200:
                 desc = '发布了一条直播间动态'
