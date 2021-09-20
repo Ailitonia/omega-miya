@@ -29,9 +29,7 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='刻俄柏/Ceobe', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='麦哲伦/Magallan', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -39,17 +37,27 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=5,
         operator=[
-            Operator(name='絮雨/Whisperain', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='慑砂/Sesa', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='熔泉/Toddifons', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='雷蛇/Liskarm', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
+    ),
+    UpEvent(
+        star=4,
+        operator=[
+            Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False,
+                     special_only=False)
+        ],
+        zoom=0.2
     )
 ]
 
 ALL_OPERATOR: List[Operator] = [
+    Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name="假日威龙陈/Ch'en the Holungday", star=6, limited=True, recruit_only=False, event_only=False,
              special_only=False),
     Operator(name='水月/Mizuki', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
