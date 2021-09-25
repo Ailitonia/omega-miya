@@ -21,7 +21,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PermissionChecker, MessageDecoder
 
 
 # Custom plugin usage text
@@ -53,9 +53,10 @@ init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 存放bot在群组的身份
 BOT_ROLE: Dict[int, str] = {}
-
 # 存放bot群组信息过期时间
 BOT_ROLE_EXPIRED: Dict[int, datetime] = {}
+# 缓存的bot群组信息过期时间, 单位秒, 默认为 1800 秒 (半小时)
+BOT_ROLE_EXPIRED_TIME: int = 1800
 
 
 # 注册事件响应器
@@ -114,8 +115,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     if not bot_role_expired:
         bot_role_expired = datetime.now()
         BOT_ROLE_EXPIRED.update({event.group_id: bot_role_expired})
-    # 默认过期时间为 21600 秒 (6 小时)
-    is_role_expired = (datetime.now() - bot_role_expired).total_seconds() > 21600
+    # 缓存身份过期时间
+    is_role_expired = (datetime.now() - bot_role_expired).total_seconds() > BOT_ROLE_EXPIRED_TIME
     if is_role_expired or not bot_role:
         bot_role = (await bot.get_group_member_info(group_id=event.group_id, user_id=event.self_id)).get('role')
         BOT_ROLE.update({event.group_id: bot_role})
@@ -181,30 +182,40 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     else:
         await recall_allow.finish('参数错误QAQ, 请在 “/启用撤回” 命令后直接@对应用户')
 
-    # 处理@人 qq在at别人时后面会自动加空格
-    if len(event.message) in [1, 2]:
-        if event.message[0].type == 'at':
-            at_qq = event.message[0].data.get('qq')
-            if at_qq:
-                self_bot = DBBot(self_qq=event.self_id)
-                group = DBBotGroup(group_id=event.group_id, self_bot=self_bot)
-                group_exist = await group.exist()
-                if not group_exist:
-                    logger.error(f'Self-help Recall | 启用用户撤回失败, 数据库没有对应群组: {event.group_id}')
-                    await recall_allow.finish('发生了意外的错误QAQ, 请联系管理员处理')
+    # 检查群组
+    self_bot = DBBot(self_qq=event.self_id)
+    group = DBBotGroup(group_id=event.group_id, self_bot=self_bot)
+    group_exist = await group.exist()
+    if not group_exist:
+        logger.error(f'Self-help Recall | 启用用户撤回失败, 数据库没有对应群组: {event.group_id}')
+        await recall_allow.finish('发生了意外的错误QAQ, 请联系管理员处理')
 
-                auth_node = DBAuth(self_bot=self_bot, auth_id=event.group_id, auth_type='group',
-                                   auth_node=f'{__plugin_raw_name__}.basic.{at_qq}')
-                result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用自助撤回')
-                if result.success():
-                    logger.info(f'Self-help Recall | {event.group_id}/{event.user_id} 已启用用户 {at_qq} 撤回权限')
-                    await recall_allow.finish(f'已启用用户{at_qq}撤回权限')
-                else:
-                    logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 启用用户 {at_qq} 撤回权限失败, '
-                                 f'error: {result.info}')
-                    await recall_allow.finish(f'启用用户撤回权限失败QAQ, 请联系管理员处理')
+    # 处理@人
+    at_qq_list = MessageDecoder(message=event.message).get_all_at_qq()
+    if not at_qq_list:
+        await recall_allow.finish('没有指定用户QAQ, 请在 “/启用撤回” 命令后直接@对应用户')
 
-    await recall_allow.finish('没有指定用户QAQ, 请在 “/启用撤回” 命令后直接@对应用户')
+    success_list = []
+    failed_list = []
+    for at_qq in at_qq_list:
+        auth_node = DBAuth(self_bot=self_bot, auth_id=event.group_id, auth_type='group',
+                           auth_node=f'{__plugin_raw_name__}.basic.{at_qq}')
+        result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用自助撤回')
+        if result.success():
+            success_list.append(str(at_qq))
+        else:
+            logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 启用用户 {at_qq} 撤回权限失败, '
+                         f'error: {result.info}')
+            failed_list.append(str(at_qq))
+
+    if not failed_list:
+        logger.info(f'Self-help Recall | {event.group_id}/{event.user_id} 已启用用户 {", ".join(success_list)} 撤回权限')
+        await recall_allow.finish(f'已启用用户 {", ".join(success_list)} 撤回权限')
+    else:
+        logger.warning(f'Self-help Recall | {event.group_id}/{event.user_id} '
+                       f'已启用用户 {", ".join(success_list)} 撤回权限, 配置用户 {", ".join(failed_list)} 权限失败')
+        await recall_allow.finish(f'启用用户 {", ".join(success_list)} 撤回权限成功, '
+                                  f'{", ".join(failed_list)} 失败QAQ, 请联系管理员处理')
 
 
 recall_deny = SelfHelpRecall.command(
@@ -219,27 +230,37 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     else:
         await recall_deny.finish('参数错误QAQ, 请在 “/禁用撤回” 命令后直接@对应用户')
 
-    # 处理@人 qq在at别人时后面会自动加空格
-    if len(event.message) in [1, 2]:
-        if event.message[0].type == 'at':
-            at_qq = event.message[0].data.get('qq')
-            if at_qq:
-                self_bot = DBBot(self_qq=event.self_id)
-                group = DBBotGroup(group_id=event.group_id, self_bot=self_bot)
-                group_exist = await group.exist()
-                if not group_exist:
-                    logger.error(f'Self-help Recall | 禁用用户撤回失败, 数据库没有对应群组: {event.group_id}')
-                    await recall_deny.finish('发生了意外的错误QAQ, 请联系管理员处理')
+    # 检查群组
+    self_bot = DBBot(self_qq=event.self_id)
+    group = DBBotGroup(group_id=event.group_id, self_bot=self_bot)
+    group_exist = await group.exist()
+    if not group_exist:
+        logger.error(f'Self-help Recall | 禁用用户撤回失败, 数据库没有对应群组: {event.group_id}')
+        await recall_deny.finish('发生了意外的错误QAQ, 请联系管理员处理')
 
-                auth_node = DBAuth(self_bot=self_bot, auth_id=event.group_id, auth_type='group',
-                                   auth_node=f'{__plugin_raw_name__}.basic.{at_qq}')
-                result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用自助撤回')
-                if result.success():
-                    logger.info(f'Self-help Recall | {event.group_id}/{event.user_id} 已禁用用户 {at_qq} 撤回权限')
-                    await recall_deny.finish(f'已禁用用户{at_qq}撤回权限')
-                else:
-                    logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 禁用用户 {at_qq} 撤回权限失败, '
-                                 f'error: {result.info}')
-                    await recall_deny.finish(f'禁用用户撤回权限失败QAQ, 请联系管理员处理')
+    # 处理@人
+    at_qq_list = MessageDecoder(message=event.message).get_all_at_qq()
+    if not at_qq_list:
+        await recall_deny.finish('没有指定用户QAQ, 请在 “/禁用撤回” 命令后直接@对应用户')
 
-    await recall_deny.finish('没有指定用户QAQ, 请在 “/禁用撤回” 命令后直接@对应用户')
+    success_list = []
+    failed_list = []
+    for at_qq in at_qq_list:
+        auth_node = DBAuth(self_bot=self_bot, auth_id=event.group_id, auth_type='group',
+                           auth_node=f'{__plugin_raw_name__}.basic.{at_qq}')
+        result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用自助撤回')
+        if result.success():
+            success_list.append(str(at_qq))
+        else:
+            logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 禁用用户 {at_qq} 撤回权限失败, '
+                         f'error: {result.info}')
+            failed_list.append(str(at_qq))
+
+    if not failed_list:
+        logger.info(f'Self-help Recall | {event.group_id}/{event.user_id} 已禁用用户 {", ".join(success_list)} 撤回权限')
+        await recall_deny.finish(f'已禁用用户 {", ".join(success_list)} 撤回权限')
+    else:
+        logger.warning(f'Self-help Recall | {event.group_id}/{event.user_id} '
+                       f'已禁用用户 {", ".join(success_list)} 撤回权限, 配置用户 {", ".join(failed_list)} 权限失败')
+        await recall_deny.finish(f'禁用用户 {", ".join(success_list)} 撤回权限成功, '
+                                 f'{", ".join(failed_list)} 失败QAQ, 请联系管理员处理')
