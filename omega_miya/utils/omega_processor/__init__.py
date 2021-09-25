@@ -21,7 +21,7 @@ from .cooldown import preprocessor_cooldown
 from .favorability import postprocessor_favorability
 from .history import postprocessor_history
 from .statistic import postprocessor_statistic
-from .rate_limiting import preprocessor_rate_limiting
+from .rate_limiting import preprocessor_rate_limiting, postprocessor_rate_limiting
 
 
 driver = get_driver()
@@ -75,3 +75,5 @@ async def handle_event_postprocessor(bot: Bot, event: Event, state: T_State):
     if isinstance(event, MessageEvent):
         # 处理好感度
         await postprocessor_favorability(bot=bot, event=event, state=state)
+        # 处理事件后流控
+        await postprocessor_rate_limiting(bot=bot, event=event, state=state)

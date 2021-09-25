@@ -15,8 +15,8 @@ from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent
-from omega_miya.database import DBCoolDownEvent
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
+from omega_miya.database import DBBot, DBBotGroup, DBCoolDownEvent
 
 
 global_config = get_driver().config
@@ -34,6 +34,8 @@ USER_LAST_MSG_TIME: Dict[int, Union[int, float]] = {}
 RATE_LIMITING_COUNT: Dict[int, int] = {}
 # 触发速率限制时为用户设置的全局冷却时间, 单位秒
 RATE_LIMITING_COOL_DOWN: int = 1800
+# 群组流控配置冷却时间, 与 plugins.omega_rate_limiting 中配置保持一致
+GROUP_GLOBAL_CD_SETTING_NAME: str = 'group_global_cd'
 
 
 async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_State):
@@ -95,6 +97,41 @@ async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_Sta
         raise IgnoredException('触发速率限制')
 
 
+async def postprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_State):
+    """
+    速率限制事件后处理 T_EventPostProcessor
+    """
+    if not state.get('_prefix', {}).get('raw_command') and not state.get('_suffix', {}).get('raw_command'):
+        # 限流仅能由命令触发
+        logger.debug(f'Rate Limiting | Not command event, ignore global group cool down')
+        return
+
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    if isinstance(event, GroupMessageEvent):
+        group_id = event.group_id
+        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
+        setting_result = await group.setting_get(setting_name=GROUP_GLOBAL_CD_SETTING_NAME)
+        if setting_result.success():
+            main, second, extra = setting_result.result
+            if main:
+                # 配置有效, 为群组设置一个全局冷却
+                result = await DBCoolDownEvent.add_global_group_cool_down_event(
+                    group_id=group_id,
+                    stop_at=datetime.now() + timedelta(seconds=int(main)),
+                    description='Rate Limiting Global Group CoolDown')
+                if result.error:
+                    logger.error(f'Rate Limiting | Set global group cool down failed: {result.info}')
+                else:
+                    logger.debug(f'Rate Limiting | Set Group: {group_id} global group cool down, times: {main}')
+            else:
+                logger.error(f'Rate Limiting | Group: {group_id} global group cool down setting not found')
+        elif setting_result.error and setting_result.info == 'NoResultFound':
+            logger.debug(f'Rate Limiting | Group: {group_id} not set global group cool down, pass')
+        else:
+            logger.error(f'Rate Limiting | Set global group cool down getting setting failed: {setting_result.info}')
+
+
 __all__ = [
-    'preprocessor_rate_limiting'
+    'preprocessor_rate_limiting',
+    'postprocessor_rate_limiting'
 ]
