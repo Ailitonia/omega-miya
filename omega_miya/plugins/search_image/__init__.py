@@ -8,7 +8,8 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
+                                                 PicEncoder, PermissionChecker, PluginCoolDown)
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -213,7 +214,9 @@ recommend_image = on_command(  # 使用 pixiv api 的相关作品推荐功能查
     state=init_processor_state(
         name='search_image_recommend_image',
         command=True,
-        auth_node='recommend_image'),
+        auth_node='recommend_image',
+        cool_down=[PluginCoolDown(PluginCoolDown.group_type, 90)]
+    ),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
