@@ -8,8 +8,6 @@
 @Software       : PyCharm 
 """
 
-from typing import Dict
-from datetime import datetime
 from nonebot import logger
 from nonebot.plugin.export import export
 from nonebot.plugin import CommandGroup
@@ -21,7 +19,8 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PermissionChecker, MessageDecoder
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
+                                                 PermissionChecker, RoleChecker, MessageDecoder)
 
 
 # Custom plugin usage text
@@ -51,14 +50,6 @@ basic
 init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
-# 存放bot在群组的身份
-BOT_ROLE: Dict[int, str] = {}
-# 存放bot群组信息过期时间
-BOT_ROLE_EXPIRED: Dict[int, datetime] = {}
-# 缓存的bot群组信息过期时间, 单位秒, 默认为 1800 秒 (半小时)
-BOT_ROLE_EXPIRED_TIME: int = 1800
-
-
 # 注册事件响应器
 SelfHelpRecall = CommandGroup(
     'SelfHelpRecall',
@@ -84,8 +75,8 @@ async def handle_super_recall_self_msg(bot: Bot, event: GroupMessageEvent, state
             recall_msg_id = event.reply.message_id
             try:
                 await bot.delete_msg(message_id=recall_msg_id)
-                logger.info(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
-                            f'撤回了Bot消息: {recall_msg_id}, "{event.reply.message}"')
+                logger.success(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
+                               f'撤回了Bot消息: {recall_msg_id}, "{event.reply.message}"')
                 await recall.finish()
             except FinishedException:
                 raise FinishedException
@@ -107,21 +98,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     if auth_check_result != 1:
         await recall.finish(Message(f'{MessageSegment.at(user_id=event.user_id)}你没有撤回消息的权限QAQ'))
 
-    global BOT_ROLE
-    global BOT_ROLE_EXPIRED
-    # 判断bot身份和过期时间
-    bot_role = BOT_ROLE.get(event.group_id)
-    bot_role_expired = BOT_ROLE_EXPIRED.get(event.group_id)
-    if not bot_role_expired:
-        bot_role_expired = datetime.now()
-        BOT_ROLE_EXPIRED.update({event.group_id: bot_role_expired})
-    # 缓存身份过期时间
-    is_role_expired = (datetime.now() - bot_role_expired).total_seconds() > BOT_ROLE_EXPIRED_TIME
-    if is_role_expired or not bot_role:
-        bot_role = (await bot.get_group_member_info(group_id=event.group_id, user_id=event.self_id)).get('role')
-        BOT_ROLE.update({event.group_id: bot_role})
-
-    if bot_role not in ['owner', 'admin']:
+    # 判断bot身份
+    if not (await RoleChecker(group_id=event.group_id, user_id=event.self_id, bot=bot).is_group_admin()):
         await recall.finish('Bot非群管理员, 无法执行撤回操作QAQ')
 
     error_tag: bool = False
@@ -131,7 +109,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         recall_msg_id = event.reply.message_id
         try:
             await bot.delete_msg(message_id=recall_msg_id)
-            logger.info(
+            logger.success(
                 f'Self-help Recall | {event.group_id}/{event.user_id} 撤回消息: {recall_msg_id}, "{event.reply.message}"')
         except Exception as e:
             error_tag = True
@@ -209,7 +187,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
             failed_list.append(str(at_qq))
 
     if not failed_list:
-        logger.info(f'Self-help Recall | {event.group_id}/{event.user_id} 已启用用户 {", ".join(success_list)} 撤回权限')
+        logger.success(f'Self-help Recall | {event.group_id}/{event.user_id} 已启用用户 {", ".join(success_list)} 撤回权限')
         await recall_allow.finish(f'已启用用户 {", ".join(success_list)} 撤回权限')
     else:
         logger.warning(f'Self-help Recall | {event.group_id}/{event.user_id} '
@@ -257,7 +235,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
             failed_list.append(str(at_qq))
 
     if not failed_list:
-        logger.info(f'Self-help Recall | {event.group_id}/{event.user_id} 已禁用用户 {", ".join(success_list)} 撤回权限')
+        logger.success(f'Self-help Recall | {event.group_id}/{event.user_id} 已禁用用户 {", ".join(success_list)} 撤回权限')
         await recall_deny.finish(f'已禁用用户 {", ".join(success_list)} 撤回权限')
     else:
         logger.warning(f'Self-help Recall | {event.group_id}/{event.user_id} '
