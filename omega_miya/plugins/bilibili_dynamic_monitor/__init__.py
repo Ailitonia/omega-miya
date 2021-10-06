@@ -144,7 +144,7 @@ async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
     else:
         _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
-        logger.info(f"{sub_command}动态成功, {group_id} / {event.user_id}, uid: {uid}")
+        logger.success(f"{sub_command}动态成功, {group_id} / {event.user_id}, uid: {uid}")
         await bilibili_dynamic.finish(f'{sub_command}成功!')
     else:
         logger.error(f"{sub_command}动态失败, {group_id} / {event.user_id}, uid: {uid},"

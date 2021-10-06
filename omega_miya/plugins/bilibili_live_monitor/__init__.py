@@ -146,7 +146,7 @@ async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
     else:
         _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
-        logger.info(f"{sub_command}直播间成功, {group_id} / {event.user_id}, room_id: {room_id}")
+        logger.success(f"{sub_command}直播间成功, {group_id} / {event.user_id}, room_id: {room_id}")
         await bilibili_live.finish(f'{sub_command}成功!')
     else:
         logger.error(f"{sub_command}直播间失败, {group_id} / {event.user_id}, room_id: {room_id},"

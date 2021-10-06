@@ -92,7 +92,7 @@ async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
         await skill_admin.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f"Skill {sub_command} Success, {result.info}")
+        logger.success(f"Skill {sub_command} Success, {result.info}")
         await skill_admin.finish('Success')
     else:
         logger.error(f"Skill {sub_command} Failed, {result.info}")
@@ -203,7 +203,7 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await skill_group_user.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f"Group: {event.group_id}, User: {event.user_id}, {sub_command}, Success, {result.info}")
+        logger.success(f"Group: {event.group_id}, User: {event.user_id}, {sub_command}, Success, {result.info}")
         if sub_command in need_reply:
             await skill_group_user.finish(result.result)
         else:

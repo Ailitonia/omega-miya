@@ -82,7 +82,7 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
     else:
         _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
     if _res.success():
-        logger.info(f"{sub_command}Pixivision成功, group_id: {event.group_id}, {_res.info}")
+        logger.success(f"{sub_command}Pixivision成功, group_id: {event.group_id}, {_res.info}")
         await pixivision.finish(f'{sub_command}成功!')
     else:
         logger.error(f"{sub_command}Pixivision失败, group_id: {event.group_id}, {_res.info}")

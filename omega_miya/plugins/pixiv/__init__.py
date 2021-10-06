@@ -168,7 +168,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             msg = illust_info_result.result
             img_seg = MessageSegment.image(illust_result.result)
             # 发送图片和图片信息
-            logger.info(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
+            logger.success(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
             await pixiv.send(Message(img_seg).append(msg))
         else:
             logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, "
@@ -218,7 +218,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             await pixiv.finish('生成Pixiv搜索预览图时发生了意外的错误QAQ, 请稍后再试~')
 
         img_path = pathlib.Path(preview_result.result).as_uri()
-        logger.info(f"User: {event.user_id} 搜索了Pixiv作品: {mode}")
+        logger.success(f"User: {event.user_id} 搜索了Pixiv作品: {mode}")
         await pixiv.finish(MessageSegment.image(img_path))
 
 

@@ -83,7 +83,7 @@ async def handle_enable_plugin(bot: Bot, event: MessageEvent, state: T_State):
 
     result = await DBPlugin(plugin_name=plugin_name).update(enabled=1)
     if result.success():
-        logger.info(f'OPM | Success enabled plugin {plugin_name} by user {event.user_id}')
+        logger.success(f'OPM | Success enabled plugin {plugin_name} by user {event.user_id}')
         await enable_plugin.finish(f'启用插件 {plugin_name} 成功')
     else:
         logger.error(f'OPM | Failed to enable {plugin_name}, {result.info}')
@@ -123,7 +123,7 @@ async def handle_disable_plugin(bot: Bot, event: MessageEvent, state: T_State):
 
     result = await DBPlugin(plugin_name=plugin_name).update(enabled=0)
     if result.success():
-        logger.info(f'OPM | Success enabled plugin {plugin_name} by user {event.user_id}')
+        logger.success(f'OPM | Success enabled plugin {plugin_name} by user {event.user_id}')
         await disable_plugin.finish(f'禁用插件 {plugin_name} 成功')
     else:
         logger.error(f'OPM | Failed to enable {plugin_name}, {result.info}')

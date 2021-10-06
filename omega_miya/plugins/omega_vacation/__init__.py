@@ -80,7 +80,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     user = DBUser(user_id=user_id)
     result = await user.status_set(status=0)
     if result.success():
-        logger.info(f"reset_status: {event.group_id}/{user_id}, Success, {result.info}")
+        logger.success(f"reset_status: {event.group_id}/{user_id}, Success, {result.info}")
         await my_status.finish('Success')
     else:
         logger.error(f"reset_status: {event.group_id}/{user_id}, Failed, {result.info}")
@@ -172,7 +172,7 @@ async def handle_vacation_stop(bot: Bot, event: GroupMessageEvent, state: T_Stat
     reason = state['reason']
     result = await user.vacation_set(stop_time=stop_at, reason=reason)
     if result.success():
-        logger.info(f"Group: {event.group_id}/{user_id}, set_vacation, Success, {result.info}")
+        logger.success(f"Group: {event.group_id}/{user_id}, set_vacation, Success, {result.info}")
         await set_vacation.finish(f'请假成功! 你的假期将持续到【{stop_at.strftime("%Y-%m-%d %H:%M:%S")}】')
     else:
         logger.error(f"Group: {event.group_id}/{user_id}, set_vacation, Failed, {result.info}")

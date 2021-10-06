@@ -176,7 +176,7 @@ async def handle_auth_node(bot: Bot, event: MessageEvent, state: T_State):
         return
 
     if res.success():
-        logger.info(f'已成功为 {auth_type}/{auth_id} {sub_command} 了权限节点 {r_auth_node}: {res.info}')
+        logger.success(f'已成功为 {auth_type}/{auth_id} {sub_command} 了权限节点 {r_auth_node}: {res.info}')
         await omegaauth.finish(f'{auth_type}/{auth_id} {r_auth_node} 权限节点 {sub_command} 操作成功')
     else:
         logger.error(f'为 {auth_type}/{auth_id} {sub_command} 权限节点 {r_auth_node} 失败: {res.info}')

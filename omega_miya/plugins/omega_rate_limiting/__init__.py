@@ -97,7 +97,7 @@ async def handle_time(bot: Bot, event: MessageEvent, state: T_State):
                                              main_config=time,
                                              setting_info='限流配置群组全局冷却时间')
     if setting_result.success():
-        logger.info(f'已为群组: {group_id} 配置限流群组全局冷却时间: {time}')
+        logger.success(f'已为群组: {group_id} 配置限流群组全局冷却时间: {time}')
         await set_group_gcd.finish(f'已为群组: {group_id} 配置限流群组全局冷却时间: {time}')
     else:
         logger.error(f'为群组: {group_id} 配置限流群组全局冷却时间失败, error info: {setting_result.info}')
@@ -133,7 +133,7 @@ async def handle_group_id(bot: Bot, event: MessageEvent, state: T_State):
 
     setting_result = await group.setting_del(setting_name=GROUP_GLOBAL_CD_SETTING_NAME)
     if setting_result.success():
-        logger.info(f'已为群组: {group_id} 删除全局冷却时间')
+        logger.success(f'已为群组: {group_id} 删除全局冷却时间')
         await remove_group_gcd.finish(f'已删除了群组: {group_id} 的全局冷却时间!')
     else:
         logger.error(f'删除群组: {group_id} 的全局冷却时间失败, error info: {setting_result.info}')
@@ -218,7 +218,7 @@ async def handle_time(bot: Bot, event: MessageEvent, state: T_State):
         description='Ban Group CoolDown')
 
     if result.success():
-        logger.info(f'已封禁群组: {group_id}, {time} 秒')
+        logger.success(f'已封禁群组: {group_id}, {time} 秒')
         await ban_group.finish(f'已封禁群组: {group_id}, {time} 秒')
     else:
         logger.error(f'封禁群组: {group_id} 失败, error info: {result.info}')
@@ -268,7 +268,7 @@ async def handle_time(bot: Bot, event: MessageEvent, state: T_State):
         description='Ban User CoolDown')
 
     if result.success():
-        logger.info(f'已封禁用户: {user_id}, {time} 秒')
+        logger.success(f'已封禁用户: {user_id}, {time} 秒')
         await ban_user.finish(f'已封禁用户: {user_id}, {time} 秒')
     else:
         logger.error(f'封禁用户: {user_id} 失败, error info: {result.info}')

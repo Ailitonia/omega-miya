@@ -192,10 +192,10 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
         logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的涩图, 图片下载失败, {pid_list}")
         await setu.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"{group_id} / {event.user_id} 找到了他/她想要的涩图, {pid_list}")
+        logger.success(f"{group_id} / {event.user_id} 找到了他/她想要的涩图, {pid_list}")
 
     if ENABLE_SETU_AUTO_RECALL:
-        logger.info(f"{group_id} / {event.user_id} 撤回已发送涩图...")
+        logger.info(f"{group_id} / {event.self_id} 将于 {AUTO_RECALL_TIME} 秒后撤回已发送涩图...")
         await asyncio.sleep(AUTO_RECALL_TIME)
         for msg_id in sent_msg_ids:
             if not msg_id:
@@ -300,10 +300,10 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
         logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的萌图, 图片下载失败, {pid_list}")
         await moepic.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
-        logger.info(f"{group_id} / {event.user_id} 找到了他/她想要的萌图, {pid_list}")
+        logger.success(f"{group_id} / {event.user_id} 找到了他/她想要的萌图, {pid_list}")
 
     if ENABLE_MOE_AUTO_RECALL:
-        logger.info(f"{group_id} / {event.user_id} 撤回已发送萌图...")
+        logger.info(f"{group_id} / {event.self_id} 将于 {AUTO_RECALL_TIME} 秒后撤回已发送萌图...")
         await asyncio.sleep(AUTO_RECALL_TIME)
         for msg_id in sent_msg_ids:
             if not msg_id:
@@ -331,7 +331,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
           f"萌图: {status_res.result.get('moe')}\n" \
           f"涩图: {status_res.result.get('setu')}\n" \
           f"R18: {status_res.result.get('r18')}"
-    logger.info(f'{event.user_id} 执行图库统计成功')
+    logger.success(f'{event.user_id} 执行图库统计成功')
     await setu_stat.finish(msg)
 
 
@@ -429,7 +429,7 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
     _res = await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50, log_flag='Setu Import')
     success_count = len([x for x in _res if x.success()])
 
-    logger.info(f'setu_import: 导入操作已完成, 成功: {success_count}, 总计: {all_count}')
+    logger.success(f'setu_import: 导入操作已完成, 成功: {success_count}, 总计: {all_count}')
     await setu_import.send(f'导入操作已完成, 成功: {success_count}, 总计: {all_count}')
 
 

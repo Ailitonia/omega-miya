@@ -53,7 +53,7 @@ class ProcessUtils(object):
         for fragment in fragment_list:
             # 进行异步处理
             try:
-                _result = await asyncio.gather(*fragment)
+                _result = await asyncio.gather(*fragment, return_exceptions=True)
                 result.extend(_result)
             except Exception as e:
                 logger.error(f'Fragment process | {log_flag} processing error: {repr(e)}')
@@ -63,7 +63,7 @@ class ProcessUtils(object):
             process_rate_count += 1
             logger.info(f'Fragment process | {log_flag} processing: {process_rate_count}/{fragment_count}')
 
-        logger.info(f'Fragment process | {log_flag} process complete, total tasks: {all_count}')
+        logger.success(f'Fragment process | {log_flag} process complete, total tasks: {all_count}')
         return tuple(result)
 
 

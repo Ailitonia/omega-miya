@@ -150,7 +150,7 @@ async def handle_message(bot: Bot, event: GroupMessageEvent, state: T_State):
         group=group, schedule_name=name, mode=mode, hour=hour, minute=minute, repeat=repeat, message=message)
 
     if msg_set_result.success():
-        logger.info(f'已为群组: {group_id} 设置群组定时消息: {name}{mode}/{hour}:{minute}')
+        logger.success(f'已为群组: {group_id} 设置群组定时消息: {name}{mode}/{hour}:{minute}')
         await set_schedule_message.finish(f'已为本群组设定了群组定时消息:\n{name}/{mode}/{repeat}:{hour}:{minute}')
     else:
         logger.error(f'为群组: {group_id} 设置群组定时消息失败, error info: {msg_set_result.info}')
@@ -215,7 +215,7 @@ async def handle_remove(bot: Bot, event: GroupMessageEvent, state: T_State):
     msg_del_result = await del_db_group_schedule_message(group=group, schedule_name=name)
 
     if msg_del_result.success():
-        logger.info(f'已移除群组: {group_id} 群组定时消息: {name}')
+        logger.success(f'已移除群组: {group_id} 群组定时消息: {name}')
         await del_schedule_message.finish(f'已移除群组定时消息: {name}')
     else:
         logger.error(f'移除群组: {group_id} 群组定时消息失败, error info: {msg_del_result.info}')

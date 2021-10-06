@@ -123,7 +123,7 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
                 try:
                     await bot.call_api(api='upload_group_file',
                                        group_id=event.group_id, file=file_path, name=file_name)
-                    logger.info(f"Group: {event.group_id}, User: {event.user_id} 下载成功")
+                    logger.success(f"Group: {event.group_id}, User: {event.user_id} 下载成功")
                 except Exception as e:
                     logger.error(f'Group: {event.group_id}, User: {event.user_id} 上传文件失败, {repr(e)}')
                     await nhentai.finish(f'获取上传结果超时或上传失败QAQ, 上传可能仍在进行中, 请等待2~5分钟后再重试')

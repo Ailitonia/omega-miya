@@ -115,7 +115,7 @@ async def _handle(bot: Bot, event: Event, state: T_State):
                 await handle_event(bot=bot, event=new_event)
             except Exception as e:
                 logger.error(f'Self sent msg convertor convert an self_sent event failed, '
-                             f'error: {repr(e)}, event: {event}.')
+                             f'error: {repr(e)}, event: {event}')
             finally:
                 SU_TAG = False
-                logger.info(f'Su: !SU命令已执行, SU_TAG已复位.')
+                logger.success(f'Su: !SU命令已执行: {raw_message}, SU_TAG已复位')

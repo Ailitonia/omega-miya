@@ -87,7 +87,7 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
         _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
 
     if _res.success():
-        logger.info(f"设置自动审轴姬状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
+        logger.success(f"设置自动审轴姬状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
         await zhoushen_hime_admin.finish(f'已设置自动审轴姬状态为 {sub_command}!')
     else:
         logger.error(f"设置自动审轴姬状态为 {sub_command} 失败, group_id: {event.group_id}, {_res.info}")

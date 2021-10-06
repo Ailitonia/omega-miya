@@ -82,7 +82,7 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
         _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
 
     if _res.success():
-        logger.info(f"设置 AntiRecall 状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
+        logger.success(f"设置 AntiRecall 状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
         await anti_recall_admin.finish(f'已设置 AntiRecall 状态为 {sub_command}!')
     else:
         logger.error(f"设置 AntiRecall 状态为 {sub_command} 失败, group_id: {event.group_id}, {_res.info}")
@@ -141,5 +141,5 @@ async def check_recall_notice(bot: Bot, event: GroupRecallNoticeEvent, state: T_
         time = history.created_at
         msg = history.msg_data
         send_msg = Message(f"AntiRecall 已检测到撤回消息:\n{time}@{user_name}:\n").append(msg)
-        logger.info(f'AntiRecall 已处理撤回消息, message_id: {message_id}')
+        logger.success(f'AntiRecall 已处理撤回消息, message_id: {message_id}')
         await anti_recall_handler.finish(send_msg)

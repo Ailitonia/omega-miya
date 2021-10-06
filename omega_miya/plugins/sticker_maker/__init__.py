@@ -175,7 +175,7 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
 
         # 发送图片
         await sticker.send(sticker_seg)
-        logger.info(f"{group_id} / {event.user_id} 成功制作了一个表情")
+        logger.success(f"{group_id} / {event.user_id} 成功制作了一个表情")
 
     except Exception as e:
         logger.error(f"{group_id} / {event.user_id} 制作表情时发生了错误: {repr(e)}")

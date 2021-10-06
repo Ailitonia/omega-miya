@@ -12,7 +12,7 @@ from nonebot import on_command, logger
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.event import MessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from omega_miya.utils.dice_utils import BaseCalculator
@@ -49,7 +49,7 @@ calculator = on_command(
         level=10),
     aliases={'calculator', '计算器', '计算'},
     permission=GROUP | PRIVATE_FRIEND,
-    priority=20,
+    priority=10,
     block=True)
 
 

@@ -139,7 +139,7 @@ async def handle_command_sign_in(bot: Bot, event: PokeNotifyEvent, state: T_Stat
     else:
         # 未签到及异常交由签到函数处理
         msg = await handle_sign_in(bot=bot, event=event_, state=state)
-        logger.info(f'{event.group_id}/{event.user_id}, 通过戳一戳进行了签到')
+        logger.success(f'{event.group_id}/{event.user_id}, 通过戳一戳进行了签到')
         await poke_sign_in.finish(msg)
 
 
@@ -246,7 +246,7 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
             raise FailedException(f'生成签到卡片失败, {sign_in_card_result.info}')
 
         msg = MessageSegment.image(pathlib.Path(sign_in_card_result.result).as_uri())
-        logger.info(f'{event.group_id}/{event.user_id} 签到成功')
+        logger.success(f'{event.group_id}/{event.user_id} 签到成功')
         return msg
     except DuplicateException as e:
         # 已签到

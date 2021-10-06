@@ -84,7 +84,7 @@ async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_S
         _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
 
     if _res.success():
-        logger.info(f"设置 AntiFlash 状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
+        logger.success(f"设置 AntiFlash 状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
         await anti_flash_admin.finish(f'已设置 AntiFlash 状态为 {sub_command}!')
     else:
         logger.error(f"设置 AntiFlash 状态为 {sub_command} 失败, group_id: {event.group_id}, {_res.info}")
@@ -130,5 +130,5 @@ async def check_flash_img(bot: Bot, event: GroupMessageEvent, state: T_State):
                 img_file = msg_seg.data.get('file')
                 img_seq = MessageSegment.image(file=img_file)
                 msg = Message('AntiFlash 已检测到闪照:\n').append(img_seq)
-                logger.info(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
+                logger.success(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
                 await anti_flash_handler.finish(msg)

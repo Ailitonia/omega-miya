@@ -96,5 +96,5 @@ async def handle_announce(bot: Bot, event: PrivateMessageEvent, state: T_State):
     else:
         logger.warning(f'公告未发送, 不合规的群组类型或群号: {group}')
         await announce.finish('不合规的群组类型或群号')
-    logger.info(f'公告已成功发送群组: {group}')
+    logger.success(f'公告已成功发送群组: {group}')
     await announce.finish('公告发送完成')

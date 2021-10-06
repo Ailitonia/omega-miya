@@ -107,7 +107,7 @@ async def handle_friend_request(bot: Bot, event: FriendRequestEvent, state: T_St
 
     if verify_code == comment:
         await bot.set_friend_add_request(flag=event.flag, approve=True)
-        logger.info(f'已同意用户: {user_id} 的好友申请, 验证通过')
+        logger.success(f'已同意用户: {user_id} 的好友申请, 验证通过')
     else:
         await bot.set_friend_add_request(flag=event.flag, approve=False)
         logger.warning(f'已拒绝用户: {user_id} 的好友申请, 验证码验证失败')
@@ -128,7 +128,7 @@ async def handle_group_invite(bot: Bot, event: GroupRequestEvent, state: T_State
         )
         if permission_check_result == 1:
             await bot.set_group_add_request(flag=event.flag, sub_type='invite', approve=True)
-            logger.info(f'已处理邀请进群请求, 被用户: {user_id} 邀请加入群组: {group_id}.')
+            logger.success(f'已处理邀请进群请求, 被用户: {user_id} 邀请加入群组: {group_id}.')
         else:
             await bot.set_group_add_request(flag=event.flag, sub_type='invite', approve=False, reason='没有邀请权限')
             logger.warning(f'已拒绝邀请进群请求, 非授权用户: {user_id} 试图邀请加入群组: {group_id}.')

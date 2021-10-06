@@ -77,7 +77,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     msg_set_result = await group.setting_set(setting_name=SETTING_NAME, main_config='Custom',
                                              extra_config=welcome_msg, setting_info='自定义群组欢迎信息')
     if msg_set_result.success():
-        logger.info(f'已为群组: {group_id} 设置自定义欢迎信息: {welcome_msg}')
+        logger.success(f'已为群组: {group_id} 设置自定义欢迎信息: {welcome_msg}')
         await welcome_msg_set.finish(f'已为本群组设定了自定义欢迎信息!')
     else:
         logger.error(f'为群组: {group_id} 设置自定义欢迎信息失败, error info: {msg_set_result.info}')
@@ -91,7 +91,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     msg_set_result = await group.setting_del(setting_name=SETTING_NAME)
     if msg_set_result.success():
-        logger.info(f'已为群组: {group_id} 清除自定义欢迎信息')
+        logger.success(f'已为群组: {group_id} 清除自定义欢迎信息')
         await welcome_msg_clear.finish(f'已清除了本群组设定的自定义欢迎信息!')
     else:
         logger.error(f'为群组: {group_id} 清除自定义欢迎信息失败, error info: {msg_set_result.info}')

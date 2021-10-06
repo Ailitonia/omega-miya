@@ -80,7 +80,7 @@ async def handle_admin_mail_add(bot: Bot, event: MessageEvent, state: T_State):
     add_result = await DBEmailBox(address=address).add(server_host=server_host, password=password)
 
     if add_result.success():
-        logger.info(f'{event.user_id} 添加邮箱: {address} 成功')
+        logger.success(f'{event.user_id} 添加邮箱: {address} 成功')
         await admin_mail_add.finish('Success! 邮箱添加成功')
     else:
         logger.error(f'{event.user_id} 添加邮箱: {address} 失败, 数据库写入失败, error: {add_result.info}')
@@ -133,7 +133,7 @@ async def handle_admin_mail_bind(bot: Bot, event: GroupMessageEvent, state: T_St
     res = await DBBotGroup(group_id=group_id, self_bot=self_bot).mailbox_add(mailbox=DBEmailBox(address=email_address))
 
     if res.success():
-        logger.info(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 成功')
+        logger.success(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 成功')
         await admin_mail_bind.finish('Success! 绑定成功')
     else:
         logger.error(f'Group:{event.group_id}/User:{event.user_id} 绑定邮箱: {email_address} 失败, error: {res.info}')
@@ -155,10 +155,10 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     res = await group.mailbox_clear()
 
     if res.success():
-        logger.info(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱成功')
+        logger.success(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱成功')
         await admin_mail_bind.finish('Success! 已清空本群组的绑定邮箱')
     else:
-        logger.info(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱失败, error: {res.info}')
+        logger.error(f'Group:{event.group_id}/User:{event.user_id} 清空绑定邮箱失败, error: {res.info}')
         await admin_mail_bind.finish('清空本群组的绑定邮箱失败QAQ, 请检联系管理员处理')
 
 
@@ -187,7 +187,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     group_bind_mailbox = await group.mailbox_list()
     if not group_bind_mailbox.success() or not group_bind_mailbox.result:
-        logger.info(f'{group_id} 收邮件失败: 没有绑定的邮箱')
+        logger.warning(f'{group_id} 收邮件失败: 没有绑定的邮箱')
         await mail_receive.finish('本群组没有绑定的邮箱, 请先绑定邮箱后再收件!')
 
     mail_box_list_msg = '\n'.join([x for x in group_bind_mailbox.result])
@@ -215,7 +215,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
             await mail_receive.send(f'邮箱: {mailbox_address}\n收件失败QAQ, 请稍后再试')
             continue
         elif not unseen_mail_res.result:
-            logger.info(f'邮箱 {mailbox_address} 收件完成, 没有新的邮件')
+            logger.success(f'邮箱 {mailbox_address} 收件完成, 没有新的邮件')
             await mail_receive.send(f'邮箱: {mailbox_address}\n收件完成, 没有新的邮件~')
             continue
         else:
@@ -235,5 +235,5 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
                 except Exception as e:
                     logger.error(f'发送邮件信息失败, {repr(e)}')
                     continue
-            logger.info(f'邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail_res.result)}封新的邮件')
+            logger.success(f'邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail_res.result)}封新的邮件')
             await mail_receive.send(f'邮箱: {mailbox_address}\n收件完成, 共{len(unseen_mail_res.result)}封新的邮件~')
