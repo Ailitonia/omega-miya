@@ -34,6 +34,8 @@ USER_LAST_MSG_TIME: Dict[int, Union[int, float]] = {}
 RATE_LIMITING_COUNT: Dict[int, int] = {}
 # 触发速率限制时为用户设置的全局冷却时间, 单位秒
 RATE_LIMITING_COOL_DOWN: int = 1800
+# 缓存的已被限制的用户id及到期时间, 避免多次查数据库
+RATE_LIMITING_USER_TEMP: Dict[int, datetime] = {}
 # 群组流控配置冷却时间, 与 plugins.omega_rate_limiting 中配置保持一致
 GROUP_GLOBAL_CD_SETTING_NAME: str = 'group_global_cd'
 
@@ -44,11 +46,17 @@ async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_Sta
     """
     global USER_LAST_MSG_TIME
     global RATE_LIMITING_COUNT
+    global RATE_LIMITING_USER_TEMP
 
     user_id = event.user_id
     # 忽略超级用户
     if user_id in [int(x) for x in SUPERUSERS]:
         return
+
+    # 检测该用户是否已经被速率限制
+    if RATE_LIMITING_USER_TEMP.get(user_id, datetime.now()) > datetime.now():
+        logger.info(f'Rate Limiting | User: {user_id} 仍在速率限制中, 到期时间 {RATE_LIMITING_USER_TEMP.get(user_id)}')
+        raise IgnoredException('速率限制中')
 
     # 获取上条消息的时间戳
     last_msg_timestamp = USER_LAST_MSG_TIME.get(user_id, None)
@@ -84,6 +92,9 @@ async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_Sta
 
     # 判断计数大于阈值则触发限制, 为用户设置一个全局冷却并重置计数
     if over_limiting_count > RATE_LIMITING_THRESHOLD:
+        RATE_LIMITING_USER_TEMP.update({user_id: datetime.now() + timedelta(seconds=RATE_LIMITING_COOL_DOWN)})
+        logger.success(f'Rate Limiting | User: {user_id} 触发速率限制, Upgrade RATE_LIMITING_USER_TEMP completed')
+
         result = await DBCoolDownEvent.add_global_user_cool_down_event(
             user_id=user_id,
             stop_at=datetime.now() + timedelta(seconds=RATE_LIMITING_COOL_DOWN),
