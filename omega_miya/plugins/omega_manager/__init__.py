@@ -6,9 +6,11 @@ Omega Miya 使用指南
 - /Omega Notice <on|off> - 为本群组配置通知权限(订阅类插件是否通知)
 - /Omega Command <on|off> - 为本群组配置命令权限(是否允许使用命令)
 - /Omega SetLevel <PermissionLevel> - 为本群组配置命令等级(对于低于命令要求等级的群组, 该命令不会被响应)
+- /Omega QuitGroup - 命令 Bot 立即退群
 """
 from dataclasses import dataclass
 from nonebot import on_command, logger
+from nonebot.exception import FinishedException
 from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -33,6 +35,7 @@ Omega机器人管理
 /Omega SetLevel <PermissionLevel>
 /Omega ShowPermission
 /Omega ResetPermission
+/Omega QuitGroup
 
 **Friend Private Only**
 /Omega Init
@@ -71,7 +74,8 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
         await omega.finish('你好呀~ 我是Omega Miya~ 请问您今天要来点喵娘吗?')
 
 
-@omega.got('sub_command', prompt='执行操作?\n【Init/Upgrade/Notice/Command/SetLevel/ShowPermission/ResetPermission】')
+@omega.got('sub_command',
+           prompt='执行操作?\n【Init/Upgrade/Notice/Command/SetLevel/ShowPermission/ResetPermission/QuitGroup】')
 async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State):
     if not isinstance(event, GroupMessageEvent):
         return
@@ -83,7 +87,8 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         'command': set_group_command,
         'setlevel': set_group_level,
         'showpermission': show_group_permission,
-        'resetpermission': reset_group_permission
+        'resetpermission': reset_group_permission,
+        'quitgroup': quit_group
     }
     # 需要回复信息的命令列表
     need_reply = [
@@ -396,6 +401,18 @@ async def reset_group_permission(bot: Bot, event: GroupMessageEvent, state: T_St
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
     result = await group.permission_reset()
     return result
+
+
+async def quit_group(bot: Bot, event: GroupMessageEvent, state: T_State) -> None:
+    """退群命令, 直接抛 FinishedException 不返回"""
+    user_id = event.user_id
+    group_id = event.group_id
+    self_bot = DBBot(self_qq=int(bot.self_id))
+    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
+    await group.permission_set(notice=-1, command=-1, level=-1)
+    logger.warning(f"Bot will to leave the Group: {event.group_id} immediately, Operator: {user_id}")
+    await bot.set_group_leave(group_id=group_id, is_dismiss=False)
+    raise FinishedException
 
 
 async def init_group_auth_node(group_id: int, self_bot: DBBot):
