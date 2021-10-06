@@ -13,7 +13,7 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 Pre Release v2.0.0a15](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a15)
+[Nonebot2 Pre Release v2.0.0a16](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a16)
 
 ## 功能 & 特点
 
@@ -62,7 +62,7 @@
 ## 关于图片数据
 
 如果你不想自己收集图片数据, 可以将
-[这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/main/archive_data/db_pixiv.7z)
+[这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/master/archive_data/db_pixiv.7z)
 导入, 基本都是按我自己口味收集的图片
 
 Update 2021.8.10: 最新发布图片数据库共 9w7 条图片数据 (包含已失效或画师已删除作品)

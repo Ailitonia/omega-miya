@@ -1,6 +1,6 @@
-nonebot2==2.0.0a15
-nonebot-adapter-cqhttp==2.0.0a15
-SQLAlchemy~=1.4.23
+nonebot2==2.0.0a16
+nonebot-adapter-cqhttp==2.0.0a16
+SQLAlchemy~=1.4.25
 mysqlclient~=2.0.3
 aiomysql~=0.0.21
 aiocqhttp~=1.4.2
@@ -11,12 +11,12 @@ numpy~=1.21.2
 matplotlib~=3.4.3
 Pillow~=8.3.2
 imageio~=2.9.0
-beautifulsoup4~=4.9.3
+beautifulsoup4~=4.10.0
 aiohttp~=3.7.4.post0
 xlwt~=1.3.0
-ujson~=4.1.0
+ujson~=4.2.0
 msgpack~=1.0.2
 pydantic~=1.8.2
-APScheduler~=3.7.0
-pycryptodome~=3.10.1
+APScheduler~=3.8.0
+pycryptodome~=3.10.4
 py7zr==0.16.1
