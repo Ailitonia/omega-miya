@@ -1,13 +1,15 @@
 import random
 import asyncio
-from nonebot import on_command, export, logger, get_driver
+from nonebot import on_command, logger, get_driver
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_Base import DBBot
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder, PermissionChecker
+from omega_miya.database import DBBot
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
+                                                 PicEncoder, PermissionChecker, PluginCoolDown)
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -19,7 +21,7 @@ ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
 
 # Custom plugin usage text
-__plugin_name__ = '识图'
+__plugin_custom_name__ = '识图'
 __plugin_usage__ = r'''【识图助手】
 使用SauceNAO/ascii2d识别各类图片、插画
 群组/私聊可用
@@ -38,26 +40,25 @@ basic
 **Hidden Command**
 /再来点'''
 
-# 声明本插件可配置的权限节点
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
-    'basic',
     'recommend_image',
     'allow_recommend_r18'
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+
 
 # 注册事件响应器
 search_image = on_command(
     '识图',
     aliases={'搜图'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='search_image',
         command=True,
-        level=50,
-        auth_node='basic'),
+        level=50),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
@@ -210,10 +211,12 @@ recommend_image = on_command(  # 使用 pixiv api 的相关作品推荐功能查
     '再来点',
     aliases={'多来点', '相似作品', '类似作品'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='search_image_recommend_image',
         command=True,
-        auth_node='recommend_image'),
+        auth_node='recommend_image',
+        cool_down=[PluginCoolDown(PluginCoolDown.group_type, 90)]
+    ),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)
@@ -234,7 +237,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
                     return
 
         # 若消息被分片可能导致链接被拆分
-        raw_text = event.reply.dict().get('raw_message')
+        raw_text = getattr(event.reply, 'raw_message', None)
         if pid := PixivIllust.parse_pid_from_url(text=raw_text):
             state['pid'] = pid
             logger.debug(f"Recommend image | 已从消息 raw 文本匹配到 pixiv url, pid: {pid}")

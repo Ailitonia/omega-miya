@@ -6,11 +6,13 @@ import asyncio
 import aiofiles
 import zipfile
 import imageio
+from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Dict, Optional
+from urllib.parse import quote
 from nonebot import logger, get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
+from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
@@ -23,9 +25,11 @@ else:
 
 
 class Pixiv(object):
-    ILLUST_DATA_URL = 'https://www.pixiv.net/ajax/illust/'
+    PIXIV_API_URL = 'https://www.pixiv.net/ajax/'
+    SEARCH_URL = f'{PIXIV_API_URL}search/'
+    ILLUST_DATA_URL = f'{PIXIV_API_URL}illust/'
     ILLUST_ARTWORK_URL = 'https://www.pixiv.net/artworks/'
-    RANKING_URL = 'http://www.pixiv.net/ranking.php'
+    RANKING_URL = 'https://www.pixiv.net/ranking.php'
 
     HEADERS = {'accept': '*/*',
                'accept-encoding': 'gzip, deflate',
@@ -105,6 +109,138 @@ class Pixiv(object):
                 logger.debug(f'Pixiv | Getting ranking data error at {num}, ignored. {repr(e)},')
                 continue
         return Result.DictResult(error=False, info='Success', result=result)
+
+    @classmethod
+    async def search_raw(
+            cls,
+            word: str,
+            mode: str = 'artworks',
+            *,
+            order: str = 'date_d',
+            page: int = 1,
+            mode_: str = 'all',
+            s_mode_: str = 's_tag',
+            type_: str = 'illust_and_ugoira',
+            ratio_: Optional[float] = None,
+            scd_: Optional[datetime] = None,
+            blt_: Optional[int] = None,
+            bgt_: Optional[int] = None,
+            lang_: str = 'zh'
+    ) -> Result.DictResult:
+        """
+        :param word: 搜索内容
+        :param mode: 作品类型, artworks: 插画·漫画, top: 全部作品, illustrations: 插画, manga: 漫画, novels: 小说
+        :param page: 解析搜索结果页码
+        :param order: 排序模式(部分参数仅限pixiv高级会员可用), date_d: 按最新排序, date: 按旧排序, popular_d: 受全站欢迎, popular_male_d: 受男性欢迎, popular_female_d: 受女性欢迎
+        :param mode_: 搜索参数(部分参数可能仅限pixiv高级会员可用), all: 全部, safe: 全年龄, r18: R-18, 最好不要动这个
+        :param s_mode_: 检索标签模式(部分参数可能仅限pixiv高级会员可用), s_tag: 标签（部分一致）, s_tag_full: 标签（完全一致）, s_tc: 标题、说明文字, 最好不要动这个
+        :param type_: 筛选检索范围(部分参数可能仅限pixiv高级会员可用), all: 插画、漫画、动图（动态插画）, illust_and_ugoira: 插画、动图, illust: 插画, manga: 漫画. ugoira: 动图, 最好不要动这个
+        :param ratio_: 筛选纵横比(部分参数可能仅限pixiv高级会员可用), 0.5: 横图, -0.5: 纵图, 0: 正方形图, 最好不要动这个
+        :param scd_: 筛选时间(参数仅限pixiv高级会员可用), 从什么时候开始, 最好不要动这个
+        :param blt_: 筛选收藏数下限(参数仅限pixiv高级会员可用), 最好不要动这个
+        :param bgt_: 筛选收藏数上限(参数仅限pixiv高级会员可用), 最好不要动这个
+        :param lang_: 搜索语言, 不要动这个
+        :return: dict, 原始返回数据
+        """
+        if not COOKIES:
+            return Result.DictResult(
+                error=True, info='Cookies not configured, some order modes not supported in searching', result={})
+        else:
+            word = quote(word, encoding='utf-8')
+            params = {
+                'word': word,
+                'order': order,
+                'mode': mode_,
+                'p': page,
+                's_mode': s_mode_,
+                'type': type_,
+                'lang': lang_
+            }
+        if ratio_:
+            params.update({
+                'ratio': ratio_
+            })
+        if scd_:
+            scd_str = scd_.strftime('%Y-%m-%d')
+            params.update({
+                'scd': scd_str
+            })
+        if blt_:
+            params.update({
+                'blt': blt_
+            })
+        if bgt_:
+            params.update({
+                'bgt': bgt_
+            })
+        url = f'{cls.SEARCH_URL}{mode}/{word}'
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_search_raw', headers=cls.HEADERS, cookies=COOKIES)
+        search_search_result = await fetcher.get_json(url=url, params=params)
+
+        if search_search_result.error:
+            return Result.DictResult(
+                error=True, info=f'Getting searching data failed, {search_search_result.info}', result={})
+
+        # 检查返回状态
+        if search_search_result.result.get('error') or not isinstance(search_search_result.result.get('body'), dict):
+            return Result.DictResult(error=True, info=f'PixivApiError: {search_search_result.result}', result={})
+
+        return Result.DictResult(error=False, info='Success', result=search_search_result.result.get('body'))
+
+    @classmethod
+    async def search_artwork(
+            cls,
+            word: str,
+            popular_order: bool = True,
+            *,
+            near_year: bool = False,
+            nsfw: bool = False,
+            page: int = 1
+    ) -> Result.DictListResult:
+        """
+        :param word: 搜索内容
+        :param popular_order: 是否按热度排序
+        :param near_year: 是否筛选近一年的作品
+        :param nsfw: 是否允许nsfw内容
+        :param page: 解析搜索结果页码
+        :return: List[dict], 作品信息列表
+        """
+        kwarg = {
+            'word': word,
+            'page': page,
+        }
+        if popular_order:
+            kwarg.update({
+                'order': 'popular_d'
+            })
+        if near_year:
+            last_year_today = datetime.now() - timedelta(days=365)
+            kwarg.update({
+                'scd_': last_year_today
+            })
+        if nsfw:
+            kwarg.update({
+                'mode_': 'all'
+            })
+        else:
+            kwarg.update({
+                'mode_': 'safe'
+            })
+        search_result = await cls.search_raw(**kwarg)
+        if search_result.error:
+            return Result.DictListResult(error=True, info=search_result.info, result=[])
+
+        try:
+            result = [{
+                'pid': x.get('id'),
+                'title': x.get('title'),
+                'author': x.get('userName'),
+                'thumb_url': x.get('url'),
+            } for x in search_result.result['illustManga']['data']]
+        except Exception as e:
+            return Result.DictListResult(error=True, info=f'Parse search result failed, error: {repr(e)}', result=[])
+
+        return Result.DictListResult(error=False, info='Success', result=result)
 
 
 class PixivIllust(Pixiv):

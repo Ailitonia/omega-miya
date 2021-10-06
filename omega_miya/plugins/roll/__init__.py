@@ -1,15 +1,16 @@
 import re
 import random
-from nonebot import CommandGroup, export
+from nonebot import CommandGroup
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 
 
 # Custom plugin usage text
-__plugin_name__ = 'roll'
+__plugin_custom_name__ = 'Roll'
 __plugin_usage__ = r'''【Roll & 抽奖】
 一个整合了各种roll机制的插件
 更多功能待加入
@@ -26,28 +27,23 @@ basic
 /roll <x>d<y>
 /抽奖 <人数>'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 Roll = CommandGroup(
-    'R0ll',
+    'Roll',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='roll',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP,
     priority=10,
     block=True)
 
-roll = Roll.command('rand', aliases={'Roll', 'roll'})
+roll = Roll.command('rand', aliases={'roll'})
 
 
 # 修改默认参数处理

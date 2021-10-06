@@ -2,17 +2,18 @@ import os
 import re
 import asyncio
 import aiofiles
-from nonebot import CommandGroup, on_command, export, get_driver, logger
+from nonebot import CommandGroup, on_command, get_driver, logger
+from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.event import Event, MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, PermissionChecker
-from omega_miya.utils.Omega_plugin_utils import PicEncoder, PicEffector, MsgSender, ProcessUtils
-from omega_miya.utils.Omega_Base import DBBot, DBPixivillust
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown, PermissionChecker
+from omega_miya.utils.omega_plugin_utils import PicEncoder, PicEffector, MsgSender, ProcessUtils
+from omega_miya.database import DBBot, DBPixivillust
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import add_illust
 from .config import Config
@@ -20,6 +21,7 @@ from .config import Config
 
 __global_config = get_driver().config
 plugin_config = Config(**__global_config.dict())
+ACC_MODE = plugin_config.acc_mode
 IMAGE_NUM_LIMIT = plugin_config.image_num_limit
 ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 ENABLE_MOE_FLASH = plugin_config.enable_moe_flash
@@ -32,7 +34,7 @@ ENABLE_SETU_AUTO_RECALL = plugin_config.enable_setu_auto_recall
 
 
 # Custom plugin usage text
-__plugin_name__ = '来点萌图'
+__plugin_custom_name__ = '来点萌图'
 __plugin_usage__ = r'''【来点萌图】
 测试群友LSP成分
 群组/私聊可用
@@ -62,22 +64,15 @@ allow_r18
 /图库查询 [*keywords]
 /导入图库'''
 
-# 声明本插件可配置的权限节点
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
     'setu',
     'allow_r18',
     'moepic'
 ]
 
-# 声明本插件的冷却时间配置
-__plugin_cool_down__ = [
-    PluginCoolDown(PluginCoolDown.user_type, 2),
-    PluginCoolDown(PluginCoolDown.group_type, 1)
-]
-
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__, __plugin_cool_down__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 注册事件响应器
@@ -87,11 +82,15 @@ setu = Setu.command(
     'setu',
     aliases={'来点涩图'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='setu',
         command=True,
         level=50,
-        auth_node='setu'))
+        auth_node='setu',
+        cool_down=[
+            PluginCoolDown(PluginCoolDown.user_type, 180),
+            PluginCoolDown(PluginCoolDown.group_type, 120)
+        ]))
 
 
 @setu.handle()
@@ -118,23 +117,14 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
 
     # 处理R18权限
     if nsfw_tag > 1:
-        if isinstance(event, PrivateMessageEvent):
-            user_id = event.user_id
-            auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
-                check_auth_node(auth_id=user_id, auth_type='user', auth_node='setu.allow_r18')
-        elif isinstance(event, GroupMessageEvent):
-            group_id = event.group_id
-            auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
-                check_auth_node(auth_id=group_id, auth_type='group', auth_node='setu.allow_r18')
-        else:
-            auth_checker = 0
-
+        auth_checker = await __handle_r18_perm(bot=bot, event=event)
         if auth_checker != 1:
             logger.warning(f"User: {event.user_id} 请求涩图被拒绝, 没有 allow_r18 权限")
             await setu.finish('R18禁止! 不准开车车!')
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag)
+        pid_res = await DBPixivillust.list_illust(
+            keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag, acc_mode=ACC_MODE)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
@@ -145,11 +135,10 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
         logger.info(f"{group_id} / {event.user_id} 没有找到他/她想要的涩图")
         await setu.finish('找不到涩图QAQ')
     await setu.send('稍等, 正在下载图片~')
-    # 处理article中图片内容
-    tasks = []
-    for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).load_illust_pic())
-    p_res = await asyncio.gather(*tasks)
+
+    # 处理下载图片
+    tasks = [PixivIllust(pid=pid).load_illust_pic() for pid in pid_list]
+    p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='load_setu')
 
     # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
     fault_count = 0
@@ -223,11 +212,15 @@ moepic = Setu.command(
     'moepic',
     aliases={'来点萌图'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='moepic',
         command=True,
         level=50,
-        auth_node='moepic'))
+        auth_node='moepic',
+        cool_down=[
+            PluginCoolDown(PluginCoolDown.user_type, 120),
+            PluginCoolDown(PluginCoolDown.group_type, 60)
+        ]))
 
 
 @moepic.handle()
@@ -250,7 +243,7 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     tags = state['tags']
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0)
+        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0, acc_mode=ACC_MODE)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
@@ -262,11 +255,10 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
         await moepic.finish('找不到萌图QAQ')
 
     await moepic.send('稍等, 正在下载图片~')
-    # 处理article中图片内容
-    tasks = []
-    for pid in pid_list:
-        tasks.append(PixivIllust(pid=pid).load_illust_pic())
-    p_res = await asyncio.gather(*tasks)
+
+    # 处理下载图片
+    tasks = [PixivIllust(pid=pid).load_illust_pic() for pid in pid_list]
+    p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='load_moepic')
 
     # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
     fault_count = 0
@@ -439,3 +431,18 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
 
     logger.info(f'setu_import: 导入操作已完成, 成功: {success_count}, 总计: {all_count}')
     await setu_import.send(f'导入操作已完成, 成功: {success_count}, 总计: {all_count}')
+
+
+# 处理 setu 插件 r18 权限
+async def __handle_r18_perm(bot: Bot, event: Event) -> int:
+    if isinstance(event, PrivateMessageEvent):
+        user_id = event.user_id
+        auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+            check_auth_node(auth_id=user_id, auth_type='user', auth_node='setu.allow_r18')
+    elif isinstance(event, GroupMessageEvent):
+        group_id = event.group_id
+        auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
+            check_auth_node(auth_id=group_id, auth_type='group', auth_node='setu.allow_r18')
+    else:
+        auth_checker = 0
+    return auth_checker

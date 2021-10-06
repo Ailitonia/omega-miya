@@ -1,5 +1,5 @@
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
 from .request_utils import BiliRequestUtils
 from .data_classes import BiliInfo, BiliResult
 

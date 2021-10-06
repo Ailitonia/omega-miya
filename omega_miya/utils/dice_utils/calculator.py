@@ -164,7 +164,11 @@ class BaseCalculator(object):
         # 从最内层括号开始依次执行运算
         while inner_par := re.search(r'(\([+\-*/^.\d]+?\))', _expression):
             inner_cal_result = self.__base_calculate(inner_par.group())
-            _expression = f'{_expression[:inner_par.start()]}{inner_cal_result}{_expression[inner_par.end():]}'
+            # 处理括号前 a(x+y) 的简写形式
+            if re.match(r'.*\d$', _expression[:inner_par.start()]):
+                _expression = f'{_expression[:inner_par.start()]}*{inner_cal_result}{_expression[inner_par.end():]}'
+            else:
+                _expression = f'{_expression[:inner_par.start()]}{inner_cal_result}{_expression[inner_par.end():]}'
         # 括号遍历完后执行最外层运算
         return self.__base_calculate(_expression)
 

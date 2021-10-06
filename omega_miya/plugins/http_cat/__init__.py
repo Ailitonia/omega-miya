@@ -9,18 +9,19 @@
 """
 
 import re
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from .data_source import get_http_cat
 
 
 # Custom plugin usage text
-__plugin_name__ = 'HttpCat'
+__plugin_custom_name__ = 'HttpCat'
 __plugin_usage__ = r'''【Http Cat】
 就是喵喵喵
 
@@ -35,24 +36,19 @@ basic
 **Usage**
 /HttpCat <code>'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器
 httpcat = on_command(
     'HttpCat',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='httpcat',
         command=True,
-        level=30,
-        auth_node='basic'),
+        level=30),
     aliases={'httpcat', 'HTTPCAT'},
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
@@ -89,6 +85,8 @@ async def handle_httpcat(bot: Bot, event: MessageEvent, state: T_State):
     res = await get_http_cat(http_code=code)
     if res.success() and res.result:
         img_seg = MessageSegment.image(res.result)
+        logger.info(f'{event.user_id} 进获取了HttpCat: {code}')
         await httpcat.finish(img_seg)
     else:
+        logger.warning(f'{event.user_id} 进获取HttpCat失败: {repr(res)}')
         await httpcat.finish('^QAQ^')

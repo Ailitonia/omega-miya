@@ -1,19 +1,20 @@
 import re
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from omega_miya.utils.bilibili_utils import BiliLiveRoom
 from .data_source import BiliLiveChecker
 from .monitor import scheduler
 
 
 # Custom plugin usage text
-__plugin_name__ = 'B站直播间订阅'
+__plugin_custom_name__ = 'B站直播间订阅'
 __plugin_usage__ = r'''【B站直播间订阅】
 监控直播间状态
 开播、下播、直播间换标题提醒
@@ -34,13 +35,9 @@ basic
 /B站直播间 清空订阅
 /B站直播间 订阅列表'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器
@@ -48,11 +45,10 @@ bilibili_live = on_command(
     'B站直播间',
     aliases={'b站直播间'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='bilibili_live',
         command=True,
-        level=20,
-        auth_node='basic'),
+        level=20),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
     priority=20,
     block=True)

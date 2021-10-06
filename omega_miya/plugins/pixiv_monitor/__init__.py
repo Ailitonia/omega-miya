@@ -9,20 +9,21 @@
 """
 
 import re
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
+from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from omega_miya.utils.pixiv_utils import PixivUser
 from .monitor import scheduler, init_new_add_sub
 
 
 # Custom plugin usage text
-__plugin_name__ = 'Pixiv画师订阅'
+__plugin_custom_name__ = 'Pixiv画师订阅'
 __plugin_usage__ = r'''【Pixiv画师订阅】
 随时更新Pixiv画师作品
 仅限群聊使用
@@ -41,24 +42,20 @@ basic
 /Pixiv画师 清空订阅
 /Pixiv画师 订阅列表'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 # 注册事件响应器
 pixiv_user_artwork = on_command(
     'Pixiv画师',
     aliases={'pixiv画师', 'p站画师', 'P站画师'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='pixiv_user_artwork',
         command=True,
-        level=50,
-        auth_node='basic'),
+        level=50),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=20,
     block=True)
@@ -164,7 +161,7 @@ async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
         await pixiv_user_artwork.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
 
 
-async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.ListResult:
+async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.TupleListResult:
     self_bot = DBBot(self_qq=int(bot.self_id))
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
@@ -177,7 +174,7 @@ async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.List
         result = await friend.subscription_list_by_type(sub_type=9)
         return result
     else:
-        return Result.ListResult(error=True, info='Illegal event', result=[])
+        return Result.TupleListResult(error=True, info='Illegal event', result=[])
 
 
 async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:

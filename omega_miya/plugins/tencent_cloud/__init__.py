@@ -1,21 +1,24 @@
 import re
-from nonebot import MatcherGroup, logger, export
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
+from nonebot.rule import to_me
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, OmegaRules
+from nonebot.adapters.cqhttp.message import Message, MessageSegment
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from omega_miya.utils.tencent_cloud_api import TencentNLP, TencentTMT
 
 
 # Custom plugin usage text
-__plugin_name__ = 'TencentCloudCore'
+__plugin_custom_name__ = '腾讯云Core'
 __plugin_usage__ = r'''【TencentCloud API Support】
 腾讯云API插件
 测试中
 
 **Permission**
-Command & Lv.50
+Command & Lv.30
 or AuthNode
 
 **AuthNode**
@@ -24,20 +27,20 @@ basic
 **Usage**
 /翻译'''
 
-# 声明本插件可配置的权限节点
+# 声明本插件额外可配置的权限节点
 __plugin_auth_node__ = [
     'tmt',
     'nlp'
 ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 tencent_cloud = MatcherGroup(
     type='message',
     permission=GROUP,
-    priority=100,
+    priority=50,
     block=False)
 
 
@@ -45,12 +48,11 @@ translate = tencent_cloud.on_command(
     '翻译',
     aliases={'translate'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='translate',
         command=True,
         level=30,
         auth_node='tmt'),
-    priority=30,
     block=True)
 
 
@@ -84,12 +86,14 @@ async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
         await translate.finish(f"翻译结果:\n\n{translate_result.result.get('targettext')}")
 
 
-nlp = tencent_cloud.on_message(
-    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'tencent_cloud.nlp'))
+entity = tencent_cloud.on_message(
+    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'tencent_cloud.nlp'),
+    priority=55
+)
 
 
-@nlp.handle()
-async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
+@entity.handle()
+async def handle_entity(bot: Bot, event: GroupMessageEvent, state: T_State):
     arg = str(event.get_plaintext()).strip().lower()
 
     # 排除列表
@@ -100,20 +104,51 @@ async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
     ]
     for pattern in ignore_pattern:
         if re.search(pattern, arg):
-            await nlp.finish()
+            await entity.finish()
 
     # describe_entity实体查询
     if re.match(r'^(你?知道)?(.{1,32}?)的(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg):
         item, attr = re.findall(r'^(你?知道)?(.{1,32}?)的(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg)[0][1:3]
         res = await TencentNLP().describe_entity(entity_name=item, attr=attr)
         if not res.error and res.result:
-            await nlp.finish(f'{item}的{attr}是{res.result}')
+            await entity.finish(f'{item}的{attr}是{res.result}')
         else:
             logger.warning(f'nlp handling describe entity failed: {res.info}')
     elif re.match(r'^(你?知道)?(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg):
         item = re.findall(r'^(你?知道)?(.{1,32}?)是(什么|谁|啥)吗?[?？]?$', arg)[0][1]
         res = await TencentNLP().describe_entity(entity_name=item)
         if not res.error and res.result:
-            await nlp.finish(str(res.result))
+            await entity.finish(str(res.result))
         else:
             logger.warning(f'nlp handling describe entity failed: {res.info}')
+
+
+chat = tencent_cloud.on_message(
+    rule=to_me() & OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'tencent_cloud.nlp'),
+    block=True
+)
+
+
+@chat.handle()
+async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
+    chat_text = str(event.get_message()).strip()
+
+    # 排除列表
+    ignore_pattern = [
+        re.compile(r'喵一个'),
+        re.compile(r'^今天'),
+        re.compile(r'[这那谁你我他她它]个?是[(什么)谁啥]')
+    ]
+    for pattern in ignore_pattern:
+        if re.search(pattern, chat_text):
+            await chat.finish()
+
+    # 获得闲聊内容
+    chat_result = await TencentNLP().chat_bot(text=chat_text)
+    if chat_result.error:
+        logger.error(f'Chat | Getting chat result failed, error: {chat_result.info}')
+        await chat.finish('我没听懂你在说什么QAQ')
+    else:
+        msg = Message(MessageSegment.at(user_id=event.user_id)).append(chat_result.result)
+        logger.debug(f'Chat | Chatting with user: {event.user_id}')
+        await chat.finish(msg)

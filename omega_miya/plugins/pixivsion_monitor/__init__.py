@@ -1,16 +1,17 @@
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBSubscription, Result
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
-from .monitor import scheduler, init_pixivsion_article
+from omega_miya.database import DBBot, DBBotGroup, DBSubscription, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
+from .monitor import scheduler, init_pixivsion_article, PIXIVISION_SUB_ID
 
 
 # Custom plugin usage text
-__plugin_name__ = 'Pixivision'
+__plugin_custom_name__ = 'Pixivision'
 __plugin_usage__ = r'''【Pixivision订阅】
 推送最新的Pixivision特辑
 仅限群聊使用
@@ -27,24 +28,20 @@ basic
 /Pixivision 订阅
 /Pixivision 取消订阅'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 # 注册事件响应器
 pixivision = on_command(
     'pixivision',
     aliases={'Pixivision'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='pixivision',
         command=True,
-        level=30,
-        auth_node='basic'),
+        level=30),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=20,
     block=True)
@@ -96,8 +93,7 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.
     group_id = event.group_id
     self_bot = DBBot(self_qq=int(bot.self_id))
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-    sub_id = -1
-    sub = DBSubscription(sub_type=8, sub_id=sub_id)
+    sub = DBSubscription(sub_type=8, sub_id=PIXIVISION_SUB_ID)
     need_init = not (await sub.exist())
     _res = await sub.add(up_name='Pixivision', live_info='Pixivision订阅')
     if not _res.success():
@@ -117,8 +113,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.
     group_id = event.group_id
     self_bot = DBBot(self_qq=int(bot.self_id))
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-    sub_id = -1
-    _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=PIXIVISION_SUB_ID))
     if not _res.success():
         return _res
     result = Result.IntResult(error=False, info='Success', result=0)

@@ -12,19 +12,20 @@ import nonebot
 import re
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from nonebot import MatcherGroup, export, logger, require
+from nonebot import MatcherGroup, logger, require
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, Result
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state
+from omega_miya.database import DBBot, DBBotGroup, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 
 
 # Custom plugin usage text
-__plugin_name__ = '定时消息'
+__plugin_custom_name__ = '定时消息'
 __plugin_usage__ = r'''【定时消息】
 设置群组定时通知消息
 仅限群聊使用
@@ -42,13 +43,10 @@ basic
 /查看定时消息
 /删除定时消息'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
+
 
 driver = nonebot.get_driver()
 scheduler: AsyncIOScheduler = require("nonebot_plugin_apscheduler").scheduler
@@ -57,11 +55,10 @@ scheduler: AsyncIOScheduler = require("nonebot_plugin_apscheduler").scheduler
 ScheduleMsg = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='schedule_message',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=10,
     block=True)

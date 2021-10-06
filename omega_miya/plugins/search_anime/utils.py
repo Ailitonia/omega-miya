@@ -1,6 +1,6 @@
 from nonebot import logger
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
 
 
 API_URL = 'https://api.trace.moe/search'
@@ -33,7 +33,7 @@ HEADERS = {'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,imag
 
 
 # 获取识别结果
-async def get_identify_result(img_url: str, *, sensitivity: float = 0.8) -> Result.ListResult:
+async def get_identify_result(img_url: str, *, sensitivity: float = 0.85) -> Result.ListResult:
     fetcher = HttpFetcher(timeout=10, flag='search_anime', headers=HEADERS)
 
     payload = {'url': img_url}

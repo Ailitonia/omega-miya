@@ -5,9 +5,9 @@ from typing import List, Union
 from nonebot import logger
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_Base import DBSubscription, DBHistory, Result
+from omega_miya.database import DBSubscription, DBHistory, Result
 from omega_miya.utils.bilibili_utils import BiliLiveRoom, BiliUser, BiliRequestUtils, BiliInfo
-from omega_miya.utils.Omega_plugin_utils import MsgSender
+from omega_miya.utils.omega_plugin_utils import MsgSender
 
 
 # 初始化直播间标题, 状态
@@ -77,7 +77,7 @@ class BiliLiveChecker(object):
         tasks = []
         sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
         for sub_id in sub_res.result:
-            tasks.append(BiliLiveChecker(room_id=sub_id).init_live_info())
+            tasks.append(BiliLiveChecker(room_id=int(sub_id)).init_live_info())
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
@@ -296,7 +296,7 @@ class BiliLiveChecker(object):
         if global_check_result.error:
             return
 
-        subscription = DBSubscription(sub_type=1, sub_id=self.room_id)
+        subscription = DBSubscription(sub_type=1, sub_id=str(self.room_id))
 
         # 标题变更检测
         title_checker_result = await self.title_change_checker(live_info=live_info)

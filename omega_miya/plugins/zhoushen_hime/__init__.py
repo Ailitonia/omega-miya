@@ -2,21 +2,22 @@
 要求go-cqhttp v0.9.40以上
 """
 import os
-from nonebot import on_command, on_notice, export, logger
+from nonebot import on_command, on_notice, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupUploadNoticeEvent
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, OmegaRules
-from omega_miya.utils.Omega_Base import DBBot, DBBotGroup, DBAuth, Result
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
+from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
 from .utils import ZhouChecker, download_file
 
 
 # Custom plugin usage text
 __plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_name__ = '自动审轴姬'
+__plugin_custom_name__ = '自动审轴姬'
 __plugin_usage__ = r'''【自动审轴姬】
 检测群内上传文件并自动锤轴
 仅限群聊使用
@@ -32,20 +33,16 @@ basic
 **GroupAdmin and SuperUser Only**
 /ZhouShenHime <ON|OFF>'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 # 注册事件响应器
 zhoushen_hime_admin = on_command(
     'ZhouShenHime',
     aliases={'zhoushenhime', '审轴姬', '审轴机'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='zhoushen_hime',
         command=True,
         level=10),
@@ -105,7 +102,8 @@ async def zhoushen_hime_on(bot: Bot, event: GroupMessageEvent, state: T_State) -
     if not group_exist:
         return Result.IntResult(error=False, info='Group not exist', result=-1)
 
-    auth_node = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
+    auth_node = DBAuth(
+        self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=OmegaRules.basic_node(__plugin_raw_name__))
     result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用自动审轴姬')
     return result
 
@@ -118,18 +116,22 @@ async def zhoushen_hime_off(bot: Bot, event: GroupMessageEvent, state: T_State) 
     if not group_exist:
         return Result.IntResult(error=False, info='Group not exist', result=-1)
 
-    auth_node = DBAuth(self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic')
+    auth_node = DBAuth(
+        self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=OmegaRules.basic_node(__plugin_raw_name__))
     result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用自动审轴姬')
     return result
 
 
-zhoushen_hime = on_notice(rule=OmegaRules.has_auth_node(__plugin_raw_name__, 'basic'), priority=100, block=False)
+zhoushen_hime = on_notice(
+    rule=OmegaRules.has_auth_node(OmegaRules.basic_node(__plugin_raw_name__)),
+    priority=100,
+    block=False)
 
 
 @zhoushen_hime.handle()
 async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
     file_name = event.file.name
-    file_url = event.file.dict().get('url')
+    file_url = getattr(event.file, 'url', None)
     user_id = event.user_id
 
     # 不响应自己上传的文件

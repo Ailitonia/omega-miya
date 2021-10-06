@@ -1,15 +1,16 @@
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
 from .utils import get_identify_result
 
 
 # Custom plugin usage text
-__plugin_name__ = '识番'
+__plugin_custom_name__ = '识番'
 __plugin_usage__ = r'''【识番助手】
 使用 trace.moe API 识别番剧
 群组/私聊可用
@@ -25,13 +26,9 @@ basic
 **Usage**
 /识番'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 注册事件响应器
@@ -39,11 +36,10 @@ search_anime = on_command(
     '识番',
     aliases={'搜番', '番剧识别'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='search_anime',
         command=True,
-        level=50,
-        auth_node='basic'),
+        level=50),
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True)

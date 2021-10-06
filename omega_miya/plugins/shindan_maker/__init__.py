@@ -11,17 +11,18 @@
 import re
 import datetime
 from typing import Dict
-from nonebot import MatcherGroup, export, logger
+from nonebot import MatcherGroup, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PluginCoolDown, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown, OmegaRules
 from .data_source import ShindanMaker
 
 
 # Custom plugin usage text
-__plugin_name__ = 'ShindanMaker'
+__plugin_custom_name__ = 'ShindanMaker'
 __plugin_usage__ = r'''【ShindanMaker 占卜】
 使用ShindanMaker进行各种奇怪的占卜
 只能在群里使用
@@ -37,20 +38,9 @@ basic
 **Usage**
 /ShindanMaker [占卜名称] [占卜对象名称]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    PluginCoolDown.skip_auth_node,
-    'basic'
-]
-
-# # 声明本插件的冷却时间配置
-# __plugin_cool_down__ = [
-#     PluginCoolDown(PluginCoolDown.user_type, 1),
-#     PluginCoolDown(PluginCoolDown.group_type, 1)
-# ]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 # 缓存占卜名称与对应id
@@ -61,11 +51,10 @@ SHINDANMAKER_CACHE: Dict[str, int] = {}
 shindan_maker = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='shindan_maker',
         command=True,
-        level=30,
-        auth_node='basic'),
+        level=30),
     permission=GROUP,
     priority=20,
     block=True)

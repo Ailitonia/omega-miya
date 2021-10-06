@@ -1,10 +1,12 @@
 import asyncio
 from PIL import Image, ImageDraw, ImageFont
 from datetime import date
+from omega_miya.utils.omega_plugin_utils import TextUtils
 
 
 async def stick_maker_static_traitor(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     有内鬼表情包模板
     """
@@ -20,21 +22,10 @@ async def stick_maker_static_traitor(
 
         # 处理文字层 主体部分
         text_main_img = Image.new(mode="RGBA", size=(image_wight, image_height), color=(0, 0, 0, 0))
-        font_main_size = 54
+        font_main_size = 52
         font_main = ImageFont.truetype(font_path, font_main_size)
         # 按长度切分文本
-        spl_num = 0
-        spl_list = []
-        for num in range(len(text)):
-            text_w = font_main.getsize_multiline(text[spl_num:num])[0]
-            if text_w >= 415:
-                spl_list.append(text[spl_num:num])
-                spl_num = num
-        else:
-            spl_list.append(text[spl_num:])
-        test_main_fin = ''
-        for item in spl_list:
-            test_main_fin += item + '\n'
+        test_main_fin = TextUtils(text=text).split_multiline(width=410, font=font_main)
         ImageDraw.Draw(text_main_img).multiline_text(xy=(0, 0), text=test_main_fin, font=font_main, spacing=8,
                                                      fill=(0, 0, 0))
 
@@ -54,26 +45,18 @@ async def stick_maker_static_traitor(
 
 
 async def stick_maker_static_jichou(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     记仇表情包模板
     """
     def __handle() -> Image.Image:
         # 处理文本主体
-        text_ = f"今天是{date.today().strftime('%Y年%m月%d日')}{text}, 这个仇我先记下了"
+        text_ = f"今天是{date.today().strftime('%Y年%m月%d日')}, {text}, 这个仇我先记下了"
         font_main_size = 42
         font_main = ImageFont.truetype(font_path, font_main_size)
         # 按长度切分文本
-        spl_num = 0
-        spl_list = []
-        for num in range(len(text_)):
-            text_w = font_main.getsize_multiline(text_[spl_num:num])[0]
-            if text_w >= (image_wight * 7 // 8):
-                spl_list.append(text_[spl_num:num])
-                spl_num = num
-        else:
-            spl_list.append(text_[spl_num:])
-        text_main_fin = '\n'.join(spl_list)
+        text_main_fin = TextUtils(text=text_).split_multiline(width=(image_wight * 7 // 8), font=font_main)
 
         font = ImageFont.truetype(font_path, font_main_size)
         text_w, text_h = font.getsize_multiline(text_main_fin)
@@ -99,7 +82,8 @@ async def stick_maker_static_jichou(
 
 
 async def stick_maker_static_phlogo(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int) -> Image.Image:
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
     """
     ph表情包模板
     """
@@ -111,44 +95,105 @@ async def stick_maker_static_phlogo(
 
         font_size = 640
         font = ImageFont.truetype(font_path, font_size)
-        text_w, text_h = font.getsize(text)
 
-        y_text_w, y_text_h = font.getsize(yellow_text)
-        bg_y_text = Image.new(mode="RGB", size=(round(y_text_w * 1.1), round(text_h * 1.3)), color=(254, 154, 0))
-        draw_y_text = ImageDraw.Draw(bg_y_text)
-        draw_y_text.text((round(y_text_w * 1.1) // 2, round(text_h * 1.3) // 2),
-                         yellow_text, anchor='mm', font=font, fill=(0, 0, 0))
-        radii = 64
-        # 画圆(用于分离4个角)
-        circle = Image.new('L', (radii * 2, radii * 2), 0)  # 创建黑色方形
-        draw_circle = ImageDraw.Draw(circle)
-        draw_circle.ellipse((0, 0, radii * 2, radii * 2), fill=255)  # 黑色方形内切白色圆形
-        # 原图转为带有alpha通道（表示透明程度）
-        bg_y_text = bg_y_text.convert("RGBA")
-        y_weight, y_height = bg_y_text.size
-        # 画4个角（将整圆分离为4个部分）
-        alpha = Image.new('L', bg_y_text.size, 255)  # 与img同大小的白色矩形，L 表示黑白图
-        alpha.paste(circle.crop((0, 0, radii, radii)), (0, 0))  # 左上角
-        alpha.paste(circle.crop((radii, 0, radii * 2, radii)), (y_weight - radii, 0))  # 右上角
-        alpha.paste(circle.crop((radii, radii, radii * 2, radii * 2)), (y_weight - radii, y_height - radii))  # 右下角
-        alpha.paste(circle.crop((0, radii, radii, radii * 2)), (0, y_height - radii))  # 左下角
-        bg_y_text.putalpha(alpha)  # 白色区域透明可见，黑色区域不可见
+        # 分别确定两个边文字的大小
+        w_text_wight, w_text_height = font.getsize(white_text)
+        y_text_wight, y_text_height = font.getsize(yellow_text)
 
-        w_text_w, w_text_h = font.getsize(white_text)
-        bg_w_text = Image.new(mode="RGB", size=(round(w_text_w * 1.05), round(text_h * 1.3)), color=(0, 0, 0))
-        w_weight, w_height = bg_w_text.size
-        draw_w_text = ImageDraw.Draw(bg_w_text)
-        draw_w_text.text((round(w_text_w * 1.025) // 2, round(text_h * 1.3) // 2),
-                         white_text, anchor='mm', font=font, fill=(255, 255, 255))
+        # 生成图片定长 两部分文字之间间隔及两侧留空为固定值三个空格大小
+        split_wight, split_height = font.getsize(' ' * 1)
+        image_wight_ = w_text_wight + y_text_wight + int(split_wight * 5.5)
+        image_height_ = w_text_height + int(split_height * 1.25)
 
-        text_bg = Image.new(mode="RGB", size=(w_weight + y_weight, y_height), color=(0, 0, 0))
-        text_bg.paste(bg_w_text, (0, 0))
-        text_bg.paste(bg_y_text, (round(w_text_w * 1.05), 0), mask=alpha)
-        t_weight, t_height = text_bg.size
+        # 计算黄色圆角矩形所在位置
+        y_r_rectangle_x0 = w_text_wight + int(split_wight * 2.5)
+        y_r_rectangle_y0 = split_height // 2
+        y_r_rectangle_x1 = image_wight_ - int(split_wight * 2)
+        y_r_rectangle_y1 = image_height_ - split_height // 2
 
-        background = Image.new(mode="RGB", size=(round(t_weight * 1.2), round(t_height * 1.75)), color=(0, 0, 0))
-        b_weight, b_height = background.size
-        background.paste(text_bg, ((b_weight - t_weight) // 2, (b_height - t_height) // 2))
+        # 生成背景层
+        background = Image.new(mode="RGB", size=(image_wight_, image_height_), color=(0, 0, 0))
+        background_draw = ImageDraw.Draw(background)
+        # 生成圆角矩形
+        background_draw.rounded_rectangle(
+            xy=((y_r_rectangle_x0, y_r_rectangle_y0), (y_r_rectangle_x1, y_r_rectangle_y1)),
+            radius=(image_height_ // 20),
+            fill=(254, 154, 0)
+        )
+
+        # 绘制白色文字部分
+        background_draw.text(
+            xy=(split_wight * 2, image_height_ // 2),  # 左对齐前间距 上下居中
+            text=white_text,
+            anchor='lm',
+            font=font,
+            fill=(255, 255, 255)
+        )
+        # 绘制黄框黑字部分
+        background_draw.text(
+            xy=(w_text_wight + int(split_wight * 3), image_height_ // 2),  # 左对齐白字加间距 上下居中
+            text=yellow_text,
+            anchor='lm',
+            font=font,
+            fill=(0, 0, 0)
+        )
+
+        return background
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, __handle)
+    return result
+
+
+async def stick_maker_static_luxun(
+        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
+    """
+    鲁迅说/鲁迅写表情包模板
+    """
+    def __handle() -> Image.Image:
+        # 处理文本主体
+        font_size = image_wight // 15
+        text_stroke_width = int(font_size / 15)
+        font = ImageFont.truetype(font_path, font_size)
+        text_width_limit = image_wight - int(image_wight * 0.1875)
+
+        sign_text = '—— 鲁迅'
+
+        # 分割文本
+        text_ = TextUtils(text=text).split_multiline(width=text_width_limit, font=font, stroke_width=text_stroke_width)
+
+        # 文本大小
+        main_text_width, main_text_height = font.getsize_multiline(text_, stroke_width=text_stroke_width)
+        sign_text_width, sign_text_height = font.getsize(sign_text, stroke_width=text_stroke_width)
+
+        # 创建背景图层
+        # 定位主体文字到图片下侧往上 1/4 处, 落款与主体文字间隔半行, 底部间隔一行, 超出部分为所有文字高度减去图片 1/4 高度
+        bg_height_inc_ = int(main_text_height + sign_text_height * 2.5 - image_height * 0.25)
+        bg_height_inc = bg_height_inc_ if bg_height_inc_ > 0 else 0
+        background = Image.new(
+            mode="RGB",
+            size=(image_wight, image_height + bg_height_inc),
+            color=(32, 32, 32))
+
+        # 先把鲁迅图贴上去
+        background.paste(image_file, box=(0, 0))
+
+        # 再贴主体文本
+        ImageDraw.Draw(background).multiline_text(
+            xy=(image_wight // 2, int(image_height * 0.75)),
+            text=text_, font=font, align='left', anchor='ma',
+            fill=(255, 255, 255),
+            stroke_width=text_stroke_width,
+            stroke_fill=(0, 0, 0))
+
+        ImageDraw.Draw(background).text(
+            xy=(int(image_wight * 0.85), int(main_text_height + sign_text_height / 2 + image_height * 0.75)),
+            text=sign_text, font=font, align='right', anchor='ra',
+            fill=(255, 255, 255),
+            stroke_width=text_stroke_width,
+            stroke_fill=(0, 0, 0))
+
         return background
 
     loop = asyncio.get_running_loop()
@@ -159,5 +204,6 @@ async def stick_maker_static_phlogo(
 __all__ = [
     'stick_maker_static_traitor',
     'stick_maker_static_jichou',
-    'stick_maker_static_phlogo'
+    'stick_maker_static_phlogo',
+    'stick_maker_static_luxun'
 ]

@@ -3,7 +3,7 @@ import aiofiles
 from typing import Optional
 from io import BytesIO
 from datetime import datetime
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
 from nonebot import logger, get_driver
 from PIL import Image
 from .default_render import *
@@ -12,6 +12,7 @@ from .gif_render import *
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
+RESOURCES_PATH = global_config.resources_path_
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/89.0.4389.114 Safari/537.36'}
@@ -27,6 +28,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'grassja': stick_maker_temp_grass_ja,
         'littleangel': stick_maker_temp_littleangel,
         'traitor': stick_maker_static_traitor,
+        'luxunshuo': stick_maker_static_luxun,
+        'luxunxie': stick_maker_static_luxun,
         'jichou': stick_maker_static_jichou,
         'phlogo': stick_maker_static_phlogo,
         'petpet': stick_maker_temp_petpet
@@ -41,6 +44,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'grassja': 'fzzxhk.ttf',
         'littleangel': 'msyhbd.ttc',
         'traitor': 'pixel.ttf',
+        'luxunshuo': 'SourceHanSans_Regular.otf',
+        'luxunxie': 'SourceHanSans_Regular.otf',
         'jichou': 'SourceHanSans_Regular.otf',
         'phlogo': 'SourceHanSans_Heavy.otf',
         'petpet': 'SourceHanSans_Regular.otf'
@@ -55,6 +60,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'grassja': 800,
         'littleangel': 512,
         'traitor': 512,
+        'luxunshuo': 512,
+        'luxunxie': 512,
         'jichou': 512,
         'phlogo': 512,
         'petpet': 512
@@ -69,7 +76,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
     plugin_src_path = os.path.abspath(os.path.dirname(__file__))
 
     # 字体路径
-    font_path = os.path.join(plugin_src_path, 'fonts', sticker_default_font.get(temp))
+    font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', sticker_default_font.get(temp)))
     # 检查预置字体
     if not os.path.exists(font_path):
         logger.error(f"Stick_maker: 模板预置文件错误, 字体{sticker_default_font.get(temp)}不存在")

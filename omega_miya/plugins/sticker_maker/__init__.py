@@ -1,17 +1,18 @@
 import re
 import pathlib
-from nonebot import on_command, export, logger
+from nonebot import on_command, logger
+from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.Omega_plugin_utils import init_export, init_permission_state, PicEncoder
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
 from .utils import sticker_maker_main
 
 
 # Custom plugin usage text
-__plugin_name__ = '表情包'
+__plugin_custom_name__ = '表情包'
 __plugin_usage__ = r'''【表情包助手】
 使用模板快速制作表情包
 群组/私聊可用
@@ -27,24 +28,19 @@ basic
 **Usage**
 /表情包 [模板名]'''
 
-# 声明本插件可配置的权限节点
-__plugin_auth_node__ = [
-    'basic'
-]
 
 # Init plugin export
-init_export(export(), __plugin_name__, __plugin_usage__, __plugin_auth_node__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
 sticker = on_command(
     '表情包',
     aliases={'Sticker', 'sticker'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_permission_state(
+    state=init_processor_state(
         name='sticker',
         command=True,
-        level=10,
-        auth_node='basic'),
+        level=10),
     permission=GROUP | PRIVATE_FRIEND,
     priority=10,
     block=True)
@@ -83,6 +79,8 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '生草日语': {'name': 'grassja', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
         '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '鲁迅说': {'name': 'luxunshuo', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '鲁迅写': {'name': 'luxunxie', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'},
         'petpet': {'name': 'petpet', 'type': 'gif', 'text_part': 0, 'help_msg': '最好使用长宽比接近正方形的图片'}

@@ -4,9 +4,9 @@ from typing import List
 from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
 from nonebot.adapters.cqhttp.bot import Bot
-from omega_miya.utils.Omega_Base import DBSubscription, DBDynamic
+from omega_miya.database import DBSubscription, DBDynamic
 from omega_miya.utils.bilibili_utils import BiliUser, BiliDynamic, BiliRequestUtils
-from omega_miya.utils.Omega_plugin_utils import MsgSender
+from omega_miya.utils.omega_plugin_utils import MsgSender
 from .config import Config
 
 
@@ -45,7 +45,7 @@ async def dynamic_db_upgrade():
     sub_res = await DBSubscription.list_sub_by_type(sub_type=2)
     for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=2, sub_id=sub_id)
-        user_info_result = await BiliUser(user_id=sub_id).get_info()
+        user_info_result = await BiliUser(user_id=int(sub_id)).get_info()
         if user_info_result.error:
             logger.error(f'dynamic_db_upgrade: 更新用户信息失败, uid: {sub_id}, error: {user_info_result.info}')
             continue
@@ -95,7 +95,7 @@ async def dynamic_checker(user_id: int, bots: List[Bot]):
 
     new_dynamic_data = [data for data in dynamics_data if data.result.dynamic_id not in user_dynamic_list]
 
-    subscription = DBSubscription(sub_type=2, sub_id=user_id)
+    subscription = DBSubscription(sub_type=2, sub_id=str(user_id))
 
     for data in new_dynamic_data:
         dynamic_info = data.result

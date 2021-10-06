@@ -29,8 +29,7 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='早露/Роса', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='安洁莉娜/Angelina', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -38,17 +37,32 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=5,
         operator=[
-            Operator(name='普罗旺斯/Provence', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='梅尔/Mayer', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
-            Operator(name='乌有/Mr.Nothing', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='雷蛇/Liskarm', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
+    ),
+    UpEvent(
+        star=4,
+        operator=[
+            Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False,
+                     special_only=False)
+        ],
+        zoom=0.2
     )
 ]
 
 ALL_OPERATOR: List[Operator] = [
+    Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name="假日威龙陈/Ch'en the Holungday", star=6, limited=True, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name='水月/Mizuki', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='羽毛笔/La Pluma', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='龙舌兰/Tequila', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='帕拉斯/Pallas', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),

@@ -2,8 +2,8 @@ import os
 import datetime
 from typing import Tuple, List
 from nonebot import logger, get_driver
-from omega_miya.utils.Omega_plugin_utils import HttpFetcher
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.utils.omega_plugin_utils import HttpFetcher
+from omega_miya.database import Result
 
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
@@ -397,8 +397,8 @@ class ZhouChecker(AssScriptLineTool):
         '’': '」',
         '・・・': '...',
         '···': '...',
-        '“': '「',
-        '”': '」',
+        '“': '『',
+        '”': '』',
         '、': ' ',
         '~': '～',
         '!': '！',
@@ -485,33 +485,34 @@ class ZhouChecker(AssScriptLineTool):
         style_mode = self.__style_mode
 
         # 用于写入txt的内容
-        out_log = '--- 自动审轴姬 v1.0 by:Ailitonia ---\n\n'
+        out_log = '--- 自动审轴姬 v1.1 by:Ailitonia ---\n\n'
         if style_mode:
             out_log += '--- 样式模式已启用: 样式不同的行之间不会相互进行比较 ---\n\n'
         else:
             out_log += '--- 样式模式已禁用: 所有行之间都相互进行比较 ---\n\n'
 
-        out_log += '字符检查部分：\n'
+        out_log += '--- 字符检查部分 ---\n'
         # 开始字符检查
         character_count = 0
         for line in self.__event_lines:
             # 检查需要校对的关键词
-            if any(key in line.text for key in ZhouChecker.__proofreading_words):
-                out_log += f'第{line.event_line_num}行可能翻译没听懂, 校对请注意一下————{line.text}\n'
+            if any(key in line.text for key in self.__proofreading_words):
+                out_log += f'第{line.event_line_num}行可能翻译没听懂, 校对请注意一下: "{line.text}"\n'
                 character_count += 1
             # 检查标点符号
-            if any(punctuation in line.text for punctuation in ZhouChecker.__punctuation_ignore):
-                out_log += f'第{line.event_line_num}行轴标点有问题（不确定怎么改）, 请注意一下————{line.text}\n'
+            if any(punctuation in line.text for punctuation in self.__punctuation_ignore):
+                out_log += f'第{line.event_line_num}行轴标点有问题（不确定怎么改）, 请注意一下: "{line.text}"\n'
                 character_count += 1
-            elif any(punctuation in line.text for punctuation in ZhouChecker.__punctuation_replace.keys()):
-                for key, value in ZhouChecker.__punctuation_replace.items():
+            elif any(punctuation in line.text for punctuation in self.__punctuation_replace.keys()):
+                for key, value in self.__punctuation_replace.items():
                     if key in line.text:
                         line.text = line.text.replace(key, value)
                         out_log += f'第{line.event_line_num}行轴的{key}标点有问题, 但是我给你换成了{value}\n'
                         character_count += 1
+        out_log += '--- 字符检查部分结束 ---\n\n'
 
         # 开始锤轴部分
-        out_log += '\n锤轴部分：\n'
+        out_log += '--- 锤轴部分 ---\n'
         overlap_count = 0
         flash_count = 0
 
@@ -624,6 +625,13 @@ class ZhouChecker(AssScriptLineTool):
                     out_log += f"第{start_line.event_line_num}行轴和第{end_line.event_line_num}行轴之间是闪轴" \
                                f"（{multi_flash_lines_duration.microseconds / 1000}ms）, 不过我给你连上了（{after_change_time}）\n"
                     break
+        out_log += '--- 锤轴部分结束 ---\n\n' \
+                   '--- 审轴信息 ---\n' \
+                   f'原始文件: {os.path.basename(self.__file_path)}\n' \
+                   f'报告生成时间: {datetime.datetime.now()}\n' \
+                   f'符号及疑问文本问题: {character_count}\n' \
+                   f'叠轴问题: {overlap_count}\n' \
+                   f'闪轴问题: {flash_count}'
 
         # 刷新数据
         self.__event_lines.clear()

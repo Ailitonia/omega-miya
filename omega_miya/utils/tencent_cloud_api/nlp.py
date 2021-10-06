@@ -1,7 +1,7 @@
 import re
 import json
 from typing import Optional
-from omega_miya.utils.Omega_Base import Result
+from omega_miya.database import Result
 from .cloud_api import SECRET_ID, SECRET_KEY, TencentCloudApi
 
 
@@ -200,6 +200,64 @@ class TencentNLP(object):
             return Result.TupleListResult(error=False, info='Success', result=participle_result)
         else:
             return Result.TupleListResult(error=True, info=result.info, result=[])
+
+    async def text_correction_(self, text: str) -> Result.DictResult:
+        """
+        文本纠错
+        :param text: 待纠错的文本(仅支持UTF-8格式, 不超过2000字符)
+        :return: DictResult
+            CCITokens: Array of CCIToken, 纠错详情, 注意：此字段可能返回 null, 表示取不到有效值。
+                Word: str, 错别字内容
+                BeginOffset: int, 错别字的起始位置，从0开始
+                CorrectWord: str, 错别字纠错结果
+            ResultText: str, 纠错后的文本
+            RequestId: str, 唯一请求 ID, 每次请求都会返回。定位问题时需要提供该次请求的 RequestId。
+        """
+        payload = {'Text': text}
+        api = TencentCloudApi(
+            secret_id=self.__secret_id,
+            secret_key=self.__secret_key,
+            host='nlp.tencentcloudapi.com')
+        result = await api.post_request(
+            action='TextCorrection', version='2019-04-08', region='ap-guangzhou', payload=payload)
+
+        if result.success():
+            if result.result['Response'].get('Error'):
+                return Result.DictResult(
+                    error=True, info=f"API error: {result.result['Response'].get('Error')}", result={})
+            else:
+                response = dict(result.result['Response'])
+                return Result.DictResult(error=False, info='Success', result=response)
+        else:
+            return Result.DictResult(error=True, info=result.info, result={})
+
+    async def text_correction(self, text: str) -> Result.DictResult:
+        """
+        :param text: 待纠错的文本(仅支持UTF-8格式, 不超过2000字符)
+        :return: DictResult
+            HasCorrection: bool, 是否存在错误
+            ResultText: str, 纠错后的文本
+            Correction: List[Tuple[int, str, str]], (错别字的起始位置, 错别字内容, 错别字纠错结果)
+        """
+        text_correction_result = await self.text_correction_(text=text)
+        if text_correction_result.success():
+            corrections = text_correction_result.result.get('CCITokens')
+            if not corrections:
+                result = {
+                    'HasCorrection': False,
+                    'ResultText': text,
+                    'Correction': []
+                }
+            else:
+                correction_list = [(x.get('BeginOffset'), x.get('Word'), x.get('CorrectWord')) for x in corrections]
+                result = {
+                    'HasCorrection': True,
+                    'ResultText': text_correction_result.result.get('ResultText'),
+                    'Correction': correction_list
+                }
+            return Result.DictResult(error=False, info='Success', result=result)
+        else:
+            return Result.DictResult(error=True, info=text_correction_result.info, result={})
 
 
 __all__ = [

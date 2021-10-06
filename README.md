@@ -5,7 +5,7 @@
 基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/omega-miya)
-![Python](https://img.shields.io/badge/Python-3.8+-blue)
+![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/omega-miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/omega-miya)
 
@@ -13,17 +13,19 @@
 
 ## 当前适配nonebot2版本
 
-[Nonebot2 Pre Release v2.0.0a13.post1](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a13.post1)
+[Nonebot2 Pre Release v2.0.0a16](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a16)
 
 ## 功能 & 特点
 
 - 基于异步 SQLAlchemy / MySQL 的数据存储
+- 插件管理系统
 - 权限控制及管理系统
     - 针对不同群组可选启用通知权限、命令权限、权限等级控制
     - 针对不同好友可选启用 Bot 功能
     - 针对不同群组、好友独立配置插件权限节点
 - 支持多协议端连接, 各协议端权限及订阅配置相互独立
 - 命令冷却系统
+- 速率控制系统
 - HTTP 代理功能
 - 自动处理加好友和被邀请进群
 - 插件帮助功能 (支持群聊 / 私聊)
@@ -36,6 +38,7 @@
 - 签到 (仅支持群聊)
 - 求签 (仅支持群聊)
 - 抽卡 (仅支持群聊)
+- 塔罗牌 (仅支持群聊)
 - 能不能好好说话 (lab.magiconch.com API) (支持群聊 / 私聊)
 - Pixiv助手 (需要 HTTP 代理, 除非部署在外网) (需要 go-cqhttp v0.9.40 及以上版本) (仅支持群聊)
 - Pixiv订阅 (需要 HTTP 代理, 除非部署在外网) (仅支持群聊)
