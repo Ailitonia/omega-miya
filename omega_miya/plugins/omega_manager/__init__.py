@@ -18,8 +18,9 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from omega_miya.database import DBBot, DBBotGroup, DBUser, DBAuth, DBFriend, Result
-from omega_miya.utils.omega_plugin_utils import init_export
+from omega_miya.utils.omega_plugin_utils import init_export, ProcessUtils
 from .background_tasks import scheduler
+from .utils import upgrade_group_member
 
 # Custom plugin usage text
 __plugin_custom_name__ = 'Omega'
@@ -100,7 +101,7 @@ async def handle_sub_command(bot: Bot, event: GroupMessageEvent, state: T_State)
         await omega.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f"Group: {event.group_id}, {sub_command}, Success, {result.info}")
+        logger.success(f"Group: {event.group_id}, {sub_command}, Success, {result.info}")
         if sub_command in need_reply:
             await omega.finish(result.result)
         else:
@@ -132,7 +133,7 @@ async def handle_sub_command(bot: Bot, event: PrivateMessageEvent, state: T_Stat
         await omega.finish('没有这个命令哦QAQ')
     result = await command[sub_command](bot=bot, event=event, state=state)
     if result.success():
-        logger.info(f"Private friend: {event.user_id}, {sub_command}, Success, {result.info}")
+        logger.success(f"Private friend: {event.user_id}, {sub_command}, Success, {result.info}")
         if sub_command in need_reply:
             await omega.finish(result.result)
         else:
@@ -234,30 +235,11 @@ async def group_init(bot: Bot, event: GroupMessageEvent, state: T_State) -> Resu
 
     # 添加用户
     group_member_list = await bot.get_group_member_list(group_id=group_id)
-    failed_user = []
-    for user_info in group_member_list:
-        # 用户信息
-        user_qq = user_info['user_id']
-        user_nickname = user_info['nickname']
-        user_group_nickmane = user_info['card']
-        if not user_group_nickmane:
-            user_group_nickmane = user_nickname
-
-        _user = DBUser(user_id=user_qq)
-        _result = await _user.add(nickname=user_nickname)
-        if not _result.success():
-            failed_user.append(_user.qq)
-            logger.warning(f'Add group user: {user_qq}, {_result.info}')
-            continue
-
-        _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
-        if not _result.success():
-            failed_user.append(_user.qq)
-            logger.warning(f'Upgrade group user: {user_qq}, {_result.info}')
-
+    tasks = [upgrade_group_member(user_info=user_info, group=group) for user_info in group_member_list]
+    await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50, log_flag='group_init')
     await group.init_member_status()
 
-    return Result.IntResult(False, f'Success with ignore user: {failed_user}', 0)
+    return Result.IntResult(False, f'Tasks Completed', 0)
 
 
 async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
@@ -292,29 +274,11 @@ async def group_upgrade(bot: Bot, event: GroupMessageEvent, state: T_State) -> R
         await group.member_del(user=DBUser(user_id=user_id))
 
     # 更新群成员
-    for user_info in group_member_list:
-        # 用户信息
-        user_qq = user_info.get('user_id')
-        user_nickname = user_info.get('nickname')
-        user_group_nickmane = user_info.get('card')
-        if not user_group_nickmane:
-            user_group_nickmane = user_nickname
-
-        _user = DBUser(user_id=user_qq)
-        _result = await _user.add(nickname=user_nickname)
-        if not _result.success():
-            failed_user.append(_user.qq)
-            logger.warning(f'Add group user: {user_qq}, {_result.info}')
-            continue
-
-        _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
-        if not _result.success():
-            failed_user.append(_user.qq)
-            logger.warning(f'Upgrade group user: {user_qq}, {_result.info}')
-
+    tasks = [upgrade_group_member(user_info=user_info, group=group) for user_info in group_member_list]
+    await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50, log_flag='group_upgrade')
     await group.init_member_status()
 
-    return Result.IntResult(False, f'Success with ignore user: {failed_user}', 0)
+    return Result.IntResult(False, f'Tasks Completed', 0)
 
 
 async def set_group_notice(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:

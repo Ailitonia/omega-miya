@@ -4,7 +4,8 @@
 import nonebot
 from nonebot import logger, require
 from omega_miya.database import DBBot, DBBotGroup, DBUser, DBFriend, DBStatus, DBCoolDownEvent
-from omega_miya.utils.omega_plugin_utils import HttpFetcher
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils
+from .utils import upgrade_group_member
 
 global_config = nonebot.get_driver().config
 ENABLE_PROXY = global_config.enable_proxy
@@ -88,25 +89,12 @@ async def refresh_groups_info():
                 await group.member_del(user=DBUser(user_id=user_id))
 
             # 更新群成员
-            for user_info in group_member_list:
-                # 用户信息
-                user_qq = user_info.get('user_id')
-                user_nickname = user_info.get('nickname')
-                user_group_nickmane = user_info.get('card')
-                if not user_group_nickmane:
-                    user_group_nickmane = user_nickname
-                _user = DBUser(user_id=user_qq)
-                _result = await _user.add(nickname=user_nickname)
-                if not _result.success():
-                    logger.warning(f'Refresh groups info | Add group user: {user_qq}, {_result.info}')
-                    continue
-                _result = await group.member_add(user=_user, user_group_nickname=user_group_nickmane)
-                if not _result.success():
-                    logger.warning(f'Refresh groups info | Upgrade group user: {user_qq}, {_result.info}')
-
+            tasks = [upgrade_group_member(user_info=user_info, group=group) for user_info in group_member_list]
+            await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50, log_flag='Refresh groups info')
             await group.init_member_status()
             logger.info(f'Refresh groups info | Task completed, Bot: {bot_id}, Group: {group_id}')
-    logger.opt(colors=True).info('<lc>Refresh groups info</lc> | <lg>All tasks completed</lg>')
+
+    logger.opt(colors=True).success('<lc>Refresh groups info</lc> | <lg>All tasks completed</lg>')
 
 
 # 创建自动更新好友信息的定时任务
@@ -169,7 +157,7 @@ async def refresh_friends_info():
             logger.debug(f'Refresh friends info | Upgrade friend user {user_id} info')
 
         logger.info(f'Refresh friends info | Task completed, Bot: {bot_id}')
-    logger.opt(colors=True).info('<lc>Refresh friends info</lc> | <lg>All tasks completed</lg>')
+    logger.opt(colors=True).success('<lc>Refresh friends info</lc> | <lg>All tasks completed</lg>')
 
 
 # 创建用于刷新冷却事件的定时任务
@@ -193,7 +181,7 @@ async def refresh_friends_info():
 async def cool_down_refresh():
     result = await DBCoolDownEvent.clear_time_out_event()
     logger.debug(f'Cool down refresh | Task result, {", ".join([f"{k}: {v}" for (k,v) in result.result.items()])}')
-    logger.opt(colors=True).info('<lc>Cool down refresh</lc> | Cleaned all expired event')
+    logger.opt(colors=True).success('<lc>Cool down refresh</lc> | Cleaned all expired event')
 
 
 # 创建用于检查代理可用性的状态的定时任务
@@ -249,7 +237,8 @@ if ENABLE_PROXY:
 
         if fetcher_result.success() and fetcher_result.status == 200:
             db_res = await DBStatus(name='PROXY_AVAILABLE').set_status(status=1, info='代理可用')
-            logger.opt(colors=True).info(f'代理检查: <g>成功! status: {fetcher_result.status}</g>, DB info: {db_res.info}')
+            logger.opt(colors=True).success(f'代理检查: <g>成功! status: {fetcher_result.status}</g>,'
+                                            f' DB info: {db_res.info}')
         else:
             db_res = await DBStatus(name='PROXY_AVAILABLE').set_status(status=0, info='代理不可用')
             logger.opt(colors=True).error(f'代理检查: <r>失败! status: {fetcher_result.status}, '
