@@ -54,7 +54,7 @@ async def dynamic_db_upgrade():
     sub_res = await DBSubscription.list_sub_by_type(sub_type=9)
     for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=9, sub_id=sub_id)
-        user_info_result = await PixivUser(uid=sub_id).get_info()
+        user_info_result = await PixivUser(uid=int(sub_id)).get_info()
         if user_info_result.error:
             logger.error(f'pixiv_user_db_upgrade: 获取用户信息失败, uid: {sub_id}, error: {user_info_result.info}')
             continue
@@ -118,7 +118,7 @@ async def pixiv_user_artwork_monitor():
 
         new_artwork = [pid for pid in all_artwork_list if pid not in exist_artwork_list]
 
-        subscription = DBSubscription(sub_type=9, sub_id=user_id)
+        subscription = DBSubscription(sub_type=9, sub_id=str(user_id))
 
         for pid in new_artwork:
             illust = PixivIllust(pid=pid)

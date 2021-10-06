@@ -77,7 +77,7 @@ class BiliLiveChecker(object):
         tasks = []
         sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
         for sub_id in sub_res.result:
-            tasks.append(BiliLiveChecker(room_id=sub_id).init_live_info())
+            tasks.append(BiliLiveChecker(room_id=int(sub_id)).init_live_info())
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
@@ -296,7 +296,7 @@ class BiliLiveChecker(object):
         if global_check_result.error:
             return
 
-        subscription = DBSubscription(sub_type=1, sub_id=self.room_id)
+        subscription = DBSubscription(sub_type=1, sub_id=str(self.room_id))
 
         # 标题变更检测
         title_checker_result = await self.title_change_checker(live_info=live_info)

@@ -45,7 +45,7 @@ async def live_db_upgrade():
     sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
     for sub_id in sub_res.result:
         sub = DBSubscription(sub_type=1, sub_id=sub_id)
-        live_user_info_result = await BiliLiveRoom(room_id=sub_id).get_user_info()
+        live_user_info_result = await BiliLiveRoom(room_id=int(sub_id)).get_user_info()
         if live_user_info_result.error:
             logger.error(f'live_db_upgrade: 更新直播间信息失败, room_id: {sub_id}, error: {live_user_info_result.info}')
             continue

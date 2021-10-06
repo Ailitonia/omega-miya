@@ -8,7 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
 class DBSubscription(object):
-    def __init__(self, sub_type: int, sub_id: int):
+    def __init__(self, sub_type: int, sub_id: str):
         self.sub_type = sub_type
         self.sub_id = sub_id
 
@@ -118,14 +118,14 @@ class DBSubscription(object):
                     result = Result.TextResult(error=True, info=repr(e), result='')
         return result
 
-    async def sub_group_list(self, self_bot: DBBot) -> Result.ListResult:
+    async def sub_group_list(self, self_bot: DBBot) -> Result.IntListResult:
         id_result = await self.id()
         if id_result.error:
-            return Result.ListResult(error=True, info='Subscription not exist', result=[])
+            return Result.IntListResult(error=True, info='Subscription not exist', result=[])
 
         self_bot_id_result = await self_bot.id()
         if self_bot_id_result.error:
-            return Result.ListResult(error=True, info='Bot not exist', result=[])
+            return Result.IntListResult(error=True, info='Bot not exist', result=[])
 
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
@@ -140,19 +140,20 @@ class DBSubscription(object):
                         where(GroupSub.sub_id == id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.IntListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.IntListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def sub_group_list_by_notice_permission(self, self_bot: DBBot, notice_permission: int) -> Result.ListResult:
+    async def sub_group_list_by_notice_permission(
+            self, self_bot: DBBot, notice_permission: int) -> Result.IntListResult:
         id_result = await self.id()
         if id_result.error:
-            return Result.ListResult(error=True, info='Subscription not exist', result=[])
+            return Result.IntListResult(error=True, info='Subscription not exist', result=[])
 
         self_bot_id_result = await self_bot.id()
         if self_bot_id_result.error:
-            return Result.ListResult(error=True, info='Bot not exist', result=[])
+            return Result.IntListResult(error=True, info='Bot not exist', result=[])
 
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
@@ -168,9 +169,9 @@ class DBSubscription(object):
                         where(GroupSub.sub_id == id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.IntListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.IntListResult(error=True, info=repr(e), result=[])
         return result
 
     async def sub_group_clear(self) -> Result.IntResult:
@@ -194,14 +195,14 @@ class DBSubscription(object):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def sub_user_list(self, self_bot: DBBot) -> Result.ListResult:
+    async def sub_user_list(self, self_bot: DBBot) -> Result.IntListResult:
         id_result = await self.id()
         if id_result.error:
-            return Result.ListResult(error=True, info='Subscription not exist', result=[])
+            return Result.IntListResult(error=True, info='Subscription not exist', result=[])
 
         self_bot_id_result = await self_bot.id()
         if self_bot_id_result.error:
-            return Result.ListResult(error=True, info='Bot not exist', result=[])
+            return Result.IntListResult(error=True, info='Bot not exist', result=[])
 
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
@@ -216,19 +217,20 @@ class DBSubscription(object):
                         where(UserSub.sub_id == id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.IntListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.IntListResult(error=True, info=repr(e), result=[])
         return result
 
-    async def sub_user_list_by_private_permission(self, self_bot: DBBot, private_permission: int) -> Result.ListResult:
+    async def sub_user_list_by_private_permission(
+            self, self_bot: DBBot, private_permission: int) -> Result.IntListResult:
         id_result = await self.id()
         if id_result.error:
-            return Result.ListResult(error=True, info='Subscription not exist', result=[])
+            return Result.IntListResult(error=True, info='Subscription not exist', result=[])
 
         self_bot_id_result = await self_bot.id()
         if self_bot_id_result.error:
-            return Result.ListResult(error=True, info='Bot not exist', result=[])
+            return Result.IntListResult(error=True, info='Bot not exist', result=[])
 
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
@@ -244,9 +246,9 @@ class DBSubscription(object):
                         where(UserSub.sub_id == id_result.result)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = Result.ListResult(error=False, info='Success', result=res)
+                    result = Result.IntListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.ListResult(error=True, info=repr(e), result=[])
+                    result = Result.IntListResult(error=True, info=repr(e), result=[])
         return result
 
     async def sub_user_clear(self) -> Result.IntResult:
@@ -271,7 +273,7 @@ class DBSubscription(object):
         return result
 
     @classmethod
-    async def list_all_sub(cls) -> Result.IntListResult:
+    async def list_all_sub(cls) -> Result.TextListResult:
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -280,13 +282,13 @@ class DBSubscription(object):
                         select(Subscription.sub_id).order_by(Subscription.sub_id)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = Result.IntListResult(error=False, info='Success', result=res)
+                    result = Result.TextListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.IntListResult(error=True, info=repr(e), result=[])
+                    result = Result.TextListResult(error=True, info=repr(e), result=[])
         return result
 
     @classmethod
-    async def list_sub_by_type(cls, sub_type: int) -> Result.IntListResult:
+    async def list_sub_by_type(cls, sub_type: int) -> Result.TextListResult:
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
@@ -297,7 +299,7 @@ class DBSubscription(object):
                         order_by(Subscription.sub_id)
                     )
                     res = [x for x in session_result.scalars().all()]
-                    result = Result.IntListResult(error=False, info='Success', result=res)
+                    result = Result.TextListResult(error=False, info='Success', result=res)
                 except Exception as e:
-                    result = Result.IntListResult(error=True, info=repr(e), result=[])
+                    result = Result.TextListResult(error=True, info=repr(e), result=[])
         return result

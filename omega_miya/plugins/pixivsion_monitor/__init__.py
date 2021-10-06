@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.database import DBBot, DBBotGroup, DBSubscription, Result
 from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
-from .monitor import scheduler, init_pixivsion_article
+from .monitor import scheduler, init_pixivsion_article, PIXIVISION_SUB_ID
 
 
 # Custom plugin usage text
@@ -93,8 +93,7 @@ async def sub_add(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.
     group_id = event.group_id
     self_bot = DBBot(self_qq=int(bot.self_id))
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-    sub_id = -1
-    sub = DBSubscription(sub_type=8, sub_id=sub_id)
+    sub = DBSubscription(sub_type=8, sub_id=PIXIVISION_SUB_ID)
     need_init = not (await sub.exist())
     _res = await sub.add(up_name='Pixivision', live_info='Pixivision订阅')
     if not _res.success():
@@ -114,8 +113,7 @@ async def sub_del(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.
     group_id = event.group_id
     self_bot = DBBot(self_qq=int(bot.self_id))
     group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-    sub_id = -1
-    _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=sub_id))
+    _res = await group.subscription_del(sub=DBSubscription(sub_type=8, sub_id=PIXIVISION_SUB_ID))
     if not _res.success():
         return _res
     result = Result.IntResult(error=False, info='Success', result=0)

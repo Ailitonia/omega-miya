@@ -5,13 +5,14 @@ from omega_miya.database import DBSubscription, DBPixivision
 from omega_miya.utils.omega_plugin_utils import MsgSender
 from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
 from .utils import pixivsion_article_parse
-from .block_tag import TAG_BLOCK_LIST
 from .config import Config
 
 
 __global_config = get_driver().config
 plugin_config = Config(**__global_config.dict())
 ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
+PIXIVISION_SUB_ID = plugin_config.sub_id
+TAG_BLOCK_LIST = plugin_config.tag_block_list
 
 
 # 启用检查动态状态的定时任务
@@ -33,7 +34,7 @@ scheduler = require("nonebot_plugin_apscheduler").scheduler
     # timezone=None,
     id='pixivision_monitor',
     coalesce=True,
-    misfire_grace_time=45
+    misfire_grace_time=120
 )
 async def pixivision_monitor():
     logger.debug(f"pixivision_monitor: checking started")
@@ -82,7 +83,7 @@ async def pixivision_monitor():
         logger.info(f'pixivision_monitor: checking completed, 没有新的article')
         return
 
-    subscription = DBSubscription(sub_type=8, sub_id=-1)
+    subscription = DBSubscription(sub_type=8, sub_id=PIXIVISION_SUB_ID)
 
     # 处理新的aritcle
     for article in new_article:
@@ -172,5 +173,6 @@ async def init_pixivsion_article():
 
 __all__ = [
     'scheduler',
-    'init_pixivsion_article'
+    'init_pixivsion_article',
+    'PIXIVISION_SUB_ID'
 ]

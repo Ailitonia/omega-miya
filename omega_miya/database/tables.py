@@ -849,7 +849,7 @@ class Subscription(Base):
 
     id = Column(Integer, Sequence('subscription_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     sub_type = Column(Integer, nullable=False, comment='订阅类型')
-    sub_id = Column(Integer, nullable=False, index=True, comment='订阅id，直播为直播间房间号，动态为用户uid')
+    sub_id = Column(String(64), nullable=False, index=True, comment='订阅id，直播为直播间房间号，动态为用户uid')
     up_name = Column(String(64), nullable=False, comment='up名称')
     live_info = Column(String(64), nullable=True, comment='相关信息，暂空备用')
     created_at = Column(DateTime, nullable=True)
@@ -863,7 +863,7 @@ class Subscription(Base):
 
     def __init__(self,
                  sub_type: int,
-                 sub_id: int,
+                 sub_id: str,
                  up_name: str,
                  *,
                  live_info: Optional[str] = None,
