@@ -32,6 +32,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'luxunxie': stick_maker_static_luxun,
         'jichou': stick_maker_static_jichou,
         'phlogo': stick_maker_static_phlogo,
+        'jiangzhuang': stick_maker_static_jiangzhuang,
         'petpet': stick_maker_temp_petpet
     }
 
@@ -48,6 +49,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'luxunxie': 'SourceHanSans_Regular.otf',
         'jichou': 'SourceHanSans_Regular.otf',
         'phlogo': 'SourceHanSans_Heavy.otf',
+        'jiangzhuang': 'HanYiWeiBeiJian.ttf',
         'petpet': 'SourceHanSans_Regular.otf'
     }
 
@@ -64,6 +66,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'luxunxie': 512,
         'jichou': 512,
         'phlogo': 512,
+        'jiangzhuang': 1024,
         'petpet': 512
     }
 
@@ -107,7 +110,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
 
         # 调用模板处理图片
         made_image = await stick_maker[temp](text=text, image_file=make_image, font_path=font_path,
-                                             image_wight=image_resize_width, image_height=image_resize_height)
+                                             image_width=image_resize_width, image_height=image_resize_height)
 
         # 输出图片
         made_image.save(sticker_path, 'JPEG')
@@ -136,7 +139,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
 
         # 调用模板处理图片
         make_image = await stick_maker[temp](text=text, image_file=make_image, font_path=font_path,
-                                             image_wight=image_resize_width, image_height=image_resize_height)
+                                             image_width=image_resize_width, image_height=image_resize_height)
 
         # 输出图片
         make_image.save(sticker_path, 'JPEG')
@@ -168,7 +171,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
 
             # 调用模板处理图片
             made_image = await stick_maker[temp](text=text, image_file=make_image, font_path=font_path,
-                                                 image_wight=image_resize_width, image_height=image_resize_height,
+                                                 image_width=image_resize_width, image_height=image_resize_height,
                                                  temp_path=gif_temp_path)
 
         if not made_image:

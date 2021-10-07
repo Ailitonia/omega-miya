@@ -4,7 +4,7 @@ from omega_miya.utils.tencent_cloud_api import TencentTMT
 
 
 async def stick_maker_temp_default(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     默认加字表情包模板
@@ -12,17 +12,17 @@ async def stick_maker_temp_default(
     def __handle() -> Image.Image:
         # 处理图片
         draw = ImageDraw.Draw(image_file)
-        font_size = image_wight // 8
+        font_size = image_width // 8
         text_stroke_width = int(font_size / 20)
         font = ImageFont.truetype(font_path, font_size)
 
         text_w, text_h = font.getsize_multiline(text, stroke_width=text_stroke_width)
-        while text_w >= int(image_wight * 0.95):
+        while text_w >= int(image_width * 0.95):
             font_size = font_size * 7 // 8
             font = ImageFont.truetype(font_path, font_size)
             text_w, text_h = font.getsize_multiline(text, stroke_width=text_stroke_width)
         # 计算居中文字位置
-        text_coordinate = (image_wight // 2, 9 * (image_height - text_h) // 10)
+        text_coordinate = (image_width // 2, 9 * (image_height - text_h) // 10)
         draw.multiline_text(xy=text_coordinate,
                             text=text,
                             font=font, fill=(255, 255, 255),
@@ -37,18 +37,18 @@ async def stick_maker_temp_default(
 
 
 async def stick_maker_temp_littleangel(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     小天使表情包模板
     """
     def __handle() -> Image.Image:
         # 处理图片
-        background_w = image_wight + 100
+        background_w = image_width + 100
         background_h = image_height + 240
         background = Image.new(mode="RGB", size=(background_w, background_h), color=(255, 255, 255))
         # 处理粘贴位置 上留110像素，下留130像素
-        image_coordinate = (((background_w - image_wight) // 2), 110)
+        image_coordinate = (((background_w - image_width) // 2), 110)
         background.paste(image_file, image_coordinate)
         draw = ImageDraw.Draw(background)
 
@@ -83,26 +83,26 @@ async def stick_maker_temp_littleangel(
 
 
 async def stick_maker_temp_whitebg(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     白底加字表情包模板
     """
     def __handle() -> Image.Image:
         # 处理文本
-        if image_wight > image_height:
+        if image_width > image_height:
             font_size = 72
         else:
             font_size = 84
         font = ImageFont.truetype(font_path, font_size)
         text_w, text_h = font.getsize_multiline(text)
-        while text_w >= (image_wight * 8 // 9):
+        while text_w >= (image_width * 8 // 9):
             font_size = font_size * 7 // 8
             font = ImageFont.truetype(font_path, font_size)
             text_w, text_h = font.getsize_multiline(text)
 
         # 处理图片
-        background_w = image_wight
+        background_w = image_width
         background_h = image_height + round(text_h * 1.5)
         background = Image.new(mode="RGB", size=(background_w, background_h), color=(255, 255, 255))
 
@@ -122,32 +122,32 @@ async def stick_maker_temp_whitebg(
 
 
 async def stick_maker_temp_blackbg(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     黑边加底字表情包模板
     """
     def __handle() -> Image.Image:
         # 处理文本
-        if image_wight > image_height:
+        if image_width > image_height:
             font_size = 96
         else:
             font_size = 108
         font = ImageFont.truetype(font_path, font_size)
         text_w, text_h = font.getsize_multiline(text)
-        while text_w >= (image_wight * 9 // 10):
+        while text_w >= (image_width * 9 // 10):
             font_size = font_size * 8 // 9
             font = ImageFont.truetype(font_path, font_size)
             text_w, text_h = font.getsize_multiline(text)
 
         # 处理图片
-        background_w = image_wight + 150
+        background_w = image_width + 150
         background_h = image_height + 115 + round(text_h * 1.5)
         background = Image.new(mode="RGB", size=(background_w, background_h), color=(0, 0, 0))
-        layer_1 = Image.new(mode="RGB", size=(image_wight + 12, image_height + 12), color=(255, 255, 255))
-        layer_2 = Image.new(mode="RGB", size=(image_wight + 10, image_height + 10), color=(0, 0, 0))
-        layer_3 = Image.new(mode="RGB", size=(image_wight + 6, image_height + 6), color=(255, 255, 255))
-        layer_4 = Image.new(mode="RGB", size=(image_wight + 4, image_height + 4), color=(0, 0, 0))
+        layer_1 = Image.new(mode="RGB", size=(image_width + 12, image_height + 12), color=(255, 255, 255))
+        layer_2 = Image.new(mode="RGB", size=(image_width + 10, image_height + 10), color=(0, 0, 0))
+        layer_3 = Image.new(mode="RGB", size=(image_width + 6, image_height + 6), color=(255, 255, 255))
+        layer_4 = Image.new(mode="RGB", size=(image_width + 4, image_height + 4), color=(0, 0, 0))
 
         # 处理粘贴位置 留出黑边距离
         background.paste(layer_1, (70, 70))
@@ -170,7 +170,7 @@ async def stick_maker_temp_blackbg(
 
 
 async def stick_maker_temp_decolorize(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     去色加字表情包模板
@@ -186,7 +186,7 @@ async def stick_maker_temp_decolorize(
 
 
 async def stick_maker_temp_grass_ja(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     生草日语表情包模板
@@ -198,23 +198,23 @@ async def stick_maker_temp_grass_ja(
     text_ = f'{text_zh}\n{text_ja}'
 
     # 处理黑白
-    image_file_ = await stick_maker_temp_decolorize(text, image_file, font_path, image_wight, image_height)
+    image_file_ = await stick_maker_temp_decolorize(text, image_file, font_path, image_width, image_height)
 
     def __handle() -> Image.Image:
         # 处理文本
-        if image_wight > image_height:
+        if image_width > image_height:
             font_size = 48
         else:
             font_size = 60
         font = ImageFont.truetype(font_path, font_size)
         text_w, text_h = font.getsize_multiline(text_)
-        while text_w >= (image_wight * 9 // 10):
+        while text_w >= (image_width * 9 // 10):
             font_size = font_size * 8 // 9
             font = ImageFont.truetype(font_path, font_size)
             text_w, text_h = font.getsize_multiline(text_)
 
         # 处理图片
-        background_w = image_wight
+        background_w = image_width
         background_h = image_height + round(text_h * 1.5)
         background = Image.new(mode="RGB", size=(background_w, background_h), color=(0, 0, 0))
 
