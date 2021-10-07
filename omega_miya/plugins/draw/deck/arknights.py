@@ -29,7 +29,7 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='瑕光/Blemishine', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -37,9 +37,9 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=5,
         operator=[
-            Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='白金/Platinum', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='雷蛇/Liskarm', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='奥斯塔/Aosta', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -47,8 +47,7 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=4,
         operator=[
-            Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='泡泡/Bubble', star=4, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
         zoom=0.2
     )

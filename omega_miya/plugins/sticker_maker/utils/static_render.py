@@ -5,23 +5,23 @@ from omega_miya.utils.omega_plugin_utils import TextUtils
 
 
 async def stick_maker_static_traitor(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     有内鬼表情包模板
     """
     def __handle() -> Image.Image:
         # 初始化背景图层
-        background = Image.new(mode="RGB", size=(image_wight, image_height), color=(255, 255, 255))
+        background = Image.new(mode="RGB", size=(image_width, image_height), color=(255, 255, 255))
 
         # 处理文字层 字数部分
-        text_num_img = Image.new(mode="RGBA", size=(image_wight, image_height), color=(0, 0, 0, 0))
+        text_num_img = Image.new(mode="RGBA", size=(image_width, image_height), color=(0, 0, 0, 0))
         font_num_size = 48
         font_num = ImageFont.truetype(font_path, font_num_size)
         ImageDraw.Draw(text_num_img).text(xy=(0, 0), text=f'{len(text)}/100', font=font_num, fill=(255, 255, 255))
 
         # 处理文字层 主体部分
-        text_main_img = Image.new(mode="RGBA", size=(image_wight, image_height), color=(0, 0, 0, 0))
+        text_main_img = Image.new(mode="RGBA", size=(image_width, image_height), color=(0, 0, 0, 0))
         font_main_size = 52
         font_main = ImageFont.truetype(font_path, font_main_size)
         # 按长度切分文本
@@ -45,7 +45,7 @@ async def stick_maker_static_traitor(
 
 
 async def stick_maker_static_jichou(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     记仇表情包模板
@@ -56,13 +56,13 @@ async def stick_maker_static_jichou(
         font_main_size = 42
         font_main = ImageFont.truetype(font_path, font_main_size)
         # 按长度切分文本
-        text_main_fin = TextUtils(text=text_).split_multiline(width=(image_wight * 7 // 8), font=font_main)
+        text_main_fin = TextUtils(text=text_).split_multiline(width=(image_width * 7 // 8), font=font_main)
 
         font = ImageFont.truetype(font_path, font_main_size)
         text_w, text_h = font.getsize_multiline(text_main_fin)
 
         # 处理图片
-        background_w = image_wight
+        background_w = image_width
         background_h = image_height + text_h + 20
         background = Image.new(mode="RGB", size=(background_w, background_h), color=(255, 255, 255))
 
@@ -82,7 +82,7 @@ async def stick_maker_static_jichou(
 
 
 async def stick_maker_static_phlogo(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     ph表情包模板
@@ -97,22 +97,22 @@ async def stick_maker_static_phlogo(
         font = ImageFont.truetype(font_path, font_size)
 
         # 分别确定两个边文字的大小
-        w_text_wight, w_text_height = font.getsize(white_text)
-        y_text_wight, y_text_height = font.getsize(yellow_text)
+        w_text_width, w_text_height = font.getsize(white_text)
+        y_text_width, y_text_height = font.getsize(yellow_text)
 
         # 生成图片定长 两部分文字之间间隔及两侧留空为固定值三个空格大小
-        split_wight, split_height = font.getsize(' ' * 1)
-        image_wight_ = w_text_wight + y_text_wight + int(split_wight * 5.5)
+        split_width, split_height = font.getsize(' ' * 1)
+        image_width_ = w_text_width + y_text_width + int(split_width * 5.5)
         image_height_ = w_text_height + int(split_height * 1.25)
 
         # 计算黄色圆角矩形所在位置
-        y_r_rectangle_x0 = w_text_wight + int(split_wight * 2.5)
+        y_r_rectangle_x0 = w_text_width + int(split_width * 2.5)
         y_r_rectangle_y0 = split_height // 2
-        y_r_rectangle_x1 = image_wight_ - int(split_wight * 2)
+        y_r_rectangle_x1 = image_width_ - int(split_width * 2)
         y_r_rectangle_y1 = image_height_ - split_height // 2
 
         # 生成背景层
-        background = Image.new(mode="RGB", size=(image_wight_, image_height_), color=(0, 0, 0))
+        background = Image.new(mode="RGB", size=(image_width_, image_height_), color=(0, 0, 0))
         background_draw = ImageDraw.Draw(background)
         # 生成圆角矩形
         background_draw.rounded_rectangle(
@@ -123,7 +123,7 @@ async def stick_maker_static_phlogo(
 
         # 绘制白色文字部分
         background_draw.text(
-            xy=(split_wight * 2, image_height_ // 2),  # 左对齐前间距 上下居中
+            xy=(split_width * 2, image_height_ // 2),  # 左对齐前间距 上下居中
             text=white_text,
             anchor='lm',
             font=font,
@@ -131,7 +131,7 @@ async def stick_maker_static_phlogo(
         )
         # 绘制黄框黑字部分
         background_draw.text(
-            xy=(w_text_wight + int(split_wight * 3), image_height_ // 2),  # 左对齐白字加间距 上下居中
+            xy=(w_text_width + int(split_width * 3), image_height_ // 2),  # 左对齐白字加间距 上下居中
             text=yellow_text,
             anchor='lm',
             font=font,
@@ -146,17 +146,17 @@ async def stick_maker_static_phlogo(
 
 
 async def stick_maker_static_luxun(
-        text: str, image_file: Image.Image, font_path: str, image_wight: int, image_height: int,
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
         *args, **kwargs) -> Image.Image:
     """
     鲁迅说/鲁迅写表情包模板
     """
     def __handle() -> Image.Image:
         # 处理文本主体
-        font_size = image_wight // 15
+        font_size = image_width // 15
         text_stroke_width = int(font_size / 15)
         font = ImageFont.truetype(font_path, font_size)
-        text_width_limit = image_wight - int(image_wight * 0.1875)
+        text_width_limit = image_width - int(image_width * 0.1875)
 
         sign_text = '—— 鲁迅'
 
@@ -173,7 +173,7 @@ async def stick_maker_static_luxun(
         bg_height_inc = bg_height_inc_ if bg_height_inc_ > 0 else 0
         background = Image.new(
             mode="RGB",
-            size=(image_wight, image_height + bg_height_inc),
+            size=(image_width, image_height + bg_height_inc),
             color=(32, 32, 32))
 
         # 先把鲁迅图贴上去
@@ -181,14 +181,14 @@ async def stick_maker_static_luxun(
 
         # 再贴主体文本
         ImageDraw.Draw(background).multiline_text(
-            xy=(image_wight // 2, int(image_height * 0.75)),
+            xy=(image_width // 2, int(image_height * 0.75)),
             text=text_, font=font, align='left', anchor='ma',
             fill=(255, 255, 255),
             stroke_width=text_stroke_width,
             stroke_fill=(0, 0, 0))
 
         ImageDraw.Draw(background).text(
-            xy=(int(image_wight * 0.85), int(main_text_height + sign_text_height / 2 + image_height * 0.75)),
+            xy=(int(image_width * 0.85), int(main_text_height + sign_text_height / 2 + image_height * 0.75)),
             text=sign_text, font=font, align='right', anchor='ra',
             fill=(255, 255, 255),
             stroke_width=text_stroke_width,
@@ -201,9 +201,39 @@ async def stick_maker_static_luxun(
     return result
 
 
+async def stick_maker_static_jiangzhuang(
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
+    """
+    奖状表情包模板
+    """
+    def __handle() -> Image.Image:
+        # 处理文本主体
+        font_size = image_width // 25
+        font = ImageFont.truetype(font_path, font_size)
+        text_width_limit = int(image_width * 0.65)
+
+        # 分割文本
+        text_ = TextUtils(text=text).split_multiline(width=text_width_limit, font=font)
+
+        # 粘贴主体文本
+        ImageDraw.Draw(image_file).multiline_text(
+            xy=(image_width // 2, int(image_height * 5 / 9)),
+            text=text_, font=font, align='left', anchor='mm',
+            spacing=16,
+            fill=(0, 0, 0))
+
+        return image_file
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, __handle)
+    return result
+
+
 __all__ = [
     'stick_maker_static_traitor',
     'stick_maker_static_jichou',
     'stick_maker_static_phlogo',
-    'stick_maker_static_luxun'
+    'stick_maker_static_luxun',
+    'stick_maker_static_jiangzhuang'
 ]

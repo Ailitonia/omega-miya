@@ -72,8 +72,8 @@ async def handle_self_mute(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 随机禁言时间
     random_time = 2 * int(random.gauss(128 * multiple, 640 * multiple // 10))
     act_time = 60 if random_time < 60 else (random_time if random_time < 2591940 else 2591940)
-    msg = f'既然你那么想被口球的话, 那我就成全你吧!\n送你一份{act_time // 60}分{act_time % 60}秒禁言套餐哦, 谢谢惠顾~'
+    msg = f'既然你那么想被口球的话, 那我就成全你吧!\n送你一份{act_time // 60}分{act_time % 60}秒的禁言套餐哦, 谢谢惠顾~'
 
     await bot.set_group_ban(group_id=event.group_id, user_id=event.user_id, duration=act_time)
-    await self_mute.finish(msg, at_sender=True)
     logger.info(f'Group: {event.group_id}, User: {event.user_id} 抽取了 {act_time} 秒的禁言套餐')
+    await self_mute.finish(msg, at_sender=True)

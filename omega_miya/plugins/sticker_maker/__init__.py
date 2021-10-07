@@ -4,10 +4,10 @@ from nonebot import on_command, logger
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from .utils import sticker_maker_main
 
 
@@ -83,6 +83,7 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '鲁迅写': {'name': 'luxunxie', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'},
+        '奖状': {'name': 'jiangzhuang', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         'petpet': {'name': 'petpet', 'type': 'gif', 'text_part': 0, 'help_msg': '最好使用长宽比接近正方形的图片'}
     }
 

@@ -20,7 +20,7 @@ async def stick_maker_temp_petpet(
         text: str,
         image_file: Image.Image,
         font_path: str,
-        image_wight: int,
+        image_width: int,
         image_height: int,
         temp_path: str,
         *args,
