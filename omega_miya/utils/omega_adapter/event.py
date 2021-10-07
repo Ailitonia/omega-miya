@@ -117,7 +117,7 @@ class TaskPublishEvent(TaskEvent):
 
     @overrides(Event)
     def get_event_description(self) -> str:
-        return f'Task {self.get_task_id()}/{self.get_task_name()} publish from {self.get_task_publisher()}'
+        return f'Task {self.get_task_id()}/{self.get_task_name()} published from {self.get_task_publisher()}'
 
 
 class TaskReceiveEvent(TaskEvent):
@@ -131,7 +131,50 @@ class TaskReceiveEvent(TaskEvent):
 
     @overrides(Event)
     def get_event_description(self) -> str:
-        return f'Task {self.get_task_id()}/{self.get_task_name()} receive by {self.executor.user_id}'
+        return f'Task {self.get_task_id()}/{self.get_task_name()} received by {self.executor.user_id}'
+
+
+class TaskStartEvent(TaskEvent):
+    """任务开始事件"""
+    __event__ = "omega.task.start"
+    task_event_type: Literal["start"]
+    executor: Executor
+
+    def get_executor(self) -> Executor:
+        return self.executor
+
+    @overrides(Event)
+    def get_event_description(self) -> str:
+        return f'Task {self.get_task_id()}/{self.get_task_name()} started by {self.executor.user_id}'
+
+
+class TaskPauseEvent(TaskEvent):
+    """任务暂停事件"""
+    __event__ = "omega.task.pause"
+    task_event_type: Literal["pause"]
+    executor: Executor
+
+    def get_executor(self) -> Executor:
+        return self.executor
+
+    @overrides(Event)
+    def get_event_description(self) -> str:
+        return f'Task {self.get_task_id()}/{self.get_task_name()} paused by {self.executor.user_id}'
+
+
+class TaskHaltEvent(TaskEvent):
+    """任务中止事件"""
+    __event__ = "omega.task.halt"
+    task_event_type: Literal["halt"]
+    reason: str
+    executor: Executor
+
+    def get_executor(self) -> Executor:
+        return self.executor
+
+    @overrides(Event)
+    def get_event_description(self) -> str:
+        return f'Task {self.get_task_id()}/{self.get_task_name()} halted with {self.reason}'
 
 
 class TaskAccomplishEvent(TaskEvent):
@@ -145,7 +188,7 @@ class TaskAccomplishEvent(TaskEvent):
 
     @overrides(Event)
     def get_event_description(self) -> str:
-        return f'Task {self.get_task_id()}/{self.get_task_name()} accomplish by {self.executor.user_id}'
+        return f'Task {self.get_task_id()}/{self.get_task_name()} accomplished by {self.executor.user_id}'
 
 
 __all__ = [
