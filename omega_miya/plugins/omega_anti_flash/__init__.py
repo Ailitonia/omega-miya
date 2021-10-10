@@ -1,3 +1,5 @@
+import json
+
 from nonebot import MatcherGroup, logger
 from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
@@ -125,10 +127,13 @@ anti_flash_handler = AntiFlash.on_message(rule=OmegaRules.has_auth_node(OmegaRul
 @anti_flash_handler.handle()
 async def check_flash_img(bot: Bot, event: GroupMessageEvent, state: T_State):
     for msg_seg in event.message:
-        if msg_seg.type == 'image':
-            if msg_seg.data.get('type') == 'flash':
-                img_file = msg_seg.data.get('file')
-                img_seq = MessageSegment.image(file=img_file)
-                msg = Message('AntiFlash 已检测到闪照:\n').append(img_seq)
-                logger.success(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
-                await anti_flash_handler.finish(msg)
+        if msg_seg.type == 'text':
+            re_res = json.loads(
+                '{"' + msg_seg.data.get('text')[1:-1].replace('=', ':').replace(',', '","').replace(':', '":"') + '"}')
+            if re_res.__contains__('type'):
+                if re_res['type'] == 'flash':
+                    img_file = re_res['file']
+                    img_seq = MessageSegment.image(file=img_file)
+                    msg = Message('AntiFlash 已检测到闪照:\n').append(img_seq)
+                    logger.success(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
+                    await anti_flash_handler.finish(msg)
