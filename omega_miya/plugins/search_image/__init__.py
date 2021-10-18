@@ -19,6 +19,8 @@ plugin_config = Config(**__global_config.dict())
 ENABLE_SAUCENAO = plugin_config.enable_saucenao
 ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
+AUTO_RECALL_TIME = plugin_config.auto_recall_time
+ENABLE_RECOMMEND_AUTO_RECALL = plugin_config.enable_recommend_auto_recall
 
 # Custom plugin usage text
 __plugin_custom_name__ = '识图'
@@ -320,11 +322,25 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
     tasks = [x.get_sending_msg() for x in illust_list]
     illust_download_result = await asyncio.gather(*tasks)
 
+    sent_msg_ids = []
     for img, info in [x.result for x in illust_download_result if x.success()]:
         img_seg = MessageSegment.image(file=img)
         try:
-            await recommend_image.send(Message(img_seg).append(info))
+            sent_msg_id = await recommend_image.send(Message(img_seg).append(info))
+            sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
         except Exception as e:
             logger.warning(f'Recommend image | 发送图片失败, error: {repr(e)}')
             continue
     logger.info(f'Recommend image | User: {event.user_id} 已获取相似图片')
+
+    if ENABLE_RECOMMEND_AUTO_RECALL:
+        logger.info(f"{event.group_id} / {event.self_id} 将于 {AUTO_RECALL_TIME} 秒后撤回已发送相似图片...")
+        await asyncio.sleep(AUTO_RECALL_TIME)
+        for msg_id in sent_msg_ids:
+            if not msg_id:
+                continue
+            try:
+                await bot.delete_msg(message_id=msg_id)
+            except Exception as e:
+                logger.warning(f'撤回图片失败, {event.group_id} / {event.user_id}, msg_id: {msg_id}. error: {repr(e)}')
+                continue

@@ -18,5 +18,9 @@ class Config(BaseSettings):
     enable_iqdb: bool = True
     enable_ascii2d: bool = True
 
+    # 相似图片功能启用发送图片后自动撤回, 默认撤回时间25秒
+    auto_recall_time: int = 25
+    enable_recommend_auto_recall: bool = True
+
     class Config:
         extra = "ignore"
