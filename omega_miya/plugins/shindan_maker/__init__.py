@@ -15,9 +15,9 @@ from nonebot import MatcherGroup, logger
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from .data_source import ShindanMaker
 
 
@@ -106,7 +106,11 @@ async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State
     global SHINDANMAKER_CACHE
 
     shindan_name = state['shindan_name']
-    shindan_id = SHINDANMAKER_CACHE.get(shindan_name, 0)
+    # 允许直接通过id进行
+    if re.match(r'^\d+$', shindan_name):
+        shindan_id = int(shindan_name)
+    else:
+        shindan_id = SHINDANMAKER_CACHE.get(shindan_name, 0)
     if shindan_id == 0:
         shindan_name_result = await ShindanMaker.search(keyword=shindan_name)
         if shindan_name_result.error:
@@ -143,8 +147,8 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
         await shindan_maker_default.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
     result_text = result.result.replace(today, '')
-    msg = f'{shindan_name}@{input_name}\n{"="*16}\n{result_text}'
-    await shindan_maker_default.finish(msg)
+    # msg = f'{shindan_name}@{input_name}\n{"="*16}\n{result_text}'
+    await shindan_maker_default.finish(result_text)
 
 
 shindan_pattern = r'^今天的?(.+?)是什么(样的)?(.+?)[?？]?$'
