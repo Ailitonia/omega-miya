@@ -33,9 +33,9 @@ class Config(BaseSettings):
     # 启用使用高斯噪声提前处理待发送的涩图, 仅影响"/来点涩图"命令, 可与enable_setu_gaussian_blur一同使用, 可能会导致处理发送图片时间提升
     enable_setu_gaussian_noise: bool = True
 
-    # 启用发送图片后自动撤回, 默认撤回时间10秒
+    # 启用发送图片后自动撤回, 默认撤回时间 20 秒
     # !如果启用了转发消息节点模式(enable_node_custom=True)则以下选项不会生效!
-    auto_recall_time: int = 25
+    auto_recall_time: int = 20
     enable_moe_auto_recall: bool = False
     enable_setu_auto_recall: bool = True
 
