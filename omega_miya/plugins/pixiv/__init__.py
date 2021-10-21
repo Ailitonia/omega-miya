@@ -115,6 +115,8 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             rank_result = await PixivIllust.get_ranking(mode='weekly')
         elif mode == '月榜':
             rank_result = await PixivIllust.get_ranking(mode='monthly')
+        elif mode == '原创榜':
+            rank_result = await PixivIllust.get_ranking(mode='original', content='all')
         else:
             rank_result = await PixivIllust.get_ranking(mode='daily')
         if rank_result.error:
