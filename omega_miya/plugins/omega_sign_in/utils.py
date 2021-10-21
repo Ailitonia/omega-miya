@@ -9,6 +9,7 @@
 """
 
 import os
+import re
 import random
 import asyncio
 import aiofiles.os
@@ -209,6 +210,11 @@ async def generate_sign_in_card(
         return Result.TextResult(error=True, info=sign_pic_path_result.info, result='')
     sign_pic_path = sign_pic_path_result.result
 
+    # 获取图片pid
+    file_name = os.path.basename(sign_pic_path)
+    pid_result = re.search(r'^(\d+?)_p0_master', file_name).groups()
+    pid = pid_result[0] if pid_result else None
+
     def __handle():
         # 生成用户当天老黄历
         user_fortune = get_fortune(user_id=user_id)
@@ -239,6 +245,7 @@ async def generate_sign_in_card(
 
         bottom_font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'fzzxhk.ttf'))
         bottom_text_font = ImageFont.truetype(bottom_font_path, width // 40)
+        remark_text_font = ImageFont.truetype(bottom_font_path, width // 54)
 
         # 打招呼
         if 4 <= datetime.now().hour < 11:
@@ -292,6 +299,16 @@ async def generate_sign_in_card(
         # 开始往背景上绘制各个元素
         # 以下排列从上到下绘制 请勿变换顺序 否则导致位置错乱
         background.paste(draw_top_img, box=(0, 0))  # 背景
+
+        # 在背景右下角绘制图片来源
+        if pid is not None:
+            pic_source_text = f'Pixiv  |  {pid}'
+            ImageDraw.Draw(background).text(xy=(width - int(width * 0.00625), top_img_height),
+                                            text=pic_source_text, font=remark_text_font,
+                                            align='right', anchor='rd',
+                                            stroke_width=1,
+                                            stroke_fill=(128, 128, 128),
+                                            fill=(224, 224, 224))  # 图片来源
 
         this_height = top_img_height + int(0.0625 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
