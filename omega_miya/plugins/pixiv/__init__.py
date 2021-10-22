@@ -157,7 +157,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             await pixiv.finish('加载失败, 网络超时或没有这张图QAQ')
 
         # 处理r18权限
-        if illust_data_result.result.get('is_r18'):
+        if is_r18 := illust_data_result.result.get('is_r18'):
             auth_checker = await __handle_r18_perm(bot=bot, event=event)
             if auth_checker != 1:
                 logger.warning(f"User: {event.user_id} 获取Pixiv资源 {pid} 被拒绝, 没有 allow_r18 权限")
@@ -172,12 +172,18 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             illust_result = await illust.get_ugoira_gif_filepath()
         else:
             illust_result = await illust.get_file()
+
+        # 发送图片和图片信息
         if illust_result.success() and illust_info_result.success():
             msg = illust_info_result.result
             img_seg = MessageSegment.image(illust_result.result)
-            # 发送图片和图片信息
             logger.success(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
-            await pixiv.send(Message(img_seg).append(msg))
+            if is_r18:
+                # r18 作品自动撤回
+                await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_msgs_and_recall(
+                    event=event, message_list=[Message(img_seg).append(msg)], recall_time=30)
+            else:
+                await pixiv.send(Message(img_seg).append(msg))
         else:
             logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, "
                            f"{illust_info_result.info} // {illust_result.info}")
@@ -226,8 +232,14 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             await pixiv.finish('生成Pixiv搜索预览图时发生了意外的错误QAQ, 请稍后再试~')
 
         img_path = pathlib.Path(preview_result.result).as_uri()
+
+        if nsfw_:
+            # nsfw 作品自动撤回
+            await MsgSender(bot=bot, log_flag='PixivSearch').safe_send_msgs_and_recall(
+                event=event, message_list=[MessageSegment.image(img_path)], recall_time=30)
+        else:
+            await pixiv.finish(MessageSegment.image(img_path))
         logger.success(f"User: {event.user_id} 搜索了Pixiv作品: {mode}")
-        await pixiv.finish(MessageSegment.image(img_path))
 
 
 # 注册事件响应器
