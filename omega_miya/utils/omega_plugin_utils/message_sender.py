@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+import asyncio
 from nonebot import logger
 from typing import Optional, List, Union
 from nonebot.adapters.cqhttp.bot import Bot
@@ -126,6 +127,40 @@ class MsgSender(object):
             logger.opt(colors=True).warning(
                 f'<Y><lw>{self.log_flag}</lw></Y> | Sending node_custom message '
                 f'to group: {group_id} failed, error: {repr(e)}')
+
+    async def safe_send_group_msg_and_recall(
+            self, group_id: int, message_list: List[Union[str, Message, MessageSegment]],
+            *,
+            recall_time: int = 20
+    ):
+        """
+        向某个群组发送消息后并自动撤回
+        """
+        sent_msg_ids = []
+        for msg_seg in message_list:
+            try:
+                sent_msg_id = await self.bot.send_group_msg(group_id=group_id, message=msg_seg)
+                sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
+            except Exception as e:
+                logger.warning(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message sent message failed in group: {group_id}, '
+                    f'error: {repr(e)}')
+                continue
+
+        logger.info(f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message will recall message '
+                    f'after {recall_time} second(s) in group: {group_id}')
+        await asyncio.sleep(recall_time)
+
+        for msg_id in sent_msg_ids:
+            if not msg_id:
+                continue
+            try:
+                await self.bot.delete_msg(message_id=msg_id)
+            except Exception as e:
+                logger.warning(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message recalling failed in group: {group_id}, '
+                    f'msg_id: {msg_id}. error: {repr(e)}')
+                continue
 
     async def safe_broadcast_friends_subscription(
             self, subscription: DBSubscription, message: Union[str, Message, MessageSegment]):
