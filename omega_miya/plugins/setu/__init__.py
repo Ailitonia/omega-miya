@@ -1,6 +1,5 @@
 import os
 import re
-import asyncio
 import aiofiles
 from nonebot import CommandGroup, on_command, get_driver, logger
 from nonebot.plugin.export import export
@@ -175,36 +174,22 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
             logger.warning(f'预处理图片失败: {repr(e)}')
             continue
 
-    sent_msg_ids = []
     # 根据ENABLE_NODE_CUSTOM处理消息发送
+    msg_sender = MsgSender(bot=bot, log_flag='Setu')
     if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
-        msg_sender = MsgSender(bot=bot, log_flag='Setu')
         await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=image_seg_list)
     else:
-        for msg_seg in image_seg_list:
-            try:
-                sent_msg_id = await setu.send(msg_seg)
-                sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
-            except Exception as e:
-                logger.warning(f'图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}')
+        if ENABLE_SETU_AUTO_RECALL:
+            await msg_sender.safe_send_msgs_and_recall(
+                event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
+        else:
+            await msg_sender.safe_send_msgs(event=event, message_list=image_seg_list)
 
     if fault_count == len(pid_list):
         logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的涩图, 图片下载失败, {pid_list}")
         await setu.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
         logger.success(f"{group_id} / {event.user_id} 找到了他/她想要的涩图, {pid_list}")
-
-    if ENABLE_SETU_AUTO_RECALL:
-        logger.info(f"{group_id} / {event.self_id} 将于 {AUTO_RECALL_TIME} 秒后撤回已发送涩图...")
-        await asyncio.sleep(AUTO_RECALL_TIME)
-        for msg_id in sent_msg_ids:
-            if not msg_id:
-                continue
-            try:
-                await bot.delete_msg(message_id=msg_id)
-            except Exception as e:
-                logger.warning(f'撤回图片失败, {group_id} / {event.user_id}, msg_id: {msg_id}. error: {repr(e)}')
-                continue
 
 
 # 注册事件响应器
@@ -283,36 +268,22 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
             logger.warning(f'预处理图片失败: {repr(e)}')
             continue
 
-    sent_msg_ids = []
     # 根据ENABLE_NODE_CUSTOM处理消息发送
+    msg_sender = MsgSender(bot=bot, log_flag='Moepic')
     if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
-        msg_sender = MsgSender(bot=bot, log_flag='Moepic')
         await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=image_seg_list)
     else:
-        for msg_seg in image_seg_list:
-            try:
-                sent_msg_id = await moepic.send(msg_seg)
-                sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
-            except Exception as e:
-                logger.warning(f'图片发送失败, {group_id} / {event.user_id}. error: {repr(e)}')
+        if ENABLE_MOE_AUTO_RECALL:
+            await msg_sender.safe_send_msgs_and_recall(
+                event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
+        else:
+            await msg_sender.safe_send_msgs(event=event, message_list=image_seg_list)
 
     if fault_count == len(pid_list):
         logger.info(f"{group_id} / {event.user_id} 没能看到他/她想要的萌图, 图片下载失败, {pid_list}")
         await moepic.finish('似乎出现了网络问题, 所有的图片都下载失败了QAQ')
     else:
         logger.success(f"{group_id} / {event.user_id} 找到了他/她想要的萌图, {pid_list}")
-
-    if ENABLE_MOE_AUTO_RECALL:
-        logger.info(f"{group_id} / {event.self_id} 将于 {AUTO_RECALL_TIME} 秒后撤回已发送萌图...")
-        await asyncio.sleep(AUTO_RECALL_TIME)
-        for msg_id in sent_msg_ids:
-            if not msg_id:
-                continue
-            try:
-                await bot.delete_msg(message_id=msg_id)
-            except Exception as e:
-                logger.warning(f'撤回图片失败, {group_id} / {event.user_id}, msg_id: {msg_id}. error: {repr(e)}')
-                continue
 
 
 # 注册事件响应器
