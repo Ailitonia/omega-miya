@@ -107,27 +107,33 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
 @pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID或关键词搜索~')
 async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
     mode = state['mode']
-    if mode in ['日榜', '周榜', '月榜']:
+    if re.match(r'^(日|周|月|原创)榜(\d*?)$', mode):
+        mode_result = re.search(r'^(日|周|月|原创)榜(\d*?)$', mode).groups()
+        rank_mode = mode_result[0]
+        seq = int(mode_result[1]) if mode_result[1] else 1
+        page = (seq // 5) + 1
+        index_ = (10 * (seq - 1)) % 50
+        index_r = (10 * (seq - 1)) // 50
+
         await pixiv.send('稍等, 正在下载图片~')
-        if mode == '日榜':
-            rank_result = await PixivIllust.get_ranking(mode='daily')
-        elif mode == '周榜':
-            rank_result = await PixivIllust.get_ranking(mode='weekly')
-        elif mode == '月榜':
-            rank_result = await PixivIllust.get_ranking(mode='monthly')
-        elif mode == '原创榜':
-            rank_result = await PixivIllust.get_ranking(mode='original', content='all')
+        if rank_mode == '日':
+            rank_result = await PixivIllust.get_ranking(mode='daily', page=page)
+        elif rank_mode == '周':
+            rank_result = await PixivIllust.get_ranking(mode='weekly', page=page)
+        elif rank_mode == '月':
+            rank_result = await PixivIllust.get_ranking(mode='monthly', page=page)
+        elif rank_mode == '原创':
+            rank_result = await PixivIllust.get_ranking(mode='original', page=page, content='all')
         else:
-            rank_result = await PixivIllust.get_ranking(mode='daily')
+            rank_result = await PixivIllust.get_ranking(mode='daily', page=page)
         if rank_result.error:
             logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
             await pixiv.finish('加载失败, 网络超时QAQ')
 
         tasks = []
         for rank, illust_data in dict(rank_result.result).items():
-            if rank >= 10:
-                break
-            tasks.append(__handle_ranking_msg(rank=rank, illust_data=illust_data))
+            if index_ <= rank < index_ + 10:
+                tasks.append(__handle_ranking_msg(rank=(50 * index_r + rank), illust_data=illust_data))
         ranking_msg_result = list(await asyncio.gather(*tasks))
 
         # 根据ENABLE_NODE_CUSTOM处理消息发送
