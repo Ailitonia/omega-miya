@@ -212,8 +212,8 @@ async def generate_sign_in_card(
 
     # 获取图片pid
     file_name = os.path.basename(sign_pic_path)
-    pid_result = re.search(r'^(\d+?)_p0_master', file_name).groups()
-    pid = pid_result[0] if pid_result else None
+    pid_result = re.search(r'^(\d+?)_p0_master', file_name)
+    pid = pid_result.groups()[0] if (pid_result is not None) else None
 
     def __handle():
         # 生成用户当天老黄历
