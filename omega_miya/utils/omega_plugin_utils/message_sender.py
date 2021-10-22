@@ -13,6 +13,7 @@ from nonebot import logger
 from typing import Optional, List, Union
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message, MessageSegment
+from nonebot.adapters.cqhttp.event import MessageEvent
 from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription
 
 
@@ -41,7 +42,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_group_msg(group_id=group_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending subscription '
                     f'{subscription.sub_type}/{subscription.sub_id} broadcast message '
                     f'to group: {group_id} failed, error: {repr(e)}')
@@ -88,7 +89,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending subscription '
                     f'{subscription.sub_type}/{subscription.sub_id} broadcast node_custom message '
                     f'to group: {group_id} failed, error: {repr(e)}')
@@ -124,43 +125,9 @@ class MsgSender(object):
         try:
             await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
         except Exception as e:
-            logger.opt(colors=True).warning(
+            logger.opt(colors=True).error(
                 f'<Y><lw>{self.log_flag}</lw></Y> | Sending node_custom message '
                 f'to group: {group_id} failed, error: {repr(e)}')
-
-    async def safe_send_group_msg_and_recall(
-            self, group_id: int, message_list: List[Union[str, Message, MessageSegment]],
-            *,
-            recall_time: int = 20
-    ):
-        """
-        向某个群组发送消息后并自动撤回
-        """
-        sent_msg_ids = []
-        for msg_seg in message_list:
-            try:
-                sent_msg_id = await self.bot.send_group_msg(group_id=group_id, message=msg_seg)
-                sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
-            except Exception as e:
-                logger.warning(
-                    f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message sent message failed in group: {group_id}, '
-                    f'error: {repr(e)}')
-                continue
-
-        logger.info(f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message will recall message '
-                    f'after {recall_time} second(s) in group: {group_id}')
-        await asyncio.sleep(recall_time)
-
-        for msg_id in sent_msg_ids:
-            if not msg_id:
-                continue
-            try:
-                await self.bot.delete_msg(message_id=msg_id)
-            except Exception as e:
-                logger.warning(
-                    f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message recalling failed in group: {group_id}, '
-                    f'msg_id: {msg_id}. error: {repr(e)}')
-                continue
 
     async def safe_broadcast_friends_subscription(
             self, subscription: DBSubscription, message: Union[str, Message, MessageSegment]):
@@ -181,7 +148,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_private_msg(user_id=user_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending subscription '
                     f'{subscription.sub_type}/{subscription.sub_id} broadcast message '
                     f'to user: {user_id} failed, error: {repr(e)}')
@@ -204,7 +171,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_private_msg(user_id=user_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending message to friend: {user_id} failed, error: {repr(e)}')
                 continue
 
@@ -224,7 +191,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_private_msg(user_id=user_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending message to friend: {user_id} failed, error: {repr(e)}')
                 continue
 
@@ -245,7 +212,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_group_msg(group_id=group_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending message to group: {group_id} failed, error: {repr(e)}')
                 continue
 
@@ -266,7 +233,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_group_msg(group_id=group_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending message to group: {group_id} failed, error: {repr(e)}')
                 continue
 
@@ -288,7 +255,7 @@ class MsgSender(object):
             try:
                 await self.bot.send_group_msg(group_id=group_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending message to group: {group_id} failed, error: {repr(e)}')
                 continue
 
@@ -308,8 +275,56 @@ class MsgSender(object):
             try:
                 await self.bot.send_group_msg(group_id=group_id, message=message)
             except Exception as e:
-                logger.opt(colors=True).warning(
+                logger.opt(colors=True).error(
                     f'<Y><lw>{self.log_flag}</lw></Y> | Sending message to group: {group_id} failed, error: {repr(e)}')
+                continue
+
+    async def safe_send_msgs_and_recall(
+            self, event: MessageEvent, message_list: List[Union[str, Message, MessageSegment]],
+            *,
+            recall_time: int = 20
+    ):
+        """
+        发送消息后并自动撤回
+        """
+        sent_msg_ids = []
+        for msg_seg in message_list:
+            try:
+                sent_msg_id = await self.bot.send(event=event, message=msg_seg)
+                sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
+            except Exception as e:
+                logger.opt(colors=True).error(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message send message failed '
+                    f'in event: {event.get_session_id()}, error: {repr(e)}')
+                continue
+
+        logger.opt(colors=True).info(
+            f'<G><lw>{self.log_flag}</lw></G> | Auto-recall-message will recall message '
+            f'after {recall_time} second(s) in event: {event.get_session_id()}')
+        await asyncio.sleep(recall_time)
+
+        for msg_id in sent_msg_ids:
+            if not msg_id:
+                continue
+            try:
+                await self.bot.delete_msg(message_id=msg_id)
+            except Exception as e:
+                logger.opt(colors=True).error(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-message recalling failed '
+                    f'in event: {event.get_session_id()}, msg_id: {msg_id}. error: {repr(e)}')
+                continue
+
+    async def safe_send_msgs(self, event: MessageEvent, message_list: List[Union[str, Message, MessageSegment]]):
+        """
+        向某个群组发送多条消息
+        """
+        for msg_seg in message_list:
+            try:
+                await self.bot.send(event=event, message=msg_seg)
+            except Exception as e:
+                logger.opt(colors=True).error(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | Send group message failed in event: {event.get_session_id()}, '
+                    f'error: {repr(e)}')
                 continue
 
 
