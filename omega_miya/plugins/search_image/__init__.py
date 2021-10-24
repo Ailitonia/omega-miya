@@ -9,7 +9,7 @@ from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot
 from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
-                                                 PicEncoder, PermissionChecker, PluginCoolDown)
+                                                 PicEncoder, PermissionChecker, PluginCoolDown, MsgSender)
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -322,25 +322,17 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
     tasks = [x.get_sending_msg() for x in illust_list]
     illust_download_result = await asyncio.gather(*tasks)
 
-    sent_msg_ids = []
+    image_seg_list = []
     for img, info in [x.result for x in illust_download_result if x.success()]:
         img_seg = MessageSegment.image(file=img)
-        try:
-            sent_msg_id = await recommend_image.send(Message(img_seg).append(info))
-            sent_msg_ids.append(sent_msg_id.get('message_id') if isinstance(sent_msg_id, dict) else None)
-        except Exception as e:
-            logger.warning(f'Recommend image | 发送图片失败, error: {repr(e)}')
-            continue
-    logger.info(f'Recommend image | User: {event.user_id} 已获取相似图片')
+        image_seg_list.append(Message(img_seg).append(info))
 
+    msg_sender = MsgSender(bot=bot, log_flag='RecommendImage')
+    # 根据 ENABLE_RECOMMEND_AUTO_RECALL 处理消息发送
     if ENABLE_RECOMMEND_AUTO_RECALL:
-        logger.info(f"{event.group_id} / {event.self_id} 将于 {AUTO_RECALL_TIME} 秒后撤回已发送相似图片...")
-        await asyncio.sleep(AUTO_RECALL_TIME)
-        for msg_id in sent_msg_ids:
-            if not msg_id:
-                continue
-            try:
-                await bot.delete_msg(message_id=msg_id)
-            except Exception as e:
-                logger.warning(f'撤回图片失败, {event.group_id} / {event.user_id}, msg_id: {msg_id}. error: {repr(e)}')
-                continue
+        await msg_sender.safe_send_msgs_and_recall(
+            event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
+    else:
+        await msg_sender.safe_send_msgs(event=event, message_list=image_seg_list)
+
+    logger.info(f'Recommend image | User: {event.user_id} 已获取相似图片')
