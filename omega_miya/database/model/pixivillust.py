@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.sql.expression import func
-from sqlalchemy import or_
+from sqlalchemy import desc, or_
 
 
 class DBPixivillust(object):
@@ -267,36 +267,73 @@ class DBPixivillust(object):
 
     @classmethod
     async def list_illust(
-            cls, keywords: List[str], num: int, nsfw_tag: int, acc_mode: bool = False) -> Result.ListResult:
+            cls,
+            keywords: List[str],
+            num: int,
+            nsfw_tag: int,
+            *,
+            acc_mode: bool = False,
+            order_mode: str = 'random'
+    ) -> Result.ListResult:
+        """
+        根据关键词获取作品
+        :param keywords: 关键词列表
+        :param num: 数量
+        :param nsfw_tag: nsfw 标签值, 0=sfw, 1=nsfw, 2=r18, -1=(sfw+nsfw), -2=(sfw+nsfw+r18), -3=(nsfw+r18)
+        :param acc_mode: 是否启用精确搜索模式
+        :param order_mode: 排序模式, random: 随机, pid: 按 pid 顺序, pid_desc: 按 pid 逆序,
+            create_time: 按收录时间顺序, create_time_desc: 按收录时间逆序
+        :return: ListResult: pid列表
+        """
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
             async with session.begin():
                 try:
+                    # 构造查询, 区分 nsfw_tag 选项
+                    query = select(Pixiv.pid)
+                    if nsfw_tag == -1:
+                        query = query.where(or_(Pixiv.nsfw_tag == 0, Pixiv.nsfw_tag == 1))
+                    elif nsfw_tag == -2:
+                        query = query.where(or_(Pixiv.nsfw_tag == 0, Pixiv.nsfw_tag == 1, Pixiv.nsfw_tag == 2))
+                    elif nsfw_tag == -3:
+                        query = query.where(or_(Pixiv.nsfw_tag == 1, Pixiv.nsfw_tag == 2))
+                    else:
+                        query = query.where(Pixiv.nsfw_tag == nsfw_tag)
+                    # 根据 acc_mode 构造关键词查询语句
                     if acc_mode:
-                        # 构造查询, 精确搜索标题, 用户和tag
-                        query = select(Pixiv.pid).where(Pixiv.nsfw_tag == nsfw_tag)
+                        # 精确搜索标题, 用户和tag
                         for keyword in keywords:
                             query = query.where(or_(
                                 func.find_in_set(keyword, Pixiv.tags),
                                 func.find_in_set(keyword, Pixiv.uname),
                                 func.find_in_set(keyword, Pixiv.title)
                             ))
-                        query = query.order_by(func.random()).limit(num)
-                        session_result = await session.execute(query)
-                        res = [x for x in session_result.scalars().all()]
-
-                    if not acc_mode or (acc_mode and not res):
-                        # 构造查询, 模糊搜索标题, 用户和tag
-                        query = select(Pixiv.pid).where(Pixiv.nsfw_tag == nsfw_tag)
+                    else:
+                        # 模糊搜索标题, 用户和tag
                         for keyword in keywords:
                             query = query.where(or_(
                                 Pixiv.tags.ilike(f'%{keyword}%'),
                                 Pixiv.uname.ilike(f'%{keyword}%'),
                                 Pixiv.title.ilike(f'%{keyword}%')
                             ))
-                        query = query.order_by(func.random()).limit(num)
-                        session_result = await session.execute(query)
-                        res = [x for x in session_result.scalars().all()]
+                    # 根据 order_mode 构造排序语句
+                    if order_mode == 'random':
+                        query = query.order_by(func.random())
+                    elif order_mode == 'pid':
+                        query = query.order_by(Pixiv.pid)
+                    elif order_mode == 'pid_desc':
+                        query = query.order_by(desc(Pixiv.pid))
+                    elif order_mode == 'create_time':
+                        query = query.order_by(Pixiv.created_at)
+                    elif order_mode == 'create_time_desc':
+                        query = query.order_by(desc(Pixiv.created_at))
+                    else:
+                        query = query.order_by(func.random())
+                    # 结果数量限制
+                    query = query.limit(num)
+                    # 执行查询
+                    session_result = await session.execute(query)
+                    res = [x for x in session_result.scalars().all()]
 
                     result = Result.ListResult(error=False, info='Success', result=res)
                 except Exception as e:
