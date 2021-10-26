@@ -145,7 +145,7 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_res = await DBPixivillust.rand_illust(num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag)
+        pid_res = await DBPixivillust.rand_illust(num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag, order_mode=order_mode)
         pid_list = pid_res.result
 
     if not pid_list:
@@ -266,7 +266,7 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
-        pid_res = await DBPixivillust.rand_illust(num=IMAGE_NUM_LIMIT, nsfw_tag=0)
+        pid_res = await DBPixivillust.rand_illust(num=IMAGE_NUM_LIMIT, nsfw_tag=0, order_mode=order_mode)
         pid_list = pid_res.result
 
     if not pid_list:
