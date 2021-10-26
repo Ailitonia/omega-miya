@@ -95,12 +95,29 @@ setu = Setu.command(
 @setu.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
-    # 处理r18
+    state['order_mode'] = 'random'
+    # 处理tag
     state['nsfw_tag'] = 1
     for tag in args.copy():
-        if re.match(r'[Rr]-?18[Gg]?', tag):
+        # 处理r18
+        if re.match(r'^[Rr]-?18[Gg]?$', tag):
             args.remove(tag)
             state['nsfw_tag'] = 2
+        elif re.match(r'^([Nn][Ss][Ff][Ww]|[Rr]-?18)混合$', tag):
+            args.remove(tag)
+            state['nsfw_tag'] = -3
+        elif re.match(r'^(最新|[Pp][Ii][Dd][逆倒]序)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'pid_desc'
+        elif re.match(r'^(最[老旧]|[Pp][Ii][Dd][顺正]序)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'pid'
+        elif re.match(r'^(最[新后]收录)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'create_time_desc'
+        elif re.match(r'^(最早收录)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'create_time'
     state['tags'] = list(args)
 
 
@@ -112,10 +129,11 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
         group_id = 'Private event'
 
     nsfw_tag = state['nsfw_tag']
+    order_mode = state['order_mode']
     tags = state['tags']
 
     # 处理R18权限
-    if nsfw_tag > 1:
+    if nsfw_tag > 1 or nsfw_tag < -1:
         auth_checker = await __handle_r18_perm(bot=bot, event=event)
         if auth_checker != 1:
             logger.warning(f"User: {event.user_id} 请求涩图被拒绝, 没有 allow_r18 权限")
@@ -123,7 +141,7 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
 
     if tags:
         pid_res = await DBPixivillust.list_illust(
-            keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag, acc_mode=ACC_MODE)
+            keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=nsfw_tag, acc_mode=ACC_MODE, order_mode=order_mode)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
@@ -211,10 +229,24 @@ moepic = Setu.command(
 @moepic.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = set(str(event.get_plaintext()).strip().split())
-    # 排除r18
+    state['order_mode'] = 'random'
+    # 处理tag
     for tag in args.copy():
+        # 排除r18
         if re.match(r'[Rr]-?18[Gg]?', tag):
             args.remove(tag)
+        elif re.match(r'^(最新|[Pp][Ii][Dd][逆倒]序)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'pid_desc'
+        elif re.match(r'^(最[老旧]|[Pp][Ii][Dd][顺正]序)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'pid'
+        elif re.match(r'^(最[新后]收录)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'create_time_desc'
+        elif re.match(r'^(最早收录)$', tag):
+            args.remove(tag)
+            state['order_mode'] = 'create_time'
     state['tags'] = list(args)
 
 
@@ -225,10 +257,12 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     else:
         group_id = 'Private event'
 
+    order_mode = state['order_mode']
     tags = state['tags']
 
     if tags:
-        pid_res = await DBPixivillust.list_illust(keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0, acc_mode=ACC_MODE)
+        pid_res = await DBPixivillust.list_illust(
+            keywords=tags, num=IMAGE_NUM_LIMIT, nsfw_tag=0, acc_mode=ACC_MODE, order_mode=order_mode)
         pid_list = pid_res.result
     else:
         # 没有tag则随机获取
