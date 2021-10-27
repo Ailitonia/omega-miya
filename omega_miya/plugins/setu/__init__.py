@@ -382,12 +382,17 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 @setu_import.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
     args = str(event.get_plaintext()).strip().lower().split()
+    pid_list = []
     if not args:
         pass
     elif args and len(args) == 1:
         state['mode'] = args[0]
+    elif args and len(args) > 1:
+        state['mode'] = args[0]
+        pid_list.extend([pid for pid in args[1:] if pid.isdigit()])
     else:
         await setu_import.finish('参数错误QAQ')
+    state['pid_list'] = pid_list
 
 
 @setu_import.got('mode', prompt='模式: 【setu/moe】')
@@ -403,30 +408,34 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
         nsfw_tag = 1
         force_tag = False
 
-    # 文件操作
-    import_pid_file = os.path.join(os.path.dirname(__file__), 'import_pid.txt')
-    if not os.path.exists(import_pid_file):
-        logger.error(f'setu_import: 找不到导入文件: {import_pid_file}')
-        await setu_import.finish('错误: 导入列表不存在QAQ')
+    pid_list = [int(pid) for pid in state['pid_list']]
+    if not pid_list:
+        await setu_import.send('从文件中读取导入文件列表...')
+        logger.info(f'setu_import: 命令参数中不含pid, 将从文件中读取导入文件列表')
+        # 文件操作
+        import_pid_file = os.path.join(os.path.dirname(__file__), 'import_pid.txt')
+        if not os.path.exists(import_pid_file):
+            logger.error(f'setu_import: 找不到导入文件: {import_pid_file}')
+            await setu_import.finish('错误: 导入列表不存在QAQ')
 
-    pid_list = []
-    try:
-        async with aiofiles.open(import_pid_file, 'r') as f:
-            lines = await f.readlines()
-            for line in lines:
-                if not re.match(r'^[0-9]+$', line):
-                    logger.debug(f'setu_import: 导入列表中有非数字字符: {line}')
-                    continue
-                pid_list.append(int(line))
-    except Exception as e:
-        logger.error(f'setu_import: 读取导入列表失败, error: {repr(e)}')
-        await setu_import.finish('错误: 读取导入列表失败QAQ')
+        pid_list = []
+        try:
+            async with aiofiles.open(import_pid_file, 'r') as f:
+                lines = await f.readlines()
+                for line in lines:
+                    if not line.isdigit():
+                        logger.warning(f'setu_import: 导入列表中有非数字字符: {line}')
+                        continue
+                    pid_list.append(int(line))
+        except Exception as e:
+            logger.error(f'setu_import: 读取导入列表失败, error: {repr(e)}')
+            await setu_import.finish('错误: 读取导入列表失败QAQ')
 
     # 对列表去重
     pid_list = list(set(pid_list))
     pid_list.sort()
     all_count = len(pid_list)
-    await setu_import.send('已读取导入文件列表, 开始获取作品信息~')
+    await setu_import.send(f'已获取导入作品列表, 总计: {all_count}, 开始获取作品信息~')
     logger.info(f'setu_import: 读取导入文件列表完成, 总计: {all_count}, 开始导入...')
     # 开始导入操作
     # 全部一起并发网络撑不住, 做适当切分
