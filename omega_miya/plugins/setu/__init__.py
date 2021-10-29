@@ -423,6 +423,7 @@ async def handle_setu_import(bot: Bot, event: MessageEvent, state: T_State):
             async with aiofiles.open(import_pid_file, 'r') as f:
                 lines = await f.readlines()
                 for line in lines:
+                    line = line.strip()
                     if not line.isdigit():
                         logger.warning(f'setu_import: 导入列表中有非数字字符: {line}')
                         continue
