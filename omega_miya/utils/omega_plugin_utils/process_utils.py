@@ -20,24 +20,30 @@ class ProcessUtils(object):
             tasks: List[Awaitable[Any]],
             fragment_size: Optional[int] = None,
             *,
-            log_flag: str = 'Default') -> Tuple:
+            log_flag: str = 'Default',
+            return_exceptions: bool = True) -> Tuple:
         """
         分段运行一批需要并行的异步函数
         :param tasks: 任务序列
         :param fragment_size: 单次并行的数量
         :param log_flag: 日志标记
+        :param return_exceptions: 是否在结果中包含异常
         """
+        # 判断任务列表
+        if tasks is None:
+            raise ValueError('Param "tasks" must not be None')
         all_count = len(tasks)
         if all_count <= 0:
             raise ValueError('Param "tasks" must not be null')
-        elif not fragment_size:
+        # 判断分割数
+        if fragment_size is None:
             fragment_size = all_count
         elif not isinstance(fragment_size, int):
             raise ValueError('Param "fragment_size" must be int')
         elif fragment_size > all_count:
             fragment_size = all_count
         elif fragment_size <= 0:
-            raise ValueError('Param "fragment_size" must be int')
+            raise ValueError('Param "fragment_size" must be greater than zero')
 
         # 切分切片列表
         fragment_list = []
@@ -53,10 +59,11 @@ class ProcessUtils(object):
         for fragment in fragment_list:
             # 进行异步处理
             try:
-                _result = await asyncio.gather(*fragment, return_exceptions=True)
+                _result = await asyncio.gather(*fragment, return_exceptions=return_exceptions)
                 result.extend(_result)
             except Exception as e:
-                logger.error(f'Fragment process | {log_flag} processing error: {repr(e)}')
+                logger.error(f'Fragment process | {log_flag} processing error occurred in task: {repr(e)}, '
+                             f'other tasks will continue to run')
                 continue
 
             # 显示进度
