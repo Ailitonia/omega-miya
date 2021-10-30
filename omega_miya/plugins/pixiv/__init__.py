@@ -171,12 +171,16 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             # 动图作品生成动图后发送
             illust_result = await illust.get_ugoira_gif_filepath()
         else:
-            illust_result = await illust.get_file()
+            illust_result = await illust.get_file_list()
 
         # 发送图片和图片信息
         if illust_result.success() and illust_info_result.success():
             msg = illust_info_result.result
-            img_seg = MessageSegment.image(illust_result.result)
+            img_res = illust_result.result
+            if isinstance(img_res, list):
+                img_seg = [MessageSegment.image(img_url) for img_url in img_res]
+            else:
+                img_seg = MessageSegment.image(illust_result.result)
             logger.success(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
             if is_r18:
                 # r18 作品自动撤回

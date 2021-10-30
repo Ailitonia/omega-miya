@@ -154,7 +154,7 @@ async def handle_setu(bot: Bot, event: MessageEvent, state: T_State):
     await setu.send('稍等, 正在下载图片~')
 
     # 处理下载图片
-    tasks = [PixivIllust(pid=pid).load_illust_pic() for pid in pid_list]
+    tasks = [PixivIllust(pid=pid).get_bytes() for pid in pid_list]
     p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='load_setu')
 
     # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式
@@ -276,7 +276,7 @@ async def handle_moepic(bot: Bot, event: MessageEvent, state: T_State):
     await moepic.send('稍等, 正在下载图片~')
 
     # 处理下载图片
-    tasks = [PixivIllust(pid=pid).load_illust_pic() for pid in pid_list]
+    tasks = [PixivIllust(pid=pid).get_bytes() for pid in pid_list]
     p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='load_moepic')
 
     # 处理图片消息段, 之后再根据ENABLE_NODE_CUSTOM确定消息发送方式

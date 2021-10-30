@@ -323,8 +323,10 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
     illust_download_result = await asyncio.gather(*tasks)
 
     image_seg_list = []
-    for img, info in [x.result for x in illust_download_result if x.success()]:
-        img_seg = MessageSegment.image(file=img)
+    for img_list, info in [x.result for x in illust_download_result if x.success()]:
+        img_seg = []
+        for img in img_list:
+            img_seg.append(MessageSegment.image(file=img))
         image_seg_list.append(Message(img_seg).append(info))
 
     msg_sender = MsgSender(bot=bot, log_flag='RecommendImage')

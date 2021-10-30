@@ -11,7 +11,7 @@ from io import BytesIO
 from typing import Dict, Optional
 from urllib.parse import quote
 from nonebot import logger, get_driver
-from omega_miya.utils.omega_plugin_utils import HttpFetcher, PicEncoder, create_zip_file
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, PicEncoder, ProcessUtils, create_zip_file
 from omega_miya.database import Result
 
 global_config = get_driver().config
@@ -247,11 +247,7 @@ class PixivIllust(Pixiv):
     def __init__(self, pid: int):
         self.__pid: int = pid
         self.__is_data_loaded: bool = False
-        self.__is_pic_loaded: bool = False
-        self.__is_downloaded: bool = False
         self.__illust_data: dict = {}
-        self.__pic: bytes = b''
-        self.__downloaded_file_path: str = ''
 
     # 获取作品完整信息（pixiv api 获取 json）
     # 返回格式化后的作品信息
@@ -265,7 +261,7 @@ class PixivIllust(Pixiv):
         headers = self.HEADERS.copy()
         headers.update({'referer': illust_artworks_url})
 
-        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_illust', headers=headers, cookies=COOKIES)
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_utils_get_data', headers=headers, cookies=COOKIES)
 
         # 获取作品信息
         illust_data_result = await fetcher.get_json(url=illust_url)
@@ -391,15 +387,172 @@ class PixivIllust(Pixiv):
             }
 
             # 保存对象状态便于其他方法调用
-            self.__is_data_loaded = True
             self.__illust_data.update(result)
+            self.__is_data_loaded = True
 
             return Result.DictResult(error=False, info='Success', result=result)
         except Exception as e:
             logger.error(f'PixivIllust | Parse illust data failed, error: {repr(e)}')
             return Result.DictResult(error=True, info=f'Parse illust data failed', result={})
 
-    async def get_format_info_msg(self, desc_len: int = 32) -> Result.TextResult:
+    async def __load_illust_resource(self, *, page: int = 0, url_type: str = 'regular') -> Result.BytesResult:
+        """
+        内部方法, 加载作品图片资源
+        :param page: 页码
+        :param url_type: 类型, thumb_mini: 缩略图, small: 小图, regular: 默认压缩大图, original: 原始图片
+        :return: BytesResult: 作品资源数据
+        """
+        # 获取作品信息
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.BytesResult(error=True, info='Fetch illust data failed', result=b'')
+            illust_data = dict(illust_data_result.result)
+
+        # 根据参数获取作品链接
+        url = illust_data.get('illust_pages', {}).get(page, {}).get(url_type, None)
+        if url is None:
+            return Result.BytesResult(
+                error=True,
+                info='Resource url not found, please check your pixiv cookies config, or illust has been deleted',
+                result=b'')
+
+        headers = self.HEADERS.copy()
+        headers.update({
+            'sec-fetch-dest': 'image',
+            'sec-fetch-mode': 'no-cors',
+            'sec-fetch-site': 'cross-site'
+        })
+
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_load_resource', headers=headers)
+        bytes_result = await fetcher.get_bytes(url=url)
+        if bytes_result.error:
+            return Result.BytesResult(error=True, info='Resource loaded failed', result=b'')
+        else:
+            return Result.BytesResult(error=False, info='Success', result=bytes_result.result)
+
+    async def __save_illust_resource(self, *, page: int = 0, url_type: str = 'regular') -> Result.TextResult:
+        """
+        内部方法, 保存作品资源到本地
+        :param page: 页码
+        :param url_type: 类型, thumb_mini: 缩略图, small: 小图, regular: 默认压缩大图, original: 原始图片
+        :return: 保存路径
+        """
+        # 保存路径
+        folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
+        file_name = f'{self.__pid}_{url_type}_p{page}'
+        file_path = os.path.abspath(os.path.join(folder_path, file_name))
+
+        # 如果已经存在则直接返回原始路径
+        if os.path.exists(file_path):
+            return Result.TextResult(error=False, info='Illust resource exists', result=file_path)
+
+        # 没有的话再下载并保存文件
+        bytes_result = await self.__load_illust_resource(page=page, url_type=url_type)
+        if bytes_result.error:
+            return Result.TextResult(error=True, info=bytes_result.info, result='')
+        else:
+            # 检查保存文件路径
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+            try:
+                async with aiofiles.open(file_path, 'wb') as aio_f:
+                    await aio_f.write(bytes_result.result)
+                return Result.TextResult(error=False, info='Success', result=file_path)
+            except Exception as e:
+                return Result.TextResult(error=True, info=repr(e), result='')
+
+    async def __get_illust_resource(self, *, page: int = 0, url_type: str = 'regular') -> Result.BytesResult:
+        """
+        内部方法, 获取作品资源, 优先从本地资源加载
+        :param page: 页码
+        :param url_type: 类型, thumb_mini: 缩略图, small: 小图, regular: 默认压缩大图, original: 原始图片
+        :return: BytesResult: 作品资源数据
+        """
+        file_path_result = await self.__save_illust_resource(page=page, url_type=url_type)
+        if file_path_result.error:
+            return Result.BytesResult(error=True, info=file_path_result.info, result=b'')
+        else:
+            try:
+                async with aiofiles.open(file_path_result.result, 'rb') as aio_f:
+                    bytes_result = await aio_f.read()
+                return Result.BytesResult(error=False, info='Success', result=bytes_result)
+            except Exception as e:
+                return Result.BytesResult(error=True, info=repr(e), result=b'')
+
+    async def get_bytes(self, *, page: int = 0, url_type: str = 'regular') -> Result.BytesResult:
+        """
+        获取作品文件 bytes
+        """
+        return await self.__get_illust_resource(page=page, url_type=url_type)
+
+    async def get_base64(self, *, page: int = 0, url_type: str = 'regular') -> Result.TextResult:
+        """
+        获取作品文件base64
+        """
+        bytes_result = await self.__get_illust_resource(page=page, url_type=url_type)
+        if bytes_result.error:
+            return Result.TextResult(error=True, info=bytes_result.info, result='')
+
+        encode_result = PicEncoder.bytes_to_b64(image=bytes_result.result)
+        if encode_result.success():
+            return Result.TextResult(error=False, info='Success', result=encode_result.result)
+        else:
+            return Result.TextResult(error=True, info=encode_result.info, result='')
+
+    async def get_file(self, *, page: int = 0, url_type: str = 'regular') -> Result.TextResult:
+        """
+        获取作品文件 file url
+        """
+        file_path_result = await self.__save_illust_resource(page=page, url_type=url_type)
+        if file_path_result.error:
+            return Result.TextResult(error=True, info=file_path_result.info, result='')
+        else:
+            file_url = pathlib.Path(file_path_result.result).as_uri()
+            return Result.TextResult(error=False, info='Success', result=file_url)
+
+    async def get_file_list(self, *, page_limit: int = 8, url_type: str = 'regular') -> Result.TextListResult:
+        """
+        获取作品所有文件列表
+        :param page_limit: 消息中图片最大数量限制, 避免漫画作品等单作品图片数量过多出现问题, 设置为 0 则为无限制
+        :param url_type: 类型, thumb_mini: 缩略图, small: 小图, regular: 默认压缩大图, original: 原始图片
+        :return: TextListResult: List[image_url: str]
+        """
+        if self.__is_data_loaded:
+            illust_data = self.__illust_data
+        else:
+            illust_data_result = await self.get_illust_data()
+            if illust_data_result.error:
+                return Result.TextListResult(error=True, info='Fetch illust data failed', result=[])
+            illust_data = dict(illust_data_result.result)
+
+        page_count: int = illust_data.get('page_count', None)
+        if not page_count or (not isinstance(page_count, int)):
+            return Result.TextListResult(
+                error=True,
+                info='Page count not found, please check your pixiv cookies config, or illust has been deleted',
+                result=[])
+
+        # 获取作品图片文件
+        if page_limit <= 0:
+            tasks = [self.get_file(page=page, url_type=url_type) for page in range(page_count)]
+        else:
+            tasks = [self.get_file(page=page, url_type=url_type) for page in range(page_count) if page < page_limit]
+        page_list_result = await ProcessUtils.fragment_process(
+            tasks=tasks, fragment_size=10, log_flag='PixivUtilsPreSendMsg')
+
+        page_list = []
+        for index, page in enumerate(page_list_result):
+            if page.success():
+                page_list.append(page.result)
+            else:
+                logger.error(f'PixivIllust | Getting illust file page({index}) failed in sending msg data failed, '
+                             f'error info: {page.info}')
+        return Result.TextListResult(error=False, info='Success', result=page_list)
+
+    async def get_format_info_msg(self, desc_len: int = 64) -> Result.TextResult:
         if self.__is_data_loaded:
             illust_data = self.__illust_data
         else:
@@ -422,110 +575,27 @@ class PixivIllust(Pixiv):
             info = f'「{title}」/「{author}」\n{tags}\n{url}\n----------------\n{description[:desc_len]}......'
         return Result.TextResult(error=False, info='Success', result=info)
 
-    # 加载作品图片
-    async def load_illust_pic(self, original: bool = False) -> Result.BytesResult:
-        if self.__is_pic_loaded:
-            return Result.BytesResult(error=False, info='Success', result=self.__pic)
-
-        if self.__is_data_loaded:
-            illust_data = self.__illust_data
-        else:
-            illust_data_result = await self.get_illust_data()
-            if illust_data_result.error:
-                return Result.BytesResult(error=True, info='Fetch illust data failed', result=b'')
-            illust_data = dict(illust_data_result.result)
-
-        if original:
-            url = illust_data.get('orig_url')
-        else:
-            url = illust_data.get('regular_url')
-
-        headers = self.HEADERS.copy()
-        headers.update({
-            'sec-fetch-dest': 'image',
-            'sec-fetch-mode': 'no-cors',
-            'sec-fetch-site': 'cross-site'
-        })
-
-        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_load_illust_pic', headers=headers)
-        bytes_result = await fetcher.get_bytes(url=url)
-        if bytes_result.error:
-            return Result.BytesResult(error=True, info='Image download failed', result=b'')
-        else:
-            # 保存对象状态便于其他方法调用
-            self.__is_pic_loaded = True
-            self.__pic = bytes_result.result
-            return Result.BytesResult(error=False, info='Success', result=bytes_result.result)
-
-    # 图片转base64
-    async def get_base64(self, original: bool = False) -> Result.TextResult:
-        if self.__is_pic_loaded:
-            illust_pic = self.__pic
-        else:
-            illust_pic_result = await self.load_illust_pic(original=original)
-            if illust_pic_result.error:
-                return Result.TextResult(error=True, info='Image download failed', result='')
-            illust_pic = illust_pic_result.result
-
-        encode_result = PicEncoder.bytes_to_b64(image=illust_pic)
-        if encode_result.success():
-            return Result.TextResult(error=False, info='Success', result=encode_result.result)
-        else:
-            return Result.TextResult(error=True, info=encode_result.info, result='')
-
-    # 图片转fileurl
-    async def get_file(self, original: bool = False) -> Result.TextResult:
-        folder_path = os.path.abspath(os.path.join(TMP_PATH, 'pixiv_illust'))
-        file_name = f'{self.__pid}_original_{original}'
-        file_path = os.path.abspath(os.path.join(folder_path, file_name))
-        # 如果已经存在则直接返回
-        if os.path.exists(file_path):
-            file_url = pathlib.Path(file_path).as_uri()
-            return Result.TextResult(error=False, info='Success', result=file_url)
-
-        # 没有的话再下载并保存文件
-        if self.__is_pic_loaded:
-            illust_pic = self.__pic
-        else:
-            illust_pic_result = await self.load_illust_pic(original=original)
-            if illust_pic_result.error:
-                return Result.TextResult(error=True, info='Image download failed', result='')
-            illust_pic = illust_pic_result.result
-        # 检查保存文件路径
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        try:
-            async with aiofiles.open(file_path, 'wb') as aio_f:
-                await aio_f.write(illust_pic)
-            file_url = pathlib.Path(file_path).as_uri()
-            return Result.TextResult(error=False, info='Success', result=file_url)
-        except Exception as e:
-            return Result.TextResult(error=True, info=repr(e), result='')
-
-    async def get_sending_msg(self, *, mode: str = 'file') -> Result.TextTupleResult:
+    async def get_sending_msg(
+            self, *, page_limit: int = 8, desc_len: int = 64, url_type: str = 'regular') -> Result.TupleResult:
         """
-        :param mode: 发送图片方式
-            file: 下载为本地文件发送
-            base64: 使用base64发送
-        :return: Tuple[image_url: str, info_msg: str]
+        :param page_limit: 消息中图片最大数量限制, 避免漫画作品等单作品图片数量过多出现问题, 设置为 0 则为无限制
+        :param desc_len: 消息介绍信息的长度限制
+        :param url_type: 类型, thumb_mini: 缩略图, small: 小图, regular: 默认压缩大图, original: 原始图片
+        :return: Tuple[image_url: List[str], info_msg: str]
         """
-        if mode == 'file':
-            img_result = await self.get_file()
-        elif mode == 'base64':
-            img_result = await self.get_base64()
-        else:
-            return Result.TextTupleResult(error=True, info='Illegal mode', result=())
+        # 获取作品文件列表
+        file_list_result = await self.get_file_list(page_limit=page_limit, url_type=url_type)
+        if file_list_result.error:
+            return Result.TupleResult(
+                error=True, info=f'Getting illust file list failed, error: {file_list_result.info}', result=())
 
-        if img_result.error:
-            return Result.TextTupleResult(
-                error=True, info=f'Getting img failed, error: {img_result.info}', result=())
-
-        info_msg_result = await self.get_format_info_msg()
+        # 获取作品描述信息
+        info_msg_result = await self.get_format_info_msg(desc_len=desc_len)
         if info_msg_result.error:
-            return Result.TextTupleResult(
-                error=True, info=f'Getting info msg failed, error: {info_msg_result.info}', result=())
+            return Result.TupleResult(
+                error=True, info=f'Getting illust info msg failed, error: {info_msg_result.info}', result=())
 
-        return Result.TextTupleResult(error=False, info='Success', result=(img_result.result, info_msg_result.result))
+        return Result.TupleResult(error=False, info='Success', result=(file_list_result.result, info_msg_result.result))
 
     def __load_ugoira_pics(self, file_path: str) -> Dict[str, bytes]:
         if not self.__is_data_loaded:
@@ -657,8 +727,6 @@ class PixivIllust(Pixiv):
 
             download_result = await fetcher.download_file(url=download_url_list[0], path=file_path, file_name=file_name)
             if download_result.success():
-                self.__is_downloaded = True
-                self.__downloaded_file_path = download_result.result
                 return Result.TextResult(error=False, info=file_name, result=download_result.result)
             else:
                 return Result.TextResult(error=True, info=download_result.info, result='')
@@ -686,9 +754,6 @@ class PixivIllust(Pixiv):
 
             # 打包
             zip_result = await create_zip_file(files=downloaded_list, file_path=file_path, file_name=str(self.__pid))
-            if zip_result.success():
-                self.__is_downloaded = True
-                self.__downloaded_file_path = zip_result.result
             return zip_result
         else:
             return Result.TextResult(error=True, info='Get illust url failed', result='')
