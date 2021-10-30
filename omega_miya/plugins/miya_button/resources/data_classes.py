@@ -2,9 +2,12 @@ import os
 import random
 from dataclasses import dataclass
 from typing import Optional, List
+from nonebot import get_driver
 
 
-VOICES_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'voices'))
+__global_config = get_driver().config
+RESOURCES_PATH = __global_config.resources_path_
+VOICES_FOLDER = os.path.abspath(os.path.join(RESOURCES_PATH, 'audio', 'buttom_voices'))
 
 
 @dataclass
