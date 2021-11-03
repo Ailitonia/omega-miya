@@ -25,6 +25,7 @@ TMP_PATH = __global_config.tmp_path_
 RESOURCES_PATH = __global_config.resources_path_
 plugin_config = Config(**__global_config.dict())
 ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
+ENABLE_GENERATE_GIF = plugin_config.enable_generate_gif
 
 
 # Custom plugin usage text
@@ -167,7 +168,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         illust_type = illust_data_result.result.get('illust_type')
         await pixiv.send('稍等, 正在下载图片~')
         illust_info_result = await illust.get_format_info_msg()
-        if illust_type == 2:
+        if illust_type == 2 and ENABLE_GENERATE_GIF:
             # 动图作品生成动图后发送
             illust_result = await illust.get_ugoira_gif_filepath()
         else:
