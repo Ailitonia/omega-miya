@@ -14,7 +14,7 @@ from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot, Result
 from omega_miya.utils.omega_plugin_utils import \
-    init_export, init_processor_state, PluginCoolDown, PermissionChecker, PicEncoder, MsgSender, ProcessUtils
+    init_export, init_processor_state, PluginCoolDown, PermissionChecker, MsgSender, ProcessUtils
 from omega_miya.utils.pixiv_utils import PixivIllust
 from PIL import Image, ImageDraw, ImageFont
 from .config import Config
@@ -365,14 +365,13 @@ async def __preview_search_illust(
     """
     illust_list = search_result.result
     # 加载图片
-    tasks = [PicEncoder(pic_url=x.get('thumb_url'), headers=PixivIllust.HEADERS
-                        ).get_file(folder_flag='pixiv_search_thumb') for x in illust_list]
+    tasks = [PixivIllust(pid=x.get('pid')).get_file(url_type='thumb_mini') for x in illust_list]
     thumb_img_result = await ProcessUtils.fragment_process(tasks=tasks, fragment_size=20, log_flag='pixiv_search_thumb')
     if not thumb_img_result:
         return Result.TextResult(error=True, info='Not result', result='')
 
     def __handle() -> str:
-        size = (250, 250)
+        size = (256, 256)
         thumb_w, thumb_h = size
         font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'fzzxhk.ttf'))
         font_main = ImageFont.truetype(font_path, thumb_w // 15)
@@ -391,7 +390,7 @@ async def __preview_search_illust(
             # 处理单个缩略图
             draw_: Image.Image = Image.open(re.sub(r'^file:///', '', img_result.result))
             if draw_.size != size:
-                draw_.resize(size)
+                draw_ = draw_.resize(size, Image.ANTIALIAS)
 
             # 确认缩略图单行位置
             seq = index % line_num
