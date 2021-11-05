@@ -195,7 +195,8 @@ class Pixiv(object):
             *,
             near_year: bool = False,
             nsfw: bool = False,
-            page: int = 1
+            page: int = 1,
+            blt: Optional[int] = None
     ) -> Result.DictListResult:
         """
         :param word: 搜索内容
@@ -203,6 +204,7 @@ class Pixiv(object):
         :param near_year: 是否筛选近一年的作品
         :param nsfw: 是否允许nsfw内容
         :param page: 解析搜索结果页码
+        :param blt: 筛选收藏数
         :return: List[dict], 作品信息列表
         """
         kwarg = {
@@ -217,6 +219,10 @@ class Pixiv(object):
             last_year_today = datetime.now() - timedelta(days=365)
             kwarg.update({
                 'scd_': last_year_today
+            })
+        if blt:
+            kwarg.update({
+                'blt_': blt
             })
         if nsfw:
             kwarg.update({

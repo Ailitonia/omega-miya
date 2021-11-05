@@ -199,6 +199,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         near_year_ = True
         nsfw_ = False
         page_ = 1
+        blt_ = None
         if filter_ := re.search(r'^(#(.+?)#)', mode):
             text_ = re.sub(r'^(#(.+?)#)', '', mode).strip()
             filter_text = filter_.groups()[1]
@@ -222,9 +223,12 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             if page_text := re.search(r'第(\d+?)页', filter_text):
                 page_ = int(page_text.groups()[0])
 
+            if bkm_text := re.search(r'(\d+?)收藏', filter_text):
+                blt_ = int(bkm_text.groups()[0])
+
         logger.debug(f'搜索Pixiv作品: {text_}')
         search_result = await PixivIllust.search_artwork(
-            word=text_, popular_order=popular_order_, near_year=near_year_, nsfw=nsfw_, page=page_)
+            word=text_, popular_order=popular_order_, near_year=near_year_, nsfw=nsfw_, page=page_, blt=blt_)
 
         if search_result.error or not search_result.result:
             logger.warning(f'搜索Pixiv时没有找到相关作品, 或发生了意外的错误, result: {repr(search_result)}')
