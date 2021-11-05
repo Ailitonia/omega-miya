@@ -194,7 +194,7 @@ class Pixiv(object):
             popular_order: bool = True,
             *,
             near_year: bool = False,
-            nsfw: bool = False,
+            nsfw: int = 0,
             page: int = 1,
             blt: Optional[int] = None
     ) -> Result.DictListResult:
@@ -202,7 +202,7 @@ class Pixiv(object):
         :param word: 搜索内容
         :param popular_order: 是否按热度排序
         :param near_year: 是否筛选近一年的作品
-        :param nsfw: 是否允许nsfw内容
+        :param nsfw: 是否允许nsfw内容 0: safe, 1: all. 2: r18 only
         :param page: 解析搜索结果页码
         :param blt: 筛选收藏数
         :return: List[dict], 作品信息列表
@@ -224,9 +224,13 @@ class Pixiv(object):
             kwarg.update({
                 'blt_': blt
             })
-        if nsfw:
+        if nsfw == 1:
             kwarg.update({
                 'mode_': 'all'
+            })
+        elif nsfw == 2:
+            kwarg.update({
+                'mode_': 'r18'
             })
         else:
             kwarg.update({

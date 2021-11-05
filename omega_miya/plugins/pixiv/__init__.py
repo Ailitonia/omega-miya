@@ -197,7 +197,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         text_ = mode
         popular_order_ = True
         near_year_ = True
-        nsfw_ = False
+        nsfw_ = 0
         page_ = 1
         blt_ = None
         if filter_ := re.search(r'^(#(.+?)#)', mode):
@@ -212,7 +212,14 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                     await pixiv.finish('NSFW禁止! 不准开车车!')
                     return
                 else:
-                    nsfw_ = True
+                    nsfw_ = 1
+            elif re.match(r'[Rr]-?18[Oo]nly', filter_text):
+                if auth_checker != 1:
+                    logger.warning(f"User: {event.user_id} 搜索Pixiv nsfw资源 {mode} 被拒绝, 没有 allow_r18 权限")
+                    await pixiv.finish('NSFW禁止! 不准开车车!')
+                    return
+                else:
+                    nsfw_ = 2
 
             if '时间不限' in filter_text:
                 near_year_ = False
@@ -242,7 +249,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
 
         img_path = pathlib.Path(preview_result.result).as_uri()
 
-        if nsfw_:
+        if nsfw_ >= 1:
             # nsfw 作品自动撤回
             await MsgSender(bot=bot, log_flag='PixivSearch').safe_send_msgs_and_recall(
                 event=event, message_list=[MessageSegment.image(img_path)], recall_time=30)
