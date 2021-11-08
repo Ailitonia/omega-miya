@@ -95,18 +95,18 @@ class Pixiv(object):
                 error=True, info=f'Getting ranking data error, {ranking_result.result}', result={})
 
         result = {}
-        for num in range(len(ranking_data)):
+        for index, data in enumerate(ranking_data):
             try:
-                illust_id = ranking_data[num].get('illust_id')
-                illust_title = ranking_data[num].get('title')
-                illust_uname = ranking_data[num].get('user_name')
-                result.update({num: {
+                illust_id = data.get('illust_id')
+                illust_title = data.get('title')
+                illust_uname = data.get('user_name')
+                result.update({index: {
                     'illust_id': illust_id,
                     'illust_title': illust_title,
                     'illust_uname': illust_uname
                 }})
             except Exception as e:
-                logger.debug(f'Pixiv | Getting ranking data error at {num}, ignored. {repr(e)},')
+                logger.debug(f'Pixiv | Getting ranking data error at {index}, ignored. {repr(e)},')
                 continue
         return Result.DictResult(error=False, info='Success', result=result)
 
@@ -418,7 +418,8 @@ class PixivIllust(Pixiv):
         else:
             illust_data_result = await self.get_illust_data()
             if illust_data_result.error:
-                return Result.BytesResult(error=True, info='Fetch illust data failed', result=b'')
+                return Result.BytesResult(
+                    error=True, info=f'Fetch illust data failed, {illust_data_result.info}', result=b'')
             illust_data = dict(illust_data_result.result)
 
         # 根据参数获取作品链接
@@ -439,7 +440,7 @@ class PixivIllust(Pixiv):
         fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='pixiv_utils_load_resource', headers=headers)
         bytes_result = await fetcher.get_bytes(url=url)
         if bytes_result.error:
-            return Result.BytesResult(error=True, info='Resource loaded failed', result=b'')
+            return Result.BytesResult(error=True, info=f'Resource loaded failed, {bytes_result.info}', result=b'')
         else:
             return Result.BytesResult(error=False, info='Success', result=bytes_result.result)
 
@@ -535,7 +536,8 @@ class PixivIllust(Pixiv):
         else:
             illust_data_result = await self.get_illust_data()
             if illust_data_result.error:
-                return Result.TextListResult(error=True, info='Fetch illust data failed', result=[])
+                return Result.TextListResult(
+                    error=True, info=f'Fetch illust data failed, {illust_data_result.info}', result=[])
             illust_data = dict(illust_data_result.result)
 
         page_count: int = illust_data.get('page_count', None)
@@ -568,7 +570,8 @@ class PixivIllust(Pixiv):
         else:
             illust_data_result = await self.get_illust_data()
             if illust_data_result.error:
-                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+                return Result.TextResult(
+                    error=True, info=f'Fetch illust data failed, {illust_data_result.info}', result='')
             illust_data = dict(illust_data_result.result)
 
         title = illust_data.get('title')
@@ -701,7 +704,8 @@ class PixivIllust(Pixiv):
         else:
             illust_data_result = await self.get_illust_data()
             if illust_data_result.error:
-                return Result.TextResult(error=True, info='Fetch illust data failed', result='')
+                return Result.TextResult(
+                    error=True, info=f'Fetch illust data failed, {illust_data_result.info}', result='')
             illust_data = dict(illust_data_result.result)
 
         download_url_list = []
@@ -771,7 +775,7 @@ class PixivIllust(Pixiv):
     async def get_recommend(self, *, init_limit: int = 18, lang: str = 'zh') -> Result.DictResult:
         """
         获取作品对应的相关作品推荐
-        :param init_limit: 初始化作品推荐时首次加载的作品数量
+        :param init_limit: 初始化作品推荐时首次加载的作品数量, 默认 18, 最大 180
         :param lang: 语言
         :return: DictResult
             illusts: List[Dict], 首次加载的推荐作品的详细信息
