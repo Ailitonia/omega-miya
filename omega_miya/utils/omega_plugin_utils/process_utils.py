@@ -34,7 +34,7 @@ class ProcessUtils(object):
             raise ValueError('Param "tasks" must not be None')
         all_count = len(tasks)
         if all_count <= 0:
-            raise ValueError('Param "tasks" must not be null')
+            return ()
         # 判断分割数
         if fragment_size is None:
             fragment_size = all_count
@@ -52,25 +52,43 @@ class ProcessUtils(object):
         fragment_count = len(fragment_list)
 
         # 执行进度及统计计数
+        error_tag = False
+        error_count = 0
         process_rate_count = 0
         # 最终返回的结果
         result = []
         # 每个切片打包一个任务
-        for fragment in fragment_list:
+        for index, fragment in enumerate(fragment_list):
             # 进行异步处理
             try:
                 _result = await asyncio.gather(*fragment, return_exceptions=return_exceptions)
                 result.extend(_result)
             except Exception as e:
-                logger.error(f'Fragment process | {log_flag} processing error occurred in task: {repr(e)}, '
-                             f'other tasks will continue to run')
+                logger.error(f'Fragment process | {log_flag} processing error occurred in fragment({index}), '
+                             f'error info: {repr(e)}, other tasks will continue to run')
+                result.extend([Exception('return exceptions')] * len(fragment))
+                error_tag = True
+                error_count += 1
                 continue
 
             # 显示进度
             process_rate_count += 1
             logger.info(f'Fragment process | {log_flag} processing: {process_rate_count}/{fragment_count}')
 
-        logger.success(f'Fragment process | {log_flag} process complete, total tasks: {all_count}')
+        for index, item in enumerate(result):
+            if isinstance(item, Exception):
+                logger.error(f'Fragment process | {log_flag} processing occur an error in task({index}), '
+                             f'error info: {repr(item)}')
+                error_tag = True
+                error_count += 1
+
+        if error_tag:
+            logger.opt(colors=True).warning(
+                f'Fragment process | {log_flag} <lg>processing complete</lg>, '
+                f'<ly>but some error occurred in some task(s)</ly>, total tasks: {all_count}, error(s): {error_count}')
+        else:
+            logger.opt(colors=True).success(
+                f'Fragment process | {log_flag} <lg>processing complete successful</lg>, total tasks: {all_count}')
         return tuple(result)
 
 
