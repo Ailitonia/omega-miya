@@ -75,7 +75,7 @@ async def dynamic_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour=None,
-    minute='*/5',
+    minute='*/3',
     # second='*/30',
     # start_date=None,
     # end_date=None,
@@ -179,7 +179,7 @@ async def pixiv_user_artwork_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(CHECKING_POOL)
 
-        # 默认单次检查并发数为50, 默认检查间隔为5min
+        # 默认单次检查并发数为50, 默认检查间隔为3min
         logger.debug(f'Pixiv user artwork checker pool mode debug info, Before checking_pool: {CHECKING_POOL}')
         if waiting_num >= 50:
             # 抽取检查对象
@@ -193,28 +193,18 @@ async def pixiv_user_artwork_monitor():
         logger.debug(f'Pixiv user artwork checker pool mode debug info, now_checking: {now_checking}')
 
         # 检查now_checking里面的直播间(异步)
-        tasks = []
-        for uid in now_checking:
-            tasks.append(check_user_artwork(user_id=uid))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"pixiv_user_artwork_monitor: pool mode enable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in now_checking])}.")
-        except Exception as e:
-            logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+        tasks = [check_user_artwork(user_id=uid) for uid in now_checking]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='pixiv_user_artwork_monitor_pool_mode_enabled')
+        logger.debug(f"pixiv_user_artwork_monitor: pool mode enable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in now_checking])}.")
 
     # 没有启用检查池模式
     else:
         # 检查所有在订阅表里面的画师作品(异步)
-        tasks = []
-        for uid in check_sub:
-            tasks.append(check_user_artwork(user_id=uid))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"pixiv_user_artwork_monitor: pool mode disable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in check_sub])}.")
-        except Exception as e:
-            logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+        tasks = [check_user_artwork(user_id=uid) for uid in check_sub]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='pixiv_user_artwork_monitor_pool_mode_disabled')
+        logger.debug(f"pixiv_user_artwork_monitor: pool mode disable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in check_sub])}.")
 
 
 # 用于首次订阅时刷新数据库信息

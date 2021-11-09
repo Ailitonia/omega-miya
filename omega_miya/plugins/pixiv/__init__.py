@@ -135,12 +135,12 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         for rank, illust_data in dict(rank_result.result).items():
             if index_ <= rank < index_ + 10:
                 tasks.append(__handle_ranking_msg(rank=(50 * index_r + rank), illust_data=illust_data))
-        ranking_msg_result = list(await asyncio.gather(*tasks))
+        ranking_msg_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='PixivRanking')
 
         # 根据ENABLE_NODE_CUSTOM处理消息发送
         if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
             msg_sender = MsgSender(bot=bot, log_flag='PixivRanking')
-            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=ranking_msg_result)
+            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=list(ranking_msg_result))
         else:
             for msg_seg in ranking_msg_result:
                 try:

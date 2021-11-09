@@ -1,8 +1,7 @@
-import asyncio
 from nonebot import logger, require, get_bots, get_driver
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.database import DBSubscription, DBPixivision
-from omega_miya.utils.omega_plugin_utils import MsgSender
+from omega_miya.utils.omega_plugin_utils import MsgSender, ProcessUtils
 from omega_miya.utils.pixiv_utils import PixivIllust, PixivisionArticle
 from .utils import pixivsion_article_parse
 from .config import Config
@@ -100,10 +99,8 @@ async def pixivision_monitor():
                 await msg_sender.safe_broadcast_groups_subscription(subscription=subscription, message=msg)
 
             # 处理article中图片内容
-            tasks = []
-            for pid in article_data['illusts_list']:
-                tasks.append(PixivIllust(pid=pid).get_file())
-            p_res = await asyncio.gather(*tasks)
+            tasks = [PixivIllust(pid=pid).get_file() for pid in article_data['illusts_list']]
+            p_res = await ProcessUtils.fragment_process(tasks=tasks, log_flag='pixivision_monitor')
             image_error = 0
 
             if ENABLE_NODE_CUSTOM:

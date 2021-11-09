@@ -1,4 +1,3 @@
-import asyncio
 import time
 from dataclasses import dataclass
 from typing import List, Union
@@ -7,7 +6,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.database import DBSubscription, DBHistory, Result
 from omega_miya.utils.bilibili_utils import BiliLiveRoom, BiliUser, BiliRequestUtils, BiliInfo
-from omega_miya.utils.omega_plugin_utils import MsgSender
+from omega_miya.utils.omega_plugin_utils import MsgSender, ProcessUtils
 
 
 # 初始化直播间标题, 状态
@@ -74,14 +73,9 @@ class BiliLiveChecker(object):
 
         logger.opt(colors=True).info('init_live_info: <y>初始化B站直播间监控列表...</y>')
 
-        tasks = []
         sub_res = await DBSubscription.list_sub_by_type(sub_type=1)
-        for sub_id in sub_res.result:
-            tasks.append(BiliLiveChecker(room_id=int(sub_id)).init_live_info())
-        try:
-            await asyncio.gather(*tasks)
-        except Exception as e:
-            logger.error(f'bilibili_live_monitor: init live info failed, error: {repr(e)}')
+        tasks = [BiliLiveChecker(room_id=int(sub_id)).init_live_info() for sub_id in sub_res.result]
+        await ProcessUtils.fragment_process(tasks=tasks, fragment_size=20, log_flag='bilibili_live_monitor_init')
         logger.opt(colors=True).info('init_live_info: <g>B站直播间监控列表初始化完成.</g>')
 
     @classmethod

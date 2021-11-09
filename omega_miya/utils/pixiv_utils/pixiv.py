@@ -328,7 +328,7 @@ class PixivIllust(Pixiv):
                 except Exception as e:
                     logger.debug(f'PixivIllust | Tag "{tag}" has not translation, ignored. {str(e)},')
                     continue
-            if 'R-18' in illusttag:
+            if 'R-18' in illusttag:  # TODO 优化对 r18 作品的判断
                 is_r18 = True
             elif 'R-18G' in illusttag:
                 is_r18 = True
@@ -751,7 +751,7 @@ class PixivIllust(Pixiv):
                 if not file_name:
                     file_name = f'{self.__pid}.tmp'
                 tasks.append(fetcher.download_file(url=url, path=file_path, file_name=file_name))
-            download_result = await asyncio.gather(*tasks)
+            download_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='PixivUtilsDownloadIllust')
             downloaded_list = [x.result for x in download_result if x.success()]
             failed_num = len([x for x in download_result if x.error])
             if len(downloaded_list) != len(download_url_list):

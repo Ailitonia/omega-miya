@@ -1,5 +1,4 @@
 import random
-import asyncio
 from nonebot import on_command, logger, get_driver
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
@@ -8,8 +7,8 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot
-from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
-                                                 PicEncoder, PermissionChecker, PluginCoolDown, MsgSender)
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state, PermissionChecker, PluginCoolDown,
+                                                 PicEncoder, MsgSender, ProcessUtils)
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -279,7 +278,7 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
     await recommend_image.send('稍等, 正在获取相似作品~')
     pid_list = [x.get('id') for x in recommend_result.result.get('illusts') if x.get('illustType') == 0]
     tasks = [PixivIllust(pid=x).get_illust_data() for x in pid_list]
-    recommend_illust_data_result = await asyncio.gather(*tasks)
+    recommend_illust_data_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='get_recommend_image')
 
     # 执行 r18 权限检查
     if isinstance(event, PrivateMessageEvent):
@@ -320,7 +319,7 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
 
     # 直接下载图片
     tasks = [x.get_sending_msg() for x in illust_list]
-    illust_download_result = await asyncio.gather(*tasks)
+    illust_download_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='download_recommend_image')
 
     image_seg_list = []
     for img_list, info in [x.result for x in illust_download_result if x.success()]:

@@ -1,5 +1,4 @@
 import re
-import asyncio
 import os
 import json
 import random
@@ -8,7 +7,7 @@ import aiofiles
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
 from nonebot import logger, get_driver
-from omega_miya.utils.omega_plugin_utils import HttpFetcher, create_7z_file
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, create_7z_file
 from omega_miya.database import Result
 
 global_config = get_driver().config
@@ -209,32 +208,30 @@ class NhentaiGallery(Nhentai):
         })
         fetcher = HttpFetcher(timeout=30, flag='nhentai_download_image', headers=headers)
 
-        # 每个切片任务数量为10, 每个切片打包一个任务
-        pool = 10
+        # 产生请求序列
         downloaded_list = []
         failed_num = 0
-        for i in range(0, total_page_count, pool):
-            # 产生请求序列
-            tasks = []
-            for page in gallery_pages[i:i + pool]:
-                logger.debug(f'Nhentai | Downloading: {self.gallery_id}/{page} ...')
-                url = f'https://i.nhentai.net/galleries/{media_id}/{page.index}.{page.type_}'
-                file_name = os.path.basename(url)
-                if not file_name:
-                    file_name = f'{page.index}.tmp'
+        tasks = []
+        for page in gallery_pages:
+            logger.debug(f'Nhentai | Downloading: {self.gallery_id}/{page} ...')
+            url = f'https://i.nhentai.net/galleries/{media_id}/{page.index}.{page.type_}'
+            file_name = os.path.basename(url)
+            if not file_name:
+                file_name = f'{page.index}.tmp'
 
-                # 检测文件是否已经存在避免重复下载
-                if os.path.exists(os.path.abspath(os.path.join(file_path, file_name))):
-                    downloaded_list.append(os.path.abspath(os.path.join(file_path, file_name)))
-                    logger.debug(f'Nhentai | File: {self.gallery_id}/{file_name} exists, pass.')
-                    continue
+            # 检测文件是否已经存在避免重复下载
+            if os.path.exists(os.path.abspath(os.path.join(file_path, file_name))):
+                downloaded_list.append(os.path.abspath(os.path.join(file_path, file_name)))
+                logger.debug(f'Nhentai | File: {self.gallery_id}/{file_name} exists, pass.')
+                continue
 
-                tasks.append(fetcher.download_file(url=url, path=file_path, file_name=file_name))
+            tasks.append(fetcher.download_file(url=url, path=file_path, file_name=file_name))
 
-            # 开始下载
-            download_result = await asyncio.gather(*tasks)
-            downloaded_list.extend([x.result for x in download_result if x.success()])
-            failed_num += len([x for x in download_result if x.error])
+        # 开始下载
+        download_result = await ProcessUtils.fragment_process(
+            tasks=tasks, fragment_size=10, log_flag='Nhentai download gallery')
+        downloaded_list.extend([x.result for x in download_result if x.success()])
+        failed_num += len([x for x in download_result if x.error])
 
         logger.debug(f'Nhentai | Gallery download completed, succeed: {downloaded_list}, failed number: {failed_num}')
         if failed_num > 0:
