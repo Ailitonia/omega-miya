@@ -177,11 +177,11 @@ class DBPixivillust(object):
     @classmethod
     async def rand_illust(
             cls,
-            num: int,
-            nsfw_tag: int,
+            num: Optional[int] = 3,
+            nsfw_tag: int = 0,
             *,
             ratio: Optional[int] = None,
-            order_mode: str = 'random'
+            order_mode: Optional[str] = 'random'
     ) -> Result.ListResult:
         """
         随机抽取图库中的作品
@@ -253,12 +253,12 @@ class DBPixivillust(object):
     async def list_illust(
             cls,
             keywords: Optional[List[str]],
-            num: int,
-            nsfw_tag: int,
+            num: Optional[int] = 3,
+            nsfw_tag: int = 0,
             *,
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: str = 'random'
+            order_mode: Optional[str] = 'random'
     ) -> Result.ListResult:
         """
         根据关键词获取作品
@@ -326,9 +326,12 @@ class DBPixivillust(object):
                     elif order_mode == 'create_time_desc':
                         query = query.order_by(desc(Pixiv.created_at))
                     else:
-                        query = query.order_by(func.random())
+                        pass
                     # 结果数量限制
-                    query = query.limit(num)
+                    if num is None:
+                        pass
+                    else:
+                        query = query.limit(num)
                     # 执行查询
                     session_result = await session.execute(query)
                     res = [x for x in session_result.scalars().all()]

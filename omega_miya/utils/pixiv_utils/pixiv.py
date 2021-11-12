@@ -303,6 +303,7 @@ class PixivIllust(Pixiv):
             width = int(illust_data['body']['width'])
             height = int(illust_data['body']['height'])
             page_count = int(illust_data['body']['pageCount'])
+            sanity_level = int(illust_data['body']['xRestrict'])
             illust_orig_url = str(illust_data['body']['urls']['original'])
             illust_regular_url = str(illust_data['body']['urls']['regular'])
             illust_description = str(illust_data['body']['description'])
@@ -328,12 +329,16 @@ class PixivIllust(Pixiv):
                 except Exception as e:
                     logger.debug(f'PixivIllust | Tag "{tag}" has not translation, ignored. {str(e)},')
                     continue
-            if 'R-18' in illusttag:  # TODO 优化对 r18 作品的判断
+
+            is_r18 = False
+            # 判断 R-18
+            for tag in illusttag:
+                if re.match(r'^[Rr]-18[Gg]?$', tag):
+                    is_r18 = True
+                    break
+
+            if sanity_level >= 1:
                 is_r18 = True
-            elif 'R-18G' in illusttag:
-                is_r18 = True
-            else:
-                is_r18 = False
 
             # 处理图片列表
             all_url = {
@@ -393,6 +398,7 @@ class PixivIllust(Pixiv):
                 'ugoira_meta': ugoira_meta,
                 'description': illust_description,
                 'tags': illusttag,
+                'sanity_level': sanity_level,
                 'is_r18': is_r18
             }
 
