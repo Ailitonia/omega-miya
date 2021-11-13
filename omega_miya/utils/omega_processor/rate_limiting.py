@@ -23,7 +23,7 @@ global_config = get_driver().config
 SUPERUSERS = global_config.superusers
 
 # 速率限制次数阈值, 触发超过该次数后启用限制
-RATE_LIMITING_THRESHOLD: int = 5
+RATE_LIMITING_THRESHOLD: int = 8
 # 速率限制时间阈值, 判断连续消息触发的时间间隔小于该值, 单位为秒, 判断依据时间戳为标准
 RATE_LIMITING_TIME: float = 1.0
 # 启用后判断依据将以处理时的系统时间戳为准, 而不是上报 event 的时间戳
@@ -79,10 +79,11 @@ async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_Sta
     over_limiting_count = RATE_LIMITING_COUNT.get(user_id, 0)
 
     # 进行速率判断
-    if this_msg_timestamp - last_msg_timestamp < RATE_LIMITING_TIME:
-        # 小于时间阈值则计数 +1
+    if this_msg_timestamp - last_msg_timestamp <= RATE_LIMITING_TIME:
+        # 小于等于时间阈值则计数 +1
         over_limiting_count += 1
-        logger.info(f'Rate Limiting | User: {user_id} over rate limiting, counting {over_limiting_count}')
+        logger.info(f'Rate Limiting | User: {user_id} over rate limiting, '
+                    f'counting {over_limiting_count}/{RATE_LIMITING_THRESHOLD}')
     else:
         # 否则重置计数
         over_limiting_count = 0
