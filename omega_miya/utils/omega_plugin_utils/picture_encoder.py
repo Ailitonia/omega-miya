@@ -66,6 +66,14 @@ class PicEncoder(object):
         self.__headers = headers
         self.__params = params
 
+    async def get_bytes(self) -> Result.BytesResult:
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_bytes', headers=self.__headers)
+        bytes_result = await fetcher.get_bytes(url=self.__pic_url)
+        if bytes_result.error:
+            return Result.BytesResult(error=True, info='Image download failed', result=b'')
+
+        return Result.BytesResult(error=False, info=bytes_result.info, result=bytes_result.result)
+
     async def get_base64(self) -> Result.TextResult:
         fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_base64', headers=self.__headers)
         bytes_result = await fetcher.get_bytes(url=self.__pic_url)
