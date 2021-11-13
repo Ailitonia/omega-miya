@@ -1,12 +1,18 @@
-from nonebot import on_command, logger
+from nonebot import on_command, get_driver, logger
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
-from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
+from nonebot.adapters.cqhttp import MessageSegment
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder, MsgSender
+from .config import Config
 from .utils import get_identify_result
+
+
+__global_config = get_driver().config
+plugin_config = Config(**__global_config.dict())
+ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 
 
 # Custom plugin usage text
@@ -104,7 +110,8 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
         logger.warning(f"{group_id} / {event.user_id} 使用了search_anime, 但没有找到相似的番剧")
         await search_anime.finish('没有找到与截图相似度足够高的番剧QAQ')
 
-    for item in res.result:
+    msg_list = []
+    for index, item in enumerate(res.result):
         try:
             filename = item.get('filename')
             episode = item.get('episode')
@@ -122,14 +129,20 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
                 msg = f"识别结果:\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
                       f"相似度: {int(similarity*100)}\n\n来源文件: {filename}\n集数: 【{episode}】\n" \
                       f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}"
-                await search_anime.send(msg)
+                msg_list.append(msg)
             else:
                 img_seg = MessageSegment.image(img_result.result)
                 msg = f"识别结果:\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
                       f"相似度: {int(similarity*100)}\n\n来源文件: {filename}\n集数: 【{episode}】\n" \
-                      f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}"
-                await search_anime.send(Message(msg).append(img_seg))
+                      f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}\n" + img_seg
+                msg_list.append(msg)
         except Exception as e:
-            logger.error(f"{group_id} / {event.user_id} 使用命令search_anime时发生了错误: {repr(e)}")
+            logger.error(f"SearchAnime | 处理识别结果({index})时发生了错误: {repr(e)}, 已跳过")
             continue
-    logger.info(f"{group_id} / {event.user_id} 使用search_anime进行了一次搜索")
+
+    msg_sender = MsgSender(bot=bot, log_flag='SearchAnime')
+    if isinstance(event, GroupMessageEvent) and ENABLE_NODE_CUSTOM:
+        await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=msg_list)
+    else:
+        await msg_sender.safe_send_msgs(event=event, message_list=msg_list)
+    logger.info(f"SearchAnime | {group_id} / {event.user_id} 进行了一次搜索")
