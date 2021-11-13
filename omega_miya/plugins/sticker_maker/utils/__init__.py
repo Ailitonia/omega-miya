@@ -35,6 +35,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'jichou': stick_maker_static_jichou,
         'phlogo': stick_maker_static_phlogo,
         'jiangzhuang': stick_maker_static_jiangzhuang,
+        'xibaoh': stick_maker_static_xibaoh,
+        'xibaos': stick_maker_static_xibaos,
         'petpet': stick_maker_temp_petpet
     }
 
@@ -52,6 +54,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'jichou': 'SourceHanSans_Regular.otf',
         'phlogo': 'SourceHanSans_Heavy.otf',
         'jiangzhuang': 'HanYiWeiBeiJian.ttf',
+        'xibaoh': 'HanYiWeiBeiJian.ttf',
+        'xibaos': 'SourceHanSerif-Bold.ttc',
         'petpet': 'SourceHanSans_Regular.otf'
     }
 
@@ -69,6 +73,8 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
         'jichou': 512,
         'phlogo': 512,
         'jiangzhuang': 1024,
+        'xibaoh': 1024,
+        'xibaos': 1024,
         'petpet': 512
     }
 

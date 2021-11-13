@@ -49,7 +49,9 @@ sticker = on_command(
 # 修改默认参数处理
 @sticker.args_parser
 async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_message()).strip()
+    args = event.get_plaintext().strip()
+    if not args:
+        args = str(event.get_message()).strip()
     if not args:
         await sticker.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args
@@ -84,6 +86,8 @@ async def handle_sticker(bot: Bot, event: MessageEvent, state: T_State):
         '记仇': {'name': 'jichou', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         'ph': {'name': 'phlogo', 'type': 'static', 'text_part': 1, 'help_msg': '两部分文字中间请用空格隔开'},
         '奖状': {'name': 'jiangzhuang', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '喜报横版': {'name': 'xibaoh', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '喜报竖版': {'name': 'xibaos', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
         'petpet': {'name': 'petpet', 'type': 'gif', 'text_part': 0, 'help_msg': '最好使用长宽比接近正方形的图片'}
     }
 
