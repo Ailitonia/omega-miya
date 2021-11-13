@@ -13,6 +13,8 @@ from .gif_render import *
 global_config = get_driver().config
 TMP_PATH = global_config.tmp_path_
 RESOURCES_PATH = global_config.resources_path_
+# 模板素材路径
+RSRC_PATH = os.path.abspath(os.path.join(RESOURCES_PATH, 'images', 'sticker_maker'))
 
 HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/89.0.4389.114 Safari/537.36'}
@@ -75,9 +77,6 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
     if not os.path.exists(sticker_folder_path):
         os.makedirs(sticker_folder_path)
 
-    # 插件路径
-    plugin_src_path = os.path.abspath(os.path.dirname(__file__))
-
     # 字体路径
     font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', sticker_default_font.get(temp)))
     # 检查预置字体
@@ -121,7 +120,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
     # 静态模板模式
     elif sticker_temp_type == 'static':
         # 模板路径
-        static_temp_path = os.path.join(plugin_src_path, 'static', temp)
+        static_temp_path = os.path.join(RSRC_PATH, 'static_template', temp)
 
         # 检查预置背景图
         if not os.path.exists(os.path.join(static_temp_path, 'default_bg.png')):
@@ -148,7 +147,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
     # gif模板模式
     elif sticker_temp_type == 'gif':
         # 模板路径
-        gif_temp_path = os.path.abspath(os.path.join(plugin_src_path, 'gif_template', temp))
+        gif_temp_path = os.path.abspath(os.path.join(RSRC_PATH, 'gif_template', temp))
 
         fetcher = HttpFetcher(timeout=10, flag='sticker_maker_main_default', headers=HEADERS)
         image_result = await fetcher.get_bytes(url=url)
