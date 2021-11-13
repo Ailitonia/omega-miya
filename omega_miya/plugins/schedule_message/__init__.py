@@ -353,6 +353,7 @@ async def init_bot_message_schedule(bot: Bot):
             try:
                 await add_scheduler(group=_bot_group, schedule_name=_name,
                                     mode=_mode, hour=_hour, minute=_minute, repeat=_repeat, message=_message)
+                logger.success(f'Init bot message schedule | 群组: {_bot_group.group_id} 定时消息任务 {_name}, 已添加')
             except Exception as e:
                 logger.error(f'Init bot message schedule failed, '
                              f'为群组: {_bot_group.group_id} 添加群组定时消息任务失败, 添加计划任务时发生错误: {repr(e)}')
@@ -374,11 +375,10 @@ async def remove_bot_message_schedule(bot: Bot):
                          f'get group {_bot_group.group_id} message schedule list failed: {schedule_result.info}')
             continue
         for _name, _mode, _time, _message in schedule_result.result:
-            _repeat, _hour, _minute = [x for x in str(_time).split(':', maxsplit=3)]
-            _hour = int(_hour)
-            _minute = int(_minute)
+            _name = re.sub(r'^ScheduleMsg_', '', str(_name))
             try:
                 await remove_scheduler(group=_bot_group, schedule_name=_name)
+                logger.info(f'Remove bot message schedule | 群组: {_bot_group.group_id} 定时消息任务 {_name}, 已移除')
             except Exception as e:
                 logger.error(f'Remove bot message schedule failed, '
                              f'移除群组: {_bot_group.group_id} 定时消息任务失败, 移除计划任务时发生错误: {repr(e)}')
