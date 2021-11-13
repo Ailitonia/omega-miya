@@ -127,7 +127,10 @@ async def check_flash_img(bot: Bot, event: GroupMessageEvent, state: T_State):
     for msg_seg in event.message:
         if msg_seg.type == 'image':
             if msg_seg.data.get('type') == 'flash':
-                img_file = msg_seg.data.get('file')
+                if msg_seg.data.get('url', None):
+                    img_file = msg_seg.data.get('url')
+                else:
+                    img_file = msg_seg.data.get('file')
                 img_seq = MessageSegment.image(file=img_file)
                 msg = Message('AntiFlash 已检测到闪照:\n').append(img_seq)
                 logger.success(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
