@@ -21,7 +21,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.message import Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from omega_miya.database import DBBot, DBBotGroup, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, MessageTools
 
 
 # Custom plugin usage text
@@ -268,7 +268,9 @@ async def add_scheduler(
         raise ValueError('Can not get Bot')
 
     async def _scheduler_handle():
-        await self_bot.send_group_msg(group_id=group.group_id, message=Message(f'【定时消息】\n{"="*12}\n{message}'))
+        msg = Message(f'【定时消息】\n{"="*12}\n{message}')
+        send_msg = MessageTools(message=msg).safe_message_filter('text', 'image', 'at')
+        await self_bot.send_group_msg(group_id=group.group_id, message=send_msg)
 
     if mode == 'cron':
         if repeat == 'all':
