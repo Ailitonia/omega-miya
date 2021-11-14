@@ -354,9 +354,9 @@ async def __handle_ranking_msg(rank: int, illust_data: dict) -> Optional[Message
 
     image_result = await PixivIllust(pid=illust_id).get_file()
     if image_result.success():
-        msg = f'No.{rank} - ID: {illust_id}\n「{illust_title}」/「{illust_uname}」'
-        img_seg = MessageSegment.image(image_result.result)
-        return Message(img_seg).append(msg)
+        msg = MessageSegment.image(image_result.result) + f'\nNo.{rank} - ID: {illust_id}\n' \
+              f'「{illust_title}」/「{illust_uname}」'
+        return msg
     else:
         logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
         return None

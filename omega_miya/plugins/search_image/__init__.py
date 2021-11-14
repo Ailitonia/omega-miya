@@ -191,8 +191,8 @@ async def handle_result(bot: Bot, event: MessageEvent, state: T_State):
                     msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}"
                     msg_list.append(msg)
                 else:
-                    img_seg = MessageSegment.image(img_result.result)
-                    msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}\n" + img_seg
+                    msg = f"识别结果: {item['index_name']}\n\n" \
+                          f"相似度: {item['similarity']}\n资源链接: {ext_urls}\n" + MessageSegment.image(img_result.result)
                     msg_list.append(msg)
             except Exception as e:
                 logger.warning(f'SearchImage | 处理识别结果({index})时发生了错误: {repr(e)}, 已跳过')

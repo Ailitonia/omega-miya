@@ -8,7 +8,6 @@ from nonebot.typing import T_State
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
-from nonebot.adapters.cqhttp.message import MessageSegment, Message
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupUploadNoticeEvent
 from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
@@ -150,9 +149,7 @@ async def hime_handle(bot: Bot, event: GroupUploadNoticeEvent, state: T_State):
         logger.error(f'下载文件失败: {dl_res.info}')
         await zhoushen_hime.finish()
 
-    at_msg = MessageSegment.at(user_id=user_id)
-    msg = f'{at_msg}你刚刚上传了一份轴呢, 让我来帮你看看吧!'
-    await zhoushen_hime.send(Message(msg))
+    await zhoushen_hime.send('你刚刚上传了一份轴呢, 让我来帮你看看吧!', at_sender=True)
 
     file_path = os.path.abspath(dl_res.result)
     checker = ZhouChecker(file_path=file_path, flash_mode=True)

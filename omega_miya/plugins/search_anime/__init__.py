@@ -131,10 +131,9 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
                       f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}"
                 msg_list.append(msg)
             else:
-                img_seg = MessageSegment.image(img_result.result)
                 msg = f"识别结果:\n\n原始名称:【{title_native}】\n中文名称:【{title_chinese}】\n" \
                       f"相似度: {int(similarity*100)}\n\n来源文件: {filename}\n集数: 【{episode}】\n" \
-                      f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}\n" + img_seg
+                      f"预览图时间位置: {from_} - {to}\n绅士: {is_adult}\n" + MessageSegment.image(img_result.result)
                 msg_list.append(msg)
         except Exception as e:
             logger.error(f"SearchAnime | 处理识别结果({index})时发生了错误: {repr(e)}, 已跳过")

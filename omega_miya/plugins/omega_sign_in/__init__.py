@@ -73,7 +73,7 @@ basic
 init_export(export(), __plugin_custom_name__, __plugin_usage__)
 
 
-SignIn = MatcherGroup(
+SignIn = MatcherGroup(  # TODO 补签功能
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(
@@ -256,11 +256,11 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         logger.info(f'{event.group_id}/{event.user_id} 重复签到, 生成运势卡片, {str(e)}')
         return msg
     except FailedException as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        msg = MessageSegment.at(event.user_id) + '签到失败了QAQ, 请稍后再试或联系管理员处理'
         logger.error(f'{event.group_id}/{event.user_id} 签到失败, {str(e)}')
         return msg
     except Exception as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        msg = MessageSegment.at(event.user_id) + '签到失败了QAQ, 请稍后再试或联系管理员处理'
         logger.error(f'{event.group_id}/{event.user_id} 签到失败, 发生了预期外的错误, {str(e)}')
         return msg
 
@@ -300,6 +300,6 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         logger.info(f'{event.group_id}/{event.user_id} 获取运势卡片成功')
         return msg
     except Exception as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('获取今日运势失败了QAQ, 请稍后再试或联系管理员处理')
+        msg = MessageSegment.at(event.user_id) + '获取今日运势失败了QAQ, 请稍后再试或联系管理员处理'
         logger.error(f'{event.group_id}/{event.user_id} 获取运势卡片失败, 发生了预期外的错误, {str(e)}')
         return msg

@@ -8,10 +8,9 @@
 @Software       : PyCharm 
 """
 
-import asyncio
 import random
 from nonebot import logger, require, get_bots, get_driver
-from nonebot.adapters.cqhttp import MessageSegment, Message
+from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.database import DBSubscription, DBPixivUserArtwork
 from omega_miya.utils.pixiv_utils import PixivUser, PixivIllust
 from omega_miya.utils.omega_plugin_utils import MsgSender, PicEffector, PicEncoder, ProcessUtils
@@ -153,7 +152,7 @@ async def pixiv_user_artwork_monitor():
 
             intro_msg = f'【Pixiv】{uname}发布了新的作品!\n\n'
             info_msg = illust_info_msg_result.result
-            msg = Message(intro_msg).append(img_seg).append(info_msg)
+            msg = intro_msg + img_seg + info_msg
 
             # 向群组和好友推送消息
             for _bot in bots:

@@ -6,7 +6,6 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from .utils import maybe, sp,  sp_event
 # from ._oldalmanac import old_almanac
@@ -123,8 +122,7 @@ async def handle_help_choice(bot: Bot, event: GroupMessageEvent, state: T_State)
     choices = state['choices']
     result = random.choice(str(choices).split())
     result_text = f'''帮你从“{'”，“'.join(str(choices).split())}”中选择了：\n\n“{result}”'''
-    msg = Message(MessageSegment.at(user_id=event.user_id)).append(result_text)
-    await help_choice.finish(msg)
+    await help_choice.finish(result_text, at_sender=True)
 
 
 # almanac = Maybe.command('almanac', aliases={'DD老黄历', 'dd老黄历'})
