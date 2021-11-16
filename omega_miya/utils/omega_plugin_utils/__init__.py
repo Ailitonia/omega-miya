@@ -6,7 +6,7 @@ from .encrypt import AESEncryptStr
 from .cooldown import PluginCoolDown
 from .permission import PermissionChecker
 from .http_fetcher import HttpFetcher
-from .message_tools import MessageDecoder, MessageTools, EventTools
+from .message_tools import MessageDecoder, MessageTools, EventTools, BotTools
 from .message_sender import MsgSender
 from .picture_encoder import PicEncoder
 from .picture_effector import PicEffector
@@ -93,6 +93,7 @@ __all__ = [
     'MessageDecoder',
     'MessageTools',
     'EventTools',
+    'BotTools',
     'MsgSender',
     'PicEncoder',
     'PicEffector',
