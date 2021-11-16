@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 from nonebot import get_driver, require, logger
 from omega_miya.database import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
-from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, TextUtils
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, TextUtils, EventTools
 from .config import Config
 from .fortune import get_fortune
 
@@ -194,7 +194,13 @@ async def get_hitokoto(*, c: Optional[str] = None) -> Result.TextResult:
 
 
 async def generate_sign_in_card(
-        user_id: int, user_text: str, fav: float, *, width: int = 1024, fortune_do: bool = True) -> Result.TextResult:
+        user_id: int,
+        user_text: str,
+        fav: float,
+        *,
+        width: int = 1024,
+        fortune_do: bool = True,
+        add_head_img: bool = False) -> Result.TextResult:
     """
     生成卡片
     :param user_id: 用户id
@@ -202,6 +208,7 @@ async def generate_sign_in_card(
     :param fav: 用户好感度 用户计算等级
     :param width: 生成图片宽度 自适应排版
     :param fortune_do: 是否绘制老黄历当日宜与不宜
+    :param add_head_img: 是否绘制用户头像
     :return: 生成图片地址
     """
     # 获取头图
@@ -214,6 +221,16 @@ async def generate_sign_in_card(
     file_name = os.path.basename(sign_pic_path)
     pid_result = re.search(r'^(\d+?)_p0_master', file_name)
     pid = pid_result.groups()[0] if (pid_result is not None) else None
+
+    # 尝试获取用户头像
+    if add_head_img:
+        head_img_result = await EventTools.get_user_head_img_cm(user_id=user_id)
+        logger.debug(f'Generate sign in card, getting user {user_id} head image...')
+        if head_img_result.error:
+            add_head_img = False
+            logger.error(f'Getting user head image failed in generate sign in card, error: {head_img_result.info}')
+    else:
+        head_img_result = Result.TextResult(error=True, info='Not adding head image', result='')
 
     def __handle():
         # 生成用户当天老黄历
@@ -290,6 +307,9 @@ async def generate_sign_in_card(
                       fortune_text_height * 1 + fortune_star_height * 2 + bottom_text_height * 4 +
                       int(0.1875 * width))
 
+        if add_head_img and head_img_result.success():
+            height += int(0.03125 * width)
+
         # 生成背景
         background = Image.new(
             mode="RGB",
@@ -309,6 +329,27 @@ async def generate_sign_in_card(
                                             stroke_width=1,
                                             stroke_fill=(128, 128, 128),
                                             fill=(224, 224, 224))  # 图片来源
+
+        if add_head_img and head_img_result.success():
+            # 头像要占一定高度
+            top_img_height += int(0.03125 * width)
+            head_image: Image.Image = Image.open(re.sub(r'^file:///', '', head_img_result.result))
+            # 确定头像高度
+            head_image_width = int(width / 5)
+            head_image = head_image.resize((head_image_width, head_image_width))
+            # 头像外框 生成圆角矩形
+            ImageDraw.Draw(background).rounded_rectangle(
+                xy=((int(width * 0.0625 - head_image_width / 20),
+                     (top_img_height - int(head_image_width * 21 / 20 - 0.03125 * width))),
+                    (int(width * 0.0625 + head_image_width * 21 / 20),
+                     (top_img_height + int(head_image_width / 20 + 0.03125 * width)))
+                    ),
+                radius=(width // 100),
+                fill=(255, 255, 255)
+            )
+            # 粘贴头像
+            background.paste(head_image,
+                             box=(int(width * 0.0625), (top_img_height - int(head_image_width - 0.03125 * width))))
 
         this_height = top_img_height + int(0.0625 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),

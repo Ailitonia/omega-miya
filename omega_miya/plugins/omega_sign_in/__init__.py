@@ -241,7 +241,8 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
                     f'当前{FAVORABILITY_ALIAS}: {int(favorability_)}\n' \
                     f'当前{CURRENCY_ALIAS}: {int(currency_)}'
 
-        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text, fav=favorability_)
+        sign_in_card_result = await generate_sign_in_card(
+            user_id=event.user_id, user_text=user_text, fav=favorability_)
         if sign_in_card_result.error:
             raise FailedException(f'生成签到卡片失败, {sign_in_card_result.info}')
 
@@ -292,7 +293,7 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
                     f'当前{CURRENCY_ALIAS}: {int(currency)}'
 
         sign_in_card_result = await generate_sign_in_card(
-            user_id=event.user_id, user_text=user_text, fav=favorability, fortune_do=False)
+            user_id=event.user_id, user_text=user_text, fav=favorability, fortune_do=False, add_head_img=True)
         if sign_in_card_result.error:
             raise FailedException(f'生成运势卡片失败, {sign_in_card_result.info}')
 
