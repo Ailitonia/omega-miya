@@ -17,7 +17,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules, MessageDecoder, BotTools
 from .data_source import ShindanMaker
 
 
@@ -67,6 +67,14 @@ shindan_maker_default = shindan_maker.on_command(
 # 修改默认参数处理
 @shindan_maker_default.args_parser
 async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
+    if state["_current_key"] == 'input_name':
+        at_qq = MessageDecoder(message=event.get_message()).get_all_at_qq()
+        if at_qq:
+            card = await BotTools(bot=bot).get_user_group_card(user_id=at_qq[0], group_id=event.group_id)
+            if card:
+                state['input_name'] = card
+                return
+
     args = str(event.get_plaintext()).strip().split()
     if not args:
         await shindan_maker_default.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
@@ -93,12 +101,9 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     if len(event.message) >= 2:
         if event.message[1].type == 'at':
             at_qq = event.message[1].data.get('qq')
-            group_member_list = await bot.get_group_member_list(group_id=event.group_id)
-            nickname = [x for x in group_member_list if x.get('user_id') == int(at_qq)]
-            if nickname:
-                input_name = nickname[0].get('card') if nickname[0].get('card') else nickname[0].get('nickname')
-                if input_name:
-                    state['input_name'] = input_name
+            card = await BotTools(bot=bot).get_user_group_card(user_id=int(at_qq), group_id=event.group_id)
+            if card:
+                state['input_name'] = card
 
 
 @shindan_maker_default.got('shindan_name', prompt='你想做什么占卜呢?\n不知道的话可以输入关键词进行搜索哦~')
@@ -135,7 +140,6 @@ async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State
 
 @shindan_maker_default.got('input_name', prompt='请输入您想要进行占卜的人名:')
 async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
-    shindan_name = state['shindan_name']
     input_name = state['input_name']
     shindan_id = state['id']
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
@@ -147,7 +151,6 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
         await shindan_maker_default.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
     result_text = result.result.replace(today, '')
-    # msg = f'{shindan_name}@{input_name}\n{"="*16}\n{result_text}'
     await shindan_maker_default.finish(result_text)
 
 
