@@ -213,7 +213,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
                     return
                 else:
                     nsfw_ = 1
-            elif re.match(r'[Rr]-?18[Oo]nly', filter_text):
+            elif re.search(r'[Rr]-?18[Oo]nly', filter_text):
                 if auth_checker != 1:
                     logger.warning(f"User: {event.user_id} 搜索Pixiv nsfw资源 {mode} 被拒绝, 没有 allow_r18 权限")
                     await pixiv.finish('NSFW禁止! 不准开车车!')
