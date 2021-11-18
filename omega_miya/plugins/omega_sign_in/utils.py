@@ -62,7 +62,7 @@ async def __prepare_sign_in_pic() -> Result.TextResult:
                     f'removed pic "{"/".join(del_pic_file_list)}" exceed the limit of cache')
 
     # 获取图片信息并下载图片
-    pic_list_result = await DBPixivillust.rand_illust(num=100, nsfw_tag=0, ratio=1)
+    pic_list_result = await DBPixivillust.rand_illust(num=200, nsfw_tag=0, ratio=1)
     if pic_list_result.error or not pic_list_result.result:
         logger.error(f'Preparing sign in pic failed, DB Error or not result, result: {pic_list_result}')
         return Result.TextResult(error=True, info=pic_list_result.info, result='DB Error or not result')
