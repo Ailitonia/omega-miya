@@ -15,6 +15,7 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.event import Event, MessageEvent
 from nonebot.adapters.cqhttp.bot import Bot
+from .args_parser import preprocessor_args_parser, preprocessor_cancel_parser
 from .plugins import startup_init_plugins, preprocessor_plugins_manager
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
@@ -39,6 +40,8 @@ async def handle_on_startup():
 async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
     # 针对消息事件的处理
     if isinstance(event, MessageEvent):
+        # 处理参数解析
+        await preprocessor_args_parser(bot=bot, event=event, state=state)
         # 处理速率控制
         await preprocessor_rate_limiting(bot=bot, event=event, state=state)
 
@@ -54,6 +57,8 @@ async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, stat
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
         # 处理冷却
         await preprocessor_cooldown(matcher=matcher, bot=bot, event=event, state=state)
+        # 处理取消
+        await preprocessor_cancel_parser(matcher=matcher, bot=bot, event=event, state=state)
 
 
 # 运行后处理
