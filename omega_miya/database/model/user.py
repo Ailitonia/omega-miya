@@ -357,10 +357,15 @@ class DBUser(object):
                 result = Result.IntResult(error=True, info=repr(e), result=-1)
         return result
 
-    async def sign_in(self, *, sign_in_info: Optional[str] = 'Normal sign in') -> Result.IntResult:
+    async def sign_in(
+            self,
+            *,
+            sign_in_info: Optional[str] = 'Normal sign in',
+            date_: Optional[datetime] = None) -> Result.IntResult:
         """
         签到
         :param sign_in_info: 签到信息
+        :param date_: 指定签到日期
         :return: IntResult
             1: 已签到
             0: 签到成功
@@ -370,8 +375,10 @@ class DBUser(object):
         if user_id_result.error:
             return Result.IntResult(error=True, info='User not exist', result=-1)
 
-        datetime_now = datetime.now()
-        date_now = datetime_now.date()
+        if isinstance(date_, datetime):
+            date_now = date_.date()
+        else:
+            date_now = datetime.now().date()
 
         async_session = BaseDB().get_async_session()
         async with async_session() as session:
@@ -437,9 +444,7 @@ class DBUser(object):
         if not sign_in_statistics_result.result:
             return Result.IntResult(error=False, info='Success with sign in not found', result=0)
 
-        datetime_now = datetime.now()
-        date_now = datetime_now.date()
-        date_now_toordinal = date_now.toordinal()
+        date_now_ordinal = datetime.now().date().toordinal()
 
         # 先将签到记录中的日期转化为整数便于比较
         all_sign_in_list = list(set([x.toordinal() for x in sign_in_statistics_result.result]))
@@ -447,16 +452,51 @@ class DBUser(object):
         all_sign_in_list.sort(reverse=True)
 
         # 如果今日日期不等于已签到日期最大值, 说明今日没有签到, 则连签日数为0
-        if date_now_toordinal != all_sign_in_list[0]:
+        if date_now_ordinal != all_sign_in_list[0]:
             return Result.IntResult(error=False, info='Success with not sign in today', result=0)
 
         # 从大到小检查(即日期从后向前检查), 如果当日序号大小大于与今日日期之差, 说明在这里断签了
         for index, value in enumerate(all_sign_in_list):
-            if index != date_now_toordinal - value:
+            if index != date_now_ordinal - value:
                 return Result.IntResult(error=False, info='Success with found interrupt', result=index)
         else:
             # 如果全部遍历完了那就说明全部没有断签
             return Result.IntResult(error=False, info='Success with all continuous', result=len(all_sign_in_list))
+
+    async def sign_in_last_missing_day(self) -> Result.IntResult:
+        """
+        查询上一次断签的时间, 返回 ordinal datetime
+        """
+        sign_in_statistics_result = await self.sign_in_statistics()
+        if sign_in_statistics_result.error:
+            return Result.IntResult(error=True, info=sign_in_statistics_result.info, result=-1)
+
+        date_now_ordinal = datetime.now().date().toordinal()
+
+        # 还没有签到过, 对应断签日期就是今天
+        if not sign_in_statistics_result.result:
+            return Result.IntResult(error=False, info='Success with today not sign in', result=date_now_ordinal)
+
+        # 有签到记录则处理签到记录
+        # 先将签到记录中的日期转化为整数便于比较
+        all_sign_in_list = list(set([x.toordinal() for x in sign_in_statistics_result.result]))
+        # 去重后由大到小排序
+        all_sign_in_list.sort(reverse=True)
+
+        # 如果今日日期不等于已签到日期最大值, 说明今日没有签到, 断签日为今日
+        if date_now_ordinal != all_sign_in_list[0]:
+            return Result.IntResult(error=False, info='Success with not sign in today', result=date_now_ordinal)
+
+        # 从大到小检查(即日期从后向前检查), 如果当日序号大小大于与今日日期之差, 说明在这里断签了
+        # 这里要返回对应最早连签前一天的 ordinal datetime
+        for index, value in enumerate(all_sign_in_list):
+            if index != date_now_ordinal - value:
+                return Result.IntResult(error=False, info='Success with found interrupt',
+                                        result=(all_sign_in_list[index - 1] - 1))
+        else:
+            # 如果全部遍历完了那就说明全部没有返回开始签到的前一天
+            return Result.IntResult(error=False, info='Success with all continuous',
+                                    result=(date_now_ordinal - len(all_sign_in_list)))
 
     async def sign_in_check_today(self) -> Result.IntResult:
         """
