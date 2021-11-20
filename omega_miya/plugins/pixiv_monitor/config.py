@@ -17,7 +17,7 @@ class Config(BaseSettings):
     """
     检查模式, 是否启用检查池模式
     """
-    enable_check_pool_mode: bool = True
+    enable_check_pool_mode: bool = False
 
     class Config:
         extra = "ignore"

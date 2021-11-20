@@ -201,7 +201,8 @@ async def pixiv_user_artwork_monitor():
     else:
         # 检查所有在订阅表里面的画师作品(异步)
         tasks = [check_user_artwork(user_id=uid) for uid in check_sub]
-        await ProcessUtils.fragment_process(tasks=tasks, log_flag='pixiv_user_artwork_monitor_pool_mode_disabled')
+        await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50,
+                                            log_flag='pixiv_user_artwork_monitor_pool_mode_disabled')
         logger.debug(f"pixiv_user_artwork_monitor: pool mode disable, checking completed, "
                      f"checked: {', '.join([str(x) for x in check_sub])}.")
 
