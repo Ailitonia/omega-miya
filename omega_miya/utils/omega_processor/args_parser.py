@@ -25,7 +25,7 @@ async def preprocessor_args_parser(bot: Bot, event: MessageEvent, state: T_State
     """
     消息事件参数解析器 T_EventPreProcessor
     """
-    args_list: List[str] = event.get_plaintext().split()
+    args_list: List[str] = event.get_plaintext().strip().split()
     args_count = len(args_list)
 
     msg_decoder = MessageDecoder(message=event.get_message())
@@ -48,7 +48,7 @@ async def preprocessor_cancel_parser(matcher: Matcher, bot: Bot, event: MessageE
     """
     # 仅处理临时会话（涉及用户交互）
     if matcher.temp:
-        parsed_arg: List[str] = event.get_plaintext().split()
+        parsed_arg: List[str] = event.get_plaintext().strip().split()
         arg_len = len(parsed_arg)
 
         if arg_len == 1 and parsed_arg[0] in cancel_text:
