@@ -8,11 +8,18 @@
 @Software       : PyCharm 
 """
 
-
-from nonebot import logger
+import os
+import aiofiles
+import json
+from typing import Dict
+from nonebot import get_driver, logger
 from bs4 import BeautifulSoup
 from omega_miya.database import Result
 from omega_miya.utils.omega_plugin_utils import HttpFetcher
+
+
+TMP_PATH = get_driver().config.tmp_path_
+SHINDAN_PATH = os.path.abspath(os.path.join(TMP_PATH, 'shindan_maker'))
 
 
 class ShindanMaker(object):
@@ -109,3 +116,28 @@ class ShindanMaker(object):
         except Exception as e:
             logger.error(f'ShindanMaker | Parse result page failed, error: {repr(e)}')
             return Result.TextResult(error=True, info=f'Parse result page failed', result='')
+
+    @staticmethod
+    async def read_shindan_cache_from_file() -> Result.JsonDictResult:
+        try:
+            async with aiofiles.open(os.path.abspath(os.path.join(SHINDAN_PATH, 'shindan_maker_cache.json')), 'r',
+                                     encoding='utf8') as af:
+                data = await af.read()
+            result = dict(json.loads(data))
+            return Result.JsonDictResult(error=False, info='Success', result=result)
+        except FileNotFoundError:
+            return Result.JsonDictResult(error=False, info='FileNotFound', result={})
+        except Exception as e:
+            return Result.JsonDictResult(error=True, info=repr(e), result={})
+
+    @staticmethod
+    async def write_shindan_cache_from_file(data: Dict[str, int]) -> Result.IntResult:
+        try:
+            if not os.path.exists(SHINDAN_PATH):
+                os.makedirs(SHINDAN_PATH)
+            async with aiofiles.open(os.path.abspath(os.path.join(SHINDAN_PATH, 'shindan_maker_cache.json')), 'w',
+                                     encoding='utf8') as af:
+                await af.write(json.dumps(data, ensure_ascii=False))
+            return Result.IntResult(error=False, info='Success', result=0)
+        except Exception as e:
+            return Result.IntResult(error=True, info=repr(e), result=-1)

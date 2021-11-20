@@ -29,7 +29,7 @@ __plugin_usage__ = r'''【ShindanMaker 占卜】
 就是要公开处刑！
 
 **Permission**
-Command & Lv.30
+Command & Lv.50
 or AuthNode
 
 **AuthNode**
@@ -54,7 +54,7 @@ shindan_maker = MatcherGroup(
     state=init_processor_state(
         name='shindan_maker',
         command=True,
-        level=30),
+        level=50),
     permission=GROUP,
     priority=20,
     block=True)
@@ -109,6 +109,14 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
 @shindan_maker_default.got('shindan_name', prompt='你想做什么占卜呢?\n不知道的话可以输入关键词进行搜索哦~')
 async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State):
     global SHINDANMAKER_CACHE
+    # 尝试从文件中载入缓存
+    if not SHINDANMAKER_CACHE:
+        logger.debug('ShindanMaker | 尝试载入名称缓存文件...')
+        shindan_file_cache = await ShindanMaker.read_shindan_cache_from_file()
+        if shindan_file_cache.success():
+            SHINDANMAKER_CACHE.update(shindan_file_cache.result)
+        else:
+            logger.warning(f'ShindanMaker | 载入缓存时读取名称缓存文件失败, error: {shindan_file_cache.info}')
 
     shindan_name = state['shindan_name']
     # 允许直接通过id进行
@@ -119,7 +127,7 @@ async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State
     if shindan_id == 0:
         shindan_name_result = await ShindanMaker.search(keyword=shindan_name)
         if shindan_name_result.error:
-            logger.error(f'User: {event.user_id} 获取 ShindanMaker 占卜信息失败, {shindan_name_result.info}')
+            logger.error(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜名失败, {shindan_name_result.info}')
             await shindan_maker_default.finish('获取ShindanMaker占卜信息失败了QAQ, 请稍后再试')
         else:
             for item in shindan_name_result.result:
@@ -127,6 +135,19 @@ async def handle_shindan_name(bot: Bot, event: GroupMessageEvent, state: T_State
                     SHINDANMAKER_CACHE.update({
                         re.sub(r'\s', '', item.get('name')): item.get('id', 0)
                     })
+
+            # 触发搜索后更新文件缓存
+            logger.debug('ShindanMaker | 更新名称缓存文件...')
+            file_cache_result = await ShindanMaker.read_shindan_cache_from_file()
+            if file_cache_result.success():
+                new_file_cache = file_cache_result.result
+                new_file_cache.update(SHINDANMAKER_CACHE)
+                write_result = await ShindanMaker.write_shindan_cache_from_file(data=new_file_cache)
+                if write_result.error:
+                    logger.error(f'ShindanMaker | 更新缓存时写入名称缓存文件失败, error: {write_result.info}')
+            else:
+                logger.warning(f'ShindanMaker | 更新缓存时读取名称缓存文件失败, error: {file_cache_result.info}')
+
             shindan_id = SHINDANMAKER_CACHE.get(shindan_name, 0)
             if shindan_id == 0:
                 shindan_list = '】\n【'.join(
@@ -147,7 +168,7 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
     _input_name = f'{input_name}{today}'
     result = await ShindanMaker(maker_id=shindan_id).get_result(input_name=_input_name)
     if result.error:
-        logger.error(f'User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
+        logger.error(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
         await shindan_maker_default.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
     result_text = result.result.replace(today, '')
@@ -181,7 +202,8 @@ async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     input_name, shindan_name = re.findall(shindan_pattern, args)[0][0], re.findall(shindan_pattern, args)[0][2]
     shindan_id = shindan_custon_id.get(shindan_name, None)
     if not shindan_id:
-        logger.info(f'User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, 没有对应的预置占卜, {shindan_name} not found')
+        logger.info(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, '
+                    f'没有对应的预置占卜, {shindan_name} not found')
         await shindan_maker_today_custom.finish(
             f'没有你想问的东西哦, 或者你是想知道, 今天的XX是什么{"/".join(shindan_custon_id.keys())}吗?')
 
@@ -190,7 +212,7 @@ async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     _input_name = f'{input_name}{today}'
     result = await ShindanMaker(maker_id=shindan_id).get_result(input_name=_input_name)
     if result.error:
-        logger.error(f'User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
+        logger.error(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
         await shindan_maker_today_custom.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
     result_text = result.result.replace(today, '')
