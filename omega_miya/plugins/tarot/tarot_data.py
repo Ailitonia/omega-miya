@@ -81,9 +81,9 @@ class TarotCards:
 
     the_magician: TarotCard = field(default=TarotCard(
         id=1, index='the_magician', type='major_arcana', orig_name='The Magician (I)', name='魔术师',
-        intro='魔术师高举拿着权杖的右手指向天，左手食指指向地，他本人就是沟通上天与地面的桥梁。他身前的桌上放着象征四要素的权杖、圣杯、宝剑与星币，同时也代表塔罗牌的四个牌组。他身穿的大红袍子象征热情与主动，白色内衫表示纯洁与智慧的内在。缠绕他腰间的是一条青蛇，蛇虽然经常象征邪恶，但在这里代表的是智慧与启发。魔术师头顶上有个倒８符号，代表无限。画面前方和上方的红玫瑰象征热情，白百合象征智慧。此时，万事齐备，魔术师可以开始进行他的新计划了。和愚人牌同样鲜黄色的背景，预示未来成功的可能。',
+        intro='魔术师高举拿着权杖的右手指向天，左手食指指向地，他本人就是沟通上天与地面的桥梁。他身前的桌上放着象征四要素的权杖、圣杯、宝剑与星币，同时也代表塔罗牌的四个牌组。他身穿的大红袍象征热情与主动，白色内衫表示纯洁与智慧的内在。缠绕他腰间的是一条青蛇，蛇虽然经常象征邪恶，但在这里代表的是智慧与启发。魔术师头顶上有个倒８符号，代表无限。画面前方和上方的红玫瑰象征热情，白百合象征智慧。此时，万事齐备，魔术师可以开始进行他的新计划了。和愚人牌同样鲜黄色的背景，预示未来成功的可能。',
         words='创造',
-        desc='魔术牌意味着：现在是展开新计划的好时机。\n\n魔术师这张牌意味这是个着手新事物的适当时机。对的时间、对的机会、对的动机，使你的努力值回票价。对于展开行动、实现计划而言，这正是一个良好时机。由于你已为实现计划扎下良好基础，所以新的冒险很可能会实现。清楚的方向感和意志力的贯彻，大大的提升了成功的可能性。',
+        desc='魔术牌意味着现在是展开新计划的好时机。\n\n魔术师这张牌意味这是个着手新事物的适当时机。对的时间、对的机会、对的动机，使你的努力值回票价。对于展开行动、实现计划而言，这正是一个良好时机。由于你已为实现计划扎下良好基础，所以新的冒险很可能会实现。清楚的方向感和意志力的贯彻，大大的提升了成功的可能性。',
         upright='成功的、有实力的、聪明能干的、擅长沟通的、机智过人的、唯我独尊的、企划能力强的、透过更好的沟通而获得智慧、运用智慧影响他人、学习能力强的、有教育和学术上的能力、表达技巧良好的。',
         reversed='变魔术耍花招的、瞒骗的、失败的、狡猾的、善于谎言的、能力不足的、丧失信心的、以不正当手段获取认同的。'
     ), init=False)
@@ -273,8 +273,8 @@ class TarotCards:
         intro='一只手从云中伸出，强而有力，握住一根长满绿叶的权杖。那根权杖是如此茂盛，以致鲜嫩的绿叶几乎从杖上“爆”开，有八片叶子脱离权杖，在空中飞舞。遍地青草溪流。远方的城堡似乎暗示着未来成功的可能。',
         words='行动',
         desc='权杖首牌暗示这是一个好的开始，放开手脚勇敢做。\n\n权杖首牌表示实践计划的能量和欲望。权杖首牌象征一个计划强而有力的开始，代表着手新计划的渴望、力量与勇气。这张牌推出已经开始的行动，而且一定会产生具体的结果，与纸上谈兵完全不同。首牌出现在采取行动的时候，他们不是代表任何的计划于决定，而是发动新事物的具体行为。',
-        upright='Creation, Willpower, Inspiration, Desire, Creative spark, New initiative, New passion, Enthusiasm, Energy',
-        reversed='Lack of energy, Lack of passion, Boredom, Delays, Blocks, Hesitancy, Creative blocks'
+        upright='创造、意志力、灵感、欲望、新的开始、新的冒险、热情、活力',
+        reversed='没有精力的、毫无热情的、厌倦、计划取消、乌云密布的前景、苦恼、没有创造力'
     ), init=False)
 
     two_of_wands: TarotCard = field(default=TarotCard(
@@ -282,8 +282,8 @@ class TarotCards:
         intro='一位身穿领主服装的男子，站在他的城墙上，俯视他的辽阔领土，遥望远方海洋。他右手拿着一颗类似地球仪的球体，左手扶着一根权杖。右边的权杖则是被铁环系在墙上。城墙上有个白百合与红玫瑰交叉的图案，白百合象征纯洁的思想，红玫瑰象征热情，暗示两者之间必须取得平衡。',
         words='决定',
         desc='权杖二意味着一个决定。\n\n权杖二并不代表具体的行动，而是决定本身，通常是身体上的决定。行动是由权杖一所代表。在决定行动之前，权杖二代表对选择的评估，它是你所习惯的东西与你所想拥有的东西之间的一个抉择。\n\n权杖二暗示因成长而不满当前环境，需要决定未来行动方向的时机。他表示你目前所拥有的事实是不够的，你将决定下一步要怎么做。',
-        upright='Planning, Making decisions, Leaving home, First steps, Leaving comfort, Taking risks',
-        reversed='Fear of change, Playing safe, Bad planning, Overanalyzing, Not taking action, Playing it safe, Avoiding risk'
+        upright='对未来的规划、对某件事的决定、离家出走、第一步、留下安慰、冒险',
+        reversed='害怕改变、糟糕的计划、失去信心的、不采取行动、小心行事、规避风险'
     ), init=False)
 
     three_of_wands: TarotCard = field(default=TarotCard(
@@ -291,8 +291,8 @@ class TarotCards:
         intro='山巅上站着一个成功的商人，三根权杖笔直地竖立在地面上，商人右手握着其中一根，目送自己的贸易船出海。天空是鲜明的黄色，海映着天，也是黄色。',
         words='远见',
         desc='权杖三意味着面向远方，你的未来在你的眼光里。\n\n权杖三可以表示旅行或将计划付诸实行。可以代表当你寻求自我内在意义的时候，你仍可保持相对的沉静；表示你一边在扩展自身内在于外的新大道与利益，一边在维持一种平衡的状态。权杖三同时也暗示你正在考虑你最近的状况，并且寻找你内在与外在的意义。',
-        upright='Looking ahead, Expansion, Rapid growth, Momentum, Confidence, Growth, Foresight',
-        reversed='Obstacles, Delays, Frustration, Restriction, Limitations, Lack of progress'
+        upright='对未来的预测、膨胀、快速成长、动力、信心、增长、深思熟虑',
+        reversed='阻碍、推迟、挫折、被约束的、受限制的、毫无进展的'
     ), init=False)
 
     four_of_wands: TarotCard = field(default=TarotCard(
@@ -300,8 +300,8 @@ class TarotCards:
         intro='四根巨大的权杖耸立在前方，其上挂着象征胜利的花环。两位女子手持花束高举头顶欢庆舞蹈着，远方隐约可见庆祝的人群，呈现一幅和谐且繁荣的景象。右边有护城河上有座桥，通往远方的表示稳固庄园城堡。',
         words='稳定',
         desc='权杖四意味着坚定牢固的合作。\n\n权杖四描出一个坚固的家庭或工作环境，欢乐与分享是每天生活的一部分。权杖四代表坚固，将权杖三中所决定的计划变得稳固或实在的行为。它经常暗示搬入新家或换工作，也表示你在目前的环境中安定下来。',
-        upright='Community, Home, Celebration, Celebrations, Reunions, Parties, Gatherings, Stability, Belonging',
-        reversed='Lack of support, Transience, Home conflicts, Instability, Feeling unwelcome, Lack of roots, Home conflict'
+        upright='社会、家庭、欢庆、团聚、宴会、聚集、适应、平静安宁的',
+        reversed='不受支持的、转瞬即逝的、不稳定的、不受欢迎的、毫无根据的、家庭矛盾'
     ), init=False)
 
     five_of_wands: TarotCard = field(default=TarotCard(
@@ -309,8 +309,8 @@ class TarotCards:
         intro='迥异于权杖四的和谐稳定局面，权杖五呈现一群年轻人混战的场面。每个人手上都拿着一根杖，彼此僵持不下，谁也不让谁。伟特说：这是一场模仿的战役。',
         words='冲突',
         desc='权杖五暗示缺乏和谐或者内在的冲突。\n\n权杖五是一张代表冲突的牌，虽然冲突不至于伤害任何人，但却是所有人全盘卷入。只是权杖类型的天性，总是把生活看成战争，因为如果没有障碍，就没有冒险了。而从另外一方面来看，这张牌比较可以形容成比较，较量，竞争。',
-        upright='Competition, Rivalry, Conflict, Arguments, Aggression, Tension, Rivals, Clashes of ego',
-        reversed='Avoiding conflict, Respecting differences. end of conflict, Cooperation, Agreements, Truces, Harmony, Peace'
+        upright='相互比拼、有冲突的、争执不休的、侵略、感到紧张、自我矛盾的',
+        reversed='避免冲突、尊重差异、冲突结束、合作、赞同、休战、和谐、和平'
     ), init=False)
 
     six_of_wands: TarotCard = field(default=TarotCard(
@@ -318,8 +318,8 @@ class TarotCards:
         intro='一位年轻男子，戴着胜利的桂冠，骑着白马凯旋而归。四周都是围绕簇拥着他的群众。白色代表纯洁，马象征力量。红色的外衣象征积极主动与热忱。男子手持的权杖饰以胜利花环。艰辛奋斗已然过去，他现在抬头挺胸，享受属于他的荣耀时刻。',
         words='自信',
         desc='权杖六暗示着对人生充满自信的态度。\n\n在这张牌中，火的乐观主义使其欲求和期望得到成功。这不是错误的乐观主义或虚无的期待，而是来自过去的成功及自信的一种真正的信仰。权杖六也表示工作的升迁、证实达成目标，或仅是一种自信的生活态度。',
-        upright='Victory, Success, Public reward, Triumph, Rewards, Recognition, Praise, Acclaim, Pride',
-        reversed='Excess pride, Lack of recognition, Punishment, Failure, No rewards, Lack of achievement'
+        upright='获得胜利、获得成功、获得奖励、被承认、被崇拜、被称赞、感到骄傲',
+        reversed='过渡的骄傲、缺乏认知、遭到惩罚、失败的、没有奖励、毫无成就的'
     ), init=False)
 
     seven_of_wands: TarotCard = field(default=TarotCard(
@@ -327,8 +327,8 @@ class TarotCards:
         intro='绿衣男子站在青葱的山顶上，手持权杖，奋力迎击敌人从山下攻上的六根权杖。他高举右手，表情坚毅。',
         words='挑战',
         desc='权杖七暗示经由坚韧不拔而获得的成功。\n\n权杖七表示你需要更大的挑战。权杖七的讯息是“不要放弃”。继续努力前进，你将得到成功的回报。你投注于完成目标的体力与行动，将是值得的。',
-        upright='Perseverance, Defensive, Maintaining control, Protectiveness, Standing up for yourself, Defending yourself, Protecting territory',
-        reversed='Give up, Destroyed confidence, Overwhelmed, Giving up, Admitting defeat, Yielding, Lack of self belief, Surrender'
+        upright='决定的毅力、得到辩护、可控的、保护、为自己挺身而出、为自己辩护、守护',
+        reversed='放弃、摧毁了信心、不知所措的、承认失败、屈服、缺乏信心、投降'
     ), init=False)
 
     eight_of_wands: TarotCard = field(default=TarotCard(
@@ -336,13 +336,13 @@ class TarotCards:
         intro='八根权杖整齐划一的在空中航行，背景是蔚蓝的天空与青翠的山丘平原，还有一条宁静的小溪流过。',
         words='自由',
         desc='权杖八意味旅行及自由流动的能量。\n\n权杖八代表了海外旅行、自由流动的能量，以及达成目标的清晰路径。过去的努力就是在为现在的人生可以自由的旅行而铺路。权杖八表示你的目标清楚可见，而且正轻松的向它们迈进。这点可以从八根权杖自由而无约束的掠过天际看出来。权杖八没有拘束的本性反映了这是很少阻碍的时机。它表示你是自由的、可投注热情、直接追求目标。',
-        upright='Rapid action, Movement, Quick decisions, Speed, Progress, Sudden changes, Excitement',
-        reversed='Panic, Waiting, Slowdown, Slowness, Chaos, Delays, Losing momentum, Hastiness, Being unprepared'
+        upright='迅速的行动、机巧功利之心、匆忙的决定、速度、进步、突如其来的变化、情绪激动的',
+        reversed='感到不安的、等待、减缓步伐、进展缓慢、混乱、推迟、失去动力的、匆忙的、毫无准备'
     ), init=False)
 
     nine_of_wands: TarotCard = field(default=TarotCard(
         id=30, index='nine_of_wands', type='minor_arcana', orig_name='Nine of Wands', name='权杖九',
-        intro='一个壮汉靠着长杖，似乎在等待着什么。他的头上扎绷带，显示他在过去战役中曾经受伤，尚未复原。但他并不畏惧，仍然紧锣密鼓等待着敌人的下一波来袭。他身后竖立八根权杖，井井有条，像是栅栏，包围着壮汉所守护的家园。',
+        intro='一个壮汉靠着长杖，似乎在等待着什么。他的头上扎绷带，显示他在过去战役中曾经受伤还尚未恢复。但他并不畏惧，仍然紧锣密鼓的准备着，等待着敌人的下一波来袭。他身后竖立八根权杖，井井有条，像是栅栏，包围着壮汉所守护的家园。',
         words='谨慎',
         desc='权杖九暗示重新评估目前承诺的时候。\n\n对于既存的问题纵是期待将来能够解决，现在这个人开始回顾过去的作为，以便看清他是怎么走到今天的。他已经渐渐知道所有行为都会产生结果，就好比他目前的生活就是过去作为的结果，而将来的生活则是由现在的决定和作为来引导的。\n\n这张牌代表逐渐意识到聚焦于承诺和目的是多么重要的事了。与其栽种五百颗混合的种子来期待有好的结果，不如仔细评估只耕耘一种特殊的品种，并且悉心照料它们，以享受耕耘后的收获。',
         upright='Resilience, Grit, Last stand, Persistence, Perseverance, Close to success, Fatigue',
