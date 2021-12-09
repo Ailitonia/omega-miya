@@ -2,6 +2,7 @@ import re
 import os
 import asyncio
 import pathlib
+import random
 from math import ceil
 from typing import Optional
 from datetime import datetime
@@ -13,8 +14,8 @@ from nonebot.adapters.cqhttp.event import Event, MessageEvent, GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot, Result
-from omega_miya.utils.omega_plugin_utils import \
-    init_export, init_processor_state, PluginCoolDown, PermissionChecker, MsgSender, ProcessUtils
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state, PluginCoolDown, PermissionChecker,
+                                                 MsgSender, PicEffector, PicEncoder, ProcessUtils)
 from omega_miya.utils.pixiv_utils import PixivIllust
 from PIL import Image, ImageDraw, ImageFont
 from .config import Config
@@ -26,6 +27,7 @@ RESOURCES_PATH = __global_config.resources_path_
 plugin_config = Config(**__global_config.dict())
 ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 ENABLE_GENERATE_GIF = plugin_config.enable_generate_gif
+R18_ILLUST_MODE = plugin_config.r18_illust_mode
 
 
 # Custom plugin usage text
@@ -138,15 +140,36 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         ranking_msg_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='PixivRanking')
 
         # 根据ENABLE_NODE_CUSTOM处理消息发送
+        msg_sender = MsgSender(bot=bot, log_flag='PixivRanking')
         if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
-            msg_sender = MsgSender(bot=bot, log_flag='PixivRanking')
             await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=list(ranking_msg_result))
         else:
-            for msg_seg in ranking_msg_result:
-                try:
-                    await pixiv.send(msg_seg)
-                except Exception as e:
-                    logger.warning(f'图片发送失败, user: {event.user_id}. error: {repr(e)}')
+            await msg_sender.safe_send_msgs(event=event, message_list=list(ranking_msg_result))
+    elif re.match(r'^(随机)?推荐$', mode):
+        top_recommend_result = await PixivIllust.get_top_recommend()
+        if top_recommend_result.error:
+            logger.warning(f"User: {event.user_id} 获取Pixiv Top Recommend失败, {top_recommend_result.info}")
+            await pixiv.finish('加载失败, 网络超时QAQ')
+
+        await pixiv.send('稍等, 正在下载图片~')
+
+        pids = top_recommend_result.result.get('recommend', [])
+        filtered_pids = pids if len(pids) <= 6 else random.sample(pids, k=6)
+        tasks = [PixivIllust(pid=pid).get_sending_msg() for pid in filtered_pids]
+        top_recommend_msg_result = await ProcessUtils.fragment_process(
+            tasks=tasks, fragment_size=10, log_flag='PixivTopRecommend')
+
+        image_seg_list = []
+        for img_list, info in [x.result for x in top_recommend_msg_result if x.success()]:
+            img_seg = [MessageSegment.image(file=img) for img in img_list]
+            image_seg_list.append(Message(img_seg).append(info))
+
+        # 根据ENABLE_NODE_CUSTOM处理消息发送
+        msg_sender = MsgSender(bot=bot, log_flag='PixivTopRecommend')
+        if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=image_seg_list)
+        else:
+            await msg_sender.safe_send_msgs(event=event, message_list=image_seg_list)
     elif re.match(r'^\d+$', mode):
         pid = mode
         logger.debug(f'开始获取Pixiv资源: {pid}.')
@@ -171,6 +194,30 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         if illust_type == 2 and ENABLE_GENERATE_GIF:
             # 动图作品生成动图后发送
             illust_result = await illust.get_ugoira_gif_filepath()
+        elif is_r18:
+            # r18 图片单独加噪
+            illust_bytes_result = await ProcessUtils.fragment_process(
+                tasks=[illust.get_bytes(page=page) for page in range(illust_data_result.result.get('page_count'))],
+                fragment_size=10,
+                log_flag='PixivIllustR18'
+            )
+            illust_noise_result = await ProcessUtils.fragment_process(
+                tasks=[PicEffector(image=illust.result).gaussian_noise(sigma=32, mask_factor=0.3)
+                       for illust in illust_bytes_result if illust.success()],
+                fragment_size=10,
+                log_flag='PixivIllustR18NoiseProcess'
+            )
+            illust_encoder_result = await ProcessUtils.fragment_process(
+                tasks=[PicEncoder.bytes_to_file(image=illust.result, folder_flag='pixiv_r18_noise', format_='png')
+                       for illust in illust_noise_result if illust.success()],
+                fragment_size=10,
+                log_flag='PixivIllustR18NoiseEncoder'
+            )
+            illust_result = Result.TextListResult(
+                error=False,
+                info='R18 illust noise effect processing completed',
+                result=[illust.result for illust in illust_encoder_result if illust.success()]
+            )
         else:
             illust_result = await illust.get_file_list()
 
@@ -183,7 +230,19 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             else:
                 img_seg = MessageSegment.image(illust_result.result)
             logger.success(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
-            if is_r18:
+            if is_r18 and isinstance(event, GroupMessageEvent) and R18_ILLUST_MODE == 'nodes':
+                # r18 作品消息节点自动撤回
+                msg_list = [msg]
+                msg_list.extend(img_seg)
+                await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_group_node_custom_and_recall(
+                    group_id=event.group_id, message_list=msg_list, recall_time=30)
+            elif is_r18 and R18_ILLUST_MODE == 'images':
+                # r18 作品图片模式自动撤回
+                msg_list = [msg]
+                msg_list.extend(img_seg)
+                await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_msgs_and_recall(
+                    event=event, message_list=msg_list, recall_time=30)
+            elif is_r18:
                 # r18 作品自动撤回
                 await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_msgs_and_recall(
                     event=event, message_list=[Message(img_seg).append(msg)], recall_time=30)
@@ -244,7 +303,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
 
         preview_result = await __preview_search_illust(search_result=search_result, title=f'Pixiv - {text_}')
         if preview_result.error:
-            logger.error(f'生成Pixiv搜索预览图时发生了意外的错误, error: {repr(search_result)}')
+            logger.error(f'生成Pixiv搜索预览图时发生了意外的错误, error: {preview_result.info}, result: {repr(search_result)}')
             await pixiv.finish('生成Pixiv搜索预览图时发生了意外的错误QAQ, 请稍后再试~')
 
         img_path = pathlib.Path(preview_result.result).as_uri()

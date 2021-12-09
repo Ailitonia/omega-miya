@@ -19,5 +19,8 @@ class Config(BaseSettings):
     # 启动 gif 动图生成, 针对动图作品生成 gif 图片, 消耗资源较大, 请谨慎开启
     enable_generate_gif: bool = False
 
+    # 发送 r18 图片的模式, default - 一条消息发送, images - 拆分成多个图片消息, nodes - 自定义节点消息
+    r18_illust_mode: str = 'default'
+
     class Config:
         extra = "ignore"
