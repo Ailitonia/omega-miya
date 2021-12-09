@@ -11,6 +11,7 @@
 import asyncio
 from typing import List, Tuple, Awaitable, Optional, Any
 from nonebot import logger
+from omega_miya.database import BaseResult
 
 
 class ProcessUtils(object):
@@ -81,6 +82,12 @@ class ProcessUtils(object):
                              f'error info: {repr(item)}')
                 error_tag = True
                 error_count += 1
+            elif isinstance(item, BaseResult):
+                if item.error:
+                    logger.error(f'Fragment process | {log_flag} processing occur an error in task({index}), '
+                                 f'and return a Result object, with error info: {repr(item.info)}')
+                    error_tag = True
+                    error_count += 1
 
         if error_tag:
             logger.opt(colors=True).warning(
