@@ -27,8 +27,7 @@ RESOURCES_PATH = __global_config.resources_path_
 plugin_config = Config(**__global_config.dict())
 ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
 ENABLE_GENERATE_GIF = plugin_config.enable_generate_gif
-R18_ILLUST_MODE = plugin_config.r18_illust_mode
-
+AUTO_RECALL_TIME = plugin_config.auto_recall_time
 
 # Custom plugin usage text
 __plugin_custom_name__ = 'Pixiv'
@@ -154,8 +153,8 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         await pixiv.send('稍等, 正在下载图片~')
 
         pids = top_recommend_result.result.get('recommend', [])
-        filtered_pids = pids if len(pids) <= 6 else random.sample(pids, k=6)
-        tasks = [PixivIllust(pid=pid).get_sending_msg() for pid in filtered_pids]
+        filtered_pids = pids if len(pids) <= 8 else random.sample(pids, k=8)
+        tasks = [PixivIllust(pid=pid).get_sending_msg(page_limit=2) for pid in filtered_pids]
         top_recommend_msg_result = await ProcessUtils.fragment_process(
             tasks=tasks, fragment_size=10, log_flag='PixivTopRecommend')
 
@@ -167,9 +166,11 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         # 根据ENABLE_NODE_CUSTOM处理消息发送
         msg_sender = MsgSender(bot=bot, log_flag='PixivTopRecommend')
         if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
-            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=image_seg_list)
+            await msg_sender.safe_send_group_node_custom_and_recall(
+                group_id=event.group_id, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
         else:
-            await msg_sender.safe_send_msgs(event=event, message_list=image_seg_list)
+            await msg_sender.safe_send_msgs_and_recall(
+                event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
     elif re.match(r'^\d+$', mode):
         pid = mode
         logger.debug(f'开始获取Pixiv资源: {pid}.')
@@ -230,22 +231,16 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
             else:
                 img_seg = MessageSegment.image(illust_result.result)
             logger.success(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
-            if is_r18 and isinstance(event, GroupMessageEvent) and R18_ILLUST_MODE == 'nodes':
+            if is_r18 and isinstance(event, GroupMessageEvent) and ENABLE_NODE_CUSTOM:
                 # r18 作品消息节点自动撤回
                 msg_list = [msg]
                 msg_list.extend(img_seg)
                 await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_group_node_custom_and_recall(
-                    group_id=event.group_id, message_list=msg_list, recall_time=30)
-            elif is_r18 and R18_ILLUST_MODE == 'images':
-                # r18 作品图片模式自动撤回
-                msg_list = [msg]
-                msg_list.extend(img_seg)
-                await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_msgs_and_recall(
-                    event=event, message_list=msg_list, recall_time=30)
+                    group_id=event.group_id, message_list=msg_list, recall_time=AUTO_RECALL_TIME)
             elif is_r18:
                 # r18 作品自动撤回
                 await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_msgs_and_recall(
-                    event=event, message_list=[Message(img_seg).append(msg)], recall_time=30)
+                    event=event, message_list=[Message(img_seg).append(msg)], recall_time=AUTO_RECALL_TIME)
             else:
                 await pixiv.send(Message(img_seg).append(msg))
         else:
@@ -311,7 +306,7 @@ async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
         if nsfw_ >= 1:
             # nsfw 作品自动撤回
             await MsgSender(bot=bot, log_flag='PixivSearch').safe_send_msgs_and_recall(
-                event=event, message_list=[MessageSegment.image(img_path)], recall_time=30)
+                event=event, message_list=[MessageSegment.image(img_path)], recall_time=AUTO_RECALL_TIME)
         else:
             await pixiv.finish(MessageSegment.image(img_path))
         logger.success(f"User: {event.user_id} 搜索了Pixiv作品: {mode}")
