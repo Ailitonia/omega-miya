@@ -24,6 +24,9 @@ from .history import postprocessor_history
 from .statistic import postprocessor_statistic
 from .rate_limiting import preprocessor_rate_limiting, postprocessor_rate_limiting
 
+from omega_miya.utils.nonebot_guild_patch import GuildMessageEvent, ChannelNoticeEvent
+from nonebot.exception import IgnoredException
+
 
 driver = get_driver()
 
@@ -38,6 +41,10 @@ async def handle_on_startup():
 # 事件预处理
 @event_preprocessor
 async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
+    # 暂时不处理频道事件
+    if isinstance(event, (GuildMessageEvent, ChannelNoticeEvent)):
+        raise IgnoredException('Ignore Guild Event')
+
     # 针对消息事件的处理
     if isinstance(event, MessageEvent):
         # 处理参数解析
