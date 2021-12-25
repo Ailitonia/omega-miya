@@ -34,8 +34,8 @@ async def preprocessor_args_parser(bot: Bot, event: MessageEvent, state: T_State
         '_parsed_args': {
             '_args_count': args_count,
             '_args': args_list,
-            '_url_count': len(msg_decoder.get_all_img_url()),
-            '_url_args': msg_decoder.get_all_img_url(),
+            '_img_url_count': len(msg_decoder.get_all_img_url()),
+            '_img_url_args': msg_decoder.get_all_img_url(),
             '_at_count': len(msg_decoder.get_all_at_qq()),
             '_at_args': msg_decoder.get_all_at_qq(),
         }
