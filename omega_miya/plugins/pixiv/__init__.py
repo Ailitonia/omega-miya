@@ -434,6 +434,8 @@ async def __preview_search_illust(
     thumb_img_result = await ProcessUtils.fragment_process(tasks=tasks, fragment_size=20, log_flag='pixiv_search_thumb')
     if not thumb_img_result:
         return Result.TextResult(error=True, info='Not result', result='')
+    else:
+        thumb_img_result = [x for x in thumb_img_result if x.success()]
 
     def __handle() -> str:
         size = (256, 256)
