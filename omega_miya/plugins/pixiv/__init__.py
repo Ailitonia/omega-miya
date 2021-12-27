@@ -434,8 +434,6 @@ async def __preview_search_illust(
     thumb_img_result = await ProcessUtils.fragment_process(tasks=tasks, fragment_size=20, log_flag='pixiv_search_thumb')
     if not thumb_img_result:
         return Result.TextResult(error=True, info='Not result', result='')
-    else:
-        thumb_img_result = [x for x in thumb_img_result if x.success()]
 
     def __handle() -> str:
         size = (256, 256)
@@ -455,9 +453,13 @@ async def __preview_search_illust(
         line = 0
         for index, img_result in enumerate(thumb_img_result):
             # 处理单个缩略图
-            draw_: Image.Image = Image.open(re.sub(r'^file:///', '', img_result.result))
-            if draw_.size != size:
-                draw_ = draw_.resize(size, Image.ANTIALIAS)
+            if img_result.error:
+                # 如果图片下载失败则用空白代替这张图片
+                draw_ = Image.new(mode="RGB", size=size, color=(255, 255, 255))
+            else:
+                draw_: Image.Image = Image.open(re.sub(r'^file:///', '', img_result.result))
+                if draw_.size != size:
+                    draw_ = draw_.resize(size, Image.ANTIALIAS)
 
             # 确认缩略图单行位置
             seq = index % line_num
