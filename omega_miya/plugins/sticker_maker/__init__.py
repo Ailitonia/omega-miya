@@ -174,6 +174,9 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
     sticker_temp_help_msg = state['temp_help_msg']
 
     try:
+        # 处理文本 针对 win 平台输入替换换行符
+        sticker_text = str(sticker_text).replace('\r\n', '\n')
+
         sticker_path = await sticker_maker_main(url=sticker_image_url, temp=sticker_temp_name, text=sticker_text,
                                                 sticker_temp_type=sticker_temp_type)
 
