@@ -135,8 +135,8 @@ async def pixiv_user_artwork_monitor():
             illust_info_msg_result = await illust.get_format_info_msg()
             illust_pic_bytes_result = await illust.get_bytes()
             if illust_pic_bytes_result.error or illust_info_msg_result.error:
-                logger.error(f'pixiv_user_artwork_monitor: 下载用户 {user_id} 作品 {pid} 失败, '
-                             f'error: {illust_info_msg_result.info} // {illust_pic_bytes_result.info}.')
+                logger.error(f'pixiv_user_artwork_monitor: 下载用户 {user_id} 作品 {pid} 失败, error: '
+                             f'get info: {illust_info_msg_result.info} / get image: {illust_pic_bytes_result.info}.')
                 continue
 
             if is_r18:
