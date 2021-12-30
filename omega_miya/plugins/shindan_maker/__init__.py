@@ -230,8 +230,8 @@ async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     if not shindan_id:
         logger.debug(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, '
                      f'没有对应的预置占卜, {shindan_name} not found')
-        await shindan_maker_today_custom.finish(
-            f'没有你想问的东西哦, 或者你是想知道, 今天的XX是什么{"/".join(shindan_custon_id.keys())}吗?')
+        # await shindan_maker_today_custom.finish(f'没有你想问的东西哦, 或者你是想知道, {"/".join(shindan_custon_id.keys())}吗?')
+        await shindan_maker_today_custom.finish()
 
     today = f"@{datetime.date.today().strftime('%Y%m%d')}@"
     # 加入日期使每天的结果不一样
