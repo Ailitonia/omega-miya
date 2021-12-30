@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+import os
 import re
 import datetime
 from typing import Dict
@@ -17,7 +18,9 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules, MessageDecoder, BotTools
+from nonebot.adapters.cqhttp.message import MessageSegment
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state, OmegaRules,
+                                                 MessageDecoder, PicEncoder, ProcessUtils, BotTools)
 from .data_source import ShindanMaker
 
 
@@ -38,9 +41,13 @@ basic
 **Usage**
 /ShindanMaker [占卜名称] [占卜对象名称]'''
 
+# 声明本插件额外可配置的权限节点
+__plugin_auth_node__ = [
+    'pattern_match'
+]
 
 # Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
+init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
 
 
 # 缓存占卜名称与对应id
@@ -171,14 +178,29 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
         logger.error(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
         await shindan_maker_default.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
-    result_text = result.result.replace(today, '')
-    await shindan_maker_default.finish(result_text)
+    result_text, result_img_list = result.result
+
+    # 删除之前加入的日期字符
+    result_msg = result_text.replace(today, '')
+
+    # 结果有图片就处理图片
+    if result_img_list:
+        tasks = [PicEncoder(pic_url=img_url).get_file(
+            folder_flag='shindan_maker_img_temp',
+            format_=os.path.splitext(img_url)[-1][1:]
+        ) for img_url in result_img_list]
+        img_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='get_shindan_maker_result_img')
+        for _result in img_result:
+            if _result.success():
+                result_msg += MessageSegment.image(file=_result.result)
+
+    await shindan_maker_default.finish(result_msg)
 
 
-shindan_pattern = r'^今天的?(.+?)是什么(样的)?(.+?)[?？]?$'
+shindan_pattern = r'^今天的?(.+?)(的|是)(.+?)[?？]?$'
 shindan_maker_today_custom = shindan_maker.on_regex(
     shindan_pattern,
-    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'shindan_maker.basic')
+    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'shindan_maker.pattern_match')
 )
 
 
@@ -186,24 +208,28 @@ shindan_maker_today_custom = shindan_maker.on_regex(
 async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
     # 固定的id
     shindan_custon_id: Dict[str, int] = {
-        '少女': 162207,
-        '魔法少女': 828741,
-        '偶像': 828727,
-        '做的': 761425,
-        '干员': 959146,
-        '小动物': 828905,
-        '猫': 28998,
-        '主角': 828977,
-        '宝石': 890951,
-        '花': 829525
+        '什么少女': 162207,
+        '什么魔法少女': 828741,
+        '什么偶像': 828727,
+        '什么做的': 761425,
+        '什么干员': 959146,
+        '什么小动物': 828905,
+        '什么猫': 28998,
+        '什么主角': 828977,
+        '什么宝石': 890951,
+        '什么花': 829525,
+        '二次元での嫁ヒロイン': 1075116,
+        '二次元老婆': 1075116,
+        '老婆是谁': 1075116,
+        '异世界角色': 637918
     }
 
     args = str(event.get_plaintext()).strip()
     input_name, shindan_name = re.findall(shindan_pattern, args)[0][0], re.findall(shindan_pattern, args)[0][2]
     shindan_id = shindan_custon_id.get(shindan_name, None)
     if not shindan_id:
-        logger.info(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, '
-                    f'没有对应的预置占卜, {shindan_name} not found')
+        logger.debug(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果被中止, '
+                     f'没有对应的预置占卜, {shindan_name} not found')
         await shindan_maker_today_custom.finish(
             f'没有你想问的东西哦, 或者你是想知道, 今天的XX是什么{"/".join(shindan_custon_id.keys())}吗?')
 
@@ -215,5 +241,20 @@ async def handle_shojo(bot: Bot, event: GroupMessageEvent, state: T_State):
         logger.error(f'ShindanMaker | User: {event.user_id} 获取 ShindanMaker 占卜结果失败, {result.info}')
         await shindan_maker_today_custom.finish('获取ShindanMaker占卜结果失败了QAQ, 请稍后再试')
 
-    result_text = result.result.replace(today, '')
-    await shindan_maker_today_custom.finish(result_text)
+    result_text, result_img_list = result.result
+
+    # 删除之前加入的日期字符
+    result_msg = result_text.replace(today, '')
+
+    # 结果有图片就处理图片
+    if result_img_list:
+        tasks = [PicEncoder(pic_url=img_url).get_file(
+            folder_flag='shindan_maker_img_temp',
+            format_=os.path.splitext(img_url)[-1][1:]
+        ) for img_url in result_img_list]
+        img_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='get_shindan_maker_result_img')
+        for _result in img_result:
+            if _result.success():
+                result_msg += MessageSegment.image(file=_result.result)
+
+    await shindan_maker_today_custom.finish(result_msg)
