@@ -56,7 +56,7 @@ def init_processor_state(
         notice: bool = False,
         command: bool = False,
         level: Optional[int] = None,
-        auth_node: str = OmegaRules.basic_auth_node,
+        auth_node: Optional[str] = OmegaRules.basic_auth_node,
         cool_down: Optional[List[PluginCoolDown]] = None,
         enable_cool_down_check: bool = True
 ) -> T_State:
