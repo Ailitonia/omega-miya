@@ -37,6 +37,7 @@ or AuthNode
 
 **AuthNode**
 basic
+pattern_match
 
 **Usage**
 /ShindanMaker [占卜名称] [占卜对象名称]'''
@@ -200,7 +201,15 @@ async def handle_input_name(bot: Bot, event: GroupMessageEvent, state: T_State):
 shindan_pattern = r'^今天的?(.+)(的|是)(.+?)[?？]?$'
 shindan_maker_today_custom = shindan_maker.on_regex(
     shindan_pattern,
-    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'shindan_maker.pattern_match')
+    rule=OmegaRules.has_group_command_permission() & OmegaRules.has_level_or_node(30, 'shindan_maker.pattern_match'),
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    # 重新配置这个功能的权限
+    state=init_processor_state(
+        name='shindan_maker',
+        command=True,
+        level=30,
+        auth_node='pattern_match'
+    ),
 )
 
 
