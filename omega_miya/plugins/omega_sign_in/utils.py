@@ -15,6 +15,8 @@ import asyncio
 import aiofiles.os
 from typing import Optional
 from datetime import datetime
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 from PIL import Image, ImageDraw, ImageFont
 from nonebot import get_driver, require, logger
 from omega_miya.database import DBPixivillust, Result
@@ -333,7 +335,10 @@ async def generate_sign_in_card(
         if add_head_img and head_img_result.success():
             # 头像要占一定高度
             top_img_height += int(0.03125 * width)
-            head_image: Image.Image = Image.open(re.sub(r'^file:///', '', head_img_result.result))
+            # 转换头像图片文件路径格式
+            parsed_head_file = urlparse(head_img_result.result)
+            abs_head_file = os.path.abspath(url2pathname(unquote(parsed_head_file.path)))
+            head_image: Image.Image = Image.open(abs_head_file)
             # 确定头像高度
             head_image_width = int(width / 5)
             head_image = head_image.resize((head_image_width, head_image_width))
