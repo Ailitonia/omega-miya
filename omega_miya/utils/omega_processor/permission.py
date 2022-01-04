@@ -1,4 +1,4 @@
-from nonebot import get_driver
+from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -29,9 +29,12 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
 
     # 忽略超级用户
     if user_id in [int(x) for x in SUPERUSERS]:
+        logger.opt(colors=True).debug(f'<lc>PermissionPreprocessor</lc> | Plugin {matcher.plugin_name}, '
+                                      f'ignore <ly>superuser {user_id}</ly> matcher permission checking')
         return
 
     matcher_default_state = matcher.state
+    matcher_c_name = matcher_default_state.get('_matcher_name')
     matcher_command_permission = matcher_default_state.get('_command_permission')
     matcher_permission_level = matcher_default_state.get('_permission_level')
     matcher_auth_node = matcher_default_state.get('_auth_node')
@@ -47,6 +50,9 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
             if command_checker:
                 pass
             else:
+                logger.opt(colors=True).info(f'<lc>PermissionPreprocessor</lc> | Plugin {matcher.plugin_name}, '
+                                             f'matcher {matcher_c_name}, <r>permission request denied</r>, '
+                                             f'<ly>user {user_id}</ly> has no friend_private permission')
                 await bot.send(event=event, message=f'没有好友命令权限QAQ, 请添加好友后使用"/Omega Enable"或"/Omega Init"启用')
                 raise IgnoredException('没有好友命令权限')
     else:
@@ -55,6 +61,9 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
             if command_checker:
                 pass
             else:
+                logger.opt(colors=True).info(f'<lc>PermissionPreprocessor</lc> | Plugin {matcher.plugin_name}, '
+                                             f'matcher {matcher_c_name}, <r>permission request denied</r>, '
+                                             f'<ly>group {group_id}</ly> has no command permission')
                 await bot.send(event=event, message=f'没有群组命令权限QAQ')
                 raise IgnoredException('没有群组命令权限')
 
@@ -85,6 +94,9 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
 
         # 优先级: 用户权限节点>群组权限节点>权限等级
         if user_auth_checker == -1 or group_auth_checker == -1:
+            logger.opt(colors=True).info(f'<lc>PermissionPreprocessor</lc> | Plugin {matcher.plugin_name}, '
+                                         f'matcher {matcher_c_name}, <r>permission request denied</r>, '
+                                         f'<ly>group {group_id} / user {user_id}</ly> denied by auth node')
             await bot.send(event=event, message=f'权限受限QAQ')
             raise IgnoredException('被deny的权限节点')
         if user_auth_checker == 1:
@@ -94,11 +106,17 @@ async def preprocessor_permission(matcher: Matcher, bot: Bot, event: MessageEven
         elif level_checker:
             return
         else:
+            logger.opt(colors=True).info(f'<lc>PermissionPreprocessor</lc> | Plugin {matcher.plugin_name}, '
+                                         f'matcher {matcher_c_name}, <r>permission request denied</r>, '
+                                         f'<ly>group {group_id} / user {user_id}</ly> denied by permission level')
             await bot.send(event=event, message=f'权限不足QAQ')
             raise IgnoredException('权限不足')
     elif matcher_permission_level and level_checker:
         return
     elif matcher_permission_level and not level_checker:
+        logger.opt(colors=True).info(f'<lc>PermissionPreprocessor</lc> | Plugin {matcher.plugin_name}, '
+                                     f'matcher {matcher_c_name}, <r>permission request denied</r>, '
+                                     f'<ly>group {group_id}</ly> denied by permission level')
         await bot.send(event=event, message=f'群组权限等级不足QAQ')
         raise IgnoredException('群组权限等级不足')
 
