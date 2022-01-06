@@ -103,6 +103,7 @@ async def pixiv_user_artwork_monitor():
         user_artwork_result = await PixivUser(uid=user_id).get_artworks_info()
         if user_artwork_result.error:
             logger.error(f'pixiv_user_artwork_monitor: 获取用户 {user_id} 作品失败, error: {user_artwork_result.info}')
+            return
 
         all_artwork_list = user_artwork_result.result.get('illust_list')
         manga_list = user_artwork_result.result.get('manga_list')
