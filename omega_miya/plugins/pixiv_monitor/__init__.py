@@ -68,7 +68,7 @@ pixiv_user_artwork = on_command(
 # 修改默认参数处理
 @pixiv_user_artwork.args_parser
 async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split()
     if not args:
         await pixiv_user_artwork.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -78,7 +78,7 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @pixiv_user_artwork.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split(maxsplit=1)
+    args = str(event.get_plaintext()).strip().split(maxsplit=1)
     if not args:
         pass
     elif args and len(args) == 1:

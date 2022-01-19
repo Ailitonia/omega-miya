@@ -205,7 +205,6 @@ async def _generate_user_card(user: _UserSearched, *, width: int = 1600) -> Imag
         # 绘制用户简介
         # 按长度切分文本
         desc_text = TextUtils(text=user.user_desc).split_multiline(width=int(height * 1.5), font=font_desc)
-        desc_text_w, desc_text_h = font_desc.getsize_multiline(desc_text)
         ImageDraw.Draw(background).multiline_text(
             xy=(spacing_width * 4 + user_head_width,
                 name_text_h + uid_text_h + count_text_h + int(spacing_width * 2.75)),
@@ -229,11 +228,11 @@ async def _generate_user_card(user: _UserSearched, *, width: int = 1600) -> Imag
                 thumb_img = Image.new(mode="RGB", size=(thumb_img_width, thumb_img_width), color=(127, 127, 127))
             # 预览图外边框
             ImageDraw.Draw(background).rectangle(
-                xy=((spacing_width * 6 + user_head_width + desc_text_w  # 前面文字的宽度
+                xy=((spacing_width * 6 + user_head_width + int(height * 1.5)  # 前面文字的宽度
                      + i * (thumb_img_width + spacing_width)  # 根据缩略图序列增加的位置宽度
                      - int(thumb_img_width / 80),  # 边框预留的宽度
                      spacing_width - int(thumb_img_width / 80)),  # 高度及边框预留宽度
-                    (spacing_width * 6 + user_head_width + desc_text_w
+                    (spacing_width * 6 + user_head_width + int(height * 1.5)
                      + i * (thumb_img_width + spacing_width) + thumb_img_width
                      + int(thumb_img_width / 96),
                      spacing_width + thumb_img_width + int(thumb_img_width / 96))),
@@ -243,7 +242,7 @@ async def _generate_user_card(user: _UserSearched, *, width: int = 1600) -> Imag
             # 依次粘贴预览图
             background.paste(
                 im=thumb_img,
-                box=(spacing_width * 6 + user_head_width + desc_text_w + i * (thumb_img_width + spacing_width),
+                box=(spacing_width * 6 + user_head_width + int(height * 1.5) + i * (thumb_img_width + spacing_width),
                      spacing_width))
 
         return background
