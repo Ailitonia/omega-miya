@@ -46,6 +46,10 @@ class Pixiv(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
+    def get_cookies(cls) -> Optional[dict]:
+        return COOKIES
+
+    @classmethod
     def parse_pid_from_url(cls, text: str, *, url_mode: bool = False) -> Optional[int]:
         if url_mode:
             # 分别匹配不同格式pivix链接格式 仅能匹配特定 url 格式的字符串
