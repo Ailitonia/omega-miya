@@ -221,10 +221,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         else:
             for mail in unseen_mail_res.result:
                 try:
-                    html = mail.html
-                    content = re.sub(r'<[^>]*>', '', html)
-                    content = re.sub(r'\s', '', content)
-                    content = content.replace('&nbsp;', '').replace('\n', '').replace(' ', '')
+                    content = mail.html if mail.html else mail.body
+                    content = re.sub(r'(\n|&nbsp;){2,}', '\n', content)
                     msg = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
                     text_img_result = await TextUtils(text=msg).text_to_img()
                     if text_img_result.error:
