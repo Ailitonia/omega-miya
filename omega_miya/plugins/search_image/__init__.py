@@ -129,7 +129,7 @@ async def handle_got_image(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
     if not str(image_url).startswith('http'):
         await search_image.finish('错误QAQ，你发送的不是有效的图片')
-    await search_image.send('获取识别结果中, 请稍后~')
+    await search_image.send('获取识别结果中, 请稍候~')
 
 
 @search_image.got('using_engine', prompt='使用识图引擎识图:')

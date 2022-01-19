@@ -126,7 +126,7 @@ async def handle_uid(bot: Bot, event: MessageEvent, state: T_State):
     # 处理搜索或用户输入非uid
     uid = state['uid']
     if not re.match(r'^\d+$', uid) or sub_command == '搜索':
-        await pixiv_user_artwork.send(f'正在搜索pixiv用户: {uid}, 请稍后')
+        await pixiv_user_artwork.send(f'正在搜索pixiv用户: {uid}, 请稍候~')
         search_result = await generate_user_searching_img(nick=uid)
         if search_result.error:
             logger.error(
