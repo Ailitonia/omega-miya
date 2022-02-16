@@ -11,7 +11,7 @@ driver = nonebot.get_driver()
 
 global_config = driver.config
 _DATABASE = 'mysql'
-_DB_DRIVER = 'aiomysql'
+_DB_DRIVER = 'asyncmy'
 _DB_USER = global_config.db_user
 _DB_PASSWORD = global_config.db_password
 _DB_HOST = global_config.db_host
