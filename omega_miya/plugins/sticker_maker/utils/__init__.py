@@ -118,6 +118,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
                                              image_width=image_resize_width, image_height=image_resize_height)
 
         # 输出图片
+        made_image = made_image.convert('RGB')
         made_image.save(sticker_path, 'JPEG')
         image_bytes_f.close()
 
@@ -147,6 +148,7 @@ async def sticker_maker_main(url: str, temp: str, text: str, sticker_temp_type: 
                                              image_width=image_resize_width, image_height=image_resize_height)
 
         # 输出图片
+        make_image = make_image.convert('RGB')
         make_image.save(sticker_path, 'JPEG')
 
         return sticker_path

@@ -144,6 +144,62 @@ class MsgSender(object):
                 f'to group: {group_id} failed, error: {repr(e)}')
             return e
 
+    async def safe_send_group_node_custom_and_recall(
+            self, group_id: int, message_list: List[Union[str, Message, MessageSegment]],
+            *,
+            recall_time: int = 20,
+            custom_nickname: str = 'Ωμεγα'
+    ) -> Tuple[Union[Any, Exception], Union[Any, Exception]]:
+        """
+        向某个群组发送自定义转发消息节点并自动撤回
+        仅支持 cq-http
+        """
+        # 构造自定义消息节点
+        custom_user_id = self.bot.self_id
+        node_message = []
+        for msg in message_list:
+            if not msg:
+                logger.opt(colors=True).warning(
+                    f'<Y><lw>{self.log_flag}</lw></Y> | A None-type message in message_list.')
+                continue
+            node_message.append({
+                "type": "node",
+                "data": {
+                    "name": custom_nickname,
+                    "user_id": custom_user_id,
+                    "uin": custom_user_id,
+                    "content": msg
+                }
+            })
+
+        try:
+            sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
+            sent_msg_id = sent_result.get('message_id')
+        except Exception as e:
+            logger.opt(colors=True).error(
+                f'<Y><lw>{self.log_flag}</lw></Y> | Sending node_custom message '
+                f'to group: {group_id} failed, error: {repr(e)}')
+            sent_msg_id = None
+            sent_result = e
+
+        logger.opt(colors=True).info(
+            f'<G><lw>{self.log_flag}</lw></G> | Auto-recall-node-custom-message will recall message '
+            f'after {recall_time} second(s) in group: {group_id}')
+        await asyncio.sleep(recall_time)
+
+        if not sent_msg_id:
+            delete_result = ValueError('Sent node message id is None')
+            return sent_result, delete_result
+
+        try:
+            delete_result = await self.bot.delete_msg(message_id=sent_msg_id)
+        except Exception as e:
+            logger.opt(colors=True).error(
+                f'<Y><lw>{self.log_flag}</lw></Y> | Auto-recall-node-custom-message recalling failed '
+                f'in group: {group_id}, msg_id: {sent_msg_id}. error: {repr(e)}')
+            delete_result = e
+        return sent_result, delete_result
+
     async def safe_broadcast_friends_subscription(
             self, subscription: DBSubscription, message: Union[str, Message, MessageSegment]
     ) -> List[Union[Any, Exception]]:

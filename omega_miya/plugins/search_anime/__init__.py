@@ -100,7 +100,7 @@ async def handle_draw(bot: Bot, event: MessageEvent, state: T_State):
 
     image_url = state['image_url']
 
-    await search_anime.send('获取识别结果中, 请稍后~')
+    await search_anime.send('获取识别结果中, 请稍候~')
     res = await get_identify_result(img_url=image_url)
     if not res.success():
         logger.warning(f"{group_id} / {event.user_id} search_anime failed: {res.info}")

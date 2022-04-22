@@ -122,6 +122,14 @@ async def postprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_St
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
         group = DBBotGroup(group_id=group_id, self_bot=self_bot)
+
+        # 验证群组是否已有全局 cd, 有的话就跳过
+        global_group_check = await DBCoolDownEvent.check_global_group_cool_down_event(group_id=group_id)
+        if global_group_check.success() and global_group_check.result == 1:
+            logger.opt(colors=True).debug(
+                'Rate Limiting | Group: {group_id} global group cool down exists, <lc>ignore</lc>')
+            return
+
         setting_result = await group.setting_get(setting_name=GROUP_GLOBAL_CD_SETTING_NAME)
         if setting_result.success():
             main, second, extra = setting_result.result
@@ -134,7 +142,8 @@ async def postprocessor_rate_limiting(bot: Bot, event: MessageEvent, state: T_St
                 if result.error:
                     logger.error(f'Rate Limiting | Set global group cool down failed: {result.info}')
                 else:
-                    logger.debug(f'Rate Limiting | Set Group: {group_id} global group cool down, times: {main}')
+                    logger.opt(colors=True).debug(
+                        f'Rate Limiting | Set Group: {group_id} global group cool down, <ly>times: {main}</ly>')
             else:
                 logger.error(f'Rate Limiting | Group: {group_id} global group cool down setting not found')
         elif setting_result.error and setting_result.info == 'NoResultFound':

@@ -157,5 +157,6 @@ class Result(object):
 
 
 __all__ = [
+    'BaseResult',
     'Result'
 ]
