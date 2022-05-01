@@ -1,4 +1,3 @@
-import asyncio
 import random
 from typing import List
 from nonebot import logger, require, get_bots, get_driver
@@ -6,7 +5,7 @@ from nonebot.adapters.cqhttp import MessageSegment
 from nonebot.adapters.cqhttp.bot import Bot
 from omega_miya.database import DBSubscription, DBDynamic
 from omega_miya.utils.bilibili_utils import BiliUser, BiliDynamic, BiliRequestUtils
-from omega_miya.utils.omega_plugin_utils import MsgSender
+from omega_miya.utils.omega_plugin_utils import MsgSender, ProcessUtils
 from .config import Config
 
 
@@ -257,28 +256,18 @@ async def bilibili_dynamic_monitor():
         logger.debug(f'bili dynamic pool mode debug info, now_checking: {now_checking}')
 
         # 检查now_checking里面的直播间(异步)
-        tasks = []
-        for uid in now_checking:
-            tasks.append(dynamic_checker(user_id=uid, bots=bots))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"bilibili_dynamic_monitor: pool mode enable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in now_checking])}.")
-        except Exception as e:
-            logger.error(f'bilibili_dynamic_monitor: pool mode enable, error occurred in checking: {repr(e)}')
+        tasks = [dynamic_checker(user_id=uid, bots=bots) for uid in now_checking]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='bilibili_dynamic_monitor_pool_mode_enabled')
+        logger.debug(f"bilibili_dynamic_monitor: pool mode enable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in now_checking])}.")
 
     # 没有启用检查池模式
     else:
         # 检查所有在订阅表里面的动态(异步)
-        tasks = []
-        for uid in check_sub:
-            tasks.append(dynamic_checker(user_id=uid, bots=bots))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"bilibili_dynamic_monitor: pool mode disable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in check_sub])}.")
-        except Exception as e:
-            logger.error(f'bilibili_dynamic_monitor: pool mode disable, error occurred in checking {repr(e)}')
+        tasks = [dynamic_checker(user_id=uid, bots=bots) for uid in check_sub]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='bilibili_dynamic_monitor_pool_mode_disabled')
+        logger.debug(f"bilibili_dynamic_monitor: pool mode disable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in check_sub])}.")
 
 
 # 根据检查池模式初始化检查时间间隔

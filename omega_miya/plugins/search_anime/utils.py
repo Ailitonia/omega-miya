@@ -41,6 +41,10 @@ async def get_identify_result(img_url: str, *, sensitivity: float = 0.85) -> Res
     if not result_json.success():
         return Result.ListResult(error=True, info=result_json.info, result=[])
 
+    if not result_json.result.get('result'):
+        logger.debug(f'SearchAnimeUtils | API success with not result, result json: {result_json.result}')
+        Result.ListResult(error=False, info='Success with not result', result=[])
+
     _result = []
     for item in result_json.result.get('result'):
         try:
@@ -71,7 +75,7 @@ async def get_identify_result(img_url: str, *, sensitivity: float = 0.85) -> Res
                 'is_adult': is_adult,
             })
         except Exception as e:
-            logger.warning(f'result parse failed: {repr(e)}, raw_json: {item}')
+            logger.warning(f'SearchAnimeUtils | result parse failed: {repr(e)}, raw_json: {item}')
             continue
 
     return Result.ListResult(error=False, info='Success', result=_result)

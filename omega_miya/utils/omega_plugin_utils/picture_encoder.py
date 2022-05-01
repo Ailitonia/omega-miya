@@ -2,6 +2,7 @@ import os
 import base64
 import aiofiles
 import pathlib
+from typing import Optional
 from nonebot import get_driver, logger
 from omega_miya.database import Result
 from omega_miya.utils.omega_plugin_utils import HttpFetcher
@@ -29,13 +30,21 @@ class PicEncoder(object):
             return Result.TextResult(error=True, info=repr(e), result='')
 
     @classmethod
-    async def bytes_to_file(cls, image: bytes, *, folder_flag: str = 'PicEncoder') -> Result.TextResult:
+    async def bytes_to_file(
+            cls,
+            image: bytes,
+            *,
+            folder_flag: str = 'PicEncoder',
+            format_: Optional[str] = None) -> Result.TextResult:
         # 检查保存文件路径
         folder_path = os.path.abspath(os.path.join(TMP_PATH, folder_flag))
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        file_path = os.path.abspath(os.path.join(folder_path, str(hash(image))))
+        if format_ is None:
+            file_path = os.path.abspath(os.path.join(folder_path, str(hash(image))))
+        else:
+            file_path = os.path.abspath(os.path.join(folder_path, f'{hash(image)}.{format_}'))
         try:
             async with aiofiles.open(file_path, 'wb') as af:
                 await af.write(image)
@@ -66,6 +75,14 @@ class PicEncoder(object):
         self.__headers = headers
         self.__params = params
 
+    async def get_bytes(self) -> Result.BytesResult:
+        fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_bytes', headers=self.__headers)
+        bytes_result = await fetcher.get_bytes(url=self.__pic_url)
+        if bytes_result.error:
+            return Result.BytesResult(error=True, info='Image download failed', result=b'')
+
+        return Result.BytesResult(error=False, info=bytes_result.info, result=bytes_result.result)
+
     async def get_base64(self) -> Result.TextResult:
         fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_base64', headers=self.__headers)
         bytes_result = await fetcher.get_bytes(url=self.__pic_url)
@@ -75,13 +92,13 @@ class PicEncoder(object):
         encode_result = self.bytes_to_b64(image=bytes_result.result)
         return encode_result
 
-    async def get_file(self, *, folder_flag: str = 'PicEncoder') -> Result.TextResult:
+    async def get_file(self, *, folder_flag: str = 'PicEncoder', format_: Optional[str] = None) -> Result.TextResult:
         fetcher = HttpFetcher(timeout=30, attempt_limit=2, flag='PicEncoder_get_file', headers=self.__headers)
         bytes_result = await fetcher.get_bytes(url=self.__pic_url)
         if bytes_result.error:
             return Result.TextResult(error=True, info='Image download failed', result='')
 
-        encode_result = await self.bytes_to_file(image=bytes_result.result, folder_flag=folder_flag)
+        encode_result = await self.bytes_to_file(image=bytes_result.result, folder_flag=folder_flag, format_=format_)
         return encode_result
 
 

@@ -2,7 +2,7 @@ from nonebot import MatcherGroup, logger
 from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp import Message, MessageSegment
+from nonebot.adapters.cqhttp import MessageSegment
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP, GROUP_ADMIN, GROUP_OWNER
@@ -127,8 +127,10 @@ async def check_flash_img(bot: Bot, event: GroupMessageEvent, state: T_State):
     for msg_seg in event.message:
         if msg_seg.type == 'image':
             if msg_seg.data.get('type') == 'flash':
-                img_file = msg_seg.data.get('file')
+                if msg_seg.data.get('url', None):
+                    img_file = msg_seg.data.get('url')
+                else:
+                    img_file = msg_seg.data.get('file')
                 img_seq = MessageSegment.image(file=img_file)
-                msg = Message('AntiFlash 已检测到闪照:\n').append(img_seq)
                 logger.success(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
-                await anti_flash_handler.finish(msg)
+                await anti_flash_handler.finish('AntiFlash 已检测到闪照:\n' + img_seq)

@@ -9,16 +9,19 @@
 """
 
 import os
+import re
 import random
 import asyncio
 import aiofiles.os
 from typing import Optional
 from datetime import datetime
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 from PIL import Image, ImageDraw, ImageFont
 from nonebot import get_driver, require, logger
 from omega_miya.database import DBPixivillust, Result
 from omega_miya.utils.pixiv_utils import PixivIllust
-from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, TextUtils
+from omega_miya.utils.omega_plugin_utils import HttpFetcher, ProcessUtils, TextUtils, EventTools
 from .config import Config
 from .fortune import get_fortune
 
@@ -61,7 +64,7 @@ async def __prepare_sign_in_pic() -> Result.TextResult:
                     f'removed pic "{"/".join(del_pic_file_list)}" exceed the limit of cache')
 
     # 获取图片信息并下载图片
-    pic_list_result = await DBPixivillust.rand_illust(num=100, nsfw_tag=0, ratio=1)
+    pic_list_result = await DBPixivillust.rand_illust(num=200, nsfw_tag=0, ratio=1)
     if pic_list_result.error or not pic_list_result.result:
         logger.error(f'Preparing sign in pic failed, DB Error or not result, result: {pic_list_result}')
         return Result.TextResult(error=True, info=pic_list_result.info, result='DB Error or not result')
@@ -193,7 +196,13 @@ async def get_hitokoto(*, c: Optional[str] = None) -> Result.TextResult:
 
 
 async def generate_sign_in_card(
-        user_id: int, user_text: str, fav: float, *, width: int = 1024, fortune_do: bool = True) -> Result.TextResult:
+        user_id: int,
+        user_text: str,
+        fav: float,
+        *,
+        width: int = 1024,
+        fortune_do: bool = True,
+        add_head_img: bool = False) -> Result.TextResult:
     """
     生成卡片
     :param user_id: 用户id
@@ -201,6 +210,7 @@ async def generate_sign_in_card(
     :param fav: 用户好感度 用户计算等级
     :param width: 生成图片宽度 自适应排版
     :param fortune_do: 是否绘制老黄历当日宜与不宜
+    :param add_head_img: 是否绘制用户头像
     :return: 生成图片地址
     """
     # 获取头图
@@ -208,6 +218,21 @@ async def generate_sign_in_card(
     if sign_pic_path_result.error:
         return Result.TextResult(error=True, info=sign_pic_path_result.info, result='')
     sign_pic_path = sign_pic_path_result.result
+
+    # 获取图片pid
+    file_name = os.path.basename(sign_pic_path)
+    pid_result = re.search(r'^(\d+?)_p0_master', file_name)
+    pid = pid_result.groups()[0] if (pid_result is not None) else None
+
+    # 尝试获取用户头像
+    if add_head_img:
+        head_img_result = await EventTools.get_user_head_img_cm(user_id=user_id)
+        logger.debug(f'Generate sign in card, getting user {user_id} head image...')
+        if head_img_result.error:
+            add_head_img = False
+            logger.error(f'Getting user head image failed in generate sign in card, error: {head_img_result.info}')
+    else:
+        head_img_result = Result.TextResult(error=True, info='Not adding head image', result='')
 
     def __handle():
         # 生成用户当天老黄历
@@ -239,6 +264,7 @@ async def generate_sign_in_card(
 
         bottom_font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'fzzxhk.ttf'))
         bottom_text_font = ImageFont.truetype(bottom_font_path, width // 40)
+        remark_text_font = ImageFont.truetype(bottom_font_path, width // 54)
 
         # 打招呼
         if 4 <= datetime.now().hour < 11:
@@ -283,6 +309,9 @@ async def generate_sign_in_card(
                       fortune_text_height * 1 + fortune_star_height * 2 + bottom_text_height * 4 +
                       int(0.1875 * width))
 
+        if add_head_img and head_img_result.success():
+            height += int(0.03125 * width)
+
         # 生成背景
         background = Image.new(
             mode="RGB",
@@ -292,6 +321,40 @@ async def generate_sign_in_card(
         # 开始往背景上绘制各个元素
         # 以下排列从上到下绘制 请勿变换顺序 否则导致位置错乱
         background.paste(draw_top_img, box=(0, 0))  # 背景
+
+        # 在背景右下角绘制图片来源
+        if pid is not None:
+            pic_source_text = f'Pixiv  |  {pid}'
+            ImageDraw.Draw(background).text(xy=(width - int(width * 0.00625), top_img_height),
+                                            text=pic_source_text, font=remark_text_font,
+                                            align='right', anchor='rd',
+                                            stroke_width=1,
+                                            stroke_fill=(128, 128, 128),
+                                            fill=(224, 224, 224))  # 图片来源
+
+        if add_head_img and head_img_result.success():
+            # 头像要占一定高度
+            top_img_height += int(0.03125 * width)
+            # 转换头像图片文件路径格式
+            parsed_head_file = urlparse(head_img_result.result)
+            abs_head_file = os.path.abspath(url2pathname(unquote(parsed_head_file.path)))
+            head_image: Image.Image = Image.open(abs_head_file)
+            # 确定头像高度
+            head_image_width = int(width / 5)
+            head_image = head_image.resize((head_image_width, head_image_width))
+            # 头像外框 生成圆角矩形
+            ImageDraw.Draw(background).rounded_rectangle(
+                xy=((int(width * 0.0625 - head_image_width / 20),
+                     (top_img_height - int(head_image_width * 21 / 20 - 0.03125 * width))),
+                    (int(width * 0.0625 + head_image_width * 21 / 20),
+                     (top_img_height + int(head_image_width / 20 + 0.03125 * width)))
+                    ),
+                radius=(width // 100),
+                fill=(255, 255, 255)
+            )
+            # 粘贴头像
+            background.paste(head_image,
+                             box=(int(width * 0.0625), (top_img_height - int(head_image_width - 0.03125 * width))))
 
         this_height = top_img_height + int(0.0625 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),

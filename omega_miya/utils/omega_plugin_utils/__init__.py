@@ -6,7 +6,7 @@ from .encrypt import AESEncryptStr
 from .cooldown import PluginCoolDown
 from .permission import PermissionChecker
 from .http_fetcher import HttpFetcher
-from .message_decoder import MessageDecoder
+from .message_tools import MessageDecoder, MessageTools, EventTools, BotTools
 from .message_sender import MsgSender
 from .picture_encoder import PicEncoder
 from .picture_effector import PicEffector
@@ -56,7 +56,7 @@ def init_processor_state(
         notice: bool = False,
         command: bool = False,
         level: Optional[int] = None,
-        auth_node: str = OmegaRules.basic_auth_node,
+        auth_node: Optional[str] = OmegaRules.basic_auth_node,
         cool_down: Optional[List[PluginCoolDown]] = None,
         enable_cool_down_check: bool = True
 ) -> T_State:
@@ -91,6 +91,9 @@ __all__ = [
     'PermissionChecker',
     'HttpFetcher',
     'MessageDecoder',
+    'MessageTools',
+    'EventTools',
+    'BotTools',
     'MsgSender',
     'PicEncoder',
     'PicEffector',

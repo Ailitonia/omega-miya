@@ -81,9 +81,9 @@ class TarotCards:
 
     the_magician: TarotCard = field(default=TarotCard(
         id=1, index='the_magician', type='major_arcana', orig_name='The Magician (I)', name='魔术师',
-        intro='魔术师高举拿着权杖的右手指向天，左手食指指向地，他本人就是沟通上天与地面的桥梁。他身前的桌上放着象征四要素的权杖、圣杯、宝剑与星币，同时也代表塔罗牌的四个牌组。他身穿的大红袍子象征热情与主动，白色内衫表示纯洁与智慧的内在。缠绕他腰间的是一条青蛇，蛇虽然经常象征邪恶，但在这里代表的是智慧与启发。魔术师头顶上有个倒８符号，代表无限。画面前方和上方的红玫瑰象征热情，白百合象征智慧。此时，万事齐备，魔术师可以开始进行他的新计划了。和愚人牌同样鲜黄色的背景，预示未来成功的可能。',
+        intro='魔术师高举拿着权杖的右手指向天，左手食指指向地，他本人就是沟通上天与地面的桥梁。他身前的桌上放着象征四要素的权杖、圣杯、宝剑与星币，同时也代表塔罗牌的四个牌组。他身穿的大红袍象征热情与主动，白色内衫表示纯洁与智慧的内在。缠绕他腰间的是一条青蛇，蛇虽然经常象征邪恶，但在这里代表的是智慧与启发。魔术师头顶上有个倒８符号，代表无限。画面前方和上方的红玫瑰象征热情，白百合象征智慧。此时，万事齐备，魔术师可以开始进行他的新计划了。和愚人牌同样鲜黄色的背景，预示未来成功的可能。',
         words='创造',
-        desc='魔术牌意味着：现在是展开新计划的好时机。\n\n魔术师这张牌意味这是个着手新事物的适当时机。对的时间、对的机会、对的动机，使你的努力值回票价。对于展开行动、实现计划而言，这正是一个良好时机。由于你已为实现计划扎下良好基础，所以新的冒险很可能会实现。清楚的方向感和意志力的贯彻，大大的提升了成功的可能性。',
+        desc='魔术牌意味着现在是展开新计划的好时机。\n\n魔术师这张牌意味这是个着手新事物的适当时机。对的时间、对的机会、对的动机，使你的努力值回票价。对于展开行动、实现计划而言，这正是一个良好时机。由于你已为实现计划扎下良好基础，所以新的冒险很可能会实现。清楚的方向感和意志力的贯彻，大大的提升了成功的可能性。',
         upright='成功的、有实力的、聪明能干的、擅长沟通的、机智过人的、唯我独尊的、企划能力强的、透过更好的沟通而获得智慧、运用智慧影响他人、学习能力强的、有教育和学术上的能力、表达技巧良好的。',
         reversed='变魔术耍花招的、瞒骗的、失败的、狡猾的、善于谎言的、能力不足的、丧失信心的、以不正当手段获取认同的。'
     ), init=False)
@@ -191,7 +191,7 @@ class TarotCards:
         id=13, index='death', type='major_arcana', orig_name='Death (XIII)', name='死神',
         intro='传统的死神牌，通常是由骷髅人拿着镰刀来代表，而伟特将死神的意象提升到更深一层的境界。\n\n最显眼的就是那位骑着白马的骷髅骑士。他身边有四个人，国王、主教、女人、小孩，象征无论是世俗或出世、男或女、老或少，都逃不过死亡这个自然现象。国王抗拒死亡，被骷髅骑士践踏过去﹔主教的权杖掉在地上，双手合十崇敬死亡﹔女人跪下，别过脸不忍看﹔小孩不懂死亡，好奇的望着骷髅骑士。其中主教可能就是编号五的教宗牌，他掉落在地上的权杖象征世俗权力遇到死亡时毫无用处，仔细一看权杖顶似乎有三层圆圈，和教宗牌戴在头上的权冠相同，而主教头上戴的帽子状似尖尖的鱼头，代表双鱼世纪的结束，也可能暗示死神牌关联的希伯来文Nun，意思是鱼。跪着的女人可能是力量牌中的那位女性，她们的衣着与头冠都极为相似。再回到骷髅骑士，他头上那根红羽毛和愚人所戴的是同一根，他的旗帜是黑色背景，象征光芒的不存，上面五瓣蔷薇的图案是蔷薇十字会的图腾，关于此图腾的说法众多，可能是代表随着死亡而来的新生，另一说是象征火星与生命力，还有一说是象征美丽纯洁与不朽。远方的河流就是流经伊甸园的四条河流之一，称为冥河（Styx），象征川流不息的生命循环。河上有艘船，船的上方有个类似洞穴的地方，右方有个箭头（在死神的脚跟处）指向洞穴，这个洞穴可能是“神曲”一书中但丁前往阴间的通道，而牌中右方一条小径通往两座塔中（月亮和节制都有相同背景，这两座塔也可能是女祭司背后的柱子），代表通往新耶路撒冷的神秘旅程。象征永生的朝阳在两座塔间升起，似乎在告诉我们死亡并不是一切的终点。',
         words='结束',
-        desc='死亡牌意味某种状况的结束。\n\n死亡为旧事物画上休止符，并让路给新事物。死亡牌代表改变的一段其间。我们可以这样说，生命中的某个章节就要结束了，而你对这份改变的接纳，将是变化自然而然地发生。\n\n抱持着“生命将会带来某些比它从你身上拿走的更美好的东西”的信念。在潜意识中，你或许也在渴望改变的发生，死亡牌即意味着改变正要出现。不要抗拒这份改变，试着去接纳它吧。',
+        desc='死神牌意味某种状况的结束。\n\n死亡为旧事物画上休止符，并让路给新事物。死神牌代表改变的一段其间。我们可以这样说，生命中的某个章节就要结束了，而你对这份改变的接纳，将是变化自然而然地发生。\n\n抱持着“生命将会带来某些比它从你身上拿走的更美好的东西”的信念。在潜意识中，你或许也在渴望改变的发生，死神牌即意味着改变正要出现。不要抗拒这份改变，试着去接纳它吧。',
         upright='必须结束旧有的现状、面临重新开始的时刻到了、将不好的过去清除掉、专注于心的开始、挥别过去的历史、展开心的旅程、在心里做个了结、激烈的变化。',
         reversed='已经历经了重生阶段了、革命已经完成、挥别了过去、失去了、结束了、失败了、病了、走出阴霾的时刻到了、没有转圜余地了。'
     ), init=False)
@@ -273,8 +273,8 @@ class TarotCards:
         intro='一只手从云中伸出，强而有力，握住一根长满绿叶的权杖。那根权杖是如此茂盛，以致鲜嫩的绿叶几乎从杖上“爆”开，有八片叶子脱离权杖，在空中飞舞。遍地青草溪流。远方的城堡似乎暗示着未来成功的可能。',
         words='行动',
         desc='权杖首牌暗示这是一个好的开始，放开手脚勇敢做。\n\n权杖首牌表示实践计划的能量和欲望。权杖首牌象征一个计划强而有力的开始，代表着手新计划的渴望、力量与勇气。这张牌推出已经开始的行动，而且一定会产生具体的结果，与纸上谈兵完全不同。首牌出现在采取行动的时候，他们不是代表任何的计划于决定，而是发动新事物的具体行为。',
-        upright='Creation, Willpower, Inspiration, Desire, Creative spark, New initiative, New passion, Enthusiasm, Energy',
-        reversed='Lack of energy, Lack of passion, Boredom, Delays, Blocks, Hesitancy, Creative blocks'
+        upright='创造、起始发源、全新开创、主动出击、生命力的、一件事的开始、新的机会出现、实现梦想的好时机。',
+        reversed='错误的开始、乌云密布的前景、未实现的目标、空虚的存在、计划的取消、失去干劲的、丧失目的的、错过时机的。'
     ), init=False)
 
     two_of_wands: TarotCard = field(default=TarotCard(
@@ -282,8 +282,8 @@ class TarotCards:
         intro='一位身穿领主服装的男子，站在他的城墙上，俯视他的辽阔领土，遥望远方海洋。他右手拿着一颗类似地球仪的球体，左手扶着一根权杖。右边的权杖则是被铁环系在墙上。城墙上有个白百合与红玫瑰交叉的图案，白百合象征纯洁的思想，红玫瑰象征热情，暗示两者之间必须取得平衡。',
         words='决定',
         desc='权杖二意味着一个决定。\n\n权杖二并不代表具体的行动，而是决定本身，通常是身体上的决定。行动是由权杖一所代表。在决定行动之前，权杖二代表对选择的评估，它是你所习惯的东西与你所想拥有的东西之间的一个抉择。\n\n权杖二暗示因成长而不满当前环境，需要决定未来行动方向的时机。他表示你目前所拥有的事实是不够的，你将决定下一步要怎么做。',
-        upright='Planning, Making decisions, Leaving home, First steps, Leaving comfort, Taking risks',
-        reversed='Fear of change, Playing safe, Bad planning, Overanalyzing, Not taking action, Playing it safe, Avoiding risk'
+        upright='具有勇气的、做出决定的、下个目标计划、达到目标和需要、无畏无惧的、负责尽职的勇气、正确运用手中的权利。',
+        reversed='迟疑不决的、谨慎行事的、出现意外的、步调不一致的、进展遇到麻烦的、行动受到拘束的、生活穷困潦倒的。'
     ), init=False)
 
     three_of_wands: TarotCard = field(default=TarotCard(
@@ -291,8 +291,8 @@ class TarotCards:
         intro='山巅上站着一个成功的商人，三根权杖笔直地竖立在地面上，商人右手握着其中一根，目送自己的贸易船出海。天空是鲜明的黄色，海映着天，也是黄色。',
         words='远见',
         desc='权杖三意味着面向远方，你的未来在你的眼光里。\n\n权杖三可以表示旅行或将计划付诸实行。可以代表当你寻求自我内在意义的时候，你仍可保持相对的沉静；表示你一边在扩展自身内在于外的新大道与利益，一边在维持一种平衡的状态。权杖三同时也暗示你正在考虑你最近的状况，并且寻找你内在与外在的意义。',
-        upright='Looking ahead, Expansion, Rapid growth, Momentum, Confidence, Growth, Foresight',
-        reversed='Obstacles, Delays, Frustration, Restriction, Limitations, Lack of progress'
+        upright='已经或者将会获得成功的、没有阻碍的、快速增长的、小有成就的、良好势头的、展望未来、信心增长、探索新方向的。',
+        reversed='发展倒退的、计划延迟的、事业被终止的、受挫的、不如预期的、徒劳无功的、计划被延迟的。'
     ), init=False)
 
     four_of_wands: TarotCard = field(default=TarotCard(
@@ -300,8 +300,8 @@ class TarotCards:
         intro='四根巨大的权杖耸立在前方，其上挂着象征胜利的花环。两位女子手持花束高举头顶欢庆舞蹈着，远方隐约可见庆祝的人群，呈现一幅和谐且繁荣的景象。右边有护城河上有座桥，通往远方的表示稳固庄园城堡。',
         words='稳定',
         desc='权杖四意味着坚定牢固的合作。\n\n权杖四描出一个坚固的家庭或工作环境，欢乐与分享是每天生活的一部分。权杖四代表坚固，将权杖三中所决定的计划变得稳固或实在的行为。它经常暗示搬入新家或换工作，也表示你在目前的环境中安定下来。',
-        upright='Community, Home, Celebration, Celebrations, Reunions, Parties, Gatherings, Stability, Belonging',
-        reversed='Lack of support, Transience, Home conflicts, Instability, Feeling unwelcome, Lack of roots, Home conflict'
+        upright='和平繁荣的、美满的家庭、关系稳固的、事业稳定的、庆祝和团聚的、安顿与休息的、和谐的关系、短暂的快乐。',
+        reversed='缺乏支持的、失去基础的、失去平衡的、家庭冲突的、不稳定的、关系出现裂痕的、无法满足的、安于现状的。'
     ), init=False)
 
     five_of_wands: TarotCard = field(default=TarotCard(
@@ -309,8 +309,8 @@ class TarotCards:
         intro='迥异于权杖四的和谐稳定局面，权杖五呈现一群年轻人混战的场面。每个人手上都拿着一根杖，彼此僵持不下，谁也不让谁。伟特说：这是一场模仿的战役。',
         words='冲突',
         desc='权杖五暗示缺乏和谐或者内在的冲突。\n\n权杖五是一张代表冲突的牌，虽然冲突不至于伤害任何人，但却是所有人全盘卷入。只是权杖类型的天性，总是把生活看成战争，因为如果没有障碍，就没有冒险了。而从另外一方面来看，这张牌比较可以形容成比较，较量，竞争。',
-        upright='Competition, Rivalry, Conflict, Arguments, Aggression, Tension, Rivals, Clashes of ego',
-        reversed='Avoiding conflict, Respecting differences. end of conflict, Cooperation, Agreements, Truces, Harmony, Peace'
+        upright='竞争、冲突、挣扎、内在的矛盾冲突、面对战斗挑战、暴力的争斗。',
+        reversed='充满诡计的、自相矛盾的、错综复杂的、受到牵累的、无法收拾的、没有着落的。'
     ), init=False)
 
     six_of_wands: TarotCard = field(default=TarotCard(
@@ -318,8 +318,8 @@ class TarotCards:
         intro='一位年轻男子，戴着胜利的桂冠，骑着白马凯旋而归。四周都是围绕簇拥着他的群众。白色代表纯洁，马象征力量。红色的外衣象征积极主动与热忱。男子手持的权杖饰以胜利花环。艰辛奋斗已然过去，他现在抬头挺胸，享受属于他的荣耀时刻。',
         words='自信',
         desc='权杖六暗示着对人生充满自信的态度。\n\n在这张牌中，火的乐观主义使其欲求和期望得到成功。这不是错误的乐观主义或虚无的期待，而是来自过去的成功及自信的一种真正的信仰。权杖六也表示工作的升迁、证实达成目标，或仅是一种自信的生活态度。',
-        upright='Victory, Success, Public reward, Triumph, Rewards, Recognition, Praise, Acclaim, Pride',
-        reversed='Excess pride, Lack of recognition, Punishment, Failure, No rewards, Lack of achievement'
+        upright='征服、胜利、好消息、进展、努力而得到成功的、付出努力而达成心愿。',
+        reversed='无限期的延迟、表面上的利益、不确定的获得、不如预期的、自尊心过高的。'
     ), init=False)
 
     seven_of_wands: TarotCard = field(default=TarotCard(
@@ -327,8 +327,8 @@ class TarotCards:
         intro='绿衣男子站在青葱的山顶上，手持权杖，奋力迎击敌人从山下攻上的六根权杖。他高举右手，表情坚毅。',
         words='挑战',
         desc='权杖七暗示经由坚韧不拔而获得的成功。\n\n权杖七表示你需要更大的挑战。权杖七的讯息是“不要放弃”。继续努力前进，你将得到成功的回报。你投注于完成目标的体力与行动，将是值得的。',
-        upright='Perseverance, Defensive, Maintaining control, Protectiveness, Standing up for yourself, Defending yourself, Protecting territory',
-        reversed='Give up, Destroyed confidence, Overwhelmed, Giving up, Admitting defeat, Yielding, Lack of self belief, Surrender'
+        upright='坚持不懈的、不放弃的、勇气与决心、有毅力的、保护自己、打破阴霾险境的。',
+        reversed='放弃、屈服、困惑茫然的、不知所措的、卷入争斗中、受到妨碍、无谓的付出、陷入苦战的。'
     ), init=False)
 
     eight_of_wands: TarotCard = field(default=TarotCard(
@@ -336,8 +336,8 @@ class TarotCards:
         intro='八根权杖整齐划一的在空中航行，背景是蔚蓝的天空与青翠的山丘平原，还有一条宁静的小溪流过。',
         words='自由',
         desc='权杖八意味旅行及自由流动的能量。\n\n权杖八代表了海外旅行、自由流动的能量，以及达成目标的清晰路径。过去的努力就是在为现在的人生可以自由的旅行而铺路。权杖八表示你的目标清楚可见，而且正轻松的向它们迈进。这点可以从八根权杖自由而无约束的掠过天际看出来。权杖八没有拘束的本性反映了这是很少阻碍的时机。它表示你是自由的、可投注热情、直接追求目标。',
-        upright='Rapid action, Movement, Quick decisions, Speed, Progress, Sudden changes, Excitement',
-        reversed='Panic, Waiting, Slowdown, Slowness, Chaos, Delays, Losing momentum, Hastiness, Being unprepared'
+        upright='团结一致、新事物发生、急速发展、迅速的行动、突然的进展或动作、突然的变化。',
+        reversed='运气急转直下、停滞不前的、匆忙而没有准备的。'
     ), init=False)
 
     nine_of_wands: TarotCard = field(default=TarotCard(
@@ -345,8 +345,8 @@ class TarotCards:
         intro='一个壮汉靠着长杖，似乎在等待着什么。他的头上扎绷带，显示他在过去战役中曾经受伤，尚未复原。但他并不畏惧，仍然紧锣密鼓等待着敌人的下一波来袭。他身后竖立八根权杖，井井有条，像是栅栏，包围着壮汉所守护的家园。',
         words='谨慎',
         desc='权杖九暗示重新评估目前承诺的时候。\n\n对于既存的问题纵是期待将来能够解决，现在这个人开始回顾过去的作为，以便看清他是怎么走到今天的。他已经渐渐知道所有行为都会产生结果，就好比他目前的生活就是过去作为的结果，而将来的生活则是由现在的决定和作为来引导的。\n\n这张牌代表逐渐意识到聚焦于承诺和目的是多么重要的事了。与其栽种五百颗混合的种子来期待有好的结果，不如仔细评估只耕耘一种特殊的品种，并且悉心照料它们，以享受耕耘后的收获。',
-        upright='Resilience, Grit, Last stand, Persistence, Perseverance, Close to success, Fatigue',
-        reversed='Exhaustion, Fatigue, Questioning motivations, Stubbornness, Rigidity, Defensiveness, Refusing compromise, Giving up'
+        upright='防守备战、蓄势待发、随机应变、隐藏的敌人。',
+        reversed='障碍、逆境、无法掌握的、须克服的阻碍、态度悠哉的。'
     ), init=False)
 
     ten_of_wands: TarotCard = field(default=TarotCard(
@@ -354,8 +354,8 @@ class TarotCards:
         intro='一个男人奋力的扛着十根沉重的权杖，朝着远方的房子前进。他被权杖的重量压得喘不过气，疲累万分，但他仍不愿放弃，为了生活，一步一脚印的往前走。',
         words='责任',
         desc='权杖十暗示一个委任某些责任的时机。\n\n权杖十描绘暗示一个委任某些责任的时机。他被这些权杖给压的沉下去，而且它们也遮住了他的方向（即远方的房子）。他急切地想要涉入这么多的情况当中，结果，因为种种承诺和问题而不胜负荷。权杖十通常伴随着一种态度：“如果你想妥适的完成它，你就要自己做。你觉得身负重任，所以不能去信任别人也能完成这件工作。\n\n尽管负担重重，然而权杖十代表你在付出极大努力后所获得的成功。或许你会因为交付出去某些责任而受惠，因为那会减轻你的压力，并且用时间去深思长期以来的憧憬。当你实现目标时。你有充分的理由为你的成就感到骄傲，因为权杖是证实了，要梦想成真就需要坚持和努力。',
-        upright='Accomplishment, Responsibility, Burden, Duty, Stress, Obligation, Burning out, Struggles',
-        reversed='Inability to delegate, Overstressed, Burnt out, Failure to delegate, Shouldering too much responsibility, Collapse, Breakdown'
+        upright='筋疲力尽的、巨大压力的、任重道远的、强烈的责任感、过重的压力、奋力达成目标的。',
+        reversed='从压力解脱、逃离现况的、逃避责任的、无法委任的、承担太多责任、精神崩溃的。'
     ), init=False)
 
     page_of_wands: TarotCard = field(default=TarotCard(
@@ -363,8 +363,8 @@ class TarotCards:
         intro='权杖侍从把权杖拄在地上，好奇地看着杖顶，好像在研究什么东西。他的服装是明亮的鲜黄色，外衣上有权杖家族图腾火蜥蜴，有些蜥蜴的嘴没有真正咬到尾巴，形成不完整循环，但有些却有。牌的背景是沙漠和三个金字塔。',
         words='开始',
         desc='权杖侍从象征新的挑战，新的消息，跃跃欲试的梦想。\n\n权杖侍从意指该是开始某些新事物的时候了。它是展开一项新方案或旅行（如果有其他旅行牌出现在牌局中）的行动，且将指引你一个新方向。权杖侍从牌描述当开始一项新的事业时，一种可以感觉到年轻活力的行动。虽然对于行动会感到紧张，但是他仍然充满激情和热心，热衷于探索有用的经验以及展开新的冒险。',
-        upright='Exploration, Excitement, Freedom, Adventure, Fresh ideas, Cheerfulness, Energetic, Fearless, Extroverted',
-        reversed='Lack of direction, Procrastination, Creating conflict, Hasty, Impatient, Lacking ideas, Tantrums, Laziness, Boring, Unreliable, Distracted'
+        upright='热情的、活泼的、好奇探索的、热情行动的、开创新人生、意图良好的陌生人、始终如一的人、携带重要讯息的人。',
+        reversed='做事没有准则的、一事无成的、不采取行动而优柔寡断的、不情愿的、携带坏消息的人、使你伤心的人。'
     ), init=False)
 
     knight_of_wands: TarotCard = field(default=TarotCard(
@@ -372,8 +372,8 @@ class TarotCards:
         intro='权杖骑士骑着健马，高举权杖，表情自信地看着远方。他穿着明亮黄色服装，上面同样有权杖的家族象征火蜥蜴，但蜥蜴的嘴没有触碰到尾巴，形成一个不完整的循环。骑士的头盔顶端和背後都饰着红色的长穗，还戴着红手套，他以左手拉着缰绳，健马的前蹄高高举起。远方背景中出现三座金字塔，金字塔呈现在马脚的下方。',
         words='改变',
         desc='权杖骑士象征充满活力，信心满满的迎接改变。\n\n充满活力，信心满满的迎接改变。权杖骑士所代表的是火元素当中的火元素。这张牌可以象征行动、旅行、改变以及为了自身缘故的活动。看得出来权杖骑士正在思考未来的行动，骑士正全神贯注于对向往目标的积极追求。这张牌经常代表一种态度——完成某件事情唯一的办法就是自己动手做。瞄一眼这张牌就会得到火、活动、热情及活力的印象。权杖骑士暗示需要挑战、爱好旅游和学习，并有教学的能力。',
-        upright='Action, Adventure, Fearlessness, Courageous, Energetic, Charming, Hero, Rebellious, Hot tempered, Free spirit',
-        reversed='Anger, Impulsiveness, Recklessness, Arrogant, Reckless, Impatient, Lack of self control, Passive, Volatile, Domineering'
+        upright='行动力强的、短期目标、勇往直前的、快速变化的、前进到未知的领域、无畏冒险的、充满勇气的、精力充沛的、自由的。',
+        reversed='被动的、急躁的、没有行动规划的、冲动的、鲁莽的、傲慢的、缺乏自我控制的、盛气凌人的、预料之外的转变。'
     ), init=False)
 
     queen_of_wands: TarotCard = field(default=TarotCard(
@@ -381,8 +381,8 @@ class TarotCards:
         intro='权杖皇后戴着盛开绿叶的王冠，穿着阳光般金黄服饰，坐在宝座上。她的体态强健。她的左手拿着一朵向日葵，她的右手持权杖，眼光向左望。宝座的扶手是两只狮子，后面悬吊的帷幕上，再度出现火象的狮子图腾和向日葵。她前方有一只黑猫守护，这里的黑猫似乎也在保护权杖皇后，使她免于受伤害。远方有三座金字塔，天空则是一片既明亮又祥和的浅蓝色。',
         words='决心',
         desc='权杖皇后代表心灵的强大，透过内在力量而达到成功。\n\n权杖皇后牌可以说是透过内在的力量和自信而获得成功的。当你面对逆境时勇气会帮助你达成目标。相信你所做的事，以及做你所相信的事，可以帮助你了解你的目标。',
-        upright='Courage, Determination, Joy, Confident, Self-assured, Passionate, Determined, Social, Charismatic, Vivacious, Optimistic',
-        reversed='Selfishness, Jealousy, Insecurities, Demanding, Vengeful, Low confidence, Jealous, Selfish, Temperamental, Bully'
+        upright='直来直往的，愿意付出的、热情洋溢的、充满决心的、自信的、热情而坚定的、富同情心和宽容的、充满魅力而优雅的。',
+        reversed='失去活力的、善于计谋的、情绪失控的、欺诈的、缺乏安全感的、嫉妒心强的、自私的、喜怒无常的、恃强凌弱的。'
     ), init=False)
 
     king_of_wands: TarotCard = field(default=TarotCard(
@@ -390,8 +390,8 @@ class TarotCards:
         intro='权杖国王坐在宝座上，身躯稍微向前倾，好像随时准备出发。他右手持权杖，杖上长有新鲜的绿叶。宝座和披风饰以狮子和火蜥蜴，地上还有一只火蜥蜴陪伴着他。',
         words='稳重',
         desc='权张国王代表经由自律而成功。\n\n权杖国王代表热忱坚定，魄力十足，经由自律而成功。他为人诚实、积极而坦率，而且经常愿意接受新挑战。他认为过程比结果还重要，而且拒绝任何拖泥带水的挑战。权杖国王描绘一个强壮的人，能够透过他的意志力来领导及统御别人。他对自己有坚强的信念，因为他的信心是建立在自身的经验上。他知道他的方法有效，因为他尝试过也试验过这种方法。自律可以让你超越自己，因此逆就会有充分的时间和体力来掌握更好的机会，让你完成已着手之事。',
-        upright='Big picture, Leader, Overcoming challenges, Leadership, Vision, Taking control, Daring decisions, Boldness, Optimism',
-        reversed='Impulsive, Overbearing, Unachievable expectations, Forceful, Domineering, Tyrant, Vicious, Powerless, Ineffective, Weak leader'
+        upright='谋定而后动的、掌握领导力、具有大局观的领导者、克服挑战的、有领导力的、远见的、正直而诚恳的。',
+        reversed='任性的、不成熟的领导、意气用事的、独断专行的、专横的、严格而苛刻的、极端和夸张的想法。'
     ), init=False)
 
     ace_of_cups: TarotCard = field(default=TarotCard(
@@ -399,8 +399,8 @@ class TarotCards:
         intro='圣杯首牌是所有小牌的一号牌中最富象征意义的。图中的圣杯就是耶稣在最后晚餐中使用的杯子，杯上有个倒立的Ｍ字母。据说，在耶稣死后，他的鲜血就是由这个圣杯所承装着。\n\n白鸽是天主教中圣灵的象征，牠衔着象征耶稣身体的圣饼，自上而下彷佛要进入杯中。杯中有五道水涌出，下方的水面平静，只有少许涟漪，睡莲处处，睡莲茎长，向上伸展至水面。二十五滴水珠从四面落下，飘浮在空中。一只手从云中伸出，这只手和权杖一与宝剑一中的手截然不同，它是轻轻的捧着圣杯，而非用力抓住圣杯。',
         words='情感',
         desc='圣杯首牌意味情感的连接和满足。\n\n圣杯首牌正位是人际关系最好的开始，经常代表新感情的开端，对于人际关系是非常好的征兆。相对于权张首牌所代表的肉体上、体力上的开始，它暗示你已打开心扉接受新机会。它可能是一段新的两性关系，或既存关系的新阶段，或一种新层次的满足。此时正是你感觉情感满足的时刻。首牌描述的是透过感情和生活产生连接。你可能正经验着正立首牌的满足感或满意感。或许你正展开一项你全心期待的计划，或是一次旅行。',
-        upright='New feelings, Spirituality, Intuition, Love, Emotional awakening, Creativity',
-        reversed='Emotional loss, Blocked creativity, Emptiness, Coldness, Feeling unloved, Gloominess'
+        upright='新的情感、和平的、获得满足的。',
+        reversed='失落内心不稳定的、空虚的、寂寞的。'
     ), init=False)
 
     two_of_cups: TarotCard = field(default=TarotCard(
@@ -408,8 +408,8 @@ class TarotCards:
         intro='一男一女面对彼此，向对方持杯致意。两人头上都戴着花环，男人身躯微微向前，左脚踏出，右手也伸向女人，而女人站姿端凝如山。他们中间浮着一根两条蛇缠绕的杖，称为“赫米斯之杖”，是治疗的象征。杖上的狮子头象征沟通，而两片翅膀象征圣灵，使人联想到恋人牌中的天使。远方是一座城镇。',
         words='平等',
         desc='圣杯二意指一种平等的伙伴关系或两性关系。\n\n圣杯二意指一种心灵上的契合。它形容一种既丰富又有创意的友谊或两性关系。其实，圣杯二讲的就是这两种力量的结合，若能同时拥有两种力量，且融合良好的话，会比单一力量更强大。当牌局中出现此牌时，它意味着连结你和对方的特质，那么你可能会获得某些比你单打独斗的成就还要来得大的东西。',
-        upright='Unity, Partnership, Connection, Attraction, Close bonds, Joining forces, Mutual respect',
-        reversed='Imbalance, Broken communication, Tension, Separation, Rejection, Division, Bad communication, Withdrawal'
+        upright='相爱的、合作的、平等的。',
+        reversed='沟通不良的、不和谐的、情绪崩溃的。'
     ), init=False)
 
     three_of_cups: TarotCard = field(default=TarotCard(
@@ -417,8 +417,8 @@ class TarotCards:
         intro='三个女子紧靠彼此，围成圆圈，高举圣杯互相庆贺。她们头上都戴着象征丰收的花圈，穿着色彩艳丽的袍子，脸上幸福洋溢。四周有藤蔓、葫芦及南瓜，一位女子手上提着一串葡萄，这些植物很容易让人联想到丰收的时节。这三位女子分别有不同颜色的头发与眼珠，穿戴的衣服花环也都各有不同，代表她们都是独立的个体，有独立的个性，但是，在这个团体中，她们都能尊重彼此，敬爱彼此。三人围成圆圈的型态，表示她们之间没有尊卑之分，在这个欢庆的场合里，每个人都是如此平等。',
         words='团聚',
         desc='圣杯三意味庆贺或重聚。\n\n圣杯三意指欢乐、分享或庆贺。圣杯三是一张代表庆祝、团圆或当所有参与者带来欢乐的一场聚会。这杖牌可一暗示由三人或更多的人来分享成功。圣杯三意味着一段庆祝的时光，一群志同道合的人们相聚，或代表这是个重大隆盛的晚宴。\n\n圣杯三也经常代表欢庆的场合，举凡各种宴会、聚餐、婚礼、弥月、尾牙、庆功宴等都算在内。其丰收的涵义表示事情有了好的结果，不管过程曾经有多艰辛。因此，圣杯三象征丰收的时节，长久的辛苦终于开花结果，获得成功。',
-        upright='Friendship, Community, Happiness, Gatherings, Celebrations, Group events, Social events',
-        reversed='Overindulgence, Gossip, Isolation, Scandal, Excess, Loneliness, Solitude, Imbalanced social life'
+        upright='聚会、庆祝、分享喜悦的、友谊的。',
+        reversed='孤立无援的、孤独的、独处的、被背叛的、功亏一篑的。'
     ), init=False)
 
     four_of_cups: TarotCard = field(default=TarotCard(
@@ -426,8 +426,8 @@ class TarotCards:
         intro='一个男人百无聊赖地坐在树下，双眼紧闭，双手双脚合在一起，形成防御的姿态。他前方三个杯子象征他过去的经验。云中伸出一只手给他第四个杯子，他却视而不见，独自沉浸在自己的世界中。',
         words='不满',
         desc='圣杯四暗示要留意目前感情上的机会。\n\n圣杯四在告诉我们，应该睁开我们的双眼，在那些机会自眼前溜走之前好好的把握住它们。当你内心感到越充实时，你对外在的需求则越少。你越深思熟虑或将焦点放到内心，你就需要越稳定的基础（或与土地有更强的连结）来平衡你自己。\n\n这张牌带有一种沉闷及不悦的感觉，可能是求问者的生活日日如是，一成不变。其实生活未如想像般单调乏味的，只要求问者肯开阔视野，有些意料不到的事情便会发生。',
-        upright='Apathy, Contemplation, Disconnectedness, Feeling disconnected, Melancholy, Boredom, Indifference, Discontent',
-        reversed='Sudden awareness, Choosing happiness, Acceptance, Clarity, Awareness, Depression, Negativity'
+        upright='倦怠的、沉思的、冷漠的、脱节的、忧郁的、厌烦的。',
+        reversed='错过机会的、抑郁的, 充满负面情绪的。'
     ), init=False)
 
     five_of_cups: TarotCard = field(default=TarotCard(
@@ -435,8 +435,8 @@ class TarotCards:
         intro='在灰暗的天空底下，有一个人身着黑色斗篷，低头哀悼地上三个倾倒的杯子，里头五颜六色的酒流了出来。他的前方是一条河，象征悲伤之流，但河上有座象征意识与决心的桥，通往远处的房子。灰暗的天色反映牌中人的沮丧的内心世界。从图面上无法分辨出这人是男是女，显示悲伤的情绪无论男女皆能体验。',
         words='悲观',
         desc='圣杯五代表在痛苦中回转身，寻找新的机会。\n\n圣杯五形容失落和悲伤。它可能是张代表分离的牌，或者有种和人生疏离的感觉。这段期间内，那些平稳而熟悉的事物似乎都逃离你了。在新机会现身前，你必须经历这段失落或孤立期。这张牌和所有的“五”（包括隐士牌）一样，在正立时都代表心胸窄狭，而倒立时，则有心胸宽大的意味。',
-        upright='Loss, Grief, Self-pity, Disappointment, Sadness, Mourning, Discontent, Feeling let down',
-        reversed='Acceptance, Moving on, Finding peace, Contentment, Seeing positives'
+        upright='后悔的、痛苦的、突然丧失的、悲伤的、悲痛的、感到失望的。',
+        reversed='新的开始、宽恕、接受、继续前进、寻找和平、知足常乐、看到积极的一面。'
     ), init=False)
 
     six_of_cups: TarotCard = field(default=TarotCard(
@@ -444,8 +444,8 @@ class TarotCards:
         intro='在一座宁静安详的庄园里，有六个盛装星币花朵的圣杯。一个小男孩捧着圣杯，似乎在嗅着花香，又好像把圣杯献给小女孩。背景充斥代表快乐的鲜黄色，而天气晴和。让人彷佛有置身童话世界的感受。',
         words='安全',
         desc='圣杯六代表童真环境下的保障和安全。\n\n圣杯六描绘的是一种温柔而隐秘的情景，其中有某种程度的保障和安全，它带有一种可预知性。保障和安全倍受珍惜，不过这是以极高的代价换来的。因为没有什么冒险，所以通常没什么成长。\n\n圣杯六暗示以成长为代价而得到保障、安全和亲密。它可以意指你的居家或家庭状态的稳定。也可能是过去的事物或人们又出现了，等着你去处理。他也可以代表一种舒适的状态，让你有时间静下来，重新关注活力或安顿下来。',
-        upright='Familiarity, Happy memories, Healing, Nostalgia, Memories, Comfort, Sentimentality, Pleasure',
-        reversed='Moving forward, Leaving home, Independence, Stuck in past'
+        upright='怀旧的、回忆的、熟悉的、快乐的回忆、舒适的、愉悦的。',
+        reversed='离家、陷于过去、不平等的爱、沉溺过去。'
     ), init=False)
 
     seven_of_cups: TarotCard = field(default=TarotCard(
@@ -453,8 +453,8 @@ class TarotCards:
         intro='七个圣杯飘浮在云雾弥漫的半空中，杯中分别装着城堡（象征冒险）、珠宝（财富）、桂冠（胜利）、龙（恐惧，另一说是诱惑）、人头、盖着布发光的人（自己）以及蛇（智慧，另一说是嫉妒）。请注意桂冠的下方有颗不显眼的骷髅头，成功与死亡并存，似乎在给人什么警惕。有个人面对着这些圣杯，不知该如何选择，他的身体姿态似乎流露出些微恐惧。',
         words='梦想',
         desc='圣杯七代表应该认知你内在需求。\n\n圣杯七代表的是生活中的非现实层面，包括我们的梦境、幻想与白日梦，或是偶而异想天开的点子。这种想像通常只是空中楼阁，一般人不会真的把这些幻想付诸行动，因此圣杯七不是一张代表行动的牌，而只是一种个人想像的心理状态而已。这张牌描述的是：该去想想什么是你生活重要的部分。它显示出检视环境来确认你正走在通往满足之路的过程中。圣杯七意味着深思内在生活，已进行精神或情感的回顾。\n\n圣杯七是一张代表自我发现、心灵成长以及认识内在需求的牌。提醒你，充分了解自己与自己的行动，你需要行动，也需要思考。对行动有所思考能帮助你将直接的经验转变为知识，并更向智慧与理解靠近。没有思考，行动很快就会变得重复，而没有行动与经验，思考则可能变的索然无味，且毫无意义。这张圣杯七代表你需要向内探索自己，以追求所有爱的来源。你应该确认你所真正需要的是什么，并发现什么东西足以添满你的感情。',
-        upright='Searching for purpose, Choices, Daydreaming, Illusion, Fantasy, Wishful thinking, Indecision',
-        reversed='Lack of purpose, Diversion, Confusion, Disarray, Distractions, Clarity, Making choices'
+        upright='白日梦、一厢情愿、迷失、幻觉、幻想、犹豫不决的。',
+        reversed='缺乏目标的、转移注意力、混淆的、混乱的、分心的、做出选择、做出决定。'
     ), init=False)
 
     eight_of_cups: TarotCard = field(default=TarotCard(
@@ -462,8 +462,8 @@ class TarotCards:
         intro='身穿红衣红鞋的男子在暮色中，手持长杖，离开他先前辛苦建立的的八个杯子，越过河川，转身而去。四周沼泽密布，象征淤塞的情感，如同一滩死水。',
         words='突破',
         desc='圣杯八意味你已经突破某种状况，并显示你要追寻更多的东西。\n\n这张牌代表为了追寻一种新的满足，而放弃既有的满足方式。或许你正打算离职去找一个更有价值的工作，或者你正从你的爱的关系中撤退去寻找更深层的幸福。\n\n圣杯八意味着你正超越某人，或突破某特定状况。它表示一个人光理解还不够，还包括离开一种稳定的状态（圣杯六），去发现圣杯十所提供的满足感。没有任何人事物强迫你放弃目前的状态，除了你内心想达到更强烈满足的需求。要圆满的挑战成功，需要内在的力量，当八出现时，你就会拥有相对的勇气和力量。在大阿尔克纳牌中，第八张是力量牌。而所有塔罗牌的八也都和力量有关。',
-        upright='Walking away, Disillusionment, Leaving behind, Abandonment, Letting go, Searching for truth',
-        reversed='Avoidance, Fear of change, Fear of loss, Stagnation, Monotony, Accepting less, Staying in bad situation'
+        upright='走出、放手、离开现况、寻找真相、找寻新可能、打破陈规的。',
+        reversed='逃避、害怕改变、停滞不前的、单调乏味的、胆怯的、不安全感的。'
     ), init=False)
 
     nine_of_cups: TarotCard = field(default=TarotCard(
@@ -471,8 +471,8 @@ class TarotCards:
         intro='一个财主装扮的的男子坐在小凳上，双手抱胸，神情怡然自得。他身后的高桌上，覆盖蓝色桌布，九个圣杯排排站。背景则是一片光明的鲜黄色。',
         words='满足',
         desc='圣杯九意味对自己的满意和荣耀感。\n\n圣杯九的昵称叫做美梦成真，代表当事人的愿望极有可能实现，无论是精神或是物质方面。这张牌表示你了解自己真正的价值，而且就是你的价值造就了今天的你。\n\n圣杯九形容一种对能圆满达成工作而感到的骄傲和满足。你内心所拥有幸福和喜悦的感觉，可能是来自于你的工作环境、人际关系，或是来自一种心灵上的成就感。现在你内在的需求已经得到满足了，而你也能思考你所赢得的成功。在这张九牌当中有着从你对自己的爱里头所滋长出来的快乐、满足和平静。',
-        upright='Satisfaction, Emotional stability, Luxury, Wishes coming true, Contentment, Success, Achievements, Recognition, Pleasure',
-        reversed='Lack of inner joy, Smugness, Dissatisfaction, Unhappiness, Lack of fulfilment, Disappointment, Underachievement, Arrogance, Snobbery'
+        upright='愿望实现的、满足的、情绪稳定的、愿望成真的、充满成就的、被认可的。',
+        reversed='缺乏内心的喜悦、自以为是的、不满意的、缺乏成就感的、失望的。'
     ), init=False)
 
     ten_of_cups: TarotCard = field(default=TarotCard(
@@ -480,8 +480,8 @@ class TarotCards:
         intro='在卡面中我们看到一家四口和乐融融，父母亲搂抱对方，各举一只手迎向圣杯彩虹，两个孩子快乐的手牵手跳舞，背景是清翠的树木河流，和一栋房屋。',
         words='家庭',
         desc='圣杯十意味一个互利的团体或家庭状态。\n\n圣杯十是一张表示欢乐和分享的牌。它通常是在描述一个团队或家庭，他们在身体及精神上都能相互奉献及合作，并且共享所有的利益。圣杯十形容一个家庭或团体，而其中的每个人均能受益。因为每个人都坦然的付出和接受，因而团体的气氛和谐，大家也乐于付出。它暗示对家庭或工作环境（包括团队合作和分享）有所付出。这张是意味一个成功的家庭状态或聚合，其中每位参与者都充分的感受到对这个团体的归属感。',
-        upright='Inner happiness, Fulfillment, Dreams coming true, Happiness, Homecomings, Emotional stability, Security, Domestic harmony',
-        reversed='Shattered dreams, Broken family, Domestic disharmony, Unhappy home, Separation, Domestic conflict, Disharmony, Isolation​'
+        upright='完美的结局、稳定的关系、内心的快乐、幸福的、回家、家庭和谐的。',
+        reversed='失去和谐的、破裂的关系、梦想破灭的、家庭破碎的、家庭不幸福的、分离的、家庭冲突。'
     ), init=False)
 
     page_of_cups: TarotCard = field(default=TarotCard(
@@ -489,8 +489,8 @@ class TarotCards:
         intro='圣杯侍从穿着花朵图案的衣服，身体很轻松地站着，左手叉腰，面带微笑，用好奇的眼光，没有任何压力地看着圣杯中蹦出的一条鱼。',
         words='奉献',
         desc='圣杯侍从意味有益于情感的奉献。\n\n圣杯侍从是想像力最丰富的孩子。他天真无邪，敏感细心，直觉性强，爱好幻想，好奇心重，甜美可人，喜欢作梦，常常问一些让人想都想不到的问题。他很随和，合作性高，可靠，关心别人的威受，也乐意为他人服务。这样的性格形成一位善解人意、敏感，多愁善感，强调感情交流互动的人。他认真对待他人，对於所爱的人更是忠诚。他也是一位勤勉好学和专心致志的人，自动自发地提供服务朝向特定目标努力，他热心助人，是值得信赖的好帮手，更是良好的工作伙伴。\n\n塔罗牌中的侍从牌都和学习有关，而且由于圣杯组牌涉及情感和直觉，所以这张牌可能意味着透过冥想，或其他任何类似的被动方式来进行心灵上的学习或发展。圣杯侍从代表一段新关系或圣以合伙关系的到来。一个让情感得到满足的机会。',
-        upright='Happy surprise, Dreamer, Sensitivity, Idealism, Naivete, Innocence, Inner child, Head in the clouds',
-        reversed='Emotional immaturity, Insecurity, Disappointment, Emotional vulnerability, Immaturity, Neglecting inner child, Escapism'
+        upright='不成熟的情感、想像力丰富的、易分心的、梦想家、敏感的、理想主义的、天真的。',
+        reversed='情感不成熟的、不安全感的、情感脆弱的、不成熟的、逃避主义的、不愿意付出的、软弱不振的。'
     ), init=False)
 
     knight_of_cups: TarotCard = field(default=TarotCard(
@@ -498,8 +498,8 @@ class TarotCards:
         intro='不同于权杖骑士或宝剑骑士的迅捷骑马姿态，圣杯骑士的白马很有绅士风度，优雅地行进，跟主人一样。圣杯骑士平举着圣杯，他的眼光有些梦幻，深深注视着圣杯。',
         words='选择',
         desc='圣杯骑士意味在感情和行动之间做出决定。\n\n圣杯骑士暗示来自某人的供给。它可能是指情感上的奉献，或某种更为实际的事物。它可能是指情感上的付出，或某种更为实际的事物。骑士也意味着一段决定是否等待或行动，让事情充分发展或找寻新机会的时期。为了发现满足，或许现在是随着心意（河流的象征）而为的时候了。',
-        upright='Following the heart, Idealist, Romantic, Charming, Artistic, Graceful, Tactful, Diplomatic, Mediator, Negotiator',
-        reversed='Moodiness, Disappointment, Tantrums, Turmoil, Avoiding conflict, Vanity'
+        upright='追随内心的、理想主义者、浪漫主义的、有魅力的、温柔浪漫的、梦中情人。',
+        reversed='喜怒无常的、动荡的、逃避冲突的、虚荣心强的、不愿意付出的、花心的、拖延迟疑的、感情用事的。'
     ), init=False)
 
     queen_of_cups: TarotCard = field(default=TarotCard(
@@ -507,8 +507,8 @@ class TarotCards:
         intro='圣杯皇后双手捧着圣杯，眼神直直的注视着圣杯。那圣杯是教堂形状，两臂各有一位天使，顶端是十字架，象征圣杯皇后的虔诚。她坐在海边的宝座上，宝座基部有个小美人鱼抓鱼的图案，顶部是两个小美人鱼共同抱着一个大蚌壳。',
         words='倾听',
         desc='圣杯皇后意味透过倾听直觉而成功。\n\n圣杯皇后意味透过倾听感觉，以及利用富创意的想象力而获得成功。她从经验得知，杂乱无章的想象所产生的结果通常是有限的，因此它可以将精力用在对身体、情感、精神及心灵上都相当有价值的行动上。虽然她可能显得温柔又细心，但眼神却意味着一种坚强的意志。爱调和她的意志，并增加个性上的深度。她带着爱心和怜悯行事，而且常常展现出浓浓的家庭感情。如果发生问题，她可能不会说出她的感觉，但仍然会对周遭的人给于支持，把自己的感情的困扰放在一边。',
-        upright='Compassion, Calm, Comfort, Warmth, Kindness, Intuition, Healer, Counsellor, Supportive',
-        reversed='Martyrdom, Insecurity, Dependence, Giving too much, Overly-sensitive, Needy, Fragile'
+        upright='怜悯的、平静的、仁慈的、善解人意的、慈爱的。',
+        reversed='不安全感、过度敏感的、脆弱的、滥情、不切实际的、多愁善感的。'
     ), init=False)
 
     king_of_cups: TarotCard = field(default=TarotCard(
@@ -516,8 +516,8 @@ class TarotCards:
         intro='国王坐在波涛汹涌海中央的宝座上，左边有条鱼跳出海面，右边有一艘帆船。他的内袍是代表水要素的蓝色，胸前还挂著鱼形项链。他左手拿著象征权力的杖，右手持圣杯，他却是圣杯家族中唯一不注视圣杯的人。',
         words='创作',
         desc='圣杯国王暗示透过创造和情感上的训练而成功。\n\n圣杯国王展现深度和理解力，他适合一个以满足他人的需求为主的位置。他感情已经成熟到能够清楚的考虑别人和自己的需求，而且常常以家庭及环境中的共同参与感为荣。\n\n圣杯国王暗示透过情感和创作上的训练而成功，经由落实精力在有创作的目标上，可以达到所追寻的成功。一种成熟、有创意的方法带来琛功，尤其是在创造和艺术的努力上。这张国王牌暗示你应该信赖你本能——别放弃。它暗示一种坚强又冷静的方式。想象加灵感，再加上实际的努力就会得到回报。',
-        upright='Compassion, Control, Balance, Wise, Diplomatic, Balance between head and heart, Devoted, Advisor, Counsellor',
-        reversed='Coldness, Moodiness, Bad advice, Overwhelmed, Anxious, Cold, Repressed, Withdrawn, Manipulative, Selfish'
+        upright='平衡的、明智的、头脑和心灵的平衡、和蔼可亲的、有包容力的、有经验的。',
+        reversed='冷漠的、糟糕的建议、不知所措的、冷淡的、压抑的、控制欲的、伪善的。'
     ), init=False)
 
     ace_of_swords: TarotCard = field(default=TarotCard(
@@ -525,8 +525,8 @@ class TarotCards:
         intro='一只手从云中伸出，紧紧握住宝剑，宝剑穿过皇冠与桂冠，而远方是毫无绿意的尖锐山头，以及灰白空旷的天际。',
         words='思想',
         desc='宝剑首牌代表毅然决然的行动，开始计划一项新的冒险。\n\n宝剑首牌代表的是一个开始，时涉及以相信冒险或方案的行动。权杖首牌描述身体上的行动，杯子牌的首牌则是情感上的行动，而这张首牌叙述一个意念的形成，或是为未来的行动所准备的计划。这张牌代表清晰的思考，或明确的了解到完成一项计划所需要的是什么。\n\n同时这把双面的宝剑强调着现实、成就与成功所必须负担的责任和应得的报酬。宝剑一只是一个开端，一种可能。未来究竟要如何发展，掌握在持剑者的手中。',
-        upright='Breakthrough, Clarity, Sharp mind, New idea, Concentration, Vision, Force, Focus, Truth',
-        reversed='Confusion, Brutality, Chaos, Miscommunication, Hostility, Arguments, Destruction'
+        upright='果断的、新的挑战、冒险的、主动出击的、开端的、突破的, 敏锐的头脑的, 新的想法, 专注的。',
+        reversed='混乱的、粗暴的、沟通不畅的、争论的、破坏的。'
     ), init=False)
 
     two_of_swords: TarotCard = field(default=TarotCard(
@@ -534,8 +534,8 @@ class TarotCards:
         intro='身穿浅灰长袍的女人坐在灰石凳上，背对着澎湃汹涌、暗礁满布的海洋。她眼蒙白布，双手持剑，在胸前交叉不动。天际高挂一轮新月。',
         words='抉择',
         desc='宝剑二意味着做出一个决断，无论对与错，不要试图逃避。\n\n宝剑意味为你需要作决定或在两个选择当中择其一。这是二则一的抉择，或许在目前这个阶段，你对于所做的选择会产生怎样的结果，洞察力还不够。你在做决定的时候，并没有对你的环境做通盘的考虑，或者是，你没有考虑到你的抉择会带来怎样的结果。\n\n正视你所恐惧的，如此你才能明了你周遭事物对你有什么意义。一个正确决定的报偿正等着你，它的第一个回报是解脱感，这解脱感来自于你能够锁定一个方向。',
-        upright='Difficult choices, Indecision, Stalemate, Stuck in the middle, Denial, Hidden information',
-        reversed='Lesser of two evils, No right choice, Confusion, Indecision, Hesitancy, Anxiety, Too much information, Truth revealed'
+        upright='维持现状的、左右为难的、陷入胶着的、困难的选择、犹豫不决的、陷入僵局的。',
+        reversed='两害相权取其轻的、没有正确的选择的、需做出决定的、敷衍了事的、走投无路的。'
     ), init=False)
 
     three_of_swords: TarotCard = field(default=TarotCard(
@@ -543,8 +543,8 @@ class TarotCards:
         intro='映入眼帘的是一幅令人痛苦的画面。即使是完全没有接触过塔罗牌的朋友，也可以轻易道出宝剑三的涵义──伤心。三把剑合力刺进一颗鲜红的心，背景是灰暗的雨和云。某些版本的塔罗牌给这张牌一个更直接的名称，叫做“悲伤”。',
         words='悲伤',
         desc='宝剑三意味着伤心在所难免，请接受你的痛苦和悲伤。\n\n宝剑三代表的是，你正强烈的经验这悲伤和失落的一段时间。当出现这张牌时，内心的困惑、悲痛和沉重是很明显的，它表示强烈的失望。但你要知道：去体验你的悲伤是很重要的，因为在这么做的同时，你也扫除了障碍，让即将到来的机会可以接近你。记住，悲伤是会过去的。\n\n虽然痛苦，但我们要看破痛苦的假象。宝剑三凌空的心，告诉我们需要再去深入思考，以获得解脱和更深的觉醒，三把宝剑只是一种试炼，这颗心也可以是一种假托，而不是我们真正的心灵。以承受和接纳的态度，来化解宝剑成为优美的思考认知。',
-        upright='Heartbreak, Suffering, Grief, Separation, Sadness, Sorrow, Upset, Loss, Trauma, Tears',
-        reversed='Recovery, Forgiveness, Moving on. healing, Reconciliation, Repressing emotions'
+        upright='心碎的、痛苦的、悲伤的、分离的、伤心的、悲哀的、烦恼的、受到创伤的、巨大伤痛、失落分离、经历背叛、自我封闭。',
+        reversed='恢复、宽恕、继续前进、愈合、和解、压抑的情绪、接受事实的。'
     ), init=False)
 
     four_of_swords: TarotCard = field(default=TarotCard(
@@ -552,8 +552,8 @@ class TarotCards:
         intro='图中的男人在类似修道院的建筑物内休息，双手合抱胸前，呈现安详的状态。彩绘玻璃表现一个祈祷者跪在圣母面前的画面，好像在寻求什么建议，以获得内心的宁静。三把宝剑挂在墙上不用，但他身旁仍保有一把宝剑，当他醒来，随时可以拿起宝剑来采取行动。',
         words='沉思',
         desc='宝剑四暗示在危机中安静的思考，退隐中的深思熟虑。\n\n\n宝剑四这张牌可能象征自生活中撤离：身体上退隐到自家当中，或在精神上退隐到梦想和幻想当中。这是一张反省过去行为和计划未来的牌。他说明精神层面的巩固：采取让过去行为有意义的行动，以及排除那些已经被证实为不正确、或没有建设性的想法和信念。如此一来就有可能运用过去的经验来帮助你获得未来的成功。在经历了宝剑三的痛苦之后，随之而来的是对你自己和你的人生有更深层的了解。',
-        upright='Rest, Restoration, Contemplation, Relaxation, Peace, Sanctuary, Recuperation, Self-protection, Rejuvenation',
-        reversed='Restlessness, Burnout, Stress, Recovery, Awakening, Re-entering world, Release from isolation'
+        upright='休息、独处的、储备精力、恢复、沉思的、放松的、避难所、休养、自我保护、恢复活力的。',
+        reversed='烦躁的、倦怠的、充满压力的、重新进入世界、从孤立中释放出来、做好准备再次启动。'
     ), init=False)
 
     five_of_swords: TarotCard = field(default=TarotCard(
@@ -561,8 +561,8 @@ class TarotCards:
         intro='红发的男子右手抱着两把剑，左手拄着另一把，回头注视远方两个失败者，嘴角似乎带着微笑。很明显的，他们刚结束一场争执，也许暴力相向。地上还散落着两把剑。另外两人中，一人怅然离去，一人用手摀着脸，似乎难以接受，或者感到伤心羞辱。天空中被风吹散的云彷佛也在说着他们争执的故事，看来很不宁静。',
         words='纷争',
         desc='宝剑五意味误会加深，争吵和紧张，解决的机会十分渺茫。\n\n宝剑五这张牌代表争吵、紧张和冲突，这可能使指你与自己内在的交战，或和你周遭人的不协调。假如这个冲突是指你和别人的，则其前提很有可能来自你的思想。在这种冲突的情况下，每个人对于事情的解决方法都各有见地，却没有人愿意聆听他人的心声。',
-        upright='Unbridled ambition, Win at all costs, Sneakiness, Arguments, Disputes, Aggression, Bullying, Intimidation, Conflict, Hostility, Stress',
-        reversed='Lingering resentment, Desire to reconcile, Forgiveness, Reconciliation, Resolution, Compromise, Revenge, Regret, Remorse, Cutting losses'
+        upright='无限的野心、不惜一切代价赢得胜利、争论与纠纷、侵略的、欺凌的、充满敌意的、损人不利己的、不择手段的。',
+        reversed='背叛欺骗的、挥之不去的怨恨、渴望和解的、妥协的、后悔或悔恨的、减轻损失。'
     ), init=False)
 
     six_of_swords: TarotCard = field(default=TarotCard(
@@ -570,8 +570,8 @@ class TarotCards:
         intro='一艘小船上插着六把宝剑，船上有一个女人、一个小孩与一位船夫。\n\n船缓缓的朝远方的岸边前进，而此端的水汹涌，彼方的水平静。象征伤害的六把剑插在船身上，以及三个主角哀伤的背影，构成宝剑六缓慢低回的基调。沉重的剑身让船夫只能缓行，疗伤的过程亦同。但是我们不能把宝剑抽起，否则船会沉，正如我们不能把过去的哀伤连根拔起，只能轻轻的抚平。也许你该庆幸，这些宝剑并不能使船沉没。',
         words='平静',
         desc='宝剑六暗示远离是非，在混乱之后，逐渐回复平静。\n\n这是受伤后康复的过程，不管伤多重，总是能痊愈。水象征情绪，这端汹涌的水是你烦扰的过去，前方大片平静的水面，预示未来安详的情绪。船夫手持黑色长篙，黑色象征潜质，将来什么都还是可能发生，不要将自己困死了。宝剑六是一个信道，领你向未来的幸福快乐前进，光明的日子就在前方。\n\n这张牌暗示你正带着你的剑（问题），从过去走向未来。或许你根本没注意到它们，然而它们却是与你紧紧相随。这是一个从艰困时刻过渡到一个较为平衡状态的过程。即使现时的问题及困难如何复杂，最终都会得到解决，求问者届时心情自然轻松不少。宝剑六可能是在说明当你转移向新的经验时，你也正慢慢的远离困境，情绪从过去释放出来。',
-        upright='Transition, Leaving behind, Moving on, Departure, Distance, Accepting lessons',
-        reversed='Emotional baggage, Unresolved issues, Resisting transition, Stuck in past, Returning to trouble, Running away from problems, Trapped'
+        upright='疗伤的过程、淡淡的哀伤、脱离困难、过渡、继续、接受教训的。',
+        reversed='受到连累的、绊脚石、情感包袱、未解决的问题、困在过去的、回到麻烦中、逃避问题。'
     ), init=False)
 
     seven_of_swords: TarotCard = field(default=TarotCard(
@@ -579,8 +579,8 @@ class TarotCards:
         intro='图中的男子身处军营中，趁着远方敌人炊饭没有防备时，悄悄偷走五把剑，还留着两把在原处。',
         words='逃避',
         desc='宝剑七意味另辟蹊径，若要成功的话，需要一种新的方法。\n\n宝剑七所传达的讯息是：不要放弃。去找寻另一种可以达成目标的方法吧。坐下来，检查一下你所有的选择，以便发现先前未曾预见的可能性。你当然还有时间来完成你的愿望，然而在方法上需要更有弹性，各种行动的不同组合方式，就有可能会带来不同的结果。\n\n宝剑七暗示经由审慎评估各种可能，你就能找到有效的解决之道。透过详细的规划和不放弃的决心，你就能得到更多。比如你目前正汲汲营营于某件重要的事，理智所提供的解决方案会让你不需要如此费劲。\n\n宝剑七同时也是一张秘密、隐藏动机和不坦诚的牌。牌中暗示求问者欲逃避一段令他不愉快的事情，这件事可能会令他有金钱损失或与面子有关，求问者若肯勇敢面对，并应用智慧及交际手段去补救。',
-        upright='Deception, Trickery, Tactics and strategy, Lies, Scheming, Strategy, Resourcefulness, Sneakiness, Cunning',
-        reversed='Coming clean, Rethinking approach, Deception, Confession, Conscience, Regret, Maliciousness, Truth revealed'
+        upright='偷窃的、欺骗的、关系中不坦承的、诡计多端的、战术和策略、谎言与阴谋、诡计和狡猾的。',
+        reversed='觉察危险的、突发奇想的、防范未然的、另辟蹊径的、忏悔的、真理的揭示。'
     ), init=False)
 
     eight_of_swords: TarotCard = field(default=TarotCard(
@@ -588,8 +588,8 @@ class TarotCards:
         intro='一个女人眼睛被布蒙住，上半身被捆绑着，身处八把宝剑群中。地上满是象征羞辱的泥泞，而远方是座矗立于峭壁之上的城堡，象征绑住她的权威。',
         words='限制',
         desc='宝剑八暗示限制及丧失个人的能力。\n\n宝剑八代表的是你被限制住的一段时间，或是在某种情况下你失去个人的能力。你觉得动弹不得，受到限制，而且没有办法看清楚你前面的路。\n\n塔罗牌的“八”是代表力量的牌。而对于宝剑八里面的女人，这份力量源自于倾听她内在的声音的能力。双眼被蒙蔽让她无法透过视觉来做判断，她显得那么的无能为力，然而第一眼看上去这是个阻碍，但其实却是助力。阻碍那个女人控制自己所处环境的力量，却使得她能够走进自己的内心世界倾听内在的声音，并且留心它所发出的指令。如果你想做出有效率的决定，现在是留心你的自我精神层次的时候了。\n\n去探索那等待着你的道路吧，利用你内在的力量和个人的能力，将自己从目前的情况中释放出来，并且把那些曾经屈服于他人的个人能量重新召唤回来。你的信念其实才是你最大的限制。好好自省并检视这些信念，因为事实上目前的“眼罩”是在帮助你，因为它可以让你不会分心。',
-        upright='Imprisonment, Entrapment, Self-victimization, Trapped, Restricted, Victimised, Paralysed, Helpless, Powerless',
-        reversed='Self acceptance, New perspective, Freedom, Release, Taking control, Survivor, Facing fears, Empowered, Surrender'
+        upright='受到束缚的、热情受限的、看不清真相的、忍耐的、监禁、禁锢、自我伤害、无助而无力的。',
+        reversed='恢复自由、自我接受、新视角、释放、降服、幸存者、面对恐惧的。'
     ), init=False)
 
     nine_of_swords: TarotCard = field(default=TarotCard(
@@ -597,8 +597,8 @@ class TarotCards:
         intro='午夜梦回，一个女子从睡梦中惊醒，把脸埋在双手中。墙上横挂着九把剑，看起来彷佛从后面刺穿那女子，带给人极大的压迫感。棉被图案是由象征热情的玫瑰，以及星座符号组成的。床侧则雕刻着一人击败另一人的画面。',
         words='梦魇',
         desc='宝剑九暗示由梦境传达的直觉，或对问题的担心。\n\n宝剑九代表的是强烈的梦。或许你的潜意识正努力教导你某些事情，去倾听你的梦境。宝剑九是一张代表担心和情绪骚动的牌。这种担心可能是对自己或周遭的一切。也可以代表鲜明的梦境或梦魇，而梦魇则可能是在传达一种强烈的讯息，即你生命当中某些不对劲的事物，已由潜意识而浮现在你的意识层面了。\n\n假设你将你的梦境写成日志，或许会发现一个共同的线索或是明显的讯息。那么你的梦就可以变成一项接近你潜意识的有效工具了。',
-        upright='Anxiety, Hopelessness, Trauma, Fear, Negativity, Breaking point, Despair, Nightmares, Isolation',
-        reversed='Hope, Reaching out, Despair, Recovery, Learning to cope, Facing life, Finding help, Shame, Guilt, Mental health issues'
+        upright='巨大恐惧的、绝望痛苦的、自我折磨的、失眠的、焦虑的、逃避的、无望的、恐惧的、崩溃的、绝望的、恶梦、孤立的。',
+        reversed='回忆困扰、痛苦减轻的、寻找希望的、伸出援手、学会应对、寻找帮助。'
     ), init=False)
 
     ten_of_swords: TarotCard = field(default=TarotCard(
@@ -606,8 +606,8 @@ class TarotCards:
         intro='一个俯卧的男人，背上插着十把剑，有一把甚至从插进耳朵里去。这画面实在令人怵目惊心。牌面中有一半被黑色的天空和乌云所占去，多少暗示宝剑十这张牌是大家避之唯恐不及的所谓的“坏牌”。',
         words='失败',
         desc='宝剑十意味着痛苦挥之不去，在另一个开始之前某种状况的结束。\n\n这张牌暗示在某种情况下，你已到了最低潮的时刻，你也可能是被一些无用的事物，或对生命具破坏性的信念给绊住了。但远方微弱的阳光暗示着，尾随这艰困时刻的将会是新的以及更好的事物。你对人生的思想或信念导致你此刻的境遇，从这里，你的思想将会带领你到任何你认为能够去的地方。\n\n宝剑十代表一种情况的结束。可能指两性关系的结束，或某关系中的一个阶段的结束，或一项事业的失败。你生命中的某些事物已经结束了，虽然这毫无疑问的会是一段艰难的时期，不过好消息是，它终究会过去，接受这个事实有助于新事物来取代旧的的。',
-        upright='Failure, Collapse, Defeat, Ruin, Bitterness, Exhaustion, Dead end, Victimization, Betrayal',
-        reversed="Can't get worse, Only upwards, Inevitable end, Survival, Improvement, Healing, Lessons learned, Despair, Relapse"
+        upright='毁灭惨败的、身心磨难的、失败的、崩溃的、毁灭的、苦涩的、疲惫的、死胡同、被背叛的。',
+        reversed='释怀的、往好的方向看、不可避免的结束、改善、愈合、学到的教训。'
     ), init=False)
 
     page_of_swords: TarotCard = field(default=TarotCard(
@@ -615,8 +615,8 @@ class TarotCards:
         intro='宝剑侍从两手握著宝剑，眼光却朝著远方。他的头发和背景中的树都被风吹得飞扬。远方天空中有十只小鸟成群飞舞。背景灰云带来些许混乱的气氛',
         words='幻想',
         desc='宝剑侍从象征太多的梦想，而行动却不够。\n\n你可以发现到这个侍从双脚离地甚远，这个思考敏捷的年轻人喜欢说话、有很多点子和创新的概念，而这些成双出现的点子却无法搭在一起。这表示一种生活的态度，这种态度要求你透过梦境和思想让自己从现实抽离出来。\n\n宝剑侍从可能代表有关你目前所拥有的一个构想或计划的消息。但却没有付诸行动。对那些依赖创意和思考维生的人而言，这可说是一张正面的牌，但是也可能暗示脚踏实地是必要的，假设你想生产实际或有形的东西。',
-        upright='Curiosity, Restlessness, Mental energy, Curious, Witty, Chatty, Communicative, Inspired, Vigilant, Alert, Mental agility',
-        reversed='Deception, Manipulation, All talk, Scatterbrained, Cynical, Sarcastic, Gossipy, Insulting, Rude, Lack of planning'
+        upright='观察局势、评估掌握、好奇心的、不安分的、健谈而善于沟通的、有灵感的、警惕警觉的。',
+        reversed='错误评估、冲动的、不谨慎的、心不在焉的、愤世嫉俗的、爱说闲话的、粗鲁的、缺乏规划的。'
     ), init=False)
 
     knight_of_swords: TarotCard = field(default=TarotCard(
@@ -624,8 +624,8 @@ class TarotCards:
         intro='宝剑骑士和圣杯骑士同样骑着白马，但宝剑骑士这匹马在狂风中极速奔驰，与圣杯骑士平缓前进的马形成强烈对比。宝剑骑士将宝剑高举过头，表情狰狞，向前冲杀。马鞍上饰以蝴蝶和鸟，象征风要素。他穿着铁甲，外袍也有鸟的图案，而靴子前后都带着尖刺，在战场上毫不留情。云和树都被狂风吹得七零八落。空中飞翔的鸟，队形也略显散乱。',
         words='急躁',
         desc='宝剑骑士暗示要达成愿望需要有敏捷的行动。\n\n宝剑骑士代表的是迅速的行动：跃进或跳出某种情景。作为某个问题的答案，它暗示着一个快速的动作或出其不意的行为是有需要的。已经没有时间去想该做何选择了——去做就对了。\n\n这张牌通常是代表一个年轻人，他不按牌理出牌、缺少耐心、思考敏捷。这是属于年轻人的力量，他要走往自己的道路。是一种英勇的行径或者说英雄气概的展现。当然这种冲撞的行动，也可能极具破坏力，能造成摧毁的状况。他的意志力坚强，专注而犀利，有着清明的勇气和专一凝聚的心志。',
-        upright='Action, Impulsiveness, Defending beliefs, Assertive, Direct, Impatient, Intellectual, Daring, Focused, Perfectionist, Ambitious',
-        reversed='No direction, Disregard for consequences, Unpredictability, Rude, Tactless, Forceful, Bully, Aggressive, Vicious, Ruthless, Arrogant'
+        upright='行动力强的、冲锋陷阵的、直接快速的、冲动的、直接的、不耐烦的、大胆的、雄心勃勃的。',
+        reversed='逃避问题的、强势冲动的、盲目做出行为、没有方向的、不顾后果的、不可预测的、没有策略的、咄咄逼人的。'
     ), init=False)
 
     queen_of_swords: TarotCard = field(default=TarotCard(
@@ -633,8 +633,8 @@ class TarotCards:
         intro='宝剑皇后戴著蝴蝶花纹的王冠，象征灵魂，也象征风要素。她穿着灰色内袍，和蓝天灰云花纹的披风。她的表情坚毅，似乎皱著眉头，左手却对世界敞开。她右手高举宝剑，剑尖笔直向上。她的宝座扶手之下有个人头花纹，那是风之精灵，宝座的底部又有蝴蝶花纹。宝剑皇后的头顶上有只高飞的鸟。背景天空是深蓝色的，还有大片的灰云。',
         words='理智',
         desc='宝剑皇后代表淡定冷静，经过深思熟虑所得到的成就。\n\n宝剑皇后是一张思索感情的牌。它可能意味运用心智到情感中的行动，好让感觉有意义。作为某个问题的答案，宝剑皇后暗示透过清晰思考而获致成功。\n\n现在正是你反省过去的行为或目前情况的时刻了。密切的观察那些接近你的事物，以确认你不会再重陷困境中。你可能会想从生活当中撤退，好好的思考你自己，以及未来的方向。',
-        upright='Complexity, Perceptiveness, Clear mindedness, Honest, Independent, Principled, Fair, Constructive criticism, Objective, Perceptive',
-        reversed='Cold hearted, Cruel, Bitterness, Pessimistic, Malicious, Manipulative, Harsh, Bitter, Spiteful, Deceitful, Unforgiving'
+        upright='洞察力、是非分明的、冷静的抉择、敏锐的、头脑清晰的、有原则公平的、建设性的批评、客观的。',
+        reversed='是非不分的、装腔作势的、冷酷无情的、残酷的、恶毒的、苛刻的、不宽容。'
     ), init=False)
 
     king_of_swords: TarotCard = field(default=TarotCard(
@@ -642,8 +642,8 @@ class TarotCards:
         intro='宝剑国王是四张国王牌中唯一以正面出现的。他穿著蓝色内袍和红色披风，他的右手持剑，剑尖偏右，偏向行动的那一边。左手戴着象征权力的戒指，轻松的放在腿上。他后方帷幕上饰有象征灵魂和风要素的蝴蝶花纹。天空中的鸟的数量有两只，象征在智慧与行动之间的选择，对宝剑国王而言，智慧必须用行动来实现。',
         words='公正',
         desc='宝剑国王暗示将梦想化为现实，用构想去做一些真实的事。\n\n宝剑国王是客观理性，凡事讲求合理和公正，具有坚定而一贯的信念和完整的思想体系，很难被他人所影响。他凭借事实和原则而下决定，不会情感用事或主观成见，并且会考虑得十分周到，显出谨慎和深沉的特色。\n\n宝剑象征着人的思想和决心，这位国王手执宝剑，自然具有着掌握思考的能力，并且很重视理念和原则，在意的是合理与正义。宝剑国王代表对清楚的思想的追求、诚实，以及将只是倒入现实的需求。作为某个问题的答案，这张国王牌可以说是透过清楚而有效之计划而达到成功。',
-        upright='Head over heart, Discipline, Truth, Reason, Authority, Integrity, Morality, Serious, High standards, Strict',
-        reversed='Manipulative, Cruel, Weakness, Irrational, Dictator, Oppressive, Inhumane, Controlling, Cold, Ruthless, Dishonest'
+        upright='成熟的智慧、理性公正的、严格的、纪律的、权威的、正直的、道德的、严肃严格的。',
+        reversed='独裁的、失控的的、矛盾混乱的、自私的、不理性的、独裁者、压迫的、不人道的、控制欲的、冷酷的。'
     ), init=False)
 
     ace_of_pentacles: TarotCard = field(default=TarotCard(
@@ -651,8 +651,8 @@ class TarotCards:
         intro='云中伸出一只手，捧着一枚星币。背景是花草满布的繁盛庭园，绿树拱门外的远方有座白色的山，暗示星币一不只有关物质，也可以延伸到精神层面。',
         words='物质',
         desc='星币首牌暗示，你有足够的钱好执行你的计划。\n\n星币首牌是张将梦想化为实质的牌。圣杯牌组中，我们有梦﹔星币牌组中，我们筑梦，梦想不再只是空中楼阁。星币首牌让我们稳健，踏实，有安全感。星币首牌和务实的开始有关。它意味你有足够的金钱、精力，或充分的条件，来开始一项新计划。它暗示你可以平衡掉花费。不论目前花掉了多少钱，赚回来的绝对够本。',
-        upright='Opportunity, Prosperity, New venture, New opportunities, Resources, Abundance, Security, Stability, Manifestation',
-        reversed='Lost opportunity, Missed chance, Bad investment, Missed chances, Scarcity, Deficiency, Instability, Stinginess, Bad investments'
+        upright='重要讯息、获得财富、休闲享乐、美梦成真、实现、机会、新的风险与机会、富足的、稳定的。',
+        reversed='失去的机会、只为利益的、错过的机会、糟糕的投资、匮乏的、不稳定的、吝啬的。'
     ), init=False)
 
     two_of_pentacles: TarotCard = field(default=TarotCard(
@@ -660,8 +660,8 @@ class TarotCards:
         intro='一个红衣装扮，头戴高帽，类似街头艺人的男子，正在耍弄两个星币，星币外围的带子形成８自形无限符号，魔术师和力量牌中也有这个符号。他背后的海面起伏剧烈，两艘船正在其上行驶。',
         words='两难',
         desc='星币二暗示与金钱有关的决定。\n\n星币二显示一个专注于钱财的人。此时他并没有重大的财务压力，只是要决定那张账单要先付而已。保持弹性，是星币二带给我们的另一个课题。除了随机应变的弹性，星币二也求取平衡。\n\n星币二描述着权衡各种机会的轻重，而这次它们是属于身体或物质的层面上。这象征着介于两个选择之间的决定。你有没有办法现在就抉择，或是再等一会儿会不会比较好呢？',
-        upright='Balancing decisions, Priorities, Adapting to change, Balancing resources, Adaptation, Resourcefulness, Flexibility, Stretching resources',
-        reversed='Loss of balance, Disorganized, Overwhelmed, Imbalance, Unorganized, Messiness, Chaos, Overextending'
+        upright='平衡决策、优先事项、适应变化的、平衡资源的、适应性的、资源丰富的、扩充资源。',
+        reversed='失去平衡的、无序的、不堪重负的、不平衡的、无组织的、混乱的、过度扩张的。'
     ), init=False)
 
     three_of_pentacles: TarotCard = field(default=TarotCard(
@@ -669,8 +669,8 @@ class TarotCards:
         intro='在一座修道院里头，有位雕刻师正在工作，旁边两位修道人拿着草图，似乎正在和雕刻师讨论工作的进度。',
         words='学习',
         desc='星币三暗示透过研究、学习，或者将构想付诸实现，而改善自身的境遇。\n\n这张牌代表扎根于稳固的基础上，建立某些具有持久价值的东西。也许你是在建造一栋房子，开始学习一个对你有助益的课程，或为稳固的两性关系或生意打基础。星币三对自我发展而言是张正面的牌。星币三表示去作某些将可以改善你环境事情的一段时间。它可能是开始一个课程、阅读书籍，或如果它是出现在事业的分析中，那就是你在工作当中学习拥有一个机会去建立某种具有永久价值的东西。\n\n星币三是一个鼓励，鼓励当事人不管在进行什么样的工作，都可以仔细计划，然后放手去做，因为他具备完成工作所需要的专业能力，他有充足的才干来达成手边任何任务。星币三的成功不是偶然，他不仅有专业能力，还实实在在的工作。',
-        upright='Teamwork, Collaboration, Building, Shared goals, Apprenticeship, Effort, Pooling energy',
-        reversed='Lack of teamwork, Disorganized, Group conflict, Lack of cohesion, Apathy, Poor motivation, Conflict, Ego, Competition'
+        upright='蓄势待发的、资历深的、掌握度高的、熟练的、建设、共同目标、努力、集中精力的。',
+        reversed='能力不足的、缺乏团队合作的、组织混乱的、群体冲突、缺乏凝聚力的、动力不足的、自负的。'
     ), init=False)
 
     four_of_pentacles: TarotCard = field(default=TarotCard(
@@ -678,8 +678,8 @@ class TarotCards:
         intro='图中的男人戴着皇冠，身穿象征统治威权的红色袍子，下摆饰以蓝边，显示出崇高的领主身分。他坐在一个箱子上，头顶一枚星币，双手紧抓着另一枚，双脚又各踩着两枚，紧张的神情似乎深怕他失去任何一丁点财产。这个人虽有钱，却孤绝于城市人群之外。',
         words='节约',
         desc='星币四意味厚积薄发，节省你的金钱或体能以迎接更大的挑战。\n\n星币四正位置常代表物质上的获利与稳定，获利的来源可能是工作，也可能是接受赠与或遗产。然而，星币四代表物质上的稳定，却不保证心灵上的成长。星币四意味你正在节约金钱、节省精力，或是节制。它也可能意味经由节约金钱、偿还债务及量入为出，而是你的财务状况日趋稳定。或许你在设计增加收入或减少指出，以确保自己进来的钱比出去的多。',
-        upright='Conservation, Frugality, Security, Possessiveness, Insecurity, Hoarding, Stinginess, Stability, Savings, Materialism, Wealth, Boundaries, Guardedness',
-        reversed='Greediness, Stinginess, Possessiveness, Generosity, Giving, Spending, Openness, Financial insecurity, Reckless spending'
+        upright='节约的、节俭的、占有欲、不安全感、囤积、储蓄、自我封闭的、紧抓不放的、不安全感的。',
+        reversed='贪婪的、慷慨、给予、开放的、财务不安全的、胡乱消费的。'
     ), init=False)
 
     five_of_pentacles: TarotCard = field(default=TarotCard(
@@ -687,8 +687,8 @@ class TarotCards:
         intro='冰天雪地中，两个乞丐蹒跚前行，又瘸又驼背，身上的衣服破烂不堪。他们经过一间象征物质与精神庇护的教堂，却视而不见，挺着饥饿且疲惫的身躯，径自赶路。',
         words='困难',
         desc='星币五意味对那些充实你的事物的疏离感。\n\n卡面上的两个人本可以选择如何去发现、跟随及落实精神之路。教堂其实只是他们的一种选择。它代表把精神价值介绍给那些无意去追求的人。在五这张牌中，这些人没有看见它，因此丧失了一个改变的机会。外在悲惨是内在悲惨的一种反映，所以当星币五出现时，你需要接受生命提供给你的改变机会。“如果你想改变这个世界，请先改变你自己”是这张牌的答案。\n\n就整体观点来看，星币五说的是财务上的困难、贫穷、疾病和内在的寂寞。在不断的挣扎当中，你很容易窄化你对问题的焦点，而忽略了你的机会。当这张五出现时，深度的心灵改变是有其需要的，否则虽然有外在的助力，可能还是解决不了你的问题。你目前的人生观并非你的支柱，而现在你必须问自己，是否仍愿意保有这些信念。',
-        upright='Need, Poverty, Insecurity, Hardship, Loss, Isolation, Feeling abandoned, Adversity, Struggle, Unemployment, Alienation, Disgrace',
-        reversed='Recovery, Charity, Improvement, Positive changes, Recovery from loss, Overcoming adversity, Forgiveness, Feeling welcomed'
+        upright='贫穷的、困难的、损失、孤立、感觉被抛弃的、逆境、挣扎、连续失败的、意志消沉的。',
+        reversed='恢复、慈善、改善的、积极的变化、从损失中恢复、克服逆境的、宽恕的、感觉受到欢迎的。'
     ), init=False)
 
     six_of_pentacles: TarotCard = field(default=TarotCard(
@@ -696,8 +696,8 @@ class TarotCards:
         intro='一个商人装扮的男子，脚边跪着两个乞丐。商人右手施舍其中一名乞丐，左手拿着象征平衡的天秤。',
         words='施舍',
         desc='星币六暗示没有绝对的公平，其中一人比另一人更有控制力。\n\n星币六是在形容一种结构性的关系，其中一人比另一人更有控制力。是一张有很多层面的牌，而它的意义又会随着问题或周遭的牌而改变，在这张牌中，看似公平和正当，不过，请注意，两个乞丐是跪在富翁的面前。在这个关系里，他是处于有权力的地位。星币六是在形容一种关系：一个人支配另外一个人。\n\n跪在地上的人事实上是受制于他的，暗示着局面是由他所控制，而他是透过他的财富来掌控这一切。这个站着的人深谙拥有金钱就是拥有权力。他就越能选择自己的人生。施与受中间不只是金钱，知识、经验、技术的传授也算。所以星币六也代表知识、经验、技术的传授或是学习。',
-        upright='Charity, Generosity, Sharing, Community, Material help, Support, Giving and receiving, Gratitude',
-        reversed='Strings attached, Stinginess, Power and domination, Power dynamics, Abuse of generosity, Strings attached gifts, Inequality, Extortion'
+        upright='赠送或获得礼物、接受施舍的、慈善的、慷慨的、物质上的帮助、支持、给予和接受、感恩。',
+        reversed='有条件的施舍、权力和支配、附带条件的礼物、不平等的、勒索、贪婪。'
     ), init=False)
 
     seven_of_pentacles: TarotCard = field(default=TarotCard(
@@ -705,8 +705,8 @@ class TarotCards:
         intro='一位农夫把下巴架在杖上，低头看着他长久辛勤得来的收成。这丛农作物在他的耕耘下，已经可以自己成长茁壮了。农夫的表情似乎很满足，又彷佛在思考下一步该怎么做。',
         words='规划',
         desc='星币七意味着思考未来的财务或物质状况。\n\n星币七暗示目前工作即将完结，只剩下一点尾巴要收而已。经历过去长时间段孜孜不倦的努力，现在可以暂停一下，看看自己目前的成就，想想下一步的行止。星币七是一种实际面上的投资与等待，并且具有时间性，能解释出过去和未来的现象。代表过去曾经付出努力，投注了资源和精神，如今正在等待成果，未来也将有机运得到这些回收。处于一种回顾和期待的状态。\n\n星币七代表思考和计划未来的一段时间。你的生活或目前的状况尚称平稳，所以你有时间可以安静的计划未来的步骤。这可能包括进一步的学习、强调休闲、谨慎地经营现有财物，甚至再创另一种事业，以补充现有的事业。花些时间多做思考吧，因为你的决定有可能对将来产生很大的影响。',
-        upright='Hard work, Perseverance, Diligence, Harvest, Rewards, Results, Growth, Progress, Patience, Planning',
-        reversed='Work without results, Distractions, Lack of rewards, Unfinished work, Procrastination, Low effort, Waste, Lack of growth, Setbacks, Impatience, Lack of reward'
+        upright='努力工作的、坚持不懈的、勤奋的、收获与回报、耐心等待、辛勤劳动、长期经营。',
+        reversed='过度劳累的、无法享受成果的、看不见目标的、工作没有结果的、缺乏回报的、努力不足、挫折、缺乏回报的。'
     ), init=False)
 
     eight_of_pentacles: TarotCard = field(default=TarotCard(
@@ -714,8 +714,8 @@ class TarotCards:
         intro='一位雕刻匠坐在长板凳上，专注而勤劳地刻着星币星币，他前面已经完成六个了，脚边还有一个未完成。有一条黄色的道路连接远方的市镇与雕刻匠，连接工作与社会，无论什么工作，目的都是服务人群，雕刻匠并未忘记这一点。',
         words='上进',
         desc='星币八暗示对某人或某种状况的承诺。\n\n星币八是代表工作赚钱的一张牌，也表示能够累积财富，集中心力在赚取金钱上。这是一张代表承诺并专注于眼前工作的牌，而意念当中这乃是为了较长的目标而努力。\n\n星币八暗示对一个人或一种状况的深度承诺。现在你则着重于你的技巧以及如何变得更精炼。可以透过不懈的努力，或进一步的学习让技艺更上层楼。这张牌时说你已经在群体当中找到了自己的位置，并且在做适合你做的事情。你明白工作不应该是沉闷无味的，而是一种自我完成的机会。工作不仅只是为了填满你时间、胃或口袋，更重要的是让你的人生完整。',
-        upright='Apprenticeship, Passion, High standards, Skill, Talent, Craftsmanship, Quality, Expertise, Mastery, Commitment, Dedication, Accomplishment',
-        reversed='Lack of passion, Uninspired, No motivation, Lack of quality, Rushed job, Bad reputation, Lack of motivation, Mediocrity, Laziness, Low skill, Dead-end job'
+        upright='进取心、精益求精的、技能、工艺、质量、专业知识、精通的、奉献的、成就的。',
+        reversed='错误百出的、敷衍的、缺乏激情的、没有灵感的、没有动力的、缺乏质量的、工作仓促的、平庸懒惰的、技能低下的、没有前途的工作。'
     ), init=False)
 
     nine_of_pentacles: TarotCard = field(default=TarotCard(
@@ -723,8 +723,8 @@ class TarotCards:
         intro='一位衣着华丽的女子站在她的庄园中，四周葡萄茂盛，正是收成时节。她右手扶在星币上，大拇指还扣着一根葡萄藤，左手则戴着白手套，让她的小鸟站在上面，小鸟的头部却被红布遮住了。',
         words='自律',
         desc='星币九代表收获与安逸，丰富的物质生活与相对应的束缚。\n\n星币九是一张代表自信或自我依赖的牌，那可说是要达到超凡成就的必要条件。你的自信如果在搭配上自律的话，那将使你在许多层面上获益。\n\n大体上来说，星币九形容由于过去的努力而带来的一种舒适的生活。星币九代表财富的成功与富足，显示对于生活实际投入的层面，并表达了物质与精神层面的相互关系。',
-        upright='Fruits of labor, Rewards, Luxury, Rewarded efforts, Success, Achievement, Independence, Leisure, Material security, Self-sufficiency',
-        reversed='Reckless spending, Living beyond means, False success, Being guarded, Material instability, Superficiality'
+        upright='明确的选择、能看清事物的原貌、能创造更有利的条件、迈向成功者、劳动的成果、奢侈品、成功成就的、独立的、自给自足的。',
+        reversed='日常琐事干扰、缺乏果断的决策力、面对重大挫折、孤立无援、肆意挥霍、入不敷出、虚假的成功、物质上不稳定的。'
     ), init=False)
 
     ten_of_pentacles: TarotCard = field(default=TarotCard(
@@ -732,8 +732,8 @@ class TarotCards:
         intro='星币十的近景是一位老年人，他舒服的坐着，身旁围绕着两只狗。拱门外的市镇中有一对青年男女，似乎在讨论什么，还有一个小孩子。十个星币排列成生命之树的符号。',
         words='富裕',
         desc='星币十意味归于平静的物质上的成功。\n\n星币十意味物质上的成功，星币十画的是一个安稳而舒适的居家环境。从墙上盾形家徽看得出这是一个富裕而巩固的环境，这个家庭拥有能提供舒适物质环境的一切条件。那么，为什么每个人都没有面对着别人呢？这老人是坐着的，他的注意力放在动物们的身上，年轻人背对我们，而女人也没有面对他，却稍稍侧着脸继续和他谈话。小孩子被忽略了，这些人彼此之间也没有真正的关联。它们得到别人所渴望的物质世界，不过很显然这也使他们感到沉闷，并陷入公式化的生活中，一旦这种公式消失，将无所适从。\n\n星币十是整组牌可能性的充分显示。他缺乏权杖的热情、宝剑的理想以及圣杯牌的情感。在这里可以找到物质上的安全感和稳定，但也付出了代价。',
-        upright='Legacy, Culmination, Inheritance, Roots, Family, Ancestry, Windfall, Foundations, Privilege, Affluence, Stability, Tradition',
-        reversed='Fleeting success, Lack of stability, Lack of resources, Family disputes, Bankruptcy, Debt, Conflict over money, Instability, Breaking traditions'
+        upright='继承遗产、稳定而富裕的、接收到资源或经济协助、物质丰富、家庭和乐的、团体事业运作状态良好的。',
+        reversed='昙花一现的成功、缺乏稳定、缺乏资源、家庭纠纷、破产债务、失去金钱援助、过往的经验或财力逐渐入不敷出、团队关系不和睦。'
     ), init=False)
 
     page_of_pentacles: TarotCard = field(default=TarotCard(
@@ -741,8 +741,8 @@ class TarotCards:
         intro='星币待从双脚坚稳的站立在地面上，高高捧着星币，他所着迷的东西，在眼前仔细地观察着。他头戴红色软帽头饰，带子围着肩颈。身上的穿着是以棕色为底，套着绿色的外衣，鞋子和腰带也是棕色的。他站在青葱且长满花朵的草地上，远方有茂密的树丛，画面的右下还有一座山。',
         words='勤奋',
         desc='星币侍从意味着为理想而努力学习。\n\n星币侍从象征有关金钱、新工作或学习一门课程的消息。它可以表示去学习某些将会产生实质效益的事物。这个侍从通常代表学生的勤奋向学。透过学习一门课程，或于工作中学习，发挥了自己的能力。有时候这个侍从可能暗示你对于正在学习的科目，变得更专注，甚至更重视学习的成果。',
-        upright='Ambition, Desire, Diligence, Ambitious, Diligent, Goal oriented, Planner, Consistent, Star student, Studious, Grounded, Loyal, Faithful, Dependable',
-        reversed='Lack of commitment, Greediness, Laziness, Foolish, Immature, Irresponsible, Lazy, Underachiever, Procrastinator, Missed chances, Poor prospects'
+        upright='务实的、脚踏实地的、学习新技能、勤奋的、雄心勃勃的、目标导向、脚踏实地的、可信赖的。',
+        reversed='经验不足的、不合逻辑的、懒惰的、不成熟的、不负责任的、拖延的、错失机会的、前景不佳的。'
     ), init=False)
 
     knight_of_pentacles: TarotCard = field(default=TarotCard(
@@ -750,8 +750,8 @@ class TarotCards:
         intro='星币骑士笔直地坐在黑马背上，仔细打量手上的星币。黑色的强壮马匹配着厚实的红色马鞍和缰绳，侧面垂着红色的软坐垫，牢牢地站在地面，是四张骑士牌中唯一不动的座骑。骑士戴着头盔，头盔顶端饰有穗状的绿叶，黑马的头顶也有相同的叶穗。他身着厚重盔甲，外披一件暗红色战袍，也戴着红色的手套。星币骑士处于空旷的大地上，眼前应是一望无际。远方的地面是一片经过细心耕耘的田地，背景是一片鲜黄色。',
         words='稳健',
         desc='星币骑士代表稳健而认真的计划。\n\n星币骑士通常指的是强化你的计划，并朝确定的目标迈进。它意味着为了实现一个目标而努力工作。就一个人而言，这个人对于承诺非常的认真，不论是对事业、个人雄心或两性关系。通常，他相信这个格言：“如果你想做好一件事，那就自己动手吧。”',
-        upright='Efficiency, Hard work, Responsibility, Practical, Reliable, Efficient, Stoic, Slow and steady, Hard-working, Committed, Patient, Conservative',
-        reversed='Laziness, Obsessiveness, Work without reward, Workaholic, Dull, Boring, No initiative, Cheap, Irresponsible, Gambler, Risky investments'
+        upright='承诺、稳定踏实的、注重规划的、默默耕耘的、努力工作的、有责任心的、可靠的、稳健的。',
+        reversed='半途而废的、停滞的、工作狂、没有主动性、不负责任的、赌徒、高风险的投资。'
     ), init=False)
 
     queen_of_pentacles: TarotCard = field(default=TarotCard(
@@ -759,8 +759,8 @@ class TarotCards:
         intro='星币皇后的面貌端庄而正直，双手捧着星币，并低头凝望着星币，神情若有所思。她的后冠是圆顶的，中间有插着两根红色羽毛，星币皇后的后袍是红色的，内衫露出的袖子是白色的，是红白对立的组合，绿色的披风由头上往下延伸到椅上。皇后的宝座处在长满丰盛植物的平原上，在茂密的林荫中，玫瑰花围绕成的拱门之下，所在的草地之上盛开着多株玫瑰花，。座椅是精工雕琢的，刻满了纹饰。有许多植物和天使的图案，很像圣杯皇后的座椅，扶前端有羊头的浮雕，椅侧有小孩的浮雕，椅背刻满了藤蔓瓜叶。宝座旁的近景是一片肥沃的土地，满是绿草和花朵。',
         words='安定',
         desc='星币皇后意味着喜爱大自然，又有良好的商业眼光。\n\n从一般观点来看，星币皇后是一张代表信任自己能力的牌。她意味经由深思熟虑而带来成功。作为一个人，星币皇后通常有着敏锐的生意眼光，而且总是喜欢存点钱在身边，好让自己有安全感。在有需要的时候她会很节俭，而且不会任意炫耀财富。她是一个可靠、实际的人，知道应该在那里下功夫可以得到最大的成功。\n\n这张皇后牌是指务实、可靠，并擅长喂养植物和动物。她也喜欢经常到乡间旅行，或漫步于大自然中，因为她需要和自然保持接触，让生命有完整而踏实的感觉。',
-        upright='Practicality, Creature comforts, Financial security, Generous, Caring, Nurturing, Homebody, Good business sense, Practical, Comforting, Welcoming, Sensible, Luxurious',
-        reversed='Self-centeredness, Jealousy, Smothering, Selfish, Unkempt, Jealous, Insecure, Greedy, Materialistic, Gold digger, Intolerant, Self-absorbed, Envious'
+        upright='安定的、财务安全、慷慨的、关怀的、良好的商业意识、舒适的、稳定可信赖的、勤俭持家的。',
+        reversed='以自我为中心的、不修边幅的、没有安全感的、物质主义的、爱慕虚荣的、拜金的、误判局势。'
     ), init=False)
 
     king_of_pentacles: TarotCard = field(default=TarotCard(
@@ -768,8 +768,8 @@ class TarotCards:
         intro='星币国王悠然自得的坐在他的花园里。他的左手拿着星币，右手拿着权杖，姿态轻松。花围中长满象征丰收成果的葡萄和各种植物，他的服装也满是葡萄图案，整个人似乎与大自然融成一体。宝座上有牛头图案，是星币的家族图腾。国王的右手靠在座椅的扶手上，掌中握着宝球权柄。左手持拥五芒星金币，并垫起左脚让这枚大金币更稳定确实地置于膝上。国王慵懒地靠在椅背上，低眼安然地端详着他的金币。',
         words='坚定',
         desc='星币国王表示务实而坚定的态度可以带来成功。\n\n星币国王暗示透过身体力行而达到成功。它也可以说是务实的努力带来物质上的成功。星币国王代表的是一个脚踏实地而又成熟的人。他的个性稳健、可靠且保守，并能努力履行其承诺，谨慎的负起他应负的责任。他不像权杖国王般富冒险精神，或像圣杯国王那么有创意，但他可凭藉着慢慢而稳定的步伐，以及认真的实践来达到成功。',
-        upright='Abundance, Prosperity, Security, Ambitious, Safe, Kind, Patriarchal, Protective, Businessman, Provider, Sensual, Reliable',
-        reversed='Greed, Indulgence, Sensuality, Materialistic, Wasteful, Chauvanist, Poor financial decisions, Gambler, Exploitative, Possessive'
+        upright='富有的、善于经营的、成熟的、脚踏实地的、富裕的、繁荣的、安全的、稳健的、成功的商人、可靠的。',
+        reversed='固执己见的、拖泥带水的、放纵的、浪费的、财务决策失误、赌徒、占有欲强的。'
     ), init=False)
 
 

@@ -3,6 +3,7 @@ import email
 import hashlib
 from email.header import Header
 from typing import List
+from bs4 import BeautifulSoup
 
 
 class Email(object):
@@ -74,8 +75,13 @@ class EmailImap(object):
             date = str(date)
 
             # 标题
-            header, charset = email.header.decode_header(msg.get('subject'))[0]
-            header = str(header, encoding=charset)
+            header, charset_header = email.header.decode_header(msg.get('subject'))[0]
+            if charset_header and type(header) == bytes:
+                header = str(header, encoding=charset_header)
+            elif type(header) == bytes:
+                header = str(header, encoding='utf8')
+            else:
+                pass
 
             # 发件人
             sender_info = email.header.decode_header(msg.get('from'))
@@ -103,35 +109,40 @@ class EmailImap(object):
                 else:
                     receiver += receiver_text
 
-            body = None
-            html = None
+            body_list = []
+            html_list = []
             for part in msg.walk():
                 if part.get_content_type() == "text/plain":
                     charset = part.get_content_charset()
-                    body = part.get_payload(decode=True)
-                    if not body:
+                    _body = part.get_payload(decode=True)
+                    if not _body:
                         continue
-                    if charset and type(body) == bytes:
-                        body = str(body, encoding=charset)
-                    elif type(body) == bytes:
-                        body = str(body, encoding='utf8')
+                    if charset and type(_body) == bytes:
+                        body_text = str(_body, encoding=charset)
+                    elif type(_body) == bytes:
+                        body_text = str(_body, encoding='utf8')
                     else:
-                        body = str(body)
-                    body = body.replace(r'&nbsp;', '\n')
+                        body_text = str(_body)
+                    body_text = body_text.replace(r'&nbsp;', '\n')
+                    body_list.append(body_text)
                 elif part.get_content_type() == "text/html":
                     charset = part.get_content_charset()
-                    html = part.get_payload(decode=True)
-                    if not html:
+                    _html = part.get_payload(decode=True)
+                    if not _html:
                         continue
-                    if charset and type(html) == bytes:
-                        html = str(html, encoding=charset)
-                    elif type(html) == bytes:
-                        html = str(html, encoding='utf8')
+                    if charset and type(_html) == bytes:
+                        html_text = str(_html, encoding=charset)
+                    elif type(_html) == bytes:
+                        html_text = str(_html, encoding='utf8')
                     else:
-                        html = str(html)
-                    html = html.replace('&nbsp;', '')
+                        html_text = str(_html)
+                    _bs = BeautifulSoup(html_text, 'lxml')
+                    html_list.append(_bs.get_text(strip=False))
                 else:
                     pass
+
+            body = '\n'.join(body_list) if body_list else ''
+            html = '\n'.join(html_list) if html_list else ''
 
             result_list.append(Email(date=date, header=header, sender=sender, to=receiver, body=body, html=html))
 

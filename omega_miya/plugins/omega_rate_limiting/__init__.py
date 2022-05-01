@@ -194,8 +194,20 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @ban_group.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
+    args = event.get_plaintext().strip().split()
     if isinstance(event, GroupMessageEvent):
         state['group_id'] = event.group_id
+        if len(args) == 1:
+            if args[0].isdigit():
+                state['time'] = args[0]
+    elif len(args) == 1:
+        if args[0].isdigit():
+            state['group_id'] = args[0]
+    elif len(args) == 2:
+        if args[0].isdigit():
+            state['group_id'] = args[0]
+        if args[1].isdigit():
+            state['time'] = args[1]
 
 
 @ban_group.got('group_id', prompt='请发送你要封禁的群号:')
@@ -225,7 +237,7 @@ async def handle_time(bot: Bot, event: MessageEvent, state: T_State):
         await ban_group.finish(f'封禁群组: {group_id} 失败了QAQ, 详情请见日志')
 
 
-ban_user = RateLimiting.command('ban_user', aliases={'Ban', 'ban'})
+ban_user = RateLimiting.command('ban_user', aliases={'Ban', 'ban'}, permission=SUPERUSER)
 
 
 # 修改默认参数处理
@@ -241,15 +253,27 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @ban_user.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
+    args = event.get_plaintext().strip().split()
     # 处理@人
     at_qq_list = MessageDecoder(message=event.message).get_all_at_qq()
     if at_qq_list:
         # 取at列表中第一个
         state['user_id'] = at_qq_list[0]
+        if len(args) == 1:
+            if args[0].isdigit():
+                state['time'] = args[0]
+    elif len(args) == 1:
+        if args[0].isdigit():
+            state['user_id'] = args[0]
+    elif len(args) == 2:
+        if args[0].isdigit():
+            state['user_id'] = args[0]
+        if args[1].isdigit():
+            state['time'] = args[1]
 
 
 @ban_user.got('user_id', prompt='请发送你要封禁的用户qq:')
-async def handle_group_id(bot: Bot, event: MessageEvent, state: T_State):
+async def handle_user_id(bot: Bot, event: MessageEvent, state: T_State):
     user_id = state['user_id']
     if not re.match(r'^\d+$', str(user_id)):
         await ban_user.finish('qq号格式不正确QAQ')

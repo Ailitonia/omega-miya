@@ -191,7 +191,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         await mail_receive.finish('本群组没有绑定的邮箱, 请先绑定邮箱后再收件!')
 
     mail_box_list_msg = '\n'.join([x for x in group_bind_mailbox.result])
-    await mail_receive.send(f'本群组已绑定邮箱:\n{mail_box_list_msg}\n\n正在连接到邮箱服务器, 请稍后...')
+    await mail_receive.send(f'本群组已绑定邮箱:\n{mail_box_list_msg}\n\n正在连接到邮箱服务器, 请稍候~')
 
     for mailbox_address in group_bind_mailbox.result:
         mailbox = await DBEmailBox(address=mailbox_address).get_info()
@@ -221,10 +221,8 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
         else:
             for mail in unseen_mail_res.result:
                 try:
-                    html = mail.html
-                    content = re.sub(r'<[^>]*>', '', html)
-                    content = re.sub(r'\s', '', content)
-                    content = content.replace('&nbsp;', '').replace('\n', '').replace(' ', '')
+                    content = mail.html if mail.html else mail.body
+                    content = re.sub(r'(\n|&nbsp;){2,}', '\n', content)
                     msg = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
                     text_img_result = await TextUtils(text=msg).text_to_img()
                     if text_img_result.error:

@@ -6,7 +6,6 @@ from nonebot.rule import to_me
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
 from omega_miya.utils.tencent_cloud_api import TencentNLP, TencentTMT
 
@@ -149,6 +148,5 @@ async def handle_nlp(bot: Bot, event: GroupMessageEvent, state: T_State):
         logger.error(f'Chat | Getting chat result failed, error: {chat_result.info}')
         await chat.finish('我没听懂你在说什么QAQ')
     else:
-        msg = Message(MessageSegment.at(user_id=event.user_id)).append(chat_result.result)
         logger.debug(f'Chat | Chatting with user: {event.user_id}')
-        await chat.finish(msg)
+        await chat.finish(chat_result.result, at_sender=True)

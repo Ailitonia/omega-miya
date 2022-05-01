@@ -15,6 +15,7 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.cqhttp.event import Event, MessageEvent
 from nonebot.adapters.cqhttp.bot import Bot
+from .args_parser import preprocessor_args_parser, preprocessor_cancel_parser
 from .plugins import startup_init_plugins, preprocessor_plugins_manager
 from .permission import preprocessor_permission
 from .cooldown import preprocessor_cooldown
@@ -22,6 +23,9 @@ from .favorability import postprocessor_favorability
 from .history import postprocessor_history
 from .statistic import postprocessor_statistic
 from .rate_limiting import preprocessor_rate_limiting, postprocessor_rate_limiting
+
+from omega_miya.utils.nonebot_guild_patch import GuildMessageEvent, ChannelNoticeEvent
+from nonebot.exception import IgnoredException
 
 
 driver = get_driver()
@@ -37,8 +41,14 @@ async def handle_on_startup():
 # 事件预处理
 @event_preprocessor
 async def handle_event_preprocessor(bot: Bot, event: Event, state: T_State):
+    # 暂时不处理频道事件
+    if isinstance(event, (GuildMessageEvent, ChannelNoticeEvent)):
+        raise IgnoredException('Ignore Guild Event')
+
     # 针对消息事件的处理
     if isinstance(event, MessageEvent):
+        # 处理参数解析
+        await preprocessor_args_parser(bot=bot, event=event, state=state)
         # 处理速率控制
         await preprocessor_rate_limiting(bot=bot, event=event, state=state)
 
@@ -54,6 +64,8 @@ async def handle_run_preprocessor(matcher: Matcher, bot: Bot, event: Event, stat
         await preprocessor_permission(matcher=matcher, bot=bot, event=event, state=state)
         # 处理冷却
         await preprocessor_cooldown(matcher=matcher, bot=bot, event=event, state=state)
+        # 处理取消
+        await preprocessor_cancel_parser(matcher=matcher, bot=bot, event=event, state=state)
 
 
 # 运行后处理

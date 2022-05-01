@@ -1,5 +1,4 @@
 import random
-import asyncio
 from nonebot import on_command, logger, get_driver
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
@@ -8,8 +7,8 @@ from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, Priva
 from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.cqhttp import MessageSegment, Message
 from omega_miya.database import DBBot
-from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
-                                                 PicEncoder, PermissionChecker, PluginCoolDown)
+from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state, PermissionChecker, PluginCoolDown,
+                                                 PicEncoder, MsgSender, ProcessUtils)
 from omega_miya.utils.pixiv_utils import PixivIllust
 from .utils import SEARCH_ENGINE, HEADERS
 from .config import Config
@@ -19,6 +18,9 @@ plugin_config = Config(**__global_config.dict())
 ENABLE_SAUCENAO = plugin_config.enable_saucenao
 ENABLE_IQDB = plugin_config.enable_iqdb
 ENABLE_ASCII2D = plugin_config.enable_ascii2d
+ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
+AUTO_RECALL_TIME = plugin_config.auto_recall_time
+ENABLE_RECOMMEND_AUTO_RECALL = plugin_config.enable_recommend_auto_recall
 
 # Custom plugin usage text
 __plugin_custom_name__ = '识图'
@@ -127,7 +129,7 @@ async def handle_got_image(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
     if not str(image_url).startswith('http'):
         await search_image.finish('错误QAQ，你发送的不是有效的图片')
-    await search_image.send('获取识别结果中, 请稍后~')
+    await search_image.send('获取识别结果中, 请稍候~')
 
 
 @search_image.got('using_engine', prompt='使用识图引擎识图:')
@@ -146,7 +148,7 @@ async def handle_saucenao(bot: Bot, event: MessageEvent, state: T_State):
         else:
             # 没有结果
             if identify_result.error:
-                logger.warning(f'{using_engine}引擎获取识别结果失败: {identify_result.info}')
+                logger.warning(f'SearchImage | {using_engine} 引擎获取识别结果失败: {identify_result.info}')
             if usable_engine:
                 # 还有可用的识图引擎
                 next_using_engine = usable_engine.pop(0)
@@ -156,10 +158,10 @@ async def handle_saucenao(bot: Bot, event: MessageEvent, state: T_State):
                 await search_image.reject(msg)
             else:
                 # 没有可用的识图引擎了
-                logger.info(f'{event.user_id} 使用了searchimage所有的识图引擎, 但没有找到相似的图片')
+                logger.info(f'SearchImage | {event.user_id} 使用了所有的识图引擎, 但没有找到相似的图片')
                 await search_image.finish('没有找到相似度足够高的图片QAQ')
     else:
-        logger.error(f'获取识图引擎异常, using_engine: {using_engine}')
+        logger.error(f'SearchImage | 获取识图引擎异常, using_engine: {using_engine}')
         await search_image.finish('发生了意外的错误QAQ, 请稍后再试或联系管理员')
         return
 
@@ -174,36 +176,36 @@ async def handle_result(bot: Bot, event: MessageEvent, state: T_State):
         group_id = 'Private event'
 
     identify_result = state['identify_result']
-    try:
-        if identify_result:
-            for item in identify_result:
-                try:
-                    if isinstance(item['ext_urls'], list):
-                        ext_urls = '\n'.join(item['ext_urls'])
-                    else:
-                        ext_urls = item['ext_urls'].strip()
-                    img_result = await PicEncoder(
-                        pic_url=item['thumbnail'], headers=HEADERS).get_file(folder_flag='search_image')
-                    if img_result.error:
-                        msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}"
-                        await search_image.send(msg)
-                    else:
-                        img_seg = MessageSegment.image(img_result.result)
-                        msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}\n{img_seg}"
-                        await search_image.send(Message(msg))
-                except Exception as e:
-                    logger.warning(f'处理和发送识别结果时发生了错误: {repr(e)}')
-                    continue
-            logger.info(f"{group_id} / {event.user_id} 使用searchimage成功搜索了一张图片")
-            return
+    if identify_result:
+        msg_list = []
+        for index, item in enumerate(identify_result):
+            try:
+                if isinstance(item['ext_urls'], list):
+                    ext_urls = '\n'.join(item['ext_urls'])
+                else:
+                    ext_urls = item['ext_urls'].strip()
+                img_result = await PicEncoder(
+                    pic_url=item['thumbnail'], headers=HEADERS).get_file(folder_flag='search_image')
+
+                if img_result.error:
+                    msg = f"识别结果: {item['index_name']}\n\n相似度: {item['similarity']}\n资源链接: {ext_urls}"
+                    msg_list.append(msg)
+                else:
+                    msg = f"识别结果: {item['index_name']}\n\n" \
+                          f"相似度: {item['similarity']}\n资源链接: {ext_urls}\n" + MessageSegment.image(img_result.result)
+                    msg_list.append(msg)
+            except Exception as e:
+                logger.warning(f'SearchImage | 处理识别结果({index})时发生了错误: {repr(e)}, 已跳过')
+                continue
+        msg_sender = MsgSender(bot=bot, log_flag='SearchImage')
+        if isinstance(event, GroupMessageEvent) and ENABLE_NODE_CUSTOM:
+            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=msg_list)
         else:
-            await search_image.send('没有找到相似度足够高的图片QAQ')
-            logger.info(f"{group_id} / {event.user_id} 使用了searchimage, 但没有找到相似的图片")
-            return
-    except Exception as e:
-        await search_image.send('识图失败, 发生了意外的错误QAQ, 请稍后重试')
-        logger.error(f"{group_id} / {event.user_id} 使用命令searchimage时发生了错误: {repr(e)}")
-        return
+            await msg_sender.safe_send_msgs(event=event, message_list=msg_list)
+        logger.info(f"SearchImage | {group_id} / {event.user_id} 成功搜索了一张图片")
+    else:
+        await search_image.send('没有找到相似度足够高的图片QAQ')
+        logger.info(f"SearchImage | {group_id} / {event.user_id} 没有找到相似的图片")
 
 
 # 注册事件响应器
@@ -277,7 +279,7 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
     await recommend_image.send('稍等, 正在获取相似作品~')
     pid_list = [x.get('id') for x in recommend_result.result.get('illusts') if x.get('illustType') == 0]
     tasks = [PixivIllust(pid=x).get_illust_data() for x in pid_list]
-    recommend_illust_data_result = await asyncio.gather(*tasks)
+    recommend_illust_data_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='get_recommend_image')
 
     # 执行 r18 权限检查
     if isinstance(event, PrivateMessageEvent):
@@ -306,9 +308,9 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
                 x.result.get('view_count') <= 20 * x.result.get('like_count')
         )]
 
-    # 从筛选结果里面随机挑三个
-    if len(filtered_illust_data_result) > 3:
-        illust_list = [PixivIllust(pid=x.result.get('pid')) for x in random.sample(filtered_illust_data_result, k=3)]
+    # 从筛选结果里面随机挑八个
+    if len(filtered_illust_data_result) > 8:
+        illust_list = [PixivIllust(pid=x.result.get('pid')) for x in random.sample(filtered_illust_data_result, k=8)]
     else:
         illust_list = [PixivIllust(pid=x.result.get('pid')) for x in filtered_illust_data_result]
 
@@ -317,14 +319,28 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
         await recommend_image.finish('没有找到符合要求的相似作品QAQ')
 
     # 直接下载图片
-    tasks = [x.get_sending_msg() for x in illust_list]
-    illust_download_result = await asyncio.gather(*tasks)
+    tasks = [x.get_sending_msg(page_limit=2) for x in illust_list]
+    illust_download_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='download_recommend_image')
 
-    for img, info in [x.result for x in illust_download_result if x.success()]:
-        img_seg = MessageSegment.image(file=img)
-        try:
-            await recommend_image.send(Message(img_seg).append(info))
-        except Exception as e:
-            logger.warning(f'Recommend image | 发送图片失败, error: {repr(e)}')
-            continue
+    image_seg_list = []
+    for img_list, info in [x.result for x in illust_download_result if x.success()]:
+        img_seg = []
+        for img in img_list:
+            img_seg.append(MessageSegment.image(file=img))
+        image_seg_list.append(Message(img_seg).append(info))
+
+    msg_sender = MsgSender(bot=bot, log_flag='RecommendImage')
+    # 根据 ENABLE_RECOMMEND_AUTO_RECALL 处理消息发送
+    if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent) and ENABLE_RECOMMEND_AUTO_RECALL:
+        await msg_sender.safe_send_group_node_custom_and_recall(
+            group_id=event.group_id, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
+    elif ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+        await msg_sender.safe_send_group_node_custom(
+            group_id=event.group_id, message_list=image_seg_list)
+    elif ENABLE_RECOMMEND_AUTO_RECALL:
+        await msg_sender.safe_send_msgs_and_recall(
+            event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
+    else:
+        await msg_sender.safe_send_msgs(event=event, message_list=image_seg_list)
+
     logger.info(f'Recommend image | User: {event.user_id} 已获取相似图片')

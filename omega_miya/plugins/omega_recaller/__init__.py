@@ -17,7 +17,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.permission import GROUP, GROUP_OWNER, GROUP_ADMIN
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.message import Message, MessageSegment
+from nonebot.adapters.cqhttp.message import MessageSegment
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory
 from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
                                                  PermissionChecker, RoleChecker, MessageDecoder)
@@ -83,8 +83,7 @@ async def handle_super_recall_self_msg(bot: Bot, event: GroupMessageEvent, state
             except Exception as e:
                 logger.error(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
                              f'撤回Bot消息失败, error: {repr(e)}')
-                msg = f'{MessageSegment.at(user_id=event.user_id)}撤回消息部分或全部失败了QAQ'
-                await recall.finish(Message(msg))
+                await recall.finish('撤回消息部分或全部失败了QAQ', at_sender=True)
 
 
 @recall.handle()
@@ -96,7 +95,7 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
     auth_check_result = await PermissionChecker(self_bot=DBBot(self_qq=event.self_id)).check_auth_node(
         auth_id=event.group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic.{event.user_id}')
     if auth_check_result != 1:
-        await recall.finish(Message(f'{MessageSegment.at(user_id=event.user_id)}你没有撤回消息的权限QAQ'))
+        await recall.finish('你没有撤回消息的权限QAQ', at_sender=True)
 
     # 判断bot身份
     if not (await RoleChecker(group_id=event.group_id, user_id=event.self_id, bot=bot).is_group_admin()):
@@ -138,12 +137,11 @@ async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_Stat
             logger.error(f'Self-help Recall | 记录撤回历史失败, error: {history_result.info}')
 
         if error_tag:
-            msg = f'{MessageSegment.at(user_id=event.user_id)}撤回消息部分或全部失败了QAQ'
-            await recall.finish(Message(msg))
+            await recall.finish('撤回消息部分或全部失败了QAQ', at_sender=True)
         else:
-            msg = f'{MessageSegment.at(user_id=event.user_id)}你撤回了' \
-                  f'{MessageSegment.at(user_id=event.reply.sender.user_id)}的一条消息'
-            await recall.finish(Message(msg))
+            msg = MessageSegment.at(user_id=event.user_id) + '你撤回了' + \
+                  MessageSegment.at(user_id=event.reply.sender.user_id) + '的一条消息'
+            await recall.finish(msg)
     else:
         await recall.finish('没有引用需要撤回的消息! 请回复需要撤回的消息后发送“/撤回”')
 

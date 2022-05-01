@@ -8,10 +8,9 @@
 @Software       : PyCharm 
 """
 
-import asyncio
 import random
 from nonebot import logger, require, get_bots, get_driver
-from nonebot.adapters.cqhttp import MessageSegment, Message
+from nonebot.adapters.cqhttp import MessageSegment
 from omega_miya.database import DBSubscription, DBPixivUserArtwork
 from omega_miya.utils.pixiv_utils import PixivUser, PixivIllust
 from omega_miya.utils.omega_plugin_utils import MsgSender, PicEffector, PicEncoder, ProcessUtils
@@ -75,7 +74,7 @@ async def dynamic_db_upgrade():
     # week=None,
     # day_of_week=None,
     # hour=None,
-    minute='*/5',
+    minute='*/3',
     # second='*/30',
     # start_date=None,
     # end_date=None,
@@ -104,6 +103,7 @@ async def pixiv_user_artwork_monitor():
         user_artwork_result = await PixivUser(uid=user_id).get_artworks_info()
         if user_artwork_result.error:
             logger.error(f'pixiv_user_artwork_monitor: 获取用户 {user_id} 作品失败, error: {user_artwork_result.info}')
+            return
 
         all_artwork_list = user_artwork_result.result.get('illust_list')
         manga_list = user_artwork_result.result.get('manga_list')
@@ -134,10 +134,10 @@ async def pixiv_user_artwork_monitor():
 
             # 下载图片
             illust_info_msg_result = await illust.get_format_info_msg()
-            illust_pic_bytes_result = await illust.load_illust_pic()
+            illust_pic_bytes_result = await illust.get_bytes()
             if illust_pic_bytes_result.error or illust_info_msg_result.error:
-                logger.error(f'pixiv_user_artwork_monitor: 下载用户 {user_id} 作品 {pid} 失败, '
-                             f'error: {illust_info_msg_result.info} // {illust_pic_bytes_result.info}.')
+                logger.error(f'pixiv_user_artwork_monitor: 下载用户 {user_id} 作品 {pid} 失败, error: '
+                             f'get info: {illust_info_msg_result.info} / get image: {illust_pic_bytes_result.info}.')
                 continue
 
             if is_r18:
@@ -153,7 +153,7 @@ async def pixiv_user_artwork_monitor():
 
             intro_msg = f'【Pixiv】{uname}发布了新的作品!\n\n'
             info_msg = illust_info_msg_result.result
-            msg = Message(intro_msg).append(img_seg).append(info_msg)
+            msg = intro_msg + img_seg + info_msg
 
             # 向群组和好友推送消息
             for _bot in bots:
@@ -179,7 +179,7 @@ async def pixiv_user_artwork_monitor():
         # 看下checking_pool里面还剩多少
         waiting_num = len(CHECKING_POOL)
 
-        # 默认单次检查并发数为50, 默认检查间隔为5min
+        # 默认单次检查并发数为50, 默认检查间隔为3min
         logger.debug(f'Pixiv user artwork checker pool mode debug info, Before checking_pool: {CHECKING_POOL}')
         if waiting_num >= 50:
             # 抽取检查对象
@@ -193,28 +193,19 @@ async def pixiv_user_artwork_monitor():
         logger.debug(f'Pixiv user artwork checker pool mode debug info, now_checking: {now_checking}')
 
         # 检查now_checking里面的直播间(异步)
-        tasks = []
-        for uid in now_checking:
-            tasks.append(check_user_artwork(user_id=uid))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"pixiv_user_artwork_monitor: pool mode enable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in now_checking])}.")
-        except Exception as e:
-            logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+        tasks = [check_user_artwork(user_id=uid) for uid in now_checking]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='pixiv_user_artwork_monitor_pool_mode_enabled')
+        logger.debug(f"pixiv_user_artwork_monitor: pool mode enable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in now_checking])}.")
 
     # 没有启用检查池模式
     else:
         # 检查所有在订阅表里面的画师作品(异步)
-        tasks = []
-        for uid in check_sub:
-            tasks.append(check_user_artwork(user_id=uid))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"pixiv_user_artwork_monitor: pool mode disable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in check_sub])}.")
-        except Exception as e:
-            logger.error(f'pixiv_user_artwork_monitor: error occurred in checking {repr(e)}')
+        tasks = [check_user_artwork(user_id=uid) for uid in check_sub]
+        await ProcessUtils.fragment_process(tasks=tasks, fragment_size=50,
+                                            log_flag='pixiv_user_artwork_monitor_pool_mode_disabled')
+        logger.debug(f"pixiv_user_artwork_monitor: pool mode disable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in check_sub])}.")
 
 
 # 用于首次订阅时刷新数据库信息

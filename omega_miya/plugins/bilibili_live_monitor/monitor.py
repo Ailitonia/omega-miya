@@ -1,8 +1,8 @@
-import asyncio
 import random
 from nonebot import logger, require, get_driver, get_bots
 from omega_miya.database import DBSubscription
 from omega_miya.utils.bilibili_utils import BiliLiveRoom
+from omega_miya.utils.omega_plugin_utils import ProcessUtils
 from .data_source import BiliLiveChecker
 from .config import Config
 
@@ -153,27 +153,17 @@ async def bilibili_live_monitor():
         logger.debug(f'bili live pool mode debug info, now_checking: {now_checking}')
 
         # 检查now_checking里面的直播间(异步)
-        tasks = []
-        for rid in now_checking:
-            tasks.append(check_live(rid))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"bilibili_live_monitor: pool mode enable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in now_checking])}.")
-        except Exception as e:
-            logger.error(f'bilibili_live_monitor: pool mode enable, error occurred in checking {repr(e)}')
+        tasks = [check_live(rid) for rid in now_checking]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='bilibili_live_monitor_pool_mode_enabled')
+        logger.debug(f"bilibili_live_monitor: pool mode enable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in now_checking])}.")
     # 没有启用检查池模式
     else:
         # 检查所有在订阅表里面的直播间(异步)
-        tasks = []
-        for rid in check_sub:
-            tasks.append(check_live(rid))
-        try:
-            await asyncio.gather(*tasks)
-            logger.debug(f"bilibili_live_monitor: pool mode disable, checking completed, "
-                         f"checked: {', '.join([str(x) for x in check_sub])}.")
-        except Exception as e:
-            logger.error(f'bilibili_live_monitor: pool mode disable, error occurred in checking  {repr(e)}')
+        tasks = [check_live(rid) for rid in check_sub]
+        await ProcessUtils.fragment_process(tasks=tasks, log_flag='bilibili_live_monitor_pool_mode_disabled')
+        logger.debug(f"bilibili_live_monitor: pool mode disable, checking completed, "
+                     f"checked: {', '.join([str(x) for x in check_sub])}.")
 
 
 # 根据检查池模式初始化检查时间间隔

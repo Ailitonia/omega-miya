@@ -417,7 +417,9 @@ async def init_user_auth_node(user_id: int, self_bot: DBBot):
         auth_info: str
 
     default_auth_nodes = [
-        AuthNode(node='omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd')
+        AuthNode(node='omega_help.skip_cd', allow_tag=1, deny_tag=0, auth_info='默认规则: 好友help免cd'),
+        AuthNode(node='omega_invite_manager.allow_invite_group', allow_tag=1, deny_tag=0,
+                 auth_info='默认规则: 允许好友邀请进群')  # TODO 进群检测
     ]
 
     for auth_node in default_auth_nodes:

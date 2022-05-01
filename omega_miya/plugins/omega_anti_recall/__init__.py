@@ -7,7 +7,7 @@ from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupRecallNoticeEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
+from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules, MessageTools
 
 
 # Custom plugin usage text
@@ -139,7 +139,7 @@ async def check_recall_notice(bot: Bot, event: GroupRecallNoticeEvent, state: T_
         history = history_result.result
         user_name = history.user_name
         time = history.created_at
-        msg = history.msg_data
-        send_msg = Message(f"AntiRecall 已检测到撤回消息:\n{time}@{user_name}:\n").append(msg)
+        msg = Message(f"AntiRecall 已检测到撤回消息:\n{time}@{user_name}:\n{history.msg_data}")
+        send_msg = MessageTools(message=msg).safe_message_filter('text', 'image')
         logger.success(f'AntiRecall 已处理撤回消息, message_id: {message_id}')
         await anti_recall_handler.finish(send_msg)

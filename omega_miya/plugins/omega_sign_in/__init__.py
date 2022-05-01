@@ -11,6 +11,7 @@
 import random
 import pathlib
 from typing import Union
+from datetime import datetime
 from nonebot import MatcherGroup, on_notice, logger, get_driver
 from nonebot.plugin.export import export
 from nonebot.typing import T_State
@@ -39,10 +40,12 @@ class SignInException(Exception):
 
 
 class DuplicateException(SignInException):
+    """重复签到"""
     pass
 
 
 class FailedException(SignInException):
+    """签到失败"""
     pass
 
 
@@ -86,6 +89,7 @@ SignIn = MatcherGroup(
 
 
 command_sign_in = SignIn.on_command('sign_in', aliases={'签到'})
+command_fix_sign_in = SignIn.on_command('fix_sign_in', aliases={'补签'})
 command_fortune_today = SignIn.on_command('fortune_today', aliases={'今日运势', '今日人品', '一言', '好感度', '我的好感'})
 
 
@@ -170,9 +174,87 @@ if ENABLE_REGEX_MATCHER:
         await regex_fortune_today.finish(msg)
 
 
+# 补签
+@command_fix_sign_in.handle()
+async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, state: T_State):
+    user = DBUser(user_id=event.user_id)
+    # 先检查签到状态
+    check_result = await user.sign_in_check_today()
+    if check_result.error:
+        logger.error(f'{event.group_id}/{event.user_id} 补签失败, 签到状态异常, error: {check_result.info}')
+        await command_fix_sign_in.finish('补签失败了QAQ, 签到状态异常, 请稍后再试或联系管理员处理', at_sender=True)
+    elif check_result.result == 0:
+        # 未签到
+        await command_fix_sign_in.finish('你今天还没签到呢, 请先签到后再进行补签哦~', at_sender=True)
+
+    # 获取补签的时间
+    fix_date_result = await user.sign_in_last_missing_day()
+    if fix_date_result.error:
+        logger.error(f'{event.group_id}/{event.user_id} 补签失败, 获取补签日期失败, error: {check_result.info}')
+        await command_fix_sign_in.finish('补签失败了QAQ, 签到状态异常, 请稍后再试或联系管理员处理', at_sender=True)
+
+    fix_date = datetime.fromordinal(fix_date_result.result).strftime('%Y年%m月%d日')
+    fix_days = datetime.now().toordinal() - fix_date_result.result
+    fix_cost = 10 if fix_days <= 3 else fix_days * 3
+
+    # 获取当前好感度信息
+    favorability_status_result = await user.favorability_status()
+    if favorability_status_result.error:
+        logger.error(f'{event.group_id}/{event.user_id} 补签失败, 用户无好感度信息, error: {check_result.info}')
+        await command_fix_sign_in.finish('补签失败了QAQ, 没有你的签到信息, 请先尝试签到后再补签', at_sender=True)
+
+    status, mood, favorability, energy, currency, response_threshold = favorability_status_result.result
+
+    if fix_cost > currency:
+        logger.info(f'{event.group_id}/{event.user_id} 补签失败, 用户{CURRENCY_ALIAS}不足')
+        await command_fix_sign_in.finish(f'没有足够的{CURRENCY_ALIAS}【{fix_cost}】进行补签QAQ', at_sender=True)
+
+    state['fix_cost'] = fix_cost
+    state['fix_date'] = fix_date
+    state['fix_date_ordinal'] = fix_date_result.result
+
+    await command_fix_sign_in.send(f'使用{fix_cost}{CURRENCY_ALIAS}补签{fix_date}', at_sender=True)
+
+
+@command_fix_sign_in.got('check', prompt='确认吗?\n【是/否】')
+async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, state: T_State):
+    fix_cost: int = state['fix_cost']
+    fix_date: str = state['fix_date']
+    fix_date_ordinal: int = state['fix_date_ordinal']
+    check: str = state['check']
+
+    if check != '是':
+        await command_fix_sign_in.finish('那就不补签了哦~', at_sender=True)
+
+    user = DBUser(user_id=event.user_id)
+    currency_result = await user.favorability_add(currency=(- fix_cost))
+    if currency_result.error:
+        logger.error(f'{event.group_id}/{event.user_id} 补签失败, {CURRENCY_ALIAS}更新失败, error: {currency_result.info}')
+        await command_fix_sign_in.finish('补签失败了QAQ, 请稍后再试或联系管理员处理', at_sender=True)
+
+    # 尝试签到
+    sign_in_result = await user.sign_in(sign_in_info='Fixed sign in', date_=datetime.fromordinal(fix_date_ordinal))
+    if sign_in_result.error:
+        logger.error(f'{event.group_id}/{event.user_id} 补签失败, 尝试签到失败, error: {sign_in_result.info}')
+        await command_fix_sign_in.finish('补签失败了QAQ, 请尝试先签到后再试或联系管理员处理', at_sender=True)
+
+    # 设置一个状态指示生成卡片中添加文字
+    state.update({'_checked_sign_in_text': f'已消耗{fix_cost}{CURRENCY_ALIAS}~\n成功补签了{fix_date}的签到!'})
+    msg = await handle_fortune(bot=bot, event=event, state=state)
+    logger.info(f'{event.group_id}/{event.user_id}, 补签成功')
+    await command_fix_sign_in.finish(msg)
+
+
+# 下面是操作函数
 async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
     user = DBUser(user_id=event.user_id)
     try:
+        # 先检查签到状态
+        check_result = await user.sign_in_check_today()
+        if check_result.result == 1:
+            # 已签到
+            raise DuplicateException('重复签到')
+
         # 获取当前好感度信息
         favorability_status_result = await user.favorability_status()
         if favorability_status_result.error and favorability_status_result.info == 'NoResultFound':
@@ -241,7 +323,8 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
                     f'当前{FAVORABILITY_ALIAS}: {int(favorability_)}\n' \
                     f'当前{CURRENCY_ALIAS}: {int(currency_)}'
 
-        sign_in_card_result = await generate_sign_in_card(user_id=event.user_id, user_text=user_text, fav=favorability_)
+        sign_in_card_result = await generate_sign_in_card(
+            user_id=event.user_id, user_text=user_text, fav=favorability_)
         if sign_in_card_result.error:
             raise FailedException(f'生成签到卡片失败, {sign_in_card_result.info}')
 
@@ -256,11 +339,11 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         logger.info(f'{event.group_id}/{event.user_id} 重复签到, 生成运势卡片, {str(e)}')
         return msg
     except FailedException as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        msg = MessageSegment.at(event.user_id) + '签到失败了QAQ, 请稍后再试或联系管理员处理'
         logger.error(f'{event.group_id}/{event.user_id} 签到失败, {str(e)}')
         return msg
     except Exception as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        msg = MessageSegment.at(event.user_id) + '签到失败了QAQ, 请稍后再试或联系管理员处理'
         logger.error(f'{event.group_id}/{event.user_id} 签到失败, 发生了预期外的错误, {str(e)}')
         return msg
 
@@ -283,7 +366,7 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         if hitokoto_result.error:
             raise FailedException(f'获取一言失败, {hitokoto_result}')
 
-        # 插入poke签到特殊文本
+        # 插入签到特殊文本
         pock_text = state.get('_checked_sign_in_text', None)
         user_line = f'@{nick_name}\n' if not pock_text else f'@{nick_name} {pock_text}\n'
         user_text = f'{hitokoto_result.result}\n\n' \
@@ -292,7 +375,7 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
                     f'当前{CURRENCY_ALIAS}: {int(currency)}'
 
         sign_in_card_result = await generate_sign_in_card(
-            user_id=event.user_id, user_text=user_text, fav=favorability, fortune_do=False)
+            user_id=event.user_id, user_text=user_text, fav=favorability, fortune_do=False, add_head_img=True)
         if sign_in_card_result.error:
             raise FailedException(f'生成运势卡片失败, {sign_in_card_result.info}')
 
@@ -300,6 +383,6 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
         logger.info(f'{event.group_id}/{event.user_id} 获取运势卡片成功')
         return msg
     except Exception as e:
-        msg = Message(MessageSegment.at(event.user_id)).append('获取今日运势失败了QAQ, 请稍后再试或联系管理员处理')
+        msg = MessageSegment.at(event.user_id) + '获取今日运势失败了QAQ, 请稍后再试或联系管理员处理'
         logger.error(f'{event.group_id}/{event.user_id} 获取运势卡片失败, 发生了预期外的错误, {str(e)}')
         return msg

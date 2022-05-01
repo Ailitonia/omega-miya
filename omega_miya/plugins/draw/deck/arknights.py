@@ -8,7 +8,7 @@ class Operator:
     name: str
     star: int
     limited: bool  # 限定
-    recruit_only: bool  # 公招限定
+    recruit_only: bool  # 公招限定/凭证交易所兑换
     event_only: bool  # 活动获得干员
     special_only: bool  # 升变/异格干员
 
@@ -29,7 +29,9 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='瑕光/Blemishine', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='星熊/Hoshiguma', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
@@ -37,23 +39,29 @@ UP_OPERATOR: List[UpEvent] = [
     UpEvent(
         star=5,
         operator=[
-            Operator(name='白金/Platinum', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='奥斯塔/Aosta', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='蓝毒/Blue Poison', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='槐琥/Waai Fu', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
-    ),
-    UpEvent(
-        star=4,
-        operator=[
-            Operator(name='泡泡/Bubble', star=4, limited=False, recruit_only=False, event_only=False, special_only=False)
-        ],
-        zoom=0.2
     )
 ]
 
 ALL_OPERATOR: List[Operator] = [
+    Operator(name='耀骑士临光/Nearl the Radiant Knight', star=6, limited=True, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name='焰尾/Flametail', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='蚀清/Corroserum', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='野鬃/Wild Mane', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='蜜莓/Honeyberry', star=5, limited=False, recruit_only=True, event_only=True, special_only=False),
+    Operator(name='布丁/Pudding', star=4, limited=False, recruit_only=True, event_only=True, special_only=False),
+    Operator(name='正义骑士号/"Justice Knight"', star=1, limited=False, recruit_only=True, event_only=False,
+             special_only=False),
+    Operator(name='远牙/Fartooth', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='灰毫/Ashlock', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
@@ -157,7 +165,7 @@ ALL_OPERATOR: List[Operator] = [
     Operator(name='赫默/Silence', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='华法琳/Warfarin', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='图耶/Tuye', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
-    Operator(name='微风/Breeze', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='微风/Breeze', star=5, limited=False, recruit_only=True, event_only=True, special_only=False),
     Operator(name='锡兰/Ceylon', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='絮雨/Whisperain', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='亚叶/Folinic', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
@@ -234,7 +242,7 @@ ALL_OPERATOR: List[Operator] = [
     Operator(name='暗索/Rope', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='孑/Jaye', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='砾/Gravel', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
-    Operator(name='伊桑/Ethan', star=4, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='伊桑/Ethan', star=4, limited=False, recruit_only=True, event_only=True, special_only=False),
     Operator(name='芬/Fang', star=3, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='翎羽/Plume', star=3, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='香草/Vanilla', star=3, limited=False, recruit_only=False, event_only=False, special_only=False),

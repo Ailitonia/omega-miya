@@ -46,6 +46,10 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
     if not enable_cool_down_check:
         return
 
+    # 跳过由 got 等事件处理函数创建临时 matcher 避免冷却在命令交互中被不正常触发
+    if matcher.temp:
+        return
+
     # 处理全局冷却
     # 设计上只有专用的管理员命令能设置全局冷却, 单插件不允许设置全局冷却, 因此这里只做检验不做更新
     # skip_cd 权限针对插件, 全局冷却优先级高于该权限, 优先处理
@@ -75,10 +79,6 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent,
             logger.error(f'CoolDown | 全局群组冷却事件异常, user: {user_id}, {global_group_check}')
 
     # 处理插件冷却
-    # 跳过由 got 等事件处理函数创建临时 matcher 避免冷却在命令交互中被不正常触发
-    if matcher.temp:
-        return
-
     # 跳过未声明冷却的 matcher
     if not matcher_cool_down:
         return

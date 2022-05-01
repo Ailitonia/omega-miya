@@ -10,7 +10,7 @@ from omega_miya.database import Result
 global_config = nonebot.get_driver().config
 API_KEY = global_config.saucenao_api_key
 API_URL_SAUCENAO = 'https://saucenao.com/search.php'
-API_URL_ASCII2D = 'https://ascii2d.net/search/url/'
+API_URL_ASCII2D = 'https://ascii2d.net/search/url'
 API_URL_IQDB = 'https://iqdb.org/'
 
 
@@ -65,9 +65,23 @@ async def get_saucenao_identify_result(url: str) -> Result.DictListResult:
 
 # 获取识别结果 ascii2d模块
 async def get_ascii2d_identify_result(url: str) -> Result.DictListResult:
-    fetcher = HttpFetcher(timeout=10, flag='search_image_ascii2d', headers=HEADERS)
+    headers = HttpFetcher.DEFAULT_HEADERS.copy()
+    headers.update({
+        'accept-encoding': 'gzip, deflate',
+        'accept-language': 'zh-CN,zh;q=0.9',
+        'cache-control': 'max-age=0',
+        'dnt': '1',
+        'origin': 'https://ascii2d.net',
+        'referer': 'https://ascii2d.net/',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1'
+    })
+    fetcher = HttpFetcher(timeout=10, flag='search_image_ascii2d', headers=headers)
 
-    search_url = f'{API_URL_ASCII2D}{url}'
+    search_url = f'{API_URL_ASCII2D}/{url}'
     saucenao_redirects_result = await fetcher.get_text(url=search_url, allow_redirects=False)
     if saucenao_redirects_result.error:
         logger.error(f'get_ascii2d_identify_result failed: 获取识别结果url发生错误, 错误信息详见日志.')
@@ -185,9 +199,9 @@ async def get_iqdb_identify_result(url: str) -> Result.DictListResult:
     try:
         gallery_soup = BeautifulSoup(iqdb_result.result, 'lxml')
         # 搜索结果
-        result_div = gallery_soup.find('div', {'id': 'pages', 'class': 'pages'}).children
+        result_div = gallery_soup.find('div', {'id': 'pages', 'class': 'pages'}).find_all('div')
         # 从搜索结果中解析具体每一个结果
-        result_list = [x.find_all('tr') for x in result_div if x.name == 'div']
+        result_list = [x.find_all('tr') for x in result_div]
     except Exception as page_err:
         logger.warning(f'get_iqdb_identify_result failed: {repr(page_err)}, 解析结果页时发生错误.')
         return Result.DictListResult(error=True, info=f'Parse identify result failed: {repr(page_err)}', result=[])

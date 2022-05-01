@@ -17,7 +17,6 @@ from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.message import Message, MessageSegment
 from nonebot.adapters.cqhttp.event import GroupMessageEvent, GroupIncreaseNoticeEvent
 from omega_miya.database import DBBot, DBBotGroup
 from omega_miya.utils.omega_plugin_utils import init_export, OmegaRules
@@ -120,6 +119,5 @@ async def handle_group_increase(bot: Bot, event: GroupIncreaseNoticeEvent, state
         msg = DEFAULT_WELCOME_MSG
 
     # 发送欢迎消息
-    at_seg = MessageSegment.at(user_id=user_id)
-    await bot.send(event=event, message=Message(at_seg).append(msg))
+    await bot.send(event=event, message=msg, at_sender=True)
     logger.info(f'群组: {group_id}, 有新用户: {user_id} 进群')

@@ -26,7 +26,7 @@ async def stick_maker_static_traitor(
         font_main = ImageFont.truetype(font_path, font_main_size)
         # 按长度切分文本
         test_main_fin = TextUtils(text=text).split_multiline(width=410, font=font_main)
-        ImageDraw.Draw(text_main_img).multiline_text(xy=(0, 0), text=test_main_fin, font=font_main, spacing=8,
+        ImageDraw.Draw(text_main_img).multiline_text(xy=(0, 0), text=test_main_fin, font=font_main, spacing=12,
                                                      fill=(0, 0, 0))
 
         # 处理文字部分旋转
@@ -230,10 +230,76 @@ async def stick_maker_static_jiangzhuang(
     return result
 
 
+async def stick_maker_static_xibaoh(
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
+    """
+    喜报横版情包模板
+    """
+    def __handle() -> Image.Image:
+        # 处理文本主体
+        font_size = image_width // 16
+        font = ImageFont.truetype(font_path, font_size)
+        text_stroke_width = int(font_size / 15)
+        text_width_limit = int(image_width * 0.75)
+
+        # 分割文本
+        text_ = TextUtils(text=text).split_multiline(width=text_width_limit, font=font, stroke_width=text_stroke_width)
+
+        # 粘贴主体文本
+        ImageDraw.Draw(image_file).multiline_text(
+            xy=(image_width // 2, int(image_height / 2)),
+            text=text_, font=font, align='left', anchor='mm',
+            spacing=16,
+            stroke_width=text_stroke_width,
+            stroke_fill=(255, 255, 153),
+            fill=(238, 0, 0))
+
+        return image_file
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, __handle)
+    return result
+
+
+async def stick_maker_static_xibaos(
+        text: str, image_file: Image.Image, font_path: str, image_width: int, image_height: int,
+        *args, **kwargs) -> Image.Image:
+    """
+    喜报竖版情包模板
+    """
+    def __handle() -> Image.Image:
+        # 处理文本主体
+        font_size = image_width // 15
+        font = ImageFont.truetype(font_path, font_size)
+        text_stroke_width = int(font_size / 50)
+        text_width_limit = int(image_width * 0.75)
+
+        # 分割文本
+        text_ = TextUtils(text=text).split_multiline(width=text_width_limit, font=font, stroke_width=text_stroke_width)
+
+        # 粘贴主体文本
+        ImageDraw.Draw(image_file).multiline_text(
+            xy=(image_width // 2, int(image_height * 10 / 17)),
+            text=text_, font=font, align='center', anchor='mm',
+            spacing=16,
+            stroke_width=text_stroke_width,
+            stroke_fill=(153, 0, 0),
+            fill=(255, 255, 153))
+
+        return image_file
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, __handle)
+    return result
+
+
 __all__ = [
     'stick_maker_static_traitor',
     'stick_maker_static_jichou',
     'stick_maker_static_phlogo',
     'stick_maker_static_luxun',
-    'stick_maker_static_jiangzhuang'
+    'stick_maker_static_jiangzhuang',
+    'stick_maker_static_xibaoh',
+    'stick_maker_static_xibaos'
 ]

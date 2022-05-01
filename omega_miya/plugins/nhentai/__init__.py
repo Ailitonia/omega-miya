@@ -110,7 +110,7 @@ async def handle_nhentai(bot: Bot, event: GroupMessageEvent, state: T_State):
             logger.warning(f"Group: {event.group_id}, User: {event.user_id} 搜索失败, id错误")
             await nhentai.finish('错误QAQ, id应为纯数字')
         else:
-            await nhentai.send('正在下载资源, 请稍后~')
+            await nhentai.send('正在下载资源, 请稍候~')
             download_result = await NhentaiGallery(gallery_id=sub_arg).fetch_gallery()
             if download_result.error:
                 logger.error(f"Group: {event.group_id}, User: {event.user_id} 下载失败, {download_result.info}")
