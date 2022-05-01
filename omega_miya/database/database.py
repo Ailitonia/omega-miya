@@ -10,16 +10,16 @@ from .class_result import Result
 driver = nonebot.get_driver()
 
 global_config = driver.config
-__DATABASE = 'mysql'
-__DB_DRIVER = 'aiomysql'
-__DB_USER = global_config.db_user
-__DB_PASSWORD = global_config.db_password
-__DB_HOST = global_config.db_host
-__DB_PORT = global_config.db_port
-__DB_NAME = global_config.db_name
+_DATABASE = 'mysql'
+_DB_DRIVER = 'asyncmy'
+_DB_USER = global_config.db_user
+_DB_PASSWORD = global_config.db_password
+_DB_HOST = global_config.db_host
+_DB_PORT = global_config.db_port
+_DB_NAME = global_config.db_name
 
 # 格式化数据库引擎链接
-__DB_ENGINE = f'{__DATABASE}+{__DB_DRIVER}://{__DB_USER}:{quote(__DB_PASSWORD)}@{__DB_HOST}:{__DB_PORT}/{__DB_NAME}'
+__DB_ENGINE = f'{_DATABASE}+{_DB_DRIVER}://{_DB_USER}:{quote(str(_DB_PASSWORD))}@{_DB_HOST}:{_DB_PORT}/{_DB_NAME}'
 
 
 # 创建数据库连接

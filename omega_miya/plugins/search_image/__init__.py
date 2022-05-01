@@ -129,7 +129,7 @@ async def handle_got_image(bot: Bot, event: MessageEvent, state: T_State):
     image_url = state['image_url']
     if not str(image_url).startswith('http'):
         await search_image.finish('错误QAQ，你发送的不是有效的图片')
-    await search_image.send('获取识别结果中, 请稍后~')
+    await search_image.send('获取识别结果中, 请稍候~')
 
 
 @search_image.got('using_engine', prompt='使用识图引擎识图:')
@@ -308,9 +308,9 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
                 x.result.get('view_count') <= 20 * x.result.get('like_count')
         )]
 
-    # 从筛选结果里面随机挑三个
-    if len(filtered_illust_data_result) > 3:
-        illust_list = [PixivIllust(pid=x.result.get('pid')) for x in random.sample(filtered_illust_data_result, k=3)]
+    # 从筛选结果里面随机挑八个
+    if len(filtered_illust_data_result) > 8:
+        illust_list = [PixivIllust(pid=x.result.get('pid')) for x in random.sample(filtered_illust_data_result, k=8)]
     else:
         illust_list = [PixivIllust(pid=x.result.get('pid')) for x in filtered_illust_data_result]
 
@@ -319,7 +319,7 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
         await recommend_image.finish('没有找到符合要求的相似作品QAQ')
 
     # 直接下载图片
-    tasks = [x.get_sending_msg() for x in illust_list]
+    tasks = [x.get_sending_msg(page_limit=2) for x in illust_list]
     illust_download_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='download_recommend_image')
 
     image_seg_list = []
@@ -331,7 +331,13 @@ async def handle_illust_recommend(bot: Bot, event: GroupMessageEvent, state: T_S
 
     msg_sender = MsgSender(bot=bot, log_flag='RecommendImage')
     # 根据 ENABLE_RECOMMEND_AUTO_RECALL 处理消息发送
-    if ENABLE_RECOMMEND_AUTO_RECALL:
+    if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent) and ENABLE_RECOMMEND_AUTO_RECALL:
+        await msg_sender.safe_send_group_node_custom_and_recall(
+            group_id=event.group_id, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
+    elif ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
+        await msg_sender.safe_send_group_node_custom(
+            group_id=event.group_id, message_list=image_seg_list)
+    elif ENABLE_RECOMMEND_AUTO_RECALL:
         await msg_sender.safe_send_msgs_and_recall(
             event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
     else:

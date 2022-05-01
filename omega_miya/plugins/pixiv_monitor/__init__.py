@@ -9,6 +9,7 @@
 """
 
 import re
+import pathlib
 from nonebot import on_command, logger
 from nonebot.plugin.export import export
 from nonebot.permission import SUPERUSER
@@ -16,10 +17,12 @@ from nonebot.typing import T_State
 from nonebot.adapters.cqhttp.bot import Bot
 from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER
+from nonebot.adapters.cqhttp.message import MessageSegment
 from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
 from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
 from omega_miya.utils.pixiv_utils import PixivUser
 from .monitor import scheduler, init_new_add_sub
+from .utils import generate_user_searching_img
 
 
 # Custom plugin usage text
@@ -37,6 +40,7 @@ basic
 
 **Usage**
 **GroupAdmin and SuperUser Only**
+/Pixiv画师 搜索 [NICKNAME]
 /Pixiv画师 订阅 [UID]
 /Pixiv画师 取消订阅 [UID]
 /Pixiv画师 清空订阅
@@ -56,7 +60,7 @@ pixiv_user_artwork = on_command(
         name='pixiv_user_artwork',
         command=True,
         level=50),
-    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,  # 画师搜索功能主要是给订阅时不知道用户 uid 的时候查找用的, 所以不单独分配 matcher 和权限
     priority=20,
     block=True)
 
@@ -64,7 +68,7 @@ pixiv_user_artwork = on_command(
 # 修改默认参数处理
 @pixiv_user_artwork.args_parser
 async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split()
     if not args:
         await pixiv_user_artwork.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
     state[state["_current_key"]] = args[0]
@@ -74,7 +78,7 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @pixiv_user_artwork.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
+    args = str(event.get_plaintext()).strip().split(maxsplit=1)
     if not args:
         pass
     elif args and len(args) == 1:
@@ -86,7 +90,7 @@ async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
         await pixiv_user_artwork.finish('参数错误QAQ')
 
 
-@pixiv_user_artwork.got('sub_command', prompt='执行操作?\n【订阅/取消订阅/清空订阅/订阅列表】')
+@pixiv_user_artwork.got('sub_command', prompt='执行操作?\n【搜索/订阅/取消订阅/清空订阅/订阅列表】')
 async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State):
     if isinstance(event, GroupMessageEvent):
         group_id = event.group_id
@@ -95,8 +99,8 @@ async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State)
         group_id = 'Private event'
         msg = '你已订阅以下Pixiv用户:\n'
 
-    if state['sub_command'] not in ['订阅', '取消订阅', '清空订阅', '订阅列表']:
-        await pixiv_user_artwork.finish('没有这个命令哦, 请在【订阅/取消订阅/清空订阅/订阅列表】中选择并重新发送')
+    if state['sub_command'] not in ['搜索', '订阅', '取消订阅', '清空订阅', '订阅列表']:
+        await pixiv_user_artwork.finish('没有这个命令哦, 请在【搜索/订阅/取消订阅/清空订阅/订阅列表】中选择并重新发送')
     if state['sub_command'] == '订阅列表':
         _res = await sub_list(bot=bot, event=event, state=state)
         if not _res.success():
@@ -112,16 +116,28 @@ async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State)
         state['uid'] = None
 
 
-@pixiv_user_artwork.got('uid', prompt='请输入订阅Pixiv用户UID:')
+@pixiv_user_artwork.got('uid', prompt='请输入Pixiv用户昵称或UID:')
 async def handle_uid(bot: Bot, event: MessageEvent, state: T_State):
     sub_command = state['sub_command']
     # 针对清空Pixiv订阅操作, 跳过获取Pixiv用户信息
     if state['sub_command'] == '清空订阅':
         await pixiv_user_artwork.pause('【警告!】\n即将清空本所有订阅!\n请发送任意消息以继续操作:')
-    # Pixiv用户信息获取部分
+
+    # 处理搜索或用户输入非uid
     uid = state['uid']
-    if not re.match(r'^\d+$', uid):
-        await pixiv_user_artwork.reject('这似乎不是UID呢, 请重新输入:')
+    if not re.match(r'^\d+$', uid) or sub_command == '搜索':
+        await pixiv_user_artwork.send(f'正在搜索pixiv用户: {uid}, 请稍候~')
+        search_result = await generate_user_searching_img(nick=uid)
+        if search_result.error:
+            logger.error(
+                f'PixivUserSearching | Generating user searching result image failed, error: {search_result.error}')
+            await pixiv_user_artwork.finish(f'获取搜索结果失败了QAQ, 请稍后重试或联系管理员')
+        else:
+            file_url = pathlib.Path(search_result.result).as_uri()
+            logger.info(f'PixivUserSearching | User {event.user_id} success searching pixiv user {uid}')
+            await pixiv_user_artwork.finish(MessageSegment.image(file_url))
+
+    # Pixiv用户信息获取部分
     _res = await PixivUser(uid=int(uid)).get_info()
     if not _res.success():
         logger.error(f'获取用户信息失败, uid: {uid}, error: {_res.info}')

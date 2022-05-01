@@ -24,7 +24,8 @@ class MessageDecoder(object):
         return [str(msg_seg.data.get('url')) for msg_seg in self.__message if msg_seg.type == 'image']
 
     def get_all_at_qq(self) -> List[int]:
-        return [int(msg_seg.data.get('qq')) for msg_seg in self.__message if msg_seg.type == 'at']
+        at_list = [msg_seg.data.get('qq') for msg_seg in self.__message if msg_seg.type == 'at']
+        return [int(at_text) for at_text in at_list if str(at_text).isdigit()]
 
 
 class MessageTools(object):

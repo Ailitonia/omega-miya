@@ -61,11 +61,21 @@ async def parse(bot: Bot, event: MessageEvent, state: T_State):
 
 @sticker.handle()
 async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_message()).strip().lower().split()
+    args = event.get_plaintext().strip().split(maxsplit=1)
+
+    # 处理消息图片
+    img_url_list = state.get('_parsed_args', {}).get('_img_url_args', [])
+    if img_url_list:
+        state['image_url'] = img_url_list[0]
+
+    # 处理参数
     if not args:
         state['temp'] = None
     elif args and len(args) == 1:
         state['temp'] = args[0]
+    elif args and len(args) == 2:
+        state['temp'] = args[0]
+        state['sticker_text'] = args[1]
     else:
         await sticker.finish('参数错误QAQ')
 
@@ -164,6 +174,9 @@ async def handle_sticker_text(bot: Bot, event: MessageEvent, state: T_State):
     sticker_temp_help_msg = state['temp_help_msg']
 
     try:
+        # 处理文本 针对 win 平台输入替换换行符
+        sticker_text = str(sticker_text).replace('\r\n', '\n')
+
         sticker_path = await sticker_maker_main(url=sticker_image_url, temp=sticker_temp_name, text=sticker_text,
                                                 sticker_temp_type=sticker_temp_type)
 

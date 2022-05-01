@@ -26,7 +26,7 @@ async def stick_maker_static_traitor(
         font_main = ImageFont.truetype(font_path, font_main_size)
         # 按长度切分文本
         test_main_fin = TextUtils(text=text).split_multiline(width=410, font=font_main)
-        ImageDraw.Draw(text_main_img).multiline_text(xy=(0, 0), text=test_main_fin, font=font_main, spacing=8,
+        ImageDraw.Draw(text_main_img).multiline_text(xy=(0, 0), text=test_main_fin, font=font_main, spacing=12,
                                                      fill=(0, 0, 0))
 
         # 处理文字部分旋转
@@ -270,7 +270,7 @@ async def stick_maker_static_xibaos(
     """
     def __handle() -> Image.Image:
         # 处理文本主体
-        font_size = image_width // 18
+        font_size = image_width // 15
         font = ImageFont.truetype(font_path, font_size)
         text_stroke_width = int(font_size / 50)
         text_width_limit = int(image_width * 0.75)
@@ -280,7 +280,7 @@ async def stick_maker_static_xibaos(
 
         # 粘贴主体文本
         ImageDraw.Draw(image_file).multiline_text(
-            xy=(image_width // 2, int(image_height * 8 / 13)),
+            xy=(image_width // 2, int(image_height * 10 / 17)),
             text=text_, font=font, align='center', anchor='mm',
             spacing=16,
             stroke_width=text_stroke_width,

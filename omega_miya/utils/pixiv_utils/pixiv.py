@@ -46,6 +46,10 @@ class Pixiv(object):
                              'Chrome/89.0.4389.114 Safari/537.36'}
 
     @classmethod
+    def get_cookies(cls) -> Optional[dict]:
+        return COOKIES
+
+    @classmethod
     def parse_pid_from_url(cls, text: str, *, url_mode: bool = False) -> Optional[int]:
         if url_mode:
             # 分别匹配不同格式pivix链接格式 仅能匹配特定 url 格式的字符串
@@ -251,6 +255,52 @@ class Pixiv(object):
             return Result.DictListResult(error=True, info=f'Parse search result failed, error: {repr(e)}', result=[])
 
         return Result.DictListResult(error=False, info='Success', result=result)
+
+    @classmethod
+    async def get_top_data(cls, *, mode: str = 'all', lang: str = 'zh') -> Result.DictResult:
+        """获取 pixiv 发现页内容, 发现页内容与 cookies 对应用户偏好相关"""
+        if not COOKIES:
+            return Result.DictResult(error=True, info='Cookies not configured, can not get user top data', result={})
+
+        url = f'{cls.PIXIV_API_URL}top/illust'
+        params = {'mode': mode, 'lang': lang}
+        fetcher = HttpFetcher(timeout=10, flag='pixiv_get_top', headers=cls.HEADERS, cookies=COOKIES)
+        top_result = await fetcher.get_json(url=url, params=params)
+
+        if top_result.error:
+            return Result.DictResult(error=True, info=f'Getting top data failed, {top_result.info}', result={})
+
+        # 检查返回状态
+        if top_result.result.get('error') or not isinstance(top_result.result.get('body'), dict):
+            return Result.DictResult(error=True, info=f'PixivApiError: {top_result.result}', result={})
+
+        return Result.DictResult(error=False, info='Success', result=top_result.result.get('body'))
+
+    @classmethod
+    async def get_top_recommend(cls, *, mode: str = 'all', lang: str = 'zh') -> Result.DictResult:
+        """获取 pixiv 发现页推荐作品, 推荐作品与 cookies 对应用户偏好相关"""
+        top_result = await cls.get_top_data(mode=mode, lang=lang)
+        if top_result.error:
+            return top_result
+
+        content: dict = top_result.result.get('page', {})
+        if not content or not isinstance(content, dict):
+            return Result.DictResult(error=True, info=f'Null top illusts data: {top_result.result}', result={})
+
+        result = {
+            'editor_recommend': [int(item.get('illustId')) for item in content.get('editorRecommend', [])],
+            'recommend': [int(item) for item in content.get('recommend', {}).get('ids', [])],
+            'recommend_by_tag': {key: value for (key, value) in [
+                (int(pid), str(tag)) for tag_illust in [
+                    [(x.get('tag'), int(pid)) for pid in x.get('ids')] for x in content.get('recommendByTag', {})
+                ] for tag, pid in tag_illust
+            ]},
+            'recommend_by_tag_order_by_tag': {key: value for (key, value) in [
+                    (x.get('tag'), [int(pid) for pid in x.get('ids')]) for x in content.get('recommendByTag', {})
+            ]}
+        }
+
+        return Result.DictResult(error=False, info=f'Success', result=result)
 
 
 class PixivIllust(Pixiv):
