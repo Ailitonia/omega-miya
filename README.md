@@ -1,29 +1,37 @@
 <div align="center">
 
+<img alt="omega miya" src="https://raw.githubusercontent.com/Ailitonia/omega-miya/master/docs/img/omega-miya-logo.png" width="25%">
+
 # Omega Miya
 
-基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的 qq 机器人
+_基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的 qq 机器人_
 
+_(正在重构中)_
+
+![Nonebot2](https://img.shields.io/badge/Nonebot2-Release_v2.0.0_beta.2-brightgreen)
+![go-cqhttp](https://img.shields.io/badge/go--cqhttp-v1.0.0_rc1-brightgreen)
+<br>
 ![GitHub](https://img.shields.io/github/license/Ailitonia/omega-miya)
-![Python](https://img.shields.io/badge/Python-3.9+-blue)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/omega-miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/omega-miya)
 
 </div>
 
-## 当前适配nonebot2版本
+## 当前适配 nonebot2 版本
 
-[Nonebot2 Pre Release v2.0.0a16](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0a16)
+[Nonebot2 Release v2.0.0-beta.2](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0-beta.2)
+
+## 当前适配 go-cqhttp 版本
+
+[go-cqhttp v1.0.0-rc1](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.0.0-rc1)
 
 ## 功能 & 特点
 
 - 基于异步 SQLAlchemy / MySQL 的数据存储
+- 支持多协议端连接, 各协议端权限、订阅等配置相互独立
 - 插件管理系统
 - 权限控制及管理系统
-    - 针对不同群组可选启用通知权限、命令权限、权限等级控制
-    - 针对不同好友可选启用 Bot 功能
-    - 针对不同群组、好友独立配置插件权限节点
-- 支持多协议端连接, 各协议端权限及订阅配置相互独立
 - 命令冷却系统
 - 速率控制系统
 - HTTP 代理功能
@@ -79,16 +87,17 @@ SHA1: `1F129A18905D1590379AC761E2EAC69DAC2D42DA`
 [这个频道](https://t.me/amoeloli)
 , 虽然已经断更很久了...
 
-## 一张图看懂如何获取B站cookies
+## 一张图看懂如何获取 Pixiv cookie
 
-**注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
+**注意！该 cookie 等同于您账号控制权，请不要泄露给他人！**
 
-<img src="https://raw.githubusercontent.com/Ailitonia/omega-miya/main/docs/img/how_to_get_bilibili_cookies.png" width="75%">
+<img alt="how to get pixiv cookie" src="https://raw.githubusercontent.com/Ailitonia/omega-miya/master/docs/img/how_to_get_pixiv_cookies.jpg" width="75%">
 
-**注意！该cookies等同于您账号控制权，请不要将这两个值泄露给他人！**
+**注意！该 cookie 等同于您账号控制权，请不要泄露给他人！**
 
 ## 特别感谢
 
+- **非常可爱的 [@喵田弥夜Miya](https://space.bilibili.com/846180) 画的 Logo**
 - [Nonebot2](https://github.com/nonebot/nonebot2)
 - [go-cqhttp](https://github.com/Mrs4s/go-cqhttp)
 - [OneBot](https://github.com/howmanybots/onebot)
