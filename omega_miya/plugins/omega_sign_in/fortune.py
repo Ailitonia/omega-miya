@@ -1,6 +1,25 @@
-import datetime
 import random
 import hashlib
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, parse_obj_as
+
+
+class Fortune(BaseModel):
+    """求签结果"""
+    star: str
+    text: Literal['大凶', '末凶', '半凶', '小凶', '凶', '末小吉', '末吉', '半吉', '吉', '小吉', '中吉', '大吉']
+    good_do_st: str
+    good_do_nd: str
+    bad_do_st: str
+    bad_do_nd: str
+
+
+class Something(BaseModel):
+    """老黄历宜和不宜内容"""
+    name: str
+    good: str
+    bad: str
 
 
 do_something = [
@@ -103,6 +122,8 @@ do_something = [
     {'name': '出门带伞', 'good': '今天下雨你信不信', 'bad': '好运气都被遮住了'},
     {'name': '走夜路', 'good': '偶尔也要一个人静一静', 'bad': '有坏人'},
     {'name': '补番', 'good': '你会后悔没早点看这部番', 'bad': '你会后悔看了这部番'},
+    {'name': '玩Minecraft', 'good': '建筑灵感爆发', 'bad': '启动器都会崩溃'},
+    {'name': '上Steam', 'good': '愿望单里全是90%off', 'bad': '钱包被G胖洗劫一空'},
     {'name': '修图', 'good': '原片直出毫无压力', 'bad': 'Photoshop未响应'},
     {'name': '赶稿', 'good': '完美守住deadline', 'bad': '终究还是超期了'},
     {'name': '摸鱼', 'good': '摸鱼一时爽，一直摸鱼一直爽', 'bad': '被老板当场抓获'},
@@ -111,9 +132,14 @@ do_something = [
 ]
 
 
-def get_fortune(user_id: int) -> dict:
+def get_fortune(user_id: int, *, date: datetime | None = None) -> Fortune:
+    """根据 qq 号和当天日期生成老黄历"""
+    if date is None:
+        date_str = str(datetime.today().date())
+    else:
+        date_str = str(date.date())
     # 用qq、日期生成随机种子
-    random_seed_str = str([user_id, datetime.date.today()])
+    random_seed_str = str([user_id, date_str])
     md5 = hashlib.md5()
     md5.update(random_seed_str.encode('utf-8'))
     random_seed = md5.hexdigest()
@@ -158,19 +184,25 @@ def get_fortune(user_id: int) -> dict:
     else:
         fortune_star = '★' * 11
         fortune_text = '大吉'
+
     # 宜做和不宜做
-    do_and_not = random.sample(do_something, k=4)
+    do_and_not = random.sample(parse_obj_as(list[Something], do_something), k=4)
 
     result = {
-        'fortune_star': fortune_star,
-        'fortune_text': fortune_text,
-        'do_1': f"{do_and_not[0]['name']} —— {do_and_not[0]['good']}",
-        'do_2': f"{do_and_not[2]['name']} —— {do_and_not[2]['good']}",
-        'not_do_1': f"{do_and_not[1]['name']} —— {do_and_not[1]['bad']}",
-        'not_do_2': f"{do_and_not[3]['name']} —— {do_and_not[3]['bad']}"
+        'star': fortune_star,
+        'text': fortune_text,
+        'good_do_st': f"{do_and_not[0].name} —— {do_and_not[0].good}",
+        'good_do_nd': f"{do_and_not[2].name} —— {do_and_not[2].good}",
+        'bad_do_st': f"{do_and_not[1].name} —— {do_and_not[1].good}",
+        'bad_do_nd': f"{do_and_not[3].name} —— {do_and_not[3].good}"
     }
 
     # 重置随机种子
     random.seed()
 
-    return result
+    return Fortune.parse_obj(result)
+
+
+__all__ = [
+    'get_fortune'
+]
