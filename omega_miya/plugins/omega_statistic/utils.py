@@ -9,32 +9,58 @@
 """
 
 import sys
-import asyncio
+from datetime import datetime
 from io import BytesIO
-from typing import Tuple, List
 from matplotlib import pyplot as plt
 
+from omega_miya.database import Statistic
+from omega_miya.local_resource import TmpResource
+from omega_miya.utils.process_utils import run_sync, run_async_catching_exception
 
-async def draw_statistics(data: List[Tuple[str, int]], *, title: str = '插件使用统计') -> bytes:
-    """
-    :param data: DBStatistic 对象 get statistic 返回数据
+
+_TMP_STATISTIC_IMG_FOLDER: str = 'statistic'
+"""生成统计图缓存文件夹名"""
+_TMP_STATISTIC_PATH: TmpResource = TmpResource(_TMP_STATISTIC_IMG_FOLDER)
+"""生成统计图缓存资源地址"""
+
+
+@run_async_catching_exception
+async def draw_statistics(
+        self_id: str,
+        start_time: datetime,
+        *,
+        title: str = '插件使用统计',
+        call_id: str | None = None
+) -> TmpResource:
+    """绘制插件使用统计图
+
+    :param self_id: bot self id
+    :param start_time: 统计启示时间
     :param title: 图表标题
-    :return:
+    :param call_id: 统计调用 id
     """
-    def __handle() -> bytes:
-        name = [x[0] for x in data]
-        count = [x[1] for x in data]
+    statistic_result = await Statistic.query_by_condition(bot_self_id=self_id, call_id=call_id, start_time=start_time)
+
+    def _handle() -> bytes:
         plt.switch_backend('agg')  # Fix RuntimeError caused by GUI needed
         if sys.platform.startswith('win'):
             plt.rcParams['font.sans-serif'] = ['SimHei']
             plt.rcParams['axes.unicode_minus'] = False
-        plt.barh(name, count)
+        plt.barh([x.custom_name for x in statistic_result], [x.call_count for x in statistic_result])
         plt.title(title)
         with BytesIO() as bf:
-            plt.savefig(bf, dpi=300)
+            plt.savefig(bf, dpi=300, format='JPG')
             img_bytes = bf.getvalue()
         return img_bytes
 
-    loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, __handle)
-    return result
+    image_content = await run_sync(_handle)()
+    image_file_name = f"statistic_{title}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
+    save_file = _TMP_STATISTIC_PATH(image_file_name)
+    async with save_file.async_open('wb') as af:
+        await af.write(image_content)
+    return save_file
+
+
+__all__ = [
+    'draw_statistics'
+]
