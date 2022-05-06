@@ -4,7 +4,7 @@
 - /Omega Enable - 启用 bot 功能
 - /Omega Disable - 禁用用 bot 功能
 - /Omega SetLevel <PermissionLevel> - 设置权限等级
-- /Omega ShowPermission - 列出已配置权限
+- /Omega ShowPermission - 查询权限状态
 - /Omega QuitGroup - 命令 bot 退群, 会有一段取消时间延迟
 - /Omega CancelQuitGroup - 取消 bot 退群命令
 """
@@ -47,7 +47,7 @@ Init: 初始化并启用基本功能, 不会覆盖已有信息, 仅供第一次�
 Enable: 启用 bot 功能
 Disable: 禁用 bot 功能
 SetLevel: 设置权限等级
-ShowPermission: 列出已配置权限
+ShowPermission: 查询权限状态
 QuitGroup: 命令bot退群
 CancelQuitGroup: 取消bot退群'''
 
@@ -124,8 +124,8 @@ async def handle_operating(
             msg = None
         case 'showpermission':
             result = await operation_show_permission(event=event)
-            result_prefix = '查询已配置权限'
-            msg = f'目前已配置权限:\n\n{result}'
+            result_prefix = '查询权限状态'
+            msg = f'当前权限状态:\n\n{result}'
         case 'quitgroup':
             if not isinstance(event, GroupMessageEvent):
                 await omega.finish('退群命令仅限在群聊中使用')
@@ -219,8 +219,23 @@ async def operation_set_permission_level(event: MessageEvent, level: int) -> boo
 async def operation_show_permission(event: MessageEvent) -> str:
     """执行 SetLevel 设置权限等级"""
     entity = get_entity_from_event(event=event)
-    result = await entity.query_all_auth_setting()
-    return '\n'.join(f'[{x.plugin}]{x.node}: {x.available}' for x in result)
+
+    global_permission = await entity.query_global_permission()
+    if global_permission is None:
+        global_permission_text = '未配置'
+    elif global_permission.available == 1:
+        global_permission_text = '已启用'
+    else:
+        global_permission_text = '已禁用'
+
+    permission_level = await entity.query_permission_level()
+    if permission_level is None:
+        permission_level_text = '未配置'
+    else:
+        permission_level_text = f'Level: {permission_level.available}'
+
+    result_text = f'功能开关:\n{global_permission_text}\n\n权限等级:\n{permission_level_text}'
+    return result_text
 
 
 @run_async_catching_exception

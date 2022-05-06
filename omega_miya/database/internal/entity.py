@@ -611,6 +611,16 @@ class BaseInternalEntity(object):
         auth_setting = AuthSetting(entity_id=related_entity.id, module=module, plugin=plugin, node=node)
         return (await auth_setting.query()).result
 
+    async def query_global_permission(self) -> Optional[AuthSettingModel]:
+        """查询全局功能开关"""
+        return await self.query_auth_setting(module=PermissionGlobal.module, plugin=PermissionGlobal.plugin,
+                                             node=PermissionGlobal.node)
+
+    async def query_permission_level(self) -> Optional[AuthSettingModel]:
+        """查询权限等级"""
+        return await self.query_auth_setting(module=PermissionLevel.module, plugin=PermissionLevel.plugin,
+                                             node=PermissionLevel.node)
+
     async def check_auth_setting(
             self,
             module: str,
