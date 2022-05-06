@@ -26,6 +26,7 @@ from omega_miya.database import InternalBotUser
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.rule import group_has_permission_level
 from omega_miya.utils.process_utils import run_async_catching_exception
+from omega_miya.exception import PluginException
 
 from .config import sign_in_config, sign_local_resource_config
 from .utils import get_hitokoto, generate_signin_card
@@ -51,19 +52,16 @@ _DEFAULT_COMMAND_START: str = list(_COMMAND_START)[0] if _COMMAND_START else ''
 """默认的命令头"""
 
 
-class SignInException(Exception):
+class SignInException(PluginException):
     """签到异常基类"""
-    pass
 
 
 class DuplicateException(SignInException):
     """重复签到"""
-    pass
 
 
 class FailedException(SignInException):
     """签到失败"""
-    pass
 
 
 SignIn = MatcherGroup(
@@ -128,13 +126,13 @@ async def handle_command_sign_in(bot: Bot, event: PokeNotifyEvent):
 @command_sign_in.handle()
 async def handle_command_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
     msg = await handle_sign_in(bot=bot, event=event, state=state)
-    await command_sign_in.finish(msg)
+    await command_sign_in.finish(msg, at_sender=True)
 
 
 @command_fortune_today.handle()
 async def handle_command_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
     msg = await handle_fortune(bot=bot, event=event, state=state)
-    await command_fortune_today.finish(msg)
+    await command_fortune_today.finish(msg, at_sender=True)
 
 
 if sign_in_config.signin_enable_regex_matcher:
@@ -144,12 +142,12 @@ if sign_in_config.signin_enable_regex_matcher:
     @regex_sign_in.handle()
     async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
         msg = await handle_sign_in(bot=bot, event=event, state=state)
-        await regex_sign_in.finish(msg)
+        await regex_sign_in.finish(msg, at_sender=True)
 
     @regex_fortune_today.handle()
     async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
         msg = await handle_fortune(bot=bot, event=event, state=state)
-        await regex_fortune_today.finish(msg)
+        await regex_fortune_today.finish(msg, at_sender=True)
 
 
 @command_fix_sign_in.handle()

@@ -8,8 +8,6 @@
 @Software       : PyCharm 
 """
 
-import re
-import random
 from typing import Optional
 from datetime import datetime
 from io import BytesIO
@@ -18,8 +16,9 @@ from nonebot.log import logger
 
 from omega_miya.database import InternalPixiv
 from omega_miya.local_resource import TmpResource
-from omega_miya.web_resource.pixiv import PixivArtwork
 from omega_miya.web_resource import HttpFetcher
+from omega_miya.web_resource.pixiv import PixivArtwork
+from omega_miya.web_resource.pixiv.model import PixivArtworkCompleteDataModel
 from omega_miya.utils.process_utils import semaphore_gather, run_sync, run_async_catching_exception
 from omega_miya.utils.text_utils import TextUtils
 from omega_miya.utils.qq_tools import get_user_head_img
@@ -71,13 +70,18 @@ if sign_in_config.signin_enable_preparing_scheduler:
     )
 
 
-async def _get_signin_top_image() -> TmpResource:
+async def _get_signin_top_image() -> tuple[PixivArtworkCompleteDataModel, TmpResource]:
     """获取一张生成签到卡片用的头图"""
-    signin_top_artwork = await InternalPixiv.random(num=3, nsfw_tag=0, ratio=1)
-    tasks = [PixivArtwork(pid=artwork.pid).get_page_file() for artwork in signin_top_artwork]
-    file_result = await semaphore_gather(tasks=tasks, semaphore_num=3)
-    choice_file = random.choice([x for x in file_result if not isinstance(x, Exception)])
-    return choice_file
+    random_artworks = await InternalPixiv.random(num=5, nsfw_tag=0, ratio=1)
+    # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
+    for random_artwork in random_artworks:
+        artwork = PixivArtwork(pid=random_artwork.pid)
+        artwork_data = await run_async_catching_exception(artwork.get_artwork_model)()
+        if not isinstance(artwork_data, Exception):
+            artwork_file = await run_async_catching_exception(artwork.get_page_file)()
+            if not isinstance(artwork_file, Exception):
+                return artwork_data, artwork_file
+    raise RuntimeError(f'all attempts to fetch artwork resources have failed')
 
 
 def _get_level(friendship: float) -> tuple[int, int, int]:
@@ -172,11 +176,10 @@ async def generate_signin_card(
     :return: 生成图片地址
     """
     # 获取头图
-    signin_top_img_file = await _get_signin_top_image()
+    signin_top_img_data, signin_top_img_file = await _get_signin_top_image()
 
-    # 获取图片pid
-    pid_result = re.search(r'^(\d+?)_regular_p0', signin_top_img_file.path.name)
-    pid = pid_result.group(1) if (pid_result is not None) else None
+    # 头图作品来源
+    top_img_origin_text = f'Pixiv | {signin_top_img_data.pid} | @{signin_top_img_data.uname}'
 
     # 尝试获取用户头像
     if add_head_img:
@@ -268,14 +271,12 @@ async def generate_signin_card(
         background.paste(draw_top_img, box=(0, 0))  # 背景
 
         # 在背景右下角绘制图片来源
-        if pid is not None:
-            pic_source_text = f'Pixiv  |  {pid}'
-            ImageDraw.Draw(background).text(xy=(width - int(width * 0.00625), top_img_height),
-                                            text=pic_source_text, font=remark_text_font,
-                                            align='right', anchor='rd',
-                                            stroke_width=1,
-                                            stroke_fill=(128, 128, 128),
-                                            fill=(224, 224, 224))  # 图片来源
+        ImageDraw.Draw(background).text(xy=(width - int(width * 0.00625), top_img_height),
+                                        text=top_img_origin_text, font=remark_text_font,
+                                        align='right', anchor='rd',
+                                        stroke_width=1,
+                                        stroke_fill=(128, 128, 128),
+                                        fill=(224, 224, 224))  # 图片来源
 
         if add_head_img:
             # 头像要占一定高度
