@@ -8,25 +8,22 @@
 @Software       : PyCharm 
 """
 
-
-class DatabaseBaseException(Exception):
-    """用于在外部操作中抛出的数据库异常"""
+from omega_miya.exception import DatabaseException
 
 
-class DatabaseQueryError(DatabaseBaseException):
+class DatabaseQueryError(DatabaseException):
     """数据库查询异常"""
 
 
-class DatabaseUpgradeError(DatabaseBaseException):
+class DatabaseUpgradeError(DatabaseException):
     """数据库新增或更新异常"""
 
 
-class DatabaseDeleteError(DatabaseBaseException):
+class DatabaseDeleteError(DatabaseException):
     """数据库删除异常异常"""
 
 
 __all__ = [
-    'DatabaseBaseException',
     'DatabaseQueryError',
     'DatabaseUpgradeError',
     'DatabaseDeleteError'

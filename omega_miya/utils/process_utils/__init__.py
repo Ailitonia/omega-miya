@@ -17,6 +17,7 @@ from functools import wraps, partial
 
 from nonebot import logger
 from nonebot.exception import AdapterException, NoneBotException
+from omega_miya.exception import OmegaException, WebSourceException
 
 
 P = ParamSpec("P")
@@ -24,7 +25,7 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
-class ExceededAttemptError(Exception):
+class ExceededAttemptError(OmegaException):
     """重试次数超过限制异常"""
 
 
@@ -134,6 +135,11 @@ def run_async_catching_exception(
             logger.opt(colors=True).info(
                 f'<lc>Decorator RunAsyncCatchingException</lc> | <ly>{_module_name}.{func.__name__}</ly> '
                 f'<r>raise NoneBotException</r> <c>></c> <r>Exception {e.__class__.__name__}</r>: {e}')
+            result = e
+        except WebSourceException as e:
+            logger.opt(colors=True).error(
+                f'<lc>Decorator RunAsyncCatchingException</lc> | <ly>{_module_name}.{func.__name__}</ly> '
+                f'<r>raise WebSourceException</r> <c>></c> <ly>Failed to fetch network resource</ly>: {e}')
             result = e
         except AssertionError as e:
             logger.opt(colors=True).error(

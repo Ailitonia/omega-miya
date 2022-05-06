@@ -8,8 +8,10 @@
 @Software       : PyCharm 
 """
 
+from omega_miya.exception import WebSourceException
 
-class BaseTencentCloudError(Exception):
+
+class BaseTencentCloudError(WebSourceException):
     """TencentCloud 异常基类"""
 
 

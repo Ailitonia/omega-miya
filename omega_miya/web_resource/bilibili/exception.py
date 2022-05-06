@@ -8,8 +8,10 @@
 @Software       : PyCharm 
 """
 
+from omega_miya.exception import WebSourceException
 
-class BaseBilibiliError(Exception):
+
+class BaseBilibiliError(WebSourceException):
     """Bilibili 异常基类"""
 
 

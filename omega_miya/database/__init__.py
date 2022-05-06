@@ -14,12 +14,11 @@ from .internal import (InternalBotGroup, InternalBotUser, InternalBotGuild,
                        InternalGuildChannel, InternalGroupUser, InternalGuildUser,
                        InternalOneBotV11Bot,
                        InternalSubscriptionSource, InternalPixiv)
-from .exception import DatabaseBaseException, DatabaseQueryError, DatabaseUpgradeError, DatabaseDeleteError
+from .exception import DatabaseQueryError, DatabaseUpgradeError, DatabaseDeleteError
 
 
 __all__ = [
     'DatabaseErrorInfo',
-    'DatabaseBaseException',
     'DatabaseQueryError',
     'DatabaseUpgradeError',
     'DatabaseDeleteError',

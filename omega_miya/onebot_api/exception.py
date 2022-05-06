@@ -8,16 +8,14 @@
 @Software       : PyCharm 
 """
 
-
-class BaseOnebotError(Exception):
-    """Onebot Api 异常基类"""
+from omega_miya.exception import OnebotApiException
 
 
-class ApiNotImplement(BaseOnebotError):
+class ApiNotImplement(OnebotApiException):
     """未实现 Onebot 标准协议要求的 api"""
 
 
-class ApiNotSupport(BaseOnebotError):
+class ApiNotSupport(OnebotApiException):
     """不支持 Onebot 标准协议要求的 api"""
 
 

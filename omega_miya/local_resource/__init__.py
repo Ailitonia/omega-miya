@@ -17,16 +17,14 @@ from typing import Generator, IO, TypeVar, ParamSpec, Callable, Optional, Any
 from functools import wraps
 from contextlib import contextmanager, asynccontextmanager
 
-
-class ResourceError(Exception):
-    """LocalResource 异常基类"""
+from omega_miya.exception import LocalSourceException
 
 
-class ResourceNotFolderError(ResourceError):
+class ResourceNotFolderError(LocalSourceException):
     """LocalResource 实例不是文件夹"""
 
 
-class ResourceNotFileError(ResourceError):
+class ResourceNotFileError(LocalSourceException):
     """LocalResource 实例不是文件"""
 
 

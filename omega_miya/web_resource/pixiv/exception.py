@@ -8,8 +8,10 @@
 @Software       : PyCharm 
 """
 
+from omega_miya.exception import WebSourceException
 
-class BasePixivError(Exception):
+
+class BasePixivError(WebSourceException):
     """Pixiv 异常基类"""
 
 

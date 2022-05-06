@@ -8,8 +8,10 @@
 @Software       : PyCharm 
 """
 
+from omega_miya.exception import WebSourceException
 
-class BaseNhentaiException(Exception):
+
+class BaseNhentaiException(WebSourceException):
     """Nhentai 异常基类"""
 
 
