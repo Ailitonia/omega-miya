@@ -211,6 +211,18 @@ async def _get_live_room_update_message(
     return send_message
 
 
+async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int:
+    """向 entity 发送消息"""
+    try:
+        msg_sender = MessageSender.init_from_bot_id(bot_id=entity.bot_id)
+        sent_msg_id = await msg_sender.send_internal_entity_msg(entity=entity, message=message)
+    except KeyError:
+        logger.debug(f'BilibiliLiveRoomMonitor | Bot({entity.bot_id}) not online, '
+                     f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
+        sent_msg_id = 0
+    return sent_msg_id
+
+
 async def _process_bili_live_room_update(live_room_data: BilibiliLiveRoomDataModel) -> None:
     """处理 Bilibili 直播间状态更新"""
     logger.debug(f'BilibiliLiveRoomMonitor | Checking bilibili live room({live_room_data.room_id}) status')
@@ -226,11 +238,8 @@ async def _process_bili_live_room_update(live_room_data: BilibiliLiveRoomDataMod
     subscribed_entity = await _query_subscribed_entity_by_live_room(room_id=str(live_room_data.room_id))
 
     # 向订阅者发送直播间更新信息
-    send_tasks = [
-        MessageSender.init_from_bot_id(bot_id=entity.bot_id).send_internal_entity_msg(entity=entity,
-                                                                                      message=send_msg)
-        for entity in subscribed_entity if send_msg is not None
-    ]
+    send_tasks = [_msg_sender(entity=entity, message=send_msg)
+                  for entity in subscribed_entity if send_msg is not None]
     sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=2)
     if error := [x for x in sent_result if isinstance(x, Exception)]:
         raise RuntimeError(*error)

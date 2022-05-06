@@ -165,6 +165,18 @@ async def _get_dynamic_message(dynamic: BilibiliDynamicCard) -> str | Message:
     return send_message
 
 
+async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int:
+    """向 entity 发送消息"""
+    try:
+        msg_sender = MessageSender.init_from_bot_id(bot_id=entity.bot_id)
+        sent_msg_id = await msg_sender.send_internal_entity_msg(entity=entity, message=message)
+    except KeyError:
+        logger.debug(f'BilibiliUserDynamicSubscriptionMonitor | Bot({entity.bot_id}) not online, '
+                     f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
+        sent_msg_id = 0
+    return sent_msg_id
+
+
 @run_async_delay(delay_time=5)
 @run_async_catching_exception
 async def send_bili_user_new_dynamics(bili_user: BilibiliUser) -> None:
@@ -193,11 +205,8 @@ async def send_bili_user_new_dynamics(bili_user: BilibiliUser) -> None:
         raise RuntimeError(*error)
 
     # 向订阅者发送新动态信息
-    send_tasks = [
-        MessageSender.init_from_bot_id(bot_id=entity.bot_id).send_internal_entity_msg(entity=entity,
-                                                                                      message=send_message)
-        for entity in subscribed_entity for send_message in send_messages
-    ]
+    send_tasks = [_msg_sender(entity=entity, message=send_message)
+                  for entity in subscribed_entity for send_message in send_messages]
     sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=2)
     if error := [x for x in sent_result if isinstance(x, Exception)]:
         raise RuntimeError(*error)
