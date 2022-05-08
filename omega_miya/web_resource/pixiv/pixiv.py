@@ -2,6 +2,7 @@ import re
 import pathlib
 import zipfile
 import imageio
+import asyncio
 from datetime import datetime, timedelta
 from typing import Literal, Optional
 from urllib.parse import urlparse, quote
@@ -324,11 +325,14 @@ class PixivArtwork(Pixiv):
     async def get_artwork_model(self) -> PixivArtworkCompleteDataModel:
         """获取并初始化作品对应 PixivArtworkCompleteDataModel"""
         if not isinstance(self.artwork_model, PixivArtworkCompleteDataModel):
-            _artwork_data = await self._query_data()
+            query_data_task = asyncio.create_task(self._query_data())
+            query_page_data_task = asyncio.create_task(self._query_page_date())
+
+            _artwork_data = await query_data_task
             if _artwork_data.error:
                 raise PixivApiError(f'PixivApiError, query artwork data failed, {_artwork_data.message}')
 
-            _page_data = await self._query_page_date()
+            _page_data = await query_page_data_task
             if _page_data.error:
                 raise PixivApiError(f'PixivApiError, query artwork page failed, {_page_data.message}')
 
