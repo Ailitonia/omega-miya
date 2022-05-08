@@ -15,16 +15,15 @@ from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
-from nonebot.adapters.onebot.v11 import MessageSegment, Message
+from nonebot.adapters.onebot.v11 import MessageSegment
 
-from omega_miya.database import InternalBotUser, InternalBotGroup, InternalPixiv, InternalSubscriptionSource
+from omega_miya.database import InternalBotUser, InternalBotGroup, InternalPixiv
 from omega_miya.database.internal.entity import BaseInternalEntity
 from omega_miya.result import BoolResult
 from omega_miya.local_resource import TmpResource
-from omega_miya.web_resource.pixiv import PixivArtwork, PixivUser
-from omega_miya.utils.process_utils import run_async_catching_exception, run_sync, semaphore_gather
+from omega_miya.web_resource.pixiv import PixivArtwork
+from omega_miya.utils.process_utils import run_async_catching_exception, run_sync
 from omega_miya.utils.image_utils import ImageUtils
-from omega_miya.utils.message_tools import MessageSender
 
 from .config import moe_plugin_config, moe_plugin_resource_config
 
@@ -168,6 +167,7 @@ async def _get_database_import_pids() -> list[int]:
 
 
 async def get_database_import_pids() -> list[int]:
+    """从本地文件中读取需要导入数据库的图片 PID"""
     pids = await _get_database_import_pids()
     if isinstance(pids, Exception):
         logger.error(f'MoeDatabaseImport | 从文件中读取导入文件列表失败, {pids}, '
