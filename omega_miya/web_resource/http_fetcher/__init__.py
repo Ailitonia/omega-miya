@@ -1,5 +1,6 @@
 import aiohttp
 import pathlib
+import hashlib
 from copy import deepcopy
 from typing import Iterable, Any
 from urllib.parse import urlparse
@@ -27,7 +28,7 @@ class HttpFetcher(object):
         'sec-gpc': '1',
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/100.0.4896.75 Safari/537.36'
+                      'Chrome/101.0.4951.54 Safari/537.36'
     }
     _http_proxy_config = http_proxy_config
 
@@ -76,6 +77,16 @@ class HttpFetcher(object):
         parsed_url = urlparse(url=url, allow_fragments=True)
         original_file_name = pathlib.Path(parsed_url.path).name
         return original_file_name
+
+    @classmethod
+    def hash_url_file_name(cls, *prefix: str, url: str) -> str:
+        """尝试解析 url 对应的文件后缀名并用 hash 和前缀代替"""
+        parsed_url = urlparse(url=url, allow_fragments=True)
+        name_hash = hashlib.md5(url.encode(encoding='utf8')).hexdigest()
+        name_suffix = pathlib.Path(parsed_url.path).suffix
+        name_prefix = '_'.join(prefix)
+        new_name = f'{name_prefix}_{name_hash}{name_suffix}'
+        return new_name
 
     @classmethod
     def get_default_headers(cls) -> dict[str, str]:
@@ -214,10 +225,11 @@ class HttpFetcher(object):
             *,
             params: dict[str, str] | None = None,
             json: dict[str, Any] | None = None,
-            data: FormData | dict[str, Any] = None,
+            data: FormData | dict[str, Any] | None = None,
             encoding: str | None = None,
             **kwargs: Any) -> HttpFetcherDictResult:
         """使用 post 方法获取字典类型的 Json 目标"""
+        data = data if data is None else deepcopy(data)
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             async with session.post(
                     url=url,
@@ -240,10 +252,11 @@ class HttpFetcher(object):
             *,
             params: dict[str, str] | None = None,
             json: dict[str, Any] | None = None,
-            data: FormData | dict[str, Any] = None,
+            data: FormData | dict[str, Any] | None = None,
             encoding: str | None = None,
             **kwargs: Any) -> HttpFetcherJsonResult:
         """使用 post 方法获取 Json 目标"""
+        data = data if data is None else deepcopy(data)
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             async with session.post(
                     url=url,
@@ -266,10 +279,11 @@ class HttpFetcher(object):
             *,
             params: dict[str, str] | None = None,
             json: dict[str, Any] | None = None,
-            data: FormData | dict[str, Any] = None,
+            data: FormData | dict[str, Any] | None = None,
             encoding: str | None = None,
             **kwargs: Any) -> HttpFetcherTextResult:
         """使用 post 方法获取 Text 目标"""
+        data = data if data is None else deepcopy(data)
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             async with session.post(
                     url=url,
@@ -292,9 +306,10 @@ class HttpFetcher(object):
             *,
             params: dict[str, str] | None = None,
             json: dict[str, Any] | None = None,
-            data: FormData | dict[str, Any] = None,
+            data: FormData | dict[str, Any] | None = None,
             **kwargs: Any) -> HttpFetcherBytesResult:
         """使用 post 方法获取 Bytes 目标"""
+        data = data if data is None else deepcopy(data)
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             async with session.post(
                     url=url,
