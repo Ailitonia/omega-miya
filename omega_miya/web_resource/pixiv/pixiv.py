@@ -597,6 +597,21 @@ class PixivArtwork(Pixiv):
         next_ids = recommend_data.result.get('nextIds', [])
         return PixivArtworkRecommendModel(illusts=illusts, nextIds=next_ids)
 
+    async def query_recommend_with_preview(self, *, init_limit: int = 18, lang: Literal['zh'] = 'zh') -> TmpResource:
+        """获取本作品对应的相关作品推荐并生成预览图
+
+        :param init_limit: 初始化作品推荐时首次加载的作品数量, 默认 18, 最大 180
+        :param lang: 语言
+        """
+        recommend_result = await self.query_recommend(init_limit=init_limit, lang=lang)
+        # 获取缩略图内容
+        name = 'Pixiv Artwork Recommend'
+        preview_request = await _emit_preview_model_from_artwork_pids(preview_name=name,
+                                                                      pids=[x.id for x in recommend_result.illusts])
+        preview_img_file = await generate_artworks_preview_image(
+            preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=3)
+        return preview_img_file
+
 
 class PixivUser(Pixiv):
     """Pixiv 用户"""

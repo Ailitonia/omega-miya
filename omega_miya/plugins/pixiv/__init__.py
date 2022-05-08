@@ -24,6 +24,7 @@ from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 from omega_miya.service import init_processor_state
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.web_resource.pixiv import PixivArtwork, PixivRanking, PixivDiscovery, PixivSearching, PixivUser
+from omega_miya.web_resource.pixiv.helper import parse_pid_from_url
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.message_tools import MessageSender
 
@@ -41,8 +42,8 @@ __plugin_usage__ = r'''【Pixiv助手】
 
 用法:
 /pixiv <PID>
-/pixiv推荐
 /pixiv发现
+/pixiv推荐 [PID or ArtworkUrl]
 /pixiv日榜 [页码]
 /pixiv周榜 [页码]
 /pixiv月榜 [页码]
@@ -129,9 +130,30 @@ pixiv_recommend = on_command(
 
 
 @pixiv_recommend.handle()
-async def handle_pixiv_recommend(matcher: Matcher):
+async def handle_parser(event: MessageEvent, state: T_State, cmd_arg: Message = CommandArg()):
+    """尝试解析消息中是否有图片 uid 或者 url"""
+    plain_message = cmd_arg.extract_plain_text().strip()
+    if plain_message.isdigit():
+        state.update({'recommend_source_artwork': int(plain_message)})
+    elif pid := parse_pid_from_url(text=plain_message, url_mode=False):
+        state.update({'recommend_source_artwork': pid})
+    elif event.reply:
+        pid = parse_pid_from_url(text=event.reply.message.extract_plain_text(), url_mode=False)
+        state.update({'recommend_source_artwork': pid})
+    else:
+        state.update({'recommend_source_artwork': None})
+
+
+@pixiv_recommend.handle()
+async def handle_pixiv_recommend(matcher: Matcher, state: T_State):
+    recommend_source_artwork = state.get('recommend_source_artwork', None)
+
     await matcher.send('稍等, 正在下载图片~')
-    recommend_img = await run_async_catching_exception(PixivDiscovery.query_recommend_artworks_with_preview)()
+    if recommend_source_artwork:
+        recommend_img = await run_async_catching_exception(PixivArtwork(pid=recommend_source_artwork).
+                                                           query_recommend_with_preview)()
+    else:
+        recommend_img = await run_async_catching_exception(PixivDiscovery.query_recommend_artworks_with_preview)()
     if isinstance(recommend_img, Exception):
         logger.error(f'PixivRecommend | 获取作品推荐(Recommend)失败, {recommend_img}')
         await matcher.finish('获取推荐作品失败了QAQ, 请稍后再试')
