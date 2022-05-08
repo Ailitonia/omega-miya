@@ -1,3 +1,13 @@
+"""
+@Author         : Ailitonia
+@Date           : 2021/06/16 22:53
+@FileName       : image_searcher.py
+@Project        : nonebot2_miya
+@Description    : 识图搜番
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 from nonebot import on_command, logger
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
