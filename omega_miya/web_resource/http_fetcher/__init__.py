@@ -1,6 +1,8 @@
 import aiohttp
+import pathlib
 from copy import deepcopy
 from typing import Iterable, Any
+from urllib.parse import urlparse
 
 from omega_miya.utils.process_utils import retry, run_async_catching_exception
 from omega_miya.local_resource import TmpResource
@@ -67,6 +69,13 @@ class HttpFetcher(object):
         self.timeout = aiohttp.ClientTimeout(total=_time_out)
         self.headers = _headers
         self.cookies = cookies
+
+    @classmethod
+    def parse_url_file_name(cls, url: str) -> str:
+        """尝试解析 url 对应的文件名"""
+        parsed_url = urlparse(url=url, allow_fragments=True)
+        original_file_name = pathlib.Path(parsed_url.path).name
+        return original_file_name
 
     @classmethod
     def get_default_headers(cls) -> dict[str, str]:
