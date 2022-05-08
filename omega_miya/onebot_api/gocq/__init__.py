@@ -136,7 +136,7 @@ class GoCqhttpBot(BaseOnebotApi):
     async def send_group_forward_msg(
             self,
             group_id: int | str,
-            messages: list[str | Message | MessageSegment]
+            messages: list[str | Message | MessageSegment | dict]
     ) -> SentMessage:
         """发送合并转发 ( 群 )
 

@@ -102,15 +102,15 @@ class MessageSender(object):
         for msg in message_list:
             if not msg:
                 continue
-            node_message.append(MessageSegment(
-                "node",
-                {
-                    "name": custom_nickname,
-                    "user_id": custom_user_id,
-                    "uin": custom_user_id,
-                    "content": msg
+            node_message.append({
+                'type': 'node',
+                'data': {
+                    'name': custom_nickname,
+                    'user_id': custom_user_id,
+                    'uin': custom_user_id,
+                    'content': msg
                 }
-            ))
+            })
 
         sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
         return sent_result.message_id
@@ -131,15 +131,15 @@ class MessageSender(object):
         for msg in message_list:
             if not msg:
                 continue
-            node_message.append(MessageSegment(
-                "node",
-                {
-                    "name": custom_nickname,
-                    "user_id": custom_user_id,
-                    "uin": custom_user_id,
-                    "content": msg
+            node_message.append({
+                'type': 'node',
+                'data': {
+                    'name': custom_nickname,
+                    'user_id': custom_user_id,
+                    'uin': custom_user_id,
+                    'content': msg
                 }
-            ))
+            })
 
         sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
         await asyncio.sleep(recall_time)
