@@ -700,7 +700,6 @@ def get_all_render_name() -> list[str]:
 
 
 @run_async_catching_exception
-@retry(attempt_limit=2)
 async def download_source_image(url: str) -> TmpResource:
     """下载图片到本地, 保持原始文件名, 直接覆盖同名文件"""
     file_name = HttpFetcher.parse_url_file_name(url=url)
