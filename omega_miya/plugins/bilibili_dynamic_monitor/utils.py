@@ -161,7 +161,7 @@ async def _get_dynamic_message(dynamic: BilibiliDynamicCard) -> str | Message:
         send_message += Message(MessageSegment.image(file=x.file_uri) for x in img_download_result)
         send_message += '\n'
 
-    send_message += f'动态链接: {BilibiliDynamic.dynamic_root_url}{dynamic.desc.dynamic_id}'
+    send_message += f'\n动态链接: {BilibiliDynamic.dynamic_root_url}{dynamic.desc.dynamic_id}'
     return send_message
 
 

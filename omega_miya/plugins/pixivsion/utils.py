@@ -51,6 +51,7 @@ async def get_pixivision_article_preview(aid: int, message_prefix: str | None = 
         send_message += MessageSegment.image(eyecatch_image.file_uri)
     send_message += f'\n{pixivision_data.description}\n'
     send_message += MessageSegment.image(preview_image.file_uri)
+    send_message += f'\n传送门: {pixivision.url}'
 
     if message_prefix is not None:
         send_message = message_prefix + send_message
