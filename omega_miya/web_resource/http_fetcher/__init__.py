@@ -22,7 +22,7 @@ class HttpFetcher(object):
         'accept-encoding': 'gzip, deflate',
         'accept-language': 'zh-CN,zh;q=0.9',
         'dnt': '1',
-        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="100", "Google Chrome";v="100"',
+        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="101", "Google Chrome";v="101"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
         'sec-gpc': '1',
@@ -95,8 +95,10 @@ class HttpFetcher(object):
     @classmethod
     @run_async_catching_exception
     async def check_proxy(cls) -> HttpFetcherBytesResult:
-        return await cls(
-            timeout=cls._http_proxy_config.proxy_check_timeout).get_bytes(url=cls._http_proxy_config.proxy_check_url)
+        check_timeout = cls._http_proxy_config.proxy_check_timeout
+        check_url = cls._http_proxy_config.proxy_check_url
+        check_result = await cls(timeout=check_timeout).get_bytes(url=check_url)
+        return check_result
 
     @retry(attempt_limit=_default_attempt_numbers)
     async def download_file(
