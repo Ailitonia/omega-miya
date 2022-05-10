@@ -9,7 +9,7 @@
 """
 
 from typing import Optional
-from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.event import Sender
 from ...model import BaseOnebotModel
 from .user import Anonymous

@@ -16,7 +16,7 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, GroupUploadNoticeEvent
 from nonebot.params import CommandArg, ArgStr

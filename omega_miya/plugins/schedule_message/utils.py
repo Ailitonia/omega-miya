@@ -13,7 +13,7 @@ from nonebot import get_driver
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
-from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11.message import Message
 
 from apscheduler.triggers.cron import CronTrigger
 from omega_miya.utils.apscheduler import scheduler

@@ -11,8 +11,8 @@
 from nonebot import get_driver
 from nonebot.message import event_preprocessor, event_postprocessor, run_preprocessor, run_postprocessor
 from nonebot.matcher import Matcher
+from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event, MessageEvent
-from nonebot.adapters.onebot.v11 import Bot
 from nonebot.exception import IgnoredException
 
 from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, ChannelNoticeEvent

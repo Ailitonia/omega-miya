@@ -13,7 +13,7 @@ from datetime import datetime
 from nonebot import get_driver, logger
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
-from nonebot.adapters.onebot.v11 import MessageSegment, Message
+from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 
 from omega_miya.database import InternalBotUser, InternalBotGroup, InternalSubscriptionSource
 from omega_miya.database.internal.entity import BaseInternalEntity

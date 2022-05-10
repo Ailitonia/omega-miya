@@ -4,9 +4,9 @@ from nonebot import on_command, on_notice, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, GroupRecallNoticeEvent
+from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.params import CommandArg, ArgStr
 

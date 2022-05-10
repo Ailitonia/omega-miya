@@ -20,7 +20,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
-from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11.message import Message
 from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 
 from omega_miya.service import init_processor_state

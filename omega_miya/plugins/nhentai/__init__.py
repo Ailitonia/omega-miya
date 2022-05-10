@@ -16,7 +16,7 @@ from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
-from nonebot.adapters.onebot.v11 import Message, MessageSegment
+from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state

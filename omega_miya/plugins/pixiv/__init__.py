@@ -18,7 +18,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from nonebot.adapters.onebot.v11 import MessageSegment, Message
+from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 
 from omega_miya.service import init_processor_state

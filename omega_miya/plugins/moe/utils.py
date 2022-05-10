@@ -15,7 +15,7 @@ from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
-from nonebot.adapters.onebot.v11 import MessageSegment
+from nonebot.adapters.onebot.v11.message import MessageSegment
 
 from omega_miya.database import InternalBotUser, InternalBotGroup, InternalPixiv
 from omega_miya.database.internal.entity import BaseInternalEntity

@@ -11,7 +11,7 @@
 from typing import Literal
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11 import MessageSegment, Message
+from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
 
 from omega_miya.result import BoolResult
