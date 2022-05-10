@@ -23,7 +23,6 @@ from omega_miya.service import init_processor_state
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.message_tools import MessageTools
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
-from omega_miya.utils.rule import group_has_permission_level
 
 from .data_source import ShindanMaker
 
@@ -154,9 +153,8 @@ _CUSTOM_SHINDAN_ID: dict[str, int] = {
 shindan_pattern = r'^今天的?(.+)(的|是)(.+?)[?？]?$'
 shindan_maker_today = on_regex(
     shindan_pattern,
-    rule=group_has_permission_level(level=30),
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(name='shindan_maker', level=30, auth_node='shindan_maker_today'),
+    state=init_processor_state(name='shindan_maker', level=30, echo_processor_result=False),
     permission=GROUP,
     priority=20,
     block=True
