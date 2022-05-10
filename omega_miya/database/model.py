@@ -498,7 +498,7 @@ class WordBankOrm(Base):
     id = Column(Integer, Sequence('word_bank_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     key_word = Column(String(128), nullable=False, index=True, comment='匹配目标')
     reply_entity = Column(String(64), nullable=False, index=True, comment='响应对象, 可为群号/用户qq/频道id等标识')
-    result_word = Column(String(1024), nullable=False, comment='结果文本')
+    result_word = Column(String(8192), nullable=False, comment='结果文本')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
