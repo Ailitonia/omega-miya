@@ -1,21 +1,27 @@
-import os
 import datetime
-from typing import Tuple, List
-from nonebot import logger, get_driver
-from omega_miya.utils.omega_plugin_utils import HttpFetcher
-from omega_miya.database import Result
+from dataclasses import dataclass
+from pydantic import BaseModel
 
-global_config = get_driver().config
-TMP_PATH = global_config.tmp_path_
+from nonebot.adapters.onebot.v11.bot import Bot
+
+from omega_miya.onebot_api import GoCqhttpBot
+from omega_miya.result import BoolResult
+from omega_miya.web_resource import HttpFetcher
+from omega_miya.local_resource import TmpResource
+from omega_miya.utils.process_utils import run_sync, run_async_catching_exception
+from omega_miya.exception import PluginException
 
 
-class AssScriptException(Exception):
-    def __init__(self, *args):
-        super(AssScriptException, self).__init__(*args)
+_TMP_FOLDER: TmpResource = TmpResource('zhoushen_hime')
+"""缓存文件夹"""
 
 
-# 构造ass字幕类
+class AssScriptException(PluginException):
+    """字幕处理异常"""
+
+
 class AssScriptLine(object):
+    """ass字幕行类"""
     # 标记属性
     __STYLE: str = 'Style'
     __DIALOGUE: str = 'Dialogue'
@@ -132,9 +138,7 @@ class AssScriptLine(object):
         self.__text = text
 
     def init(self) -> None:
-        """
-        初始化该单行, 只有初始化之后才能进行后续处理
-        """
+        """初始化该单行, 只有初始化之后才能进行后续处理"""
         # 首先移除首尾空白及换行符
         self.__raw_text = self.__raw_text.strip('\n')
         self.__raw_text = self.__raw_text.strip()
@@ -192,9 +196,7 @@ class AssScriptLine(object):
             self.__is_init = True
 
     def generate(self) -> str:
-        """
-        生成新的event行
-        """
+        """生成新的event行"""
         if not self.__is_init:
             return self.raw_text
 
@@ -212,9 +214,8 @@ class AssScriptLine(object):
         return f"{self.type}: 0,{start_time},{end_time},{self.style},{self.actor}," \
                f"{self.left_margin},{self.right_margin},{self.vertical_margin},{self.effect},{self.text}"
 
-    def check_flash(self, threshold_time: int) -> Tuple[int, datetime.timedelta]:
-        """
-        判断该行单行是否是闪轴
+    def check_flash(self, threshold_time: int) -> tuple[int, datetime.timedelta]:
+        """判断该行单行是否是闪轴
 
         :param threshold_time:
             闪轴判断阈值, 单位毫秒, 小于该值的为单行闪轴
@@ -263,8 +264,8 @@ class AssScriptLine(object):
                f'effect={self.__effect}, text={self.__text})>'
 
 
-# 构造ass字幕event行工具类
 class AssScriptLineTool(object):
+    """ass字幕event行工具类"""
     # 标记属性
     __STYLE: str = 'Style'
     __DIALOGUE: str = 'Dialogue'
@@ -272,10 +273,13 @@ class AssScriptLineTool(object):
     __HEADER: str = 'Header'
 
     @classmethod
-    def check_continuous(cls, start_line: AssScriptLine, end_line: AssScriptLine, style_mode: bool) \
-            -> Tuple[int, datetime.timedelta]:
-        """
-        判断该行两行是否是连轴(即前轴结束时间等于后轴开始时间)
+    def check_continuous(
+            cls,
+            start_line: AssScriptLine,
+            end_line: AssScriptLine,
+            style_mode: bool
+    ) -> tuple[int, datetime.timedelta]:
+        """判断该行两行是否是连轴(即前轴结束时间等于后轴开始时间)
 
         :param start_line: 前轴
         :param end_line: 后轴
@@ -307,10 +311,13 @@ class AssScriptLineTool(object):
             return 0, lines_duration
 
     @classmethod
-    def check_overlap(cls, start_line: AssScriptLine, end_line: AssScriptLine, style_mode: bool) \
-            -> Tuple[int, datetime.timedelta]:
-        """
-        判断该行两行是否是叠轴(即前轴结束时间大于后轴开始时间)
+    def check_overlap(
+            cls,
+            start_line: AssScriptLine,
+            end_line: AssScriptLine,
+            style_mode: bool
+    ) -> tuple[int, datetime.timedelta]:
+        """判断该行两行是否是叠轴(即前轴结束时间大于后轴开始时间)
 
         :param start_line: 前轴
         :param end_line: 后轴
@@ -342,10 +349,14 @@ class AssScriptLineTool(object):
             return 0, lines_duration
 
     @classmethod
-    def check_flash(cls, start_line: AssScriptLine, end_line: AssScriptLine,
-                    threshold_time: int, style_mode: bool) -> Tuple[int, datetime.timedelta]:
-        """
-        判断该行两行是否是闪轴(即前轴结束时间与后轴开始时间差小于一定值)
+    def check_flash(
+            cls,
+            start_line: AssScriptLine,
+            end_line: AssScriptLine,
+            threshold_time: int,
+            style_mode: bool
+    ) -> tuple[int, datetime.timedelta]:
+        """判断该行两行是否是闪轴(即前轴结束时间与后轴开始时间差小于一定值)
 
         :param start_line: 前轴
         :param end_line: 后轴
@@ -384,8 +395,26 @@ class AssScriptLineTool(object):
             return 0, lines_duration
 
 
-# 构造ass字幕文件处理工具类
+class HandleResult(BaseModel):
+    """处理结果"""
+    output_txt: str
+    character_count: int
+    overlap_count: int
+    flash_count: int
+
+
+@dataclass
+class OutputHandleResult:
+    """对外输出的处理结果"""
+    output_txt_file: TmpResource
+    output_ass_file: TmpResource
+    character_count: int
+    overlap_count: int
+    flash_count: int
+
+
 class ZhouChecker(AssScriptLineTool):
+    """ass字幕文件处理工具"""
     # 需要校对的关键词
     __proofreading_words = ['???', '？？？']
 
@@ -413,41 +442,49 @@ class ZhouChecker(AssScriptLineTool):
     # 不知道咋换的标点
     __punctuation_ignore = ["'", '"', '，', '/']
 
-    def __init__(self, file_path: str, single_threshold_time: int = 500, multi_threshold_time: int = 300,
-                 flash_mode: bool = False, style_mode: bool = False, fx_mode: bool = True):
-        """
-        :param file_path: 文件路径
+    def __init__(
+            self,
+            file: TmpResource,
+            single_threshold_time: int = 500,
+            multi_threshold_time: int = 300,
+            flash_mode: bool = False,
+            style_mode: bool = False,
+            fx_mode: bool = True):
+        """初始化工具类实例
+
+        :param file: ass字幕文件
         :param single_threshold_time: 单行闪轴判断阈值, 单位毫秒, 默认500
         :param multi_threshold_time: 多行闪轴判断阈值, 单位毫秒, 默认300
         :param flash_mode: 是否启用单行闪轴强制去除(可能导致多行闪轴), 默认False
         :param style_mode: 是否启用样式判断, 默认False
         :param fx_mode: 是否检查含特效的行, 默认True
         """
-        self.__file_path = file_path
+        self.__file = file
         self.__single_threshold_time = single_threshold_time
         self.__multi_threshold_time = multi_threshold_time
         self.__flash_mode = flash_mode
         self.__style_mode = style_mode
         self.__fx_mode = fx_mode
         self.__is_init = False
-        self.__event_lines: List[AssScriptLine] = list()
-        self.__header_lines: List[AssScriptLine] = list()
+        self.__event_lines: list[AssScriptLine] = list()
+        self.__header_lines: list[AssScriptLine] = list()
         self.__styles = set()
 
-    def init_file(self, auto_style: bool = False) -> Result.IntResult:
-        """
+    async def _init_file(self, auto_style: bool = False) -> BoolResult:
+        """载入文件并初始化字幕内容
+
         :param auto_style: 是否启用智能样式, 启用后会检查字幕文件使用样式数, 若只使用一种则自动停用style_mode
         """
-        if not os.path.exists(self.__file_path):
-            return Result.IntResult(error=True, info='File not exist', result=-1)
+        if not self.__file.path.exists() or not self.__file.path.is_file():
+            return BoolResult(error=True, info='FileNotExist', result=False)
 
-        if os.path.splitext(self.__file_path)[-1] not in ['.ass', '.ASS']:
-            return Result.IntResult(error=True, info='File type error, not ass', result=-1)
+        if self.__file.path.suffix not in ['.ass', '.ASS']:
+            return BoolResult(error=True, info='NotAssFileTypeError', result=False)
 
-        with open(self.__file_path, 'r', encoding='utf8') as f_ass:
+        async with self.__file.async_open('r', encoding='utf8') as af:
             line_count = 0
             event_line_count = 0
-            for line in f_ass.readlines():
+            for line in await af.readlines():
                 line_count += 1
                 ass_line = AssScriptLine(line_num=line_count, raw_text=line)
                 ass_line.init()
@@ -473,13 +510,12 @@ class ZhouChecker(AssScriptLineTool):
                     self.__style_mode = True
 
         self.__is_init = True
-        return Result.IntResult(error=False, info='Success', result=0)
+        return BoolResult(error=False, info='Success', result=True)
 
-    def handle(self) -> Result.DictResult:
+    def _handle(self) -> HandleResult:
+        """处理时轴检查"""
         if not self.__is_init:
-            logger.error('Handle processing error: 时轴文件未未初始化')
-            return Result.DictResult(error=True, info='Handle without init file', result={})
-        logger.info('Handle processing started')
+            raise RuntimeError('Handle without initializing file')
 
         flash_mode = self.__flash_mode
         style_mode = self.__style_mode
@@ -627,7 +663,7 @@ class ZhouChecker(AssScriptLineTool):
                     break
         out_log += '--- 锤轴部分结束 ---\n\n' \
                    '--- 审轴信息 ---\n' \
-                   f'原始文件: {os.path.basename(self.__file_path)}\n' \
+                   f'原始文件: {self.__file.path.name}\n' \
                    f'报告生成时间: {datetime.datetime.now()}\n' \
                    f'符号及疑问文本问题: {character_count}\n' \
                    f'叠轴问题: {overlap_count}\n' \
@@ -637,38 +673,84 @@ class ZhouChecker(AssScriptLineTool):
         self.__event_lines.clear()
         self.__event_lines.extend(event_lines.values())
 
-        # 输出路径
-        output_txt_path = f"{self.__file_path}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}_锤.txt"
-        output_ass_path = f"{self.__file_path}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}_改.ass"
-        with open(output_txt_path, 'w', encoding='utf-8') as ft:
-            ft.writelines(out_log)
-        with open(output_ass_path, 'w', encoding='utf-8-sig') as fn:
+        result = HandleResult(output_txt=out_log, character_count=character_count,
+                              overlap_count=overlap_count, flash_count=flash_count)
+        return result
+
+    async def handle(self, auto_style: bool = False) -> OutputHandleResult:
+        """处理时轴检查
+
+        :param auto_style: 是否启用智能样式, 启用后会检查字幕文件使用样式数, 若只使用一种则自动停用style_mode
+        """
+        init_result = await self._init_file(auto_style=auto_style)
+        if init_result.error:
+            raise RuntimeError(init_result.info)
+
+        handle_result = await run_sync(self._handle)()
+
+        # 输出文件
+        time_text = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        output_txt_file = _TMP_FOLDER(f"{self.__file.path.name}_{time_text}_锤.txt")
+        output_ass_file = _TMP_FOLDER(f"{self.__file.path.name}_{time_text}_改.ass")
+
+        async with output_txt_file.async_open('w', encoding='utf-8') as af:
+            await af.write(handle_result.output_txt)
+
+        async with output_ass_file.async_open('w', encoding='utf-8-sig') as af:
             header_lines_text = [x.raw_text for x in self.__header_lines]
             out_header_lines = '\n'.join(header_lines_text)
 
             event_lines_text = [x.generate() for x in self.__event_lines]
             out_event_lines = '\n'.join(event_lines_text)
 
-            fn.writelines([out_header_lines, '\n', out_event_lines])
+            await af.writelines([out_header_lines, '\n', out_event_lines])
 
-        logger.info(f'Handle processing finished, result:\n{out_log}')
+        result = OutputHandleResult(output_txt_file=output_txt_file,
+                                    output_ass_file=output_ass_file,
+                                    character_count=handle_result.character_count,
+                                    overlap_count=handle_result.overlap_count,
+                                    flash_count=handle_result.flash_count)
+        return result
 
-        result_dict = {'output_txt_path': output_txt_path, 'output_ass_path': output_ass_path,
-                       'character_count': character_count, 'overlap_count': overlap_count, 'flash_count': flash_count}
 
-        return Result.DictResult(error=False, info='Success', result=result_dict)
+@run_async_catching_exception
+async def download_file(url: str, file_name: str) -> TmpResource:
+    """下载文件到本地, 使用自定义文件名, 直接覆盖同名文件"""
+    file_content = await HttpFetcher().get_bytes(url=url)
+    if file_content.status != 200:
+        raise RuntimeError(f'NetworkError, status code {file_content.status}')
+
+    local_file = _TMP_FOLDER('download', file_name)
+    async with local_file.async_open('wb') as af:
+        await af.write(file_content.result)
+    return local_file
 
 
-async def download_file(url: str, file_name: str) -> Result.TextResult:
-    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                             'Chrome/89.0.4389.114 Safari/537.36'}
-    # 尝试从服务器下载资源
-    fetcher = HttpFetcher(timeout=10, flag=f'zhoushen_hime', headers=headers)
-    file_path = os.path.abspath(os.path.join(TMP_PATH, 'zhoushen_hime'))
+@run_async_catching_exception
+async def upload_result_file(group_id: int | str, bot: Bot, result_data: OutputHandleResult) -> None:
+    """上传审轴结果到群文件"""
+    gocq_bot = GoCqhttpBot(bot=bot)
+    group_file_info = await gocq_bot.get_group_root_files(group_id=group_id)
+    group_folders = group_file_info.folders
 
-    download_result = await fetcher.download_file(url=url, path=file_path, file_name=file_name)
+    folder_id = None
+    if group_folders:
+        for folder in group_folders:
+            if folder.folder_name == '锤轴记录':
+                folder_id = folder.folder_id
+                break
 
-    if download_result.success():
-        return Result.TextResult(error=False, info=file_name, result=download_result.result)
-    else:
-        return Result.TextResult(error=True, info=download_result.info, result='')
+    await gocq_bot.upload_group_file(group_id=group_id, folder=folder_id,
+                                     file=result_data.output_txt_file.resolve_path,
+                                     name=result_data.output_txt_file.path.name)
+
+    await gocq_bot.upload_group_file(group_id=group_id, folder=folder_id,
+                                     file=result_data.output_ass_file.resolve_path,
+                                     name=result_data.output_ass_file.path.name)
+
+
+__all__ = [
+    'ZhouChecker',
+    'download_file',
+    'upload_result_file'
+]

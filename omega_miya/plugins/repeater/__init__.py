@@ -1,37 +1,38 @@
-from typing import Dict
 from nonebot import on_message
-from nonebot.plugin.export import export
-from nonebot.typing import T_State
 from nonebot.exception import FinishedException
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, OmegaRules
-from .data_source import REPLY_RULES
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP
+
+from omega_miya.utils.rule import group_has_permission_level
 
 
 # Custom plugin usage text
 __plugin_custom_name__ = '复读姬'
 __plugin_usage__ = r'''【复读姬】
-自动回复与复读
-
-**Permission**
-Command Group'''
+如同人类的本质一样复读'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
+LAST_MSG: dict[int, str] = {}
+"""记录上一条收到的消息"""
+LAST_REPEAT_MSG: dict[int, str] = {}
+"""记录上一条复读过的消息"""
+REPEAT_COUNT: dict[int, int] = {}
+"""记录之前相同消息重复的次数"""
+REPEAT_THRESHOLD: int = 3
+"""复读阈值, 重复的消息达到多少条就复读"""
 
 
-LAST_MSG: Dict[int, str] = {}
-LAST_REPEAT_MSG: Dict[int, str] = {}
-REPEAT_COUNT: Dict[int, int] = {}
-
-repeater = on_message(rule=OmegaRules.has_group_command_permission(), permission=GROUP, priority=100, block=False)
+repeater = on_message(
+    rule=group_has_permission_level(level=10),
+    permission=GROUP,
+    priority=100,
+    block=False
+)
 
 
 @repeater.handle()
-async def handle_ignore_msg(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_ignore_msg(event: GroupMessageEvent):
+    """忽略特殊类型的消息"""
     msg = event.raw_message
     if msg.startswith('/'):
         raise FinishedException
@@ -40,19 +41,10 @@ async def handle_ignore_msg(bot: Bot, event: GroupMessageEvent, state: T_State):
 
 
 @repeater.handle()
-async def handle_auto_reply(bot: Bot, event: GroupMessageEvent, state: T_State):
-    # 处理回复规则
-    msg = event.raw_message
-    group_id = event.group_id
-    check_res, reply_msg = REPLY_RULES.check_rule(group_id=group_id, message=msg)
-    if check_res:
-        await repeater.finish(reply_msg)
-
-
-@repeater.handle()
-async def handle_repeater(bot: Bot, event: GroupMessageEvent, state: T_State):
-    # 处理复读姬
+async def handle_repeater(event: GroupMessageEvent):
+    """处理复读"""
     global LAST_MSG, LAST_REPEAT_MSG, REPEAT_COUNT
+
     group_id = event.group_id
     try:
         LAST_MSG[group_id]
@@ -75,8 +67,8 @@ async def handle_repeater(bot: Bot, event: GroupMessageEvent, state: T_State):
     else:
         REPEAT_COUNT[group_id] += 1
         LAST_REPEAT_MSG[group_id] = ''
-        # 当复读计数等于2时说明已经有连续三条同样的消息了, 此时触发复读, 更新上次服务消息LAST_REPEAT_MSG, 并重置复读计数
-        if REPEAT_COUNT[group_id] >= 2:
+        # 当复读计数等于2时说明已经有连续3条同样的消息了, 此时触发复读, 更新上次服务消息LAST_REPEAT_MSG, 并重置复读计数
+        if REPEAT_COUNT[group_id] >= REPEAT_THRESHOLD - 1:
             REPEAT_COUNT[group_id] = 0
             LAST_MSG[group_id] = ''
             LAST_REPEAT_MSG[group_id] = raw_msg

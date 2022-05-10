@@ -8,39 +8,40 @@
 @Software       : PyCharm 
 """
 
-import os
-from typing import List
-from dataclasses import dataclass
+from typing import Literal
+from pydantic import BaseModel
 
 
-@dataclass
-class Element:
-    """
-    元素
-    """
+TAROT_TYPE = Literal['special', 'major_arcana', 'minor_arcana']
+"""塔罗牌类型"""
+
+
+class TarotBaseModel(BaseModel):
+    """塔罗插件 BaseModel"""
+    class Config:
+        extra = 'ignore'
+        allow_mutation = False
+
+
+class Element(TarotBaseModel):
+    """元素"""
     id: int
     orig_name: str  # 原始名称
     name: str  # 名称
 
 
-@dataclass
-class Constellation:
-    """
-    星与星座
-    """
+class Constellation(TarotBaseModel):
+    """星与星座"""
     id: int
     orig_name: str  # 原始名称
     name: str  # 名称
 
 
-@dataclass
-class TarotCard:
-    """
-    塔罗牌
-    """
+class TarotCard(TarotBaseModel):
+    """塔罗牌"""
     id: int  # 塔罗牌的序号
     index: str  # 内部名称
-    type: str  # 卡片类型
+    type: TAROT_TYPE  # 卡片类型
     orig_name: str  # 原始名称
     name: str  # 显示名称
     intro: str  # 卡面描述
@@ -50,13 +51,9 @@ class TarotCard:
     reversed: str  # 逆位释义
 
 
-@dataclass
-class TarotPack:
-    """
-    套牌
-    """
-    name: str  # 套牌名称
-    cards: List[TarotCard]  # 套牌内容
+class TarotPack(TarotBaseModel):
+    """塔罗牌套牌"""
+    cards: list[TarotCard]  # 套牌内容
 
     @property
     def num(self) -> int:
@@ -81,49 +78,10 @@ class TarotPack:
         raise ValueError('Card not found or multi-card error')
 
 
-@dataclass
-class TarotResourceFile:
-    """
-    卡片资源文件
-    """
-    id: int  # 塔罗牌的序号 同时也是存放文件名
-    index: str  # 内部名称
-
-
-@dataclass
-class TarotResource:
-    """
-    卡片资源信息
-    """
-    source_name: str  # 资源名称
-    file_format: str  # 文件格式
-    file_path: str  # 资源文件夹
-    files: List[TarotResourceFile]  # 卡牌名称列表
-
-    def check_source(self):
-        for file in self.files:
-            if not os.path.exists(os.path.abspath(os.path.join(self.file_path, f'{file.id}.{self.file_format}'))):
-                raise ValueError(f'Tarot | Tarot source: "{self.source_name}", file: "{file}" missing, '
-                                 f'please check your "{self.file_path}" folder')
-
-    def get_file_by_id(self, id_: int) -> str:
-        if file := [file for file in self.files if file.id == id_]:
-            if len(file) == 1:
-                return os.path.abspath(os.path.join(self.file_path, f'{file[0].id}.{self.file_format}'))
-        raise ValueError('File not found or multi-file error')
-
-    def get_file_by_index(self, index_: str) -> str:
-        if file := [file for file in self.files if file.index == index_]:
-            if len(file) == 1:
-                return os.path.abspath(os.path.join(self.file_path, f'{file[0].id}.{self.file_format}'))
-        raise ValueError('File not found or multi-file error')
-
-
 __all__ = [
+    'TAROT_TYPE',
     'Element',
     'Constellation',
     'TarotCard',
-    'TarotPack',
-    'TarotResourceFile',
-    'TarotResource'
+    'TarotPack'
 ]

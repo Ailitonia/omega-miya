@@ -1,491 +1,654 @@
-import re
-import os
-import asyncio
-import pathlib
-import random
-from math import ceil
-from typing import Optional
-from datetime import datetime
-from nonebot import on_command, logger, get_driver
-from nonebot.plugin.export import export
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : utils.py
+@Project        : nonebot2_miya
+@Description    : Pixiv 助手
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from datetime import datetime, timedelta
+from nonebot import on_command, on_shell_command, logger
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import Event, MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
-from nonebot.adapters.cqhttp import MessageSegment, Message
-from omega_miya.database import DBBot, Result
-from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state, PluginCoolDown, PermissionChecker,
-                                                 MsgSender, PicEffector, PicEncoder, ProcessUtils)
-from omega_miya.utils.pixiv_utils import PixivIllust
-from PIL import Image, ImageDraw, ImageFont
-from .config import Config
+from nonebot.matcher import Matcher
+from nonebot.rule import Namespace
+from nonebot.exception import ParserExit
+from nonebot.permission import SUPERUSER
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
+from nonebot.adapters.onebot.v11.message import MessageSegment, Message
+from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 
+from omega_miya.service import init_processor_state
+from omega_miya.onebot_api import GoCqhttpBot
+from omega_miya.web_resource.pixiv import PixivArtwork, PixivRanking, PixivDiscovery, PixivSearching, PixivUser
+from omega_miya.web_resource.pixiv.helper import parse_pid_from_url
+from omega_miya.utils.process_utils import run_async_catching_exception
+from omega_miya.utils.message_tools import MessageSender
 
-__global_config = get_driver().config
-TMP_PATH = __global_config.tmp_path_
-RESOURCES_PATH = __global_config.resources_path_
-plugin_config = Config(**__global_config.dict())
-ENABLE_NODE_CUSTOM = plugin_config.enable_node_custom
-ENABLE_GENERATE_GIF = plugin_config.enable_generate_gif
-AUTO_RECALL_TIME = plugin_config.auto_recall_time
+from .config import pixiv_plugin_config
+from .utils import (has_allow_r18_node, get_artwork_preview, get_searching_argument_parser, parse_from_searching_parser,
+                    add_pixiv_user_sub, delete_pixiv_user_sub, query_subscribed_user_sub_source)
+from .monitor import scheduler
+
 
 # Custom plugin usage text
 __plugin_custom_name__ = 'Pixiv'
 __plugin_usage__ = r'''【Pixiv助手】
-查看Pixiv插画, 以及日榜、周榜、月榜
-仅限群聊使用
+查看Pixiv插画、发现与推荐、日榜、周榜、月榜以及搜索作品
+订阅并跟踪画师作品更新
 
-**Permission**
-Command & Lv.50
-or AuthNode
-
-**AuthNode**
-basic
-download
-
-**CoolDown**
-群组共享冷却时间
-1 Minutes
-用户冷却时间
-1 Minutes
-
-**Usage**
+用法:
 /pixiv <PID>
-/pixiv 日榜
-/pixiv 周榜
-/pixiv 月榜
-/pixiv [搜索关键词]
-**Need AuthNode**
-/pixivdl <PID> [页码]'''
+/pixiv发现
+/pixiv推荐 [PID or ArtworkUrl]
+/pixiv日榜 [页码]
+/pixiv周榜 [页码]
+/pixiv月榜 [页码]
+/pixiv用户搜索 [用户昵称]
+/pixiv用户作品 [UID]
+/pixiv用户订阅列表
+/pixiv下载 <PID> [页数]
+/pixiv搜索 [关键词]
 
-# 声明本插件额外可配置的权限节点
-__plugin_auth_node__ = [
-    'allow_r18',
-    'download'
-]
+仅限私聊或群聊中群管理员使用:
+/pixiv用户订阅 [UID]
+/pixiv取消用户订阅 [UID]
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__, __plugin_auth_node__)
+搜索命令参数:
+'-c', '--custom': 启用自定义参数
+'-p', '--page': 搜索结果页码
+'-o', '--order': 排序方式, 可选: "date_d", "popular_d"
+'-l', '--like': 筛选最低收藏数
+'-d', '--from-days-ago': 筛选作品发布日期, 从几天前起始发布的作品
+'-s', '--safe-mode': NSFW 模式, 可选: "safe", "all", "r18"'''
 
 
-# 注册事件响应器
+_ALLOW_R18_NODE = pixiv_plugin_config.pixiv_plugin_allow_r18_node
+"""允许预览 r18 作品的权限节点"""
+
+
 pixiv = on_command(
-    'pixiv',
-    aliases={'Pixiv'},
+    'Pixiv',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(
-        name='pixiv',
-        command=True,
+        name='Pixiv',
         level=50,
-        cool_down=[
-            PluginCoolDown(PluginCoolDown.user_type, 120),
-            PluginCoolDown(PluginCoolDown.group_type, 60)
-        ]),
+        auth_node='pixiv',
+        extra_auth_node={_ALLOW_R18_NODE},
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv'},
     permission=GROUP | PRIVATE_FRIEND,
     priority=20,
-    block=True)
-
-
-# 修改默认参数处理
-@pixiv.args_parser
-async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip()
-    if not args:
-        await pixiv.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args
-    if state[state["_current_key"]] == '取消':
-        await pixiv.finish('操作已取消')
+    block=True
+)
 
 
 @pixiv.handle()
-async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip()
-    if not args:
-        pass
+async def handle_parse_pid(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    pid = cmd_arg.extract_plain_text().strip()
+    if pid:
+        state.update({'pid': pid})
+
+
+@pixiv.got('pid', prompt='想要查看哪个作品呢? 请输入作品PID:')
+async def handle_preview_artwork(bot: Bot, event: MessageEvent, matcher: Matcher, pid: str = ArgStr('pid')):
+    pid = pid.strip()
+    if not pid.isdigit():
+        await matcher.reject('作品PID应当为纯数字, 请重新输入:')
+
+    await matcher.send('稍等, 正在下载图片~')
+    allow_r18 = await has_allow_r18_node(bot=bot, event=event, matcher=matcher)
+    send_message, need_recall = await get_artwork_preview(pid=int(pid), allow_r18=allow_r18)
+    if need_recall:
+        await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=[send_message],
+                                                          recall_time=pixiv_plugin_config.pixiv_plugin_auto_recall_time)
     else:
-        state['mode'] = args
+        await matcher.finish(send_message)
 
 
-@pixiv.got('mode', prompt='你是想看日榜, 周榜, 月榜, 还是作品呢? 想看特定作品的话请输入PixivID或关键词搜索~')
-async def handle_pixiv(bot: Bot, event: MessageEvent, state: T_State):
-    mode = state['mode']
-    if re.match(r'^(日|周|月|原创)榜(\d*?)$', mode):
-        mode_result = re.search(r'^(日|周|月|原创)榜(\d*?)$', mode).groups()
-        rank_mode = mode_result[0]
-        seq = int(mode_result[1]) if mode_result[1] else 1
-        page = (seq // 5) + 1
-        index_ = (10 * (seq - 1)) % 50
-        index_r = (10 * (seq - 1)) // 50
-
-        await pixiv.send('稍等, 正在下载图片~')
-        if rank_mode == '日':
-            rank_result = await PixivIllust.get_ranking(mode='daily', page=page)
-        elif rank_mode == '周':
-            rank_result = await PixivIllust.get_ranking(mode='weekly', page=page)
-        elif rank_mode == '月':
-            rank_result = await PixivIllust.get_ranking(mode='monthly', page=page)
-        elif rank_mode == '原创':
-            rank_result = await PixivIllust.get_ranking(mode='original', page=page, content='all')
-        else:
-            rank_result = await PixivIllust.get_ranking(mode='daily', page=page)
-        if rank_result.error:
-            logger.warning(f"User: {event.user_id} 获取Pixiv Rank失败, {rank_result.info}")
-            await pixiv.finish('加载失败, 网络超时QAQ')
-
-        tasks = []
-        for rank, illust_data in dict(rank_result.result).items():
-            if index_ <= rank < index_ + 10:
-                tasks.append(__handle_ranking_msg(rank=(50 * index_r + rank), illust_data=illust_data))
-        ranking_msg_result = await ProcessUtils.fragment_process(tasks=tasks, log_flag='PixivRanking')
-
-        # 根据ENABLE_NODE_CUSTOM处理消息发送
-        msg_sender = MsgSender(bot=bot, log_flag='PixivRanking')
-        if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
-            await msg_sender.safe_send_group_node_custom(group_id=event.group_id, message_list=list(ranking_msg_result))
-        else:
-            await msg_sender.safe_send_msgs(event=event, message_list=list(ranking_msg_result))
-    elif re.match(r'^(随机)?推荐$', mode):
-        top_recommend_result = await PixivIllust.get_top_recommend()
-        if top_recommend_result.error:
-            logger.warning(f"User: {event.user_id} 获取Pixiv Top Recommend失败, {top_recommend_result.info}")
-            await pixiv.finish('加载失败, 网络超时QAQ')
-
-        await pixiv.send('稍等, 正在下载图片~')
-
-        pids = top_recommend_result.result.get('recommend', [])
-        filtered_pids = pids if len(pids) <= 8 else random.sample(pids, k=8)
-        tasks = [PixivIllust(pid=pid).get_sending_msg(page_limit=2) for pid in filtered_pids]
-        top_recommend_msg_result = await ProcessUtils.fragment_process(
-            tasks=tasks, fragment_size=10, log_flag='PixivTopRecommend')
-
-        image_seg_list = []
-        for img_list, info in [x.result for x in top_recommend_msg_result if x.success()]:
-            img_seg = [MessageSegment.image(file=img) for img in img_list]
-            image_seg_list.append(Message(img_seg).append(info))
-
-        # 根据ENABLE_NODE_CUSTOM处理消息发送
-        msg_sender = MsgSender(bot=bot, log_flag='PixivTopRecommend')
-        if ENABLE_NODE_CUSTOM and isinstance(event, GroupMessageEvent):
-            await msg_sender.safe_send_group_node_custom_and_recall(
-                group_id=event.group_id, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
-        else:
-            await msg_sender.safe_send_msgs_and_recall(
-                event=event, message_list=image_seg_list, recall_time=AUTO_RECALL_TIME)
-    elif re.match(r'^\d+$', mode):
-        pid = mode
-        logger.debug(f'开始获取Pixiv资源: {pid}.')
-        # 获取illust
-        illust = PixivIllust(pid=pid)
-        illust_data_result = await illust.get_illust_data()
-        if illust_data_result.error:
-            logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, {illust_data_result.info}")
-            await pixiv.finish('加载失败, 网络超时或没有这张图QAQ')
-
-        # 处理r18权限
-        if is_r18 := illust_data_result.result.get('is_r18'):
-            auth_checker = await __handle_r18_perm(bot=bot, event=event)
-            if auth_checker != 1:
-                logger.warning(f"User: {event.user_id} 获取Pixiv资源 {pid} 被拒绝, 没有 allow_r18 权限")
-                await pixiv.finish('R18禁止! 不准开车车!')
-
-        # 区分作品类型
-        illust_type = illust_data_result.result.get('illust_type')
-        await pixiv.send('稍等, 正在下载图片~')
-        illust_info_result = await illust.get_format_info_msg()
-        if illust_type == 2 and ENABLE_GENERATE_GIF:
-            # 动图作品生成动图后发送
-            illust_result = await illust.get_ugoira_gif_filepath()
-        elif is_r18:
-            # r18 图片单独加噪
-            illust_bytes_result = await ProcessUtils.fragment_process(
-                tasks=[illust.get_bytes(page=page) for page in range(illust_data_result.result.get('page_count'))],
-                fragment_size=10,
-                log_flag='PixivIllustR18'
-            )
-            illust_noise_result = await ProcessUtils.fragment_process(
-                tasks=[PicEffector(image=illust.result).gaussian_noise(sigma=32, mask_factor=0.3)
-                       for illust in illust_bytes_result if illust.success()],
-                fragment_size=10,
-                log_flag='PixivIllustR18NoiseProcess'
-            )
-            illust_encoder_result = await ProcessUtils.fragment_process(
-                tasks=[PicEncoder.bytes_to_file(image=illust.result, folder_flag='pixiv_r18_noise', format_='png')
-                       for illust in illust_noise_result if illust.success()],
-                fragment_size=10,
-                log_flag='PixivIllustR18NoiseEncoder'
-            )
-            illust_result = Result.TextListResult(
-                error=False,
-                info='R18 illust noise effect processing completed',
-                result=[illust.result for illust in illust_encoder_result if illust.success()]
-            )
-        else:
-            illust_result = await illust.get_file_list()
-
-        # 发送图片和图片信息
-        if illust_result.success() and illust_info_result.success():
-            msg = illust_info_result.result
-            img_res = illust_result.result
-            if isinstance(img_res, list):
-                img_seg = [MessageSegment.image(img_url) for img_url in img_res]
-            else:
-                img_seg = MessageSegment.image(illust_result.result)
-            logger.success(f"User: {event.user_id} 获取了Pixiv作品: pid: {pid}")
-            if is_r18 and isinstance(event, GroupMessageEvent) and ENABLE_NODE_CUSTOM:
-                # r18 作品消息节点自动撤回
-                msg_list = [msg]
-                msg_list.extend(img_seg)
-                await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_group_node_custom_and_recall(
-                    group_id=event.group_id, message_list=msg_list, recall_time=AUTO_RECALL_TIME)
-            elif is_r18:
-                # r18 作品自动撤回
-                await MsgSender(bot=bot, log_flag='PixivIllust').safe_send_msgs_and_recall(
-                    event=event, message_list=[Message(img_seg).append(msg)], recall_time=AUTO_RECALL_TIME)
-            else:
-                await pixiv.send(Message(img_seg).append(msg))
-        else:
-            logger.warning(f"User: {event.user_id} 获取Pixiv资源失败, 网络超时或 {pid} 不存在, "
-                           f"{illust_info_result.info} // {illust_result.info}")
-            await pixiv.send('加载失败, 网络超时或没有这张图QAQ')
-    else:
-        text_ = mode
-        popular_order_ = True
-        near_year_ = True
-        nsfw_ = 0
-        page_ = 1
-        blt_ = None
-        if filter_ := re.search(r'^(#(.+?)#)', mode):
-            text_ = re.sub(r'^(#(.+?)#)', '', mode).strip()
-            filter_text = filter_.groups()[1]
-            # 处理r18权限
-            auth_checker = await __handle_r18_perm(bot=bot, event=event)
-
-            if 'nsfw' in filter_text:
-                if auth_checker != 1:
-                    logger.warning(f"User: {event.user_id} 搜索Pixiv nsfw资源 {mode} 被拒绝, 没有 allow_r18 权限")
-                    await pixiv.finish('NSFW禁止! 不准开车车!')
-                    return
-                else:
-                    nsfw_ = 1
-            elif re.search(r'[Rr]-?18[Oo]nly', filter_text):
-                if auth_checker != 1:
-                    logger.warning(f"User: {event.user_id} 搜索Pixiv nsfw资源 {mode} 被拒绝, 没有 allow_r18 权限")
-                    await pixiv.finish('NSFW禁止! 不准开车车!')
-                    return
-                else:
-                    nsfw_ = 2
-
-            if '时间不限' in filter_text:
-                near_year_ = False
-
-            if '最新' in filter_text:
-                popular_order_ = False
-
-            if page_text := re.search(r'第(\d+?)页', filter_text):
-                page_ = int(page_text.groups()[0])
-
-            if bkm_text := re.search(r'(\d+?)收藏', filter_text):
-                blt_ = int(bkm_text.groups()[0])
-
-        logger.debug(f'搜索Pixiv作品: {text_}')
-        search_result = await PixivIllust.search_artwork(
-            word=text_, popular_order=popular_order_, near_year=near_year_, nsfw=nsfw_, page=page_, blt=blt_)
-
-        if search_result.error or not search_result.result:
-            logger.warning(f'搜索Pixiv时没有找到相关作品, 或发生了意外的错误, result: {repr(search_result)}')
-            await pixiv.finish('没有找到相关作品QAQ, 也可能是发生了意外的错误, 请稍后再试~')
-        await pixiv.send(f'搜索Pixiv作品: {text_}\n图片下载中, 请稍等~')
-
-        preview_result = await __preview_search_illust(search_result=search_result, title=f'Pixiv - {text_}')
-        if preview_result.error:
-            logger.error(f'生成Pixiv搜索预览图时发生了意外的错误, error: {preview_result.info}, result: {repr(search_result)}')
-            await pixiv.finish('生成Pixiv搜索预览图时发生了意外的错误QAQ, 请稍后再试~')
-
-        img_path = pathlib.Path(preview_result.result).as_uri()
-
-        if nsfw_ >= 1:
-            # nsfw 作品自动撤回
-            await MsgSender(bot=bot, log_flag='PixivSearch').safe_send_msgs_and_recall(
-                event=event, message_list=[MessageSegment.image(img_path)], recall_time=AUTO_RECALL_TIME)
-        else:
-            await pixiv.finish(MessageSegment.image(img_path))
-        logger.success(f"User: {event.user_id} 搜索了Pixiv作品: {mode}")
-
-
-# 注册事件响应器
-pixiv_dl = on_command(
-    'pixivdl',
-    aliases={'Pixivdl'},
+pixiv_recommend = on_command(
+    'PixivRecommend',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(
-        name='pixivdl',
-        command=True,
-        auth_node='download'),
+        name='PixivRecommend',
+        level=60,
+        auth_node='pixiv_recommend',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv推荐', 'Pixiv推荐'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@pixiv_recommend.handle()
+async def handle_parser(event: MessageEvent, state: T_State, cmd_arg: Message = CommandArg()):
+    """尝试解析消息中是否有图片 uid 或者 url"""
+    plain_message = cmd_arg.extract_plain_text().strip()
+    if plain_message.isdigit():
+        state.update({'recommend_source_artwork': int(plain_message)})
+    elif pid := parse_pid_from_url(text=plain_message, url_mode=False):
+        state.update({'recommend_source_artwork': pid})
+    elif event.reply:
+        pid = parse_pid_from_url(text=event.reply.message.extract_plain_text(), url_mode=False)
+        state.update({'recommend_source_artwork': pid})
+    else:
+        state.update({'recommend_source_artwork': None})
+
+
+@pixiv_recommend.handle()
+async def handle_pixiv_recommend(matcher: Matcher, state: T_State):
+    recommend_source_artwork = state.get('recommend_source_artwork', None)
+
+    await matcher.send('稍等, 正在下载图片~')
+    if recommend_source_artwork:
+        recommend_img = await run_async_catching_exception(PixivArtwork(pid=recommend_source_artwork).
+                                                           query_recommend_with_preview)()
+    else:
+        recommend_img = await run_async_catching_exception(PixivDiscovery.query_recommend_artworks_with_preview)()
+    if isinstance(recommend_img, Exception):
+        logger.error(f'PixivRecommend | 获取作品推荐(Recommend)失败, {recommend_img}')
+        await matcher.finish('获取推荐作品失败了QAQ, 请稍后再试')
+    else:
+        await matcher.finish(MessageSegment.image(recommend_img.file_uri))
+
+
+pixiv_discovery = on_command(
+    'PixivDiscovery',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivDiscovery',
+        level=60,
+        auth_node='pixiv_discovery',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv发现', 'Pixiv发现'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@pixiv_discovery.handle()
+async def handle_pixiv_discovery(matcher: Matcher):
+    await matcher.send('稍等, 正在下载图片~')
+    discovery_img = await run_async_catching_exception(PixivDiscovery.query_discovery_artworks_with_preview)()
+    if isinstance(discovery_img, Exception):
+        logger.error(f'PixivDiscovery | 获取作品发现(Discovery)失败, {discovery_img}')
+        await matcher.finish('获取发现作品失败了QAQ, 请稍后再试')
+    else:
+        await matcher.finish(MessageSegment.image(discovery_img.file_uri))
+
+
+async def handle_parse_page(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    page = cmd_arg.extract_plain_text().strip()
+    if page:
+        state.update({'page': page})
+    else:
+        state.update({'page': '1'})
+
+
+pixiv_daily_ranking = on_command(
+    'PixivDailyRanking',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivDailyRanking',
+        level=50,
+        auth_node='pixiv_daily_ranking',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv日榜', 'Pixiv日榜'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+pixiv_daily_ranking.handle()(handle_parse_page)
+
+
+@pixiv_daily_ranking.got('page', prompt='想看榜单的哪一页呢? 请输入页码:')
+async def handle_daily_ranking(matcher: Matcher, page: str = ArgStr('page')):
+    page = page.strip()
+    if not page.isdigit():
+        await matcher.reject('页码应当为纯数字, 请重新输入:')
+    page = int(page)
+
+    await matcher.send('稍等, 正在下载图片~')
+    ranking_img = await run_async_catching_exception(PixivRanking.query_daily_illust_ranking_with_preview)(page=page)
+    if isinstance(ranking_img, Exception):
+        logger.error(f'PixivDailyRanking | 获取日榜内容(page={page})失败, {ranking_img}')
+        await matcher.finish('获取日榜内容失败了QAQ, 请稍后再试')
+    else:
+        await matcher.finish(MessageSegment.image(ranking_img.file_uri))
+
+
+pixiv_weekly_ranking = on_command(
+    'PixivWeeklyRanking',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivWeeklyRanking',
+        level=50,
+        auth_node='pixiv_weekly_ranking',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv周榜', 'Pixiv周榜'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+pixiv_weekly_ranking.handle()(handle_parse_page)
+
+
+@pixiv_weekly_ranking.got('page', prompt='想看榜单的哪一页呢? 请输入页码:')
+async def handle_weekly_ranking(matcher: Matcher, page: str = ArgStr('page')):
+    page = page.strip()
+    if not page.isdigit():
+        await matcher.reject('页码应当为纯数字, 请重新输入:')
+    page = int(page)
+
+    await matcher.send('稍等, 正在下载图片~')
+    ranking_img = await run_async_catching_exception(PixivRanking.query_weekly_illust_ranking_with_preview)(page=page)
+    if isinstance(ranking_img, Exception):
+        logger.error(f'PixivWeeklyRanking | 获取周榜内容(page={page})失败, {ranking_img}')
+        await matcher.finish('获取周榜内容失败了QAQ, 请稍后再试')
+    else:
+        await matcher.finish(MessageSegment.image(ranking_img.file_uri))
+
+
+pixiv_monthly_ranking = on_command(
+    'PixivMonthlyRanking',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivMonthlyRanking',
+        level=50,
+        auth_node='pixiv_monthly_ranking',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv月榜', 'Pixiv月榜'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+pixiv_monthly_ranking.handle()(handle_parse_page)
+
+
+@pixiv_monthly_ranking.got('page', prompt='想看榜单的哪一页呢? 请输入页码:')
+async def handle_monthly_ranking(matcher: Matcher, page: str = ArgStr('page')):
+    page = page.strip()
+    if not page.isdigit():
+        await matcher.reject('页码应当为纯数字, 请重新输入:')
+    page = int(page)
+
+    await matcher.send('稍等, 正在下载图片~')
+    ranking_img = await run_async_catching_exception(PixivRanking.query_monthly_illust_ranking_with_preview)(page=page)
+    if isinstance(ranking_img, Exception):
+        logger.error(f'PixivMonthlyRanking | 获取月榜内容(page={page})失败, {ranking_img}')
+        await matcher.finish('获取月榜内容失败了QAQ, 请稍后再试')
+    else:
+        await matcher.finish(MessageSegment.image(ranking_img.file_uri))
+
+
+pixiv_searching = on_shell_command(
+    'PixivSearching',
+    parser=get_searching_argument_parser(),
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivSearching',
+        level=50,
+        auth_node='pixiv_searching',
+        extra_auth_node={_ALLOW_R18_NODE},
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv搜索', 'Pixiv搜索'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@pixiv_searching.handle()
+async def handle_parse_failed(matcher: Matcher, args: ParserExit = ShellCommandArgs()):
+    """解析命令失败"""
+    await matcher.finish('命令格式错误QAQ\n' + args.message)
+
+
+@pixiv_searching.handle()
+async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, args: Namespace = ShellCommandArgs()):
+    """解析命令成功"""
+    args = parse_from_searching_parser(args=args)
+
+    allow_r18 = await has_allow_r18_node(bot=bot, event=event, matcher=matcher)
+    nsfw_mode = args.safe_mode
+    if args.safe_mode in ['all', 'r18'] and not allow_r18:
+        nsfw_mode = 'safe'
+
+    word = ' '.join(args.word)
+    await matcher.send(f'搜索Pixiv作品: {word}')
+    blt = args.like if args.like > 0 else None
+    scd = datetime.now() - timedelta(days=args.from_days_ago) if args.from_days_ago > 0 else None
+
+    if args.custom:
+        search_preview_img = await run_async_catching_exception(PixivSearching.search_with_preview)(
+            word=word, mode=args.mode, page=args.page, order=args.order, mode_=nsfw_mode, blt_=blt, scd_=scd)
+    else:
+        search_preview_img = await run_async_catching_exception(
+            PixivSearching.search_by_default_popular_condition_with_preview)(word=word)
+
+    if isinstance(search_preview_img, Exception):
+        logger.error(f'PixivSearching | 获取搜索内容({args})失败, {search_preview_img}')
+        await matcher.finish('获取搜索内容失败了QAQ, 请稍后再试')
+
+    send_message = MessageSegment.image(search_preview_img.file_uri)
+    if nsfw_mode == 'safe':
+        await matcher.finish(send_message)
+    else:
+        await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=[send_message],
+                                                          recall_time=pixiv_plugin_config.pixiv_plugin_auto_recall_time)
+
+
+pixiv_download = on_command(
+    'PixivDownload',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivDownload',
+        level=50,
+        auth_node='pixiv_download',
+        extra_auth_node={_ALLOW_R18_NODE},
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv下载', 'Pixiv下载', 'pixivdl'},
     permission=GROUP,
     priority=20,
-    block=True)
+    block=True
+)
 
 
-# 修改默认参数处理
-@pixiv_dl.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await pixiv_dl.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await pixiv_dl.finish('操作已取消')
+@pixiv_download.handle()
+async def handle_parse_download_args(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    cmd_args = cmd_arg.extract_plain_text().strip().split()
+    arg_num = len(cmd_args)
+    match arg_num:
+        case 1:
+            state.update({'pid': cmd_args[0], 'page': '1'})
+        case 2:
+            state.update({'pid': cmd_args[0], 'page': cmd_args[1]})
+        case _:
+            state.update({'page': '1'})
 
 
-@pixiv_dl.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        state['page'] = None
-    elif args and len(args) == 1:
-        state['pid'] = args[0]
-        state['page'] = None
-    elif args and len(args) == 2:
-        state['pid'] = args[0]
-        state['page'] = args[1]
+@pixiv_download.got('pid', prompt='想要下载哪个作品呢? 请输入作品PID:')
+@pixiv_download.got('page', prompt='想要下载作品的哪一页呢? 请输入页码:')
+async def handle_download(bot: Bot, event: GroupMessageEvent, matcher: Matcher,
+                          pid: str = ArgStr('pid'), page: str = ArgStr('page')):
+    pid = pid.strip()
+    page = page.strip()
+    if not pid.isdigit():
+        await matcher.reject_arg(key='pid', prompt='作品PID应当为纯数字, 请重新输入:')
+    if not page.isdigit():
+        await matcher.reject_arg(key='page', prompt='页码应当是大于1的整数, 请重新输入:')
+
+    pid = int(pid)
+    page = int(page) - 1
+
+    artwork = PixivArtwork(pid=pid)
+    artwork_data = await run_async_catching_exception(artwork.get_artwork_model)()
+    if isinstance(artwork_data, Exception):
+        logger.error(f'PixivDownload | 获取作品(pid={pid})信息失败, {artwork_data}')
+        await matcher.finish('获取作品信息失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+
+    if page not in range(artwork_data.page_count):
+        await matcher.finish('请求的页码超出了作品的图片数QAQ')
+
+    allow_r18 = await has_allow_r18_node(bot=bot, event=event, matcher=matcher)
+    if artwork_data.is_r18 and not allow_r18:
+        await matcher.finish('没有下载涩涩作品的权限, 不准涩涩!')
+
+    await matcher.send('稍等, 正在下载图片~')
+    download_file = await artwork.download_page(page=page)
+    if isinstance(download_file, Exception):
+        logger.error(f'PixivDownload | 下载作品(pid={pid})失败, {download_file}')
+        await matcher.finish('下载作品失败了QAQ, 可能是网络原因导致的, 请稍后再试')
+
+    gocq_bot = GoCqhttpBot(bot=bot)
+    file_name = f'{artwork_data.pid}_p{page}_{artwork_data.title}_{artwork_data.uname}{download_file.path.suffix}'
+    upload_result = await run_async_catching_exception(gocq_bot.upload_group_file)(
+        group_id=event.group_id, file=download_file.resolve_path, name=file_name)
+    if isinstance(upload_result, Exception):
+        logger.warning(f'PixivDownload | 下载作品(pid={pid})失败, 上传群文件失败: {upload_result}')
+        await matcher.finish('上传图片到群文件失败QAQ, 可能上传仍在进行中, 请等待1~2分钟后再重试')
+
+
+pixiv_user_searching = on_command(
+    'PixivUserSearching',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivUserSearching',
+        level=50,
+        auth_node='pixiv_user_searching',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv用户搜索', 'Pixiv用户搜索'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@pixiv_user_searching.handle()
+async def handle_parse_user_nick(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    user_nick = cmd_arg.extract_plain_text().strip()
+    if user_nick:
+        state.update({'user_nick': user_nick})
+
+
+@pixiv_user_searching.got('user_nick', prompt='请输入想要搜索的Pixiv用户名:')
+async def handle_preview_user(matcher: Matcher, user_nick: str = ArgStr('user_nick')):
+    user_nick = user_nick.strip()
+    await matcher.send(f'搜索Pixiv用户: {user_nick}')
+    searching_image = await run_async_catching_exception(PixivUser.search_user_with_preview)(nick=user_nick)
+    if isinstance(searching_image, Exception):
+        logger.error(f'PixivUserSearching | 获取用户(nick={user_nick})搜索结果失败, {searching_image}')
+        await matcher.finish('搜索用户失败了QAQ, 请稍后再试')
     else:
-        await pixiv_dl.finish('参数错误QAQ')
-
-    if state['page']:
-        try:
-            state['page'] = int(state['page'])
-        except ValueError:
-            await pixiv_dl.finish('参数错误QAQ, 页码应为数字')
+        await matcher.finish(MessageSegment.image(searching_image.file_uri))
 
 
-@pixiv_dl.got('pid', prompt='请输入PixivID:')
-async def handle_pixiv_dl(bot: Bot, event: GroupMessageEvent, state: T_State):
-    pid = state['pid']
-    page = state['page']
-    if re.match(r'^\d+$', pid):
-        pid = int(pid)
-        logger.debug(f'获取Pixiv资源: {pid}.')
-        await pixiv_dl.send('稍等, 正在下载图片~')
-        download_result = await PixivIllust(pid=pid).download_illust(page=page)
-        if download_result.error:
-            logger.warning(f"User: {event.user_id} 下载Pixiv资源失败, 网络超时或 {pid} 不存在, {download_result.info}")
-            await pixiv_dl.finish('下载失败, 网络超时或没有这张图QAQ')
-        else:
-            file_path = download_result.result
-            file_name = download_result.info
-            try:
-                await bot.call_api(api='upload_group_file', group_id=event.group_id, file=file_path, name=file_name)
-            except Exception as e:
-                logger.warning(f'User: {event.user_id} 下载Pixiv资源失败, 上传群文件失败: {repr(e)}')
-                await pixiv_dl.finish('上传图片到群文件失败QAQ, 可能获取上传结果超时但上传仍在进行中, 请等待1~2分钟后再重试')
+pixiv_user_artworks = on_command(
+    'PixivUserArtworks',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='PixivUserArtworks',
+        level=50,
+        auth_node='pixiv_user_artworks',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv用户作品', 'Pixiv用户作品'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
 
+
+@pixiv_user_artworks.handle()
+async def handle_parse_user_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    user_id = cmd_arg.extract_plain_text().strip()
+    if user_id:
+        state.update({'user_id': user_id})
+
+
+@pixiv_user_artworks.got('user_id', prompt='请输入用户的UID:')
+async def handle_preview_user_artworks(matcher: Matcher, user_id: str = ArgStr('user_id')):
+    user_id = user_id.strip()
+    if not user_id.isdigit():
+        await matcher.reject('用户UID应当为纯数字, 请重新输入:')
+
+    await matcher.send('稍等, 正在下载图片~')
+    preview_image = await PixivUser(uid=int(user_id)).query_user_artworks_with_preview()
+    if isinstance(preview_image, Exception):
+        logger.error(f'PixivUserArtworks | 获取用户(uid={user_id})作品失败, {preview_image}')
+        await matcher.finish('获取用户作品失败了QAQ, 请稍后再试')
     else:
-        await pixiv_dl.finish('参数错误, pid应为纯数字')
+        await matcher.finish(MessageSegment.image(preview_image.file_uri))
 
 
-# 处理 pixiv 插件 r18 权限
-async def __handle_r18_perm(bot: Bot, event: Event) -> int:
-    if isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
-            check_auth_node(auth_id=user_id, auth_type='user', auth_node='pixiv.allow_r18')
-    elif isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        auth_checker = await PermissionChecker(self_bot=DBBot(self_qq=int(bot.self_id))). \
-            check_auth_node(auth_id=group_id, auth_type='group', auth_node='pixiv.allow_r18')
+pixiv_add_user_subscription = on_command(
+    'PixivAddUserSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='AddPixivUserSubscription',
+        level=50,
+        auth_node='pixiv_add_user_subscription',
+        cool_down=20,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv用户订阅', 'Pixiv用户订阅'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@pixiv_add_user_subscription.handle()
+async def handle_parse_user_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    user_id = cmd_arg.extract_plain_text().strip()
+    if user_id:
+        state.update({'user_id': user_id})
+
+
+@pixiv_add_user_subscription.got('user_id', prompt='请输入用户的UID:')
+async def handle_check_add_user_id(matcher: Matcher, user_id: str = ArgStr('user_id')):
+    user_id = user_id.strip()
+    if not user_id.isdigit():
+        await matcher.reject('用户UID应当为纯数字, 请重新输入:')
+
+    user = PixivUser(uid=int(user_id))
+    user_data = await run_async_catching_exception(user.get_user_model)()
+    if isinstance(user_data, Exception):
+        logger.error(f'PixivAddUserSubscription | 获取用户(uid={user_id})失败, {user_data}')
+        await matcher.finish('获取用户信息失败了QAQ, 可能是网络原因或没有这个用户, 请稍后再试')
+
+    await matcher.send(f'即将订阅Pixiv用户【{user_data.name}】的作品!')
+
+
+@pixiv_add_user_subscription.got('check', prompt='确认吗?\n\n【是/否】')
+async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: MessageEvent, state: T_State,
+                                       check: str = ArgStr('check')):
+    check = check.strip()
+    if check != '是':
+        await matcher.finish('那就不订阅了哦')
+    await matcher.send('正在更新Pixiv用户订阅信息, 请稍候')
+    user_id = state.get('user_id')
+
+    user = PixivUser(uid=int(user_id))
+    scheduler.pause()  # 暂停计划任务避免中途检查更新
+    add_sub_result = await add_pixiv_user_sub(bot=bot, event=event, pixiv_user=user)
+    scheduler.resume()
+
+    if isinstance(add_sub_result, Exception) or add_sub_result.error:
+        logger.error(f"PixivAddUserSubscription | 订阅用户(uid={user_id})失败, {add_sub_result}")
+        await matcher.finish(f'订阅失败了QAQ, 可能是网络异常或发生了意外的错误, 请稍后重试或联系管理员处理')
     else:
-        auth_checker = 0
-    return auth_checker
+        logger.success(f"PixivAddUserSubscription | 订阅用户(uid={user_id})成功")
+        await matcher.finish(f'订阅成功!')
 
 
-# 处理Pixiv.__ranking榜单消息
-async def __handle_ranking_msg(rank: int, illust_data: dict) -> Optional[Message]:
-    rank += 1
+pixiv_delete_user_subscription = on_command(
+    'PixivDeleteUserSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='DeletePixivUserSubscription',
+        level=50,
+        auth_node='pixiv_delete_user_subscription',
+        cool_down=20,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv取消用户订阅', 'Pixiv取消用户订阅'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
 
-    illust_id = illust_data.get('illust_id')
-    illust_title = illust_data.get('illust_title')
-    illust_uname = illust_data.get('illust_uname')
 
-    image_result = await PixivIllust(pid=illust_id).get_file()
-    if image_result.success():
-        msg = MessageSegment.image(image_result.result) + f'\nNo.{rank} - ID: {illust_id}\n' \
-              f'「{illust_title}」/「{illust_uname}」'
-        return msg
+@pixiv_delete_user_subscription.handle()
+async def handle_parse_user_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    user_id = cmd_arg.extract_plain_text().strip()
+    if user_id:
+        state.update({'user_id': user_id})
+
+
+@pixiv_delete_user_subscription.got('user_id', prompt='请输入用户的UID:')
+async def handle_delete_user_sub(bot: Bot, event: MessageEvent, matcher: Matcher, user_id: str = ArgStr('user_id')):
+    user_id = user_id.strip()
+    if not user_id.isdigit():
+        await matcher.reject('用户UID应当为纯数字, 请重新输入:')
+
+    exist_sub = await query_subscribed_user_sub_source(bot=bot, event=event)
+    if isinstance(exist_sub, Exception):
+        logger.error(f'PixivDeleteUserSubscription | 获取({event})已订阅用户失败, {exist_sub}')
+        await matcher.finish('获取已订阅列表失败QAQ, 请稍后再试或联系管理员处理')
+
+    for sub in exist_sub:
+        if user_id == sub[0]:
+            user_nick = sub[1]
+            break
     else:
-        logger.warning(f"下载图片失败, pid: {illust_id}, {image_result.info}")
-        return None
+        exist_text = '\n'.join(f'{x[0]}: {x[1]}' for x in exist_sub)
+        await matcher.reject(f'当前没有订阅这个用户哦, 请在已订阅列表中选择并重新输入用户UID:\n\n{exist_text}')
+        return
+
+    delete_result = await delete_pixiv_user_sub(bot=bot, event=event, user_id=user_id)
+    if isinstance(delete_result, Exception) or delete_result.error:
+        logger.error(f"PixivDeleteUserSubscription | 取消订阅用户(uid={user_id})失败, {delete_result}")
+        await matcher.finish(f'取消订阅失败了QAQ, 发生了意外的错误, 请联系管理员处理')
+    else:
+        logger.success(f"PixivDeleteUserSubscription | 取消订阅用户(uid={user_id})成功")
+        await matcher.finish(f'已取消Pixiv用户【{user_nick}】的订阅!')
 
 
-async def __preview_search_illust(
-        search_result: Result.DictListResult,
-        title: str,
-        *,
-        line_num: int = 6) -> Result.TextResult:
-    """
-    拼接pixiv作品预览图, 固定缩略图分辨率250*250
-    :param search_result: 搜索结果
-    :param title: 生成图片标题
-    :param line_num: 单行作品数
-    :return: 拼接后图片位置
-    """
-    illust_list = search_result.result
-    # 加载图片
-    tasks = [PixivIllust(pid=x.get('pid')).get_file(url_type='thumb_mini') for x in illust_list]
-    thumb_img_result = await ProcessUtils.fragment_process(tasks=tasks, fragment_size=20, log_flag='pixiv_search_thumb')
-    if not thumb_img_result:
-        return Result.TextResult(error=True, info='Not result', result='')
+pixiv_list_user_subscription = on_command(
+    'PixivListUserSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='ListPixivUserSubscription',
+        level=50,
+        auth_node='pixiv_list_user_subscription',
+        cool_down=60,
+        user_cool_down_override=2
+    ),
+    aliases={'pixiv用户订阅列表', 'Pixiv用户订阅列表'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
 
-    def __handle() -> str:
-        size = (256, 256)
-        thumb_w, thumb_h = size
-        font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'fzzxhk.ttf'))
-        font_main = ImageFont.truetype(font_path, thumb_w // 15)
-        background = Image.new(
-            mode="RGB",
-            size=(thumb_w * line_num, (thumb_h + 100) * ceil(len(thumb_img_result) / line_num) + 100),
-            color=(255, 255, 255))
-        # 写标题
-        ImageDraw.Draw(background).text(
-            xy=((thumb_w * line_num) // 2, 20), text=title, font=ImageFont.truetype(font_path, thumb_w // 5),
-            spacing=8, align='center', anchor='ma', fill=(0, 0, 0))
 
-        # 处理拼图
-        line = 0
-        for index, img_result in enumerate(thumb_img_result):
-            # 处理单个缩略图
-            if img_result.error:
-                # 如果图片下载失败则用空白代替这张图片
-                draw_ = Image.new(mode="RGB", size=size, color=(255, 255, 255))
-            else:
-                draw_: Image.Image = Image.open(re.sub(r'^file:///', '', img_result.result))
-                if draw_.size != size:
-                    draw_ = draw_.resize(size, Image.ANTIALIAS)
+@pixiv_list_user_subscription.handle()
+async def handle_list_subscription(bot: Bot, event: MessageEvent, matcher: Matcher):
+    exist_sub = await query_subscribed_user_sub_source(bot=bot, event=event)
+    if isinstance(exist_sub, Exception):
+        logger.error(f'PixivListUserSubscription | 获取({event})已订阅用户失败, {exist_sub}')
+        await matcher.finish('获取订阅列表失败QAQ, 请稍后再试或联系管理员处理')
 
-            # 确认缩略图单行位置
-            seq = index % line_num
-            # 能被整除说明在行首要换行
-            if seq == 0:
-                line += 1
-            # 按位置粘贴单个缩略图
-            background.paste(draw_, box=(seq * thumb_w, (thumb_h + 100) * (line - 1) + 100))
-            pid_text = f"Pid: {illust_list[index].get('pid')}"
-            title_text = f"{illust_list[index].get('title')}"
-            title_text = f"{title_text[:13]}..." if len(title_text) > 13 else title_text
-            author_text = f"Author: {illust_list[index].get('author')}"
-            author_text = f"{author_text[:13]}..." if len(author_text) > 13 else author_text
-            text = f'{pid_text}\n{title_text}\n{author_text}'
-            ImageDraw.Draw(background).multiline_text(
-                xy=(seq * thumb_w + thumb_w // 2, (thumb_h + 100) * line + 10), text=text, font=font_main,
-                spacing=8, align='center', anchor='ma', fill=(0, 0, 0))
-
-        save_path = os.path.abspath(os.path.join(
-            TMP_PATH, 'pixiv_search_thumb', f"preview_search_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
-        background.save(save_path, 'JPEG')
-        return save_path
-
-    try:
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, __handle)
-        return Result.TextResult(error=False, info='Success', result=result)
-    except Exception as e:
-        return Result.TextResult(error=True, info=repr(e), result='')
+    exist_text = '\n'.join(f'{x[0]}: {x[1]}' for x in exist_sub)
+    await matcher.finish(f'当前已订阅的Pixiv用户列表:\n\n{exist_text}')

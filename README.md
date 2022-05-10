@@ -6,8 +6,6 @@
 
 _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的 qq 机器人_
 
-_(正在重构中)_
-
 ![Nonebot2](https://img.shields.io/badge/Nonebot2-Release_v2.0.0_beta.2-brightgreen)
 ![go-cqhttp](https://img.shields.io/badge/go--cqhttp-v1.0.0_rc1-brightgreen)
 <br>
@@ -36,34 +34,33 @@ _(正在重构中)_
 - 速率控制系统
 - HTTP 代理功能
 - 自动处理加好友和被邀请进群
-- 插件帮助功能 (支持群聊 / 私聊)
-- Bot对群组公告功能 (仅支持对群组)
-- 定时消息功能 (仅支持对群组)
+- 插件帮助功能
+- Bot对群组公告功能
+- 定时消息功能 (支持群聊 / 私聊)
 - 反闪照 (仅支持群聊)
 - 反撤回 (仅支持群聊)
-- B站动态订阅 (建议配置B站cookies) (支持群聊 / 私聊)
-- B站直播间监控 (建议配置B站cookies) (支持群聊 / 私聊)
+- B站动态订阅 (支持群聊 / 私聊)
+- B站直播间监控 (支持群聊 / 私聊)
 - 签到 (仅支持群聊)
 - 求签 (仅支持群聊)
 - 抽卡 (仅支持群聊)
 - 塔罗牌 (仅支持群聊)
 - 随机口球 (仅支持群聊)
+- 翻译插件 (使用腾讯云 API) (支持群聊 / 私聊)
 - 能不能好好说话 (lab.magiconch.com API) (支持群聊 / 私聊)
-- Pixiv助手 (需要 HTTP 代理, 除非部署在外网) (需要 go-cqhttp v0.9.40 及以上版本) (仅支持群聊)
-- Pixiv订阅 (需要 HTTP 代理, 除非部署在外网) (仅支持群聊)
-- Pixivision订阅 (需要 HTTP 代理, 除非部署在外网) (仅支持群聊)
+- Pixiv (需要 HTTP 代理, 除非部署在外网) (需要 go-cqhttp v0.9.40 及以上版本) (支持群聊 / 私聊)
+- Pixivision (需要 HTTP 代理, 除非部署在外网) (支持群聊 / 私聊)
 - 复读姬 (仅支持群聊)
 - roll点抽奖 (仅支持群聊)
+- 问答插件 (仅支持群聊)
 - ShindanMaker占卜 (shindanmaker.com / 建议使用 HTTP 代理) (仅支持群聊)
-- 搜番剧 (trace.moe API / 建议使用 HTTP 代理) (支持群聊 / 私聊)
-- 搜二次元图 (Saucenao API, iqbb 和 ascii2d / 建议使用 HTTP 代理) (支持群聊 / 私聊)
+- 搜二次元图搜番剧 (Saucenao API, iqbb, ascii2d 和 trace.moe API / 建议使用 HTTP 代理) (支持群聊 / 私聊)
 - 来点萌图 / 来点涩图 (需要 HTTP 代理, 除非部署在外网 / 图片数据库需要自己导入) (支持群聊 / 私聊)
 - 表情包制作器 (支持群聊 / 私聊)
 - 今天吃啥 (仅支持群聊)
 - 猫按钮 (测试) (仅支持群聊)
 - 自动锤轴姬 (需要 go-cqhttp v0.9.40 及以上版本) (仅支持群聊)
 - 邮箱插件 (仅支持IMAP收件) (仅支持群聊)
-- 腾讯云组件 (测试) (仅支持群聊)
 
 ## 如何使用
 

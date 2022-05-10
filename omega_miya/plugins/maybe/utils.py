@@ -3,10 +3,10 @@ import random
 import hashlib
 
 
-# 普通事件
-def maybe(draw: str, user_id: int) -> str:
+def query_maybe(sign_text: str, user_id: int) -> str:
+    """根据用户qq, 事项和当前日期生成求签结果"""
     # 用qq、日期、所求事项生成随机种子
-    random_seed_str = str([draw, user_id, datetime.date.today()])
+    random_seed_str = str([sign_text, user_id, datetime.date.today()])
     md5 = hashlib.md5()
     md5.update(random_seed_str.encode('utf-8'))
     random_seed = md5.hexdigest()
@@ -39,7 +39,7 @@ def maybe(draw: str, user_id: int) -> str:
     else:
         result_text = '大吉'
 
-    msg = f'所求事项: 【{draw}】\n\n结果: 【{result_text}】'
+    msg = f'所求事项: “{sign_text}”\n\n结果: 【{result_text}】'
 
     # 重置随机种子
     random.seed()
@@ -47,14 +47,6 @@ def maybe(draw: str, user_id: int) -> str:
     return msg
 
 
-# 特殊事件
-sp = {
-    '打钱': '别问, 问就是大吉, 建议马上转账',
-    'gachi': '大凶, 你明明是个anti',
-    '单推': '大凶, 明明就是DD, 我还在别的女人直播间见过你'
-}
-
-
-def sp_event(event: str):
-    msg = f'所求事项: 【{event}】\n\n结果: 【{sp.get(event)}】'
-    return msg
+__all__ = [
+    'query_maybe'
+]

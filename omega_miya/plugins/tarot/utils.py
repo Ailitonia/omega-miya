@@ -8,33 +8,83 @@
 @Software       : PyCharm 
 """
 
-import os
-import asyncio
+from io import BytesIO
+from typing import Literal
 from datetime import datetime
-from nonebot import get_driver
 from PIL import Image, ImageDraw, ImageFont
-from omega_miya.database import Result
-from omega_miya.utils.omega_plugin_utils import TextUtils
-from .tarot_resources import BaseTarotResource
+from nonebot.matcher import Matcher
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+
+from omega_miya.result import BoolResult
+from omega_miya.database import InternalBotUser, InternalBotGroup
+from omega_miya.database.internal.entity import BaseInternalEntity
+from omega_miya.local_resource import TmpResource
+from omega_miya.utils.process_utils import run_sync, run_async_catching_exception
+from omega_miya.utils.text_utils import TextUtils
+
+from .tarot_resources import TarotResource
+from .config import tarot_local_resource_config
 
 
-global_config = get_driver().config
-TMP_PATH = global_config.tmp_path_
-RESOURCES_PATH = global_config.resources_path_
-TAROT_CARD_PATH = os.path.abspath(os.path.join(TMP_PATH, 'tarot_card'))
+_TAROT_RESOURCE_NODE: Literal['tarot_resource'] = 'tarot_resource'
+"""配置卡牌资源的节点"""
+
+
+def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
+    """根据 event 获取不同 entity 对象"""
+    if isinstance(event, GroupMessageEvent):
+        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
+    else:
+        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    return entity
+
+
+@run_async_catching_exception
+async def _get_tarot_resource_name(bot: Bot, event: MessageEvent, matcher: Matcher) -> str | None:
+    """根据当前 event 获取对应塔罗资源名"""
+    entity = _get_event_entity(bot=bot, event=event)
+    plugin_name = matcher.plugin.name
+    module_name = matcher.plugin.module_name
+    node = await entity.query_auth_setting(module=module_name, plugin=plugin_name, node=_TAROT_RESOURCE_NODE)
+    if node is None:
+        return None
+    elif node.available:
+        return node.value
+    else:
+        return None
+
+
+async def get_tarot_resource_name(bot: Bot, event: MessageEvent, matcher: Matcher) -> str | None:
+    """根据当前 event 获取对应对象塔罗资源名"""
+    result = await _get_tarot_resource_name(bot=bot, event=event, matcher=matcher)
+    if isinstance(result, Exception):
+        result = None
+    return result
+
+
+@run_async_catching_exception
+async def set_tarot_resource(resource_name: str, bot: Bot, event: MessageEvent, matcher: Matcher) -> BoolResult:
+    """根据当前 event 配置对应对象塔罗资源"""
+    entity = _get_event_entity(bot=bot, event=event)
+    plugin_name = matcher.plugin.name
+    module_name = matcher.plugin.module_name
+    result = await entity.set_auth_setting(module=module_name, plugin=plugin_name, node=_TAROT_RESOURCE_NODE,
+                                           available=1, value=resource_name)
+    return result
 
 
 async def generate_tarot_card(
         id_: int,
-        resources: BaseTarotResource,
+        resources: TarotResource,
         direction: int = 1,
         *,
         need_desc: bool = True,
         need_upright: bool = True,
         need_reversed: bool = True,
-        width: int = 1024) -> Result.TextResult:
-    """
-    绘制塔罗卡片
+        width: int = 1024) -> TmpResource:
+    """绘制塔罗卡片
+
     :param id_: 牌id
     :param resources: 卡片资源
     :param direction: 方向, 1: 正, -1: 逆
@@ -45,11 +95,13 @@ async def generate_tarot_card(
     :return:
     """
     # 获取这张卡牌
+    tarot_card_file = resources.get_file_by_id(id_=id_)
     tarot_card = resources.pack.get_card_by_id(id_=id_)
 
-    def __handle():
+    def _handle_tarot_card() -> bytes:
+        """绘制卡片图片"""
         # 获取卡片图片
-        draw_tarot_img: Image.Image = Image.open(resources.resources.get_file_by_id(id_=id_))
+        draw_tarot_img: Image.Image = Image.open(tarot_card_file.resolve_path)
         # 正逆
         if direction < 0:
             draw_tarot_img = draw_tarot_img.rotate(180)
@@ -59,27 +111,28 @@ async def generate_tarot_card(
         draw_tarot_img = draw_tarot_img.resize((width, tarot_img_height))
 
         # 字体
-        font_path = os.path.abspath(os.path.join(RESOURCES_PATH, 'fonts', 'fzzxhk.ttf'))
-        title_font = ImageFont.truetype(font_path, width // 10)
-        m_title_font = ImageFont.truetype(font_path, width // 20)
-        text_font = ImageFont.truetype(font_path, width // 25)
+        font_file = tarot_local_resource_config.default_font_file
+        title_font = ImageFont.truetype(font_file.resolve_path, width // 10)
+        m_title_font = ImageFont.truetype(font_file.resolve_path, width // 20)
+        text_font = ImageFont.truetype(font_file.resolve_path, width // 25)
 
         # 标题
         title_width, title_height = title_font.getsize(tarot_card.name)
         m_title_width, m_title_height = m_title_font.getsize(tarot_card.name)
 
         # 描述
-        desc_text = TextUtils(text=tarot_card.desc).split_multiline(width=(width - int(width * 0.125)), font=text_font)
+        desc_text = TextUtils(
+            text=tarot_card.desc).split_multiline(width=(width - int(width * 0.125)), font=text_font).text
         desc_text_width, desc_text_height = text_font.getsize_multiline(desc_text)
 
         # 正位描述
         upright_text = TextUtils(
-            text=tarot_card.upright).split_multiline(width=(width - int(width * 0.125)), font=text_font)
+            text=tarot_card.upright).split_multiline(width=(width - int(width * 0.125)), font=text_font).text
         upright_text_width, upright_text_height = text_font.getsize_multiline(upright_text)
 
         # 逆位描述
         reversed_text = TextUtils(
-            text=tarot_card.reversed).split_multiline(width=(width - int(width * 0.125)), font=text_font)
+            text=tarot_card.reversed).split_multiline(width=(width - int(width * 0.125)), font=text_font).text
         reversed_text_width, reversed_text_height = text_font.getsize_multiline(reversed_text)
 
         # 计算高度
@@ -143,22 +196,22 @@ async def generate_tarot_card(
                                                       text=reversed_text, font=text_font, align='center', anchor='ma',
                                                       fill=(0, 0, 0))  # 逆位描述
 
-        if not os.path.exists(TAROT_CARD_PATH):
-            os.makedirs(TAROT_CARD_PATH)
+        # 生成结果图片
+        with BytesIO() as bf:
+            background.save(bf, 'JPEG')
+            content = bf.getvalue()
+        return content
 
-        save_path = os.path.abspath(os.path.join(
-            TAROT_CARD_PATH, f"tarot_card_{tarot_card.index}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"))
-        background.save(save_path, 'JPEG')
-        return save_path
-
-    try:
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, __handle)
-        return Result.TextResult(error=False, info='Success', result=result)
-    except Exception as e:
-        return Result.TextResult(error=True, info=repr(e), result='')
+    image_content = await run_sync(_handle_tarot_card)()
+    image_file_name = f"tarot_{id_}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
+    save_file = tarot_local_resource_config.default_save_folder(image_file_name)
+    async with save_file.async_open('wb') as af:
+        await af.write(image_content)
+    return save_file
 
 
 __all__ = [
-    'generate_tarot_card'
+    'generate_tarot_card',
+    'get_tarot_resource_name',
+    'set_tarot_resource'
 ]

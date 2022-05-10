@@ -1,29 +1,17 @@
 import imaplib
 import email
-import hashlib
+from pydantic import BaseModel
 from email.header import Header
-from typing import List
 from bs4 import BeautifulSoup
 
 
-class Email(object):
-    def __init__(self, date: str, header: str, sender: str, to: str, body: str = '', html: str = ''):
-        self.date = date
-        self.header = header
-        self.sender = sender
-        self.to = to
-        self.body = body
-        self.html = html
-
-        hash_str = str([date, header, sender, to])
-        md5 = hashlib.md5()
-        md5.update(hash_str.encode('utf-8'))
-        _hash = md5.hexdigest()
-        self.hash = _hash
-
-    def __repr__(self):
-        return f'<Email(header={self.header}, _from={self.sender}, to={self.to}' \
-               f"\n\nbody={self.body}\n\nhtml={self.html})>"
+class Email(BaseModel):
+    date: str
+    header: str
+    sender: str
+    to: str
+    body: str = ''
+    html: str = ''
 
 
 class EmailImap(object):
@@ -45,7 +33,7 @@ class EmailImap(object):
             self.__mail.logout()
         return True
 
-    def get_mail_info(self, charset, *criteria) -> List[Email]:
+    def get_mail_data(self, charset, *criteria) -> list[Email]:
         self.__mail.login(self.__address, self.__password)
 
         if self.__address.endswith('@163.com'):
@@ -147,3 +135,9 @@ class EmailImap(object):
             result_list.append(Email(date=date, header=header, sender=sender, to=receiver, body=body, html=html))
 
         return result_list
+
+
+__all__ = [
+    'Email',
+    'EmailImap'
+]

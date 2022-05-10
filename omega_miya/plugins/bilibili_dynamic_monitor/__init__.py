@@ -1,253 +1,177 @@
-import re
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : bilibili_dynamic_monitor.py
+@Project        : nonebot2_miya
+@Description    : Bilibili 用户动态订阅
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 from nonebot import on_command, logger
-from nonebot.plugin.export import export
-from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
-from omega_miya.utils.bilibili_utils import BiliUser
-from .monitor import init_user_dynamic, scheduler
+from nonebot.matcher import Matcher
+from nonebot.permission import SUPERUSER
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
+from nonebot.adapters.onebot.v11.message import Message
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.service import init_processor_state
+from omega_miya.web_resource.bilibili import BilibiliUser
+from omega_miya.utils.process_utils import run_async_catching_exception
+
+from .utils import (add_bili_user_dynamic_sub, delete_bili_user_dynamic_sub,
+                    query_subscribed_bili_user_dynamic_sub_source)
+from .monitor import scheduler
 
 
 # Custom plugin usage text
 __plugin_custom_name__ = 'B站动态订阅'
 __plugin_usage__ = r'''【B站动态订阅】
-随时更新up动态
-群组/私聊可用
+订阅并跟踪Bilibili用户动态更新
 
-**Permission**
-Friend Private
-Command & Lv.20
-or AuthNode
-
-**AuthNode**
-basic
-
-**Usage**
-**GroupAdmin and SuperUser Only**
-/B站动态 订阅 [UID]
-/B站动态 取消订阅 [UID]
-/B站动态 清空订阅
-/B站动态 订阅列表'''
+用法:
+仅限私聊或群聊中群管理员使用:
+/B站动态订阅 [UID]
+/B站动态取消订阅 [UID]
+/B站动态订阅列表'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
-
-
-# 注册事件响应器
-bilibili_dynamic = on_command(
-    'B站动态',
-    aliases={'b站动态'},
+add_dynamic_sub = on_command(
+    'BilibiliAddDynamicSubscription',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(
-        name='bilibili_dynamic',
-        command=True,
-        level=20),
-    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
+        name='AddDynamicSubscription',
+        level=20,
+        auth_node='bilibili_add_dynamic_subscription'
+    ),
+    aliases={'B站动态订阅', 'b站动态订阅', 'Bilibili动态订阅', 'bilibili动态订阅'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
     priority=20,
-    block=True)
+    block=True
+)
 
 
-# 修改默认参数处理
-@bilibili_dynamic.args_parser
-async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await bilibili_dynamic.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await bilibili_dynamic.finish('操作已取消')
+@add_dynamic_sub.handle()
+async def handle_parse_user_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    user_id = cmd_arg.extract_plain_text().strip()
+    if user_id:
+        state.update({'user_id': user_id})
 
 
-@bilibili_dynamic.handle()
-async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        pass
-    elif args and len(args) == 1:
-        state['sub_command'] = args[0]
-    elif args and len(args) == 2:
-        state['sub_command'] = args[0]
-        state['uid'] = args[1]
+@add_dynamic_sub.got('user_id', prompt='请输入用户的UID:')
+async def handle_check_add_user_id(matcher: Matcher, user_id: str = ArgStr('user_id')):
+    user_id = user_id.strip()
+    if not user_id.isdigit():
+        await matcher.reject('用户UID应当为纯数字, 请重新输入:')
+
+    user = BilibiliUser(uid=int(user_id))
+    user_data = await run_async_catching_exception(user.get_user_model)()
+    if isinstance(user_data, Exception) or user_data.error:
+        logger.error(f'BilibiliAddDynamicSubscription | 获取用户(uid={user_id})失败, {user_data}')
+        await matcher.finish('获取用户信息失败了QAQ, 可能是网络原因或没有这个用户, 请稍后再试')
+
+    await matcher.send(f'即将订阅Bilibili用户【{user_data.data.name}】的动态!')
+
+
+@add_dynamic_sub.got('check', prompt='确认吗?\n\n【是/否】')
+async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: MessageEvent, state: T_State,
+                                       check: str = ArgStr('check')):
+    check = check.strip()
+    if check != '是':
+        await matcher.finish('那就不订阅了哦')
+
+    await matcher.send('正在更新Bilibili用户订阅信息, 请稍候')
+    user_id = state.get('user_id')
+    user = BilibiliUser(uid=int(user_id))
+    scheduler.pause()  # 暂停计划任务避免中途检查更新
+    add_sub_result = await add_bili_user_dynamic_sub(bot=bot, event=event, bili_user=user)
+    scheduler.resume()
+
+    if isinstance(add_sub_result, Exception) or add_sub_result.error:
+        logger.error(f"BilibiliAddDynamicSubscription | 订阅用户(uid={user_id})失败, {add_sub_result}")
+        await matcher.finish(f'订阅失败了QAQ, 可能是网络异常或发生了意外的错误, 请稍后重试或联系管理员处理')
     else:
-        await bilibili_dynamic.finish('参数错误QAQ')
+        logger.success(f"BilibiliAddDynamicSubscription | 订阅用户(uid={user_id})成功")
+        await matcher.finish(f'订阅成功!')
 
 
-@bilibili_dynamic.got('sub_command', prompt='执行操作?\n【订阅/取消订阅/清空订阅/订阅列表】')
-async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State):
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        msg = '本群已订阅以下动态:\n'
+delete_dynamic_sub = on_command(
+    'BilibiliDeleteDynamicSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='DeleteDynamicSubscription',
+        level=20,
+        auth_node='bilibili_delete_dynamic_subscription'
+    ),
+    aliases={'B站动态取消订阅', 'b站动态取消订阅', 'Bilibili动态取消订阅', 'bilibili动态取消订阅'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@delete_dynamic_sub.handle()
+async def handle_parse_user_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    user_id = cmd_arg.extract_plain_text().strip()
+    if user_id:
+        state.update({'user_id': user_id})
+
+
+@delete_dynamic_sub.got('user_id', prompt='请输入用户的UID:')
+async def handle_delete_user_sub(bot: Bot, event: MessageEvent, matcher: Matcher, user_id: str = ArgStr('user_id')):
+    user_id = user_id.strip()
+    if not user_id.isdigit():
+        await matcher.reject('用户UID应当为纯数字, 请重新输入:')
+
+    exist_sub = await query_subscribed_bili_user_dynamic_sub_source(bot=bot, event=event)
+    if isinstance(exist_sub, Exception):
+        logger.error(f'BilibiliDeleteDynamicSubscription | 获取({event})已订阅用户失败, {exist_sub}')
+        await matcher.finish('获取已订阅列表失败QAQ, 请稍后再试或联系管理员处理')
+
+    for sub in exist_sub:
+        if user_id == sub[0]:
+            user_nick = sub[1]
+            break
     else:
-        group_id = 'Private event'
-        msg = '你已订阅以下动态:\n'
+        exist_text = '\n'.join(f'{x[0]}: {x[1]}' for x in exist_sub)
+        await matcher.reject(f'当前没有订阅这个用户哦, 请在已订阅列表中选择并重新输入用户UID:\n\n{exist_text}')
+        return
 
-    if state['sub_command'] not in ['订阅', '取消订阅', '清空订阅', '订阅列表']:
-        await bilibili_dynamic.finish('没有这个命令哦, 请在【订阅/取消订阅/清空订阅/订阅列表】中选择并重新发送')
-    if state['sub_command'] == '订阅列表':
-        _res = await sub_list(bot=bot, event=event, state=state)
-        if not _res.success():
-            logger.error(f"查询动态订阅失败, {group_id} / {event.user_id}, error: {_res.info}")
-            await bilibili_dynamic.finish('查询动态订阅失败QAQ, 请稍后再试吧')
-        if not _res.result:
-            msg = '当前没有任何动态订阅'
-        else:
-            for sub_id, up_name in _res.result:
-                msg += f'\n【{sub_id}/{up_name}】'
-        await bilibili_dynamic.finish(msg)
-    elif state['sub_command'] == '清空订阅':
-        state['uid'] = None
-
-
-@bilibili_dynamic.got('uid', prompt='请输入订阅动态用户UID:')
-async def handle_uid(bot: Bot, event: MessageEvent, state: T_State):
-    sub_command = state['sub_command']
-    # 针对清空动态操作, 跳过获取动态信息
-    if state['sub_command'] == '清空订阅':
-        await bilibili_dynamic.pause('【警告!】\n即将清空本所有订阅!\n请发送任意消息以继续操作:')
-    # 动态信息获取部分
-    uid = state['uid']
-    if not re.match(r'^\d+$', uid):
-        await bilibili_dynamic.reject('这似乎不是UID呢, 请重新输入:')
-    _res = await BiliUser(user_id=int(uid)).get_info()
-    if not _res.success():
-        logger.error(f'获取用户信息失败, uid: {uid}, error: {_res.info}')
-        await bilibili_dynamic.finish('获取用户信息失败了QAQ, 请稍后再试~')
-    up_name = _res.result.name
-    state['up_name'] = up_name
-    msg = f'即将{sub_command}【{up_name}】的动态!'
-    await bilibili_dynamic.send(msg)
-
-
-@bilibili_dynamic.got('check', prompt='确认吗?\n\n【是/否】')
-async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
+    delete_result = await delete_bili_user_dynamic_sub(bot=bot, event=event, user_id=user_id)
+    if isinstance(delete_result, Exception) or delete_result.error:
+        logger.error(f"BilibiliDeleteDynamicSubscription | 取消订阅用户(uid={user_id})失败, {delete_result}")
+        await matcher.finish(f'取消订阅失败了QAQ, 发生了意外的错误, 请联系管理员处理')
     else:
-        group_id = 'Private event'
-
-    check_msg = state['check']
-    uid = state['uid']
-    if check_msg != '是':
-        await bilibili_dynamic.finish('操作已取消')
-    sub_command = state['sub_command']
-    if sub_command == '订阅':
-        _res = await sub_add(bot=bot, event=event, state=state)
-    elif sub_command == '取消订阅':
-        _res = await sub_del(bot=bot, event=event, state=state)
-    elif sub_command == '清空订阅':
-        _res = await sub_clear(bot=bot, event=event, state=state)
-    else:
-        _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
-    if _res.success():
-        logger.success(f"{sub_command}动态成功, {group_id} / {event.user_id}, uid: {uid}")
-        await bilibili_dynamic.finish(f'{sub_command}成功!')
-    else:
-        logger.error(f"{sub_command}动态失败, {group_id} / {event.user_id}, uid: {uid},"
-                     f"info: {_res.info}")
-        await bilibili_dynamic.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
+        logger.success(f"BilibiliDeleteDynamicSubscription | 取消订阅用户(uid={user_id})成功")
+        await matcher.finish(f'已取消Bilibili用户【{user_nick}】的订阅!')
 
 
-async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.TupleListResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        result = await group.subscription_list_by_type(sub_type=2)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        result = await friend.subscription_list_by_type(sub_type=2)
-        return result
-    else:
-        return Result.TupleListResult(error=True, info='Illegal event', result=[])
+list_dynamic_sub = on_command(
+    'BilibiliListDynamicSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='ListDynamicSubscription',
+        level=20,
+        auth_node='bilibili_list_dynamic_subscription'
+    ),
+    aliases={'B站动态订阅列表', 'b站动态订阅列表', 'Bilibili动态订阅列表', 'bilibili动态订阅列表'},
+    permission=GROUP | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
 
 
-async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    uid = state['uid']
-    sub = DBSubscription(sub_type=2, sub_id=uid)
-    need_init = not (await sub.exist())
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
-        if not _res.success():
-            return _res
-        # 初次订阅时立即刷新, 避免订阅后发送旧动态的问题
-        if need_init:
-            await bot.send(event=event, message='初次订阅, 正在初始化动态信息, 请稍候~')
-            await init_user_dynamic(user_id=uid)
-        _res = await group.subscription_add(sub=sub, group_sub_info='B站动态')
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        _res = await sub.add(up_name=state.get('up_name'), live_info='B站动态')
-        if not _res.success():
-            return _res
-        # 初次订阅时立即刷新, 避免订阅后发送旧动态的问题
-        if need_init:
-            await bot.send(event=event, message='初次订阅, 正在初始化动态信息, 请稍候~')
-            await init_user_dynamic(user_id=uid)
-        _res = await friend.subscription_add(sub=sub, user_sub_info='B站动态')
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    else:
-        return Result.IntResult(error=True, info='Illegal event', result=-1)
+@list_dynamic_sub.handle()
+async def handle_list_subscription(bot: Bot, event: MessageEvent, matcher: Matcher):
+    exist_sub = await query_subscribed_bili_user_dynamic_sub_source(bot=bot, event=event)
+    if isinstance(exist_sub, Exception):
+        logger.error(f'BilibiliListDynamicSubscription | 获取({event})已订阅用户失败, {exist_sub}')
+        await matcher.finish('获取订阅列表失败QAQ, 请稍后再试或联系管理员处理')
 
-
-async def sub_del(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        uid = state['uid']
-        _res = await group.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        uid = state['uid']
-        _res = await friend.subscription_del(sub=DBSubscription(sub_type=2, sub_id=uid))
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    else:
-        return Result.IntResult(error=True, info='Illegal event', result=-1)
-
-
-async def sub_clear(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        _res = await group.subscription_clear_by_type(sub_type=2)
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        _res = await friend.subscription_clear_by_type(sub_type=2)
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    else:
-        return Result.IntResult(error=True, info='Illegal event', result=-1)
+    exist_text = '\n'.join(f'{x[0]}: {x[1]}' for x in exist_sub)
+    await matcher.finish(f'当前已订阅的Bilibili用户动态:\n\n{exist_text}')

@@ -1,6 +1,5 @@
-import datetime
 import random
-import hashlib
+
 
 basic = {
     '一元微积分',
@@ -193,15 +192,9 @@ advance = {
 }
 
 
-def course(user_id: int) -> str:
-    # 用qq、日期生成随机种子
-    # random_seed_str = str([user_id, datetime.date.today()])
-    # md5 = hashlib.md5()
-    # md5.update(random_seed_str.encode('utf-8'))
-    # random_seed = md5.hexdigest()
-    # random.seed(random_seed)
+def course(*args, **kwargs) -> str:
     course_day = random.sample(basic, k=1)
     course_day.extend(random.sample(advance, k=3))
-    course_t = str.join('》\n《', course_day)
-    result = f"今天要修行的课有:\n《{course_t}》"
+    course_t = '》\n《'.join(course_day)
+    result = f"今天要修行的课程有:\n《{course_t}》"
     return result

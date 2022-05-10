@@ -1,183 +1,247 @@
-import re
 from nonebot import on_command, get_plugin, get_loaded_plugins, logger
-from nonebot.plugin.export import export
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from omega_miya.database import DBBot, DBFriend, DBBotGroup, DBAuth
-from omega_miya.utils.omega_plugin_utils import init_export
+from nonebot.matcher import Matcher
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.message import Message
+from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.database import InternalBotUser, InternalBotGroup
+from omega_miya.database.internal.consts import SKIP_COOLDOWN_PERMISSION_NODE
+from omega_miya.service.omega_processor_tools import init_processor_state, parse_processor_state
+from omega_miya.utils.process_utils import run_async_catching_exception
 
 
 # Custom plugin usage text
-__plugin_custom_name__ = 'OmegaAuth'
+__plugin_custom_name__ = '授权管理'
 __plugin_usage__ = r'''【OmegaAuth 授权管理插件】
 插件特殊权限授权管理
 仅限管理员使用
 
-**Usage**
-**SuperUser Only**
-/OmegaAuth'''
+用法:
+/OmegaAuth [授权操作] [授权类型] [授权对象] [插件名称] [权限节点]
 
-
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
+可用授权操作:
+allow: 允许会话所在群组/用户
+deny: 禁止会话所在群组/用户
+list: 列出会话所在群组/用户已配置的权限节点
+custom_allow: 允许指定群组/用户
+custom_deny: 禁止指定群组/用户'''
 
 
 # 注册事件响应器
-omegaauth = on_command('OmegaAuth', rule=to_me(), aliases={'omegaauth', 'oauth'},
-                       permission=SUPERUSER, priority=10, block=True)
+auth = on_command(
+    'OmegaAuth',
+    rule=to_me(),
+    state=init_processor_state(name='OmegaAuth', enable_processor=False),
+    aliases={'oauth'},
+    permission=SUPERUSER,
+    priority=10,
+    block=True
+)
 
 
-# 修改默认参数处理
-@omegaauth.args_parser
-async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().split()
-    if not args:
-        await omegaauth.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await omegaauth.finish('操作已取消')
+@auth.handle()
+async def handle_parse_operating(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    operating = cmd_arg.extract_plain_text().strip().lower()
+    if operating:
+        state.update({'operating': operating})
 
 
-@omegaauth.handle()
-async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().split()
-    if not args:
-        pass
-    elif args and len(args) == 1:
-        state['sub_command'] = args[0]
+@auth.got('operating', prompt='请选择要执行的授权操作:\n\nallow\ndeny\nlist\ncustom_allow\ncustom_deny')
+async def handle_operating(event: MessageEvent, state: T_State, operating: str = ArgStr('operating')):
+    """处理需要执行不同的授权操作"""
+    operating = operating.strip().lower()
+    match operating:
+        case 'allow':
+            auth_type, entity_id = get_auth_type_entity_id(event=event)
+            state.update({'auth_type': auth_type, 'entity_id': entity_id})
+        case 'deny':
+            auth_type, entity_id = get_auth_type_entity_id(event=event)
+            state.update({'auth_type': auth_type, 'entity_id': entity_id})
+        case 'custom_allow':
+            pass
+        case 'custom_deny':
+            pass
+        case 'list':
+            await auth.finish(await get_entity_auth_info(event=event))
+        case _:
+            await auth.reject(f'{operating}不可用, 请在以下操作中选择: \n\nallow\ndeny\nlist\ncustom_allow\ncustom_deny')
+    state.update({'operating': operating})
+
+
+@auth.got('auth_type', prompt='请选择要执行的授权对象类型:\n\nuser\ngroup')
+async def handle_auth_type(state: T_State, auth_type: str = ArgStr('auth_type')):
+    """处理需要执行不同的授权对象类型"""
+    auth_type = auth_type.strip().lower()
+    match auth_type:
+        case 'user' | 'group':
+            state.update({'auth_type': auth_type})
+        case _:
+            await auth.reject(f'{auth_type}不可用, 请在以下类型中选择: \n\nuser\ngroup')
+
+
+@auth.got('entity_id', prompt='请输入授权用户qq或授权群组群号:')
+async def handle_entity_id(bot: Bot, state: T_State, matcher: Matcher, entity_id: str = ArgStr('entity_id')):
+    entity_id = entity_id.strip().lower()
+    auth_type = state.get('auth_type')
+    await verify_entity_exists(matcher=matcher, auth_type=auth_type, bot_self_id=bot.self_id, entity_id=entity_id)
+    state.update({'entity_id': entity_id})
+
+
+@auth.got('plugin_name', prompt='请输入配置权限节点的插件名称:')
+async def handle_plugin_name(state: T_State, plugin_name: str = ArgStr('plugin_name')):
+    plugin_name = plugin_name.strip()
+    plugin_auth_node = get_plugin_auth_node(plugin_name=plugin_name)
+    if not plugin_auth_node:
+        await auth.finish(f'插件: {plugin_name}不存在或该插件无可配置权限节点')
     else:
-        await omegaauth.finish('参数错误QAQ')
+        plugin_auth_node_msg = '\n'.join(plugin_auth_node)
+        await auth.send(f'插件: {plugin_name}可配置的权限节点有:\n\n{plugin_auth_node_msg}')
+    state.update({'plugin_name': plugin_name})
 
 
-# 处理显示权限节点列表事件
-@omegaauth.got('sub_command', prompt='执行操作?\n【allow/deny/clear/custom_*/list】')
-async def handle_sub_command(bot: Bot, event: MessageEvent, state: T_State):
-    sub_command = state["sub_command"]
-    if sub_command not in ['allow', 'deny', 'clear', 'list', 'custom_allow', 'custom_deny', 'custom_clear']:
-        await omegaauth.finish('参数错误QAQ')
+@auth.got('auth_node', prompt='请输入想要配置的权限节点名称:')
+async def handle_auth_node(bot: Bot, matcher: Matcher, state: T_State, auth_node: str = ArgStr('auth_node')):
+    auth_node = auth_node.strip()
+    plugin_name = state.get('plugin_name')
+    if auth_node not in get_plugin_auth_node(plugin_name=plugin_name):
+        await auth.reject(f'权限节点: {auth_node}不是插件: {plugin_name}的可配置权限节点, 请重新输入:')
 
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if sub_command == 'list':
-        if isinstance(event, GroupMessageEvent):
-            group_id = event.group_id
-            _res = await DBAuth.list(auth_type='group', auth_id=group_id, self_bot=self_bot)
-            if _res.success():
-                node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
-                msg = f'当前群组权限列表为:\n\n{node_text}'
-                await omegaauth.finish(msg)
-            else:
-                await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
-        elif isinstance(event, PrivateMessageEvent):
-            user_id = event.user_id
-            _res = await DBAuth.list(auth_type='user', auth_id=user_id, self_bot=self_bot)
-            if _res.success():
-                node_text = '\n'.join('/'.join(map(str, n)) for n in _res.result)
-                msg = f'当前用户权限列表为:\n\n{node_text}'
-                await omegaauth.finish(msg)
-            else:
-                await omegaauth.finish('发生了意外的错误QAQ, 请稍后再试')
-        else:
-            await omegaauth.finish('非授权会话, 操作中止')
-    elif sub_command in ['allow', 'deny', 'clear']:
-        if isinstance(event, GroupMessageEvent):
-            state["auth_type"] = 'group'
-            state["auth_id"] = str(event.group_id)
-        elif isinstance(event, PrivateMessageEvent):
-            state["auth_type"] = 'user'
-            state["auth_id"] = str(event.user_id)
+    operating = state.get('operating')
+    auth_type = state.get('auth_type')
+    entity_id = state.get('entity_id')
+    plugin_name = state.get('plugin_name')
+    plugin = get_plugin(name=plugin_name)
+    module_name = plugin.module_name
+
+    match operating:
+        case 'allow' | 'custom_allow':
+            available = 1
+        case _:
+            available = 0
+
+    await set_entity_auth_node(
+        matcher=matcher,
+        auth_type=auth_type,
+        bot_self_id=bot.self_id,
+        entity_id=entity_id,
+        module=module_name,
+        plugin=plugin_name,
+        node=auth_node,
+        available=available
+    )
 
 
-@omegaauth.got('auth_type', prompt='授权类型?\n【user/group】')
-async def handle_auth_type(bot: Bot, event: MessageEvent, state: T_State):
-    auth_type = state["auth_type"]
-    if auth_type not in ['user', 'group']:
-        await omegaauth.finish('参数错误QAQ')
-
-
-@omegaauth.got('auth_id', prompt='请输入授权用户qq或授权群组群号:')
-async def handle_auth_id(bot: Bot, event: MessageEvent, state: T_State):
-    auth_type = state["auth_type"]
-    auth_id = state["auth_id"]
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if not re.match(r'^\d+$', auth_id):
-        await omegaauth.finish('参数错误QAQ, qq或群号应为纯数字')
-
-    if auth_type == 'user':
-        user = DBFriend(user_id=auth_id, self_bot=self_bot)
-        user_name_res = await user.nickname()
-        if user_name_res.success():
-            await omegaauth.send(f'即将对用户: 【{user_name_res.result}】执行操作')
-        else:
-            logger.error(f'为 {auth_type}/{auth_id} 配置权限节点失败, 数据库中不存在该用户')
-            await omegaauth.finish('数据库中不存在该用户QAQ')
-    elif auth_type == 'group':
-        group = DBBotGroup(group_id=auth_id, self_bot=self_bot)
-        group_name_res = await group.name()
-        if group_name_res.success():
-            await omegaauth.send(f'即将对群组: 【{group_name_res.result}】执行操作')
-        else:
-            logger.error(f'为 {auth_type}/{auth_id} 配置权限节点失败, 数据库中不存在该群组')
-            await omegaauth.finish('数据库中不存在该群组QAQ')
+def get_auth_type_entity_id(event: MessageEvent) -> tuple[str, str]:
+    """根据 event 中获取授权操作对象类型和 id"""
+    if isinstance(event, GroupMessageEvent):
+        result = 'group', str(event.group_id)
     else:
-        await omegaauth.finish('参数错误QAQ')
-
-    # 处理可用权限节点列表
-    plugins = get_loaded_plugins()
-    auth_node_plugin = []
-    for plugin in plugins:
-        if plugin.export.get('auth_node'):
-            auth_node_plugin.append(plugin.name)
-    auth_node_plugin.sort()
-    state["auth_node_plugin"] = auth_node_plugin
-    p_list = '\n'.join(auth_node_plugin)
-    await omegaauth.send(f'可配置权限节点的插件有:\n\n{p_list}')
+        result = 'user', str(event.user_id)
+    return result
 
 
-@omegaauth.got('plugin', prompt='请输入想要配置权限节点的插件名称:')
-async def handle_plugin(bot: Bot, event: MessageEvent, state: T_State):
-    plugin = state["plugin"]
-    auth_node_plugin = state["auth_node_plugin"]
-    if plugin not in auth_node_plugin:
-        await omegaauth.reject('插件名称错误, 请重新输入:')
-
-    plugin_auth_nodes = get_plugin(plugin).export.get('auth_node')
-    state["plugin_auth_nodes"] = plugin_auth_nodes
-    an_list = '\n'.join(plugin_auth_nodes)
-    await omegaauth.send(f'{plugin}可配置的权限节点有:\n\n{an_list}')
-
-
-@omegaauth.got('auth_node', prompt='请输入想要配置的权限节点名称:')
-async def handle_auth_node(bot: Bot, event: MessageEvent, state: T_State):
-    auth_node = state["auth_node"]
-    plugin = state["plugin"]
-    plugin_auth_nodes = state["plugin_auth_nodes"]
-    if auth_node not in plugin_auth_nodes:
-        await omegaauth.reject('权限节点名称错误, 请重新输入:')
-
-    r_auth_node = '.'.join([plugin, auth_node])
-    auth_id = state["auth_id"]
-    sub_command = re.sub(r'^custom_', '', str(state["sub_command"]))
-    auth_type = state["auth_type"]
-    self_bot = DBBot(self_qq=int(bot.self_id))
-
-    auth = DBAuth(auth_id=auth_id, auth_type=auth_type, auth_node=r_auth_node, self_bot=self_bot)
-
-    if sub_command == 'allow':
-        res = await auth.set(allow_tag=1, deny_tag=0)
-    elif sub_command == 'deny':
-        res = await auth.set(allow_tag=0, deny_tag=1)
-    elif sub_command == 'clear':
-        res = await auth.delete()
+async def get_entity_auth_info(event: MessageEvent) -> str:
+    """根据 event 中获取授权操作对象已有权限清单"""
+    bot_self_id = str(event.self_id)
+    if isinstance(event, GroupMessageEvent):
+        entity = InternalBotGroup(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(event.group_id))
     else:
-        logger.error(f'handle_auth_node 执行时 sub_command 命令检验错误')
-        return
+        entity = InternalBotUser(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(event.user_id))
 
-    if res.success():
-        logger.success(f'已成功为 {auth_type}/{auth_id} {sub_command} 了权限节点 {r_auth_node}: {res.info}')
-        await omegaauth.finish(f'{auth_type}/{auth_id} {r_auth_node} 权限节点 {sub_command} 操作成功')
+    auth_list = await run_async_catching_exception(entity.query_all_auth_setting)()
+    if isinstance(auth_list, Exception):
+        auth_msg = f'权限节点查询失败, 没有配置权限或未进行初始化'
     else:
-        logger.error(f'为 {auth_type}/{auth_id} {sub_command} 权限节点 {r_auth_node} 失败: {res.info}')
-        await omegaauth.finish(f'{auth_type}/{auth_id} {r_auth_node} 权限节点 {sub_command} 操作失败QAQ, 请稍后再试')
+        auth_info = '\n'.join(f'[{x.plugin}]{x.node}: {x.available}' for x in auth_list)
+        auth_msg = f'已配置权限节点:\n\n{auth_info}'
+    return auth_msg
+
+
+async def verify_entity_exists(matcher: Matcher, auth_type: str, bot_self_id: str, entity_id: str) -> None:
+    """验证授权对象可用性并返回提示信息"""
+    match auth_type:
+        case 'user':
+            user = InternalBotUser(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=entity_id)
+            entity = await run_async_catching_exception(user.query)()
+            entity_prefix = '用户'
+        case 'group':
+            group = InternalBotGroup(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=entity_id)
+            entity = await run_async_catching_exception(group.query)()
+            entity_prefix = '群组'
+        case _:
+            await matcher.finish(f'{auth_type}不可用, 交互异常, 当前操作已取消')
+            return
+
+    if isinstance(entity, Exception):
+        info_msg = f'{entity_prefix}: {entity_id}不存在, 请初始化该{entity_prefix}信息后再进行配置'
+        await matcher.finish(info_msg)
+    else:
+        all_plugins = [p.name for p in get_loaded_plugins()
+                       if getattr(p.module, '__plugin_custom_name__', None) is not None]
+        all_plugins.sort()
+        all_plugin_name = '\n'.join(all_plugins)
+        info_msg = f'即将对{entity_prefix}: {entity_id}执行操作, 现在已安装的插件有:\n\n{all_plugin_name}'
+        await matcher.send(info_msg)
+
+
+def get_plugin_auth_node(plugin_name: str) -> list[str]:
+    """根据插件名获取可配置的权限节点名称清单"""
+    plugin = get_plugin(name=plugin_name)
+    if plugin is None:
+        result = []
+    else:
+        result = [s.auth_node for s in (
+            parse_processor_state(m._default_state) for m in plugin.matcher
+        ) if s.auth_node is not None]
+
+        # 如果有 extra_auth_node 也加入到可配置的权限节点中
+        result.extend((extra_node for s in (
+            parse_processor_state(m._default_state) for m in plugin.matcher
+        ) if s.extra_auth_node for extra_node in s.extra_auth_node))
+
+        # 如果有冷却配置就把跳过冷却的权限加入到可配置的权限节点中
+        if any(s.cool_down for s in (parse_processor_state(m._default_state) for m in plugin.matcher)):
+            result.append(SKIP_COOLDOWN_PERMISSION_NODE)
+    result = list(set(result))
+    result.sort()
+    return result
+
+
+async def set_entity_auth_node(
+        matcher: Matcher,
+        auth_type: str,
+        bot_self_id: str,
+        entity_id: str,
+        module: str,
+        plugin: str,
+        node: str,
+        available: int
+) -> None:
+    """配置权限节点"""
+    match auth_type:
+        case 'user':
+            user = InternalBotUser(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=entity_id)
+            result = await run_async_catching_exception(user.set_auth_setting)(
+                module=module, plugin=plugin, node=node, available=available)
+            entity_prefix = '用户'
+        case 'group':
+            group = InternalBotGroup(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=entity_id)
+            result = await run_async_catching_exception(group.set_auth_setting)(
+                module=module, plugin=plugin, node=node, available=available)
+            entity_prefix = '群组'
+        case _:
+            await matcher.finish(f'{auth_type}不可用, 交互异常, 当前操作已取消')
+            return
+
+    if isinstance(result, Exception):
+        logger.error(f'为{entity_prefix}: {entity_id} 配置权限节点 {plugin}-{node} 失败: {result}')
+        info_msg = f'为{entity_prefix}: {entity_id} 配置权限节点 {plugin}-{node} 失败, 详情请查看日志'
+    else:
+        logger.success(f'为{entity_prefix}: {entity_id} 配置权限节点 {plugin}-{node} 成功')
+        info_msg = f'为{entity_prefix}: {entity_id} 配置权限节点 {plugin}-{node} 成功'
+    await matcher.finish(info_msg)
