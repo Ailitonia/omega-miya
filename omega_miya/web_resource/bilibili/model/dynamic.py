@@ -412,7 +412,7 @@ class BilibiliDynamicCard(BaseBilibiliModel):
 class BilibiliUserDynamicData(BaseBilibiliModel):
     """Bilibili 用户动态 Data"""
     has_more: int
-    cards: list[BilibiliDynamicCard]
+    cards: list[BilibiliDynamicCard] = []
     next_offset: int
 
     @validator('cards', pre=False)
