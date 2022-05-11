@@ -62,9 +62,7 @@ def retry(attempt_limit: int = 3):
                     f'<lc>Decorator Retry</lc> | <ly>{_module.__name__ if _module is not None else "Unknown"}.'
                     f'{func.__name__}</ly> <r>Attempted {attempts_num} times</r> <c>></c> '
                     f'<r>Exception ExceededAttemptError</r>: The number of failures exceeds the limit of attempts. '
-                    f'<lc>Parameters('
-                    f'{", ".join([f"PosArg[{i}]={x}" for i, x in enumerate(args)])}, '
-                    f'{", ".join([f"KeyArg[{k}]={v}" for k, v in kwargs.items()])})</lc>')
+                    f'<lc>Parameters(args={args}, kwargs={kwargs})</lc>')
                 raise ExceededAttemptError('The number of failures exceeds the limit of attempts')
         return _wrapper
 
