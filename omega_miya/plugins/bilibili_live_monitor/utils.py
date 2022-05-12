@@ -11,6 +11,7 @@
 from typing import Literal
 from datetime import datetime
 from nonebot import get_driver, logger
+from nonebot.exception import ActionFailed
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
@@ -173,7 +174,7 @@ async def _get_live_room_update_message(
         update_data: BilibiliLiveRoomStatusUpdate
 ) -> str | Message | None:
     """处理直播间更新为消息"""
-    send_message = f'【Bilibili直播间】\n'
+    send_message = f'【bilibili直播间】\n'
     user_name = _LIVE_STATUS.get(live_room_data.uid).live_user_name
     need_url = False
 
@@ -219,6 +220,10 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
     except KeyError:
         logger.debug(f'BilibiliLiveRoomMonitor | Bot({entity.bot_id}) not online, '
                      f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
+        sent_msg_id = 0
+    except ActionFailed as e:
+        logger.debug(f'BilibiliLiveRoomMonitor | Bot({entity.bot_id}) failed to send message to '
+                     f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
         sent_msg_id = 0
     return sent_msg_id
 

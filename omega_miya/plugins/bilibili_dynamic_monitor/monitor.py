@@ -34,8 +34,8 @@ async def bili_user_dynamic_update_monitor() -> None:
     # 避免风控, 根据订阅的用户数动态调整检查时间间隔
     monitor_job = scheduler.get_job(job_id=_MONITOR_JOB_ID)
     if monitor_job is not None:
-        interval_min = len(subscribed_uid) // 10
-        interval_min = interval_min if interval_min >= 2 else 2
+        interval_min = int(len(subscribed_uid) // 7.5)
+        interval_min = interval_min if interval_min > 2 else 2
         reschedule_job(job=monitor_job, trigger_mode='interval', minutes=interval_min)
 
     # 检查新作品并发送消息

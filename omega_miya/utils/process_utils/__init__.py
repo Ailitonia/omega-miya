@@ -139,6 +139,11 @@ def run_async_catching_exception(
                 f'<lc>Decorator RunAsyncCatchingException</lc> | <ly>{_module_name}.{func.__name__}</ly> '
                 f'<r>raise WebSourceException</r> <c>></c> <ly>Failed to fetch network resource</ly>: {e}')
             result = e
+        except ExceededAttemptError as e:
+            logger.opt(colors=True).error(
+                f'<lc>Decorator RunAsyncCatchingException</lc> | <ly>{_module_name}.{func.__name__}</ly> '
+                f'<r>raise ExceededAttemptError</r> <c>></c> <ly>Failed to attempt too many times</ly>: {e}')
+            result = e
         except AssertionError as e:
             logger.opt(colors=True).error(
                 f'<lc>Decorator RunAsyncCatchingException</lc> | <ly>{_module_name}.{func.__name__}</ly> '

@@ -10,6 +10,7 @@
 
 from typing import Literal, Iterable
 from nonebot.log import logger
+from nonebot.exception import ActionFailed
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
@@ -152,7 +153,7 @@ async def _check_new_dynamic(dynamics: Iterable[BilibiliDynamicCard]) -> list[Bi
 
 async def _get_dynamic_message(dynamic: BilibiliDynamicCard) -> str | Message:
     """处理动态为消息"""
-    send_message = f'【Bilibili】{dynamic.output_text}\n'
+    send_message = f'【bilibili】{dynamic.output_text}\n'
 
     # 下载动态中包含的图片
     if dynamic.output_img_urls:
@@ -173,6 +174,10 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
     except KeyError:
         logger.debug(f'BilibiliUserDynamicSubscriptionMonitor | Bot({entity.bot_id}) not online, '
                      f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
+        sent_msg_id = 0
+    except ActionFailed as e:
+        logger.debug(f'BilibiliUserDynamicSubscriptionMonitor | Bot({entity.bot_id}) failed to send message to '
+                     f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
         sent_msg_id = 0
     return sent_msg_id
 

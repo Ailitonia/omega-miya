@@ -79,7 +79,7 @@ class Statistic(BaseDatabase):
         return stmt
 
     def _make_unique_self_select(self) -> Select:
-        stmt = select(self.orm_model).with_for_update(read=True).\
+        stmt = select(self.orm_model).\
             where(self.orm_model.module_name == self.self_model.module_name).\
             where(self.orm_model.plugin_name == self.self_model.plugin_name).\
             where(self.orm_model.bot_self_id == self.self_model.bot_self_id).\
