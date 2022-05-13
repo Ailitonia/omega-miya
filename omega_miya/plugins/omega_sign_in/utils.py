@@ -15,10 +15,10 @@ from PIL import Image, ImageDraw, ImageFont
 from nonebot.log import logger
 
 from omega_miya.database import InternalPixiv
+from omega_miya.database.schemas.pixiv_artwork import PixivArtworkModel
 from omega_miya.local_resource import TmpResource
 from omega_miya.web_resource import HttpFetcher
 from omega_miya.web_resource.pixiv import PixivArtwork
-from omega_miya.web_resource.pixiv.model import PixivArtworkCompleteDataModel
 from omega_miya.utils.process_utils import semaphore_gather, run_sync, run_async_catching_exception
 from omega_miya.utils.text_utils import TextUtils
 from omega_miya.utils.qq_tools import get_user_head_img
@@ -70,17 +70,14 @@ if sign_in_config.signin_enable_preparing_scheduler:
     )
 
 
-async def _get_signin_top_image() -> tuple[PixivArtworkCompleteDataModel, TmpResource]:
+async def _get_signin_top_image() -> tuple[PixivArtworkModel, TmpResource]:
     """获取一张生成签到卡片用的头图"""
     random_artworks = await InternalPixiv.random(num=5, nsfw_tag=0, ratio=1)
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
     for random_artwork in random_artworks:
-        artwork = PixivArtwork(pid=random_artwork.pid)
-        artwork_data = await run_async_catching_exception(artwork.get_artwork_model)()
-        if not isinstance(artwork_data, Exception):
-            artwork_file = await run_async_catching_exception(artwork.get_page_file)()
-            if not isinstance(artwork_file, Exception):
-                return artwork_data, artwork_file
+        artwork_file = await run_async_catching_exception(PixivArtwork(pid=random_artwork.pid).get_page_file)()
+        if not isinstance(artwork_file, Exception):
+            return random_artwork, artwork_file
     raise RuntimeError(f'all attempts to fetch artwork resources have failed')
 
 

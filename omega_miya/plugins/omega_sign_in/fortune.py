@@ -193,8 +193,8 @@ def get_fortune(user_id: int, *, date: datetime | None = None) -> Fortune:
         'text': fortune_text,
         'good_do_st': f"{do_and_not[0].name} —— {do_and_not[0].good}",
         'good_do_nd': f"{do_and_not[2].name} —— {do_and_not[2].good}",
-        'bad_do_st': f"{do_and_not[1].name} —— {do_and_not[1].good}",
-        'bad_do_nd': f"{do_and_not[3].name} —— {do_and_not[3].good}"
+        'bad_do_st': f"{do_and_not[1].name} —— {do_and_not[1].bad}",
+        'bad_do_nd': f"{do_and_not[3].name} —— {do_and_not[3].bad}"
     }
 
     # 重置随机种子
