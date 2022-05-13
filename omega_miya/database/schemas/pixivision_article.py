@@ -65,7 +65,7 @@ class PixivisionArticle(BaseDatabase):
         return stmt
 
     def _make_unique_self_select(self) -> Select:
-        stmt = select(self.orm_model).with_for_update(read=True).\
+        stmt = select(self.orm_model).\
             where(self.orm_model.aid == self.self_model.aid).\
             order_by(self.orm_model.aid)
         return stmt

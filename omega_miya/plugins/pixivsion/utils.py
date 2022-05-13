@@ -10,6 +10,7 @@
 
 from typing import Literal
 from nonebot.log import logger
+from nonebot.exception import ActionFailed
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
@@ -154,10 +155,13 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
         logger.debug(f'PixivisionArticleUpdateMonitor | Bot({entity.bot_id}) not online, '
                      f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
         sent_msg_id = 0
+    except ActionFailed as e:
+        logger.warning(f'PixivisionArticleUpdateMonitor | Bot({entity.bot_id}) failed to send message to '
+                       f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
+        sent_msg_id = 0
     return sent_msg_id
 
 
-@run_async_catching_exception
 async def send_pixivision_new_article() -> None:
     """向已订阅的用户或群发送 Pixivision 更新的特辑"""
     new_aids = await _check_pixivision_new_article()

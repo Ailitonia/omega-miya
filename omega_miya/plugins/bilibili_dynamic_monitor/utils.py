@@ -176,14 +176,13 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
                      f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
         sent_msg_id = 0
     except ActionFailed as e:
-        logger.debug(f'BilibiliUserDynamicSubscriptionMonitor | Bot({entity.bot_id}) failed to send message to '
-                     f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
+        logger.warning(f'BilibiliUserDynamicSubscriptionMonitor | Bot({entity.bot_id}) failed to send message to '
+                       f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
         sent_msg_id = 0
     return sent_msg_id
 
 
 @run_async_delay(delay_time=5)
-@run_async_catching_exception
 async def send_bili_user_new_dynamics(bili_user: BilibiliUser) -> None:
     """向已订阅的用户或群发送 Bilibili 用户动态更新"""
     logger.debug(f'BilibiliUserDynamicSubscriptionMonitor | Start checking bilibili user({bili_user.uid}) new dynamics')

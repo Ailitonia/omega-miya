@@ -222,8 +222,8 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
                      f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
         sent_msg_id = 0
     except ActionFailed as e:
-        logger.debug(f'BilibiliLiveRoomMonitor | Bot({entity.bot_id}) failed to send message to '
-                     f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
+        logger.warning(f'BilibiliLiveRoomMonitor | Bot({entity.bot_id}) failed to send message to '
+                       f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
         sent_msg_id = 0
     return sent_msg_id
 
@@ -258,13 +258,15 @@ async def send_bili_live_room_update() -> None:
 
     room_status_data = await BilibiliLiveRoom.query_live_room_by_uid_list(uid_list=uid_list)
     if room_status_data.error:
-        raise RuntimeError(room_status_data)
+        logger.error(f'BilibiliLiveRoomMonitor | Error occurred in checking live room status, {room_status_data}')
+        return
 
     # 处理直播间状态更新并向订阅者发送直播间更新信息
     send_tasks = [_process_bili_live_room_update(live_room_data=data) for uid, data in room_status_data.data.items()]
     sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=3)
     if error := [x for x in sent_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+        logger.error(f'BilibiliLiveRoomMonitor | Exception(s) raised in sending live room update messages: '
+                     f'{", ".join(str(x) for x in error)}')
 
 
 __all__ = [

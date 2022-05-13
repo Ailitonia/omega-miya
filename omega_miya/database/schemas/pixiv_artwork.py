@@ -78,7 +78,7 @@ class PixivArtwork(BaseDatabase):
         return stmt
 
     def _make_unique_self_select(self) -> Select:
-        stmt = select(self.orm_model).with_for_update(read=True).\
+        stmt = select(self.orm_model).\
             where(self.orm_model.pid == self.self_model.pid).\
             order_by(desc(self.orm_model.pid))
         return stmt

@@ -42,7 +42,8 @@ async def bili_user_dynamic_update_monitor() -> None:
     tasks = [send_bili_user_new_dynamics(BilibiliUser(uid=uid)) for uid in subscribed_uid]
     sent_result = await semaphore_gather(tasks=tasks, semaphore_num=5)
     if error := [x for x in sent_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+        logger.error(f'BilibiliUserDynamicSubscriptionMonitor | Exception(s) raised in sending new dynamic messages: '
+                     f'{", ".join(str(x) for x in error)}')
 
     logger.debug('BilibiliUserDynamicSubscriptionMonitor | Bilibili user dynamic update checking completed')
 

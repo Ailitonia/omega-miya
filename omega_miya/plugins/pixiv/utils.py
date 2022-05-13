@@ -11,6 +11,7 @@
 from typing import Literal
 from pydantic import BaseModel
 from nonebot.log import logger
+from nonebot.exception import ActionFailed
 from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -303,10 +304,13 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
         logger.debug(f'PixivUserSubscriptionMonitor | Bot({entity.bot_id}) not online, '
                      f'message to {entity.relation.relation_type.upper()}({entity.entity_id}) has be canceled')
         sent_msg_id = 0
+    except ActionFailed as e:
+        logger.warning(f'PixivUserSubscriptionMonitor | Bot({entity.bot_id}) failed to send message to '
+                       f'{entity.relation.relation_type.upper()}({entity.entity_id}) with ActionFailed, {e}')
+        sent_msg_id = 0
     return sent_msg_id
 
 
-@run_async_catching_exception
 async def send_pixiv_user_new_artworks(pixiv_user: PixivUser) -> None:
     """向已订阅的用户或群发送 Pixiv 用户更新的作品"""
     logger.debug(f'PixivUserSubscriptionMonitor | Start checking pixiv user({pixiv_user.uid}) new artworks')
