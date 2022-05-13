@@ -333,6 +333,38 @@ class CardType4200LiveRoom(_BaseCardType):
         return _StdCardOutputData.parse_obj({'content': content, 'text': text, 'img_urls': [self.cover]})
 
 
+class CardType4308LiveRoom(_BaseCardType):
+    """Bilibili 动态 Card Type 4308 直播间动态(基本确定)(最近出现的)"""
+
+    class _LivePlayInfo(BaseBilibiliModel):
+        area_id: int
+        area_name: str
+        cover: AnyHttpUrl
+        link: AnyHttpUrl
+        live_id: int
+        live_start_time: int
+        live_status: int
+        room_id: int
+        room_type: int
+        title: str
+        uid: int
+
+    verify_type: int = 4308
+    live_play_info: _LivePlayInfo
+    live_record_info: Optional[str]
+    style: int
+    type: int
+
+    @property
+    def user_name(self) -> str:
+        return f'bilibili直播间({self.live_play_info.room_id})'
+
+    def output_std_model(self) -> _StdCardOutputData:
+        content = f'bilibili直播间(房间号: {self.live_play_info.room_id})直播了!\n\n【{self.live_play_info.title}】'
+        return _StdCardOutputData.parse_obj({'content': content, 'text': content,
+                                             'img_urls': [self.live_play_info.cover]})
+
+
 class CardType1Forward(_BaseCardType):
     """Bilibili 动态 Card Type 1 转发动态"""
 
@@ -365,7 +397,8 @@ class CardType1Forward(_BaseCardType):
             Json[CardType256Music] |
             Json[CardType512Anime] |
             Json[CardType2048Active] |
-            Json[CardType4200LiveRoom]
+            Json[CardType4200LiveRoom] |
+            Json[CardType4308LiveRoom]
     )]  # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
     origin_user: Optional[BilibiliDynamicCardDescUserProfile]  # 被转发用户信息
 
@@ -398,7 +431,9 @@ class BilibiliDynamicCard(BaseBilibiliModel):
             Json[CardType256Music] |
             Json[CardType512Anime] |
             Json[CardType2048Active] |
-            Json[CardType4200LiveRoom])
+            Json[CardType4200LiveRoom] |
+            Json[CardType4308LiveRoom]
+    )
 
     @property
     def output_text(self) -> str:
@@ -422,7 +457,8 @@ class BilibiliUserDynamicData(BaseBilibiliModel):
             desc_type = card.desc.type
             card_type = card.card.verify_type
             if desc_type != card_type:
-                raise ValueError(f'Parsed dynamic card({i}) type={card_type} not match description type={desc_type}')
+                raise ValueError(f'Parsed dynamic card({i}, id={card.desc.dynamic_id}) '
+                                 f'verify type={card_type} not matched description type={desc_type}')
         return v
 
 
@@ -452,7 +488,8 @@ class BilibiliDynamicData(BaseBilibiliModel):
         desc_type = v.desc.type
         card_type = v.card.verify_type
         if desc_type != card_type:
-            raise ValueError(f'Parsed dynamic card type={card_type} not match description type={desc_type}')
+            raise ValueError(f'Parsed dynamic card(id={v.desc.dynamic_id}) '
+                             f'verify type={card_type} not matched description type={desc_type}')
         return v
 
 
