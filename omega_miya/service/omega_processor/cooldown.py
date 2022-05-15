@@ -1,11 +1,15 @@
 """
-插件命令冷却系统
-使用参考例:
-plugins/setu
-plugin/draw
+@Author         : Ailitonia
+@Date           : 2021/08/28 20:33
+@FileName       : cooldown.py
+@Project        : nonebot2_miya
+@Description    : 插件命令冷却系统
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
 """
 
 from datetime import datetime, timedelta
+from pydantic import BaseModel
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
@@ -55,6 +59,7 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent)
         logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name}) ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
+    cd_skip_tag: bool = False
     cd_expired_tag: bool = True
     cd_expired_time: datetime = datetime.now()
     cooldown_event = f'{_cooldown_event_prefix}{plugin_name}_{processor_state.name}'
@@ -66,24 +71,30 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent)
         plugin_name=plugin_name, module_name=module_name, add_user_name=event.sender.nickname
     )
     if not isinstance(user_cd_check_result, Exception):
-        user_cd_expired, user_cd_expired_time = user_cd_check_result
-        if not user_cd_expired:
-            cd_expired_tag = user_cd_expired
-            cd_expired_time = user_cd_expired_time
+        cd_skip_tag = True if user_cd_check_result.allow_skip is True else cd_skip_tag
+        if not user_cd_check_result.is_expired:
+            cd_expired_tag = user_cd_check_result.is_expired
+            cd_expired_time = user_cd_check_result.expired_time
 
     # 检查群组冷却
-    if group_id is not None and cd_expired_tag:
-        group_user_cd_check_result = await _check_group_cooldown(
+    if group_id is not None:
+        group_cd_check_result = await _check_group_cooldown(
             group_id=str(group_id), bot_self_id=bot.self_id, cooldown_event=cooldown_event,
             cooldown_time=processor_state.cool_down, plugin_name=plugin_name, module_name=module_name
         )
-        if not isinstance(group_user_cd_check_result, Exception):
-            group_cd_expired, group_cd_expired_time = group_user_cd_check_result
-            if not group_cd_expired:
-                cd_expired_tag = group_cd_expired
-                cd_expired_time = group_cd_expired_time
+        if not isinstance(group_cd_check_result, Exception):
+            cd_skip_tag = True if group_cd_check_result.allow_skip is True else cd_skip_tag
+            if not group_cd_check_result.is_expired:
+                cd_expired_tag = group_cd_check_result.is_expired
+                cd_expired_time = group_cd_check_result.expired_time
 
-    if cd_expired_tag:
+    if cd_skip_tag:
+        logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name})/Matcher({processor_state.name}) '
+                                      f'<ly>Group({group_id})/User({user_id})</ly> allowed to skip cooldown')
+        return
+    elif cd_expired_tag:
+        logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name})/Matcher({processor_state.name}) '
+                                      f'<ly>Group({group_id})/User({user_id})</ly> cooldown expired')
         return
     else:
         logger.opt(colors=True).info(f'{_log_prefix}Plugin({plugin_name})/Matcher({processor_state.name}) '
@@ -92,6 +103,13 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent)
             echo_message = f'冷却中, 请稍后再试!\n冷却结束时间: {cd_expired_time.strftime("%Y/%m/%d %H:%M:%S")}'
             await run_async_catching_exception(bot.send)(event=event, message=echo_message, at_sender=True)
         raise IgnoredException('冷却中')
+
+
+class _CooldownCheckingResult(BaseModel):
+    """冷却检查结果"""
+    expired_time: datetime
+    is_expired: bool
+    allow_skip: bool
 
 
 @run_async_catching_exception
@@ -104,7 +122,7 @@ async def _check_user_cooldown(
         module_name: str,
         *,
         add_user_name: str = ''
-) -> (bool, datetime):
+) -> _CooldownCheckingResult:
     """检查用户冷却, 若用户不存在则在数据库中初始化用户 Entity"""
     user = InternalBotUser(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(user_id))
     cd_expired_tag = True
@@ -115,7 +133,7 @@ async def _check_user_cooldown(
         skip_cd = await user.check_permission_skip_cooldown(module=module_name, plugin=plugin_name)
         if skip_cd:
             logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name}) skip with User({user_id}) permission')
-            return cd_expired_tag, cd_expired_time
+            return _CooldownCheckingResult(expired_time=cd_expired_time, is_expired=cd_expired_tag, allow_skip=True)
 
         # 处理冷却
         global_cd_expired, global_cd_expired_time = await user.check_global_cooldown_expired()
@@ -151,7 +169,7 @@ async def _check_user_cooldown(
             logger.opt(colors=True).error(
                 f'{_log_prefix}Refresh User({user_id}) Cooldown({cooldown_event}) failed, {e}')
 
-    return cd_expired_tag, cd_expired_time
+    return _CooldownCheckingResult(expired_time=cd_expired_time, is_expired=cd_expired_tag, allow_skip=False)
 
 
 @run_async_catching_exception
@@ -164,7 +182,7 @@ async def _check_group_cooldown(
         module_name: str,
         *,
         add_group_name: str = ''
-) -> (bool, datetime):
+) -> _CooldownCheckingResult:
     """检查用户冷却, 若用户不存在则在数据库中初始化用户 Entity"""
     group = InternalBotGroup(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(group_id))
     cd_expired_tag = True
@@ -175,7 +193,7 @@ async def _check_group_cooldown(
         skip_cd = await group.check_permission_skip_cooldown(module=module_name, plugin=plugin_name)
         if skip_cd:
             logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name}) skip with Group({group_id}) permission')
-            return cd_expired_tag, cd_expired_time
+            return _CooldownCheckingResult(expired_time=cd_expired_time, is_expired=cd_expired_tag, allow_skip=True)
 
         # 处理冷却
         global_cd_expired, global_cd_expired_time = await group.check_global_cooldown_expired()
@@ -211,7 +229,7 @@ async def _check_group_cooldown(
             logger.opt(colors=True).error(
                 f'{_log_prefix}Refresh Group({group_id}) Cooldown({cooldown_event}) failed, {e}')
 
-    return cd_expired_tag, cd_expired_time
+    return _CooldownCheckingResult(expired_time=cd_expired_time, is_expired=cd_expired_tag, allow_skip=False)
 
 
 __all__ = [
