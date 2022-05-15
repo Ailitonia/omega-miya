@@ -1,7 +1,6 @@
 import logging
 
 from nonebot import get_driver
-from nonebot.plugin.export import export
 from nonebot.log import logger, LoguruHandler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -12,7 +11,6 @@ driver = get_driver()
 plugin_config = Config.parse_obj(driver.config)
 
 scheduler: AsyncIOScheduler = AsyncIOScheduler()
-export().scheduler = scheduler
 
 
 async def _start_scheduler():
