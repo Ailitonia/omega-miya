@@ -74,6 +74,8 @@ class Nhentai(object):
             sort: Literal['recent', 'popular-today', 'popular-week', 'popular'] = 'recent') -> TmpResource:
         """通过关键词搜索本子id和标题并生成预览图"""
         searching_result = await cls.search_gallery(keyword=keyword, page=page, sort=sort)
+        if not searching_result.results:
+            raise NhentaiNetworkError(f'No result found, keyword={keyword}, page={page}')
         name = f'Searching - {keyword} - Page {page}'
         preview_request = await emit_preview_model_from_searching_model(searching_name=name, model=searching_result)
         preview_img_file = await generate_nhentai_preview_image(preview=preview_request, hold_ratio=True)
