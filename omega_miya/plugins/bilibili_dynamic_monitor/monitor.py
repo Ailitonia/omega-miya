@@ -11,6 +11,7 @@
 from typing import Literal
 from nonebot.log import logger
 from omega_miya.web_resource.bilibili import BilibiliUser
+from omega_miya.web_resource.bilibili.exception import BilibiliApiError
 from omega_miya.utils.apscheduler import scheduler, reschedule_job
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 
@@ -18,6 +19,11 @@ from .utils import query_all_bili_user_dynamic_subscription_source, send_bili_us
 
 
 _MONITOR_JOB_ID: Literal['bili_user_dynamic_update_monitor'] = 'bili_user_dynamic_update_monitor'
+"""动态检查的定时任务 ID"""
+_AVERAGE_CHECKING_PER_MINUTE: float = 7.5
+"""期望平均每分钟检查动态的用户数(数值大小影响风控概率, 请谨慎调整)"""
+_CHECKING_DELAY_UNDER_RATE_LIMITING: int = 20
+"""被风控时的延迟间隔"""
 
 
 @run_async_catching_exception
@@ -34,7 +40,7 @@ async def bili_user_dynamic_update_monitor() -> None:
     # 避免风控, 根据订阅的用户数动态调整检查时间间隔
     monitor_job = scheduler.get_job(job_id=_MONITOR_JOB_ID)
     if monitor_job is not None:
-        interval_min = int(len(subscribed_uid) // 7.5)
+        interval_min = int(len(subscribed_uid) // _AVERAGE_CHECKING_PER_MINUTE)
         interval_min = interval_min if interval_min > 2 else 2
         reschedule_job(job=monitor_job, trigger_mode='interval', minutes=interval_min)
 
@@ -44,6 +50,13 @@ async def bili_user_dynamic_update_monitor() -> None:
     if error := [x for x in sent_result if isinstance(x, Exception)]:
         logger.error(f'BilibiliUserDynamicSubscriptionMonitor | Exception(s) raised in sending new dynamic messages: '
                      f'{", ".join(str(x) for x in error)}')
+        if any(e for e in error if isinstance(e, BilibiliApiError)):
+            # 如果 API 异常则大概率被风控, 推迟下一次检查
+            if monitor_job is not None:
+                reschedule_job(job=monitor_job, trigger_mode='interval', minutes=_CHECKING_DELAY_UNDER_RATE_LIMITING)
+            logger.warning('BilibiliUserDynamicSubscriptionMonitor | Fetch bilibili dynamic data failed, '
+                           f'maybe under the rate limiting, '
+                           f'delay the next checking until after {_CHECKING_DELAY_UNDER_RATE_LIMITING} minutes')
 
     logger.debug('BilibiliUserDynamicSubscriptionMonitor | Bilibili user dynamic update checking completed')
 
