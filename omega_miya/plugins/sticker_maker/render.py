@@ -702,7 +702,7 @@ def get_all_render_name() -> list[str]:
 @run_async_catching_exception
 async def download_source_image(url: str) -> TmpResource:
     """下载图片到本地, 保持原始文件名, 直接覆盖同名文件"""
-    file_name = HttpFetcher.parse_url_file_name(url=url)
+    file_name = HttpFetcher.hash_url_file_name('sticker_source_tmp', url=url)
     file = _TMP_SOURCE(file_name)
     download_result = await HttpFetcher().download_file(url=url, file=file)
     if download_result.status != 200:
