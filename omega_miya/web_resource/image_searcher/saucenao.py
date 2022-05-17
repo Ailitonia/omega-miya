@@ -35,13 +35,119 @@ class SaucenaoResult(BaseModel):
         class _Header(BaseModel):
             similarity: float
             thumbnail: Optional[AnyUrl]
+            index_id: int
             index_name: str
 
-        class _Data(BaseModel):
+        class _BaseData(BaseModel):
             ext_urls: Optional[list[AnyUrl]]
 
+            @property
+            def data_text(self) -> str:
+                """输出可读的来源结果信息"""
+                raise NotImplementedError
+
+        class _NullData(_BaseData):
+            """默认无解析的结果类"""
+            @property
+            def data_text(self) -> str:
+                return ''
+
+        class _DefaultData(_BaseData):
+            author_name: Optional[str]
+            author_url: Optional[str]
+            creator: str
+            creator_name: str
+
+            @property
+            def data_text(self) -> str:
+                return f'Creator: {self.creator}/{self.creator_name}\n' \
+                       f'Author: {self.author_name}\nAuthor Url: {self.author_url}'
+
+        class _TitleAuthorData(_BaseData):
+            author_name: str
+            author_url: str
+            title: str
+
+            @property
+            def data_text(self) -> str:
+                return f'Title: {self.title}\nAuthor: {self.author_name}\nAuthor Url: {self.author_url}'
+
+        class _PixivData(_BaseData):
+            pixiv_id: int
+            title: str
+            member_id: int
+            member_name: str
+
+            @property
+            def data_text(self) -> str:
+                return f'【Pixiv Artwork】\nTitle: {self.title}\nPid: {self.pixiv_id}\nAuthor: {self.member_name}'
+
+        class _PawooData(_BaseData):
+            pawoo_id: int
+            pawoo_user_acct: str
+            pawoo_user_display_name: str
+            pawoo_user_username: str
+            created_at: str
+
+            @property
+            def data_text(self) -> str:
+                return f'【Pawoo】\nUser: {self.pawoo_user_username}/{self.pawoo_user_display_name}\n' \
+                       f'Pawoo id: {self.pawoo_id}'
+
+        class _NicoData(_BaseData):
+            seiga_id: int
+            title: str
+            member_id: int
+            member_name: str
+
+            @property
+            def data_text(self) -> str:
+                return f'【Nico Nico Seiga】\nTitle: {self.title}\nSeiga id: {self.seiga_id}\nAuthor: {self.member_name}'
+
+        class _TwitterData(_BaseData):
+            tweet_id: int
+            twitter_user_handle: str
+            twitter_user_id: int
+            created_at: str
+
+            @property
+            def data_text(self) -> str:
+                return f'【Twitter】\nUser: {self.twitter_user_handle}\nTweet id: {self.tweet_id}'
+
+        class _AnimeData(_BaseData):
+            anidb_aid: int
+            anilist_id: int
+            est_time: str
+            source: str
+            part: str
+            year: str
+
+            @property
+            def data_text(self) -> str:
+                return f'【Anime】\nSource: [{self.year}]{self.source}(part: {self.part})\nEst time: {self.est_time}'
+
+        class _EHData(_BaseData):
+            source: str
+            jp_name: Optional[str]
+            eng_name: Optional[str]
+
+            @property
+            def data_text(self) -> str:
+                text = f'【EH】\nSource: {self.source}'
+                text += f'\nJP name: {self.jp_name}' if self.jp_name else ''
+                text += f'\nENG name: {self.eng_name}' if self.eng_name else ''
+                return text
+
         header: _Header
-        data: _Data
+        data: (_AnimeData |
+               _TwitterData |
+               _NicoData |
+               _PawooData |
+               _PixivData |
+               _EHData |
+               _TitleAuthorData |
+               _DefaultData |
+               _NullData)
 
     results: list[_Result]
 
@@ -68,7 +174,7 @@ class Saucenao(ImageSearcher):
             raise SaucenaoApiError(f'SaucenaoApiError, {saucenao_result}')
         saucenao_result = SaucenaoResult.parse_obj(saucenao_result.result)
         data = ({
-            'source': x.header.index_name,
+            'source': f'{x.header.index_name}\n{x.data.data_text}',
             'source_urls': x.data.ext_urls,
             'similarity': x.header.similarity,
             'thumbnail': x.header.thumbnail

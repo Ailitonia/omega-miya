@@ -67,6 +67,7 @@ class Iqdb(ImageSearcher):
                         'source': f'iqdb - Additional match',
                         'source_urls': [urls]
                     })
+                '''Possible match 内容大多不准确, 不用
                 elif item[0].get_text() == 'Possible match':
                     # 第二行是匹配缩略图及链接
                     urls = '\n'.join([str(x.find('a').get('href')).strip('/') for x in item if x.find('a')])
@@ -79,6 +80,7 @@ class Iqdb(ImageSearcher):
                         'source': f'iqdb - Possible match',
                         'source_urls': [urls]
                     })
+                '''
             except (KeyError, AttributeError):
                 continue
         return result
