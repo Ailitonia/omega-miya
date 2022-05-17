@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-import re
+from bs4 import BeautifulSoup
 from typing import Optional
 from pydantic import AnyHttpUrl
 from .base_model import BasePixivModel
@@ -78,8 +78,10 @@ class PixivArtworkBody(BasePixivModel):
 
     @property
     def parsed_description(self) -> str:
-        _description = re.compile(r'(<br>|<br />)').sub('\n', self.description)  # remove blank line
-        _description = re.compile(r'<[^>]+>').sub('', _description)  # remove html tag
+        _description_bs = BeautifulSoup(self.description, 'lxml')
+        # remove blank line
+        [line_break.replaceWith('\n') for line_break in _description_bs.findAll(name='br')]
+        _description = _description_bs.get_text()
         return _description
 
 
