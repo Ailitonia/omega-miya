@@ -128,14 +128,14 @@ class SaucenaoResult(BaseModel):
 
         class _EHData(_BaseData):
             source: str
-            jp_name: Optional[str]
-            eng_name: Optional[str]
+            jp_name: str
+            eng_name: str
 
             @property
             def data_text(self) -> str:
                 text = f'【EH】\nSource: {self.source}'
-                text += f'\nJP name: {self.jp_name}' if self.jp_name else ''
-                text += f'\nENG name: {self.eng_name}' if self.eng_name else ''
+                text += f'\nJP name: {self.jp_name}'
+                text += f'\nENG name: {self.eng_name}'
                 return text
 
         header: _Header
