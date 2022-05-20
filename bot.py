@@ -39,10 +39,8 @@ driver = nonebot.get_driver()
 driver.register_adapter(OneBotAdapter)
 
 # 加载插件
-nonebot.load_plugins('omega_miya/utils')
 nonebot.load_plugins('omega_miya/service')
 nonebot.load_plugins('omega_miya/plugins')
-# nonebot.load_plugin('omega_miya.plugins.import_old_version_data')
 
 # Modify some config / config depends on loaded configs
 # config = nonebot.get_driver().config
