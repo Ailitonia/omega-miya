@@ -12,11 +12,11 @@ from typing import Literal, Iterable
 from nonebot.log import logger
 from nonebot.exception import ActionFailed
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 
-from omega_miya.database import InternalBotUser, InternalBotGroup, InternalSubscriptionSource, BiliDynamic
-from omega_miya.database.internal.entity import BaseInternalEntity
+from omega_miya.database import InternalSubscriptionSource, BiliDynamic, EventEntityHelper
+from omega_miya.database.internal.entity import BaseInternalEntity, InternalBotUser, InternalBotGroup
 from omega_miya.result import BoolResult
 from omega_miya.web_resource.bilibili import BilibiliUser, BilibiliDynamic
 from omega_miya.web_resource.bilibili.model import BilibiliDynamicCard
@@ -26,15 +26,6 @@ from omega_miya.utils.message_tools import MessageSender
 
 _DYNAMIC_SUB_TYPE: Literal['bili_dynamic'] = 'bili_dynamic'
 """Bilibili 动态订阅 SubscriptionSource 的 sub_type"""
-
-
-def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
-    """根据 event 获取不同 entity 对象"""
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
-    return entity
 
 
 async def add_dynamic_into_database(dynamic: BilibiliDynamicCard) -> BoolResult:
@@ -76,7 +67,7 @@ async def _add_bili_user_dynamic_sub_source(bili_user: BilibiliUser) -> BoolResu
 @run_async_catching_exception
 async def add_bili_user_dynamic_sub(bot: Bot, event: MessageEvent, bili_user: BilibiliUser) -> BoolResult:
     """根据 event 为群或用户添加 Bilibili 用户动态订阅"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_source_result = await _add_bili_user_dynamic_sub_source(bili_user=bili_user)
     if add_source_result.error:
         return add_source_result
@@ -89,7 +80,7 @@ async def add_bili_user_dynamic_sub(bot: Bot, event: MessageEvent, bili_user: Bi
 @run_async_catching_exception
 async def delete_bili_user_dynamic_sub(bot: Bot, event: MessageEvent, user_id: str) -> BoolResult:
     """根据 event 为群或用户删除 Bilibili 用户动态订阅"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_sub_result = await entity.delete_subscription(sub_type=_DYNAMIC_SUB_TYPE, sub_id=user_id)
     return add_sub_result
 
@@ -99,7 +90,7 @@ async def query_subscribed_bili_user_dynamic_sub_source(bot: Bot, event: Message
     """根据 event 获取群或用户已订阅的 Bilibili 用户动态
 
     :return: 用户 UID, 用户昵称 的列表"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     subscribed_source = await entity.query_all_subscribed_source(sub_type=_DYNAMIC_SUB_TYPE)
     sub_id_result = [(x.sub_id, x.sub_user_name) for x in subscribed_source]
     return sub_id_result

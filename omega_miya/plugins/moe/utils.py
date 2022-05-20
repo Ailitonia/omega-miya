@@ -14,11 +14,10 @@ from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.message import MessageSegment
 
-from omega_miya.database import InternalBotUser, InternalBotGroup, InternalPixiv
-from omega_miya.database.internal.entity import BaseInternalEntity
+from omega_miya.database import InternalPixiv, EventEntityHelper
 from omega_miya.result import BoolResult
 from omega_miya.local_resource import TmpResource
 from omega_miya.web_resource.pixiv import PixivArtwork
@@ -33,19 +32,10 @@ _ALLOW_R18_NODE = moe_plugin_config.moe_plugin_allow_r18_node
 _Import_pids_file: TmpResource
 
 
-def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
-    """根据 event 获取不同 entity 对象"""
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
-    return entity
-
-
 @run_async_catching_exception
 async def _has_allow_r18_node(bot: Bot, event: MessageEvent, matcher: Matcher) -> bool:
     """判断当前 event 主体是否具有允许预览 r18 作品的权限"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     plugin_name = matcher.plugin.name
     module_name = matcher.plugin.module_name
     check_result = await entity.check_auth_setting(module=module_name, plugin=plugin_name, node=_ALLOW_R18_NODE)

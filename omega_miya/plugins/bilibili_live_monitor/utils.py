@@ -13,10 +13,10 @@ from datetime import datetime
 from nonebot import get_driver, logger
 from nonebot.exception import ActionFailed
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 
-from omega_miya.database import InternalBotUser, InternalBotGroup, InternalSubscriptionSource
+from omega_miya.database import InternalBotUser, InternalBotGroup, InternalSubscriptionSource, EventEntityHelper
 from omega_miya.database.internal.entity import BaseInternalEntity
 from omega_miya.result import BoolResult
 from omega_miya.web_resource.bilibili import BilibiliLiveRoom
@@ -33,15 +33,6 @@ _LIVE_SUB_TYPE: Literal['bili_live'] = 'bili_live'
 """Bilibili 直播间订阅 SubscriptionSource 的 sub_type"""
 _LIVE_STATUS: dict[int, BilibiliLiveRoomStatus] = {}
 """Bilibili 直播间状态缓存, {用户UID: 直播间状态}"""
-
-
-def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
-    """根据 event 获取不同 entity 对象"""
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
-    return entity
 
 
 def upgrade_live_room_status(
@@ -121,7 +112,7 @@ async def _add_bili_live_room_sub_source(live_room: BilibiliLiveRoom) -> BoolRes
 @run_async_catching_exception
 async def add_bili_live_room_sub(bot: Bot, event: MessageEvent, live_room: BilibiliLiveRoom) -> BoolResult:
     """根据 event 为群或用户添加 Bilibili 直播间订阅"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_source_result = await _add_bili_live_room_sub_source(live_room=live_room)
     if add_source_result.error:
         return add_source_result
@@ -134,7 +125,7 @@ async def add_bili_live_room_sub(bot: Bot, event: MessageEvent, live_room: Bilib
 @run_async_catching_exception
 async def delete_bili_live_room_sub(bot: Bot, event: MessageEvent, room_id: str) -> BoolResult:
     """根据 event 为群或用户删除 Bilibili 直播间订阅"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_sub_result = await entity.delete_subscription(sub_type=_LIVE_SUB_TYPE, sub_id=room_id)
     return add_sub_result
 
@@ -144,7 +135,7 @@ async def query_subscribed_bili_live_room_sub_source(bot: Bot, event: MessageEve
     """根据 event 获取群或用户已订阅的 Bilibili 直播间
 
     :return: 房间号, 用户昵称 的列表"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     subscribed_source = await entity.query_all_subscribed_source(sub_type=_LIVE_SUB_TYPE)
     sub_id_result = [(x.sub_id, x.sub_user_name) for x in subscribed_source]
     return sub_id_result

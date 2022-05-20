@@ -14,11 +14,10 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 
 from omega_miya.result import BoolResult
-from omega_miya.database import InternalBotUser, InternalBotGroup
-from omega_miya.database.internal.entity import BaseInternalEntity
+from omega_miya.database import EventEntityHelper
 from omega_miya.local_resource import TmpResource
 from omega_miya.utils.process_utils import run_sync, run_async_catching_exception
 from omega_miya.utils.text_utils import TextUtils
@@ -31,19 +30,10 @@ _TAROT_RESOURCE_NODE: Literal['tarot_resource'] = 'tarot_resource'
 """配置卡牌资源的节点"""
 
 
-def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
-    """根据 event 获取不同 entity 对象"""
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
-    return entity
-
-
 @run_async_catching_exception
 async def _get_tarot_resource_name(bot: Bot, event: MessageEvent, matcher: Matcher) -> str | None:
     """根据当前 event 获取对应塔罗资源名"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     plugin_name = matcher.plugin.name
     module_name = matcher.plugin.module_name
     node = await entity.query_auth_setting(module=module_name, plugin=plugin_name, node=_TAROT_RESOURCE_NODE)
@@ -66,7 +56,7 @@ async def get_tarot_resource_name(bot: Bot, event: MessageEvent, matcher: Matche
 @run_async_catching_exception
 async def set_tarot_resource(resource_name: str, bot: Bot, event: MessageEvent, matcher: Matcher) -> BoolResult:
     """根据当前 event 配置对应对象塔罗资源"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     plugin_name = matcher.plugin.name
     module_name = matcher.plugin.module_name
     result = await entity.set_auth_setting(module=module_name, plugin=plugin_name, node=_TAROT_RESOURCE_NODE,

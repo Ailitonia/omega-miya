@@ -12,29 +12,19 @@ import ujson as json
 from nonebot import get_driver
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.message import Message
 
 from apscheduler.triggers.cron import CronTrigger
 from omega_miya.utils.apscheduler import scheduler
 
 from omega_miya.result import BoolResult
-from omega_miya.database import InternalBotUser, InternalBotGroup, AuthSetting
-from omega_miya.database.internal.entity import BaseInternalEntity
+from omega_miya.database import InternalBotUser, InternalBotGroup, AuthSetting, EventEntityHelper
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 from omega_miya.utils.message_tools import MessageSender, MessageTools
 
 
 from .model import SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME, ScheduleMessageJob
-
-
-def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
-    """根据 event 获取不同 entity 对象"""
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
-    return entity
 
 
 @run_async_catching_exception
@@ -91,7 +81,7 @@ async def generate_schedule_job_data(
         message: Message
 ) -> ScheduleMessageJob:
     """生成定时消息的计划任务"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     entity_data = await entity.query()
     dumps_message = MessageTools.dumps(message=message)
     job_data = {
@@ -120,7 +110,7 @@ async def _init_schedule_message_job() -> None:
 @run_async_catching_exception
 async def get_schedule_message_job_list(bot: Bot, event: MessageEvent) -> list[str]:
     """获取数据库中 Event 对应 Entity 的全部定时任务名称"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     result = await entity.query_plugin_auth_settings(module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
                                                      plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME)
     job_list = [ScheduleMessageJob.parse_obj(json.loads(x.value)).schedule_job_name for x in result if x.available == 1]
@@ -130,7 +120,7 @@ async def get_schedule_message_job_list(bot: Bot, event: MessageEvent) -> list[s
 @run_async_catching_exception
 async def set_schedule_message_job(bot: Bot, event: MessageEvent, job_data: ScheduleMessageJob) -> BoolResult:
     """在数据库中新增或更新 Event 对应 Entity 的定时任务信息"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_result = await entity.set_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_data.schedule_job_name, available=1, value=json.dumps(job_data.dict(), ensure_ascii=False)
@@ -141,7 +131,7 @@ async def set_schedule_message_job(bot: Bot, event: MessageEvent, job_data: Sche
 @run_async_catching_exception
 async def remove_schedule_message_job(bot: Bot, event: MessageEvent, job_name: str) -> BoolResult:
     """在数据库中停用 Event 对应 Entity 的定时任务信息"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     setting = await entity.query_auth_setting(module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
                                               plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
                                               node=job_name)

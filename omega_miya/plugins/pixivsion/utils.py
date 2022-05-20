@@ -13,11 +13,11 @@ from nonebot.log import logger
 from nonebot.exception import ActionFailed
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 
 from omega_miya.result import BoolResult
-from omega_miya.database import InternalBotUser, InternalBotGroup, InternalSubscriptionSource, PixivisionArticle
-from omega_miya.database.internal.entity import BaseInternalEntity
+from omega_miya.database import InternalSubscriptionSource, PixivisionArticle, EventEntityHelper
+from omega_miya.database.internal.entity import BaseInternalEntity, InternalBotUser, InternalBotGroup
 from omega_miya.web_resource.pixiv import Pixivision
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 from omega_miya.utils.message_tools import MessageSender
@@ -27,15 +27,6 @@ _PIXIVISION_SUB_TYPE: Literal['pixivision'] = 'pixivision'
 """Pixivision 订阅 SubscriptionSource 的 sub_type"""
 _PIXIVISION_SUB_ID: Literal['pixivision'] = 'pixivision'
 """Pixivision 订阅 SubscriptionSource 的 sub_id"""
-
-
-def _get_event_entity(bot: Bot, event: MessageEvent) -> BaseInternalEntity:
-    """根据 event 获取不同 entity 对象"""
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
-    return entity
 
 
 @run_async_catching_exception
@@ -73,7 +64,7 @@ async def _add_pixivision_sub_source() -> BoolResult:
 @run_async_catching_exception
 async def add_pixivision_sub(bot: Bot, event: MessageEvent) -> BoolResult:
     """根据 event 为群或用户添加 Pixivision 订阅"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_source_result = await _add_pixivision_sub_source()
     if add_source_result.error:
         return add_source_result
@@ -86,7 +77,7 @@ async def add_pixivision_sub(bot: Bot, event: MessageEvent) -> BoolResult:
 @run_async_catching_exception
 async def delete_pixivision_sub(bot: Bot, event: MessageEvent) -> BoolResult:
     """根据 event 为群或用户删除 Pixivision 订阅"""
-    entity = _get_event_entity(bot=bot, event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     add_sub_result = await entity.delete_subscription(sub_type=_PIXIVISION_SUB_TYPE, sub_id=_PIXIVISION_SUB_ID)
     return add_sub_result
 
