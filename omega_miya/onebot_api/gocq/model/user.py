@@ -9,7 +9,7 @@
 """
 
 from ...model import BaseOnebotModel
-from ...model import StrangerInfo as OnebotStrangerInfo
+from ...model import StrangerInfo as OnebotStrangerInfo, LoginInfo as OnebotLoginInfo, FriendInfo as OnebotFriendInfo
 from ...model import GroupUser as OnebotGroupUser
 
 
@@ -18,6 +18,14 @@ class StrangerInfo(OnebotStrangerInfo):
     qid: str
     level: int
     login_days: str
+
+
+class LoginInfo(OnebotLoginInfo):
+    """登录号信息"""
+
+
+class FriendInfo(OnebotFriendInfo):
+    """好友信息"""
 
 
 class GroupUser(OnebotGroupUser):
@@ -41,6 +49,8 @@ class QidianAccountUser(BaseOnebotModel):
 
 __all__ = [
     'StrangerInfo',
+    'LoginInfo',
+    'FriendInfo',
     'GroupUser',
     'Anonymous',
     'QidianAccountUser'

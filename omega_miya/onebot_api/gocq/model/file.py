@@ -12,7 +12,22 @@ from typing import Optional
 from pydantic import AnyHttpUrl, Field
 from ...model import BaseOnebotModel
 from ...model import VersionInfo as OnebotVersionInfo
+from ...model import Cookies as OnebotCookies, CSRF as OnebotCSRF, Credentials as OnebotCredentials
+from ...model import RecordFile as OnebotRecordFile
+from ...model import CanSendImage as OnebotCanSendImage, CanSendRecord as OnebotCanSendRecord
 from ...model import Status as OnebotStatus
+
+
+class Cookies(OnebotCookies):
+    """Cookies"""
+
+
+class CSRF(OnebotCSRF):
+    """CSRF Token"""
+
+
+class Credentials(OnebotCredentials):
+    """Cookies 和 CSRF Token"""
 
 
 class ImageFile(BaseOnebotModel):
@@ -52,6 +67,18 @@ class OcrImageResult(BaseOnebotModel):
 
     texts: list[_TextDetection]
     language: str
+
+
+class CanSendImage(OnebotCanSendImage):
+    """是否可以发送图片"""
+
+
+class RecordFile(OnebotRecordFile):
+    """语音文件"""
+
+
+class CanSendRecord(OnebotCanSendRecord):
+    """是否可以发送语音"""
 
 
 class DownloadedFile(BaseOnebotModel):
@@ -162,8 +189,14 @@ class UrlSafely(BaseOnebotModel):
 
 
 __all__ = [
+    'Cookies',
+    'CSRF',
+    'Credentials',
     'ImageFile',
     'OcrImageResult',
+    'CanSendImage',
+    'RecordFile',
+    'CanSendRecord',
     'DownloadedFile',
     'VersionInfo',
     'Status',

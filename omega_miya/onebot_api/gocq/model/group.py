@@ -11,6 +11,15 @@
 from typing import Optional
 from pydantic import AnyHttpUrl
 from ...model import BaseOnebotModel
+from ...model import GroupInfo as OnebotGroupInfo, GroupHonor as OnebotGroupHonor
+
+
+class GroupInfo(OnebotGroupInfo):
+    """群信息"""
+
+
+class GroupHonor(OnebotGroupHonor):
+    """群荣耀信息"""
 
 
 class GroupInvitedRequest(BaseOnebotModel):
@@ -183,6 +192,8 @@ class GroupEssenceMessage(BaseOnebotModel):
 
 
 __all__ = [
+    'GroupInfo',
+    'GroupHonor',
     'GroupSystemMessage',
     'GroupFileSystemInfo',
     'GroupRootFiles',

@@ -11,8 +11,15 @@
 from typing import Optional
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.event import Sender
+
 from ...model import BaseOnebotModel
+from ...model import SentMessage as OnebotSentMessage
+
 from .user import Anonymous
+
+
+class SentMessage(OnebotSentMessage):
+    """已发送的消息"""
 
 
 class ReceiveMessage(BaseOnebotModel):
@@ -75,6 +82,7 @@ class ReceiveForwardMessage(BaseOnebotModel):
 
 
 __all__ = [
+    'SentMessage',
     'ReceiveMessage',
     'GroupMessageHistory',
     'ReceiveForwardMessage'
