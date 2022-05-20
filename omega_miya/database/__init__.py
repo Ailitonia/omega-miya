@@ -10,11 +10,10 @@
 
 from .schemas import (DatabaseErrorInfo, AuthSetting, BiliDynamic, EmailBox, History, PixivisionArticle,
                       Plugin, Statistic, SystemSetting, WordBank)
-from .internal import (InternalBotGroup, InternalBotUser, InternalBotGuild,
-                       InternalGuildChannel, InternalGroupUser, InternalGuildUser,
-                       InternalOneBotV11Bot,
-                       InternalSubscriptionSource, InternalPixiv)
+from .internal import (InternalBotGroup, InternalBotUser, InternalBotGuild, InternalGuildChannel,
+                       InternalOneBotV11Bot, InternalSubscriptionSource, InternalPixiv)
 from .exception import DatabaseQueryError, DatabaseUpgradeError, DatabaseDeleteError
+from .helper import EventEntityHelper
 
 
 __all__ = [
@@ -35,9 +34,8 @@ __all__ = [
     'InternalBotUser',
     'InternalBotGuild',
     'InternalGuildChannel',
-    'InternalGroupUser',
-    'InternalGuildUser',
     'InternalOneBotV11Bot',
     'InternalSubscriptionSource',
-    'InternalPixiv'
+    'InternalPixiv',
+    'EventEntityHelper'
 ]

@@ -881,7 +881,8 @@ class InternalGuildChannel(BaseInternalEntity):
     _base_relation_model: Type[BaseRelation] = GuildChannelRelation
 
 
-class InternalGroupUser(BaseInternalEntity):
+class _InternalGroupUser(BaseInternalEntity):
+    """Deactivated"""
     _base_relation_model: Type[BaseRelation] = GroupUserRelation
 
 
@@ -895,6 +896,5 @@ __all__ = [
     'InternalBotUser',
     'InternalBotGuild',
     'InternalGuildChannel',
-    'InternalGroupUser',
     'InternalGuildUser'
 ]

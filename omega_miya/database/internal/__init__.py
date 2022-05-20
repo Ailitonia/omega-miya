@@ -8,8 +8,7 @@
 @Software       : PyCharm 
 """
 
-from .entity import (InternalBotGroup, InternalBotUser, InternalBotGuild,
-                     InternalGuildChannel, InternalGroupUser, InternalGuildUser)
+from .entity import InternalBotGroup, InternalBotUser, InternalBotGuild, InternalGuildChannel, InternalGuildUser
 from .bot import InternalOneBotV11Bot
 from .subscription import InternalSubscriptionSource
 from .pixiv import InternalPixiv
@@ -20,7 +19,6 @@ __all__ = [
     'InternalBotUser',
     'InternalBotGuild',
     'InternalGuildChannel',
-    'InternalGroupUser',
     'InternalGuildUser',
     'InternalOneBotV11Bot',
     'InternalSubscriptionSource',
