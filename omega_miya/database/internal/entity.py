@@ -207,6 +207,18 @@ class BaseInternalEntity(object):
         return f'<InternalEntity|{str(self.relation.relation_type).upper()}(bot_id={self.bot_id}, ' \
                f'parent_id={self.parent_id}, entity_id={self.entity_id}, relation_model={repr(self.relation)})>'
 
+    @property
+    def entity_type(self) -> str:
+        return self.relation.child_entity.entity_type
+
+    @property
+    def relation_type(self) -> str:
+        return self.relation.relation_type
+
+    @property
+    def tid(self) -> str:
+        return f'{self.relation_type}_{self.entity_id}'
+
     @classmethod
     def parse_from_relation_model(cls, model: Union[BaseRelation, dict]) -> "BaseInternalEntity":
         """从 model 实例化"""

@@ -54,7 +54,7 @@ class EventEntityHelper(object):
         elif isinstance(_event, GuildMessageEvent):
             entity = InternalGuildChannel(bot_id=_self_id,
                                           parent_id=str(_event.guild_id), entity_id=str(_event.channel_id))
-        else:
+        else:  # _event type: PrivateMessageEvent
             entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(_event.user_id))
         return entity
 
@@ -66,7 +66,7 @@ class EventEntityHelper(object):
 
         if isinstance(_event, GuildMessageEvent):
             entity = InternalGuildUser(bot_id=_self_id, parent_id=str(_event.guild_id), entity_id=str(_event.user_id))
-        else:
+        else:  # _event type: GroupMessageEvent | PrivateMessageEvent
             entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(_event.user_id))
         return entity
 

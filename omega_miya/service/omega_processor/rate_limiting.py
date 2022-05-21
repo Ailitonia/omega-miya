@@ -16,7 +16,7 @@ from nonebot.exception import IgnoredException
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent
 
-from omega_miya.database import InternalBotUser, InternalBotGroup
+from omega_miya.database import EventEntityHelper
 from omega_miya.result import BoolResult
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -53,28 +53,27 @@ async def preprocessor_rate_limiting_cooldown(bot: Bot, event: MessageEvent):
         return
 
     user_id = event.user_id
-    group_id = getattr(event, 'group_id', None)
 
     rate_limiting_tag = False
 
     # 检查用户限制
-    user = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(user_id))
+    user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     user_check_result = await run_async_catching_exception(user.check_rate_limiting_cooldown_expired)()
     if not isinstance(user_check_result, Exception):
         user_expired, user_expired_time = user_check_result
         if not user_expired:
-            logger.opt(colors=True).info(f'{_log_prefix}User({user_id}) 被速率限制中, 到期时间 {user_expired_time}')
+            logger.opt(colors=True).info(f'{_log_prefix}User({user.tid}) 被速率限制中, 到期时间 {user_expired_time}')
             RATE_LIMITING_USER_TEMP.update({user_id: user_expired_time})
             rate_limiting_tag = True
 
-    # 检查群组限制
-    if group_id is not None and not rate_limiting_tag:
-        group = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(group_id))
+    # 检查群组/频道限制
+    if not rate_limiting_tag:
+        group = EventEntityHelper(bot=bot, event=event).get_event_entity()
         group_check_result = await run_async_catching_exception(group.check_rate_limiting_cooldown_expired)()
         if not isinstance(group_check_result, Exception):
             group_expired, group_expired_time = group_check_result
             if not group_expired:
-                logger.opt(colors=True).info(f'{_log_prefix}Group({group_id}) 被速率限制中, 到期时间 {group_expired_time}')
+                logger.opt(colors=True).info(f'{_log_prefix}Group({group.tid}) 被速率限制中, 到期时间 {group_expired_time}')
                 rate_limiting_tag = True
 
     if rate_limiting_tag:
@@ -139,7 +138,7 @@ async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent):
             f'{_log_prefix}User({user_id}) 触发速率限制, 已设置用户限制 {RATE_LIMITING_COOL_DOWN} 秒')
 
         rate_limiting_cooldown_result = await _set_user_rate_limiting_cooldown(
-            user_id=str(user_id), bot_self_id=bot.self_id, cooldown_time=RATE_LIMITING_COOL_DOWN,
+            bot=bot, event=event, cooldown_time=RATE_LIMITING_COOL_DOWN,
             add_user_name=event.sender.nickname
         )
         RATE_LIMITING_COUNT.update({user_id: 0})
@@ -160,23 +159,23 @@ async def preprocessor_rate_limiting(bot: Bot, event: MessageEvent):
 
 @run_async_catching_exception
 async def _set_user_rate_limiting_cooldown(
-        user_id: str,
-        bot_self_id: str,
+        bot: Bot,
+        event: MessageEvent,
         cooldown_time: int,
         *,
         add_user_name: str = ''
 ) -> BoolResult:
     """设置用户流控冷却, 若用户不存在则在数据库中初始化用户 Entity"""
-    user = InternalBotUser(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(user_id))
+    user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     try:
         set_result = await user.set_rate_limiting_cooldown(expired_time=timedelta(seconds=cooldown_time))
     except Exception as e:
-        logger.opt(colors=True).debug(f'{_log_prefix}Set User({user_id}) rate_limiting cooldown failed, {e}')
+        logger.opt(colors=True).debug(f'{_log_prefix}Set User({user.tid}) rate_limiting cooldown failed, {e}')
         add_user = await user.add_only(entity_name=add_user_name, related_entity_name=add_user_name)
         if add_user.success:
-            logger.opt(colors=True).debug(f'{_log_prefix}Add and init User({user_id}) succeed')
+            logger.opt(colors=True).debug(f'{_log_prefix}Add and init User({user.tid}) succeed')
         else:
-            logger.opt(colors=True).debug(f'{_log_prefix}Add User({user_id}) failed, {add_user.info}')
+            logger.opt(colors=True).debug(f'{_log_prefix}Add User({user.tid}) failed, {add_user.info}')
         set_result = await user.set_rate_limiting_cooldown(expired_time=timedelta(seconds=cooldown_time))
     return set_result
 
