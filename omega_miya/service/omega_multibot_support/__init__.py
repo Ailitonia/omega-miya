@@ -85,14 +85,14 @@ async def disconnected_bot_database_upgrade(bot: Bot):
 async def unique_bot_responding_limit(bot: Bot, event: Event, matcher: Matcher):
     # 对于多协议端同时接入, 需匹配event.self_id与bot.self_id, 以保证会话不会被跨bot, 跨群, 跨用户触发
     if bot.self_id != str(event.self_id):
-        logger.debug(f'Bot {bot.self_id} ignored event which not match self_id with {event.self_id}.')
-        raise IgnoredException(f'Bot {bot.self_id} ignored event which not match self_id with {event.self_id}.')
+        logger.debug(f'Bot {bot.self_id} ignored event which not match self_id with {event.self_id}')
+        raise IgnoredException(f'Bot {bot.self_id} ignored event which not match self_id with {event.self_id}')
 
     # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
     event_user_id = str(getattr(event, 'user_id', -1))
     if event_user_id in [x for x in _ONLINE_BOTS.keys() if x != bot.self_id]:
-        logger.debug(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}.')
-        raise IgnoredException(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}.')
+        logger.debug(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}')
+        raise IgnoredException(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}')
 
     # 对于多协议端同时接入, 需要使用 permission_updater 限制 bot 的 self_id 避免响应混乱
     if isinstance(event, (MessageEvent, NoticeEvent, RequestEvent)) and not matcher.temp:

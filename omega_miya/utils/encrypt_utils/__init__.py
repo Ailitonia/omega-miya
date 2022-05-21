@@ -23,7 +23,7 @@ class AESEncryptStr(object):
         while len(key) % 16 != 0:
             key += '\0'
         if len(key) != 16:
-            raise ValueError('Incorrect AES key length, key length should be less than 16.')
+            raise ValueError('Incorrect AES key length, key length should be less than 16')
         self.__key = key.encode(encoding='utf8')
 
     def encrypt(self, text: str) -> Tuple[str, str, str]:

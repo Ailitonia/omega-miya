@@ -252,7 +252,7 @@ async def handle_database_import(state: T_State, matcher: Matcher, mode: str = A
     mode = mode.strip()
     pids: list[int] = [int(x) for x in state.get('pids', [])]
     if not pids:
-        await matcher.send('从文件中读取导入文件列表...')
+        await matcher.send('尝试从文件中读取导入文件列表')
         pids = await get_database_import_pids()
     if not pids:
         await matcher.finish('导入列表不存在, 详情请查看日志')
