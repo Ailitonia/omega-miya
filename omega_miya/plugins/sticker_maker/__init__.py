@@ -6,6 +6,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import Depends, CommandArg, Arg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.message_tools import MessageTools
 
@@ -25,7 +26,7 @@ sticker = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='sticker', level=10),
     aliases={'sticker', '表情包'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
     block=True
 )

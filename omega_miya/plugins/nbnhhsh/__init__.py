@@ -5,6 +5,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .data_source import get_guess
 
@@ -24,7 +25,7 @@ nbnhhsh = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='nbnhhsh', level=20),
     aliases={'hhsh', '好好说话', '能不能好好说话'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )

@@ -18,6 +18,7 @@ from nonebot.adapters.onebot.v11.message import Message
 from nonebot.params import Depends, CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.web_resource.tencent_cloud import TencentTMT
 
@@ -36,7 +37,7 @@ translate = on_command(
     aliases={'translate', '翻译'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='translate', level=30, auth_node='translate'),
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )

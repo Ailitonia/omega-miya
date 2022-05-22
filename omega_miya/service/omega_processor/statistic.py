@@ -15,6 +15,7 @@ from nonebot.adapters.onebot.v11.event import Event, MessageEvent, GroupMessageE
 from nonebot.adapters.onebot.v11.bot import Bot
 
 from omega_miya.database import Statistic
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
 from omega_miya.service.omega_processor_tools import parse_processor_state
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -26,6 +27,8 @@ def _generate_call_id(event: Event) -> str:
     """根据 event 生成 call_id"""
     if isinstance(event, GroupMessageEvent):
         call_id = f'group_{event.group_id}'
+    elif isinstance(event, GuildMessageEvent):
+        call_id = f'guild_channel_{event.guild_id}_{event.channel_id}'
     elif isinstance(event, MessageEvent):
         call_id = f'user_{event.user_id}'
     else:

@@ -2,11 +2,12 @@ import datetime
 from nonebot import on_command
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.message import Message
-from nonebot.adapters.onebot.v11.event import GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .utils import query_maybe
 
@@ -27,7 +28,7 @@ maybe = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='maybe', level=10),
     aliases={'求签'},
-    permission=GROUP,
+    permission=GROUP | GUILD,
     priority=10,
     block=True
 )
@@ -42,7 +43,7 @@ async def handle_parse_sign_text(state: T_State, cmd_arg: Message = CommandArg()
 
 
 @maybe.got('sign_text', prompt='你想问什么事呢?')
-async def handle_sign_text(event: GroupMessageEvent, sign_text: str = ArgStr('sign_text')):
+async def handle_sign_text(event: MessageEvent, sign_text: str = ArgStr('sign_text')):
     sign_text = sign_text.strip()
     result_text = query_maybe(sign_text=sign_text, user_id=event.user_id)
     today = datetime.date.today().strftime('%Y年%m月%d日')

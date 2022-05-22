@@ -19,6 +19,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.onebot_api import GoCqhttpBot
 
 
@@ -43,7 +44,7 @@ roll = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='roll', level=10, cool_down=10),
     aliases={'roll'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
     block=True
 )
@@ -135,7 +136,7 @@ help_choice = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='help_choice', level=10, cool_down=10),
     aliases={'帮我选', '选择困难症'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
     block=True
 )

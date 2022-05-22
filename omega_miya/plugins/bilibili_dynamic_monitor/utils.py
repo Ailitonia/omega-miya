@@ -16,7 +16,8 @@ from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 
 from omega_miya.database import InternalSubscriptionSource, BiliDynamic, EventEntityHelper
-from omega_miya.database.internal.entity import BaseInternalEntity, InternalBotUser, InternalBotGroup
+from omega_miya.database import InternalBotUser, InternalBotGroup, InternalGuildChannel
+from omega_miya.database.internal.entity import BaseInternalEntity
 from omega_miya.result import BoolResult
 from omega_miya.web_resource.bilibili import BilibiliUser, BilibiliDynamic
 from omega_miya.web_resource.bilibili.model import BilibiliDynamicCard
@@ -118,6 +119,8 @@ async def _query_subscribed_entity_by_bili_user(bili_user: BilibiliUser) -> list
                 init_tasks.append(InternalBotGroup.init_from_index_id(id_=related_entity.id))
             case 'bot_user':
                 init_tasks.append(InternalBotUser.init_from_index_id(id_=related_entity.id))
+            case 'guild_channel':
+                init_tasks.append(InternalGuildChannel.init_from_index_id(id_=related_entity.id))
 
     entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50)
     if error := [x for x in entity_result if isinstance(x, Exception)]:

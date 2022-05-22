@@ -20,6 +20,8 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .utils import draw_statistics
 
@@ -45,7 +47,7 @@ statistic = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='statistic', level=10),
     aliases={'统计信息', '使用统计', '插件统计'},
-    permission=SUPERUSER | GROUP | PRIVATE_FRIEND,
+    permission=SUPERUSER | GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
     block=True
 )
@@ -68,6 +70,9 @@ async def handle_help_message(bot: Bot, matcher: Matcher, event: MessageEvent, c
     if isinstance(event, GroupMessageEvent):
         call_id = f'group_{event.group_id}'
         title_prefix = f'本群({event.group_id})'
+    elif isinstance(event, GuildMessageEvent):
+        call_id = f'guild_channel_{event.guild_id}_{event.channel_id}'
+        title_prefix = f'频道({event.channel_id})'
     elif isinstance(event, MessageEvent):
         call_id = f'user_{event.user_id}'
         title_prefix = f'用户({event.user_id})'

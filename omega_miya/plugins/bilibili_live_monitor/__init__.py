@@ -9,6 +9,7 @@ from nonebot.adapters.onebot.v11.message import Message
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.web_resource.bilibili import BilibiliLiveRoom
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -150,7 +151,7 @@ list_live_sub = on_command(
         auth_node='bilibili_list_live_subscription'
     ),
     aliases={'B站直播间订阅列表', 'b站直播间订阅列表', 'Bilibili直播间订阅列表', 'bilibili直播间订阅列表'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )

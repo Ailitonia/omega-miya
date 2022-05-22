@@ -13,9 +13,6 @@ from nonebot.message import event_preprocessor, event_postprocessor, run_preproc
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event, MessageEvent
-from nonebot.exception import IgnoredException
-
-from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, ChannelNoticeEvent
 
 from .cancellation import preprocessor_cancellation
 from .cooldown import preprocessor_cooldown
@@ -40,10 +37,6 @@ async def handle_on_startup():
 @event_preprocessor
 async def handle_event_preprocessor(bot: Bot, event: Event):
     """事件预处理"""
-    # 暂时不处理频道事件
-    if isinstance(event, (GuildMessageEvent, ChannelNoticeEvent)):
-        raise IgnoredException('Ignore Guild Event')
-
     # 针对消息事件的处理
     if isinstance(event, MessageEvent):
         # 处理速率控制

@@ -22,6 +22,7 @@ from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.web_resource.pixiv import PixivArtwork, PixivRanking, PixivDiscovery, PixivSearching, PixivUser
 from omega_miya.web_resource.pixiv.helper import parse_pid_from_url
@@ -82,7 +83,7 @@ pixiv = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -123,7 +124,7 @@ pixiv_recommend = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv推荐', 'Pixiv推荐'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -172,7 +173,7 @@ pixiv_discovery = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv发现', 'Pixiv发现'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -209,7 +210,7 @@ pixiv_daily_ranking = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv日榜', 'Pixiv日榜'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -243,7 +244,7 @@ pixiv_weekly_ranking = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv周榜', 'Pixiv周榜'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -277,7 +278,7 @@ pixiv_monthly_ranking = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv月榜', 'Pixiv月榜'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -313,7 +314,7 @@ pixiv_searching = on_shell_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv搜索', 'Pixiv搜索'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -444,7 +445,7 @@ pixiv_user_searching = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv用户搜索', 'Pixiv用户搜索'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -481,7 +482,7 @@ pixiv_user_artworks = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv用户作品', 'Pixiv用户作品'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -637,7 +638,7 @@ pixiv_list_user_subscription = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv用户订阅列表', 'Pixiv用户订阅列表'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )

@@ -1,6 +1,6 @@
 """Omega Miya 使用指南
 
-- /Omega Init - bot 首次加入新群组/首次添加 bot 好友后, 须使用本命令进行初始化 (初始化并启用基本功能, 不会覆盖已有信息, 仅供第一次使用bot时执行)
+- /Omega Init - bot 首次加入新群组或频道/首次添加 bot 好友后, 须使用本命令进行初始化 (初始化并启用基本功能, 不会覆盖已有信息, 仅供第一次使用bot时执行)
 - /Omega Enable - 启用 bot 功能
 - /Omega Disable - 禁用用 bot 功能
 - /Omega SetLevel <PermissionLevel> - 设置权限等级
@@ -20,7 +20,7 @@ from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent, P
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from nonebot.params import CommandArg, ArgStr
 
-from omega_miya.database import InternalBotUser, InternalBotGroup
+from omega_miya.database import InternalBotGroup, InternalGuildChannel, EventEntityHelper
 from omega_miya.service import init_processor_state
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.onebot_api import GoCqhttpBot
@@ -105,11 +105,11 @@ async def handle_operating(
             result_prefix = '初始化'
             msg = None
         case 'enable':
-            result = await operation_enable(event=event)
+            result = await operation_enable(bot=bot, event=event)
             result_prefix = '启用'
             msg = None
         case 'disable':
-            result = await operation_disable(event=event)
+            result = await operation_disable(bot=bot, event=event)
             result_prefix = '禁用'
             msg = None
         case 'setlevel':
@@ -119,11 +119,11 @@ async def handle_operating(
             if level < 0 or level > MAX_PERMISSION_LEVEL:
                 await omega.reject_arg(key='operation_arg',
                                        prompt=f'可设定的权限等级范围为 0~{MAX_PERMISSION_LEVEL}, 请重新输入:')
-            result = await operation_set_permission_level(event=event, level=level)
+            result = await operation_set_permission_level(bot=bot, event=event, level=level)
             result_prefix = '设置权限等级'
             msg = None
         case 'showpermission':
-            result = await operation_show_permission(event=event)
+            result = await operation_show_permission(bot=bot, event=event)
             result_prefix = '查询权限状态'
             msg = f'当前权限状态:\n\n{result}'
         case 'quitgroup':
@@ -150,16 +150,6 @@ async def handle_operating(
         await omega.finish(f'Omega {result_prefix}成功' if not msg else msg)
 
 
-def get_entity_from_event(event: MessageEvent) -> InternalBotUser | InternalBotGroup:
-    """根据 event 中获取授权操作对象"""
-    bot_self_id = str(event.self_id)
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot_self_id, parent_id=bot_self_id, entity_id=str(event.user_id))
-    return entity
-
-
 async def verify_friend(bot: Bot, event: MessageEvent, matcher: Matcher) -> None:
     """验证当前会话如果是私聊则用户必须是 bot 好友, 否则中止会话"""
     if isinstance(event, PrivateMessageEvent):
@@ -172,13 +162,22 @@ async def verify_friend(bot: Bot, event: MessageEvent, matcher: Matcher) -> None
 @run_async_catching_exception
 async def operation_init(bot: Bot, event: MessageEvent) -> bool:
     """执行 Init 初始化并启用基本功能"""
-    entity = get_entity_from_event(event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     gocq_bot = GoCqhttpBot(bot=bot)
     if isinstance(entity, InternalBotGroup):
         group_data = await gocq_bot.get_group_info(group_id=entity.entity_id, no_cache=True)
         entity_name = group_data.group_name
         entity_info = group_data.group_memo
         related_entity_name = group_data.group_name
+    elif isinstance(entity, InternalGuildChannel):
+        guild_channel_data = await gocq_bot.get_guild_channel_list(guild_id=entity.parent_id, no_cache=True)
+        entity_name = entity_info = related_entity_name = ''
+        for channel_data in guild_channel_data:
+            if channel_data.channel_id == entity.entity_id:
+                entity_name = channel_data.channel_name
+                entity_info = channel_data.channel_type
+                related_entity_name = channel_data.channel_name
+                break
     else:
         user_data = await gocq_bot.get_stranger_info(user_id=entity.entity_id, no_cache=True)
         entity_name = user_data.nickname
@@ -192,33 +191,33 @@ async def operation_init(bot: Bot, event: MessageEvent) -> bool:
 
 
 @run_async_catching_exception
-async def operation_enable(event: MessageEvent) -> bool:
+async def operation_enable(bot: Bot, event: MessageEvent) -> bool:
     """执行 Enable 启用基本功能"""
-    entity = get_entity_from_event(event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     result = await entity.enable_global_permission()
     return result.success
 
 
 @run_async_catching_exception
-async def operation_disable(event: MessageEvent) -> bool:
+async def operation_disable(bot: Bot, event: MessageEvent) -> bool:
     """执行 Disable 禁用基本功能"""
-    entity = get_entity_from_event(event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     result = await entity.disable_global_permission()
     return result.success
 
 
 @run_async_catching_exception
-async def operation_set_permission_level(event: MessageEvent, level: int) -> bool:
+async def operation_set_permission_level(bot: Bot, event: MessageEvent, level: int) -> bool:
     """执行 SetLevel 设置权限等级"""
-    entity = get_entity_from_event(event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
     result = await entity.set_permission_level(level=level)
     return result.success
 
 
 @run_async_catching_exception
-async def operation_show_permission(event: MessageEvent) -> str:
+async def operation_show_permission(bot: Bot, event: MessageEvent) -> str:
     """执行 SetLevel 设置权限等级"""
-    entity = get_entity_from_event(event=event)
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
 
     global_permission = await entity.query_global_permission()
     if global_permission is None:

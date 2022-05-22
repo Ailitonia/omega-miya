@@ -20,6 +20,7 @@ from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .tarot_resources import get_tarot_resource, get_available_tarot_resource
 from .utils import generate_tarot_card, get_tarot_resource_name, set_tarot_resource
@@ -43,7 +44,7 @@ tarot = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='tarot', level=10),
     aliases={'塔罗牌', '单张塔罗牌'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
     block=True
 )

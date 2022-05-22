@@ -15,6 +15,7 @@ from nonebot.adapters.onebot.v11.message import Message
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from .calculator import Calculator, CalculateException
 
 
@@ -33,7 +34,7 @@ calculator = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='calculator', level=10),
     aliases={'计算', '计算器'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
     block=True
 )

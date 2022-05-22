@@ -18,6 +18,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import Depends, RawCommand, CommandArg, Arg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.message_tools import MessageSender, MessageTools
 from omega_miya.web_resource.image_searcher import ComplexImageSearcher, TraceMoe
@@ -40,7 +41,7 @@ image_searcher = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='search_image', level=50),
     aliases={'识图', '搜图', '识番', '搜番'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )

@@ -16,6 +16,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.params import RawCommand
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .model import get_random_food_message
 
@@ -38,7 +39,7 @@ what_eat_today = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='what_to_eat', level=10),
     aliases={'早上吃啥', '早饭吃啥', '中午吃啥', '午饭吃啥', '晚上吃啥', '晚饭吃啥', '夜宵吃啥', '宵夜吃啥'},
-    permission=GROUP,
+    permission=GROUP | GUILD,
     priority=10,
     block=True
 )

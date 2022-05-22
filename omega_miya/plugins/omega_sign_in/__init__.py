@@ -16,13 +16,15 @@ from nonebot.message import handle_event
 from nonebot.typing import T_State
 from nonebot.rule import to_me
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import GroupMessageEvent, PokeNotifyEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent, PokeNotifyEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.params import ArgStr
 
 from omega_miya.service import init_processor_state
-from omega_miya.database import InternalBotUser
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.database import EventEntityHelper
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.rule import group_has_permission_level
 from omega_miya.utils.process_utils import run_async_catching_exception
@@ -68,7 +70,7 @@ SignIn = MatcherGroup(
     type='message',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='SignIn', level=20, auth_node='sign_in', echo_processor_result=False),
-    permission=GROUP,
+    permission=GROUP | GUILD,
     priority=20,
     block=True
 )
@@ -124,13 +126,13 @@ async def handle_command_sign_in(bot: Bot, event: PokeNotifyEvent):
 
 
 @command_sign_in.handle()
-async def handle_command_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_command_sign_in(bot: Bot, event: GroupMessageEvent | GuildMessageEvent, state: T_State):
     msg = await handle_sign_in(bot=bot, event=event, state=state)
     await command_sign_in.finish(msg, at_sender=True)
 
 
 @command_fortune_today.handle()
-async def handle_command_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def handle_command_fortune_today(bot: Bot, event: GroupMessageEvent | GuildMessageEvent, state: T_State):
     msg = await handle_fortune(bot=bot, event=event, state=state)
     await command_fortune_today.finish(msg, at_sender=True)
 
@@ -140,23 +142,23 @@ if sign_in_config.signin_enable_regex_matcher:
     regex_fortune_today = SignIn.on_regex(r'^(今日(运势|人品)|一言|好感度|我的好感)$')
 
     @regex_sign_in.handle()
-    async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State):
+    async def handle_regex_sign_in(bot: Bot, event: GroupMessageEvent | GuildMessageEvent, state: T_State):
         msg = await handle_sign_in(bot=bot, event=event, state=state)
         await regex_sign_in.finish(msg, at_sender=True)
 
     @regex_fortune_today.handle()
-    async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent, state: T_State):
+    async def handle_regex_fortune_today(bot: Bot, event: GroupMessageEvent | GuildMessageEvent, state: T_State):
         msg = await handle_fortune(bot=bot, event=event, state=state)
         await regex_fortune_today.finish(msg, at_sender=True)
 
 
 @command_fix_sign_in.handle()
-async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, state: T_State):
-    user = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent | GuildMessageEvent, state: T_State):
+    user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     # 先检查签到状态
     check_result = await run_async_catching_exception(user.check_today_sign_in)()
     if isinstance(check_result, Exception):
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 补签失败, 签到状态异常, {check_result}')
+        logger.error(f'SignIn | User({user.tid}) 补签失败, 签到状态异常, {check_result}')
         await command_fix_sign_in.finish('补签失败了QAQ, 签到状态异常, 请稍后再试或联系管理员处理', at_sender=True)
     elif not check_result:
         # 未签到
@@ -165,7 +167,7 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, s
     # 获取补签的时间
     fix_date_result = await run_async_catching_exception(user.query_last_missing_sign_in_day)()
     if isinstance(fix_date_result, Exception):
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 补签失败, 获取补签日期失败, {fix_date_result}')
+        logger.error(f'SignIn | User({user.tid}) 补签失败, 获取补签日期失败, {fix_date_result}')
         await command_fix_sign_in.finish('补签失败了QAQ, 签到状态异常, 请稍后再试或联系管理员处理', at_sender=True)
 
     fix_date = datetime.fromordinal(fix_date_result).strftime('%Y年%m月%d日')
@@ -175,11 +177,11 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, s
     # 获取当前好感度信息
     friendship = await run_async_catching_exception(user.get_friendship_model)()
     if isinstance(friendship, Exception):
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 补签失败, 用户无好感度信息, {friendship}')
+        logger.error(f'SignIn | User({user.tid}) 补签失败, 用户无好感度信息, {friendship}')
         await command_fix_sign_in.finish('补签失败了QAQ, 没有你的签到信息, 请先尝试签到后再补签', at_sender=True)
 
     if fix_cost > friendship.currency:
-        logger.info(f'SignIn | {event.group_id}/{event.user_id} 补签失败, 用户{sign_in_config.signin_currency_alias}不足')
+        logger.info(f'SignIn | User({user.tid}) 补签失败, 用户{sign_in_config.signin_currency_alias}不足')
         tip_msg = f'没有足够的{sign_in_config.signin_currency_alias}【{fix_cost}】进行补签QAQ'
         await command_fix_sign_in.finish(tip_msg, at_sender=True)
 
@@ -191,7 +193,7 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, s
 
 
 @command_fix_sign_in.got('check', prompt='确认吗?\n【是/否】')
-async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, state: T_State,
+async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent | GuildMessageEvent, state: T_State,
                                            check: str = ArgStr('check')):
     fix_cost: int = state['fix_cost']
     fix_date: str = state['fix_date']
@@ -201,10 +203,10 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, s
     if check != '是':
         await command_fix_sign_in.finish('那就不补签了哦~', at_sender=True)
 
-    user = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     currency_result = await run_async_catching_exception(user.add_friendship)(currency=(- fix_cost))
     if isinstance(currency_result, Exception):
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 补签失败, '
+        logger.error(f'SignIn | User({user.tid}) 补签失败, '
                      f'{sign_in_config.signin_currency_alias}更新失败, {currency_result}')
         await command_fix_sign_in.finish('补签失败了QAQ, 请稍后再试或联系管理员处理', at_sender=True)
 
@@ -212,20 +214,20 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent, s
     sign_in_result = await run_async_catching_exception(user.sign_in)(sign_in_info='Fixed sign in',
                                                                       date_=datetime.fromordinal(fix_date_ordinal))
     if isinstance(sign_in_result, Exception):
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 补签失败, 尝试签到失败, {sign_in_result}')
+        logger.error(f'SignIn | User({user.tid}) 补签失败, 尝试签到失败, {sign_in_result}')
         await command_fix_sign_in.finish('补签失败了QAQ, 请尝试先签到后再试或联系管理员处理', at_sender=True)
 
     # 设置一个状态指示生成卡片中添加文字
     state.update({'_checked_sign_in_text': f'已消耗{fix_cost}{sign_in_config.signin_currency_alias}~\n'
                                            f'成功补签了{fix_date}的签到!'})
     msg = await handle_fortune(bot=bot, event=event, state=state)
-    logger.info(f'SignIn | {event.group_id}/{event.user_id}, 补签成功')
+    logger.info(f'SignIn | User({user.tid}), 补签成功')
     await command_fix_sign_in.finish(msg)
 
 
-async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
+async def handle_sign_in(bot: Bot, event: MessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
     """处理生成签到卡片"""
-    user = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     try:
         # 获取当前好感度信息
         friendship = await run_async_catching_exception(user.get_friendship_model)()
@@ -286,27 +288,27 @@ async def handle_sign_in(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
             raise FailedException(f'生成签到卡片失败, {sign_in_card_result}')
 
         msg = MessageSegment.image(sign_in_card_result.file_uri)
-        logger.success(f'SignIn | {event.group_id}/{event.user_id} 签到成功')
+        logger.success(f'SignIn | User({user.tid}) 签到成功')
         return msg
     except DuplicateException as e:
         # 已签到, 设置一个状态指示生成卡片中添加文字
         state.update({'_checked_sign_in_text': '今天你已经签到过了哦~'})
         msg = await handle_fortune(bot=bot, event=event, state=state)
-        logger.info(f'SignIn | {event.group_id}/{event.user_id} 重复签到, 生成运势卡片, {e}')
+        logger.info(f'SignIn | User({user.tid}) 重复签到, 生成运势卡片, {e}')
         return msg
     except FailedException as e:
         msg = MessageSegment.at(event.user_id) + '签到失败了QAQ, 请稍后再试或联系管理员处理'
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 签到失败, {e}')
+        logger.error(f'SignIn | User({user.tid}) 签到失败, {e}')
         return msg
     except Exception as e:
         msg = MessageSegment.at(event.user_id) + '签到失败了QAQ, 请稍后再试或联系管理员处理'
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 签到失败, 发生了预期外的错误, {e}')
+        logger.error(f'SignIn | User({user.tid}) 签到失败, 发生了预期外的错误, {e}')
         return msg
 
 
-async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
+async def handle_fortune(bot: Bot, event: MessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
     """处理生成运势卡片"""
-    user = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     try:
         # 获取当前好感度信息
         friendship = await run_async_catching_exception(user.get_friendship_model)()
@@ -328,15 +330,17 @@ async def handle_fortune(bot: Bot, event: GroupMessageEvent, state: T_State) -> 
                     f'当前{sign_in_config.signin_friendship_alias}: {int(friendship.friend_ship)}\n' \
                     f'当前{sign_in_config.signin_currency_alias}: {int(friendship.currency)}'
 
-        sign_in_card_result = await generate_signin_card(
-            user_id=event.user_id, user_text=user_text, fav=friendship.friend_ship, fortune_do=False, add_head_img=True)
+        add_head_img = False if isinstance(event, GuildMessageEvent) else True
+
+        sign_in_card_result = await generate_signin_card(user_id=event.user_id, user_text=user_text, fortune_do=False,
+                                                         fav=friendship.friend_ship, add_head_img=add_head_img)
         if isinstance(sign_in_card_result, Exception):
             raise FailedException(f'生成运势卡片失败, {sign_in_card_result}')
 
         msg = MessageSegment.image(sign_in_card_result.file_uri)
-        logger.info(f'SignIn | {event.group_id}/{event.user_id} 获取运势卡片成功')
+        logger.info(f'SignIn | User({user.tid}) 获取运势卡片成功')
         return msg
     except Exception as e:
         msg = MessageSegment.at(event.user_id) + '获取今日运势失败了QAQ, 请稍后再试或联系管理员处理'
-        logger.error(f'SignIn | {event.group_id}/{event.user_id} 获取运势卡片失败, 发生了预期外的错误, {e}')
+        logger.error(f'SignIn | User({user.tid}) 获取运势卡片失败, 发生了预期外的错误, {e}')
         return msg

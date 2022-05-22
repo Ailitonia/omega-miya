@@ -19,7 +19,7 @@ from apscheduler.triggers.cron import CronTrigger
 from omega_miya.utils.apscheduler import scheduler
 
 from omega_miya.result import BoolResult
-from omega_miya.database import InternalBotUser, InternalBotGroup, AuthSetting, EventEntityHelper
+from omega_miya.database import InternalBotUser, InternalBotGroup, InternalGuildChannel, AuthSetting, EventEntityHelper
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 from omega_miya.utils.message_tools import MessageSender, MessageTools
 
@@ -35,6 +35,8 @@ async def add_schedule_job(job_data: ScheduleMessageJob) -> None:
             entity = await InternalBotGroup.init_from_index_id(id_=job_data.entity_index_id)
         case 'bot_user':
             entity = await InternalBotUser.init_from_index_id(id_=job_data.entity_index_id)
+        case 'guild_channel':
+            entity = await InternalGuildChannel.init_from_index_id(id_=job_data.entity_index_id)
         case _:
             raise ValueError('invalid job data')
     send_message = MessageTools.loads(message_data=job_data.message)

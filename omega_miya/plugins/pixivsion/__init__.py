@@ -19,6 +19,7 @@ from nonebot.adapters.onebot.v11.message import MessageSegment, Message
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.web_resource.pixiv import Pixivision
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -51,7 +52,7 @@ pixivision = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixivision'},
-    permission=GROUP | PRIVATE_FRIEND,
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
 )

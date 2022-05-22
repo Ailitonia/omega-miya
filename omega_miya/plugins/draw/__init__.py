@@ -11,11 +11,12 @@
 from nonebot import on_command
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.message import Message
-from nonebot.adapters.onebot.v11.event import GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .deck import draw, get_deck
 
@@ -35,7 +36,7 @@ draw_deck = on_command(
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(name='draw', level=10, cool_down=20),
     aliases={'draw', '抽卡'},
-    permission=GROUP,
+    permission=GROUP | GUILD,
     priority=10,
     block=True
 )
@@ -53,7 +54,7 @@ async def handle_parse_deck(state: T_State, cmd_arg: Message = CommandArg()):
 
 
 @draw_deck.got('deck_name', prompt='请输入你想要抽取的卡组:')
-async def handle_roll(event: GroupMessageEvent, deck_name: str = ArgStr('deck_name')):
+async def handle_roll(event: MessageEvent, deck_name: str = ArgStr('deck_name')):
     deck_name = deck_name.strip()
     if deck_name not in get_deck():
         msg = f'没有"{deck_name}"卡组, 请重新在以下可用卡组中选择:\n\n' + '\n'.join(x for x in get_deck())

@@ -34,6 +34,7 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://
 - 速率控制系统
 - HTTP 代理功能
 - 自动处理加好友和被邀请进群
+- go-cqhttp 频道功能支持
 - 插件帮助功能
 - Bot对群组公告功能
 - 定时消息功能 (支持群聊 / 私聊)

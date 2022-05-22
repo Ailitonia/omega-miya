@@ -6,12 +6,13 @@ from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.params import CommandArg, ArgStr
 
-from omega_miya.database import InternalBotUser, InternalBotGroup, EmailBox
+from omega_miya.database import EventEntityHelper, EmailBox
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.text_utils import TextUtils
 
@@ -103,10 +104,7 @@ async def handle_parse_email_address(matcher: Matcher, state: T_State, cmd_arg: 
 async def handle_bind_mail(bot: Bot, matcher: Matcher, event: MessageEvent, address: str = ArgStr('address')):
     address = address.strip()
 
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
 
     bind_result = await run_async_catching_exception(entity.bind_email_box)(address=address, bind_info=address)
     if isinstance(bind_result, Exception) or bind_result.error:
@@ -128,10 +126,7 @@ async def handle_parse_email_address(bot: Bot, event: MessageEvent, state: T_Sta
     if address:
         state.update({'address': address})
     else:
-        if isinstance(event, GroupMessageEvent):
-            entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-        else:
-            entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+        entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
 
         mail_box_result = await run_async_catching_exception(entity.query_bound_email_box)()
         if isinstance(mail_box_result, Exception):
@@ -149,10 +144,7 @@ async def handle_parse_email_address(bot: Bot, event: MessageEvent, state: T_Sta
 async def handle_bind_mail(bot: Bot, matcher: Matcher, event: MessageEvent, address: str = ArgStr('address')):
     address = address.strip()
 
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
 
     bind_result = await run_async_catching_exception(entity.unbind_email_box)(address=address)
     if isinstance(bind_result, Exception) or bind_result.error:
@@ -169,7 +161,7 @@ receive_email = EmailBoxManager.command(
     state=init_processor_state(name='ReceiveEmail', level=10),
     rule=None,
     aliases={'收邮件'},
-    permission=GROUP | SUPERUSER,
+    permission=GROUP | GUILD | SUPERUSER,
     priority=10,
     block=True
 )
@@ -177,10 +169,7 @@ receive_email = EmailBoxManager.command(
 
 @receive_email.handle()
 async def handle_receive_email(bot: Bot, event: MessageEvent, matcher: Matcher):
-    if isinstance(event, GroupMessageEvent):
-        entity = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.group_id))
-    else:
-        entity = InternalBotUser(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=str(event.user_id))
+    entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
 
     bind_mailbox = await run_async_catching_exception(entity.query_bound_email_box)()
 
