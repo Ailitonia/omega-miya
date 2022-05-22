@@ -67,8 +67,8 @@ async def preprocessor_rate_limiting_cooldown(bot: Bot, event: MessageEvent):
             rate_limiting_tag = True
 
     # 检查群组/频道限制
-    if not rate_limiting_tag:
-        group = EventEntityHelper(bot=bot, event=event).get_event_entity()
+    group = EventEntityHelper(bot=bot, event=event).get_event_entity()
+    if not rate_limiting_tag and group.relation_type != 'bot_user':
         group_check_result = await run_async_catching_exception(group.check_rate_limiting_cooldown_expired)()
         if not isinstance(group_check_result, Exception):
             group_expired, group_expired_time = group_check_result
