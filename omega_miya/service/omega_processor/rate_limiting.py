@@ -58,23 +58,31 @@ async def preprocessor_rate_limiting_cooldown(bot: Bot, event: MessageEvent):
 
     # 检查用户限制
     user = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
-    user_check_result = await run_async_catching_exception(user.check_rate_limiting_cooldown_expired)()
-    if not isinstance(user_check_result, Exception):
+    try:
+        user_check_result = await user.check_rate_limiting_cooldown_expired()
         user_expired, user_expired_time = user_check_result
         if not user_expired:
             logger.opt(colors=True).info(f'{_log_prefix}User({user.tid}) 被速率限制中, 到期时间 {user_expired_time}')
             RATE_LIMITING_USER_TEMP.update({user_id: user_expired_time})
             rate_limiting_tag = True
+    except AssertionError:
+        logger.opt(colors=True).warning(f'{_log_prefix}User({user.tid}) not exists, ignored')
+    except Exception as e:
+        logger.opt(colors=True).error(f'{_log_prefix} Query User({user.tid}) rate limiting cooldown failed, {e}')
 
     # 检查群组/频道限制
     group = EventEntityHelper(bot=bot, event=event).get_event_entity()
     if not rate_limiting_tag and group.relation_type != 'bot_user':
-        group_check_result = await run_async_catching_exception(group.check_rate_limiting_cooldown_expired)()
-        if not isinstance(group_check_result, Exception):
+        try:
+            group_check_result = await group.check_rate_limiting_cooldown_expired()
             group_expired, group_expired_time = group_check_result
             if not group_expired:
                 logger.opt(colors=True).info(f'{_log_prefix}Group({group.tid}) 被速率限制中, 到期时间 {group_expired_time}')
                 rate_limiting_tag = True
+        except AssertionError:
+            logger.opt(colors=True).warning(f'{_log_prefix}Group({group.tid}) not exists, ignored')
+        except Exception as e:
+            logger.opt(colors=True).error(f'{_log_prefix} Query Group({user.tid}) rate limiting cooldown failed, {e}')
 
     if rate_limiting_tag:
         raise IgnoredException('速率限制中')
