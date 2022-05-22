@@ -6,10 +6,11 @@ from nonebot.adapters.onebot.v11 import (
     Message,
     MessageEvent,
     NoticeEvent,
+    MessageSegment
 )
 from nonebot.log import logger
 from nonebot.exception import NoLogException
-from pydantic import BaseModel, Field, parse_obj_as, validator
+from pydantic import BaseModel, Field, parse_obj_as, validator, root_validator
 from typing_extensions import Literal
 
 from .config import guild_patch_config
@@ -39,19 +40,83 @@ class GuildMessageEvent(MessageEvent):
     raw_message: str = Field(alias="message")
     font: None = None
 
-    @validator("raw_message", pre=True)
+    @validator('raw_message', pre=True)
     def _validate_raw_message(cls, raw_message):
         if isinstance(raw_message, str):
             return raw_message
         elif isinstance(raw_message, list):
             return str(parse_obj_as(Message, raw_message))
-        raise ValueError("unknown raw message type")
+        raise ValueError('unknown raw message type')
+
+    @root_validator(pre=False)
+    def _validate_is_tome(cls, values):
+        message = values.get('message')
+        self_tiny_id = values.get('self_tiny_id')
+        message, is_tome = cls._check_at_me(message=message, self_tiny_id=self_tiny_id)
+        values.update({'message': message, 'to_me': is_tome, 'raw_message': str(message)})
+        return values
+
+    def is_tome(self) -> bool:
+        return self.to_me or any(
+            str(msg_seg.data.get('qq', '')) == str(self.self_tiny_id)
+            for msg_seg in self.message
+            if msg_seg.type == 'at'
+        )
 
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
             raise NoLogException(adapter_name='nonebot-adapter-onebot')
         else:
             return super().get_log_string()
+
+    @staticmethod
+    def _check_at_me(message: Message, self_tiny_id: int | str) -> tuple[Message, bool]:
+        """检查消息开头或结尾是否存在 @机器人，去除并赋值 ``event.to_me``"""
+        is_tome = False
+        # ensure message not empty
+        if not message:
+            message.append(MessageSegment.text(""))
+
+        def _is_at_me_seg(segment: MessageSegment):
+            return segment.type == 'at' and str(segment.data.get('qq', '')) == str(self_tiny_id)
+
+        # check the first segment
+        if _is_at_me_seg(message[0]):
+            is_tome = True
+            message.pop(0)
+            if message and message[0].type == "text":
+                message[0].data["text"] = message[0].data["text"].lstrip()
+                if not message[0].data["text"]:
+                    del message[0]
+            if message and _is_at_me_seg(message[0]):
+                message.pop(0)
+                if message and message[0].type == "text":
+                    message[0].data["text"] = (
+                        message[0].data["text"].lstrip()
+                    )
+                    if not message[0].data["text"]:
+                        del message[0]
+
+        if not is_tome:
+            # check the last segment
+            i = -1
+            last_msg_seg = message[i]
+            if (
+                    last_msg_seg.type == "text"
+                    and not last_msg_seg.data["text"].strip()
+                    and len(message) >= 2
+            ):
+                i -= 1
+                last_msg_seg = message[i]
+
+            if _is_at_me_seg(last_msg_seg):
+                is_tome = True
+                del message[i:]
+
+        if not message:
+            message.append(MessageSegment.text(""))
+
+        return message, is_tome
 
 
 class ReactionInfo(BaseModel):

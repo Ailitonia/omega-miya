@@ -14,7 +14,7 @@ from pydantic import BaseModel, ValidationError
 
 class GuildPatchConfig(BaseModel):
     """Guild Patch 配置"""
-    enable_guild_event_log: bool = False
+    enable_guild_event_log: bool = True
 
     class Config:
         extra = "ignore"
