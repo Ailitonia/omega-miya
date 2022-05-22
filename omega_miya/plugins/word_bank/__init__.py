@@ -15,11 +15,13 @@ from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.onebot.v11.message import Message
-from nonebot.adapters.onebot.v11.event import GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
 from nonebot.params import CommandArg, ArgStr, Arg, EventMessage
 
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .word_bank import WordBankManager, WordBankMatcher
 
@@ -60,7 +62,7 @@ set_word_bank = WordBank.on_command('添加问答', aliases={'设置问答'})
 
 @set_word_bank.got('key_word', prompt='请输入问题文本:')
 @set_word_bank.got('reply', prompt='请输入回答内容:')
-async def handle_word_bank(matcher: Matcher, event: GroupMessageEvent,
+async def handle_word_bank(matcher: Matcher, event: GroupMessageEvent | GuildMessageEvent,
                            key_word: str = ArgStr('key_word'), reply: Message = Arg('reply')):
     key_word = key_word.strip()
     if not key_word:
@@ -81,7 +83,7 @@ del_word_bank = WordBank.on_command('删除问答', aliases={'移除问答'})
 
 
 @del_word_bank.handle()
-async def handle_parse_key_word(event: GroupMessageEvent, matcher: Matcher, state: T_State,
+async def handle_parse_key_word(event: GroupMessageEvent | GuildMessageEvent, matcher: Matcher, state: T_State,
                                 cmd_arg: Message = CommandArg()):
     """首次运行时解析命令参数"""
     key_word = cmd_arg.extract_plain_text().strip()
@@ -100,7 +102,8 @@ async def handle_parse_key_word(event: GroupMessageEvent, matcher: Matcher, stat
 
 
 @del_word_bank.got('key_word', prompt='请输入想要删除的问答:')
-async def handle_delete_word_bank(event: GroupMessageEvent, matcher: Matcher, key_word: str = ArgStr('key_word')):
+async def handle_delete_word_bank(event: GroupMessageEvent | GuildMessageEvent, matcher: Matcher,
+                                  key_word: str = ArgStr('key_word')):
     exist_word_bank = await WordBankManager.list_rule(event=event)
     if isinstance(exist_word_bank, Exception):
         logger.error(f'WordBank | 获取({event})已配置问答失败, {exist_word_bank}')
@@ -126,7 +129,7 @@ list_word_bank = WordBank.on_command('问答列表', aliases={'查看问答'})
 
 
 @list_word_bank.handle()
-async def handle_list_word_bank(event: GroupMessageEvent, matcher: Matcher):
+async def handle_list_word_bank(event: GroupMessageEvent | GuildMessageEvent, matcher: Matcher):
     exist_word_bank = await WordBankManager.list_rule(event=event)
     if isinstance(exist_word_bank, Exception):
         logger.error(f'WordBank | 获取({event})已配置问答失败, {exist_word_bank}')
@@ -138,14 +141,14 @@ async def handle_list_word_bank(event: GroupMessageEvent, matcher: Matcher):
 
 word_bank_matcher = WordBank.on_message(
     rule=to_me(),
-    permission=GROUP,
+    permission=GROUP | GUILD,
     priority=100,
     block=False
 )
 
 
 @word_bank_matcher.handle()
-async def handle_word_bank_matcher(event: GroupMessageEvent, matcher: Matcher, message: Message = EventMessage()):
+async def handle_word_bank_matcher(event: MessageEvent, matcher: Matcher, message: Message = EventMessage()):
     match_result = await WordBankMatcher(message=message, event=event).match()
     if isinstance(match_result, Exception):
         logger.error(f'WordBankMatcher | An exception raised in matcher, {matcher}')

@@ -14,6 +14,7 @@ from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
 
 from omega_miya.result import BoolResult
 from omega_miya.database import WordBank
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
 from omega_miya.utils.message_tools import MessageTools
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -29,6 +30,8 @@ class WordBankManager(object):
         """获取 event 对应 reply_entity"""
         if isinstance(event, GroupMessageEvent):
             reply_entity = f'group_{event.group_id}'
+        elif isinstance(event, GuildMessageEvent):
+            reply_entity = f'guild_channel_{event.guild_id}_{event.channel_id}'
         else:
             reply_entity = f'user_{event.user_id}'
         return reply_entity
@@ -68,6 +71,8 @@ class WordBankMatcher(object):
         """获取 event 对应 reply_entity"""
         if isinstance(self.event, GroupMessageEvent):
             reply_entity = f'group_{self.event.group_id}'
+        elif isinstance(self.event, GuildMessageEvent):
+            reply_entity = f'guild_channel_{self.event.guild_id}_{self.event.channel_id}'
         else:
             reply_entity = f'user_{self.event.user_id}'
         return reply_entity
