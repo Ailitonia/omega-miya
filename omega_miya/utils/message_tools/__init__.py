@@ -11,11 +11,13 @@
 import asyncio
 import ujson as json
 from nonebot import get_bot
+from nonebot.log import logger
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import Message, MessageSegment
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import Event
 
 from omega_miya.onebot_api import GoCqhttpBot
+from omega_miya.database import EventEntityHelper
 from omega_miya.database.internal.entity import BaseInternalEntity
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 
@@ -149,30 +151,38 @@ class MessageSender(object):
     @run_async_catching_exception
     async def send_msgs_and_recall(
             self,
-            event: MessageEvent,
+            event: Event,
             message_list: list[str | Message | MessageSegment],
             *,
             recall_time: int = 30
     ) -> list[int]:
         """发送消息后并自动撤回"""
-        if isinstance(event, GroupMessageEvent):
-            send_tasks = [self.bot.send_msg(group_id=event.group_id, message=msg) for msg in message_list]
-        else:
-            send_tasks = [self.bot.send_msg(user_id=event.user_id, message=msg) for msg in message_list]
+        entity = EventEntityHelper(bot=self.bot.bot, event=event).get_event_entity()
+        send_tasks = [self.send_internal_entity_msg(entity=entity, message=msg) for msg in message_list]
+
         sent_results = await semaphore_gather(tasks=send_tasks, semaphore_num=1)
         exceptions = [x for x in sent_results if isinstance(x, Exception)]
+        sent_msg_id = [x for x in sent_results if not isinstance(x, Exception)]
+
+        if entity.relation_type == 'guild_channel':
+            logger.opt(colors=True).debug('<lc>MessageSender</lc> | Can not recall message in guild-channel, ignore')
+            if exceptions:
+                raise RuntimeError(*exceptions)
+            return [x for x in sent_results if not isinstance(x, Exception)]
+        else:
+            logger.opt(colors=True).debug(f'<lc>MessageSender</lc>| Message({", ".join(str(x) for x in sent_msg_id)}) '
+                                          f'will be auto-recalled after {recall_time} seconds')
 
         await asyncio.sleep(recall_time)
 
-        delete_tasks = [self.bot.delete_msg(message_id=x.message_id) for x in sent_results
-                        if not isinstance(x, Exception)]
+        delete_tasks = [self.bot.delete_msg(message_id=msg_id) for msg_id in sent_msg_id]
         delete_results = await semaphore_gather(tasks=delete_tasks, semaphore_num=1)
         exceptions.extend(x for x in delete_results if isinstance(x, Exception))
 
         if exceptions:
             raise RuntimeError(*exceptions)
 
-        return [x.message_id for x in sent_results]
+        return sent_msg_id
 
 
 __all__ = [
