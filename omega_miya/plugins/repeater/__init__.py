@@ -33,7 +33,7 @@ repeater = on_message(
 @repeater.handle()
 async def handle_ignore_msg(event: GroupMessageEvent):
     """忽略特殊类型的消息"""
-    msg = event.raw_message
+    msg = event.get_plaintext()
     if msg.startswith('/'):
         raise FinishedException
     elif msg.startswith('!SU'):
