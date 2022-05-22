@@ -9,7 +9,7 @@
 """
 
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import Event, MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import Event, MessageEvent, GroupMessageEvent, PrivateMessageEvent
 
 from omega_miya.result import BoolResult
 from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
@@ -45,7 +45,6 @@ class EventEntityHelper(object):
 
     def get_event_entity(self) -> BaseInternalEntity:
         """根据 event 获取不同 entity 对象"""
-        assert isinstance(self.event, MessageEvent), f'Can not get entity from event({self.event.post_type})'
         _event = self.event
         _self_id = self.self_id
 
@@ -54,20 +53,31 @@ class EventEntityHelper(object):
         elif isinstance(_event, GuildMessageEvent):
             entity = InternalGuildChannel(bot_id=_self_id,
                                           parent_id=str(_event.guild_id), entity_id=str(_event.channel_id))
-        else:  # _event type: PrivateMessageEvent
+        elif isinstance(_event, PrivateMessageEvent):
             entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(_event.user_id))
+        elif group_id := getattr(_event, 'group_id', None):
+            entity = InternalBotGroup(bot_id=_self_id, parent_id=_self_id, entity_id=str(group_id))
+        elif (guild_id := getattr(_event, 'guild_id', None)) and (channel_id := getattr(_event, 'channel_id', None)):
+            entity = InternalGuildChannel(bot_id=_self_id, parent_id=str(guild_id), entity_id=str(channel_id))
+        elif user_id := getattr(_event, 'user_id', None):
+            entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(user_id))
+        else:
+            raise ValueError(f'Can not get entity from event({_event.post_type})')
         return entity
 
     def get_event_user_entity(self) -> BaseInternalEntity:
         """根据 event 获取对应的用户 entity 对象"""
-        assert isinstance(self.event, MessageEvent), f'Can not get entity from event({self.event.post_type})'
         _event = self.event
         _self_id = self.self_id
 
         if isinstance(_event, GuildMessageEvent):
             entity = InternalGuildUser(bot_id=_self_id, parent_id=str(_event.guild_id), entity_id=str(_event.user_id))
-        else:  # _event type: GroupMessageEvent | PrivateMessageEvent
+        elif isinstance(_event, MessageEvent):  # _event type: GroupMessageEvent | PrivateMessageEvent
             entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(_event.user_id))
+        elif user_id := getattr(_event, 'user_id', None):
+            entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(user_id))
+        else:
+            raise ValueError(f'Can not get entity from event({_event.post_type})')
         return entity
 
 
