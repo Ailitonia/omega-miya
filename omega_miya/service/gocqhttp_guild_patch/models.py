@@ -9,6 +9,8 @@ from nonebot.adapters.onebot.v11 import (
     MessageSegment
 )
 from nonebot.log import logger
+from nonebot.typing import overrides
+from nonebot.utils import escape_tag
 from nonebot.exception import NoLogException
 from pydantic import BaseModel, Field, parse_obj_as, validator, root_validator
 from typing_extensions import Literal
@@ -56,6 +58,7 @@ class GuildMessageEvent(MessageEvent):
         values.update({'message': message, 'to_me': is_tome, 'raw_message': str(message)})
         return values
 
+    @overrides(Event)
     def is_tome(self) -> bool:
         return self.to_me or any(
             str(msg_seg.data.get('qq', '')) == str(self.self_tiny_id)
@@ -63,11 +66,30 @@ class GuildMessageEvent(MessageEvent):
             if msg_seg.type == 'at'
         )
 
+    @overrides(Event)
+    def get_event_description(self) -> str:
+        return (
+            f'Message {self.message_id} from {self.user_id}@[频道:{self.guild_id}/子频道:{self.channel_id}] "'
+            + "".join(
+                map(
+                    lambda x: escape_tag(str(x))
+                    if x.is_text()
+                    else f"<le>{escape_tag(str(x))}</le>",
+                    self.message,
+                )
+            )
+            + '"'
+        )
+
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
             raise NoLogException(adapter_name='nonebot-adapter-onebot')
         else:
             return super().get_log_string()
+
+    @overrides(MessageEvent)
+    def get_session_id(self) -> str:
+        return f"guild_{self.guild_id}_channel_{self.channel_id}_{self.user_id}"
 
     @staticmethod
     def _check_at_me(message: Message, self_tiny_id: int | str) -> tuple[Message, bool]:
