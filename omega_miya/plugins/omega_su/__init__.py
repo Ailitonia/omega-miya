@@ -4,7 +4,7 @@
 @FileName       : omega_su.py
 @Project        : nonebot2_miya
 @Description    : go-cqhttp 适配专用, 用于人工同时登陆 bot 账号时将自己发送的消息转成 message 类型便于执行命令,
-                  bot 账号发送命令前添加 !SU 即可将消息事件由 message_sent 转换为 group_message, 仅限群组中生效,
+                  bot 账号发送命令前添加 !SU 即可将消息事件由 message_sent 转换为对应 MessageEvent,
                   为避免命令恶意执行, bot 不能为 superuser
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
@@ -90,7 +90,7 @@ su = on(
 
 @su.handle()
 async def handle_su(bot: Bot, event: MessageSentEvent):
-    if event.message and event.message[0].type == 'text':
+    if str(event.self_id) not in bot.config.superusers and event.message and event.message[0].type == 'text':
         if event.message[0].data['text'].startswith('!SU'):
             event.message[0].data["text"] = event.message[0].data["text"].removeprefix('!SU').lstrip()
             event.raw_message = str(event.message)
