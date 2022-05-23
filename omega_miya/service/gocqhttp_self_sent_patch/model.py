@@ -37,7 +37,8 @@ class MessageSentEvent(Event):
 
     __event__ = "message_sent"
     post_type: Literal["message_sent"]
-    message_seq: int
+    message_seq: Optional[int]
+    target_id: Optional[int]
     sub_type: str
     user_id: int
     message_type: str
