@@ -1,5 +1,6 @@
 from nonebot import on_message
 from nonebot.exception import FinishedException
+from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 
@@ -31,12 +32,13 @@ repeater = on_message(
 
 
 @repeater.handle()
-async def handle_ignore_msg(event: GroupMessageEvent):
+async def handle_ignore_msg(bot: Bot, event: GroupMessageEvent):
     """忽略特殊类型的消息"""
     msg = event.get_plaintext()
-    if msg.startswith('/'):
-        raise FinishedException
-    elif msg.startswith('!SU'):
+    for command_start in bot.config.command_start:
+        if msg.startswith(command_start):
+            raise FinishedException
+    if msg.startswith('!SU'):
         raise FinishedException
 
 
