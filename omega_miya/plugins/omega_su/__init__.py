@@ -10,8 +10,6 @@
 @Software       : PyCharm
 """
 
-import re
-from datetime import datetime
 from nonebot import logger
 from nonebot.plugin import on, on_command
 from nonebot.typing import T_State
@@ -20,10 +18,11 @@ from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import Message
-from nonebot.adapters.onebot.v11.event import Event, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent, PrivateMessageEvent
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_self_sent_patch import MessageSentEvent, SU_SELF_SENT
 
 
 _SU_TAG: bool = False
@@ -83,41 +82,35 @@ async def handle_switch(switch: str = ArgStr('switch')):
 su = on(
     type='message_sent',
     state=init_processor_state(name='Su', enable_processor=False),
+    permission=SU_SELF_SENT,
     priority=100,
     block=False
 )
 
 
 @su.handle()
-async def handle_su(bot: Bot, event: Event):
-    self_id = event.self_id
-    user_id = getattr(event, 'user_id', -1)
-    if self_id == user_id and str(self_id) == bot.self_id and str(self_id) not in bot.config.superusers:
-        raw_message = getattr(event, 'raw_message', '')
-        if str(raw_message).startswith('!SU'):
+async def handle_su(bot: Bot, event: MessageSentEvent):
+    if event.message and event.message[0].type == 'text':
+        if event.message[0].data['text'].startswith('!SU'):
+            event.message[0].data["text"] = event.message[0].data["text"].removeprefix('!SU').lstrip()
+            event.raw_message = str(event.message)
+            event.post_type = 'message'
+
             global _SU_TAG
+            if _SU_TAG and list(bot.config.superusers):
+                event.user_id = int(list(bot.config.superusers)[0])
+                logger.info(f'OmegaSu | 已启用超级管理员权限, 赋权: {event.user_id}')
+
+            if event.group_id != 0:
+                new_event = GroupMessageEvent.parse_obj(event)
+            else:
+                new_event = PrivateMessageEvent.parse_obj(event)
+
             try:
-                if _SU_TAG and list(bot.config.superusers):
-                    user_id = int(list(bot.config.superusers)[0])
-                raw_message = re.sub(r'^!SU', '', str(raw_message)).strip()
-                message = Message(raw_message)
-                new_event = GroupMessageEvent.parse_obj({
-                    'time': getattr(event, 'time', int(datetime.now().timestamp())),
-                    'self_id': self_id,
-                    'user_id': user_id,
-                    'message': message,
-                    'raw_message': raw_message,
-                    'post_type': 'message',
-                    'sub_type': getattr(event, 'sub_type', 'normal'),
-                    'group_id': getattr(event, 'group_id', -1),
-                    'message_type': getattr(event, 'message_type', 'group'),
-                    'message_id': getattr(event, 'message_id', -1),
-                    'font': getattr(event, 'font', 0),
-                    'sender': getattr(event, 'sender', {'user_id': user_id})
-                })
+                logger.info(f'OmegaSu | New event {new_event} will be handling')
                 await handle_event(bot=bot, event=new_event)
             except Exception as e:
-                logger.error(f'Su convert self_sent event failed, error: {e}, event: {event}')
+                logger.error(f'OmegaSu | Handle new event failed, {e}, origin event: {event}, new event: {new_event}')
             finally:
                 _SU_TAG = False
-                logger.info(f'Su 已执行: {raw_message}, SU_TAG已复位')
+                logger.info('OmegaSu | Event has been handled, SU_TAG is reset')
