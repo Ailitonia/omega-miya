@@ -20,7 +20,7 @@ from omega_miya.local_resource import TmpResource
 from omega_miya.web_resource import HttpFetcher
 from omega_miya.web_resource.pixiv import PixivArtwork
 from omega_miya.utils.process_utils import semaphore_gather, run_sync, run_async_catching_exception
-from omega_miya.utils.text_utils import TextUtils
+from omega_miya.utils.text_utils import AdvanceTextUtils
 from omega_miya.utils.qq_tools import get_user_head_img
 from omega_miya.utils.apscheduler import scheduler
 
@@ -184,6 +184,9 @@ async def generate_signin_card(
         if isinstance(head_img_result, Exception):
             add_head_img = False
 
+    # 预处理用户文本
+    user_text_convert_content = await AdvanceTextUtils.parse_from_str(text=user_text)._prepare_segment()
+
     def _handle_signin_card() -> bytes:
         """签到卡片绘制"""
         # 生成用户当天老黄历
@@ -235,9 +238,10 @@ async def generate_signin_card(
         # 日期
         date_text = datetime.now().strftime('%m/%d')
         # 昵称、好感度、积分
-        # 首先要对文本进行分割
-        _user_text = TextUtils(text=user_text).split_multiline(width=(width - int(width * 0.125)), font=text_font).text
-        user_text_width, user_text_height = text_font.getsize_multiline(_user_text)
+        _user_text_img = AdvanceTextUtils._convert_image(convert_content=user_text_convert_content,
+                                                         image_size=(width - int(width * 0.125), width),
+                                                         font=text_font, font_fill=(128, 128, 128), spacing=1)
+        user_text_width, user_text_height = _user_text_img.size
         # 今日运势
         fortune_text_width, fortune_text_height = bd_text_font.getsize(user_fortune.text)
         fortune_star_width, fortune_star_height = text_font.getsize(user_fortune.star)
@@ -306,9 +310,9 @@ async def generate_signin_card(
                                         fill=_get_level_color(level=level[0]))  # 日期
 
         this_height += top_text_height
-        ImageDraw.Draw(background).multiline_text(xy=(int(width * 0.0625), this_height),
-                                                  text=_user_text, font=text_font, align='left',
-                                                  fill=(128, 128, 128))  # 昵称、好感度、积分
+
+        # 昵称、好感度、积分
+        background.paste(im=_user_text_img, box=(int(width * 0.0625), this_height), mask=_user_text_img)
 
         this_height += user_text_height + int(0.046875 * width)
         ImageDraw.Draw(background).text(xy=(int(width * 0.065), this_height),
