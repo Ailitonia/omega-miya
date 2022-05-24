@@ -18,7 +18,7 @@ from omega_miya.utils.text_utils import TextUtils
 from omega_miya.local_resource import LocalResource, TmpResource
 from omega_miya.web_resource import HttpFetcher
 from omega_miya.web_resource.tencent_cloud import TencentTMT
-from omega_miya.utils.process_utils import run_async_catching_exception, retry
+from omega_miya.utils.process_utils import run_async_catching_exception
 
 from .model import StickerRender
 
