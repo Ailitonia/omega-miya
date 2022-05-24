@@ -20,9 +20,11 @@ class TextUtilsConfig:
     default_font_name: str = 'SourceHanSans_Regular.otf'
     default_font_folder: LocalResource = LocalResource('fonts')
     default_font_file: LocalResource = default_font_folder(default_font_name)
+    default_emoji_font: LocalResource = default_font_folder('AppleColorEmoji.ttf')
 
     # 默认的生成缓存文件路径
     default_tmp_folder: TmpResource = TmpResource('text_utils')
+    default_download_tmp_folder: TmpResource = default_tmp_folder('download')
     default_img_tmp_folder: TmpResource = default_tmp_folder('image')
 
     class Config:
