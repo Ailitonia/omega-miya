@@ -8,14 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal
-from pydantic import BaseModel, root_validator, AnyUrl
+from typing import Literal, Optional
+from pydantic import BaseModel, root_validator, AnyUrl, FilePath
 
 
 class TextUtilsBaseModel(BaseModel):
     class Config:
         extra = 'ignore'
-        allow_mutation = False
 
 
 class TextSegment(TextUtilsBaseModel):
@@ -38,6 +37,7 @@ class TextSegment(TextUtilsBaseModel):
 
     class _ImageData(_Data):
         image: AnyUrl
+        file: Optional[FilePath] = None
 
         def get_content(self) -> str:
             return str(self.image)

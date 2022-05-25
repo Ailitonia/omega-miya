@@ -147,7 +147,7 @@ class AdvanceTextUtils(object):
 
     @classmethod
     def parse_as_text_content(cls, text: str) -> TextContent:
-        """将字符串转化为 TextContent 对象, 同时解析形如 '[image: https://image_url]‘ 的字符串为 TextSegment"""
+        """将字符串转化为 TextContent 对象, 同时解析形如 '[image: https://image_url]' 的字符串为 TextSegment"""
         text_segments: list[TextSegment] = []
         split_start_index = 0
         for i in re.compile(r"(\[(text|emoji|image):\s(.+?)])").finditer(text):
@@ -165,18 +165,25 @@ class AdvanceTextUtils(object):
         content = cls.parse_as_text_content(text=text)
         return cls(content=content)
 
-    async def _prepare_segment(self) -> list[str | Image.Image]:
+    async def _prepare_image_segment(self) -> None:
+        """预处理, 将所有的图片 Segment 全部下载下来"""
+        for segment in self._content.content:
+            if segment.type == 'image':
+                image_url = segment.get_content()
+                image_file_name = HttpFetcher.hash_url_file_name('image_segment', url=image_url)
+                image_file = text_utils_config.default_download_tmp_folder(image_file_name)
+                await HttpFetcher().download_file(url=image_url, file=image_file)
+                segment.data.file = image_file.resolve_path
+
+    def _prepare_segment(self) -> list[str | Image.Image]:
         """预处理, 将 TextSegment 全部转化为可绘制对象, 图片和 emoji 将按单字符处理"""
         draw_content: list[str | Image.Image] = []
         for segment in self._content.content:
             match segment.type:
                 case 'image':
-                    image_url = segment.get_content()
-                    image_file_name = HttpFetcher.hash_url_file_name('image_segment', url=image_url)
-                    image_file = text_utils_config.default_download_tmp_folder(image_file_name)
-                    await HttpFetcher().download_file(url=image_url, file=image_file)
-                    image = Image.open(image_file.resolve_path, mode='r')
-                    draw_content.append(image)
+                    if segment.data.file:
+                        image = Image.open(segment.data.file, mode='r')
+                        draw_content.append(image)
                 case 'emoji':
                     emoji_text = segment.get_content()
                     image = Image.new(mode='RGBA', size=(1024, 1024), color=(255, 255, 255, 0))
@@ -305,7 +312,8 @@ class AdvanceTextUtils(object):
         :param font_fill: 字体填充颜色
         :param spacing: 行间距倍率
         """
-        convert_content = await self._prepare_segment()
+        await self._prepare_image_segment()
+        convert_content = await run_sync(self._prepare_segment)()
         file_content = await run_sync(self._byte_convert_image)(convert_content=convert_content, image_size=image_size,
                                                                 font=font, font_fill=font_fill, spacing=spacing)
         save_file_name = f"adv_{hash(self._content.get_text())}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.png"
