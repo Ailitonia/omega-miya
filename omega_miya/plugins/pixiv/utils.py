@@ -109,6 +109,9 @@ async def _get_artwork_preview(
             artwork_pages = await semaphore_gather(tasks=noise_tasks, semaphore_num=10, return_exceptions=False)
         send_msg = Message(MessageSegment.image(file=x.file_uri) for x in artwork_pages)
 
+    if artwork_data.page_count > preview_page_limiting:
+        artwork_desc = f'({preview_page_limiting} of {artwork_data.page_count} pages)\n{"-"*16}\n{artwork_desc}'
+
     if message_prefix is not None:
         send_msg = message_prefix + send_msg + f'\n{artwork_desc}'
     else:
