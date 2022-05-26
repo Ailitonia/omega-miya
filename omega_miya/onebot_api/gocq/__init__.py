@@ -541,7 +541,7 @@ class GoCqhttpBot(BaseOnebotApi):
         result_data = await self.bot.call_api(api='get_guild_list')
         return parse_obj_as(list[GuildInfo], result_data)
 
-    async def get_guild_meta_by_guest(self, guild_id: str) -> GuildMeta:
+    async def get_guild_meta_by_guest(self, guild_id: int | str) -> GuildMeta:
         """通过访客获取频道元数据
 
         :param guild_id: 频道ID
@@ -549,7 +549,7 @@ class GoCqhttpBot(BaseOnebotApi):
         meta_result = await self.bot.call_api('get_guild_meta_by_guest', guild_id=guild_id)
         return GuildMeta.parse_obj(meta_result)
 
-    async def get_guild_channel_list(self, guild_id: str, no_cache: bool = False) -> list[ChannelInfo]:
+    async def get_guild_channel_list(self, guild_id: int | str, no_cache: bool = False) -> list[ChannelInfo]:
         """获取子频道列表
 
         :param guild_id: 频道ID
@@ -558,7 +558,7 @@ class GoCqhttpBot(BaseOnebotApi):
         channel_result = await self.bot.call_api('get_guild_channel_list', guild_id=guild_id, no_cache=no_cache)
         return parse_obj_as(list[ChannelInfo], channel_result)
 
-    async def get_guild_member_list(self, guild_id: str, next_token: str | None = None) -> GuildMemberList:
+    async def get_guild_member_list(self, guild_id: int | str, next_token: str | None = None) -> GuildMemberList:
         """获取频道成员列表
 
         next_token 为空的情况下, 将返回第一页的数据, 并在返回值附带下一页的 token
@@ -574,7 +574,7 @@ class GoCqhttpBot(BaseOnebotApi):
         member_result = await self.bot.call_api('get_guild_member_list', guild_id=guild_id, next_token=next_token)
         return GuildMemberList.parse_obj(member_result)
 
-    async def get_guild_member_profile(self, guild_id: str, user_id: str) -> GuildMemberProfile:
+    async def get_guild_member_profile(self, guild_id: int | str, user_id: int | str) -> GuildMemberProfile:
         """单独获取频道成员信息
 
         :param guild_id: 频道ID
@@ -583,7 +583,9 @@ class GoCqhttpBot(BaseOnebotApi):
         member_result = await self.bot.call_api('get_guild_member_profile', guild_id=guild_id, user_id=user_id)
         return GuildMemberProfile.parse_obj(member_result)
 
-    async def send_guild_channel_msg(self, guild_id: str, channel_id: str, message: str | Message) -> SentGuildMessage:
+    async def send_guild_channel_msg(
+            self, guild_id: int | str, channel_id: int | str, message: str | Message
+    ) -> SentGuildMessage:
         """发送信息到子频道
 
         :param guild_id: 频道ID
@@ -594,7 +596,7 @@ class GoCqhttpBot(BaseOnebotApi):
             'send_guild_channel_msg', guild_id=guild_id, channel_id=channel_id, message=message)
         return SentGuildMessage.parse_obj(message_result)
 
-    async def get_topic_channel_feeds(self, guild_id: str, channel_id: str) -> list[TopicChannelFeedInfo]:
+    async def get_topic_channel_feeds(self, guild_id: int | str, channel_id: int | str) -> list[TopicChannelFeedInfo]:
         """获取话题频道帖子
 
         :param guild_id: 频道ID
