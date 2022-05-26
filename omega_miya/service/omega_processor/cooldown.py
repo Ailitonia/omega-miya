@@ -68,33 +68,44 @@ async def preprocessor_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent)
     user_entity = EventEntityHelper(bot=bot, event=event).get_event_user_entity()
     user_cd_check_result = await _check_entity_cooldown(
         entity=user_entity, cooldown_event=cooldown_event,
-        cooldown_time=int(processor_state.cool_down * processor_state.user_cool_down_override),
         plugin_name=plugin_name, module_name=module_name, add_entity_name=event.sender.nickname
     )
     if not isinstance(user_cd_check_result, Exception):
         cd_skip_tag = True if user_cd_check_result.allow_skip is True else cd_skip_tag
         if not user_cd_check_result.is_expired:
             cd_expired_tag = user_cd_check_result.is_expired
-            cd_expired_time = user_cd_check_result.expired_time
+            cd_expired_time = (user_cd_check_result.expired_time
+                               if user_cd_check_result.expired_time > cd_expired_time
+                               else cd_expired_time)
 
     # 检查群组/频道冷却
     group_entity = EventEntityHelper(bot=bot, event=event).get_event_entity()
+    # 跳过非群组/频道 event 重复检查用户冷却的情况
     if group_entity.relation_type != 'bot_user':
         group_cd_check_result = await _check_entity_cooldown(
-            entity=group_entity, cooldown_event=cooldown_event,
-            cooldown_time=processor_state.cool_down, plugin_name=plugin_name, module_name=module_name
+            entity=group_entity, cooldown_event=cooldown_event, plugin_name=plugin_name, module_name=module_name
         )
         if not isinstance(group_cd_check_result, Exception):
             cd_skip_tag = True if group_cd_check_result.allow_skip is True else cd_skip_tag
             if not group_cd_check_result.is_expired:
                 cd_expired_tag = group_cd_check_result.is_expired
-                cd_expired_time = group_cd_check_result.expired_time
+                cd_expired_time = (group_cd_check_result.expired_time
+                                   if group_cd_check_result.expired_time > cd_expired_time
+                                   else cd_expired_time)
 
     if cd_skip_tag:
         logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name})/Matcher({processor_state.name}) '
                                       f'<ly>Entity({group_entity.tid}/{user_entity.tid})</ly> allowed to skip cooldown')
         return
     elif cd_expired_tag:
+        # 没有冷却的话就要新增冷却
+        await _set_entity_cooldown(
+            entity=user_entity, cooldown_event=cooldown_event,
+            cooldown_time=int(processor_state.cool_down * processor_state.user_cool_down_override)
+        )
+        await _set_entity_cooldown(
+            entity=group_entity, cooldown_event=cooldown_event, cooldown_time=processor_state.cool_down
+        )
         logger.opt(colors=True).debug(f'{_log_prefix}Plugin({plugin_name})/Matcher({processor_state.name}) '
                                       f'<ly>Entity({group_entity.tid}/{user_entity.tid})</ly> cooldown expired')
         return
@@ -119,7 +130,6 @@ class _CooldownCheckingResult(BaseModel):
 async def _check_entity_cooldown(
         entity: BaseInternalEntity,
         cooldown_event: str,
-        cooldown_time: int,
         plugin_name: str,
         module_name: str,
         *,
@@ -156,22 +166,27 @@ async def _check_entity_cooldown(
         else:
             logger.opt(colors=True).error(f'{_log_prefix}Add Entity({entity.tid}) failed, {add_entity.info}')
 
-    # 没有冷却的话就要新增冷却
-    if cd_expired_tag:
-        try:
-            add_cd_result = await entity.set_cool_down(cool_down_event=cooldown_event,
-                                                       expired_time=timedelta(seconds=cooldown_time))
-            if add_cd_result.success:
-                logger.opt(colors=True).debug(f'{_log_prefix}Refresh Entity({entity.tid}) '
-                                              f'Cooldown({cooldown_event}) succeed')
-            else:
-                logger.opt(colors=True).error(f'{_log_prefix}Refresh Entity({entity.tid}) '
-                                              f'Cooldown({cooldown_event}) failed, {add_cd_result.info}')
-        except Exception as e:
-            logger.opt(colors=True).error(
-                f'{_log_prefix}Refresh Entity({entity.tid}) Cooldown({cooldown_event}) failed, {e}')
-
     return _CooldownCheckingResult(expired_time=cd_expired_time, is_expired=cd_expired_tag, allow_skip=False)
+
+
+async def _set_entity_cooldown(
+        entity: BaseInternalEntity,
+        cooldown_event: str,
+        cooldown_time: int,
+) -> None:
+    """为用户/群组/频道设置冷却"""
+    try:
+        add_cd_result = await entity.set_cool_down(cool_down_event=cooldown_event,
+                                                   expired_time=timedelta(seconds=cooldown_time))
+        if add_cd_result.success:
+            logger.opt(colors=True).debug(f'{_log_prefix}Refresh Entity({entity.tid}) '
+                                          f'Cooldown({cooldown_event}) succeed')
+        else:
+            logger.opt(colors=True).error(f'{_log_prefix}Refresh Entity({entity.tid}) '
+                                          f'Cooldown({cooldown_event}) failed, {add_cd_result.info}')
+    except Exception as e:
+        logger.opt(colors=True).error(
+            f'{_log_prefix}Refresh Entity({entity.tid}) Cooldown({cooldown_event}) failed, {e}')
 
 
 __all__ = [
