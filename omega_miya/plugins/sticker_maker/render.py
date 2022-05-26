@@ -619,49 +619,24 @@ class PetPetRender(StickerRender):
     _default_output_format: str = 'gif'
 
     def _handler(self) -> bytes:
+        resize_paste_loc: list[tuple[tuple[int, int], tuple[int, int]]] = [
+            ((95, 95), (12, 15)),
+            ((97, 80), (11, 30)),
+            ((99, 70), (10, 40)),
+            ((97, 75), (11, 35)),
+            ((96, 90), (11, 20))
+        ]
         image = self._load_source_image()
-        bg0 = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
-        bg1 = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
-        bg2 = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
-        bg3 = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
-        bg4 = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
-        tp0 = Image.open(self._static_resource('template_p0.png').resolve_path)
-        tp1 = Image.open(self._static_resource('template_p1.png').resolve_path)
-        tp2 = Image.open(self._static_resource('template_p2.png').resolve_path)
-        tp3 = Image.open(self._static_resource('template_p3.png').resolve_path)
-        tp4 = Image.open(self._static_resource('template_p4.png').resolve_path)
-        bg0.paste(image.resize((95, 95)), (12, 15))
-        bg1.paste(image.resize((97, 80)), (11, 30))
-        bg2.paste(image.resize((99, 70)), (10, 40))
-        bg3.paste(image.resize((97, 75)), (11, 35))
-        bg4.paste(image.resize((96, 90)), (11, 20))
-        bg0.paste(tp0, (0, 0), mask=tp0)
-        bg1.paste(tp1, (0, 0), mask=tp1)
-        bg2.paste(tp2, (0, 0), mask=tp2)
-        bg3.paste(tp3, (0, 0), mask=tp3)
-        bg4.paste(tp4, (0, 0), mask=tp4)
-
         frames_list = []
-        with BytesIO() as bf0:
-            bg0.save(bf0, format='PNG')
-            img_bytes = bf0.getvalue()
-            frames_list.append(imageio.v2.imread(img_bytes))
-        with BytesIO() as bf1:
-            bg1.save(bf1, format='PNG')
-            img_bytes = bf1.getvalue()
-            frames_list.append(imageio.v2.imread(img_bytes))
-        with BytesIO() as bf2:
-            bg2.save(bf2, format='PNG')
-            img_bytes = bf2.getvalue()
-            frames_list.append(imageio.v2.imread(img_bytes))
-        with BytesIO() as bf3:
-            bg3.save(bf3, format='PNG')
-            img_bytes = bf3.getvalue()
-            frames_list.append(imageio.v2.imread(img_bytes))
-        with BytesIO() as bf4:
-            bg4.save(bf4, format='PNG')
-            img_bytes = bf4.getvalue()
-            frames_list.append(imageio.v2.imread(img_bytes))
+        for frame_index in range(5):
+            background = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
+            frame = Image.open(self._static_resource(f'template_p{frame_index}.png').resolve_path)
+            background.paste(image.resize(resize_paste_loc[frame_index][0]), resize_paste_loc[frame_index][1])
+            background.paste(frame, (0, 0), mask=frame)
+            with BytesIO() as bf0:
+                background.save(bf0, format='PNG')
+                img_bytes = bf0.getvalue()
+                frames_list.append(imageio.v2.imread(img_bytes))
 
         with BytesIO() as bf:
             imageio.mimsave(bf, frames_list, 'GIF', duration=0.06)
