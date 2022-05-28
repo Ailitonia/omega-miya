@@ -118,7 +118,7 @@ class JichouRender(StickerRender):
 
 
 class PhlogoRender(StickerRender):
-    """ph表情包模板
+    """ph 表情包模板
 
     参数:
         - text: 生成表情包的文字内容
@@ -645,6 +645,64 @@ class PetPetRender(StickerRender):
         return content
 
 
+class WangjingzeRender(StickerRender):
+    """王境泽表情包模板
+
+    参数:
+        - source_image: 生成素材图片
+    """
+    _sticker_name: str = 'wangjingze'
+    _font: LocalResource = _FONT_RESOURCE('SourceHanSans_Regular.otf')
+    _static_resource: LocalResource = _STATIC_RESOURCE('wangjingze')
+    _need_text: bool = True
+    _need_external_img: bool = False
+    _default_output_format: str = 'gif'
+
+    def _handler(self) -> bytes:
+        # 分割文本
+        text_list = self.text.split(maxsplit=3)
+        if (text_len := len(text_list)) < 4:
+            text_list.extend(['' for _ in range(4 - text_len)])
+
+        font = ImageFont.truetype(self._font.resolve_path, 22)
+
+        frames_list = []
+        for frame_index in range(46):
+            frame = Image.open(self._static_resource(f'template_p{frame_index}.jpg').resolve_path)
+
+            if 0 <= frame_index <= 8:
+                ImageDraw.Draw(frame).text(
+                    xy=(219, 223), text=text_list[0], font=font, anchor='ma', align='center',
+                    stroke_width=2, stroke_fill=(0, 0, 0)
+                )
+            elif 12 <= frame_index <= 23:
+                ImageDraw.Draw(frame).text(
+                    xy=(219, 223), text=text_list[1], font=font, anchor='ma', align='center',
+                    stroke_width=2, stroke_fill=(0, 0, 0)
+                )
+            elif 25 <= frame_index <= 34:
+                ImageDraw.Draw(frame).text(
+                    xy=(219, 223), text=text_list[2], font=font, anchor='ma', align='center',
+                    stroke_width=2, stroke_fill=(0, 0, 0)
+                )
+            elif 36 <= frame_index <= 42:
+                ImageDraw.Draw(frame).text(
+                    xy=(219, 223), text=text_list[3], font=font, anchor='ma', align='center',
+                    stroke_width=2, stroke_fill=(0, 0, 0)
+                )
+
+            with BytesIO() as bf0:
+                frame.save(bf0, format='JPEG')
+                img_bytes = bf0.getvalue()
+                frames_list.append(imageio.v2.imread(img_bytes))
+
+        with BytesIO() as bf:
+            imageio.mimsave(bf, frames_list, 'GIF', duration=0.13)
+            content = bf.getvalue()
+
+        return content
+
+
 _ALL_Render: dict[str, Type[StickerRender]] = {
     '默认': DefaultRender,
     '白底': WhiteBackgroundRender,
@@ -660,7 +718,8 @@ _ALL_Render: dict[str, Type[StickerRender]] = {
     '喜报横版': XibaoHorizontalRender,
     '喜报竖版': XibaoVerticalRender,
     'ph': PhlogoRender,
-    'petpet': PetPetRender
+    'petpet': PetPetRender,
+    '王境泽': WangjingzeRender
 }
 
 
