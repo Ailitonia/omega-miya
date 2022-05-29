@@ -55,12 +55,12 @@ async def prepare_send_image(
         pid: int,
         *,
         enable_flash_mode: bool = moe_plugin_config.moe_plugin_enable_flash_mode
-) -> (MessageSegment, bool):
+) -> MessageSegment:
     """预处理待发送图片
 
     :param pid: 作品 PID
     :param enable_flash_mode: 是否启用闪照模式
-    :return: 发送的消息, 消息是否需要撤回
+    :return: 发送的消息
     """
 
     async def _handle_noise(image: TmpResource) -> TmpResource:
@@ -78,12 +78,12 @@ async def prepare_send_image(
 
     internal_artwork = InternalPixiv(pid=pid)
     database_artwork_data = await internal_artwork.get_artwork_model()
-    need_recall = False if database_artwork_data.nsfw_tag == 0 else True
+    need_noise = False if database_artwork_data.nsfw_tag == 0 else True
 
     # 获取并处理作品图片
     artwork = PixivArtwork(pid=pid)
     artwork_image = await artwork.get_page_file()
-    if need_recall:
+    if need_noise:
         artwork_image = await _handle_noise(image=artwork_image)
     else:
         artwork_image = await _handle_mark(image=artwork_image)
@@ -92,7 +92,7 @@ async def prepare_send_image(
         send_msg = MessageSegment.image(file=artwork_image.file_uri, type_='flash')
     else:
         send_msg = MessageSegment.image(file=artwork_image.file_uri)
-    return send_msg, need_recall
+    return send_msg
 
 
 def get_query_argument_parser() -> ArgumentParser:

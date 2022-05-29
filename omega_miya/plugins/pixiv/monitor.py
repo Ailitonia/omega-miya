@@ -29,10 +29,7 @@ async def pixiv_user_artwork_update_monitor() -> None:
 
     # 检查新作品并发送消息
     tasks = [send_pixiv_user_new_artworks(PixivUser(uid=uid)) for uid in subscribed_uid]
-    sent_result = await semaphore_gather(tasks=tasks, semaphore_num=3)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        logger.error(f'PixivUserSubscriptionMonitor | Exception(s) raised in sending new artwork messages: '
-                     f'{", ".join(str(x) for x in error)}')
+    await semaphore_gather(tasks=tasks, semaphore_num=3, return_exceptions=True)
 
     logger.debug('PixivUserSubscriptionMonitor | Pixiv user artworks update checking completed')
 

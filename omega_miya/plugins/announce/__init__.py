@@ -61,7 +61,7 @@ async def handle_help_message(bot: Bot, content: str = ArgStr('content')):
                   for group_id in send_group]
     send_result = await semaphore_gather(tasks=send_tasks, semaphore_num=1)
 
-    if any(isinstance(x, Exception) for x in send_result):
+    if any(isinstance(x, BaseException) for x in send_result):
         logger.warning(f'Announce | 公告发送完成, 发送群组: {", ".join(send_group)}, 部分群组发送失败')
         await announce.finish('公告批量发送完成, 部分群组发送失败')
     else:

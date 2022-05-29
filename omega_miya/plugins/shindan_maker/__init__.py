@@ -126,8 +126,8 @@ async def handle_shindanmaker(matcher: Matcher, shindan: str = ArgStr('shindan')
     # 结果有图片就处理图片
     if shindan_result.image_url:
         image_download_tasks = [ShindanMaker.download_image(url=x) for x in shindan_result.image_url]
-        image_result = await semaphore_gather(tasks=image_download_tasks, semaphore_num=10)
-        image_message = Message(MessageSegment.image(x.file_uri) for x in image_result if not isinstance(x, Exception))
+        image_result = await semaphore_gather(tasks=image_download_tasks, semaphore_num=10, filter_exception=True)
+        image_message = Message(MessageSegment.image(x.file_uri) for x in image_result)
         result_text = result_text + image_message
 
     await matcher.finish(result_text)
@@ -150,7 +150,7 @@ _CUSTOM_SHINDAN_ID: dict[str, int] = {
     '老婆是谁': 1075116,
     '异世界角色': 637918
 }
-shindan_pattern = r'^今天的?(.+)(的|是)(.+?)[?？]?$'
+shindan_pattern = r'^今天的?(.+?)(的|是)(.+?)[?？]?$'
 shindan_maker_today = on_regex(
     shindan_pattern,
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
@@ -184,8 +184,8 @@ async def handle_shindanmaker_today(matcher: Matcher, message: Message = EventMe
     # 结果有图片就处理图片
     if shindan_result.image_url:
         image_download_tasks = [ShindanMaker.download_image(url=x) for x in shindan_result.image_url]
-        image_result = await semaphore_gather(tasks=image_download_tasks, semaphore_num=10)
-        image_message = Message(MessageSegment.image(x.file_uri) for x in image_result if not isinstance(x, Exception))
+        image_result = await semaphore_gather(tasks=image_download_tasks, semaphore_num=10, filter_exception=True)
+        image_message = Message(MessageSegment.image(x.file_uri) for x in image_result)
         result_text = result_text + image_message
 
     await matcher.finish(result_text)

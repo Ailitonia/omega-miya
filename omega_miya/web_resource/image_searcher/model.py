@@ -67,9 +67,9 @@ class ImageSearcher(abc.ABC):
         """获取搜索结果并转换为消息"""
         searching_result = await self.search()
         tasks = [x.get_output_message() for x in searching_result]
-        message_result = await semaphore_gather(tasks=tasks, semaphore_num=10)
+        message_result = await semaphore_gather(tasks=tasks, semaphore_num=10, filter_exception=True)
         searcher_text = f'识图引擎: {self._searcher_name}\n'
-        return [searcher_text + x for x in message_result if not isinstance(x, Exception)]
+        return [searcher_text + x for x in message_result]
 
 
 __all__ = [

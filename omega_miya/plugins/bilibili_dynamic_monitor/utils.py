@@ -40,9 +40,7 @@ async def _add_bili_user_dynamics_to_database(bili_user: BilibiliUser) -> BoolRe
     """在数据库中新增目标用户的最新动态(仅新增不更新)"""
     dynamic_data = await bili_user.query_dynamics()
     tasks = [add_dynamic_into_database(dynamic=card) for card in dynamic_data.all_cards]
-    add_result = await semaphore_gather(tasks=tasks, semaphore_num=10)
-    if error := [x for x in add_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
     return BoolResult(error=False, info='Success', result=True)
 
 
@@ -122,9 +120,7 @@ async def _query_subscribed_entity_by_bili_user(bili_user: BilibiliUser) -> list
             case 'guild_channel':
                 init_tasks.append(InternalGuildChannel.init_from_index_id(id_=related_entity.id))
 
-    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50)
-    if error := [x for x in entity_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50, return_exceptions=False)
     return list(entity_result)
 
 
@@ -137,9 +133,7 @@ async def _check_new_dynamic(dynamics: Iterable[BilibiliDynamicCard]) -> list[Bi
         return dynamic, exist
 
     check_tasks = [_dynamic_exists(dynamic=dynamic) for dynamic in dynamics]
-    check_result = await semaphore_gather(tasks=check_tasks, semaphore_num=50)
-    if error := [x for x in check_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    check_result = await semaphore_gather(tasks=check_tasks, semaphore_num=50, return_exceptions=False)
 
     new_dynamic = [x[0] for x in check_result if not x[1]]
     return new_dynamic
@@ -192,22 +186,16 @@ async def send_bili_user_new_dynamics(bili_user: BilibiliUser) -> None:
     subscribed_entity = await _query_subscribed_entity_by_bili_user(bili_user=bili_user)
     # 获取动态消息内容
     preview_msg_tasks = [_get_dynamic_message(dynamic=dynamic) for dynamic in new_dynamics]
-    send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=5)
-    if error := [x for x in send_messages if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=5, return_exceptions=False)
 
     # 数据库中插入新动态信息
     add_artwork_tasks = [add_dynamic_into_database(dynamic=dynamic) for dynamic in new_dynamics]
-    add_result = await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=10)
-    if error := [x for x in add_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=10, return_exceptions=False)
 
     # 向订阅者发送新动态信息
     send_tasks = [_msg_sender(entity=entity, message=send_message)
                   for entity in subscribed_entity for send_message in send_messages]
-    sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=2)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=send_tasks, semaphore_num=2, return_exceptions=True)
 
 
 __all__ = [

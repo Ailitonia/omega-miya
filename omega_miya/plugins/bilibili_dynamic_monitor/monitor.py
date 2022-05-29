@@ -46,17 +46,14 @@ async def bili_user_dynamic_update_monitor() -> None:
 
     # 检查新作品并发送消息
     tasks = [send_bili_user_new_dynamics(BilibiliUser(uid=uid)) for uid in subscribed_uid]
-    sent_result = await semaphore_gather(tasks=tasks, semaphore_num=5)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        logger.error(f'BilibiliUserDynamicSubscriptionMonitor | Exception(s) raised in sending new dynamic messages: '
-                     f'{", ".join(str(x) for x in error)}')
-        if any(e for e in error if isinstance(e, BilibiliApiError)):
-            # 如果 API 异常则大概率被风控, 推迟下一次检查
-            if monitor_job is not None:
-                reschedule_job(job=monitor_job, trigger_mode='interval', minutes=_CHECKING_DELAY_UNDER_RATE_LIMITING)
-            logger.warning('BilibiliUserDynamicSubscriptionMonitor | Fetch bilibili dynamic data failed, '
-                           f'maybe under the rate limiting, '
-                           f'delay the next checking until after {_CHECKING_DELAY_UNDER_RATE_LIMITING} minutes')
+    sent_result = await semaphore_gather(tasks=tasks, semaphore_num=5, return_exceptions=True, filter_exception=False)
+    if any(e for e in sent_result if isinstance(e, BilibiliApiError)):
+        # 如果 API 异常则大概率被风控, 推迟下一次检查
+        if monitor_job is not None:
+            reschedule_job(job=monitor_job, trigger_mode='interval', minutes=_CHECKING_DELAY_UNDER_RATE_LIMITING)
+        logger.warning('BilibiliUserDynamicSubscriptionMonitor | Fetch bilibili dynamic data failed, '
+                       f'maybe under the rate limiting, '
+                       f'delay the next checking until after {_CHECKING_DELAY_UNDER_RATE_LIMITING} minutes')
 
     logger.debug('BilibiliUserDynamicSubscriptionMonitor | Bilibili user dynamic update checking completed')
 

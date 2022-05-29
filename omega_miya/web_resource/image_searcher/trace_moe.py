@@ -141,9 +141,7 @@ class TraceMoe(ImageSearcher):
 
         anilist_tasks = [self._handel_anilist_result(data=x) for x in tracemoe_result.result
                          if x.similarity >= _SIMILARITY_THRESHOLD]
-        anilist_result = await semaphore_gather(tasks=anilist_tasks, semaphore_num=5)
-        if error := [x for x in anilist_result if isinstance(x, Exception)]:
-            raise RuntimeError(*error)
+        anilist_result = await semaphore_gather(tasks=anilist_tasks, semaphore_num=5, return_exceptions=False)
         return parse_obj_as(list[ImageSearchingResult], anilist_result)
 
 

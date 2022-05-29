@@ -101,9 +101,7 @@ async def _query_subscribed_entity_by_pixiv_user() -> list[BaseInternalEntity]:
             case 'guild_channel':
                 init_tasks.append(InternalGuildChannel.init_from_index_id(id_=related_entity.id))
 
-    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50)
-    if error := [x for x in entity_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50, return_exceptions=False)
     return list(entity_result)
 
 
@@ -120,9 +118,7 @@ async def _check_pixivision_new_article() -> list[int]:
     """检查 Pixivision 新特辑(数据库中没有的)"""
     articles_data = await Pixivision.query_illustration_list()
     check_tasks = [_check_pixivision_article_exist(aid=article.aid) for article in articles_data.illustrations]
-    check_result = await semaphore_gather(tasks=check_tasks, semaphore_num=20)
-    if error := [x for x in check_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    check_result = await semaphore_gather(tasks=check_tasks, semaphore_num=20, return_exceptions=False)
 
     new_aid = [x[0] for x in check_result if not x[1]]
     return new_aid
@@ -170,22 +166,16 @@ async def send_pixivision_new_article() -> None:
     # 获取新特辑消息内容
     message_prefix = f'【Pixivision】新的插画特辑!\n'
     preview_msg_tasks = [get_pixivision_article_preview(aid=aid, message_prefix=message_prefix) for aid in new_aids]
-    send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=5)
-    if error := [x for x in send_messages if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=5, return_exceptions=False)
 
     # 数据库中插入新特辑信息
     add_artwork_tasks = [_add_article_into_database(article=Pixivision(aid=aid)) for aid in new_aids]
-    add_result = await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=10)
-    if error := [x for x in add_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=10, return_exceptions=False)
 
     # 向订阅者发送新特辑信息
     send_tasks = [_msg_sender(entity=entity, message=send_message)
                   for entity in subscribed_entity for send_message in send_messages]
-    sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=2)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=send_tasks, semaphore_num=2, return_exceptions=True)
 
 
 __all__ = [

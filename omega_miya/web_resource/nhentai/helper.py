@@ -95,8 +95,8 @@ async def _request_preview_model(
         requests: list[NhentaiPreviewRequestModel]) -> NhentaiPreviewModel:
     """获取生成预览图所需要的数据模型"""
     _tasks = [_request_preview_body(request) for request in requests]
-    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30)
-    _requests_data = [_requests for _requests in _requests_data if not isinstance(_requests, BaseException)]
+    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30, filter_exception=True)
+    _requests_data = list(_requests_data)
     count = len(_requests_data)
     return NhentaiPreviewModel(preview_name=preview_name, count=count, previews=_requests_data)
 

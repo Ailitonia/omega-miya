@@ -17,6 +17,8 @@ from functools import wraps, partial
 
 from nonebot import logger
 from nonebot.exception import AdapterException, NoneBotException
+
+from omega_miya.result import BaseResult
 from omega_miya.exception import OmegaException, WebSourceException
 
 
@@ -164,12 +166,15 @@ async def semaphore_gather(
         tasks: list[Future[T] | Coroutine[Any, Any, T] | Generator[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
-        return_exceptions: bool = True) -> tuple[T | BaseException, ...]:
+        return_exceptions: bool = True,
+        filter_exception: bool = False
+) -> tuple[T | BaseException, ...]:
     """使用 asyncio.Semaphore 来限制一批需要并行的异步函数
 
     :param tasks: 任务序列
     :param semaphore_num: 单次并行的信号量限制
-    :param return_exceptions: 是否在结果中包含异常
+    :param return_exceptions: 是否将异常视为成功结果, 并在结果列表中聚合
+    :param filter_exception: 是否过滤掉返回值中的异常
     """
     _semaphore = asyncio.Semaphore(semaphore_num)
 
@@ -178,7 +183,30 @@ async def semaphore_gather(
         async with _semaphore:
             return await coro
 
-    return await asyncio.gather(*(_wrap_coro(coro) for coro in tasks), return_exceptions=return_exceptions)
+    result = await asyncio.gather(*(_wrap_coro(coro) for coro in tasks), return_exceptions=return_exceptions)
+
+    # 输出错误日志
+    _stack_frame = inspect.stack()[1].frame
+    _f_name = _stack_frame.f_code.co_name
+    _f_filename = _stack_frame.f_code.co_filename
+    for i, r in enumerate(result):
+        if isinstance(r, Exception):
+            logger.opt(colors=True).error(
+                f'<lc>SemaphoreGather</lc> | Task(s) called by <lc>"{_f_name}"</lc> in <lc>"{_f_filename}"</lc> '
+                f'raised <r>{r.__class__.__name__}</r> exception in task({i}), <ly>{repr(r)}</ly>'
+            )
+        elif isinstance(r, BaseResult):
+            if r.error:
+                logger.opt(colors=True).warning(
+                    f'<lc>SemaphoreGather</lc> | Task(s) called by <lc>"{_f_name}"</lc> in <lc>"{_f_filename}"</lc> '
+                    f'return a result object with error in task({i}), <ly>{repr(r.info)}</ly>'
+                )
+
+    # 过滤异常
+    if filter_exception:
+        result = tuple(x for x in result if not isinstance(x, BaseException))
+
+    return result
 
 
 __all__ = [

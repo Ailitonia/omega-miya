@@ -163,9 +163,7 @@ class InternalPixiv(object):
             tasks = [self.add_upgrade_page(page=page, original=page_url.original, regular=page_url.regular,
                                            small=page_url.small, thumb_mini=page_url.thumb_mini)
                      for page, page_url in artwork_data.all_page.items()]
-            upgrade_pages_result = await semaphore_gather(tasks=tasks, semaphore_num=10)
-            if error := [x for x in upgrade_pages_result if isinstance(x, Exception)]:
-                raise RuntimeError(*error)
+            await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
         return BoolResult(error=False, info='Success', result=True)
 
     async def add_only(
@@ -189,9 +187,7 @@ class InternalPixiv(object):
             tasks = [self.add_upgrade_page(page=page, original=page_url.original, regular=page_url.regular,
                                            small=page_url.small, thumb_mini=page_url.thumb_mini)
                      for page, page_url in artwork_data.all_page.items()]
-            upgrade_pages_result = await semaphore_gather(tasks=tasks, semaphore_num=10)
-            if error := [x for x in upgrade_pages_result if isinstance(x, Exception)]:
-                raise RuntimeError(*error)
+            await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
         return BoolResult(error=False, info='Success', result=True)
 
     async def delete(self) -> BoolResult:

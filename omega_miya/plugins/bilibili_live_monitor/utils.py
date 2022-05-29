@@ -87,9 +87,7 @@ async def _init_all_subscription_source_live_room_status() -> None:
     source_result = await InternalSubscriptionSource.query_all_by_sub_type(sub_type=_LIVE_SUB_TYPE)
     init_tasks = [_query_and_upgrade_live_room_status(live_room=BilibiliLiveRoom(room_id=int(sub.sub_id)))
                   for sub in source_result]
-    init_result = await semaphore_gather(tasks=init_tasks, semaphore_num=10)
-    if error := [x for x in init_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=init_tasks, semaphore_num=10, return_exceptions=False)
     logger.opt(colors=True).success(f'<lc>BilibiliLiveRoomMonitor</lc> | Live room status initializing completed')
 
 
@@ -157,9 +155,7 @@ async def _query_subscribed_entity_by_live_room(room_id: str) -> list[BaseIntern
             case 'guild_channel':
                 init_tasks.append(InternalGuildChannel.init_from_index_id(id_=related_entity.id))
 
-    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50)
-    if error := [x for x in entity_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50, return_exceptions=False)
     return list(entity_result)
 
 
@@ -239,9 +235,7 @@ async def _process_bili_live_room_update(live_room_data: BilibiliLiveRoomDataMod
     # 向订阅者发送直播间更新信息
     send_tasks = [_msg_sender(entity=entity, message=send_msg)
                   for entity in subscribed_entity if send_msg is not None]
-    sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=2)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=send_tasks, semaphore_num=2, return_exceptions=True)
 
 
 async def send_bili_live_room_update() -> None:
@@ -257,10 +251,7 @@ async def send_bili_live_room_update() -> None:
 
     # 处理直播间状态更新并向订阅者发送直播间更新信息
     send_tasks = [_process_bili_live_room_update(live_room_data=data) for uid, data in room_status_data.data.items()]
-    sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=3)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        logger.error(f'BilibiliLiveRoomMonitor | Exception(s) raised in sending live room update messages: '
-                     f'{", ".join(str(x) for x in error)}')
+    await semaphore_gather(tasks=send_tasks, semaphore_num=3, return_exceptions=True)
 
 
 __all__ = [

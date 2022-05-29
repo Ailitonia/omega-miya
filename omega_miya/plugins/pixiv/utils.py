@@ -195,9 +195,7 @@ async def _add_pixiv_user_artworks_to_database(pixiv_user: PixivUser) -> BoolRes
     user_data = await pixiv_user.get_user_model()
     tasks = [add_artwork_into_database(artwork=PixivArtwork(pid=pid), upgrade_pages=False)
              for pid in user_data.manga_illusts]
-    add_result = await semaphore_gather(tasks=tasks, semaphore_num=25)
-    if error := [x for x in add_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=tasks, semaphore_num=25, return_exceptions=False)
     return BoolResult(error=False, info='Success', result=True)
 
 
@@ -274,9 +272,7 @@ async def _query_subscribed_entity_by_pixiv_user(pixiv_user: PixivUser) -> list[
             case 'guild_channel':
                 init_tasks.append(InternalGuildChannel.init_from_index_id(id_=related_entity.id))
 
-    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50)
-    if error := [x for x in entity_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    entity_result = await semaphore_gather(tasks=init_tasks, semaphore_num=50, return_exceptions=False)
     return list(entity_result)
 
 
@@ -284,9 +280,7 @@ async def _check_user_new_artworks(pixiv_user: PixivUser) -> list[int]:
     """检查 Pixiv 用户的新作品(数据库中没有的)"""
     user_data = await pixiv_user.get_user_model()
     check_tasks = [InternalPixiv(pid=pid).exist() for pid in user_data.manga_illusts]
-    check_result = await semaphore_gather(tasks=check_tasks, semaphore_num=50)
-    if error := [x for x in check_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    check_result = await semaphore_gather(tasks=check_tasks, semaphore_num=50, return_exceptions=False)
 
     new_pid = [x[0] for x in check_result if not x[1]]
     return new_pid
@@ -324,22 +318,16 @@ async def send_pixiv_user_new_artworks(pixiv_user: PixivUser) -> None:
     # 获取作品更新消息内容
     message_prefix = f'【Pixiv】{user_data.name}发布了新的作品!\n'
     preview_msg_tasks = [get_artwork_preview(pid=pid, message_prefix=message_prefix) for pid in new_pids]
-    send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=5)
-    if error := [x for x in send_messages if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=5, return_exceptions=False)
 
     # 数据库中插入新作品信息
     add_artwork_tasks = [add_artwork_into_database(artwork=PixivArtwork(pid=pid)) for pid in new_pids]
-    add_result = await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=10)
-    if error := [x for x in add_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=10, return_exceptions=False)
 
     # 向订阅者发送新作品信息
     send_tasks = [_msg_sender(entity=entity, message=send_message[0])
                   for entity in subscribed_entity for send_message in send_messages]
-    sent_result = await semaphore_gather(tasks=send_tasks, semaphore_num=2)
-    if error := [x for x in sent_result if isinstance(x, Exception)]:
-        raise RuntimeError(*error)
+    await semaphore_gather(tasks=send_tasks, semaphore_num=2, return_exceptions=True)
 
 
 __all__ = [

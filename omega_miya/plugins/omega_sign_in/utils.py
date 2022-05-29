@@ -45,7 +45,7 @@ async def _prepare_signin_image() -> None:
     success_count = 0
     failed_count = 0
     for result in pre_download_result:
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             failed_count += 1
         else:
             success_count += 1

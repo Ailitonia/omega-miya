@@ -90,8 +90,7 @@ async def handle_operating(
 async def handle_search(bot: Bot, event: GroupMessageEvent, matcher: Matcher, keyword: str):
     await matcher.send('获取搜索结果中, 请稍候')
     search_tasks = [NhentaiGallery.search_gallery_with_preview(keyword=keyword, page=p) for p in range(1, 6)]
-    search_results = await semaphore_gather(tasks=search_tasks, semaphore_num=2)
-    search_results = [x for x in search_results if not isinstance(x, Exception)]
+    search_results = await semaphore_gather(tasks=search_tasks, semaphore_num=2, filter_exception=True)
     if not search_results:
         await matcher.finish('没有搜索结果或搜索失败了QAQ, 请稍后再试')
     else:

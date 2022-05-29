@@ -330,8 +330,7 @@ async def generate_user_searching_result_image(searching: PixivUserSearchingMode
     """根据用户搜索结果页面解析内容, 生成结果预览图片"""
     users = searching.users[:pixiv_resource_config.user_searching_card_num]
     tasks = [_generate_user_searching_result_card(user=user, width=width) for user in users]
-    cards = await semaphore_gather(tasks=tasks, semaphore_num=10)
-    cards = [card for card in cards if not isinstance(card, BaseException)]
+    cards = await semaphore_gather(tasks=tasks, semaphore_num=10, filter_exception=True)
 
     def _handle_generate_image() -> bytes:
         """用于图像生成处理的内部函数"""
@@ -386,8 +385,8 @@ async def _request_preview_model(
         requests: list[PixivArtworkPreviewRequestModel]) -> PixivArtworkPreviewModel:
     """获取生成预览图所需要的数据模型"""
     _tasks = [_request_preview_body(request) for request in requests]
-    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30)
-    _requests_data = [_requests for _requests in _requests_data if not isinstance(_requests, BaseException)]
+    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30, filter_exception=True)
+    _requests_data = list(_requests_data)
     count = len(_requests_data)
     return PixivArtworkPreviewModel(preview_name=preview_name, count=count, previews=_requests_data)
 

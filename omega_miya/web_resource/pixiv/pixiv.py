@@ -728,8 +728,8 @@ async def _request_artwork_preview_body(pid: int, *, blur_r18: bool = True) -> P
 async def _emit_preview_model_from_artwork_pids(preview_name: str, pids: list[int]) -> PixivArtworkPreviewModel:
     """从作品信息中获取生成预览图所需要的数据模型"""
     _tasks = [_request_artwork_preview_body(pid=pid) for pid in pids]
-    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30)
-    _requests_data = [_requests for _requests in _requests_data if not isinstance(_requests, BaseException)]
+    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30, filter_exception=True)
+    _requests_data = list(_requests_data)
     count = len(_requests_data)
     return PixivArtworkPreviewModel(preview_name=preview_name, count=count, previews=_requests_data)
 

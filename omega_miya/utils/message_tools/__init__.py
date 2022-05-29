@@ -161,14 +161,14 @@ class MessageSender(object):
         send_tasks = [self.send_internal_entity_msg(entity=entity, message=msg) for msg in message_list]
 
         sent_results = await semaphore_gather(tasks=send_tasks, semaphore_num=1)
-        exceptions = [x for x in sent_results if isinstance(x, Exception)]
-        sent_msg_id = [x for x in sent_results if not isinstance(x, Exception)]
+        exceptions = [x for x in sent_results if isinstance(x, BaseException)]
+        sent_msg_id = [x for x in sent_results if not isinstance(x, BaseException)]
 
         if entity.relation_type == 'guild_channel':
             logger.opt(colors=True).debug('<lc>MessageSender</lc> | Can not recall message in guild-channel, ignore')
             if exceptions:
                 raise RuntimeError(*exceptions)
-            return [x for x in sent_results if not isinstance(x, Exception)]
+            return [x for x in sent_results if not isinstance(x, BaseException)]
         else:
             logger.opt(colors=True).debug(f'<lc>MessageSender</lc>| Message({", ".join(str(x) for x in sent_msg_id)}) '
                                           f'will be auto-recalled after {recall_time} seconds')
@@ -177,7 +177,7 @@ class MessageSender(object):
 
         delete_tasks = [self.bot.delete_msg(message_id=msg_id) for msg_id in sent_msg_id]
         delete_results = await semaphore_gather(tasks=delete_tasks, semaphore_num=1)
-        exceptions.extend(x for x in delete_results if isinstance(x, Exception))
+        exceptions.extend(x for x in delete_results if isinstance(x, BaseException))
 
         if exceptions:
             raise RuntimeError(*exceptions)

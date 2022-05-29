@@ -119,8 +119,8 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
 
     await matcher.send('稍等, 正在下载图片~')
     image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=(not args.no_flash)) for x in artworks]
-    message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5)
-    send_messages = [x[0] for x in message_result if not isinstance(x, BaseException)]
+    message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
+    send_messages = list(message_result)
     if not send_messages:
         await matcher.finish('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
     await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=send_messages,
@@ -177,8 +177,8 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
 
     await matcher.send('稍等, 正在下载图片~')
     image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=(not args.no_flash)) for x in artworks]
-    message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5)
-    send_messages = [x[0] for x in message_result if not isinstance(x, BaseException)]
+    message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
+    send_messages = list(message_result)
     if not send_messages:
         await matcher.finish('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
     await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=send_messages,
