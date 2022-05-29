@@ -269,12 +269,12 @@ class BaseDatabase(abc.ABC):
                         # 首先尝试查询对象是否已经存在, 已存在行则直接更新
                         session_result = await session.execute(self._make_unique_self_select())
                         unique_result = self.data_model.from_orm(session_result.scalar_one())
-                        await session.commit()
                         upgrade_data = unique_result.dict()
                         upgrade_data.update(**new_model.dict())
                         upgrade_data.update({'updated_at': datetime.now()})
-                        result = await self._execute(
-                            stmt=self._make_unique_self_update(new_model=self.data_model.parse_obj(upgrade_data)))
+                        upgrade_stmt = self._make_unique_self_update(new_model=self.data_model.parse_obj(upgrade_data))
+                        await session.execute(upgrade_stmt)
+                        result = BoolResult(error=False, info='Upgrade Success', result=True)
                     except NoResultFound:
                         new_data = new_model.dict()
                         new_data.update({'created_at': datetime.now()})
