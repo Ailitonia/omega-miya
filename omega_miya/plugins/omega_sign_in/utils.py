@@ -13,7 +13,11 @@ from datetime import datetime
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 from nonebot.log import logger
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent
 
+from omega_miya.onebot_api import GoCqhttpBot
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
 from omega_miya.database import InternalPixiv
 from omega_miya.database.schemas.pixiv_artwork import PixivArtworkModel
 from omega_miya.local_resource import TmpResource
@@ -21,7 +25,7 @@ from omega_miya.web_resource import HttpFetcher
 from omega_miya.web_resource.pixiv import PixivArtwork
 from omega_miya.utils.process_utils import semaphore_gather, run_sync, run_async_catching_exception
 from omega_miya.utils.text_utils import AdvanceTextUtils
-from omega_miya.utils.qq_tools import get_user_head_img
+from omega_miya.utils.qq_tools import get_user_head_img_url
 from omega_miya.utils.apscheduler import scheduler
 
 from .config import sign_in_config, sign_local_resource_config
@@ -79,6 +83,22 @@ async def _get_signin_top_image() -> tuple[PixivArtworkModel, TmpResource]:
         if not isinstance(artwork_file, Exception):
             return random_artwork, artwork_file
     raise RuntimeError(f'all attempts to fetch artwork resources have failed')
+
+
+@run_async_catching_exception
+async def get_head_image(bot: Bot, event: MessageEvent) -> TmpResource:
+    """获取用户头像 url"""
+    if isinstance(event, GuildMessageEvent):
+        gocq_bot = GoCqhttpBot(bot=bot)
+        profile = await gocq_bot.get_guild_member_profile(guild_id=event.guild_id, user_id=event.user_id)
+        head_image_url = profile.avatar_url
+    else:
+        head_image_url = get_user_head_img_url(user_id=event.user_id)
+
+    image_name = HttpFetcher.hash_url_file_name('signin-head-image', url=head_image_url)
+    image_file = sign_local_resource_config.default_save_folder('head_image', image_name)
+    await HttpFetcher().download_file(url=head_image_url, file=image_file)
+    return image_file
 
 
 def _get_level(friendship: float) -> tuple[int, int, int]:
@@ -161,7 +181,7 @@ async def generate_signin_card(
         *,
         width: int = 1024,
         fortune_do: bool = True,
-        add_head_img: bool = False) -> TmpResource:
+        head_img: TmpResource | None = None) -> TmpResource:
     """生成签到卡片
 
     :param user_id: 用户id
@@ -169,7 +189,7 @@ async def generate_signin_card(
     :param fav: 用户好感度 用户计算等级
     :param width: 生成图片宽度 自适应排版
     :param fortune_do: 是否绘制老黄历当日宜与不宜
-    :param add_head_img: 是否绘制用户头像
+    :param head_img: 绘制用户头像文件 (如有)
     :return: 生成图片地址
     """
     # 获取头图
@@ -177,12 +197,6 @@ async def generate_signin_card(
 
     # 头图作品来源
     top_img_origin_text = f'Pixiv | {signin_top_img_data.pid} | @{signin_top_img_data.uname}'
-
-    # 尝试获取用户头像
-    if add_head_img:
-        head_img_result = await run_async_catching_exception(get_user_head_img)(user_id=user_id)
-        if isinstance(head_img_result, Exception):
-            add_head_img = False
 
     def _handle_signin_card() -> bytes:
         """签到卡片绘制"""
@@ -257,7 +271,7 @@ async def generate_signin_card(
                       fortune_text_height * 1 + fortune_star_height * 2 + bottom_text_height * 4 +
                       int(0.1875 * width))
 
-        if add_head_img:
+        if head_img is not None:
             height += int(0.03125 * width)
 
         # 生成背景
@@ -278,10 +292,10 @@ async def generate_signin_card(
                                         stroke_fill=(128, 128, 128),
                                         fill=(224, 224, 224))  # 图片来源
 
-        if add_head_img:
+        if head_img is not None:
             # 头像要占一定高度
             top_img_height += int(0.03125 * width)
-            head_image: Image.Image = Image.open(head_img_result.resolve_path)
+            head_image: Image.Image = Image.open(head_img.resolve_path)
             # 确定头像高度
             head_image_width = int(width / 5)
             head_image = head_image.resize((head_image_width, head_image_width))
@@ -404,6 +418,7 @@ async def generate_signin_card(
 
 __all__ = [
     'scheduler',
+    'get_head_image',
     'get_hitokoto',
     'generate_signin_card'
 ]

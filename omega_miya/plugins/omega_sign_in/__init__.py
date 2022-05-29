@@ -31,7 +31,7 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.exception import PluginException
 
 from .config import sign_in_config, sign_local_resource_config
-from .utils import get_hitokoto, generate_signin_card
+from .utils import get_head_image, get_hitokoto, generate_signin_card
 
 
 # Custom plugin usage text
@@ -330,10 +330,11 @@ async def handle_fortune(bot: Bot, event: MessageEvent, state: T_State) -> Union
                     f'当前{sign_in_config.signin_friendship_alias}: {int(friendship.friend_ship)}\n' \
                     f'当前{sign_in_config.signin_currency_alias}: {int(friendship.currency)}'
 
-        add_head_img = False if isinstance(event, GuildMessageEvent) else True
+        head_img = await get_head_image(bot=bot, event=event)
+        head_img = head_img if not isinstance(head_img, Exception) else None
 
         sign_in_card_result = await generate_signin_card(user_id=event.user_id, user_text=user_text, fortune_do=False,
-                                                         fav=friendship.friend_ship, add_head_img=add_head_img)
+                                                         fav=friendship.friend_ship, head_img=head_img)
         if isinstance(sign_in_card_result, Exception):
             raise FailedException(f'生成运势卡片失败, {sign_in_card_result}')
 
