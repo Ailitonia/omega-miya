@@ -49,7 +49,8 @@ WordBank = MatcherGroup(
     state=init_processor_state(
         name='word_bank',
         level=10,
-        auth_node='word_bank'
+        auth_node='word_bank',
+        echo_processor_result=False
     ),
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=10,
