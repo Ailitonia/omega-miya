@@ -12,8 +12,6 @@ from typing import Type
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11.message import Message
 
-from omega_miya.utils.process_utils import semaphore_gather
-
 from .ascii2d import Ascii2d
 from .iqdb import Iqdb
 from .saucenao import Saucenao
@@ -45,18 +43,28 @@ class ComplexImageSearcher(object):
         self.image_url = image_url
 
     async def search(self) -> list[ImageSearchingResult]:
-        searching_tasks = [searcher(image_url=self.image_url).search() for searcher in self._searcher]
-        searching_result = await semaphore_gather(tasks=searching_tasks, semaphore_num=5)
-        if error := [x for x in searching_result if isinstance(x, Exception)]:
-            logger.error(f'ImageSearcher | ComplexImageSearcherError, {", ".join(repr(e) for e in error)}')
-        return [x for result_list in searching_result if not isinstance(result_list, Exception) for x in result_list]
+        for searcher in self._searcher:
+            try:
+                searching_result = await searcher(image_url=self.image_url).search()
+                if searching_result:
+                    return searching_result
+            except Exception as e:
+                logger.error(f'ImageSearcher | ComplexImageSearcherError, {searcher} searching failed, {e}')
+                continue
+        else:
+            return []
 
     async def searching_result(self) -> list[Message]:
-        searching_tasks = [searcher(image_url=self.image_url).searching_result() for searcher in self._searcher]
-        searching_result = await semaphore_gather(tasks=searching_tasks, semaphore_num=5)
-        if error := [x for x in searching_result if isinstance(x, Exception)]:
-            logger.error(f'ImageSearcher | ComplexImageSearcherError, {", ".join(repr(e) for e in error)}')
-        return [msg for msg_list in searching_result if not isinstance(msg_list, Exception) for msg in msg_list]
+        for searcher in self._searcher:
+            try:
+                searching_result = await searcher(image_url=self.image_url).searching_result()
+                if searching_result:
+                    return searching_result
+            except Exception as e:
+                logger.error(f'ImageSearcher | ComplexImageSearcherError, {searcher} searching result failed, {e}')
+                continue
+        else:
+            return []
 
 
 __all__ = [
