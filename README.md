@@ -69,21 +69,14 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://
 
 ## 关于图片数据
 
-如果你不想自己收集图片数据, 可以将
-[这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/master/archive_data/db_pixiv.7z)
-导入, 基本都是按我自己口味收集的图片
+如果你不想自己收集图片数据, 可以将 [这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/master/archive_data/db_pixiv.7z) 导入, 基本都是按我自己口味收集的图片
 
-Update 2021.8.10: 最新发布图片数据库共 9w7 条图片数据 (包含已失效或画师已删除作品)
+- Update 2022.5.30: 最新发布图片数据库共 13w1 条图片数据 (包含已失效或画师已删除作品)
+- Update 2021.8.10: 最新发布图片数据库共 9w7 条图片数据 (包含已失效或画师已删除作品)
 
 解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表就好了
 
-MD5: `7AC9A77545E37F1B99F8D1948D0A9A78`
-
-SHA1: `1F129A18905D1590379AC761E2EAC69DAC2D42DA`
-
-数据集来源是我的
-[这个频道](https://t.me/amoeloli)
-, 虽然已经断更很久了...
+数据集来源是我的 [这个频道](https://t.me/amoeloli), 虽然已经断更很久了...
 
 ## 一张图看懂如何获取 Pixiv cookie
 

@@ -179,7 +179,9 @@ async def semaphore_gather(
     _semaphore = asyncio.Semaphore(semaphore_num)
 
     async def _wrap_coro(
-            coro: Future[T] | Coroutine[Any, Any, T] | Generator[Any, Any, T] | Awaitable[T]) -> Coroutine[Any, Any, T]:
+            coro: Future[T] | Coroutine[Any, Any, T] | Generator[Any, Any, T] | Awaitable[T]
+    ) -> Coroutine[Any, Any, T]:
+        """使用 asyncio.Semaphore 限制单个任务"""
         async with _semaphore:
             return await coro
 
