@@ -248,12 +248,11 @@ async def generate_signin_card(
 
         # 日期
         date_text = datetime.now().strftime('%m/%d')
-        # 预处理用户文本
-        _user_text_convert_content = AdvanceTextUtils.parse_from_str(text=user_text)._prepare_segment()
-        # 昵称、好感度、积分
-        _user_text_img = AdvanceTextUtils._convert_image(convert_content=_user_text_convert_content,
-                                                         image_size=(width - int(width * 0.125), width),
-                                                         font=text_font, font_fill=(128, 128, 128), spacing=1)
+        # 预处理用户文本 包括昵称、好感度、积分
+        _user_text_img = AdvanceTextUtils.parse_from_str(text=user_text).covert_pil_image_ignore_image_seg(
+            image_size=(width - int(width * 0.125), width), font=text_font, font_fill=(128, 128, 128), spacing=1
+        )
+
         user_text_width, user_text_height = _user_text_img.size
         # 今日运势
         fortune_text_width, fortune_text_height = bd_text_font.getsize(user_fortune.text)
