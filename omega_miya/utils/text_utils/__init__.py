@@ -129,7 +129,7 @@ class AdvanceTextUtils(object):
         return character in emoji.EMOJI_DATA.keys()
 
     @classmethod
-    def _parse_emoji_text_as_text_content(cls, text: str) -> list[TextSegment]:
+    def _parse_emoji_text_as_text_segment(cls, text: str) -> list[TextSegment]:
         """将含有 emoji 的字符串解析为 TextSegment 列表"""
         text_segments: list[TextSegment] = []
         split_start_index = 0
@@ -146,23 +146,23 @@ class AdvanceTextUtils(object):
         return text_segments
 
     @classmethod
-    def parse_as_text_content(cls, text: str) -> TextContent:
+    def _parse_as_text_content(cls, text: str) -> TextContent:
         """将字符串转化为 TextContent 对象, 同时解析形如 '[image: https://image_url]' 的字符串为 TextSegment"""
         text_segments: list[TextSegment] = []
         split_start_index = 0
         for i in re.compile(r"(\[(text|emoji|image):\s(.+?)])").finditer(text):
             split_end_index = i.span()[0]
-            text_segments.extend(cls._parse_emoji_text_as_text_content(text=text[split_start_index: split_end_index]))
+            text_segments.extend(cls._parse_emoji_text_as_text_segment(text=text[split_start_index: split_end_index]))
             text_segments.append(TextSegment.new(type_=i.group(2), data=i.group(3)))
             split_start_index = i.span()[1]
         else:
-            text_segments.extend(cls._parse_emoji_text_as_text_content(text=text[split_start_index:]))
+            text_segments.extend(cls._parse_emoji_text_as_text_segment(text=text[split_start_index:]))
 
         return TextContent.parse_obj({'content': text_segments})
 
     @classmethod
     def parse_from_str(cls, text: str) -> 'AdvanceTextUtils':
-        content = cls.parse_as_text_content(text=text)
+        content = cls._parse_as_text_content(text=text)
         return cls(content=content)
 
     async def _prepare_image_segment(self) -> None:
@@ -204,7 +204,8 @@ class AdvanceTextUtils(object):
             image_size: tuple[int, int] = (1024, 1024),
             font: ImageFont.FreeTypeFont | None = None,
             font_fill: tuple[int, int, int] | tuple[int, int, int, int] = (0, 0, 0),
-            spacing: float = 1.15
+            spacing: float = 1.15,
+            auto_crop: bool = True
     ) -> Image.Image:
         """转换图片
 
@@ -212,6 +213,7 @@ class AdvanceTextUtils(object):
         :param font: 字体
         :param font_fill: 字体填充颜色
         :param spacing: 行间距倍率
+        :param auto_crop: 自动裁剪有效区域
         """
         if font is None:
             font = cls._default_font
@@ -219,7 +221,7 @@ class AdvanceTextUtils(object):
         if spacing < 1:
             spacing = 1
 
-        _, line_spacing = font.getsize(' a,$#永')
+        _, line_spacing = font.getsize(' aAzZ,。$#永')
 
         background = Image.new(mode='RGBA', size=image_size)
         image_width, _ = image_size
@@ -267,8 +269,9 @@ class AdvanceTextUtils(object):
                     draw_loc[0] = draw_loc[0] + text_width
 
         # 裁剪有效范围
-        draw_loc[1] = draw_loc[1] + int(line_spacing * spacing)
-        background = background.crop(box=(0, 0, image_width, draw_loc[1]))
+        if auto_crop:
+            draw_loc[1] = draw_loc[1] + int(line_spacing * spacing)
+            background = background.crop(box=(0, 0, image_width, draw_loc[1]))
 
         return background
 
@@ -280,7 +283,8 @@ class AdvanceTextUtils(object):
             image_size: tuple[int, int] = (1024, 1024),
             font: ImageFont.FreeTypeFont | None = None,
             font_fill: tuple[int, int, int] | tuple[int, int, int, int] = (0, 0, 0),
-            spacing: float = 1.15
+            spacing: float = 1.15,
+            auto_crop: bool = True
     ) -> bytes:
         """转换图片
 
@@ -288,9 +292,10 @@ class AdvanceTextUtils(object):
         :param font: 字体
         :param font_fill: 字体填充颜色
         :param spacing: 行间距倍率
+        :param auto_crop: 自动裁剪有效区域
         """
         image = cls._convert_image(convert_content=convert_content, image_size=image_size,
-                                   font=font, font_fill=font_fill, spacing=spacing)
+                                   font=font, font_fill=font_fill, spacing=spacing, auto_crop=auto_crop)
 
         # 提取生成图的内容
         with BytesIO() as bf:
@@ -298,12 +303,56 @@ class AdvanceTextUtils(object):
             content = bf.getvalue()
         return content
 
+    def covert_pil_image_ignore_image_seg(
+            self,
+            image_size: tuple[int, int] = (1024, 1024),
+            font: ImageFont.FreeTypeFont | None = None,
+            font_fill: tuple[int, int, int] | tuple[int, int, int, int] = (0, 0, 0),
+            spacing: float = 1.15,
+            auto_crop: bool = True
+    ) -> Image.Image:
+        """忽略图片文字段并直接转换为 Image.Image 对象
+
+        :param image_size: 生成图片大小
+        :param font: 字体
+        :param font_fill: 字体填充颜色
+        :param spacing: 行间距倍率
+        :param auto_crop: 自动裁剪有效区域
+        """
+        convert_content = self._prepare_segment()
+        image = self._convert_image(convert_content=convert_content, image_size=image_size,
+                                    font=font, font_fill=font_fill, spacing=spacing, auto_crop=auto_crop)
+        return image
+
+    async def convert_pil_image(
+            self,
+            image_size: tuple[int, int] = (1024, 1024),
+            font: ImageFont.FreeTypeFont | None = None,
+            font_fill: tuple[int, int, int] | tuple[int, int, int, int] = (0, 0, 0),
+            spacing: float = 1.15,
+            auto_crop: bool = True
+    ) -> Image.Image:
+        """转换为 Image.Image 对象
+
+        :param image_size: 生成图片大小
+        :param font: 字体
+        :param font_fill: 字体填充颜色
+        :param spacing: 行间距倍率
+        :param auto_crop: 自动裁剪有效区域
+        """
+        await self._prepare_image_segment()
+        convert_content = await run_sync(self._prepare_segment)()
+        image = await run_sync(self._convert_image)(convert_content=convert_content, image_size=image_size, font=font,
+                                                    font_fill=font_fill, spacing=spacing, auto_crop=auto_crop)
+        return image
+
     async def convert_image(
             self,
             image_size: tuple[int, int] = (1024, 1024),
             font: ImageFont.FreeTypeFont | None = None,
             font_fill: tuple[int, int, int] | tuple[int, int, int, int] = (0, 0, 0),
-            spacing: float = 1.15
+            spacing: float = 1.15,
+            auto_crop: bool = True
     ) -> TmpResource:
         """转换图片
 
@@ -311,11 +360,13 @@ class AdvanceTextUtils(object):
         :param font: 字体
         :param font_fill: 字体填充颜色
         :param spacing: 行间距倍率
+        :param auto_crop: 自动裁剪有效区域
         """
         await self._prepare_image_segment()
         convert_content = await run_sync(self._prepare_segment)()
         file_content = await run_sync(self._byte_convert_image)(convert_content=convert_content, image_size=image_size,
-                                                                font=font, font_fill=font_fill, spacing=spacing)
+                                                                font=font, font_fill=font_fill, spacing=spacing,
+                                                                auto_crop=auto_crop)
         save_file_name = f"adv_{hash(self._content.get_text())}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.png"
         save_file = text_utils_config.default_img_tmp_folder(save_file_name)
         async with save_file.async_open('wb') as af:
