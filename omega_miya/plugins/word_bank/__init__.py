@@ -20,8 +20,7 @@ from nonebot.params import CommandArg, ArgStr, Arg, EventMessage
 
 
 from omega_miya.service import init_processor_state
-from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
-from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
 
 from .word_bank import WordBankManager, WordBankMatcher
 

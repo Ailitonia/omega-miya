@@ -521,7 +521,7 @@ class ZhouChecker(AssScriptLineTool):
         style_mode = self.__style_mode
 
         # 用于写入txt的内容
-        out_log = '--- 自动审轴姬 v1.1 by:Ailitonia ---\n\n'
+        out_log = '--- 自动审轴姬 v1.1 by: Ailitonia ---\n\n'
         if style_mode:
             out_log += '--- 样式模式已启用: 样式不同的行之间不会相互进行比较 ---\n\n'
         else:

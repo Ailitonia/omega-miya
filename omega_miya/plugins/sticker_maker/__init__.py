@@ -8,8 +8,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import Depends, CommandArg, Arg, ArgStr
 
 from omega_miya.service import init_processor_state
-from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
-from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.message_tools import MessageTools

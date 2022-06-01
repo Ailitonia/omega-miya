@@ -22,8 +22,7 @@ from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.params import ArgStr
 
 from omega_miya.service import init_processor_state
-from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
-from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
 from omega_miya.database import EventEntityHelper
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.rule import group_has_permission_level

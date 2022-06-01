@@ -20,8 +20,7 @@ from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
-from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent
-from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
 
 from .utils import draw_statistics
 

@@ -154,28 +154,18 @@ class ReactionInfo(BaseModel):
 
 
 @register_event
-class ChannelNoticeEvent(NoticeEvent):
-    __event__ = "notice.channel"
+class MessageReactionUpdatedNoticeEvent(NoticeEvent):
+    __event__ = "notice.message_reactions_updated"
+    notice_type: Literal["message_reactions_updated"]
+    message_id: str
+    current_reactions: Optional[List[ReactionInfo]] = None
+
     self_tiny_id: int
     guild_id: int
     channel_id: int
     user_id: int
 
     sub_type: None = None
-
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
-
-
-@register_event
-class MessageReactionUpdatedNoticeEvent(ChannelNoticeEvent):
-    __event__ = "notice.message_reactions_updated"
-    notice_type: Literal["message_reactions_updated"]
-    message_id: str
-    current_reactions: Optional[List[ReactionInfo]] = None
 
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
@@ -200,7 +190,7 @@ class ChannelInfo(BaseModel):
     channel_type: int
     channel_name: str
     create_time: int
-    creator_id: int
+    creator_id: Optional[int]
     creator_tiny_id: int
     talk_permission: int
     visible_type: int
@@ -212,13 +202,20 @@ class ChannelInfo(BaseModel):
 
 
 @register_event
-class ChannelUpdatedNoticeEvent(ChannelNoticeEvent):
+class ChannelUpdatedNoticeEvent(NoticeEvent):
     __event__ = "notice.channel_updated"
     notice_type: Literal["channel_updated"]
     operator_id: int
     old_info: ChannelInfo
     new_info: ChannelInfo
 
+    self_tiny_id: int
+    guild_id: int
+    channel_id: int
+    user_id: int
+
+    sub_type: None = None
+
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
             raise NoLogException(adapter_name='nonebot-adapter-onebot')
@@ -227,12 +224,19 @@ class ChannelUpdatedNoticeEvent(ChannelNoticeEvent):
 
 
 @register_event
-class ChannelCreatedNoticeEvent(ChannelNoticeEvent):
+class ChannelCreatedNoticeEvent(NoticeEvent):
     __event__ = "notice.channel_created"
     notice_type: Literal["channel_created"]
     operator_id: int
     channel_info: ChannelInfo
 
+    self_tiny_id: int
+    guild_id: int
+    channel_id: int
+    user_id: int
+
+    sub_type: None = None
+
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
             raise NoLogException(adapter_name='nonebot-adapter-onebot')
@@ -241,11 +245,18 @@ class ChannelCreatedNoticeEvent(ChannelNoticeEvent):
 
 
 @register_event
-class ChannelDestroyedNoticeEvent(ChannelNoticeEvent):
+class ChannelDestroyedNoticeEvent(NoticeEvent):
     __event__ = "notice.channel_destroyed"
     notice_type: Literal["channel_destroyed"]
     operator_id: int
     channel_info: ChannelInfo
+
+    self_tiny_id: int
+    guild_id: int
+    channel_id: int
+    user_id: int
+
+    sub_type: None = None
 
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
@@ -256,7 +267,6 @@ class ChannelDestroyedNoticeEvent(ChannelNoticeEvent):
 
 __all__ = [
     'GuildMessageEvent',
-    'ChannelNoticeEvent',
     'MessageReactionUpdatedNoticeEvent',
     'ChannelUpdatedNoticeEvent',
     'ChannelCreatedNoticeEvent',
