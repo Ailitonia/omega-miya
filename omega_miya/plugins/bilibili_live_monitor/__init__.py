@@ -10,6 +10,7 @@ from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
 from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.params import state_plain_text
 from omega_miya.web_resource.bilibili import BilibiliLiveRoom
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -69,14 +70,13 @@ async def handle_check_add_room_id(matcher: Matcher, room_id: str = ArgStr('room
 
 
 @add_live_sub.got('check', prompt='确认吗?\n\n【是/否】')
-async def handle_add_live_subscription(bot: Bot, matcher: Matcher, event: MessageEvent, state: T_State,
-                                       check: str = ArgStr('check')):
+async def handle_add_live_subscription(bot: Bot, matcher: Matcher, event: MessageEvent,
+                                       check: str = ArgStr('check'), room_id: str = state_plain_text('room_id')):
     check = check.strip()
     if check != '是':
         await matcher.finish('那就不订阅了哦')
 
     await matcher.send('正在更新Bilibili用户订阅信息, 请稍候')
-    room_id = state.get('room_id')
     room = BilibiliLiveRoom(room_id=int(room_id))
     scheduler.pause()  # 暂停计划任务避免中途检查更新
     add_sub_result = await add_bili_live_room_sub(bot=bot, event=event, live_room=room)

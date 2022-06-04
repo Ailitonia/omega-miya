@@ -20,6 +20,7 @@ from nonebot.params import CommandArg, ArgStr
 
 from omega_miya.service import init_processor_state
 from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.params import state_plain_text
 from omega_miya.web_resource.bilibili import BilibiliUser
 from omega_miya.utils.process_utils import run_async_catching_exception
 
@@ -79,14 +80,13 @@ async def handle_check_add_user_id(matcher: Matcher, user_id: str = ArgStr('user
 
 
 @add_dynamic_sub.got('check', prompt='确认吗?\n\n【是/否】')
-async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: MessageEvent, state: T_State,
-                                       check: str = ArgStr('check')):
+async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: MessageEvent,
+                                       check: str = ArgStr('check'), user_id: str = state_plain_text('user_id')):
     check = check.strip()
     if check != '是':
         await matcher.finish('那就不订阅了哦')
 
     await matcher.send('正在更新Bilibili用户订阅信息, 请稍候')
-    user_id = state.get('user_id')
     user = BilibiliUser(uid=int(user_id))
     scheduler.pause()  # 暂停计划任务避免中途检查更新
     add_sub_result = await add_bili_user_dynamic_sub(bot=bot, event=event, bili_user=user)

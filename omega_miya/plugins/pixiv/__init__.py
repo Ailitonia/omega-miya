@@ -23,6 +23,7 @@ from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 
 from omega_miya.service import init_processor_state
 from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.params import state_plain_text
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.web_resource.pixiv import PixivArtwork, PixivRanking, PixivDiscovery, PixivSearching, PixivUser
 from omega_miya.web_resource.pixiv.helper import parse_pid_from_url
@@ -444,7 +445,7 @@ pixiv_user_searching = on_command(
         cool_down=60,
         user_cool_down_override=2
     ),
-    aliases={'pixiv用户搜索', 'Pixiv用户搜索'},
+    aliases={'pixiv用户搜索', 'Pixiv用户搜索', 'pixiv画师搜索', 'Pixiv画师搜索'},
     permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
@@ -481,7 +482,7 @@ pixiv_user_artworks = on_command(
         cool_down=60,
         user_cool_down_override=2
     ),
-    aliases={'pixiv用户作品', 'Pixiv用户作品'},
+    aliases={'pixiv用户作品', 'Pixiv用户作品', 'pixiv画师作品', 'Pixiv画师作品'},
     permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=20,
     block=True
@@ -552,13 +553,12 @@ async def handle_check_add_user_id(matcher: Matcher, user_id: str = ArgStr('user
 
 
 @pixiv_add_user_subscription.got('check', prompt='确认吗?\n\n【是/否】')
-async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: MessageEvent, state: T_State,
-                                       check: str = ArgStr('check')):
+async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: MessageEvent,
+                                       check: str = ArgStr('check'), user_id: str = state_plain_text('user_id')):
     check = check.strip()
     if check != '是':
         await matcher.finish('那就不订阅了哦')
     await matcher.send('正在更新Pixiv用户订阅信息, 请稍候')
-    user_id = state.get('user_id')
 
     user = PixivUser(uid=int(user_id))
     scheduler.pause()  # 暂停计划任务避免中途检查更新
