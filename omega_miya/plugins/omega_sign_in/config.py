@@ -42,8 +42,8 @@ class SignLocalResourceConfig:
     """签到插件文件配置"""
     # 默认内置的静态资源文件路径
     default_font_folder: LocalResource = LocalResource('fonts')
-    default_font: LocalResource = default_font_folder('SourceHanSans_Regular.otf')
-    default_bold_font: LocalResource = default_font_folder('SourceHanSans_Heavy.otf')
+    default_font: LocalResource = default_font_folder('SourceHanSansSC-Regular.otf')
+    default_bold_font: LocalResource = default_font_folder('SourceHanSansSC-Heavy.otf')
     default_level_font: LocalResource = default_font_folder('pixel.ttf')
     default_footer_font: LocalResource = default_font_folder('fzzxhk.ttf')
     # 默认的缓存资源保存路径

@@ -20,7 +20,7 @@ class ImageUtilsConfig:
     default_preview_img_folder: TmpResource = default_save_folder('preview')
 
     # 默认内置的静态资源文件路径
-    default_font_name: str = 'SourceHanSans_Regular.otf'
+    default_font_name: str = 'SourceHanSansSC-Regular.otf'
     default_font_folder: LocalResource = LocalResource('fonts')
     default_font_file: LocalResource = default_font_folder(default_font_name)
     default_preview_font: LocalResource = default_font_folder('SourceHanSerif-Regular.ttc')

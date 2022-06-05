@@ -17,7 +17,7 @@ class TextUtilsConfig:
     """Text Utils 配置"""
     # 默认内置的静态资源文件路径
     default_size: int = 18
-    default_font_name: str = 'SourceHanSans_Regular.otf'
+    default_font_name: str = 'SourceHanSansSC-Regular.otf'
     default_font_folder: LocalResource = LocalResource('fonts')
     default_font_file: LocalResource = default_font_folder(default_font_name)
     default_emoji_font: LocalResource = default_font_folder('AppleColorEmoji.ttf')
