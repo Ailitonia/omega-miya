@@ -93,6 +93,7 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://
 - [go-cqhttp](https://github.com/Mrs4s/go-cqhttp)
 - [OneBot](https://github.com/howmanybots/onebot)
 - [ZhouShen_Hime](https://github.com/HakuRemu/ZhouShen_Hime)
+- [nonebot-plugin-petpet](https://github.com/noneplugin/nonebot-plugin-petpet)
 
 
 ## 说点题外话

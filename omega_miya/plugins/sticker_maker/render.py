@@ -9,7 +9,8 @@
 """
 
 import imageio
-from typing import Type
+import numpy
+from typing import Type, Any
 from datetime import date
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
@@ -86,7 +87,7 @@ class JichouRender(StickerRender):
     """
     _sticker_name: str = 'jichou'
     _static_resource: LocalResource = _STATIC_RESOURCE('jichou', 'default_bg.png')
-    _font: LocalResource = _FONT_RESOURCE('SourceHanSans_Regular.otf')
+    _font: LocalResource = _FONT_RESOURCE('SourceHanSansSC-Regular.otf')
 
     def _handler(self) -> bytes:
         self.source_image = self._static_resource
@@ -124,7 +125,7 @@ class PhlogoRender(StickerRender):
         - text: 生成表情包的文字内容
     """
     _sticker_name: str = 'phlogo'
-    _font: LocalResource = _FONT_RESOURCE('SourceHanSans_Heavy.otf')
+    _font: LocalResource = _FONT_RESOURCE('SourceHanSansSC-Heavy.otf')
     _default_font_size = 320
 
     def _handler(self) -> bytes:
@@ -193,7 +194,7 @@ class LuxunSayRender(StickerRender):
     """
     _sticker_name: str = 'luxunsay'
     _static_resource: LocalResource = _STATIC_RESOURCE('luxunsay', 'default_bg.png')
-    _font: LocalResource = _FONT_RESOURCE('SourceHanSans_Regular.otf')
+    _font: LocalResource = _FONT_RESOURCE('SourceHanSansSC-Regular.otf')
 
     def _handler(self) -> bytes:
         self.source_image = self._static_resource
@@ -392,7 +393,7 @@ class DefaultRender(StickerRender):
         text_w, text_h = font.getsize_multiline(self.text, stroke_width=text_stroke_width)
         # 自适应处理文字大小
         while text_w >= int(image.width * 0.95):
-            font_size = font_size * 7 // 8
+            font_size -= 1
             font = ImageFont.truetype(self._font.resolve_path, font_size)
             text_w, text_h = font.getsize_multiline(self.text, stroke_width=text_stroke_width)
         # 计算居中文字位置
@@ -428,8 +429,9 @@ class LittleAngelRender(StickerRender):
         font_up = ImageFont.truetype(self._font.resolve_path, font_size_up)
         text_up = f'请问你们看到{self.text}了吗?'
         text_up_w, text_up_h = font_up.getsize(text_up)
+        # 自适应处理文字大小
         while text_up_w >= int(image.width * 1.14):
-            font_size_up = font_size_up * 9 // 10
+            font_size_up -= 1
             font_up = ImageFont.truetype(self._font.resolve_path, font_size_up)
             text_up_w, text_up_h = font_up.getsize(text_up)
 
@@ -481,10 +483,14 @@ class WhiteBackgroundRender(StickerRender):
         image = self._load_source_image()
         image = self._zoom_pil_image_width(image=image, width=self._default_output_width)
 
-        # 分割文本
-        font = ImageFont.truetype(self._font.resolve_path, int(image.width / 10))
-        text = TextUtils(text=self.text).split_multiline(width=image.width * 8 // 9, font=font).text
-        text_w, text_h = font.getsize_multiline(text)
+        font_size = image.width // 10
+        font = ImageFont.truetype(self._font.resolve_path, font_size)
+        text_w, text_h = font.getsize_multiline(self.text)
+        # 自适应处理文字大小
+        while text_w >= int(image.width * 8 / 9):
+            font_size -= 1
+            font = ImageFont.truetype(self._font.resolve_path, font_size)
+            text_w, text_h = font.getsize_multiline(self.text)
 
         # 处理图片
         background = Image.new(mode='RGB', size=(image.width, int(image.height + image.width * 0.06 + text_h)),
@@ -496,7 +502,7 @@ class WhiteBackgroundRender(StickerRender):
         # 计算居中文字位置
         ImageDraw.Draw(background).multiline_text(
             xy=(background.width // 2, int(image.height + image.width * 0.015)),
-            text=text, align='center', anchor='ma', font=font, fill=(0, 0, 0))
+            text=self.text, align='center', anchor='ma', font=font, fill=(0, 0, 0))
 
         content = self._get_pil_image(image=background)
         return content
@@ -517,10 +523,14 @@ class BlackBackgroundRender(StickerRender):
         image = self._load_source_image()
         image = self._zoom_pil_image_width(image=image, width=self._default_output_width)
 
-        # 分割文本
-        font = ImageFont.truetype(self._font.resolve_path, int(image.width / 8))
-        text = TextUtils(text=self.text).split_multiline(width=int(image.width * 1.1), font=font).text
-        text_w, text_h = font.getsize_multiline(text)
+        font_size = image.width // 8
+        font = ImageFont.truetype(self._font.resolve_path, font_size)
+        text_w, text_h = font.getsize_multiline(self.text)
+        # 自适应处理文字大小
+        while text_w >= int(image.width * 1.1):
+            font_size -= 1
+            font = ImageFont.truetype(self._font.resolve_path, font_size)
+            text_w, text_h = font.getsize_multiline(self.text)
 
         # 处理图片
         background = Image.new(mode='RGB', color=(0, 0, 0),
@@ -530,7 +540,7 @@ class BlackBackgroundRender(StickerRender):
         # 计算居中文字位置
         ImageDraw.Draw(background).multiline_text(
             xy=(background.width // 2, int(image.height + image.width * 0.2)),
-            text=text, align='center', anchor='ma', font=font, fill=(255, 255, 255))
+            text=self.text, align='center', anchor='ma', font=font, fill=(255, 255, 255))
 
         content = self._get_pil_image(image=background)
         return content
@@ -551,6 +561,77 @@ class DeColorizeRender(StickerRender):
         enhancer = ImageEnhance.Color(image)
         made_image = enhancer.enhance(0)
         content = self._get_pil_image(image=made_image)
+        return content
+
+
+class GunjoRender(StickerRender):
+    """群青表情包模板
+
+    参数:
+        - source_image: 生成素材图片
+    """
+    _sticker_name: str = 'gunjo'
+    _need_text: bool = False
+    _need_external_img: bool = True
+    _default_output_width = 512
+    _font: LocalResource = _FONT_RESOURCE('SourceHanSansSC-Bold.otf')
+
+    def _handler(self) -> bytes:
+        image = self._load_source_image()
+        image = self._zoom_pil_image_width(image=image, width=self._default_output_width)
+
+        # 图片去色
+        made_image = ImageEnhance.Color(image).enhance(0)
+
+        # 图片转化为透明度蒙版到底色背景上
+        mask = made_image.convert('L')
+        background_color = (78, 114, 184)
+        background = Image.new(mode='RGBA', size=image.size, color=background_color)
+        background.paste(im=made_image, mask=mask)
+
+        # 写字
+        upper_font_size = int(image.width / 6)
+        upper_font = ImageFont.truetype(self._font.resolve_path, upper_font_size)
+        upper_text_coordinate = (int(image.width * 12 / 13), int(image.height / 11))
+
+        _, upper_text_height = upper_font.getsize_multiline('群\n青', stroke_width=upper_font_size // 20)
+        ImageDraw.Draw(background).multiline_text(
+            xy=upper_text_coordinate, text='群\n青', anchor='ra', align='center', font=upper_font,
+            fill=(255, 255, 255), stroke_width=upper_font_size // 20, stroke_fill=background_color
+        )
+
+        lower_font_size = int(image.width / 12)
+        lower_font = ImageFont.truetype(self._font.resolve_path, lower_font_size)
+        lower_text_coordinate = (int(image.width * 12 / 13), upper_text_coordinate[1] + upper_text_height)
+        ImageDraw.Draw(background).text(
+            xy=lower_text_coordinate, text='YOASOBI', anchor='ra', align='center', font=lower_font,
+            fill=(255, 255, 255), stroke_width=lower_font_size // 10, stroke_fill=background_color
+        )
+
+        content = self._get_pil_image(image=background)
+        return content
+
+
+class MarriageRender(StickerRender):
+    """结婚登记表情包模板
+
+    参数:
+        - source_image: 生成素材图片
+    """
+    _sticker_name: str = 'marriage'
+    _static_resource: LocalResource = _STATIC_RESOURCE('marriage', 'default_bg.png')
+    _need_text: bool = False
+    _need_external_img: bool = True
+    _default_output_width = 1080
+
+    def _handler(self) -> bytes:
+        image = self._load_source_image()
+        image = self._resize_with_filling(image=image, size=(self._default_output_width, self._default_output_width))
+
+        upper_image = self._load_extra_source_image(source_file=self._static_resource)
+        image.paste(im=upper_image, box=(0, 0), mask=upper_image)
+
+        content = self._get_pil_image(image=image)
         return content
 
 
@@ -629,17 +710,76 @@ class PetPetRender(StickerRender):
         image = self._load_source_image()
         frames_list = []
         for frame_index in range(5):
-            background = Image.new(mode="RGBA", size=(112, 112), color=(255, 255, 255))
+            background = Image.new(mode='RGBA', size=(112, 112), color=(255, 255, 255))
             frame = Image.open(self._static_resource(f'template_p{frame_index}.png').resolve_path)
             background.paste(image.resize(resize_paste_loc[frame_index][0]), resize_paste_loc[frame_index][1])
             background.paste(frame, (0, 0), mask=frame)
-            with BytesIO() as bf0:
-                background.save(bf0, format='PNG')
-                img_bytes = bf0.getvalue()
+            with BytesIO() as f_bf:
+                background.save(f_bf, format='PNG')
+                img_bytes = f_bf.getvalue()
                 frames_list.append(imageio.v2.imread(img_bytes))
 
         with BytesIO() as bf:
             imageio.mimsave(bf, frames_list, 'GIF', duration=0.06)
+            content = bf.getvalue()
+
+        return content
+
+
+class WorshipRender(StickerRender):
+    """膜拜表情包模板
+
+    参数:
+        - source_image: 生成素材图片
+    """
+    _sticker_name: str = 'worship'
+    _static_resource: LocalResource = _STATIC_RESOURCE('worship')
+    _need_text: bool = False
+    _need_external_img: bool = True
+    _default_output_format: str = 'gif'
+
+    @staticmethod
+    def _get_perspective_data(
+            target_point: tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]],
+            source_point: tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]]
+    ) -> Any:
+        """Method to determine perspective transformation coefficients
+
+        https://stackoverflow.com/questions/14177744/how-does-perspective-transformation-work-in-pil/14178717#14178717
+        """
+        matrix = []
+        for p1, p2 in zip(target_point, source_point):
+            matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0] * p1[0], -p2[0] * p1[1]])
+            matrix.append([0, 0, 0, p1[0], p1[1], 1, -p2[1] * p1[0], -p2[1] * p1[1]])
+
+        target_matrix = numpy.matrix(matrix, dtype=numpy.float)
+        source_array = numpy.array(source_point).reshape(8)
+
+        res = numpy.dot(numpy.linalg.inv(target_matrix.T * target_matrix) * target_matrix.T, source_array)
+        return numpy.array(res).reshape(8)
+
+    def _handler(self) -> bytes:
+        image = self._load_source_image()
+        width, height = image.size
+        perspective_data = self._get_perspective_data(
+            target_point=((0, -30), (135, 17), (135, 145), (0, 140)),
+            source_point=((0, 0), (width, 0), (width, height), (0, height))
+        )
+        p_image = image.transform(size=image.size, method=Image.PERSPECTIVE, data=perspective_data, fill=Image.BICUBIC)
+
+        frames_list = []
+        for frame_index in range(10):
+            background = Image.new(mode='RGBA', size=(300, 169), color=(255, 255, 255))
+            frame = Image.open(self._static_resource(f'template_p{frame_index}.png').resolve_path)
+            background.paste(im=p_image, box=(0, 0))
+            background.paste(im=frame, box=(0, 0), mask=frame)
+            with BytesIO() as f_bf:
+                background.save(f_bf, format='PNG')
+                img_bytes = f_bf.getvalue()
+                frames_list.append(imageio.v2.imread(img_bytes))
+
+        with BytesIO() as bf:
+            imageio.mimsave(bf, frames_list, 'GIF', duration=0.04)
             content = bf.getvalue()
 
         return content
@@ -652,7 +792,7 @@ class WangjingzeRender(StickerRender):
         - source_image: 生成素材图片
     """
     _sticker_name: str = 'wangjingze'
-    _font: LocalResource = _FONT_RESOURCE('SourceHanSans_Regular.otf')
+    _font: LocalResource = _FONT_RESOURCE('SourceHanSansSC-Regular.otf')
     _static_resource: LocalResource = _STATIC_RESOURCE('wangjingze')
     _need_text: bool = True
     _need_external_img: bool = False
@@ -710,6 +850,8 @@ _ALL_Render: dict[str, Type[StickerRender]] = {
     '黑白': DeColorizeRender,
     '小天使': LittleAngelRender,
     '生草日语': GrassJaRender,
+    '群青': GunjoRender,
+    '结婚登记': MarriageRender,
     '有内鬼': TraitorRender,
     '记仇': JichouRender,
     '鲁迅说': LuxunSayRender,
@@ -719,6 +861,7 @@ _ALL_Render: dict[str, Type[StickerRender]] = {
     '喜报竖版': XibaoVerticalRender,
     'ph': PhlogoRender,
     'petpet': PetPetRender,
+    '膜拜': WorshipRender,
     '王境泽': WangjingzeRender
 }
 

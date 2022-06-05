@@ -73,11 +73,33 @@ class StickerRender(abc.ABC):
         return image
 
     @staticmethod
+    def _load_extra_source_image(source_file: LocalResource) -> Image.Image:
+        """载入并初始化额外图片素材"""
+        with source_file.open('rb') as f:
+            image: Image.Image = Image.open(f)
+            image.load()
+        return image
+
+    @staticmethod
     def _zoom_pil_image_width(image: Image.Image, width: int) -> Image.Image:
         """等比缩放 PIL.Image.Image 为指定宽度"""
         image_resize_height = width * image.height // image.width
         make_image = image.resize((width, image_resize_height))
         return make_image
+
+    @staticmethod
+    def _resize_with_filling(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+        """在不损失原图长宽比的条件下, 使用透明图层将原图转换成指定大小"""
+        # 计算调整比例
+        width, height = image.size
+        rs_width, rs_height = size
+        scale = min(rs_width / width, rs_height / height)
+
+        _image = image.resize((int(width * scale), int(height * scale)))
+        box = (int(abs(width * scale - rs_width) / 2), int(abs(height * scale - rs_height) / 2))
+        background = Image.new(mode='RGBA', size=size, color=(255, 255, 255, 0))
+        background.paste(_image, box=box)
+        return background
 
     @staticmethod
     def _get_pil_image(image: Image.Image, output_format: str = 'JPEG') -> bytes:
