@@ -24,7 +24,7 @@ from nonebot.adapters.onebot.v11.message import Message
 from nonebot.params import CommandArg, ArgStr, ShellCommandArgs
 
 from omega_miya.service import init_processor_state
-from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD, GUILD_SUPERUSER
 from omega_miya.database import InternalPixiv
 from omega_miya.web_resource.pixiv import PixivArtwork
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
@@ -189,7 +189,7 @@ statistics = on_command(
     '图库统计',
     rule=to_me(),
     state=init_processor_state(name='MoeStatistics', enable_processor=False),
-    permission=SUPERUSER,
+    permission=SUPERUSER | GUILD_SUPERUSER,
     aliases={'图库查询', '查询图库'},
     priority=20,
     block=True
@@ -222,8 +222,8 @@ async def handle_keyword_statistics(matcher: Matcher, keyword: str = ArgStr('key
 
     msg = f'{msg_prefix}\n\n' \
           f'全部: {statistics_data.total}\n' \
-          f'萌图: {statistics_data.moe}\n' \
-          f'涩图: {statistics_data.setu}\n' \
+          f'Moe: {statistics_data.moe}\n' \
+          f'Setu: {statistics_data.setu}\n' \
           f'R18: {statistics_data.r18}'
     await matcher.finish(msg)
 
