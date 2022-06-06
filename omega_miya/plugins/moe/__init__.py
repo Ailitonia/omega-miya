@@ -221,7 +221,7 @@ async def handle_keyword_statistics(matcher: Matcher, keyword: str = ArgStr('key
         await matcher.finish('查询统计信息失败了QAQ, 详情请查看日志')
 
     msg = f'{msg_prefix}\n\n' \
-          f'全部: {statistics_data.total}\n' \
+          f'Total: {statistics_data.total}\n' \
           f'Moe: {statistics_data.moe}\n' \
           f'Setu: {statistics_data.setu}\n' \
           f'R18: {statistics_data.r18}'
