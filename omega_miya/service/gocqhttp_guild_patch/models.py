@@ -1,3 +1,4 @@
+import inspect
 from typing import List, Optional, Type, TypeVar
 
 from nonebot.adapters.onebot.v11 import (
@@ -23,18 +24,17 @@ Event_T = TypeVar("Event_T", bound=Type[Event])
 def register_event(event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
     logger.opt(colors=True).debug(
-        f"Custom event <e>{event.__event__!r}</e> registered "
-        f"from class <g>{event.__qualname__!r}</g>"
+        f"Custom event <e>{event.__qualname__!r}</e> registered "
+        f"from module <g>{inspect.getmodule(event).__name__!r}</g>"
     )
     return event
 
 
 @register_event
 class GuildMessageEvent(MessageEvent):
-    __event__ = "message.guild"
-    self_tiny_id: int
-
+    """收到频道消息"""
     message_type: Literal["guild"]
+    self_tiny_id: int
     message_id: str
     guild_id: int
     channel_id: int
@@ -154,18 +154,29 @@ class ReactionInfo(BaseModel):
 
 
 @register_event
-class MessageReactionUpdatedNoticeEvent(NoticeEvent):
-    __event__ = "notice.message_reactions_updated"
-    notice_type: Literal["message_reactions_updated"]
-    message_id: str
-    current_reactions: Optional[List[ReactionInfo]] = None
-
+class ChannelNoticeEvent(NoticeEvent):
+    """频道通知事件"""
+    notice_type: Literal["channel"]
     self_tiny_id: int
     guild_id: int
     channel_id: int
     user_id: int
 
     sub_type: None = None
+
+    def get_log_string(self) -> str:
+        if not guild_patch_config.enable_guild_event_log:
+            raise NoLogException(adapter_name='nonebot-adapter-onebot')
+        else:
+            return super().get_log_string()
+
+
+@register_event
+class MessageReactionUpdatedNoticeEvent(ChannelNoticeEvent):
+    """频道消息表情贴更新"""
+    notice_type: Literal["message_reactions_updated"]
+    message_id: str
+    current_reactions: Optional[List[ReactionInfo]] = None
 
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
@@ -202,20 +213,13 @@ class ChannelInfo(BaseModel):
 
 
 @register_event
-class ChannelUpdatedNoticeEvent(NoticeEvent):
-    __event__ = "notice.channel_updated"
+class ChannelUpdatedNoticeEvent(ChannelNoticeEvent):
+    """子频道信息更新"""
     notice_type: Literal["channel_updated"]
     operator_id: int
     old_info: ChannelInfo
     new_info: ChannelInfo
 
-    self_tiny_id: int
-    guild_id: int
-    channel_id: int
-    user_id: int
-
-    sub_type: None = None
-
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
             raise NoLogException(adapter_name='nonebot-adapter-onebot')
@@ -224,19 +228,12 @@ class ChannelUpdatedNoticeEvent(NoticeEvent):
 
 
 @register_event
-class ChannelCreatedNoticeEvent(NoticeEvent):
-    __event__ = "notice.channel_created"
+class ChannelCreatedNoticeEvent(ChannelNoticeEvent):
+    """子频道创建"""
     notice_type: Literal["channel_created"]
     operator_id: int
     channel_info: ChannelInfo
 
-    self_tiny_id: int
-    guild_id: int
-    channel_id: int
-    user_id: int
-
-    sub_type: None = None
-
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
             raise NoLogException(adapter_name='nonebot-adapter-onebot')
@@ -245,18 +242,11 @@ class ChannelCreatedNoticeEvent(NoticeEvent):
 
 
 @register_event
-class ChannelDestroyedNoticeEvent(NoticeEvent):
-    __event__ = "notice.channel_destroyed"
+class ChannelDestroyedNoticeEvent(ChannelNoticeEvent):
+    """子频道删除"""
     notice_type: Literal["channel_destroyed"]
     operator_id: int
     channel_info: ChannelInfo
-
-    self_tiny_id: int
-    guild_id: int
-    channel_id: int
-    user_id: int
-
-    sub_type: None = None
 
     def get_log_string(self) -> str:
         if not guild_patch_config.enable_guild_event_log:
@@ -267,6 +257,7 @@ class ChannelDestroyedNoticeEvent(NoticeEvent):
 
 __all__ = [
     'GuildMessageEvent',
+    'ChannelNoticeEvent',
     'MessageReactionUpdatedNoticeEvent',
     'ChannelUpdatedNoticeEvent',
     'ChannelCreatedNoticeEvent',

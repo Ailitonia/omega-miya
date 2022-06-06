@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+import inspect
 from typing import Optional, Type, TypeVar
 
 from nonebot.adapters.onebot.v11.adapter import Adapter
@@ -25,8 +26,8 @@ Event_T = TypeVar("Event_T", bound=Type[Event])
 def register_event(event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
     logger.opt(colors=True).debug(
-        f"Custom event <e>{event.__event__!r}</e> registered "
-        f"from class <g>{event.__qualname__!r}</g>"
+        f"Custom event <e>{event.__qualname__!r}</e> registered "
+        f"from module <g>{inspect.getmodule(event).__name__!r}</g>"
     )
     return event
 
@@ -35,7 +36,6 @@ def register_event(event: Event_T) -> Event_T:
 class MessageSentEvent(Event):
     """自身发送消息事件"""
 
-    __event__ = "message_sent"
     post_type: Literal["message_sent"]
     message_seq: Optional[int]
     target_id: Optional[int]
