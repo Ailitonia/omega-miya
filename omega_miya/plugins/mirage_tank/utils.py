@@ -21,8 +21,10 @@ _SAVE_FOLDER: TmpResource = TmpResource('mirage_tank')
 """生成图片存放路径"""
 
 
-def _simple_white(image: Image.Image) -> bytes:
+def _simple_white(image_content: bytes) -> bytes:
     """生成普通白底幻影坦克"""
+    image = _load_image(image_content=image_content)
+
     # 图片去色并转化为透明度蒙版
     mask = ImageEnhance.Color(image).enhance(0)
     mask = mask.convert('L')
@@ -41,8 +43,8 @@ def _simple_white(image: Image.Image) -> bytes:
 @run_async_catching_exception
 async def simple_white(image_url: str) -> TmpResource:
     """生成普通白底幻影坦克"""
-    image = await fetch_image(image_url=image_url)
-    make_image = await run_sync(_simple_white)(image=image)
+    image_content = await _fetch_image(image_url=image_url)
+    make_image = await run_sync(_simple_white)(image_content=image_content)
     file_name = f"simple_white_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
     save_file = _SAVE_FOLDER(file_name)
     async with save_file.async_open('wb') as af:
@@ -50,8 +52,10 @@ async def simple_white(image_url: str) -> TmpResource:
     return save_file
 
 
-def _simple_black(image: Image.Image) -> bytes:
+def _simple_black(image_content: bytes) -> bytes:
     """生成普通黑底幻影坦克"""
+    image = _load_image(image_content=image_content)
+
     # 图片去色并转化为透明度蒙版
     mask = ImageEnhance.Color(image).enhance(0)
     mask = mask.convert('L')
@@ -71,8 +75,8 @@ def _simple_black(image: Image.Image) -> bytes:
 @run_async_catching_exception
 async def simple_black(image_url: str) -> TmpResource:
     """生成普通黑底幻影坦克"""
-    image = await fetch_image(image_url=image_url)
-    make_image = await run_sync(_simple_black)(image=image)
+    image_content = await _fetch_image(image_url=image_url)
+    make_image = await run_sync(_simple_black)(image_content=image_content)
     file_name = f"simple_black_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
     save_file = _SAVE_FOLDER(file_name)
     async with save_file.async_open('wb') as af:
@@ -80,12 +84,15 @@ async def simple_black(image_url: str) -> TmpResource:
     return save_file
 
 
-def _complex_gray(white_image: Image.Image, black_image: Image.Image) -> bytes:
-    """生成由两张图合成的幻影坦克
+def _complex_gray(white_image_content: bytes, black_image_content: bytes) -> bytes:
+    """生成由两张图合成的灰度幻影坦克
 
-    :param white_image: 白色背景下显示的图片
-    :param black_image: 黑色背景下显示的图片
+    :param white_image_content: 白色背景下显示的图片
+    :param black_image_content: 黑色背景下显示的图片
     """
+    white_image = _load_image(image_content=white_image_content)
+    black_image = _load_image(image_content=black_image_content)
+
     # 调整图片大小
     width = max(white_image.width, black_image.width)
     height = max(white_image.height, black_image.height)
@@ -119,15 +126,136 @@ def _complex_gray(white_image: Image.Image, black_image: Image.Image) -> bytes:
 
 @run_async_catching_exception
 async def complex_gray(white_image_url: str, black_image_url: str) -> TmpResource:
-    """生成由两张图合成的幻影坦克
+    """生成由两张图合成的灰度幻影坦克
 
     :param white_image_url: 白色背景下显示的图片
     :param black_image_url: 黑色背景下显示的图片
     """
-    white_image = await fetch_image(image_url=white_image_url)
-    black_image = await fetch_image(image_url=black_image_url)
-    make_image = await run_sync(_complex_gray)(white_image=white_image, black_image=black_image)
+    white_image_content = await _fetch_image(image_url=white_image_url)
+    black_image_content = await _fetch_image(image_url=black_image_url)
+    make_image = await run_sync(_complex_gray)(white_image_content=white_image_content,
+                                               black_image_content=black_image_content)
     file_name = f"complex_gray_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+    save_file = _SAVE_FOLDER(file_name)
+    async with save_file.async_open('wb') as af:
+        await af.write(make_image)
+    return save_file
+
+
+def _complex_color(white_image_content: bytes, black_image_content: bytes) -> bytes:
+    """生成由两张图合成的彩色幻影坦克
+
+    :param white_image_content: 白色背景下显示的图片
+    :param black_image_content: 黑色背景下显示的图片
+    """
+    white_image = _load_image(image_content=white_image_content)
+    black_image = _load_image(image_content=black_image_content)
+
+    # 调整图片大小
+    width = max(white_image.width, black_image.width)
+    height = max(white_image.height, black_image.height)
+    size = (width, height)
+    white_image = _resize_with_filling(image=white_image, size=size)
+    black_image = _resize_with_filling(image=black_image, size=size)
+
+    # 调整饱和度和亮度
+    black_image = ImageEnhance.Color(black_image).enhance(0.7)
+    black_image = ImageEnhance.Brightness(black_image).enhance(0.2)
+
+    # 分离彩色通道
+    white_r, white_g, white_b, _ = white_image.split()
+    black_r, black_g, black_b, _ = black_image.split()
+
+    # 处理
+    r_mask = ImageMath.eval('float(256-wr+br)', wr=white_r, br=black_r)
+    g_mask = ImageMath.eval('float(256-wg+bg)', wg=white_g, bg=black_g)
+    b_mask = ImageMath.eval('float(256-wb+bb)', wb=white_b, bb=black_b)
+
+    color_max_mask = ImageMath.eval('float(max(max(r, g), b))', r=black_r, g=black_g, b=black_b)
+    alpha_mask = ImageMath.eval('float(min(max(float(0.222*r + 0.707*g + 0.071*b), float(m)), 256))',
+                                r=r_mask, g=g_mask, b=b_mask, m=color_max_mask)
+
+    output_r = ImageMath.eval('float(min(float(r/a), 256)*256)', r=black_r, a=alpha_mask).convert('L')
+    output_g = ImageMath.eval('float(min(float(g/a), 256)*256)', g=black_g, a=alpha_mask).convert('L')
+    output_b = ImageMath.eval('float(min(float(b/a), 256)*256)', b=black_b, a=alpha_mask).convert('L')
+    output_a = alpha_mask.convert('L')
+
+    make_image = Image.merge(mode='RGBA', bands=(output_r, output_g, output_b, output_a))
+
+    with BytesIO() as bf:
+        make_image.save(bf, 'PNG')
+        content = bf.getvalue()
+    return content
+
+
+@run_async_catching_exception
+async def complex_color(white_image_url: str, black_image_url: str) -> TmpResource:
+    """生成由两张图合成的彩色幻影坦克
+
+    :param white_image_url: 白色背景下显示的图片
+    :param black_image_url: 黑色背景下显示的图片
+    """
+    white_image_content = await _fetch_image(image_url=white_image_url)
+    black_image_content = await _fetch_image(image_url=black_image_url)
+    make_image = await run_sync(_complex_color)(white_image_content=white_image_content,
+                                                black_image_content=black_image_content)
+    file_name = f"complex_color_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+    save_file = _SAVE_FOLDER(file_name)
+    async with save_file.async_open('wb') as af:
+        await af.write(make_image)
+    return save_file
+
+
+def _complex_difference(differ_image_content: bytes, base_image_content: bytes) -> bytes:
+    """生成由两张相似图合成的彩色差分幻影坦克
+
+    :param differ_image_content: 差分图片
+    :param base_image_content: 基础图片
+    """
+    differ_image = _load_image(image_content=differ_image_content)
+    base_image = _load_image(image_content=base_image_content)
+
+    # 调整图片大小
+    width = max(differ_image.width, differ_image.width)
+    height = max(base_image.height, base_image.height)
+    size = (width, height)
+    differ_image = _resize_with_filling(image=differ_image, size=size)
+    base_image = _resize_with_filling(image=base_image, size=size)
+
+    # 转化灰度图, 计算差分作为透明度通道
+    differ_mask = ImageEnhance.Color(differ_image).enhance(0)
+    differ_mask = differ_mask.convert('L')
+
+    base_mask = ImageEnhance.Color(base_image).enhance(0)
+    base_mask = base_mask.convert('L')
+
+    difference_mask = ImageMath.eval('float(abs(dm-bm))', dm=differ_mask, bm=base_mask)
+
+    # 分离基础图片颜色通道
+    base_r, base_g, base_b, base_a = base_image.split()
+
+    # 根据差分重新计算透明度通道
+    output_a = ImageMath.eval('float(ba-da)', da=difference_mask, ba=base_a).convert('L')
+
+    make_image = Image.merge(mode='RGBA', bands=(base_r, base_g, base_b, output_a))
+    with BytesIO() as bf:
+        make_image.save(bf, 'PNG')
+        content = bf.getvalue()
+    return content
+
+
+@run_async_catching_exception
+async def complex_difference(differ_image_url: str, base_image_url: str) -> TmpResource:
+    """生成由两张相似图合成的彩色差分幻影坦克
+
+    :param differ_image_url: 差分图片
+    :param base_image_url: 基础图片
+    """
+    differ_image_content = await _fetch_image(image_url=differ_image_url)
+    base_image_content = await _fetch_image(image_url=base_image_url)
+    make_image = await run_sync(_complex_difference)(differ_image_content=differ_image_content,
+                                                     base_image_content=base_image_content)
+    file_name = f"complex_difference_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
     save_file = _SAVE_FOLDER(file_name)
     async with save_file.async_open('wb') as af:
         await af.write(make_image)
@@ -149,11 +277,15 @@ def _resize_with_filling(image: Image.Image, size: tuple[int, int]) -> Image.Ima
     return background
 
 
-async def fetch_image(image_url: str) -> Image.Image:
+async def _fetch_image(image_url: str) -> bytes:
     fetcher = HttpFetcher(timeout=30)
     image_result = await fetcher.get_bytes(url=image_url)
-    with BytesIO(image_result.result) as bf:
-        image: Image.Image = Image.open(bf)
+    return image_result.result
+
+
+def _load_image(image_content: bytes) -> Image.Image:
+    with BytesIO(image_content) as bf:
+        image = Image.open(bf)
         image.load()
     image = image.convert('RGBA')
     return image
@@ -162,5 +294,7 @@ async def fetch_image(image_url: str) -> Image.Image:
 __all__ = [
     'simple_white',
     'simple_black',
-    'complex_gray'
+    'complex_gray',
+    'complex_color',
+    'complex_difference'
 ]

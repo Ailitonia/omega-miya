@@ -20,7 +20,7 @@ from omega_miya.service import init_processor_state
 from omega_miya.service.gocqhttp_guild_patch import GUILD
 from omega_miya.utils.message_tools import MessageTools
 
-from .utils import simple_white, simple_black, complex_gray
+from .utils import simple_white, simple_black, complex_gray, complex_color, complex_difference
 
 
 # Custom plugin usage text
@@ -73,11 +73,8 @@ async def handle_parser(state: T_State, cmd_arg: Message = CommandArg()):
     """首次运行时解析命令参数"""
     # 处理消息中其他参数
     cmd_arg = cmd_arg.extract_plain_text().strip()
-    match cmd_arg:
-        case '白底' | '黑底' | '混合':
-            state.update({'mode': cmd_arg})
+    state.update({'mode': cmd_arg, 'first_image': '', 'second_image': ''})
 
-    state.update({'first_image': '', 'second_image': ''})
     image_list = state.get('_command_image_list', [])
     match len(image_list):
         case 1:
@@ -86,7 +83,7 @@ async def handle_parser(state: T_State, cmd_arg: Message = CommandArg()):
             state.update({'first_image': image_list[0], 'second_image': image_list[1]})
 
 
-@mirage_tank.got('mode', prompt='请选择你想要制作幻影坦克的模式:\n\n"白底", "黑底", "混合"')
+@mirage_tank.got('mode', prompt='请选择你想要制作幻影坦克的模式:\n\n"白底", "黑底", "灰度混合", "彩色混合", "差分"')
 @mirage_tank.got('first_image', prompt='第一张图片', parameterless=[Depends(parse_image('first_image'))])
 @mirage_tank.got('second_image', prompt='第二张图片', parameterless=[Depends(parse_image('second_image'))])
 async def handle_sticker(
@@ -112,14 +109,32 @@ async def handle_sticker(
             make_image = await simple_black(image_url=first_image)
             await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
-        case '混合':
+        case '灰度混合':
             if not first_image:
-                await matcher.reject_arg('first_image', f'请发送作为制作白色表层的图片:', at_sender=True)
+                await matcher.reject_arg('first_image', f'请发送作为白色表层的图片:', at_sender=True)
             if not second_image:
-                await matcher.reject_arg('second_image', f'请发送作为制作黑色里层的图片:', at_sender=True)
+                await matcher.reject_arg('second_image', f'请发送作为黑色里层的图片:', at_sender=True)
             make_image = await complex_gray(white_image_url=first_image, black_image_url=second_image)
             await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
+        case '彩色混合':
+            if not first_image:
+                await matcher.reject_arg('first_image', f'请发送作为白色表层的图片:', at_sender=True)
+            if not second_image:
+                await matcher.reject_arg('second_image', f'请发送作为黑色里层的图片:', at_sender=True)
+            make_image = await complex_color(white_image_url=first_image, black_image_url=second_image)
+            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
+
+        case '差分':
+            if not first_image:
+                await matcher.reject_arg('first_image', f'请发送基础图片:', at_sender=True)
+            if not second_image:
+                await matcher.reject_arg('second_image', f'请发送差分图片:', at_sender=True)
+            make_image = await complex_difference(differ_image_url=first_image, base_image_url=second_image)
+            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
+
         case _:
-            await matcher.reject_arg('mode', f'”{mode}“不是可用的模式, 请在以下模式中选择并重新输入:\n\n"白底", "黑底", "混合"',
+            await matcher.reject_arg('mode',
+                                     f'”{mode}“不是可用的模式, 请在以下模式中选择并重新输入:\n\n'
+                                     f'"白底", "黑底", "灰度混合", "彩色混合", "差分"',
                                      at_sender=True)
