@@ -89,17 +89,13 @@ class MessageSender(object):
 
         return sent_result.message_id
 
-    @run_async_catching_exception
-    async def send_group_node_custom(
-            self,
-            group_id: int | str,
+    @staticmethod
+    def _construct_node_custom(
+            custom_user_id: int,
             message_list: list[str | Message | MessageSegment],
-            *,
             custom_nickname: str = 'Ωμεγα_Μιγα'
-    ) -> int:
-        """向某个群组发送自定义转发消息节点 (仅支持 cq-http)"""
-        # 构造自定义消息节点
-        custom_user_id = self.bot.self_id
+    ) -> list[dict]:
+        """构造自定义转发消息节点"""
         node_message = []
         for msg in message_list:
             if not msg:
@@ -113,6 +109,20 @@ class MessageSender(object):
                     'content': msg
                 }
             })
+        return node_message
+
+    @run_async_catching_exception
+    async def send_group_node_custom(
+            self,
+            group_id: int | str,
+            message_list: list[str | Message | MessageSegment],
+            *,
+            custom_nickname: str = 'Ωμεγα_Μιγα'
+    ) -> int:
+        """向某个群组发送自定义转发消息节点 (仅支持 cq-http)"""
+        # 构造自定义消息节点
+        node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
+                                                   message_list=message_list)
 
         sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
         return sent_result.message_id
@@ -128,22 +138,82 @@ class MessageSender(object):
     ) -> int:
         """向某个群组发送自定义转发消息节点并自动撤回 (仅支持 cq-http)"""
         # 构造自定义消息节点
-        custom_user_id = self.bot.self_id
-        node_message = []
-        for msg in message_list:
-            if not msg:
-                continue
-            node_message.append({
-                'type': 'node',
-                'data': {
-                    'name': custom_nickname,
-                    'user_id': custom_user_id,
-                    'uin': custom_user_id,
-                    'content': msg
-                }
-            })
+        node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
+                                                   message_list=message_list)
 
         sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
+        await asyncio.sleep(recall_time)
+        await self.bot.delete_msg(message_id=sent_result.message_id)
+        return sent_result.message_id
+
+    @run_async_catching_exception
+    async def send_private_node_custom(
+            self,
+            user_id: int | str,
+            message_list: list[str | Message | MessageSegment],
+            *,
+            custom_nickname: str = 'Ωμεγα_Μιγα'
+    ) -> int:
+        """向某个群组发送自定义转发消息节点 (仅支持 cq-http)"""
+        # 构造自定义消息节点
+        node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
+                                                   message_list=message_list)
+
+        sent_result = await self.bot.send_private_forward_msg(user_id=user_id, messages=node_message)
+        return sent_result.message_id
+
+    @run_async_catching_exception
+    async def send_private_node_custom_and_recall(
+            self,
+            user_id: int | str,
+            message_list: list[str | Message | MessageSegment],
+            *,
+            recall_time: int = 30,
+            custom_nickname: str = 'Ωμεγα_Μιγα'
+    ) -> int:
+        """向某个群组发送自定义转发消息节点并自动撤回 (仅支持 cq-http)"""
+        # 构造自定义消息节点
+        node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
+                                                   message_list=message_list)
+
+        sent_result = await self.bot.send_private_forward_msg(user_id=user_id, messages=node_message)
+        await asyncio.sleep(recall_time)
+        await self.bot.delete_msg(message_id=sent_result.message_id)
+        return sent_result.message_id
+
+    @run_async_catching_exception
+    async def send_node_custom(
+            self,
+            message_list: list[str | Message | MessageSegment],
+            user_id: int | str | None = None,
+            group_id: int | str | None = None,
+            *,
+            custom_nickname: str = 'Ωμεγα_Μιγα'
+    ) -> int:
+        """发送自定义转发消息节点 (仅支持 cq-http)"""
+        # 构造自定义消息节点
+        node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
+                                                   message_list=message_list)
+
+        sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
+        return sent_result.message_id
+
+    @run_async_catching_exception
+    async def send_node_custom_and_recall(
+            self,
+            message_list: list[str | Message | MessageSegment],
+            user_id: int | str | None = None,
+            group_id: int | str | None = None,
+            *,
+            recall_time: int = 30,
+            custom_nickname: str = 'Ωμεγα_Μιγα'
+    ) -> int:
+        """向某个群组发送自定义转发消息节点并自动撤回 (仅支持 cq-http)"""
+        # 构造自定义消息节点
+        node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
+                                                   message_list=message_list)
+
+        sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
