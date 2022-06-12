@@ -26,9 +26,6 @@ class GroupInfo(BaseOnebotModel):
     """
     group_id: str
     group_name: str
-    group_memo: str
-    group_create_time: int
-    group_level: int
     member_count: int
     max_member_count: int
 

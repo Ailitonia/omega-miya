@@ -12,7 +12,7 @@ import ujson as json
 from typing import Literal
 from pydantic import parse_obj_as
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.message import Message, MessageSegment
+from nonebot.adapters.onebot.v11.message import Message
 
 from omega_miya.database import (InternalOneBotV11Bot, InternalBotGroup, InternalBotUser,
                                  InternalBotGuild, DatabaseUpgradeError)
@@ -26,13 +26,13 @@ from .model import (SentMessage, ReceiveMessage, ReceiveForwardMessage, Stranger
                     Anonymous, QidianAccountUser, Cookies, CSRF, Credentials, VersionInfo, Status, OnlineClients,
                     UrlSafely, ImageFile, OcrImageResult, RecordFile, CanSendImage, CanSendRecord, DownloadedFile,
                     GuildServiceProfile, GuildInfo, GuildMeta, ChannelInfo, GuildMemberList, GuildMemberProfile,
-                    SentGuildMessage, TopicChannelFeedInfo)
+                    GuildRoles, CreatedGuildRoles, SentGuildMessage, ReceiveGuildMessage, TopicChannelFeedInfo)
 
 
 class GoCqhttpBot(BaseOnebotApi):
     """go-cqhttp api
 
-    适配版本: go-cqhttp v1.0.0-rc1
+    适配版本: go-cqhttp v1.0.0-rc2
     """
 
     def __init__(self, bot: Bot):
@@ -135,14 +135,50 @@ class GoCqhttpBot(BaseOnebotApi):
     async def send_group_forward_msg(
             self,
             group_id: int | str,
-            messages: list[str | Message | MessageSegment | dict]
+            messages: list
     ) -> SentMessage:
-        """发送合并转发 ( 群 )
+        """发送合并转发(群)
 
         :param group_id: 群号
         :param messages: 自定义转发消息, 具体看 cq-http 文档的 CQcode
         """
-        message_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=messages)
+        message_result = await self.bot.call_api('send_group_forward_msg', group_id=group_id, messages=messages)
+        return SentMessage.parse_obj(message_result)
+
+    async def send_private_forward_msg(
+            self,
+            user_id: int | str,
+            messages: list
+    ) -> SentMessage:
+        """发送合并转发(好友)
+
+        :param user_id: 好友qq
+        :param messages: 自定义转发消息, 具体看 cq-http 文档的 CQcode
+        """
+        message_result = await self.bot.call_api('send_private_forward_msg', user_id=user_id, messages=messages)
+        return SentMessage.parse_obj(message_result)
+
+    async def send_forward_msg(
+            self,
+            messages: list,
+            message_type: Literal['private', 'group'] | None = None,
+            user_id: int | str | None = None,
+            group_id: int | str | None = None,
+    ) -> SentMessage:
+        """发送合并转发消息
+
+        :param messages: 自定义转发消息列表
+        :param message_type: 转发消息类型
+        :param user_id: 对方 QQ 号（消息类型为 private 时需要）
+        :param group_id: 群号（消息类型为 group 时需要）
+        """
+        if user_id and group_id:
+            raise ValueError('"user_id" and "group_id" only need one')
+        elif not user_id and not group_id:
+            raise ValueError('need parameter "user_id" or "group_id"')
+        else:
+            message_result = await self.bot.call_api('send_forward_msg', message_type=message_type, messages=messages,
+                                                     user_id=user_id, group_id=group_id)
         return SentMessage.parse_obj(message_result)
 
     async def send_msg(
@@ -171,6 +207,13 @@ class GoCqhttpBot(BaseOnebotApi):
     async def get_msg(self, message_id: int) -> ReceiveMessage:
         message_result = await self.bot.get_msg(message_id=message_id)
         return ReceiveMessage.parse_obj(message_result)
+
+    async def mark_msg_as_read(self, message_id: int) -> None:
+        """标记消息已读
+
+        :param message_id: 消息id
+        """
+        return await self.bot.call_api('mark_msg_as_read', message_id=message_id)
 
     async def get_forward_msg(self, message_id: str) -> ReceiveForwardMessage:
         """获取合并转发消息(字段 message_id 对应合并转发中的 id 字段)
@@ -277,6 +320,18 @@ class GoCqhttpBot(BaseOnebotApi):
         friend_list = await self.bot.get_friend_list()
         return parse_obj_as(list[FriendInfo], friend_list)
 
+    async def get_unidirectional_friend_list(self) -> list[FriendInfo]:
+        """获取单向好友列表"""
+        unidirectional_friend_list = await self.bot.get_unidirectional_friend_list()
+        return parse_obj_as(list[FriendInfo], unidirectional_friend_list)
+
+    async def delete_unidirectional_friend(self, user_id: int | str) -> None:
+        """删除单向好友
+
+        :param user_id: 用户 QQ 号
+        """
+        return await self.bot.call_api('delete_unidirectional_friend', user_id=user_id)
+
     async def is_friend(self, user_id: int | str) -> bool:
         """检查用户是否是好友
 
@@ -323,6 +378,13 @@ class GoCqhttpBot(BaseOnebotApi):
     ) -> GroupHonor:
         honor_result = await self.bot.get_group_honor_info(group_id=group_id, type=type_)
         return GroupHonor.parse_obj(honor_result)
+
+    async def send_group_sign(self, group_id: int | str) -> None:
+        """群打卡
+
+        :param group_id: 群号
+        """
+        return await self.bot.call_api('send_group_sign', group_id=group_id)
 
     async def get_cookies(self, domain: str = '') -> Cookies:
         """获取 Cookies(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
@@ -438,6 +500,37 @@ class GoCqhttpBot(BaseOnebotApi):
         """
         file_result = await self.bot.call_api('get_group_file_url', group_id=group_id, file_id=file_id, busid=busid)
         return GroupFileResource.parse_obj(file_result)
+
+    async def create_group_file_folder(
+            self,
+            group_id: int | str,
+            name: str,
+            parent_id: int | str | None = None
+    ) -> None:
+        """创建群文件文件夹
+
+        :param group_id: 群号
+        :param name: 文件夹名
+        :param parent_id: 父文件夹ID
+        """
+        return await self.bot.call_api('create_group_file_folder', group_id=group_id, parent_id=parent_id, name=name)
+
+    async def delete_group_folder(self, group_id: int | str, folder_id: int | str) -> None:
+        """删除群文件文件夹
+
+        :param group_id: 群号
+        :param folder_id: 文件夹ID
+        """
+        return await self.bot.call_api('delete_group_folder', group_id=group_id, folder_id=folder_id)
+
+    async def delete_group_file(self, group_id: int | str, file_id: str, busid: int) -> None:
+        """删除群文件
+
+        :param group_id: 群号
+        :param file_id: 文件ID 参考 File 对象
+        :param busid: 文件类型 参考 File 对象
+        """
+        return await self.bot.call_api('delete_group_file', group_id=group_id, file_id=file_id, busid=busid)
 
     async def get_status(self) -> Status:
         status_result = await self.bot.get_status()
@@ -583,6 +676,78 @@ class GoCqhttpBot(BaseOnebotApi):
         member_result = await self.bot.call_api('get_guild_member_profile', guild_id=guild_id, user_id=user_id)
         return GuildMemberProfile.parse_obj(member_result)
 
+    async def get_guild_roles(self, guild_id: int | str) -> list[GuildRoles]:
+        """获取频道角色(身份组)列表
+
+        :param guild_id: 频道ID
+        """
+        role_result = await self.bot.call_api('get_guild_roles', guild_id=guild_id)
+        return parse_obj_as(list[GuildRoles], role_result)
+
+    async def create_guild_role(
+            self,
+            guild_id: int | str,
+            name: str,
+            color: int,
+            independent: bool,
+            initial_users: list[int | str] | None = None
+    ) -> CreatedGuildRoles:
+        """创建频道角色(身份组)
+
+        :param guild_id: 频道ID
+        :param name: 频道角色(身份组)名称
+        :param color: 频道角色(身份组)标签颜色
+        :param independent: 是否独立角色(身份组)
+        :param initial_users: 初始化频道角色(身份组)用户
+        """
+        creating_result = await self.bot.call_api('create_guild_role', guild_id=guild_id, name=name, color=color,
+                                                  independent=independent, initial_users=initial_users)
+        return CreatedGuildRoles.parse_obj(creating_result)
+
+    async def delete_guild_role(self, guild_id: int | str, role_id: int | str) -> None:
+        """删除频道角色(身份组)
+
+        :param guild_id: 频道ID
+        :param role_id: 频道角色(身份组)ID
+        """
+        return await self.bot.call_api('delete_guild_role', guild_id=guild_id, role_id=role_id)
+
+    async def update_guild_role(
+            self,
+            guild_id: int | str,
+            role_id: int | str,
+            name: str,
+            color: int,
+            independent: bool,
+    ) -> None:
+        """修改频道角色(身份组)
+
+        :param guild_id: 频道ID
+        :param role_id: 频道角色(身份组)ID
+        :param name: 频道角色(身份组)名称
+        :param color: 频道角色(身份组)标签颜色
+        :param independent: 是否独立角色(身份组)
+        """
+        return await self.bot.call_api('update_guild_role', guild_id=guild_id, role_id=role_id,
+                                       name=name, color=color, independent=independent)
+
+    async def set_guild_member_role(
+            self,
+            guild_id: int | str,
+            role_id: int | str,
+            users: list[int | str],
+            set_: bool = True
+    ) -> None:
+        """设置用户在频道中的角色(身份组)
+
+        :param guild_id: 频道ID
+        :param role_id: 频道角色(身份组)ID
+        :param users: 频道角色(身份组)ID
+        :param set_: 设置或取消角色(身份组)ID
+        """
+        return await self.bot.call_api('set_guild_member_role', guild_id=guild_id, role_id=role_id,
+                                       users=users, set=set_)
+
     async def send_guild_channel_msg(
             self, guild_id: int | str, channel_id: int | str, message: str | Message
     ) -> SentGuildMessage:
@@ -595,6 +760,15 @@ class GoCqhttpBot(BaseOnebotApi):
         message_result = await self.bot.call_api(
             'send_guild_channel_msg', guild_id=guild_id, channel_id=channel_id, message=message)
         return SentGuildMessage.parse_obj(message_result)
+
+    async def get_guild_msg(self, message_id: str, no_cache: bool = True) -> ReceiveGuildMessage:
+        """获取频道消息
+
+        :param message_id: 消息id
+        :param no_cache: 是否使用缓存
+        """
+        message_result = await self.bot.call_api('get_guild_msg', message_id=message_id, no_cache=no_cache)
+        return ReceiveGuildMessage.parse_obj(message_result)
 
     async def get_topic_channel_feeds(self, guild_id: int | str, channel_id: int | str) -> list[TopicChannelFeedInfo]:
         """获取话题频道帖子

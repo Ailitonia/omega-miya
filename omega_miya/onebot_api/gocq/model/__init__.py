@@ -13,7 +13,7 @@ from .file import (Cookies, CSRF, Credentials, ImageFile, OcrImageResult, CanSen
 from .group import (GroupInfo, GroupHonor, GroupSystemMessage, GroupFileSystemInfo, GroupRootFiles, GroupFolderFiles,
                     GroupFileResource, GroupAtAllRemain, GroupEssenceMessage)
 from .guild import (GuildServiceProfile, GuildInfo, GuildMeta, ChannelInfo, GuildMemberList, GuildMemberProfile,
-                    SentGuildMessage, TopicChannelFeedInfo)
+                    GuildRoles, CreatedGuildRoles, SentGuildMessage, ReceiveGuildMessage, TopicChannelFeedInfo)
 from .message import SentMessage, ReceiveMessage, GroupMessageHistory, ReceiveForwardMessage
 from .user import StrangerInfo, LoginInfo, FriendInfo, GroupUser, Anonymous, QidianAccountUser
 
@@ -51,7 +51,10 @@ __all__ = [
     'ChannelInfo',
     'GuildMemberList',
     'GuildMemberProfile',
+    'GuildRoles',
+    'CreatedGuildRoles',
     'SentGuildMessage',
+    'ReceiveGuildMessage',
     'TopicChannelFeedInfo',
     'StrangerInfo',
     'LoginInfo',

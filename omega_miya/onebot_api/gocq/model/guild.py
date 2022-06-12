@@ -10,6 +10,8 @@
 
 from typing import Optional
 from pydantic import AnyHttpUrl
+from nonebot.adapters.onebot.v11.message import Message
+
 from ...model.base_model import BaseOnebotModel
 
 
@@ -166,9 +168,63 @@ class GuildMemberProfile(BaseOnebotModel):
     roles: list[_RoleInfo]
 
 
+class GuildRoles(BaseOnebotModel):
+    """Api /get_guild_roles 获取频道角色(身份组)列表
+
+    - role_id: 频道角色(身份组)ID
+    - role_name: 频道角色(身份组)名称
+    - argb_color: 频道角色(身份组)标签颜色
+    - independent: 是否独立角色(身份组)
+    - member_count: 频道角色(身份组)用户数
+    - max_count: 频道角色(身份组)最大用户数
+    - owned:
+    - disabled:
+    """
+    role_id: int
+    role_name: str
+    argb_color: int
+    independent: bool
+    member_count: int
+    max_count: int
+    owned: bool
+    disabled: bool
+
+
+class CreatedGuildRoles(BaseOnebotModel):
+    """Api /create_guild_role 创建频道角色(身份组)
+
+    - role_id: 频道角色(身份组)ID
+    """
+    role_id: int
+
+
 class SentGuildMessage(BaseOnebotModel):
     """频道消息"""
     message_id: str
+
+
+class ReceiveGuildMessage(BaseOnebotModel):
+    """收到的频道消息
+
+    - message_id: 消息id
+    - real_id: 消息真实id
+    - sender: 发送者
+    - time: 发送时间
+    - message: 消息内容
+    """
+    class _GuildSender(BaseOnebotModel):
+        user_id: int
+        nickname: str
+
+    guild_id: int
+    channel_id: int
+    message_id: str
+    message_source: str
+    message_seq: int
+    message: Message
+    reactions: list[int]
+    sender: _GuildSender
+    time: int
 
 
 class TopicChannelFeedInfo(BaseOnebotModel):
@@ -301,6 +357,9 @@ __all__ = [
     'ChannelInfo',
     'GuildMemberList',
     'GuildMemberProfile',
+    'GuildRoles',
+    'CreatedGuildRoles',
     'SentGuildMessage',
+    'ReceiveGuildMessage',
     'TopicChannelFeedInfo'
 ]

@@ -16,6 +16,9 @@ from ...model import GroupInfo as OnebotGroupInfo, GroupHonor as OnebotGroupHono
 
 class GroupInfo(OnebotGroupInfo):
     """群信息"""
+    group_memo: Optional[str] = ''
+    group_create_time: int = 0
+    group_level: int = 0
 
 
 class GroupHonor(OnebotGroupHonor):
