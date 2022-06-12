@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from nonebot import on_command
+from nonebot import on_command, logger
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.event import MessageEvent
@@ -101,13 +101,11 @@ async def handle_sticker(
             if not first_image:
                 await matcher.reject_arg('first_image', f'请发送你想要制作的图片:', at_sender=True)
             make_image = await simple_white(image_url=first_image)
-            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
         case '黑底':
             if not first_image:
                 await matcher.reject_arg('first_image', f'请发送你想要制作的图片:', at_sender=True)
             make_image = await simple_black(image_url=first_image)
-            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
         case '灰度混合':
             if not first_image:
@@ -115,7 +113,6 @@ async def handle_sticker(
             if not second_image:
                 await matcher.reject_arg('second_image', f'请发送作为黑色里层的图片:', at_sender=True)
             make_image = await complex_gray(white_image_url=first_image, black_image_url=second_image)
-            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
         case '彩色混合':
             if not first_image:
@@ -123,7 +120,6 @@ async def handle_sticker(
             if not second_image:
                 await matcher.reject_arg('second_image', f'请发送作为黑色里层的图片:', at_sender=True)
             make_image = await complex_color(white_image_url=first_image, black_image_url=second_image)
-            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
         case '差分':
             if not first_image:
@@ -131,10 +127,16 @@ async def handle_sticker(
             if not second_image:
                 await matcher.reject_arg('second_image', f'请发送差分图片:', at_sender=True)
             make_image = await complex_difference(differ_image_url=first_image, base_image_url=second_image)
-            await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
 
         case _:
             await matcher.reject_arg('mode',
                                      f'”{mode}“不是可用的模式, 请在以下模式中选择并重新输入:\n\n'
                                      f'"白底", "黑底", "灰度混合", "彩色混合", "差分"',
                                      at_sender=True)
+            return
+
+    if isinstance(make_image, Exception):
+        logger.error(f'MirageTank | 制作{mode}幻影坦克图片失败, {make_image}')
+        await matcher.finish('制作幻影坦克图片失败了QAQ, 请稍后再试', at_sender=True)
+    else:
+        await matcher.finish(MessageSegment.image(make_image.file_uri), at_sender=True)
