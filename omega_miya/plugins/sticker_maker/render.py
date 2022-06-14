@@ -769,9 +769,9 @@ class WorshipRender(StickerRender):
 
         frames_list = []
         for frame_index in range(10):
-            background = Image.new(mode='RGBA', size=(300, 169), color=(255, 255, 255))
+            background = Image.new(mode='RGBA', size=(300, 169), color=(255, 255, 255, 255))
             frame = Image.open(self._static_resource(f'template_p{frame_index}.png').resolve_path)
-            background.paste(im=p_image, box=(0, 0))
+            background.paste(im=p_image, box=(0, 0), mask=p_image)
             background.paste(im=frame, box=(0, 0), mask=frame)
             with BytesIO() as f_bf:
                 background.save(f_bf, format='PNG')
@@ -780,6 +780,51 @@ class WorshipRender(StickerRender):
 
         with BytesIO() as bf:
             imageio.mimsave(bf, frames_list, 'GIF', duration=0.04)
+            content = bf.getvalue()
+
+        return content
+
+
+class TwistRender(StickerRender):
+    """搓表情包模板
+
+    参数:
+        - source_image: 生成素材图片
+    """
+    _sticker_name: str = 'worship'
+    _static_resource: LocalResource = _STATIC_RESOURCE('twist')
+    _need_text: bool = False
+    _need_external_img: bool = True
+    _default_output_format: str = 'gif'
+
+    def _handler(self) -> bytes:
+        image = self._load_source_image()
+        image = self._resize_with_filling(image=image, size=(128, 128))
+
+        angle = 0
+        paste_coordinate: list[tuple[int, int]] = [
+            (35, 101), (37, 101), (37, 101), (37, 101), (37, 99), (35, 101), (37, 101), (37, 101), (37, 101), (37, 99)
+        ]
+
+        frames_list = []
+        for frame_index in range(10):
+            background = Image.new(mode='RGBA', size=(256, 256), color=(255, 255, 255, 255))
+            frame = Image.open(self._static_resource(f'template_p{frame_index}.png').resolve_path)
+
+            frame_image = image.rotate(angle=angle, center=(64, 64), expand=False,
+                                       resample=Image.BICUBIC, fillcolor=(255, 255, 255))
+
+            background.paste(im=frame_image, box=paste_coordinate[frame_index], mask=frame_image)
+            background.paste(im=frame, box=(0, 0), mask=frame)
+            with BytesIO() as f_bf:
+                background.save(f_bf, format='PNG')
+                img_bytes = f_bf.getvalue()
+                frames_list.append(imageio.v2.imread(img_bytes))
+
+            angle += 36
+
+        with BytesIO() as bf:
+            imageio.mimsave(bf, frames_list, 'GIF', duration=0.03)
             content = bf.getvalue()
 
         return content
@@ -862,6 +907,7 @@ _ALL_Render: dict[str, Type[StickerRender]] = {
     'ph': PhlogoRender,
     'petpet': PetPetRender,
     '膜拜': WorshipRender,
+    '搓': TwistRender,
     '王境泽': WangjingzeRender
 }
 

@@ -88,7 +88,12 @@ class StickerRender(abc.ABC):
         return make_image
 
     @staticmethod
-    def _resize_with_filling(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    def _resize_with_filling(
+            image: Image.Image,
+            size: tuple[int, int],
+            *,
+            background_color: tuple[int, int, int, int] = (255, 255, 255, 0)
+    ) -> Image.Image:
         """在不损失原图长宽比的条件下, 使用透明图层将原图转换成指定大小"""
         # 计算调整比例
         width, height = image.size
@@ -97,7 +102,7 @@ class StickerRender(abc.ABC):
 
         _image = image.resize((int(width * scale), int(height * scale)))
         box = (int(abs(width * scale - rs_width) / 2), int(abs(height * scale - rs_height) / 2))
-        background = Image.new(mode='RGBA', size=size, color=(255, 255, 255, 0))
+        background = Image.new(mode='RGBA', size=size, color=background_color)
         background.paste(_image, box=box)
         return background
 
