@@ -585,7 +585,7 @@ class GunjoRender(StickerRender):
 
         # 图片转化为透明度蒙版到底色背景上
         mask = made_image.convert('L')
-        background_color = (78, 114, 184)
+        background_color = (28, 48, 180)
         background = Image.new(mode='RGBA', size=image.size, color=background_color)
         background.paste(im=made_image, mask=mask)
 
