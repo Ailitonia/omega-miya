@@ -766,6 +766,7 @@ class WorshipRender(StickerRender):
             source_point=((0, 0), (width, 0), (width, height), (0, height))
         )
         p_image = image.transform(size=image.size, method=Image.PERSPECTIVE, data=perspective_data, fill=Image.BICUBIC)
+        p_image = p_image.convert('RGBA')
 
         frames_list = []
         for frame_index in range(10):
