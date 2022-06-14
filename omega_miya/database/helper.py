@@ -62,7 +62,7 @@ class EventEntityHelper(object):
         elif user_id := getattr(_event, 'user_id', None):
             entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(user_id))
         else:
-            raise ValueError(f'Can not get entity from event({_event.post_type})')
+            raise ValueError(f"Can not get entity from event {_event.get_event_description()!r}")
         return entity
 
     def get_event_user_entity(self) -> BaseInternalEntity:
@@ -77,7 +77,7 @@ class EventEntityHelper(object):
         elif user_id := getattr(_event, 'user_id', None):
             entity = InternalBotUser(bot_id=_self_id, parent_id=_self_id, entity_id=str(user_id))
         else:
-            raise ValueError(f'Can not get entity from event({_event.post_type})')
+            raise ValueError(f"Can not get entity from event {_event.get_event_description()!r}")
         return entity
 
 
