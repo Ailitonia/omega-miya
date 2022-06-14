@@ -8,14 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional, Any
 from nonebot import get_driver
 from nonebot.message import event_preprocessor, event_postprocessor, run_preprocessor, run_postprocessor
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event, MessageEvent
 
-from .api_failed import handle_send_msg_failed
 from .cancellation import preprocessor_cancellation
 from .cooldown import preprocessor_cooldown
 from .favorability import postprocessor_friendship
@@ -77,10 +75,3 @@ async def handle_event_postprocessor(bot: Bot, event: Event):
     if isinstance(event, MessageEvent):
         # 处理好感度
         await postprocessor_friendship(bot=bot, event=event)
-
-
-@Bot.on_called_api
-async def handle_called_api(bot: Bot, exception: Optional[Exception], api: str, data: dict[str, Any], result: Any):
-    """API 调用后钩子"""
-    # 处理消息发送失败(风控)
-    await handle_send_msg_failed(bot=bot, exception=exception, api=api, data=data, result=result)
