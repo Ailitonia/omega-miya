@@ -120,7 +120,7 @@ async def handle_sticker(
     render_name_text = '\n'.join(x for x in render_names)
     if render_name not in render_names:
         await matcher.reject_arg('render_name',
-                                 f'”{render_name}“不是可用的表情包模板, 请在以下模板中选择并重新输入:\n\n{render_name_text}',
+                                 f'“{render_name}”不是可用的表情包模板, 请在以下模板中选择并重新输入:\n\n{render_name_text}',
                                  at_sender=True)
 
     # 获取表情包模板并检查是否需要文字或图片作为素材

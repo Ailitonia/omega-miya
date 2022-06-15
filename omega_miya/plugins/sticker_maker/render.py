@@ -627,11 +627,12 @@ class MarriageRender(StickerRender):
     def _handler(self) -> bytes:
         image = self._load_source_image()
         image = self._resize_with_filling(image=image, size=(self._default_output_width, self._default_output_width))
-
         upper_image = self._load_extra_source_image(source_file=self._static_resource)
-        image.paste(im=upper_image, box=(0, 0), mask=upper_image)
 
-        content = self._get_pil_image(image=image)
+        background = Image.new(mode='RGBA', size=image.size, color=(255, 255, 255, 255))
+        background.paste(im=image, box=(0, 0), mask=image)
+        background.paste(im=upper_image, box=(0, 0), mask=upper_image)
+        content = self._get_pil_image(image=background)
         return content
 
 
