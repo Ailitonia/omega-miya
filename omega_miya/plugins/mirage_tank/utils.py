@@ -159,8 +159,10 @@ def _complex_color(white_image_content: bytes, black_image_content: bytes) -> by
     black_image = _resize_with_filling(image=black_image, size=size)
 
     # 调整饱和度和亮度
-    black_image = ImageEnhance.Color(black_image).enhance(0.7)
-    black_image = ImageEnhance.Brightness(black_image).enhance(0.2)
+    _ = Image.new(mode='RGBA', size=size, color=(255, 255, 255, 64))
+    white_image.paste(_, mask=_)
+    black_image = ImageEnhance.Color(black_image).enhance(0.75)
+    black_image = ImageEnhance.Brightness(black_image).enhance(0.25)
 
     # 分离彩色通道
     white_r, white_g, white_b, _ = white_image.split()

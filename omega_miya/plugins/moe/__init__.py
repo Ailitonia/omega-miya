@@ -261,6 +261,7 @@ async def handle_database_import(state: T_State, matcher: Matcher, mode: str = A
         pids = await get_database_import_pids()
     if not pids:
         await matcher.finish('导入列表不存在, 详情请查看日志')
+    pids = sorted(list(set(pids)))
 
     match mode:
         case 'moe':
