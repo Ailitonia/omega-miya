@@ -150,7 +150,7 @@ class BotGuildRelation(BaseRelation):
 
 class GuildUserRelation(BaseRelation):
     """频道成员"""
-    relation_type: Literal['bot_guild'] = 'guild_user'
+    relation_type: Literal['guild_user'] = 'guild_user'
     parent_entity: QQGuildEntity
     child_entity: QQGuildUserEntity
 
@@ -228,19 +228,11 @@ class BaseInternalEntity(object):
                    entity_id=parsed_relation.child_entity.entity_id)
 
     @classmethod
-    async def query_all(cls) -> List[RelatedEntityModel]:
+    async def query_all_relation(cls) -> List[RelatedEntityModel]:
         """查询符合 relation_type 的全部结果"""
-        relation_type = cls._base_relation_model.schema().get('properties', {}).get('relation_type', {}).get('default')
-        if not relation_type:
-            raise ValueError(f'Get sub_type from <cls._base_relation_model({cls._base_relation_model})> failed')
-        return (await RelatedEntity.query_all_by_type(relation_type=relation_type)).result
-
-    @classmethod
-    async def query_by_index_id(cls, id_: int) -> RelatedEntityModel:
-        """根据索引 id 查询"""
-        relation = (await RelatedEntity.query_by_index_id(id_=id_)).result
-        assert isinstance(relation, RelatedEntityModel), 'Query relation model failed'
-        return relation
+        relation_type = cls._base_relation_model.get_relation_type()
+        related_entity_result = await RelatedEntity.query_all_by_type(relation_type=relation_type)
+        return related_entity_result.result
 
     @classmethod
     async def query_related_entity_by_index_id(cls, id_: int) -> (RelatedEntityModel, EntityModel, BotSelfModel):
@@ -271,7 +263,17 @@ class BaseInternalEntity(object):
                 'entity_type': entity.entity_type
             }
         }
-        new_related_entity = cls.parse_from_relation_model(model=model)
+        if issubclass(cls, BaseInternalEntity) and cls is not BaseInternalEntity:
+            relation_class = cls
+        else:
+            for sub_class in cls.__subclasses__():
+                if relation.relation_type == sub_class._base_relation_model.get_relation_type():
+                    relation_class = sub_class
+                    break
+            else:
+                raise ValueError('entity relation class not found')
+
+        new_related_entity = relation_class.parse_from_relation_model(model=model)
         new_related_entity.bot_self_model = bot_self
         new_related_entity.parent_model = parent_entity
         new_related_entity.entity_model = entity
