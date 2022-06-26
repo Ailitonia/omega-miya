@@ -14,8 +14,10 @@ from pydantic import parse_obj_as
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import Message
 
-from omega_miya.database import (InternalOneBotV11Bot, InternalBotGroup, InternalBotUser,
-                                 InternalBotGuild, DatabaseUpgradeError)
+from omega_miya.database import (
+    InternalOneBotV11Bot, DatabaseUpgradeError,
+    InternalBotGroup, InternalBotUser, InternalBotGuild, InternalGuildChannel
+)
 from omega_miya.utils.process_utils import semaphore_gather
 
 from .._api import BaseOnebotApi
@@ -79,8 +81,22 @@ class GoCqhttpBot(BaseOnebotApi):
             )
             for x in guild_data]
 
+        channel_upgrade_tasks = []
+        for guild in guild_data:
+            channel_data = await self.get_guild_channel_list(guild_id=guild.guild_id)
+            channel_upgrade_tasks.extend([
+                InternalGuildChannel(bot_id=self.self_id, parent_id=x.owner_guild_id, entity_id=x.channel_id).add_only(
+                    parent_entity_name=guild.guild_name,
+                    entity_name=x.channel_name,
+                    related_entity_name=x.channel_name
+                )
+                for x in channel_data
+            ])
+
         upgrade_result = await semaphore_gather(
-            tasks=[*group_upgrade_tasks, *user_upgrade_tasks, *guild_upgrade_tasks], semaphore_num=1)
+            tasks=[*group_upgrade_tasks, *user_upgrade_tasks, *guild_upgrade_tasks, *channel_upgrade_tasks],
+            semaphore_num=1
+        )
         for result in upgrade_result:
             if isinstance(result, BaseException):
                 raise DatabaseUpgradeError(f'Upgrade bot entity error: {repr(result)}')
