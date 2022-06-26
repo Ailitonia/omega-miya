@@ -558,6 +558,7 @@ class DeColorizeRender(StickerRender):
 
     def _handler(self) -> bytes:
         image = self._load_source_image()
+        image = image.convert('RGB')
         enhancer = ImageEnhance.Color(image)
         made_image = enhancer.enhance(0)
         content = self._get_pil_image(image=made_image)
@@ -578,6 +579,7 @@ class GunjoRender(StickerRender):
 
     def _handler(self) -> bytes:
         image = self._load_source_image()
+        image = image.convert('RGBA')
         image = self._zoom_pil_image_width(image=image, width=self._default_output_width)
 
         # 图片去色
@@ -649,26 +651,36 @@ class GrassJaRender(StickerRender):
 
     def _handler(self) -> bytes:
         image = self._load_source_image()
+        image = image.convert('RGB')
         enhancer = ImageEnhance.Color(image)
         image = enhancer.enhance(0)
         image = self._zoom_pil_image_width(image=image, width=self._default_output_width)
 
         # 分割文本
-        font = ImageFont.truetype(self._font.resolve_path, int(image.width / 16))
-        text = TextUtils(text=self.text).split_multiline(width=int(image.width * 0.9), font=font).text
-        text_w, text_h = font.getsize_multiline(text)
+        font_zh = ImageFont.truetype(self._font.resolve_path, int(image.width / 13))
+        font_jp = ImageFont.truetype(self._font.resolve_path, int(image.width / 24))
+
+        text_zh, text_jp = self.text.split(maxsplit=1)
+        text_zh = TextUtils(text=text_zh).split_multiline(width=int(image.width * 0.9), font=font_zh).text
+        text_jp = TextUtils(text=text_jp).split_multiline(width=int(image.width * 0.9), font=font_jp).text
+
+        _, text_zh_h = font_zh.getsize_multiline(text_zh)
+        _, text_jp_h = font_jp.getsize_multiline(text_jp)
 
         # 处理图片
         background = Image.new(mode='RGB', color=(0, 0, 0),
-                               size=(image.width, int(image.height + image.width * 0.08 + text_h)))
+                               size=(image.width, int(image.height + image.width * 0.08 + text_zh_h + text_jp_h)))
 
         # 处理粘贴位置
         background.paste(image, (0, 0))
 
         # 粘贴文字
         ImageDraw.Draw(background).multiline_text(
-            xy=(background.width // 2, int(image.height + image.width * 0.03)),
-            text=text, align='center', anchor='ma', font=font, fill=(255, 255, 255))
+            xy=(background.width // 2, int(image.height + image.width * 0.025)),
+            text=text_zh, align='center', anchor='ma', font=font_zh, fill=(255, 255, 255))
+        ImageDraw.Draw(background).multiline_text(
+            xy=(background.width // 2, int(image.height + image.width * 0.05 + text_zh_h)),
+            text=text_jp, align='center', anchor='ma', font=font_jp, fill=(255, 255, 255))
 
         content = self._get_pil_image(image=background)
         return content
@@ -680,6 +692,7 @@ class GrassJaRender(StickerRender):
             text_ja = '翻訳に失敗しました！'
         else:
             text_ja = text_trans_result.Response.TargetText
+        text_ja = text_ja.replace('\n', ' ')
         self.text = f'{text_zh.strip()}\n{text_ja.strip()}'
 
     async def make(self) -> TmpResource:
