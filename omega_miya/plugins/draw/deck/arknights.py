@@ -1,10 +1,8 @@
-from dataclasses import dataclass
-from typing import List, Dict
 import random
+from pydantic import BaseModel
 
 
-@dataclass
-class Operator:
+class Operator(BaseModel):
     name: str
     star: int
     limited: bool  # 限定
@@ -13,44 +11,63 @@ class Operator:
     special_only: bool  # 升变/异格干员
 
 
-@dataclass
-class UpEvent:
+class UpEvent(BaseModel):
     star: int  # 对应up星级
-    operator: List[Operator]  # 干员列表
+    operator: list[Operator]  # 干员列表
     zoom: float  # up提升倍率
 
 
 # 用户抽取的保底概率提升计数
-USERS_UP_COUNT: Dict[int, int] = {}
+USERS_UP_COUNT: dict[int, int] = {}
 
 
 # 当期up干员
-UP_OPERATOR: List[UpEvent] = [
+UP_OPERATOR: list[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='卡涅利安/Carnelian', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='归溟幽灵鲨/Irene', star=6, limited=True, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='星熊/Hoshiguma', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='艾丽妮/Irene', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
-        zoom=0.5
+        zoom=0.7
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='绮良/Kirara', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='蓝毒/Blue Poison', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='槐琥/Waai Fu', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='掠风/Windflit', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
         zoom=0.5
     )
 ]
 
-ALL_OPERATOR: List[Operator] = [
+ALL_OPERATOR: list[Operator] = [
+    Operator(name='归溟幽灵鲨/Irene', star=6, limited=True, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='艾丽妮/Irene', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='流明/Lumen', star=6, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='掠风/Windflit', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='号角/Horn', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='洛洛/Rockrock', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='海蒂/Heidi', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='褐果/Chestnut', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='菲亚梅塔/Fiammetta', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='风丸/Kazemaru', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='见行者/Enforcer', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='澄闪/Goldenglow', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='夏栎/Quercus', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='令/Ling', star=6, limited=True, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='老鲤/Lee', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='夜半/Blacknight', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='寒芒克洛丝/Kroos the Keen Glint', star=5, limited=False, recruit_only=False, event_only=True,
+             special_only=False),
+    Operator(name='九色鹿/Nine-Colored Deer', star=5, limited=False, recruit_only=False, event_only=True,
+             special_only=False),
+    Operator(name='暮落/Shalem', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='灵知/Aurora', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='极光/Aurora', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='耶拉/Kjera', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='耀骑士临光/Nearl the Radiant Knight', star=6, limited=True, recruit_only=False, event_only=False,
              special_only=False),
     Operator(name='焰尾/Flametail', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
@@ -324,7 +341,7 @@ def draw_one_operator(user_id: int) -> str:
     return f"【{star}★】{acquire_operator}"
 
 
-def draw_one_arknights(user_id: int) -> str:
+def draw_one_arknights(draw_seed: int) -> str:
     # 获得当期up干员
     up_operators = []
     for item in [x.operator for x in UP_OPERATOR]:
@@ -332,12 +349,12 @@ def draw_one_arknights(user_id: int) -> str:
     up_up_operator = '\n'.join(up_operators)
     up_info = f'当期UP干员:\n{up_up_operator}'
 
-    acquire_operator = draw_one_operator(user_id=user_id)
+    acquire_operator = draw_one_operator(user_id=draw_seed)
 
     return f"获得了以下干员:\n{acquire_operator}\n{'='*12}\n{up_info}"
 
 
-def draw_ten_arknights(user_id: int) -> str:
+def draw_ten_arknights(draw_seed: int) -> str:
     # 获得当期up干员
     up_operators = []
     for item in [x.operator for x in UP_OPERATOR]:
@@ -347,8 +364,14 @@ def draw_ten_arknights(user_id: int) -> str:
 
     acquire_operators = []
     for i in range(10):
-        acquire_operators.append(draw_one_operator(user_id=user_id))
+        acquire_operators.append(draw_one_operator(user_id=draw_seed))
 
     acquire_operator = '\n'.join(acquire_operators)
 
     return f"获得了以下干员:\n{acquire_operator}\n{'='*12}\n{up_info}"
+
+
+__all__ = [
+    'draw_one_arknights',
+    'draw_ten_arknights'
+]

@@ -1,91 +1,81 @@
+"""
+@Author         : Ailitonia
+@Date           : 2021/12/24 11:09
+@FileName       : roll.py
+@Project        : nonebot2_miya
+@Description    : Roll
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 import re
 import random
-from nonebot import CommandGroup
-from nonebot.plugin.export import export
+from nonebot import on_command
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.message import Message
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.onebot_api import GoCqhttpBot
 
 
 # Custom plugin usage text
 __plugin_custom_name__ = 'Roll'
-__plugin_usage__ = r'''【Roll & 抽奖】
-一个整合了各种roll机制的插件
-更多功能待加入
-仅限群聊使用
+__plugin_usage__ = r'''【Roll】
+各种姿势的掷骰子
+选择困难症患者福音
 
-**Permission**
-Command & Lv.10
-or AuthNode
-
-**AuthNode**
-basic
-
-**Usage**
+用法:
 /roll <x>d<y>
-/抽奖 <人数>'''
+/抽奖 <人数>
+/帮我选 [选项1 选项2 ...]'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
+_ALL_LOTTERY_NUM: int = 50
+"""限制抽奖的最大人数"""
 
 
-Roll = CommandGroup(
+roll = on_command(
     'Roll',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(
-        name='roll',
-        command=True,
-        level=10),
-    permission=GROUP,
+    state=init_processor_state(name='roll', level=10, cool_down=10),
+    aliases={'roll'},
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
-    block=True)
-
-roll = Roll.command('rand', aliases={'roll'})
-
-
-# 修改默认参数处理
-@roll.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await roll.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await roll.finish('操作已取消')
+    block=True
+)
 
 
 @roll.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        pass
-    elif args and len(args) == 1:
-        state['roll'] = args[0]
-    else:
-        await roll.finish('参数错误QAQ')
+async def handle_parse_expression(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    expression = cmd_arg.extract_plain_text().strip()
+    if expression:
+        state.update({'expression': expression})
 
 
-@roll.got('roll', prompt='请掷骰子: <x>d<y>')
-async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
-    _roll = state['roll']
-    if re.match(r'^\d+[d]\d+$', _roll):
+@roll.got('expression', prompt='请掷骰子: <骰子个数>D<骰子面数>')
+async def handle_roll(expression: str = ArgStr('expression')):
+    expression = expression.strip()
+
+    if re.match(r'^(\d+)[Dd](\d+)$', expression):
         # <x>d<y>
-        dice_info = _roll.split('d')
-        dice_num = int(dice_info[0])
-        dice_side = int(dice_info[1])
-    elif re.match(r'^[d]\d+$', _roll):
+        dice_num = int(re.search(r'^(\d+)[Dd](\d+)$', expression).group(1))
+        dice_side = int(re.search(r'^(\d+)[Dd](\d+)$', expression).group(2))
+    elif re.match(r'^[Dd](\d+)$', expression):
         # d<x>
         dice_num = 1
-        dice_side = int(_roll[1:])
-    elif re.match(r'^\d+$', _roll):
+        dice_side = int(re.search(r'^[Dd](\d+)$', expression).group(1))
+    elif re.match(r'^\d+$', expression):
         # Any number
         dice_num = 1
-        dice_side = int(_roll)
+        dice_side = int(expression)
     else:
-        await roll.finish(f'格式不对呢, 请重新输入: /roll <x>d<y>:')
+        await roll.reject(f'骰子格式不对呢, 请重新输入:\n<骰子个数>D<骰子面数>')
         return
 
     # 加入一个趣味的机制
@@ -99,4 +89,72 @@ async def handle_roll(bot: Bot, event: GroupMessageEvent, state: T_State):
     for i in range(dice_num):
         this_dice_result = random.choice(range(dice_side)) + 1
         dice_result += this_dice_result
-    await roll.finish(f'你掷出了{dice_num}个{dice_side}面骰子, 点数为【{dice_result}】')
+    await roll.finish(f'你掷出了{dice_num}个{dice_side}面骰子。\n点数为【{dice_result}】')
+
+
+lottery = on_command(
+    'lottery',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(name='lottery', level=10, cool_down=30),
+    aliases={'抽奖'},
+    permission=GROUP,
+    priority=10,
+    block=True
+)
+
+
+@lottery.handle()
+async def handle_parse_num(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    num = cmd_arg.extract_plain_text().strip()
+    if num:
+        state.update({'num': num})
+    else:
+        state.update({'num': '1'})
+
+
+@lottery.got('num', prompt='请输入抽奖人数:')
+async def handle_lottery(bot: Bot, event: GroupMessageEvent, num: str = ArgStr('num')):
+    num = num.strip()
+    if not num.isdigit():
+        await lottery.reject(f'抽奖人数应当是一个正整数, 请重新输入:')
+
+    num = int(num)
+    gocq_bot = GoCqhttpBot(bot=bot)
+    group_member_list = await gocq_bot.get_group_member_list(group_id=event.group_id)
+    group_user_name_list = [x.card if x.card else x.nickname for x in group_member_list]
+    if num > len(group_user_name_list) or num > _ALL_LOTTERY_NUM or num < 1:
+        await lottery.finish(f'抽奖人数超过群总人数或超出抽奖上限了QAQ')
+    lottery_result = random.sample(group_user_name_list, k=num)
+
+    send_msg = f'抽奖人数: 【{num}】\n以下是中奖名单:\n【' + '】\n【'.join(lottery_result) + '】'
+    await lottery.finish(send_msg)
+
+
+help_choice = on_command(
+    'help_choice',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(name='help_choice', level=10, cool_down=10),
+    aliases={'帮我选', '选择困难症'},
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
+    priority=10,
+    block=True
+)
+
+
+@help_choice.handle()
+async def handle_parse_choices(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    choices = cmd_arg.extract_plain_text().strip()
+    if choices:
+        state.update({'choices': choices})
+
+
+@help_choice.got('choices', prompt='有啥选项, 发来我帮你选~')
+async def handle_help_choices(choices: str = ArgStr('choices')):
+    choices = choices.strip().split()
+    if not choices:
+        await help_choice.finish('你什么选项都没告诉我, 怎么帮你选OwO')
+    result = random.choice(choices)
+    result_text = f'''帮你从“{'”，“'.join(choices)}”中选择了：\n\n“{result}”'''
+    await help_choice.finish(result_text, at_sender=True)

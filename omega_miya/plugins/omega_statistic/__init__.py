@@ -1,151 +1,106 @@
 """
 @Author         : Ailitonia
 @Date           : 2021/08/15 1:19
-@FileName       : __init__.py.py
+@FileName       : omega_statistic.py
 @Project        : nonebot2_miya 
-@Description    : 
+@Description    : 统计插件
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from datetime import datetime
 from nonebot import on_command, logger
-from nonebot.plugin.export import export
 from nonebot.typing import T_State
-from nonebot.rule import to_me
+from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PicEncoder
-from omega_miya.database import DBStatistic
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.message import Message, MessageSegment
+from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
+
 from .utils import draw_statistics
 
 
 # Custom plugin usage text
 __plugin_custom_name__ = '统计信息'
-__plugin_usage__ = r'''【Omega 插件使用统计】
+__plugin_usage__ = r'''【OmegaStatistic 插件使用统计】
 查询插件使用统计信息
 
-**Permission**
-Friend Private
-Command & Lv.10
-or AuthNode
+用法:
+/统计信息 [条件]
 
-**AuthNode**
-basic
-
-**Usage**
-/统计信息 [条件]'''
-
-
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
+条件:
+- 本月
+- 本年
+- 全部
+- 所有'''
 
 
 # 注册事件响应器
 statistic = on_command(
-    '统计信息',
+    'statistic',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(
-        name='statistic',
-        command=True,
-        level=10),
-    aliases={'插件统计', 'statistic'},
-    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
+    state=init_processor_state(name='statistic', level=10),
+    aliases={'统计信息', '使用统计', '插件统计'},
+    permission=SUPERUSER | GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
-    block=True)
-
-
-# 修改默认参数处理
-@statistic.args_parser
-async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await statistic.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await statistic.finish('操作已取消')
+    block=True
+)
 
 
 @statistic.handle()
-async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        state['condition'] = '本月'
-    elif args and len(args) == 1:
-        state['condition'] = args[0]
+async def handle_parse_condition(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    condition = cmd_arg.extract_plain_text().strip()
+    if condition:
+        state.update({'condition': condition})
     else:
-        await statistic.finish('参数错误QAQ')
+        state.update({'condition': '全部'})
 
 
-@statistic.got('condition', prompt='请输入查询条件:\n【全部/本月/本年】')
-async def handle_statistic(bot: Bot, event: MessageEvent, state: T_State):
-    condition = state['condition']
-    self_id = event.self_id
-    now = datetime.now()
-    if condition == '本月':
-        start_time = datetime(year=now.year, month=now.month, day=1)
-    elif condition == '本年':
-        start_time = datetime(year=now.year, month=1, day=1)
-    else:
-        condition = '全部'
-        start_time = None
+@statistic.got('condition', prompt='请输入查询条件:')
+async def handle_help_message(bot: Bot, matcher: Matcher, event: MessageEvent, condition: str = ArgStr('condition')):
+    condition = condition.strip()
 
     if isinstance(event, GroupMessageEvent):
-        title = f'本群{condition}插件使用统计'
-        group_id = event.group_id
-        statistic_result = await DBStatistic(
-            self_bot_id=self_id).get_group_statistic(group_id=group_id, start_time=start_time)
-    elif isinstance(event, PrivateMessageEvent):
-        title = f'用户{condition}插件使用统计'
-        user_id = event.user_id
-        statistic_result = await DBStatistic(
-            self_bot_id=self_id).get_user_statistic(user_id=user_id, start_time=start_time)
+        call_id = f'group_{event.group_id}'
+        title_prefix = f'本群({event.group_id})'
+    elif isinstance(event, GuildMessageEvent):
+        call_id = f'guild_channel_{event.guild_id}_{event.channel_id}'
+        title_prefix = f'频道({event.channel_id})'
+    elif isinstance(event, MessageEvent):
+        call_id = f'user_{event.user_id}'
+        title_prefix = f'用户({event.user_id})'
     else:
-        return
+        call_id = f'bot_{event.self_id}'
+        title_prefix = f'Bot({event.self_id})'
 
-    if statistic_result.error:
-        logger.error(f'查询统计信息失败, error: {statistic_result.info}')
-        await statistic.finish('查询统计信息失败QAQ')
+    now = datetime.now()
+    match condition:
+        case '本月':
+            start_time = datetime(year=now.year, month=now.month, day=1)
+        case '本年':
+            start_time = datetime(year=now.year, month=1, day=1)
+        case '全部':
+            start_time = None
+        case '所有':
+            if not await SUPERUSER(bot=bot, event=event):
+                await matcher.finish('只有管理员才可以查看所有的统计信息哦')
+            start_time = None
+            call_id = None
+            title_prefix = f'Bot({event.self_id})'
+        case _:
+            start_time = None
 
-    draw_bytes = await draw_statistics(data=statistic_result.result, title=title)
-    img_result = await PicEncoder.bytes_to_file(image=draw_bytes, folder_flag='statistic')
-    if img_result.error:
-        logger.error(f'生成统计图表失败, error: {img_result.info}')
-        await statistic.finish('生成统计图表失败QAQ')
+    statistic_image = await draw_statistics(
+        self_id=bot.self_id, start_time=start_time, title=f'{title_prefix}{condition}插件使用统计', call_id=call_id)
 
-    await statistic.finish(MessageSegment.image(img_result.result))
+    if isinstance(statistic_image, Exception):
+        logger.error(f'生成统计图表失败, error: {statistic_image}')
+        await matcher.finish('生成统计图表失败QAQ')
 
-
-admin_statistic = on_command(
-    '全局统计信息',
-    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    rule=to_me(),
-    state=init_processor_state(
-        name='admin_statistic',
-        command=True,
-        level=10),
-    aliases={'全局插件统计', 'total_stat'},
-    permission=SUPERUSER,
-    priority=10,
-    block=True)
-
-
-@admin_statistic.handle()
-async def handle_admin_statistic(bot: Bot, event: MessageEvent, state: T_State):
-    self_id = event.self_id
-    statistic_result = await DBStatistic(self_bot_id=self_id).get_bot_statistic()
-    if statistic_result.error:
-        logger.error(f'查询全局统计信息失败, error: {statistic_result.info}')
-        await statistic.finish('查询全局统计信息失败QAQ')
-
-    title = f'Bot:{self_id} 全局插件使用统计'
-    draw_bytes = await draw_statistics(data=statistic_result.result, title=title)
-    img_result = await PicEncoder.bytes_to_file(image=draw_bytes, folder_flag='statistic')
-    if img_result.error:
-        logger.error(f'生成全局统计图表失败, error: {img_result.info}')
-        await statistic.finish('生成全局统计图表失败QAQ')
-
-    await statistic.finish(MessageSegment.image(img_result.result))
+    await matcher.finish(MessageSegment.image(statistic_image.file_uri))

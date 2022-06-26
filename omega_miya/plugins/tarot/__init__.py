@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2021/08/31 21:05
-@FileName       : __init__.py.py
+@FileName       : tarot.py
 @Project        : nonebot2_miya 
 @Description    : 塔罗插件
 @GitHub         : https://github.com/Ailitonia
@@ -9,146 +9,135 @@
 """
 
 import random
-import pathlib
-from typing import Union
-from nonebot import get_driver, MatcherGroup, logger
-from nonebot.plugin.export import export
+from nonebot import on_command, logger
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
-from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
-from .config import Config
-from .utils import generate_tarot_card
+from nonebot.matcher import Matcher
+from nonebot.permission import SUPERUSER
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
+from nonebot.adapters.onebot.v11.message import Message, MessageSegment
+from nonebot.params import CommandArg, ArgStr
 
+from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
-global_config = get_driver().config
-plugin_config = Config(**global_config.dict())
+from .tarot_resources import get_tarot_resource, get_available_tarot_resource
+from .utils import generate_tarot_card, get_tarot_resource_name, set_tarot_resource
 
 
 # Custom plugin usage text
 __plugin_custom_name__ = '塔罗牌'
-__plugin_usage__ = r'''【塔罗牌插件】
-塔罗牌插件
+__plugin_usage__ = r'''【塔罗牌】
+简单的塔罗牌插件
 
-**Permission**
-Command & Lv.10
-or AuthNode
-
-**AuthNode**
-basic
-
-**Usage**
+用法:
 /塔罗牌 [卡牌名]
-/单张塔罗牌'''
+
+仅限私聊或群聊中群管理员使用:
+/设置塔罗牌组 [资源名]'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
-
-
-Tarot = MatcherGroup(
-    type='message',
+# 注册事件响应器
+tarot = on_command(
+    'tarot',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(
-        name='tarot',
-        command=True,
-        level=10),
-    permission=GROUP,
+    state=init_processor_state(name='tarot', level=10),
+    aliases={'塔罗牌', '单张塔罗牌'},
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
     priority=10,
-    block=True)
-
-single_tarot = Tarot.on_command('单张塔罗牌')
-
-
-@single_tarot.handle()
-async def handle_single_tarot(bot: Bot, event: GroupMessageEvent, state: T_State):
-    result = await handle_random_single_tarot(bot=bot, event=event, state=state)
-    await single_tarot.finish(result)
+    block=True
+)
 
 
-para_tarot = Tarot.on_command('塔罗牌')
-
-
-# 修改默认参数处理
-@para_tarot.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = event.get_plaintext().strip()
-    if not args:
-        await para_tarot.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args
-    if state[state["_current_key"]] == '取消':
-        await para_tarot.finish('操作已取消')
-
-
-@para_tarot.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = event.get_plaintext().strip()
-    if not args:
-        state['card_name'] = None
+@tarot.handle()
+async def handle_parse_card_name(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    card_name = cmd_arg.extract_plain_text().strip()
+    if card_name:
+        state.update({'card_name': card_name})
     else:
-        state['card_name'] = args
+        state.update({'card_name': ''})
 
 
-@para_tarot.got('card_name', prompt='你想要看哪张塔罗牌呢?')
-async def handle_para_tarot(bot: Bot, event: GroupMessageEvent, state: T_State):
-    group_resources = plugin_config.get_group_resources(group_id=event.group_id)
-    card_name = state['card_name']
-    if card_name is None:
-        result = await handle_random_single_tarot(bot=bot, event=event, state=state)
-        await para_tarot.finish(result)
+@tarot.got('card_name', prompt='你想要看哪张塔罗牌呢?')
+async def handle_para_tarot(bot: Bot, event: MessageEvent, matcher: Matcher, card_name: str = ArgStr('card_name')):
+    card_name = card_name.strip()
+    resource_name = await get_tarot_resource_name(bot=bot, event=event, matcher=matcher)
+    card_resource = get_tarot_resource(resource_name=resource_name)
+    if card_name:
+        try:
+            card = card_resource.pack.get_card_by_name(name=card_name)
+            card_image = await generate_tarot_card(id_=card.id, resources=card_resource)
+            await matcher.send(MessageSegment.image(card_image.file_uri))
+        except ValueError:
+            await matcher.send(f'没有找到塔罗牌: {card_name}, 该卡牌可能不在卡组中')
+        except Exception as e:
+            logger.error(f'Tarot | 生成塔罗牌图片失败, {e}')
+            await matcher.send('生成塔罗牌图片失败了QAQ, 请稍后再试')
     else:
         try:
-            # 获取卡牌信息
-            card = group_resources.pack.get_card_by_name(name=card_name)
-            # 绘制卡图
-            card_result = await generate_tarot_card(
-                id_=card.id,
-                resources=group_resources,
-                need_desc=True,
-                need_upright=True,
-                need_reversed=True)
-
-            if card_result.error:
-                logger.error(f'{event.group_id}/{event.user_id} 生成塔罗牌图片失败, {card_result.info}')
-                await para_tarot.send('生成塔罗牌图片失败了QAQ, 请稍后再试或联系管理员处理')
-                return
+            card = random.choice(card_resource.pack.cards)
+            # 随机正逆
+            direction = random.choice([-1, 1])
+            if direction == 1:
+                need_upright = True
+                need_reversed = False
             else:
-                msg = MessageSegment.image(pathlib.Path(card_result.result).as_uri())
-                logger.info(f'{event.group_id}/{event.user_id} 生成塔罗牌图片成功')
-                await para_tarot.send(msg)
-                return
+                need_upright = False
+                need_reversed = True
+            # 绘制卡图
+            card_image = await generate_tarot_card(
+                id_=card.id,
+                resources=card_resource,
+                direction=direction,
+                need_desc=False,
+                need_upright=need_upright,
+                need_reversed=need_reversed
+            )
+            await matcher.send(MessageSegment.image(card_image.file_uri))
         except Exception as e:
-            logger.error(f'{event.group_id}/{event.user_id} 获取塔罗牌 {card_name} 信息失败, {repr(e)}')
-            await para_tarot.finish(f'没有找到塔罗牌: {card_name}, 你发送的真的是卡牌名吗?')
+            logger.error(f'Tarot | 生成塔罗牌图片失败, {e}')
+            await matcher.send('生成塔罗牌图片失败了QAQ, 请稍后再试')
 
 
-async def handle_random_single_tarot(bot: Bot, event: GroupMessageEvent, state: T_State) -> Union[MessageSegment, str]:
-    group_resources = plugin_config.get_group_resources(group_id=event.group_id)
-    # 随机一张出来
-    card = random.choice(group_resources.pack.cards)
-    # 再随机正逆
-    direction = random.choice([-1, 1])
-    if direction == 1:
-        need_upright = True
-        need_reversed = False
+set_resource = on_command(
+    'SetTarotResource',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='SetTarotResource',
+        level=10,
+        auth_node='set_tarot_resource'
+    ),
+    aliases={'设置塔罗牌组', '设置塔罗牌面', '设置塔罗资源'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@set_resource.handle()
+async def handle_parse_resource_name(state: T_State, matcher: Matcher, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    resource_name = cmd_arg.extract_plain_text().strip()
+    if resource_name:
+        state.update({'resource_name': resource_name})
     else:
-        need_upright = False
-        need_reversed = True
-    # 绘制卡图
-    card_result = await generate_tarot_card(
-        id_=card.id,
-        resources=group_resources,
-        direction=direction,
-        need_desc=False,
-        need_upright=need_upright,
-        need_reversed=need_reversed)
+        resource_msg = '\n'.join(get_available_tarot_resource())
+        await matcher.send(f'当前可用的塔罗牌组有:\n\n{resource_msg}')
 
-    if card_result.error:
-        logger.error(f'{event.group_id}/{event.user_id} 生成塔罗牌图片失败, {card_result.info}')
-        return '生成塔罗牌图片失败了QAQ, 请稍后再试或联系管理员处理'
+
+@set_resource.got('resource_name', prompt='请输入想要配置的塔罗牌组名称:')
+async def handle_delete_user_sub(bot: Bot, event: MessageEvent, matcher: Matcher,
+                                 resource_name: str = ArgStr('resource_name')):
+    resource_name = resource_name.strip()
+    if resource_name not in get_available_tarot_resource():
+        await matcher.reject(f'{resource_name}不是可用的塔罗牌组, 重新输入:')
+
+    setting_result = await set_tarot_resource(resource_name=resource_name, bot=bot, event=event, matcher=matcher)
+    if isinstance(setting_result, Exception):
+        logger.error(f"SetTarotResource | 配置塔罗资源失败, {setting_result}")
+        await matcher.finish(f'设置塔罗牌组失败了QAQ, 请稍后重试或联系管理员处理')
     else:
-        msg = MessageSegment.image(pathlib.Path(card_result.result).as_uri())
-        logger.info(f'{event.group_id}/{event.user_id} 生成塔罗牌图片成功')
-        return msg
+        logger.success(f"SetTarotResource | 配置塔罗资源成功")
+        await matcher.finish(f'已将塔罗牌组设置为: {resource_name}')

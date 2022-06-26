@@ -1,6 +1,4 @@
-import datetime
 import random
-import hashlib
 
 
 can_do = [
@@ -127,15 +125,8 @@ but = [
 ]
 
 
-def superpower(user_id: int) -> str:
-    # 用qq、日期生成随机种子
-    # random_seed_str = str([user_id, datetime.date.today()])
-    # md5 = hashlib.md5()
-    # md5.update(random_seed_str.encode('utf-8'))
-    # random_seed = md5.hexdigest()
-    # random.seed(random_seed)
-    power = random.sample(can_do, k=1)[0]
-    effects = random.sample(but, k=1)[0]
-
+def superpower(*args, **kwargs) -> str:
+    power = random.choice(can_do)
+    effects = random.choice(but)
     result = f"获得了超能力!\n学会了【{power}】!\n但是{effects}"
     return result

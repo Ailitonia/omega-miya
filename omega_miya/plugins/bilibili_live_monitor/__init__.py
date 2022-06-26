@@ -1,254 +1,168 @@
-import re
 from nonebot import on_command, logger
-from nonebot.plugin.export import export
-from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import MessageEvent, GroupMessageEvent, PrivateMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
-from omega_miya.database import DBBot, DBBotGroup, DBFriend, DBSubscription, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state
-from omega_miya.utils.bilibili_utils import BiliLiveRoom
-from .data_source import BiliLiveChecker
+from nonebot.matcher import Matcher
+from nonebot.permission import SUPERUSER
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
+from nonebot.adapters.onebot.v11.message import Message
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+from omega_miya.params import state_plain_text
+from omega_miya.web_resource.bilibili import BilibiliLiveRoom
+from omega_miya.utils.process_utils import run_async_catching_exception
+
 from .monitor import scheduler
+from .utils import add_bili_live_room_sub, delete_bili_live_room_sub, query_subscribed_bili_live_room_sub_source
 
 
 # Custom plugin usage text
 __plugin_custom_name__ = 'B站直播间订阅'
 __plugin_usage__ = r'''【B站直播间订阅】
-监控直播间状态
-开播、下播、直播间换标题提醒
-群组/私聊可用
+订阅并监控Bilibili直播间状态
+提供开播、下播、直播间换标题提醒
 
-**Permission**
-Friend Private
-Command & Lv.20
-or AuthNode
-
-**AuthNode**
-basic
-
-**Usage**
-**GroupAdmin and SuperUser Only**
-/B站直播间 订阅 [房间号]
-/B站直播间 取消订阅 [房间号]
-/B站直播间 清空订阅
-/B站直播间 订阅列表'''
+用法:
+仅限私聊或群聊中群管理员使用:
+/B站直播间订阅 [RoomID]
+/B站直播间取消订阅 [RoomID]
+/B站直播间订阅列表'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
-
-
-# 注册事件响应器
-bilibili_live = on_command(
-    'B站直播间',
-    aliases={'b站直播间'},
+add_live_sub = on_command(
+    'BilibiliAddLiveSubscription',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
     state=init_processor_state(
-        name='bilibili_live',
-        command=True,
-        level=20),
-    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER | PRIVATE_FRIEND,
+        name='AddLiveSubscription',
+        level=20,
+        auth_node='bilibili_add_live_subscription'
+    ),
+    aliases={'B站直播间订阅', 'b站直播间订阅', 'Bilibili直播间订阅', 'bilibili直播间订阅'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
     priority=20,
-    block=True)
+    block=True
+)
 
 
-# 修改默认参数处理
-@bilibili_live.args_parser
-async def parse(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await bilibili_live.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await bilibili_live.finish('操作已取消')
+@add_live_sub.handle()
+async def handle_parse_room_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    room_id = cmd_arg.extract_plain_text().strip()
+    if room_id:
+        state.update({'room_id': room_id})
 
 
-@bilibili_live.handle()
-async def handle_first_receive(bot: Bot, event: MessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        pass
-    elif args and len(args) == 1:
-        state['sub_command'] = args[0]
-    elif args and len(args) == 2:
-        state['sub_command'] = args[0]
-        state['room_id'] = args[1]
+@add_live_sub.got('room_id', prompt='请输入直播间房间号:')
+async def handle_check_add_room_id(matcher: Matcher, room_id: str = ArgStr('room_id')):
+    room_id = room_id.strip()
+    if not room_id.isdigit():
+        await matcher.reject('直播间房间号应当为纯数字, 请重新输入:')
+
+    room = BilibiliLiveRoom(room_id=int(room_id))
+    room_user_data = await run_async_catching_exception(room.get_live_room_user_model)()
+    if isinstance(room_user_data, Exception) or room_user_data.error:
+        logger.error(f'BilibiliAddLiveSubscription | 获取直播间(room_id={room_id})用户信息失败, {room_user_data}')
+        await matcher.finish('获取直播间用户信息失败了QAQ, 可能是网络原因或没有这个直播间, 请稍后再试')
+
+    await matcher.send(f'即将订阅Bilibili用户【{room_user_data.data.name}】的直播间!')
+
+
+@add_live_sub.got('check', prompt='确认吗?\n\n【是/否】')
+async def handle_add_live_subscription(bot: Bot, matcher: Matcher, event: MessageEvent,
+                                       check: str = ArgStr('check'), room_id: str = state_plain_text('room_id')):
+    check = check.strip()
+    if check != '是':
+        await matcher.finish('那就不订阅了哦')
+
+    await matcher.send('正在更新Bilibili用户订阅信息, 请稍候')
+    room = BilibiliLiveRoom(room_id=int(room_id))
+    scheduler.pause()  # 暂停计划任务避免中途检查更新
+    add_sub_result = await add_bili_live_room_sub(bot=bot, event=event, live_room=room)
+    scheduler.resume()
+
+    if isinstance(add_sub_result, Exception) or add_sub_result.error:
+        logger.error(f"BilibiliAddLiveSubscription | 订阅直播间(rid={room_id})失败, {add_sub_result}")
+        await matcher.finish(f'订阅失败了QAQ, 可能是网络异常或发生了意外的错误, 请稍后重试或联系管理员处理')
     else:
-        await bilibili_live.finish('参数错误QAQ')
+        logger.success(f"BilibiliAddLiveSubscription | 订阅直播间(rid={room_id})成功")
+        await matcher.finish(f'订阅成功!')
 
 
-@bilibili_live.got('sub_command', prompt='执行操作?\n【订阅/取消订阅/清空订阅/订阅列表】')
-async def handle_sub_command_args(bot: Bot, event: MessageEvent, state: T_State):
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        msg = '本群已订阅以下直播间:\n'
+delete_live_sub = on_command(
+    'BilibiliDeleteLiveSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='DeleteLiveSubscription',
+        level=20,
+        auth_node='bilibili_delete_live_sub'
+    ),
+    aliases={'B站直播间取消订阅', 'b站直播间取消订阅', 'Bilibili直播间取消订阅', 'bilibili直播间取消订阅'},
+    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
+
+
+@delete_live_sub.handle()
+async def handle_parse_room_id(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    room_id = cmd_arg.extract_plain_text().strip()
+    if room_id:
+        state.update({'room_id': room_id})
+
+
+@delete_live_sub.got('room_id', prompt='请输入直播间房间号:')
+async def handle_delete_user_sub(bot: Bot, event: MessageEvent, matcher: Matcher, room_id: str = ArgStr('room_id')):
+    room_id = room_id.strip()
+    if not room_id.isdigit():
+        await matcher.reject('直播间房间号应当为纯数字, 请重新输入:')
+
+    exist_sub = await query_subscribed_bili_live_room_sub_source(bot=bot, event=event)
+    if isinstance(exist_sub, Exception):
+        logger.error(f'BilibiliDeleteLiveSubscription | 获取({event})已订阅直播间失败, {exist_sub}')
+        await matcher.finish('获取已订阅列表失败QAQ, 请稍后再试或联系管理员处理')
+
+    for sub in exist_sub:
+        if room_id == sub[0]:
+            user_nick = sub[1]
+            break
     else:
-        group_id = 'Private event'
-        msg = '你已订阅以下直播间:\n'
+        exist_text = '\n'.join(f'{x[0]}: {x[1]}' for x in exist_sub)
+        await matcher.reject(f'当前没有订阅这个直播间哦, 请在已订阅列表中选择并重新输入直播间房间号:\n\n{exist_text}')
+        return
 
-    if state['sub_command'] not in ['订阅', '取消订阅', '清空订阅', '订阅列表']:
-        await bilibili_live.finish('没有这个命令哦, 请在【订阅/取消订阅/清空订阅/订阅列表】中选择并重新发送')
-    if state['sub_command'] == '订阅列表':
-        _res = await sub_list(bot=bot, event=event, state=state)
-        if not _res.success():
-            logger.error(f"查询直播间订阅失败, {group_id} / {event.user_id}, error: {_res.info}")
-            await bilibili_live.finish('查询直播间订阅失败QAQ, 请稍后再试吧')
-        if not _res.result:
-            msg = '当前没有任何直播间订阅'
-        else:
-            for sub_id, up_name in _res.result:
-                msg += f'\n【{sub_id}/{up_name}】'
-        await bilibili_live.finish(msg)
-    elif state['sub_command'] == '清空订阅':
-        state['room_id'] = None
-
-
-@bilibili_live.got('room_id', prompt='请输入直播间房间号:')
-async def handle_room_id(bot: Bot, event: MessageEvent, state: T_State):
-    sub_command = state['sub_command']
-    # 针对清空直播间操作, 跳过获取直播间信息
-    if state['sub_command'] == '清空订阅':
-        await bilibili_live.pause('【警告!】\n即将清空本的所有订阅!\n请发送任意消息以继续操作:')
-    # 直播间信息获取部分
-    room_id = state['room_id']
-    if not re.match(r'^\d+$', room_id):
-        await bilibili_live.reject('这似乎不是房间号呢, 房间号应为纯数字, 请重新输入:')
-    up_name_result = await BiliLiveRoom(room_id=int(room_id)).get_user_info()
-    if up_name_result.error:
-        logger.error(f'获取直播间信息失败, room_id: {room_id}, error: {up_name_result.info}')
-        await bilibili_live.finish('获取直播间信息失败了QAQ, 请稍后再试~')
-    up_name = up_name_result.result.name
-    state['up_name'] = up_name
-    msg = f'即将{sub_command}【{up_name}】的直播间!'
-    await bilibili_live.send(msg)
-
-
-@bilibili_live.got('check', prompt='确认吗?\n\n【是/否】')
-async def handle_check(bot: Bot, event: MessageEvent, state: T_State):
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
+    delete_result = await delete_bili_live_room_sub(bot=bot, event=event, room_id=room_id)
+    if isinstance(delete_result, Exception) or delete_result.error:
+        logger.error(f"BilibiliDeleteLiveSubscription | 取消订阅直播间(rid={room_id})失败, {delete_result}")
+        await matcher.finish(f'取消订阅失败了QAQ, 发生了意外的错误, 请联系管理员处理')
     else:
-        group_id = 'Private event'
-
-    check_msg = state['check']
-    room_id = state['room_id']
-    if check_msg != '是':
-        await bilibili_live.finish('操作已取消')
-    sub_command = state['sub_command']
-    if sub_command == '订阅':
-        _res = await sub_add(bot=bot, event=event, state=state)
-    elif sub_command == '取消订阅':
-        _res = await sub_del(bot=bot, event=event, state=state)
-    elif sub_command == '清空订阅':
-        _res = await sub_clear(bot=bot, event=event, state=state)
-    else:
-        _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
-    if _res.success():
-        logger.success(f"{sub_command}直播间成功, {group_id} / {event.user_id}, room_id: {room_id}")
-        await bilibili_live.finish(f'{sub_command}成功!')
-    else:
-        logger.error(f"{sub_command}直播间失败, {group_id} / {event.user_id}, room_id: {room_id},"
-                     f"info: {_res.info}")
-        await bilibili_live.finish(f'{sub_command}失败了QAQ, 可能并未订阅该用户, 或请稍后再试~')
+        logger.success(f"BilibiliDeleteLiveSubscription | 取消订阅直播间(rid={room_id})成功")
+        await matcher.finish(f'已取消Bilibili直播间【{user_nick}】的订阅!')
 
 
-async def sub_list(bot: Bot, event: MessageEvent, state: T_State) -> Result.TupleListResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        result = await group.subscription_list_by_type(sub_type=1)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        result = await friend.subscription_list_by_type(sub_type=1)
-        return result
-    else:
-        return Result.TupleListResult(error=True, info='Illegal event', result=[])
+list_live_sub = on_command(
+    'BilibiliListLiveSubscription',
+    # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
+    state=init_processor_state(
+        name='ListLiveSubscription',
+        level=20,
+        auth_node='bilibili_list_live_subscription'
+    ),
+    aliases={'B站直播间订阅列表', 'b站直播间订阅列表', 'Bilibili直播间订阅列表', 'bilibili直播间订阅列表'},
+    permission=GROUP | GUILD | PRIVATE_FRIEND,
+    priority=20,
+    block=True
+)
 
 
-async def sub_add(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        room_id = state['room_id']
-        sub = DBSubscription(sub_type=1, sub_id=room_id)
-        _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
-        if not _res.success():
-            return _res
-        _res = await group.subscription_add(sub=sub, group_sub_info='B站直播间')
-        if not _res.success():
-            return _res
-        # 添加直播间时需要刷新全局监控列表
-        # 执行一次初始化
-        await BiliLiveChecker(room_id=int(room_id)).init_live_info()
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        room_id = state['room_id']
-        sub = DBSubscription(sub_type=1, sub_id=room_id)
-        _res = await sub.add(up_name=state.get('up_name'), live_info='B站直播间')
-        if not _res.success():
-            return _res
-        _res = await friend.subscription_add(sub=sub, user_sub_info='B站直播间')
-        if not _res.success():
-            return _res
-        # 添加直播间时需要刷新全局监控列表
-        # 执行一次初始化
-        await BiliLiveChecker(room_id=int(room_id)).init_live_info()
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    else:
-        return Result.IntResult(error=True, info='Illegal event', result=-1)
+@list_live_sub.handle()
+async def handle_list_subscription(bot: Bot, event: MessageEvent, matcher: Matcher):
+    exist_sub = await query_subscribed_bili_live_room_sub_source(bot=bot, event=event)
+    if isinstance(exist_sub, Exception):
+        logger.error(f'BilibiliListLiveSubscription | 获取({event})已订阅直播间失败, {exist_sub}')
+        await matcher.finish('获取订阅列表失败QAQ, 请稍后再试或联系管理员处理')
 
-
-async def sub_del(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        room_id = state['room_id']
-        _res = await group.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        room_id = state['room_id']
-        _res = await friend.subscription_del(sub=DBSubscription(sub_type=1, sub_id=room_id))
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    else:
-        return Result.IntResult(error=True, info='Illegal event', result=-1)
-
-
-async def sub_clear(bot: Bot, event: MessageEvent, state: T_State) -> Result.IntResult:
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    if isinstance(event, GroupMessageEvent):
-        group_id = event.group_id
-        group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-        _res = await group.subscription_clear_by_type(sub_type=1)
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    elif isinstance(event, PrivateMessageEvent):
-        user_id = event.user_id
-        friend = DBFriend(user_id=user_id, self_bot=self_bot)
-        _res = await friend.subscription_clear_by_type(sub_type=1)
-        if not _res.success():
-            return _res
-        result = Result.IntResult(error=False, info='Success', result=0)
-        return result
-    else:
-        return Result.IntResult(error=True, info='Illegal event', result=-1)
+    exist_text = '\n'.join(f'{x[0]}: {x[1]}' for x in exist_sub)
+    await matcher.finish(f'当前已订阅的Bilibili直播间:\n\n{exist_text}')

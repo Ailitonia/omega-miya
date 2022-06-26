@@ -1,129 +1,105 @@
-from nonebot import MatcherGroup, logger
-from nonebot.plugin.export import export
+from typing import Literal
+from nonebot import on_command, on_message, logger
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp import MessageSegment
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP, GROUP_ADMIN, GROUP_OWNER
-from omega_miya.database import DBBot, DBBotGroup, DBAuth, Result
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, OmegaRules
+from nonebot.matcher import Matcher
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.message import Message, MessageSegment
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP, GROUP_ADMIN, GROUP_OWNER
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.database import InternalBotGroup
+from omega_miya.service import init_processor_state
+from omega_miya.utils.process_utils import run_async_catching_exception
+from omega_miya.utils.rule import group_has_permission_node
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_custom_name__ = 'AntiFlash'
-__plugin_usage__ = r'''【AntiFlash 反闪照】
+__plugin_custom_name__ = '反闪照'
+__plugin_usage__ = r'''【AntiFlash 反闪照插件】
 检测闪照并提取原图
 
-**Permission**
-Group only with
-AuthNode
-
-**AuthNode**
-basic
-
-**Usage**
-**GroupAdmin and SuperUser Only**
+用法:
 /AntiFlash <ON|OFF>'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
+_ANTI_FLASH_CUSTOM_MODULE_NAME: Literal['Omega.AntiFlash'] = 'Omega.AntiFlash'
+"""固定写入数据库的 module name 参数"""
+_ANTI_FLASH_CUSTOM_PLUGIN_NAME: Literal['omega_anti_flash'] = 'omega_anti_flash'
+"""固定写入数据库的 plugin name 参数"""
+_ENABLE_ANTI_FLASH_NODE: Literal['enable_anti_flash'] = 'enable_anti_flash'
+"""启用反闪照的权限节点"""
 
 
 # 注册事件响应器
-AntiFlash = MatcherGroup(type='message', permission=GROUP, priority=100, block=False)
-
-anti_flash_admin = AntiFlash.on_command(
+AntiFlashManager = on_command(
     'AntiFlash',
-    aliases={'antiflash', '反闪照'},
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(
-        name='anti_flash',
-        command=True,
-        level=10),
+    state=init_processor_state(name='AntiFlashManager', level=10, auth_node='anti_flash_manager'),
+    aliases={'antiflash', '反闪照'},
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=10,
-    block=True)
+    block=True
+)
 
 
-# 修改默认参数处理
-@anti_flash_admin.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await anti_flash_admin.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await anti_flash_admin.finish('操作已取消')
+@AntiFlashManager.handle()
+async def handle_parse_switch(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    switch = cmd_arg.extract_plain_text().strip().lower()
+    if switch in ('on', 'off'):
+        state.update({'switch': switch})
 
 
-@anti_flash_admin.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        pass
-    elif args and len(args) == 1:
-        state['sub_command'] = args[0]
+@AntiFlashManager.got('switch', prompt='启用或关闭反闪照:\n【ON/OFF】')
+async def handle_switch(bot: Bot, matcher: Matcher, event: GroupMessageEvent, switch: str = ArgStr('switch')):
+    switch = switch.strip().lower()
+    group_id = str(event.group_id)
+    group = InternalBotGroup(bot_id=bot.self_id, parent_id=bot.self_id, entity_id=group_id)
+
+    match switch:
+        case 'on':
+            switch_result = await run_async_catching_exception(group.set_auth_setting)(
+                module=_ANTI_FLASH_CUSTOM_MODULE_NAME, plugin=_ANTI_FLASH_CUSTOM_PLUGIN_NAME,
+                node=_ENABLE_ANTI_FLASH_NODE, available=1
+            )
+        case 'off':
+            switch_result = await run_async_catching_exception(group.set_auth_setting)(
+                module=_ANTI_FLASH_CUSTOM_MODULE_NAME, plugin=_ANTI_FLASH_CUSTOM_PLUGIN_NAME,
+                node=_ENABLE_ANTI_FLASH_NODE, available=0
+            )
+        case _:
+            await matcher.reject('没有这个选项哦, 选择【ON/OFF】以启用或关闭反闪照:')
+            return
+
+    if isinstance(switch_result, Exception) or switch_result.error:
+        logger.error(f"Group({group_id}) 设置 AntiFlash 反闪照功能开关为 {switch} 失败, {switch_result}")
+        await matcher.finish(f'设置 AntiFlash 反闪照功能开关失败QAQ, 请联系管理员处理')
     else:
-        await anti_flash_admin.finish('参数错误QAQ')
+        logger.success(f"Group({group_id}) 设置 AntiFlash 反闪照功能开关为 {switch} 成功")
+        await matcher.finish(f'已设置 AntiFlash 反闪照功能开关为 {switch}!')
 
 
-@anti_flash_admin.got('sub_command', prompt='执行操作?\n【ON/OFF】')
-async def handle_sub_command_args(bot: Bot, event: GroupMessageEvent, state: T_State):
-    sub_command = state['sub_command']
-    if sub_command not in ['on', 'off']:
-        await anti_flash_admin.reject('没有这个选项哦, 请在【ON/OFF】中选择并重新发送, 取消命令请发送【取消】:')
-
-    if sub_command == 'on':
-        _res = await anti_flash_on(bot=bot, event=event, state=state)
-    elif sub_command == 'off':
-        _res = await anti_flash_off(bot=bot, event=event, state=state)
-    else:
-        _res = Result.IntResult(error=True, info='Unknown error, except sub_command', result=-1)
-
-    if _res.success():
-        logger.success(f"设置 AntiFlash 状态为 {sub_command} 成功, group_id: {event.group_id}, {_res.info}")
-        await anti_flash_admin.finish(f'已设置 AntiFlash 状态为 {sub_command}!')
-    else:
-        logger.error(f"设置 AntiFlash 状态为 {sub_command} 失败, group_id: {event.group_id}, {_res.info}")
-        await anti_flash_admin.finish(f'设置 AntiFlash 状态失败了QAQ, 请稍后再试~')
+AntiFlash = on_message(
+    rule=group_has_permission_node(
+        module=_ANTI_FLASH_CUSTOM_MODULE_NAME,
+        plugin=_ANTI_FLASH_CUSTOM_PLUGIN_NAME,
+        node=_ENABLE_ANTI_FLASH_NODE
+    ),
+    state=init_processor_state(name='AntiFlash', enable_processor=False, echo_processor_result=False),
+    permission=GROUP,
+    priority=100,
+    block=False
+)
 
 
-async def anti_flash_on(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
-    group_id = event.group_id
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-    group_exist = await group.exist()
-    if not group_exist:
-        return Result.IntResult(error=False, info='Group not exist', result=-1)
+@AntiFlash.handle()
+async def check_flash_img(event: GroupMessageEvent):
+    # 不响应自身发送的消息
+    if event.sender.user_id == event.self_id:
+        return
 
-    auth_node = DBAuth(
-        self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=OmegaRules.basic_node(__plugin_raw_name__))
-    result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用反闪照')
-    return result
-
-
-async def anti_flash_off(bot: Bot, event: GroupMessageEvent, state: T_State) -> Result.IntResult:
-    group_id = event.group_id
-    self_bot = DBBot(self_qq=int(bot.self_id))
-    group = DBBotGroup(group_id=group_id, self_bot=self_bot)
-    group_exist = await group.exist()
-    if not group_exist:
-        return Result.IntResult(error=False, info='Group not exist', result=-1)
-
-    auth_node = DBAuth(
-        self_bot=self_bot, auth_id=group_id, auth_type='group', auth_node=OmegaRules.basic_node(__plugin_raw_name__))
-    result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用反闪照')
-    return result
-
-
-anti_flash_handler = AntiFlash.on_message(rule=OmegaRules.has_auth_node(OmegaRules.basic_node(__plugin_raw_name__)))
-
-
-@anti_flash_handler.handle()
-async def check_flash_img(bot: Bot, event: GroupMessageEvent, state: T_State):
     for msg_seg in event.message:
         if msg_seg.type == 'image':
             if msg_seg.data.get('type') == 'flash':
@@ -132,5 +108,5 @@ async def check_flash_img(bot: Bot, event: GroupMessageEvent, state: T_State):
                 else:
                     img_file = msg_seg.data.get('file')
                 img_seq = MessageSegment.image(file=img_file)
-                logger.success(f'AntiFlash 已处理闪照, message_id: {event.message_id}')
-                await anti_flash_handler.finish('AntiFlash 已检测到闪照:\n' + img_seq)
+                logger.success(f'AntiFlash 反闪照已捕获并处理闪照, 闪照文件: {img_file}')
+                await AntiFlash.send('已检测到闪照:\n' + img_seq)

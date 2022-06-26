@@ -3,240 +3,55 @@
 @Date           : 2021/07/17 22:36
 @FileName       : omega_recaller.py
 @Project        : nonebot2_miya 
-@Description    : 自助撤回群内消息 需bot为管理员
+@Description    : 快速撤回 bot 发送的消息
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from nonebot import logger
-from nonebot.plugin.export import export
-from nonebot.plugin import CommandGroup
-from nonebot.typing import T_State
-from nonebot.exception import FinishedException
+from nonebot.plugin import on_command
 from nonebot.permission import SUPERUSER
-from nonebot.adapters.cqhttp.permission import GROUP, GROUP_OWNER, GROUP_ADMIN
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.message import MessageSegment
-from omega_miya.database import DBBot, DBBotGroup, DBAuth, DBHistory
-from omega_miya.utils.omega_plugin_utils import (init_export, init_processor_state,
-                                                 PermissionChecker, RoleChecker, MessageDecoder)
+from nonebot.adapters.onebot.v11.permission import GROUP_OWNER, GROUP_ADMIN
+from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11.event import MessageEvent
+
+from omega_miya.service import init_processor_state
+from omega_miya.utils.process_utils import run_async_catching_exception
+from omega_miya.onebot_api import GoCqhttpBot
 
 
 # Custom plugin usage text
-__plugin_raw_name__ = __name__.split('.')[-1]
-__plugin_custom_name__ = '自助撤回'
-__plugin_usage__ = r'''【自助撤回】
-让非管理员自助撤回群消息
-Bot得是管理员才行
+__plugin_custom_name__ = '快速撤回'
+__plugin_usage__ = r'''【快速撤回】
+快速撤回 bot 发送的消息
+仅限群管或超管使用
 
-**Permission**
-AuthNode
-
-**AuthNode**
-basic
-
-**Usage**
+用法:
 回复需撤回的消息
-/撤回
-
-**GroupAdmin and SuperUser Only**
-/启用撤回 [@用户]
-/禁用撤回 [@用户]
-'''
+/撤回'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
-
-
-# 注册事件响应器
-SelfHelpRecall = CommandGroup(
-    'SelfHelpRecall',
+self_recall = on_command(
+    'recall',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(
-        name='search_anime',
-        command=True,
-        level=10),
-    permission=SUPERUSER | GROUP,
+    state=init_processor_state(name='SelfRecall', level=0),
+    aliases={'撤回'},
+    permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     priority=10,
     block=True
 )
 
 
-recall = SelfHelpRecall.command('recall', aliases={'撤回'})
-
-
-@recall.handle()
-async def handle_super_recall_self_msg(bot: Bot, event: GroupMessageEvent, state: T_State):
+@self_recall.handle()
+async def handle_recall(bot: Bot, event: MessageEvent):
     # 特别处理管理员撤回bot发送的消息
-    if event.reply and str(event.user_id) in bot.config.superusers:
+    if event.reply:
         if event.reply.sender.user_id == event.self_id:
             recall_msg_id = event.reply.message_id
-            try:
-                await bot.delete_msg(message_id=recall_msg_id)
-                logger.success(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
-                               f'撤回了Bot消息: {recall_msg_id}, "{event.reply.message}"')
-                await recall.finish()
-            except FinishedException:
-                raise FinishedException
-            except Exception as e:
-                logger.error(f'Self-help Recall | 管理员 {event.group_id}/{event.user_id} '
-                             f'撤回Bot消息失败, error: {repr(e)}')
-                await recall.finish('撤回消息部分或全部失败了QAQ', at_sender=True)
+            result = await run_async_catching_exception(GoCqhttpBot(bot=bot).delete_msg)(message_id=recall_msg_id)
 
-
-@recall.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    if event.sender.role in ['owner', 'admin']:
-        await recall.finish('您已经是群管理了, 请您自行去撤回消息OvO')
-
-    # 用户权限检查
-    auth_check_result = await PermissionChecker(self_bot=DBBot(self_qq=event.self_id)).check_auth_node(
-        auth_id=event.group_id, auth_type='group', auth_node=f'{__plugin_raw_name__}.basic.{event.user_id}')
-    if auth_check_result != 1:
-        await recall.finish('你没有撤回消息的权限QAQ', at_sender=True)
-
-    # 判断bot身份
-    if not (await RoleChecker(group_id=event.group_id, user_id=event.self_id, bot=bot).is_group_admin()):
-        await recall.finish('Bot非群管理员, 无法执行撤回操作QAQ')
-
-    error_tag: bool = False
-    # 提取引用消息
-    if event.reply:
-        # 同时撤回被引用的消息
-        recall_msg_id = event.reply.message_id
-        try:
-            await bot.delete_msg(message_id=recall_msg_id)
-            logger.success(
-                f'Self-help Recall | {event.group_id}/{event.user_id} 撤回消息: {recall_msg_id}, "{event.reply.message}"')
-        except Exception as e:
-            error_tag = True
-            logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 撤回引用消息失败, error: {repr(e)}')
-
-        # 同时撤回和当前执行撤回人的消息
-        command_msg_id = event.message_id
-        try:
-            await bot.delete_msg(message_id=command_msg_id)
-            logger.debug(f'Self-help Recall | {event.group_id}/{event.user_id} 撤回执行消息: {command_msg_id}')
-        except Exception as e:
-            error_tag = True
-            logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 撤回当前执行消息失败, error: {repr(e)}')
-
-        history_result = await DBHistory(
-            time=event.time, self_id=event.self_id, post_type='Self-help Recall', detail_type='member-recall').add(
-            sub_type=f'error:{error_tag}', event_id=event.message_id, group_id=event.group_id, user_id=event.user_id,
-            user_name=event.sender.nickname,
-            raw_data=f'Operator: {event.group_id}/{event.user_id}; RecalledMsg, user_id: {event.reply.sender.user_id}, '
-                     f'msg_id: {recall_msg_id}, {event.reply.message}',
-            msg_data=f'群: {event.group_id}, 用户: {event.user_id}/{event.sender.card}/{event.sender.nickname}, '
-                     f'撤回了用户 {event.reply.sender.user_id}/{event.reply.sender.nickname} 的一条消息: {recall_msg_id}, '
-                     f'被撤回消息内容: {event.reply.message}'
-        )
-        if history_result.error:
-            logger.error(f'Self-help Recall | 记录撤回历史失败, error: {history_result.info}')
-
-        if error_tag:
-            await recall.finish('撤回消息部分或全部失败了QAQ', at_sender=True)
-        else:
-            msg = MessageSegment.at(user_id=event.user_id) + '你撤回了' + \
-                  MessageSegment.at(user_id=event.reply.sender.user_id) + '的一条消息'
-            await recall.finish(msg)
-    else:
-        await recall.finish('没有引用需要撤回的消息! 请回复需要撤回的消息后发送“/撤回”')
-
-
-recall_allow = SelfHelpRecall.command(
-    'recall_allow', aliases={'启用撤回'}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN)
-
-
-@recall_allow.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().split()
-    if not args:
-        pass
-    else:
-        await recall_allow.finish('参数错误QAQ, 请在 “/启用撤回” 命令后直接@对应用户')
-
-    # 检查群组
-    self_bot = DBBot(self_qq=event.self_id)
-    group = DBBotGroup(group_id=event.group_id, self_bot=self_bot)
-    group_exist = await group.exist()
-    if not group_exist:
-        logger.error(f'Self-help Recall | 启用用户撤回失败, 数据库没有对应群组: {event.group_id}')
-        await recall_allow.finish('发生了意外的错误QAQ, 请联系管理员处理')
-
-    # 处理@人
-    at_qq_list = MessageDecoder(message=event.message).get_all_at_qq()
-    if not at_qq_list:
-        await recall_allow.finish('没有指定用户QAQ, 请在 “/启用撤回” 命令后直接@对应用户')
-
-    success_list = []
-    failed_list = []
-    for at_qq in at_qq_list:
-        auth_node = DBAuth(self_bot=self_bot, auth_id=event.group_id, auth_type='group',
-                           auth_node=f'{__plugin_raw_name__}.basic.{at_qq}')
-        result = await auth_node.set(allow_tag=1, deny_tag=0, auth_info='启用自助撤回')
-        if result.success():
-            success_list.append(str(at_qq))
-        else:
-            logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 启用用户 {at_qq} 撤回权限失败, '
-                         f'error: {result.info}')
-            failed_list.append(str(at_qq))
-
-    if not failed_list:
-        logger.success(f'Self-help Recall | {event.group_id}/{event.user_id} 已启用用户 {", ".join(success_list)} 撤回权限')
-        await recall_allow.finish(f'已启用用户 {", ".join(success_list)} 撤回权限')
-    else:
-        logger.warning(f'Self-help Recall | {event.group_id}/{event.user_id} '
-                       f'已启用用户 {", ".join(success_list)} 撤回权限, 配置用户 {", ".join(failed_list)} 权限失败')
-        await recall_allow.finish(f'启用用户 {", ".join(success_list)} 撤回权限成功, '
-                                  f'{", ".join(failed_list)} 失败QAQ, 请联系管理员处理')
-
-
-recall_deny = SelfHelpRecall.command(
-    'recall_deny', aliases={'禁用撤回'}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN)
-
-
-@recall_deny.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().split()
-    if not args:
-        pass
-    else:
-        await recall_deny.finish('参数错误QAQ, 请在 “/禁用撤回” 命令后直接@对应用户')
-
-    # 检查群组
-    self_bot = DBBot(self_qq=event.self_id)
-    group = DBBotGroup(group_id=event.group_id, self_bot=self_bot)
-    group_exist = await group.exist()
-    if not group_exist:
-        logger.error(f'Self-help Recall | 禁用用户撤回失败, 数据库没有对应群组: {event.group_id}')
-        await recall_deny.finish('发生了意外的错误QAQ, 请联系管理员处理')
-
-    # 处理@人
-    at_qq_list = MessageDecoder(message=event.message).get_all_at_qq()
-    if not at_qq_list:
-        await recall_deny.finish('没有指定用户QAQ, 请在 “/禁用撤回” 命令后直接@对应用户')
-
-    success_list = []
-    failed_list = []
-    for at_qq in at_qq_list:
-        auth_node = DBAuth(self_bot=self_bot, auth_id=event.group_id, auth_type='group',
-                           auth_node=f'{__plugin_raw_name__}.basic.{at_qq}')
-        result = await auth_node.set(allow_tag=0, deny_tag=1, auth_info='禁用自助撤回')
-        if result.success():
-            success_list.append(str(at_qq))
-        else:
-            logger.error(f'Self-help Recall | {event.group_id}/{event.user_id} 禁用用户 {at_qq} 撤回权限失败, '
-                         f'error: {result.info}')
-            failed_list.append(str(at_qq))
-
-    if not failed_list:
-        logger.success(f'Self-help Recall | {event.group_id}/{event.user_id} 已禁用用户 {", ".join(success_list)} 撤回权限')
-        await recall_deny.finish(f'已禁用用户 {", ".join(success_list)} 撤回权限')
-    else:
-        logger.warning(f'Self-help Recall | {event.group_id}/{event.user_id} '
-                       f'已禁用用户 {", ".join(success_list)} 撤回权限, 配置用户 {", ".join(failed_list)} 权限失败')
-        await recall_deny.finish(f'禁用用户 {", ".join(success_list)} 撤回权限成功, '
-                                 f'{", ".join(failed_list)} 失败QAQ, 请联系管理员处理')
+            if isinstance(result, Exception):
+                logger.error(f'Self Recall | User({event.user_id}) 撤回Bot消息失败, {result}')
+                await self_recall.finish('撤回消息部分或全部失败了QAQ', at_sender=True)
+            else:
+                logger.success(f'Self Recall | User({event.user_id}) 撤回了Bot消息: {recall_msg_id}')

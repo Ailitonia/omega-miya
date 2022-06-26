@@ -8,21 +8,22 @@
 @Software       : PyCharm 
 """
 
-from typing import Dict
-from pydantic import BaseSettings
-from .tarot_resources import BaseTarotResource, TarotResources
+from dataclasses import dataclass
+from omega_miya.local_resource import LocalResource, TmpResource
 
 
-class Config(BaseSettings):
+@dataclass
+class TarotLocalResourceConfig:
+    # 塔罗牌插件默认内置的静态资源文件路径
+    image_resource_folder: LocalResource = LocalResource('images', 'tarot')
+    default_font_file: LocalResource = LocalResource('fonts', 'fzzxhk.ttf')
+    # 绘制图片保存路径
+    default_save_folder: TmpResource = TmpResource('tarot', 'cards')
 
-    default_resources: BaseTarotResource = TarotResources.BiliTarotResources
-    # 为某些特殊定制要求 为不同群组分配不同资源文件
-    group_resources: Dict[int, BaseTarotResource] = {
-        0: default_resources
-    }
 
-    class Config:
-        extra = "ignore"
+tarot_local_resource_config = TarotLocalResourceConfig()
 
-    def get_group_resources(self, group_id: int) -> BaseTarotResource:
-        return self.group_resources.get(group_id, self.default_resources)
+
+__all__ = [
+    'tarot_local_resource_config'
+]

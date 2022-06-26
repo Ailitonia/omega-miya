@@ -1,13 +1,24 @@
-import re
-import random
-from nonebot import CommandGroup, logger
-from nonebot.plugin.export import export
+"""
+@Author         : Ailitonia
+@Date           : 2021/12/24 11:09
+@FileName       : draw.py
+@Project        : nonebot2_miya
+@Description    : Roll
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot import on_command
 from nonebot.typing import T_State
-from nonebot.adapters.cqhttp.bot import Bot
-from nonebot.adapters.cqhttp.event import GroupMessageEvent
-from nonebot.adapters.cqhttp.permission import GROUP
-from omega_miya.utils.omega_plugin_utils import init_export, init_processor_state, PluginCoolDown
-from .data_source import deck_list, draw_deck
+from nonebot.adapters.onebot.v11.message import Message
+from nonebot.adapters.onebot.v11.event import MessageEvent
+from nonebot.adapters.onebot.v11.permission import GROUP
+from nonebot.params import CommandArg, ArgStr
+
+from omega_miya.service import init_processor_state
+from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
+
+from .deck import draw, get_deck
 
 # Custom plugin usage text
 __plugin_custom_name__ = '抽卡'
@@ -15,145 +26,39 @@ __plugin_usage__ = r'''【抽卡】
 模拟各种抽卡
 没有保底的啦!
 不要上头啊喂!
-仅限群聊使用
-ps: 附带一个群组抽奖功能
 
-**Permission**
-Command & Lv.10
-or AuthNode
-
-**AuthNode**
-basic
-
-**CoolDown**
-用户冷却时间
-1 Minutes
-
-**Usage**
-/抽卡 [卡组]
-/抽奖 [人数]'''
+用法
+/抽卡 [卡组]'''
 
 
-# Init plugin export
-init_export(export(), __plugin_custom_name__, __plugin_usage__)
-
-# 注册事件响应器
-Draw = CommandGroup(
+draw_deck = on_command(
     'Draw',
     # 使用run_preprocessor拦截权限管理, 在default_state初始化所需权限
-    state=init_processor_state(
-        name='draw',
-        command=True,
-        level=10,
-        cool_down=[PluginCoolDown(PluginCoolDown.user_type, 60)]),
-    permission=GROUP,
+    state=init_processor_state(name='draw', level=10, cool_down=20),
+    aliases={'draw', '抽卡'},
+    permission=GROUP | GUILD,
     priority=10,
-    block=True)
-
-deck = Draw.command('draw', aliases={'抽卡'})
-
-
-# 修改默认参数处理
-@deck.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await deck.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await deck.finish('操作已取消')
+    block=True
+)
 
 
-@deck.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    # 载入牌堆
-    state['deck'] = deck_list.keys()
-
-    args = str(event.get_plaintext()).strip().lower().split()
-
-    if not args:
-        msg = '当前可用卡组有:'
-        for item in state['deck']:
-            msg += f'\n【{item}】'
-        await deck.send(msg)
-    elif args and len(args) == 1:
-        state['draw'] = args[0]
+@draw_deck.handle()
+async def handle_parse_deck(state: T_State, cmd_arg: Message = CommandArg()):
+    """首次运行时解析命令参数"""
+    deck_name = cmd_arg.extract_plain_text().strip()
+    if deck_name:
+        state.update({'deck_name': deck_name})
     else:
-        await deck.finish('参数错误QAQ')
+        msg = '当前可用卡组有:\n\n' + '\n'.join(x for x in get_deck())
+        await draw_deck.send(msg)
 
 
-@deck.got('draw', prompt='请输入你想要抽取的卡组:')
-async def handle_deck(bot: Bot, event: GroupMessageEvent, state: T_State):
-    user_id = event.user_id
-    _draw = state['draw']
-    _deck = state['deck']
-    if _draw not in _deck:
-        await deck.finish('没有这个卡组QAQ')
+@draw_deck.got('deck_name', prompt='请输入你想要抽取的卡组:')
+async def handle_roll(event: MessageEvent, deck_name: str = ArgStr('deck_name')):
+    deck_name = deck_name.strip()
+    if deck_name not in get_deck():
+        msg = f'没有"{deck_name}"卡组, 请重新在以下可用卡组中选择:\n\n' + '\n'.join(x for x in get_deck())
+        await draw_deck.reject(msg)
 
-    # 抽卡者昵称, 优先使用群昵称
-    draw_user = event.sender.card
-    if not draw_user:
-        draw_user = event.sender.nickname
-
-    draw_result = draw_deck(_draw)(user_id)
-
-    # 向用户发送结果
-    msg = f"{draw_user}抽卡【{_draw}】!!\n{'='*12}\n{draw_result}"
-    logger.info(f'{event.group_id}/{event.user_id} 进行了一次抽卡: {_draw}')
-    await deck.finish(msg)
-
-
-lottery = Draw.command('lottery', aliases={'抽奖'})
-
-
-# 修改默认参数处理
-@lottery.args_parser
-async def parse(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        await lottery.reject('你似乎没有发送有效的参数呢QAQ, 请重新发送:')
-    state[state["_current_key"]] = args[0]
-    if state[state["_current_key"]] == '取消':
-        await lottery.finish('操作已取消')
-
-
-@lottery.handle()
-async def handle_first_receive(bot: Bot, event: GroupMessageEvent, state: T_State):
-    args = str(event.get_plaintext()).strip().lower().split()
-    if not args:
-        pass
-    elif args and len(args) == 1:
-        state['lottery'] = args[0]
-    else:
-        await lottery.finish('参数错误QAQ')
-
-
-@lottery.got('lottery', prompt='请输入抽奖人数')
-async def handle_lottery(bot: Bot, event: GroupMessageEvent, state: T_State):
-    _lottery = state['lottery']
-    if re.match(r'^\d+$', _lottery):
-        people_num = int(_lottery)
-
-        group_member_list = await bot.get_group_member_list(group_id=event.group_id)
-        group_user_name_list = []
-
-        for user_info in group_member_list:
-            # 用户信息
-            user_nickname = user_info['nickname']
-            user_group_nickmane = user_info['card']
-            if not user_group_nickmane:
-                user_group_nickmane = user_nickname
-            group_user_name_list.append(user_group_nickmane)
-
-        if people_num > len(group_user_name_list):
-            await lottery.finish(f'【错误】抽奖人数大于群成员人数了QAQ')
-        elif people_num > 100:
-            await lottery.finish(f'【错误】抽奖人数太多啦QAQ')
-
-        lottery_result = random.sample(group_user_name_list, k=people_num)
-        msg = '【' + str.join('】\n【', lottery_result) + '】'
-        logger.info(f'{event.group_id}/{event.user_id} 进行了一次抽奖')
-        await lottery.finish(f"抽奖人数: 【{people_num}】\n以下是中奖名单:\n{msg}")
-    else:
-        logger.info(f'{event.group_id}/{event.user_id} 抽奖被取消')
-        await lottery.finish(f'格式不对呢, 人数应该是数字')
+    draw_msg = draw(deck_name=deck_name, draw_seed=event.user_id)
+    await draw_deck.finish(draw_msg, at_sender=True)

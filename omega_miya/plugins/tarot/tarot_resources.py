@@ -8,77 +8,92 @@
 @Software       : PyCharm 
 """
 
-import os
-from typing import List
-from nonebot import get_driver
-from .tarot_typing import TarotPack, TarotResourceFile, TarotResource
-from .tarot_data import TarotPacks
+from omega_miya.local_resource import LocalResource
+
+from .tarot_typing import TarotPack
+from .tarot_data import TarotCards
+from .config import tarot_local_resource_config
 
 
-global_config = get_driver().config
-TMP_PATH = global_config.tmp_path_
-RESOURCES_PATH = global_config.resources_path_
-TAROT_RESOURCES_PATH = os.path.abspath(os.path.join(RESOURCES_PATH, 'images', 'tarot'))
-
-
-class BaseTarotResource(object):
-    """
-    资源基类
-    """
-    def __init__(self, pack: TarotPack, source_name: str, file_format: str, source_folder_name: str):
+class TarotResource(object):
+    """塔罗牌资源基类"""
+    def __init__(self, source_name: str, pack: TarotPack, file_format: str):
+        self.resource_folder: LocalResource = tarot_local_resource_config.image_resource_folder(source_name)
         self.pack: TarotPack = pack
+        self.file_format: str = file_format
+        self.check_source(resource_folder=self.resource_folder, pack=self.pack, file_format=self.file_format)
 
-        self.files: List[TarotResourceFile] = [
-            TarotResourceFile(id=card.id, index=card.index) for card in self.pack.cards]
+    @staticmethod
+    def check_source(resource_folder: LocalResource, pack: TarotPack, file_format: str) -> None:
+        for card in pack.cards:
+            card_file = resource_folder(f'{card.id}.{file_format}')
+            if not card_file.path.exists() or not card_file.path.is_file():
+                raise ValueError(f'TarotResource {card_file.resolve_path} missing')
 
-        self.resources: TarotResource = TarotResource(
-            source_name=source_name,
-            file_format=file_format,
-            file_path=os.path.abspath(os.path.join(TAROT_RESOURCES_PATH, source_folder_name)),
-            files=self.files
-        )
+    def get_file_by_id(self, id_: int) -> LocalResource:
+        card = self.pack.get_card_by_id(id_=id_)
+        card_file = self.resource_folder(f'{card.id}.{self.file_format}')
+        if not card_file.path.exists() or not card_file.path.is_file():
+            raise ValueError(f'TarotResource {card_file.resolve_path} missing')
+        return card_file
 
-        self.resources.check_source()
+    def get_file_by_index(self, index_: str) -> LocalResource:
+        card = self.pack.get_card_by_index(index_=index_)
+        card_file = self.resource_folder(f'{card.id}.{self.file_format}')
+        if not card_file.path.exists() or not card_file.path.is_file():
+            raise ValueError(f'TarotResource {card_file.resolve_path} missing')
+        return card_file
+
+    def get_file_by_name(self, name: str) -> LocalResource:
+        card = self.pack.get_card_by_name(name=name)
+        card_file = self.resource_folder(f'{card.id}.{self.file_format}')
+        if not card_file.path.exists() or not card_file.path.is_file():
+            raise ValueError(f'TarotResource {card_file.resolve_path} missing')
+        return card_file
 
 
-class TarotResources(object):
-    # 内置资源 BiliBili幻星集
-    BiliTarotResources = BaseTarotResource(
-        pack=TarotPacks.RiderWaite,
-        source_name='BiliBili幻星集',
-        file_format='png',
-        source_folder_name='bilibili')
+_MAJOR_ARCANA: TarotPack = TarotPack(cards=TarotCards.get_cards_by_type('major_arcana'))
+"""Major Arcana tarot deck"""
+_MINOR_ARCANA: TarotPack = TarotPack(cards=TarotCards.get_cards_by_type('minor_arcana'))
+"""Minor Arcana tarot deck"""
+_RIDER_WAITE: TarotPack = TarotPack(cards=TarotCards.get_cards_by_type('major_arcana', 'minor_arcana'))
+"""Rider–Waite–Smith tarot deck"""
 
-    # 内置资源 莱德韦特塔罗
-    RWSTarotResources = BaseTarotResource(
-        pack=TarotPacks.RiderWaite,
-        source_name='莱德韦特塔罗',
-        file_format='jpg',
-        source_folder_name='RWS')
 
-    # 内置资源 莱德韦特塔罗 大阿卡那
-    RWSMTarotResources = BaseTarotResource(
-        pack=TarotPacks.MajorArcana,
-        source_name='莱德韦特塔罗_大阿卡那',
-        file_format='jpg',
-        source_folder_name='RWS_M')
+bili_tarot_resource: TarotResource = TarotResource(source_name='bilibili', pack=_RIDER_WAITE, file_format='png')
+"""内置资源 BiliBili幻星集"""
+rws_tarot_resource: TarotResource = TarotResource(source_name='RWS', pack=_RIDER_WAITE, file_format='jpg')
+"""内置资源 莱德韦特塔罗"""
+rws_major_tarot_resource: TarotResource = TarotResource(source_name='RWS_M', pack=_MAJOR_ARCANA, file_format='jpg')
+"""内置资源 莱德韦特塔罗 大阿卡那"""
+uwt_tarot_resource: TarotResource = TarotResource(source_name='UWT', pack=_RIDER_WAITE, file_format='jpg')
+"""内置资源 Universal Waite Tarot"""
 
-    # 内置资源 通用塔罗
-    UWTTarotResources = BaseTarotResource(
-        pack=TarotPacks.RiderWaite,
-        source_name='Universal Waite Tarot',
-        file_format='jpg',
-        source_folder_name='UWT')
 
-    # 在这里自定义你的资源文件
-    # CustomTarotResources = BaseTarotResource(
-    #     pack=TarotPacks.MajorArcana,
-    #     source_name='Custom',
-    #     file_format='png',
-    #     source_folder_name='Custom')
+_INTERNAL_TAROT_RESOURCE: dict[str, TarotResource] = {
+    'Bilibili幻星集': bili_tarot_resource,
+    '莱德韦特塔罗': rws_tarot_resource,
+    '莱德韦特塔罗-大阿卡那': rws_major_tarot_resource,
+    '通用韦特塔罗': uwt_tarot_resource,
+}
+
+
+_DEFAULT_TAROT_RESOURCE: TarotResource = bili_tarot_resource
+"""默认的塔罗牌资源"""
+
+
+def get_tarot_resource(resource_name: str | None = None) -> TarotResource:
+    if resource_name is None:
+        return _DEFAULT_TAROT_RESOURCE
+    return _INTERNAL_TAROT_RESOURCE.get(resource_name, _DEFAULT_TAROT_RESOURCE)
+
+
+def get_available_tarot_resource() -> list[str]:
+    return [x for x in _INTERNAL_TAROT_RESOURCE.keys()]
 
 
 __all__ = [
-    'BaseTarotResource',
-    'TarotResources'
+    'TarotResource',
+    'get_tarot_resource',
+    'get_available_tarot_resource'
 ]
