@@ -105,8 +105,6 @@ async def handle_sticker(bot: Bot, matcher: Matcher, event: MessageEvent, state:
     elif not searching_result:
         await matcher.finish('没有找到相似度足够高的图片QAQ')
     else:
-        if isinstance(event, GroupMessageEvent):
-            await MessageSender(bot=bot).send_group_node_custom_and_recall(group_id=event.group_id, recall_time=60,
-                                                                           message_list=searching_result)
-        else:
-            [await matcher.finish(x) for x in searching_result]
+        await MessageSender(bot=bot).send_node_custom_and_recall(
+            event=event, recall_time=90, message_list=searching_result
+        )
