@@ -34,7 +34,7 @@ from .model import (SentMessage, ReceiveMessage, ReceiveForwardMessage, Stranger
 class GoCqhttpBot(BaseOnebotApi):
     """go-cqhttp api
 
-    适配版本: go-cqhttp v1.0.0-rc2
+    适配版本: go-cqhttp v1.0.0-rc3
     """
 
     def __init__(self, bot: Bot):
@@ -485,6 +485,17 @@ class GoCqhttpBot(BaseOnebotApi):
         :param folder: 父目录ID
         """
         return await self.bot.call_api('upload_group_file', group_id=group_id, file=file, name=name, folder=folder)
+
+    async def upload_private_file(self, user_id: int | str, file: str, name: str) -> None:
+        """上传私聊文件
+
+        只能上传本地文件, 需要上传 http 文件的话请先调用 download_file API下载
+
+        :param user_id: 好友qq
+        :param file: 本地文件路径
+        :param name: 储存名称
+        """
+        return await self.bot.call_api('upload_private_file', user_id=user_id, file=file, name=name)
 
     async def get_group_file_system_info(self, group_id: int | str) -> GroupFileSystemInfo:
         system_info_result = await self.bot.call_api('get_group_file_system_info', group_id=group_id)
