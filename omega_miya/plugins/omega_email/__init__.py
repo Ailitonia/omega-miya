@@ -1,5 +1,16 @@
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : omega_email.py
+@Project        : nonebot2_miya
+@Description    : Omega 邮箱插件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 import re
-from nonebot import CommandGroup, logger
+from nonebot.log import logger
+from nonebot.plugin import CommandGroup, PluginMetadata
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -19,19 +30,18 @@ from omega_miya.utils.text_utils import TextUtils
 from .utils import check_mailbox, get_unseen_mail_data, encrypt_password, decrypt_password
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '收邮件'
-__plugin_usage__ = r'''【OmegaEmail 邮箱插件】
-主要是用来收验证码OvO
-仅限群聊使用
-
-用法:
-/收邮件
-
-管理员命令:
-/添加邮箱
-/绑定邮箱
-/解绑邮箱'''
+__plugin_meta__ = PluginMetadata(
+    name="收邮件",
+    description="【OmegaEmail 邮箱插件】\n"
+                "主要是用来收验证码的\n"
+                "仅限群聊使用",
+    usage="/收邮件\n\n"
+          "管理员命令:\n"
+          "/添加邮箱\n"
+          "/绑定邮箱\n"
+          "/解绑邮箱",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

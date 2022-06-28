@@ -1,5 +1,14 @@
-from nonebot import on_command
-from nonebot.plugin import get_loaded_plugins
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : omega_help.py
+@Project        : nonebot2_miya
+@Description    : Omega 帮助插件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot.plugin import get_loaded_plugins, on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -12,13 +21,13 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.service.omega_processor_tools import init_processor_state, parse_processor_state
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '帮助'
-__plugin_usage__ = r'''【帮助】
-一个简单的帮助插件
-
-用法:
-/帮助 [插件名]'''
+__plugin_meta__ = PluginMetadata(
+    name="帮助",
+    description="【Omega 帮助插件】\n"
+                "一个简单的帮助插件",
+    usage="/帮助 [插件名]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器
@@ -57,18 +66,18 @@ async def handle_help_message(bot: Bot, event: MessageEvent, plugin_name: str = 
 
 async def get_all_plugins_desc() -> str:
     """获取全部配置了自定义信息的插件信息"""
-    plugin_custom_name = '\n'.join(str(name) for name in (
-        getattr(plugin.module, '__plugin_custom_name__', None) for plugin in get_loaded_plugins()
-    ) if name is not None)
-    return f'现在已安装的插件有: \n\n{plugin_custom_name}\n\n输入"/help [插件名]"即可查看插件详情及帮助'
+    plugins_custom_name = '\n'.join(plugin.metadata.name for plugin in get_loaded_plugins() if plugin.metadata)
+    return f'现在已安装的插件有: \n\n{plugins_custom_name}\n\n输入"/help [插件名]"即可查看插件详情及帮助'
 
 
 async def get_plugin_desc(plugin_name: str, *, for_superuser: bool = False) -> str:
     """获取指定的配置了自定义信息的插件信息"""
     for plugin in get_loaded_plugins():
-        plugin_custom_name = getattr(plugin.module, '__plugin_custom_name__', None)
-        if plugin_name == plugin_custom_name:
-            plugin_usage = getattr(plugin.module, '__plugin_usage__', None)
+        if not plugin.metadata:
+            continue
+
+        if plugin_name == plugin.metadata.name:
+            plugin_usage = f'{plugin.metadata.description}\n\n用法:\n{plugin.metadata.usage}'
             if for_superuser:
                 processor_info = '\n'.join(
                     f'\n[{s.name}]\nLevel: {s.level if s.level < 4294967296 else "Unlimited"}/Node: {s.auth_node}\n'

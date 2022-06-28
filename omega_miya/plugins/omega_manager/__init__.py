@@ -10,7 +10,8 @@
 """
 
 from datetime import datetime, timedelta
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -27,29 +28,28 @@ from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.apscheduler import scheduler
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '核心管理'
-__plugin_usage__ = r'''【Omega 机器人核心管理插件】
-机器人开关、维护、功能及基础权限管理
-仅限管理员或私聊使用
-
-用法:
-/omega Init
-/omega Enable
-/omega Disable
-/omega SetLevel <PermissionLevel>
-/omega ShowPermission
-/omega QuitGroup
-/omega CancelQuitGroup
-
-说明:
-Init: 初始化并启用基本功能, 不会覆盖已有信息, 仅供第一次使用bot时执行
-Enable: 启用 bot 功能
-Disable: 禁用 bot 功能
-SetLevel: 设置权限等级
-ShowPermission: 查询权限状态
-QuitGroup: 命令bot退群
-CancelQuitGroup: 取消bot退群'''
+__plugin_meta__ = PluginMetadata(
+    name="管理核心",
+    description="【Omega 机器人核心管理插件】\n"
+                "机器人开关、维护、功能及基础权限管理\n"
+                "仅限管理员或私聊使用",
+    usage="/omega Init\n"
+          "/omega Enable\n"
+          "/omega Disable\n"
+          "/omega SetLevel <PermissionLevel>\n"
+          "/omega ShowPermission\n"
+          "/omega QuitGroup\n"
+          "/omega CancelQuitGroup\n\n"
+          "说明:\n"
+          "Init: 初始化并启用基本功能, 不会覆盖已有信息, 仅供第一次使用bot时执行\n"
+          "Enable: 启用 bot 功能\n"
+          "Disable: 禁用 bot 功能\n"
+          "SetLevel: 设置权限等级\n"
+          "ShowPermission: 查询权限状态\n"
+          "QuitGroup: 命令bot退群\n"
+          "CancelQuitGroup: 取消bot退群",
+    extra={"author": "Ailitonia"},
+)
 
 
 DEFAULT_PERMISSION_LEVEL: int = 10

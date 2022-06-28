@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import logger
-from nonebot.plugin import on_notice, on_command
+from nonebot.log import logger
+from nonebot.plugin import on_notice, on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -26,14 +26,14 @@ from omega_miya.utils.rule import group_has_permission_level
 from omega_miya.utils.message_tools import MessageTools
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '群欢迎消息'
-__plugin_usage__ = r'''【群自定义欢迎消息插件】
-向新入群的成员发送欢迎消息
-
-用法:
-/设置欢迎消息 [消息内容]
-/移除欢迎消息'''
+__plugin_meta__ = PluginMetadata(
+    name="群欢迎消息",
+    description="【群自定义欢迎消息插件】\n"
+                "向新入群的成员发送欢迎消息",
+    usage="/设置欢迎消息 [消息内容]\n"
+          "/移除欢迎消息",
+    extra={"author": "Ailitonia"},
+)
 
 
 _SETTING_NAME: str = 'group_welcome_message'

@@ -11,7 +11,9 @@
 import random
 from typing import Union
 from datetime import datetime
-from nonebot import MatcherGroup, on_notice, get_driver, logger
+from nonebot import get_driver
+from nonebot.log import logger
+from nonebot.plugin import MatcherGroup, on_notice, PluginMetadata
 from nonebot.message import handle_event
 from nonebot.typing import T_State
 from nonebot.rule import to_me
@@ -33,19 +35,19 @@ from .config import sign_in_config, sign_local_resource_config
 from .utils import get_head_image, get_hitokoto, generate_signin_card
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '签到'
-__plugin_usage__ = r'''【OmegaSignIn 签到插件】
-签到插件, 好感度系统基础支持
-仅限群聊使用
-
-用法:
-/签到
-/今日运势|今日人品
-/好感度|我的好感
-/一言
-
-可使用戳一戳触发'''
+__plugin_meta__ = PluginMetadata(
+    name="签到",
+    description="【OmegaSignIn 签到插件】\n"
+                "签到插件\n"
+                "好感度系统基础支持",
+    usage="/签到\n"
+          "/今日运势|今日人品\n"
+          "/好感度|我的好感\n"
+          "/一言\n\n"
+          "可使用双击头像戳一戳触发",
+    config=sign_in_config.__class__,
+    extra={"author": "Ailitonia"},
+)
 
 
 _COMMAND_START: set[str] = get_driver().config.command_start

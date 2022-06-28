@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import CommandGroup, get_plugin, get_loaded_plugins, logger
+from nonebot.log import logger
+from nonebot.plugin import CommandGroup, get_plugin, get_loaded_plugins, PluginMetadata
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -22,23 +23,22 @@ from omega_miya.utils.text_utils import TextUtils
 from omega_miya.utils.process_utils import run_async_catching_exception
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '插件管理'
-__plugin_usage__ = r'''【OmegaPluginManager 插件管理器】
-管理启用和禁用插件
-仅限管理员使用
-
-用法:
-/OPM.[管理操作] [插件名]
-或使用别名:
-/启用插件 [插件名]
-/禁用插件 [插件名]
-/插件列表
-
-可用管理操作:
-enable: 启用插件
-disable: 禁用插件
-list: 显示插件列表'''
+__plugin_meta__ = PluginMetadata(
+    name="插件管理",
+    description="【OmegaPluginManager 插件管理器】\n"
+                "管理启用和禁用插件\n"
+                "仅限管理员使用",
+    usage="/OPM.[管理操作] [插件名]\n"
+          "或使用别名:\n"
+          "/启用插件 [插件名]\n"
+          "/禁用插件 [插件名]\n"
+          "/插件列表\n\n"
+          "可用管理操作:\n"
+          "enable: 启用插件\n"
+          "disable: 禁用插件\n"
+          "list: 显示插件列表",
+    extra={"author": "Ailitonia"},
+)
 
 
 _log_prefix: str = '<lc>OmegaPluginManager</lc> | '
@@ -157,6 +157,7 @@ def _desc(plugin_name: str) -> str:
     plugin = get_plugin(name=plugin_name)
     if plugin is None:
         return plugin_name
+    elif plugin.metadata is None:
+        return plugin_name
 
-    plugin_custom_name = getattr(plugin.module, '__plugin_custom_name__', '')
-    return f'{plugin_name}({plugin_custom_name})'
+    return f'{plugin_name}({plugin.metadata.name})'

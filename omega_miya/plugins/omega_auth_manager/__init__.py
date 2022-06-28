@@ -1,4 +1,15 @@
-from nonebot import on_command, get_plugin, get_loaded_plugins, logger
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : omega_auth_manager.py
+@Project        : nonebot2_miya
+@Description    : Omega 授权管理插件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot.log import logger
+from nonebot.plugin import get_plugin, get_loaded_plugins, on_command, PluginMetadata
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -22,23 +33,22 @@ from omega_miya.database.internal.entity import (
 )
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '授权管理'
-__plugin_usage__ = r'''【OmegaAuth 授权管理插件】
-插件特殊权限授权管理
-仅限管理员使用
-
-用法:
-/OmegaAuth [授权操作] [授权对象ID] [插件名称] [权限节点]
-/OmegaAuth [allow|deny] [插件名称] [权限节点]
-/OmegaAuth [list]
-
-可用授权操作:
-allow: 允许会话所在群组/频道/用户
-deny: 禁止会话所在群组/频道/用户
-list: 列出会话所在群组/频道/用户已配置的权限节点
-custom_allow: 允许指定群组/频道/用户
-custom_deny: 禁止指定群组/频道/用户'''
+__plugin_meta__ = PluginMetadata(
+    name="授权管理",
+    description="【OmegaAuth 授权管理插件】\n"
+                "插件特殊权限授权管理\n"
+                "仅限管理员使用",
+    usage="/OmegaAuth [授权操作] [授权对象ID] [插件名称] [权限节点]\n"
+          "/OmegaAuth [allow|deny] [插件名称] [权限节点]\n"
+          "/OmegaAuth [list]\n\n"
+          "可用授权操作:\n"
+          "allow: 允许会话所在群组/频道/用户\n"
+          "deny: 禁止会话所在群组/频道/用户\n"
+          "list: 列出会话所在群组/频道/用户已配置的权限节点\n"
+          "custom_allow: 允许指定群组/频道/用户\n"
+          "custom_deny: 禁止指定群组/频道/用户",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器
@@ -122,8 +132,7 @@ async def handle_related_entity_id(
 @auth.handle()
 async def handle_plugin_name_tips(matcher: Matcher, state: T_State):
     if not state.get('plugin_name', None):
-        all_plugins = [p.name for p in get_loaded_plugins()
-                       if getattr(p.module, '__plugin_custom_name__', None) is not None]
+        all_plugins = [p.name for p in get_loaded_plugins() if p.metadata is not None]
         all_plugins.sort()
         all_plugin_name = '\n'.join(all_plugins)
         info_msg = f'现在已安装的插件有:\n\n{all_plugin_name}'

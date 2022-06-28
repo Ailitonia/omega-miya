@@ -45,10 +45,10 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
         return
 
     # 跳过没有配置自定义名称的(一般来说这样的插件也不用展示统计信息)
-    custom_plugin_name = getattr(matcher.plugin.module, '__plugin_custom_name__', None)
-    if custom_plugin_name is None:
-        logger.opt(colors=True).debug(f'{_log_prefix}Non-custom-name plugin, ignore')
+    if matcher.plugin.metadata is None:
+        logger.opt(colors=True).debug(f'{_log_prefix}Non-metadata plugin, ignore')
         return
+    custom_plugin_name = matcher.plugin.metadata.name
 
     # 从 state 中解析 processor 配置要求
     module_name = matcher.plugin.module_name

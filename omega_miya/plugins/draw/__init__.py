@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from nonebot import on_command
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.event import MessageEvent
@@ -20,15 +20,16 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 
 from .deck import draw, get_deck
 
-# Custom plugin usage text
-__plugin_custom_name__ = '抽卡'
-__plugin_usage__ = r'''【抽卡】
-模拟各种抽卡
-没有保底的啦!
-不要上头啊喂!
 
-用法
-/抽卡 [卡组]'''
+__plugin_meta__ = PluginMetadata(
+    name="抽卡",
+    description="【抽卡模拟插件】\n"
+                "模拟各种抽卡\n"
+                "没有保底的啦!\n"
+                "不要上头啊喂!",
+    usage="/抽卡 [卡组]",
+    extra={"author": "Ailitonia"},
+)
 
 
 draw_deck = on_command(

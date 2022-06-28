@@ -10,8 +10,8 @@
 @Software       : PyCharm
 """
 
-from nonebot import logger
-from nonebot.plugin import on, on_command
+from nonebot.log import logger
+from nonebot.plugin import on, on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.message import handle_event
 from nonebot.rule import to_me
@@ -25,19 +25,17 @@ from omega_miya.service import init_processor_state
 from omega_miya.service.gocqhttp_self_sent_patch import MessageSentEvent, SU_SELF_SENT
 
 
+__plugin_meta__ = PluginMetadata(
+    name="自调用消息",
+    description="【OmegaSu 自调用消息插件】\n"
+                "让人工登陆机器人账号时可以通过特殊命令来自己调用自己",
+    usage="/su <on|off>\n\n"
+          "人工登录 bot 使用命令:\n"
+          "!SU [command]",
+    extra={"author": "Ailitonia"},
+)
+
 _SU_TAG: bool = False
-
-
-# Custom plugin usage text
-__plugin_custom_name__ = '自调用消息'
-__plugin_usage__ = r'''【OmegaSu 自调用消息插件】
-让人工登陆机器人账号时可以通过特殊命令来自己调用自己
-
-用法:
-/su <on|off>
-
-人工登录 bot 使用命令:
-!SU [command]'''
 
 
 # 注册事件响应器

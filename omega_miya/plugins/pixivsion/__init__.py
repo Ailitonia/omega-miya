@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -27,17 +28,17 @@ from .utils import get_pixivision_article_preview, add_pixivision_sub, delete_pi
 from .monitor import scheduler
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'Pixivision'
-__plugin_usage__ = r'''【Pixivision助手】
-探索并查看Pixivision文章, 订阅最新的Pixivision特辑
-
-用法:
-/pixivision [AID]
-
-仅限私聊或群聊中群管理员使用:
-/pixivision订阅
-/pixivision取消订阅'''
+__plugin_meta__ = PluginMetadata(
+    name="Pixivision",
+    description="【Pixivision助手插件】\n"
+                "探索并查看Pixivision文章\n"
+                "订阅最新的Pixivision特辑",
+    usage="/pixivision [AID]\n\n"
+          "仅限私聊或群聊中群管理员使用:\n"
+          "/pixivision订阅\n"
+          "/pixivision取消订阅",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

@@ -10,7 +10,8 @@
 要求go-cqhttp v0.9.40以上
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -26,13 +27,14 @@ from omega_miya.utils.message_tools import MessageSender
 from omega_miya.web_resource.nhentai import NhentaiGallery
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'NHentai'
-__plugin_usage__ = r'''【NHentai】
-神秘的插件
-
-/nh search [tag]
-/nh download [id]'''
+__plugin_meta__ = PluginMetadata(
+    name="NHentai",
+    description="【NHentai插件】\n"
+                "神秘的插件",
+    usage="/nh search [tag]\n"
+          "/nh download [id]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

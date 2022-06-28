@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import logger
-from nonebot.plugin import on_command
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP_OWNER, GROUP_ADMIN
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -20,15 +20,15 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.onebot_api import GoCqhttpBot
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '快速撤回'
-__plugin_usage__ = r'''【快速撤回】
-快速撤回 bot 发送的消息
-仅限群管或超管使用
-
-用法:
-回复需撤回的消息
-/撤回'''
+__plugin_meta__ = PluginMetadata(
+    name="快速撤回",
+    description="【快速撤回插件】\n"
+                "快速撤回 bot 发送的消息\n"
+                "仅限群管或超管使用",
+    usage="回复需撤回的消息\n"
+          "/撤回",
+    extra={"author": "Ailitonia"},
+)
 
 
 self_recall = on_command(

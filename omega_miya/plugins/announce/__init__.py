@@ -1,4 +1,5 @@
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -12,13 +13,13 @@ from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '公告'
-__plugin_usage__ = r'''【公告插件】
-快速批量向启用了bot的群组发送通知公告
-
-用法:
-/公告 [公告内容]'''
+__plugin_meta__ = PluginMetadata(
+    name="公告",
+    description="【公告插件】\n"
+                "快速批量向启用了bot的群组发送通知公告",
+    usage="/公告 [公告内容]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

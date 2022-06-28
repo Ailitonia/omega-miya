@@ -9,8 +9,8 @@
 """
 
 from datetime import datetime, timedelta
-from nonebot import logger
-from nonebot.plugin import on_notice, CommandGroup
+from nonebot.log import logger
+from nonebot.plugin import on_notice, CommandGroup, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
@@ -25,14 +25,14 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.message_tools import MessageTools
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '流控限制'
-__plugin_usage__ = r'''【OmegaRateLimiting 流控限制插件】
-用户及群组流控限制
-
-用法:
-/Ban [用户]
-/GBan [群组]'''
+__plugin_meta__ = PluginMetadata(
+    name="流控限制",
+    description="【OmegaRateLimiting 流控限制插件】\n"
+                "用户及群组流控限制",
+    usage="/Ban [用户]\n"
+          "/GBan [群组]",
+    extra={"author": "Ailitonia"},
+)
 
 
 _log_prefix: str = '<lc>OmegaRateLimiting</lc> | '

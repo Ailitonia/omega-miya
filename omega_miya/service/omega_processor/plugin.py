@@ -24,10 +24,11 @@ _log_prefix: str = '<lc>Plugin Manager</lc> | '
 
 
 async def startup_init_plugins():
-    tasks = [Plugin(
-        plugin_name=plugin.name,
-        module_name=plugin.module_name
-    ).add_only(info=getattr(plugin.module, '__plugin_custom_name__', None)) for plugin in get_loaded_plugins()]
+    tasks = [
+        Plugin(plugin_name=plugin.name, module_name=plugin.module_name).add_only(
+            info=(plugin.metadata.name if plugin.metadata else None)
+        ) for plugin in get_loaded_plugins()
+    ]
 
     plugins_init_result = await semaphore_gather(tasks=tasks, semaphore_num=1)
 

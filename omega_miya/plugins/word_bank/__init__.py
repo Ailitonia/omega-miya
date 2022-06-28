@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import MatcherGroup, logger
+from nonebot.log import logger
+from nonebot.plugin import MatcherGroup, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.rule import to_me
 from nonebot.matcher import Matcher
@@ -25,20 +26,19 @@ from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
 from .word_bank import WordBankManager, WordBankMatcher
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '自动问答'
-__plugin_usage__ = r'''【自动问答】
-使用模糊匹配的轻量化问答插件
-仅限群聊使用
-
-用法:
-@Bot [关键词]
-若匹配成功则会回复
-
-仅限群管理员使用:
-/添加问答
-/删除问答
-/问答列表'''
+__plugin_meta__ = PluginMetadata(
+    name="自动问答",
+    description="【自动问答插件】\n"
+                "使用模糊匹配的轻量化问答插件\n"
+                "仅限群聊使用",
+    usage="@Bot [关键词]\n"
+          "若匹配成功则会回复\n\n"
+          "仅限群管理员使用:\n"
+          "/添加问答\n"
+          "/删除问答\n"
+          "/问答列表",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

@@ -8,13 +8,24 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver, logger
+from nonebot import get_driver
+from nonebot.log import logger
+from nonebot.plugin import PluginMetadata
 from nonebot.adapters import Bot
 from pydantic import BaseModel
 
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.utils.apscheduler import scheduler
 from omega_miya.utils.process_utils import semaphore_gather
+
+
+__plugin_meta__ = PluginMetadata(
+    name="自动群打卡",
+    description="【自动群打卡插件】\n"
+                "让机器人参与抢群打卡每日第一",
+    usage="由管理员配置, 无命令用法",
+    extra={"author": "Ailitonia"},
+)
 
 
 class AutoGroupSignConfig(BaseModel):

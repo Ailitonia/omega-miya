@@ -1,5 +1,16 @@
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : omega_anti_flash.py
+@Project        : nonebot2_miya
+@Description    : Omega 反闪照插件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 from typing import Literal
-from nonebot import on_command, on_message, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_message, PluginMetadata
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -15,13 +26,14 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.rule import group_has_permission_node
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '反闪照'
-__plugin_usage__ = r'''【AntiFlash 反闪照插件】
-检测闪照并提取原图
-
-用法:
-/AntiFlash <ON|OFF>'''
+__plugin_meta__ = PluginMetadata(
+    name="反闪照",
+    description="【AntiFlash 反闪照插件】\n"
+                "检测闪照并提取原图",
+    usage="仅限群聊中群管理员使用:\n"
+          "/AntiFlash <ON|OFF>",
+    extra={"author": "Ailitonia"},
+)
 
 
 _ANTI_FLASH_CUSTOM_MODULE_NAME: Literal['Omega.AntiFlash'] = 'Omega.AntiFlash'

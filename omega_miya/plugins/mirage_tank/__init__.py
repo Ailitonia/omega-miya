@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.event import MessageEvent
@@ -23,15 +24,14 @@ from omega_miya.utils.message_tools import MessageTools
 from .utils import simple_white, simple_black, complex_gray, complex_color, complex_difference
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '幻影坦克'
-__plugin_usage__ = rf'''【幻影坦克图片生成工具】
-制作幻影坦克图片
-
-/幻影坦克 [模式] [图片]
-
-合成模式可选: "白底", "黑底", "灰度混合", "彩色混合", "差分"
-'''
+__plugin_meta__ = PluginMetadata(
+    name="幻影坦克",
+    description="【幻影坦克图片生成插件】\n"
+                "制作幻影坦克图片",
+    usage="/幻影坦克 [模式] [图片]\n\n"
+          '合成模式可选: "白底", "黑底", "灰度混合", "彩色混合", "差分"',
+    extra={"author": "Ailitonia"},
+)
 
 
 mirage_tank = on_command(

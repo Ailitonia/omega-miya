@@ -10,7 +10,8 @@
 
 import random
 import string
-from nonebot import on_request, on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_request, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
@@ -27,21 +28,20 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.utils.message_tools import MessageTools
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '好友和群组请求管理'
-__plugin_usage__ = r'''【OmegaInviteManager 好友和群组请求管理插件】
-处理加好友请求和加群、退群请求
-
-用法:
-/好友验证码 [用户qq]
-/允许邀请进群 [用户qq]
-/禁止邀请进群 [用户qq]
-
-说明:
-以上命令均只允许管理员使用,
-"好友验证码"命令会为指定用户生成一段验证码, 该用户在验证消息中输入该验证码可让 bot 通过好友验证
-"允许邀请进群"命令会为指定用户分配邀请 bot 进群的权限, 若该用户是 bot 的好友且具备该权限, 则 bot 会自动同意用户的邀请进群请求
-"禁止邀请进群"命令会移除指定用户的邀请 bot 进群的权限, 若 bot 被无该权限的用户邀请进群, 则会自动退群'''
+__plugin_meta__ = PluginMetadata(
+    name="好友和群组请求管理",
+    description="【OmegaInviteManager 好友和群组请求管理插件】\n"
+                "处理加好友请求和加群、退群请求",
+    usage="/好友验证码 [用户qq]\n"
+          "/允许邀请进群 [用户qq]\n"
+          "/禁止邀请进群 [用户qq]\n\n"
+          "说明:\n"
+          "以上命令均只允许管理员使用\n"
+          '"好友验证码"命令会为指定用户生成一段验证码, 该用户在验证消息中输入该验证码可让 bot 通过好友验证\n'
+          '"允许邀请进群"命令会为指定用户分配邀请 bot 进群的权限, 若该用户是 bot 的好友且具备该权限, 则 bot 会自动同意用户的邀请进群请求\n'
+          '"禁止邀请进群"命令会移除指定用户的邀请 bot 进群的权限, 若 bot 被无该权限的用户邀请进群, 则会自动退群',
+    extra={"author": "Ailitonia"},
+)
 
 
 _FRIEND_ADD_VERIFY_CODE: dict[str, str] = {}

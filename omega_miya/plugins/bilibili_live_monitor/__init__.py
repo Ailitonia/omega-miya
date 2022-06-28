@@ -1,4 +1,15 @@
-from nonebot import on_command, logger
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : bilibili_live_monitor.py
+@Project        : nonebot2_miya
+@Description    : Bilibili 直播间订阅
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -18,17 +29,17 @@ from .monitor import scheduler
 from .utils import add_bili_live_room_sub, delete_bili_live_room_sub, query_subscribed_bili_live_room_sub_source
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'B站直播间订阅'
-__plugin_usage__ = r'''【B站直播间订阅】
-订阅并监控Bilibili直播间状态
-提供开播、下播、直播间换标题提醒
-
-用法:
-仅限私聊或群聊中群管理员使用:
-/B站直播间订阅 [RoomID]
-/B站直播间取消订阅 [RoomID]
-/B站直播间订阅列表'''
+__plugin_meta__ = PluginMetadata(
+    name="B站直播间订阅",
+    description="【B站直播间订阅插件】\n"
+                "订阅并监控Bilibili直播间状态\n"
+                "提供开播、下播、直播间换标题提醒",
+    usage="仅限私聊或群聊中群管理员使用:\n"
+          "/B站直播间订阅 [RoomID]\n"
+          "/B站直播间取消订阅 [RoomID]\n"
+          "/B站直播间订阅列表",
+    extra={"author": "Ailitonia"},
+)
 
 
 add_live_sub = on_command(

@@ -1,6 +1,17 @@
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : omega_anti_recall.py
+@Project        : nonebot2_miya
+@Description    : Omega 反撤回插件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 from datetime import datetime
 from typing import Literal
-from nonebot import on_command, on_notice, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_notice, PluginMetadata
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -18,13 +29,14 @@ from omega_miya.utils.rule import group_has_permission_node
 from omega_miya.utils.message_tools import MessageTools
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '反撤回'
-__plugin_usage__ = r'''【AntiRecall 反撤回插件】
-检测消息撤回并提取原消息
-
-用法:
-/AntiRecall <ON|OFF>'''
+__plugin_meta__ = PluginMetadata(
+    name="反撤回",
+    description="【AntiRecall 反撤回插件】\n"
+                "检测消息撤回并提取原消息",
+    usage="仅限群聊中群管理员使用:\n"
+          "/AntiRecall <ON|OFF>",
+    extra={"author": "Ailitonia"},
+)
 
 
 _ANTI_RECALL_CUSTOM_MODULE_NAME: Literal['Omega.AntiRecall'] = 'Omega.AntiRecall'

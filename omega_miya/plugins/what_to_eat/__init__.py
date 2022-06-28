@@ -9,7 +9,8 @@
 """
 
 from datetime import datetime
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.permission import GROUP
@@ -21,17 +22,17 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from .model import get_random_food_message
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '今天吃啥'
-__plugin_usage__ = r'''【今天吃啥】
-给吃饭选择困难症一个解决方案
-
-用法:
-/今天吃啥
-/早上吃啥
-/中午吃啥
-/晚上吃啥
-/夜宵吃啥'''
+__plugin_meta__ = PluginMetadata(
+    name="今天吃啥",
+    description="【今天吃啥插件】\n"
+                "给吃饭选择困难症一个解决方案",
+    usage="/今天吃啥\n"
+          "/早上吃啥\n"
+          "/中午吃啥\n"
+          "/晚上吃啥\n"
+          "/夜宵吃啥",
+    extra={"author": "Ailitonia"},
+)
 
 
 what_eat_today = on_command(
