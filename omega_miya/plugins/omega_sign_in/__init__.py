@@ -173,7 +173,8 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent | 
 
     fix_date = datetime.fromordinal(fix_date_result).strftime('%Y年%m月%d日')
     fix_days = datetime.now().toordinal() - fix_date_result
-    fix_cost = 10 if fix_days <= 3 else fix_days * 3
+    base_cost = 2 * sign_in_config.signin_base_currency
+    fix_cost = base_cost if fix_days <= 3 else fix_days * base_cost
 
     # 获取当前好感度信息
     friendship = await run_async_catching_exception(user.get_friendship_model)()
@@ -254,14 +255,14 @@ async def handle_sign_in(bot: Bot, event: MessageEvent, state: T_State) -> Union
         # 尝试为用户增加好感度
         # 根据连签日期设置不同增幅
         if continuous_days < 7:
-            base_friendship_inc = int(10 * (1 + random.gauss(0.25, 0.25)))
-            currency_inc = 1
+            base_friendship_inc = int(30 * (1 + random.gauss(0.25, 0.25)))
+            currency_inc = 1 * sign_in_config.signin_base_currency
         elif continuous_days < 30:
-            base_friendship_inc = int(30 * (1 + random.gauss(0.35, 0.2)))
-            currency_inc = 3
+            base_friendship_inc = int(70 * (1 + random.gauss(0.35, 0.2)))
+            currency_inc = 3 * sign_in_config.signin_base_currency
         else:
-            base_friendship_inc = int(50 * (1 + random.gauss(0.45, 0.15)))
-            currency_inc = 5
+            base_friendship_inc = int(110 * (1 + random.gauss(0.45, 0.15)))
+            currency_inc = 5 * sign_in_config.signin_base_currency
 
         # 将能量值兑换为好感度
         friendship_inc = friendship.energy * sign_in_config.signin_ef_exchange_rate + base_friendship_inc

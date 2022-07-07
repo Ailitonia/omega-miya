@@ -32,6 +32,8 @@ class SignInConfig(BaseModel):
 
     # 能量值与好感度的兑换比例 公式为(能量值 * 兑换比 = 好感度)
     signin_ef_exchange_rate: float = 0.25
+    # 每日首次签到获取的基础硬币数 同时也是补签所需硬币的倍率基数
+    signin_base_currency: int = 5
 
     class Config:
         extra = "ignore"
