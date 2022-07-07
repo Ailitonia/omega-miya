@@ -118,13 +118,16 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
         await matcher.finish('找不到涩图QAQ')
 
     await matcher.send('稍等, 正在下载图片~')
-    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=(not args.no_flash)) for x in artworks]
+
+    flash_mode = True if moe_plugin_config.moe_plugin_enforce_setu_enable_flash_mode else not args.no_flash
+
+    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=flash_mode) for x in artworks]
     message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
     send_messages = list(message_result)
     if not send_messages:
         await matcher.finish('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
     await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=send_messages,
-                                                      recall_time=moe_plugin_config.moe_plugin_auto_recall_time)
+                                                      recall_time=moe_plugin_config.moe_plugin_setu_auto_recall_time)
 
 
 moe = on_shell_command(
@@ -176,13 +179,16 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
         await matcher.finish('找不到萌图QAQ')
 
     await matcher.send('稍等, 正在下载图片~')
-    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=(not args.no_flash)) for x in artworks]
+
+    flash_mode = False if moe_plugin_config.moe_plugin_enforce_moe_disable_flash_mode else not args.no_flash
+
+    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=flash_mode) for x in artworks]
     message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
     send_messages = list(message_result)
     if not send_messages:
         await matcher.finish('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
     await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=send_messages,
-                                                      recall_time=moe_plugin_config.moe_plugin_auto_recall_time)
+                                                      recall_time=moe_plugin_config.moe_plugin_moe_auto_recall_time)
 
 
 statistics = on_command(

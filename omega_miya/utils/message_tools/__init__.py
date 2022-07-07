@@ -142,6 +142,10 @@ class MessageSender(object):
                                                    message_list=message_list)
 
         sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
+
+        if recall_time <= 0:
+            return sent_result.message_id
+
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
@@ -177,6 +181,10 @@ class MessageSender(object):
                                                    message_list=message_list)
 
         sent_result = await self.bot.send_private_forward_msg(user_id=user_id, messages=node_message)
+
+        if recall_time <= 0:
+            return sent_result.message_id
+
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
@@ -228,6 +236,9 @@ class MessageSender(object):
         else:
             sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
 
+        if recall_time <= 0:
+            return sent_result.message_id
+
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
@@ -256,6 +267,9 @@ class MessageSender(object):
         else:
             logger.opt(colors=True).debug(f'<lc>MessageSender</lc>| Message({", ".join(str(x) for x in sent_msg_id)}) '
                                           f'will be auto-recalled after {recall_time} seconds')
+
+        if recall_time <= 0:
+            return sent_msg_id
 
         await asyncio.sleep(recall_time)
 
