@@ -286,9 +286,18 @@ class PixivArtwork(BaseDatabase):
         return IntListResult(error=False, info='Success', result=(await cls._query_custom_all(stmt=stmt)))
 
     @classmethod
-    async def count_all(cls, keywords: Optional[List[str]] = None) -> PixivArtworkCountResult:
+    async def count_all(
+            cls,
+            keywords: Optional[List[str]] = None,
+            *,
+            classified: Optional[int] = 1
+    ) -> PixivArtworkCountResult:
         try:
             all_stmt = select(func.count(cls.orm_model.id)).with_for_update(read=True)
+
+            if classified is not None:
+                all_stmt = all_stmt.where(cls.orm_model.classified == classified)
+
             if keywords:
                 for keyword in keywords:
                     all_stmt = all_stmt.where(or_(
