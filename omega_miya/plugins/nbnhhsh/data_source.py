@@ -26,6 +26,9 @@ class GuessResult(BaseModel):
 
 
 async def _get_guess(guess: str) -> list[GuessResult]:
+    """从 magiconch API 处获取缩写查询结果"""
+    # 该 api 当前不支持查询的缩写中有空格 这里去除待查询文本中的空格
+    guess = guess.replace(' ', '')
     payload = {'text': guess}
     result = await HttpFetcher().post_json(url=_API_URL, json=payload)
     return parse_obj_as(list[GuessResult], result.result)
