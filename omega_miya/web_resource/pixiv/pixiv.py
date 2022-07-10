@@ -3,7 +3,7 @@ import pathlib
 import zipfile
 import imageio
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal, Optional
 from urllib.parse import urlparse, quote
 from io import BytesIO
@@ -185,9 +185,8 @@ class PixivSearching(Pixiv):
 
     @classmethod
     async def search_by_default_popular_condition(cls, word: str) -> PixivSearchingResultModel:
-        """Pixiv 搜索 (使用通用的好图筛选条件) (近三年的图) (会用到仅限pixiv高级会员可用的部分参数)"""
-        start_date = datetime.now() - timedelta(days=1080)
-        return await cls.search(word=word, mode='illustrations', order='date_d', scd_=start_date, blt_=2500)
+        """Pixiv 搜索 (使用热度作为过滤条件筛选条件) (需要pixiv高级会员)"""
+        return await cls.search(word=word, mode='illustrations', order='popular_d', mode_='safe', type_='illust')
 
     @classmethod
     async def search_with_preview(
