@@ -224,7 +224,7 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent | 
                                            f'成功补签了{fix_date}的签到!'})
     msg = await handle_fortune(bot=bot, event=event, state=state)
     logger.info(f'SignIn | User({user.tid}), 补签成功')
-    await command_fix_sign_in.finish(msg)
+    await command_fix_sign_in.finish(msg, at_sender=True)
 
 
 async def handle_sign_in(bot: Bot, event: MessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
