@@ -26,24 +26,33 @@ UP_OPERATOR: list[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='归溟幽灵鲨/Irene', star=6, limited=True, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='艾丽妮/Irene', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='多萝西/Dorothy', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False)
         ],
-        zoom=0.7
+        zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='掠风/Windflit', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='承曦格雷伊/Greyy the Lightningbearer', star=5, limited=False, recruit_only=False,
+                     event_only=False, special_only=False),
+            Operator(name='白面鸮/Ptilopsis', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
         ],
         zoom=0.5
     )
 ]
 
 ALL_OPERATOR: list[Operator] = [
+    Operator(name='多萝西/Dorothy', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='承曦格雷伊/Greyy the Lightningbearer', star=5, limited=False, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name='星源/Astgenne', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='黑键/Ebenholz', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='濯尘芙蓉/Hibiscus the Purifier', star=5, limited=False, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name='车尔尼/Czerny', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='埃拉托/Erato', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='归溟幽灵鲨/Irene', star=6, limited=True, recruit_only=False, event_only=False, special_only=False),
     Operator(name='艾丽妮/Irene', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='流明/Lumen', star=6, limited=False, recruit_only=False, event_only=True, special_only=False),
