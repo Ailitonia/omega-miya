@@ -59,7 +59,7 @@ async def handle_parse_condition(state: T_State, cmd_arg: Message = CommandArg()
     if condition:
         state.update({'condition': condition})
     else:
-        state.update({'condition': '全部'})
+        state.update({'condition': '本月'})
 
 
 @statistic.got('condition', prompt='请输入查询条件:')
