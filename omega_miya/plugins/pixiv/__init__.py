@@ -373,7 +373,7 @@ pixiv_download = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv下载', 'Pixiv下载', 'pixivdl'},
-    permission=GROUP,
+    permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -395,7 +395,7 @@ async def handle_parse_download_args(state: T_State, cmd_arg: Message = CommandA
 
 @pixiv_download.got('pid', prompt='想要下载哪个作品呢? 请输入作品PID:')
 @pixiv_download.got('page', prompt='想要下载作品的哪一页呢? 请输入页码:')
-async def handle_download(bot: Bot, event: GroupMessageEvent, matcher: Matcher,
+async def handle_download(bot: Bot, event: MessageEvent, matcher: Matcher,
                           pid: str = ArgStr('pid'), page: str = ArgStr('page')):
     pid = pid.strip()
     page = page.strip()
@@ -428,8 +428,16 @@ async def handle_download(bot: Bot, event: GroupMessageEvent, matcher: Matcher,
 
     gocq_bot = GoCqhttpBot(bot=bot)
     file_name = f'{artwork_data.pid}_p{page}_{artwork_data.title}_{artwork_data.uname}{download_file.path.suffix}'
-    upload_result = await run_async_catching_exception(gocq_bot.upload_group_file)(
-        group_id=event.group_id, file=download_file.resolve_path, name=file_name)
+
+    if isinstance(event, GroupMessageEvent):
+        upload_task = run_async_catching_exception(gocq_bot.upload_group_file)(
+            group_id=event.group_id, file=download_file.resolve_path, name=file_name
+        )
+    else:
+        upload_task = run_async_catching_exception(gocq_bot.upload_private_file)(
+            user_id=event.user_id, file=download_file.resolve_path, name=file_name
+        )
+    upload_result = await upload_task
     if isinstance(upload_result, Exception):
         logger.warning(f'PixivDownload | 下载作品(pid={pid})失败, 上传群文件失败: {upload_result}')
         await matcher.finish('上传图片到群文件失败QAQ, 可能上传仍在进行中, 请等待1~2分钟后再重试')
