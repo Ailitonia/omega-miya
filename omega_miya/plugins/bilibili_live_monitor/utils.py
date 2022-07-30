@@ -25,6 +25,7 @@ from omega_miya.web_resource.bilibili.model.live_room import BilibiliLiveRoomDat
 from omega_miya.utils.process_utils import run_async_catching_exception, semaphore_gather
 from omega_miya.utils.message_tools import MessageSender
 
+from .config import bilibili_live_monitor_plugin_config as plugin_config
 from .model import (BilibiliLiveRoomStatus, BilibiliLiveRoomTitleChange, BilibiliLiveRoomStartLiving,
                     BilibiliLiveRoomStartLivingWithUpdateTitle, BilibiliLiveRoomStopLiving,
                     BilibiliLiveRoomStopLivingWithPlaylist, BilibiliLiveRoomStatusUpdate)
@@ -164,7 +165,7 @@ async def _get_live_room_update_message(
         update_data: BilibiliLiveRoomStatusUpdate
 ) -> str | Message | None:
     """处理直播间更新为消息"""
-    send_message = f'【bilibili直播间】\n'
+    send_message = '【bilibili直播间】\n'
     user_name = _LIVE_STATUS.get(live_room_data.uid).live_user_name
     need_url = False
 
@@ -206,6 +207,17 @@ async def _msg_sender(entity: BaseInternalEntity, message: str | Message) -> int
     """向 entity 发送消息"""
     try:
         msg_sender = MessageSender.init_from_bot_id(bot_id=entity.bot_id)
+
+        # 通知群组时检查能不能@全体成员
+        if plugin_config.bilibili_live_monitor_enable_group_at_all_notice and entity.relation_type == 'bot_group':
+            at_all_remain = await run_async_catching_exception(msg_sender.bot.get_group_at_all_remain)(
+                group_id=entity.entity_id)
+            if (not isinstance(at_all_remain, Exception)
+                    and at_all_remain.can_at_all
+                    and at_all_remain.remain_at_all_count_for_group
+                    and at_all_remain.remain_at_all_count_for_uin):
+                message = MessageSegment.at(user_id='all') + message
+
         sent_msg_id = await msg_sender.send_internal_entity_msg(entity=entity, message=message)
     except KeyError:
         logger.debug(f'BilibiliLiveRoomMonitor | Bot({entity.bot_id}) not online, '
