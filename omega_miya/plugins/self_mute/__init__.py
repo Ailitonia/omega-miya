@@ -10,7 +10,8 @@
 
 import re
 import random
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -24,13 +25,13 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.onebot_api import GoCqhttpBot
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '随机口球'
-__plugin_usage__ = r'''【随机口球】
-自取随机口球礼包
-
-用法:
-/随机口球 [n倍]'''
+__plugin_meta__ = PluginMetadata(
+    name="随机口球",
+    description="【随机口球插件】\n"
+                "自取随机口球礼包",
+    usage="/随机口球 [n倍]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

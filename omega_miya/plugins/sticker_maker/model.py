@@ -9,6 +9,8 @@
 """
 
 import abc
+import imageio
+from typing import Iterable
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
@@ -61,15 +63,36 @@ class StickerRender(abc.ABC):
         return cls._need_external_img
 
     @abc.abstractmethod
-    def _handler(self) -> bytes:
-        """表情包制作方法"""
+    def _static_handler(self, *args, **kwargs) -> bytes:
+        """静态图片表情包制作方法"""
         raise NotImplementedError
 
-    def _load_source_image(self) -> Image.Image:
+    @abc.abstractmethod
+    def _gif_handler(self, *args, **kwargs) -> bytes:
+        """动态图片表情包制作方法"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _handler(self) -> bytes:
+        """表情包制作入口函数"""
+        raise NotImplementedError
+
+    def _get_source_image_info(self) -> (str, dict):
+        """获取图片素材格式信息
+
+        :return: format: str, num of frames: int, info: dict
+        """
+        with Image.open(self.source_image.resolve_path) as im:
+            f_im = im.format
+            info = im.info
+        return f_im, info
+
+    def _load_source_image(self, frame: int | None = None) -> Image.Image:
         """载入并初始化图片素材"""
-        with self.source_image.open('rb') as f:
-            image: Image.Image = Image.open(f)
-            image.load()
+        image: Image.Image = Image.open(self.source_image.resolve_path)
+        if frame:
+            image.seek(frame=frame)
+        image.load()
         return image
 
     @staticmethod
@@ -120,6 +143,22 @@ class StickerRender(abc.ABC):
         with BytesIO() as bf:
             image.save(bf, output_format)
             content = bf.getvalue()
+        return content
+
+    @staticmethod
+    def _generate_gif_from_bytes_seq(
+            frames: Iterable[bytes],
+            duration: float = 0.06,
+            *,
+            quantizer: int = 2
+    ) -> bytes:
+        """使用图片序列输出 GIF 图像"""
+        frames_list = [imageio.v2.imread(frame) for frame in frames]
+
+        with BytesIO() as bf:
+            imageio.mimsave(bf, frames_list, 'GIF-PIL', duration=duration, quantizer=quantizer)
+            content = bf.getvalue()
+
         return content
 
     async def make(self) -> TmpResource:

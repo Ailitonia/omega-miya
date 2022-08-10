@@ -10,7 +10,8 @@
 
 import re
 from copy import deepcopy
-from nonebot import on_shell_command, on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_shell_command, PluginMetadata
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -35,25 +36,24 @@ from .utils import (has_allow_r18_node, prepare_send_image, get_database_import_
                     get_query_argument_parser, parse_from_query_parser)
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '来点萌图'
-__plugin_usage__ = r'''【来点萌图】
-随机萌图和随机涩图
-不可以随意涩涩!
-
-用法:
-/来点萌图 [关键词, ...]
-/来点涩图 [关键词, ...]
-
-可用参数:
-'-s', '--nsfw-tag': 指定nsfw_tag
-'-n', '--num': 指定获取的图片数量
-'-nf', '--no-flash': 强制不使用闪照发送图片
-
-仅限管理员使用:
-/图库统计
-/图库查询 [关键词, ...]
-/导入图库'''
+__plugin_meta__ = PluginMetadata(
+    name="来点萌图",
+    description="【来点萌图插件】\n"
+                "随机萌图和随机涩图\n"
+                "不可以随意涩涩!",
+    usage="/来点萌图 [关键词, ...]\n"
+          "/来点涩图 [关键词, ...]\n\n"
+          "可用参数:\n"
+          "'-s', '--nsfw-tag': 指定nsfw_tag\n"
+          "'-n', '--num': 指定获取的图片数量\n"
+          "'-nf', '--no-flash': 强制不使用闪照发送图片\n\n"
+          "仅限管理员使用:\n"
+          "/图库统计\n"
+          "/图库查询 [关键词, ...]\n"
+          "/导入图库",
+    config=moe_plugin_config.__class__,
+    extra={"author": "Ailitonia"},
+)
 
 
 _ALLOW_R18_NODE = moe_plugin_config.moe_plugin_allow_r18_node
@@ -118,13 +118,16 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
         await matcher.finish('找不到涩图QAQ')
 
     await matcher.send('稍等, 正在下载图片~')
-    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=(not args.no_flash)) for x in artworks]
+
+    flash_mode = True if moe_plugin_config.moe_plugin_enforce_setu_enable_flash_mode else not args.no_flash
+
+    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=flash_mode) for x in artworks]
     message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
     send_messages = list(message_result)
     if not send_messages:
         await matcher.finish('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
     await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=send_messages,
-                                                      recall_time=moe_plugin_config.moe_plugin_auto_recall_time)
+                                                      recall_time=moe_plugin_config.moe_plugin_setu_auto_recall_time)
 
 
 moe = on_shell_command(
@@ -176,13 +179,16 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
         await matcher.finish('找不到萌图QAQ')
 
     await matcher.send('稍等, 正在下载图片~')
-    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=(not args.no_flash)) for x in artworks]
+
+    flash_mode = False if moe_plugin_config.moe_plugin_enforce_moe_disable_flash_mode else not args.no_flash
+
+    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=flash_mode) for x in artworks]
     message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
     send_messages = list(message_result)
     if not send_messages:
         await matcher.finish('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
     await MessageSender(bot=bot).send_msgs_and_recall(event=event, message_list=send_messages,
-                                                      recall_time=moe_plugin_config.moe_plugin_auto_recall_time)
+                                                      recall_time=moe_plugin_config.moe_plugin_moe_auto_recall_time)
 
 
 statistics = on_command(

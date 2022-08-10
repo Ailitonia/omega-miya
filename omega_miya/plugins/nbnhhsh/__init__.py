@@ -1,4 +1,14 @@
-from nonebot import on_command
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : nbnhhsh.py
+@Project        : nonebot2_miya
+@Description    : 能不能好好说话
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
@@ -10,13 +20,13 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from .data_source import get_guess
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '好好说话'
-__plugin_usage__ = r'''【能不能好好说话？】
-拼音首字母缩写释义
-
-用法
-/好好说话 [缩写]'''
+__plugin_meta__ = PluginMetadata(
+    name="好好说话",
+    description="【能不能好好说话？】\n"
+                "拼音首字母缩写释义",
+    usage="/好好说话 [缩写]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

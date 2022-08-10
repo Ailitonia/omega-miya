@@ -34,7 +34,7 @@ from .model import (SentMessage, ReceiveMessage, ReceiveForwardMessage, Stranger
 class GoCqhttpBot(BaseOnebotApi):
     """go-cqhttp api
 
-    适配版本: go-cqhttp v1.0.0-rc2
+    适配版本: go-cqhttp v1.0.0-rc3
     """
 
     def __init__(self, bot: Bot):
@@ -54,30 +54,35 @@ class GoCqhttpBot(BaseOnebotApi):
         # 更新群组相关信息
         groups_result = await self.get_group_list()
         group_upgrade_tasks = [
-            InternalBotGroup(bot_id=self.self_id, parent_id=self.self_id, entity_id=x.group_id).add_only(
+            InternalBotGroup(bot_id=self.self_id, parent_id=self.self_id, entity_id=x.group_id).add_upgrade(
                 parent_entity_name=bot_login_info.nickname,
                 entity_name=x.group_name,
-                entity_info=x.group_memo,
-                related_entity_name=x.group_name
+                related_entity_name=x.group_name,
+                parent_entity_info=bot_login_info.nickname,
+                entity_info=x.group_memo
             )
             for x in groups_result]
         # 更新用户相关信息
         users_result = await self.get_friend_list()
         user_upgrade_tasks = [
-            InternalBotUser(bot_id=self.self_id, parent_id=self.self_id, entity_id=x.user_id).add_only(
+            InternalBotUser(bot_id=self.self_id, parent_id=self.self_id, entity_id=x.user_id).add_upgrade(
                 parent_entity_name=bot_login_info.nickname,
                 entity_name=x.nickname,
-                related_entity_name=x.remark
+                related_entity_name=x.remark,
+                parent_entity_info=bot_login_info.nickname,
+                entity_info=x.remark
             )
             for x in users_result]
         # 更新频道相关信息
         guild_profile = await self.get_guild_service_profile()
         guild_data = await self.get_guild_list()
         guild_upgrade_tasks = [
-            InternalBotGuild(bot_id=self.self_id, parent_id=guild_profile.tiny_id, entity_id=x.guild_id).add_only(
+            InternalBotGuild(bot_id=self.self_id, parent_id=guild_profile.tiny_id, entity_id=x.guild_id).add_upgrade(
                 parent_entity_name=guild_profile.nickname,
                 entity_name=x.guild_name,
-                related_entity_name=x.guild_name
+                related_entity_name=x.guild_name,
+                parent_entity_info=guild_profile.nickname,
+                entity_info=x.guild_name
             )
             for x in guild_data]
 
@@ -85,10 +90,14 @@ class GoCqhttpBot(BaseOnebotApi):
         for guild in guild_data:
             channel_data = await self.get_guild_channel_list(guild_id=guild.guild_id)
             channel_upgrade_tasks.extend([
-                InternalGuildChannel(bot_id=self.self_id, parent_id=x.owner_guild_id, entity_id=x.channel_id).add_only(
+                InternalGuildChannel(
+                    bot_id=self.self_id, parent_id=x.owner_guild_id, entity_id=x.channel_id
+                ).add_upgrade(
                     parent_entity_name=guild.guild_name,
                     entity_name=x.channel_name,
-                    related_entity_name=x.channel_name
+                    related_entity_name=x.channel_name,
+                    parent_entity_info=guild.guild_name,
+                    entity_info=x.channel_name
                 )
                 for x in channel_data
             ])
@@ -485,6 +494,17 @@ class GoCqhttpBot(BaseOnebotApi):
         :param folder: 父目录ID
         """
         return await self.bot.call_api('upload_group_file', group_id=group_id, file=file, name=name, folder=folder)
+
+    async def upload_private_file(self, user_id: int | str, file: str, name: str) -> None:
+        """上传私聊文件
+
+        只能上传本地文件, 需要上传 http 文件的话请先调用 download_file API下载
+
+        :param user_id: 好友qq
+        :param file: 本地文件路径
+        :param name: 储存名称
+        """
+        return await self.bot.call_api('upload_private_file', user_id=user_id, file=file, name=name)
 
     async def get_group_file_system_info(self, group_id: int | str) -> GroupFileSystemInfo:
         system_info_result = await self.bot.call_api('get_group_file_system_info', group_id=group_id)

@@ -9,7 +9,8 @@
 """
 
 import random
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -26,16 +27,15 @@ from .tarot_resources import get_tarot_resource, get_available_tarot_resource
 from .utils import generate_tarot_card, get_tarot_resource_name, set_tarot_resource
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '塔罗牌'
-__plugin_usage__ = r'''【塔罗牌】
-简单的塔罗牌插件
-
-用法:
-/塔罗牌 [卡牌名]
-
-仅限私聊或群聊中群管理员使用:
-/设置塔罗牌组 [资源名]'''
+__plugin_meta__ = PluginMetadata(
+    name="塔罗牌",
+    description="【塔罗牌插件】\n"
+                "简单的塔罗牌插件",
+    usage="/塔罗牌 [卡牌名]\n\n"
+          "仅限私聊或群聊中群管理员使用:\n"
+          "/设置塔罗牌组 [资源名]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

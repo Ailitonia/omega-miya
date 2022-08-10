@@ -9,7 +9,7 @@
 """
 
 from nonebot.log import logger
-from nonebot.plugin import on_command
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -25,20 +25,18 @@ from .utils import (add_schedule_job, generate_schedule_job_data,
                     get_schedule_message_job_list, set_schedule_message_job, remove_schedule_message_job)
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '定时消息'
-__plugin_usage__ = r'''【定时消息】
-设置定时消息
-
-用法:
-/设置定时消息
-/删除定时消息
-/定时消息列表
-
-Crontab格式说明:
- * | * | * | * | *
-分|时|日|月|星期
-'''
+__plugin_meta__ = PluginMetadata(
+    name="定时消息",
+    description="【定时消息插件】\n"
+                "设置定时消息",
+    usage="/设置定时消息\n"
+          "/删除定时消息\n"
+          "/定时消息列表\n\n"
+          "Crontab格式说明:\n"
+          " * | * | * | * | *\n"
+          "分|时|日|月|星期",
+    extra={"author": "Ailitonia"},
+)
 
 
 set_schedule_message = on_command(

@@ -1,5 +1,15 @@
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : maybe.py
+@Project        : nonebot2_miya
+@Description    : 求签
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 import datetime
-from nonebot import on_command
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.event import MessageEvent
@@ -12,15 +22,15 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from .utils import query_maybe
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '求签'
-__plugin_usage__ = r'''【求签】
-求签, 求运势, 包括且不限于抽卡、吃饭、睡懒觉、DD
-每个人每天求同一个东西的结果是一样的啦!
-不要不信邪重新抽啦!
-
-用法:
-/求签 [所求之事]'''
+__plugin_meta__ = PluginMetadata(
+    name="求签",
+    description="【求签插件】\n"
+                "求签, 求运势, 包括且不限于抽卡、吃饭、睡懒觉、DD\n"
+                "每个人每天求同一个东西的结果是一样的啦!\n"
+                "不要不信邪重新抽啦!",
+    usage="/求签 [所求之事]",
+    extra={"author": "Ailitonia"},
+)
 
 
 maybe = on_command(

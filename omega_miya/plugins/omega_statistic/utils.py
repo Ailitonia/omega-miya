@@ -11,17 +11,22 @@
 import sys
 from datetime import datetime
 from io import BytesIO
+from matplotlib import font_manager
 from matplotlib import pyplot as plt
 
 from omega_miya.database import Statistic
-from omega_miya.local_resource import TmpResource
+from omega_miya.local_resource import LocalResource, TmpResource
 from omega_miya.utils.process_utils import run_sync, run_async_catching_exception
 
-
+_DEFAULT_FONT: LocalResource = LocalResource('fonts', 'fzzxhk.ttf')
+"""默认使用字体"""
 _TMP_STATISTIC_IMG_FOLDER: str = 'statistic'
 """生成统计图缓存文件夹名"""
 _TMP_STATISTIC_PATH: TmpResource = TmpResource(_TMP_STATISTIC_IMG_FOLDER)
 """生成统计图缓存资源地址"""
+
+
+font_manager.fontManager.addfont(_DEFAULT_FONT.resolve_path)  # 添加资源文件中字体
 
 
 @run_async_catching_exception
@@ -43,13 +48,18 @@ async def draw_statistics(
 
     def _handle() -> bytes:
         plt.switch_backend('agg')  # Fix RuntimeError caused by GUI needed
+        plt.rcParams['font.sans-serif'] = ['FZZhengHei-EL-GBK']
         if sys.platform.startswith('win'):
-            plt.rcParams['font.sans-serif'] = ['SimHei']
             plt.rcParams['axes.unicode_minus'] = False
-        plt.barh([x.custom_name for x in statistic_result], [x.call_count for x in statistic_result])
+
+        # 绘制条形图
+        _bar_c = plt.barh([x.custom_name for x in statistic_result], [x.call_count for x in statistic_result])
+        plt.bar_label(_bar_c, label_type='edge')
         plt.title(title)
+
+        # 导出图片
         with BytesIO() as bf:
-            plt.savefig(bf, dpi=300, format='JPG')
+            plt.savefig(bf, dpi=300, format='JPG', bbox_inches='tight')
             img_bytes = bf.getvalue()
         return img_bytes
 

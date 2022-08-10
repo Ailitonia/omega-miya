@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -29,16 +30,16 @@ from .utils import (add_bili_user_dynamic_sub, delete_bili_user_dynamic_sub,
 from .monitor import scheduler
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'B站动态订阅'
-__plugin_usage__ = r'''【B站动态订阅】
-订阅并跟踪Bilibili用户动态更新
-
-用法:
-仅限私聊或群聊中群管理员使用:
-/B站动态订阅 [UID]
-/B站动态取消订阅 [UID]
-/B站动态订阅列表'''
+__plugin_meta__ = PluginMetadata(
+    name="B站动态订阅",
+    description="【B站动态订阅插件】\n"
+                "订阅并跟踪Bilibili用户动态更新",
+    usage="仅限私聊或群聊中群管理员使用:\n"
+          "/B站动态订阅 [UID]\n"
+          "/B站动态取消订阅 [UID]\n"
+          "/B站动态订阅列表",
+    extra={"author": "Ailitonia"},
+)
 
 
 add_dynamic_sub = on_command(

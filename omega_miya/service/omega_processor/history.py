@@ -24,8 +24,8 @@ async def postprocessor_history(event: Event):
         self_id = str(event.self_id)
         event_type = getattr(event, 'post_type', 'Undefined')
         message_id = getattr(event, 'message_id', -1)
-        raw_data = repr(event)
-        message_data = str(getattr(event, 'message', ''))
+        raw_data = event.json()
+        message_data = getattr(event, 'message', '')
 
         raw_data = str(raw_data) if not isinstance(raw_data, str) else raw_data
         msg_data = str(message_data) if not isinstance(message_data, str) else message_data

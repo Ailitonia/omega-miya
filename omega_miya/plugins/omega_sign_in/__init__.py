@@ -11,7 +11,9 @@
 import random
 from typing import Union
 from datetime import datetime
-from nonebot import MatcherGroup, on_notice, get_driver, logger
+from nonebot import get_driver
+from nonebot.log import logger
+from nonebot.plugin import MatcherGroup, on_notice, PluginMetadata
 from nonebot.message import handle_event
 from nonebot.typing import T_State
 from nonebot.rule import to_me
@@ -33,19 +35,19 @@ from .config import sign_in_config, sign_local_resource_config
 from .utils import get_head_image, get_hitokoto, generate_signin_card
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '签到'
-__plugin_usage__ = r'''【OmegaSignIn 签到插件】
-签到插件, 好感度系统基础支持
-仅限群聊使用
-
-用法:
-/签到
-/今日运势|今日人品
-/好感度|我的好感
-/一言
-
-可使用戳一戳触发'''
+__plugin_meta__ = PluginMetadata(
+    name="签到",
+    description="【OmegaSignIn 签到插件】\n"
+                "签到插件\n"
+                "好感度系统基础支持",
+    usage="/签到\n"
+          "/今日运势|今日人品\n"
+          "/好感度|我的好感\n"
+          "/一言\n\n"
+          "可使用双击头像戳一戳触发",
+    config=sign_in_config.__class__,
+    extra={"author": "Ailitonia"},
+)
 
 
 _COMMAND_START: set[str] = get_driver().config.command_start
@@ -171,7 +173,8 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent | 
 
     fix_date = datetime.fromordinal(fix_date_result).strftime('%Y年%m月%d日')
     fix_days = datetime.now().toordinal() - fix_date_result
-    fix_cost = 10 if fix_days <= 3 else fix_days * 3
+    base_cost = 2 * sign_in_config.signin_base_currency
+    fix_cost = base_cost if fix_days <= 3 else fix_days * base_cost
 
     # 获取当前好感度信息
     friendship = await run_async_catching_exception(user.get_friendship_model)()
@@ -221,7 +224,7 @@ async def handle_command_fix_sign_in_check(bot: Bot, event: GroupMessageEvent | 
                                            f'成功补签了{fix_date}的签到!'})
     msg = await handle_fortune(bot=bot, event=event, state=state)
     logger.info(f'SignIn | User({user.tid}), 补签成功')
-    await command_fix_sign_in.finish(msg)
+    await command_fix_sign_in.finish(msg, at_sender=True)
 
 
 async def handle_sign_in(bot: Bot, event: MessageEvent, state: T_State) -> Union[Message, MessageSegment, str]:
@@ -252,14 +255,14 @@ async def handle_sign_in(bot: Bot, event: MessageEvent, state: T_State) -> Union
         # 尝试为用户增加好感度
         # 根据连签日期设置不同增幅
         if continuous_days < 7:
-            base_friendship_inc = int(10 * (1 + random.gauss(0.25, 0.25)))
-            currency_inc = 1
+            base_friendship_inc = int(30 * (1 + random.gauss(0.25, 0.25)))
+            currency_inc = 1 * sign_in_config.signin_base_currency
         elif continuous_days < 30:
-            base_friendship_inc = int(30 * (1 + random.gauss(0.35, 0.2)))
-            currency_inc = 3
+            base_friendship_inc = int(70 * (1 + random.gauss(0.35, 0.2)))
+            currency_inc = 3 * sign_in_config.signin_base_currency
         else:
-            base_friendship_inc = int(50 * (1 + random.gauss(0.45, 0.15)))
-            currency_inc = 5
+            base_friendship_inc = int(110 * (1 + random.gauss(0.45, 0.15)))
+            currency_inc = 5 * sign_in_config.signin_base_currency
 
         # 将能量值兑换为好感度
         friendship_inc = friendship.energy * sign_in_config.signin_ef_exchange_rate + base_friendship_inc

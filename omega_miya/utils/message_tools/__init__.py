@@ -14,7 +14,7 @@ from nonebot import get_bot
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import Message, MessageSegment
-from nonebot.adapters.onebot.v11.event import Event
+from nonebot.adapters.onebot.v11.event import Event, GroupMessageEvent, PrivateMessageEvent
 
 from omega_miya.onebot_api import GoCqhttpBot
 from omega_miya.database import EventEntityHelper
@@ -142,6 +142,10 @@ class MessageSender(object):
                                                    message_list=message_list)
 
         sent_result = await self.bot.send_group_forward_msg(group_id=group_id, messages=node_message)
+
+        if recall_time <= 0:
+            return sent_result.message_id
+
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
@@ -177,6 +181,10 @@ class MessageSender(object):
                                                    message_list=message_list)
 
         sent_result = await self.bot.send_private_forward_msg(user_id=user_id, messages=node_message)
+
+        if recall_time <= 0:
+            return sent_result.message_id
+
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
@@ -187,6 +195,7 @@ class MessageSender(object):
             message_list: list[str | Message | MessageSegment],
             user_id: int | str | None = None,
             group_id: int | str | None = None,
+            event: Event | None = None,
             *,
             custom_nickname: str = 'Ωμεγα_Μιγα'
     ) -> int:
@@ -195,7 +204,13 @@ class MessageSender(object):
         node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
                                                    message_list=message_list)
 
-        sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
+        if isinstance(event, GroupMessageEvent):
+            sent_result = await self.bot.send_group_forward_msg(group_id=event.group_id, messages=node_message)
+        elif isinstance(event, PrivateMessageEvent):
+            sent_result = await self.bot.send_private_forward_msg(user_id=event.user_id, messages=node_message)
+        else:
+            sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
+
         return sent_result.message_id
 
     @run_async_catching_exception
@@ -204,6 +219,7 @@ class MessageSender(object):
             message_list: list[str | Message | MessageSegment],
             user_id: int | str | None = None,
             group_id: int | str | None = None,
+            event: Event | None = None,
             *,
             recall_time: int = 30,
             custom_nickname: str = 'Ωμεγα_Μιγα'
@@ -213,7 +229,16 @@ class MessageSender(object):
         node_message = self._construct_node_custom(custom_user_id=self.bot.self_id, custom_nickname=custom_nickname,
                                                    message_list=message_list)
 
-        sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
+        if isinstance(event, GroupMessageEvent):
+            sent_result = await self.bot.send_group_forward_msg(group_id=event.group_id, messages=node_message)
+        elif isinstance(event, PrivateMessageEvent):
+            sent_result = await self.bot.send_private_forward_msg(user_id=event.user_id, messages=node_message)
+        else:
+            sent_result = await self.bot.send_forward_msg(user_id=user_id, group_id=group_id, messages=node_message)
+
+        if recall_time <= 0:
+            return sent_result.message_id
+
         await asyncio.sleep(recall_time)
         await self.bot.delete_msg(message_id=sent_result.message_id)
         return sent_result.message_id
@@ -242,6 +267,9 @@ class MessageSender(object):
         else:
             logger.opt(colors=True).debug(f'<lc>MessageSender</lc>| Message({", ".join(str(x) for x in sent_msg_id)}) '
                                           f'will be auto-recalled after {recall_time} seconds')
+
+        if recall_time <= 0:
+            return sent_msg_id
 
         await asyncio.sleep(recall_time)
 

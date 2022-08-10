@@ -10,7 +10,8 @@
 
 import re
 import datetime
-from nonebot import on_command, on_regex, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_regex, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -27,15 +28,15 @@ from omega_miya.utils.process_utils import run_async_catching_exception, semapho
 from .data_source import ShindanMaker
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'ShindanMaker'
-__plugin_usage__ = r'''【ShindanMaker 占卜】
-使用ShindanMaker进行各种奇怪的占卜
-只能在群里使用
-就是要公开处刑！
-
-用法:
-/ShindanMaker [占卜名称] [占卜对象名称]'''
+__plugin_meta__ = PluginMetadata(
+    name="ShindanMaker",
+    description="【ShindanMaker 占卜插件】\n"
+                "使用ShindanMaker进行各种奇怪的占卜\n"
+                "只能在群里使用\n"
+                "就是要公开处刑！",
+    usage="/ShindanMaker [占卜名称] [占卜对象名称]",
+    extra={"author": "Ailitonia"},
+)
 
 
 shindan_maker = on_command(

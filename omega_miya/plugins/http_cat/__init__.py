@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from nonebot import on_command
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
@@ -20,13 +20,13 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from .data_source import get_http_cat
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'HttpCat'
-__plugin_usage__ = r'''【HttpCat】
-用猫猫表示的http状态码
-
-用法:
-/HttpCat <code>'''
+__plugin_meta__ = PluginMetadata(
+    name="HttpCat",
+    description="【HttpCat插件】\n"
+                "用猫猫表示的http状态码",
+    usage="/HttpCat <code>",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

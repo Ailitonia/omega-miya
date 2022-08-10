@@ -34,7 +34,7 @@ class BilibiliUserDataModel(BaseBilibiliModel):
     sign: str
     level: int
     top_photo: AnyHttpUrl
-    live_room: BilibiliUserLiveRoom
+    live_room: Optional[BilibiliUserLiveRoom]
     is_senior_member: int
 
 

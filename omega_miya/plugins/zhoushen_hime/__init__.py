@@ -11,7 +11,8 @@
 """
 
 from typing import Literal
-from nonebot import on_command, on_notice, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_notice, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -29,15 +30,15 @@ from omega_miya.utils.rule import group_has_permission_node
 from .utils import ZhouChecker, download_file, upload_result_file
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '自动审轴姬'
-__plugin_usage__ = r'''【自动审轴姬】
-检测群内上传文件并自动锤轴
-仅限群聊使用
-
-用法:
-仅限群管理员使用:
-/审轴姬 <ON|OFF>'''
+__plugin_meta__ = PluginMetadata(
+    name="自动审轴姬",
+    description="【自动审轴姬插件】\n"
+                "检测群内上传文件并自动锤轴\n"
+                "仅限群聊使用",
+    usage="仅限群管理员使用:\n"
+          "/审轴姬 <ON|OFF>",
+    extra={"author": "Ailitonia"},
+)
 
 
 _ZHOUSHEN_HIME_CUSTOM_MODULE_NAME: Literal['Omega.ZhoushenHime'] = 'Omega.ZhoushenHime'

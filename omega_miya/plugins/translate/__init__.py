@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
 from nonebot.exception import ParserExit
@@ -23,13 +24,14 @@ from omega_miya.utils.process_utils import run_async_catching_exception
 from omega_miya.web_resource.tencent_cloud import TencentTMT
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '翻译'
-__plugin_usage__ = r'''【翻译插件】
-简单的翻译插件
-目前使用了腾讯云的翻译API
-
-/翻译 [翻译内容]'''
+__plugin_meta__ = PluginMetadata(
+    name="翻译",
+    description="【翻译插件】\n"
+                "简单的翻译插件\n"
+                "目前使用了腾讯云的翻译API",
+    usage="/翻译 [翻译内容]",
+    extra={"author": "Ailitonia"},
+)
 
 
 translate = on_command(

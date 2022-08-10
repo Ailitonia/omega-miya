@@ -176,7 +176,7 @@ class CardType8Video(_BaseCardType):
 
 
 class CardType16ShortVideo(_BaseCardType):
-    """Bilibili 动态 Card Type 16 小视频动态(大概已废弃)"""
+    """Bilibili 动态 Card Type 16 小视频动态 (可能已废弃)"""
 
     class _Item(BaseBilibiliModel):
         """内部内容信息字段"""
@@ -195,7 +195,7 @@ class CardType16ShortVideo(_BaseCardType):
 
 
 class CardType32Anime(_BaseCardType):
-    """Bilibili 动态 Card Type 32 番剧动态(大概已废弃)"""
+    """Bilibili 动态 Card Type 32 番剧动态 (可能已废弃)"""
     verify_type: int = 32
     title: str
     dynamic: str
@@ -271,7 +271,7 @@ class CardType256Music(_BaseCardType):
 
 
 class CardType512Anime(_BaseCardType):
-    """Bilibili 动态 Card Type 512 番剧更新动态(已废弃)"""
+    """Bilibili 动态 Card Type 512 番剧更新动态 (可能已废弃)"""
 
     class _ApiSeasonInfo(BaseBilibiliModel):
         title: str
@@ -317,7 +317,7 @@ class CardType2048Active(_BaseCardType):
 
 
 class CardType4200LiveRoom(_BaseCardType):
-    """Bilibili 动态 Card Type 4200 直播间动态(疑似)"""
+    """Bilibili 动态 Card Type 4200 直播间动态 (可能已废弃)"""
     verify_type: int = 4200
     uname: str
     title: str
@@ -333,8 +333,40 @@ class CardType4200LiveRoom(_BaseCardType):
         return _StdCardOutputData.parse_obj({'content': content, 'text': text, 'img_urls': [self.cover]})
 
 
+class CardType4300MediaListShare(_BaseCardType):
+    """Bilibili 动态 Card Type 4300 收藏夹/播放列表分享"""
+
+    class _Upper(BaseBilibiliModel):
+        """内部上传用户信息字段"""
+        mid: int
+        name: str
+        face: AnyHttpUrl
+
+    verify_type: int = 4300
+    cover: AnyHttpUrl
+    cover_type: int
+    fid: int
+    id: int
+    intro: str
+    media_count: int
+    mid: int
+    sharable: bool
+    title: str
+    type: int
+    upper: _Upper
+
+    @property
+    def user_name(self) -> str:
+        return self.upper.name
+
+    def output_std_model(self) -> _StdCardOutputData:
+        content = f'《{self.title}》\n{self.intro}\n- 共{self.media_count}个内容'
+        text = f'{self.user_name}分享了收藏夹和播放列表!\n\n{content}\n'
+        return _StdCardOutputData.parse_obj({'content': content, 'text': text, 'img_urls': [self.cover]})
+
+
 class CardType4308LiveRoom(_BaseCardType):
-    """Bilibili 动态 Card Type 4308 直播间动态(基本确定)(最近出现的)"""
+    """Bilibili 动态 Card Type 4308 直播间动态"""
 
     class _LivePlayInfo(BaseBilibiliModel):
         area_id: int
@@ -398,6 +430,7 @@ class CardType1Forward(_BaseCardType):
             Json[CardType512Anime] |
             Json[CardType2048Active] |
             Json[CardType4200LiveRoom] |
+            Json[CardType4300MediaListShare] |
             Json[CardType4308LiveRoom]
     )]  # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
     origin_user: Optional[BilibiliDynamicCardDescUserProfile]  # 被转发用户信息
@@ -432,6 +465,7 @@ class BilibiliDynamicCard(BaseBilibiliModel):
             Json[CardType512Anime] |
             Json[CardType2048Active] |
             Json[CardType4200LiveRoom] |
+            Json[CardType4300MediaListShare] |
             Json[CardType4308LiveRoom]
     )
 

@@ -9,7 +9,8 @@
 """
 
 import re
-from nonebot import on_command, on_regex, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_regex, PluginMetadata
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
@@ -26,13 +27,13 @@ from .resources import (Voice, get_voice_resource, get_available_voice_resource,
                         get_voice_resource_name, set_voice_resource)
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '猫按钮'
-__plugin_usage__ = r'''【猫按钮】
-发出可爱的猫叫
-
-用法:
-@bot 喵一个'''
+__plugin_meta__ = PluginMetadata(
+    name="猫按钮",
+    description="【猫按钮插件】\n"
+                "发出可爱的猫叫",
+    usage="@bot 喵一个",
+    extra={"author": "Ailitonia"},
+)
 
 
 button_pattern = r'^(.*?)喵一个$'

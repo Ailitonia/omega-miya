@@ -10,7 +10,7 @@
 
 import re
 import random
-from nonebot import on_command
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import Message
@@ -23,16 +23,16 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from omega_miya.onebot_api import GoCqhttpBot
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'Roll'
-__plugin_usage__ = r'''【Roll】
-各种姿势的掷骰子
-选择困难症患者福音
-
-用法:
-/roll <x>d<y>
-/抽奖 <人数>
-/帮我选 [选项1 选项2 ...]'''
+__plugin_meta__ = PluginMetadata(
+    name="Roll",
+    description="【骰子插件】\n"
+                "各种姿势的掷骰子\n"
+                "选择困难症患者福音",
+    usage="/roll <x>d<y>\n"
+          "/抽奖 <人数>\n"
+          "/帮我选 [选项1 选项2 ...]",
+    extra={"author": "Ailitonia"},
+)
 
 
 _ALL_LOTTERY_NUM: int = 50

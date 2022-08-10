@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.adapters.onebot.v11.message import Message
@@ -19,13 +20,13 @@ from omega_miya.service.gocqhttp_guild_patch.permission import GUILD
 from .calculator import Calculator, CalculateException
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '计算器'
-__plugin_usage__ = r'''【简易计算器】
-只能计算加减乘除和乘方!
-
-用法:
-/计算 [算式]'''
+__plugin_meta__ = PluginMetadata(
+    name="计算器",
+    description="【简易计算器插件】\n"
+                "只能计算加减乘除和乘方!",
+    usage="/计算 [算式]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器

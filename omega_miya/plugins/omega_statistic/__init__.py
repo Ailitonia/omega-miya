@@ -9,7 +9,8 @@
 """
 
 from datetime import datetime
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -25,19 +26,18 @@ from omega_miya.service.gocqhttp_guild_patch import GuildMessageEvent, GUILD
 from .utils import draw_statistics
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '统计信息'
-__plugin_usage__ = r'''【OmegaStatistic 插件使用统计】
-查询插件使用统计信息
-
-用法:
-/统计信息 [条件]
-
-条件:
-- 本月
-- 本年
-- 全部
-- 所有'''
+__plugin_meta__ = PluginMetadata(
+    name="统计信息",
+    description="【OmegaStatistic 插件使用统计】\n"
+                "查询插件使用统计信息",
+    usage="/统计信息 [条件]\n\n"
+          "条件:\n"
+          "- 本月\n"
+          "- 本年\n"
+          "- 全部\n"
+          "- 所有",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器
@@ -59,7 +59,7 @@ async def handle_parse_condition(state: T_State, cmd_arg: Message = CommandArg()
     if condition:
         state.update({'condition': condition})
     else:
-        state.update({'condition': '全部'})
+        state.update({'condition': '本月'})
 
 
 @statistic.got('condition', prompt='请输入查询条件:')

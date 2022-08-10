@@ -153,8 +153,8 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
     article_title = article_main.find(name='h1', attrs={'class': 'am__title'}).get_text(strip=True)
     article_description = article_main.find(
         name='div', attrs={'class': 'am__description _medium-editor-text'}).get_text(strip=True)
-    article_eyecatch = article_main.find(name='img', attrs={'class': 'aie__image'})
-    article_eyecatch_image = None if article_eyecatch is None else article_eyecatch.attrs.get('src')
+    article_eyecatch = article_main.find(name='div', attrs={'class': '_article-illust-eyecatch'})
+    article_eyecatch_image = None if article_eyecatch is None else article_eyecatch.find('img').attrs.get('src')
 
     # 解析tag
     tags_list = []

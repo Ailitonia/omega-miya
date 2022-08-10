@@ -1,4 +1,15 @@
-from nonebot import on_command, logger
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : sticker_maker.py
+@Project        : nonebot2_miya
+@Description    : 表情包插件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
@@ -17,12 +28,13 @@ from omega_miya.utils.qq_tools import get_user_head_img_url
 from .render import get_render, get_all_render_name, download_source_image
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '表情包'
-__plugin_usage__ = rf'''【表情包助手】
-使用模板快速制作表情包
-
-/表情包 [模板名] [表情包文本] [表情包图片]'''
+__plugin_meta__ = PluginMetadata(
+    name="表情包",
+    description="【表情包助手插件】\n"
+                "使用模板快速制作表情包",
+    usage="/表情包 [模板名] [表情包文本] [表情包图片]",
+    extra={"author": "Ailitonia"},
+)
 
 
 sticker = on_command(

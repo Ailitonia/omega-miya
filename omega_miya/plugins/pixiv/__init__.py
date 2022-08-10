@@ -9,7 +9,8 @@
 """
 
 from datetime import datetime, timedelta
-from nonebot import on_command, on_shell_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, on_shell_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.rule import Namespace
@@ -36,36 +37,35 @@ from .utils import (has_allow_r18_node, get_artwork_preview, get_searching_argum
 from .monitor import scheduler
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = 'Pixiv'
-__plugin_usage__ = r'''【Pixiv助手】
-查看Pixiv插画、发现与推荐、日榜、周榜、月榜以及搜索作品
-订阅并跟踪画师作品更新
-
-用法:
-/pixiv <PID>
-/pixiv发现
-/pixiv推荐 [PID or ArtworkUrl]
-/pixiv日榜 [页码]
-/pixiv周榜 [页码]
-/pixiv月榜 [页码]
-/pixiv用户搜索 [用户昵称]
-/pixiv用户作品 [UID]
-/pixiv用户订阅列表
-/pixiv下载 <PID> [页数]
-/pixiv搜索 [关键词]
-
-仅限私聊或群聊中群管理员使用:
-/pixiv用户订阅 [UID]
-/pixiv取消用户订阅 [UID]
-
-搜索命令参数:
-'-c', '--custom': 启用自定义参数
-'-p', '--page': 搜索结果页码
-'-o', '--order': 排序方式, 可选: "date_d", "popular_d"
-'-l', '--like': 筛选最低收藏数
-'-d', '--from-days-ago': 筛选作品发布日期, 从几天前起始发布的作品
-'-s', '--safe-mode': NSFW 模式, 可选: "safe", "all", "r18"'''
+__plugin_meta__ = PluginMetadata(
+    name="Pixiv",
+    description="【Pixiv助手插件】\n"
+                "查看Pixiv插画、发现与推荐、日榜、周榜、月榜以及搜索作品\n"
+                "订阅并跟踪画师作品更新",
+    usage="/pixiv <PID>\n"
+          "/pixiv发现\n"
+          "/pixiv推荐 [PID or ArtworkUrl]\n"
+          "/pixiv日榜 [页码]\n"
+          "/pixiv周榜 [页码]\n"
+          "/pixiv月榜 [页码]\n"
+          "/pixiv用户搜索 [用户昵称]\n"
+          "/pixiv用户作品 [UID]\n"
+          "/pixiv用户订阅列表\n"
+          "/pixiv下载 <PID> [页数]\n"
+          "/pixiv搜索 [关键词]\n\n"
+          "仅限私聊或群聊中群管理员使用:\n"
+          "/pixiv用户订阅 [UID]\n"
+          "/pixiv取消用户订阅 [UID]\n\n"
+          "搜索命令参数:\n"
+          "'-c', '--custom': 启用自定义参数\n"
+          "'-p', '--page': 搜索结果页码\n"
+          "'-o', '--order': 排序方式, 可选: 'date_d', 'popular_d'\n"
+          "'-l', '--like': 筛选最低收藏数\n"
+          "'-d', '--from-days-ago': 筛选作品发布日期, 从几天前起始发布的作品\n"
+          "'-s', '--safe-mode': NSFW 模式, 可选: 'safe', 'all', 'r18'",
+    config=pixiv_plugin_config.__class__,
+    extra={"author": "Ailitonia"},
+)
 
 
 _ALLOW_R18_NODE = pixiv_plugin_config.pixiv_plugin_allow_r18_node
@@ -373,7 +373,7 @@ pixiv_download = on_command(
         user_cool_down_override=2
     ),
     aliases={'pixiv下载', 'Pixiv下载', 'pixivdl'},
-    permission=GROUP,
+    permission=GROUP | PRIVATE_FRIEND,
     priority=20,
     block=True
 )
@@ -395,7 +395,7 @@ async def handle_parse_download_args(state: T_State, cmd_arg: Message = CommandA
 
 @pixiv_download.got('pid', prompt='想要下载哪个作品呢? 请输入作品PID:')
 @pixiv_download.got('page', prompt='想要下载作品的哪一页呢? 请输入页码:')
-async def handle_download(bot: Bot, event: GroupMessageEvent, matcher: Matcher,
+async def handle_download(bot: Bot, event: MessageEvent, matcher: Matcher,
                           pid: str = ArgStr('pid'), page: str = ArgStr('page')):
     pid = pid.strip()
     page = page.strip()
@@ -428,8 +428,16 @@ async def handle_download(bot: Bot, event: GroupMessageEvent, matcher: Matcher,
 
     gocq_bot = GoCqhttpBot(bot=bot)
     file_name = f'{artwork_data.pid}_p{page}_{artwork_data.title}_{artwork_data.uname}{download_file.path.suffix}'
-    upload_result = await run_async_catching_exception(gocq_bot.upload_group_file)(
-        group_id=event.group_id, file=download_file.resolve_path, name=file_name)
+
+    if isinstance(event, GroupMessageEvent):
+        upload_task = run_async_catching_exception(gocq_bot.upload_group_file)(
+            group_id=event.group_id, file=download_file.resolve_path, name=file_name
+        )
+    else:
+        upload_task = run_async_catching_exception(gocq_bot.upload_private_file)(
+            user_id=event.user_id, file=download_file.resolve_path, name=file_name
+        )
+    upload_result = await upload_task
     if isinstance(upload_result, Exception):
         logger.warning(f'PixivDownload | 下载作品(pid={pid})失败, 上传群文件失败: {upload_result}')
         await matcher.finish('上传图片到群文件失败QAQ, 可能上传仍在进行中, 请等待1~2分钟后再重试')

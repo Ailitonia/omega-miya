@@ -8,11 +8,12 @@
 @Software       : PyCharm
 """
 
-from nonebot import on_command, logger
+from nonebot.log import logger
+from nonebot.plugin import on_command, PluginMetadata
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.params import Depends, RawCommand, CommandArg, Arg, ArgStr
@@ -25,14 +26,14 @@ from omega_miya.web_resource.image_searcher import ComplexImageSearcher, TraceMo
 from omega_miya.onebot_api import GoCqhttpBot
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '识图搜番'
-__plugin_usage__ = r'''【识图搜番助手】
-使用 SauceNAO/iqdb/ascii2d/trace.moe 识别各类图片、插画、番剧
-
-用法:
-/识图
-/搜番'''
+__plugin_meta__ = PluginMetadata(
+    name="识图搜番",
+    description="【识图搜番插件】\n"
+                "使用 SauceNAO/iqdb/ascii2d/trace.moe 识别各类图片、插画、番剧",
+    usage="/识图 [图片]\n"
+          "/搜番 [图片]",
+    extra={"author": "Ailitonia"},
+)
 
 
 # 注册事件响应器
@@ -105,8 +106,6 @@ async def handle_sticker(bot: Bot, matcher: Matcher, event: MessageEvent, state:
     elif not searching_result:
         await matcher.finish('没有找到相似度足够高的图片QAQ')
     else:
-        if isinstance(event, GroupMessageEvent):
-            await MessageSender(bot=bot).send_group_node_custom_and_recall(group_id=event.group_id, recall_time=60,
-                                                                           message_list=searching_result)
-        else:
-            [await matcher.finish(x) for x in searching_result]
+        await MessageSender(bot=bot).send_node_custom_and_recall(
+            event=event, recall_time=90, message_list=searching_result
+        )

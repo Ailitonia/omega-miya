@@ -1,4 +1,14 @@
-from nonebot import on_message
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : repeater.py
+@Project        : nonebot2_miya
+@Description    : 复读姬
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from nonebot.plugin import on_message, PluginMetadata
 from nonebot.exception import FinishedException
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent
@@ -7,10 +17,13 @@ from nonebot.adapters.onebot.v11.permission import GROUP
 from omega_miya.utils.rule import group_has_permission_level
 
 
-# Custom plugin usage text
-__plugin_custom_name__ = '复读姬'
-__plugin_usage__ = r'''【复读姬】
-如同人类的本质一样复读'''
+__plugin_meta__ = PluginMetadata(
+    name="复读姬",
+    description="【复读姬插件】\n"
+                "如同人类的本质一样复读",
+    usage="由群聊复读触发",
+    extra={"author": "Ailitonia"},
+)
 
 
 LAST_MSG: dict[int, str] = {}
