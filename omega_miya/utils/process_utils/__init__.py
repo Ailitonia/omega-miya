@@ -12,6 +12,7 @@ import inspect
 import asyncio
 from asyncio import Future
 from asyncio.exceptions import TimeoutError as _TimeoutError
+from rich.progress_bar import Console, ProgressBar
 from typing import TypeVar, ParamSpec, Callable, Generator, Coroutine, Awaitable, Any
 from functools import wraps, partial
 
@@ -177,15 +178,30 @@ async def semaphore_gather(
     :param filter_exception: 是否过滤掉返回值中的异常
     """
     _semaphore = asyncio.Semaphore(semaphore_num)
+    console = Console()
+    bar = ProgressBar(width=50, total=len(tasks))
+    complete: int = 0
+
+    def _add_complete() -> int:
+        """增加完成数"""
+        nonlocal complete
+        complete += 1
+        return complete
 
     async def _wrap_coro(
             coro: Future[T] | Coroutine[Any, Any, T] | Generator[Any, Any, T] | Awaitable[T]
     ) -> Coroutine[Any, Any, T]:
         """使用 asyncio.Semaphore 限制单个任务"""
         async with _semaphore:
-            return await coro
+            _result = await coro
+            bar.update(_add_complete())
+            console.print(bar)
+            console.file.write("\r")
+            return _result
 
+    console.show_cursor(False)
     result = await asyncio.gather(*(_wrap_coro(coro) for coro in tasks), return_exceptions=return_exceptions)
+    console.show_cursor(True)
 
     # 输出错误日志
     _stack_frame = inspect.stack()[1].frame
