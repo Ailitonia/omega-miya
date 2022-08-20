@@ -26,17 +26,17 @@ UP_OPERATOR: list[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='多萝西/Dorothy', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False)
+            Operator(name='百炼嘉维尔/Gavial the Invincible', star=6, limited=True, recruit_only=False,
+                     event_only=False, special_only=False),
+            Operator(name='鸿雪/Позёмка', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
         ],
-        zoom=0.5
+        zoom=0.7
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='承曦格雷伊/Greyy the Lightningbearer', star=5, limited=False, recruit_only=False,
-                     event_only=False, special_only=False),
-            Operator(name='白面鸮/Ptilopsis', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='晓歌/Cantabile', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
         ],
         zoom=0.5
@@ -44,6 +44,11 @@ UP_OPERATOR: list[UpEvent] = [
 ]
 
 ALL_OPERATOR: list[Operator] = [
+    Operator(name='百炼嘉维尔/Gavial the Invincible', star=6, limited=True, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name='鸿雪/Позёмка', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='晓歌/Cantabile', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='至简/Minimalist', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='多萝西/Dorothy', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='承曦格雷伊/Greyy the Lightningbearer', star=5, limited=False, recruit_only=False, event_only=False,
              special_only=False),
