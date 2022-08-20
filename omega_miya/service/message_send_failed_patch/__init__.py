@@ -14,7 +14,7 @@ from functools import wraps
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.message import Message
-from nonebot.adapters.onebot.exception import ActionFailed
+from nonebot.adapters.onebot.v11 import ActionFailed
 
 from .config import message_send_failed_patch_config
 
