@@ -329,6 +329,7 @@ class PixivArtwork(Pixiv):
 
             _artwork_data = await query_data_task
             if _artwork_data.error:
+                query_page_data_task.cancel()
                 raise PixivApiError(f'PixivApiError, query artwork data failed, {_artwork_data.message}')
 
             _page_data = await query_page_data_task

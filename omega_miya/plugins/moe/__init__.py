@@ -8,6 +8,8 @@
 @Software       : PyCharm
 """
 
+import asyncio
+import random
 import re
 from copy import deepcopy
 from nonebot.log import logger
@@ -261,26 +263,43 @@ async def handle_parse_import(state: T_State, cmd_arg: Message = CommandArg()):
 @database_import.got('mode', prompt='请输入导入模式:\n【setu/moe】')
 async def handle_database_import(state: T_State, matcher: Matcher, mode: str = ArgStr('mode')):
     mode = mode.strip()
+    match mode:
+        case 'moe':
+            nsfw_tag = 0
+        case 'setu':
+            nsfw_tag = 1
+        case _:
+            await matcher.reject('不支持的导入模式参数, 请在【setu/moe】中选择并重新输入:')
+            return
+
     pids: list[int] = [int(x) for x in state.get('pids', [])]
     if not pids:
         await matcher.send('尝试从文件中读取导入文件列表')
         pids = await get_database_import_pids()
     if not pids:
         await matcher.finish('导入列表不存在, 详情请查看日志')
-    pids = sorted(list(set(pids)))
-
-    match mode:
-        case 'moe':
-            tasks = [add_artwork_into_database(PixivArtwork(pid=pid), nsfw_tag=0, add_only=False) for pid in pids]
-        case 'setu':
-            tasks = [add_artwork_into_database(PixivArtwork(pid=pid), nsfw_tag=1, add_only=False) for pid in pids]
-        case _:
-            await matcher.reject('不支持的导入模式参数, 请在【setu/moe】中选择并重新输入:')
-            return
-
+    pids = sorted(list(set(pids)), reverse=True)
     all_count = len(pids)
     await matcher.send(f'已获取导入列表, 总计: {all_count}, 开始获取作品信息~')
-    import_result = await semaphore_gather(tasks=tasks, semaphore_num=25)
-    fail_count = len([x for x in import_result if isinstance(x, Exception)])
+
+    # 应对 pixiv 流控, 对获取作品信息进行分段处理
+    handle_pids = []
+    fail_count = 0
+    while pids:
+        while len(handle_pids) < 20:
+            try:
+                handle_pids.append(pids.pop())
+            except IndexError:
+                break
+
+        tasks = [add_artwork_into_database(PixivArtwork(pid), nsfw_tag=nsfw_tag, add_only=False) for pid in handle_pids]
+        handle_pids.clear()
+        import_result = await semaphore_gather(tasks=tasks, semaphore_num=20)
+        fail_count += len([x for x in import_result if isinstance(x, Exception)])
+
+        if pids:
+            logger.info(f'MoeDatabaseImport | 导入操作中, 剩余: {len(pids)}, 预计时间: {int(len(pids) / 20 * 25)} 秒')
+            await asyncio.sleep(random.randint(16, 24))
+
     logger.success(f'MoeDatabaseImport | 导入操作已完成, 成功: {all_count - fail_count}, 总计: {all_count}')
     await matcher.finish(f'导入操作已完成, 成功: {all_count - fail_count}, 总计: {all_count}')
