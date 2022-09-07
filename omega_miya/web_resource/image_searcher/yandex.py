@@ -51,6 +51,8 @@ class Yandex(ImageSearcher):
             try:
                 title_info = item.find(name='div', attrs={'class': 'CbirSites-ItemTitle'})
                 title_href = title_info.find(name='a', attrs={'target': '_blank', 'class': 'Link Link_view_default'})
+                source_text = title_href.get_text()
+                source_text = source_text if len(source_text) <= 20 else f'{source_text[:20]}...'
 
                 thumbnail_info = item.find(name='div', attrs={'class': 'CbirSites-ItemThumb'})
                 thumbnail_href = thumbnail_info.find(name='a', attrs={'target': '_blank'})
@@ -60,8 +62,8 @@ class Yandex(ImageSearcher):
 
                 result.append({'similarity': None,
                                'thumbnail': thumbnail_url,
-                               'source': f'Yandex - {title_href.get_text()}',
-                               'source_urls': [thumbnail_href.attrs.get('href'), title_href.attrs.get('href')]})
+                               'source': f'Yandex - {source_text}',
+                               'source_urls': [title_href.attrs.get('href'), thumbnail_href.attrs.get('href')]})
             except (KeyError, AttributeError):
                 continue
         return result
@@ -82,7 +84,7 @@ class Yandex(ImageSearcher):
             logger.error(f'Yandex | YandexNetworkError, {yandex_result}')
             raise YandexNetworkError(f'YandexNetworkError, {yandex_result}')
 
-        return parse_obj_as(list[ImageSearchingResult], self._parser(content=yandex_result.result)[:10])
+        return parse_obj_as(list[ImageSearchingResult], self._parser(content=yandex_result.result)[:8])
 
 
 __all__ = [

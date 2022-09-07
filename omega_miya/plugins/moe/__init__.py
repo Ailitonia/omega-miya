@@ -9,7 +9,6 @@
 """
 
 import asyncio
-import random
 import re
 from copy import deepcopy
 from nonebot.log import logger
@@ -298,8 +297,8 @@ async def handle_database_import(state: T_State, matcher: Matcher, mode: str = A
         fail_count += len([x for x in import_result if isinstance(x, Exception)])
 
         if pids:
-            logger.info(f'MoeDatabaseImport | 导入操作中, 剩余: {len(pids)}, 预计时间: {int(len(pids) / 20 * 25)} 秒')
-            await asyncio.sleep(random.randint(16, 24))
+            logger.info(f'MoeDatabaseImport | 导入操作中, 剩余: {len(pids)}, 预计时间: {int(len(pids) * 1.52)} 秒')
+            await asyncio.sleep(int((len(pids) if len(pids) < 20 else 20) * 1.5))
 
     logger.success(f'MoeDatabaseImport | 导入操作已完成, 成功: {all_count - fail_count}, 总计: {all_count}')
     await matcher.finish(f'导入操作已完成, 成功: {all_count - fail_count}, 总计: {all_count}')

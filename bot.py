@@ -18,8 +18,8 @@ if not os.path.exists(bot_log_path):
     os.makedirs(bot_log_path)
 
 # Custom logger
-log_info_name = f'{datetime.today().strftime("%Y%m%d-%H%M%S")}-INFO.log'
-log_error_name = f'{datetime.today().strftime("%Y%m%d-%H%M%S")}-ERROR.log'
+log_info_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-INFO.log'
+log_error_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-ERROR.log'
 log_info_path = os.path.join(bot_log_path, log_info_name)
 log_error_path = os.path.join(bot_log_path, log_error_name)
 
