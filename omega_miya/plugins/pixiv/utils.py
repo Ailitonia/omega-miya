@@ -8,6 +8,8 @@
 @Software       : PyCharm 
 """
 
+import asyncio
+from copy import deepcopy
 from typing import Literal
 from pydantic import BaseModel
 from nonebot.log import logger
@@ -193,9 +195,27 @@ async def add_artwork_into_database(artwork: PixivArtwork, *, upgrade_pages: boo
 async def _add_pixiv_user_artworks_to_database(pixiv_user: PixivUser) -> BoolResult:
     """在数据库中新增目标用户的全部作品(仅新增不更新)"""
     user_data = await pixiv_user.get_user_model()
-    tasks = [add_artwork_into_database(artwork=PixivArtwork(pid=pid), upgrade_pages=False)
-             for pid in user_data.manga_illusts]
-    await semaphore_gather(tasks=tasks, semaphore_num=25, return_exceptions=False)
+
+    # 应对 pixiv 流控, 对获取作品信息进行分段处理
+    all_pids = deepcopy(user_data.manga_illusts)
+    handle_pids = []
+    fail_count = 0
+    while all_pids:
+        while len(handle_pids) < 20:
+            try:
+                handle_pids.append(all_pids.pop())
+            except IndexError:
+                break
+
+        tasks = [add_artwork_into_database(artwork=PixivArtwork(pid=pid), upgrade_pages=False) for pid in handle_pids]
+        handle_pids.clear()
+        import_result = await semaphore_gather(tasks=tasks, semaphore_num=20)
+        fail_count += len([x for x in import_result if isinstance(x, Exception)])
+
+        if all_pids:
+            logger.debug(f'PixivUserAdder | Adding user({user_data.user_id}) artworks, {len(all_pids)} remaining')
+            await asyncio.sleep(int((len(all_pids) if len(all_pids) < 20 else 20) * 1.5))
+
     return BoolResult(error=False, info='Success', result=True)
 
 
