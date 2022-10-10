@@ -151,8 +151,6 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
     # 解析 article 描述部分
     article_main = page_bs.find(name='div', attrs={'class': '_article-main'})
     article_title = article_main.find(name='h1', attrs={'class': 'am__title'}).get_text(strip=True)
-    article_description = article_main.find(
-        name='div', attrs={'class': 'am__description _medium-editor-text'}).get_text(strip=True)
     article_eyecatch = article_main.find(name='div', attrs={'class': '_article-illust-eyecatch'})
     article_eyecatch_image = None if article_eyecatch is None else article_eyecatch.find('img').attrs.get('src')
 
@@ -177,6 +175,9 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
     if feature_article_body is not None:
         article_description = article_main.find(
             name='div', attrs={'class': 'fab__paragraph _medium-editor-text'}).get_text(strip=True)
+    else:
+        article_description = article_main.find(
+            name='div', attrs={'class': 'am__description _medium-editor-text'}).get_text(strip=True)
 
     # 获取所有作品内容
     article_illusts = article_body.find_all(name='div', attrs={'class': 'am__work__main'})
