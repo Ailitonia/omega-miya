@@ -26,24 +26,46 @@ UP_OPERATOR: list[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='百炼嘉维尔/Gavial the Invincible', star=6, limited=True, recruit_only=False,
-                     event_only=False, special_only=False),
-            Operator(name='鸿雪/Позёмка', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='泥岩/Mudrock', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='号角/Horn', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
         ],
-        zoom=0.7
+        zoom=1.0
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='晓歌/Cantabile', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='絮雨/Whisperain', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='洛洛/Rockrock', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
         ],
-        zoom=0.5
+        zoom=0.6
+    ),
+    UpEvent(
+        star=4,
+        operator=[
+            Operator(name='杰克/Jackie', star=4, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+            Operator(name='褐果/Chestnut', star=4, limited=False, recruit_only=False, event_only=False,
+                     special_only=False),
+        ],
+        zoom=0.45
     )
 ]
 
 ALL_OPERATOR: list[Operator] = [
+    Operator(name='海沫/Highmore', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='罗小黑/Luo Xiaohei', star=4, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='玛恩纳/Młynar', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='但书/Proviso', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='百炼嘉维尔/Gavial the Invincible', star=6, limited=True, recruit_only=False, event_only=False,
              special_only=False),
     Operator(name='鸿雪/Позёмка', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
