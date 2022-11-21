@@ -3,7 +3,8 @@ import hashlib
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, parse_obj_as
-from .do_something import do_somethong
+
+from .do_something import do_something
 
 
 class Fortune(BaseModel):

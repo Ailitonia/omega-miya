@@ -1,4 +1,4 @@
-do_somethong = [
+do_something = [
     {
         "name": "看直播",
         "good": "喜欢的V开歌回啦",
