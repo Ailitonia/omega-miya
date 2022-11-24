@@ -25,7 +25,7 @@ def convert_xlsx_to_py(xlsx_file: Path) -> bool:
         })
     with open('do_something.py', 'w', encoding='utf-8') as py_file:
         py_file.write('do_something = ' +
-                      dumps(things, ensure_ascii=False, indent=4))
+                      dumps(things, ensure_ascii=False, indent=4) + '\n')
 
 
 if __name__ == "__main__":
