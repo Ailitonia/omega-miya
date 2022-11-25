@@ -139,12 +139,13 @@ async def add_artwork_into_database(
     """在数据库中添加作品信息"""
     artwork_data = await artwork.get_artwork_model()
     nsfw_tag = 2 if artwork_data.is_r18 else nsfw_tag
+    classified = 2 if artwork_data.is_ai else 1
     if add_only:
         result = await InternalPixiv(pid=artwork.pid).add_only(artwork_data=artwork_data, nsfw_tag=nsfw_tag,
-                                                               classified=1, upgrade_pages=upgrade_pages)
+                                                               classified=classified, upgrade_pages=upgrade_pages)
     else:
         result = await InternalPixiv(pid=artwork.pid).add_upgrade(artwork_data=artwork_data, nsfw_tag=nsfw_tag,
-                                                                  classified=1, upgrade_pages=upgrade_pages)
+                                                                  classified=classified, upgrade_pages=upgrade_pages)
     return result
 
 

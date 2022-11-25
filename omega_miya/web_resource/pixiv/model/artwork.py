@@ -66,6 +66,7 @@ class PixivArtworkBody(BasePixivModel):
     width: int
     height: int
     xRestrict: int
+    aiType: int
     tags: PixivArtworkTags
     urls: PixivArtworkMainUrl
     pageCount: int
@@ -168,6 +169,7 @@ class PixivArtworkCompleteDataModel(BasePixivModel):
     title: str
     sanity_level: int
     is_r18: bool
+    is_ai: bool
     uid: int
     uname: str
     description: str
