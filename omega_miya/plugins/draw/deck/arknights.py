@@ -26,42 +26,38 @@ UP_OPERATOR: list[UpEvent] = [
     UpEvent(
         star=6,
         operator=[
-            Operator(name='泥岩/Mudrock', star=6, limited=False, recruit_only=False, event_only=False,
+            Operator(name='焰尾/Flametail', star=6, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='琴柳/Saileach', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='号角/Horn', star=6, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
+            Operator(name='傀影/Phantom', star=6, limited=False, recruit_only=False, event_only=False,
+                     special_only=False)
         ],
-        zoom=1.0
+        zoom=0.5
     ),
     UpEvent(
         star=5,
         operator=[
-            Operator(name='絮雨/Whisperain', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='赫默/Silence', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='桑葚/Mulberry', star=5, limited=False, recruit_only=False, event_only=False,
+            Operator(name='守林人/Firewatch', star=5, limited=False, recruit_only=False, event_only=False,
                      special_only=False),
-            Operator(name='洛洛/Rockrock', star=5, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
+            Operator(name='吽/Hung', star=5, limited=False, recruit_only=False, event_only=False, special_only=False)
         ],
-        zoom=0.6
-    ),
-    UpEvent(
-        star=4,
-        operator=[
-            Operator(name='杰克/Jackie', star=4, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='罗比菈塔/Roberta', star=4, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-            Operator(name='褐果/Chestnut', star=4, limited=False, recruit_only=False, event_only=False,
-                     special_only=False),
-        ],
-        zoom=0.45
+        zoom=0.5
     )
 ]
 
 ALL_OPERATOR: list[Operator] = [
+    Operator(name='缄默德克萨斯/Texas the Omertosa', star=6, limited=True, recruit_only=False, event_only=False,
+             special_only=False),
+    Operator(name='斥罪/Penance', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='伺夜/Vigil', star=6, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='子月/Lunacub', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='雪绒/Qanipalaat', star=5, limited=False, recruit_only=True, event_only=False, special_only=False),
+    Operator(name='石英/Quartz', star=4, limited=False, recruit_only=True, event_only=False, special_only=False),
+    Operator(name='白铁/Stainless', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='明椒/Paprika', star=5, limited=False, recruit_only=False, event_only=False, special_only=False),
+    Operator(name='达格达/Dagda', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
+    Operator(name='铅踝/Totter', star=4, limited=False, recruit_only=False, event_only=False, special_only=False),
     Operator(name='海沫/Highmore', star=5, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='罗小黑/Luo Xiaohei', star=4, limited=False, recruit_only=False, event_only=True, special_only=False),
     Operator(name='玛恩纳/Młynar', star=6, limited=False, recruit_only=False, event_only=False, special_only=False),
