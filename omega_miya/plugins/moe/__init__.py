@@ -47,7 +47,6 @@ __plugin_meta__ = PluginMetadata(
           "可用参数:\n"
           "'-s', '--nsfw-tag': 指定nsfw_tag\n"
           "'-n', '--num': 指定获取的图片数量\n"
-          "'-nf', '--no-flash': 强制不使用闪照发送图片\n\n"
           "仅限管理员使用:\n"
           "/图库统计\n"
           "/图库查询 [关键词, ...]\n"
@@ -120,9 +119,7 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
 
     await matcher.send('稍等, 正在下载图片~')
 
-    flash_mode = True if moe_plugin_config.moe_plugin_enforce_setu_enable_flash_mode else not args.no_flash
-
-    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=flash_mode) for x in artworks]
+    image_message_tasks = [prepare_send_image(pid=x.pid) for x in artworks]
     message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
     send_messages = list(message_result)
     if not send_messages:
@@ -181,9 +178,7 @@ async def handle_parse_success(bot: Bot, event: MessageEvent, matcher: Matcher, 
 
     await matcher.send('稍等, 正在下载图片~')
 
-    flash_mode = False if moe_plugin_config.moe_plugin_enforce_moe_disable_flash_mode else not args.no_flash
-
-    image_message_tasks = [prepare_send_image(pid=x.pid, enable_flash_mode=flash_mode) for x in artworks]
+    image_message_tasks = [prepare_send_image(pid=x.pid) for x in artworks]
     message_result = await semaphore_gather(tasks=image_message_tasks, semaphore_num=5, filter_exception=True)
     send_messages = list(message_result)
     if not send_messages:

@@ -51,15 +51,10 @@ async def has_allow_r18_node(bot: Bot, event: MessageEvent, matcher: Matcher) ->
 
 
 @run_async_catching_exception
-async def prepare_send_image(
-        pid: int,
-        *,
-        enable_flash_mode: bool = moe_plugin_config.moe_plugin_enable_flash_mode
-) -> MessageSegment:
+async def prepare_send_image(pid: int) -> MessageSegment:
     """预处理待发送图片
 
     :param pid: 作品 PID
-    :param enable_flash_mode: 是否启用闪照模式
     :return: 发送的消息
     """
 
@@ -88,11 +83,7 @@ async def prepare_send_image(
     else:
         artwork_image = await _handle_mark(image=artwork_image)
 
-    if enable_flash_mode:
-        send_msg = MessageSegment.image(file=artwork_image.file_uri, type_='flash')
-    else:
-        send_msg = MessageSegment.image(file=artwork_image.file_uri)
-    return send_msg
+    return MessageSegment.image(file=artwork_image.file_uri)
 
 
 def get_query_argument_parser() -> ArgumentParser:
@@ -104,8 +95,6 @@ def get_query_argument_parser() -> ArgumentParser:
                         choices=['random', 'pid', 'pid_desc', 'create_time', 'create_time_desc'])
     parser.add_argument('-n', '--num', type=int, default=moe_plugin_config.moe_plugin_query_image_num)
     parser.add_argument('-a', '--acc-mode', type=bool, default=moe_plugin_config.moe_plugin_enable_acc_mode)
-    parser.add_argument('-nf', '--no-flash', action='store_true',
-                        default=(not moe_plugin_config.moe_plugin_enable_flash_mode))
     parser.add_argument('word', nargs='*')
     return parser
 
@@ -117,7 +106,6 @@ class QueryArguments(BaseModel):
     order: Literal['random', 'pid', 'pid_desc', 'create_time', 'create_time_desc']
     num: int
     acc_mode: bool
-    no_flash: bool
     word: list[str]
 
     class Config:
