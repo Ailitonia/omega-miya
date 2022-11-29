@@ -56,6 +56,18 @@ class LocalResource(object):
         new_obj.path = self.path.joinpath(*[str(x) for x in args])
         return new_obj
 
+    @property
+    def is_exist(self) -> bool:
+        return self.path.exists()
+
+    @property
+    def is_file(self) -> bool:
+        return self.is_exist and self.path.is_file()
+
+    @property
+    def is_dir(self) -> bool:
+        return self.is_exist and self.path.is_dir()
+
     @staticmethod
     def check_directory(func: Callable[P, R]) -> Callable[P, R]:
         """装饰一个方法, 需要实例 path 为文件夹时才能运行"""
