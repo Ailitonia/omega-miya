@@ -25,16 +25,8 @@ class MoePluginConfig(BaseModel):
     moe_plugin_query_image_num: int = 3
     # 允许用户通过参数调整的每次查询的图片数量上限
     moe_plugin_query_image_limit: int = 10
-
-    # 启用使用闪照模式发送图片
-    moe_plugin_enable_flash_mode: bool = True
-    # 强制不使用闪照发送萌图(会覆盖部分 moe_plugin_enable_flash_mode 配置行为)
-    moe_plugin_enforce_moe_disable_flash_mode: bool = False
-    # 强制使用闪照发送涩图(会覆盖部分 moe_plugin_enable_flash_mode 配置行为)
-    moe_plugin_enforce_setu_enable_flash_mode: bool = False
-
     # 萌图默认自动撤回消息时间(设置 0 为不撤回)
-    moe_plugin_moe_auto_recall_time: int = 60
+    moe_plugin_moe_auto_recall_time: int = 90
     # 涩图默认自动撤回消息时间(设置 0 为不撤回)
     moe_plugin_setu_auto_recall_time: int = 30
 

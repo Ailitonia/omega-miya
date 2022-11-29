@@ -36,16 +36,15 @@ class Yandex(ImageSearcher):
         container = gallery_soup.find(name='section',
                                       attrs={'class': 'CbirSection CbirSection_decorated CbirSites CbirSites_infinite'})
 
-        container_title = container.find(name='div', attrs={'class': 'CbirSection-Title'}).get_text()
+        container_title = container.find(name='h2', attrs={'class': 'CbirSection-Title'}).get_text()
         if container_title != 'Sites containing information about the image':
-            logger.error('Yandex | Css style change, unable to locate page element')
             return None
 
-        image_result_container = container.find(name='div', attrs={'class': 'CbirSites-Items'})
+        image_result_container = container.find(name='ul', attrs={'class': 'CbirSites-Items'})
         if not image_result_container:
             return None
 
-        image_results = image_result_container.find_all(name='div', attrs={'class': 'CbirSites-Item'})
+        image_results = image_result_container.find_all(name='li', attrs={'class': 'CbirSites-Item'})
         result = []
         for item in image_results:
             try:
