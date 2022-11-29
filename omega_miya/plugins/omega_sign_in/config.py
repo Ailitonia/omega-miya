@@ -35,6 +35,9 @@ class SignInConfig(BaseModel):
     # 每日首次签到获取的基础硬币数 同时也是补签所需硬币的倍率基数
     signin_base_currency: int = 5
 
+    # 是否启用求签事件导入 api
+    signin_enable_fortune_import_api: bool = False
+
     class Config:
         extra = "ignore"
 
@@ -50,6 +53,11 @@ class SignLocalResourceConfig:
     default_footer_font: LocalResource = default_font_folder('fzzxhk.ttf')
     # 默认的缓存资源保存路径
     default_save_folder: TmpResource = TmpResource('sign_in')
+
+    # 求签事件资源路径
+    default_fortune_event: LocalResource = LocalResource('docs', 'fortune', 'event.json')
+    tmp_fortune_event: TmpResource = TmpResource('fortune', 'event.json')
+    fortune_event_import_file: TmpResource = TmpResource('fortune', 'fortune_event_import.xlsx')
 
 
 try:
