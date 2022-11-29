@@ -24,3 +24,4 @@ zhconv~=1.4.3
 rapidfuzz~=2.5.0
 emoji~=2.0.0
 rich~=12.5.1
+openpyxl~=3.0.10
