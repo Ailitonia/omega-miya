@@ -30,12 +30,12 @@ class FortuneEvent(BaseModel):
 
     def __eq__(self, other) -> bool:
         if isinstance(other, FortuneEvent):
-            return self.name == other.name
+            return self.name == other.name and self.good == other.good and self.bad == other.bad
         else:
             return False
 
     def __hash__(self) -> int:
-        return hash(self.name)
+        return hash(self.name + self.good + self.bad)
 
 
 __fortune_event: list[FortuneEvent] = []
