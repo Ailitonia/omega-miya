@@ -114,5 +114,7 @@ class BotSelfDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
-    'BotSelfDAL'
+    'BotSelf',
+    'BotSelfDAL',
+    'BotType'
 ]

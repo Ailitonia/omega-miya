@@ -110,5 +110,7 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
-    'SubscriptionSourceDAL'
+    'SubscriptionSource',
+    'SubscriptionSourceDAL',
+    'SubscriptionSourceType'
 ]

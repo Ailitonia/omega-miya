@@ -141,5 +141,6 @@ class HistoryDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'History',
     'HistoryDAL'
 ]

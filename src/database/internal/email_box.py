@@ -90,5 +90,6 @@ class EmailBoxDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'EmailBox',
     'EmailBoxDAL'
 ]

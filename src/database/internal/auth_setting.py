@@ -131,5 +131,6 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'AuthSetting',
     'AuthSettingDAL'
 ]

@@ -110,5 +110,6 @@ class PixivArtworkPageDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'PixivArtworkPage',
     'PixivArtworkPageDAL'
 ]

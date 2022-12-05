@@ -100,5 +100,6 @@ class BiliDynamicDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'BiliDynamic',
     'BiliDynamicDAL'
 ]

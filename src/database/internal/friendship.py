@@ -108,5 +108,6 @@ class FriendshipDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'Friendship',
     'FriendshipDAL'
 ]

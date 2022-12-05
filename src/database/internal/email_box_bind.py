@@ -84,5 +84,6 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'EmailBoxBind',
     'EmailBoxBindDAL'
 ]

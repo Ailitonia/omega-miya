@@ -272,5 +272,6 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'PixivArtwork',
     'PixivArtworkDAL'
 ]

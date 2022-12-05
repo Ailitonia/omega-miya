@@ -96,5 +96,6 @@ class SignInDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'SignIn',
     'SignInDAL'
 ]

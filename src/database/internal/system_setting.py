@@ -82,5 +82,6 @@ class SystemSettingDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'SystemSetting',
     'SystemSettingDAL'
 ]

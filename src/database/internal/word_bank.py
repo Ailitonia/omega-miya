@@ -90,5 +90,6 @@ class WordBankDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'WordBank',
     'WordBankDAL'
 ]

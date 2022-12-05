@@ -107,5 +107,6 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'PixivisionArticle',
     'PixivisionArticleDAL'
 ]

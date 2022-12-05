@@ -86,5 +86,6 @@ class PluginDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'Plugin',
     'PluginDAL'
 ]

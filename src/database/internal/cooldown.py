@@ -100,5 +100,6 @@ class CoolDownDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'CoolDown',
     'CoolDownDAL'
 ]

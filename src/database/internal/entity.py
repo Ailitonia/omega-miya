@@ -88,6 +88,12 @@ class EntityDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return Entity.from_orm(session_result.scalar_one())
 
+    async def query_entity_type_all(self, entity_type: str) -> list[Entity]:
+        """查询符合 entity_type 的全部结果"""
+        stmt = select(EntityOrm).where(EntityOrm.entity_type == entity_type).order_by(EntityOrm.entity_id)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[Entity], session_result.scalars().all())
+
     async def query_all(self) -> list[Entity]:
         stmt = select(EntityOrm).order_by(EntityOrm.entity_type)
         session_result = await self.db_session.execute(stmt)
@@ -145,5 +151,7 @@ class EntityDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
-    'EntityDAL'
+    'Entity',
+    'EntityDAL',
+    'EntityType'
 ]

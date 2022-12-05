@@ -84,5 +84,6 @@ class SubscriptionDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'Subscription',
     'SubscriptionDAL'
 ]

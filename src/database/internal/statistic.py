@@ -146,5 +146,6 @@ class StatisticDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'Statistic',
     'StatisticDAL'
 ]
