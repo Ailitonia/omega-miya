@@ -38,7 +38,7 @@ class SubscriptionSourceType(Enum):
 class SubscriptionSource(BaseModel):
     """订阅源 Model"""
     id: int
-    sub_type: str
+    sub_type: SubscriptionSourceType
     sub_id: str
     sub_user_name: str
     sub_info: Optional[str]

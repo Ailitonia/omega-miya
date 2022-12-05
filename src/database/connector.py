@@ -37,7 +37,7 @@ try:
     )
 except Exception as e:
     import sys
-    logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, error: {e}')
+    logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, 错误信息: {e}')
     sys.exit(f'创建数据库连接失败, {e}')
 
 

@@ -178,22 +178,21 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
                 ))
 
         total_result = await self.db_session.execute(stmt)
+        total_count = total_result.scalar_one()
 
         moe_stmt = stmt.where(PixivArtworkOrm.nsfw_tag == 0)
         moe_result = await self.db_session.execute(moe_stmt)
+        moe_count = moe_result.scalar_one()
 
         setu_stmt = stmt.where(PixivArtworkOrm.nsfw_tag == 1)
         setu_result = await self.db_session.execute(setu_stmt)
+        setu_count = setu_result.scalar_one()
 
         r18_stmt = stmt.where(PixivArtworkOrm.nsfw_tag == 2)
         r18_result = await self.db_session.execute(r18_stmt)
+        r18_count = r18_result.scalar_one()
 
-        return PixivArtworkStatistic(
-            total=total_result.scalar_one(),
-            moe=moe_result.scalar_one(),
-            setu=setu_result.scalar_one(),
-            r18=r18_result.scalar_one()
-        )
+        return PixivArtworkStatistic(total=total_count, moe=moe_count, setu=setu_count, r18=r18_count)
 
     async def query_user_all(self, uid: int) -> list[PixivArtwork]:
         stmt = select(PixivArtworkOrm).where(PixivArtworkOrm.uid == uid).order_by(desc(PixivArtworkOrm.pid))
