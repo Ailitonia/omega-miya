@@ -3,13 +3,13 @@
 @Date           : 2022/12/01 20:30
 @FileName       : model.py
 @Project        : nonebot2_miya 
-@Description    : omega database tables metadata
+@Description    : Omega database Models
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from .base import BaseDatabaseResult, BaseDataAccessLayerModel
-from .table_meta import *
+from .table import *
 
 
 __all__ = [
