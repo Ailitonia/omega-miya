@@ -8,27 +8,7 @@
 @Software       : PyCharm 
 """
 
-from .internal import (
-    AuthSettingDAL,
-    BiliDynamicDAL,
-    BotSelfDAL,
-    CoolDownDAL,
-    EmailBoxDAL,
-    EmailBoxBindDAL,
-    EntityDAL,
-    FriendshipDAL,
-    HistoryDAL,
-    PixivArtworkDAL,
-    PixivArtworkPageDAL,
-    PixivisionArticleDAL,
-    PluginDAL,
-    SignInDAL,
-    StatisticDAL,
-    SubscriptionDAL,
-    SubscriptionSourceDAL,
-    SystemSettingDAL,
-    WordBankDAL
-)
+from .internal import *
 from .utils import get_db_session, return_query_standard_result, return_execute_standard_result
 
 
