@@ -7,3 +7,12 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
+from .internal import InternalEntity
+from .adapters import OnebotV11EntityDepend
+
+
+__all__ = [
+    'InternalEntity',
+    'OnebotV11EntityDepend'
+]
