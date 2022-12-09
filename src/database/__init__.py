@@ -9,7 +9,7 @@
 """
 
 from .internal import *
-from .utils import get_db_session, return_query_standard_result, return_execute_standard_result
+from .utils import begin_db_session, get_db_session, return_query_standard_result, return_execute_standard_result
 
 
 __all__ = [
@@ -32,6 +32,7 @@ __all__ = [
     'SubscriptionSourceDAL',
     'SystemSettingDAL',
     'WordBankDAL',
+    'begin_db_session',
     'get_db_session',
     'return_query_standard_result',
     'return_execute_standard_result'

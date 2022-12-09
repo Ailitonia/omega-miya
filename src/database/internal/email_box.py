@@ -16,7 +16,7 @@ from typing import Optional
 
 from pydantic import BaseModel, parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, EmailBoxOrm
+from ..model import BaseDataAccessLayerModel, EmailBoxOrm, EmailBoxBindOrm
 
 
 class EmailBox(BaseModel):
@@ -46,6 +46,14 @@ class EmailBoxDAL(BaseDataAccessLayerModel):
         stmt = select(EmailBoxOrm).where(EmailBoxOrm.address == address)
         session_result = await self.db_session.execute(stmt)
         return EmailBox.from_orm(session_result.scalar_one())
+
+    async def query_entity_bound_all(self, entity_index_id: int) -> list[EmailBox]:
+        """查询 Entity 所绑定的全部邮箱"""
+        stmt = select(EmailBoxOrm).join(EmailBoxBindOrm).\
+            where(EmailBoxBindOrm.entity_index_id == entity_index_id).\
+            order_by(EmailBoxOrm.address)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[EmailBox], session_result.scalars().all())
 
     async def query_all(self) -> list[EmailBox]:
         stmt = select(EmailBoxOrm).order_by(EmailBoxOrm.address)

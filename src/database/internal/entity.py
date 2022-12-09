@@ -18,7 +18,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, EntityOrm
+from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm
 
 
 @unique
@@ -96,6 +96,30 @@ class EntityDAL(BaseDataAccessLayerModel):
 
     async def query_all(self) -> list[Entity]:
         stmt = select(EntityOrm).order_by(EntityOrm.entity_type)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[Entity], session_result.scalars().all())
+
+    async def query_all_entity_has_auth_setting(
+            self,
+            module: str,
+            plugin: str,
+            node: str,
+            *,
+            available: int = 1,
+            strict_match_available: bool = True
+    ) -> list[Entity]:
+        """根据权限节点查询具备该节点的 Entity 对象"""
+        stmt = select(EntityOrm).join(AuthSettingOrm).\
+            where(AuthSettingOrm.module == module).\
+            where(AuthSettingOrm.plugin == plugin).\
+            where(AuthSettingOrm.node == node)
+
+        if strict_match_available:
+            stmt = stmt.where(AuthSettingOrm.available == available)
+        else:
+            stmt = stmt.where(AuthSettingOrm.available >= available)
+
+        stmt = stmt.order_by(EntityOrm.entity_type)
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[Entity], session_result.scalars().all())
 

@@ -16,8 +16,7 @@ from typing import Optional
 
 from pydantic import BaseModel, parse_obj_as
 
-from .entity import Entity
-from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm
+from ..model import BaseDataAccessLayerModel, AuthSettingOrm
 
 
 class AuthSetting(BaseModel):
@@ -77,30 +76,6 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
             order_by(AuthSettingOrm.module)
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[AuthSetting], session_result.scalars().all())
-
-    async def query_available_entity_all(
-            self,
-            module: str,
-            plugin: str,
-            node: str,
-            *,
-            available: int = 1,
-            strict_match_available: bool = True,
-    ) -> list[Entity]:
-        """根据权限节点查询该节点所有已配置的对象"""
-        stmt = select(EntityOrm).join(AuthSettingOrm).\
-            where(AuthSettingOrm.module == module).\
-            where(AuthSettingOrm.plugin == plugin).\
-            where(AuthSettingOrm.node == node)
-
-        if strict_match_available:
-            stmt = stmt.where(AuthSettingOrm.available == available)
-        else:
-            stmt = stmt.where(AuthSettingOrm.available >= available)
-
-        stmt = stmt.order_by(EntityOrm.entity_type)
-        session_result = await self.db_session.execute(stmt)
-        return parse_obj_as(list[Entity], session_result.scalars().all())
 
     async def query_all(self) -> list[AuthSetting]:
         stmt = select(AuthSettingOrm).order_by(AuthSettingOrm.entity_index_id)

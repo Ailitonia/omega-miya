@@ -18,7 +18,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, SubscriptionSourceOrm
+from ..model import BaseDataAccessLayerModel, SubscriptionOrm, SubscriptionSourceOrm
 
 
 @unique
@@ -67,6 +67,23 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
             where(SubscriptionSourceOrm.sub_id == sub_id)
         session_result = await self.db_session.execute(stmt)
         return SubscriptionSource.from_orm(session_result.scalar_one())
+
+    async def query_entity_subscribed_all(
+            self,
+            entity_index_id: int,
+            sub_type: Optional[str] = None
+    ) -> list[SubscriptionSource]:
+        """查询 Entity 所订阅的全部订阅源"""
+        stmt = select(SubscriptionSourceOrm).join(SubscriptionOrm).\
+            where(SubscriptionOrm.entity_index_id == entity_index_id)
+
+        if sub_type is not None:
+            SubscriptionSourceType.verify(sub_type)
+            stmt = stmt.where(SubscriptionSourceOrm.sub_type == sub_type)
+
+        stmt = stmt.order_by(SubscriptionSourceOrm.sub_type)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[SubscriptionSource], session_result.scalars().all())
 
     async def query_all(self) -> list[SubscriptionSource]:
         stmt = select(SubscriptionSourceOrm).order_by(SubscriptionSourceOrm.sub_type)

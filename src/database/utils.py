@@ -9,6 +9,7 @@
 """
 
 import inspect
+from contextlib import asynccontextmanager
 from functools import wraps
 from nonebot import get_driver, logger
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
@@ -49,6 +50,14 @@ async def __database_dispose():
 
     await engine.dispose()
     logger.opt(colors=True).info(f'<lc>Database</lc> | <ly>已断开数据库链接</ly>')
+
+
+@asynccontextmanager
+async def begin_db_session():
+    """获取数据库 session 并开始事务"""
+    async with async_session() as session:
+        async with session.begin():
+            yield session
 
 
 async def get_db_session():
@@ -117,6 +126,7 @@ def return_execute_standard_result(
 
 
 __all__ = [
+    'begin_db_session',
     'get_db_session',
     'return_query_standard_result',
     'return_execute_standard_result'
