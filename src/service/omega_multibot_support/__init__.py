@@ -15,7 +15,7 @@ from nonebot.message import handle_event, run_preprocessor
 
 from src.service.omega_event import BotConnectEvent, BotDisconnectEvent
 
-from .onebot_v11 import *
+from .gocqhttp import *
 
 
 __ONLINE_BOTS: dict[str, Bot] = {}
