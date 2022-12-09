@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.utils import get_db_session
 from src.service.gocqhttp_guild_patch import GuildMessageEvent
 
-from ..internal import InternalEntity
+from ..internal.entity import InternalEntity
 
 
 class EntityDepend(object):

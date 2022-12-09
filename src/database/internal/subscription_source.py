@@ -85,6 +85,15 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[SubscriptionSource], session_result.scalars().all())
 
+    async def query_type_all(self, sub_type: str) -> list[SubscriptionSource]:
+        """查询 sub_type 对应的全部订阅源"""
+        SubscriptionSourceType.verify(sub_type)
+        stmt = select(SubscriptionSourceOrm).\
+            where(SubscriptionSourceOrm.sub_type == sub_type).\
+            order_by(SubscriptionSourceOrm.sub_type)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[SubscriptionSource], session_result.scalars().all())
+
     async def query_all(self) -> list[SubscriptionSource]:
         stmt = select(SubscriptionSourceOrm).order_by(SubscriptionSourceOrm.sub_type)
         session_result = await self.db_session.execute(stmt)

@@ -162,7 +162,7 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
             self,
             keywords: Optional[list[str]] = None,
             *,
-            classified: Optional[int] = 1
+            classified: Optional[int] = None
     ) -> PixivArtworkStatistic:
         stmt = select(func.count(PixivArtworkOrm.id))
 
@@ -273,5 +273,6 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'PixivArtwork',
-    'PixivArtworkDAL'
+    'PixivArtworkDAL',
+    'PixivArtworkStatistic'
 ]

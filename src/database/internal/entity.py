@@ -18,7 +18,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm
+from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm, SubscriptionOrm
 
 
 @unique
@@ -118,6 +118,22 @@ class EntityDAL(BaseDataAccessLayerModel):
             stmt = stmt.where(AuthSettingOrm.available == available)
         else:
             stmt = stmt.where(AuthSettingOrm.available >= available)
+
+        stmt = stmt.order_by(EntityOrm.entity_type)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[Entity], session_result.scalars().all())
+
+    async def query_all_entity_subscribed_source(
+            self,
+            sub_source_index_id: int,
+            entity_type: Optional[str] = None
+    ) -> list[Entity]:
+        """查询订阅了某订阅源的 Entity 对象"""
+        stmt = select(EntityOrm).join(SubscriptionOrm).\
+            where(SubscriptionOrm.sub_source_index_id == sub_source_index_id)
+
+        if entity_type is not None:
+            stmt = stmt.where(EntityOrm.entity_type == entity_type)
 
         stmt = stmt.order_by(EntityOrm.entity_type)
         session_result = await self.db_session.execute(stmt)
