@@ -49,7 +49,7 @@ async def __database_dispose():
     """断开数据库链接 (for AsyncEngine created in function scope, close and clean-up pooled connections)"""
 
     await engine.dispose()
-    logger.opt(colors=True).info(f'<lc>Database</lc> | <ly>已断开数据库链接</ly>')
+    logger.opt(colors=True).info(f'<lc>Database</lc> | <ly>已断开数据库连接</ly>')
 
 
 @asynccontextmanager
