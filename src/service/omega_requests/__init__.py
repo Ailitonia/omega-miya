@@ -11,15 +11,17 @@
 import pathlib
 import hashlib
 import ujson
-from asyncio.exceptions import TimeoutError
 from copy import deepcopy
-from typing import Optional, Any
 from urllib.parse import urlparse
+
+from typing import AsyncGenerator, Optional, Any
+from contextlib import asynccontextmanager
 
 from nonebot import get_driver, logger
 from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
-from nonebot.drivers import Request, Response, ForwardDriver
+from nonebot.drivers import Request, Response, WebSocket, ForwardDriver
 
+from asyncio.exceptions import TimeoutError
 from src.exception import WebSourceException
 from src.resource import TemporaryResource
 
@@ -132,6 +134,42 @@ class OmegaRequests(object):
                 f'<r>{final_exception.__class__.__name__}</r>: {final_exception}')
             raise ExceededAttemptError('The number of attempts exceeds limit.')
 
+    @asynccontextmanager
+    async def websocket(
+            self,
+            method: str,
+            url: str,
+            *,
+            params: QueryTypes = None,
+            headers: HeaderTypes = None,
+            cookies: CookieTypes = None,
+            content: ContentTypes = None,
+            data: DataTypes = None,
+            json: Any = None,
+            files: FilesTypes = None,
+            timeout: Optional[float] = None,
+            use_proxy: bool = True
+    ) -> AsyncGenerator[WebSocket, None]:
+        """建立 websocket 连接"""
+        self.driver: ForwardDriver
+
+        setup = Request(
+            method=method,
+            url=url,
+            params=params,
+            headers=headers if headers is not None else self.headers,
+            cookies=cookies if cookies is not None else self.cookies,
+            content=content,
+            data=data,
+            json=json,
+            files=files,
+            timeout=timeout if timeout is not None else self.timeout,
+            proxy=http_proxy_config.proxy_url if use_proxy else None
+        )
+
+        async with self.driver.websocket(setup=setup) as ws:
+            yield ws
+
     async def get(
             self,
             url: str,
@@ -144,10 +182,10 @@ class OmegaRequests(object):
             json: Any = None,
             files: FilesTypes = None,
             timeout: Optional[float] = None,
-            proxy: Optional[str] = None
+            use_proxy: bool = True
     ) -> Response:
         setup = Request(
-            method='get',
+            method='GET',
             url=url,
             params=params,
             headers=headers if headers is not None else self.headers,
@@ -157,7 +195,7 @@ class OmegaRequests(object):
             json=json,
             files=files,
             timeout=timeout if timeout is not None else self.timeout,
-            proxy=proxy if proxy is not None else http_proxy_config.proxy_url
+            proxy=http_proxy_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
 
@@ -173,10 +211,10 @@ class OmegaRequests(object):
             json: Any = None,
             files: FilesTypes = None,
             timeout: Optional[float] = None,
-            proxy: Optional[str] = None
+            use_proxy: bool = True
     ) -> Response:
         setup = Request(
-            method='post',
+            method='POST',
             url=url,
             params=params,
             headers=headers if headers is not None else self.headers,
@@ -186,7 +224,7 @@ class OmegaRequests(object):
             json=json,
             files=files,
             timeout=timeout if timeout is not None else self.timeout,
-            proxy=proxy if proxy is not None else http_proxy_config.proxy_url
+            proxy=http_proxy_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
 
