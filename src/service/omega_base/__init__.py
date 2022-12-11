@@ -8,14 +8,12 @@
 @Software       : PyCharm 
 """
 
-from .depend import OnebotV11EntityDepend
 from .internal import (OmegaEntity, OmegaPixivArtwork,
                        OmegaBiliLiveSubSource, OmegaBiliDynamicSubSource,
                        OmegaPixivUserSubSource, OmegaPixivisionSubSource)
 
 
 __all__ = [
-    'OnebotV11EntityDepend',
     'OmegaEntity',
     'OmegaPixivArtwork',
     'OmegaBiliLiveSubSource',

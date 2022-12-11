@@ -156,6 +156,7 @@ class TemporaryResource(BaseResource):
 
 
 __all__ = [
+    'BaseResource',
     'StaticResource',
     'TemporaryResource',
     'ResourceNotFolderError',
