@@ -33,25 +33,25 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-# 初始化静态资源文件及临时文件储存路径
 _static_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('static')
+"""静态资源文件路径"""
 _temporary_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('tmp')
-if not _temporary_resource_folder.exists():
+"""临时文件文件路径"""
+if not _temporary_resource_folder.exists():  # 初始化临时文件路径所在文件夹
     _temporary_resource_folder.mkdir()
 
 
 class BaseResource(abc.ABC):
     """资源文件基类"""
-    _resource_root: pathlib.Path = ...
 
+    @abc.abstractmethod
     def __init__(self, *args: str):
-        self.path = self._resource_root
+        self.path: pathlib.Path = ...
         if args:
             self.path = self.path.joinpath(*[str(x) for x in args])
 
-    @abc.abstractmethod
     def __repr__(self) -> str:
-        raise NotImplementedError
+        return f'<{self.__class__.__name__}(path={self.resolve_path!r})>'
 
     def __call__(self, *args) -> "BaseResource":
         new_obj = deepcopy(self)
@@ -141,18 +141,18 @@ class BaseResource(abc.ABC):
 
 class StaticResource(BaseResource):
     """静态资源文件"""
-    _resource_root: pathlib.Path = _static_resource_folder
-
-    def __repr__(self) -> str:
-        return f'<StaticResource(path={self.resolve_path!r})>'
+    def __init__(self, *args: str):
+        self.path: pathlib.Path = deepcopy(_static_resource_folder)
+        if args:
+            self.path = self.path.joinpath(*[str(x) for x in args])
 
 
 class TemporaryResource(BaseResource):
     """临时资源文件"""
-    _resource_root: pathlib.Path = _temporary_resource_folder
-
-    def __repr__(self) -> str:
-        return f'<TemporaryResource(path={self.resolve_path!r})>'
+    def __init__(self, *args: str):
+        self.path: pathlib.Path = deepcopy(_temporary_resource_folder)
+        if args:
+            self.path = self.path.joinpath(*[str(x) for x in args])
 
 
 __all__ = [
