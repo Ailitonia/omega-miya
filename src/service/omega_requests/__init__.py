@@ -26,6 +26,7 @@ from src.exception import WebSourceException
 from src.resource import TemporaryResource
 
 from .config import http_proxy_config
+from .patch import *
 
 
 class ExceededAttemptError(WebSourceException):
@@ -157,13 +158,13 @@ class OmegaRequests(object):
             method=method,
             url=url,
             params=params,
-            headers=headers if headers is not None else self.headers,
-            cookies=cookies if cookies is not None else self.cookies,
+            headers=self.headers if headers is None else headers,
+            cookies=self.cookies if cookies is None else cookies,
             content=content,
             data=data,
             json=json,
             files=files,
-            timeout=timeout if timeout is not None else self.timeout,
+            timeout=self.timeout if timeout is None else timeout,
             proxy=http_proxy_config.proxy_url if use_proxy else None
         )
 
@@ -188,13 +189,13 @@ class OmegaRequests(object):
             method='GET',
             url=url,
             params=params,
-            headers=headers if headers is not None else self.headers,
-            cookies=cookies if cookies is not None else self.cookies,
+            headers=self.headers if headers is None else headers,
+            cookies=self.cookies if cookies is None else cookies,
             content=content,
             data=data,
             json=json,
             files=files,
-            timeout=timeout if timeout is not None else self.timeout,
+            timeout=self.timeout if timeout is None else timeout,
             proxy=http_proxy_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
@@ -217,13 +218,13 @@ class OmegaRequests(object):
             method='POST',
             url=url,
             params=params,
-            headers=headers if headers is not None else self.headers,
-            cookies=cookies if cookies is not None else self.cookies,
+            headers=self.headers if headers is None else headers,
+            cookies=self.cookies if cookies is None else cookies,
             content=content,
             data=data,
             json=json,
             files=files,
-            timeout=timeout if timeout is not None else self.timeout,
+            timeout=self.timeout if timeout is None else timeout,
             proxy=http_proxy_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
@@ -243,6 +244,11 @@ class OmegaRequests(object):
         :return: 下载目标路径
         """
         response = await self.get(url=url, params=params, **kwargs)
+
+        if response.status_code != 200:
+            logger.opt(colors=True).error(f'<lc>Omega Requests</lc> | Download <ly>{url!r}</ly> to {file!r} failed')
+            raise WebSourceException(f'Download {url!r} to {file!r} failed')
+
         if isinstance(response.content, str):
             response.content = response.content.encode(encoding='utf-8')
 
@@ -253,5 +259,8 @@ class OmegaRequests(object):
 
 
 __all__ = [
-    'OmegaRequests'
+    'OmegaRequests',
+    'Request',
+    'Response',
+    'WebSocket'
 ]
