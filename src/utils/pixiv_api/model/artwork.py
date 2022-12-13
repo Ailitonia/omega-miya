@@ -77,8 +77,10 @@ class PixivArtworkBody(BasePixivModel):
 
     @property
     def parsed_description(self) -> str:
-        description_html = etree.HTML(self.description)
+        if not self.description:
+            return ''
 
+        description_html = etree.HTML(self.description)
         for br in description_html.xpath("*//br"):
             br.tail = '\n' + br.tail if br.tail else '\n'  # replace br tag
 

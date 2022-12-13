@@ -603,15 +603,16 @@ class PixivArtwork(Pixiv):
             # 读取动图资源文件内容
             with zipfile.ZipFile(ugoira_path.resolve_path, 'r') as _zf:
                 for frame in data_model.ugoira_meta.frames:
-                    _content = _zf.open(frame.file, 'r').read()
-                    _frames_list.append(imageio.v2.imread(_content))
+                    with _zf.open(frame.file, 'r') as _ff:
+                        with BytesIO(_ff.read()) as _fbf:
+                            _frames_list.append(imageio.v2.imread(_fbf))
                     _sum_delay.append(frame.delay)
             # 均值化处理动图帧时间
             _avg_delay = sum(_sum_delay) / len(_sum_delay)
             _avg_duration = _avg_delay / 1000
             # 生成 gif
             with BytesIO() as _bf:
-                imageio.mimsave(_bf, _frames_list, 'GIF', duration=_avg_duration)
+                imageio.mimsave(_bf, _frames_list, format='GIF-PIL', duration=_avg_duration, quantizer=2)
                 _content = _bf.getvalue()
             return _content
 
@@ -637,8 +638,11 @@ class PixivArtwork(Pixiv):
         if not artwork_model.description:
             desc_t = f'「{artwork_model.title}」/「{artwork_model.uname}」\n{tag_t}\n{artwork_model.url}'
         else:
-            desc_t = f'「{artwork_model.title}」/「{artwork_model.uname}」\n{tag_t}\n{artwork_model.url}\n' \
-                     f'{"-"*16}\n{artwork_model.description[:desc_len]}{"."*6}'
+            desc_t = (
+                f'「{artwork_model.title}」/「{artwork_model.uname}」\n{tag_t}\n{artwork_model.url}\n{"-"*16}\n'
+                f'{artwork_model.description[:desc_len]}'
+                f'{"."*6 if len(artwork_model.description) > desc_len else ""}'
+            )
         return desc_t
 
     async def query_recommend(self, *, init_limit: int = 18, lang: Literal['zh'] = 'zh') -> PixivArtworkRecommendModel:
