@@ -373,11 +373,11 @@ class PixivArtwork(Pixiv):
             _artwork_data = await query_data_task
             if _artwork_data.error:
                 query_page_data_task.cancel()
-                raise PixivApiError(f'PixivApiError, query artwork data failed, {_artwork_data.message}')
+                raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {_artwork_data.message}')
 
             _page_data = await query_page_data_task
             if _page_data.error:
-                raise PixivApiError(f'PixivApiError, query artwork page failed, {_page_data.message}')
+                raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {_page_data.message}')
 
             # 处理作品tag
             _tags = _artwork_data.body.tags.all_tags
@@ -411,7 +411,7 @@ class PixivArtwork(Pixiv):
             if _illust_type == 2:
                 _ugoira_data = await self._query_ugoira_meta()
                 if _ugoira_data.error:
-                    raise PixivApiError(f'PixivApiError, query ugoira meta failed, {_ugoira_data.message}')
+                    raise PixivApiError(f'Query artwork(pid={self.pid}) ugoira meta failed, {_ugoira_data.message}')
                 _ugoira_meta = _ugoira_data.body
             else:
                 _ugoira_meta = None
@@ -550,7 +550,7 @@ class PixivArtwork(Pixiv):
 
         all_page_file = await semaphore_gather(tasks=tasks, semaphore_num=10)
         if any([isinstance(x, BaseException) for x in all_page_file]):
-            raise PixivNetworkError(f'get artwork {self.pid} all page files failed')
+            raise PixivApiError(f'Query artwork(pid={self.pid}) all page files failed')
         return list(all_page_file)
 
     async def download_page(self, page: int = 0) -> TemporaryResource:
@@ -570,7 +570,7 @@ class PixivArtwork(Pixiv):
         tasks = [self.download_page(page=page) for page in range(artwork_model.page_count)]
         all_page_file = await semaphore_gather(tasks=tasks, semaphore_num=10)
         if any([isinstance(x, BaseException) for x in all_page_file]):
-            raise PixivNetworkError(f'download artwork {self.pid} all pages failed')
+            raise PixivApiError(f'Download artwork(pid={self.pid}) all pages failed')
         return list(all_page_file)
 
     async def download_ugoira(self, *, original: bool = True) -> TemporaryResource:
@@ -735,11 +735,11 @@ class PixivUser(Pixiv):
         if not isinstance(self.user_model, PixivUserModel):
             _user_data = await self._query_user_data()
             if _user_data.error:
-                raise PixivApiError(f'PixivApiError, query user data failed, {_user_data.message}')
+                raise PixivApiError(f'Query user(uid={self.uid}) data failed, {_user_data.message}')
 
             _user_artwork_data = await self._query_user_artwork_data()
             if _user_artwork_data.error:
-                raise PixivApiError(f'PixivApiError, query user artwork data failed, {_user_artwork_data.message}')
+                raise PixivApiError(f'Query user(uid={self.uid}) artwork data failed, {_user_artwork_data.message}')
 
             _data = {
                 'user_id': _user_data.body.userId,
