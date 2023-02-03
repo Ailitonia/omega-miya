@@ -165,9 +165,9 @@ class InternalEntity(object):
             sign_in_date = datetime.now().date()
 
         try:
-            signin = await sign_in_dal.query_unique(entity_index_id=entity.id, sign_in_date=sign_in_date)
+            sign_in = await sign_in_dal.query_unique(entity_index_id=entity.id, sign_in_date=sign_in_date)
             sign_in_info = 'Duplicate Sign In' if sign_in_info is None else sign_in_info
-            await sign_in_dal.update(id_=signin.id, sign_in_info=sign_in_info)
+            await sign_in_dal.update(id_=sign_in.id, sign_in_info=sign_in_info)
         except NoResultFound:
             sign_in_info = 'Normal Sign In' if sign_in_info is None else sign_in_info
             await sign_in_dal.add(entity_index_id=entity.id, sign_in_date=sign_in_date, sign_in_info=sign_in_info)
