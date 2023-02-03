@@ -26,7 +26,6 @@ from src.exception import WebSourceException
 from src.resource import TemporaryResource
 
 from .config import http_proxy_config
-from .patch import *
 
 
 class ExceededAttemptError(WebSourceException):

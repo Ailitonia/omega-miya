@@ -37,3 +37,8 @@ class FormData(aiohttp.FormData):
         elif not isinstance(fields, (list, tuple)):
             fields = (fields,)
         self.add_fields(*fields)
+
+
+__all__ = [
+    'FormData'
+]
