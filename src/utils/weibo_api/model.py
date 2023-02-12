@@ -39,7 +39,7 @@ class WeiboUserBase(WeiboBaseModel):
     follow_me: bool
     following: bool
     follow_count: int
-    followers_count: int
+    followers_count: str
     followers_count_str: str
     cover_image_phone: AnyUrl
     avatar_hd: AnyUrl
@@ -181,7 +181,7 @@ class WeiboCard(WeiboBaseModel):
 
 
 class _CardListInfo(WeiboBaseModel):
-    """data.cardlistInfo model"""
+    """weibo cards data.cardlistInfo model"""
     containerid: str
     v_p: int
     show_style: int
@@ -191,7 +191,7 @@ class _CardListInfo(WeiboBaseModel):
 
 
 class _CardsData(WeiboBaseModel):
-    """cards data model"""
+    """weibo cards data model"""
     cardlistInfo: _CardListInfo
     cards: list[WeiboCard]
     scheme: AnyUrl
@@ -204,10 +204,77 @@ class WeiboCards(WeiboBaseModel):
     data: _CardsData
 
 
+class _HotCardlistInfo(WeiboBaseModel):
+    """realtime hot data.cardlistInfo"""
+    starttime: int
+    can_shared: int
+    cardlist_menus: Optional[list]
+    config: dict
+    page_type: str
+    cardlist_head_cards: list[dict]
+    enable_load_imge_scrolling: Optional[int]
+    nick: str
+    page_title: str
+    search_request_id: str
+    v_p: str
+    containerid: str
+    refresh_configs: dict
+    headbg_animation: Optional[str]
+    total: int
+    page_size: int
+    select_id: str
+    title_top: str
+    show_style: int
+    page: Optional[int]
+
+
+class _HotCardGroup(WeiboBaseModel):
+    """realtime hot data.cards.card_group"""
+    card_type: int
+    icon: Optional[AnyUrl]
+    icon_height: Optional[int]
+    icon_width: Optional[int]
+    itemid: Optional[str]
+    pic: Optional[AnyUrl]
+    desc: Optional[str]
+    desc_extr: Optional[str]
+    actionlog: Optional[dict]
+    scheme: AnyUrl
+    display_arrow: Optional[int]
+    is_show_arrow: Optional[int]
+    left_tag_img: Optional[AnyUrl]
+    title: Optional[str]
+    title_sub: Optional[str]
+    sub_title: Optional[str]
+
+
+class WeiboRealtimeHotCard(WeiboBaseModel):
+    """realtime hot data.cards"""
+    itemid: Optional[str]
+    card_group: list[_HotCardGroup]
+    show_type: int
+    card_type: int
+    title: Optional[str]
+
+
+class _RealtimeHotData(WeiboBaseModel):
+    """realtime hot data"""
+    cardlistInfo: _HotCardlistInfo
+    cards: list[WeiboRealtimeHotCard]
+
+
+class WeiboRealtimeHot(WeiboBaseModel):
+    """微博实时热搜"""
+    ok: int
+    data: _RealtimeHotData
+
+
 __all__ = [
     'WeiboCard',
     'WeiboCards',
     'WeiboCardStatus',
     'WeiboUserBase',
-    'WeiboUserInfo'
+    'WeiboUserInfo',
+    'WeiboRealtimeHotCard',
+    'WeiboRealtimeHot'
 ]

@@ -15,13 +15,14 @@ from src.service.omega_requests import OmegaRequests
 
 from .config import weibo_resource_config
 from .exception import WeiboApiError, WeiboNetworkError
-from .model import WeiboCard, WeiboCards, WeiboCardStatus, WeiboUserBase, WeiboUserInfo
+from .model import (WeiboCard, WeiboCards, WeiboCardStatus,
+                    WeiboUserBase, WeiboUserInfo,
+                    WeiboRealtimeHotCard, WeiboRealtimeHot)
 from .helper import parse_weibo_card_from_status_page
 
 
 class Weibo(object):
-    """微博基类"""
-    __description = """使用手机端网页 api"""
+    """微博, 使用手机端网页 api"""
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
@@ -145,6 +146,23 @@ class Weibo(object):
         card_response = await cls.request_resource(url=url)
 
         return WeiboCardStatus.parse_obj(parse_weibo_card_from_status_page(card_response))
+
+    @classmethod
+    async def query_realtime_hot(cls) -> list[WeiboRealtimeHotCard]:
+        """获取微博热搜"""
+        url = 'https://m.weibo.cn/api/container/getIndex'
+        containerid = '106003type=25&t=3&disable_hot=1&filter_type=realtimehot'
+        params = {
+            'type': 'uid',
+            'containerid': containerid,
+        }
+        realtime_hot_response = await cls.request_json(url=url, params=params)
+        realtime_hot = WeiboRealtimeHot.parse_obj(realtime_hot_response)
+
+        if realtime_hot.ok != 1:
+            raise WeiboApiError(f'Query realtime hot failed, {realtime_hot.data}')
+
+        return realtime_hot.data.cards
 
 
 __all__ = [
