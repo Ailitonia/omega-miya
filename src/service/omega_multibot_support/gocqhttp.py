@@ -19,9 +19,8 @@ from nonebot.adapters.onebot.v11.event import Event, MessageEvent, NoticeEvent, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
 
-from src.database import BotSelfDAL, EntityDAL
-from src.database.utils import get_db_session
-from src.service.omega_event import BotConnectEvent, BotDisconnectEvent
+from src.database import BotSelfDAL, EntityDAL, get_db_session
+from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 from src.service.onebot_api import Gocqhttp
 
 

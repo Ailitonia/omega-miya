@@ -13,7 +13,7 @@ from nonebot.adapters import Bot, Event
 from nonebot.exception import IgnoredException
 from nonebot.message import handle_event, run_preprocessor
 
-from src.service.omega_event import BotConnectEvent, BotDisconnectEvent
+from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 from .gocqhttp import *
 
