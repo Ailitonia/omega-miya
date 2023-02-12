@@ -195,10 +195,9 @@ class InternalEntity(object):
             return 0
 
         date_now_ordinal = datetime.now().date().toordinal()
-        # 先将签到记录中的日期转化为整数便于比较
-        all_sign_in_list = list(set([x.toordinal() for x in sign_in_history]))
-        # 去重后由大到小排序
-        all_sign_in_list.sort(reverse=True)
+        # 先将签到记录中的日期转化为整数便于比较, 去重后由大到小排序
+        all_sign_in_list = sorted(list(set(x.toordinal() for x in sign_in_history)), reverse=True)
+
         # 如果今日日期不等于已签到日期最大值, 说明今日没有签到, 则连签日数为0
         if date_now_ordinal != all_sign_in_list[0]:
             return 0
@@ -221,10 +220,8 @@ class InternalEntity(object):
             return date_now_ordinal
 
         # 有签到记录则处理签到记录
-        # 先将签到记录中的日期转化为整数便于比较
-        all_sign_in_list = list(set([x.toordinal() for x in sign_in_history]))
-        # 去重后由大到小排序
-        all_sign_in_list.sort(reverse=True)
+        # 先将签到记录中的日期转化为整数便于比较, 去重后由大到小排序
+        all_sign_in_list = sorted(list(set(x.toordinal() for x in sign_in_history)), reverse=True)
 
         # 如果今日日期不等于已签到日期最大值, 说明今日没有签到, 断签日为今日
         if date_now_ordinal != all_sign_in_list[0]:
