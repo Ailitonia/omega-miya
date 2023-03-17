@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Type, TypeVar
+from typing import List, Optional, Tuple, Type, TypeVar, Literal
 
 from nonebot.adapters.onebot.v11 import (Adapter, Event, Message, MessageEvent,
                                          MessageSegment, NoticeEvent)
@@ -6,7 +6,7 @@ from nonebot.log import logger
 from nonebot.typing import overrides
 from nonebot.utils import escape_tag
 from pydantic import BaseModel, Field, parse_obj_as, root_validator, validator
-from typing_extensions import Literal
+
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
 
@@ -14,8 +14,8 @@ Event_T = TypeVar("Event_T", bound=Type[Event])
 def register_event(event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
     logger.opt(colors=True).trace(
-        f"Custom event <e>{event.__qualname__!r}</e> registered "
-        f"from module <g>{event.__class__.__module__!r}</g>"
+        f"Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> "
+        f"from module <g>{event.__module__!r}</g>"
     )
     return event
 
