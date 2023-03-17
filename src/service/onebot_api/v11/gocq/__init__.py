@@ -16,9 +16,10 @@ from nonebot.adapters.onebot.v11.message import Message
 
 from .._api import BaseOnebotApi
 from ..exception import ApiNotSupport
-from .model import (SentMessage, ReceiveMessage, ReceiveForwardMessage, StrangerInfo, LoginInfo, FriendInfo,
-                    GroupInfo, GroupHonor, GroupUser, GroupSystemMessage, GroupFileSystemInfo, GroupRootFiles,
-                    GroupFolderFiles, GroupFileResource, GroupAtAllRemain, GroupEssenceMessage, GroupMessageHistory,
+from .model import (SentMessage, SentForwardMessage, ReceiveMessage, ReceiveForwardMessage,
+                    StrangerInfo, LoginInfo, FriendInfo, GroupInfo, GroupHonor, GroupUser,
+                    GroupSystemMessage, GroupFileSystemInfo, GroupRootFiles, GroupFolderFiles, GroupFileResource,
+                    GroupAtAllRemain, GroupEssenceMessage, GroupMessageHistory, GroupNotice,
                     Anonymous, QidianAccountUser, Cookies, CSRF, Credentials, VersionInfo, Status, OnlineClients,
                     UrlSafely, ImageFile, OcrImageResult, RecordFile, CanSendImage, CanSendRecord, DownloadedFile,
                     GuildServiceProfile, GuildInfo, GuildMeta, ChannelInfo, GuildMemberList, GuildMemberProfile,
@@ -28,13 +29,89 @@ from .model import (SentMessage, ReceiveMessage, ReceiveForwardMessage, Stranger
 class Gocqhttp(BaseOnebotApi):
     """go-cqhttp api
 
-    适配版本: go-cqhttp v1.0.0-rc3
+    适配版本: go-cqhttp v1.0.0-rc4
     """
 
     def __init__(self, bot: Bot):
         self.bot = bot
         self.self_id = bot.self_id if isinstance(bot.self_id, str) else str(bot.self_id)
 
+    """- Bot 账号: 有关 Bot 账号的相关 API"""
+    async def get_login_info(self) -> LoginInfo:
+        login_info = await self.bot.get_login_info()
+        return LoginInfo.parse_obj(login_info)
+
+    async def set_qq_profile(
+            self,
+            *,
+            nickname: str | None = None,
+            company: str | None = None,
+            email: str | None = None,
+            college: str | None = None,
+            personal_note: str | None = None,
+    ) -> None:
+        """设置登录号资料
+
+        :param nickname: 名称
+        :param company: 公司
+        :param email: 邮箱
+        :param college: 学校
+        :param personal_note: 个人说明
+        """
+        return await self.bot.call_api('set_qq_profile', nickname=nickname, company=company,
+                                       email=email, college=college, personal_note=personal_note)
+
+    async def qidian_get_account_info(self) -> QidianAccountUser:
+        """获取企点账号信息(该API只有企点协议可用)"""
+        login_info = await self.bot.call_api('qidian_get_account_info')
+        return QidianAccountUser.parse_obj(login_info)
+
+    async def get_online_clients(self, no_cache: bool = False) -> OnlineClients:
+        """获取当前账号在线客户端列表
+
+        :param no_cache: 是否无视缓存
+        """
+        client_result = await self.bot.call_api('get_online_clients', no_cache=no_cache)
+        return OnlineClients.parse_obj(client_result)
+
+    """- 好友信息: 有关获取相关用户信息的相关 API"""
+    async def get_stranger_info(self, user_id: int | str, no_cache: bool = False) -> StrangerInfo:
+        stranger_info = await self.bot.get_stranger_info(user_id=user_id, no_cache=no_cache)
+        return StrangerInfo.parse_obj(stranger_info)
+
+    async def get_friend_list(self) -> list[FriendInfo]:
+        friend_list = await self.bot.get_friend_list()
+        return parse_obj_as(list[FriendInfo], friend_list)
+
+    async def get_unidirectional_friend_list(self) -> list[FriendInfo]:
+        """获取单向好友列表"""
+        unidirectional_friend_list = await self.bot.get_unidirectional_friend_list()
+        return parse_obj_as(list[FriendInfo], unidirectional_friend_list)
+
+    async def is_friend(self, user_id: int | str) -> bool:
+        """检查用户是否是好友
+
+        :param user_id: 用户 QQ 号
+        """
+        friend_list = await self.get_friend_list()
+        return str(user_id) in (x.user_id for x in friend_list)
+
+    """- 好友操作: 有关好友操作的 API"""
+    async def delete_friend(self, friend_id: int | str) -> None:
+        """删除好友
+
+        :param friend_id: 好友 QQ 号
+        """
+        return await self.bot.call_api('delete_friend', friend_id=friend_id)
+
+    async def delete_unidirectional_friend(self, user_id: int | str) -> None:
+        """删除单向好友
+
+        :param user_id: 用户 QQ 号
+        """
+        return await self.bot.call_api('delete_unidirectional_friend', user_id=user_id)
+
+    """- 消息: 有关消息操作的 API"""
     async def send_like(self, user_id: int | str, times: int | str) -> None:
         raise ApiNotSupport('go-cqhttp not support "send_like" api')
 
@@ -42,27 +119,19 @@ class Gocqhttp(BaseOnebotApi):
             self,
             user_id: int | str,
             message: str | Message,
-            auto_escape: bool = False
+            auto_escape: bool = False,
+            *,
+            group_id: int | str | None = None
     ) -> SentMessage:
-        message_result = await self.bot.send_private_msg(user_id=user_id, message=message, auto_escape=auto_escape)
-        return SentMessage.parse_obj(message_result)
-
-    async def send_stranger_msg(
-            self,
-            user_id: int | str,
-            group_id: int | str,
-            message: str | Message,
-            auto_escape: bool = False
-    ) -> SentMessage:
-        """通过群组向发起临时会话
+        """发送私聊消息
 
         :param user_id: 对方 QQ 号
-        :param group_id: 主动发起临时会话群号(机器人本身必须是管理员/群主)
         :param message: 要发送的内容
-        :param auto_escape: 消息内容是否作为纯文本发送 ( 即不解析 CQ 码 ) , 只在 message 字段是字符串时有效
+        :param auto_escape: 消息内容是否作为纯文本发送(即不解析 CQ 码), 只在 message 字段是字符串时有效
+        :param group_id: 主动发起临时会话时的来源群号(可选, 机器人本身必须是管理员/群主)
         """
-        message_result = await self.bot.call_api(
-            'send_private_msg', user_id=user_id, group_id=group_id, message=message, auto_escape=auto_escape)
+        message_result = await self.bot.call_api('send_private_msg', user_id=user_id, group_id=group_id,
+                                                 message=message, auto_escape=auto_escape)
         return SentMessage.parse_obj(message_result)
 
     async def send_group_msg(
@@ -72,55 +141,6 @@ class Gocqhttp(BaseOnebotApi):
             auto_escape: bool = False
     ) -> SentMessage:
         message_result = await self.bot.send_group_msg(group_id=group_id, message=message, auto_escape=auto_escape)
-        return SentMessage.parse_obj(message_result)
-
-    async def send_group_forward_msg(
-            self,
-            group_id: int | str,
-            messages: list
-    ) -> SentMessage:
-        """发送合并转发(群)
-
-        :param group_id: 群号
-        :param messages: 自定义转发消息, 具体看 cq-http 文档的 CQcode
-        """
-        message_result = await self.bot.call_api('send_group_forward_msg', group_id=group_id, messages=messages)
-        return SentMessage.parse_obj(message_result)
-
-    async def send_private_forward_msg(
-            self,
-            user_id: int | str,
-            messages: list
-    ) -> SentMessage:
-        """发送合并转发(好友)
-
-        :param user_id: 好友qq
-        :param messages: 自定义转发消息, 具体看 cq-http 文档的 CQcode
-        """
-        message_result = await self.bot.call_api('send_private_forward_msg', user_id=user_id, messages=messages)
-        return SentMessage.parse_obj(message_result)
-
-    async def send_forward_msg(
-            self,
-            messages: list,
-            message_type: Literal['private', 'group'] | None = None,
-            user_id: int | str | None = None,
-            group_id: int | str | None = None,
-    ) -> SentMessage:
-        """发送合并转发消息
-
-        :param messages: 自定义转发消息列表
-        :param message_type: 转发消息类型
-        :param user_id: 对方 QQ 号（消息类型为 private 时需要）
-        :param group_id: 群号（消息类型为 group 时需要）
-        """
-        if user_id and group_id:
-            raise ValueError('"user_id" and "group_id" only need one')
-        elif not user_id and not group_id:
-            raise ValueError('need parameter "user_id" or "group_id"')
-        else:
-            message_result = await self.bot.call_api('send_forward_msg', message_type=message_type, messages=messages,
-                                                     user_id=user_id, group_id=group_id)
         return SentMessage.parse_obj(message_result)
 
     async def send_msg(
@@ -143,12 +163,30 @@ class Gocqhttp(BaseOnebotApi):
             raise ValueError('illegal parameter combination ')
         return SentMessage.parse_obj(message_result)
 
-    async def delete_msg(self, message_id: int) -> None:
-        return await self.bot.delete_msg(message_id=message_id)
+    async def _send_stranger_msg(
+            self,
+            user_id: int | str,
+            group_id: int | str,
+            message: str | Message,
+            auto_escape: bool = False
+    ) -> SentMessage:
+        """(deactivated)通过群组向发起临时会话
+
+        :param user_id: 对方 QQ 号
+        :param group_id: 主动发起临时会话群号(机器人本身必须是管理员/群主)
+        :param message: 要发送的内容
+        :param auto_escape: 消息内容是否作为纯文本发送 ( 即不解析 CQ 码 ) , 只在 message 字段是字符串时有效
+        """
+        message_result = await self.bot.call_api(
+            'send_private_msg', user_id=user_id, group_id=group_id, message=message, auto_escape=auto_escape)
+        return SentMessage.parse_obj(message_result)
 
     async def get_msg(self, message_id: int) -> ReceiveMessage:
         message_result = await self.bot.get_msg(message_id=message_id)
         return ReceiveMessage.parse_obj(message_result)
+
+    async def delete_msg(self, message_id: int) -> None:
+        return await self.bot.delete_msg(message_id=message_id)
 
     async def mark_msg_as_read(self, message_id: int) -> None:
         """标记消息已读
@@ -165,6 +203,65 @@ class Gocqhttp(BaseOnebotApi):
         message_result = await self.bot.call_api('get_forward_msg', message_id=message_id)
         return ReceiveForwardMessage.parse_obj(message_result)
 
+    async def send_group_forward_msg(
+            self,
+            group_id: int | str,
+            messages: list
+    ) -> SentForwardMessage:
+        """发送合并转发(群)
+
+        :param group_id: 群号
+        :param messages: 自定义转发消息, 具体看 cq-http 文档的 CQcode
+        """
+        message_result = await self.bot.call_api('send_group_forward_msg', group_id=group_id, messages=messages)
+        return SentForwardMessage.parse_obj(message_result)
+
+    async def send_private_forward_msg(
+            self,
+            user_id: int | str,
+            messages: list
+    ) -> SentForwardMessage:
+        """发送合并转发(好友)
+
+        :param user_id: 好友qq
+        :param messages: 自定义转发消息, 具体看 cq-http 文档的 CQcode
+        """
+        message_result = await self.bot.call_api('send_private_forward_msg', user_id=user_id, messages=messages)
+        return SentForwardMessage.parse_obj(message_result)
+
+    async def send_forward_msg(
+            self,
+            messages: list,
+            message_type: Literal['private', 'group'] | None = None,
+            user_id: int | str | None = None,
+            group_id: int | str | None = None,
+    ) -> SentForwardMessage:
+        """发送合并转发消息
+
+        :param messages: 自定义转发消息列表
+        :param message_type: 转发消息类型
+        :param user_id: 对方 QQ 号（消息类型为 private 时需要）
+        :param group_id: 群号（消息类型为 group 时需要）
+        """
+        if user_id and group_id:
+            raise ValueError('"user_id" and "group_id" only need one')
+        elif not user_id and not group_id:
+            raise ValueError('need parameter "user_id" or "group_id"')
+        else:
+            message_result = await self.bot.call_api('send_forward_msg', message_type=message_type, messages=messages,
+                                                     user_id=user_id, group_id=group_id)
+        return SentForwardMessage.parse_obj(message_result)
+
+    async def get_group_msg_history(self, group_id: int | str, message_seq: int | None = None) -> GroupMessageHistory:
+        """获取群消息历史记录
+
+        :param group_id: 群号
+        :param message_seq: 起始消息序号, 可通过 get_msg 获得, 不提供起始序号将默认获取最新的消息
+        """
+        message_result = await self.bot.call_api('get_group_msg_history', group_id=group_id, message_seq=message_seq)
+        return GroupMessageHistory.parse_obj(message_result)
+
+    """- 图片: 图片相关 API"""
     async def get_image(self, file: str) -> ImageFile:
         """获取图片信息
 
@@ -173,67 +270,34 @@ class Gocqhttp(BaseOnebotApi):
         file_result = await self.bot.get_image(file=file)
         return ImageFile.parse_obj(file_result)
 
-    async def set_group_kick(
+    async def can_send_image(self) -> CanSendImage:
+        result = await self.bot.can_send_image()
+        return CanSendImage.parse_obj(result)
+
+    async def ocr_image(self, image: str) -> OcrImageResult:
+        """图片 OCR
+
+        目前图片OCR接口仅支持接受的图片
+
+        :param image: 图片ID
+        """
+        ocr_result = await self.bot.call_api('ocr_image', image=image)
+        return OcrImageResult.parse_obj(ocr_result)
+
+    """- 语音: 语音相关 API"""
+    async def get_record(
             self,
-            group_id: int | str,
-            user_id: int | str,
-            reject_add_request: bool = False
-    ) -> None:
-        return await self.bot.set_group_kick(group_id=group_id, user_id=user_id, reject_add_request=reject_add_request)
+            file: str,
+            out_format: Literal['mp3', 'amr', 'wma', 'm4a', 'spx', 'ogg', 'wav', 'flac']
+    ) -> RecordFile:
+        """获取语音(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
+        raise ApiNotSupport('go-cqhttp not support "get_record" api')
 
-    async def set_group_ban(
-            self,
-            group_id: int | str,
-            user_id: int | str,
-            duration: int | str = 1800
-    ) -> None:
-        return await self.bot.set_group_ban(group_id=group_id, user_id=user_id, duration=duration)
+    async def can_send_record(self) -> CanSendRecord:
+        result = await self.bot.can_send_record()
+        return CanSendRecord.parse_obj(result)
 
-    async def set_group_anonymous_ban(
-            self,
-            group_id: int | str,
-            anonymous: Anonymous | dict | str | None = None,
-            anonymous_flag: str | None = None,
-            duration: int | str = 1800
-    ) -> None:
-        if isinstance(anonymous, Anonymous):
-            _anonymous = anonymous.json()
-        elif isinstance(anonymous, dict):
-            _anonymous = json.dumps(anonymous)
-        else:
-            _anonymous = anonymous
-        return await self.bot.set_group_anonymous_ban(
-            group_id=group_id, anonymous=_anonymous, anonymous_flag=anonymous_flag, duration=duration)
-
-    async def set_group_whole_ban(self, group_id: int | str, enable: bool = True) -> None:
-        return await self.bot.set_group_whole_ban(group_id=group_id, enable=enable)
-
-    async def set_group_admin(self, group_id: int | str, user_id: int | str, enable: bool = True) -> None:
-        return await self.bot.set_group_admin(group_id=group_id, user_id=user_id, enable=enable)
-
-    async def set_group_anonymous(self, group_id: int | str, enable: bool = True) -> None:
-        """群组匿名(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
-        raise ApiNotSupport('go-cqhttp not support "set_group_anonymous" api')
-
-    async def set_group_card(self, group_id: int | str, user_id: int | str, card: str = '') -> None:
-        return await self.bot.set_group_card(group_id=group_id, user_id=user_id, card=card)
-
-    async def set_group_name(self, group_id: int | str, group_name: str) -> None:
-        return await self.bot.set_group_name(group_id=group_id, group_name=group_name)
-
-    async def set_group_leave(self, group_id: int | str, is_dismiss: bool = False) -> None:
-        return await self.bot.set_group_leave(group_id=group_id, is_dismiss=is_dismiss)
-
-    async def set_group_special_title(
-            self,
-            group_id: int | str,
-            user_id: int | str,
-            special_title: str = '',
-            duration: int | str = -1
-    ) -> None:
-        return await self.bot.set_group_special_title(
-            group_id=group_id, user_id=user_id, special_title=special_title, duration=duration)
-
+    """- 处理: 上报处理相关 API"""
     async def set_friend_add_request(self, flag: str, approve: bool = True, remark: str = '') -> None:
         return await self.bot.set_friend_add_request(flag=flag, approve=approve, remark=remark)
 
@@ -242,56 +306,11 @@ class Gocqhttp(BaseOnebotApi):
             flag: str,
             sub_type: Literal['add', 'invite'],
             approve: bool = True,
-            reason: str = '') -> None:
+            reason: str = ''
+    ) -> None:
         return await self.bot.set_group_add_request(flag=flag, sub_type=sub_type, approve=approve, reason=reason)
 
-    async def get_login_info(self) -> LoginInfo:
-        login_info = await self.bot.get_login_info()
-        return LoginInfo.parse_obj(login_info)
-
-    async def qidian_get_account_info(self) -> QidianAccountUser:
-        """获取企点账号信息(该API只有企点协议可用)"""
-        login_info = await self.bot.call_api('qidian_get_account_info')
-        return QidianAccountUser.parse_obj(login_info)
-
-    async def get_stranger_info(self, user_id: int | str, no_cache: bool = False) -> StrangerInfo:
-        stranger_info = await self.bot.get_stranger_info(user_id=user_id, no_cache=no_cache)
-        return StrangerInfo.parse_obj(stranger_info)
-
-    async def get_friend_list(self) -> list[FriendInfo]:
-        friend_list = await self.bot.get_friend_list()
-        return parse_obj_as(list[FriendInfo], friend_list)
-
-    async def get_unidirectional_friend_list(self) -> list[FriendInfo]:
-        """获取单向好友列表"""
-        unidirectional_friend_list = await self.bot.get_unidirectional_friend_list()
-        return parse_obj_as(list[FriendInfo], unidirectional_friend_list)
-
-    async def delete_unidirectional_friend(self, user_id: int | str) -> None:
-        """删除单向好友
-
-        :param user_id: 用户 QQ 号
-        """
-        return await self.bot.call_api('delete_unidirectional_friend', user_id=user_id)
-
-    async def is_friend(self, user_id: int | str) -> bool:
-        """检查用户是否是好友
-
-        :param user_id: 用户 QQ 号
-        """
-        friend_list = await self.get_friend_list()
-        if str(user_id) in (x.user_id for x in friend_list):
-            return True
-        else:
-            return False
-
-    async def delete_friend(self, friend_id: int | str) -> None:
-        """删除好友
-
-        :param friend_id: 好友 QQ 号
-        """
-        return await self.bot.call_api('delete_friend', friend_id=friend_id)
-
+    """- 群信息: 群信息相关 API"""
     async def get_group_info(self, group_id: int | str, *, no_cache: bool = False) -> GroupInfo:
         """获取群信息
 
@@ -321,52 +340,30 @@ class Gocqhttp(BaseOnebotApi):
         honor_result = await self.bot.get_group_honor_info(group_id=group_id, type=type_)
         return GroupHonor.parse_obj(honor_result)
 
-    async def send_group_sign(self, group_id: int | str) -> None:
-        """群打卡
+    async def get_group_system_msg(self) -> GroupSystemMessage:
+        """获取群系统消息"""
+        system_mes_result = await self.bot.call_api('get_group_system_msg')
+        return GroupSystemMessage.parse_obj(system_mes_result)
+
+    async def get_essence_msg_list(self, group_id: int | str) -> list[GroupEssenceMessage]:
+        """获取精华消息列表
 
         :param group_id: 群号
         """
-        return await self.bot.call_api('send_group_sign', group_id=group_id)
+        messages_result = await self.bot.call_api('get_essence_msg_list', group_id=group_id)
+        return parse_obj_as(list[GroupEssenceMessage], messages_result)
 
-    async def get_cookies(self, domain: str = '') -> Cookies:
-        """获取 Cookies(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
-        raise ApiNotSupport('go-cqhttp not support "get_cookies" api')
+    async def get_group_at_all_remain(self, group_id: int | str) -> GroupAtAllRemain:
+        """获取群 @全体成员 剩余次数
 
-    async def get_csrf_token(self) -> CSRF:
-        """获取 CSRF Token(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
-        raise ApiNotSupport('go-cqhttp not support "get_csrf_token" api')
+        :param group_id: 群号
+        """
+        result = await self.bot.call_api('get_group_at_all_remain', group_id=group_id)
+        return GroupAtAllRemain.parse_obj(result)
 
-    async def get_credentials(self, domain: str = '') -> Credentials:
-        """获取 QQ 相关接口凭证(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
-        raise ApiNotSupport('go-cqhttp not support "get_credentials" api')
-
-    async def get_record(
-            self,
-            file: str,
-            out_format: Literal['mp3', 'amr', 'wma', 'm4a', 'spx', 'ogg', 'wav', 'flac']
-    ) -> RecordFile:
-        """获取语音(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
-        raise ApiNotSupport('go-cqhttp not support "get_record" api')
-
-    async def can_send_image(self) -> CanSendImage:
-        result = await self.bot.can_send_image()
-        return CanSendImage.parse_obj(result)
-
-    async def can_send_record(self) -> CanSendRecord:
-        result = await self.bot.can_send_record()
-        return CanSendRecord.parse_obj(result)
-
-    async def get_version_info(self) -> VersionInfo:
-        version_result = await self.bot.get_version_info()
-        return VersionInfo.parse_obj(version_result)
-
-    async def set_restart(self, delay: int = 0) -> None:
-        """重启 go-cqhttp(实测 go-cqhttp 并不支持)"""
-        raise ApiNotSupport('go-cqhttp not support "set_restart" api')
-
-    async def clean_cache(self) -> None:
-        """清理缓存(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
-        raise ApiNotSupport('go-cqhttp not support "clean_cache" api')
+    """- 群设置: 群设置相关 API"""
+    async def set_group_name(self, group_id: int | str, group_name: str) -> None:
+        return await self.bot.set_group_name(group_id=group_id, group_name=group_name)
 
     async def set_group_portrait(self, group_id: int | str, file: str, cache: int = 1) -> None:
         r"""设置群头像
@@ -384,21 +381,104 @@ class Gocqhttp(BaseOnebotApi):
         """
         return await self.bot.call_api('set_group_portrait', group_id=group_id, file=file, cache=cache)
 
-    async def ocr_image(self, image: str) -> OcrImageResult:
-        """图片 OCR
+    async def set_group_admin(self, group_id: int | str, user_id: int | str, enable: bool = True) -> None:
+        return await self.bot.set_group_admin(group_id=group_id, user_id=user_id, enable=enable)
 
-        目前图片OCR接口仅支持接受的图片
+    async def set_group_card(self, group_id: int | str, user_id: int | str, card: str = '') -> None:
+        return await self.bot.set_group_card(group_id=group_id, user_id=user_id, card=card)
 
-        :param image: 图片ID
+    async def set_group_special_title(
+            self,
+            group_id: int | str,
+            user_id: int | str,
+            special_title: str = '',
+            duration: int | str = -1
+    ) -> None:
+        return await self.bot.set_group_special_title(
+            group_id=group_id, user_id=user_id, special_title=special_title, duration=duration)
+
+    """- 群操作: 群操作相关 API"""
+    async def set_group_ban(
+            self,
+            group_id: int | str,
+            user_id: int | str,
+            duration: int | str = 1800
+    ) -> None:
+        return await self.bot.set_group_ban(group_id=group_id, user_id=user_id, duration=duration)
+
+    async def set_group_whole_ban(self, group_id: int | str, enable: bool = True) -> None:
+        return await self.bot.set_group_whole_ban(group_id=group_id, enable=enable)
+
+    async def set_group_anonymous_ban(
+            self,
+            group_id: int | str,
+            anonymous: Anonymous | dict | str | None = None,
+            anonymous_flag: str | None = None,
+            duration: int | str = 1800
+    ) -> None:
+        if isinstance(anonymous, Anonymous):
+            _anonymous = anonymous.json()
+        elif isinstance(anonymous, dict):
+            _anonymous = json.dumps(anonymous)
+        else:
+            _anonymous = anonymous
+        return await self.bot.set_group_anonymous_ban(group_id=group_id, anonymous=_anonymous,
+                                                      anonymous_flag=anonymous_flag, duration=duration)
+
+    async def set_essence_msg(self, message_id: int) -> None:
+        """设置精华消息
+
+        :param message_id: 消息ID
         """
-        ocr_result = await self.bot.call_api('ocr_image', image=image)
-        return OcrImageResult.parse_obj(ocr_result)
+        return await self.bot.call_api('set_essence_msg', message_id=message_id)
 
-    async def get_group_system_msg(self) -> GroupSystemMessage:
-        """获取群系统消息"""
-        system_mes_result = await self.bot.call_api('get_group_system_msg')
-        return GroupSystemMessage.parse_obj(system_mes_result)
+    async def delete_essence_msg(self, message_id: int) -> None:
+        """移出精华消息
 
+        :param message_id: 消息ID
+        """
+        return await self.bot.call_api('delete_essence_msg', message_id=message_id)
+
+    async def send_group_sign(self, group_id: int | str) -> None:
+        """群打卡
+
+        :param group_id: 群号
+        """
+        return await self.bot.call_api('send_group_sign', group_id=group_id)
+
+    async def set_group_anonymous(self, group_id: int | str, enable: bool = True) -> None:
+        """群组匿名(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
+        raise ApiNotSupport('go-cqhttp not support "set_group_anonymous" api')
+
+    async def _send_group_notice(self, group_id: int | str, content: str, image: str | None = None) -> None:
+        """发送群公告
+
+        :param group_id: 群号
+        :param content: 公告内容
+        :param image: 图片路径（可选）
+        """
+        return await self.bot.call_api('_send_group_notice', group_id=group_id, content=content, image=image)
+
+    async def _get_group_notice(self, group_id: int | str) -> GroupNotice:
+        """获取群公告
+
+        :param group_id: 群号
+        """
+        result = await self.bot.call_api('_get_group_notice', group_id=group_id)
+        return GroupNotice.parse_obj(result)
+
+    async def set_group_kick(
+            self,
+            group_id: int | str,
+            user_id: int | str,
+            reject_add_request: bool = False
+    ) -> None:
+        return await self.bot.set_group_kick(group_id=group_id, user_id=user_id, reject_add_request=reject_add_request)
+
+    async def set_group_leave(self, group_id: int | str, is_dismiss: bool = False) -> None:
+        return await self.bot.set_group_leave(group_id=group_id, is_dismiss=is_dismiss)
+
+    """- 文件: 文件相关 API"""
     async def upload_group_file(self, group_id: int | str, file: str, name: str, folder: str | None = None) -> None:
         """上传群文件
 
@@ -412,16 +492,38 @@ class Gocqhttp(BaseOnebotApi):
         """
         return await self.bot.call_api('upload_group_file', group_id=group_id, file=file, name=name, folder=folder)
 
-    async def upload_private_file(self, user_id: int | str, file: str, name: str) -> None:
-        """上传私聊文件
+    async def delete_group_file(self, group_id: int | str, file_id: str, busid: int) -> None:
+        """删除群文件
 
-        只能上传本地文件, 需要上传 http 文件的话请先调用 download_file API下载
-
-        :param user_id: 好友qq
-        :param file: 本地文件路径
-        :param name: 储存名称
+        :param group_id: 群号
+        :param file_id: 文件ID 参考 File 对象
+        :param busid: 文件类型 参考 File 对象
         """
-        return await self.bot.call_api('upload_private_file', user_id=user_id, file=file, name=name)
+        return await self.bot.call_api('delete_group_file', group_id=group_id, file_id=file_id, busid=busid)
+
+    async def create_group_file_folder(
+            self,
+            group_id: int | str,
+            name: str,
+            *,
+            parent_id: str = '/'
+    ) -> None:
+        """创建群文件文件夹
+        注意: 仅能在根目录创建文件夹
+
+        :param group_id: 群号
+        :param name: 文件夹名
+        :param parent_id: 父文件夹ID
+        """
+        return await self.bot.call_api('create_group_file_folder', group_id=group_id, name=name, parent_id=parent_id)
+
+    async def delete_group_folder(self, group_id: int | str, folder_id: int | str) -> None:
+        """删除群文件文件夹
+
+        :param group_id: 群号
+        :param folder_id: 文件夹ID
+        """
+        return await self.bot.call_api('delete_group_folder', group_id=group_id, folder_id=folder_id)
 
     async def get_group_file_system_info(self, group_id: int | str) -> GroupFileSystemInfo:
         system_info_result = await self.bot.call_api('get_group_file_system_info', group_id=group_id)
@@ -454,60 +556,47 @@ class Gocqhttp(BaseOnebotApi):
         file_result = await self.bot.call_api('get_group_file_url', group_id=group_id, file_id=file_id, busid=busid)
         return GroupFileResource.parse_obj(file_result)
 
-    async def create_group_file_folder(
-            self,
-            group_id: int | str,
-            name: str,
-            parent_id: int | str | None = None
-    ) -> None:
-        """创建群文件文件夹
+    async def upload_private_file(self, user_id: int | str, file: str, name: str) -> None:
+        """上传私聊文件
 
-        :param group_id: 群号
-        :param name: 文件夹名
-        :param parent_id: 父文件夹ID
+        只能上传本地文件, 需要上传 http 文件的话请先调用 download_file API下载
+
+        :param user_id: 好友qq
+        :param file: 本地文件路径
+        :param name: 储存名称
         """
-        return await self.bot.call_api('create_group_file_folder', group_id=group_id, parent_id=parent_id, name=name)
+        return await self.bot.call_api('upload_private_file', user_id=user_id, file=file, name=name)
 
-    async def delete_group_folder(self, group_id: int | str, folder_id: int | str) -> None:
-        """删除群文件文件夹
+    """- Go-CqHttp 相关: Onebot v11 标准中规定但暂未实现, 或 Go-CqHttp 独有的相关 API"""
+    async def get_cookies(self, domain: str = '') -> Cookies:
+        """获取 Cookies(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
+        raise ApiNotSupport('go-cqhttp not support "get_cookies" api')
 
-        :param group_id: 群号
-        :param folder_id: 文件夹ID
-        """
-        return await self.bot.call_api('delete_group_folder', group_id=group_id, folder_id=folder_id)
+    async def get_csrf_token(self) -> CSRF:
+        """获取 CSRF Token(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
+        raise ApiNotSupport('go-cqhttp not support "get_csrf_token" api')
 
-    async def delete_group_file(self, group_id: int | str, file_id: str, busid: int) -> None:
-        """删除群文件
+    async def get_credentials(self, domain: str = '') -> Credentials:
+        """获取 QQ 相关接口凭证(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
+        raise ApiNotSupport('go-cqhttp not support "get_credentials" api')
 
-        :param group_id: 群号
-        :param file_id: 文件ID 参考 File 对象
-        :param busid: 文件类型 参考 File 对象
-        """
-        return await self.bot.call_api('delete_group_file', group_id=group_id, file_id=file_id, busid=busid)
+    async def get_version_info(self) -> VersionInfo:
+        version_result = await self.bot.get_version_info()
+        return VersionInfo.parse_obj(version_result)
 
     async def get_status(self) -> Status:
         status_result = await self.bot.get_status()
         return Status.parse_obj(status_result)
 
-    async def get_group_at_all_remain(self, group_id: int | str) -> GroupAtAllRemain:
-        """获取群 @全体成员 剩余次数
-
-        :param group_id: 群号
+    async def set_restart(self, delay: int = 0) -> None:
+        """重启 Go-CqHttp
+        注意: 该 API 由于技术原因，自 1.0.0 版本已被移除，目前暂时没有再加入的计划 #1230
         """
-        result = await self.bot.call_api('get_group_at_all_remain', group_id=group_id)
-        return GroupAtAllRemain.parse_obj(result)
+        raise ApiNotSupport('go-cqhttp not support "set_restart" api')
 
-    async def send_group_notice(self, group_id: int | str, content: str, image: str | None = None) -> None:
-        """发送群公告
-
-        :param group_id: 群号
-        :param content: 公告内容
-        :param image: 图片路径（可选）
-        """
-        if image is None:
-            await self.bot.call_api('_send_group_notice', group_id=group_id, content=content)
-        else:
-            await self.bot.call_api('_send_group_notice', group_id=group_id, content=content, image=image)
+    async def clean_cache(self) -> None:
+        """清理缓存(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
+        raise ApiNotSupport('go-cqhttp not support "clean_cache" api')
 
     async def reload_event_filter(self, file: str) -> None:
         """重载事件过滤器
@@ -529,45 +618,6 @@ class Gocqhttp(BaseOnebotApi):
         file_result = await self.bot.call_api('download_file', url=url, thread_count=thread_count, headers=headers)
         return DownloadedFile.parse_obj(file_result)
 
-    async def get_online_clients(self, no_cache: bool = False) -> OnlineClients:
-        """获取当前账号在线客户端列表
-
-        :param no_cache: 是否无视缓存
-        """
-        client_result = await self.bot.call_api('get_online_clients', no_cache=no_cache)
-        return OnlineClients.parse_obj(client_result)
-
-    async def get_group_msg_history(self, group_id: int | str, message_seq: int | None = None) -> GroupMessageHistory:
-        """获取群消息历史记录
-
-        :param group_id: 群号
-        :param message_seq: 起始消息序号, 可通过 get_msg 获得, 不提供起始序号将默认获取最新的消息
-        """
-        message_result = await self.bot.call_api('get_group_msg_history', group_id=group_id, message_seq=message_seq)
-        return GroupMessageHistory.parse_obj(message_result)
-
-    async def set_essence_msg(self, message_id: int) -> None:
-        """设置精华消息
-
-        :param message_id: 消息ID
-        """
-        return await self.bot.call_api('set_essence_msg', message_id=message_id)
-
-    async def delete_essence_msg(self, message_id: int) -> None:
-        """移出精华消息
-
-        :param message_id: 消息ID
-        """
-        return await self.bot.call_api('delete_essence_msg', message_id=message_id)
-
-    async def get_essence_msg_list(self, group_id: int | str) -> list[GroupEssenceMessage]:
-        """获取精华消息列表
-
-        :param group_id: 群号
-        """
-        messages_result = await self.bot.call_api('get_essence_msg_list', group_id=group_id)
-        return parse_obj_as(list[GroupEssenceMessage], messages_result)
-
     async def check_url_safely(self, url: str) -> UrlSafely:
         """检查链接安全性
 
@@ -577,6 +627,7 @@ class Gocqhttp(BaseOnebotApi):
         result = await self.bot.call_api('check_url_safely', url=url)
         return UrlSafely.parse_obj(result)
 
+    """- 频道 API: 频道相关 API"""
     async def get_guild_service_profile(self) -> GuildServiceProfile:
         """获取频道系统内BOT的资料"""
         result_data = await self.bot.call_api(api='get_guild_service_profile')

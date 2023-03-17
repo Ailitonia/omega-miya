@@ -194,6 +194,34 @@ class GroupEssenceMessage(BaseOnebotModel):
     message_id: int
 
 
+class GroupNotice(BaseOnebotModel):
+    """群公告
+
+    - sender_id: 公告发表者
+    - publish_time: 公告发表时间
+    - message: 公告内容
+    """
+
+    class _Message(BaseOnebotModel):
+        """公告内容
+
+        - text: 公告内容
+        - images: 公告图片
+        """
+
+        class _Images(BaseOnebotModel):
+            height: str
+            width: str
+            id: str
+
+        text: str
+        images: list[_Images]
+
+    sender_id: int
+    publish_time: int
+    message: _Message
+
+
 __all__ = [
     'GroupInfo',
     'GroupHonor',
@@ -203,5 +231,6 @@ __all__ = [
     'GroupFolderFiles',
     'GroupFileResource',
     'GroupAtAllRemain',
-    'GroupEssenceMessage'
+    'GroupEssenceMessage',
+    'GroupNotice'
 ]

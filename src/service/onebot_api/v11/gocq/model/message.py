@@ -22,6 +22,11 @@ class SentMessage(OnebotSentMessage):
     """已发送的消息"""
 
 
+class SentForwardMessage(OnebotSentMessage):
+    """已发送的合并转发消息"""
+    forward_id: str
+
+
 class ReceiveMessage(BaseOnebotModel):
     """Api /get_msg 收到的消息
 
@@ -34,14 +39,17 @@ class ReceiveMessage(BaseOnebotModel):
     - message: 消息内容
     """
     group: bool
-    message: Message
+    group_id: Optional[int]
     message_id: int
-    message_id_v2: str
-    message_seq: int
-    message_type: str
     real_id: int
+    message_type: str
     sender: Sender
     time: int
+    message: Message
+    message_raw: Optional[Message]
+    raw_message: Optional[Message]
+    message_id_v2: Optional[str]
+    message_seq: Optional[int]
 
 
 class GroupMessageHistory(BaseOnebotModel):
@@ -83,6 +91,7 @@ class ReceiveForwardMessage(BaseOnebotModel):
 
 __all__ = [
     'SentMessage',
+    'SentForwardMessage',
     'ReceiveMessage',
     'GroupMessageHistory',
     'ReceiveForwardMessage'

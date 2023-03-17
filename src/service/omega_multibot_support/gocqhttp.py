@@ -21,7 +21,7 @@ from sqlalchemy.exc import NoResultFound
 
 from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
-from src.service.onebot_api import Gocqhttp
+from src.service.onebot_api.v11 import Gocqhttp
 
 
 class __OriginalResponding:

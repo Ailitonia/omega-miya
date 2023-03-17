@@ -16,7 +16,7 @@ from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event, GroupMessageEvent, PrivateMessageEvent
 from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 
-from src.service.onebot_api import Gocqhttp
+from src.service.onebot_api.v11 import Gocqhttp
 from src.service.omega_base import OmegaEntity
 from src.service.gocqhttp_guild_patch import GuildMessageEvent
 from src.service.omega_requests import OmegaRequests
