@@ -2,7 +2,7 @@ nonebot2==2.0.0rc3
 nonebot-adapter-onebot==2.2.2
 fastapi==0.94.1
 pydantic==1.10.6
-SQLAlchemy~=1.4.46
+SQLAlchemy~=2.0.6
 asyncmy~=0.2.7
 aiomysql~=0.1.1
 asyncpg~=0.27.0
