@@ -9,9 +9,7 @@
 """
 
 from nonebot import logger
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .config import database_config
 
@@ -28,8 +26,8 @@ try:
 
     # 创建异步 session
     # expire_on_commit=False will prevent attributes from being expired after commit.
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
+    async_session = async_sessionmaker(
+        engine, class_=AsyncSession, autoflush=True, expire_on_commit=False
     )
 except Exception as e:
     import sys
