@@ -23,7 +23,8 @@ Base = declarative_base()
 class SystemSettingOrm(Base):
     """系统参数表, 存放运行时配置"""
     __tablename__ = f'{database_config.db_prefix}system_setting'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -41,7 +42,8 @@ class SystemSettingOrm(Base):
 class PluginOrm(Base):
     """插件表, 存放插件信息"""
     __tablename__ = f'{database_config.db_prefix}plugin'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -61,7 +63,8 @@ class PluginOrm(Base):
 class StatisticOrm(Base):
     """统计信息表, 存放插件运行统计"""
     __tablename__ = f'{database_config.db_prefix}statistic'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(BigInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -85,14 +88,15 @@ class StatisticOrm(Base):
 class HistoryOrm(Base):
     """记录表"""
     __tablename__ = f'{database_config.db_prefix}history'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(BigInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     time = Column(BigInt, nullable=False, comment='事件发生的时间戳')
     bot_self_id = Column(String(64), nullable=False, index=True, comment='收到事件的机器人id')
-    parent_entity_id = Column(String(64), nullable=False, index=True, comment='事件对应对象父实体信息')
-    entity_id = Column(String(64), nullable=False, index=True, comment='事件对应对象实体信息')
+    parent_entity_id = Column(String(64), nullable=False, index=True, comment='事件对应对象父实体id')
+    entity_id = Column(String(64), nullable=False, index=True, comment='事件对应对象实体id')
     event_type = Column(String(64), nullable=False, index=True, comment='事件类型')
     event_id = Column(String(64), nullable=False, index=True, comment='事件id')
     raw_data = Column(String(4096), nullable=False, comment='原始事件内容')
@@ -111,7 +115,8 @@ class HistoryOrm(Base):
 class BotSelfOrm(Base):
     """Bot表 对应不同机器人协议端"""
     __tablename__ = f'{database_config.db_prefix}bots'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -134,7 +139,8 @@ class BotSelfOrm(Base):
 class EntityOrm(Base):
     """实体表, 存放用户/群组/频道等所有需要交互的对象, 所有属性/好感度/权限/订阅等操作实例对象均以此为基准"""
     __tablename__ = f'{database_config.db_prefix}entity'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -173,7 +179,8 @@ class EntityOrm(Base):
 class FriendshipOrm(Base):
     """好感度及状态表, 养成系统基础表单"""
     __tablename__ = f'{database_config.db_prefix}friendship'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     entity_index_id = Column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False, unique=True)
@@ -199,7 +206,8 @@ class FriendshipOrm(Base):
 class SignInOrm(Base):
     """签到表, 养成系统基础表单"""
     __tablename__ = f'{database_config.db_prefix}sign_in'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(BigInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     entity_index_id = Column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
@@ -220,7 +228,8 @@ class SignInOrm(Base):
 class AuthSettingOrm(Base):
     """授权配置表, 主要用于权限管理, 同时兼用于存放使用插件时需要持久化的配置"""
     __tablename__ = f'{database_config.db_prefix}auth_setting'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     entity_index_id = Column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
@@ -244,7 +253,8 @@ class AuthSettingOrm(Base):
 class CoolDownOrm(Base):
     """冷却事件表"""
     __tablename__ = f'{database_config.db_prefix}cool_down'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -267,7 +277,8 @@ class CoolDownOrm(Base):
 class EmailBoxOrm(Base):
     """邮箱表"""
     __tablename__ = f'{database_config.db_prefix}email_box'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     address = Column(String(128), nullable=False, index=True, unique=True, comment='邮箱地址')
@@ -291,7 +302,8 @@ class EmailBoxOrm(Base):
 class EmailBoxBindOrm(Base):
     """邮箱绑定表"""
     __tablename__ = f'{database_config.db_prefix}email_box_bind'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     email_box_index_id = Column(Integer, ForeignKey(EmailBoxOrm.id, ondelete='CASCADE'), nullable=False)
@@ -315,7 +327,8 @@ class EmailBoxBindOrm(Base):
 class SubscriptionSourceOrm(Base):
     """订阅源表"""
     __tablename__ = f'{database_config.db_prefix}subscription_source'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     sub_type = Column(String(64), nullable=False, index=True, comment='订阅类型')
@@ -339,7 +352,8 @@ class SubscriptionSourceOrm(Base):
 class SubscriptionOrm(Base):
     """订阅表"""
     __tablename__ = f'{database_config.db_prefix}subscription'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     sub_source_index_id = Column(Integer, ForeignKey(SubscriptionSourceOrm.id, ondelete='CASCADE'), nullable=False)
@@ -364,7 +378,8 @@ class SubscriptionOrm(Base):
 class BiliDynamicOrm(Base):
     """B站动态表"""
     __tablename__ = f'{database_config.db_prefix}bili_dynamic'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(BigInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -384,7 +399,8 @@ class BiliDynamicOrm(Base):
 class PixivArtworkOrm(Base):
     """Pixiv 作品表"""
     __tablename__ = f'{database_config.db_prefix}pixiv_artwork'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(BigInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -416,7 +432,8 @@ class PixivArtworkOrm(Base):
 class PixivArtworkPageOrm(Base):
     """Pixiv 作品图片链接表"""
     __tablename__ = f'{database_config.db_prefix}pixiv_artwork_page'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     id = Column(BigInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
     artwork_index_id = Column(BigInt, ForeignKey(PixivArtworkOrm.id, ondelete='CASCADE'), nullable=False)
@@ -443,7 +460,8 @@ class PixivArtworkPageOrm(Base):
 class PixivisionArticleOrm(Base):
     """Pixivision 表"""
     __tablename__ = f'{database_config.db_prefix}pixivision_article'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
@@ -465,7 +483,8 @@ class PixivisionArticleOrm(Base):
 class WordBankOrm(Base):
     """问答语料词句表"""
     __tablename__ = f'{database_config.db_prefix}word_bank'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
 
     # 表结构
     id = Column(Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True)
