@@ -39,6 +39,10 @@ from .helper import (parse_user_searching_result_page, generate_user_searching_r
 class Pixiv(abc.ABC):
     """Pixiv 基类"""
     _root_url: str = 'https://www.pixiv.net'
+    _ranking_url: str = 'https://www.pixiv.net/ranking.php'  # Pixiv 排行榜
+    _search_url: str = 'https://www.pixiv.net/ajax/search/'  # Pixiv 搜索
+    _recommend_artworks_url: str = 'https://www.pixiv.net/ajax/top/illust'  # Pixiv 推荐
+    _discovery_artworks_url: str = 'https://www.pixiv.net/ajax/discovery/artworks'  # Pixiv 发现
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
@@ -100,11 +104,6 @@ class Pixiv(abc.ABC):
         requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
 
         return await requests.download(url=url, file=file, params=params)
-
-
-class PixivRanking(Pixiv):
-    """Pixiv 排行榜"""
-    _ranking_url: str = 'https://www.pixiv.net/ranking.php'
 
     @classmethod
     async def query_ranking(
@@ -172,11 +171,6 @@ class PixivRanking(Pixiv):
         preview_img_file = await generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=6)
         return preview_img_file
-
-
-class PixivSearching(Pixiv):
-    """Pixiv 搜索"""
-    _search_url: str = 'https://www.pixiv.net/ajax/search/'
 
     @classmethod
     async def search(
@@ -272,12 +266,6 @@ class PixivSearching(Pixiv):
         preview_img_file = await generate_artworks_preview_image(preview=preview_request)
         return preview_img_file
 
-
-class PixivDiscovery(Pixiv):
-    """Pixiv 发现和推荐"""
-    _recommend_illust_url: str = 'https://www.pixiv.net/ajax/top/illust'
-    _discovery_artworks_url: str = 'https://www.pixiv.net/ajax/discovery/artworks'
-
     @classmethod
     async def query_discovery_artworks(
             cls,
@@ -314,7 +302,7 @@ class PixivDiscovery(Pixiv):
         """获取首页推荐内容"""
         params = {'mode': mode, 'lang': lang}
 
-        recommend_data = await cls.request_json(url=cls._recommend_illust_url, params=params)
+        recommend_data = await cls.request_json(url=cls._recommend_artworks_url, params=params)
         return PixivRecommendModel.parse_obj(recommend_data)
 
     @classmethod
@@ -800,9 +788,6 @@ async def _emit_preview_model_from_artwork_pids(preview_name: str, pids: list[in
 
 
 __all__ = [
-    'PixivRanking',
-    'PixivSearching',
-    'PixivDiscovery',
     'PixivArtwork',
     'PixivUser'
 ]

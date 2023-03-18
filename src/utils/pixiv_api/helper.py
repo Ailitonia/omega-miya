@@ -59,9 +59,9 @@ def parse_pid_from_url(text: str, *, url_mode: bool = True) -> int | None:
             return int(url_old.group(1))
     else:
         # 分别匹配不同格式 pixiv 链接格式, 可匹配任何字符串中的 url
-        if url_new := re.search(r'https?://.*?pixiv\.net/(artworks|i)/(\d+)', text):
+        if url_new := re.search(r'https?://.*?pixiv\.net/(artworks|i)/(\d+)\??', text):
             return int(url_new.group(2))
-        elif url_old := re.search(r'https?://.*?pixiv\.net.*?illust_id=(\d+)', text):
+        elif url_old := re.search(r'https?://.*?pixiv\.net.*?illust_id=(\d+)\??', text):
             return int(url_old.group(1))
     return None
 
@@ -188,7 +188,7 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
 
         artwork_main = artwork.xpath('div[@class="am__work__main"]').pop(0)
         artwork_url = artwork_main.xpath('a[@class="inner-link"]').pop(0).attrib.get('href')
-        artwork_id = parse_pid_from_url(text=artwork_url)
+        artwork_id = parse_pid_from_url(text=artwork_url, url_mode=False)
         image_url = artwork_main.xpath('a//img[@class="am__work__illust "]').pop(0).attrib.get('src')
 
         artwork_list.append({'artwork_id': artwork_id, 'artwork_user': artwork_user_name,

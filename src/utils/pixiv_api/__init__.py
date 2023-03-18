@@ -8,14 +8,11 @@
 @Software       : PyCharm
 """
 
-from .pixiv import PixivRanking, PixivSearching, PixivDiscovery, PixivArtwork, PixivUser
+from .pixiv import PixivArtwork, PixivUser
 from .pixivision import Pixivision
 
 
 __all__ = [
-    'PixivRanking',
-    'PixivSearching',
-    'PixivDiscovery',
     'PixivArtwork',
     'PixivUser',
     'Pixivision'
