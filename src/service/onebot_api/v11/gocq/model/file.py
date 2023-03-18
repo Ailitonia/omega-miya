@@ -114,7 +114,8 @@ class VersionInfo(OnebotVersionInfo):
     runtime_version: str
     runtime_os: str
     version: str
-    protocol: int
+    protocol: int = Field(alias='protocol_name')
+    protocol_version: str
 
     class Config:
         extra = 'ignore'
