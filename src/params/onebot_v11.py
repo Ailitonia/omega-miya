@@ -8,13 +8,14 @@
 @Software       : PyCharm
 """
 
+from contextlib import asynccontextmanager
 from typing import Literal
 from nonebot.params import Depends
 from nonebot.rule import Rule
 from nonebot.adapters.onebot.v11 import Bot, Event, MessageEvent, GroupMessageEvent, PrivateMessageEvent
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_db_session
+from src.database import begin_db_session, get_db_session
 from src.service.gocqhttp_guild_patch import GuildMessageEvent
 from src.service.omega_base import OmegaEntity
 
@@ -33,6 +34,13 @@ class OneBotV11EntityDepend(object):
                 return OmegaEntity(session=session, **self.generate_user_entity_params_from_event(bot, event))
             case _:
                 raise ValueError(f'illegal acquire_type: "{self.acquire_type}"')
+
+    @asynccontextmanager
+    async def get_entity(self, bot: Bot, event: Event) -> OmegaEntity:
+        """获取 OmegaEntity 并开始事务"""
+        async with begin_db_session() as session:
+            entity = self(bot=bot, event=event, session=session)
+            yield entity
 
     @staticmethod
     def generate_event_entity_params_from_event(bot: Bot, event: Event) -> dict:
