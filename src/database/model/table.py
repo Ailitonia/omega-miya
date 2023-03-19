@@ -58,7 +58,7 @@ class PluginOrm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"PluginOrm(plugin_name={self.plugin_name!r}, module_name={self.module_name!r}, "
                 f"enabled={self.enabled!r}, info={self.info!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -83,7 +83,7 @@ class StatisticOrm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"StatisticOrm(module_name={self.module_name!r}, plugin_name={self.plugin_name!r}, "
                 f"bot_self_id={self.bot_self_id!r}, parent_entity_id={self.parent_entity_id!r}, "
                 f"entity_id={self.entity_id!r}, call_time={self.call_time!r}, call_info={self.call_info!r}, "
@@ -110,7 +110,7 @@ class HistoryOrm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"HistoryOrm(time={self.time!r}, bot_self_id={self.bot_self_id!r}, "
                 f"parent_entity_id={self.parent_entity_id!r}, entity_id={self.entity_id!r}, "
                 f"event_type={self.event_type!r}, event_id={self.event_id!r}, "
@@ -140,7 +140,7 @@ class BotSelfOrm(Base):
         'EntityOrm', back_populates='entity_back_bots', cascade='all, delete-orphan', passive_deletes=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"BotSelfOrm(self_id={self.self_id!r}, bot_type={self.bot_type!r}, bot_status={self.bot_status!r}, "
                 f"bot_info={self.bot_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
@@ -190,7 +190,7 @@ class EntityOrm(Base):
         'SubscriptionOrm', back_populates='subscription_back_entity', cascade='all, delete-orphan', passive_deletes=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"EntityOrm(bot_index_id={self.bot_index_id!r}, entity_id={self.entity_id!r}, "
                 f"entity_type={self.entity_type!r}, parent_id={self.parent_id!r}, "
                 f"entity_name={self.entity_name!r}, entity_info={self.entity_info!r} "
@@ -222,7 +222,7 @@ class FriendshipOrm(Base):
         EntityOrm, back_populates='entity_friendship', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"FriendshipOrm(entity_index_id={self.entity_index_id!r}, status={self.status!r}, "
                 f"mood={self.mood!r}, friendship={self.friendship!r}, energy={self.energy!r}, "
                 f"currency={self.currency!r}, response_threshold={self.response_threshold!r}, "
@@ -248,7 +248,7 @@ class SignInOrm(Base):
         EntityOrm, back_populates='entity_signin', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"SignInOrm(entity_index_id={self.entity_index_id!r}, sign_in_date={self.sign_in_date!r}, "
                 f"sign_in_info={self.sign_in_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
@@ -276,7 +276,7 @@ class AuthSettingOrm(Base):
         EntityOrm, back_populates='entity_auth', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"AuthSettingOrm(entity_index_id={self.entity_index_id!r}, module={self.module!r}, "
                 f"plugin={self.plugin!r}, node={self.node!r}, available={self.available!r}, value={self.value!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -303,7 +303,7 @@ class CoolDownOrm(Base):
         EntityOrm, back_populates='entity_cooldown', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"CoolDownOrm(entity_index_id={self.entity_index_id!r}, event={self.event!r}, "
                 f"stop_at={self.stop_at!r}, description={self.description!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -331,7 +331,7 @@ class EmailBoxOrm(Base):
         back_populates='email_box_bind_back_email_box', cascade='all, delete-orphan', passive_deletes=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"EmailBoxOrm(address={self.address!r}, server_host={self.server_host!r}, "
                 f"protocol={self.protocol!r}, port={self.port!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -361,7 +361,7 @@ class EmailBoxBindOrm(Base):
         EntityOrm, back_populates='entity_email_box_bind', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"EmailBoxBindOrm(email_box_index_id={self.email_box_index_id!r}, "
                 f"entity_index_id={self.entity_index_id!r}, bind_info={self.bind_info!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -388,7 +388,7 @@ class SubscriptionSourceOrm(Base):
         back_populates='subscription_back_subscription_source', cascade='all, delete-orphan', passive_deletes=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"SubscriptionSourceOrm(sub_type={self.sub_type!r}, sub_id={self.sub_id!r}, "
                 f"sub_user_name={self.sub_user_name!r}, sub_info={self.sub_info!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -418,7 +418,7 @@ class SubscriptionOrm(Base):
         EntityOrm, back_populates='entity_subscription', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"<SubscriptionOrm(sub_source_index_id={self.sub_source_index_id!r}, "
                 f"entity_index_id={self.entity_index_id!r}, sub_info={self.sub_info!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})>")
@@ -440,7 +440,7 @@ class BiliDynamicOrm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"BiliDynamicOrm(dynamic_id={self.dynamic_id!r}, dynamic_type={self.dynamic_type!r}, "
                 f"uid={self.uid!r}, content={self.content!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -476,7 +476,7 @@ class PixivArtworkOrm(Base):
         back_populates='pixiv_artwork_page_back_pixiv_artwork', cascade='all, delete-orphan', passive_deletes=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"PixivArtworkOrm(pid={self.pid!r}, uid={self.uid!r}, title={self.title!r}, uname={self.uname!r}, "
                 f"classified={self.classified!r}, nsfw_tag={self.nsfw_tag!r}, "
                 f"width={self.width!r}, height={self.height!r}, tags={self.tags!r}, url={self.url!r}, "
@@ -506,7 +506,7 @@ class PixivArtworkPageOrm(Base):
         PixivArtworkOrm, back_populates='pixiv_artwork_pixiv_artwork_page', lazy='joined', innerjoin=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"PixivPage(artwork_index_id={self.artwork_index_id!r}, page={self.page!r}, "
                 f"original={self.original!r}, regular={self.regular!r}, "
                 f"small={self.small!r}, thumb_mini={self.thumb_mini!r}, "
@@ -531,7 +531,7 @@ class PixivisionArticleOrm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"PixivisionArticleOrm(aid={self.aid!r}, title={self.title!r}, description={self.description!r}, "
                 f"tags={self.tags!r}, artworks_id={self.artworks_id!r}, url={self.url!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
@@ -553,7 +553,7 @@ class WordBankOrm(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"WordBankOrm(key_word={self.key_word!r}, reply_entity={self.reply_entity!r}, "
                 f"result_word={self.result_word!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
