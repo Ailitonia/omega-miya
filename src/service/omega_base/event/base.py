@@ -33,19 +33,19 @@ class Event(BaseEvent):
 
     @overrides(BaseEvent)
     def get_message(self) -> Message:
-        raise ValueError('Event has no message!')
+        raise NotImplementedError
 
     @overrides(BaseEvent)
     def get_user_id(self) -> str:
-        raise ValueError('Event has no context!')
+        raise NotImplementedError
 
     @overrides(BaseEvent)
     def get_session_id(self) -> str:
-        raise ValueError('Event has no context!')
+        raise NotImplementedError
 
     @overrides(BaseEvent)
     def is_tome(self) -> bool:
-        return False
+        raise NotImplementedError
 
 
 __all__ = [

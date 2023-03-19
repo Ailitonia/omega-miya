@@ -10,6 +10,7 @@
 
 from typing import Literal
 from nonebot.typing import overrides
+from nonebot.adapters import Message
 
 from .base import Event as OmegaEvent
 
@@ -23,6 +24,10 @@ class BotActionEvent(OmegaEvent):
     action: str
 
     @overrides(OmegaEvent)
+    def get_message(self) -> Message:
+        raise ValueError('Event has no message!')
+
+    @overrides(OmegaEvent)
     def get_user_id(self) -> str:
         return str(self.bot_id)
 
@@ -34,23 +39,19 @@ class BotActionEvent(OmegaEvent):
     def get_event_description(self) -> str:
         return f'Bot({self.bot_type}/{self.bot_id}) occurred the action: {self.action.upper()}'
 
+    @overrides(OmegaEvent)
+    def is_tome(self) -> bool:
+        return True
+
 
 class BotConnectEvent(BotActionEvent):
     """Bot 已连接"""
     action: Literal['bot_connect'] = 'bot_connect'
 
-    @overrides(OmegaEvent)
-    def is_tome(self) -> bool:
-        return True
-
 
 class BotDisconnectEvent(BotActionEvent):
     """Bot 已断开连接"""
     action: Literal['bot_disconnect'] = 'bot_disconnect'
-
-    @overrides(OmegaEvent)
-    def is_tome(self) -> bool:
-        return True
 
 
 __all__ = [
