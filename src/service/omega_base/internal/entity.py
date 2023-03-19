@@ -447,16 +447,16 @@ class InternalEntity(object):
         """
         return await self.check_cooldown_expired(cooldown_event=GLOBAL_COOLDOWN_EVENT)
 
-    async def set_rate_limiting_cooldown(self, expired_time: datetime | timedelta) -> None:
-        """设置流控冷却
+    async def _set_rate_limiting_cooldown(self, expired_time: datetime | timedelta) -> None:
+        """(Deactivated)设置流控冷却
 
         :param expired_time: datetime: 冷却过期事件; timedelta: 以现在时间为准新增的冷却时间
         """
         return await self.set_cooldown(cooldown_event=RATE_LIMITING_COOLDOWN_EVENT, expired_time=expired_time,
                                        description='流控冷却')
 
-    async def check_rate_limiting_cooldown_expired(self) -> (bool, datetime):
-        """查询流控专用冷却是否到期
+    async def _check_rate_limiting_cooldown_expired(self) -> (bool, datetime):
+        """(Deactivated)查询流控专用冷却是否到期
 
         :return: 冷却是否已到期, (若仍在冷却中的)到期时间
         """
