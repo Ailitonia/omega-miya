@@ -284,7 +284,7 @@ class AuthSettingOrm(Base):
 
 class CoolDownOrm(Base):
     """冷却事件表"""
-    __tablename__ = f'{database_config.db_prefix}cool_down'
+    __tablename__ = f'{database_config.db_prefix}cooldown'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
