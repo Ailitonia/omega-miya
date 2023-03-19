@@ -1,5 +1,6 @@
 nonebot2==2.0.0rc3
 nonebot-adapter-onebot==2.2.2
+nonebot-adapter-telegram~=0.1.0b8
 fastapi==0.94.1
 pydantic==1.10.6
 SQLAlchemy~=2.0.6
