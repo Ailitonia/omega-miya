@@ -69,13 +69,13 @@ async def __obv11_unique_bot_responding_rule_updater(event: Event, matcher: Matc
 
 @event_preprocessor
 async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSession = Depends(get_db_session)):
-    """处理 Onebot V11 连接事件"""
+    """处理 OneBot V11(go-cqhttp) Bot 连接事件"""
     assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
 
     bot_api = Gocqhttp(bot=bot)
     bot_dal = BotSelfDAL(session=session)
     entity_dal = EntityDAL(session=session)
-    entity_type = entity_dal.entity_type
+    allowed_entity_type = entity_dal.entity_type
 
     # 更新 bot 状态
     bot_version_info = await bot_api.get_version_info()
@@ -95,7 +95,7 @@ async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSe
         group_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': group.group_id,
-            'entity_type': entity_type.qq_group.value,
+            'entity_type': allowed_entity_type.qq_group.value,
             'parent_id': bot.self_id
         }
         try:
@@ -116,7 +116,7 @@ async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSe
         user_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': user.user_id,
-            'entity_type': entity_type.qq_user.value,
+            'entity_type': allowed_entity_type.qq_user.value,
             'parent_id': bot.self_id
         }
         try:
@@ -138,7 +138,7 @@ async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSe
         guild_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': guild.guild_id,
-            'entity_type': entity_type.qq_guild.value,
+            'entity_type': allowed_entity_type.qq_guild.value,
             'parent_id': guild_profile.tiny_id
         }
         guild_info = f'display_id: {guild.guild_display_id}'
@@ -161,7 +161,7 @@ async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSe
             channel_query_data = {
                 'bot_index_id': exist_bot.id,
                 'entity_id': channel.channel_id,
-                'entity_type': entity_type.qq_guild_channel.value,
+                'entity_type': allowed_entity_type.qq_guild_channel.value,
                 'parent_id': channel.owner_guild_id
             }
             chan_info = f'owner_guild: {channel.owner_guild_id}/{guild.guild_name}'
@@ -182,7 +182,7 @@ async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSe
 
 @event_preprocessor
 async def __obv11_bot_disconnect(bot: Bot, event: BotDisconnectEvent, session: AsyncSession = Depends(get_db_session)):
-    """处理 Onebot V11 断开连接事件"""
+    """处理 OneBot V11(go-cqhttp) Bot 断开连接事件"""
     assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
 
     bot_dal = BotSelfDAL(session)

@@ -16,6 +16,7 @@ from nonebot.message import handle_event, run_preprocessor
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 from .gocqhttp import *
+from .telegram import *
 
 
 __ONLINE_BOTS: dict[str, Bot] = {}

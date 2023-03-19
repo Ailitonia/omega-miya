@@ -32,7 +32,7 @@ class BotActionEvent(OmegaEvent):
 
     @overrides(OmegaEvent)
     def get_event_description(self) -> str:
-        return f'Bot<{self.bot_type}/{self.bot_id}> occurred the action: {self.action.upper()}'
+        return f'Bot({self.bot_type}/{self.bot_id}) occurred the action: {self.action.upper()}'
 
 
 class BotConnectEvent(BotActionEvent):
