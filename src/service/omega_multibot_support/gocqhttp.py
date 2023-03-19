@@ -15,6 +15,7 @@ from nonebot.params import Depends
 from nonebot.permission import Permission
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event, MessageEvent, NoticeEvent, RequestEvent
+from nonebot.exception import IgnoredException
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
@@ -60,7 +61,13 @@ async def __original_responding_permission_updater(bot: Bot, event: Event, match
 
 
 @run_preprocessor
-async def __obv11_unique_bot_responding_rule_updater(event: Event, matcher: Matcher):
+async def __obv11_unique_bot_responding_rule_updater(bot: Bot, event: Event, matcher: Matcher):
+    # 对于多协议端同时接入, 需匹配event.self_id与bot.self_id, 以保证会话不会被跨bot, 跨群, 跨用户触发
+    event_self_id = str(event.self_id)
+    if bot.self_id != event_self_id:
+        logger.debug(f'Bot {bot.self_id} ignored event which not match self_id {event_self_id}')
+        raise IgnoredException(f'Bot {bot.self_id} ignored event which not match self_id {event_self_id}')
+
     # 对于多协议端同时接入, 需要使用 permission_updater 限制 bot 的 self_id 避免响应混乱
     if isinstance(event, (MessageEvent, NoticeEvent, RequestEvent)) and not matcher.temp:
         if not matcher.__class__._default_permission_updater:

@@ -26,13 +26,13 @@ driver = get_driver()
 
 @run_preprocessor
 async def __unique_bot_responding_limit(bot: Bot, event: Event):
-    # 对于多协议端同时接入, 需匹配event.self_id与bot.self_id, 以保证会话不会被跨bot, 跨群, 跨用户触发
-    if bot.self_id != str(getattr(event, 'self_id', -1)):
-        logger.debug(f'Bot {bot.self_id} ignored event which not match self_id {getattr(event, "self_id")}')
-        raise IgnoredException(f'Bot {bot.self_id} ignored event which not match self_id {getattr(event, "self_id")}')
-
     # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
-    event_user_id = str(getattr(event, 'user_id', -1))
+    try:
+        event_user_id = event.get_user_id()
+    except (NotImplementedError, ValueError):
+        logger.opt(colors=True).trace('Unique bot responding limit checker Ignored with no-user_id event')
+        return
+
     if event_user_id in [x for x in __ONLINE_BOTS.keys() if x != bot.self_id]:
         logger.debug(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}')
         raise IgnoredException(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}')
