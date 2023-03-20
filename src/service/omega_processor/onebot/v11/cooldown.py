@@ -119,11 +119,13 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Messag
     elif is_expired:
         # 冷却过期后就要新增冷却
         async with entity_depend.get_entity(bot=bot, event=event) as entity:
-            await _set_entity_cooldown(
-                entity=entity, cooldown_event=cooldown_event, cooldown_time=processor_state.cooldown
+            await entity.set_cooldown(
+                cooldown_event=cooldown_event, expired_time=timedelta(seconds=processor_state.cooldown)
             )
         logger.opt(colors=True).debug(
-            f'{LOG_PREFIX}{matcher}/Plugin({plugin_name}) <ly>Entity({entity.tid})</ly> cooldown expired')
+            f'{LOG_PREFIX}{matcher}/Plugin({plugin_name}) <ly>Entity({entity.tid})</ly> '
+            f'cooldown is expired and has been refresh'
+        )
         return
     else:
         logger.opt(colors=True).info(
@@ -154,25 +156,6 @@ async def _check_entity_cooldown(
     is_expired, expired_time = await entity.check_cooldown_expired(cooldown_event=cooldown_event)
 
     return _CooldownCheckingResult(is_expired=is_expired, expired_time=expired_time, allow_skip=False)
-
-
-async def _set_entity_cooldown(
-        entity: OmegaEntity,
-        cooldown_event: str,
-        cooldown_time: int,
-) -> None:
-    """为用户/群组/频道设置冷却"""
-    try:
-        await entity.set_cooldown(cooldown_event=cooldown_event, expired_time=timedelta(seconds=cooldown_time))
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}Refresh Entity({entity.tid}) Cooldown({cooldown_event}) succeed')
-    except NoResultFound:
-        logger.opt(colors=True).warning(
-            f'{LOG_PREFIX}Refresh Entity({entity.tid}) Cooldown({cooldown_event}) failed, entity not found in database'
-        )
-    except Exception as e:
-        logger.opt(colors=True).error(
-            f'{LOG_PREFIX}Refresh Entity({entity.tid}) Cooldown({cooldown_event}) failed, {e}'
-        )
 
 
 __all__ = [

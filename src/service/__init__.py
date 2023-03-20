@@ -7,3 +7,10 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
+from .omega_processor import enable_processor_state
+
+
+__all__ = [
+    'enable_processor_state'
+]

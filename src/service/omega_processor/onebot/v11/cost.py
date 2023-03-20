@@ -63,7 +63,7 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: MessageEve
 
         echo_message = f'已消耗 {processor_state.cost} {CURRENCY_ALIAS}使用命令{processor_state.name!r}'
         logger.opt(colors=True).info(
-            f'{LOG_PREFIX}User({event.user_id}) cost {processor_state.cost} for plugin {processor_state.name!r}'
+            f'{LOG_PREFIX}User({event.user_id}) cost <ly>{processor_state.cost}</ly> for {processor_state.name!r}'
         )
         await matcher.send(message=echo_message, at_sender=True)
         await entity.change_friendship(currency=-processor_state.cost)

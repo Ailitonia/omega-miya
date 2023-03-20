@@ -40,7 +40,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Mess
         logger.opt(colors=True).info(
             f'{LOG_PREFIX}{matcher}/Plugin({matcher.plugin.name}) is blocked, <ly>global permission not enabled</ly>'
         )
-        echo_message = f'Omega Miya 未启用, 请联系管理员使用核心管理配置并启用全局功能后再试'
+        echo_message = f'Omega Miya 未启用, 请联系管理员使用核心管理配置并启用全局功能'
         await matcher.send(message=echo_message, at_sender=True)
         raise IgnoredException('权限不足')
 
