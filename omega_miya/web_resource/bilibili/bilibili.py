@@ -16,6 +16,7 @@ from omega_miya.local_resource import TmpResource
 from omega_miya.web_resource import HttpFetcher
 
 from .config import bilibili_config, bilibili_resource_config
+from .wbi import transform_params
 from .exception import BilibiliApiError, BilibiliNetworkError
 from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
 from .model import (BilibiliUserModel, BilibiliUserDynamicModel, BilibiliDynamicModel,
@@ -126,7 +127,7 @@ class Bilibili(object):
 
 
 class BilibiliUser(Bilibili):
-    _data_api_url = 'https://api.bilibili.com/x/space/acc/info'
+    _data_api_url = 'https://api.bilibili.com/x/space/wbi/acc/info'
     _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
 
     def __init__(self, uid: int):
@@ -164,7 +165,8 @@ class BilibiliUser(Bilibili):
         """获取并初始化用户对应 BilibiliUserModel"""
         if not isinstance(self.user_model, BilibiliUserModel):
             params = {'mid': self.mid}
-            user_result = await self._fetcher.get_json_dict(url=self._data_api_url, params=params)
+            signed_params = transform_params(params)
+            user_result = await self._fetcher.get_json_dict(url=self._data_api_url, params=signed_params)
             if user_result.status != 200:
                 raise BilibiliApiError(f'BilibiliApiError, {user_result.result}')
             self.user_model = BilibiliUserModel.parse_obj(user_result.result)
