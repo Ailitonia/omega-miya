@@ -9,18 +9,17 @@
 """
 
 from datetime import datetime, timedelta
+from pydantic import BaseModel
+
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent
-from pydantic import BaseModel
-from sqlalchemy.exc import NoResultFound
+from nonebot.internal.adapter import Bot, Event
 
-from src.service.omega_base import OmegaEntity
-from src.params.onebot_v11 import OneBotV11EntityDepend
 
-from ...plugin_utils import parse_processor_state
+from src.service.omega_base import OmegaEntity, EntityInterface
+
+from ..plugin_utils import parse_processor_state
 
 
 SUPERUSERS = get_driver().config.superusers
@@ -35,7 +34,7 @@ class _CooldownCheckingResult(BaseModel):
     allow_skip: bool
 
 
-async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent):
+async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 冷却全局处理"""
 
     user_id = event.get_user_id()
@@ -48,13 +47,13 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Messag
     is_expired: bool = True
     expired_time: datetime = datetime.now()
 
-    async with OneBotV11EntityDepend(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with EntityInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
         event_global_is_expired, event_global_expired_time = await event_entity.check_global_cooldown_expired()
     if not event_global_is_expired:
         is_expired = False
         expired_time = event_global_expired_time if event_global_expired_time > expired_time else expired_time
 
-    async with OneBotV11EntityDepend(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
+    async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
         user_global_is_expired, user_global_expired_time = await user_entity.check_global_cooldown_expired()
     if not user_global_is_expired:
         is_expired = False
@@ -70,7 +69,7 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Messag
         raise IgnoredException('全局冷却中')
 
 
-async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: MessageEvent):
+async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 冷却插件处理"""
 
     # 跳过由 got 等事件处理函数创建临时 matcher 避免冷却在命令交互中被不正常触发
@@ -99,7 +98,7 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Messag
         return
 
     cooldown_event = f'{PLUGIN_CD_PREFIX}_{plugin_name}_{processor_state.name}'
-    entity_depend = OneBotV11EntityDepend(acquire_type=processor_state.cooldown_type)
+    entity_depend = EntityInterface(acquire_type=processor_state.cooldown_type)
 
     # 检查冷却
     async with entity_depend.get_entity(bot=bot, event=event) as entity:

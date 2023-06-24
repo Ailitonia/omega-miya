@@ -11,13 +11,12 @@
 from datetime import datetime
 from nonebot import logger
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11.event import Event, MessageEvent, GroupMessageEvent
-from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.internal.adapter import Bot, Event
 
-from src.service.gocqhttp_guild_patch import GuildMessageEvent
 from src.database import StatisticDAL, begin_db_session
+from src.service.omega_base import EntityInterface
 
-from ...plugin_utils import parse_processor_state
+from ..plugin_utils import parse_processor_state
 
 
 LOG_PREFIX: str = '<lc>Statistic</lc> | '
@@ -52,26 +51,17 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({custom_plugin_name}) ignored with disable echo')
         return
 
-    if isinstance(event, GroupMessageEvent):
-        parent_entity_id = event.group_id
-        call_info = event.raw_message
-    elif isinstance(event, GuildMessageEvent):
-        event: GuildMessageEvent
-        parent_entity_id = event.channel_id
-        call_info = event.raw_message
-    elif isinstance(event, MessageEvent):
-        parent_entity_id = event.self_id
-        call_info = event.raw_message
-    else:
-        parent_entity_id = event.self_id
+    try:
         call_info = event.json()
 
-    try:
+        async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+            parent_entity_id = entity.parent_id
+            entity_id = entity.entity_id
+
         async with begin_db_session() as session:
             dal = StatisticDAL(session=session)
             await dal.add(module_name=module_name, plugin_name=custom_plugin_name,
-                          bot_self_id=bot.self_id, parent_entity_id=str(parent_entity_id),
-                          entity_id=event.get_user_id(),
+                          bot_self_id=bot.self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
                           call_time=datetime.now(), call_info=call_info)
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Add Plugin({custom_plugin_name}) statistic succeed')
     except Exception as e:

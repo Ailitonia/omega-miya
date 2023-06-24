@@ -11,20 +11,18 @@
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent
+from nonebot.internal.adapter import Bot, Event
 
-from src.service.omega_base import OmegaEntity
-from src.params.onebot_v11 import OneBotV11EntityDepend
+from src.service.omega_base import OmegaEntity, EntityInterface
 
-from ...plugin_utils import parse_processor_state
+from ..plugin_utils import parse_processor_state
 
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Permission Manager</lc> | '
 
 
-async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: MessageEvent):
+async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 检查是否启用全局权限"""
 
     user_id = event.get_user_id()
@@ -33,7 +31,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Mess
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
-    async with OneBotV11EntityDepend(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with EntityInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
         is_enabled_global_permission = await event_entity.check_global_permission()
 
     if not is_enabled_global_permission:
@@ -45,7 +43,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Mess
         raise IgnoredException('权限不足')
 
 
-async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: MessageEvent):
+async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 检查会话对象是否具备插件要求权限"""
 
     # 从 state 中解析已配置的权限要求
@@ -65,7 +63,7 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Mess
         return
 
     # 检查事件会话对象是否具备插件要求权限
-    async with OneBotV11EntityDepend(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with EntityInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
         is_permission_allowed = await _check_event_entity_permission(
             entity=event_entity, module_name=module_name, plugin_name=plugin_name,
             level=processor_state.level, auth_node=processor_state.auth_node

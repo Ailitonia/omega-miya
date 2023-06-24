@@ -15,8 +15,8 @@ from nonebot.message import handle_event, run_preprocessor
 
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
-from .gocqhttp import *
-from .telegram import *
+from . import onebot_v11 as onebot_v11
+from . import telegram as telegram
 
 
 __ONLINE_BOTS: dict[str, Bot] = {}
@@ -56,4 +56,17 @@ async def __dispose_bot_disconnect(bot: Bot):
     await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.type))
 
 
-__all__ = []
+def get_online_bots() -> dict[str, dict[str, Bot]]:
+    """获取当前在线的 bot (根据 Adapter 分类)"""
+    online_bots = {}
+    for self_id, bot in __ONLINE_BOTS.items():
+        adapter_name = bot.adapter.get_name()
+        if adapter_name not in online_bots.keys():
+            online_bots[adapter_name] = {}
+        online_bots[adapter_name].update({self_id: bot})
+    return online_bots
+
+
+__all__ = [
+    'get_online_bots'
+]

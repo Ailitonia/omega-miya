@@ -11,12 +11,11 @@
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import MessageEvent
+from nonebot.internal.adapter import Bot, Event
 
-from src.params.onebot_v11 import OneBotV11EntityDepend
+from src.service.omega_base import EntityInterface
 
-from ...plugin_utils import parse_processor_state
+from ..plugin_utils import parse_processor_state
 
 
 SUPERUSERS = get_driver().config.superusers
@@ -24,7 +23,7 @@ CURRENCY_ALIAS: str = '硬币'
 LOG_PREFIX: str = '<lc>Command Cost</lc> | '
 
 
-async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: MessageEvent):
+async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 命令消耗处理"""
 
     # 跳过临时 matcher 避免在命令交互中被不正常触发
@@ -50,20 +49,21 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: MessageEve
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({plugin_name}) ignored with non-cost')
         return
 
-    entity_name = str(event.sender.nickname if event.sender.nickname else event.user_id)
-    async with OneBotV11EntityDepend(acquire_type='user').get_entity(bot=bot, event=event) as entity:
-        await entity.add_upgrade(entity_name=entity_name)
+    entity_name = str(user_id)
+    entity_info = f'{bot.type} user {user_id}'
+    async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+        await entity.add_ignore_exists(entity_name=entity_name, entity_info=entity_info)
         friendship = await entity.query_friendship()
 
         if friendship.currency < processor_state.cost:
             echo_message = f'{CURRENCY_ALIAS}不足! 命令消耗: {int(processor_state.cost)}, 持有: {int(friendship.currency)}'
-            logger.opt(colors=True).debug(f'{LOG_PREFIX}User({event.user_id}) currency not enough for cost')
+            logger.opt(colors=True).debug(f'{LOG_PREFIX}User({user_id}) currency not enough for cost')
             await matcher.send(message=echo_message, at_sender=True)
             raise IgnoredException(f'{CURRENCY_ALIAS}不足')
 
         echo_message = f'已消耗 {processor_state.cost} {CURRENCY_ALIAS}使用命令{processor_state.name!r}'
         logger.opt(colors=True).info(
-            f'{LOG_PREFIX}User({event.user_id}) cost <ly>{processor_state.cost}</ly> for {processor_state.name!r}'
+            f'{LOG_PREFIX}User({user_id}) cost <ly>{processor_state.cost}</ly> for {processor_state.name!r}'
         )
         await matcher.send(message=echo_message, at_sender=True)
         await entity.change_friendship(currency=-processor_state.cost)
