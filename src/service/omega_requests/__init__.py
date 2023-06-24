@@ -14,7 +14,7 @@ import ujson
 from copy import deepcopy
 from urllib.parse import urlparse
 
-from typing import AsyncGenerator, Optional, Any
+from typing import AsyncGenerator, Optional, Any, cast
 from contextlib import asynccontextmanager
 
 from nonebot import get_driver, logger
@@ -48,7 +48,7 @@ class OmegaRequests(object):
         'sec-gpc': '1',
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/108.0.0.0 Safari/537.36'
+                      'Chrome/114.0.0.0 Safari/537.36'
     }
 
     def __init__(
@@ -107,7 +107,7 @@ class OmegaRequests(object):
 
     async def request(self, setup: Request) -> Response:
         """装饰原 request 方法, 自动重试"""
-        self.driver: ForwardDriver
+        self.driver = cast(ForwardDriver, self.driver)
 
         attempts_num = 0
         final_exception = None
@@ -151,7 +151,7 @@ class OmegaRequests(object):
             use_proxy: bool = True
     ) -> AsyncGenerator[WebSocket, None]:
         """建立 websocket 连接"""
-        self.driver: ForwardDriver
+        self.driver = cast(ForwardDriver, self.driver)
 
         setup = Request(
             method=method,
