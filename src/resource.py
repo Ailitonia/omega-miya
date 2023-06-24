@@ -105,7 +105,7 @@ class BaseResource(abc.ABC):
     @property
     @check_file
     def file_uri(self) -> str:
-        return self.path.as_uri()
+        return self.path.resolve().as_uri()
 
     @contextmanager
     @check_file
