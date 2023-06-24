@@ -38,6 +38,11 @@ class EntityType(Enum):
         if unverified not in [member.value for _, member in cls.__members__.items()]:
             raise ValueError(f'illegal entity_type: "{unverified}"')
 
+    @classmethod
+    @property
+    def supported_target_names(cls) -> set:
+        return set(member.value for _, member in cls.__members__.items())
+
 
 class Entity(BaseModel):
     """实体对象 Model"""
@@ -83,7 +88,7 @@ class EntityDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return Entity.from_orm(session_result.scalar_one())
 
-    async def query_with_index_id(self, index_id: int) -> Entity:
+    async def query_by_index_id(self, index_id: int) -> Entity:
         stmt = select(EntityOrm).where(EntityOrm.id == index_id)
         session_result = await self.db_session.execute(stmt)
         return Entity.from_orm(session_result.scalar_one())

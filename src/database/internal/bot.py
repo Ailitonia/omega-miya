@@ -29,9 +29,14 @@ class BotType(Enum):
     telegram: Literal['Telegram'] = 'Telegram'
 
     @classmethod
-    def verify(cls, unverified: str):
+    def verify(cls, unverified: str) -> None:
         if unverified not in [member.value for _, member in cls.__members__.items()]:
             raise ValueError(f'illegal bot_type: "{unverified}"')
+
+    @classmethod
+    @property
+    def supported_adapter_names(cls) -> set:
+        return set(member.value for _, member in cls.__members__.items())
 
 
 class BotSelf(BaseModel):
