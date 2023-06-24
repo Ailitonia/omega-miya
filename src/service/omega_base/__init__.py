@@ -9,8 +9,11 @@
 """
 
 from .internal import OmegaEntity
+from .middlewares import EntityInterface, MatcherInterface
 
 
 __all__ = [
+    'EntityInterface',
+    'MatcherInterface',
     'OmegaEntity'
 ]

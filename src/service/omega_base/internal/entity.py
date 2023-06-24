@@ -50,6 +50,18 @@ class InternalEntity(object):
         return f'{self.entity_type}_{self.entity_id}'
 
     @classmethod
+    async def init_from_entity_index_id(cls, session: AsyncSession, index_id: int) -> "InternalEntity":
+        entity = await EntityDAL(session=session).query_by_index_id(index_id=index_id)
+        bot = await BotSelfDAL(session=session).query_by_index_id(index_id=entity.bot_index_id)
+        return cls(
+            session=session,
+            bot_id=bot.self_id,
+            entity_type=entity.entity_type.value,
+            entity_id=entity.entity_id,
+            parent_id=entity.parent_id
+        )
+
+    @classmethod
     async def query_entity_type_all(cls, session: AsyncSession, entity_type: str) -> list[Entity]:
         """查询符合 entity_type 的全部结果"""
         return await EntityDAL(session=session).query_entity_type_all(entity_type=entity_type)
@@ -58,11 +70,22 @@ class InternalEntity(object):
         """查询 Entity 对应的 Bot"""
         return await BotSelfDAL(session=self.db_session).query_unique(self_id=self.bot_id)
 
-    async def query_entity(self) -> Entity:
-        """查询 Entity"""
+    async def query_entity_self(self) -> Entity:
+        """查询 Entity 自身"""
         bot = await self.query_bot_self()
         return await EntityDAL(session=self.db_session).query_unique(bot_index_id=bot.id, entity_type=self.entity_type,
                                                                      entity_id=self.entity_id, parent_id=self.parent_id)
+
+    async def add_ignore_exists(self, entity_name: str, entity_info: Optional[str] = None) -> None:
+        """新增 Entity, 若已存在忽略"""
+        bot = await self.query_bot_self()
+        entity_dal = EntityDAL(session=self.db_session)
+        try:
+            await entity_dal.query_unique(bot_index_id=bot.id, entity_id=self.entity_id,
+                                          entity_type=self.entity_type, parent_id=self.parent_id)
+        except NoResultFound:
+            await entity_dal.add(bot_index_id=bot.id, entity_id=self.entity_id, entity_type=self.entity_type,
+                                 parent_id=self.parent_id, entity_name=entity_name, entity_info=entity_info)
 
     async def add_upgrade(self, entity_name: str, entity_info: Optional[str] = None) -> None:
         """新增 Entity, 若已存在则更新"""
@@ -78,7 +101,7 @@ class InternalEntity(object):
 
     async def delete(self) -> None:
         """删除 Entity"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await EntityDAL(session=self.db_session).delete(id_=entity.id)
 
     async def set_friendship(
@@ -91,7 +114,7 @@ class InternalEntity(object):
             response_threshold: float = 0
     ) -> None:
         """设置或更新好感度"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         friendship_dal = FriendshipDAL(session=self.db_session)
         try:
             _friendship = await friendship_dal.query_unique(entity_index_id=entity.id)
@@ -112,7 +135,7 @@ class InternalEntity(object):
             response_threshold: float = 0
     ):
         """变更好感度, 在现有好感度数值上加/减"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         friendship_dal = FriendshipDAL(session=self.db_session)
         try:
             _friendship = await friendship_dal.query_unique(entity_index_id=entity.id)
@@ -132,7 +155,7 @@ class InternalEntity(object):
 
     async def query_friendship(self) -> Friendship:
         """获取好感度, 没有则直接初始化"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         friendship_dal = FriendshipDAL(session=self.db_session)
         try:
             friendship = await friendship_dal.query_unique(entity_index_id=entity.id)
@@ -152,7 +175,7 @@ class InternalEntity(object):
         :param date_: 指定签到日期
         :param sign_in_info: 签到信息
         """
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         sign_in_dal = SignInDAL(session=self.db_session)
 
         if isinstance(date_, datetime):
@@ -174,7 +197,7 @@ class InternalEntity(object):
 
     async def check_today_sign_in(self) -> bool:
         """检查今日是否已经签到"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         sign_in_dal = SignInDAL(session=self.db_session)
         try:
             await sign_in_dal.query_unique(entity_index_id=entity.id, sign_in_date=datetime.now().date())
@@ -185,7 +208,7 @@ class InternalEntity(object):
 
     async def query_sign_in_days(self) -> list[date]:
         """查询所有的签到记录, 返回签到日期列表"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await SignInDAL(session=self.db_session).query_entity_sign_in_days(entity_index_id=entity.id)
 
     async def query_continuous_sign_in_day(self) -> int:
@@ -238,18 +261,18 @@ class InternalEntity(object):
 
     async def query_all_auth_setting(self) -> list[AuthSetting]:
         """查询 Entity 全部的权限配置"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await AuthSettingDAL(session=self.db_session).query_entity_all(entity_index_id=entity.id)
 
     async def query_plugin_all_auth_setting(self, module: str, plugin: str) -> list[AuthSetting]:
         """查询 Entity 具有某个插件的全部的权限配置"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await AuthSettingDAL(session=self.db_session).query_entity_all(entity_index_id=entity.id,
                                                                               module=module, plugin=plugin)
 
     async def query_auth_setting(self, module: str, plugin: str, node: str) -> AuthSetting:
         """查询 Entity 具体某个权限配置"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await AuthSettingDAL(session=self.db_session).query_unique(entity_index_id=entity.id, module=module,
                                                                           plugin=plugin, node=node)
 
@@ -348,7 +371,7 @@ class InternalEntity(object):
             value: Optional[str] = None
     ) -> None:
         """设置 Entity 权限节点参数值"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         auth_setting_dal = AuthSettingDAL(session=self.db_session)
 
         try:
@@ -386,7 +409,7 @@ class InternalEntity(object):
 
     async def query_cooldown(self, cooldown_event: str) -> CoolDown:
         """查询冷却"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await CoolDownDAL(session=self.db_session).query_unique(entity_index_id=entity.id, event=cooldown_event)
 
     async def set_cooldown(
@@ -408,7 +431,7 @@ class InternalEntity(object):
         else:
             raise TypeError('"expired_time" must be "datetime" or "timedelta"')
 
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         cooldown_dal = CoolDownDAL(session=self.db_session)
 
         try:
@@ -464,7 +487,7 @@ class InternalEntity(object):
 
     async def bind_email_box(self, email_box: EmailBox, bind_info: Optional[str] = None) -> None:
         """绑定邮箱"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         bind_dal = EmailBoxBindDAL(session=self.db_session)
 
         try:
@@ -475,7 +498,7 @@ class InternalEntity(object):
 
     async def unbind_email_box(self, email_box: EmailBox) -> None:
         """解绑邮箱"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         bind_dal = EmailBoxBindDAL(session=self.db_session)
 
         try:
@@ -486,12 +509,12 @@ class InternalEntity(object):
 
     async def query_bound_email_box(self) -> list[EmailBox]:
         """查询已绑定的全部邮箱"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         return await EmailBoxDAL(session=self.db_session).query_entity_bound_all(entity_index_id=entity.id)
 
     async def add_subscription(self, subscription_source: SubscriptionSource, sub_info: Optional[str] = None) -> None:
         """添加订阅"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         subscription_dal = SubscriptionDAL(session=self.db_session)
 
         try:
@@ -504,7 +527,7 @@ class InternalEntity(object):
 
     async def delete_subscription(self, subscription_source: SubscriptionSource) -> None:
         """删除订阅"""
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         subscription_dal = SubscriptionDAL(session=self.db_session)
 
         try:
@@ -519,7 +542,7 @@ class InternalEntity(object):
 
         :param sub_type: 可选: 根据 sub_type 筛选, 若无则为全部类型
         """
-        entity = await self.query_entity()
+        entity = await self.query_entity_self()
         dal = SubscriptionSourceDAL(session=self.db_session)
         return await dal.query_entity_subscribed_all(entity_index_id=entity.id, sub_type=sub_type)
 
