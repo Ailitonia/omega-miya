@@ -12,8 +12,9 @@ import pathlib
 import zipfile
 import py7zr
 
+from nonebot.utils import run_sync
+
 from src.resource import BaseResource, TemporaryResource
-from src.utils.process_utils import run_sync
 
 from .config import zip_utils_config, zip_utils_resource_config
 

@@ -17,9 +17,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
+from nonebot.utils import run_sync
+
 from src.resource import StaticResource, TemporaryResource
 from src.service.omega_requests import OmegaRequests
-from src.utils.process_utils import run_sync
 
 
 class TextUtilsBaseModel(BaseModel):

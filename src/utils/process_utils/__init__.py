@@ -11,7 +11,7 @@
 import inspect
 import asyncio
 from asyncio import Future
-from functools import wraps, partial
+from functools import wraps
 
 from typing import TypeVar, ParamSpec, Callable, Generator, Coroutine, Awaitable, Any
 
@@ -21,21 +21,6 @@ from nonebot import logger
 P = ParamSpec("P")
 T = TypeVar("T")
 R = TypeVar("R")
-
-
-def run_sync(func: Callable[P, R]) -> Callable[P, Coroutine[None, None, R]]:
-    """一个用于包装 sync function 为 async function 的装饰器
-
-    :param func: 被装饰的同步函数
-    """
-
-    @wraps(func)
-    async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        loop = asyncio.get_running_loop()
-        p_func = partial(func, *args, **kwargs)
-        return await loop.run_in_executor(None, p_func)
-
-    return _wrapper
 
 
 def run_async_delay(delay_time: float = 5):
@@ -117,7 +102,6 @@ async def semaphore_gather(
 
 
 __all__ = [
-    'run_sync',
     'run_async_delay',
     'semaphore_gather'
 ]

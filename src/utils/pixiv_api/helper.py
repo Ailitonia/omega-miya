@@ -15,9 +15,11 @@ from lxml import etree
 from typing import Optional, Any
 from PIL import Image, ImageDraw, ImageFont
 
+from nonebot.utils import run_sync
+
 from src.resource import TemporaryResource
 from src.service.omega_requests import OmegaRequests
-from src.utils.process_utils import semaphore_gather, run_sync
+from src.utils.process_utils import semaphore_gather
 from src.utils.image_utils import ImageUtils
 from src.utils.image_utils.template import generate_thumbs_preview_image, PreviewImageThumbs, PreviewImageModel
 

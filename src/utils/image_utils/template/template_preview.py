@@ -13,8 +13,9 @@ from io import BytesIO
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
+from nonebot.utils import run_sync
+
 from src.resource import BaseResource, TemporaryResource
-from src.utils.process_utils import run_sync
 
 from .model import PreviewImageModel
 from ..config import image_utils_config
