@@ -12,7 +12,7 @@ from .models import (
     GuildMessageEvent,
     MessageReactionsUpdatedNoticeEvent,
 )
-from .permission import GUILD, GUILD_SUPERUSER
+from .permission import GUILD, GUILD_ADMIN, GUILD_OWNER, GUILD_SUPERUSER
 
 original_send = Bot.send
 
@@ -55,6 +55,8 @@ logger.opt(colors=True).info(f'<lc>Guild patch(go-cqhttp)</lc> loaded')
 
 __all__ = [
     "GUILD",
+    "GUILD_OWNER",
+    "GUILD_ADMIN",
     "GUILD_SUPERUSER",
     "GuildMessageEvent",
     "ChannelNoticeEvent",

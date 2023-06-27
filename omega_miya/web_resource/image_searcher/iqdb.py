@@ -104,7 +104,7 @@ class Iqdb(ImageSearcher):
         data.add_field(name='file', value=b'', content_type='application/octet-stream', filename='')
         data.add_field(name='url', value=self.image_url)
 
-        iqdb_result = await HttpFetcher(timeout=15).post_text(url=self._api, data=data)
+        iqdb_result = await HttpFetcher(timeout=20).post_text(url=self._api, data=data)
         if iqdb_result.status != 200:
             logger.error(f'Iqdb | IqdbNetworkError, {iqdb_result}')
             raise IqdbNetworkError(f'IqdbNetworkError, {iqdb_result}')

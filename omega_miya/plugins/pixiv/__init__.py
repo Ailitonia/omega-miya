@@ -566,7 +566,7 @@ async def handle_add_user_subscription(bot: Bot, matcher: Matcher, event: Messag
     check = check.strip()
     if check != '是':
         await matcher.finish('那就不订阅了哦')
-    await matcher.send('正在更新Pixiv用户订阅信息, 请稍候')
+    await matcher.send('正在更新Pixiv用户订阅信息, 若首次订阅可能需要较长时间刷新用户作品信息, 请稍候')
 
     user = PixivUser(uid=int(user_id))
     scheduler.pause()  # 暂停计划任务避免中途检查更新

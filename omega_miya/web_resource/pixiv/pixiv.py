@@ -329,6 +329,7 @@ class PixivArtwork(Pixiv):
 
             _artwork_data = await query_data_task
             if _artwork_data.error:
+                query_page_data_task.cancel()
                 raise PixivApiError(f'PixivApiError, query artwork data failed, {_artwork_data.message}')
 
             _page_data = await query_page_data_task
@@ -347,6 +348,16 @@ class PixivArtwork(Pixiv):
             _sanity_level = _artwork_data.body.xRestrict
             if _sanity_level >= 1:
                 _is_r18 = True
+
+            # 判断是否 AI 生成
+            _is_ai = False
+            for tag in _tags:
+                if re.match(r'^([Nn]ovel[Aa][Ii]([Dd]iffusion)?|[Ss]table[Dd]iffusion|AIイラスト)$', tag):
+                    _is_ai = True
+                    break
+            _ai_level = _artwork_data.body.aiType
+            if _ai_level >= 2:
+                _is_ai = True
 
             # 导出多图列表
             _all_url = _page_data.type_page
@@ -368,6 +379,7 @@ class PixivArtwork(Pixiv):
                 'title': _artwork_data.body.illustTitle,
                 'sanity_level': _sanity_level,
                 'is_r18': _is_r18,
+                'is_ai': _is_ai,
                 'uid': _artwork_data.body.userId,
                 'uname': _artwork_data.body.userName,
                 'description': _artwork_data.body.parsed_description,

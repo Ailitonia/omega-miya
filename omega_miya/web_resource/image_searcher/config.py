@@ -18,6 +18,7 @@ class ImageSearcherConfig(BaseModel):
 
     image_searcher_enable_saucenao: bool = True
     image_searcher_enable_iqdb: bool = True
+    image_searcher_enable_yandex: bool = True
     image_searcher_enable_ascii2d: bool = True
     image_searcher_enable_trace_moe: bool = True
 

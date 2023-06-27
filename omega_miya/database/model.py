@@ -419,7 +419,7 @@ class PixivArtworkOrm(Base):
     uid = Column(BigInteger, nullable=False, index=True, comment='作者uid')
     title = Column(String(128), nullable=False, index=True, comment='作品标题title')
     uname = Column(String(128), nullable=False, index=True, comment='作者名')
-    classified = Column(Integer, nullable=False, index=True, comment='标记标签, 0=未标记, 1=已人工标记或从可信已标记来源获取')
+    classified = Column(Integer, nullable=False, index=True, comment='标记标签, 0=未标记, 1=已人工标记或从可信已标记来源获取, 2=AI生成作品')
     nsfw_tag = Column(Integer, nullable=False, index=True, comment='nsfw标签, -1=未标记, 0=safe, 1=setu. 2=r18')
     width = Column(Integer, nullable=False, comment='原始图片宽度')
     height = Column(Integer, nullable=False, comment='原始图片高度')

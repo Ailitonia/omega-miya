@@ -16,6 +16,7 @@ from .ascii2d import Ascii2d
 from .iqdb import Iqdb
 from .saucenao import Saucenao
 from .trace_moe import TraceMoe
+from .yandex import Yandex
 
 from .config import image_searcher_config
 from .model import ImageSearcher, ImageSearchingResult
@@ -31,6 +32,9 @@ class ComplexImageSearcher(object):
 
     if image_searcher_config.image_searcher_enable_iqdb:
         _searcher.append(Iqdb)
+
+    if image_searcher_config.image_searcher_enable_yandex:
+        _searcher.append(Yandex)
 
     if image_searcher_config.image_searcher_enable_ascii2d:
         _searcher.append(Ascii2d)

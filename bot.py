@@ -5,10 +5,12 @@ from datetime import datetime
 from nonebot.adapters.onebot.v11.adapter import Adapter as OneBotAdapter
 from nonebot.log import logger, default_format
 
-# win环境下proxy配置
+# win 环境下 asyncio.loop 配置
 import asyncio
-if sys.version_info[0] == 3 and sys.version_info[1] >= 8 and sys.platform.startswith('win'):
+if sys.version_info[0] == 3 and 10 > sys.version_info[1] >= 8 and sys.platform.startswith('win'):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+elif sys.version_info[0] == 3 and sys.version_info[1] >= 10 and sys.platform.startswith('win'):
+    asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
 # Log file path
 bot_log_path = os.path.abspath(os.path.join(sys.path[0], 'log'))
@@ -16,8 +18,8 @@ if not os.path.exists(bot_log_path):
     os.makedirs(bot_log_path)
 
 # Custom logger
-log_info_name = f'{datetime.today().strftime("%Y%m%d-%H%M%S")}-INFO.log'
-log_error_name = f'{datetime.today().strftime("%Y%m%d-%H%M%S")}-ERROR.log'
+log_info_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-INFO.log'
+log_error_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-ERROR.log'
 log_info_path = os.path.join(bot_log_path, log_info_name)
 log_error_path = os.path.join(bot_log_path, log_error_name)
 
