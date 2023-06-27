@@ -191,7 +191,7 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
         artwork_main = artwork.xpath('div[@class="am__work__main"]').pop(0)
         artwork_url = artwork_main.xpath('a[@class="inner-link"]').pop(0).attrib.get('href')
         artwork_id = parse_pid_from_url(text=artwork_url, url_mode=False)
-        image_url = artwork_main.xpath('a//img[@class="am__work__illust "]').pop(0).attrib.get('src')
+        image_url = artwork_main.xpath('a//img[contains(@class, "am__work__illust")]').pop(0).attrib.get('src')
 
         artwork_list.append({'artwork_id': artwork_id, 'artwork_user': artwork_user_name,
                              'artwork_title': artwork_title, 'artwork_url': artwork_url, 'image_url': image_url})
