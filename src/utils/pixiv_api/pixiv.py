@@ -720,7 +720,7 @@ class PixivUser(Pixiv):
         user_artwork_data = await self.request_json(url=self.profile_url, params=params)
         return PixivUserArtworkDataModel.parse_obj(user_artwork_data)
 
-    async def get_user_model(self) -> PixivUserModel:
+    async def query_user_data(self) -> PixivUserModel:
         """获取并初始化用户对应 PixivUserModel"""
         if not isinstance(self.user_model, PixivUserModel):
             _user_data = await self._query_user_data()
@@ -747,7 +747,7 @@ class PixivUser(Pixiv):
 
     async def query_user_artworks_with_preview(self, num_limit: int = 120) -> TemporaryResource:
         """获取用户作品并生成预览图"""
-        user_data_result = await self.get_user_model()
+        user_data_result = await self.query_user_data()
         # 获取缩略图内容
         name = f'Pixiv User Artwork  - {user_data_result.name}'
         preview_request = await _emit_preview_model_from_artwork_pids(preview_name=name,
