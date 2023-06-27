@@ -8,10 +8,11 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 from datetime import datetime
-from pytz import timezone
 from pydantic import AnyHttpUrl, validator
+from pytz import timezone
+from typing import Optional
+
 from .base_model import BaseBilibiliModel
 
 

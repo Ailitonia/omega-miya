@@ -15,6 +15,8 @@ from pydantic import BaseModel, ValidationError
 from src.resource import TemporaryResource
 from src.service.omega_requests import OmegaRequests
 
+from .model import BilibiliWebInterfaceNav
+
 
 class BilibiliConfig(BaseModel):
     """Bilibili 配置"""
@@ -50,16 +52,6 @@ async def verify_bilibili_cookie() -> None:
 
     :return: valid, message
     """
-    class _VerifyData(BaseModel):
-        isLogin: bool
-        uname: str | None
-        mid: str | None
-
-    class _VerifyResult(BaseModel):
-        code: int
-        message: str
-        data: _VerifyData
-
     verify_url = 'https://api.bilibili.com/x/web-interface/nav'
 
     default_headers = OmegaRequests.get_default_headers()
@@ -71,7 +63,7 @@ async def verify_bilibili_cookie() -> None:
         bilibili_config.clear()
         logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 访问失败, {result.status_code}')
 
-    verify = _VerifyResult.parse_obj(requests.parse_content_json(result))
+    verify = BilibiliWebInterfaceNav.parse_obj(requests.parse_content_json(result))
     if verify.code != 0 or not verify.data.isLogin:
         bilibili_config.clear()
         logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, {verify.message}')

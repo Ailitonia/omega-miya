@@ -8,8 +8,9 @@
 @Software       : PyCharm 
 """
 
-from typing import Generic, Generator, TypeVar, Any, Optional
 from pydantic.generics import GenericModel
+from typing import Generic, Generator, TypeVar, Any, Optional
+
 from .base_model import BaseBilibiliModel
 
 

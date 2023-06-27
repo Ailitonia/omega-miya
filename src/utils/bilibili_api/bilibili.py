@@ -17,12 +17,14 @@ from .config import bilibili_config, bilibili_resource_config
 from .exception import BilibiliNetworkError
 from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
 from .model import (BilibiliUserModel, BilibiliUserDynamicModel, BilibiliDynamicModel,
-                    BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel)
+                    BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel, BilibiliWebInterfaceNav)
+from .wbi_utils import sign_wbi_params
 
 
 class Bilibili(object):
     """Bilibili 基类"""
     _root_url: str = 'https://www.bilibili.com'
+    _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 
     def __repr__(self):
         return f'<{self.__class__.__name__}>'
@@ -93,6 +95,12 @@ class Bilibili(object):
         requests = OmegaRequests(timeout=timeout, headers=headers, cookies=bilibili_config.bili_cookie)
 
         return await requests.download(url=url, file=file, params=params)
+
+    @classmethod
+    async def update_wbi_params(cls, params: Optional[dict[str, Any]] = None) -> dict:
+        """为 wbi 接口请求参数进行 wbi 签名"""
+        response = await cls.request_json(url=cls._wbi_nav_url)
+        return sign_wbi_params(nav_data=BilibiliWebInterfaceNav.parse_obj(response), params=params)
 
     @classmethod
     async def _global_search(
@@ -170,7 +178,8 @@ class Bilibili(object):
 
 
 class BilibiliUser(Bilibili):
-    _data_api_url = 'https://api.bilibili.com/x/space/acc/info'
+    # _data_api_url = 'https://api.bilibili.com/x/space/acc/info'  # Deactivated
+    _data_api_url = 'https://api.bilibili.com/x/space/wbi/acc/info'
     _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
 
     def __init__(self, uid: int):
@@ -206,10 +215,10 @@ class BilibiliUser(Bilibili):
     def mid(self) -> str:
         return str(self.uid)
 
-    async def get_user_model(self) -> BilibiliUserModel:
+    async def query_user_data(self) -> BilibiliUserModel:
         """获取并初始化用户对应 BilibiliUserModel"""
         if not isinstance(self.user_model, BilibiliUserModel):
-            params = {'mid': self.mid}
+            params = await self.update_wbi_params({'mid': self.mid})
             user_data = await self.request_json(url=self._data_api_url, params=params)
             self.user_model = BilibiliUserModel.parse_obj(user_data)
 
@@ -319,7 +328,7 @@ class BilibiliLiveRoom(Bilibili):
     async def get_live_room_user_model(self) -> BilibiliUserModel:
         """获取这个直播间对应的用户信息"""
         live_room_model = await self.get_live_room_model()
-        return await BilibiliUser(uid=live_room_model.uid).get_user_model()
+        return await BilibiliUser(uid=live_room_model.uid).query_user_data()
 
 
 __all__ = [

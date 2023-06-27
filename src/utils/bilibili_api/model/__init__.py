@@ -9,16 +9,18 @@
 """
 
 from .dynamic import BilibiliDynamicCard, BilibiliUserDynamicModel, BilibiliDynamicModel
+from .interface import BilibiliWebInterfaceNav
 from .live_room import BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel
-from .user import BilibiliUserModel
 from .search import UserSearchingModel
+from .user import BilibiliUserModel
 
 
 __all__ = [
     'BilibiliDynamicCard',
-    'BilibiliUserDynamicModel',
     'BilibiliDynamicModel',
     'BilibiliLiveRoomModel',
+    'BilibiliWebInterfaceNav',
+    'BilibiliUserDynamicModel',
     'BilibiliUsersLiveRoomModel',
     'BilibiliUserModel',
     'UserSearchingModel'

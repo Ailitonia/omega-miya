@@ -8,8 +8,9 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 from pydantic import AnyHttpUrl
+from typing import Optional
+
 from .base_model import BaseBilibiliModel
 
 
