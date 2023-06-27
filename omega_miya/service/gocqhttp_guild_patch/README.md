@@ -1,8 +1,8 @@
 # nonebot-plugin-guild-patch
 
-*Patch plugin for NoneBot2 QQ guild (go-cqhttp) support.*
+_Patch plugin for NoneBot2 QQ guild (go-cqhttp) support._
 
-*NoneBot2 QQ 频道 (go-cqhttp) 支持适配补丁插件.*
+_NoneBot2 QQ 频道 (go-cqhttp) 支持适配补丁插件._
 
 ![PyPI](https://img.shields.io/pypi/v/nonebot-plugin-guild-patch?style=for-the-badge)
 
@@ -11,7 +11,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/mnixry/nonebot-plugin-guild-patch)](https://github.com/mnixry/nonebot-plugin-guild-patch/stargazers)
 [![GitHub license](https://img.shields.io/github/license/mnixry/nonebot-plugin-guild-patch)](https://github.com/mnixry/nonebot-plugin-guild-patch/blob/main/LICENSE)
 
-> **注: 本补丁没有经过充分测试, 不建议在生产环境使用, 如果发现任何问题请[Issue反馈](https://github.com/mnixry/nonebot-plugin-guild-patch/issues/new/choose)**
+> **注: 本补丁没有经过充分测试, 不建议在生产环境使用, 如果发现任何问题请[Issue 反馈](https://github.com/mnixry/nonebot-plugin-guild-patch/issues/new/choose)**
 
 ## 适用版本
 
@@ -24,7 +24,7 @@
   - [x] 支持字符串形式消息上报
   - [x] 支持数组形式消息上报
 - [x] 支持`bot.send`和`matcher.send`直接向频道发送消息
-- [ ] 支持`event.to_me`以支持`to_me`规则
+- [x] 支持`event.to_me`以支持`to_me`规则
 - [ ] 可选的事件转换器, 将频道消息事件转换为群消息
 
 ## 安装
@@ -34,7 +34,7 @@
 如果它被成功加载, 你在调试模式下应该看到这样的日志:
 
 ```diff
-11-13 09:14:52 [DEBUG] nonebot | Succeeded to load adapter "cqhttp"
+11-13 09:14:52 [DEBUG] nonebot | Succeeded to load adapter "onebot"
 11-13 09:14:52 [SUCCESS] nonebot | Succeeded to import "nonebot.plugins.echo"
 + 11-13 09:14:52 [SUCCESS] nonebot | Succeeded to import "nonebot_plugin_guild_patch"
 11-13 09:14:52 [SUCCESS] nonebot | Running NoneBot...
@@ -50,7 +50,7 @@
 
 ```python
 from nonebot.plugin import on_command
-from nonebot.adapters.cqhttp import Bot, MessageSegment
+from nonebot.adapters.onebot import Bot, MessageSegment
 
 from nonebot_plugin_guild_patch import GuildMessageEvent
 
