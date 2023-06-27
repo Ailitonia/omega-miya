@@ -6,8 +6,8 @@
 
 _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的 qq 机器人_
 
-![Nonebot2](https://img.shields.io/badge/Nonebot2-Release_v2.0.0_beta.5-brightgreen)
-![go-cqhttp](https://img.shields.io/badge/go--cqhttp-v1.0.0_rc3-brightgreen)
+![Nonebot2](https://img.shields.io/badge/Nonebot2-Release_v2.0.0rc2-brightgreen)
+![go-cqhttp](https://img.shields.io/badge/go--cqhttp-v1.0.0_rc5-brightgreen)
 <br>
 ![GitHub](https://img.shields.io/github/license/Ailitonia/omega-miya)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
@@ -18,11 +18,11 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 和 [go-cqhttp](https://
 
 ## 当前适配 nonebot2 版本
 
-[Nonebot2 Release v2.0.0-beta.5](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0-beta.5)
+[Nonebot2 Release v2.0.0rc2](https://github.com/nonebot/nonebot2/releases/tag/v2.0.0rc2)
 
 ## 当前适配 go-cqhttp 版本
 
-[go-cqhttp v1.0.0-rc3](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.0.0-rc3)
+[go-cqhttp v1.0.0-rc5](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.0.0-rc5)
 
 ## 功能 & 特点
 
