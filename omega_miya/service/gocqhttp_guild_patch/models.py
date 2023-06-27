@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, TypeVar
+from typing import List, Optional, Tuple, Type, TypeVar
 
 from nonebot.adapters.onebot.v11 import (
     Adapter,
@@ -8,21 +8,18 @@ from nonebot.adapters.onebot.v11 import (
     MessageSegment,
     NoticeEvent,
 )
-from nonebot.exception import NoLogException
 from nonebot.log import logger
 from nonebot.typing import overrides
 from nonebot.utils import escape_tag
 from pydantic import BaseModel, Field, parse_obj_as, root_validator, validator
 from typing_extensions import Literal
 
-from .config import guild_patch_config
-
 Event_T = TypeVar("Event_T", bound=Type[Event])
 
 
 def register_event(event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
-    logger.opt(colors=True).debug(
+    logger.opt(colors=True).trace(
         f"Custom event <e>{event.__qualname__!r}</e> registered "
         f"from module <g>{event.__class__.__module__!r}</g>"
     )
@@ -83,18 +80,12 @@ class GuildMessageEvent(MessageEvent):
             )
         )
 
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
-
     @overrides(MessageEvent)
     def get_session_id(self) -> str:
         return f"guild_{self.guild_id}_channel_{self.channel_id}_{self.user_id}"
 
     @staticmethod
-    def _check_at_me(message: Message, self_tiny_id: int) -> tuple[Message, bool]:
+    def _check_at_me(message: Message, self_tiny_id: int) -> Tuple[Message, bool]:
         """检查消息开头或结尾是否存在 @机器人，去除并赋值 event.to_me"""
         is_tome = False
         # ensure message not empty
@@ -166,12 +157,6 @@ class ChannelNoticeEvent(NoticeEvent):
     user_id: int
     sub_type: None = None
 
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
-
 
 @register_event
 class GuildChannelRecallNoticeEvent(ChannelNoticeEvent):
@@ -181,12 +166,6 @@ class GuildChannelRecallNoticeEvent(ChannelNoticeEvent):
     operator_id: int
     message_id: str
 
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
-
 
 @register_event
 class MessageReactionsUpdatedNoticeEvent(ChannelNoticeEvent):
@@ -195,12 +174,6 @@ class MessageReactionsUpdatedNoticeEvent(ChannelNoticeEvent):
     notice_type: Literal["message_reactions_updated"]
     message_id: str
     current_reactions: Optional[List[ReactionInfo]] = None
-
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
 
 
 class SlowModeInfo(BaseModel):
@@ -239,12 +212,6 @@ class ChannelUpdatedNoticeEvent(ChannelNoticeEvent):
     old_info: ChannelInfo
     new_info: ChannelInfo
 
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
-
 
 @register_event
 class ChannelCreatedNoticeEvent(ChannelNoticeEvent):
@@ -254,12 +221,6 @@ class ChannelCreatedNoticeEvent(ChannelNoticeEvent):
     operator_id: int
     channel_info: ChannelInfo
 
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
-
 
 @register_event
 class ChannelDestroyedNoticeEvent(ChannelNoticeEvent):
@@ -268,12 +229,6 @@ class ChannelDestroyedNoticeEvent(ChannelNoticeEvent):
     notice_type: Literal["channel_destroyed"]
     operator_id: int
     channel_info: ChannelInfo
-
-    def get_log_string(self) -> str:
-        if not guild_patch_config.enable_guild_event_log:
-            raise NoLogException(adapter_name='nonebot-adapter-onebot')
-        else:
-            return super().get_log_string()
 
 
 __all__ = [
