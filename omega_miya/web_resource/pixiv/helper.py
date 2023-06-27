@@ -14,6 +14,8 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from bs4 import BeautifulSoup
 
+from lxml import etree
+
 from omega_miya.local_resource import TmpResource
 from omega_miya.web_resource import HttpFetcher
 from omega_miya.utils.process_utils import semaphore_gather, run_sync
@@ -117,22 +119,26 @@ def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustr
     :param content: 网页 html
     :param root_url: pixivision 主域名
     """
-    page_bs = BeautifulSoup(content, 'lxml')
-    # 获取所有 illustration 内容
-    illustration_cards = page_bs.find_all(name='li', attrs={'class': 'article-card-container'})
+    html = etree.HTML(content)
+    illustration_cards = html.xpath('/html/body//li[@class="article-card-container"]')
+
     result_list = []
     for card in illustration_cards:
         # 解析每篇文章对应 card 的内容
-        aid = card.find(name='h2', attrs={'class': 'arc__title'}).find(name='a').attrs.get('data-gtm-label')
-        thumbnail = card.find(name='div', attrs={'class': '_thumbnail'}).attrs.get('style')
+        title_href = card.xpath('article//h2[@class="arc__title"]/a[1]').pop(0)
+        title = title_href.text.strip()
+        aid = title_href.attrib.get('data-gtm-label')
+        url = root_url + title_href.attrib.get('href')
+
+        thumbnail = card.xpath('article//div[@class="_thumbnail"]').pop(0).attrib.get('style')
         thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', thumbnail).group(1)
-        url = root_url + card.find(name='h2', attrs={'class': 'arc__title'}).find(name='a').attrs.get('href')
-        title = card.find(name='h2', attrs={'class': 'arc__title'}).get_text(strip=True)
-        tag_tag = card.find(name='ul', attrs={'class': '_tag-list'}).find_all(name='li')
+
+        tag_container = card.xpath('article//ul[@class="_tag-list"]/li[@class="tls__list-item-container"]')
         tag_list = []
-        for tag in tag_tag:
-            tag_name = tag.get_text(strip=True)
-            tag_rela_url = tag.find(name='a').attrs.get('href')
+        for tag in tag_container:
+            tag_href = tag.xpath('a[1]').pop(0)
+            tag_name = tag_href.attrib.get('data-gtm-label').strip()
+            tag_rela_url = tag_href.attrib.get('href')
             tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
             tag_url = root_url + tag_rela_url
             tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
@@ -146,66 +152,60 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
     :param content: 网页 html
     :param root_url: pixivision 主域名
     """
-    page_bs = BeautifulSoup(content, 'lxml')
+    html = etree.HTML(content)
+    article_main = html.xpath('/html/body//div[@class="_article-main"]').pop(0)
 
     # 解析 article 描述部分
-    article_main = page_bs.find(name='div', attrs={'class': '_article-main'})
-    article_title = article_main.find(name='h1', attrs={'class': 'am__title'}).get_text(strip=True)
-    article_eyecatch = article_main.find(name='div', attrs={'class': '_article-illust-eyecatch'})
-    article_eyecatch_image = None if article_eyecatch is None else article_eyecatch.find('img').attrs.get('src')
-
-    # 解析tag
-    tags_list = []
-    tag_tag = page_bs.find(name='ul', attrs={'class': '_tag-list'})
-    tag_tag = [] if tag_tag is None else tag_tag.find_all(name='a')
-    for tag in tag_tag:
-        tag_name = tag.attrs.get('data-gtm-label', None)
-        tag_rela_url = tag.attrs.get('href', None)
-        tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
-        tag_url = root_url + tag_rela_url
-        tags_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
+    article = article_main.xpath('article[@class="am__article-body-container"]').pop(0)
+    article_title = article.xpath('header[1]//h1[@class="am__title"]').pop(0).text.strip()
+    eyecatch = article.xpath('div//div[@class="_article-illust-eyecatch"]')
+    eyecatch_image = eyecatch.pop(0).xpath('img[1]').pop(0).attrib.get('src') if eyecatch else None
 
     # 解析 article 主体部分
-    article_body = article_main.find(name='div', attrs={'class': 'am__body'})
+    article_body = article_main.xpath('article//div[@class="am__body"]').pop(0)
 
-    # 注意 pixivision illustration 的文章有两种页面样式, 要分开解析
-    # 这个是某些特殊特辑的样式, 一般出现在各种特辑TOP排行榜或者专题特辑上
-    feature_article_body = article_body.find(name='div', attrs={'class': '_feature-article-body'})
-    # 重新解析description
-    if feature_article_body is not None:
-        article_description = article_main.find(
-            name='div', attrs={'class': 'fab__paragraph _medium-editor-text'}).get_text(strip=True)
-    else:
-        article_description = article_main.find(
-            name='div', attrs={'class': 'am__description _medium-editor-text'}).get_text(strip=True)
+    # 获取文章描述
+    # 注意 pixivision illustration 的文章有两种页面样式
+    article_description = article_body.xpath(
+        'div//div[@class="fab__paragraph _medium-editor-text" or @class="am__description _medium-editor-text"]'
+    ).pop(0).xpath('p')
+    description = '\n'.join(x.text.strip() for x in article_description if x.text)
 
     # 获取所有作品内容
-    article_illusts = article_body.find_all(name='div', attrs={'class': 'am__work__main'})
-    # 分别解析两种样式中的图片列表
     artwork_list = []
-    # 一般样式
-    if article_illusts:
-        for item in article_illusts:
-            # 解析作品信息
-            artwork_info = item.previous_sibling
-            artwork_user_name = artwork_info.find(name='p', attrs={'class': 'am__work__user-name'})
-            artwork_user_name = artwork_user_name.find(name='a', attrs={
-                'class': 'author-img-container inner-link',
-                'target': '_blank'
-            }).get_text()
-            artwork_title = artwork_info.find(name='h3', attrs={'class': 'am__work__title'}).get_text()
-            artwork_url = item.find(name='a', attrs={'class': 'inner-link'}).attrs.get('href')
-            artwork_id = parse_pid_from_url(text=artwork_url)
-            image_url = item.find(name='img', attrs={'class': 'am__work__illust'}).attrs.get('src')
-            artwork_list.append({'artwork_id': artwork_id, 'artwork_user': artwork_user_name,
-                                 'artwork_title': artwork_title, 'artwork_url': artwork_url, 'image_url': image_url})
+    artworks = article_body.xpath('div//div[@class="am__work"]')
+    for artwork in artworks:
+        # 解析作品信息
+        artwork_info = artwork.xpath('div[@class="am__work__info"]').pop(0)
+        artwork_title = artwork_info.xpath('div//h3[@class="am__work__title"]/a[1]').pop(0).text.strip()
+        artwork_user_name = artwork_info.xpath(
+            'div//p[@class="am__work__user-name"]/a[@class="author-img-container inner-link"]'
+        ).pop(0).text.strip()
+
+        artwork_main = artwork.xpath('div[@class="am__work__main"]').pop(0)
+        artwork_url = artwork_main.xpath('a[@class="inner-link"]').pop(0).attrib.get('href')
+        artwork_id = parse_pid_from_url(text=artwork_url, url_mode=False)
+        image_url = artwork_main.xpath('a//img[contains(@class, "am__work__illust")]').pop(0).attrib.get('src')
+
+        artwork_list.append({'artwork_id': artwork_id, 'artwork_user': artwork_user_name,
+                             'artwork_title': artwork_title, 'artwork_url': artwork_url, 'image_url': image_url})
+
+    # 解析 tag
+    tag_list = []
+    tag_hrefs = article_main.xpath('div//ul[@class="_tag-list"]/a')
+    for tag in tag_hrefs:
+        tag_name = tag.attrib.get('data-gtm-label')
+        tag_rela_url = tag.attrib.get('href')
+        tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
+        tag_url = root_url + tag_rela_url
+        tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
 
     result = {
         'title': article_title,
-        'description': article_description,
-        'eyecatch_image': article_eyecatch_image,
+        'description': description,
+        'eyecatch_image': eyecatch_image,
         'artwork_list': artwork_list,
-        'tags_list': tags_list
+        'tags_list': tag_list
     }
     return PixivisionArticle.parse_obj(result)
 
