@@ -165,7 +165,7 @@ class BilibiliUser(Bilibili):
         """获取并初始化用户对应 BilibiliUserModel"""
         if not isinstance(self.user_model, BilibiliUserModel):
             params = {'mid': self.mid}
-            signed_params = transform_params(params)
+            signed_params = await transform_params(params)
             user_result = await self._fetcher.get_json_dict(url=self._data_api_url, params=signed_params)
             if user_result.status != 200:
                 raise BilibiliApiError(f'BilibiliApiError, {user_result.result}')
