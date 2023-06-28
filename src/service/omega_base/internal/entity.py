@@ -37,13 +37,24 @@ from .consts import (
 class InternalEntity(object):
     """封装后用于插件调用的数据库实体操作对象"""
 
-    def __init__(self, session: AsyncSession, bot_id: str, entity_type: str, entity_id: str, parent_id: str):
+    def __init__(
+            self,
+            session: AsyncSession,
+            bot_id: str,
+            entity_type: str,
+            entity_id: str,
+            parent_id: str,
+            entity_name: Optional[str] = None,
+            entity_info: Optional[str] = None
+    ) -> None:
         EntityType.verify(entity_type)
         self.db_session = session
         self.bot_id = bot_id
         self.entity_type = entity_type
         self.entity_id = entity_id
         self.parent_id = parent_id
+        self.entity_name = f'{entity_type}_{entity_id}' if entity_name is None else entity_name
+        self.entity_info = entity_info
 
     @property
     def tid(self) -> str:
@@ -76,10 +87,18 @@ class InternalEntity(object):
         return await EntityDAL(session=self.db_session).query_unique(bot_index_id=bot.id, entity_type=self.entity_type,
                                                                      entity_id=self.entity_id, parent_id=self.parent_id)
 
-    async def add_ignore_exists(self, entity_name: str, entity_info: Optional[str] = None) -> None:
+    async def add_ignore_exists(
+            self,
+            entity_name: Optional[str] = None,
+            entity_info: Optional[str] = None
+    ) -> None:
         """新增 Entity, 若已存在忽略"""
         bot = await self.query_bot_self()
         entity_dal = EntityDAL(session=self.db_session)
+
+        entity_name = self.entity_name if entity_name is None else entity_name
+        entity_info = self.entity_info if entity_info is None else entity_info
+
         try:
             await entity_dal.query_unique(bot_index_id=bot.id, entity_id=self.entity_id,
                                           entity_type=self.entity_type, parent_id=self.parent_id)
@@ -87,10 +106,18 @@ class InternalEntity(object):
             await entity_dal.add(bot_index_id=bot.id, entity_id=self.entity_id, entity_type=self.entity_type,
                                  parent_id=self.parent_id, entity_name=entity_name, entity_info=entity_info)
 
-    async def add_upgrade(self, entity_name: str, entity_info: Optional[str] = None) -> None:
+    async def add_upgrade(
+            self,
+            entity_name: Optional[str] = None,
+            entity_info: Optional[str] = None
+    ) -> None:
         """新增 Entity, 若已存在则更新"""
         bot = await self.query_bot_self()
         entity_dal = EntityDAL(session=self.db_session)
+
+        entity_name = self.entity_name if entity_name is None else entity_name
+        entity_info = self.entity_info if entity_info is None else entity_info
+
         try:
             entity = await entity_dal.query_unique(bot_index_id=bot.id, entity_id=self.entity_id,
                                                    entity_type=self.entity_type, parent_id=self.parent_id)

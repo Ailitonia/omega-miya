@@ -9,7 +9,7 @@
 """
 
 from pydantic import AnyHttpUrl, BaseModel, Field, parse_obj_as
-from typing import Optional
+from typing import Annotated, Optional
 
 from nonebot.log import logger
 from nonebot.matcher import Matcher
@@ -225,7 +225,11 @@ class VersionInfo(BaseOnebotModel):
 
 
 @event_preprocessor
-async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSession = Depends(get_db_session)):
+async def __obv11_bot_connect(
+        bot: Bot,
+        event: BotConnectEvent,
+        session: Annotated[AsyncSession, Depends(get_db_session)]
+) -> None:
     """处理 OneBot V11(go-cqhttp) Bot 连接事件"""
     assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
 
@@ -345,7 +349,11 @@ async def __obv11_bot_connect(bot: Bot, event: BotConnectEvent, session: AsyncSe
 
 
 @event_preprocessor
-async def __obv11_bot_disconnect(bot: Bot, event: BotDisconnectEvent, session: AsyncSession = Depends(get_db_session)):
+async def __obv11_bot_disconnect(
+        bot: Bot,
+        event: BotDisconnectEvent,
+        session: Annotated[AsyncSession, Depends(get_db_session)]
+) -> None:
     """处理 OneBot V11(go-cqhttp) Bot 断开连接事件"""
     assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
 

@@ -12,7 +12,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from functools import wraps
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Callable, Iterable, Literal, NoReturn, Optional, ParamSpec, Type, TypeVar, Union
+from typing import Annotated, Callable, Iterable, Literal, NoReturn, Optional, ParamSpec, Type, TypeVar, Union
 
 from nonebot.exception import PausedException, FinishedException, RejectedException
 from nonebot.internal.adapter.bot import Bot as BaseBot
@@ -52,7 +52,7 @@ class EntityInterface(object):
             self,
             bot: BaseBot,
             event: BaseEvent,
-            session: AsyncSession = Depends(get_db_session)
+            session: Annotated[AsyncSession, Depends(get_db_session)]
     ) -> "EntityInterface":
         """依赖注入: EntityInterface(OmegaEntity)"""
         entity_depend_type = get_entity_depend(event=event)
@@ -91,9 +91,9 @@ class EntityInterface(object):
     @_ensure_entity
     async def send_msg(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]):
         bot = await self.get_bot()
-        send_params = get_msg_sender(target=self.entity)(target_entity=self.entity).to_send_msg()
-
         builder = get_msg_builder(bot)
+
+        send_params = get_msg_sender(target=self.entity)(target_entity=self.entity).to_send_msg()
         send_message = builder(message=message).message
 
         params = {send_params.message_param_name: send_message, **send_params.params}
@@ -121,8 +121,8 @@ class EntityInterface(object):
     ) -> asyncio.TimerHandle:
         """发出消息指定时间后自动撤回"""
         bot = await self.get_bot()
-        sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
 
+        sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
         sent_data = await self.send_msg(message=message)
         revoke_params = sender.parse_revoke_sent_params(content=sent_data)
 
@@ -140,8 +140,8 @@ class EntityInterface(object):
     ) -> asyncio.TimerHandle:
         """发出消息指定时间后自动撤回"""
         bot = await self.get_bot()
-        sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
 
+        sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
         sent_data = await self.send_multi_msgs(messages=messages)
         revoke_params = sender.parse_revoke_sent_params(content=sent_data)
 

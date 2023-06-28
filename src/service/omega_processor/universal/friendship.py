@@ -22,12 +22,10 @@ CURRENCY_INCREMENTAL = 1e-4
 async def postprocessor_friendship(bot: Bot, event: Event):
     """事件后处理， 用户好感度处理"""
     user_id = event.get_user_id()
-    entity_name = str(user_id)
-    entity_info = f'{bot.type} user {user_id}'
 
     try:
         async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
-            await entity.add_ignore_exists(entity_name=entity_name, entity_info=entity_info)
+            await entity.add_ignore_exists()
             await entity.change_friendship(energy=ENERGY_INCREMENTAL, currency=CURRENCY_INCREMENTAL)
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Increased User({user_id}) friendship succeed')
     except Exception as e:

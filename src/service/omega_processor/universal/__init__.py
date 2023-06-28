@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver
+from nonebot import get_driver, logger
 from nonebot.internal.adapter import Bot, Event
 from nonebot.message import event_preprocessor, run_preprocessor, run_postprocessor, event_postprocessor
 from nonebot.matcher import Matcher
@@ -59,8 +59,8 @@ async def handle_universal_run_preprocessor(matcher: Matcher, bot: Bot, event: E
         await preprocessor_plugin_cooldown(matcher=matcher, bot=bot, event=event)
         # 处理消耗
         await preprocessor_plugin_cost(matcher=matcher, bot=bot, event=event)
-    except ValueError:
-        pass
+    except ValueError as e:
+        logger.debug(f'UniversalRunPreprocessor ignored {event!r} without message, {e}')
 
 
 @run_postprocessor
@@ -80,8 +80,8 @@ async def handle_universal_event_postprocessor(bot: Bot, event: Event):
         await postprocessor_friendship(bot=bot, event=event)
         # 处理历史记录
         await postprocessor_history(bot=bot, event=event, message=message)
-    except ValueError:
-        pass
+    except ValueError as e:
+        logger.debug(f'UniversalEventPostprocessor ignored {event!r} without message, {e}')
 
 
 __all__ = []

@@ -49,10 +49,8 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({plugin_name}) ignored with non-cost')
         return
 
-    entity_name = str(user_id)
-    entity_info = f'{bot.type} user {user_id}'
     async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
-        await entity.add_ignore_exists(entity_name=entity_name, entity_info=entity_info)
+        await entity.add_ignore_exists()
         friendship = await entity.query_friendship()
 
         if friendship.currency < processor_state.cost:

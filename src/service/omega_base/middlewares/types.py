@@ -12,7 +12,7 @@ import abc
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, Iterable, Literal, Type, Union
+from typing import Annotated, Any, Iterable, Literal, Type, Union
 
 from nonebot.internal.adapter.bot import Bot as BaseBot
 from nonebot.internal.adapter.event import Event as BaseEvent
@@ -30,6 +30,8 @@ class EntityParams(BaseModel):
     entity_type: str
     entity_id: str
     parent_id: str
+    entity_name: str | None = None
+    entity_info: str | None = None
 
 
 class EntityDepend(abc.ABC):
@@ -42,7 +44,12 @@ class EntityDepend(abc.ABC):
         """
         self.acquire_type = acquire_type
 
-    def __call__(self, bot: BaseBot, event: BaseEvent, session: AsyncSession = Depends(get_db_session)) -> OmegaEntity:
+    def __call__(
+            self,
+            bot: BaseBot,
+            event: BaseEvent,
+            session: Annotated[AsyncSession, Depends(get_db_session)]
+    ) -> OmegaEntity:
         match self.acquire_type:
             case 'event':
                 return OmegaEntity(session=session, **self.extract_event_entity_from_event(bot, event).dict())
