@@ -37,13 +37,21 @@ class _CooldownCheckingResult(BaseModel):
 async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 冷却全局处理"""
 
+    # 从 state 中解析已配置的权限要求
+    plugin_name = matcher.plugin.name
+    processor_state = parse_processor_state(state=matcher.state)
+
+    # 跳过不需要 processor 处理的
+    if not processor_state.enable_processor:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({plugin_name}) ignored global check with disable processor')
+        return
+
     user_id = event.get_user_id()
     # 忽略超级用户
     if user_id in SUPERUSERS:
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
-    plugin_name = matcher.plugin.name
     is_expired: bool = True
     expired_time: datetime = datetime.now()
 

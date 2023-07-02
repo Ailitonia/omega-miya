@@ -19,6 +19,9 @@ from ....resource import TemporaryResource
 from ...omega_requests import OmegaRequests
 
 
+_TMP_IMG_PATH = TemporaryResource('telegram', 'tmp', 'images')
+
+
 async def handle_parse_message_image_event_preprocessor(bot: Bot, event: MessageEvent):
     """事件预处理, 将 photo 消息段中的图片 file_id 替换为真实图片 url"""
     origin_message = event.message.copy()
@@ -47,8 +50,7 @@ async def parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
     url = f"https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}"
     # 该链接不能直接作为发送图片的 url, 会返回错误: "wrong file identifier/HTTP URL specified"
 
-    img_path = TemporaryResource('telegram', 'tmp', 'images')
-    img_target_file = img_path(f'{file.file_unique_id}_{OmegaRequests.hash_url_file_name("photo", url=url)}')
+    img_target_file = _TMP_IMG_PATH(f'{file.file_unique_id}_{OmegaRequests.hash_url_file_name("photo", url=url)}')
     await OmegaRequests().download(url=url, file=img_target_file)
 
     parsed_seg = File.photo(file=img_target_file.resolve_path, has_spoiler=seg.data.get('has_spoiler'))
