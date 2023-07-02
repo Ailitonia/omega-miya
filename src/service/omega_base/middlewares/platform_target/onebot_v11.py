@@ -279,7 +279,8 @@ class OnebotV11GroupMessageEventEntityDepend(EntityDepend):
     @classmethod
     def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GroupMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id
+            bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id,
+            entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
 
@@ -294,7 +295,8 @@ class OnebotV11PrivateMessageEventEntityDepend(EntityDepend):
     @classmethod
     def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11PrivateMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id
+            bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id,
+            entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
 
@@ -313,7 +315,8 @@ class OnebotV11GuildMessageEventEntityDepend(EntityDepend):
     def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GuildMessageEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_guild_user',
-            entity_id=str(event.user_id), parent_id=str(event.guild_id)
+            entity_id=str(event.user_id), parent_id=str(event.guild_id),
+            entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
 

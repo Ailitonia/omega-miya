@@ -9,20 +9,31 @@
 """
 
 from pathlib import Path
-from typing import Tuple, Union, Iterable
+from typing import Any, Iterable, Tuple, Type, Union
 from urllib.parse import urlparse
 
-from nonebot.adapters.telegram.message import (
-    Entity,
-    File,
+from nonebot.adapters.telegram import (
+    Bot as TelegramBot,
     Message as TelegramMessage,
-    MessageSegment as TelegramMessageSegment
+    MessageSegment as TelegramMessageSegment,
+    Event as TelegramEvent
 )
+from nonebot.adapters.telegram.event import (
+    GroupMessageEvent as TelegramGroupMessageEvent,
+    PrivateMessageEvent as TelegramPrivateMessageEvent,
+    ChannelPostEvent as TelegramChannelPostEvent
+)
+from nonebot.adapters.telegram.message import Entity, File
 
-from ..const import SupportedPlatform
-from ..message_tools import register_builder, register_extractor
-from ..types import MessageBuilder
-from ...message import MessageSegmentType, Message as OmegaMessage, MessageSegment as OmegaMessageSegment
+from ..const import SupportedPlatform, SupportedTarget
+from ..entity_tools import register_entity_depend
+from ..message_tools import register_builder, register_extractor, register_sender
+from ..types import EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ...message import (
+    MessageSegmentType,
+    Message as OmegaMessage,
+    MessageSegment as OmegaMessageSegment
+)
 
 
 @register_builder(adapter_name=SupportedPlatform.telegram.value)
@@ -97,6 +108,177 @@ class TelegramMessageExtractor(MessageBuilder):
             return OmegaMessage(self._construct(message))
         else:
             return OmegaMessage(message)
+
+
+class TelegramMessageSender(MessageSender):
+    """Telegram 消息 Sender"""
+
+    @classmethod
+    def get_builder(cls) -> Type[MessageBuilder]:
+        return TelegramMessageBuilder
+
+    @classmethod
+    def get_extractor(cls) -> Type[MessageBuilder]:
+        return TelegramMessageExtractor
+
+    def construct_multi_msgs(self, messages: Iterable[Union[str, None, TelegramMessage, TelegramMessageSegment]]):
+        send_message = TelegramMessage()
+
+        for message in messages:
+            if isinstance(message, (str, TelegramMessageSegment)):
+                send_message.append(message)
+            elif isinstance(message, TelegramMessage):
+                send_message.extend(message)
+            else:
+                pass
+
+        return send_message
+
+    def to_send_msg(self) -> SenderParams:
+        raise NotImplementedError
+
+    def to_send_multi_msgs(self) -> SenderParams:
+        raise NotImplementedError
+
+    def parse_revoke_sent_params(self, content: Any) -> Union[RevokeParams, Iterable[RevokeParams]]:
+        if isinstance(content, list):
+            return (
+                RevokeParams(
+                    api='delete_message',
+                    params={'chat_id': x.chat.id, 'message_id': x.message_id}
+                )
+                for x in content
+            )
+        else:
+            return RevokeParams(
+                api='delete_message',
+                params={'chat_id': content.chat.id, 'message_id': content.message_id}
+            )
+
+
+@register_sender(target_entity=SupportedTarget.telegram_user.value)
+class TelegramUserMessageSender(TelegramMessageSender):
+    """Telegram 用户消息 Sender"""
+
+    def to_send_msg(self) -> SenderParams:
+        return SenderParams(
+            api='send_to',
+            message_param_name='message',
+            params={
+                'chat_id': self.target_entity.entity_id
+            }
+        )
+
+    def to_send_multi_msgs(self) -> SenderParams:
+        return self.to_send_msg()
+
+
+@register_sender(target_entity=SupportedTarget.telegram_group.value)
+class TelegramGroupMessageSender(TelegramMessageSender):
+    """Telegram 群组消息 Sender"""
+
+    def to_send_msg(self) -> SenderParams:
+        return SenderParams(
+            api='send_to',
+            message_param_name='message',
+            params={
+                'chat_id': self.target_entity.entity_id
+            }
+        )
+
+    def to_send_multi_msgs(self) -> SenderParams:
+        return self.to_send_msg()
+
+
+@register_sender(target_entity=SupportedTarget.telegram_channel.value)
+class TelegramChannelMessageSender(TelegramMessageSender):
+    """Telegram 频道消息 Sender"""
+
+    def to_send_msg(self) -> SenderParams:
+        return SenderParams(
+            api='send_to',
+            message_param_name='message',
+            params={
+                'chat_id': self.target_entity.entity_id
+            }
+        )
+
+    def to_send_multi_msgs(self) -> SenderParams:
+        return self.to_send_msg()
+
+
+@register_entity_depend(event=TelegramEvent)
+class TelegramEventEntityDepend(EntityDepend):
+    """Telegram 事件 Entity 对象依赖类"""
+
+    @classmethod
+    def extract_event_entity_from_event(cls, bot: TelegramBot, event: TelegramEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='telegram_user', entity_id=bot.self_id, parent_id=bot.self_id
+        )
+
+    @classmethod
+    def extract_user_entity_from_event(cls, bot: TelegramBot, event: TelegramEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='telegram_user', entity_id=bot.self_id, parent_id=bot.self_id
+        )
+
+
+@register_entity_depend(event=TelegramGroupMessageEvent)
+class TelegramGroupMessageEventEntityDepend(EntityDepend):
+    """Telegram 群组消息事件 Entity 对象依赖类"""
+
+    @classmethod
+    def extract_event_entity_from_event(cls, bot: TelegramBot, event: TelegramGroupMessageEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='telegram_group',
+            entity_id=str(event.chat.id), parent_id=bot.self_id,
+            entity_name=event.chat.title, entity_info=event.chat.type
+        )
+
+    @classmethod
+    def extract_user_entity_from_event(cls, bot: TelegramBot, event: TelegramGroupMessageEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='telegram_user',
+            entity_id=str(event.from_.id), parent_id=bot.self_id,
+            entity_name=event.from_.first_name,
+            entity_info=f'fName: {event.from_.first_name}, lName: {event.from_.last_name}, uName{event.from_.username}'
+        )
+
+
+@register_entity_depend(event=TelegramPrivateMessageEvent)
+class TelegramPrivateMessageEventEntityDepend(EntityDepend):
+    """Telegram 私聊消息事件 Entity 对象依赖类"""
+
+    @classmethod
+    def extract_event_entity_from_event(cls, bot: TelegramBot, event: TelegramPrivateMessageEvent) -> EntityParams:
+        return cls.extract_user_entity_from_event(bot=bot, event=event)
+
+    @classmethod
+    def extract_user_entity_from_event(cls, bot: TelegramBot, event: TelegramPrivateMessageEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='telegram_user',
+            entity_id=str(event.from_.id), parent_id=bot.self_id,
+            entity_name=event.from_.first_name,
+            entity_info=f'fName: {event.from_.first_name}, lName: {event.from_.last_name}, uName{event.from_.username}'
+        )
+
+
+@register_entity_depend(event=TelegramChannelPostEvent)
+class TelegramChannelPostEventEntityDepend(EntityDepend):
+    """Telegram 频道事件 Entity 对象依赖类"""
+
+    @classmethod
+    def extract_event_entity_from_event(cls, bot: TelegramBot, event: TelegramChannelPostEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='telegram_channel',
+            entity_id=str(event.chat.id), parent_id=bot.self_id,
+            entity_name=event.chat.title, entity_info=event.chat.type
+        )
+
+    @classmethod
+    def extract_user_entity_from_event(cls, bot: TelegramBot, event: TelegramChannelPostEvent) -> EntityParams:
+        return cls.extract_event_entity_from_event(bot=bot, event=event)
 
 
 __all__ = []

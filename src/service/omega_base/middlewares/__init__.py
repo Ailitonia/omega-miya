@@ -28,7 +28,7 @@ from . import platform_target as platform_target
 from .exception import BotNoFound
 from .entity_tools import get_entity_depend
 from .message_tools import get_msg_builder, get_msg_extractor, get_msg_sender
-from .types import EntityDepend, MessageBuilder, MessageSender
+from .types import EntityDepend, MessageBuilder, MessageSender, RevokeParams
 
 from ..message import (
     Message as OmegaMessage,
@@ -113,6 +113,15 @@ class EntityInterface(object):
 
         return await getattr(bot, send_params.api)(**params)
 
+    @staticmethod
+    async def _create_revoke_tasks(bot: BaseBot, revoke_params: Union[RevokeParams, Iterable[RevokeParams]]):
+        if isinstance(revoke_params, RevokeParams):
+            return await getattr(bot, revoke_params.api)(**revoke_params.params)
+        else:
+            return await asyncio.gather(
+                *(getattr(bot, params.api)(**params.params) for params in revoke_params), return_exceptions=True
+            )
+
     @_ensure_entity
     async def send_msg_auto_revoke(
             self,
@@ -129,7 +138,7 @@ class EntityInterface(object):
         loop = asyncio.get_running_loop()
         return loop.call_later(
             revoke_interval,
-            lambda: loop.create_task(getattr(bot, revoke_params.api)(**revoke_params.params)),
+            lambda: loop.create_task(self._create_revoke_tasks(bot=bot, revoke_params=revoke_params)),
         )
 
     @_ensure_entity
@@ -148,7 +157,7 @@ class EntityInterface(object):
         loop = asyncio.get_running_loop()
         return loop.call_later(
             revoke_interval,
-            lambda: loop.create_task(getattr(bot, revoke_params.api)(**revoke_params.params)),
+            lambda: loop.create_task(self._create_revoke_tasks(bot=bot, revoke_params=revoke_params)),
         )
 
 

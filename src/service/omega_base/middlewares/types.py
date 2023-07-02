@@ -138,7 +138,7 @@ class MessageSender(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def parse_revoke_sent_params(self, content: Any) -> RevokeParams:
+    def parse_revoke_sent_params(self, content: Any) -> Union[RevokeParams, Iterable[RevokeParams]]:
         raise NotImplementedError
 
 
