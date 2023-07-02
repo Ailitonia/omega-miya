@@ -11,7 +11,7 @@
 from nonebot import logger
 from nonebot.internal.adapter import Bot, Event
 
-from src.service.omega_base import EntityInterface
+from src.service import EntityInterface
 
 
 LOG_PREFIX: str = '<lc>Friendship</lc> | '

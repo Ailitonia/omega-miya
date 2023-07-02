@@ -11,7 +11,7 @@
 from typing import Literal, Optional, Any
 
 from src.resource import TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 from .config import bilibili_config, bilibili_resource_config
 from .exception import BilibiliNetworkError

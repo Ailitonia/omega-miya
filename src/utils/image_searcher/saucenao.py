@@ -12,8 +12,8 @@ from typing import Optional
 from pydantic import BaseModel, AnyUrl, parse_obj_as
 from nonebot.log import logger
 
-from src.service.omega_requests import OmegaRequests
 from src.exception import WebSourceException
+from src.service import OmegaRequests
 
 from .model import ImageSearcher, ImageSearchingResult
 from .config import image_searcher_config

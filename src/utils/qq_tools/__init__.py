@@ -9,7 +9,7 @@
 """
 
 from src.resource import TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 
 _qq_tmp_folder = TemporaryResource('qq_tools')

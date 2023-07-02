@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 from .cloud_api import TencentCloudApi
 from .model import TencentCloudTextTranslateResponse

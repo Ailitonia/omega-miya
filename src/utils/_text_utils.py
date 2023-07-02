@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 from nonebot.utils import run_sync
 
 from src.resource import StaticResource, TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 
 class TextUtilsBaseModel(BaseModel):

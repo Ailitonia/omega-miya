@@ -14,7 +14,7 @@ from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
 
 from src.database import StatisticDAL, begin_db_session
-from src.service.omega_base import EntityInterface
+from src.service import EntityInterface
 
 from ..plugin_utils import parse_processor_state
 

@@ -13,7 +13,7 @@ from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
 
-from src.service.omega_base import OmegaEntity, EntityInterface
+from src.service import OmegaEntity, EntityInterface
 
 from ..plugin_utils import parse_processor_state
 

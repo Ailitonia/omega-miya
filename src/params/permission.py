@@ -13,7 +13,7 @@ from typing import Annotated
 from nonebot.params import Depends
 from nonebot.rule import Rule
 
-from src.service.omega_base import EntityInterface
+from src.service import EntityInterface
 
 
 class EventGlobalPermissionRule:

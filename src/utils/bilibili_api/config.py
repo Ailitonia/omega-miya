@@ -13,7 +13,7 @@ from nonebot import get_driver, logger
 from pydantic import BaseModel, ValidationError
 
 from src.resource import TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 from .model import BilibiliWebInterfaceNav
 

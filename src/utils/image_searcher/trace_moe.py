@@ -13,8 +13,8 @@ from typing import Optional
 from pydantic import BaseModel, Field, AnyUrl, parse_obj_as
 from nonebot.log import logger
 
-from src.service.omega_requests import OmegaRequests
 from src.exception import WebSourceException
+from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
 
 from .model import ImageSearcher, ImageSearchingResult

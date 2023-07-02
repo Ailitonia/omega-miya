@@ -11,7 +11,7 @@
 from typing import Any, Optional
 
 from src.resource import TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 from .config import weibo_resource_config
 from .exception import WeiboApiError, WeiboNetworkError

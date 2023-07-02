@@ -13,7 +13,7 @@ from typing import Optional, Any
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 from .config import pixiv_config
 from .exception import PixivisionNetworkError

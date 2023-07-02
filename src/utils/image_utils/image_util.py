@@ -16,7 +16,7 @@ from io import BytesIO
 from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
 
 from src.resource import BaseResource, TemporaryResource
-from src.service.omega_requests import OmegaRequests
+from src.service import OmegaRequests
 
 from .config import image_utils_config
 

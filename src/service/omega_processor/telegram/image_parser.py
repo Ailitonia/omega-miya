@@ -15,8 +15,8 @@ from nonebot.adapters.telegram.bot import Bot
 from nonebot.adapters.telegram.event import MessageEvent
 from nonebot.adapters.telegram.message import Message, MessageSegment, File
 
-from src.service.omega_requests import OmegaRequests
-from src.resource import TemporaryResource
+from ....resource import TemporaryResource
+from ...omega_requests import OmegaRequests
 
 
 async def handle_parse_message_image_event_preprocessor(bot: Bot, event: MessageEvent):
