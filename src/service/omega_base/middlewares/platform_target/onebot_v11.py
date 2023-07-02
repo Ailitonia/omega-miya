@@ -9,7 +9,7 @@
 """
 
 from pathlib import Path
-from typing import Any, Iterable, Tuple, Type, Union
+from typing import Any, Iterable, Tuple, Type, Union, Optional
 from urllib.parse import urlparse
 
 from nonebot.adapters.onebot.v11 import (
@@ -25,15 +25,63 @@ from src.service.gocqhttp_guild_patch import (
     GuildMessageEvent as OnebotV11GuildMessageEvent
 )
 
+from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
 from ..entity_tools import register_entity_depend
 from ..message_tools import register_builder, register_extractor, register_sender
-from ..types import EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ..types import ApiCaller, EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ...internal import OmegaEntity
 from ...message import (
     MessageSegmentType,
     Message as OmegaMessage,
     MessageSegment as OmegaMessageSegment
 )
+
+
+@register_api_caller(adapter_name=SupportedPlatform.onebot_v11.value)
+class OnebotV11ApiCaller(ApiCaller):
+    """Onebot V11 API 调用适配"""
+
+    async def get_name(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
+        if id_ is not None:
+            raise ValueError('id param not support ')
+
+        if entity.entity_type == SupportedTarget.qq_user.value:
+            user_data = await self.bot.call_api('get_stranger_info', user_id=entity.entity_id)
+            entity_name = user_data.get('nickname', '')
+        elif entity.entity_type == SupportedTarget.qq_group.value:
+            group_data = await self.bot.call_api('get_group_info', group_id=entity.entity_id)
+            entity_name = group_data.get('group_name', '')
+        elif entity.entity_type == SupportedTarget.qq_guild.value:
+            guild_data = await self.bot.call_api('get_guild_meta_by_guest', guild_id=entity.entity_id)
+            entity_name = guild_data.get('guild_name', '')
+        elif entity.entity_type == SupportedTarget.qq_guild_user:
+            guild_user_data = await self.bot.call_api('get_guild_member_profile',
+                                                      guild_id=entity.parent_id, user_id=entity.entity_id)
+            entity_name = guild_user_data.get('nickname', '')
+        else:
+            raise ValueError(f'entity type {entity.entity_type!r} not support')
+
+        return entity_name
+
+    async def get_profile_photo_url(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
+        if entity.entity_type != SupportedTarget.qq_user.value:
+            raise ValueError(f'entity type {entity.entity_type!r} not support')
+
+        # head_img_size: 1: 40×40px, 2: 40×40px, 3: 100×100px, 4: 140×140px, 5: 640×640px, 40: 40×40px, 100: 100×100px
+        head_img_size = 5
+        url_version = 0
+
+        user_qq = id_ if id_ is not None else entity.entity_id
+
+        match url_version:
+            case 2:
+                url = f'https://users.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins={user_qq}'
+            case 1:
+                url = f'https://q2.qlogo.cn/headimg_dl?dst_uin={user_qq}&spec={head_img_size}'
+            case 0 | _:
+                url = f'https://q1.qlogo.cn/g?b=qq&nk={user_qq}&s={head_img_size}'
+        return url
 
 
 @register_builder(adapter_name=SupportedPlatform.onebot_v11.value)

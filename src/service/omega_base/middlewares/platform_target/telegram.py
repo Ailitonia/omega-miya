@@ -9,8 +9,8 @@
 """
 
 from pathlib import Path
-from typing import Any, Iterable, Tuple, Type, Union
-from urllib.parse import urlparse
+from typing import Any, Iterable, Tuple, Type, Union, Optional
+from urllib.parse import urlparse, quote
 
 from nonebot.adapters.telegram import (
     Bot as TelegramBot,
@@ -25,15 +25,41 @@ from nonebot.adapters.telegram.event import (
 )
 from nonebot.adapters.telegram.message import Entity, File
 
+from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
 from ..entity_tools import register_entity_depend
 from ..message_tools import register_builder, register_extractor, register_sender
-from ..types import EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ..types import ApiCaller, EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ...internal import OmegaEntity
 from ...message import (
     MessageSegmentType,
     Message as OmegaMessage,
     MessageSegment as OmegaMessageSegment
 )
+
+
+@register_api_caller(adapter_name=SupportedPlatform.telegram.value)
+class TelegramApiCaller(ApiCaller):
+    """Telegram API 调用适配"""
+
+    async def get_name(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
+        chat_id = id_ if id_ is not None else entity.entity_id
+        chat_data = await self.bot.call_api('get_chat', chat_id=chat_id)
+
+        title = chat_data.title
+        first_name = chat_data.first_name
+
+        return title if title is not None else first_name if first_name is not None else ''
+
+    async def get_profile_photo_url(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
+        chat_id = id_ if id_ is not None else entity.entity_id
+        chat_data = await self.bot.call_api('get_chat', chat_id=chat_id)
+
+        if (photo := chat_data.photo) is None:
+            raise RuntimeError('chat has no photo')
+
+        file = await self.bot.call_api('get_file', file_id=photo.big_file_id)
+        return f"https://api.telegram.org/file/bot{quote(self.bot.bot_config.token)}/{quote(file.file_path)}"
 
 
 @register_builder(adapter_name=SupportedPlatform.telegram.value)

@@ -25,10 +25,11 @@ from src.service.omega_multibot_support import get_online_bots
 
 from . import platform_target as platform_target
 
+from .api_tools import get_api_caller
 from .exception import BotNoFound
 from .entity_tools import get_entity_depend
 from .message_tools import get_msg_builder, get_msg_extractor, get_msg_sender
-from .types import EntityDepend, MessageBuilder, MessageSender, RevokeParams
+from .types import ApiCaller, EntityDepend, MessageBuilder, MessageSender, RevokeParams
 
 from ..message import (
     Message as OmegaMessage,
@@ -73,6 +74,10 @@ class EntityInterface(object):
 
         return _wrapper
 
+    @staticmethod
+    def get_api_caller(bot: BaseBot) -> ApiCaller:
+        return get_api_caller(platform=bot)(bot=bot)
+
     @asynccontextmanager
     async def get_entity(self, bot: BaseBot, event: BaseEvent):
         """获取 OmegaEntity 并开始事务"""
@@ -87,6 +92,18 @@ class EntityInterface(object):
         if not bot:
             raise BotNoFound(f'{bot_self} not online')
         return bot
+
+    @_ensure_entity
+    async def get_entity_name(self) -> str:
+        bot = await self.get_bot()
+        api_caller = self.get_api_caller(bot=bot)
+        return await api_caller.get_name(entity=self.entity)
+
+    @_ensure_entity
+    async def get_entity_profile_photo_url(self) -> str:
+        bot = await self.get_bot()
+        api_caller = self.get_api_caller(bot=bot)
+        return await api_caller.get_profile_photo_url(entity=self.entity)
 
     @_ensure_entity
     async def send_msg(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]):

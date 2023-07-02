@@ -12,7 +12,7 @@ import abc
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated, Any, Iterable, Literal, Type, Union
+from typing import Annotated, Any, Iterable, Literal, Optional, Type, Union
 
 from nonebot.internal.adapter.bot import Bot as BaseBot
 from nonebot.internal.adapter.event import Event as BaseEvent
@@ -22,6 +22,23 @@ from nonebot.params import Depends
 from src.database import begin_db_session, get_db_session
 
 from .. import OmegaEntity
+
+
+class ApiCaller(abc.ABC):
+    """平台 API 调用适配"""
+
+    def __init__(self, bot: BaseBot):
+        self.bot = bot
+
+    @abc.abstractmethod
+    async def get_name(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
+        """获取名称"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_profile_photo_url(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
+        """获取头像"""
+        raise NotImplementedError
 
 
 class EntityParams(BaseModel):
@@ -143,6 +160,7 @@ class MessageSender(abc.ABC):
 
 
 __all__ = [
+    'ApiCaller',
     'EntityParams',
     'EntityDepend',
     'MessageBuilder',
