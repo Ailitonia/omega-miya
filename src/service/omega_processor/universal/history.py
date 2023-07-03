@@ -35,10 +35,10 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
     msg_data = str(message)
 
     if len(raw_data) > 4096:
-        logger.warning(f'History | Raw data is longer than field limited and it will be reduce, <{raw_data}>')
+        logger.warning(f'History | Raw data is longer than field limited and it will be reduce, {raw_data!r}')
         raw_data = raw_data[:4096]
     if len(msg_data) > 4096:
-        logger.warning(f'History | Raw data is longer than field limited and it will be reduce, <{msg_data}>')
+        logger.warning(f'History | Raw data is longer than field limited and it will be reduce, {msg_data!r}')
         msg_data = msg_data[:4096]
 
     try:

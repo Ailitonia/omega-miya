@@ -69,7 +69,7 @@ def enable_processor_state(
     :param auth_node: matcher 需要的权限节点名称
     :param extra_auth_node: matcher 在运行中可能需要的权限节点, 供授权管理插件配置, 一般作为运行时判断, 不在 processor 阶段进行处理
     :param cooldown: matcher 冷却时间配置, 单位秒
-    :param cooldown_type: matcher 冷却类型, plugin: 插件冷却, event: 事件独立冷却, user: 用户独立冷却
+    :param cooldown_type: matcher 冷却类型, event: 事件独立冷却, user: 用户独立冷却
     :param cost: 使用 matcher 所需消耗的费用
     :param echo_processor_result: 是否需要通知用户权限/冷却等处理结果
     """
