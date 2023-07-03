@@ -3,6 +3,7 @@ nonebot-adapter-onebot==2.2.3
 nonebot-adapter-telegram~=0.1.0b14
 fastapi==0.95.2
 pydantic==1.10.8
+psutil==5.9.5
 SQLAlchemy~=2.0.17
 asyncmy~=0.2.8
 aiomysql~=0.2.0
