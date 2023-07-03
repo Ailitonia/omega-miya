@@ -24,6 +24,7 @@ from ..model import BaseDataAccessLayerModel, BotSelfOrm
 @unique
 class BotType(Enum):
     """Bot 类型"""
+    console: Literal['Console'] = 'Console'
     onebot_v11: Literal['OneBot V11'] = 'OneBot V11'
     onebot_v12: Literal['OneBot V12'] = 'OneBot V12'
     telegram: Literal['Telegram'] = 'Telegram'

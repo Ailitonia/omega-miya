@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+from . import console as console
 from . import onebot_v11 as onebot_v11
 from . import telegram as telegram
 

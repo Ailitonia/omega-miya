@@ -24,6 +24,7 @@ from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm, Subscri
 @unique
 class EntityType(Enum):
     """实体对象类型"""
+    console_user: Literal['console_user'] = 'console_user'  # nonebot-console 用户
     qq_user: Literal['qq_user'] = 'qq_user'  # QQ 用户
     qq_group: Literal['qq_group'] = 'qq_group'  # QQ 群组
     qq_guild: Literal['qq_guild'] = 'qq_guild'  # QQ 频道
