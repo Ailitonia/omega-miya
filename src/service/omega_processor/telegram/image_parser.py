@@ -15,8 +15,8 @@ from nonebot.adapters.telegram.bot import Bot
 from nonebot.adapters.telegram.event import MessageEvent
 from nonebot.adapters.telegram.message import Message, MessageSegment, File
 
-from ....resource import TemporaryResource
 from ...omega_requests import OmegaRequests
+from ....resource import TemporaryResource
 
 
 _TMP_IMG_PATH = TemporaryResource('telegram', 'tmp', 'images')
