@@ -9,7 +9,7 @@
 """
 
 from pathlib import Path
-from typing import Any, Iterable, Tuple, Type, Union, Optional
+from typing import Any, Iterable, Tuple, Type, Union, Optional, cast
 from urllib.parse import urlparse
 
 from nonebot.adapters.onebot.v11 import (
@@ -17,6 +17,7 @@ from nonebot.adapters.onebot.v11 import (
     Message as OnebotV11Message,
     MessageSegment as OnebotV11MessageSegment,
     Event as OnebotV11Event,
+    MessageEvent as OnebotV11MessageEvent,
     GroupMessageEvent as OnebotV11GroupMessageEvent,
     PrivateMessageEvent as OnebotV11PrivateMessageEvent,
 )
@@ -27,9 +28,20 @@ from src.service.gocqhttp_guild_patch import (
 
 from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
+from ..event_tools import register_event_handler
 from ..entity_tools import register_entity_depend
 from ..message_tools import register_builder, register_extractor, register_sender
-from ..types import ApiCaller, EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ..types import (
+    ApiCaller,
+    EntityDepend,
+    EntityParams,
+    EventHandler,
+    MessageBuilder,
+    MessageExtractor,
+    MessageSender,
+    SenderParams,
+    RevokeParams
+)
 from ...internal import OmegaEntity
 from ...message import (
     MessageSegmentType,
@@ -130,7 +142,7 @@ class OnebotV11MessageBuilder(MessageBuilder):
 
 
 @register_extractor(adapter_name=SupportedPlatform.onebot_v11.value)
-class OnebotV11MessageExtractor(MessageBuilder):
+class OnebotV11MessageExtractor(MessageExtractor):
     """Onebot V11 消息解析器"""
 
     @staticmethod
@@ -182,7 +194,7 @@ class OnebotV11MessageSender(MessageSender):
         return OnebotV11MessageBuilder
 
     @classmethod
-    def get_extractor(cls) -> Type[MessageBuilder]:
+    def get_extractor(cls) -> Type[MessageExtractor]:
         return OnebotV11MessageExtractor
 
     def construct_multi_msgs(self, messages: Iterable[Union[str, None, OnebotV11Message, OnebotV11MessageSegment]]):
@@ -272,6 +284,29 @@ class OnebotV11QQGuildChannelMessageSender(OnebotV11MessageSender):
 
     def to_send_multi_msgs(self) -> SenderParams:
         return self.to_send_msg()
+
+
+@register_event_handler(event=OnebotV11MessageEvent)
+class OnebotV11MessageEventHandler(EventHandler):
+    """Onebot V11 消息事件处理器"""
+
+    async def send_at_sender(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
+        self.event = cast(OnebotV11MessageEvent, self.event)
+
+        full_message = OnebotV11Message()
+        full_message += OnebotV11MessageSegment.at(self.event.user_id) + " "
+        full_message += message
+
+        return await self.bot.send(event=self.event, message=full_message, **kwargs)
+
+    async def send_reply(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
+        self.event = cast(OnebotV11MessageEvent, self.event)
+
+        full_message = OnebotV11Message()
+        full_message += OnebotV11MessageSegment.reply(self.event.message_id)
+        full_message += message
+
+        return await self.bot.send(event=self.event, message=full_message, **kwargs)
 
 
 @register_entity_depend(event=OnebotV11Event)

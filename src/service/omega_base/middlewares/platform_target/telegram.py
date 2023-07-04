@@ -9,7 +9,7 @@
 """
 
 from pathlib import Path
-from typing import Any, Iterable, Tuple, Type, Union, Optional
+from typing import Any, Iterable, Tuple, Type, Union, Optional, cast
 from urllib.parse import urlparse, quote
 
 from nonebot.adapters.telegram import (
@@ -19,6 +19,7 @@ from nonebot.adapters.telegram import (
     Event as TelegramEvent
 )
 from nonebot.adapters.telegram.event import (
+    MessageEvent as TelegramMessageEvent,
     GroupMessageEvent as TelegramGroupMessageEvent,
     PrivateMessageEvent as TelegramPrivateMessageEvent,
     ChannelPostEvent as TelegramChannelPostEvent
@@ -28,8 +29,19 @@ from nonebot.adapters.telegram.message import Entity, File
 from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
 from ..entity_tools import register_entity_depend
+from ..event_tools import register_event_handler
 from ..message_tools import register_builder, register_extractor, register_sender
-from ..types import ApiCaller, EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ..types import (
+    ApiCaller,
+    EntityDepend,
+    EntityParams,
+    EventHandler,
+    MessageBuilder,
+    MessageExtractor,
+    MessageSender,
+    SenderParams,
+    RevokeParams
+)
 from ...internal import OmegaEntity
 from ...message import (
     MessageSegmentType,
@@ -101,7 +113,7 @@ class TelegramMessageBuilder(MessageBuilder):
 
 
 @register_extractor(adapter_name=SupportedPlatform.telegram.value)
-class TelegramMessageExtractor(MessageBuilder):
+class TelegramMessageExtractor(MessageExtractor):
     """Telegram 消息解析器"""
 
     @staticmethod
@@ -144,7 +156,7 @@ class TelegramMessageSender(MessageSender):
         return TelegramMessageBuilder
 
     @classmethod
-    def get_extractor(cls) -> Type[MessageBuilder]:
+    def get_extractor(cls) -> Type[MessageExtractor]:
         return TelegramMessageExtractor
 
     def construct_multi_msgs(self, messages: Iterable[Union[str, None, TelegramMessage, TelegramMessageSegment]]):
@@ -231,6 +243,31 @@ class TelegramChannelMessageSender(TelegramMessageSender):
 
     def to_send_multi_msgs(self) -> SenderParams:
         return self.to_send_msg()
+
+
+@register_event_handler(event=TelegramMessageEvent)
+class TelegramMessageEventHandler(EventHandler):
+    """Telegram 消息事件处理器"""
+
+    async def send_at_sender(self, message: Union[str, None, TelegramMessage, TelegramMessageSegment], **kwargs):
+        self.event = cast(TelegramMessageEvent, self.event)
+
+        full_message = TelegramMessage()
+
+        if isinstance(self.event, (TelegramPrivateMessageEvent, TelegramGroupMessageEvent)):
+            full_message += Entity.mention(f'@{self.event.from_.username}') + " "
+        else:
+            pass
+
+        full_message += message
+
+        return await self.bot.send(event=self.event, message=full_message, **kwargs)
+
+    async def send_reply(self, message: Union[str, None, TelegramMessage, TelegramMessageSegment], **kwargs):
+        self.event = cast(TelegramMessageEvent, self.event)
+        return await self.bot.send(
+            event=self.event, message=message, reply_to_message_id=self.event.message_id, **kwargs
+        )
 
 
 @register_entity_depend(event=TelegramEvent)

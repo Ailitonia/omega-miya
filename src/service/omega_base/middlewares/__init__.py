@@ -28,8 +28,9 @@ from . import platform_target as platform_target
 from .api_tools import get_api_caller
 from .exception import BotNoFound
 from .entity_tools import get_entity_depend
+from .event_tools import get_event_handler
 from .message_tools import get_msg_builder, get_msg_extractor, get_msg_sender
-from .types import ApiCaller, EntityDepend, MessageBuilder, MessageSender, RevokeParams
+from .types import ApiCaller, EntityDepend, EventHandler, MessageBuilder, MessageSender, RevokeParams
 
 from ..message import (
     Message as OmegaMessage,
@@ -194,6 +195,9 @@ class MatcherInterface(object):
         self.event: BaseEvent = event
         self.matcher: Matcher = matcher
 
+    def get_event_handler(self) -> EventHandler:
+        return get_event_handler(self.event)(self.bot, self.event)
+
     def get_msg_builder(self) -> Type[MessageBuilder]:
         return get_msg_builder(self.bot)
 
@@ -205,78 +209,57 @@ class MatcherInterface(object):
         extractor = self.get_msg_extractor()
         return extractor(message).message
 
-    async def send(
-            self,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            *,
-            at_sender=False,
-            reply=False,
-            **kwargs
-    ):
+    async def send(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs):
+        """发送消息"""
         builder = self.get_msg_builder()
         send_message = builder(message=message).message
-        return await self.matcher.send(message=send_message, at_sender=at_sender, reply=reply, **kwargs)
+        return await self.matcher.send(message=send_message, **kwargs)
 
-    async def finish(
-            self,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            *,
-            at_sender=False,
-            reply=False,
-            **kwargs
-    ) -> NoReturn:
+    async def send_at_sender(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs):
+        """发送消息并@上条消息发送者"""
+        builder = self.get_msg_builder()
+        send_message = builder(message=message).message
+        return await self.get_event_handler().send_at_sender(message=send_message, **kwargs)
+
+    async def send_reply(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs):
+        """发送消息并回复/引用上条消息"""
+        builder = self.get_msg_builder()
+        send_message = builder(message=message).message
+        return await self.get_event_handler().send_reply(message=send_message, **kwargs)
+
+    async def finish(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
         """与 `matcher.finish()` 作用相同，仅能用在事件响应器中"""
-        await self.send(message=message, at_sender=at_sender, reply=reply, **kwargs)
+        await self.send(message=message, **kwargs)
         raise FinishedException
 
-    async def pause(
-            self,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            *,
-            at_sender=False,
-            reply=False,
-            **kwargs
-    ) -> NoReturn:
+    async def pause(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
         """与 `matcher.pause()` 作用相同，仅能用在事件响应器中"""
-        await self.send(message=message, at_sender=at_sender, reply=reply, **kwargs)
+        await self.send(message=message, **kwargs)
         raise PausedException
 
-    async def reject(
-            self,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            *,
-            at_sender=False,
-            reply=False,
-            **kwargs
-    ) -> NoReturn:
+    async def reject(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
         """与 `matcher.reject()` 作用相同，仅能用在事件响应器中"""
-        await self.send(message=message, at_sender=at_sender, reply=reply, **kwargs)
+        await self.send(message=message, **kwargs)
         raise RejectedException
 
     async def reject_arg(
             self,
             key: str,
             message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            *,
-            at_sender=False,
-            reply=False,
             **kwargs
     ) -> NoReturn:
         """与 `matcher.reject_arg()` 作用相同，仅能用在事件响应器中"""
-        await self.send(message=message, at_sender=at_sender, reply=reply, **kwargs)
+        await self.send(message=message, **kwargs)
         await self.matcher.reject_arg(key)
 
     async def reject_receive(
             self,
             key: str,
             message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            *,
-            at_sender=False,
-            reply=False,
             **kwargs
     ) -> NoReturn:
         """与 `matcher.reject_receive()` 作用相同，仅能用在事件响应器中"""
-        await self.send(message=message, at_sender=at_sender, reply=reply, **kwargs)
+        await self.send(message=message, **kwargs)
         await self.matcher.reject_receive(key)
 
 

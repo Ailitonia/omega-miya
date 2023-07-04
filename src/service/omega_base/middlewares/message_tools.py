@@ -15,16 +15,17 @@ from nonebot.internal.adapter.bot import Bot
 
 from .const import SupportedPlatform, SupportedTarget
 from .exception import AdapterNotSupported, TargetNotSupported
-from .types import MessageBuilder, MessageSender
+from .types import MessageBuilder, MessageExtractor, MessageSender
 
 from ..internal import OmegaEntity
 
 
 __MESSAGE_BUILDERS: dict[str, Type[MessageBuilder]] = {}
-__MESSAGE_EXTRACTORS: dict[str, Type[MessageBuilder]] = {}
+__MESSAGE_EXTRACTORS: dict[str, Type[MessageExtractor]] = {}
 __MESSAGE_SENDERS: dict[str, Type[MessageSender]] = {}
 
 Builder_T = TypeVar("Builder_T", bound=Type[MessageBuilder])
+Extractor_T = TypeVar("Extractor_T", bound=Type[MessageExtractor])
 Sender_T = TypeVar("Sender_T", bound=Type[MessageSender])
 T = TypeVar("T")
 
@@ -53,7 +54,7 @@ def register_builder(adapter_name: str) -> Callable[[T], T]:
 def register_extractor(adapter_name: str) -> Callable[[T], T]:
     """注册不同平台消息解析适配器"""
 
-    def decorator(message_extractor: Builder_T) -> Builder_T:
+    def decorator(message_extractor: Extractor_T) -> Extractor_T:
         """注册不同平台消息构造适配器"""
         global __MESSAGE_EXTRACTORS
 
@@ -102,7 +103,7 @@ def get_msg_builder(platform: Union[str, Bot]) -> Type[MessageBuilder]:
     return __MESSAGE_BUILDERS[adapter_name]
 
 
-def get_msg_extractor(platform: Union[str, Bot]) -> Type[MessageBuilder]:
+def get_msg_extractor(platform: Union[str, Bot]) -> Type[MessageExtractor]:
     """根据适配平台获取 MessageExtractor"""
 
     adapter_name = platform.adapter.get_name() if isinstance(platform, Bot) else platform

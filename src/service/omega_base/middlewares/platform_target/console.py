@@ -14,14 +14,26 @@ from nonebot.adapters.console import (
     Bot as ConsoleBot,
     Message as ConsoleMessage,
     MessageSegment as ConsoleMessageSegment,
-    Event as ConsoleEvent
+    Event as ConsoleEvent,
+    MessageEvent as ConsoleMessageEvent
 )
 
 from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
 from ..entity_tools import register_entity_depend
+from ..event_tools import register_event_handler
 from ..message_tools import register_builder, register_extractor, register_sender
-from ..types import ApiCaller, EntityDepend, EntityParams, MessageBuilder, MessageSender, SenderParams, RevokeParams
+from ..types import (
+    ApiCaller,
+    EntityDepend,
+    EntityParams,
+    EventHandler,
+    MessageBuilder,
+    MessageExtractor,
+    MessageSender,
+    SenderParams,
+    RevokeParams
+)
 from ...internal import OmegaEntity
 from ...message import (
     MessageSegmentType,
@@ -73,7 +85,7 @@ class ConsoleMessageBuilder(MessageBuilder):
 
 
 @register_extractor(adapter_name=SupportedPlatform.console.value)
-class ConsoleMessageExtractor(MessageBuilder):
+class ConsoleMessageExtractor(MessageExtractor):
 
     @staticmethod
     def _construct(message: ConsoleMessage) -> Iterable[OmegaMessageSegment]:
@@ -114,7 +126,7 @@ class ConsoleMessageSender(MessageSender):
         return ConsoleMessageBuilder
 
     @classmethod
-    def get_extractor(cls) -> Type[MessageBuilder]:
+    def get_extractor(cls) -> Type[MessageExtractor]:
         return ConsoleMessageExtractor
 
     def construct_multi_msgs(self, messages: Iterable[Union[str, None, ConsoleMessage, ConsoleMessageSegment]]):
@@ -144,6 +156,17 @@ class ConsoleMessageSender(MessageSender):
 
     def parse_revoke_sent_params(self, content: Any) -> Union[RevokeParams, Iterable[RevokeParams]]:
         raise NotImplementedError
+
+
+@register_event_handler(event=ConsoleMessageEvent)
+class ConsoleMessageEventHandler(EventHandler):
+    """ConsoleMessage 消息事件处理器"""
+
+    async def send_at_sender(self, message: Union[str, None, ConsoleMessage, ConsoleMessageSegment], **kwargs):
+        return await self.bot.send(event=self.event, message=message, **kwargs)
+
+    async def send_reply(self, message: Union[str, None, ConsoleMessage, ConsoleMessageSegment], **kwargs):
+        return await self.bot.send(event=self.event, message=message, **kwargs)
 
 
 @register_entity_depend(event=ConsoleEvent)

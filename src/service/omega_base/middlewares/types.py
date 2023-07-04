@@ -22,6 +22,7 @@ from nonebot.params import Depends
 from src.database import begin_db_session, get_db_session
 
 from .. import OmegaEntity
+from ..message import Message as OmegaMessage, MessageSegment as OmegaMessageSegment
 
 
 class ApiCaller(abc.ABC):
@@ -93,10 +94,28 @@ class EntityDepend(abc.ABC):
             yield entity
 
 
+class EventHandler(abc.ABC):
+    """事件处理器"""
+
+    def __init__(self, bot: BaseBot, event: BaseEvent):
+        self.bot = bot
+        self.event = event
+
+    @abc.abstractmethod
+    async def send_at_sender(self, message: Union[str, None, BaseMessage, BaseMessageSegment], **kwargs):
+        """发送消息并 @Sender"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def send_reply(self, message: Union[str, None, BaseMessage, BaseMessageSegment], **kwargs):
+        """回复一条消息"""
+        raise NotImplementedError
+
+
 class MessageBuilder(abc.ABC):
     """Omega 中间件消息构造器"""
 
-    def __init__(self, message: Union[str, None, BaseMessage, BaseMessageSegment]) -> None:
+    def __init__(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]) -> None:
         self.__message = self._build(message=message)
 
     @property
@@ -105,11 +124,24 @@ class MessageBuilder(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _construct(message: BaseMessage) -> Iterable[BaseMessageSegment]:
+    def _construct(message: OmegaMessage) -> Iterable[BaseMessageSegment]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _build(self, message: Union[str, None, BaseMessage, BaseMessageSegment]) -> BaseMessage:
+    def _build(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]) -> BaseMessage:
+        raise NotImplementedError
+
+
+class MessageExtractor(MessageBuilder, abc.ABC):
+    """Omega 中间件消息解析器"""
+
+    @staticmethod
+    @abc.abstractmethod
+    def _construct(message: BaseMessage) -> Iterable[OmegaMessageSegment]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _build(self, message: Union[str, None, BaseMessage, BaseMessageSegment]) -> OmegaMessage:
         raise NotImplementedError
 
 
@@ -163,7 +195,9 @@ __all__ = [
     'ApiCaller',
     'EntityParams',
     'EntityDepend',
+    'EventHandler',
     'MessageBuilder',
+    'MessageExtractor',
     'MessageSender',
     'SenderParams',
     'RevokeParams'
