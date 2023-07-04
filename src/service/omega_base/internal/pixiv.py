@@ -24,7 +24,7 @@ class InternalPixivArtwork(object):
         self.pid = pid
 
     @classmethod
-    async def query_with_condition(
+    async def query_by_condition(
             cls,
             session: AsyncSession,
             keywords: Optional[str | list[str]],
@@ -51,10 +51,10 @@ class InternalPixivArtwork(object):
         if isinstance(keywords, str):
             keywords = [keywords]
 
-        return await PixivArtworkDAL(session=session).query_with_condition(keywords=keywords, num=num,
-                                                                           nsfw_tag=nsfw_tag, classified=classified,
-                                                                           acc_mode=acc_mode, ratio=ratio,
-                                                                           order_mode=order_mode)
+        return await PixivArtworkDAL(session=session).query_by_condition(keywords=keywords, num=num,
+                                                                         nsfw_tag=nsfw_tag, classified=classified,
+                                                                         acc_mode=acc_mode, ratio=ratio,
+                                                                         order_mode=order_mode)
 
     @classmethod
     async def random(
@@ -71,7 +71,7 @@ class InternalPixivArtwork(object):
         :param nsfw_tag: nsfw 标签值, 0=sfw, 1=nsfw, 2=r18, -1=(sfw+nsfw), -2=(sfw+nsfw+r18), -3=(nsfw+r18)
         :param ratio: 图片长宽, 1: 横图, -1: 纵图, 0: 正方形图
         """
-        return await cls.query_with_condition(session=session, keywords=None, num=num, nsfw_tag=nsfw_tag, ratio=ratio)
+        return await cls.query_by_condition(session=session, keywords=None, num=num, nsfw_tag=nsfw_tag, ratio=ratio)
 
     @classmethod
     async def query_statistics(

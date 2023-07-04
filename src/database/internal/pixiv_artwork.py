@@ -65,7 +65,7 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return PixivArtwork.from_orm(session_result.scalar_one())
 
-    async def query_with_condition(
+    async def query_by_condition(
             self,
             keywords: Optional[list[str]],
             num: int = 3,

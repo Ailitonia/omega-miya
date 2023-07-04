@@ -48,7 +48,7 @@ class HistoryDAL(BaseDataAccessLayerModel):
     async def query_unique(self):
         raise NotImplementedError('method not supported')
 
-    async def query_with_condition(
+    async def query_by_condition(
             self,
             bot_self_id: Optional[str] = None,
             parent_entity_id: Optional[str] = None,

@@ -46,6 +46,15 @@ class PluginDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return Plugin.from_orm(session_result.scalar_one())
 
+    async def query_by_enable_status(self, enabled: int = 1) -> list[Plugin]:
+        """按启用状态查询插件
+
+        :param enabled: 启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装
+        """
+        stmt = select(PluginOrm).where(PluginOrm.enabled == enabled).order_by(PluginOrm.plugin_name)
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[Plugin], session_result.scalars().all())
+
     async def query_all(self) -> list[Plugin]:
         stmt = select(PluginOrm).order_by(PluginOrm.plugin_name)
         session_result = await self.db_session.execute(stmt)
