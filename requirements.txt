@@ -1,4 +1,5 @@
 nonebot2==2.0.0
+nonebot-adapter-console~=0.3.2
 nonebot-adapter-onebot==2.2.3
 nonebot-adapter-telegram~=0.1.0b14
 fastapi==0.95.2
