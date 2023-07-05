@@ -10,7 +10,6 @@
 
 from datetime import timedelta
 from typing import Annotated
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from nonebot.adapters import Bot, Event, Message
 from nonebot.log import logger
@@ -20,7 +19,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup, get_plugin, get_loaded_plugins
 from nonebot.typing import T_State
 
-from src.database import PluginDAL, get_db_session
+from src.database import PluginDAL
 from src.service import EntityInterface, enable_processor_state
 
 from .helper import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node
@@ -133,7 +132,7 @@ async def handle_set_level(
 
 
 @omega.command('list-plugins').handle()
-async def handle_list_plugins(matcher: Matcher, session: Annotated[AsyncSession, Depends(get_db_session)]):
+async def handle_list_plugins(matcher: Matcher, plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)]):
     def _desc(plugin_name: str) -> str:
         """根据 plugin name 获取插件自定义名称"""
         plugin = get_plugin(name=plugin_name)
@@ -148,8 +147,6 @@ async def handle_list_plugins(matcher: Matcher, session: Annotated[AsyncSession,
         for plugin in get_loaded_plugins()
         if (len(plugin.matcher) > 0) and (plugin.metadata is not None)
     ]
-
-    plugin_dal = PluginDAL(session=session)
 
     try:
         enabled_result = await plugin_dal.query_by_enable_status(enabled=1)
@@ -170,7 +167,7 @@ async def handle_list_plugins(matcher: Matcher, session: Annotated[AsyncSession,
 @omega.command('enable-plugin', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入需要启用的插件名称:')
 async def handle_enable_plugin(
         matcher: Matcher,
-        session: Annotated[AsyncSession, Depends(get_db_session)],
+        plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')]
 ):
     plugin_name = plugin_name.strip()
@@ -178,7 +175,6 @@ async def handle_enable_plugin(
         await matcher.finish(f'未找到插件{plugin_name!r}, 操作已取消')
 
     try:
-        plugin_dal = PluginDAL(session=session)
         plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=get_plugin(plugin_name).module_name)
         await plugin_dal.update(id_=plugin.id, enabled=1, info='Enabled by OPM')
 
@@ -192,7 +188,7 @@ async def handle_enable_plugin(
 @omega.command('disable-plugin', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入需要禁用的插件名称:')
 async def handle_disable_plugin(
         matcher: Matcher,
-        session: Annotated[AsyncSession, Depends(get_db_session)],
+        plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')]
 ):
     plugin_name = plugin_name.strip()
@@ -200,7 +196,6 @@ async def handle_disable_plugin(
         await matcher.finish(f'未找到插件{plugin_name!r}, 操作已取消')
 
     try:
-        plugin_dal = PluginDAL(session=session)
         plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=get_plugin(plugin_name).module_name)
         await plugin_dal.update(id_=plugin.id, enabled=0, info='Disabled by OPM')
 
