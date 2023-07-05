@@ -292,21 +292,11 @@ class OnebotV11MessageEventHandler(EventHandler):
 
     async def send_at_sender(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
         self.event = cast(OnebotV11MessageEvent, self.event)
-
-        full_message = OnebotV11Message()
-        full_message += OnebotV11MessageSegment.at(self.event.user_id) + " "
-        full_message += message
-
-        return await self.bot.send(event=self.event, message=full_message, **kwargs)
+        return await self.bot.send(event=self.event, message=message, at_sender=True, **kwargs)
 
     async def send_reply(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
         self.event = cast(OnebotV11MessageEvent, self.event)
-
-        full_message = OnebotV11Message()
-        full_message += OnebotV11MessageSegment.reply(self.event.message_id)
-        full_message += message
-
-        return await self.bot.send(event=self.event, message=full_message, **kwargs)
+        return await self.bot.send(event=self.event, message=message, reply_message=True, **kwargs)
 
 
 @register_entity_depend(event=OnebotV11Event)

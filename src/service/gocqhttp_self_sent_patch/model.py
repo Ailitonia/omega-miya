@@ -10,12 +10,11 @@
 
 from typing import Optional, Type, TypeVar, Literal
 
+from nonebot.adapters.onebot.utils import highlight_rich_message
 from nonebot.adapters.onebot.v11.adapter import Adapter
-from nonebot.adapters.onebot.v11.event import Event, MessageEvent, Anonymous, Sender
-from nonebot.adapters.onebot.v11.message import Message
+from nonebot.adapters.onebot.v11.event import Event, MessageEvent, Anonymous
 from nonebot.log import logger
 from nonebot.typing import overrides
-from nonebot.utils import escape_tag
 
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
@@ -31,55 +30,28 @@ def register_event(event: Event_T) -> Event_T:
 
 
 @register_event
-class MessageSentEvent(Event):
+class MessageSentEvent(MessageEvent):
     """自身发送消息事件"""
 
     post_type: Literal["message_sent"]
     message_seq: Optional[int]
     target_id: Optional[int]
-    sub_type: str
-    user_id: int
-    message_type: str
-    message_id: int
-    message: Message
-    raw_message: str
-    font: int
-    sender: Sender
     group_id: Optional[int] = 0
     anonymous: Optional[Anonymous] = None
     to_me: bool = False
 
     @overrides(Event)
-    def get_event_name(self) -> str:
-        sub_type = getattr(self, "sub_type", None)
-        return f"{self.post_type}.{self.message_type}" + (
-            f".{sub_type}" if sub_type else ""
-        )
-
-    @overrides(Event)
-    def get_message(self) -> Message:
-        return self.message
-
-    @overrides(Event)
-    def get_plaintext(self) -> str:
-        return self.message.extract_plain_text()
+    def get_type(self) -> str:
+        return "message"
 
     @overrides(Event)
     def get_event_description(self) -> str:
         return (
-            f'Message {self.message_id} from bot self {self.self_id}@{self.message_type} "'
-            + "".join(
-                map(
-                    lambda x: escape_tag(str(x))
-                    if x.is_text()
-                    else f"<le>{escape_tag(str(x))}</le>",
-                    self.message,
-                )
-            )
-            + '"'
+            f"Message {self.message_id} from Bot {self.user_id}@[self-sent] "
+            f"{''.join(highlight_rich_message(repr(self.original_message.to_rich_text())))}"
         )
 
-    @overrides(Event)
+    @overrides(MessageEvent)
     def get_user_id(self) -> str:
         return str(self.self_id)
 
