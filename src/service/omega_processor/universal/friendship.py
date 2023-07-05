@@ -15,8 +15,8 @@ from src.service import EntityInterface
 
 
 LOG_PREFIX: str = '<lc>Friendship</lc> | '
-ENERGY_INCREMENTAL = 5e-2
-CURRENCY_INCREMENTAL = 1e-4
+ENERGY_INCREMENTAL = 0.5
+CURRENCY_INCREMENTAL = 0.125
 
 
 async def postprocessor_friendship(bot: Bot, event: Event):
