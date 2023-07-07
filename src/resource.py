@@ -35,7 +35,7 @@ R = TypeVar("R")
 
 _static_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('static')
 """静态资源文件路径"""
-_temporary_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('tmp')
+_temporary_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('.tmp')
 """临时文件文件路径"""
 if not _temporary_resource_folder.exists():  # 初始化临时文件路径所在文件夹
     _temporary_resource_folder.mkdir()
