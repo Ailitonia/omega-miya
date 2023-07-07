@@ -305,7 +305,7 @@ class TelegramGroupMessageEventEntityDepend(EntityDepend):
             bot_id=bot.self_id, entity_type='telegram_user',
             entity_id=str(event.from_.id), parent_id=bot.self_id,
             entity_name=event.from_.first_name,
-            entity_info=f'fName: {event.from_.first_name}, lName: {event.from_.last_name}, uName{event.from_.username}'
+            entity_info=f'{event.from_.first_name}/{event.from_.last_name}, @{event.from_.username}'
         )
 
 
@@ -323,7 +323,7 @@ class TelegramPrivateMessageEventEntityDepend(EntityDepend):
             bot_id=bot.self_id, entity_type='telegram_user',
             entity_id=str(event.from_.id), parent_id=bot.self_id,
             entity_name=event.from_.first_name,
-            entity_info=f'fName: {event.from_.first_name}, lName: {event.from_.last_name}, uName{event.from_.username}'
+            entity_info=f'{event.from_.first_name}/{event.from_.last_name}, @{event.from_.username}'
         )
 
 
