@@ -269,19 +269,19 @@ async def _generate_user_searching_result_card(user: PixivUserSearchingBody, *, 
             text=user.user_name,
             fill=(0, 0, 0))
         # 绘制用户 uid
-        _name_text_w, _name_text_h = _font_main.getsize(user.user_name)
+        _name_text_w, _name_text_h = ImageUtils.get_text_size(user.user_name, font=_font_main)
         _uid_text = f'UID：{user.user_id}'
-        _uid_text_w, _uid_text_h = _font_desc.getsize(_uid_text)
+        _uid_text_w, _uid_text_h = ImageUtils.get_text_size(_uid_text, font=_font_desc)
         ImageDraw.Draw(_background).text(
-            xy=(_spacing_width * 4 + _user_head_width, _name_text_h + int(_spacing_width * 1.75)),
+            xy=(_spacing_width * 4 + _user_head_width, _name_text_h + int(_spacing_width * 2)),
             font=_font_desc,
             text=_uid_text,
             fill=(37, 143, 184))
         # 投稿作品数
         _count_text = f'插画投稿数：{user.user_illust_count}'
-        _count_text_w, _count_text_h = _font_desc.getsize(_count_text)
+        _count_text_w, _count_text_h = ImageUtils.get_text_size(_count_text, font=_font_desc)
         ImageDraw.Draw(_background).text(
-            xy=(_spacing_width * 4 + _user_head_width, _name_text_h + _uid_text_h + int(_spacing_width * 2.25)),
+            xy=(_spacing_width * 4 + _user_head_width, _name_text_h + _uid_text_h + int(_spacing_width * 2.5)),
             font=_font_desc,
             text=_count_text,
             fill=(37, 143, 184))
@@ -290,7 +290,7 @@ async def _generate_user_searching_result_card(user: PixivUserSearchingBody, *, 
         _desc_text = ImageUtils.split_multiline_text(text=user.user_desc, width=int(_height * 1.5), font=_font_desc)
         ImageDraw.Draw(_background).multiline_text(
             xy=(_spacing_width * 4 + _user_head_width,
-                _name_text_h + _uid_text_h + _count_text_h + int(_spacing_width * 2.75)),
+                _name_text_h + _uid_text_h + _count_text_h + int(_spacing_width * 3)),
             font=_font_desc,
             text=_desc_text,
             fill=(0, 0, 0))
@@ -354,7 +354,7 @@ async def generate_user_searching_result_image(
         _font_title = ImageFont.truetype(pixiv_resource_config.default_font_file.resolve_path, _font_title_size)
         # 标题
         _title_text = f'Pixiv 用户搜索：{searching.search_name} - 共{searching.count}'
-        _title_text_w, _title_text_h = _font_title.getsize_multiline(_title_text)
+        _title_text_w, _title_text_h = ImageUtils.get_text_size(_title_text, font=_font_title)
         # 整体图片高度
         _height = (_card_height + _spacing_width) * len(cards) + _title_text_h + 3 * _spacing_width
         # 创建背景图层

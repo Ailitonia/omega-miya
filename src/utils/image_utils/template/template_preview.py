@@ -29,6 +29,7 @@ async def generate_thumbs_preview_image(
         font_path: BaseResource = image_utils_config.default_preview_font,
         header_color: tuple[int, int, int] = (255, 255, 255),
         hold_ratio: bool = False,
+        edge_scale: float = 1/32,
         num_of_line: int = 6,
         limit: int = 1000,
         output_folder: TemporaryResource = image_utils_config.tmp_preview_output_folder
@@ -40,6 +41,7 @@ async def generate_thumbs_preview_image(
     :param font_path: 用于生成预览图说明的字体
     :param header_color: 页眉装饰色
     :param hold_ratio: 是否保持缩略图原图比例
+    :param edge_scale: 缩略图添加白边的比例, 范围 0~1
     :param num_of_line: 生成预览每一行的预览图数
     :param limit: 限制生成时加载 preview 中图片的最大值
     :param output_folder: 输出文件夹
@@ -60,7 +62,7 @@ async def generate_thumbs_preview_image(
         # 标题自动换行
         _title = ImageUtils.split_multiline_text(text=preview_name, width=int(_preview_w * 0.85), font=_font_title)
         # 计算标题尺寸
-        _title_w, _title_h = _font_title.getsize_multiline(text=_title)
+        _title_w, _title_h = ImageUtils.get_text_size(text=_title, font=_font_title)
 
         # 根据缩略图计算标准间距
         _spacing_w = int(_thumb_w * 0.4)
@@ -104,8 +106,13 @@ async def generate_thumbs_preview_image(
             # 调整图片大小
             if hold_ratio:
                 _thumb_img = ImageUtils(image=_thumb_img).resize_with_filling(preview_size).image
+
             if _thumb_img.size != preview_size:
-                _thumb_img = _thumb_img.resize(preview_size, Image.ANTIALIAS)
+                _thumb_img = _thumb_img.resize(preview_size)
+
+            # 调整边缘
+            if edge_scale > 0:
+                _thumb_img = ImageUtils(image=_thumb_img).add_edge(edge_scale=edge_scale).image
 
             # 确认缩略图单行位置
             seq = _index % num_of_line

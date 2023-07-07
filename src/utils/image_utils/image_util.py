@@ -80,22 +80,54 @@ class ImageUtils(object):
         font = ImageFont.truetype(font_file.resolve_path, font_size)
         # 按长度切分文本
         text = cls.split_multiline_text(text=text, width=int(image_width * 0.75), font=font)
-        _, text_height = font.getsize_multiline(text)
+        _, text_height = cls.get_text_size(text, font=font)
         # 初始化背景图层
-        image_height = text_height + 100
+        image_height = text_height + int(image_width * 0.25)
         if alpha:
             background = Image.new(mode="RGBA", size=(image_width, image_height), color=(255, 255, 255, 0))
         else:
             background = Image.new(mode="RGB", size=(image_width, image_height), color=(255, 255, 255))
         # 绘制文字
         ImageDraw.Draw(background).multiline_text(
-            xy=(int(image_width * 0.115), 50),
+            xy=(int(image_width * 0.115), int(image_width * 0.115)),
             text=text,
             font=font,
             fill=(0, 0, 0)
         )
         new_obj = cls(image=background)
         return new_obj
+
+    @staticmethod
+    def get_text_size(
+            text: str,
+            font: ImageFont.FreeTypeFont,
+            *,
+            anchor: str = None,
+            spacing: int = 4,
+            stroke_width: int = 0,
+            **kwargs
+    ) -> tuple[int, int]:
+        """获取文本宽度和长度(根据图像框)"""
+        left, top, right, bottom = ImageDraw.Draw(Image.new(mode='L', size=(0, 0), color=0)).textbbox(
+            xy=(0, 0), text=text, font=font, anchor=anchor, spacing=spacing, stroke_width=stroke_width, **kwargs
+        )
+        return right - left, bottom - top
+
+    @staticmethod
+    def get_font_size(
+            text: str,
+            font: ImageFont.FreeTypeFont,
+            *,
+            mode='',
+            stroke_width=0,
+            anchor=None,
+            **kwargs
+    ) -> tuple[int, int]:
+        """获取文本宽度和长度(根据字体)"""
+        left, top, right, bottom = font.getbbox(
+            mode=mode, text=text, stroke_width=stroke_width, anchor=anchor, **kwargs
+        )
+        return right - left, bottom - top
 
     @classmethod
     def split_multiline_text(
@@ -123,7 +155,7 @@ class ImageUtils(object):
         spl_num = 0
         spl_list = []
         for num in range(len(text)):
-            text_width, text_height = font.getsize_multiline(text[spl_num:num], stroke_width=stroke_width)
+            text_width, _ = cls.get_text_size(text[spl_num:num], font=font, stroke_width=stroke_width)
             if text_width > width:
                 spl_list.append(text[spl_num:num])
                 spl_num = num
@@ -237,34 +269,74 @@ class ImageUtils(object):
         self._image = _image
         return self
 
-    def resize_with_filling(self, size: tuple[int, int]) -> "ImageUtils":
-        """在不损失原图长宽比的条件下, 使用透明图层将原图转换成指定大小"""
-        _image = self.image
-        # 计算调整比例
-        width, height = _image.size
-        rs_width, rs_height = size
-        scale = min(rs_width / width, rs_height / height)
+    def add_edge(
+            self,
+            edge_scale: float = 1/32,
+            edge_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
+    ) -> "ImageUtils":
+        """在保持原图大小的条件下, 使用透明图层为原图添加边框"""
+        image = self.image
+        if image.mode != 'RGBA':
+            image = image.convert(mode='RGBA')
 
-        _image = _image.resize((int(width * scale), int(height * scale)))
-        box = (int(abs(width * scale - rs_width) / 2), int(abs(height * scale - rs_height) / 2))
-        background = Image.new(mode="RGBA", size=size, color=(255, 255, 255, 0))
-        background.paste(_image, box=box)
+        # 计算调整比例
+        width, height = image.size
+
+        edge_scale = 0 if edge_scale < 0 else 1 if edge_scale > 1 else edge_scale
+        scaled_size = int(width * (1 - edge_scale)), int(height * (1 - edge_scale))
+
+        scale = min(scaled_size[0] / width, scaled_size[1] / height)
+        image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
+
+        box = (int(width * (1 - scale) / 2)), int(height * (1 - scale) / 2)
+        background = Image.new(mode="RGBA", size=(width, height), color=edge_color)
+        background.paste(image, box=box, mask=image)
 
         self._image = background
         return self
 
-    def resize_fill_canvas(self, size: tuple[int, int]) -> "ImageUtils":
-        """在不损失原图长宽比的条件下, 填充并平铺指定大小画布"""
-        _image = self.image
+    def resize_with_filling(
+            self,
+            size: tuple[int, int],
+            background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
+    ) -> "ImageUtils":
+        """在不损失原图长宽比的条件下, 使用透明图层将原图转换成指定大小"""
+        image = self.image
+        if image.mode != 'RGBA':
+            image = image.convert(mode='RGBA')
+
         # 计算调整比例
-        width, height = _image.size
+        width, height = image.size
+        rs_width, rs_height = size
+        scale = min(rs_width / width, rs_height / height)
+
+        image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
+        box = (int(abs(width * scale - rs_width) / 2), int(abs(height * scale - rs_height) / 2))
+        background = Image.new(mode="RGBA", size=size, color=background_color)
+        background.paste(image, box=box, mask=image)
+
+        self._image = background
+        return self
+
+    def resize_fill_canvas(
+            self,
+            size: tuple[int, int],
+            background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
+    ) -> "ImageUtils":
+        """在不损失原图长宽比的条件下, 填充并平铺指定大小画布"""
+        image = self.image
+        if image.mode != 'RGBA':
+            image = image.convert(mode='RGBA')
+
+        # 计算调整比例
+        width, height = image.size
         rs_width, rs_height = size
         scale = max(rs_width / width, rs_height / height)
+        image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
 
-        _image = _image.resize((int(width * scale), int(height * scale)))
         box = (- int(abs(width * scale - rs_width) / 2), - int(abs(height * scale - rs_height) / 2))
-        background = Image.new(mode="RGBA", size=size, color=(255, 255, 255, 0))
-        background.paste(_image, box=box)
+        background = Image.new(mode="RGBA", size=size, color=background_color)
+        background.paste(image, box=box, mask=image)
 
         self._image = background
         return self
