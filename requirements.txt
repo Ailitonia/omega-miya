@@ -3,9 +3,9 @@ nonebot-adapter-console~=0.3.2
 nonebot-adapter-onebot==2.2.3
 nonebot-adapter-telegram~=0.1.0b14
 fastapi==0.95.2
-pydantic==1.10.8
+pydantic==1.10.9
 psutil==5.9.5
-SQLAlchemy~=2.0.17
+SQLAlchemy~=2.0.18
 asyncmy~=0.2.8
 aiomysql~=0.2.0
 asyncpg~=0.27.0
@@ -16,10 +16,10 @@ websockets~=11.0.3
 aiohttp~=3.8.4
 aiofiles==23.1.0
 ujson~=5.8.0
-lxml~=4.9.1
+lxml~=4.9.3
 numpy~=1.25.0
-matplotlib~=3.7.1
-Pillow~=9.5.0
+matplotlib~=3.7.2
+Pillow~=10.0.0
 imageio~=2.31.1
 msgpack~=1.0.5
 pycryptodome~=3.18
