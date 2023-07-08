@@ -22,7 +22,7 @@ from nonebot.typing import T_State
 from src.database import PluginDAL
 from src.service import EntityInterface, enable_processor_state
 
-from .helper import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node
+from .helpers import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node, list_command_by_priority
 from .status import get_status
 
 
@@ -129,6 +129,11 @@ async def handle_set_level(
     except Exception as e:
         logger.error(f'Omega 设置权限等级失败, {e!r}')
         await matcher.send('Omega 设置权限等级失败, 请联系管理员处理')
+
+
+@omega.command('list-commands').handle()
+async def handle_list_commands(matcher: Matcher):
+    await matcher.finish(f'当前可用的命令列表:\n{"-" * 16}\n{list_command_by_priority()}')
 
 
 @omega.command('list-plugins').handle()

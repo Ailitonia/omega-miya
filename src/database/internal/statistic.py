@@ -59,7 +59,7 @@ class StatisticDAL(BaseDataAccessLayerModel):
     async def query_unique(self):
         raise NotImplementedError('method not supported')
 
-    async def count_with_condition(
+    async def count_by_condition(
             self,
             bot_self_id: Optional[str] = None,
             parent_entity_id: Optional[str] = None,
@@ -146,6 +146,7 @@ class StatisticDAL(BaseDataAccessLayerModel):
 
 
 __all__ = [
+    'CountStatisticModel',
     'Statistic',
     'StatisticDAL'
 ]

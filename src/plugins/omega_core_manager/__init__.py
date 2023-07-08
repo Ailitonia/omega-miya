@@ -21,6 +21,7 @@ __plugin_meta__ = PluginMetadata(
           '/help  帮助\n\n'
           '管理员命令:\n'
           '/omega.set-level [level]\n'
+          '/omega.list-commands\n'
           '/omega.list-plugins\n'
           '/omega.enable-plugin [plugin_name]\n'
           '/omega.disable-plugin [plugin_name]\n'

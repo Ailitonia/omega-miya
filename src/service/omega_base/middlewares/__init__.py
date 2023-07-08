@@ -62,6 +62,9 @@ class EntityInterface(object):
         self.entity = entity
         return self
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(type={self.acquire_type}, entity={self.entity})'
+
     @staticmethod
     def _ensure_entity(func: Callable[P, R]) -> Callable[P, R]:
         """装饰一个方法, 需要 Entity 为实例时才能运行"""

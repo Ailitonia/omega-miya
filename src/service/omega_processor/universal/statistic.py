@@ -52,11 +52,10 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
         return
 
     try:
-        call_info = event.json()
-
-        async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+        async with EntityInterface().get_entity(bot=bot, event=event) as entity:
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
+            call_info = f'{custom_plugin_name!r} called by {entity!r} in event {event}'
 
         async with begin_db_session() as session:
             dal = StatisticDAL(session=session)

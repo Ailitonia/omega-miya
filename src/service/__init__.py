@@ -9,7 +9,7 @@
 """
 
 from .apscheduler import scheduler, reschedule_job
-from .omega_base import EntityInterface, MatcherInterface, OmegaEntity
+from .omega_base import EntityInterface, MatcherInterface, OmegaEntity, OmegaMessage, OmegaMessageSegment
 from .omega_processor import enable_processor_state
 from .omega_requests import OmegaRequests
 
@@ -18,6 +18,8 @@ __all__ = [
     'EntityInterface',
     'MatcherInterface',
     'OmegaEntity',
+    'OmegaMessage',
+    'OmegaMessageSegment',
     'OmegaRequests',
     'enable_processor_state',
     'reschedule_job',

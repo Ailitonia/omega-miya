@@ -9,6 +9,7 @@
 """
 
 from nonebot.plugin import get_loaded_plugins, get_plugin
+from nonebot.rule import CommandRule
 
 from src.service.omega_base.internal.consts import SKIP_COOLDOWN_PERMISSION_NODE
 from src.service.omega_processor.plugin_utils import parse_processor_state
@@ -77,8 +78,39 @@ def get_plugin_auth_node(plugin_name: str) -> list[str]:
     return sorted(list(set(nodes)))
 
 
+def list_command_by_priority() -> str:
+    """根据 priority 列出命令清单"""
+    priority_map: dict[int, list[str]] = {}
+
+    for plugin in get_loaded_plugins():
+
+        if plugin.metadata is not None:
+
+            for matcher in plugin.matcher:
+                command_info = '/'.join(
+                    '.'.join(cmd)
+                    for x in matcher.rule.checkers for cmd in sorted(x.call.cmds)
+                    if isinstance(x.call, CommandRule)
+                )
+                matcher_info = f'{plugin.metadata.name}: {command_info}'
+
+                if plugin_list := priority_map.get(matcher.priority):
+                    plugin_list.append(matcher_info)
+                else:
+                    priority_map[matcher.priority] = [matcher_info]
+
+    priority_info: str = ''
+
+    for priority in sorted(priority_map):
+        matcher_info = "\n".join(sorted(priority_map[priority].copy()))
+        priority_info += f'[Priority - {priority}]\n{matcher_info}\n\n'
+
+    return priority_info.strip()
+
+
 __all__ = [
     'get_all_plugins_desc',
     'get_plugin_desc',
-    'get_plugin_auth_node'
+    'get_plugin_auth_node',
+    'list_command_by_priority'
 ]

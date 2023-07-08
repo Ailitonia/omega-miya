@@ -56,6 +56,9 @@ class InternalEntity(object):
         self.entity_name = f'{entity_type}_{entity_id}' if entity_name is None else entity_name
         self.entity_info = entity_info
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(type={self.entity_type}, entity_id={self.entity_id}, bot_id={self.bot_id})'
+
     @property
     def tid(self) -> str:
         return f'{self.entity_type}_{self.entity_id}'
