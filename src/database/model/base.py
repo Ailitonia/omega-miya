@@ -71,6 +71,11 @@ class BaseDataAccessLayerModel(abc.ABC):
         """删除行"""
         raise NotImplementedError
 
+    async def commit_session(self) -> None:
+        """强制提交所有数据库更改并结束 session"""
+        await self.db_session.commit()
+        await self.db_session.close()
+
 
 __all__ = [
     'BaseDatabaseResult',

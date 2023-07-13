@@ -80,6 +80,11 @@ class InternalEntity(object):
         """查询符合 entity_type 的全部结果"""
         return await EntityDAL(session=session).query_entity_type_all(entity_type=entity_type)
 
+    async def commit_session(self) -> None:
+        """强制提交所有数据库更改并结束 session"""
+        await self.db_session.commit()
+        await self.db_session.close()
+
     async def query_bot_self(self) -> BotSelf:
         """查询 Entity 对应的 Bot"""
         return await BotSelfDAL(session=self.db_session).query_unique(self_id=self.bot_id)
@@ -163,7 +168,7 @@ class InternalEntity(object):
             energy: float = 0,
             currency: float = 0,
             response_threshold: float = 0
-    ):
+    ) -> None:
         """变更好感度, 在现有好感度数值上加/减"""
         entity = await self.query_entity_self()
         friendship_dal = FriendshipDAL(session=self.db_session)
