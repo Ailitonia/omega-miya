@@ -290,6 +290,9 @@ class OnebotV11QQGuildChannelMessageSender(OnebotV11MessageSender):
 class OnebotV11MessageEventHandler(EventHandler):
     """Onebot V11 消息事件处理器"""
 
+    def get_user_nickname(self) -> str:
+        return self.event.sender.card if self.event.sender.card else self.event.sender.nickname
+
     async def send_at_sender(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
         self.event = cast(OnebotV11MessageEvent, self.event)
         return await self.bot.send(event=self.event, message=message, at_sender=True, **kwargs)

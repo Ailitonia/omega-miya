@@ -162,6 +162,9 @@ class ConsoleMessageSender(MessageSender):
 class ConsoleMessageEventHandler(EventHandler):
     """ConsoleMessage 消息事件处理器"""
 
+    def get_user_nickname(self) -> str:
+        return self.event.get_user_id()
+
     async def send_at_sender(self, message: Union[str, None, ConsoleMessage, ConsoleMessageSegment], **kwargs):
         return await self.bot.send(event=self.event, message=message, **kwargs)
 

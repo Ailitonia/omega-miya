@@ -24,7 +24,7 @@ from nonebot.adapters.telegram.event import (
     PrivateMessageEvent as TelegramPrivateMessageEvent,
     ChannelPostEvent as TelegramChannelPostEvent
 )
-from nonebot.adapters.telegram.message import Entity, File
+from nonebot.adapters.telegram.message import Entity, File, User
 
 from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
@@ -248,6 +248,12 @@ class TelegramChannelMessageSender(TelegramMessageSender):
 @register_event_handler(event=TelegramMessageEvent)
 class TelegramMessageEventHandler(EventHandler):
     """Telegram 消息事件处理器"""
+
+    def get_user_nickname(self) -> str:
+        from_ = cast(User | None, getattr(self.event, 'from_', None))
+        if from_ is not None:
+            return from_.first_name
+        return self.event.chat.first_name if self.event.chat.first_name else self.event.chat.username
 
     async def send_at_sender(self, message: Union[str, None, TelegramMessage, TelegramMessageSegment], **kwargs):
         self.event = cast(TelegramMessageEvent, self.event)

@@ -102,6 +102,11 @@ class EventHandler(abc.ABC):
         self.event = event
 
     @abc.abstractmethod
+    def get_user_nickname(self) -> str:
+        """获取事件用户昵称"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def send_at_sender(self, message: Union[str, None, BaseMessage, BaseMessageSegment], **kwargs):
         """发送消息并 @Sender"""
         raise NotImplementedError
