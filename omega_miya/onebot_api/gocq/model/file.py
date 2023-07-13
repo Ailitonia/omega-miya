@@ -105,16 +105,16 @@ class VersionInfo(OnebotVersionInfo):
     - protocol: 当前登陆使用协议类型
     """
     is_go_cqhttp: bool = Field(default=True, alias='go-cqhttp')
-    app_full_name: str
-    coolq_edition: str
-    coolq_directory: str
-    plugin_version: str
-    plugin_build_number: int
-    plugin_build_configuration: str
-    runtime_version: str
-    runtime_os: str
-    version: str
-    protocol: int
+    app_full_name: Optional[str]
+    coolq_edition: Optional[str]
+    coolq_directory: Optional[str]
+    plugin_version: Optional[str]
+    plugin_build_number: Optional[int]
+    plugin_build_configuration: Optional[str]
+    runtime_version: Optional[str]
+    runtime_os: Optional[str]
+    version: Optional[str]
+    protocol: Optional[int] = Field(alias='protocol_name')
 
     class Config:
         extra = 'ignore'
