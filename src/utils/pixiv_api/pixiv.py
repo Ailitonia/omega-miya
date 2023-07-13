@@ -12,7 +12,6 @@ import abc
 import re
 import zipfile
 import imageio
-import asyncio
 from datetime import datetime
 from typing import Literal, Optional, Any
 from urllib.parse import quote
@@ -354,82 +353,85 @@ class PixivArtwork(Pixiv):
         ugoira_meta = await self.request_json(url=self.ugoira_meta_url)
         return PixivArtworkUgoiraMeta.parse_obj(ugoira_meta)
 
-    async def get_artwork_model(self) -> PixivArtworkCompleteDataModel:
+    async def query_artwork(self) -> PixivArtworkCompleteDataModel:
         """获取并初始化作品对应 PixivArtworkCompleteDataModel"""
         if not isinstance(self.artwork_model, PixivArtworkCompleteDataModel):
-            query_data_task = asyncio.create_task(self._query_data())
-            query_page_data_task = asyncio.create_task(self._query_page_date())
+            try:
+                artwork_data = await self._query_data()
+                if artwork_data.error:
+                    raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {artwork_data.message}')
+            except Exception as e:
+                raise PixivNetworkError(f'Query artwork(pid={self.pid}) data failed, {e}') from e
 
-            _artwork_data = await query_data_task
-            if _artwork_data.error:
-                query_page_data_task.cancel()
-                raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {_artwork_data.message}')
-
-            _page_data = await query_page_data_task
-            if _page_data.error:
-                raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {_page_data.message}')
+            try:
+                page_data = await self._query_page_date()
+                if page_data.error:
+                    raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {page_data.message}')
+            except Exception as e:
+                raise PixivNetworkError(f'Query artwork(pid={self.pid}) page failed, {e}') from e
 
             # 处理作品tag
-            _tags = _artwork_data.body.tags.all_tags
+            tags = artwork_data.body.tags.all_tags
 
             # 判断 R-18
-            _is_r18 = False
-            for tag in _tags:
+            is_r18 = False
+            for tag in tags:
                 if re.match(r'^[Rr]-18[Gg]?$', tag):
-                    _is_r18 = True
+                    is_r18 = True
                     break
-            _sanity_level = _artwork_data.body.xRestrict
-            if _sanity_level >= 1:
-                _is_r18 = True
+            sanity_level = artwork_data.body.xRestrict
+            if sanity_level >= 1:
+                is_r18 = True
 
             # 判断是否 AI 生成
-            _is_ai = False
-            for tag in _tags:
+            is_ai = False
+            for tag in tags:
                 if re.match(r'^([Nn]ovel[Aa][Ii]([Dd]iffusion)?|[Ss]table[Dd]iffusion|AIイラスト)$', tag):
-                    _is_ai = True
+                    is_ai = True
                     break
-            _ai_level = _artwork_data.body.aiType
-            if _ai_level >= 2:
-                _is_ai = True
-
-            # 导出多图列表
-            _all_url = _page_data.type_page
-            _all_page = _page_data.index_page
+            ai_level = artwork_data.body.aiType
+            if ai_level >= 2:
+                is_ai = True
+            if is_ai:
+                tags.insert(0, 'AI生成')
 
             # 如果是动图额外处理动图资源
-            _illust_type = _artwork_data.body.illustType
-            if _illust_type == 2:
-                _ugoira_data = await self._query_ugoira_meta()
-                if _ugoira_data.error:
-                    raise PixivApiError(f'Query artwork(pid={self.pid}) ugoira meta failed, {_ugoira_data.message}')
-                _ugoira_meta = _ugoira_data.body
+            illust_type = artwork_data.body.illustType
+            if illust_type == 2:
+                try:
+                    ugoira_data = await self._query_ugoira_meta()
+                    if ugoira_data.error:
+                        raise PixivApiError(f'Query artwork(pid={self.pid}) ugoira meta failed, {ugoira_data.message}')
+                except Exception as e:
+                    raise PixivNetworkError(f'Query artwork(pid={self.pid}) ugoira meta failed, {e}') from e
+                ugoira_meta = ugoira_data.body
             else:
-                _ugoira_meta = None
+                ugoira_meta = None
 
             _data = {
-                'illust_type': _illust_type,
-                'pid': _artwork_data.body.illustId,
-                'title': _artwork_data.body.illustTitle,
-                'sanity_level': _sanity_level,
-                'is_r18': _is_r18,
-                'is_ai': _is_ai,
-                'uid': _artwork_data.body.userId,
-                'uname': _artwork_data.body.userName,
-                'description': _artwork_data.body.parsed_description,
-                'tags': _tags,
+                'illust_type': illust_type,
+                'pid': artwork_data.body.illustId,
+                'title': artwork_data.body.illustTitle,
+                'sanity_level': sanity_level,
+                'is_r18': is_r18,
+                'is_ai': is_ai,
+                'uid': artwork_data.body.userId,
+                'uname': artwork_data.body.userName,
+                'description': artwork_data.body.parsed_description,
+                'tags': tags,
                 'url': self.artwork_url,
-                'width': _artwork_data.body.width,
-                'height': _artwork_data.body.height,
-                'like_count': _artwork_data.body.likeCount,
-                'bookmark_count': _artwork_data.body.bookmarkCount,
-                'view_count': _artwork_data.body.viewCount,
-                'comment_count': _artwork_data.body.commentCount,
-                'page_count': _artwork_data.body.pageCount,
-                'orig_url': _artwork_data.body.urls.original,
-                'regular_url': _artwork_data.body.urls.regular,
-                'all_url': _all_url,
-                'all_page': _all_page,
-                'ugoira_meta': _ugoira_meta
+                'width': artwork_data.body.width,
+                'height': artwork_data.body.height,
+                'like_count': artwork_data.body.likeCount,
+                'bookmark_count': artwork_data.body.bookmarkCount,
+                'view_count': artwork_data.body.viewCount,
+                'comment_count': artwork_data.body.commentCount,
+                'page_count': artwork_data.body.pageCount,
+                'orig_url': artwork_data.body.urls.original,
+                'regular_url': artwork_data.body.urls.regular,
+                'all_url': page_data.type_page,
+                'all_page': page_data.index_page,
+                'ugoira_meta': ugoira_meta
             }
             self.artwork_model = PixivArtworkCompleteDataModel.parse_obj(_data)
 
@@ -447,13 +449,12 @@ class PixivArtwork(Pixiv):
         :param page: 页码
         :param url_type: 类型, original: 原始图片, regular: 默认压缩大图, small: 小图, thumb_mini: 缩略图
         """
-        _artwork_model = await self.get_artwork_model()
-        if page > _artwork_model.page_count - 1:
-            raise ValueError(f'request page({page}) exceeds the page count range({_artwork_model.page_count - 1})')
+        artwork_model = await self.query_artwork()
+        if page > artwork_model.page_count - 1:
+            raise ValueError(f'request page({page}) exceeds the page count range({artwork_model.page_count - 1})')
 
-        _page_url = _artwork_model.all_page.get(page).dict().get(url_type)
-        _page_resource = await self.request_resource(url=_page_url)
-        return _page_resource
+        page_url = artwork_model.all_page.get(page).dict().get(url_type)
+        return await self.request_resource(url=page_url)
 
     async def _save_page_resource(
             self,
@@ -467,18 +468,18 @@ class PixivArtwork(Pixiv):
         :param url_type: 类型, original: 原始图片, regular: 默认压缩大图, small: 小图, thumb_mini: 缩略图
         :return: 保存路径对象
         """
-        _page_file_name = f'{self.pid}_{url_type}_p{page}'
-        _page_file = pixiv_resource_config.default_artwork_folder(_page_file_name)
+        page_file_name = f'{self.pid}_{url_type}_p{page}'
+        page_file = pixiv_resource_config.default_artwork_folder(page_file_name)
 
         # 如果已经存在则直接返回本地资源
-        if _page_file.is_file:
-            return _page_file
+        if page_file.is_file:
+            return page_file
 
         # 没有的话再下载并保存文件
-        _content = await self._load_page_resource(page=page, url_type=url_type)
-        async with _page_file.async_open('wb') as af:
-            await af.write(_content)
-        return _page_file
+        content = await self._load_page_resource(page=page, url_type=url_type)
+        async with page_file.async_open('wb') as af:
+            await af.write(content)
+        return page_file
 
     async def _get_page_resource(
             self,
@@ -491,10 +492,10 @@ class PixivArtwork(Pixiv):
         :param page: 页码
         :param url_type: 类型, original: 原始图片, regular: 默认压缩大图, small: 小图, thumb_mini: 缩略图
         """
-        _page_file_path = await self._save_page_resource(page=page, url_type=url_type)
-        async with _page_file_path.async_open('rb') as af:
-            _page_content = await af.read()
-        return _page_content
+        page_file_path = await self._save_page_resource(page=page, url_type=url_type)
+        async with page_file_path.async_open('rb') as af:
+            page_content = await af.read()
+        return page_content
 
     async def get_page_file(
             self,
@@ -529,7 +530,7 @@ class PixivArtwork(Pixiv):
         :param page_limit: 返回作品图片最大数量限制, 从第一张图开始计算, 避免漫画作品等单作品图片数量过多出现问题, 0 或 None 为无限制
         :param url_type: 类型, original: 原始图片, regular: 默认压缩大图, small: 小图, thumb_mini: 缩略图
         """
-        artwork_model = await self.get_artwork_model()
+        artwork_model = await self.query_artwork()
 
         # 创建获取作品页资源文件的 Task
         if page_limit <= 0 or page_limit is None:
@@ -548,7 +549,7 @@ class PixivArtwork(Pixiv):
 
         :param page: 页码
         """
-        artwork_model = await self.get_artwork_model()
+        artwork_model = await self.query_artwork()
         if page > artwork_model.page_count - 1:
             raise ValueError(f'request page({page}) exceeds the page count range({artwork_model.page_count - 1})')
         page_file_url = artwork_model.all_page.get(page).dict().get('original')
@@ -556,7 +557,7 @@ class PixivArtwork(Pixiv):
 
     async def download_all_page(self) -> list[TemporaryResource]:
         """下载作品全部原图到本地"""
-        artwork_model = await self.get_artwork_model()
+        artwork_model = await self.query_artwork()
         tasks = [self.download_page(page=page) for page in range(artwork_model.page_count)]
         all_page_file = await semaphore_gather(tasks=tasks, semaphore_num=10)
         if any([isinstance(x, BaseException) for x in all_page_file]):
@@ -568,7 +569,7 @@ class PixivArtwork(Pixiv):
 
         :param original: 是否下载原图
         """
-        artwork_model = await self.get_artwork_model()
+        artwork_model = await self.query_artwork()
         if artwork_model.illust_type != 2:
             raise ValueError(f'Artwork {self.pid} is not ugoira')
         if original:
@@ -607,7 +608,7 @@ class PixivArtwork(Pixiv):
             return _content
 
         # 读取并解析动图帧信息, 生成 gif 文件
-        artwork_model = await self.get_artwork_model()
+        artwork_model = await self.query_artwork()
         ugoira_file = await self.download_ugoira(original=original)
         ugoira_content = await run_sync(_generate_frames_sequence)(ugoira_path=ugoira_file, data_model=artwork_model)
         # 写入文件
@@ -622,7 +623,7 @@ class PixivArtwork(Pixiv):
 
         :param desc_len: 描述文本长度限制
         """
-        artwork_model = await self.get_artwork_model()
+        artwork_model = await self.query_artwork()
 
         tag_t = f'#{"  #".join(artwork_model.tags)}'
         if not artwork_model.description:
@@ -633,7 +634,7 @@ class PixivArtwork(Pixiv):
                 f'{artwork_model.description[:desc_len]}'
                 f'{"."*6 if len(artwork_model.description) > desc_len else ""}'
             )
-        return desc_t
+        return desc_t.strip()
 
     async def query_recommend(self, *, init_limit: int = 18, lang: Literal['zh'] = 'zh') -> PixivArtworkRecommendModel:
         """获取本作品对应的相关作品推荐
@@ -769,7 +770,7 @@ async def _request_artwork_preview_body(pid: int, *, blur_r18: bool = True) -> P
         return ImageUtils.init_from_bytes(image=image).gaussian_blur().get_bytes()
 
     _artwork = PixivArtwork(pid=pid)
-    _artwork_model = await _artwork.get_artwork_model()
+    _artwork_model = await _artwork.query_artwork()
     _artwork_thumb = await _artwork.get_page_bytes(url_type='small')
 
     if blur_r18 and _artwork_model.is_r18:

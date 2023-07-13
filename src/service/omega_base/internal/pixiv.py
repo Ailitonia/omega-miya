@@ -42,7 +42,7 @@ class InternalPixivArtwork(object):
         :param keywords: 关键词列表
         :param num: 数量
         :param nsfw_tag: nsfw 标签值, 0=sfw, 1=nsfw, 2=r18, -1=(sfw+nsfw), -2=(sfw+nsfw+r18), -3=(nsfw+r18)
-        :param classified: 已标记标签项, 0=未标记, 1=已标记, 其他=all
+        :param classified: 已标记标签项, 0=未标记, 1=已标记, 2=AI生成作品
         :param acc_mode: 是否启用精确搜索模式
         :param ratio: 图片长宽, 1: 横图, -1: 纵图, 0: 正方形图
         :param order_mode: 排序模式, random: 随机, pid: 按 pid 顺序, pid_desc: 按 pid 逆序,
