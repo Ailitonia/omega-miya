@@ -189,36 +189,35 @@ class ChannelInfo(BaseOnebotModel):
 class VersionInfo(BaseOnebotModel):
     """go-cqhttp 版本信息
 
-    - app_name: 应用标识, 如 go-cqhttp 固定值
-    - app_version: 应用版本, 如 v0.9.40-fix4
+    - app_name: 应用标识, 如 mirai-native
+    - app_version: 应用版本, 如 1.2.3
+    - protocol_version: OneBot 标准版本, 如 v11
     - app_full_name: 应用完整名称
-    - protocol_version: OneBot 标准版本 固定值
-    - coolq_edition: 原 Coolq 版本 固定值
-    - coolq_directory: 原 Coolq 路径 固定值
-    - go-cqhttp: 是否为go-cqhttp 固定值
+    - coolq_edition: 原 Coolq 版本, 固定值
+    - coolq_directory: 原 Coolq 路径, 固定值
+    - go-cqhttp: 是否为 go-cqhttp, 固定值
+    - protocol_name: 当前 go-cqhttp 登陆使用协议类型
     - plugin_version: 固定值
     - plugin_build_number: 固定值
     - plugin_build_configuration: 固定值
     - runtime_version
     - runtime_os
     - version: 应用版本, 如 v0.9.40-fix4
-    - protocol: 当前登陆使用协议类型
     """
     app_name: str
     app_version: str
     protocol_version: str
-    is_go_cqhttp: bool = Field(default=True, alias='go-cqhttp')
-    app_full_name: str
-    coolq_edition: str
-    coolq_directory: str
-    plugin_version: str
-    plugin_build_number: int
-    plugin_build_configuration: str
-    runtime_version: str
-    runtime_os: str
-    version: str
-    protocol: int = Field(alias='protocol_name')
-    protocol_version: str
+    app_full_name: Optional[str]
+    coolq_edition: Optional[str]
+    coolq_directory: Optional[str]
+    is_go_cqhttp: bool = Field(default=False, alias='go-cqhttp')
+    protocol: Optional[int] = Field(alias='protocol_name')
+    plugin_version: Optional[str]
+    plugin_build_number: Optional[int]
+    plugin_build_configuration: Optional[str]
+    runtime_version: Optional[str]
+    runtime_os: Optional[str]
+    version: Optional[str]
 
     class Config:
         extra = 'ignore'
