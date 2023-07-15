@@ -30,7 +30,7 @@ from .exception import BotNoFound
 from .entity_tools import get_entity_depend
 from .event_tools import get_event_handler
 from .message_tools import get_msg_builder, get_msg_extractor, get_msg_sender
-from .types import ApiCaller, EntityDepend, EventHandler, MessageBuilder, MessageSender, RevokeParams
+from .types import ApiCaller, EntityDepend, EventHandler, MessageBuilder, MessageExtractor, MessageSender, RevokeParams
 
 from ..message import (
     Message as OmegaMessage,
@@ -204,7 +204,7 @@ class MatcherInterface(object):
     def get_msg_builder(self) -> Type[MessageBuilder]:
         return get_msg_builder(self.bot)
 
-    def get_msg_extractor(self) -> Type[MessageBuilder]:
+    def get_msg_extractor(self) -> Type[MessageExtractor]:
         return get_msg_extractor(self.bot)
 
     def extract_event_message(self) -> OmegaMessage:

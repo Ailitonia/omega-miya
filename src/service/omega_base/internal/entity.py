@@ -76,9 +76,14 @@ class InternalEntity(object):
         )
 
     @classmethod
-    async def query_entity_type_all(cls, session: AsyncSession, entity_type: str) -> list[Entity]:
+    async def query_all_entity_by_type(cls, session: AsyncSession, entity_type: str) -> list[Entity]:
         """查询符合 entity_type 的全部结果"""
-        return await EntityDAL(session=session).query_entity_type_all(entity_type=entity_type)
+        return await EntityDAL(session=session).query_all_by_type(entity_type=entity_type)
+
+    @classmethod
+    async def query_all_entity(cls, session: AsyncSession) -> list[Entity]:
+        """查询符合 entity_type 的全部结果"""
+        return await EntityDAL(session=session).query_all()
 
     async def commit_session(self) -> None:
         """强制提交所有数据库更改并结束 session"""
