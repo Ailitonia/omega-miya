@@ -44,12 +44,7 @@ def get_plugin_desc(plugin_name: str, *, for_superuser: bool = False) -> str:
                 desc_msg = f'{plugin_usage}\n\n可配置权限及冷却信息:{processor_info if processor_info else "无"}'
                 break
             else:
-                processor_info = '\n'.join(
-                    f'\n[{s.name}]\nLevel: {s.level if s.level < 4294967296 else "Unlimited"}/Cooldown: {s.cooldown}'
-                    for s in (parse_processor_state(m._default_state) for m in plugin.matcher)
-                    if s.name and s.enable_processor
-                )
-                desc_msg = f'{plugin_usage}\n\n需要的权限等级和命令冷却时间:\n{processor_info if processor_info else "无"}'
+                desc_msg = plugin_usage
                 break
     else:
         desc_msg = f'未找到插件{plugin_name!r}, 请检查输入插件名是否正确'
@@ -89,9 +84,12 @@ def list_command_by_priority() -> str:
             for matcher in plugin.matcher:
                 command_info = '/'.join(
                     '.'.join(cmd)
-                    for x in matcher.rule.checkers for cmd in sorted(x.call.cmds)
-                    if isinstance(x.call, CommandRule)
+                    for x in matcher.rule.checkers if isinstance(x.call, CommandRule)
+                    for cmd in sorted(x.call.cmds)
                 )
+                if not command_info:
+                    continue
+
                 matcher_info = f'{plugin.metadata.name}: {command_info}'
 
                 if plugin_list := priority_map.get(matcher.priority):

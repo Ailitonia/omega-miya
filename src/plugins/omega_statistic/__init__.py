@@ -19,7 +19,7 @@ __plugin_meta__ = PluginMetadata(
           '管理员命令:\n'
           '/statistic.bot-all',
     config=None,
-    extra={"author": "Ailitonia"},
+    extra={'author': 'Ailitonia'},
 )
 
 
