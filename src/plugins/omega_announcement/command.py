@@ -38,8 +38,8 @@ async def handle_parse_args(matcher: Matcher, cmd_arg: Annotated[Message, Comman
     handlers=[handle_parse_args],
     priority=1,
     block=True,
-    state=enable_processor_state(name='announce', enable_processor=False)
-).got('announcement_content', '请输入公告内容:')
+    state=enable_processor_state(name='OmegaAnnouncement', enable_processor=False)
+).got('announcement_content', prompt='请输入公告内容:')
 async def handle_announce(
         matcher: Matcher,
         entity_dal: Annotated[EntityDAL, Depends(EntityDAL.dal_dependence)],

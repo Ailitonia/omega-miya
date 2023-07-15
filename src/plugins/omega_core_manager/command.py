@@ -20,6 +20,7 @@ from nonebot.plugin import CommandGroup, get_plugin, get_loaded_plugins
 from nonebot.typing import T_State
 
 from src.database import PluginDAL
+from src.params.permission import IS_ADMIN
 from src.service import EntityInterface, enable_processor_state
 
 from .helpers import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node, list_command_by_priority
@@ -50,7 +51,7 @@ async def handle_parse_args(state: T_State, cmd_arg: Annotated[Message, CommandA
         state.update({f'omega_arg_{index}': arg})
 
 
-@omega.command('start', aliases={'Start', 'start'}, permission=None).handle()
+@omega.command('start', aliases={'Start', 'start', 'EnableOmega', 'enable_omega'}, permission=IS_ADMIN).handle()
 async def handle_start(matcher: Matcher, entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]):
     try:
         await entity_interface.entity.add_ignore_exists()
@@ -64,7 +65,7 @@ async def handle_start(matcher: Matcher, entity_interface: Annotated[EntityInter
         await matcher.send('Omega 启用/初始化失败, 请联系管理员处理')
 
 
-@omega.command('disable', permission=None).handle()
+@omega.command('disable', aliases={'DisableOmega', 'disable_omega'}, permission=IS_ADMIN).handle()
 async def handle_disable(matcher: Matcher, entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]):
     try:
         await entity_interface.entity.add_ignore_exists()
@@ -93,7 +94,7 @@ async def handle_status(matcher: Matcher, entity_interface: Annotated[EntityInte
         await matcher.send(f'{permission_status}\n\nOmega 运行状态:\n{"-" * 16}\n{status}')
     except Exception as e:
         logger.error(f'获取 Omega 状态失败, {e!r}')
-        await matcher.send('获取 Omega 状态失败, 请尝试使用 "/start" 命令初始化, 或联系管理员处理')
+        await matcher.send('获取 Omega 状态失败, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理')
 
 
 @omega.command('help', aliases={'Help', 'help', '帮助'}, permission=None).handle()
@@ -107,7 +108,9 @@ async def handle_help(bot: Bot, event: Event, matcher: Matcher, cmd_arg: Annotat
         await matcher.finish(get_plugin_desc(plugin_name=plugin_name, for_superuser=is_superuser))
 
 
-@omega.command('set-level', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入需要设定的权限等级:')
+@omega.command(
+    'set-level', aliases={'SetOmegaLevel', 'set_omega_level'}, handlers=[handle_parse_args], permission=IS_ADMIN
+).got('omega_arg_0', prompt='请输入需要设定的权限等级:')
 async def handle_set_level(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
@@ -125,18 +128,18 @@ async def handle_set_level(
         await entity_interface.entity.set_permission_level(level)
 
         logger.success(f'Omega 设置权限等级{level!r}成功, Entity: {entity_interface.entity}')
-        await matcher.send(f'Omega 已将当前会话权限等级设置为: {level!r}')
+        await matcher.send(f'Omega 已将当前会话权限等级设置为: Level-{level!r}')
     except Exception as e:
         logger.error(f'Omega 设置权限等级失败, {e!r}')
         await matcher.send('Omega 设置权限等级失败, 请联系管理员处理')
 
 
-@omega.command('list-commands').handle()
+@omega.command('list-commands', aliases={'ListOmegaCommands', 'list_omega_commands'}).handle()
 async def handle_list_commands(matcher: Matcher):
     await matcher.finish(f'当前可用的命令列表:\n{"-" * 16}\n{list_command_by_priority()}')
 
 
-@omega.command('list-plugins').handle()
+@omega.command('list-plugins', aliases={'ListOmegaPlugins', 'list_omega_plugins'}).handle()
 async def handle_list_plugins(matcher: Matcher, plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)]):
     def _desc(plugin_name: str) -> str:
         """根据 plugin name 获取插件自定义名称"""
@@ -169,7 +172,9 @@ async def handle_list_plugins(matcher: Matcher, plugin_dal: Annotated[PluginDAL,
     await matcher.send(f'已启用的插件:\n{"-" * 16}\n{enabled_plugins}\n\n\n已禁用的插件:\n{"-" * 16}\n{disabled_plugins}')
 
 
-@omega.command('enable-plugin', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入需要启用的插件名称:')
+@omega.command(
+    'enable-plugin', aliases={'EnableOmegaPlugin', 'enable_omega_plugin'}, handlers=[handle_parse_args]
+).got('omega_arg_0', prompt='请输入需要启用的插件名称:')
 async def handle_enable_plugin(
         matcher: Matcher,
         plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)],
@@ -190,7 +195,9 @@ async def handle_enable_plugin(
         await matcher.send(f'Omega 启用插件{plugin_name!r}失败, 请稍后再试或联系管理员处理')
 
 
-@omega.command('disable-plugin', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入需要禁用的插件名称:')
+@omega.command(
+    'disable-plugin', aliases={'DisableOmegaPlugin', 'disable_omega_plugin'}, handlers=[handle_parse_args]
+).got('omega_arg_0', prompt='请输入需要禁用的插件名称:')
 async def handle_disable_plugin(
         matcher: Matcher,
         plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)],
@@ -211,7 +218,9 @@ async def handle_disable_plugin(
         await matcher.send(f'Omega 禁用插件{plugin_name!r}失败, 请稍后再试或联系管理员处理')
 
 
-@omega.command('show-plugin-nodes', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入查询的插件名称:')
+@omega.command(
+    'show-plugin-nodes', aliases={'ShowOmegaPluginNodes', 'show_omega_plugin_nodes'}, handlers=[handle_parse_args]
+).got('omega_arg_0', prompt='请输入查询的插件名称:')
 async def handle_show_plugin_nodes(matcher: Matcher, plugin_name: Annotated[str, ArgStr('omega_arg_0')]):
     plugin_name = plugin_name.strip()
     plugin_auth_nodes = get_plugin_auth_node(plugin_name=plugin_name)
@@ -223,7 +232,9 @@ async def handle_show_plugin_nodes(matcher: Matcher, plugin_name: Annotated[str,
     await matcher.finish(f'插件{plugin_name!r}可配置权限节点有:\n\n{nodes_text}')
 
 
-allow_plugin_node = omega.command('allow-plugin-node', handlers=[handle_parse_args])
+allow_plugin_node = omega.command(
+    'allow-plugin-node', aliases={'AllowOmegaPluginNode', 'allow_omega_plugin_node'}, handlers=[handle_parse_args]
+)
 
 
 @allow_plugin_node.got('omega_arg_0', prompt='请输入需要配置的插件名称:')
@@ -237,7 +248,9 @@ async def handle_allow_plugin_node(
     await handle_config_plugin_node(matcher, entity_interface, plugin_name, auth_node, 1)
 
 
-deny_plugin_node = omega.command('deny-plugin-node', handlers=[handle_parse_args])
+deny_plugin_node = omega.command(
+    'deny-plugin-node', aliases={'DenyOmegaPluginNode', 'deny_omega_plugin_node'}, handlers=[handle_parse_args]
+)
 
 
 @deny_plugin_node.got('omega_arg_0', prompt='请输入需要配置的插件名称:')
@@ -281,7 +294,9 @@ async def handle_config_plugin_node(
         await matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r}失败, 请稍后再试或联系管理员处理')
 
 
-@omega.command('set-limiting', handlers=[handle_parse_args]).got('omega_arg_0', prompt='请输入限制时间(秒):')
+@omega.command(
+    'set-limiting', aliases={'SetOmegaLimiting', 'set_omega_limiting'}, handlers=[handle_parse_args]
+).got('omega_arg_0', prompt='请输入限制时间(秒):')
 async def handle_set_limiting(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],

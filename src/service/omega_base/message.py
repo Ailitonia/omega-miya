@@ -112,26 +112,6 @@ class Message(BaseMessage[MessageSegment]):
         message_data = json.dumps([{'type': seg.type, 'data': seg.data} for seg in self], ensure_ascii=False)
         return message_data
 
-    # async def dumps_with_image(self) -> str:
-    #     """将 Message 转化为 json 字符串导出"""
-    #     segments = []
-    #     for segment in self:
-    #         # 缓存消息中图片
-    #         if segment.type == 'image' and 'url' in segment.data:
-    #             file = message_tools_config.tmp_message_data_folder(
-    #                 'onebot_v11', 'image', OmegaRequests.hash_url_file_name('image', url=segment.data['url'])
-    #             )
-    #             await OmegaRequests().download(url=segment.data['url'], file=file)
-    #             data = deepcopy(segment.data)
-    #             data.pop('url')
-    #             data.update({'file': file.file_uri})
-    #             segments.append({'type': segment.type, 'data': data})
-    #         else:
-    #             segments.append({"type": segment.type, "data": segment.data})
-    #
-    #     message_data = json.dumps(segments, ensure_ascii=False)
-    #     return message_data
-
     def extract_image_urls(self) -> list[str]:
         """提取消息中的图片链接"""
         return [

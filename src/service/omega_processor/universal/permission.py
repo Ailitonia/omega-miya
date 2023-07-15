@@ -47,7 +47,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Even
         logger.opt(colors=True).info(
             f'{LOG_PREFIX}{matcher}/Plugin({matcher.plugin.name}) is blocked, <ly>global permission not enabled</ly>'
         )
-        echo_message = f'Omega Miya 未启用, 请尝试使用 "/start" 命令初始化, 或联系管理员处理'
+        echo_message = f'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理'
         await matcher.send(message=echo_message, at_sender=True)
         raise IgnoredException('权限不足')
 
@@ -88,7 +88,11 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Even
             f'{LOG_PREFIX}{matcher}/Plugin({plugin_name}) <r>Denied</r> '
             f'<ly>Entity({event_entity.tid})</ly> permission request')
         if processor_state.echo_processor_result:
-            echo_message = f'权限不足! 请向管理员申请"{processor_state.name}.{processor_state.auth_node}"相关权限'
+            echo_message = f'权限不足! 需要'
+            if processor_state.level <= 100:
+                echo_message += f'权限等级 Level-{processor_state.level} 或'
+            echo_message += f'权限节点 "{processor_state.name}.{processor_state.auth_node}", '
+            echo_message += f'请联系管理员使用 "/SetOmegaLevel {processor_state.level}" 提升权限等级或配置插件对应权限节点'
             await matcher.send(message=echo_message, at_sender=True)
         raise IgnoredException('权限不足')
 

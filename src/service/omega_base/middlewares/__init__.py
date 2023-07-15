@@ -82,6 +82,14 @@ class EntityInterface(object):
     def get_api_caller(bot: BaseBot) -> ApiCaller:
         return get_api_caller(platform=bot)(bot=bot)
 
+    @staticmethod
+    def get_msg_builder(bot: BaseBot) -> Type[MessageBuilder]:
+        return get_msg_builder(platform=bot)
+
+    @staticmethod
+    def get_msg_extractor(bot: BaseBot) -> Type[MessageExtractor]:
+        return get_msg_extractor(platform=bot)
+
     @asynccontextmanager
     async def get_entity(self, bot: BaseBot, event: BaseEvent):
         """获取 OmegaEntity 并开始事务"""
@@ -112,7 +120,7 @@ class EntityInterface(object):
     @_ensure_entity
     async def send_msg(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]):
         bot = await self.get_bot()
-        builder = get_msg_builder(bot)
+        builder = self.get_msg_builder(bot)
 
         send_params = get_msg_sender(target=self.entity)(target_entity=self.entity).to_send_msg()
         send_message = builder(message=message).message
@@ -124,7 +132,7 @@ class EntityInterface(object):
     @_ensure_entity
     async def send_multi_msgs(self, messages: Iterable[Union[str, None, OmegaMessage, OmegaMessageSegment]]):
         bot = await self.get_bot()
-        builder = get_msg_builder(bot)
+        builder = self.get_msg_builder(bot)
 
         sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
         send_params = sender.to_send_multi_msgs()
