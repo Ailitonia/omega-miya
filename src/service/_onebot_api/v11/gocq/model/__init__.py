@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2022/04/14 21:40
-@FileName       : __init__.py.py
+@FileName       : __init__.py
 @Project        : nonebot2_miya 
 @Description    : go-cqhttp model
 @GitHub         : https://github.com/Ailitonia

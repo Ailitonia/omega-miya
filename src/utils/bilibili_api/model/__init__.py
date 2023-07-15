@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2022/04/11 20:24
-@FileName       : __init__.py.py
+@FileName       : __init__.py
 @Project        : nonebot2_miya 
 @Description    : Bilibili model
 @GitHub         : https://github.com/Ailitonia

@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2021/07/17 1:29
-@FileName       : __init__.py.py
+@FileName       : omega_sign_in
 @Project        : nonebot2_miya
 @Description    : 轻量化签到插件
 @GitHub         : https://github.com/Ailitonia
