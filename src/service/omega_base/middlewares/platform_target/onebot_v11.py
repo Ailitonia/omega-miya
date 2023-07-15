@@ -3,7 +3,7 @@
 @Date           : 2023/6/10 1:32
 @FileName       : onebot_v11
 @Project        : nonebot2_miya
-@Description    : Onebot V11 协议适配
+@Description    : OneBot V11 协议适配
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -52,7 +52,7 @@ from ...message import (
 
 @register_api_caller(adapter_name=SupportedPlatform.onebot_v11.value)
 class OnebotV11ApiCaller(ApiCaller):
-    """Onebot V11 API 调用适配"""
+    """OneBot V11 API 调用适配"""
 
     async def get_name(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
         if id_ is not None:
@@ -98,7 +98,7 @@ class OnebotV11ApiCaller(ApiCaller):
 
 @register_builder(adapter_name=SupportedPlatform.onebot_v11.value)
 class OnebotV11MessageBuilder(MessageBuilder):
-    """Onebot V11 消息构造器"""
+    """OneBot V11 消息构造器"""
 
     @staticmethod
     def _construct(message: OmegaMessage) -> Iterable[OnebotV11MessageSegment]:
@@ -143,7 +143,7 @@ class OnebotV11MessageBuilder(MessageBuilder):
 
 @register_extractor(adapter_name=SupportedPlatform.onebot_v11.value)
 class OnebotV11MessageExtractor(MessageExtractor):
-    """Onebot V11 消息解析器"""
+    """OneBot V11 消息解析器"""
 
     @staticmethod
     def _construct(message: OnebotV11Message) -> Iterable[OmegaMessageSegment]:
@@ -187,7 +187,7 @@ class OnebotV11MessageExtractor(MessageExtractor):
 
 
 class OnebotV11MessageSender(MessageSender):
-    """Onebot V11 消息 Sender"""
+    """OneBot V11 消息 Sender"""
 
     @classmethod
     def get_builder(cls) -> Type[MessageBuilder]:
@@ -224,7 +224,7 @@ class OnebotV11MessageSender(MessageSender):
 
 @register_sender(target_entity=SupportedTarget.qq_user.value)
 class OnebotV11QQUserMessageSender(OnebotV11MessageSender):
-    """Onebot V11 QQ 用户消息 Sender"""
+    """OneBot V11 QQ 用户消息 Sender"""
 
     def to_send_msg(self) -> SenderParams:
         return SenderParams(
@@ -247,7 +247,7 @@ class OnebotV11QQUserMessageSender(OnebotV11MessageSender):
 
 @register_sender(target_entity=SupportedTarget.qq_group.value)
 class OnebotV11QQGroupMessageSender(OnebotV11MessageSender):
-    """Onebot V11 QQ 群组消息 Sender"""
+    """OneBot V11 QQ 群组消息 Sender"""
 
     def to_send_msg(self) -> SenderParams:
         return SenderParams(
@@ -270,7 +270,7 @@ class OnebotV11QQGroupMessageSender(OnebotV11MessageSender):
 
 @register_sender(target_entity=SupportedTarget.qq_guild_channel.value)
 class OnebotV11QQGuildChannelMessageSender(OnebotV11MessageSender):
-    """Onebot V11 QQ 子频道消息 Sender"""
+    """OneBot V11 QQ 子频道消息 Sender"""
 
     def to_send_msg(self) -> SenderParams:
         return SenderParams(
@@ -288,7 +288,7 @@ class OnebotV11QQGuildChannelMessageSender(OnebotV11MessageSender):
 
 @register_event_handler(event=OnebotV11MessageEvent)
 class OnebotV11MessageEventHandler(EventHandler):
-    """Onebot V11 消息事件处理器"""
+    """OneBot V11 消息事件处理器"""
 
     def get_user_nickname(self) -> str:
         return self.event.sender.card if self.event.sender.card else self.event.sender.nickname
@@ -304,7 +304,7 @@ class OnebotV11MessageEventHandler(EventHandler):
 
 @register_entity_depend(event=OnebotV11Event)
 class OnebotV11EventEntityDepend(EntityDepend):
-    """Onebot V11 事件 Entity 对象依赖类"""
+    """OneBot V11 事件 Entity 对象依赖类"""
 
     @classmethod
     def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11Event) -> EntityParams:
@@ -344,7 +344,7 @@ class OnebotV11EventEntityDepend(EntityDepend):
 
 @register_entity_depend(event=OnebotV11GroupMessageEvent)
 class OnebotV11GroupMessageEventEntityDepend(EntityDepend):
-    """Onebot V11 群消息事件 Entity 对象依赖类"""
+    """OneBot V11 群消息事件 Entity 对象依赖类"""
 
     @classmethod
     def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GroupMessageEvent) -> EntityParams:
@@ -362,7 +362,7 @@ class OnebotV11GroupMessageEventEntityDepend(EntityDepend):
 
 @register_entity_depend(event=OnebotV11PrivateMessageEvent)
 class OnebotV11PrivateMessageEventEntityDepend(EntityDepend):
-    """Onebot V11 私聊消息事件 Entity 对象依赖类"""
+    """OneBot V11 私聊消息事件 Entity 对象依赖类"""
 
     @classmethod
     def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11PrivateMessageEvent) -> EntityParams:
@@ -378,7 +378,7 @@ class OnebotV11PrivateMessageEventEntityDepend(EntityDepend):
 
 @register_entity_depend(event=OnebotV11GuildMessageEvent)
 class OnebotV11GuildMessageEventEntityDepend(EntityDepend):
-    """Onebot V11 频道消息事件 Entity 对象依赖类"""
+    """OneBot V11 频道消息事件 Entity 对象依赖类"""
 
     @classmethod
     def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GuildMessageEvent) -> EntityParams:

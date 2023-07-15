@@ -61,7 +61,7 @@ if sign_in_config.signin_enable_regex_matcher:
 sign_in.on_command('补签', handlers=[handle_parse_ensure]).got('sign_in_ensure')(handle_fix_sign_in)
 
 
-# 针对 Onebot V11 的戳一戳事件进行特殊处理
+# 针对 OneBot V11 的戳一戳事件进行特殊处理
 @on_notice(
     rule=to_me() & event_has_permission_level(level=20),
     state=enable_processor_state(name='OmegaPokeSignIn', echo_processor_result=False),

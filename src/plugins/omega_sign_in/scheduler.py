@@ -11,7 +11,7 @@
 from nonebot.log import logger
 
 from src.database import begin_db_session
-from src.service.apscheduler import scheduler
+from src.service import scheduler
 from src.service.omega_base.internal import OmegaPixivArtwork
 from src.utils.pixiv_api import PixivArtwork
 from src.utils.process_utils import semaphore_gather
