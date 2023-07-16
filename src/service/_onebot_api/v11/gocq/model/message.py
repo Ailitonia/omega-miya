@@ -12,22 +12,22 @@ from typing import Optional
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.event import Sender
 
-from ...model import BaseOnebotModel
-from ...model import SentMessage as OnebotSentMessage
+from ...model import BaseOneBotModel
+from ...model import SentMessage as OneBotSentMessage
 
 from .user import Anonymous
 
 
-class SentMessage(OnebotSentMessage):
+class SentMessage(OneBotSentMessage):
     """已发送的消息"""
 
 
-class SentForwardMessage(OnebotSentMessage):
+class SentForwardMessage(OneBotSentMessage):
     """已发送的合并转发消息"""
     forward_id: str
 
 
-class ReceiveMessage(BaseOnebotModel):
+class ReceiveMessage(BaseOneBotModel):
     """Api /get_msg 收到的消息
 
     这个字段 go-cqhttp 魔改严重
@@ -52,10 +52,10 @@ class ReceiveMessage(BaseOnebotModel):
     message_seq: Optional[int]
 
 
-class GroupMessageHistory(BaseOnebotModel):
+class GroupMessageHistory(BaseOneBotModel):
     """群消息历史记录"""
 
-    class _MessageHistory(BaseOnebotModel):
+    class _MessageHistory(BaseOneBotModel):
         anonymous: Optional[Anonymous]
         group_id: str
         message: Message
@@ -73,12 +73,12 @@ class GroupMessageHistory(BaseOnebotModel):
     messages: list[_MessageHistory]
 
 
-class ReceiveForwardMessage(BaseOnebotModel):
+class ReceiveForwardMessage(BaseOneBotModel):
     """合并转发消息"""
 
-    class _MessageNode(BaseOnebotModel):
+    class _MessageNode(BaseOneBotModel):
 
-        class _Sender(BaseOnebotModel):
+        class _Sender(BaseOneBotModel):
             nickname: str
             user_id: str
 

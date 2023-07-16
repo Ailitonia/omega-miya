@@ -13,17 +13,17 @@ from typing import Any, Iterable, Tuple, Type, Union, Optional, cast
 from urllib.parse import urlparse
 
 from nonebot.adapters.onebot.v11 import (
-    Bot as OnebotV11Bot,
-    Message as OnebotV11Message,
-    MessageSegment as OnebotV11MessageSegment,
-    Event as OnebotV11Event,
-    MessageEvent as OnebotV11MessageEvent,
-    GroupMessageEvent as OnebotV11GroupMessageEvent,
-    PrivateMessageEvent as OnebotV11PrivateMessageEvent,
+    Bot as OneBotV11Bot,
+    Message as OneBotV11Message,
+    MessageSegment as OneBotV11MessageSegment,
+    Event as OneBotV11Event,
+    MessageEvent as OneBotV11MessageEvent,
+    GroupMessageEvent as OneBotV11GroupMessageEvent,
+    PrivateMessageEvent as OneBotV11PrivateMessageEvent,
 )
 
 from src.service.gocqhttp_guild_patch import (
-    GuildMessageEvent as OnebotV11GuildMessageEvent
+    GuildMessageEvent as OneBotV11GuildMessageEvent
 )
 
 from ..api_tools import register_api_caller
@@ -51,7 +51,7 @@ from ...message import (
 
 
 @register_api_caller(adapter_name=SupportedPlatform.onebot_v11.value)
-class OnebotV11ApiCaller(ApiCaller):
+class OneBotV11ApiCaller(ApiCaller):
     """OneBot V11 API 调用适配"""
 
     async def get_name(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
@@ -97,11 +97,11 @@ class OnebotV11ApiCaller(ApiCaller):
 
 
 @register_builder(adapter_name=SupportedPlatform.onebot_v11.value)
-class OnebotV11MessageBuilder(MessageBuilder):
+class OneBotV11MessageBuilder(MessageBuilder):
     """OneBot V11 消息构造器"""
 
     @staticmethod
-    def _construct(message: OmegaMessage) -> Iterable[OnebotV11MessageSegment]:
+    def _construct(message: OmegaMessage) -> Iterable[OneBotV11MessageSegment]:
 
         def _iter_message(msg: OmegaMessage) -> Iterable[Tuple[str, dict]]:
             for seg in msg:
@@ -110,45 +110,45 @@ class OnebotV11MessageBuilder(MessageBuilder):
         for type_, data in _iter_message(message):
             match type_:
                 case MessageSegmentType.at.value:
-                    yield OnebotV11MessageSegment.at(user_id=data.get('user_id'))
+                    yield OneBotV11MessageSegment.at(user_id=data.get('user_id'))
                 case MessageSegmentType.forward_id.value:
-                    yield OnebotV11MessageSegment.node(id_=data.get('id'))
+                    yield OneBotV11MessageSegment.node(id_=data.get('id'))
                 case MessageSegmentType.custom_node.value:
-                    yield OnebotV11MessageSegment.node_custom(
+                    yield OneBotV11MessageSegment.node_custom(
                         user_id=data.get('user_id'), nickname=data.get('nickname'), content=data.get('content')
                     )
                 case MessageSegmentType.image.value:
                     url = data.get('url')
                     if urlparse(url).scheme not in ['http', 'https']:
                         url = Path(url)
-                    yield OnebotV11MessageSegment.image(file=url)
+                    yield OneBotV11MessageSegment.image(file=url)
                 case MessageSegmentType.text.value:
-                    yield OnebotV11MessageSegment.text(text=data.get('text'))
+                    yield OneBotV11MessageSegment.text(text=data.get('text'))
                 case _:
                     pass
 
-    def _build(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]) -> OnebotV11Message:
-        _msg = OnebotV11Message()
+    def _build(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]) -> OneBotV11Message:
+        _msg = OneBotV11Message()
         if message is None:
             return _msg
         elif isinstance(message, str):
-            return OnebotV11Message(message)
+            return OneBotV11Message(message)
         elif isinstance(message, OmegaMessageSegment):
-            return OnebotV11Message(self._construct(OmegaMessage(message)))
+            return OneBotV11Message(self._construct(OmegaMessage(message)))
         elif isinstance(message, OmegaMessage):
-            return OnebotV11Message(self._construct(message))
+            return OneBotV11Message(self._construct(message))
         else:
-            return OnebotV11Message(message)
+            return OneBotV11Message(message)
 
 
 @register_extractor(adapter_name=SupportedPlatform.onebot_v11.value)
-class OnebotV11MessageExtractor(MessageExtractor):
+class OneBotV11MessageExtractor(MessageExtractor):
     """OneBot V11 消息解析器"""
 
     @staticmethod
-    def _construct(message: OnebotV11Message) -> Iterable[OmegaMessageSegment]:
+    def _construct(message: OneBotV11Message) -> Iterable[OmegaMessageSegment]:
 
-        def _iter_message(msg: OnebotV11Message) -> Iterable[Tuple[str, dict]]:
+        def _iter_message(msg: OneBotV11Message) -> Iterable[Tuple[str, dict]]:
             for seg in msg:
                 yield seg.type, seg.data
 
@@ -172,39 +172,39 @@ class OnebotV11MessageExtractor(MessageExtractor):
                 case _:
                     pass
 
-    def _build(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment]) -> OmegaMessage:
+    def _build(self, message: Union[str, None, OneBotV11Message, OneBotV11MessageSegment]) -> OmegaMessage:
         _msg = OmegaMessage()
         if message is None:
             return _msg
         elif isinstance(message, str):
             return OmegaMessage(message)
-        elif isinstance(message, OnebotV11MessageSegment):
-            return OmegaMessage(self._construct(OnebotV11Message(message)))
-        elif isinstance(message, OnebotV11Message):
+        elif isinstance(message, OneBotV11MessageSegment):
+            return OmegaMessage(self._construct(OneBotV11Message(message)))
+        elif isinstance(message, OneBotV11Message):
             return OmegaMessage(self._construct(message))
         else:
             return OmegaMessage(message)
 
 
-class OnebotV11MessageSender(MessageSender):
+class OneBotV11MessageSender(MessageSender):
     """OneBot V11 消息 Sender"""
 
     @classmethod
     def get_builder(cls) -> Type[MessageBuilder]:
-        return OnebotV11MessageBuilder
+        return OneBotV11MessageBuilder
 
     @classmethod
     def get_extractor(cls) -> Type[MessageExtractor]:
-        return OnebotV11MessageExtractor
+        return OneBotV11MessageExtractor
 
-    def construct_multi_msgs(self, messages: Iterable[Union[str, None, OnebotV11Message, OnebotV11MessageSegment]]):
+    def construct_multi_msgs(self, messages: Iterable[Union[str, None, OneBotV11Message, OneBotV11MessageSegment]]):
         custom_nickname = 'Ωμεγα_Μιγα'
         custom_user_id = int(self.target_entity.bot_id)
-        send_message = OnebotV11Message()
+        send_message = OneBotV11Message()
 
         for message in messages:
-            if isinstance(message, (str, OnebotV11Message, OnebotV11MessageSegment)):
-                send_message.append(OnebotV11MessageSegment.node_custom(
+            if isinstance(message, (str, OneBotV11Message, OneBotV11MessageSegment)):
+                send_message.append(OneBotV11MessageSegment.node_custom(
                     user_id=custom_user_id, nickname=custom_nickname, content=message
                 ))
             else:
@@ -223,7 +223,7 @@ class OnebotV11MessageSender(MessageSender):
 
 
 @register_sender(target_entity=SupportedTarget.qq_user.value)
-class OnebotV11QQUserMessageSender(OnebotV11MessageSender):
+class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 用户消息 Sender"""
 
     def to_send_msg(self) -> SenderParams:
@@ -246,7 +246,7 @@ class OnebotV11QQUserMessageSender(OnebotV11MessageSender):
 
 
 @register_sender(target_entity=SupportedTarget.qq_group.value)
-class OnebotV11QQGroupMessageSender(OnebotV11MessageSender):
+class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 群组消息 Sender"""
 
     def to_send_msg(self) -> SenderParams:
@@ -269,7 +269,7 @@ class OnebotV11QQGroupMessageSender(OnebotV11MessageSender):
 
 
 @register_sender(target_entity=SupportedTarget.qq_guild_channel.value)
-class OnebotV11QQGuildChannelMessageSender(OnebotV11MessageSender):
+class OneBotV11QQGuildChannelMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 子频道消息 Sender"""
 
     def to_send_msg(self) -> SenderParams:
@@ -286,28 +286,28 @@ class OnebotV11QQGuildChannelMessageSender(OnebotV11MessageSender):
         return self.to_send_msg()
 
 
-@register_event_handler(event=OnebotV11MessageEvent)
-class OnebotV11MessageEventHandler(EventHandler):
+@register_event_handler(event=OneBotV11MessageEvent)
+class OneBotV11MessageEventHandler(EventHandler):
     """OneBot V11 消息事件处理器"""
 
     def get_user_nickname(self) -> str:
         return self.event.sender.card if self.event.sender.card else self.event.sender.nickname
 
-    async def send_at_sender(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
-        self.event = cast(OnebotV11MessageEvent, self.event)
+    async def send_at_sender(self, message: Union[str, None, OneBotV11Message, OneBotV11MessageSegment], **kwargs):
+        self.event = cast(OneBotV11MessageEvent, self.event)
         return await self.bot.send(event=self.event, message=message, at_sender=True, **kwargs)
 
-    async def send_reply(self, message: Union[str, None, OnebotV11Message, OnebotV11MessageSegment], **kwargs):
-        self.event = cast(OnebotV11MessageEvent, self.event)
+    async def send_reply(self, message: Union[str, None, OneBotV11Message, OneBotV11MessageSegment], **kwargs):
+        self.event = cast(OneBotV11MessageEvent, self.event)
         return await self.bot.send(event=self.event, message=message, reply_message=True, **kwargs)
 
 
-@register_entity_depend(event=OnebotV11Event)
-class OnebotV11EventEntityDepend(EntityDepend):
+@register_entity_depend(event=OneBotV11Event)
+class OneBotV11EventEntityDepend(EntityDepend):
     """OneBot V11 事件 Entity 对象依赖类"""
 
     @classmethod
-    def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11Event) -> EntityParams:
+    def extract_event_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11Event) -> EntityParams:
         bot_id = bot.self_id
         parent_id = bot.self_id
 
@@ -328,7 +328,7 @@ class OnebotV11EventEntityDepend(EntityDepend):
         return EntityParams(bot_id=bot_id, entity_type=entity_type, entity_id=entity_id, parent_id=parent_id)
 
     @classmethod
-    def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11Event) -> EntityParams:
+    def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11Event) -> EntityParams:
         bot_id = bot.self_id
         parent_id = bot.self_id
 
@@ -342,53 +342,53 @@ class OnebotV11EventEntityDepend(EntityDepend):
         return EntityParams(bot_id=bot_id, entity_type=entity_type, entity_id=entity_id, parent_id=parent_id)
 
 
-@register_entity_depend(event=OnebotV11GroupMessageEvent)
-class OnebotV11GroupMessageEventEntityDepend(EntityDepend):
+@register_entity_depend(event=OneBotV11GroupMessageEvent)
+class OneBotV11GroupMessageEventEntityDepend(EntityDepend):
     """OneBot V11 群消息事件 Entity 对象依赖类"""
 
     @classmethod
-    def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GroupMessageEvent) -> EntityParams:
+    def extract_event_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_group', entity_id=str(event.group_id), parent_id=bot.self_id
         )
 
     @classmethod
-    def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GroupMessageEvent) -> EntityParams:
+    def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id,
             entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
 
-@register_entity_depend(event=OnebotV11PrivateMessageEvent)
-class OnebotV11PrivateMessageEventEntityDepend(EntityDepend):
+@register_entity_depend(event=OneBotV11PrivateMessageEvent)
+class OneBotV11PrivateMessageEventEntityDepend(EntityDepend):
     """OneBot V11 私聊消息事件 Entity 对象依赖类"""
 
     @classmethod
-    def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11PrivateMessageEvent) -> EntityParams:
+    def extract_event_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11PrivateMessageEvent) -> EntityParams:
         return cls.extract_user_entity_from_event(bot=bot, event=event)
 
     @classmethod
-    def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11PrivateMessageEvent) -> EntityParams:
+    def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11PrivateMessageEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id,
             entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
 
-@register_entity_depend(event=OnebotV11GuildMessageEvent)
-class OnebotV11GuildMessageEventEntityDepend(EntityDepend):
+@register_entity_depend(event=OneBotV11GuildMessageEvent)
+class OneBotV11GuildMessageEventEntityDepend(EntityDepend):
     """OneBot V11 频道消息事件 Entity 对象依赖类"""
 
     @classmethod
-    def extract_event_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GuildMessageEvent) -> EntityParams:
+    def extract_event_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GuildMessageEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_guild_channel',
             entity_id=str(event.channel_id), parent_id=str(event.guild_id)
         )
 
     @classmethod
-    def extract_user_entity_from_event(cls, bot: OnebotV11Bot, event: OnebotV11GuildMessageEvent) -> EntityParams:
+    def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GuildMessageEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_guild_user',
             entity_id=str(event.user_id), parent_id=str(event.guild_id),

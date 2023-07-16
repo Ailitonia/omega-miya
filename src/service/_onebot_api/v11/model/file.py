@@ -3,51 +3,51 @@
 @Date           : 2022/04/14 23:22
 @FileName       : file.py
 @Project        : nonebot2_miya 
-@Description    : Onebot File Model
+@Description    : OneBot File Model
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
-from .base_model import BaseOnebotModel
+from .base_model import BaseOneBotModel
 
 
-class RecordFile(BaseOnebotModel):
+class RecordFile(BaseOneBotModel):
     """语音文件"""
     file: str
 
 
-class ImageFile(BaseOnebotModel):
+class ImageFile(BaseOneBotModel):
     """图片文件"""
     file: str
 
 
-class CanSendImage(BaseOnebotModel):
+class CanSendImage(BaseOneBotModel):
     """是否可以发送图片"""
     yes: bool
 
 
-class CanSendRecord(BaseOnebotModel):
+class CanSendRecord(BaseOneBotModel):
     """是否可以发送语音"""
     yes: bool
 
 
-class Cookies(BaseOnebotModel):
+class Cookies(BaseOneBotModel):
     """Cookies"""
     cookies: str
 
 
-class CSRF(BaseOnebotModel):
+class CSRF(BaseOneBotModel):
     """CSRF Token"""
     token: int
 
 
-class Credentials(BaseOnebotModel):
+class Credentials(BaseOneBotModel):
     """Cookies 和 CSRF Token"""
     cookies: str
     csrf_token: int
 
 
-class Status(BaseOnebotModel):
+class Status(BaseOneBotModel):
     """运行状态"""
     online: bool
     good: bool
@@ -56,7 +56,7 @@ class Status(BaseOnebotModel):
         extra = 'allow'
 
 
-class VersionInfo(BaseOnebotModel):
+class VersionInfo(BaseOneBotModel):
     """版本信息"""
     app_name: str
     app_version: str

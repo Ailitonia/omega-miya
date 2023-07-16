@@ -14,7 +14,7 @@ from pydantic import parse_obj_as
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.message import Message
 
-from .._api import BaseOnebotApi
+from .._api import BaseOneBotApi
 from ..exception import ApiNotSupport
 from .model import (SentMessage, SentForwardMessage, ReceiveMessage, ReceiveForwardMessage,
                     StrangerInfo, LoginInfo, FriendInfo, GroupInfo, GroupHonor, GroupUser,
@@ -26,7 +26,7 @@ from .model import (SentMessage, SentForwardMessage, ReceiveMessage, ReceiveForw
                     GuildRoles, CreatedGuildRoles, SentGuildMessage, ReceiveGuildMessage, TopicChannelFeedInfo)
 
 
-class Gocqhttp(BaseOnebotApi):
+class Gocqhttp(BaseOneBotApi):
     """go-cqhttp api
 
     适配版本: go-cqhttp v1.0.0-rc4
@@ -567,7 +567,7 @@ class Gocqhttp(BaseOnebotApi):
         """
         return await self.bot.call_api('upload_private_file', user_id=user_id, file=file, name=name)
 
-    """- Go-CqHttp 相关: Onebot v11 标准中规定但暂未实现, 或 Go-CqHttp 独有的相关 API"""
+    """- Go-CqHttp 相关: OneBot v11 标准中规定但暂未实现, 或 Go-CqHttp 独有的相关 API"""
     async def get_cookies(self, domain: str = '') -> Cookies:
         """获取 Cookies(该 API 暂未被 go-cqhttp 支持, 您可以提交 pr 以使该 API 被支持 提交 pr)"""
         raise ApiNotSupport('go-cqhttp not support "get_cookies" api')

@@ -3,7 +3,7 @@
 @Date           : 2022/04/14 20:14
 @FileName       : _api.py
 @Project        : nonebot2_miya 
-@Description    : Onebot Api 基类
+@Description    : OneBot Api 基类
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -17,8 +17,8 @@ from .model import (GroupInfo, GroupHonor, SentMessage, ReceiveMessage, CustomNo
                     ImageFile, RecordFile, CanSendImage, CanSendRecord, Cookies, CSRF, Credentials, Status, VersionInfo)
 
 
-class BaseOnebotApi(abc.ABC):
-    """Onebot Api 基类"""
+class BaseOneBotApi(abc.ABC):
+    """OneBot Api 基类"""
 
     @abc.abstractmethod
     async def send_private_msg(
@@ -389,5 +389,5 @@ class BaseOnebotApi(abc.ABC):
 
 
 __all__ = [
-    'BaseOnebotApi'
+    'BaseOneBotApi'
 ]

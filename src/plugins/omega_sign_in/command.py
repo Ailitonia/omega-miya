@@ -20,11 +20,11 @@ from nonebot.rule import to_me
 from nonebot.typing import T_State
 
 from nonebot.adapters.onebot.v11.event import (
-    PokeNotifyEvent as OnebotV11PokeNotifyEvent,
-    GroupMessageEvent as OnebotV11GroupMessageEvent,
-    PrivateMessageEvent as OnebotV11PrivateMessageEvent
+    PokeNotifyEvent as OneBotV11PokeNotifyEvent,
+    GroupMessageEvent as OneBotV11GroupMessageEvent,
+    PrivateMessageEvent as OneBotV11PrivateMessageEvent
 )
-from nonebot.adapters.onebot.v11.message import Message as OnebotV11Message
+from nonebot.adapters.onebot.v11.message import Message as OneBotV11Message
 
 from src.params.rule import event_has_permission_level
 from src.service import enable_processor_state
@@ -68,7 +68,7 @@ sign_in.on_command('补签', handlers=[handle_parse_ensure]).got('sign_in_ensure
     priority=11,
     block=False
 ).handle()
-async def handle_poke_sign_in(bot: Bot, event: OnebotV11PokeNotifyEvent):
+async def handle_poke_sign_in(bot: Bot, event: OneBotV11PokeNotifyEvent):
     # 获取戳一戳用户身份
     if event.group_id is None:
         sender_data = await bot.get_stranger_info(user_id=event.user_id)
@@ -89,7 +89,7 @@ async def handle_poke_sign_in(bot: Bot, event: OnebotV11PokeNotifyEvent):
 
     # 从 PokeNotifyEvent 构造一个 MessageEvent
     msg = f'{_DEFAULT_COMMAND_START}签到'
-    event_t = OnebotV11PrivateMessageEvent if event.group_id is None else OnebotV11GroupMessageEvent
+    event_t = OneBotV11PrivateMessageEvent if event.group_id is None else OneBotV11GroupMessageEvent
     message_type = 'private' if event.group_id is None else 'group'
     event_ = event_t.parse_obj({
                     'time': event.time,
@@ -100,7 +100,7 @@ async def handle_poke_sign_in(bot: Bot, event: OnebotV11PokeNotifyEvent):
                     'group_id': event.group_id,
                     'message_type': message_type,
                     'message_id': hash(repr(event)),
-                    'message': OnebotV11Message(msg),
+                    'message': OneBotV11Message(msg),
                     'raw_message': msg,
                     'font': 0,
                     'sender': sender

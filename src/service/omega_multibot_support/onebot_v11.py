@@ -76,13 +76,13 @@ async def __obv11_unique_bot_responding_rule_updater(bot: Bot, event: Event, mat
             matcher.permission_updater(__original_responding_permission_updater)
 
 
-class BaseOnebotModel(BaseModel):
+class BaseOneBotModel(BaseModel):
     class Config:
         extra = 'ignore'
         allow_mutation = False
 
 
-class FriendInfo(BaseOnebotModel):
+class FriendInfo(BaseOneBotModel):
     """好友信息
 
     - user_id: QQ 号
@@ -94,7 +94,7 @@ class FriendInfo(BaseOnebotModel):
     remark: str
 
 
-class GroupInfo(BaseOnebotModel):
+class GroupInfo(BaseOneBotModel):
     """群信息
 
     - group_id, 群号
@@ -114,7 +114,7 @@ class GroupInfo(BaseOnebotModel):
     group_level: int = 0
 
 
-class GuildServiceProfile(BaseOnebotModel):
+class GuildServiceProfile(BaseOneBotModel):
     """Api /get_guild_service_profile 频道系统内BOT的资料 返回值
 
     - nickname: 昵称
@@ -126,7 +126,7 @@ class GuildServiceProfile(BaseOnebotModel):
     avatar_url: AnyHttpUrl
 
 
-class GuildInfo(BaseOnebotModel):
+class GuildInfo(BaseOneBotModel):
     """Api /get_guild_list 频道列表
     正常情况下响应 GuildInfo 数组, 未加入任何频道响应 null
 
@@ -139,7 +139,7 @@ class GuildInfo(BaseOnebotModel):
     guild_display_id: int
 
 
-class ChannelInfo(BaseOnebotModel):
+class ChannelInfo(BaseOneBotModel):
     """Api /get_guild_channel_list 子频道信息
 
     - owner_guild_id: 所属频道ID
@@ -161,7 +161,7 @@ class ChannelInfo(BaseOnebotModel):
 
     """
 
-    class _SlowModeInfo(BaseOnebotModel):
+    class _SlowModeInfo(BaseOneBotModel):
         """慢速模式信息
 
         - slow_mode_key: 慢速模式Key
@@ -186,7 +186,7 @@ class ChannelInfo(BaseOnebotModel):
     slow_modes: list[_SlowModeInfo]
 
 
-class VersionInfo(BaseOnebotModel):
+class VersionInfo(BaseOneBotModel):
     """go-cqhttp 版本信息
 
     - app_name: 应用标识, 如 mirai-native

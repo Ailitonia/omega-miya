@@ -3,17 +3,17 @@
 @Date           : 2022/04/14 21:39
 @FileName       : message.py
 @Project        : nonebot2_miya 
-@Description    : Onebot Message Model
+@Description    : OneBot Message Model
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from typing import Literal, Optional
 from pydantic import AnyHttpUrl
-from .base_model import BaseOnebotModel
+from .base_model import BaseOneBotModel
 
 
-class _MessageSegment(BaseOnebotModel):
+class _MessageSegment(BaseOneBotModel):
     """数组消息段"""
     type: str
     data: dict
@@ -21,7 +21,7 @@ class _MessageSegment(BaseOnebotModel):
 
 class TextMessageSegment(_MessageSegment):
     """纯文本"""
-    class _TextData(BaseOnebotModel):
+    class _TextData(BaseOneBotModel):
         text: str
 
     type: Literal['text']
@@ -30,7 +30,7 @@ class TextMessageSegment(_MessageSegment):
 
 class FaceMessageSegment(_MessageSegment):
     """QQ 表情"""
-    class _FaceData(BaseOnebotModel):
+    class _FaceData(BaseOneBotModel):
         id: int
 
     type: Literal['face']
@@ -39,7 +39,7 @@ class FaceMessageSegment(_MessageSegment):
 
 class ImageMessageSegment(_MessageSegment):
     """图片"""
-    class _ImageData(BaseOnebotModel):
+    class _ImageData(BaseOneBotModel):
         file: str
         type: Optional[Literal['flash']]
         url: Optional[AnyHttpUrl]
@@ -50,7 +50,7 @@ class ImageMessageSegment(_MessageSegment):
 
 class RecordMessageSegment(_MessageSegment):
     """语音"""
-    class _RecordData(BaseOnebotModel):
+    class _RecordData(BaseOneBotModel):
         file: str
         magic: Optional[Literal['0', '1']]
         url: Optional[AnyHttpUrl]
@@ -61,7 +61,7 @@ class RecordMessageSegment(_MessageSegment):
 
 class VideoMessageSegment(_MessageSegment):
     """短视频"""
-    class _VideoData(BaseOnebotModel):
+    class _VideoData(BaseOneBotModel):
         file: str
         url: Optional[AnyHttpUrl]
 
@@ -71,7 +71,7 @@ class VideoMessageSegment(_MessageSegment):
 
 class AtMessageSegment(_MessageSegment):
     """@某人"""
-    class _AtData(BaseOnebotModel):
+    class _AtData(BaseOneBotModel):
         qq: int | Literal['all']
 
     type: Literal['at']
@@ -98,7 +98,7 @@ class ShakeMessageSegment(_MessageSegment):
 
 class PokeMessageSegment(_MessageSegment):
     """戳一戳"""
-    class _PokeData(BaseOnebotModel):
+    class _PokeData(BaseOneBotModel):
         type: str
         id: str
         name: Optional[str]
@@ -115,7 +115,7 @@ class AnonymousMessageSegment(_MessageSegment):
 
 class ShareMessageSegment(_MessageSegment):
     """链接分享"""
-    class _ShareData(BaseOnebotModel):
+    class _ShareData(BaseOneBotModel):
         url: AnyHttpUrl
         title: str
         content: Optional[str]
@@ -127,7 +127,7 @@ class ShareMessageSegment(_MessageSegment):
 
 class ContactUserMessageSegment(_MessageSegment):
     """推荐好友"""
-    class _ContactData(BaseOnebotModel):
+    class _ContactData(BaseOneBotModel):
         type: Literal['qq']
         id: str
 
@@ -137,7 +137,7 @@ class ContactUserMessageSegment(_MessageSegment):
 
 class ContactGroupMessageSegment(_MessageSegment):
     """推荐群"""
-    class _ContactData(BaseOnebotModel):
+    class _ContactData(BaseOneBotModel):
         type: Literal['group']
         id: str
 
@@ -147,7 +147,7 @@ class ContactGroupMessageSegment(_MessageSegment):
 
 class LocationMessageSegment(_MessageSegment):
     """位置"""
-    class _LocationData(BaseOnebotModel):
+    class _LocationData(BaseOneBotModel):
         lat: float
         lon: float
         title: Optional[str]
@@ -159,7 +159,7 @@ class LocationMessageSegment(_MessageSegment):
 
 class MusicMessageSegment(_MessageSegment):
     """音乐分享"""
-    class _MusicData(BaseOnebotModel):
+    class _MusicData(BaseOneBotModel):
         type: Literal['qq', '163', 'xm']
         id: str
 
@@ -169,7 +169,7 @@ class MusicMessageSegment(_MessageSegment):
 
 class MusicCustomMessageSegment(_MessageSegment):
     """音乐自定义分享"""
-    class _MusicData(BaseOnebotModel):
+    class _MusicData(BaseOneBotModel):
         type: Literal['custom']
         url: AnyHttpUrl
         audio: AnyHttpUrl
@@ -183,7 +183,7 @@ class MusicCustomMessageSegment(_MessageSegment):
 
 class ReplyMessageSegment(_MessageSegment):
     """回复"""
-    class _ReplyData(BaseOnebotModel):
+    class _ReplyData(BaseOneBotModel):
         id: str
 
     type: Literal['reply']
@@ -192,7 +192,7 @@ class ReplyMessageSegment(_MessageSegment):
 
 class ForwardMessageSegment(_MessageSegment):
     """合并转发"""
-    class _ForwardData(BaseOnebotModel):
+    class _ForwardData(BaseOneBotModel):
         id: str
 
     type: Literal['forward']
@@ -201,7 +201,7 @@ class ForwardMessageSegment(_MessageSegment):
 
 class NodeMessageSegment(_MessageSegment):
     """合并转发节点"""
-    class _NodeData(BaseOnebotModel):
+    class _NodeData(BaseOneBotModel):
         id: str
 
     type: Literal['node']
@@ -210,7 +210,7 @@ class NodeMessageSegment(_MessageSegment):
 
 class NodeCustomMessageSegment(_MessageSegment):
     """合并转发自定义节点"""
-    class _NodeData(BaseOnebotModel):
+    class _NodeData(BaseOneBotModel):
         user_id: str
         nickname: str
         content: type("T_Message")
@@ -221,7 +221,7 @@ class NodeCustomMessageSegment(_MessageSegment):
 
 class NodesCustomMessageSegment(_MessageSegment):
     """合并转发自定义节点"""
-    class _NodeData(BaseOnebotModel):
+    class _NodeData(BaseOneBotModel):
         user_id: str
         nickname: str
         content: list[type("T_Message")]
@@ -256,12 +256,12 @@ T_Message = (
 )
 
 
-class SentMessage(BaseOnebotModel):
+class SentMessage(BaseOneBotModel):
     """已发送的消息"""
     message_id: int
 
 
-class Sender(BaseOnebotModel):
+class Sender(BaseOneBotModel):
     """消息发送人"""
     user_id: str
     nickname: str
@@ -269,7 +269,7 @@ class Sender(BaseOnebotModel):
     age: Optional[int]
 
 
-class ReceiveMessage(BaseOnebotModel):
+class ReceiveMessage(BaseOneBotModel):
     """收到的消息"""
     time: int
     message_type: str
@@ -279,7 +279,7 @@ class ReceiveMessage(BaseOnebotModel):
     message: list[T_Message]
 
 
-class CustomNodeMessage(BaseOnebotModel):
+class CustomNodeMessage(BaseOneBotModel):
     """收到的合并转发消息"""
     message: list[T_Message]
 
