@@ -17,7 +17,10 @@ from src.service.omega_processor.plugin_utils import parse_processor_state
 
 def get_all_plugins_desc() -> str:
     """获取全部配置了自定义信息的插件信息"""
-    plugins_custom_name = '\n'.join(sorted(plugin.metadata.name for plugin in get_loaded_plugins() if plugin.metadata))
+    plugins_custom_name = '\n'.join(sorted(
+        plugin.metadata.name for plugin in get_loaded_plugins()
+        if plugin.metadata and plugin.matcher  # 没有 matcher 的插件基本为 library, 忽略
+    ))
     return f'现在已安装的插件有: \n\n{plugins_custom_name}\n\n使用"/help [插件名]"即可查看插件详情及帮助'
 
 
@@ -36,7 +39,7 @@ def get_plugin_desc(plugin_name: str, *, for_superuser: bool = False) -> str:
 
             if for_superuser:
                 processor_info = '\n'.join(
-                    f'\n[{s.name}]\nLevel: {s.level if s.level < 4294967296 else "Unlimited"}/Node: {s.auth_node}\n'
+                    f'\n[{s.name}]\nLevel: {s.level if s.level < 2**31-1 else "Unlimited"}/Node: {s.auth_node}\n'
                     f'ExtraNode: {", ".join(s.extra_auth_node) if s.extra_auth_node else None}\nCooldown: {s.cooldown}'
                     for s in (parse_processor_state(m._default_state) for m in plugin.matcher)
                     if s.name and s.enable_processor

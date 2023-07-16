@@ -26,7 +26,7 @@ from .helpers import draw_statistics
 # 注册事件响应器
 statistic = CommandGroup(
     'statistic',
-    priority=5,
+    priority=1,
     block=True,
     state=enable_processor_state(name='OmegaStatistic', level=10)
 )

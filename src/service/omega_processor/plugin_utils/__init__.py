@@ -53,7 +53,7 @@ def enable_processor_state(
         name: str,
         enable_processor: bool = True,
         *,
-        level: int = 4294967296,
+        level: int = 2**31-1,
         auth_node: Optional[str] = None,
         extra_auth_node: Optional[set[str]] = None,
         cooldown: int = 0,

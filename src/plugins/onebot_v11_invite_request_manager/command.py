@@ -60,7 +60,7 @@ async def handle_user_verify_code(_: Bot, matcher: Matcher, user_qq: Annotated[s
 
 
 invite_request_manager = on_request(
-    priority=90,
+    priority=91,
     block=False,
     state=enable_processor_state(name='OneBotV11InviteRequestManager', enable_processor=False)
 )
