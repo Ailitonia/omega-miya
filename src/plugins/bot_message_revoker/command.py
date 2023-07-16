@@ -30,7 +30,7 @@ self_recall = on_command(
     'self_recall',
     aliases={'撤回'},
     permission=SUPERUSER,
-    priority=20,
+    priority=10,
     block=True,
     state=enable_processor_state(name='SelfRecall', enable_processor=False),
 )

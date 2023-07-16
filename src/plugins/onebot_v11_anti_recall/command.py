@@ -46,7 +46,7 @@ async def handle_parse_switch(_: Bot, state: T_State, cmd_arg: Annotated[Message
     aliases={'AntiRecall', '反撤回'},
     permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     handlers=[handle_parse_switch],
-    priority=10,
+    priority=20,
     block=True,
     state=enable_processor_state(name='AntiRecallManager', level=10)
 ).got('switch', prompt='启用或关闭反撤回:\n【ON/OFF】')
