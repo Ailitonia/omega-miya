@@ -36,7 +36,7 @@ async def handle_parse_args(matcher: Matcher, cmd_arg: Annotated[Message, Comman
     aliases={'公告', 'ta'},
     permission=SUPERUSER,
     handlers=[handle_parse_args],
-    priority=1,
+    priority=10,
     block=True,
     state=enable_processor_state(name='OmegaAnnouncement', enable_processor=False)
 ).got('announcement_content', prompt='请输入公告内容:')
@@ -44,7 +44,7 @@ async def handle_announce(
         matcher: Matcher,
         entity_dal: Annotated[EntityDAL, Depends(EntityDAL.dal_dependence)],
         announcement_content: Annotated[Message, Arg('announcement_content')]
-):
+) -> None:
     matcher_interface = MatcherInterface()
     announce_message = matcher_interface.get_msg_extractor()(message=announcement_content).message
 

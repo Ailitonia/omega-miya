@@ -46,7 +46,7 @@ class ImageSearcher(abc.ABC):
         self.image_url = image_url
 
     def __repr__(self) -> str:
-        return f'<ImageSearcher({self._searcher_name.upper()}, image_url={self.image_url})>'
+        return f'ImageSearcher(name={self._searcher_name.upper()}, image_url={self.image_url})'
 
     @abc.abstractmethod
     async def search(self) -> list[ImageSearchingResult]:

@@ -45,8 +45,8 @@ class Pixiv(abc.ABC):
     _recommend_artworks_url: str = 'https://www.pixiv.net/ajax/top/illust'  # Pixiv 推荐
     _discovery_artworks_url: str = 'https://www.pixiv.net/ajax/discovery/artworks'  # Pixiv 发现
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}>'
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
     @classmethod
     async def request_json(
@@ -335,8 +335,8 @@ class PixivArtwork(Pixiv):
         # 实例缓存
         self.artwork_model: Optional[PixivArtworkCompleteDataModel] = None
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}(pid={self.pid})>'
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(pid={self.pid})'
 
     async def _query_data(self) -> PixivArtworkDataModel:
         """获取作品信息"""
@@ -687,8 +687,8 @@ class PixivUser(Pixiv):
         # 实例缓存
         self.user_model: Optional[PixivUserModel] = None
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}(uid={self.uid})>'
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(uid={self.uid})'
 
     @classmethod
     async def search_user(cls, nick: str) -> PixivUserSearchingModel:

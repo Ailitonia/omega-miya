@@ -40,8 +40,8 @@ _DEFAULT_COMMAND_START: str = list(_COMMAND_START)[0] if _COMMAND_START else ''
 
 async def handle_parse_ensure(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
     """首次运行时解析命令参数"""
-    cmd_args = cmd_arg.extract_plain_text().strip()
-    state.update({f'sign_in_ensure': cmd_args if cmd_arg else None})
+    ensure = cmd_arg.extract_plain_text().strip()
+    state.update({f'sign_in_ensure': ensure if ensure else None})
 
 
 sign_in = MatcherGroup(

@@ -37,7 +37,7 @@ MAX_PERMISSION_LEVEL: int = 100
 omega = CommandGroup(
     'omega',
     permission=SUPERUSER,
-    priority=1,
+    priority=20,
     block=True,
     state=enable_processor_state(name='OmegaCoreManager', enable_processor=False)
 )
@@ -115,7 +115,7 @@ async def handle_set_level(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
         level: Annotated[str, ArgStr('omega_arg_0')]
-):
+) -> None:
     level = level.strip()
     if not level.isdigit():
         await matcher.finish('异常参数, 权限等级应当为整数, 操作已取消')
@@ -179,7 +179,7 @@ async def handle_enable_plugin(
         matcher: Matcher,
         plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')]
-):
+) -> None:
     plugin_name = plugin_name.strip()
     if plugin_name not in (x.name for x in get_loaded_plugins()):
         await matcher.finish(f'未找到插件{plugin_name!r}, 操作已取消')
@@ -202,7 +202,7 @@ async def handle_disable_plugin(
         matcher: Matcher,
         plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')]
-):
+) -> None:
     plugin_name = plugin_name.strip()
     if plugin_name not in (x.name for x in get_loaded_plugins()):
         await matcher.finish(f'未找到插件{plugin_name!r}, 操作已取消')
@@ -244,7 +244,7 @@ async def handle_allow_plugin_node(
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')],
         auth_node: Annotated[str, ArgStr('omega_arg_1')]
-):
+) -> None:
     await handle_config_plugin_node(matcher, entity_interface, plugin_name, auth_node, 1)
 
 
@@ -260,7 +260,7 @@ async def handle_deny_plugin_node(
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')],
         auth_node: Annotated[str, ArgStr('omega_arg_1')]
-):
+) -> None:
     await handle_config_plugin_node(matcher, entity_interface, plugin_name, auth_node, 0)
 
 
@@ -270,7 +270,7 @@ async def handle_config_plugin_node(
         plugin_name: str,
         auth_node: str,
         available: int
-):
+) -> None:
     plugin_name = plugin_name.strip()
     auth_node = auth_node.strip()
     plugin_auth_nodes = get_plugin_auth_node(plugin_name=plugin_name)
@@ -301,7 +301,7 @@ async def handle_set_limiting(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
         time: Annotated[str, ArgStr('omega_arg_0')]
-):
+) -> None:
     time = time.strip()
     if not time.isdigit():
         await matcher.finish('异常参数, 时间应当为整数, 操作已取消')

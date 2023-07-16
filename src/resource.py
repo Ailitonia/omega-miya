@@ -51,7 +51,7 @@ class BaseResource(abc.ABC):
             self.path = self.path.joinpath(*[str(x) for x in args])
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__}(path={self.resolve_path!r})>'
+        return f'{self.__class__.__name__}(path={self.resolve_path!r})'
 
     def __call__(self, *args) -> "BaseResource":
         new_obj = deepcopy(self)

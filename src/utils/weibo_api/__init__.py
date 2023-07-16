@@ -24,8 +24,8 @@ from .helper import parse_weibo_card_from_status_page
 class Weibo(object):
     """微博, 使用手机端网页 api"""
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}>'
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
     @classmethod
     async def request_json(

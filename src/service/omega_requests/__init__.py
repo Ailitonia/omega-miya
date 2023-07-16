@@ -245,8 +245,9 @@ class OmegaRequests(object):
         response = await self.get(url=url, params=params, **kwargs)
 
         if response.status_code != 200:
-            logger.opt(colors=True).error(f'<lc>Omega Requests</lc> | Download <ly>{url!r}</ly> to {file!r} failed')
-            raise WebSourceException(f'Download {url!r} to {file!r} failed')
+            logger.opt(colors=True).error(f'<lc>Omega Requests</lc> | Download <ly>{url!r}</ly> '
+                                          f'to {file!r} failed with code <lr>{response.status_code!r}</lr>')
+            raise WebSourceException(f'Download {url!r} to {file!r} failed with code {response.status_code!r}')
 
         if isinstance(response.content, str):
             response.content = response.content.encode(encoding='utf-8')

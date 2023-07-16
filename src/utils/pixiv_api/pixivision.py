@@ -34,8 +34,8 @@ class Pixivision(object):
         self.aid = aid
         self.url = f'{self._articles_url}/{aid}'
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}(aid={self.aid})>'
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(aid={self.aid})'
 
     @classmethod
     async def request_resource(

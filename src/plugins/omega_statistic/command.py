@@ -26,7 +26,7 @@ from .helpers import draw_statistics
 # 注册事件响应器
 statistic = CommandGroup(
     'statistic',
-    priority=1,
+    priority=10,
     block=True,
     state=enable_processor_state(name='OmegaStatistic', level=10)
 )
@@ -38,7 +38,7 @@ async def handle_event_entity_statistic(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
         statistic_dal: Annotated[StatisticDAL, Depends(StatisticDAL.dal_dependence)]
-):
+) -> None:
     try:
         statistic_data = await statistic_dal.count_by_condition(bot_self_id=bot.self_id,
                                                                 parent_entity_id=entity_interface.entity.parent_id,
@@ -59,7 +59,7 @@ async def handle_bot_all_statistic(
         bot: Bot,
         matcher: Matcher,
         statistic_dal: Annotated[StatisticDAL, Depends(StatisticDAL.dal_dependence)]
-):
+) -> None:
     try:
         statistic_data = await statistic_dal.count_by_condition(bot_self_id=bot.self_id)
 

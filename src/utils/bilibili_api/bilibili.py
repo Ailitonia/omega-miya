@@ -26,8 +26,8 @@ class Bilibili(object):
     _root_url: str = 'https://www.bilibili.com'
     _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}>'
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
     @classmethod
     async def request_json(
@@ -189,8 +189,8 @@ class BilibiliUser(Bilibili):
         # 实例缓存
         self.user_model: Optional[BilibiliUserModel] = None
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}(uid={self.uid})>'
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(uid={self.uid})'
 
     @classmethod
     async def search(
@@ -269,8 +269,8 @@ class BilibiliDynamic(Bilibili):
     def dy_id(self) -> str:
         return str(self.dynamic_id)
 
-    def __repr__(self):
-        return f'<{self.__class__.__name__}(dynamic_id={self.dynamic_id})>'
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(dynamic_id={self.dynamic_id})'
 
     async def get_dynamic_model(self) -> BilibiliDynamicModel:
         """获取并初始化动态对应 BilibiliDynamicModel"""

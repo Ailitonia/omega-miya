@@ -613,7 +613,7 @@ async def handle_generate_fortune_card(
         bot: Bot,
         event: Event,
         state: T_State,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]
+        entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))]
 ) -> None:
     """处理生成运势卡片"""
     matcher_interface = MatcherInterface()

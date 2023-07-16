@@ -37,7 +37,7 @@ async def handle_parse_job_name(matcher: Matcher, cmd_arg: Annotated[Message, Co
 schedule_message = CommandGroup(
     'schedule_message',
     permission=IS_ADMIN,
-    priority=1,
+    priority=20,
     block=True,
     state=enable_processor_state(name='OmegaScheduleMessage', level=10),
 )
@@ -56,7 +56,7 @@ async def handle_set_schedule_message(
         job_name: Annotated[str, ArgStr('job_name')],
         crontab: Annotated[str, ArgStr('crontab')],
         message: Annotated[Message, Arg('message')]
-):
+) -> None:
     job_name = job_name.strip()
     if len(job_name) > 50:
         await matcher.reject_arg('job_name', '设置的定时消息任务名称过长(超过50字), 请重新输入:')
@@ -96,7 +96,7 @@ async def handle_remove_schedule_message(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
         job_name: Annotated[str, ArgStr('job_name')]
-):
+) -> None:
     job_name = job_name.strip()\
 
     try:
@@ -125,7 +125,7 @@ async def handle_remove_schedule_message(
 async def handle_list_schedule_message(
         matcher: Matcher,
         entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]
-):
+) -> None:
     try:
         exist_jobs = await get_schedule_message_job_list(entity_interface=entity_interface)
     except Exception as e:

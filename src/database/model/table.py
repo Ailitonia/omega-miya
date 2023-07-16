@@ -419,9 +419,9 @@ class SubscriptionOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"<SubscriptionOrm(sub_source_index_id={self.sub_source_index_id!r}, "
+        return (f"SubscriptionOrm(sub_source_index_id={self.sub_source_index_id!r}, "
                 f"entity_index_id={self.entity_index_id!r}, sub_info={self.sub_info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})>")
+                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
 class BiliDynamicOrm(Base):
