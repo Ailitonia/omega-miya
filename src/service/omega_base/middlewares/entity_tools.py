@@ -23,7 +23,7 @@ def register_entity_depend(event: Type[Event]) -> Callable[[Type[EntityDepend]],
     """注册不同事件的 Entity 对象依赖类"""
 
     def decorator(entity_depend: Type[EntityDepend]) -> Type[EntityDepend]:
-        """注册不同平台消息构造适配器"""
+        """注册不同事件的 Entity 对象依赖类"""
         global __ENTITY_DEPENDS_MAP
 
         __ENTITY_DEPENDS_MAP[event] = entity_depend

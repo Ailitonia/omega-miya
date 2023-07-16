@@ -23,7 +23,7 @@ def register_event_handler(event: Type[Event]) -> Callable[[Type[EventHandler]],
     """注册不同事件的 EventHandler"""
 
     def decorator(event_handler: Type[EventHandler]) -> Type[EventHandler]:
-        """注册不同平台消息构造适配器"""
+        """注册不同事件的 EventHandler"""
         global __EVENT_HANDLER_MAP
 
         __EVENT_HANDLER_MAP[event] = event_handler

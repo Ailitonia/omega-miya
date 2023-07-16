@@ -28,7 +28,7 @@ def register_api_caller(adapter_name: str) -> Callable[[T], T]:
     """注册不同平台 API 适配器"""
 
     def decorator(api_caller: ApiCaller_T) -> ApiCaller_T:
-        """注册不同平台消息构造适配器"""
+        """注册不同平台 API 适配器"""
         global __API_CALLERS
 
         if adapter_name not in SupportedPlatform.supported_adapter_names:

@@ -55,7 +55,7 @@ def register_extractor(adapter_name: str) -> Callable[[T], T]:
     """注册不同平台消息解析适配器"""
 
     def decorator(message_extractor: Extractor_T) -> Extractor_T:
-        """注册不同平台消息构造适配器"""
+        """注册不同平台消息解析适配器"""
         global __MESSAGE_EXTRACTORS
 
         if adapter_name not in SupportedPlatform.supported_adapter_names:
