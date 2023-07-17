@@ -57,6 +57,7 @@ async def handle_start(matcher: Matcher, entity_interface: Annotated[EntityInter
         await entity_interface.entity.add_ignore_exists()
         await entity_interface.entity.enable_global_permission()
         await entity_interface.entity.set_permission_level(DEFAULT_PERMISSION_LEVEL)
+        await entity_interface.entity.commit_session()
 
         logger.success(f'Omega 启用成功, Entity: {entity_interface.entity}')
         await matcher.send('Omega 启用/初始化成功')
@@ -71,6 +72,7 @@ async def handle_disable(matcher: Matcher, entity_interface: Annotated[EntityInt
         await entity_interface.entity.add_ignore_exists()
         await entity_interface.entity.disable_global_permission()
         await entity_interface.entity.set_permission_level(0)
+        await entity_interface.entity.commit_session()
 
         logger.success(f'Omega 禁用成功, Entity: {entity_interface.entity}')
         await matcher.send('Omega 禁用成功')
@@ -126,6 +128,7 @@ async def handle_set_level(
 
     try:
         await entity_interface.entity.set_permission_level(level)
+        await entity_interface.entity.commit_session()
 
         logger.success(f'Omega 设置权限等级{level!r}成功, Entity: {entity_interface.entity}')
         await matcher.send(f'Omega 已将当前会话权限等级设置为: Level-{level!r}')
@@ -187,6 +190,7 @@ async def handle_enable_plugin(
     try:
         plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=get_plugin(plugin_name).module_name)
         await plugin_dal.update(id_=plugin.id, enabled=1, info='Enabled by OPM')
+        await plugin_dal.commit_session()
 
         logger.success(f'Omega 启用插件{plugin_name!r}成功')
         await matcher.send(f'Omega 启用插件{plugin_name!r}成功')
@@ -210,6 +214,7 @@ async def handle_disable_plugin(
     try:
         plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=get_plugin(plugin_name).module_name)
         await plugin_dal.update(id_=plugin.id, enabled=0, info='Disabled by OPM')
+        await plugin_dal.commit_session()
 
         logger.success(f'Omega 禁用插件{plugin_name!r}成功')
         await matcher.send(f'Omega 禁用插件{plugin_name!r}成功')
@@ -287,6 +292,8 @@ async def handle_config_plugin_node(
         await entity_interface.entity.set_auth_setting(
             module=module, plugin=plugin_name, node=auth_node, available=available
         )
+        await entity_interface.entity.commit_session()
+
         logger.success(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
         await matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
     except Exception as e:
@@ -310,6 +317,7 @@ async def handle_set_limiting(
 
     try:
         await entity_interface.entity.set_global_cooldown(expired_time=timedelta(seconds=time))
+        await entity_interface.entity.commit_session()
 
         logger.success(f'Omega 设置流控限制{time!r}秒, Entity: {entity_interface.entity}')
         await matcher.send(f'Omega 已限制当前会话使用{time!r}秒')

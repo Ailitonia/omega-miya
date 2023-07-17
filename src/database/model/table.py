@@ -10,9 +10,10 @@
 
 from datetime import date, datetime
 from sqlalchemy import Sequence, ForeignKey
-from sqlalchemy import Integer, Float, String, Date, DateTime, BigInteger as BigInt
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, String
 
+from .types import IndexInt
 from ..config import database_config
 
 
@@ -71,7 +72,7 @@ class StatisticOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(BigInt, Sequence(f'{__tablename__}_id_seq'),
+    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
                                     primary_key=True, nullable=False, index=True, unique=True)
     module_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件模块名称')
     plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件显示名称')
@@ -97,9 +98,9 @@ class HistoryOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(BigInt, Sequence(f'{__tablename__}_id_seq'),
+    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
                                     primary_key=True, nullable=False, index=True, unique=True)
-    time: Mapped[int] = mapped_column(BigInt, nullable=False, comment='事件发生的时间戳')
+    time: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='事件发生的时间戳')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到事件的机器人id')
     parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象父实体id')
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象实体id')
@@ -235,7 +236,7 @@ class SignInOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(BigInt, Sequence(f'{__tablename__}_id_seq'),
+    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
                                     primary_key=True, nullable=False, index=True, unique=True)
     entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
     sign_in_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment='签到日期')
@@ -431,9 +432,9 @@ class BiliDynamicOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(BigInt, Sequence(f'{__tablename__}_id_seq'),
+    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
                                     primary_key=True, nullable=False, index=True, unique=True)
-    dynamic_id: Mapped[int] = mapped_column(BigInt, nullable=False, index=True, unique=True, comment='动态id')
+    dynamic_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='动态id')
     dynamic_type: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='动态类型')
     uid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='用户uid')
     content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='动态内容')
@@ -453,10 +454,10 @@ class PixivArtworkOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(BigInt, Sequence(f'{__tablename__}_id_seq'),
+    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
                                     primary_key=True, nullable=False, index=True, unique=True)
-    pid: Mapped[int] = mapped_column(BigInt, nullable=False, index=True, unique=True, comment='作品pid')
-    uid: Mapped[int] = mapped_column(BigInt, nullable=False, index=True, comment='作者uid')
+    pid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='作品pid')
+    uid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='作者uid')
     title: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='作品标题title')
     uname: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='作者名')
     classified: Mapped[int] = mapped_column(Integer, nullable=False, index=True,
@@ -489,9 +490,9 @@ class PixivArtworkPageOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(BigInt, Sequence(f'{__tablename__}_id_seq'),
+    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
                                     primary_key=True, nullable=False, index=True, unique=True)
-    artwork_index_id: Mapped[int] = mapped_column(BigInt, ForeignKey(PixivArtworkOrm.id, ondelete='CASCADE'),
+    artwork_index_id: Mapped[int] = mapped_column(IndexInt, ForeignKey(PixivArtworkOrm.id, ondelete='CASCADE'),
                                                   nullable=False)
     page: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='页码')
     original: Mapped[str] = mapped_column(String(512), nullable=False, comment='original image url')
