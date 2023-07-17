@@ -16,7 +16,7 @@ from src.database import HistoryDAL, begin_db_session
 from src.service import EntityInterface
 
 
-LOG_PREFIX: str = '<lc>Event History Recorder</lc> | '
+LOG_PREFIX: str = '<lc>Event History</lc> | '
 
 
 async def postprocessor_history(bot: Bot, event: Event, message: Message):
@@ -35,10 +35,10 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
     msg_data = str(message)
 
     if len(raw_data) > 4096:
-        logger.debug(f'History | Raw data is longer than field limited and it will be reduce, {raw_data!r}')
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}raw_data is longer than field limiting to be reduce, {raw_data!r}')
         raw_data = raw_data[:4096]
     if len(msg_data) > 4096:
-        logger.debug(f'History | Raw data is longer than field limited and it will be reduce, {msg_data!r}')
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}msg_data is longer than field limiting to be reduce, {msg_data!r}')
         msg_data = msg_data[:4096]
 
     try:
@@ -52,9 +52,9 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
                 time=time, bot_self_id=self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
                 event_type=event_type, event_id=event_id, raw_data=raw_data, msg_data=msg_data
             )
-        logger.trace(f'{LOG_PREFIX}Recording event({event_id}) succeed')
+        logger.opt(colors=True).trace(f'{LOG_PREFIX}Recording event({event_id}) succeed')
     except Exception as e:
-        logger.error(f'{LOG_PREFIX}Recording failed, error: {repr(e)}, event: {event.json()}')
+        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording failed, error: {repr(e)}, event: {event.json()}')
 
 
 __all__ = [
