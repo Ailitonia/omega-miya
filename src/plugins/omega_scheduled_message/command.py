@@ -13,9 +13,10 @@ from typing import Annotated, cast
 from nonebot.adapters import Bot, Message
 from nonebot.log import logger
 from nonebot.matcher import Matcher
-from nonebot.params import Arg, ArgStr, CommandArg, Depends
+from nonebot.params import Arg, ArgStr, Depends
 from nonebot.plugin import CommandGroup
 
+from src.params.handler import get_command_message_arg_parser_handler
 from src.params.permission import IS_ADMIN
 from src.service import EntityInterface, OmegaMessage, enable_processor_state
 
@@ -28,12 +29,6 @@ from .helpers import (
 )
 
 
-async def handle_parse_job_name(matcher: Matcher, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    if cmd_arg:
-        matcher.set_arg('job_name', cmd_arg)
-
-
 schedule_message = CommandGroup(
     'schedule_message',
     permission=IS_ADMIN,
@@ -43,7 +38,11 @@ schedule_message = CommandGroup(
 )
 
 
-set_ = schedule_message.command('set', aliases={'设置定时消息', '新增定时消息'}, handlers=[handle_parse_job_name])
+set_ = schedule_message.command(
+    'set',
+    aliases={'设置定时消息', '新增定时消息'},
+    handlers=[get_command_message_arg_parser_handler('job_name')]
+)
 
 
 @set_.got('job_name', prompt='请发送为当前定时消息设置的任务名称:')
@@ -69,28 +68,25 @@ async def handle_set_schedule_message(
     except Exception as e:
         logger.error(f'SetScheduleMessage | 处理定时消息数据错误, {e!r}')
         await matcher.finish('处理定时消息数据错误, 请稍后再试或联系管理员处理')
-        return
 
     try:
         add_schedule_job(job_data=job_data)
     except Exception as e:
         logger.error(f'SetScheduleMessage | 添加定时消息任务({job_data.job_name})到 schedule 失败, {e!r}')
         await matcher.finish('设置消息定时任务失败, 请稍后再试或联系管理员处理')
-        return
 
     try:
         await set_schedule_message_job(entity_interface=entity_interface, job_data=job_data)
     except Exception as e:
         logger.error(f'SetScheduleMessage | 将定时消息任务({job_data.job_name})写入数据库失败, {e!r}')
         await matcher.finish('保存定时消息失败, 请稍后再试或联系管理员处理')
-        return
 
     await entity_interface.entity.commit_session()
     await matcher.finish(f'添加定时消息"{job_data.schedule_job_name}"成功!')
 
 
 @schedule_message.command(
-    'remove', aliases={'删除定时消息', '移除定时消息'}, handlers=[handle_parse_job_name]
+    'remove', aliases={'删除定时消息', '移除定时消息'}, handlers=[get_command_message_arg_parser_handler('job_name')]
 ).got('job_name', prompt='请输入想要删除的定时消息任务名称:')
 async def handle_remove_schedule_message(
         matcher: Matcher,
@@ -104,12 +100,10 @@ async def handle_remove_schedule_message(
     except Exception as e:
         logger.error(f'RemoveScheduleMessage | 获取{entity_interface.entity}已配置任务列表失败, {e!r}')
         await matcher.finish('获取已配置任务列表失败, 请稍后再试或联系管理员处理')
-        return
 
     if job_name not in exist_jobs:
         exist_text = '\n'.join(exist_jobs) if exist_jobs else '无已配置的定时消息'
         await matcher.finish(f'没有名为"{job_name}"定时消息任务, 请确认已配置的定时消息:\n\n{exist_text}')
-        return
 
     try:
         await remove_schedule_message_job(entity_interface=entity_interface, job_name=job_name)
@@ -131,7 +125,6 @@ async def handle_list_schedule_message(
     except Exception as e:
         logger.error(f'ListScheduleMessage | 获取{entity_interface.entity}已配置任务列表失败, {e!r}')
         await matcher.finish('获取已配置任务列表失败, 请稍后再试或联系管理员处理')
-        return
 
     exist_text = '\n'.join(exist_jobs) if exist_jobs else '无已配置的定时消息'
     await matcher.finish(f'当前已配置定时消息任务有:\n\n{exist_text}')

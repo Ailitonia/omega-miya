@@ -10,28 +10,20 @@
 
 from typing import Annotated
 
-from nonebot.adapters import Message
 from nonebot.log import logger
-from nonebot.params import ArgStr, CommandArg
+from nonebot.params import ArgStr
 from nonebot.plugin import on_command
-from nonebot.typing import T_State
 
+from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import MatcherInterface, enable_processor_state
 
 from .data_source import query_guess
 
 
-async def handle_parse_guess_word(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    guess_word = cmd_arg.extract_plain_text().strip()
-    if guess_word:
-        state.update({'guess_word': guess_word})
-
-
 @on_command(
     'nbnhhsh',
     aliases={'hhsh', '好好说话', '能不能好好说话'},
-    handlers=[handle_parse_guess_word],
+    handlers=[get_command_str_single_arg_parser_handler('guess_word')],
     priority=10,
     block=True,
     state=enable_processor_state(name='nbnhhsh', level=20),

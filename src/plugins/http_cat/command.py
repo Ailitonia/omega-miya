@@ -10,30 +10,20 @@
 
 from typing import Annotated
 
-from nonebot.adapters import Message
 from nonebot.log import logger
-from nonebot.params import ArgStr, CommandArg
+from nonebot.params import ArgStr
 from nonebot.plugin import on_command
-from nonebot.typing import T_State
 
+from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import MatcherInterface, OmegaMessageSegment, enable_processor_state
 
 from .data_source import get_http_cat
 
 
-async def handle_parse_code(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    code = cmd_arg.extract_plain_text().strip()
-    if code:
-        state.update({'code': code})
-    else:
-        state.update({'code': '200'})
-
-
 @on_command(
     'http_cat',
     aliases={'HttpCat', 'httpcat'},
-    handlers=[handle_parse_code],
+    handlers=[get_command_str_single_arg_parser_handler('code', default='200')],
     priority=10,
     block=True,
     state=enable_processor_state(name='HttpCat', level=20),

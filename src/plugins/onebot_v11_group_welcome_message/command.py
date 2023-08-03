@@ -12,7 +12,7 @@ from typing import Annotated, cast
 
 from nonebot.log import logger
 from nonebot.matcher import Matcher
-from nonebot.params import Arg, CommandArg, Depends
+from nonebot.params import Arg, Depends
 from nonebot.plugin import CommandGroup, on_notice
 from nonebot.permission import SUPERUSER
 
@@ -20,17 +20,12 @@ from nonebot.adapters.onebot.v11 import Bot, Message, GroupMessageEvent, GroupIn
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 
 from src.service import EntityInterface, MatcherInterface, OmegaMessage, enable_processor_state
+from src.params.handler import get_command_message_arg_parser_handler
 from src.params.rule import event_has_permission_level
 
 
 _SETTING_NAME: str = 'group_welcome_message'
 """数据库配置节点名称"""
-
-
-async def handle_parse_welcome_message(_: GroupMessageEvent, matcher: Matcher, arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    if arg:
-        matcher.set_arg('welcome_message', arg)
 
 
 welcome_message_manager = CommandGroup(
@@ -43,7 +38,9 @@ welcome_message_manager = CommandGroup(
 
 
 @welcome_message_manager.command(
-    'set', aliases={'设置欢迎消息', '新增欢迎消息'}, handlers=[handle_parse_welcome_message]
+    'set',
+    aliases={'设置欢迎消息', '新增欢迎消息'},
+    handlers=[get_command_message_arg_parser_handler('welcome_message')]
 ).got('welcome_message', prompt='请输入要设置的群欢迎消息:')
 async def handle_set_welcome_message(
         _: GroupMessageEvent,
@@ -60,6 +57,7 @@ async def handle_set_welcome_message(
         await entity_interface.entity.set_auth_setting(
             module=module_name, plugin=plugin_name, node=_SETTING_NAME, available=1, value=parsed_message.dumps()
         )
+        await entity_interface.entity.commit_session()
         logger.success(f'已为 {entity_interface.entity} 设置了自定义欢迎消息: {message}')
         await matcher.send(f'已为本群设置了欢迎消息:\n{"="*8}\n' + message)
     except Exception as e:
@@ -80,6 +78,7 @@ async def handle_remove_welcome_message(
         await entity_interface.entity.set_auth_setting(
             module=module_name, plugin=plugin_name, node=_SETTING_NAME, available=0
         )
+        await entity_interface.entity.commit_session()
         logger.success(f'已为 {entity_interface.entity} 移除了自定义欢迎消息')
         await matcher.send(f'已移除了本群设置的欢迎消息')
     except Exception as e:

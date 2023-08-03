@@ -14,28 +14,22 @@ from nonebot.adapters import Message
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.rule import to_me
-from nonebot.params import Arg, CommandArg, Depends
+from nonebot.params import Arg, Depends
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command
 
 from src.database import EntityDAL
+from src.params.handler import get_command_message_arg_parser_handler
 from src.service import OmegaEntity, EntityInterface, MatcherInterface, enable_processor_state
 from src.utils.process_utils import semaphore_gather
 
 
-async def handle_parse_args(matcher: Matcher, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    if cmd_arg:
-        matcher.set_arg('announcement_content', cmd_arg)
-
-
-# 注册事件响应器
 @on_command(
     'announce',
     rule=to_me(),
     aliases={'公告', 'ta'},
     permission=SUPERUSER,
-    handlers=[handle_parse_args],
+    handlers=[get_command_message_arg_parser_handler('announcement_content')],
     priority=10,
     block=True,
     state=enable_processor_state(name='OmegaAnnouncement', enable_processor=False)

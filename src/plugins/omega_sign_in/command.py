@@ -8,16 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import Annotated
-
 from nonebot import get_driver
-from nonebot.adapters import Bot, Message
+from nonebot.adapters import Bot
 from nonebot.log import logger
 from nonebot.message import handle_event
-from nonebot.params import CommandArg
 from nonebot.plugin import MatcherGroup, on_notice
 from nonebot.rule import to_me
-from nonebot.typing import T_State
 
 from nonebot.adapters.onebot.v11.event import (
     PokeNotifyEvent as OneBotV11PokeNotifyEvent,
@@ -26,6 +22,7 @@ from nonebot.adapters.onebot.v11.event import (
 )
 from nonebot.adapters.onebot.v11.message import Message as OneBotV11Message
 
+from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.rule import event_has_permission_level
 from src.service import enable_processor_state
 
@@ -36,12 +33,6 @@ from .helpers import handle_generate_fortune_card, handle_generate_sign_in_card,
 _COMMAND_START: set[str] = get_driver().config.command_start
 _DEFAULT_COMMAND_START: str = list(_COMMAND_START)[0] if _COMMAND_START else ''
 """默认的命令头"""
-
-
-async def handle_parse_ensure(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    ensure = cmd_arg.extract_plain_text().strip()
-    state.update({f'sign_in_ensure': ensure if ensure else None})
 
 
 sign_in = MatcherGroup(
@@ -58,7 +49,10 @@ if sign_in_config.signin_enable_regex_matcher:
     sign_in.on_regex(r'^签到$', handlers=[handle_generate_sign_in_card])
     sign_in.on_regex(r'^(老黄历|今日(运势|人品)|一言|好感度|我的好感)$', handlers=[handle_generate_fortune_card])
 
-sign_in.on_command('补签', handlers=[handle_parse_ensure]).got('sign_in_ensure')(handle_fix_sign_in)
+sign_in.on_command(
+    '补签',
+    handlers=[get_command_str_single_arg_parser_handler('sign_in_ensure', ensure_key=True)]
+).got('sign_in_ensure')(handle_fix_sign_in)
 
 
 # 针对 OneBot V11 的戳一戳事件进行特殊处理

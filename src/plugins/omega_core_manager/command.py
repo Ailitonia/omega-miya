@@ -165,7 +165,6 @@ async def handle_list_plugins(matcher: Matcher, plugin_dal: Annotated[PluginDAL,
     except Exception as e:
         logger.error(f'Omega 获取启用/禁用插件列表失败, {e!r}')
         await matcher.finish('获取插件列表失败, 请稍后再试或联系管理员处理')
-        return
 
     enabled_plugins = '\n'.join(_desc(x.plugin_name) for x in enabled_result if x.plugin_name in plugin_list)
     enabled_plugins = '无' if not enabled_plugins else enabled_plugins

@@ -11,27 +11,19 @@
 from datetime import datetime
 from typing import Annotated
 
-from nonebot.adapters import Message
-from nonebot.params import ArgStr, CommandArg, Depends
+from nonebot.params import ArgStr, Depends
 from nonebot.plugin import on_command
-from nonebot.typing import T_State
 
+from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import EntityInterface, MatcherInterface, enable_processor_state
 
 from .helpers import query_divination
 
 
-async def handle_parse_divination_text(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    divination_text = cmd_arg.extract_plain_text().strip()
-    if divination_text:
-        state.update({'divination_text': divination_text})
-
-
 @on_command(
     'maybe',
     aliases={'求签'},
-    handlers=[handle_parse_divination_text],
+    handlers=[get_command_str_single_arg_parser_handler('divination_text')],
     priority=10,
     block=True,
     state=enable_processor_state(name='Maybe', level=10),
