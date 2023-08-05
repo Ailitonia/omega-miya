@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Literal, Optional
 
 from src.database.internal.entity import Entity, EntityDAL
-from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceDAL
+from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType, SubscriptionSourceDAL
 
 
 class InternalSubscriptionSource(abc.ABC):
@@ -50,7 +50,7 @@ class InternalSubscriptionSource(abc.ABC):
     async def delete(self) -> None:
         """删除订阅源"""
         source = await self.query_subscription_source()
-        return await SubscriptionSourceDAL(session=self.db_session).delete(id_=source.id)
+        await SubscriptionSourceDAL(session=self.db_session).delete(id_=source.id)
 
     async def query_all_entity_subscribed(self, entity_type: Optional[str] = None) -> list[Entity]:
         """查询订阅了该订阅源的所有 Entity 对象"""
@@ -64,7 +64,7 @@ class InternalBilibiliLiveSubscriptionSource(InternalSubscriptionSource):
 
     def __init__(self, session: AsyncSession, live_room_id: str | int):
         self.db_session = session
-        self.sub_type: Literal['bili_live'] = 'bili_live'
+        self.sub_type: Literal['bili_live'] = SubscriptionSourceType.bili_live.value
         self.sub_id = str(live_room_id)
 
     @classmethod
@@ -77,7 +77,7 @@ class InternalBilibiliDynamicSubscriptionSource(InternalSubscriptionSource):
 
     def __init__(self, session: AsyncSession, uid: str | int):
         self.db_session = session
-        self.sub_type: Literal['bili_dynamic'] = 'bili_dynamic'
+        self.sub_type: Literal['bili_dynamic'] = SubscriptionSourceType.bili_dynamic.value
         self.sub_id = str(uid)
 
     @classmethod
@@ -90,7 +90,7 @@ class InternalPixivUserSubscriptionSource(InternalSubscriptionSource):
 
     def __init__(self, session: AsyncSession, uid: str | int):
         self.db_session = session
-        self.sub_type: Literal['pixiv_user'] = 'pixiv_user'
+        self.sub_type: Literal['pixiv_user'] = SubscriptionSourceType.pixiv_user.value
         self.sub_id = str(uid)
 
     @classmethod
@@ -103,7 +103,7 @@ class InternalPixivisionSubscriptionSource(InternalSubscriptionSource):
 
     def __init__(self, session: AsyncSession):
         self.db_session = session
-        self.sub_type: Literal['pixivision'] = 'pixivision'
+        self.sub_type: Literal['pixivision'] = SubscriptionSourceType.pixivision.value
         self.sub_id = 'pixivision'
 
     @classmethod

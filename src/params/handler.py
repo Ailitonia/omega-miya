@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Annotated
+from typing import Annotated, Any, Optional
 
 from nonebot.adapters import Message
 from nonebot.matcher import Matcher
@@ -70,7 +70,29 @@ def get_command_message_arg_parser_handler(
     return handle_parse_command_message_arg
 
 
+def get_set_default_state_handler(
+        key: str,
+        value: Optional[Any] = None,
+        *,
+        extra_data: Optional[dict[str, Optional[Any]]] = None
+) -> T_Handler:
+    """构造设置 State 默认值的 handler"""
+
+    async def handle_set_default_state(state: T_State):
+        """首次运行时解析命令参数"""
+        update_data = {key: value}
+        if extra_data is not None:
+            update_data.update(extra_data)
+
+        # 过滤 State 中已有的键值, 避免赋值异常
+        update_data = {k: v for k, v in update_data.copy().items() if k not in state.keys()}
+        state.update(update_data)
+
+    return handle_set_default_state
+
+
 __all__ = [
     'get_command_str_single_arg_parser_handler',
-    'get_command_message_arg_parser_handler'
+    'get_command_message_arg_parser_handler',
+    'get_set_default_state_handler'
 ]

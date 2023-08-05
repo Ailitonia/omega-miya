@@ -272,7 +272,7 @@ class BilibiliDynamic(Bilibili):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(dynamic_id={self.dynamic_id})'
 
-    async def get_dynamic_model(self) -> BilibiliDynamicModel:
+    async def query_dynamic_data(self) -> BilibiliDynamicModel:
         """获取并初始化动态对应 BilibiliDynamicModel"""
         if not isinstance(self.dynamic_model, BilibiliDynamicModel):
             headers = OmegaRequests.get_default_headers()
@@ -301,6 +301,9 @@ class BilibiliLiveRoom(Bilibili):
         # 实例缓存
         self.live_room_model: Optional[BilibiliLiveRoomModel] = None
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(room_id={self.room_id})'
+
     @property
     def rid(self) -> str:
         return str(self.room_id)
@@ -315,7 +318,7 @@ class BilibiliLiveRoom(Bilibili):
 
         return BilibiliUsersLiveRoomModel.parse_obj(OmegaRequests.parse_content_json(live_room_response))
 
-    async def get_live_room_model(self) -> BilibiliLiveRoomModel:
+    async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""
         if not isinstance(self.live_room_model, BilibiliLiveRoomModel):
             params = {'id': self.rid}
@@ -325,9 +328,9 @@ class BilibiliLiveRoom(Bilibili):
         assert isinstance(self.live_room_model, BilibiliLiveRoomModel), 'Query live room model failed'
         return self.live_room_model
 
-    async def get_live_room_user_model(self) -> BilibiliUserModel:
+    async def query_live_room_user_data(self) -> BilibiliUserModel:
         """获取这个直播间对应的用户信息"""
-        live_room_model = await self.get_live_room_model()
+        live_room_model = await self.query_live_room_data()
         return await BilibiliUser(uid=live_room_model.uid).query_user_data()
 
 
