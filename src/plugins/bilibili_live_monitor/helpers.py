@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.exc import NoResultFound
 
 from nonebot import logger
 from nonebot.adapters import Message
@@ -59,11 +58,8 @@ async def _add_upgrade_room_sub_source(live_room: BilibiliLiveRoom) -> Subscript
 
     async with begin_db_session() as session:
         sub_source = OmegaBiliLiveSubSource(session=session, live_room_id=live_room.room_id)
-        try:
-            source_res = await sub_source.query_subscription_source()
-        except NoResultFound:
-            await sub_source.add_upgrade(sub_user_name=room_username, sub_info='Bilibili直播间订阅')
-            source_res = await sub_source.query_subscription_source()
+        await sub_source.add_upgrade(sub_user_name=room_username, sub_info='Bilibili直播间订阅')
+        source_res = await sub_source.query_subscription_source()
     return source_res
 
 
@@ -88,7 +84,7 @@ async def query_subscribed_live_room_sub_source(entity_interface: EntityInterfac
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 
-async def query_subscribed_entity_by_live_room(room_id: str) -> list[Entity]:
+async def query_subscribed_entity_by_live_room(room_id: int) -> list[Entity]:
     """根据 Bilibili 直播间房间号查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaBiliLiveSubSource(session=session, live_room_id=room_id)
@@ -167,7 +163,7 @@ async def _process_bili_live_room_update(live_room_data: BilibiliLiveRoomDataMod
                     f'status update, {update_data.update}')
 
     send_msg = await _format_live_room_update_message(live_room_data=live_room_data, update_data=update_data)
-    subscribed_entity = await query_subscribed_entity_by_live_room(room_id=str(live_room_data.room_id))
+    subscribed_entity = await query_subscribed_entity_by_live_room(room_id=live_room_data.room_id)
 
     # 向订阅者发送直播间更新信息
     send_tasks = [

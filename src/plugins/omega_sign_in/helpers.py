@@ -603,10 +603,10 @@ async def handle_generate_sign_in_card(
         await handle_generate_fortune_card(bot=bot, event=event, state=state, entity_interface=entity_interface)
     except FailedException as e:
         logger.error(f'SignIn | User({entity_interface.entity.tid}) 签到失败, {e}')
-        await matcher_interface.send_at_sender('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        await matcher_interface.send_at_sender('签到失败了, 请稍后再试或联系管理员处理')
     except Exception as e:
         logger.error(f'SignIn | User({entity_interface.entity.tid}) 签到失败, 发生了预期外的错误, {e}')
-        await matcher_interface.send_at_sender('签到失败了QAQ, 请稍后再试或联系管理员处理')
+        await matcher_interface.send_at_sender('签到失败了, 请稍后再试或联系管理员处理')
 
 
 async def handle_generate_fortune_card(
@@ -661,7 +661,7 @@ async def handle_generate_fortune_card(
         await matcher_interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
     except Exception as e:
         logger.error(f'SignIn | User({entity_interface.entity.tid}) 获取运势卡片失败, 发生了预期外的错误, {e}')
-        await matcher_interface.send_at_sender('获取今日运势失败了QAQ, 请稍后再试或联系管理员处理')
+        await matcher_interface.send_at_sender('获取今日运势失败了, 请稍后再试或联系管理员处理')
 
 
 async def handle_fix_sign_in(

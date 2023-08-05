@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+import warnings
 from typing import Literal, Optional, Any
 
 from src.resource import TemporaryResource
@@ -180,7 +181,14 @@ class Bilibili(object):
 class BilibiliUser(Bilibili):
     # _data_api_url = 'https://api.bilibili.com/x/space/acc/info'  # Deactivated
     _data_api_url = 'https://api.bilibili.com/x/space/wbi/acc/info'
-    _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
+    _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'  # TODO
+
+    warnings.warn(
+        f"The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
+        "future version should change to new API instead.",
+        PendingDeprecationWarning,
+        stacklevel=2,
+    )
 
     def __init__(self, uid: int):
         self.uid = uid
@@ -252,7 +260,14 @@ class BilibiliUser(Bilibili):
 class BilibiliDynamic(Bilibili):
     """Bilibili 动态"""
     _dynamic_root_url = 'https://t.bilibili.com/'
-    _dynamic_detail_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'
+    _dynamic_detail_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'  # TODO
+
+    warnings.warn(
+        f"The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
+        "future version should change to new API instead.",
+        PendingDeprecationWarning,
+        stacklevel=2,
+    )
 
     def __init__(self, dynamic_id: int):
         self.dynamic_id = dynamic_id

@@ -52,7 +52,7 @@ async def handle_add_subscription(
     if ensure is None:
         pass
     elif ensure in ['是', '确认', 'Yes', 'yes', 'Y', 'y']:
-        await matcher_interface.send_at_sender('正在更新Bilibili用户订阅信息, 请稍候')
+        await matcher_interface.send_at_sender('正在更新Bilibili直播间订阅信息, 请稍候')
 
         room = BilibiliLiveRoom(room_id=int(room_id))
         scheduler.pause()  # 暂停计划任务避免中途检查更新
@@ -63,7 +63,7 @@ async def handle_add_subscription(
             msg = f'订阅直播间{room_id}成功'
         except Exception as e:
             logger.error(f'{entity_interface.entity}订阅直播间{room}失败, {e!r}')
-            msg = f'订阅直播间{room_id}失败了, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
+            msg = f'订阅直播间{room_id}失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
         scheduler.resume()
         await matcher_interface.send_at_sender(msg)
         return

@@ -9,7 +9,7 @@
 """
 
 from pydantic.generics import GenericModel
-from typing import Generic, Generator, TypeVar, Any, Optional
+from typing import Generic, TypeVar, Optional
 
 from .base_model import BaseBilibiliModel
 
@@ -44,11 +44,10 @@ class BaseBilibiliSearchingModel(BaseBilibiliModel, GenericModel, Generic[T]):
         return self.code != 0
 
     @property
-    def results(self) -> Generator[T, Any, None]:
+    def results(self) -> list[T]:
         if self.data is None:
-            return
-        for result in self.data.result:
-            yield result
+            return []
+        return [x for x in self.data.result]
 
 
 class UserSearchingResult(BaseBilibiliModel):

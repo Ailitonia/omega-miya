@@ -9,7 +9,7 @@
 """
 
 from pydantic import Json, AnyHttpUrl, validator
-from typing import Optional, Generator, Any
+from typing import Optional
 
 from .base_model import BaseBilibiliModel
 
@@ -420,20 +420,20 @@ class CardType1Forward(_BaseCardType):
     verify_type: int = 1
     user: _UserInfo  # 转发者用户信息
     item: _Item  # 转发相关信息
-    origin: Optional[_BaseCardType | (
-            Json[CardType2OriginalWithImage] |
-            Json[CardType4OriginalWithoutImage] |
-            Json[CardType8Video] |
-            Json[CardType16ShortVideo] |
-            Json[CardType32Anime] |
-            Json[CardType64Article] |
-            Json[CardType256Music] |
-            Json[CardType512Anime] |
-            Json[CardType2048Active] |
-            Json[CardType4200LiveRoom] |
-            Json[CardType4300MediaListShare] |
-            Json[CardType4308LiveRoom]
-    )]  # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
+    origin: Optional[
+        Json[CardType2OriginalWithImage]
+        | Json[CardType4OriginalWithoutImage]
+        | Json[CardType8Video]
+        | Json[CardType16ShortVideo]
+        | Json[CardType32Anime]
+        | Json[CardType64Article]
+        | Json[CardType256Music]
+        | Json[CardType512Anime]
+        | Json[CardType2048Active]
+        | Json[CardType4200LiveRoom]
+        | Json[CardType4300MediaListShare]
+        | Json[CardType4308LiveRoom]
+        ]  # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
     origin_user: Optional[BilibiliDynamicCardDescUserProfile]  # 被转发用户信息
 
     @property
@@ -454,20 +454,20 @@ class CardType1Forward(_BaseCardType):
 class BilibiliDynamicCard(BaseBilibiliModel):
     """Bilibili 动态 Card"""
     desc: BilibiliDynamicCardDesc
-    card: _BaseCardType | (
-            Json[CardType1Forward] |
-            Json[CardType2OriginalWithImage] |
-            Json[CardType4OriginalWithoutImage] |
-            Json[CardType8Video] |
-            Json[CardType16ShortVideo] |
-            Json[CardType32Anime] |
-            Json[CardType64Article] |
-            Json[CardType256Music] |
-            Json[CardType512Anime] |
-            Json[CardType2048Active] |
-            Json[CardType4200LiveRoom] |
-            Json[CardType4300MediaListShare] |
-            Json[CardType4308LiveRoom]
+    card: (
+        Json[CardType1Forward]
+        | Json[CardType2OriginalWithImage]
+        | Json[CardType4OriginalWithoutImage]
+        | Json[CardType8Video]
+        | Json[CardType16ShortVideo]
+        | Json[CardType32Anime]
+        | Json[CardType64Article]
+        | Json[CardType256Music]
+        | Json[CardType512Anime]
+        | Json[CardType2048Active]
+        | Json[CardType4200LiveRoom]
+        | Json[CardType4300MediaListShare]
+        | Json[CardType4308LiveRoom]
     )
 
     @property
@@ -505,11 +505,10 @@ class BilibiliUserDynamicModel(BaseBilibiliModel):
     msg: str = ''
 
     @property
-    def all_cards(self) -> Generator[BilibiliDynamicCard, Any, None]:
+    def all_cards(self) -> list[BilibiliDynamicCard]:
         if self.data is None:
-            return
-        for card in self.data.cards:
-            yield card
+            return []
+        return [x for x in self.data.cards]
 
 
 class BilibiliDynamicData(BaseBilibiliModel):
