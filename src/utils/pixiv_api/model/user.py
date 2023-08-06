@@ -88,10 +88,40 @@ class PixivUserSearchingModel(BasePixivModel):
     users: list[PixivUserSearchingBody]
 
 
+class PixivFollowLatestIllustPage(BasePixivModel):
+    """关注用户的最新作品页面"""
+    ids: list[int]
+    isLastPage: bool
+    tags: list
+
+
+class PixivFollowLatestIllustBody(BasePixivModel):
+    """关注用户的最新作品内容"""
+    illustSeries: list
+    page: PixivFollowLatestIllustPage
+    requests: list
+    tagTranslation: dict
+    thumbnails: dict
+    users: list
+    zoneConfig: dict
+
+
+class PixivFollowLatestIllust(BasePixivModel):
+    """关注用户的最新作品"""
+    body: PixivFollowLatestIllustBody | list[None]
+    error: bool
+    message: str
+
+    @property
+    def illust_ids(self) -> list[int]:
+        return self.body.page.ids
+
+
 __all__ = [
     'PixivUserDataModel',
     'PixivUserArtworkDataModel',
     'PixivUserModel',
     'PixivUserSearchingBody',
-    'PixivUserSearchingModel'
+    'PixivUserSearchingModel',
+    'PixivFollowLatestIllust'
 ]

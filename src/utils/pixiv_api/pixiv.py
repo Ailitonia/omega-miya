@@ -31,7 +31,8 @@ from .model import (PixivArtworkDataModel, PixivArtworkPageModel, PixivArtworkUg
                     PixivArtworkCompleteDataModel, PixivArtworkRecommendModel,
                     PixivRankingModel, PixivSearchingResultModel,
                     PixivDiscoveryModel, PixivRecommendModel,
-                    PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel, PixivUserSearchingModel)
+                    PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel,
+                    PixivUserSearchingModel, PixivFollowLatestIllust)
 from .helper import (parse_user_searching_result_page, generate_user_searching_result_image,
                      emit_preview_model_from_ranking_model, emit_preview_model_from_searching_model,
                      format_artwork_preview_desc, generate_artworks_preview_image)
@@ -44,6 +45,7 @@ class Pixiv(abc.ABC):
     _search_url: str = 'https://www.pixiv.net/ajax/search/'  # Pixiv 搜索
     _recommend_artworks_url: str = 'https://www.pixiv.net/ajax/top/illust'  # Pixiv 推荐
     _discovery_artworks_url: str = 'https://www.pixiv.net/ajax/discovery/artworks'  # Pixiv 发现
+    _follow_latest_illust_url: str = 'https://www.pixiv.net/ajax/follow_latest/illust'  # 已关注的用户更新(需要 cookies)
 
     def __repr__(self) -> str:
         return self.__class__.__name__
@@ -317,6 +319,19 @@ class Pixiv(abc.ABC):
         preview_img_file = await generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=3)
         return preview_img_file
+
+    @classmethod
+    async def query_following_user_latest_illust(
+            cls,
+            page: int,
+            *,
+            mode: Literal['all', 'r18'] = 'all'
+    ) -> PixivFollowLatestIllust:
+        """获取已关注用户最新作品(需要 cookies)"""
+        params = {'mode': mode, 'lang': 'zh', 'p': page}
+
+        following_data = await cls.request_json(url=cls._follow_latest_illust_url, params=params)
+        return PixivFollowLatestIllust.parse_obj(following_data)
 
 
 class PixivArtwork(Pixiv):
