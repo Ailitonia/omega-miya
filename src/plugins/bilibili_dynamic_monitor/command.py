@@ -120,7 +120,7 @@ async def handle_del_subscription(
             logger.success(f'{entity_interface.entity}取消订阅用户(uid={uid})动态成功')
             msg = f'取消订阅用户{uid}动态成功'
         except Exception as e:
-            logger.error(f'{entity_interface.entity}取消订阅用户(uid={uid})动态, {e!r}')
+            logger.error(f'{entity_interface.entity}取消订阅用户(uid={uid})动态失败, {e!r}')
             msg = f'取消订阅用户{uid}动态失败, 请稍后再试或联系管理员处理'
         await matcher_interface.send_at_sender(msg)
         return
@@ -147,7 +147,7 @@ async def handle_del_subscription(
             ensure_msg = f'未订阅用户{uid}, 请确认已订阅的用户动态列表:\n\n{exist_text if exist_text else "无"}'
             reject_key = None
     except Exception as e:
-        logger.error(f'获取{entity_interface.entity}已订阅用户动态失败, {e!r}')
+        logger.error(f'获取{entity_interface.entity}已订阅用户动态列表失败, {e!r}')
         await matcher_interface.send_at_sender('获取已订阅用户动态列表失败, 请稍后再试或联系管理员处理')
         return
 
