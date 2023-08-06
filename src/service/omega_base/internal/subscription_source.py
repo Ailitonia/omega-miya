@@ -111,10 +111,24 @@ class InternalPixivisionSubscriptionSource(InternalSubscriptionSource):
         return await SubscriptionSourceDAL(session=session).query_type_all(sub_type='pixivision')
 
 
+class InternalWeiboUserSubscriptionSource(InternalSubscriptionSource):
+    """微博用户订阅源"""
+
+    def __init__(self, session: AsyncSession, uid: str | int):
+        self.db_session = session
+        self.sub_type: Literal['weibo_user'] = SubscriptionSourceType.weibo_user.value
+        self.sub_id = str(uid)
+
+    @classmethod
+    async def query_type_all(cls, session: AsyncSession) -> list[SubscriptionSource]:
+        return await SubscriptionSourceDAL(session=session).query_type_all(sub_type='weibo_user')
+
+
 __all__ = [
     'InternalSubscriptionSource',
     'InternalBilibiliLiveSubscriptionSource',
     'InternalBilibiliDynamicSubscriptionSource',
     'InternalPixivUserSubscriptionSource',
-    'InternalPixivisionSubscriptionSource'
+    'InternalPixivisionSubscriptionSource',
+    'InternalWeiboUserSubscriptionSource'
 ]

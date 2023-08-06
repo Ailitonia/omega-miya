@@ -15,10 +15,17 @@ from src.service import OmegaRequests
 
 from .config import weibo_resource_config
 from .exception import WeiboApiError, WeiboNetworkError
-from .model import (WeiboCard, WeiboCards, WeiboCardStatus,
-                    WeiboUserBase, WeiboUserInfo,
-                    WeiboRealtimeHotCard, WeiboRealtimeHot)
 from .helper import parse_weibo_card_from_status_page
+from .model import (
+    WeiboCard,
+    WeiboCards,
+    WeiboCardStatus,
+    WeiboExtend,
+    WeiboRealtimeHotCard,
+    WeiboRealtimeHot,
+    WeiboUserBase,
+    WeiboUserInfo
+)
 
 
 class Weibo(object):
@@ -98,7 +105,7 @@ class Weibo(object):
     async def query_user_data(cls, uid: int | str) -> WeiboUserBase:
         """获取用户信息"""
         url = 'https://m.weibo.cn/api/container/getIndex'
-        containerid = '1005057816817727'
+        containerid = f'100505{uid}'
         params = {
             'type': 'uid',
             'value': str(uid),
@@ -121,7 +128,7 @@ class Weibo(object):
         :return: WeiboCards
         """
         url = 'https://m.weibo.cn/api/container/getIndex'
-        containerid = '1076037816817727'
+        containerid = f'107603{uid}'
         params = {
             'type': 'uid',
             'value': str(uid),
@@ -146,6 +153,21 @@ class Weibo(object):
         card_response = await cls.request_resource(url=url)
 
         return WeiboCardStatus.parse_obj(parse_weibo_card_from_status_page(card_response))
+
+    @classmethod
+    async def query_weibo_extend_text(cls, mid: int | str) -> str:
+        """获取微博展开全文"""
+        url = f'https://m.weibo.cn/statuses/extend'
+        params = {
+            'id': str(mid)
+        }
+        extend_response = await cls.request_json(url=url, params=params)
+        extend = WeiboExtend.parse_obj(extend_response)
+
+        if extend.ok != 1 or extend.data.ok != 1:
+            raise WeiboApiError(f'Query weibo(mid={mid}) extend content failed, {extend}')
+
+        return extend.data.longTextContent
 
     @classmethod
     async def query_realtime_hot(cls) -> list[WeiboRealtimeHotCard]:

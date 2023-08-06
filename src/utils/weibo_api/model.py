@@ -204,6 +204,21 @@ class WeiboCards(WeiboBaseModel):
     data: _CardsData
 
 
+class _WeiboExtendData(WeiboBaseModel):
+    """weibo extend data model"""
+    ok: int
+    longTextContent: str
+    reposts_count: int
+    comments_count: int
+    attitudes_count: int
+
+
+class WeiboExtend(WeiboBaseModel):
+    """获取微博全文内容"""
+    ok: int
+    data: _WeiboExtendData
+
+
 class _HotCardlistInfo(WeiboBaseModel):
     """realtime hot data.cardlistInfo"""
     starttime: int
@@ -273,8 +288,9 @@ __all__ = [
     'WeiboCard',
     'WeiboCards',
     'WeiboCardStatus',
-    'WeiboUserBase',
-    'WeiboUserInfo',
+    'WeiboExtend',
     'WeiboRealtimeHotCard',
-    'WeiboRealtimeHot'
+    'WeiboRealtimeHot',
+    'WeiboUserBase',
+    'WeiboUserInfo'
 ]

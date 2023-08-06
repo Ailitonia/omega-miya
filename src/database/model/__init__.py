@@ -34,5 +34,6 @@ __all__ = [
     'PixivArtworkOrm',
     'PixivArtworkPageOrm',
     'PixivisionArticleOrm',
+    'WeiboDetailOrm',
     'WordBankOrm'
 ]

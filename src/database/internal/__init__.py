@@ -26,6 +26,7 @@ from .statistic import StatisticDAL
 from .subscription import SubscriptionDAL
 from .subscription_source import SubscriptionSourceDAL
 from .system_setting import SystemSettingDAL
+from .weibo_detail import WeiboDetailDAL
 from .word_bank import WordBankDAL
 
 
@@ -48,5 +49,6 @@ __all__ = [
     'SubscriptionDAL',
     'SubscriptionSourceDAL',
     'SystemSettingDAL',
+    'WeiboDetailDAL',
     'WordBankDAL'
 ]

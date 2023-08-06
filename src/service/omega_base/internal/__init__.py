@@ -14,6 +14,7 @@ from .subscription_source import InternalBilibiliDynamicSubscriptionSource as Om
 from .subscription_source import InternalBilibiliLiveSubscriptionSource as OmegaBiliLiveSubSource
 from .subscription_source import InternalPixivUserSubscriptionSource as OmegaPixivUserSubSource
 from .subscription_source import InternalPixivisionSubscriptionSource as OmegaPixivisionSubSource
+from .subscription_source import InternalWeiboUserSubscriptionSource as OmegaWeiboUserSubSource
 
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     'OmegaBiliDynamicSubSource',
     'OmegaBiliLiveSubSource',
     'OmegaPixivUserSubSource',
-    'OmegaPixivisionSubSource'
+    'OmegaPixivisionSubSource',
+    'OmegaWeiboUserSubSource'
 ]

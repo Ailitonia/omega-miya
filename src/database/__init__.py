@@ -31,6 +31,7 @@ __all__ = [
     'SubscriptionDAL',
     'SubscriptionSourceDAL',
     'SystemSettingDAL',
+    'WeiboDetailDAL',
     'WordBankDAL',
     'begin_db_session',
     'get_db_session',

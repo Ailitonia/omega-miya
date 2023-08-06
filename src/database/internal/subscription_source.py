@@ -28,6 +28,7 @@ class SubscriptionSourceType(Enum):
     bili_dynamic: Literal['bili_dynamic'] = 'bili_dynamic'
     pixiv_user: Literal['pixiv_user'] = 'pixiv_user'
     pixivision: Literal['pixivision'] = 'pixivision'
+    weibo_user: Literal['weibo_user'] = 'weibo_user'
 
     @classmethod
     def verify(cls, unverified: str):
