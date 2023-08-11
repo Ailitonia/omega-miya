@@ -56,14 +56,14 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
         if friendship.currency < processor_state.cost:
             echo_message = f'{CURRENCY_ALIAS}不足! 命令消耗: {int(processor_state.cost)}, 持有: {int(friendship.currency)}'
             logger.opt(colors=True).debug(f'{LOG_PREFIX}User({user_id}) currency not enough for cost')
-            await matcher.send(message=echo_message, at_sender=True)
+            await matcher.send(message=echo_message)
             raise IgnoredException(f'{CURRENCY_ALIAS}不足')
 
         echo_message = f'已消耗 {processor_state.cost} {CURRENCY_ALIAS}使用命令{processor_state.name!r}'
         logger.opt(colors=True).info(
             f'{LOG_PREFIX}User({user_id}) cost <ly>{processor_state.cost}</ly> for {processor_state.name!r}'
         )
-        await matcher.send(message=echo_message, at_sender=True)
+        await matcher.send(message=echo_message)
         await entity.change_friendship(currency=-processor_state.cost)
 
 

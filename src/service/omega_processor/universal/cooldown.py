@@ -73,7 +73,7 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event)
             f'still in <ly>Global Cooldown</ly>, expired time: {expired_time}'
         )
         echo_message = f'全局冷却中, 请稍后再试!\n冷却结束时间: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}'
-        await matcher.send(message=echo_message, at_sender=True)
+        await matcher.send(message=echo_message)
         raise IgnoredException('全局冷却中')
 
 
@@ -141,7 +141,7 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event)
         )
         if processor_state.echo_processor_result:
             echo_message = f'冷却中, 请稍后再试!\n冷却结束时间: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}'
-            await matcher.send(message=echo_message, at_sender=True)
+            await matcher.send(message=echo_message)
         raise IgnoredException('冷却中')
 
 
