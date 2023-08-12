@@ -31,9 +31,9 @@ from .model import (PixivArtworkDataModel, PixivArtworkPageModel, PixivArtworkUg
                     PixivArtworkCompleteDataModel, PixivArtworkRecommendModel,
                     PixivRankingModel, PixivSearchingResultModel,
                     PixivDiscoveryModel, PixivRecommendModel,
-                    PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel,
-                    PixivUserSearchingModel, PixivFollowLatestIllust)
-from .helper import (parse_user_searching_result_page, generate_user_searching_result_image,
+                    PixivGlobalData, PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel,
+                    PixivUserSearchingModel, PixivFollowLatestIllust, PixivBookmark)
+from .helper import (parse_user_searching_result_page, parse_global_data, generate_user_searching_result_image,
                      emit_preview_model_from_ranking_model, emit_preview_model_from_searching_model,
                      format_artwork_preview_desc, generate_artworks_preview_image)
 
@@ -107,6 +107,12 @@ class Pixiv(abc.ABC):
         requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
 
         return await requests.download(url=url, file=file, params=params)
+
+    @classmethod
+    async def query_global_data(cls) -> PixivGlobalData:
+        """获取全局信息(需要 cookies)"""
+        root_page_content = await cls.request_resource(url=cls._root_url)
+        return parse_global_data(content=root_page_content)
 
     @classmethod
     async def query_ranking(
@@ -325,13 +331,39 @@ class Pixiv(abc.ABC):
             cls,
             page: int,
             *,
-            mode: Literal['all', 'r18'] = 'all'
+            mode: Literal['all', 'r18'] = 'all',
+            lang: str = 'zh'
     ) -> PixivFollowLatestIllust:
         """获取已关注用户最新作品(需要 cookies)"""
-        params = {'mode': mode, 'lang': 'zh', 'p': page}
+        params = {'mode': mode, 'lang': lang, 'p': page}
 
         following_data = await cls.request_json(url=cls._follow_latest_illust_url, params=params)
         return PixivFollowLatestIllust.parse_obj(following_data)
+
+    @classmethod
+    async def query_bookmarks(
+            cls,
+            uid: int | str | None = None,
+            tag: str = '',
+            offset: int = 0,
+            limit: int = 48,
+            rest: Literal['show', 'hide'] = 'show',
+            *,
+            lang: str = 'zh',
+            version: str | None = None
+    ) -> PixivBookmark:
+        """获取收藏(需要 cookies)"""
+        if uid is None:
+            global_data = await cls.query_global_data()
+            uid = global_data.uid
+
+        url = f'https://www.pixiv.net/ajax/user/{uid}/illusts/bookmarks'
+        params = {'tag': tag, 'offset': offset, 'limit': limit, 'rest': rest, 'lang': lang}
+        if version is not None:
+            params.update({'version': version})
+
+        bookmark_data = await cls.request_json(url=url, params=params)
+        return PixivBookmark.parse_obj(bookmark_data)
 
 
 class PixivArtwork(Pixiv):

@@ -9,6 +9,7 @@
 """
 
 import re
+import ujson as json
 from io import BytesIO
 from datetime import datetime
 from lxml import etree
@@ -27,7 +28,7 @@ from .config import pixiv_config, pixiv_resource_config
 from .exception import PixivNetworkError
 from .model.searching import PixivSearchingResultModel
 from .model.ranking import PixivRankingModel
-from .model.user import PixivUserSearchingBody, PixivUserSearchingModel
+from .model.user import PixivGlobalData, PixivUserSearchingBody, PixivUserSearchingModel
 from .model.artwork import PixivArtworkPreviewRequestModel
 from .model.pixivision import PixivisionArticle, PixivisionIllustrationList
 
@@ -117,6 +118,19 @@ def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
         'users': user_list
     }
     return PixivUserSearchingModel.parse_obj(result)
+
+
+def parse_global_data(content: str) -> PixivGlobalData:
+    """解析 pixiv 主页全局信息
+
+    :param content: 网页 html
+    """
+    html = etree.HTML(content)
+
+    global_data = html.xpath(
+        '/html/head/meta[@name="global-data" and @id="meta-global-data"]'
+    ).pop(0).attrib.get('content')
+    return PixivGlobalData.parse_obj(json.loads(global_data))
 
 
 def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustrationList:
@@ -509,6 +523,7 @@ async def generate_artworks_preview_image(
 __all__ = [
     'parse_pid_from_url',
     'parse_user_searching_result_page',
+    'parse_global_data',
     'parse_pixivision_show_page',
     'parse_pixivision_article_page',
     'generate_user_searching_result_image',

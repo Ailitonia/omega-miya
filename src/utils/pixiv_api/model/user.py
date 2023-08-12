@@ -8,17 +8,58 @@
 @Software       : PyCharm 
 """
 
-from typing import Any
+from typing import Any, Optional
 from pydantic import AnyHttpUrl
+
 from .base_model import BasePixivModel
+
+
+class _GlobalUserData(BasePixivModel):
+    """全局用户数据"""
+    id: int
+    pixivId: str
+    name: str
+    profileImg: Optional[AnyHttpUrl]
+    profileImgBig: Optional[AnyHttpUrl]
+    premium: bool
+    xRestrict: int
+    adult: bool
+    safeMode: bool
+    illustCreator: bool
+    novelCreator: bool
+    hideAiWorks: bool
+    readingStatusEnabled: bool
+
+
+class PixivGlobalData(BasePixivModel):
+    """Pixiv 主页全局数据"""
+    token: str
+    services: dict
+    oneSignalAppId: str
+    publicPath: Optional[AnyHttpUrl]
+    commonResourcePath: Optional[AnyHttpUrl]
+    development: bool
+    userData: _GlobalUserData
+    adsData: Optional[dict]
+    miscData: Optional[dict]
+    premium: Optional[dict]
+    mute: list
+
+    @property
+    def uid(self) -> int:
+        return self.userData.id
+
+    @property
+    def username(self) -> str:
+        return self.userData.name
 
 
 class PixivUserDataBody(BasePixivModel):
     """Pixiv 用户信息 Body"""
     userId: int
     name: str
-    image: AnyHttpUrl
-    imageBig: AnyHttpUrl
+    image: Optional[AnyHttpUrl]
+    imageBig: Optional[AnyHttpUrl]
 
 
 class PixivUserDataModel(BasePixivModel):
@@ -58,8 +99,8 @@ class PixivUserModel(BasePixivModel):
     """Pixiv 用户 Model"""
     user_id: int
     name: str
-    image: AnyHttpUrl
-    image_big: AnyHttpUrl
+    image: Optional[AnyHttpUrl]
+    image_big: Optional[AnyHttpUrl]
     illusts: list[int]
     manga: list[int]
     novels: list[int]
@@ -117,11 +158,71 @@ class PixivFollowLatestIllust(BasePixivModel):
         return self.body.page.ids
 
 
+class _WorkBookmarkData(BasePixivModel):
+    """收藏作品属性"""
+    id: str
+    private: bool
+
+
+class BookmarkWork(BasePixivModel):
+    """收藏作品详情"""
+    id: int
+    title: str
+    illustType: int
+    xRestrict: int
+    restrict: int
+    sl: int
+    url: AnyHttpUrl
+    description: str
+    tags: list[str]
+    userId: str
+    userName: str
+    width: int
+    height: int
+    pageCount: int
+    isBookmarkable: bool
+    bookmarkData: Optional[_WorkBookmarkData]
+    alt: str
+    titleCaptionTranslation: dict
+    createDate: str
+    updateDate:str
+    isUnlisted: bool
+    isMasked: bool
+    aiType: int
+    profileImageUrl: Optional[AnyHttpUrl]
+
+
+class BookmarkBody(BasePixivModel):
+    """收藏页内容"""
+    bookmarkTags: Optional[list | dict]
+    extraData: dict
+    total: int
+    works: list[BookmarkWork]
+    zoneConfig: dict
+
+
+class PixivBookmark(BasePixivModel):
+    """Pixiv 收藏作品"""
+    body: BookmarkBody | list[None]
+    error: bool
+    message: str
+
+    @property
+    def total(self) -> int:
+        return self.body.total
+
+    @property
+    def illust_ids(self) -> list[int]:
+        return [x.id for x in self.body.works]
+
+
 __all__ = [
+    'PixivGlobalData',
     'PixivUserDataModel',
     'PixivUserArtworkDataModel',
     'PixivUserModel',
     'PixivUserSearchingBody',
     'PixivUserSearchingModel',
-    'PixivFollowLatestIllust'
+    'PixivFollowLatestIllust',
+    'PixivBookmark'
 ]

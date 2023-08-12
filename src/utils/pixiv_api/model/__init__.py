@@ -14,8 +14,8 @@ from .artwork import (PixivArtworkDataModel, PixivArtworkPageModel, PixivArtwork
 from .ranking import PixivRankingModel
 from .searching import PixivSearchingResultModel
 from .discovery import PixivDiscoveryModel, PixivRecommendModel
-from .user import (PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel,
-                   PixivUserSearchingModel, PixivFollowLatestIllust)
+from .user import (PixivGlobalData, PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel,
+                   PixivUserSearchingModel, PixivFollowLatestIllust, PixivBookmark)
 from .pixivision import PixivisionArticle, PixivisionIllustrationList
 
 
@@ -30,11 +30,13 @@ __all__ = [
     'PixivSearchingResultModel',
     'PixivDiscoveryModel',
     'PixivRecommendModel',
+    'PixivGlobalData',
     'PixivUserDataModel',
     'PixivUserArtworkDataModel',
     'PixivUserModel',
     'PixivUserSearchingModel',
     'PixivFollowLatestIllust',
     'PixivisionArticle',
-    'PixivisionIllustrationList'
+    'PixivisionIllustrationList',
+    'PixivBookmark'
 ]
