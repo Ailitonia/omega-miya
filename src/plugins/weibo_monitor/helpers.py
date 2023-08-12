@@ -132,15 +132,22 @@ async def _format_weibo_update_message(card: WeiboCard) -> str | Message:
         text = f'“{card.mblog.text}”\n{"=" * 16}\n@{retweeted_username}:\n“{retweeted_content}”\n'
         if card.mblog.retweeted_status.pics is not None:
             img_urls.extend(x.large.url for x in card.mblog.retweeted_status.pics)
+        if card.mblog.retweeted_status.page_info is not None:
+            img_urls.append(card.mblog.retweeted_status.page_info.pic_url)
     else:
         send_message += f'发布了新微博!\n'
         text = f'“{card.mblog.text}”\n'
         if card.mblog.pics is not None:
             img_urls.extend(x.large.url for x in card.mblog.pics)
+        if card.mblog.page_info is not None:
+            img_urls.append(card.mblog.page_info.pic_url)
 
     # 添加发布来源和内容
     send_message += f'{card.mblog.format_created_at} 来自{card.mblog.source}\n'
-    send_message += f'{card.mblog.region_name}\n\n'
+    if card.mblog.region_name is not None:
+        send_message += f'{card.mblog.region_name}\n\n'
+    else:
+        send_message += '\n'
     send_message += text
 
     # 下载微博中包含的图片

@@ -94,6 +94,35 @@ class _MblogPic(WeiboBaseModel):
     large: _PicLarge
 
 
+class _PagePic(WeiboBaseModel):
+    """page_info.page_pic model"""
+    url: AnyUrl
+    pid: Optional[str]
+    source: Optional[int]
+    is_self_cover: Optional[int]
+    type: Optional[int]
+    width: Optional[int | str]
+    height: Optional[int | str]
+
+
+class _PageInfo(WeiboBaseModel):
+    """page_info model"""
+    type: str
+    object_type: str
+    page_pic: _PagePic
+    page_url: AnyUrl
+    page_title: str
+    title: Optional[str]
+    content1: Optional[str]
+    content2: Optional[str]
+    url_ori: Optional[AnyUrl]
+    object_id: Optional[str]
+
+    @property
+    def pic_url(self) -> AnyUrl:
+        return self.page_pic.url
+
+
 class _WeiboCardMbLog(WeiboBaseModel):
     """card.mblog model"""
     visible: _MbLogVisible
@@ -132,8 +161,9 @@ class _WeiboCardMbLog(WeiboBaseModel):
     comment_manage_info: Optional[dict]
     pic_num: int
     new_comment_style: Optional[int]
-    region_name: str
-    region_opt: int
+    region_name: Optional[str]
+    region_opt: Optional[int]
+    page_info: Optional[_PageInfo]
     edit_config: Optional[dict]
     pics: Optional[list[_MblogPic]]
     bid: str
@@ -211,6 +241,12 @@ class _WeiboExtendData(WeiboBaseModel):
     reposts_count: int
     comments_count: int
     attitudes_count: int
+
+    @validator('longTextContent')
+    def _remove_text_html_tags(cls, v):
+        text_html = etree.HTML(v)
+        text = ''.join(text for x in text_html.xpath('/html/*') for text in x.itertext()).strip()
+        return text
 
 
 class WeiboExtend(WeiboBaseModel):
