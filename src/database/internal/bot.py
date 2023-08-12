@@ -27,6 +27,7 @@ class BotType(Enum):
     console: Literal['Console'] = 'Console'
     onebot_v11: Literal['OneBot V11'] = 'OneBot V11'
     onebot_v12: Literal['OneBot V12'] = 'OneBot V12'
+    qqguild: Literal['QQ Guild'] = 'QQ Guild'
     telegram: Literal['Telegram'] = 'Telegram'
 
     @classmethod

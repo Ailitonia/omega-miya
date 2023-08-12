@@ -10,6 +10,7 @@
 
 from . import console as console
 from . import onebot_v11 as onebot_v11
+from . import qqguild as qqguild
 from . import telegram as telegram
 
 
