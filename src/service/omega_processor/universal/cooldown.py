@@ -72,8 +72,13 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event)
             f'{LOG_PREFIX}{matcher}/Plugin({plugin_name}) <ly>Entity({event_entity.tid}/{user_entity.tid})</ly> '
             f'still in <ly>Global Cooldown</ly>, expired time: {expired_time}'
         )
-        echo_message = f'全局冷却中, 请稍后再试!\n冷却结束时间: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}'
-        await matcher.send(message=echo_message)
+        try:
+            echo_message = f'全局冷却中, 请稍后再试!\n冷却结束时间: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}'
+            await matcher.send(message=echo_message)
+        except Exception as e:
+            logger.opt(colors=True).warning(
+                f'{LOG_PREFIX}{matcher}/Plugin({plugin_name}) send global cooldown holding message failed, {e!r}'
+            )
         raise IgnoredException('全局冷却中')
 
 
@@ -140,8 +145,13 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event)
             f'expired time: {expired_time}'
         )
         if processor_state.echo_processor_result:
-            echo_message = f'冷却中, 请稍后再试!\n冷却结束时间: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}'
-            await matcher.send(message=echo_message)
+            try:
+                echo_message = f'冷却中, 请稍后再试!\n冷却结束时间: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}'
+                await matcher.send(message=echo_message)
+            except Exception as e:
+                logger.opt(colors=True).warning(
+                    f'{LOG_PREFIX}{matcher}/Plugin({plugin_name}) send cooldown holding message failed, {e!r}'
+                )
         raise IgnoredException('冷却中')
 
 

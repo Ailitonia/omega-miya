@@ -46,7 +46,12 @@ async def preprocessor_cancellation(matcher: Matcher, message: Message):
             logger.opt(colors=True).debug(
                 f'<lc>Cancellation Parser</lc> | User canceled matcher {matcher.plugin_name} processing'
             )
-            await matcher.send(message=CANCEL_PROMPT)
+            try:
+                await matcher.send(message=CANCEL_PROMPT)
+            except Exception as e:
+                logger.opt(colors=True).warning(
+                    f'<lc>Cancellation Parser</lc> | Sending cancellation tip message failed, {e!r}'
+                )
             raise IgnoredException('用户取消操作')
 
 
