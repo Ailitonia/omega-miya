@@ -58,16 +58,16 @@ class OneBotV11ApiCaller(ApiCaller):
         if id_ is not None:
             raise ValueError('id param not support ')
 
-        if entity.entity_type == SupportedTarget.qq_user.value:
+        if entity.entity_type == SupportedTarget.onebot_v11_user.value:
             user_data = await self.bot.call_api('get_stranger_info', user_id=entity.entity_id)
             entity_name = user_data.get('nickname', '')
-        elif entity.entity_type == SupportedTarget.qq_group.value:
+        elif entity.entity_type == SupportedTarget.onebot_v11_group.value:
             group_data = await self.bot.call_api('get_group_info', group_id=entity.entity_id)
             entity_name = group_data.get('group_name', '')
-        elif entity.entity_type == SupportedTarget.qq_guild.value:
+        elif entity.entity_type == SupportedTarget.onebot_v11_guild.value:
             guild_data = await self.bot.call_api('get_guild_meta_by_guest', guild_id=entity.entity_id)
             entity_name = guild_data.get('guild_name', '')
-        elif entity.entity_type == SupportedTarget.qq_guild_user:
+        elif entity.entity_type == SupportedTarget.onebot_v11_guild_user.value:
             guild_user_data = await self.bot.call_api('get_guild_member_profile',
                                                       guild_id=entity.parent_id, user_id=entity.entity_id)
             entity_name = guild_user_data.get('nickname', '')
@@ -77,7 +77,7 @@ class OneBotV11ApiCaller(ApiCaller):
         return entity_name
 
     async def get_profile_photo_url(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
-        if entity.entity_type != SupportedTarget.qq_user.value:
+        if entity.entity_type != SupportedTarget.onebot_v11_user.value:
             raise ValueError(f'entity type {entity.entity_type!r} not support')
 
         # head_img_size: 1: 40×40px, 2: 40×40px, 3: 100×100px, 4: 140×140px, 5: 640×640px, 40: 40×40px, 100: 100×100px
@@ -222,7 +222,7 @@ class OneBotV11MessageSender(MessageSender):
         return RevokeParams(api='delete_msg', params={'message_id': content["message_id"]})
 
 
-@register_sender(target_entity=SupportedTarget.qq_user.value)
+@register_sender(target_entity=SupportedTarget.onebot_v11_user.value)
 class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 用户消息 Sender"""
 
@@ -245,7 +245,7 @@ class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
         )
 
 
-@register_sender(target_entity=SupportedTarget.qq_group.value)
+@register_sender(target_entity=SupportedTarget.onebot_v11_group.value)
 class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 群组消息 Sender"""
 
@@ -268,7 +268,7 @@ class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
         )
 
 
-@register_sender(target_entity=SupportedTarget.qq_guild_channel.value)
+@register_sender(target_entity=SupportedTarget.onebot_v11_guild_channel.value)
 class OneBotV11QQGuildChannelMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 子频道消息 Sender"""
 
@@ -312,17 +312,17 @@ class OneBotV11EventEntityDepend(EntityDepend):
         parent_id = bot.self_id
 
         if group_id := getattr(event, 'group_id', None):
-            entity_type = 'qq_group'
+            entity_type = 'onebot_v11_group'
             entity_id = str(group_id)
         elif (guild_id := getattr(event, 'guild_id', None)) and (channel_id := getattr(event, 'channel_id', None)):
-            entity_type = 'qq_guild_channel'
+            entity_type = 'onebot_v11_guild_channel'
             entity_id = str(channel_id)
             parent_id = str(guild_id)
         elif user_id := getattr(event, 'user_id', None):
-            entity_type = 'qq_user'
+            entity_type = 'onebot_v11_user'
             entity_id = str(user_id)
         else:
-            entity_type = 'qq_user'
+            entity_type = 'onebot_v11_user'
             entity_id = bot.self_id
 
         return EntityParams(bot_id=bot_id, entity_type=entity_type, entity_id=entity_id, parent_id=parent_id)
@@ -333,10 +333,10 @@ class OneBotV11EventEntityDepend(EntityDepend):
         parent_id = bot.self_id
 
         if user_id := getattr(event, 'user_id', None):
-            entity_type = 'qq_user'
+            entity_type = 'onebot_v11_user'
             entity_id = str(user_id)
         else:
-            entity_type = 'qq_user'
+            entity_type = 'onebot_v11_user'
             entity_id = bot.self_id
 
         return EntityParams(bot_id=bot_id, entity_type=entity_type, entity_id=entity_id, parent_id=parent_id)
@@ -349,13 +349,13 @@ class OneBotV11GroupMessageEventEntityDepend(EntityDepend):
     @classmethod
     def extract_event_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_group', entity_id=str(event.group_id), parent_id=bot.self_id
+            bot_id=bot.self_id, entity_type='onebot_v11_group', entity_id=str(event.group_id), parent_id=bot.self_id
         )
 
     @classmethod
     def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id,
+            bot_id=bot.self_id, entity_type='onebot_v11_user', entity_id=str(event.user_id), parent_id=bot.self_id,
             entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
@@ -371,7 +371,7 @@ class OneBotV11PrivateMessageEventEntityDepend(EntityDepend):
     @classmethod
     def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11PrivateMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_user', entity_id=str(event.user_id), parent_id=bot.self_id,
+            bot_id=bot.self_id, entity_type='onebot_v11_user', entity_id=str(event.user_id), parent_id=bot.self_id,
             entity_name=event.sender.nickname, entity_info=event.sender.card
         )
 
@@ -383,14 +383,14 @@ class OneBotV11GuildMessageEventEntityDepend(EntityDepend):
     @classmethod
     def extract_event_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GuildMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_guild_channel',
+            bot_id=bot.self_id, entity_type='onebot_v11_guild_channel',
             entity_id=str(event.channel_id), parent_id=str(event.guild_id)
         )
 
     @classmethod
     def extract_user_entity_from_event(cls, bot: OneBotV11Bot, event: OneBotV11GuildMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_guild_user',
+            bot_id=bot.self_id, entity_type='onebot_v11_guild_user',
             entity_id=str(event.user_id), parent_id=str(event.guild_id),
             entity_name=event.sender.nickname, entity_info=event.sender.card
         )

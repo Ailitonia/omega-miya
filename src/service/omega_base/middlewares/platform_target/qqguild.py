@@ -52,29 +52,29 @@ class QQGuildApiCaller(ApiCaller):
         if id_ is not None:
             raise ValueError('id param not support ')
 
-        if entity.entity_type == SupportedTarget.qq_guild.value:
+        if entity.entity_type == SupportedTarget.qqguild_guild.value:
             guild_data = await self.bot.call_api('get_guild', guild_id=entity.entity_id)
-            entity_name = guild_data.get('name', '')
-        elif entity.entity_type == SupportedTarget.qq_guild_channel:
+            entity_name = guild_data.name
+        elif entity.entity_type == SupportedTarget.qqguild_channel.value:
             channel_data = await self.bot.call_api('get_channel', channel_id=entity.entity_id)
-            entity_name = channel_data.get('name', '')
-        elif entity.entity_type == SupportedTarget.qq_guild_user:
+            entity_name = channel_data.name
+        elif entity.entity_type == SupportedTarget.qqguild_user.value:
             guild_user_data = await self.bot.call_api('get_member',
                                                       guild_id=entity.parent_id, user_id=entity.entity_id)
-            entity_name = guild_user_data.get('nick', '')
+            entity_name = guild_user_data.nick
         else:
             raise ValueError(f'entity type {entity.entity_type!r} not support')
 
         return entity_name
 
     async def get_profile_photo_url(self, entity: OmegaEntity, id_: Optional[Union[int, str]] = None) -> str:
-        if entity.entity_type == SupportedTarget.qq_guild.value:
+        if entity.entity_type == SupportedTarget.qqguild_guild.value:
             guild_data = await self.bot.call_api('get_guild', guild_id=entity.entity_id)
-            url = guild_data.get('icon', '')
-        elif entity.entity_type == SupportedTarget.qq_guild_user:
+            url = guild_data.icon
+        elif entity.entity_type == SupportedTarget.qqguild_user.value:
             guild_user_data = await self.bot.call_api('get_member',
                                                       guild_id=entity.parent_id, user_id=entity.entity_id)
-            url = guild_user_data.get('user', {}).get('avatar', '')
+            url = guild_user_data.user.avatar
         else:
             raise ValueError(f'entity type {entity.entity_type!r} not support')
 
@@ -195,7 +195,7 @@ class QQGuildMessageSender(MessageSender):
         raise NotImplementedError
 
 
-@register_sender(target_entity=SupportedTarget.qq_guild_channel.value)
+@register_sender(target_entity=SupportedTarget.qqguild_channel.value)
 class QQGuildChannelMessageSender(QQGuildMessageSender):
     """QQGuild 子频道消息 Sender"""
 
@@ -218,7 +218,7 @@ class QQGuildChannelMessageSender(QQGuildMessageSender):
         )
 
 
-@register_sender(target_entity=SupportedTarget.qq_guild_user.value)
+@register_sender(target_entity=SupportedTarget.qqguild_user.value)
 class QQGuildChannelMessageSender(QQGuildMessageSender):
     """QQGuild 子频道消息 Sender"""
 
@@ -259,13 +259,13 @@ class TelegramEventEntityDepend(EntityDepend):
     @classmethod
     def extract_event_entity_from_event(cls, bot: QQGuildBot, event: QQGuildEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_guild_user', entity_id=bot.self_id, parent_id=bot.self_id
+            bot_id=bot.self_id, entity_type='qqguild_user', entity_id=bot.self_id, parent_id=bot.self_id
         )
 
     @classmethod
     def extract_user_entity_from_event(cls, bot: QQGuildBot, event: QQGuildEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_guild_user', entity_id=bot.self_id, parent_id=bot.self_id
+            bot_id=bot.self_id, entity_type='qqguild_user', entity_id=bot.self_id, parent_id=bot.self_id
         )
 
 
@@ -276,14 +276,14 @@ class QQGuildMessageEventEntityDepend(EntityDepend):
     @classmethod
     def extract_event_entity_from_event(cls, bot: QQGuildBot, event: QQGuildMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_guild_channel',
+            bot_id=bot.self_id, entity_type='qqguild_channel',
             entity_id=str(event.channel_id), parent_id=str(event.guild_id)
         )
 
     @classmethod
     def extract_user_entity_from_event(cls, bot: QQGuildBot, event: QQGuildMessageEvent) -> EntityParams:
         return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_guild_user',
+            bot_id=bot.self_id, entity_type='qqguild_user',
             entity_id=str(event.author.id), parent_id=str(event.guild_id),
             entity_name=event.author.username, entity_info=event.author.avatar
         )

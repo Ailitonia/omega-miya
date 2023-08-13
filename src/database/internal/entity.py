@@ -25,11 +25,17 @@ from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm, Subscri
 class EntityType(Enum):
     """实体对象类型"""
     console_user: Literal['console_user'] = 'console_user'  # nonebot-console 用户
-    qq_user: Literal['qq_user'] = 'qq_user'  # QQ 用户
-    qq_group: Literal['qq_group'] = 'qq_group'  # QQ 群组
-    qq_guild: Literal['qq_guild'] = 'qq_guild'  # QQ 频道
-    qq_guild_user: Literal['qq_guild_user'] = 'qq_guild_user'  # QQ 频道系统内用户
-    qq_guild_channel: Literal['qq_guild_channel'] = 'qq_guild_channel'  # QQ 频道子频道
+
+    onebot_v11_user: Literal['onebot_v11_user'] = 'onebot_v11_user'  # QQ 用户
+    onebot_v11_group: Literal['onebot_v11_group'] = 'onebot_v11_group'  # QQ 群组
+    onebot_v11_guild: Literal['onebot_v11_guild'] = 'onebot_v11_guild'  # QQ 频道 (Onebot 协议)
+    onebot_v11_guild_user: Literal['onebot_v11_guild_user'] = 'onebot_v11_guild_user'  # QQ 频道系统内用户 (Onebot 协议)
+    onebot_v11_guild_channel: Literal['onebot_v11_guild_channel'] = 'onebot_v11_guild_channel'  # QQ 频道子频道 (Onebot 协议)
+
+    qqguild_guild: Literal['qqguild_guild'] = 'qqguild_guild'  # QQ 频道子频道 (QQGuild 协议)
+    qqguild_user: Literal['qqguild_user'] = 'qqguild_user'  # QQ 频道系统内用户 (QQGuild 协议)
+    qqguild_channel: Literal['qqguild_channel'] = 'qqguild_channel'  # QQ 频道子频道 (QQGuild 协议)
+
     telegram_user: Literal['telegram_user'] = 'telegram_user'  # Telegram 用户
     telegram_group: Literal['telegram_group'] = 'telegram_group'  # Telegram 群组
     telegram_channel: Literal['telegram_channel'] = 'telegram_channel'  # Telegram 频道

@@ -56,7 +56,7 @@ async def __qqguild_bot_connect(
         guild_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': guild.id,
-            'entity_type': allowed_entity_type.qq_guild.value,
+            'entity_type': allowed_entity_type.qqguild_guild.value,
             'parent_id': guild.owner_id
         }
         guild_info = f'QQGuild: {guild.id}, {guild.description}'
@@ -79,7 +79,7 @@ async def __qqguild_bot_connect(
             channel_query_data = {
                 'bot_index_id': exist_bot.id,
                 'entity_id': channel.id,
-                'entity_type': allowed_entity_type.qq_guild_channel.value,
+                'entity_type': allowed_entity_type.qqguild_channel.value,
                 'parent_id': channel.guild_id
             }
             chan_info = f'QQGuild Channel: {channel.id}, guild: {channel.guild_id}, parent: {channel.parent_id}'

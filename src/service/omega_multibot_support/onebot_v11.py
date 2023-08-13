@@ -254,7 +254,7 @@ async def __obv11_bot_connect(
         group_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': group.group_id,
-            'entity_type': allowed_entity_type.qq_group.value,
+            'entity_type': allowed_entity_type.onebot_v11_group.value,
             'parent_id': bot.self_id
         }
         try:
@@ -275,7 +275,7 @@ async def __obv11_bot_connect(
         user_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': user.user_id,
-            'entity_type': allowed_entity_type.qq_user.value,
+            'entity_type': allowed_entity_type.onebot_v11_user.value,
             'parent_id': bot.self_id
         }
         try:
@@ -299,7 +299,7 @@ async def __obv11_bot_connect(
             guild_query_data = {
                 'bot_index_id': exist_bot.id,
                 'entity_id': guild.guild_id,
-                'entity_type': allowed_entity_type.qq_guild.value,
+                'entity_type': allowed_entity_type.onebot_v11_guild.value,
                 'parent_id': guild_profile.tiny_id
             }
             guild_info = f'display_id: {guild.guild_display_id}'
@@ -322,7 +322,7 @@ async def __obv11_bot_connect(
                 channel_query_data = {
                     'bot_index_id': exist_bot.id,
                     'entity_id': channel.channel_id,
-                    'entity_type': allowed_entity_type.qq_guild_channel.value,
+                    'entity_type': allowed_entity_type.onebot_v11_guild_channel.value,
                     'parent_id': channel.owner_guild_id
                 }
                 chan_info = f'owner_guild: {channel.owner_guild_id}/{guild.guild_name}'
