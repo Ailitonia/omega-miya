@@ -19,6 +19,7 @@ from nonebot.adapters.qqguild import (
     Event as QQGuildEvent,
     MessageEvent as QQGuildMessageEvent
 )
+from nonebot.adapters.qqguild.api import MessageReference
 
 from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
@@ -59,8 +60,9 @@ class QQGuildApiCaller(ApiCaller):
             channel_data = await self.bot.call_api('get_channel', channel_id=entity.entity_id)
             entity_name = channel_data.name
         elif entity.entity_type == SupportedTarget.qqguild_user.value:
-            guild_user_data = await self.bot.call_api('get_member',
-                                                      guild_id=entity.parent_id, user_id=entity.entity_id)
+            guild_user_data = await self.bot.call_api(
+                'get_member', guild_id=entity.parent_id, user_id=entity.entity_id
+            )
             entity_name = guild_user_data.nick
         else:
             raise ValueError(f'entity type {entity.entity_type!r} not support')
@@ -72,8 +74,9 @@ class QQGuildApiCaller(ApiCaller):
             guild_data = await self.bot.call_api('get_guild', guild_id=entity.entity_id)
             url = guild_data.icon
         elif entity.entity_type == SupportedTarget.qqguild_user.value:
-            guild_user_data = await self.bot.call_api('get_member',
-                                                      guild_id=entity.parent_id, user_id=entity.entity_id)
+            guild_user_data = await self.bot.call_api(
+                'get_member', guild_id=entity.parent_id, user_id=entity.entity_id
+            )
             url = guild_user_data.user.avatar
         else:
             raise ValueError(f'entity type {entity.entity_type!r} not support')
@@ -141,7 +144,8 @@ class QQGuildMessageExtractor(MessageExtractor):
                 case 'reference':
                     yield OmegaMessageSegment.forward_id(id_=data.get('reference', {}).get('message_id'))
                 case 'attachment':
-                    yield OmegaMessageSegment.image(url=data.get('url'))
+                    url = 'https://' + str(data.get('url')).removeprefix('http://').removeprefix('https://')
+                    yield OmegaMessageSegment.image(url=url)
                 case 'text':
                     yield OmegaMessageSegment.text(text=data.get('text'))
                 case _:
@@ -249,7 +253,9 @@ class QQGuildMessageEventHandler(EventHandler):
         return await self.bot.send(event=self.event, message=message, **kwargs)
 
     async def send_reply(self, message: Union[str, None, QQGuildMessage, QQGuildMessageSegment], **kwargs):
-        return await self.bot.send(event=self.event, message=message, **kwargs)  # nothing do  # TODO
+        self.event = cast(QQGuildMessageEvent, self.event)
+        message_reference = MessageReference(message_id=self.event.id)
+        return await self.bot.send(event=self.event, message=message, message_reference=message_reference, **kwargs)
 
 
 @register_entity_depend(event=QQGuildEvent)
