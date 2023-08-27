@@ -254,8 +254,8 @@ class QQGuildMessageEventHandler(EventHandler):
 
     async def send_reply(self, message: Union[str, None, QQGuildMessage, QQGuildMessageSegment], **kwargs):
         self.event = cast(QQGuildMessageEvent, self.event)
-        message_reference = MessageReference(message_id=self.event.id)
-        return await self.bot.send(event=self.event, message=message, message_reference=message_reference, **kwargs)
+        message = QQGuildMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + message
+        return await self.bot.send(event=self.event, message=message, **kwargs)
 
 
 @register_entity_depend(event=QQGuildEvent)
