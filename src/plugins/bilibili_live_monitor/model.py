@@ -110,7 +110,7 @@ class BilibiliLiveRoomStatusUpdate(BaseModel):
         BilibiliLiveRoomStopLivingWithPlaylist
     ]
 
-    @root_validator
+    @root_validator(pre=False)
     def check_is_update(cls, values):
         is_update = values.get('is_update')
         update = values.get('update')

@@ -187,9 +187,18 @@ class ImageUtils(object):
         """返回图片并在末尾添加空白比特"""
         return self.get_bytes(format_=format_) + b' '*bytes_num
 
-    async def save(self, file_name: str, *, format_: str = 'JPEG') -> TemporaryResource:
+    async def save(
+            self,
+            file: str | TemporaryResource,
+            *,
+            format_: str = 'JPEG'
+    ) -> TemporaryResource:
         """输出指定格式图片到文件"""
-        save_file = image_utils_config.tmp_output_folder(file_name)
+        if isinstance(file, TemporaryResource):
+            save_file = file
+        else:
+            save_file = image_utils_config.tmp_output_folder(file)
+
         async with save_file.async_open('wb') as af:
             await af.write(self.get_bytes(format_=format_))
         return save_file

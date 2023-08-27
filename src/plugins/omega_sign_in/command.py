@@ -85,20 +85,22 @@ async def handle_poke_sign_in(bot: Bot, event: OneBotV11PokeNotifyEvent):
     msg = f'{_DEFAULT_COMMAND_START}签到'
     event_t = OneBotV11PrivateMessageEvent if event.group_id is None else OneBotV11GroupMessageEvent
     message_type = 'private' if event.group_id is None else 'group'
-    event_ = event_t.parse_obj({
-                    'time': event.time,
-                    'self_id': event.self_id,
-                    'post_type': 'message',
-                    'sub_type': 'normal',
-                    'user_id': event.user_id,
-                    'group_id': event.group_id,
-                    'message_type': message_type,
-                    'message_id': hash(repr(event)),
-                    'message': OneBotV11Message(msg),
-                    'raw_message': msg,
-                    'font': 0,
-                    'sender': sender
-                })
+    event_ = event_t.parse_obj(
+        {
+            'time': event.time,
+            'self_id': event.self_id,
+            'post_type': 'message',
+            'sub_type': 'normal',
+            'user_id': event.user_id,
+            'group_id': event.group_id,
+            'message_type': message_type,
+            'message_id': hash(repr(event)),
+            'message': OneBotV11Message(msg),
+            'raw_message': msg,
+            'font': 0,
+            'sender': sender
+        }
+    )
     # 签到及异常通过事件分发后交由签到函数处理
     logger.debug(f'SignIn | QQ Group({event.group_id})/User({event.user_id}), 通过戳一戳发起了签到请求')
     await handle_event(bot=bot, event=event_)

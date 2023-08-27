@@ -433,7 +433,7 @@ class PixivArtwork(Pixiv):
             # 判断是否 AI 生成
             is_ai = False
             for tag in tags:
-                if re.match(r'^([Nn]ovel[Aa][Ii]([Dd]iffusion)?|[Ss]table[Dd]iffusion|AIイラスト)$', tag):
+                if re.match(r'^([Nn]ovel[Aa][Ii]([Dd]iffusion)?|[Ss]table[Dd]iffusion|AI[生成|イラスト])$', tag):
                     is_ai = True
                     break
             ai_level = artwork_data.body.aiType
