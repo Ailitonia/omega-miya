@@ -112,6 +112,16 @@ class InternalPixivArtwork(object):
         artwork = await self.query_artwork()
         return await PixivArtworkPageDAL(session=self.db_session).query_artwork_all(artwork_index_id=artwork.id)
 
+    async def add_page_ignore_exists(self, page: int, original: str, regular: str, small: str, thumb_mini: str) -> None:
+        """新增作品 page 链接, 若已存在则忽略"""
+        artwork = await self.query_artwork()
+        page_dal = PixivArtworkPageDAL(session=self.db_session)
+        try:
+            await page_dal.query_unique(artwork_index_id=artwork.id, page=page)
+        except NoResultFound:
+            await page_dal.add(artwork_index_id=artwork.id, page=page, original=original, regular=regular, small=small,
+                               thumb_mini=thumb_mini)
+
     async def add_upgrade_page(self, page: int, original: str, regular: str, small: str, thumb_mini: str) -> None:
         """新增作品 page 链接, 若已存在则更新"""
         artwork = await self.query_artwork()
@@ -123,6 +133,26 @@ class InternalPixivArtwork(object):
         except NoResultFound:
             await page_dal.add(artwork_index_id=artwork.id, page=page, original=original, regular=regular, small=small,
                                thumb_mini=thumb_mini)
+
+    async def add_ignore_exists(
+            self,
+            uid: int,
+            title: str,
+            uname: str,
+            classified: int,
+            nsfw_tag: int,
+            width: int,
+            height: int,
+            tags: str,
+            url: str,
+    ) -> None:
+        """新增作品信息, 若已存在忽略"""
+        artwork_dal = PixivArtworkDAL(session=self.db_session)
+        try:
+            await artwork_dal.query_unique(pid=self.pid)
+        except NoResultFound:
+            await artwork_dal.add(pid=self.pid, uid=uid, title=title, uname=uname, classified=classified,
+                                  nsfw_tag=nsfw_tag, width=width, height=height, tags=tags, url=url)
 
     async def add_upgrade(
             self,
@@ -136,7 +166,7 @@ class InternalPixivArtwork(object):
             tags: str,
             url: str,
             *,
-            ignore_mark: bool = False
+            ignore_mark: bool = False,
     ) -> None:
         """新增作品信息, 若已存在则更新
 
