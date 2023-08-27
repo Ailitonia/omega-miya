@@ -10,7 +10,7 @@
 
 from datetime import datetime
 from lxml import etree
-from pydantic import BaseModel, Extra, AnyUrl, validator
+from pydantic import BaseModel, Extra, AnyUrl, root_validator, validator
 from typing import Optional, Literal
 
 
@@ -204,10 +204,10 @@ class WeiboCardStatus(WeiboBaseModel):
 class WeiboCard(WeiboBaseModel):
     """单条微博内容(data.cards.card model)"""
     card_type: str
-    itemid: str
-    mblog: _WeiboCardMbLog
-    profile_type_id: str
-    scheme: str
+    itemid: Optional[str]
+    mblog: Optional[_WeiboCardMbLog]
+    profile_type_id: Optional[str]
+    scheme: Optional[str]
 
 
 class _CardListInfo(WeiboBaseModel):
@@ -226,6 +226,13 @@ class _CardsData(WeiboBaseModel):
     cards: list[WeiboCard]
     scheme: AnyUrl
     showAppTips: int
+
+    @root_validator(pre=False)
+    def exclude_null_card(cls, values):
+        cards: list[WeiboCard] = values.get('cards')
+        cards = [x for x in cards.copy() if x.mblog is not None]
+        values['cards'] = cards
+        return values
 
 
 class WeiboCards(WeiboBaseModel):
