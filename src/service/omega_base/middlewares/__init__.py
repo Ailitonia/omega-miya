@@ -9,10 +9,11 @@
 """
 
 import asyncio
+import inspect
 from contextlib import asynccontextmanager
-from functools import wraps
+from functools import wraps, partial
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated, Callable, Iterable, Literal, NoReturn, Optional, ParamSpec, Type, TypeVar, Union
+from typing import Annotated, Any, Callable, Iterable, Literal, NoReturn, Optional, ParamSpec, Type, TypeVar, Union
 
 from nonebot.exception import PausedException, FinishedException, RejectedException
 from nonebot.internal.adapter.bot import Bot as BaseBot
@@ -62,6 +63,11 @@ class EntityInterface(object):
         self.entity = entity
         return self
 
+    def __getattr__(self, name: str) -> "partial":
+        if name.startswith('__') and name.endswith('__'):
+            raise AttributeError(f'{self.__class__.__name__!r} object has no attribute {name!r}')
+        return partial(self.run_entity_method, name)
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(type={self.acquire_type}, entity={self.entity})'
 
@@ -76,6 +82,24 @@ class EntityInterface(object):
             else:
                 raise RuntimeError('entity is not instantiated')
 
+        return _wrapper
+
+    @staticmethod
+    def _ensure_session(func: Callable[P, R]) -> Callable[P, R]:
+        """装饰一个异步方法, 确保 Session 可用状态
+
+        Issue reference: https://github.com/sqlalchemy/sqlalchemy/discussions/9312
+        """
+        @wraps(func)
+        async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            self: "EntityInterface" = args[0]
+            if self.entity.db_session.is_active:
+                return await func(*args, **kwargs)
+
+            del self.entity.db_session
+            async with begin_db_session() as session:
+                self.entity.db_session = session
+                return await func(*args, **kwargs)
         return _wrapper
 
     @staticmethod
@@ -97,6 +121,7 @@ class EntityInterface(object):
             entity = self(bot=bot, event=event, session=session).entity
             yield entity
 
+    @_ensure_session
     @_ensure_entity
     async def get_bot(self) -> BaseBot:
         bot_self = await self.entity.query_bot_self()
@@ -105,18 +130,21 @@ class EntityInterface(object):
             raise BotNoFound(f'{bot_self} not online')
         return bot
 
+    @_ensure_session
     @_ensure_entity
     async def get_entity_name(self) -> str:
         bot = await self.get_bot()
         api_caller = self.get_api_caller(bot=bot)
         return await api_caller.get_name(entity=self.entity)
 
+    @_ensure_session
     @_ensure_entity
     async def get_entity_profile_photo_url(self) -> str:
         bot = await self.get_bot()
         api_caller = self.get_api_caller(bot=bot)
         return await api_caller.get_profile_photo_url(entity=self.entity)
 
+    @_ensure_session
     @_ensure_entity
     async def send_msg(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]):
         bot = await self.get_bot()
@@ -129,6 +157,7 @@ class EntityInterface(object):
 
         return await getattr(bot, send_params.api)(**params)
 
+    @_ensure_session
     @_ensure_entity
     async def send_multi_msgs(self, messages: Iterable[Union[str, None, OmegaMessage, OmegaMessageSegment]]):
         bot = await self.get_bot()
@@ -151,6 +180,7 @@ class EntityInterface(object):
                 *(getattr(bot, params.api)(**params.params) for params in revoke_params), return_exceptions=True
             )
 
+    @_ensure_session
     @_ensure_entity
     async def send_msg_auto_revoke(
             self,
@@ -170,6 +200,7 @@ class EntityInterface(object):
             lambda: loop.create_task(self._create_revoke_tasks(bot=bot, revoke_params=revoke_params)),
         )
 
+    @_ensure_session
     @_ensure_entity
     async def send_multi_msgs_auto_revoke(
             self,
@@ -188,6 +219,17 @@ class EntityInterface(object):
             revoke_interval,
             lambda: loop.create_task(self._create_revoke_tasks(bot=bot, revoke_params=revoke_params)),
         )
+
+    @_ensure_session
+    @_ensure_entity
+    async def run_entity_method(self, method_name: str, **kwargs: Any) -> Any:
+        """调用 Entity 方法"""
+        entity_method = getattr(self.entity, method_name)
+        if entity_method is None:
+            raise AttributeError(f'Entity method {method_name} is not exists')
+        if not inspect.iscoroutinefunction(entity_method):
+            raise RuntimeError(f'Entity method {method_name} is not coroutine function')
+        return await entity_method(**kwargs)
 
 
 class MatcherInterface(object):
