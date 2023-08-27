@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
@@ -36,9 +35,6 @@ class EmailBoxBind(BaseModel):
 
 class EmailBoxBindDAL(BaseDataAccessLayerModel):
     """邮箱绑定 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, email_box_index_id: int, entity_index_id: int) -> EmailBoxBind:
         stmt = select(EmailBoxBindOrm).\

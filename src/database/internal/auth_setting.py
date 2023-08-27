@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
@@ -39,9 +38,6 @@ class AuthSetting(BaseModel):
 
 class AuthSettingDAL(BaseDataAccessLayerModel):
     """授权配置 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, entity_index_id: int, module: str, plugin: str, node: str) -> AuthSetting:
         stmt = select(AuthSettingOrm).\

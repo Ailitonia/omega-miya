@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
@@ -40,9 +39,6 @@ class Friendship(BaseModel):
 
 class FriendshipDAL(BaseDataAccessLayerModel):
     """好感度 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, entity_index_id: int) -> Friendship:
         stmt = select(FriendshipOrm).where(FriendshipOrm.entity_index_id == entity_index_id)

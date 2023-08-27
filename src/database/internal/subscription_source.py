@@ -11,7 +11,6 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum, unique
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Literal, Optional
@@ -54,9 +53,6 @@ class SubscriptionSource(BaseModel):
 
 class SubscriptionSourceDAL(BaseDataAccessLayerModel):
     """订阅源 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     @property
     def subscription_source_type(self) -> type[SubscriptionSourceType]:

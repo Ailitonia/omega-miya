@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
@@ -37,9 +36,6 @@ class Plugin(BaseModel):
 
 class PluginDAL(BaseDataAccessLayerModel):
     """插件 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, plugin_name: str, module_name: str) -> Plugin:
         stmt = select(PluginOrm).where(PluginOrm.plugin_name == plugin_name).where(PluginOrm.module_name == module_name)

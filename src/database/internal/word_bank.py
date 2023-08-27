@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
@@ -36,9 +35,6 @@ class WordBank(BaseModel):
 
 class WordBankDAL(BaseDataAccessLayerModel):
     """问答语料词句 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, key_word: str, reply_entity: str) -> WordBank:
         stmt = select(WordBankOrm).\

@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
@@ -39,9 +38,6 @@ class PixivisionArticle(BaseModel):
 
 class PixivisionArticleDAL(BaseDataAccessLayerModel):
     """Pixivision 特辑 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, aid: int) -> PixivisionArticle:
         stmt = select(PixivisionArticleOrm).where(PixivisionArticleOrm.aid == aid)

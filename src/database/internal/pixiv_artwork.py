@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import func
 from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc, or_
@@ -56,9 +55,6 @@ class PixivArtworkStatistic(BaseModel):
 
 class PixivArtworkDAL(BaseDataAccessLayerModel):
     """Pixiv 作品 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, pid: int) -> PixivArtwork:
         stmt = select(PixivArtworkOrm).where(PixivArtworkOrm.pid == pid)

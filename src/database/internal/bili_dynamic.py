@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
@@ -37,9 +36,6 @@ class BiliDynamic(BaseModel):
 
 class BiliDynamicDAL(BaseDataAccessLayerModel):
     """B站动态 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, dynamic_id: int) -> BiliDynamic:
         stmt = select(BiliDynamicOrm).where(BiliDynamicOrm.dynamic_id == dynamic_id)

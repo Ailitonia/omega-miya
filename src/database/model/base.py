@@ -33,11 +33,10 @@ class BaseDatabaseResult(GenericModel, Generic[T]):
 class BaseDataAccessLayerModel(abc.ABC):
     """数据库操作对象"""
 
-    @abc.abstractmethod
     def __init__(self, session: AsyncSession):
-        """实例化对象时应当同时初始化 self.orm_model 为对应表 ORM Model"""
         self.db_session = session
-        raise NotImplementedError
+        if not self.db_session.is_active:
+            raise RuntimeError('Session is not active')
 
     @classmethod
     async def dal_dependence(cls):

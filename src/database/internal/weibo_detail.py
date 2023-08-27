@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
@@ -37,9 +36,6 @@ class WeiboDetail(BaseModel):
 
 class WeiboDetailDAL(BaseDataAccessLayerModel):
     """微博内容 数据库操作对象"""
-
-    def __init__(self, session: AsyncSession):
-        self.db_session = session
 
     async def query_unique(self, mid: int) -> WeiboDetail:
         stmt = select(WeiboDetailOrm).where(WeiboDetailOrm.mid == mid)
