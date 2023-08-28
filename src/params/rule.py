@@ -22,7 +22,7 @@ class EventGlobalPermissionRule:
     __slots__ = ()
 
     async def __call__(self, entity_interface: Annotated[EntityInterface, Depends(EntityInterface('event'))]) -> bool:
-        return await entity_interface.entity.check_global_permission()  # caught NoResultFound exception
+        return await entity_interface.check_global_permission()  # caught NoResultFound exception
 
 
 class EventPermissionLevelRule:
@@ -35,8 +35,8 @@ class EventPermissionLevelRule:
 
     async def __call__(self, entity_interface: Annotated[EntityInterface, Depends(EntityInterface('event'))]) -> bool:
         return (
-            await entity_interface.entity.check_global_permission() and
-            await entity_interface.entity.check_permission_level(level=self.level)
+            await entity_interface.check_global_permission() and
+            await entity_interface.check_permission_level(level=self.level)
         )  # caught NoResultFound exception
 
 
@@ -52,8 +52,8 @@ class EventPermissionNodeRule:
 
     async def __call__(self, entity_interface: Annotated[EntityInterface, Depends(EntityInterface('event'))]) -> bool:
         return (
-            await entity_interface.entity.check_global_permission() and
-            await entity_interface.entity.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
+            await entity_interface.check_global_permission() and
+            await entity_interface.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
         )  # caught NoResultFound exception
 
 
@@ -63,7 +63,7 @@ class UserGlobalPermissionRule:
     __slots__ = ()
 
     async def __call__(self, entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))]) -> bool:
-        return await entity_interface.entity.check_global_permission()  # caught NoResultFound exception
+        return await entity_interface.check_global_permission()  # caught NoResultFound exception
 
 
 class UserPermissionLevelRule:
@@ -76,8 +76,8 @@ class UserPermissionLevelRule:
 
     async def __call__(self, entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))]) -> bool:
         return (
-            await entity_interface.entity.check_global_permission() and
-            await entity_interface.entity.check_permission_level(level=self.level)
+            await entity_interface.check_global_permission() and
+            await entity_interface.check_permission_level(level=self.level)
         )  # caught NoResultFound exception
 
 
@@ -93,8 +93,8 @@ class UserPermissionNodeRule:
 
     async def __call__(self, entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))]) -> bool:
         return (
-            await entity_interface.entity.check_global_permission() and
-            await entity_interface.entity.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
+            await entity_interface.check_global_permission() and
+            await entity_interface.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
         )  # caught NoResultFound exception
 
 
