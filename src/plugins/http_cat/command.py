@@ -27,7 +27,7 @@ from .data_source import get_http_cat
     priority=10,
     block=True,
     state=enable_processor_state(name='HttpCat', level=20),
-).got('code', prompt='猫猫已就绪, 请需要输入 Http 状态码:')
+).got('code', prompt='猫猫已就绪, 请输入 Http 状态码:')
 async def handle_httpcat(code: Annotated[str, ArgStr('code')]):
     code = code.strip()
     if not code.isdigit():
