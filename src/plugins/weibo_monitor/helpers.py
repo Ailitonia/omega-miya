@@ -25,7 +25,7 @@ from src.utils.weibo_api.model import WeiboCard
 from src.utils.process_utils import run_async_delay, semaphore_gather
 
 
-WEIBO_SUBTYPE: str = SubscriptionSourceType.weibo_user.value
+WEIBO_SUB_TYPE: str = SubscriptionSourceType.weibo_user.value
 """微博用户订阅类型"""
 
 
@@ -37,7 +37,7 @@ async def _query_weibo_sub_source(uid: int) -> SubscriptionSource:
 
 
 async def _check_new_weibo(cards: Iterable[WeiboCard]) -> list[WeiboCard]:
-    """检查的新微博(数据库中没有的)"""
+    """检查新的微博(数据库中没有的)"""
     async with begin_db_session() as session:
         all_mids = [x.mblog.id for x in cards]
         new_mids = await WeiboDetailDAL(session=session).query_not_exists_ids(mids=all_mids)
@@ -45,7 +45,7 @@ async def _check_new_weibo(cards: Iterable[WeiboCard]) -> list[WeiboCard]:
 
 
 async def _add_upgrade_weibo_content(card: WeiboCard) -> None:
-    """在数据库中添加微博内容(仅新增不更新)"""
+    """在数据库中添加微博内容"""
     retweeted_content = card.mblog.retweeted_status.text if card.mblog.is_retweeted else ''
     async with begin_db_session() as session:
         dal = WeiboDetailDAL(session=session)
@@ -96,7 +96,7 @@ async def query_entity_subscribed_weibo_user_sub_source(entity_interface: Entity
     """获取目标对象已订阅的微博用户
 
     :return: {用户 UID: 用户昵称} 的字典"""
-    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=WEIBO_SUBTYPE)
+    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=WEIBO_SUB_TYPE)
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 

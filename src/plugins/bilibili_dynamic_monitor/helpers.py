@@ -26,7 +26,7 @@ from src.utils.bilibili_api.exception import BilibiliApiError
 from src.utils.process_utils import run_async_delay, semaphore_gather
 
 
-BILI_DYNAMIC_SUBTYPE: str = SubscriptionSourceType.bili_dynamic.value
+BILI_DYNAMIC_SUB_TYPE: str = SubscriptionSourceType.bili_dynamic.value
 """b站动态订阅类型"""
 
 
@@ -38,7 +38,7 @@ async def _query_dynamic_sub_source(uid: int) -> SubscriptionSource:
 
 
 async def _check_new_dynamic(cards: Iterable[BilibiliDynamicCard]) -> list[BilibiliDynamicCard]:
-    """检查的新动态(数据库中没有的)"""
+    """检查新的动态(数据库中没有的)"""
     async with begin_db_session() as session:
         all_ids = [x.desc.dynamic_id for x in cards]
         new_ids = await BiliDynamicDAL(session=session).query_not_exists_ids(dynamic_ids=all_ids)
@@ -46,7 +46,7 @@ async def _check_new_dynamic(cards: Iterable[BilibiliDynamicCard]) -> list[Bilib
 
 
 async def _add_upgrade_dynamic_content(card: BilibiliDynamicCard) -> None:
-    """在数据库中添加动态信息(仅新增不更新)"""
+    """在数据库中添加动态信息"""
     async with begin_db_session() as session:
         dal = BiliDynamicDAL(session=session)
         try:
@@ -98,7 +98,7 @@ async def query_entity_subscribed_dynamic_sub_source(entity_interface: EntityInt
     """获取目标对象已订阅的 Bilibili 用户动态
 
     :return: {用户 UID: 用户昵称} 的字典"""
-    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=BILI_DYNAMIC_SUBTYPE)
+    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=BILI_DYNAMIC_SUB_TYPE)
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 

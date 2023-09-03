@@ -81,7 +81,7 @@ async def handle_disable(matcher: Matcher, entity_interface: Annotated[EntityInt
         await matcher.send('Omega 禁用失败, 请联系管理员处理')
 
 
-@omega.command('status', aliases={'Status', 'status'}, permission=None).handle()
+@omega.command('status', aliases={'Status', 'status'}, permission=None, priority=10).handle()
 async def handle_status(matcher: Matcher, entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]):
     try:
         global_permission = await entity_interface.entity.query_global_permission()
@@ -99,7 +99,7 @@ async def handle_status(matcher: Matcher, entity_interface: Annotated[EntityInte
         await matcher.send('获取 Omega 状态失败, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理')
 
 
-@omega.command('help', aliases={'Help', 'help', '帮助'}, permission=None).handle()
+@omega.command('help', aliases={'Help', 'help', '帮助'}, permission=None, priority=10).handle()
 async def handle_help(bot: Bot, event: Event, matcher: Matcher, cmd_arg: Annotated[Message, CommandArg()]):
     plugin_name = cmd_arg.extract_plain_text().strip()
 

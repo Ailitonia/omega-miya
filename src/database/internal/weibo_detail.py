@@ -52,8 +52,8 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
 
     async def query_not_exists_ids(self, mids: list[int]) -> list[int]:
         """查询数据库中 mids 列表中没有的微博 id"""
-        exists_ids = await self.query_exists_ids(mids=mids)
-        return sorted(list(set(mids) - set(exists_ids)), reverse=True)
+        exists_mids = await self.query_exists_ids(mids=mids)
+        return sorted(list(set(mids) - set(exists_mids)), reverse=True)
 
     async def query_all(self) -> list[WeiboDetail]:
         stmt = select(WeiboDetailOrm).order_by(desc(WeiboDetailOrm.mid))

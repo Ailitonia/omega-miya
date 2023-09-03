@@ -40,7 +40,7 @@ from .model import (
 )
 
 
-BILI_LIVE_SUBTYPE: str = SubscriptionSourceType.bili_live.value
+BILI_LIVE_SUB_TYPE: str = SubscriptionSourceType.bili_live.value
 """b站直播间订阅类型"""
 
 
@@ -80,7 +80,7 @@ async def query_subscribed_live_room_sub_source(entity_interface: EntityInterfac
     """获取目标对象已订阅的 Bilibili 直播间
 
     :return: {房间号: 用户昵称}的字典"""
-    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=BILI_LIVE_SUBTYPE)
+    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=BILI_LIVE_SUB_TYPE)
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 
