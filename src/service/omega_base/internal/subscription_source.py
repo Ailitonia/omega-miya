@@ -110,6 +110,9 @@ class InternalPixivisionSubscriptionSource(InternalSubscriptionSource):
     async def query_type_all(cls, session: AsyncSession) -> list[SubscriptionSource]:
         return await SubscriptionSourceDAL(session=session).query_type_all(sub_type='pixivision')
 
+    async def add_upgrade(self, sub_user_name: None = None, sub_info: None = None) -> None:
+        return await super().add_upgrade(sub_user_name='pixivision', sub_info='Pixivision特辑订阅')
+
 
 class InternalWeiboUserSubscriptionSource(InternalSubscriptionSource):
     """微博用户订阅源"""

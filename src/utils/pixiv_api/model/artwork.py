@@ -170,6 +170,7 @@ class PixivArtworkCompleteDataModel(BasePixivModel):
     title: str
     sanity_level: int
     is_r18: bool
+    ai_level: int
     is_ai: bool
     uid: int
     uname: str

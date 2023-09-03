@@ -49,6 +49,19 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
+    async def query_exists_ids(self, aids: list[int]) -> list[int]:
+        """查询数据库中已有的特辑文章 aid"""
+        stmt = select(PixivisionArticleOrm.aid).\
+            where(PixivisionArticleOrm.aid.in_(aids)).\
+            order_by(desc(PixivisionArticleOrm.aid))
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[int], session_result.scalars().all())
+
+    async def query_not_exists_ids(self, aids: list[int]) -> list[int]:
+        """查询数据库中没有的特辑文章 aid"""
+        exists_aids = await self.query_exists_ids(aids=aids)
+        return sorted(list(set(aids) - set(exists_aids)), reverse=True)
+
     async def query_all(self) -> list[PixivisionArticle]:
         stmt = select(PixivisionArticleOrm).order_by(desc(PixivisionArticleOrm.aid))
         session_result = await self.db_session.execute(stmt)

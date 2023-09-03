@@ -188,8 +188,8 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
     # 注意 pixivision illustration 的文章有两种页面样式
     article_description = article_body.xpath(
         'div//div[@class="fab__paragraph _medium-editor-text" or @class="am__description _medium-editor-text"]'
-    ).pop(0).xpath('p')
-    description = '\n'.join(x.text.strip() for x in article_description if x.text)
+    ).pop(0)
+    description = '\n'.join(text.strip() for text in article_description.itertext())
 
     # 获取所有作品内容
     artwork_list = []
@@ -497,6 +497,7 @@ async def generate_artworks_preview_image(
         *,
         preview_size: tuple[int, int] = pixiv_resource_config.default_preview_size,
         hold_ratio: bool = False,
+        edge_scale: float = 1/32,
         num_of_line: int = 6,
         limit: int = 1000
 ) -> TemporaryResource:
@@ -505,6 +506,7 @@ async def generate_artworks_preview_image(
     :param preview: 经过预处理的生成预览的数据
     :param preview_size: 单个小缩略图的尺寸
     :param hold_ratio: 是否保持缩略图原图比例
+    :param edge_scale: 缩略图添加白边的比例, 范围 0~1
     :param num_of_line: 生成预览每一行的预览图数
     :param limit: 限制生成时加载 preview 中图片的最大值
     """
@@ -514,6 +516,7 @@ async def generate_artworks_preview_image(
         font_path=pixiv_resource_config.default_preview_font,
         header_color=(0, 150, 250),
         hold_ratio=hold_ratio,
+        edge_scale=edge_scale,
         num_of_line=num_of_line,
         limit=limit,
         output_folder=pixiv_resource_config.default_preview_img_folder

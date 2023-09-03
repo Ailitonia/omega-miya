@@ -465,6 +465,7 @@ class PixivArtwork(Pixiv):
                 'title': artwork_data.body.illustTitle,
                 'sanity_level': sanity_level,
                 'is_r18': is_r18,
+                'ai_level': ai_level,
                 'is_ai': is_ai,
                 'uid': artwork_data.body.userId,
                 'uname': artwork_data.body.userName,

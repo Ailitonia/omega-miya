@@ -72,5 +72,6 @@ class PixivisionArticle(BasePixivModel):
 
 __all__ = [
     'PixivisionIllustrationList',
+    'PixivisionIllustration',
     'PixivisionArticle'
 ]
