@@ -3,7 +3,7 @@
 @Date           : 2022/12/10 20:32
 @FileName       : config.py
 @Project        : nonebot2_miya
-@Description    : Omega requests handler, 通过对 ForwardDriver 的二次封装实现 HttpClient 功能
+@Description    : OmegaRequests, 通过对 ForwardDriver 的二次封装实现 HttpClient 功能
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -14,12 +14,12 @@ import ujson
 from copy import deepcopy
 from urllib.parse import urlparse
 
-from typing import AsyncGenerator, Optional, Any, cast
+from typing import AsyncGenerator, Optional, Any
 from contextlib import asynccontextmanager
 
 from nonebot import get_driver, logger
 from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
-from nonebot.drivers import Request, Response, WebSocket, ForwardDriver
+from nonebot.drivers import Request, Response, WebSocket, ForwardDriver, HTTPClientMixin, WebSocketClientMixin
 
 from asyncio.exceptions import TimeoutError
 from src.exception import WebSourceException
@@ -48,7 +48,7 @@ class OmegaRequests(object):
         'sec-gpc': '1',
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/114.0.0.0 Safari/537.36'
+                      'Chrome/117.0.0.0 Safari/537.36'
     }
 
     def __init__(
@@ -63,7 +63,7 @@ class OmegaRequests(object):
         if not isinstance(self.driver, ForwardDriver):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward connections! "
-                "Omega Requests Handler need a ForwardDriver to work."
+                "OmegaRequests need a ForwardDriver to work."
             )
 
         self.timeout = self._default_timeout_time if timeout is None else timeout
@@ -107,7 +107,11 @@ class OmegaRequests(object):
 
     async def request(self, setup: Request) -> Response:
         """装饰原 request 方法, 自动重试"""
-        self.driver = cast(ForwardDriver, self.driver)
+        if not isinstance(self.driver, HTTPClientMixin):
+            raise RuntimeError(
+                f"Current driver {self.driver.type} doesn't support forward http connections! "
+                "OmegaRequests need a HTTPClientMixin Driver to work."
+            )
 
         attempts_num = 0
         final_exception = None
@@ -151,7 +155,11 @@ class OmegaRequests(object):
             use_proxy: bool = True
     ) -> AsyncGenerator[WebSocket, None]:
         """建立 websocket 连接"""
-        self.driver = cast(ForwardDriver, self.driver)
+        if not isinstance(self.driver, WebSocketClientMixin):
+            raise RuntimeError(
+                f"Current driver {self.driver.type} doesn't support forward webSocket connections! "
+                "OmegaRequests need a WebSocketClientMixin Driver to work."
+            )
 
         setup = Request(
             method=method,
