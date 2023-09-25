@@ -212,13 +212,13 @@ class OneBotV11MessageSender(MessageSender):
 
         return send_message
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
-    def to_send_multi_msgs(self) -> SenderParams:
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
-    def parse_revoke_sent_params(self, content: Any) -> RevokeParams:
+    def parse_revoke_sent_params(self, content: Any, **kwargs) -> RevokeParams:
         return RevokeParams(api='delete_msg', params={'message_id': content["message_id"]})
 
 
@@ -226,7 +226,7 @@ class OneBotV11MessageSender(MessageSender):
 class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 用户消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_private_msg',
             message_param_name='message',
@@ -235,7 +235,7 @@ class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_private_forward_msg',
             message_param_name='messages',
@@ -249,7 +249,7 @@ class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
 class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 群组消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_group_msg',
             message_param_name='message',
@@ -258,7 +258,7 @@ class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_group_forward_msg',
             message_param_name='messages',
@@ -272,7 +272,7 @@ class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
 class OneBotV11QQGuildChannelMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 子频道消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_guild_channel_msg',
             message_param_name='message',
@@ -282,8 +282,8 @@ class OneBotV11QQGuildChannelMessageSender(OneBotV11MessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
 
 @register_event_handler(event=OneBotV11MessageEvent)

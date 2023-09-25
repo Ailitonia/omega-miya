@@ -146,11 +146,11 @@ class EntityInterface(object):
 
     @_ensure_session
     @_ensure_entity
-    async def send_msg(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment]):
+    async def send_msg(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs):
         bot = await self.get_bot()
         builder = self.get_msg_builder(bot)
 
-        send_params = get_msg_sender(target=self.entity)(target_entity=self.entity).to_send_msg()
+        send_params = get_msg_sender(target=self.entity)(target_entity=self.entity).to_send_msg(**kwargs)
         send_message = builder(message=message).message
 
         params = {send_params.message_param_name: send_message, **send_params.params}
@@ -159,12 +159,12 @@ class EntityInterface(object):
 
     @_ensure_session
     @_ensure_entity
-    async def send_multi_msgs(self, messages: Iterable[Union[str, None, OmegaMessage, OmegaMessageSegment]]):
+    async def send_multi_msgs(self, messages: Iterable[Union[str, None, OmegaMessage, OmegaMessageSegment]], **kwargs):
         bot = await self.get_bot()
         builder = self.get_msg_builder(bot)
 
         sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
-        send_params = sender.to_send_multi_msgs()
+        send_params = sender.to_send_multi_msgs(**kwargs)
         send_message = sender.construct_multi_msgs(messages=(builder(message=message).message for message in messages))
 
         params = {send_params.message_param_name: send_message, **send_params.params}
@@ -185,14 +185,15 @@ class EntityInterface(object):
     async def send_msg_auto_revoke(
             self,
             message: Union[str, None, OmegaMessage, OmegaMessageSegment],
-            revoke_interval: int = 60
+            revoke_interval: int = 60,
+            **kwargs
     ) -> asyncio.TimerHandle:
         """发出消息指定时间后自动撤回"""
         bot = await self.get_bot()
 
         sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
         sent_data = await self.send_msg(message=message)
-        revoke_params = sender.parse_revoke_sent_params(content=sent_data)
+        revoke_params = sender.parse_revoke_sent_params(content=sent_data, **kwargs)
 
         loop = asyncio.get_running_loop()
         return loop.call_later(
@@ -205,14 +206,15 @@ class EntityInterface(object):
     async def send_multi_msgs_auto_revoke(
             self,
             messages: Iterable[Union[str, None, OmegaMessage, OmegaMessageSegment]],
-            revoke_interval: int = 60
+            revoke_interval: int = 60,
+            **kwargs
     ) -> asyncio.TimerHandle:
         """发出消息指定时间后自动撤回"""
         bot = await self.get_bot()
 
         sender = get_msg_sender(target=self.entity)(target_entity=self.entity)
         sent_data = await self.send_multi_msgs(messages=messages)
-        revoke_params = sender.parse_revoke_sent_params(content=sent_data)
+        revoke_params = sender.parse_revoke_sent_params(content=sent_data, **kwargs)
 
         loop = asyncio.get_running_loop()
         return loop.call_later(

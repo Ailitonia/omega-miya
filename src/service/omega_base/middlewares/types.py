@@ -184,15 +184,15 @@ class MessageSender(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def to_send_multi_msgs(self) -> SenderParams:
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def parse_revoke_sent_params(self, content: Any) -> Union[RevokeParams, Iterable[RevokeParams]]:
+    def parse_revoke_sent_params(self, content: Any, **kwargs) -> Union[RevokeParams, Iterable[RevokeParams]]:
         raise NotImplementedError
 
 

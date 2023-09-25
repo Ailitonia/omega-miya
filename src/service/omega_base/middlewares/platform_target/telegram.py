@@ -172,13 +172,13 @@ class TelegramMessageSender(MessageSender):
 
         return send_message
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
-    def to_send_multi_msgs(self) -> SenderParams:
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
-    def parse_revoke_sent_params(self, content: Any) -> Union[RevokeParams, Iterable[RevokeParams]]:
+    def parse_revoke_sent_params(self, content: Any, **kwargs) -> Union[RevokeParams, Iterable[RevokeParams]]:
         if isinstance(content, list):
             return (
                 RevokeParams(
@@ -198,7 +198,7 @@ class TelegramMessageSender(MessageSender):
 class TelegramUserMessageSender(TelegramMessageSender):
     """Telegram 用户消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_to',
             message_param_name='message',
@@ -207,15 +207,15 @@ class TelegramUserMessageSender(TelegramMessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
 
 @register_sender(target_entity=SupportedTarget.telegram_group.value)
 class TelegramGroupMessageSender(TelegramMessageSender):
     """Telegram 群组消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_to',
             message_param_name='message',
@@ -224,15 +224,15 @@ class TelegramGroupMessageSender(TelegramMessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
 
 @register_sender(target_entity=SupportedTarget.telegram_channel.value)
 class TelegramChannelMessageSender(TelegramMessageSender):
     """Telegram 频道消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_to',
             message_param_name='message',
@@ -241,8 +241,8 @@ class TelegramChannelMessageSender(TelegramMessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
 
 @register_event_handler(event=TelegramMessageEvent)

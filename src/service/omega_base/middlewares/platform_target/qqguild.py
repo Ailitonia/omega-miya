@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Iterable, Tuple, Type, Union, Optional, cast
 from urllib.parse import urlparse
 
+from nonebot.matcher import current_event
+
 from nonebot.adapters.qqguild import (
     Bot as QQGuildBot,
     Message as QQGuildMessage,
@@ -19,7 +21,7 @@ from nonebot.adapters.qqguild import (
     Event as QQGuildEvent,
     MessageEvent as QQGuildMessageEvent
 )
-from nonebot.adapters.qqguild.api import MessageReference
+from nonebot.adapters.qqguild.api import MessageReference, Message
 
 from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
@@ -189,13 +191,13 @@ class QQGuildMessageSender(MessageSender):
 
         return send_message
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
-    def to_send_multi_msgs(self) -> SenderParams:
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
         raise NotImplementedError
 
-    def parse_revoke_sent_params(self, content: Any) -> RevokeParams:
+    def parse_revoke_sent_params(self, content: Any, **kwargs) -> RevokeParams:
         raise NotImplementedError
 
 
@@ -203,19 +205,32 @@ class QQGuildMessageSender(MessageSender):
 class QQGuildChannelMessageSender(QQGuildMessageSender):
     """QQGuild 子频道消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
+        params = {'channel_id': self.target_entity.entity_id}
+        if 'msg_id' in kwargs:
+            params['msg_id'] = kwargs['msg_id']
+        else:
+            try:
+                # 尝试从 event 上下文中提取 msg_id
+                event = current_event.get()
+                msg_id = getattr(event, 'id', None)
+                if msg_id is not None:
+                    params['msg_id'] = msg_id
+            except LookupError:
+                pass
+
         return SenderParams(
             api='send_to',
             message_param_name='message',
-            params={
-                'channel_id': self.target_entity.entity_id
-            }
+            params=params
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
-    def parse_revoke_sent_params(self, content: Any) -> RevokeParams:
+    def parse_revoke_sent_params(self, content: Any, **kwargs) -> RevokeParams:
+        if isinstance(content, Message):
+            content = content.dict()
         return RevokeParams(
             api='delete_message',  # Patched
             params={'channel_id': content['channel_id'], 'message_id': content['id']}
@@ -226,17 +241,28 @@ class QQGuildChannelMessageSender(QQGuildMessageSender):
 class QQGuildChannelMessageSender(QQGuildMessageSender):
     """QQGuild 子频道消息 Sender"""
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
+        params = {'guild_id': self.target_entity.parent_id}
+        if 'msg_id' in kwargs:
+            params['msg_id'] = kwargs['msg_id']
+        else:
+            try:
+                # 尝试从 event 上下文中提取 msg_id
+                event = current_event.get()
+                msg_id = getattr(event, 'id', None)
+                if msg_id is not None:
+                    params['msg_id'] = msg_id
+            except LookupError:
+                pass
+
         return SenderParams(
             api='send_to_dms',  # Patched
             message_param_name='message',
-            params={
-                'guild_id': self.target_entity.parent_id
-            }
+            params=params
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
 
 @register_event_handler(event=QQGuildMessageEvent)

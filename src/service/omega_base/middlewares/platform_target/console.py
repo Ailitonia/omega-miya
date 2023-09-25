@@ -142,7 +142,7 @@ class ConsoleMessageSender(MessageSender):
 
         return send_message
 
-    def to_send_msg(self) -> SenderParams:
+    def to_send_msg(self, **kwargs) -> SenderParams:
         return SenderParams(
             api='send_msg',
             message_param_name='message',
@@ -151,10 +151,10 @@ class ConsoleMessageSender(MessageSender):
             }
         )
 
-    def to_send_multi_msgs(self) -> SenderParams:
-        return self.to_send_msg()
+    def to_send_multi_msgs(self, **kwargs) -> SenderParams:
+        return self.to_send_msg(**kwargs)
 
-    def parse_revoke_sent_params(self, content: Any) -> Union[RevokeParams, Iterable[RevokeParams]]:
+    def parse_revoke_sent_params(self, content: Any, **kwargs) -> Union[RevokeParams, Iterable[RevokeParams]]:
         raise NotImplementedError
 
 
