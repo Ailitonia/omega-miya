@@ -13,7 +13,7 @@ import asyncio
 from asyncio import Future
 from functools import wraps
 
-from typing import TypeVar, ParamSpec, Callable, Generator, Coroutine, Awaitable, Any
+from typing import TypeVar, ParamSpec, Callable, Coroutine, Awaitable, Any
 
 from nonebot import logger
 
@@ -47,14 +47,40 @@ def run_async_delay(delay_time: float = 5):
     return decorator
 
 
+async def _semaphore_gather(
+        tasks: list[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
+        semaphore_num: int,
+        *,
+        return_exceptions: bool = True
+) -> tuple[T | BaseException, ...]:
+    """[Deactivated]使用 asyncio.Semaphore 来限制一批需要并行的异步函数
+
+    :param tasks: 任务序列
+    :param semaphore_num: 单次并行的信号量限制
+    :param return_exceptions: 是否将异常视为成功结果, 并在结果列表中聚合
+    """
+    _semaphore = asyncio.Semaphore(semaphore_num)
+
+    async def _wrap_coro(
+            coro: Future[T] | Coroutine[Any, Any, T] | Awaitable[T]
+    ) -> T:
+        """使用 asyncio.Semaphore 限制单个任务"""
+        async with _semaphore:
+            _result = await coro
+            return _result
+
+    return await asyncio.gather(*(_wrap_coro(coro) for coro in tasks), return_exceptions=return_exceptions)  # type: ignore
+
+
 async def semaphore_gather(
-        tasks: list[Future[T] | Coroutine[Any, Any, T] | Generator[Any, Any, T] | Awaitable[T]],
+        tasks: list[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
         return_exceptions: bool = True,
         filter_exception: bool = False
 ) -> tuple[T | BaseException, ...]:
     """使用 asyncio.Semaphore 来限制一批需要并行的异步函数
+    Python 3.11 推荐使用 asyncio.TaskGroup 创建和并发运行任务并等待它们完成
 
     :param tasks: 任务序列
     :param semaphore_num: 单次并行的信号量限制
@@ -72,14 +98,23 @@ async def semaphore_gather(
     )
 
     async def _wrap_coro(
-            coro: Future[T] | Coroutine[Any, Any, T] | Generator[Any, Any, T] | Awaitable[T]
-    ) -> Coroutine[Any, Any, T]:
+            coro: Future[T] | Coroutine[Any, Any, T] | Awaitable[T]
+    ) -> T | BaseException:
         """使用 asyncio.Semaphore 限制单个任务"""
         async with _semaphore:
-            _result = await coro
-            return _result
+            try:
+                _result = await coro
+                return _result
+            except BaseException as e:
+                if return_exceptions:
+                    return e
+                else:
+                    raise e
 
-    result = await asyncio.gather(*(_wrap_coro(coro) for coro in tasks), return_exceptions=return_exceptions)
+    async with asyncio.TaskGroup() as tg:
+        group_tasks = [tg.create_task(_wrap_coro(coro)) for coro in tasks]
+
+    result = tuple(task.result() for task in group_tasks)
 
     # 输出错误日志
     for i, r in enumerate(result):
