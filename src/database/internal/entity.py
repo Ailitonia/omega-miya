@@ -67,6 +67,9 @@ class Entity(BaseModel):
         orm_mode = True
         allow_mutation = False
 
+    def __str__(self) -> str:
+        return f'Entity.{self.entity_type.value}(id={self.id}, entity_id={self.entity_id}, name={self.entity_name})'
+
 
 class EntityDAL(BaseDataAccessLayerModel):
     """实体对象 数据库操作对象"""

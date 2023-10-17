@@ -55,6 +55,9 @@ class BotSelf(BaseModel):
         orm_mode = True
         allow_mutation = False
 
+    def __str__(self) -> str:
+        return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
+
 
 class BotSelfDAL(BaseDataAccessLayerModel):
     """BotSelf 数据库操作对象"""
