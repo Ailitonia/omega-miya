@@ -174,6 +174,13 @@ class _WeiboCardMbLog(WeiboBaseModel):
         text = ''.join(text for x in text_html.xpath('/html/*') for text in x.itertext()).strip()
         return text
 
+    @validator('retweeted_status', pre=True)
+    def _check_retweeted_status(cls, v):
+        # 排除转发了由于作者设置导致没有查看权限的微博
+        if v.get('user', None) is None:
+            return None
+        return v
+
     @property
     def created_datetime(self) -> datetime:
         return datetime.strptime(self.created_at, '%a %b %d %H:%M:%S %z %Y')
