@@ -110,13 +110,16 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
 .venv
-.idea
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# IDE Config
+.idea/
 
 # Spyder project settings
 .spyderproject
@@ -142,6 +145,7 @@ dmypy.json
 # tmp folders
 omega_miya/tmp/
 tmp/
+.tmp/
 
 # sqlite database file
 *.db

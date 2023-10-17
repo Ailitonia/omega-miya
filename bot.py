@@ -2,7 +2,6 @@ import os
 import sys
 import nonebot
 from datetime import datetime
-from nonebot.adapters.onebot.v11.adapter import Adapter as OneBotAdapter
 from nonebot.log import logger, default_format
 
 # Log file path
@@ -30,8 +29,10 @@ nonebot.init()
 # 获取 driver 用于初始化
 driver = nonebot.get_driver()
 
-# 注册 OneBot V11 Adapter
-driver.register_adapter(OneBotAdapter)
+# 按需注册 OneBot V11 Adapter
+if driver.config.dict().get('onebot_access_token'):
+    from nonebot.adapters.onebot.v11.adapter import Adapter as OneBotAdapter
+    driver.register_adapter(OneBotAdapter)
 
 # 按需注册 QQGuild Adapter
 if driver.config.dict().get('qqguild_bots'):
@@ -51,8 +52,6 @@ if driver.config.dict().get('enable_console'):
 # 加载插件
 nonebot.load_plugins('src/service')
 nonebot.load_plugins('src/plugins')
-# nonebot.load_plugin('test.v2.api_test')
-# nonebot.load_plugin('test.print_debug_info')
 
 # Modify some config / config depends on loaded configs
 # config = nonebot.get_driver().config
