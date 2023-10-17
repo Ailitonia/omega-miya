@@ -110,7 +110,7 @@ class OmegaRequests(object):
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward http connections! "
-                "OmegaRequests need a HTTPClientMixin Driver to work."
+                "OmegaRequests need a HTTPClient Driver to work."
             )
 
         attempts_num = 0
@@ -158,7 +158,7 @@ class OmegaRequests(object):
         if not isinstance(self.driver, WebSocketClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward webSocket connections! "
-                "OmegaRequests need a WebSocketClientMixin Driver to work."
+                "OmegaRequests need a WebSocketClient Driver to work."
             )
 
         setup = Request(
