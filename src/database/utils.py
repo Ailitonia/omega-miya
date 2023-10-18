@@ -11,11 +11,13 @@
 import inspect
 from contextlib import asynccontextmanager
 from functools import wraps
+from typing import AsyncGenerator, Callable, Coroutine, ParamSpec, TypeVar
+
 from nonebot import get_driver, logger
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
-from typing import TypeVar, ParamSpec, Callable, Coroutine
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .connector import engine, async_session
+from .connector import engine, async_session_factory
 from .model import Base, BaseDatabaseResult
 
 
@@ -27,7 +29,7 @@ R = TypeVar("R")
 async def __database_init_models():
     """初始化数据库表结构"""
 
-    logger.opt(colors=True).info(f'<lc>Database</lc> | <ly>正在初始化数据库</ly>')
+    logger.opt(colors=True).info('<lc>Database</lc> | <ly>正在初始化数据库</ly>')
     try:
         # conn is an instance of AsyncConnection
         async with engine.begin() as conn:
@@ -37,7 +39,7 @@ async def __database_init_models():
             # where synchronous IO calls will be transparently translated for
             # await.
             await conn.run_sync(Base.metadata.create_all)
-        logger.opt(colors=True).success(f'<lc>Database</lc> | <lg>数据库初始化已完成</lg>')
+        logger.opt(colors=True).success('<lc>Database</lc> | <lg>数据库初始化已完成</lg>')
     except Exception as _e:
         import sys
         logger.opt(colors=True).critical(f'<lc>Database</lc> | <r>数据库初始化失败</r>, 错误信息: {_e}')
@@ -49,20 +51,20 @@ async def __database_dispose():
     """断开数据库链接 (for AsyncEngine created in function scope, close and clean-up pooled connections)"""
 
     await engine.dispose()
-    logger.opt(colors=True).info(f'<lc>Database</lc> | <ly>已断开数据库连接</ly>')
+    logger.opt(colors=True).info('<lc>Database</lc> | <ly>已断开数据库连接</ly>')
 
 
 @asynccontextmanager
-async def begin_db_session():
+async def begin_db_session() -> AsyncGenerator[AsyncSession, None]:
     """获取数据库 session 并开始事务"""
-    async with async_session() as session:
+    async with async_session_factory() as session:
         async with session.begin():
             yield session
 
 
-async def get_db_session():
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """获取数据库 session 生成器依赖 (Dependence for database async session)"""
-    async with async_session() as session:
+    async with async_session_factory() as session:
         async with session.begin():
             yield session
 

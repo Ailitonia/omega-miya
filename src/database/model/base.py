@@ -11,9 +11,9 @@
 import abc
 from pydantic.generics import GenericModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, Optional, TypeVar, Generic
+from typing import Any, AsyncGenerator, Generic, Optional, Self, TypeVar
 
-from ..connector import async_session
+from ..connector import async_session_factory
 
 
 T = TypeVar("T")
@@ -39,9 +39,9 @@ class BaseDataAccessLayerModel(abc.ABC):
             raise RuntimeError('Session is not active')
 
     @classmethod
-    async def dal_dependence(cls):
+    async def dal_dependence(cls) -> AsyncGenerator[Self, None]:
         """获取 DAL 生成器依赖 (Dependence for database async session)"""
-        async with async_session() as session:
+        async with async_session_factory() as session:
             async with session.begin():
                 yield cls(session)
 

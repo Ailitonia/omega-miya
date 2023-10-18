@@ -24,9 +24,8 @@ try:
     )
     logger.opt(colors=True).info(f'<lc>Database</lc> | 已配置 <lg>{database_config.database}</lg> 数据库连接')
 
-    # 创建异步 session
     # expire_on_commit=False will prevent attributes from being expired after commit.
-    async_session = async_sessionmaker(
+    async_session_factory = async_sessionmaker(
         engine, class_=AsyncSession, autoflush=True, expire_on_commit=False
     )
 except Exception as e:
@@ -36,6 +35,6 @@ except Exception as e:
 
 
 __all__ = [
-    'async_session',
+    'async_session_factory',
     'engine'
 ]
