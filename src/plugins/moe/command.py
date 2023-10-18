@@ -206,7 +206,6 @@ async def handle_parsed_success(
             for message in send_messages
         ],
         semaphore_num=3,
-        return_exceptions=False,
         filter_exception=True
     )
 
