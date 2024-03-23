@@ -9,8 +9,8 @@
 """
 
 from dataclasses import dataclass
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_driver, get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
@@ -24,8 +24,7 @@ class BilibiliConfig(BaseModel):
     bili_sessdata: str | None = None
     bili_csrf: str | None = None
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
     @property
     def bili_cookie(self) -> dict[str, str] | None:
@@ -76,7 +75,7 @@ async def verify_bilibili_cookie() -> None:
 
 try:
     bilibili_resource_config = BilibiliLocalResourceConfig()
-    bilibili_config = BilibiliConfig.parse_obj(get_driver().config)
+    bilibili_config = get_plugin_config(BilibiliConfig)
     if not bilibili_config.bili_cookie:
         bilibili_config.clear()
         logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <y>未配置 Bilibili Cookie</y>, 已忽略')

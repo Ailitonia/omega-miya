@@ -19,8 +19,8 @@ class _GlobalUserData(BasePixivModel):
     id: int
     pixivId: str
     name: str
-    profileImg: Optional[AnyHttpUrl]
-    profileImgBig: Optional[AnyHttpUrl]
+    profileImg: Optional[AnyHttpUrl] = None
+    profileImgBig: Optional[AnyHttpUrl] = None
     premium: bool
     xRestrict: int
     adult: bool
@@ -36,13 +36,13 @@ class PixivGlobalData(BasePixivModel):
     token: str
     services: dict
     oneSignalAppId: str
-    publicPath: Optional[AnyHttpUrl]
-    commonResourcePath: Optional[AnyHttpUrl]
+    publicPath: Optional[AnyHttpUrl] = None
+    commonResourcePath: Optional[AnyHttpUrl] = None
     development: bool
     userData: _GlobalUserData
-    adsData: Optional[dict]
-    miscData: Optional[dict]
-    premium: Optional[dict]
+    adsData: Optional[dict] = None
+    miscData: Optional[dict] = None
+    premium: Optional[dict] = None
     mute: list
 
     @property
@@ -58,8 +58,8 @@ class PixivUserDataBody(BasePixivModel):
     """Pixiv 用户信息 Body"""
     userId: int
     name: str
-    image: Optional[AnyHttpUrl]
-    imageBig: Optional[AnyHttpUrl]
+    image: Optional[AnyHttpUrl] = None
+    imageBig: Optional[AnyHttpUrl] = None
 
 
 class PixivUserDataModel(BasePixivModel):
@@ -99,8 +99,8 @@ class PixivUserModel(BasePixivModel):
     """Pixiv 用户 Model"""
     user_id: int
     name: str
-    image: Optional[AnyHttpUrl]
-    image_big: Optional[AnyHttpUrl]
+    image: Optional[AnyHttpUrl] = None
+    image_big: Optional[AnyHttpUrl] = None
     illusts: list[int]
     manga: list[int]
     novels: list[int]
@@ -181,7 +181,7 @@ class BookmarkWork(BasePixivModel):
     height: int
     pageCount: int
     isBookmarkable: bool
-    bookmarkData: Optional[_WorkBookmarkData]
+    bookmarkData: Optional[_WorkBookmarkData] = None
     alt: str
     titleCaptionTranslation: dict
     createDate: str
@@ -189,12 +189,12 @@ class BookmarkWork(BasePixivModel):
     isUnlisted: bool
     isMasked: bool
     aiType: int
-    profileImageUrl: Optional[AnyHttpUrl]
+    profileImageUrl: Optional[AnyHttpUrl] = None
 
 
 class BookmarkBody(BasePixivModel):
     """收藏页内容"""
-    bookmarkTags: Optional[list | dict]
+    bookmarkTags: Optional[list | dict] = None
     extraData: dict
     total: int
     works: list[BookmarkWork]

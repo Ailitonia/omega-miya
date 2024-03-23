@@ -13,8 +13,8 @@ import pathlib
 import sys
 
 from enum import Enum, unique
-from nonebot import get_driver, logger
-from pydantic import BaseModel, IPvAnyAddress, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 from typing import Literal
 from urllib.parse import quote
 
@@ -48,8 +48,7 @@ class DatabaseType(BaseModel):
     """数据库类型"""
     database: Literal['mysql', 'postgresql', 'sqlite']  # 数据库类型
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
     @property
     def connector(self) -> DatabaseConnector:
@@ -122,14 +121,14 @@ class SQLiteDatabaseConfig(DatabaseType):
 
 
 try:
-    database_type = DatabaseType.parse_obj(get_driver().config)  # 导入并验证数据库类型
+    database_type = get_plugin_config(DatabaseType)  # 导入并验证数据库类型
     match database_type.database:  # 验证数据库配置
         case 'mysql':
-            database_config = MysqlDatabaseConfig.parse_obj(get_driver().config)
+            database_config = get_plugin_config(MysqlDatabaseConfig)
         case 'postgresql':
-            database_config = PostgresqlDatabaseConfig.parse_obj(get_driver().config)
+            database_config = get_plugin_config(PostgresqlDatabaseConfig)
         case 'sqlite':
-            database_config = SQLiteDatabaseConfig.parse_obj(get_driver().config)
+            database_config = get_plugin_config(SQLiteDatabaseConfig)
         case _:
             raise ValueError(f'illegal database type: {database_type.database}')
 except (ValidationError, ValueError) as e:

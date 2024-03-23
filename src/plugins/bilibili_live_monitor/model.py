@@ -9,7 +9,7 @@
 """
 
 from typing import Literal, Optional
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class BilibiliLiveRoomStatus(BaseModel):
@@ -49,8 +49,7 @@ class BilibiliLiveRoomTitleChange(BaseModel):
     """
     live_title: str
 
-    class Config:
-        extra = 'forbid'
+    model_config = ConfigDict(extra='forbid')
 
 
 class BilibiliLiveRoomStartLivingWithUpdateTitle(BaseModel):
@@ -62,8 +61,7 @@ class BilibiliLiveRoomStartLivingWithUpdateTitle(BaseModel):
     live_title: str
     live_status: Literal[1] = 1
 
-    class Config:
-        extra = 'forbid'
+    model_config = ConfigDict(extra='forbid')
 
 
 class BilibiliLiveRoomStartLiving(BaseModel):
@@ -73,8 +71,7 @@ class BilibiliLiveRoomStartLiving(BaseModel):
     """
     live_status: Literal[1] = 1
 
-    class Config:
-        extra = 'forbid'
+    model_config = ConfigDict(extra='forbid')
 
 
 class BilibiliLiveRoomStopLiving(BaseModel):
@@ -84,8 +81,7 @@ class BilibiliLiveRoomStopLiving(BaseModel):
     """
     live_status: Literal[0] = 0
 
-    class Config:
-        extra = 'ignore'
+    model_config = ConfigDict(extra='ignore')
 
 
 class BilibiliLiveRoomStopLivingWithPlaylist(BaseModel):
@@ -95,8 +91,7 @@ class BilibiliLiveRoomStopLivingWithPlaylist(BaseModel):
     """
     live_status: Literal[2] = 2
 
-    class Config:
-        extra = 'ignore'
+    model_config = ConfigDict(extra='ignore')
 
 
 class BilibiliLiveRoomStatusUpdate(BaseModel):
@@ -108,9 +103,10 @@ class BilibiliLiveRoomStatusUpdate(BaseModel):
         BilibiliLiveRoomStartLivingWithUpdateTitle |
         BilibiliLiveRoomStopLiving |
         BilibiliLiveRoomStopLivingWithPlaylist
-    ]
+    ] = None
 
-    @root_validator(pre=False)
+    @model_validator(mode='after')
+    @classmethod
     def check_is_update(cls, values):
         is_update = values.get('is_update')
         update = values.get('update')

@@ -10,8 +10,8 @@
 
 from dataclasses import dataclass
 
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src.resource import TemporaryResource
 
@@ -29,8 +29,7 @@ class MoePluginConfig(BaseModel):
     # 涩图默认自动撤回消息时间(设置 0 为不撤回)
     moe_plugin_setu_auto_recall_time: int = 30
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 @dataclass
@@ -42,7 +41,7 @@ class MoePluginResourceConfig:
 
 
 try:
-    moe_plugin_config = MoePluginConfig.parse_obj(get_driver().config)
+    moe_plugin_config = get_plugin_config(MoePluginConfig)
     moe_plugin_resource_config = MoePluginResourceConfig()
 except ValidationError as e:
     import sys

@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, SignInOrm
 
@@ -23,14 +23,11 @@ class SignIn(BaseModel):
     id: int
     entity_index_id: int
     sign_in_date: date
-    sign_in_info: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    sign_in_info: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class SignInDAL(BaseDataAccessLayerModel):
@@ -41,7 +38,7 @@ class SignInDAL(BaseDataAccessLayerModel):
             where(SignInOrm.entity_index_id == entity_index_id).\
             where(SignInOrm.sign_in_date == sign_in_date)
         session_result = await self.db_session.execute(stmt)
-        return SignIn.from_orm(session_result.scalar_one())
+        return SignIn.model_validate(session_result.scalar_one())
 
     async def query_entity_sign_in_days(self, entity_index_id: int) -> list[date]:
         stmt = select(SignInOrm.sign_in_date).\

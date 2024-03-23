@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from pydantic import Json, AnyHttpUrl, validator
+from pydantic import AnyHttpUrl, Json, field_validator
 from typing import Optional
 
 from .base_model import BaseBilibiliModel
@@ -50,7 +50,7 @@ class BilibiliDynamicCardDesc(BaseBilibiliModel):
     orig_type: int
     pre_dy_id: int = 0
     orig_dy_id: int = 0
-    origin: Optional[BilibiliDynamicCardDescOrigin]
+    origin: Optional[BilibiliDynamicCardDescOrigin] = None
 
 
 class _StdCardOutputData(BaseBilibiliModel):
@@ -297,7 +297,7 @@ class CardType2048Active(_BaseCardType):
 
     class _Sketch(BaseBilibiliModel):
         title: str
-        desc_text: Optional[str]
+        desc_text: Optional[str] = None
 
     class _Vest(BaseBilibiliModel):
         content: str
@@ -485,7 +485,8 @@ class BilibiliUserDynamicData(BaseBilibiliModel):
     cards: list[BilibiliDynamicCard] = []
     next_offset: int
 
-    @validator('cards', pre=False)
+    @field_validator('cards')
+    @classmethod
     def desc_type_must_equal_card_type(cls, v):
         """校验解析的 Card 类型与动态类型是否匹配"""
         for i, card in enumerate(v):
@@ -500,7 +501,7 @@ class BilibiliUserDynamicData(BaseBilibiliModel):
 class BilibiliUserDynamicModel(BaseBilibiliModel):
     """Bilibili 用户动态 Model"""
     code: int
-    data: Optional[BilibiliUserDynamicData]
+    data: Optional[BilibiliUserDynamicData] = None
     message: str = ''
     msg: str = ''
 
@@ -516,7 +517,8 @@ class BilibiliDynamicData(BaseBilibiliModel):
     card: BilibiliDynamicCard
     result: int
 
-    @validator('card', pre=False)
+    @field_validator('card')
+    @classmethod
     def desc_type_must_equal_card_type(cls, v):
         """校验解析的 Card 类型与动态类型是否匹配"""
         desc_type = v.desc.type
@@ -530,7 +532,7 @@ class BilibiliDynamicData(BaseBilibiliModel):
 class BilibiliDynamicModel(BaseBilibiliModel):
     """Bilibili 单个动态 Model"""
     code: int
-    data: Optional[BilibiliDynamicData]
+    data: Optional[BilibiliDynamicData] = None
     message: str = ''
     msg: str = ''
 

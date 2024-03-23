@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 
 class AutoGroupSignConfig(BaseModel):
@@ -19,12 +19,11 @@ class AutoGroupSignConfig(BaseModel):
     # 自动群打卡延迟(每日零时之后, 单位秒)
     auto_group_sign_delay: int = 0
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 try:
-    auto_group_sign_config = AutoGroupSignConfig.parse_obj(get_driver().config)
+    auto_group_sign_config = get_plugin_config(AutoGroupSignConfig)
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>自动群打卡插件配置格式验证失败</r>, 错误信息:\n{e}')

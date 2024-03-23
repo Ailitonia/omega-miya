@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, CoolDownOrm
 
@@ -24,14 +24,11 @@ class CoolDown(BaseModel):
     entity_index_id: int
     event: str
     stop_at: datetime
-    description: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    description: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class CoolDownDAL(BaseDataAccessLayerModel):
@@ -42,7 +39,7 @@ class CoolDownDAL(BaseDataAccessLayerModel):
             where(CoolDownOrm.entity_index_id == entity_index_id).\
             where(CoolDownOrm.event == event)
         session_result = await self.db_session.execute(stmt)
-        return CoolDown.from_orm(session_result.scalar_one())
+        return CoolDown.model_validate(session_result.scalar_one())
 
     async def query_all(self) -> list[CoolDown]:
         stmt = select(CoolDownOrm).order_by(CoolDownOrm.entity_index_id)

@@ -15,7 +15,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Literal, Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm, SubscriptionOrm
 
@@ -58,14 +58,11 @@ class Entity(BaseModel):
     entity_type: EntityType  # 实体对象类型
     parent_id: str  # 父实体 ID
     entity_name: str  # 实体名称
-    entity_info: Optional[str]  # 实体描述信息
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    entity_info: Optional[str] = None  # 实体描述信息
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
     def __str__(self) -> str:
         return f'Entity.{self.entity_type.value}(id={self.id}, entity_id={self.entity_id}, name={self.entity_name})'
@@ -92,12 +89,12 @@ class EntityDAL(BaseDataAccessLayerModel):
             where(EntityOrm.entity_type == entity_type).\
             where(EntityOrm.parent_id == parent_id)
         session_result = await self.db_session.execute(stmt)
-        return Entity.from_orm(session_result.scalar_one())
+        return Entity.model_validate(session_result.scalar_one())
 
     async def query_by_index_id(self, index_id: int) -> Entity:
         stmt = select(EntityOrm).where(EntityOrm.id == index_id)
         session_result = await self.db_session.execute(stmt)
-        return Entity.from_orm(session_result.scalar_one())
+        return Entity.model_validate(session_result.scalar_one())
 
     async def query_all_by_type(self, entity_type: str) -> list[Entity]:
         """查询符合 entity_type 的全部结果"""

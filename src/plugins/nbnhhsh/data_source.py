@@ -16,8 +16,8 @@ from src.service import OmegaRequests
 
 class GuessResult(BaseModel):
     name: str
-    trans: Optional[list[str]]
-    inputting: Optional[list[str]]
+    trans: Optional[list[str]] = None
+    inputting: Optional[list[str]] = None
 
     @property
     def guess_result(self) -> list[str]:

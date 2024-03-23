@@ -35,7 +35,7 @@ class AnilistApiError(WebSourceException):
 class TraceMoeResults(BaseModel):
     anilist: int
     filename: str
-    episode: int | None
+    episode: int | None = None
     from_: float = Field(alias='from')
     to: float
     similarity: float
@@ -59,9 +59,9 @@ class AnilistResult(BaseModel):
 
             class _Title(BaseModel):
                 native: str
-                romaji: Optional[str]
-                english: Optional[str]
-                chinese: Optional[str]
+                romaji: Optional[str] = None
+                english: Optional[str] = None
+                chinese: Optional[str] = None
 
             id: int
             title: _Title

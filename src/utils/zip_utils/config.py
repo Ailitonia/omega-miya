@@ -10,8 +10,8 @@
 
 import zipfile
 from dataclasses import dataclass
-from pydantic import BaseModel, ValidationError
-from nonebot import get_driver, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
+from nonebot import get_plugin_config, logger
 
 from src.resource import TemporaryResource
 
@@ -20,8 +20,7 @@ class ZipUtilsConfig(BaseModel):
     """ZipUtils 配置"""
     default_zip_compression: int = zipfile.ZIP_STORED
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 @dataclass
@@ -32,7 +31,7 @@ class ZipUtilsResourceConfig:
 
 try:
     zip_utils_resource_config = ZipUtilsResourceConfig()
-    zip_utils_config = ZipUtilsConfig.parse_obj(get_driver().config)
+    zip_utils_config = get_plugin_config(ZipUtilsConfig)
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>ZipUtils 配置格式验证失败</r>, 错误信息:\n{e}')

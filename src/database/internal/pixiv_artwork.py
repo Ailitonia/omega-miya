@@ -14,7 +14,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc, or_
 from typing import Literal, Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, PixivArtworkOrm
 
@@ -32,13 +32,10 @@ class PixivArtwork(BaseModel):
     height: int
     tags: str
     url: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class PixivArtworkStatistic(BaseModel):
@@ -48,9 +45,7 @@ class PixivArtworkStatistic(BaseModel):
     setu: int
     r18: int
 
-    class Config:
-        extra = 'ignore'
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', frozen=True)
 
 
 class PixivArtworkDAL(BaseDataAccessLayerModel):
@@ -59,7 +54,7 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
     async def query_unique(self, pid: int) -> PixivArtwork:
         stmt = select(PixivArtworkOrm).where(PixivArtworkOrm.pid == pid)
         session_result = await self.db_session.execute(stmt)
-        return PixivArtwork.from_orm(session_result.scalar_one())
+        return PixivArtwork.model_validate(session_result.scalar_one())
 
     async def query_by_condition(
             self,

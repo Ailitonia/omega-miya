@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from pydantic import AnyHttpUrl, BaseModel, Field, parse_obj_as
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, parse_obj_as
 from typing import Annotated, Optional
 
 from nonebot.log import logger
@@ -77,9 +77,9 @@ async def __obv11_unique_bot_responding_rule_updater(bot: Bot, event: Event, mat
 
 
 class BaseOneBotModel(BaseModel):
-    class Config:
-        extra = 'ignore'
-        allow_mutation = False
+    """OneBot v11 基类"""
+
+    model_config = ConfigDict(extra='ignore', frozen=True)
 
 
 class FriendInfo(BaseOneBotModel):
@@ -207,20 +207,19 @@ class VersionInfo(BaseOneBotModel):
     app_name: str
     app_version: str
     protocol_version: str
-    app_full_name: Optional[str]
-    coolq_edition: Optional[str]
-    coolq_directory: Optional[str]
+    app_full_name: Optional[str] = None
+    coolq_edition: Optional[str] = None
+    coolq_directory: Optional[str] = None
     is_go_cqhttp: bool = Field(default=False, alias='go-cqhttp')
-    protocol: Optional[int] = Field(alias='protocol_name')
-    plugin_version: Optional[str]
-    plugin_build_number: Optional[int]
-    plugin_build_configuration: Optional[str]
-    runtime_version: Optional[str]
-    runtime_os: Optional[str]
-    version: Optional[str]
+    protocol: Optional[int] = Field(None, alias='protocol_name')
+    plugin_version: Optional[str] = None
+    plugin_build_number: Optional[int] = None
+    plugin_build_configuration: Optional[str] = None
+    runtime_version: Optional[str] = None
+    runtime_os: Optional[str] = None
+    version: Optional[str] = None
 
-    class Config:
-        extra = 'ignore'
+    model_config = ConfigDict(extra='ignore')
 
 
 @event_preprocessor

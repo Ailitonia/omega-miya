@@ -27,7 +27,7 @@ class TencentCloudChatBotResponse(BaseTencentCloudResponse):
 class TencentCloudSentimentAnalysisSuccessResponse(BaseTencentCloudSuccessResponse):
     """情感分析 Api 调用成功返回内容"""
     Positive: float
-    Neutral: float | None
+    Neutral: float | None = None
     Negative: float
     Sentiment: Literal['positive', 'negative', 'neutral']
 
@@ -56,7 +56,7 @@ class TencentCloudPosToken(BaseTencentCloudModel):
 class TencentCloudLexicalAnalysisSuccessResponse(BaseTencentCloudSuccessResponse):
     """词法分析 Api 调用成功返回内容"""
     PosTokens: list[TencentCloudPosToken]
-    NerTokens: list[TencentCloudNerToken] | None
+    NerTokens: list[TencentCloudNerToken] | None = None
 
 
 class TencentCloudLexicalAnalysisResponse(BaseTencentCloudResponse):
@@ -73,7 +73,7 @@ class TencentCloudCCIToken(BaseTencentCloudModel):
 
 class TencentCloudTextCorrectionSuccessResponse(BaseTencentCloudSuccessResponse):
     """文本纠错 Api 调用成功返回内容"""
-    CCITokens: list[TencentCloudCCIToken] | None
+    CCITokens: list[TencentCloudCCIToken] | None = None
     ResultText: str
 
 

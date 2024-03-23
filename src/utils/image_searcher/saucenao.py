@@ -34,12 +34,12 @@ class SaucenaoResult(BaseModel):
 
         class _Header(BaseModel):
             similarity: float
-            thumbnail: Optional[AnyUrl]
+            thumbnail: Optional[AnyUrl] = None
             index_id: int
             index_name: str
 
         class _BaseData(BaseModel):
-            ext_urls: Optional[list[AnyUrl]]
+            ext_urls: Optional[list[AnyUrl]] = None
 
             @property
             def data_text(self) -> str:
@@ -53,8 +53,8 @@ class SaucenaoResult(BaseModel):
                 return ''
 
         class _DefaultData(_BaseData):
-            author_name: Optional[str]
-            author_url: Optional[str]
+            author_name: Optional[str] = None
+            author_url: Optional[str] = None
             creator: str
             creator_name: str
 

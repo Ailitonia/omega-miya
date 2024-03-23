@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, EmailBoxBindOrm
 
@@ -23,14 +23,11 @@ class EmailBoxBind(BaseModel):
     id: int
     email_box_index_id: int
     entity_index_id: int
-    bind_info: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    bind_info: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class EmailBoxBindDAL(BaseDataAccessLayerModel):
@@ -41,7 +38,7 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel):
             where(EmailBoxBindOrm.email_box_index_id == email_box_index_id).\
             where(EmailBoxBindOrm.entity_index_id == entity_index_id)
         session_result = await self.db_session.execute(stmt)
-        return EmailBoxBind.from_orm(session_result.scalar_one())
+        return EmailBoxBind.model_validate(session_result.scalar_one())
 
     async def query_all(self) -> list[EmailBoxBind]:
         stmt = select(EmailBoxBindOrm).order_by(EmailBoxBindOrm.email_box_index_id)

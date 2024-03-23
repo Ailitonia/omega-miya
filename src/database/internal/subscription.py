@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, SubscriptionOrm
 
@@ -23,14 +23,11 @@ class Subscription(BaseModel):
     id: int
     sub_source_index_id: int
     entity_index_id: int
-    sub_info: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    sub_info: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class SubscriptionDAL(BaseDataAccessLayerModel):
@@ -41,7 +38,7 @@ class SubscriptionDAL(BaseDataAccessLayerModel):
             where(SubscriptionOrm.sub_source_index_id == sub_source_index_id).\
             where(SubscriptionOrm.entity_index_id == entity_index_id)
         session_result = await self.db_session.execute(stmt)
-        return Subscription.from_orm(session_result.scalar_one())
+        return Subscription.model_validate(session_result.scalar_one())
 
     async def query_all(self) -> list[Subscription]:
         stmt = select(SubscriptionOrm).order_by(SubscriptionOrm.sub_source_index_id)

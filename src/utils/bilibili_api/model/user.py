@@ -35,14 +35,14 @@ class BilibiliUserDataModel(BaseBilibiliModel):
     sign: str
     level: int
     top_photo: AnyHttpUrl
-    live_room: Optional[BilibiliUserLiveRoom]
+    live_room: Optional[BilibiliUserLiveRoom] = None
     is_senior_member: int
 
 
 class BilibiliUserModel(BaseBilibiliModel):
     """Bilibili 用户 Model"""
     code: int
-    data: Optional[BilibiliUserDataModel]
+    data: Optional[BilibiliUserDataModel] = None
     message: str
 
     @property

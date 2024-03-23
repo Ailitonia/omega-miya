@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver, logger
+from nonebot import get_plugin_config, logger
 from typing import Literal
-from pydantic import BaseModel, IPvAnyAddress, AnyHttpUrl, ValidationError
+from pydantic import BaseModel, ConfigDict, IPvAnyAddress, AnyHttpUrl, ValidationError
 
 
 class HttpProxyConfig(BaseModel):
@@ -22,8 +22,7 @@ class HttpProxyConfig(BaseModel):
     proxy_check_url: AnyHttpUrl = 'https://www.google.com'
     proxy_check_timeout: int = 5
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
     @property
     def proxy_url(self) -> str | None:
@@ -35,7 +34,7 @@ class HttpProxyConfig(BaseModel):
 
 
 try:
-    http_proxy_config = HttpProxyConfig.parse_obj(get_driver().config)  # 导入并验证代理配置
+    http_proxy_config = get_plugin_config(HttpProxyConfig)  # 导入并验证代理配置
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>Http 代理配置格式验证失败</r>, 错误信息:\n{e}')

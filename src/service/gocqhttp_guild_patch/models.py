@@ -11,7 +11,7 @@ from nonebot.adapters.onebot.v11 import (
 from nonebot.log import logger
 from nonebot.typing import overrides
 from nonebot.utils import escape_tag
-from pydantic import BaseModel, Field, parse_obj_as, root_validator, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, parse_obj_as
 from typing_extensions import Literal
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
@@ -39,7 +39,8 @@ class GuildMessageEvent(MessageEvent):
     raw_message: str = Field(alias="message")
     font: None = None
 
-    @validator("raw_message", pre=True)
+    @field_validator("raw_message", mode="before")
+    @classmethod
     def _validate_raw_message(cls, raw_message):
         if isinstance(raw_message, str):
             return raw_message
@@ -47,7 +48,8 @@ class GuildMessageEvent(MessageEvent):
             return str(parse_obj_as(Message, raw_message))
         raise ValueError("unknown raw message type")
 
-    @root_validator(pre=False)
+    @model_validator(mode='after')
+    @classmethod
     def _validate_is_tome(cls, values):
         message = values.get("message")
         self_tiny_id = values.get("self_tiny_id")
@@ -142,8 +144,7 @@ class ReactionInfo(BaseModel):
     count: int
     clicked: bool
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 @register_event
@@ -182,8 +183,7 @@ class SlowModeInfo(BaseModel):
     speak_frequency: int
     slow_mode_circle: int
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ChannelInfo(BaseModel):
@@ -192,15 +192,14 @@ class ChannelInfo(BaseModel):
     channel_type: int
     channel_name: str
     create_time: int
-    creator_id: Optional[int]
+    creator_id: Optional[int] = None
     creator_tiny_id: int
     talk_permission: int
     visible_type: int
     current_slow_mode: int
     slow_modes: List[SlowModeInfo] = []
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 @register_event

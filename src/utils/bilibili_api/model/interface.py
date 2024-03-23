@@ -22,8 +22,8 @@ class WbiImg(BaseBilibiliModel):
 class BilibiliWebInterfaceNavData(BaseBilibiliModel):
     isLogin: bool
     wbi_img: WbiImg
-    uname: Optional[str]
-    mid: Optional[str]
+    uname: Optional[str] = None
+    mid: Optional[str] = None
 
 
 class BilibiliWebInterfaceNav(BaseBilibiliModel):

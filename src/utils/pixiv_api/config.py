@@ -9,8 +9,8 @@
 """
 
 from dataclasses import dataclass
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src.resource import StaticResource, TemporaryResource
 
@@ -19,8 +19,7 @@ class PixivConfig(BaseModel):
     """Pixiv 配置"""
     pixiv_phpsessid: str | None = None
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
     @property
     def cookie_phpssid(self) -> dict[str, str] | None:
@@ -48,7 +47,7 @@ class PixivLocalResourceConfig:
 
 try:
     pixiv_resource_config = PixivLocalResourceConfig()
-    pixiv_config = PixivConfig.parse_obj(get_driver().config)
+    pixiv_config = get_plugin_config(PixivConfig)
     if not pixiv_config.pixiv_phpsessid:
         logger.opt(colors=True).warning(f'<lc>Pixiv</lc> | <lr>未配置 Pixiv Cookie</lr>, <ly>部分功能可能无法正常使用</ly>')
 except ValidationError as e:

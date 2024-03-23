@@ -8,20 +8,19 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 
 class EncryptConfig(BaseModel):
     """Encrypt Utils 配置"""
     aes_key: str
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 try:
-    encrypt_config = EncryptConfig.parse_obj(get_driver().config)
+    encrypt_config = get_plugin_config(EncryptConfig)
     if not encrypt_config.aes_key:
         raise ValueError('Incorrect AES Key length, key can not be null')
     if len(encrypt_config.aes_key) > 16:

@@ -9,7 +9,7 @@
 """
 
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
@@ -118,14 +118,12 @@ class QueryArguments(BaseModel):
     num: int
     acc_mode: bool
     word: list[str]
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(extra='ignore', from_attributes=True)
 
 
 def parse_from_query_parser(args: Namespace) -> QueryArguments:
     """解析查询命令参数"""
-    return QueryArguments.from_orm(args)
+    return QueryArguments.model_validate(args)
 
 
 async def add_artwork_into_database(

@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
 
-from pydantic import BaseModel, AnyUrl, parse_obj_as
+from pydantic import BaseModel, ConfigDict, AnyUrl, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, PixivisionArticleOrm
 
@@ -27,13 +27,10 @@ class PixivisionArticle(BaseModel):
     tags: str
     artworks_id: str
     url: AnyUrl
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class PixivisionArticleDAL(BaseDataAccessLayerModel):
@@ -42,7 +39,7 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
     async def query_unique(self, aid: int) -> PixivisionArticle:
         stmt = select(PixivisionArticleOrm).where(PixivisionArticleOrm.aid == aid)
         session_result = await self.db_session.execute(stmt)
-        return PixivisionArticle.from_orm(session_result.scalar_one())
+        return PixivisionArticle.model_validate(session_result.scalar_one())
 
     async def query_all_aids(self) -> list[int]:
         stmt = select(PixivisionArticleOrm.aid).order_by(desc(PixivisionArticleOrm.aid))

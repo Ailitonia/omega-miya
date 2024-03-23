@@ -9,8 +9,8 @@
 """
 
 from dataclasses import dataclass
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src.resource import StaticResource, TemporaryResource
 
@@ -36,8 +36,7 @@ class SignInConfig(BaseModel):
     # 每日首次签到获取的基础硬币数 同时也是补签所需硬币的倍率基数
     signin_base_currency: int = 5
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 @dataclass
@@ -59,7 +58,7 @@ class SignLocalResourceConfig:
 
 try:
     sign_local_resource_config = SignLocalResourceConfig()
-    sign_in_config = SignInConfig.parse_obj(get_driver().config)
+    sign_in_config = get_plugin_config(SignInConfig)
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>OmegaSignIn 插件配置格式验证失败</r>, 错误信息:\n{e}')

@@ -9,7 +9,7 @@
 """
 
 from nonebot.typing import T_State
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Literal, Optional
 
 
@@ -20,9 +20,7 @@ __OMEGA_STATE_KEY: str = '_omega_processor'
 class OmegaServiceBaseModel(BaseModel):
     """Omega Service Model 基类"""
 
-    class Config:
-        extra = 'ignore'
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', frozen=True)
 
 
 class OmegaProcessorState(OmegaServiceBaseModel):

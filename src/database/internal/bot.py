@@ -15,7 +15,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Literal, Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, BotSelfOrm
 
@@ -46,14 +46,11 @@ class BotSelf(BaseModel):
     self_id: str
     bot_type: BotType
     bot_status: int
-    bot_info: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    bot_info: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
     def __str__(self) -> str:
         return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
@@ -69,12 +66,12 @@ class BotSelfDAL(BaseDataAccessLayerModel):
     async def query_unique(self, self_id: str) -> BotSelf:
         stmt = select(BotSelfOrm).where(BotSelfOrm.self_id == self_id)
         session_result = await self.db_session.execute(stmt)
-        return BotSelf.from_orm(session_result.scalar_one())
+        return BotSelf.model_validate(session_result.scalar_one())
 
     async def query_by_index_id(self, index_id: int) -> BotSelf:
         stmt = select(BotSelfOrm).where(BotSelfOrm.id == index_id)
         session_result = await self.db_session.execute(stmt)
-        return BotSelf.from_orm(session_result.scalar_one())
+        return BotSelf.model_validate(session_result.scalar_one())
 
     async def query_all(self) -> list[BotSelf]:
         stmt = select(BotSelfOrm).order_by(BotSelfOrm.self_id)

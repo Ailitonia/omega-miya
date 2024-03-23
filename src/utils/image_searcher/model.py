@@ -10,15 +10,15 @@
 
 import abc
 from typing import Optional
-from pydantic import BaseModel, AnyUrl
+from pydantic import AnyUrl, BaseModel
 
 
 class ImageSearchingResult(BaseModel):
     """识图结果"""
     source: str  # 来源说明
-    source_urls: Optional[list[AnyUrl]]  # 来源地址
-    similarity: Optional[str]  # 相似度
-    thumbnail: Optional[AnyUrl]  # 缩略图地址
+    source_urls: Optional[list[AnyUrl]] = None  # 来源地址
+    similarity: Optional[str] = None  # 相似度
+    thumbnail: Optional[AnyUrl] = None  # 缩略图地址
 
     # async def get_output_message(self) -> Message:
     #     """将识别结果转换为消息"""

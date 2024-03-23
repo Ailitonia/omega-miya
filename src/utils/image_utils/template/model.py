@@ -8,13 +8,13 @@
 @Software       : PyCharm 
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ImageUtilsBaseModel(BaseModel):
-    class Config:
-        extra = 'ignore'
-        allow_mutation = False
+    """图片实用工具数据基类"""
+
+    model_config = ConfigDict(extra='ignore', frozen=True)
 
 
 class PreviewImageThumbs(ImageUtilsBaseModel):

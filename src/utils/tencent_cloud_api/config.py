@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 
 class TencentCloudConfig(BaseModel):
@@ -17,12 +17,11 @@ class TencentCloudConfig(BaseModel):
     tencent_cloud_secret_id: str | None = None
     tencent_cloud_secret_key: str | None = None
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 try:
-    tencent_cloud_config = TencentCloudConfig.parse_obj(get_driver().config)
+    tencent_cloud_config = get_plugin_config(TencentCloudConfig)
     if not tencent_cloud_config.tencent_cloud_secret_id or not tencent_cloud_config.tencent_cloud_secret_key:
         logger.opt(colors=True).warning(f'<lc>Tencent Cloud</lc> | <r>未配置腾讯云 API Key</r>, 部分功能可能无法正常使用')
 except ValidationError as e:

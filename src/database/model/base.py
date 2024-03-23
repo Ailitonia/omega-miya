@@ -9,7 +9,7 @@
 """
 
 import abc
-from pydantic.generics import GenericModel
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, AsyncGenerator, Generic, Optional, Self, TypeVar
 
@@ -19,7 +19,7 @@ from ..connector import async_session_factory
 T = TypeVar("T")
 
 
-class BaseDatabaseResult(GenericModel, Generic[T]):
+class BaseDatabaseResult(BaseModel, Generic[T]):
     """数据库操作返回的标准结果 Model"""
     error: bool
     info: str

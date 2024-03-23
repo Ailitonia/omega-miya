@@ -9,13 +9,13 @@
 """
 
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class BaseTencentCloudModel(BaseModel):
-    class Config:
-        extra = 'ignore'
-        allow_mutation = False
+    """腾讯云 API 数据基类"""
+
+    model_config = ConfigDict(extra='ignore', frozen=True)
 
 
 class BaseTencentCloudError(BaseModel):

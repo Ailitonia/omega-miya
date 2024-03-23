@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import ConfigDict, BaseModel, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, WordBankOrm
 
@@ -24,13 +24,10 @@ class WordBank(BaseModel):
     key_word: str
     reply_entity: str
     result_word: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class WordBankDAL(BaseDataAccessLayerModel):
@@ -41,7 +38,7 @@ class WordBankDAL(BaseDataAccessLayerModel):
             where(WordBankOrm.key_word == key_word).\
             where(WordBankOrm.reply_entity == reply_entity)
         session_result = await self.db_session.execute(stmt)
-        return WordBank.from_orm(session_result.scalar_one())
+        return WordBank.model_validate(session_result.scalar_one())
 
     async def query_reply_entity_all(self, reply_entity: str) -> list[WordBank]:
         """查询指定响应对象的问答"""

@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, SystemSettingOrm
 
@@ -23,14 +23,11 @@ class SystemSetting(BaseModel):
     id: int
     setting_name: str
     setting_value: str
-    info: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    info: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class SystemSettingDAL(BaseDataAccessLayerModel):
@@ -39,7 +36,7 @@ class SystemSettingDAL(BaseDataAccessLayerModel):
     async def query_unique(self, setting_name: str) -> SystemSetting:
         stmt = select(SystemSettingOrm).where(SystemSettingOrm.setting_name == setting_name)
         session_result = await self.db_session.execute(stmt)
-        return SystemSetting.from_orm(session_result.scalar_one())
+        return SystemSetting.model_validate(session_result.scalar_one())
 
     async def query_all(self) -> list[SystemSetting]:
         stmt = select(SystemSettingOrm).order_by(SystemSettingOrm.setting_name)

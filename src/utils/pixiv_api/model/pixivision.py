@@ -54,14 +54,14 @@ class PixivisionArticleArtwork(BasePixivModel):
     artwork_title: str
     artwork_user: str
     artwork_url: AnyHttpUrl
-    image_url: AnyHttpUrl | None
+    image_url: AnyHttpUrl | None = None
 
 
 class PixivisionArticle(BasePixivModel):
     """Pixivision 文章 Model"""
     title: str
     description: str
-    eyecatch_image: AnyHttpUrl | None
+    eyecatch_image: AnyHttpUrl | None = None
     artwork_list: list[PixivisionArticleArtwork]
     tags_list: list[PixivisionIllustrationTag]
 

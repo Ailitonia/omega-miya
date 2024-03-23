@@ -15,7 +15,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Literal, Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, SubscriptionOrm, SubscriptionSourceOrm
 
@@ -41,14 +41,11 @@ class SubscriptionSource(BaseModel):
     sub_type: SubscriptionSourceType
     sub_id: str
     sub_user_name: str
-    sub_info: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    sub_info: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class SubscriptionSourceDAL(BaseDataAccessLayerModel):
@@ -63,7 +60,7 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
             where(SubscriptionSourceOrm.sub_type == sub_type).\
             where(SubscriptionSourceOrm.sub_id == sub_id)
         session_result = await self.db_session.execute(stmt)
-        return SubscriptionSource.from_orm(session_result.scalar_one())
+        return SubscriptionSource.model_validate(session_result.scalar_one())
 
     async def query_entity_subscribed_all(
             self,

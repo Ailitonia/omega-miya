@@ -14,7 +14,7 @@ from nonebot.adapters.onebot.v11.adapter import Adapter
 from nonebot.adapters.onebot.v11.event import Event, NoticeEvent
 from nonebot.log import logger
 from nonebot.typing import overrides
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
@@ -57,8 +57,7 @@ class OfflineFile(BaseModel):
     size: int
     url: str
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 @register_event
@@ -93,8 +92,7 @@ class Device(BaseModel):
     device_name: str
     device_kind: str
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 @register_event

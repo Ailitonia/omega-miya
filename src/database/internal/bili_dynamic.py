@@ -13,25 +13,22 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, BiliDynamicOrm
 
 
 class BiliDynamic(BaseModel):
-    """B站动态 Model"""
+    """bilibili 主站动态 Model"""
     id: int
     dynamic_id: int
     dynamic_type: int
     uid: int
     content: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class BiliDynamicDAL(BaseDataAccessLayerModel):
@@ -40,7 +37,7 @@ class BiliDynamicDAL(BaseDataAccessLayerModel):
     async def query_unique(self, dynamic_id: int) -> BiliDynamic:
         stmt = select(BiliDynamicOrm).where(BiliDynamicOrm.dynamic_id == dynamic_id)
         session_result = await self.db_session.execute(stmt)
-        return BiliDynamic.from_orm(session_result.scalar_one())
+        return BiliDynamic.model_validate(session_result.scalar_one())
 
     async def query_user_all(self, uid: int) -> list[BiliDynamic]:
         """查询用户的全部动态"""

@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from pydantic.generics import GenericModel
+from pydantic import BaseModel
 from typing import Generic, TypeVar, Optional
 
 from .base_model import BaseBilibiliModel
@@ -17,11 +17,11 @@ from .base_model import BaseBilibiliModel
 T = TypeVar("T")
 
 
-class BaseBilibiliSearchingDataModel(BaseBilibiliModel, GenericModel, Generic[T]):
+class BaseBilibiliSearchingDataModel(BaseBilibiliModel, BaseModel, Generic[T]):
     """Bilibili 搜索结果 Data 基类"""
     cost_time: dict
     egg_hit: int
-    exp_list: Optional[dict]
+    exp_list: Optional[dict] = None
     numPages: int
     numResults: int
     page: int
@@ -33,10 +33,10 @@ class BaseBilibiliSearchingDataModel(BaseBilibiliModel, GenericModel, Generic[T]
     result: list[T] = []
 
 
-class BaseBilibiliSearchingModel(BaseBilibiliModel, GenericModel, Generic[T]):
+class BaseBilibiliSearchingModel(BaseBilibiliModel, BaseModel, Generic[T]):
     """Bilibili 搜索结果 Model 基类"""
     code: int
-    data: Optional[BaseBilibiliSearchingDataModel[T]]
+    data: Optional[BaseBilibiliSearchingDataModel[T]] = None
     message: str
 
     @property
@@ -62,7 +62,7 @@ class UserSearchingResult(BaseBilibiliModel):
     level: int
     videos: int
     fans: int
-    verify_info: str | None
+    verify_info: str | None = None
 
 
 class UserSearchingData(BaseBilibiliSearchingDataModel[UserSearchingResult]):
@@ -72,7 +72,7 @@ class UserSearchingData(BaseBilibiliSearchingDataModel[UserSearchingResult]):
 
 class UserSearchingModel(BaseBilibiliSearchingModel[UserSearchingResult]):
     """用户搜索 Model"""
-    data: Optional[UserSearchingData]
+    data: Optional[UserSearchingData] = None
 
 
 __all__ = [

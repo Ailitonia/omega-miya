@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from pydantic import AnyHttpUrl, validator
+from pydantic import AnyHttpUrl, field_validator
 from pytz import timezone
 from typing import Optional
 
@@ -36,7 +36,8 @@ class BilibiliLiveRoomDataModel(BaseBilibiliModel):
     def cover(self) -> str:
         return str(self.user_cover if self.user_cover else self.cover_from_user)
 
-    @validator('live_time')
+    @field_validator('live_time')
+    @classmethod
     def time_zone_conversion(cls, v):
         if isinstance(v, datetime):
             v = v.astimezone(_DEFAULT_LOCAL_TZ)
@@ -46,7 +47,7 @@ class BilibiliLiveRoomDataModel(BaseBilibiliModel):
 class BilibiliLiveRoomModel(BaseBilibiliModel):
     """Bilibili 直播间 Model"""
     code: int
-    data: Optional[BilibiliLiveRoomDataModel]
+    data: Optional[BilibiliLiveRoomDataModel] = None
     msg: str = ''
     message: str = ''
 

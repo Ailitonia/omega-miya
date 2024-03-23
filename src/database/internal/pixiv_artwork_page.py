@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, AnyUrl, parse_obj_as
+from pydantic import BaseModel, ConfigDict, AnyUrl, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, PixivArtworkPageOrm
 
@@ -27,13 +27,10 @@ class PixivArtworkPage(BaseModel):
     regular: AnyUrl
     small: AnyUrl
     thumb_mini: AnyUrl
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class PixivArtworkPageDAL(BaseDataAccessLayerModel):
@@ -44,7 +41,7 @@ class PixivArtworkPageDAL(BaseDataAccessLayerModel):
             where(PixivArtworkPageOrm.artwork_index_id == artwork_index_id).\
             where(PixivArtworkPageOrm.page == page)
         session_result = await self.db_session.execute(stmt)
-        return PixivArtworkPage.from_orm(session_result.scalar_one())
+        return PixivArtworkPage.model_validate(session_result.scalar_one())
 
     async def query_artwork_all(self, artwork_index_id: int) -> list[PixivArtworkPage]:
         stmt = select(PixivArtworkPageOrm).\

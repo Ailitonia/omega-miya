@@ -1,8 +1,8 @@
 import logging
 
-from nonebot import get_driver
 from nonebot.plugin import PluginMetadata
 from nonebot.log import LoguruHandler, logger
+from nonebot import get_driver, get_plugin_config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .config import Config
@@ -25,8 +25,7 @@ __plugin_meta__ = PluginMetadata(
 
 
 driver = get_driver()
-global_config = driver.config
-plugin_config = Config(**global_config.dict())
+plugin_config = get_plugin_config(Config)
 
 scheduler = AsyncIOScheduler()
 scheduler.configure(plugin_config.apscheduler_config)

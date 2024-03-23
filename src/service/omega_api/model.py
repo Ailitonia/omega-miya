@@ -9,14 +9,13 @@
 """
 
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class BaseApiModel(BaseModel):
-    """api 基类"""
-    class Config:
-        extra = 'ignore'
-        allow_mutation = False
+    """omega API 基类"""
+
+    model_config = ConfigDict(extra='ignore', frozen=True)
 
 
 class BaseApiReturn(BaseApiModel):
@@ -24,7 +23,7 @@ class BaseApiReturn(BaseApiModel):
     error: bool
     body: BaseApiModel
     message: str
-    exception: Optional[str]
+    exception: Optional[str] = None
 
 
 __all = [

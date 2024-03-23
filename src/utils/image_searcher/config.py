@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_driver, logger
-from pydantic import BaseModel, ValidationError
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 
 class ImageSearcherConfig(BaseModel):
@@ -22,12 +22,11 @@ class ImageSearcherConfig(BaseModel):
     image_searcher_enable_ascii2d: bool = True
     image_searcher_enable_trace_moe: bool = True
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 try:
-    image_searcher_config = ImageSearcherConfig.parse_obj(get_driver().config)
+    image_searcher_config = get_plugin_config(ImageSearcherConfig)
     if not image_searcher_config.saucenao_api_key:
         logger.opt(colors=True).warning(f'<lc>ImageSearcher</lc> | <lr>未配置 Saucenao API KEY</lr>, '
                                         f'<ly>部分识图功能可能无法正常使用</ly>')

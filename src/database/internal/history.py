@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, HistoryOrm
 
@@ -28,14 +28,11 @@ class History(BaseModel):
     event_type: str
     event_id: str
     raw_data: str
-    msg_data: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    msg_data: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class HistoryDAL(BaseDataAccessLayerModel):

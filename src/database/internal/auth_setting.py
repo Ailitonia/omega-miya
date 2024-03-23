@@ -13,7 +13,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, AuthSettingOrm
 
@@ -26,14 +26,11 @@ class AuthSetting(BaseModel):
     plugin: str
     node: str
     available: int
-    value: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    value: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        extra = 'ignore'
-        orm_mode = True
-        allow_mutation = False
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
 
 class AuthSettingDAL(BaseDataAccessLayerModel):
@@ -46,7 +43,7 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
             where(AuthSettingOrm.plugin == plugin).\
             where(AuthSettingOrm.node == node)
         session_result = await self.db_session.execute(stmt)
-        return AuthSetting.from_orm(session_result.scalar_one())
+        return AuthSetting.model_validate(session_result.scalar_one())
 
     async def query_entity_all(
             self,
