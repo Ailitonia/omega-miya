@@ -17,7 +17,7 @@ from nonebot.exception import ActionFailed
 from src.database import begin_db_session
 from src.database.internal.entity import Entity
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
-from src.service import EntityInterface, OmegaEntity, OmegaMessageSegment
+from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
 from src.utils.bilibili_api import BilibiliLiveRoom
 from src.utils.bilibili_api.model.live_room import BilibiliLiveRoomDataModel
@@ -63,24 +63,24 @@ async def _add_upgrade_room_sub_source(live_room: BilibiliLiveRoom) -> Subscript
     return source_res
 
 
-async def add_live_room_sub(entity_interface: EntityInterface, live_room: BilibiliLiveRoom) -> None:
+async def add_live_room_sub(interface: OmegaInterface, live_room: BilibiliLiveRoom) -> None:
     """为目标对象添加 Bilibili 直播间订阅"""
     source_res = await _add_upgrade_room_sub_source(live_room=live_room)
-    await entity_interface.entity.add_subscription(subscription_source=source_res,
-                                                   sub_info=f'Bilibili直播间订阅(rid={live_room.rid})')
+    await interface.entity.add_subscription(subscription_source=source_res,
+                                            sub_info=f'Bilibili直播间订阅(rid={live_room.rid})')
 
 
-async def delete_live_room_sub(entity_interface: EntityInterface, room_id: int) -> None:
+async def delete_live_room_sub(interface: OmegaInterface, room_id: int) -> None:
     """为目标对象删除 Bilibili 直播间订阅"""
     source_res = await _query_room_sub_source(room_id=room_id)
-    await entity_interface.entity.delete_subscription(subscription_source=source_res)
+    await interface.entity.delete_subscription(subscription_source=source_res)
 
 
-async def query_subscribed_live_room_sub_source(entity_interface: EntityInterface) -> dict[str, str]:
+async def query_subscribed_live_room_sub_source(interface: OmegaInterface) -> dict[str, str]:
     """获取目标对象已订阅的 Bilibili 直播间
 
     :return: {房间号: 用户昵称}的字典"""
-    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=BILI_LIVE_SUB_TYPE)
+    subscribed_source = await interface.entity.query_subscribed_source(sub_type=BILI_LIVE_SUB_TYPE)
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 
@@ -142,8 +142,8 @@ async def _msg_sender(entity: Entity, message: str | Message) -> None:
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
-            entity_interface = EntityInterface(entity=internal_entity)
-            await entity_interface.send_msg(message=message)
+            interface = OmegaInterface(entity=internal_entity)
+            await interface.send_msg(message=message)
     except ActionFailed as e:
         logger.warning(f'BilibiliLiveRoomMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')
     except Exception as e:

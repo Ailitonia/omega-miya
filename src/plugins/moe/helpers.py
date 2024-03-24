@@ -16,7 +16,7 @@ from nonebot.rule import ArgumentParser, Namespace
 from nonebot.utils import run_sync
 
 from src.database import begin_db_session
-from src.service.omega_base import EntityInterface, OmegaMessageSegment
+from src.service.omega_base import OmegaInterface, OmegaMessageSegment
 from src.service.omega_base.internal import OmegaPixivArtwork
 from src.resource import TemporaryResource
 from src.utils.pixiv_api import PixivArtwork
@@ -26,11 +26,11 @@ from .config import moe_plugin_config, moe_plugin_resource_config
 from .consts import ALLOW_R18_NODE
 
 
-async def _has_allow_r18_node(matcher: Matcher, entity_interface: EntityInterface) -> bool:
+async def _has_allow_r18_node(matcher: Matcher, interface: OmegaInterface) -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     return (
-            await entity_interface.entity.check_global_permission() and
-            await entity_interface.entity.check_auth_setting(
+            await interface.entity.check_global_permission() and
+            await interface.entity.check_auth_setting(
                 module=matcher.plugin.module_name,
                 plugin=matcher.plugin.name,
                 node=ALLOW_R18_NODE
@@ -38,12 +38,12 @@ async def _has_allow_r18_node(matcher: Matcher, entity_interface: EntityInterfac
     )
 
 
-async def has_allow_r18_node(matcher: Matcher, entity_interface: EntityInterface) -> bool:
+async def has_allow_r18_node(matcher: Matcher, interface: OmegaInterface) -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     try:
-        allow_r18 = await _has_allow_r18_node(matcher=matcher, entity_interface=entity_interface)
+        allow_r18 = await _has_allow_r18_node(matcher=matcher, interface=interface)
     except Exception as e:
-        logger.warning(f'Checking {entity_interface.entity} r18 node failed, {e!r}')
+        logger.warning(f'Checking {interface.entity} r18 node failed, {e!r}')
         allow_r18 = False
     return allow_r18
 

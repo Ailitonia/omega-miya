@@ -15,7 +15,7 @@ from nonebot.params import ArgStr
 from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import MatcherInterface, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
 
 from .data_source import get_http_cat
 
@@ -33,13 +33,13 @@ async def handle_httpcat(code: Annotated[str, ArgStr('code')]):
     if not code.isdigit():
         code = '404'
 
-    matcher_interface = MatcherInterface()
+    interface = OmegaInterface()
     try:
         code_image = await get_http_cat(http_code=code)
-        await matcher_interface.send_reply(OmegaMessageSegment.image(code_image.path))
+        await interface.send_reply(OmegaMessageSegment.image(code_image.path))
     except Exception as e:
         logger.error(f'HttpCat | 获取状态码{code!r}对应图片失败, {e!r}')
-        await matcher_interface.send_reply('获取猫猫失败QAQ')
+        await interface.send_reply('获取猫猫失败QAQ')
 
 
 __all__ = []

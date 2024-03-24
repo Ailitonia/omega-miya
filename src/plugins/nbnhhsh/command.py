@@ -15,7 +15,7 @@ from nonebot.params import ArgStr
 from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import MatcherInterface, enable_processor_state
+from src.service import OmegaInterface, enable_processor_state
 
 from .data_source import query_guess
 
@@ -30,8 +30,7 @@ from .data_source import query_guess
 ).got('guess_word', prompt='有啥缩写搞不懂? 发来给你看看:')
 async def handle_guess(guess_word: Annotated[str, ArgStr('guess_word')]):
     guess_word = guess_word.strip()
-
-    matcher_interface = MatcherInterface()
+    interface = OmegaInterface()
     try:
         guess_result = await query_guess(guess=guess_word)
         if guess_result:
@@ -39,10 +38,10 @@ async def handle_guess(guess_word: Annotated[str, ArgStr('guess_word')]):
             trans = f'为你找到了{guess_word!r}的以下解释:\n\n{trans}'
         else:
             trans = f'没有找到{guess_word!r}的解释'
-        await matcher_interface.send_reply(trans)
+        await interface.send_reply(trans)
     except Exception as e:
         logger.error(f'nbnhhsh | 获取{guess_word!r}查询结果失败, {e!r}')
-        await matcher_interface.send_reply('发生了意外的错误, 请稍后再试')
+        await interface.send_reply('发生了意外的错误, 请稍后再试')
 
 
 __all__ = []

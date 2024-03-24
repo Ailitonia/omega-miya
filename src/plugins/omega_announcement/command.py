@@ -20,7 +20,7 @@ from nonebot.plugin import on_command
 
 from src.database import EntityDAL
 from src.params.handler import get_command_message_arg_parser_handler
-from src.service import OmegaEntity, EntityInterface, MatcherInterface, enable_processor_state
+from src.service import OmegaEntity, OmegaInterface, enable_processor_state
 from src.utils.process_utils import semaphore_gather
 
 
@@ -39,8 +39,8 @@ async def handle_announce(
         entity_dal: Annotated[EntityDAL, Depends(EntityDAL.dal_dependence)],
         announcement_content: Annotated[Message, Arg('announcement_content')]
 ) -> None:
-    matcher_interface = MatcherInterface()
-    announce_message = matcher_interface.get_msg_extractor()(message=announcement_content).message
+    interface = OmegaInterface()
+    announce_message = interface.get_msg_extractor()(message=announcement_content).message
 
     all_entity = await entity_dal.query_all()
 
@@ -50,7 +50,7 @@ async def handle_announce(
         if not await entity.check_global_permission():
             continue
 
-        tasks.append(EntityInterface(entity=entity).send_msg(message=announce_message))
+        tasks.append(OmegaInterface(entity=entity).send_msg(message=announce_message))
 
     announce_result = await semaphore_gather(tasks=tasks, semaphore_num=3)
 

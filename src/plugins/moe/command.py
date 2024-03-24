@@ -25,7 +25,7 @@ from nonebot.typing import T_State
 
 from src.database import begin_db_session
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import EntityInterface, MatcherInterface, enable_processor_state
+from src.service import OmegaInterface, enable_processor_state
 from src.service.omega_base.internal import OmegaPixivArtwork
 from src.utils.pixiv_api import PixivArtwork
 from src.utils.process_utils import semaphore_gather
@@ -67,11 +67,11 @@ async def handle_parsed_failed(matcher: Matcher, args: Annotated[ParserExit, She
 @setu.handle()
 async def handle_parsed_success(
         matcher: Matcher,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         args: Annotated[Namespace, ShellCommandArgs()]
 ) -> None:
     """解析命令成功"""
-    matcher_interface = MatcherInterface()
+    interface.refresh_matcher_state()
 
     args = parse_from_query_parser(args=args)
     keywords = args.word
@@ -82,7 +82,7 @@ async def handle_parsed_success(
             keywords.remove(word)
             nsfw_tag = 2
 
-    allow_r18 = await has_allow_r18_node(matcher=matcher, entity_interface=entity_interface)
+    allow_r18 = await has_allow_r18_node(matcher=matcher, interface=interface)
     if not allow_r18 and nsfw_tag != 1:
         await matcher.finish('没有涩涩的权限, 禁止开车车!')
     if not allow_r18:
@@ -103,10 +103,10 @@ async def handle_parsed_success(
         )
 
     if not artworks:
-        await matcher_interface.send_reply('找不到涩图QAQ')
+        await interface.send_reply('找不到涩图QAQ')
         return
 
-    await matcher_interface.send_reply('稍等, 正在下载图片~')
+    await interface.send_reply('稍等, 正在下载图片~')
 
     message_result = await semaphore_gather(
         tasks=[prepare_send_image(pid=x.pid) for x in artworks],
@@ -115,12 +115,12 @@ async def handle_parsed_success(
     )
     send_messages = list(message_result)
     if not send_messages:
-        await matcher_interface.send_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
+        await interface.send_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
         return
 
     await semaphore_gather(
         tasks=[
-            entity_interface.send_msg_auto_revoke(
+            interface.send_msg_auto_revoke(
                 message=message,
                 revoke_interval=moe_plugin_config.moe_plugin_setu_auto_recall_time
             )
@@ -154,11 +154,11 @@ async def handle_parsed_failed(matcher: Matcher, args: Annotated[ParserExit, She
 
 @moe.handle()
 async def handle_parsed_success(
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         args: Annotated[Namespace, ShellCommandArgs()]
 ) -> None:
     """解析命令成功"""
-    matcher_interface = MatcherInterface()
+    interface.refresh_matcher_state()
 
     args = parse_from_query_parser(args=args)
     keywords = args.word
@@ -182,10 +182,10 @@ async def handle_parsed_success(
         )
 
     if not artworks:
-        await matcher_interface.send_reply('找不到萌图QAQ')
+        await interface.send_reply('找不到萌图QAQ')
         return
 
-    await matcher_interface.send_reply('稍等, 正在下载图片~')
+    await interface.send_reply('稍等, 正在下载图片~')
 
     message_result = await semaphore_gather(
         tasks=[prepare_send_image(pid=x.pid) for x in artworks],
@@ -194,12 +194,12 @@ async def handle_parsed_success(
     )
     send_messages = list(message_result)
     if not send_messages:
-        await matcher_interface.send_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
+        await interface.send_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
         return
 
     await semaphore_gather(
         tasks=[
-            entity_interface.send_msg_auto_revoke(
+            interface.send_msg_auto_revoke(
                 message=message,
                 revoke_interval=moe_plugin_config.moe_plugin_moe_auto_recall_time
             )
@@ -223,7 +223,7 @@ async def handle_parsed_success(
     state=enable_processor_state(name='MoeStatistics', enable_processor=False),
 ).got('keyword')
 async def handle_keyword_statistics(keyword: Annotated[str | None, ArgStr('keyword')]):
-    matcher_interface = MatcherInterface()
+    interface = OmegaInterface()
 
     if not keyword:
         keywords = []
@@ -239,7 +239,7 @@ async def handle_keyword_statistics(keyword: Annotated[str | None, ArgStr('keywo
         msg_prefix = f'本地数据库[{",".join(keywords) if keywords else "total"}]统计:'
     except Exception as e:
         logger.error(f'MoeStatistics | 查询图库统计(keyword={keywords})失败, {e!r}')
-        await matcher_interface.send_reply('查询统计信息失败, 详情请查看日志')
+        await interface.send_reply('查询统计信息失败, 详情请查看日志')
         return
 
     msg = f'{msg_prefix}\n\n' \
@@ -247,7 +247,7 @@ async def handle_keyword_statistics(keyword: Annotated[str | None, ArgStr('keywo
           f'Moe: {statistics_data.moe}\n' \
           f'Setu: {statistics_data.setu}\n' \
           f'R18: {statistics_data.r18}'
-    await matcher_interface.send_reply(msg)
+    await interface.send_reply(msg)
 
 
 async def handle_parse_database_import_pid(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
@@ -276,7 +276,7 @@ async def handle_database_import(
         mode: Annotated[str, ArgStr('mode')],
         state: T_State
 ) -> None:
-    matcher_interface = MatcherInterface()
+    interface = OmegaInterface()
 
     mode = mode.strip()
     match mode:
@@ -285,20 +285,20 @@ async def handle_database_import(
         case 'setu':
             nsfw_tag = 1
         case _:
-            await matcher_interface.send_at_sender('不支持的导入模式参数, 请在【setu/moe】中选择, 已取消操作')
+            await interface.send_at_sender('不支持的导入模式参数, 请在【setu/moe】中选择, 已取消操作')
             return
 
     pids: list[int] = [int(x) for x in state.get('pids', [])]
     if not pids:
-        await matcher_interface.send_at_sender('尝试从文件中读取导入文件列表')
+        await interface.send_at_sender('尝试从文件中读取导入文件列表')
         pids = await get_database_import_pids()
     if not pids:
-        await matcher_interface.send_at_sender('导入列表不存在, 已取消操作, 详情请查看日志')
+        await interface.send_at_sender('导入列表不存在, 已取消操作, 详情请查看日志')
         return
 
     pids = sorted(list(set(pids)), reverse=True)
     all_count = len(pids)
-    await matcher_interface.send_at_sender(f'已获取导入列表, 总计: {all_count}, 开始获取作品信息')
+    await interface.send_at_sender(f'已获取导入列表, 总计: {all_count}, 开始获取作品信息')
 
     # 应对 pixiv 流控, 对获取作品信息进行分段处理
     pids = deepcopy(pids)
@@ -329,4 +329,4 @@ async def handle_database_import(
             await asyncio.sleep(int((len(pids) if len(pids) < 20 else 20) * 1.5))
 
     logger.success(f'MoeDatabaseImport | 导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')
-    await matcher_interface.send_reply(f'导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')
+    await interface.send_reply(f'导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')

@@ -15,7 +15,7 @@ from nonebot import get_driver
 from nonebot.log import logger
 
 from src.database import AuthSettingDAL, begin_db_session
-from src.service import EntityInterface, OmegaEntity, OmegaMessage, scheduler
+from src.service import OmegaInterface, OmegaEntity, OmegaMessage, scheduler
 
 from .model import SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME, ScheduleMessageJob
 
@@ -29,8 +29,8 @@ def add_schedule_job(job_data: ScheduleMessageJob) -> None:
         try:
             async with begin_db_session() as session:
                 entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=job_data.entity_index_id)
-                entity_interface = EntityInterface(entity=entity)
-                await entity_interface.send_msg(message=send_message)
+                interface = OmegaInterface(entity=entity)
+                await interface.send_msg(message=send_message)
         except Exception as e:
             logger.error(f'ScheduleMessageJob | Sending schedule message job({job_data.job_name}) failed, {e!r}')
 
@@ -73,13 +73,13 @@ async def _init_schedule_message_job() -> None:
 
 
 async def generate_schedule_job_data(
-        entity_interface: EntityInterface,
+        interface: OmegaInterface,
         job_name: str,
         crontab: str,
         message: OmegaMessage
 ) -> ScheduleMessageJob:
     """生成定时消息的计划任务"""
-    entity_data = await entity_interface.entity.query_entity_self()
+    entity_data = await interface.entity.query_entity_self()
     job_data = {
         'entity_index_id': entity_data.id,
         'schedule_job_name': job_name,
@@ -90,9 +90,9 @@ async def generate_schedule_job_data(
     return ScheduleMessageJob.parse_obj(job_data)
 
 
-async def get_schedule_message_job_list(entity_interface: EntityInterface) -> list[str]:
+async def get_schedule_message_job_list(interface: OmegaInterface) -> list[str]:
     """获取数据库中 Event 对应 Entity 的全部定时任务名称"""
-    all_jobs = await entity_interface.entity.query_plugin_all_auth_setting(
+    all_jobs = await interface.entity.query_plugin_all_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME
     )
     job_list = [
@@ -103,9 +103,9 @@ async def get_schedule_message_job_list(entity_interface: EntityInterface) -> li
     return job_list
 
 
-async def set_schedule_message_job(entity_interface: EntityInterface, job_data: ScheduleMessageJob) -> None:
+async def set_schedule_message_job(interface: OmegaInterface, job_data: ScheduleMessageJob) -> None:
     """在数据库中新增或更新 Event 对应 Entity 的定时任务信息"""
-    await entity_interface.entity.set_auth_setting(
+    await interface.entity.set_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
         plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_data.schedule_job_name,
@@ -114,16 +114,16 @@ async def set_schedule_message_job(entity_interface: EntityInterface, job_data: 
     )
 
 
-async def remove_schedule_message_job(entity_interface: EntityInterface, job_name: str) -> None:
+async def remove_schedule_message_job(interface: OmegaInterface, job_name: str) -> None:
     """在数据库中停用 Event 对应 Entity 的定时任务信息"""
-    job_setting = await entity_interface.entity.query_auth_setting(
+    job_setting = await interface.entity.query_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
         plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_name
     )
     job_data = ScheduleMessageJob.parse_obj(json.loads(job_setting.value))
 
-    await entity_interface.entity.set_auth_setting(
+    await interface.entity.set_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
         plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_name,

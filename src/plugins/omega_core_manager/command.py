@@ -21,7 +21,7 @@ from nonebot.typing import T_State
 
 from src.database import PluginDAL
 from src.params.permission import IS_ADMIN
-from src.service import EntityInterface, enable_processor_state
+from src.service import OmegaInterface, enable_processor_state
 
 from .helpers import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node, list_command_by_priority
 from .status import get_status
@@ -52,14 +52,14 @@ async def handle_parse_args(state: T_State, cmd_arg: Annotated[Message, CommandA
 
 
 @omega.command('start', aliases={'Start', 'start', 'EnableOmega', 'enable_omega'}, permission=IS_ADMIN).handle()
-async def handle_start(matcher: Matcher, entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]):
+async def handle_start(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
     try:
-        await entity_interface.entity.add_ignore_exists()
-        await entity_interface.entity.enable_global_permission()
-        await entity_interface.entity.set_permission_level(DEFAULT_PERMISSION_LEVEL)
-        await entity_interface.entity.commit_session()
+        await interface.entity.add_ignore_exists()
+        await interface.entity.enable_global_permission()
+        await interface.entity.set_permission_level(DEFAULT_PERMISSION_LEVEL)
+        await interface.entity.commit_session()
 
-        logger.success(f'Omega 启用成功, Entity: {entity_interface.entity}')
+        logger.success(f'Omega 启用成功, Entity: {interface.entity}')
         await matcher.send('Omega 启用/初始化成功')
     except Exception as e:
         logger.error(f'Omega 启用/初始化失败, {e!r}')
@@ -67,14 +67,14 @@ async def handle_start(matcher: Matcher, entity_interface: Annotated[EntityInter
 
 
 @omega.command('disable', aliases={'DisableOmega', 'disable_omega'}, permission=IS_ADMIN).handle()
-async def handle_disable(matcher: Matcher, entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]):
+async def handle_disable(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
     try:
-        await entity_interface.entity.add_ignore_exists()
-        await entity_interface.entity.disable_global_permission()
-        await entity_interface.entity.set_permission_level(0)
-        await entity_interface.entity.commit_session()
+        await interface.entity.add_ignore_exists()
+        await interface.entity.disable_global_permission()
+        await interface.entity.set_permission_level(0)
+        await interface.entity.commit_session()
 
-        logger.success(f'Omega 禁用成功, Entity: {entity_interface.entity}')
+        logger.success(f'Omega 禁用成功, Entity: {interface.entity}')
         await matcher.send('Omega 禁用成功')
     except Exception as e:
         logger.error(f'Omega 禁用失败, {e!r}')
@@ -82,12 +82,12 @@ async def handle_disable(matcher: Matcher, entity_interface: Annotated[EntityInt
 
 
 @omega.command('status', aliases={'Status', 'status'}, permission=None, priority=10).handle()
-async def handle_status(matcher: Matcher, entity_interface: Annotated[EntityInterface, Depends(EntityInterface())]):
+async def handle_status(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
     try:
-        global_permission = await entity_interface.entity.query_global_permission()
+        global_permission = await interface.entity.query_global_permission()
         global_permission_text = '已启用(Enabled)' if global_permission.available == 1 else '已禁用(Disabled)'
 
-        permission_level = await entity_interface.entity.query_permission_level()
+        permission_level = await interface.entity.query_permission_level()
         permission_level_text = f'Level-{permission_level.available}'
 
         permission_status = f'Omega 功能开关: {global_permission_text}\nOmega 权限等级: {permission_level_text}'
@@ -115,7 +115,7 @@ async def handle_help(bot: Bot, event: Event, matcher: Matcher, cmd_arg: Annotat
 ).got('omega_arg_0', prompt='请输入需要设定的权限等级:')
 async def handle_set_level(
         matcher: Matcher,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         level: Annotated[str, ArgStr('omega_arg_0')]
 ) -> None:
     level = level.strip()
@@ -127,10 +127,10 @@ async def handle_set_level(
         await matcher.finish(f'异常参数, 可设定的权限等级范围为 0~{MAX_PERMISSION_LEVEL}, 操作已取消')
 
     try:
-        await entity_interface.entity.set_permission_level(level)
-        await entity_interface.entity.commit_session()
+        await interface.entity.set_permission_level(level)
+        await interface.entity.commit_session()
 
-        logger.success(f'Omega 设置权限等级{level!r}成功, Entity: {entity_interface.entity}')
+        logger.success(f'Omega 设置权限等级{level!r}成功, Entity: {interface.entity}')
         await matcher.send(f'Omega 已将当前会话权限等级设置为: Level-{level!r}')
     except Exception as e:
         logger.error(f'Omega 设置权限等级失败, {e!r}')
@@ -245,11 +245,11 @@ allow_plugin_node = omega.command(
 @allow_plugin_node.got('omega_arg_1', prompt='请输入需要配置的权限节点:')
 async def handle_allow_plugin_node(
         matcher: Matcher,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')],
         auth_node: Annotated[str, ArgStr('omega_arg_1')]
 ) -> None:
-    await handle_config_plugin_node(matcher, entity_interface, plugin_name, auth_node, 1)
+    await handle_config_plugin_node(matcher, interface, plugin_name, auth_node, 1)
 
 
 deny_plugin_node = omega.command(
@@ -261,16 +261,16 @@ deny_plugin_node = omega.command(
 @deny_plugin_node.got('omega_arg_1', prompt='请输入需要配置的权限节点:')
 async def handle_deny_plugin_node(
         matcher: Matcher,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')],
         auth_node: Annotated[str, ArgStr('omega_arg_1')]
 ) -> None:
-    await handle_config_plugin_node(matcher, entity_interface, plugin_name, auth_node, 0)
+    await handle_config_plugin_node(matcher, interface, plugin_name, auth_node, 0)
 
 
 async def handle_config_plugin_node(
         matcher: Matcher,
-        entity_interface: EntityInterface,
+        interface: OmegaInterface,
         plugin_name: str,
         auth_node: str,
         available: int
@@ -288,10 +288,10 @@ async def handle_config_plugin_node(
     plugin = get_plugin(name=plugin_name)
     module = plugin.module_name
     try:
-        await entity_interface.entity.set_auth_setting(
+        await interface.entity.set_auth_setting(
             module=module, plugin=plugin_name, node=auth_node, available=available
         )
-        await entity_interface.entity.commit_session()
+        await interface.entity.commit_session()
 
         logger.success(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
         await matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
@@ -305,7 +305,7 @@ async def handle_config_plugin_node(
 ).got('omega_arg_0', prompt='请输入限制时间(秒):')
 async def handle_set_limiting(
         matcher: Matcher,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface())],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         time: Annotated[str, ArgStr('omega_arg_0')]
 ) -> None:
     time = time.strip()
@@ -315,10 +315,10 @@ async def handle_set_limiting(
     time = int(time)
 
     try:
-        await entity_interface.entity.set_global_cooldown(expired_time=timedelta(seconds=time))
-        await entity_interface.entity.commit_session()
+        await interface.entity.set_global_cooldown(expired_time=timedelta(seconds=time))
+        await interface.entity.commit_session()
 
-        logger.success(f'Omega 设置流控限制{time!r}秒, Entity: {entity_interface.entity}')
+        logger.success(f'Omega 设置流控限制{time!r}秒, Entity: {interface.entity}')
         await matcher.send(f'Omega 已限制当前会话使用{time!r}秒')
     except Exception as e:
         logger.error(f'Omega 设置流控限制失败, {e!r}')

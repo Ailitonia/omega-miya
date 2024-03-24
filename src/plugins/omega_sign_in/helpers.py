@@ -26,7 +26,7 @@ from nonebot.utils import run_sync
 from src.database import begin_db_session
 from src.database.internal.pixiv_artwork import PixivArtwork as PixivArtworkModel
 from src.resource import TemporaryResource
-from src.service import EntityInterface, MatcherInterface, OmegaMessageSegment, OmegaRequests
+from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
 from src.service.omega_base.internal import OmegaPixivArtwork
 from src.utils.image_utils import ImageUtils
 from src.utils.pixiv_api import PixivArtwork
@@ -195,8 +195,8 @@ async def get_signin_top_image() -> tuple[PixivArtworkModel, TemporaryResource]:
 async def get_profile_image(bot: Bot, event: Event) -> TemporaryResource:
     """获取用户头像"""
     async with begin_db_session() as session:
-        entity_interface = EntityInterface(acquire_type='user')(bot=bot, event=event, session=session)
-        url = await entity_interface.get_entity_profile_photo_url()
+        interface = OmegaInterface(acquire_type='user')(bot=bot, event=event, session=session)
+        url = await interface.get_entity_profile_photo_url()
 
     image_name = OmegaRequests.hash_url_file_name('signin-head-image', url=url)
     image_file = sign_local_resource_config.default_save_folder('head_image', image_name)
@@ -522,17 +522,18 @@ async def handle_generate_sign_in_card(
         bot: Bot,
         event: Event,
         state: T_State,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))]
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]
 ) -> None:
     """处理生成签到卡片"""
-    matcher_interface = MatcherInterface()
+    interface.refresh_matcher_state()
+
     try:
         # 获取当前好感度信息
-        await entity_interface.entity.add_ignore_exists()
-        friendship = await entity_interface.entity.query_friendship()
+        await interface.entity.add_ignore_exists()
+        friendship = await interface.entity.query_friendship()
 
         # 先检查签到状态
-        check_result = await entity_interface.entity.check_today_sign_in()
+        check_result = await interface.entity.check_today_sign_in()
         if check_result:
             raise DuplicateException('重复签到')
 
@@ -544,12 +545,12 @@ async def handle_generate_sign_in_card(
 
         # 尝试签到
         try:
-            await entity_interface.entity.sign_in()
+            await interface.entity.sign_in()
         except Exception as e:
             raise FailedException(f'签到失败, {e}') from e
 
         # 查询连续签到时间
-        continuous_days = await entity_interface.entity.query_continuous_sign_in_day()
+        continuous_days = await interface.entity.query_continuous_sign_in_day()
 
         # 尝试为用户增加好感度
         # 根据连签日期设置不同增幅
@@ -570,13 +571,13 @@ async def handle_generate_sign_in_card(
         currency_now = friendship.currency + currency_inc
 
         try:
-            await entity_interface.entity.change_friendship(
+            await interface.entity.change_friendship(
                 friendship=friendship_inc, currency=currency_inc, energy=(- friendship.energy)
             )
         except Exception as e:
             raise FailedException(f'增加好感度失败, {e}') from e
 
-        nick_name = matcher_interface.get_event_handler().get_user_nickname()
+        nick_name = interface.get_event_handler().get_user_nickname()
         user_text = f'@{nick_name} {sign_in_config.signin_friendship_alias}+{int(base_friendship_inc)} ' \
                     f'{sign_in_config.signin_currency_alias}+{int(currency_inc)}\n' \
                     f'已连续签到{continuous_days}天\n' \
@@ -586,43 +587,44 @@ async def handle_generate_sign_in_card(
                     f'当前{sign_in_config.signin_friendship_alias}: {int(friendship_now)}\n' \
                     f'当前{sign_in_config.signin_currency_alias}: {int(currency_now)}'
 
-        await entity_interface.entity.commit_session()
+        await interface.entity.commit_session()
 
         try:
-            sign_in_card = await generate_signin_card(user_id=entity_interface.entity.entity_id, user_text=user_text,
+            sign_in_card = await generate_signin_card(user_id=interface.entity.entity_id, user_text=user_text,
                                                       friendship=friendship_now, top_img=top_img)
         except Exception as e:
             raise FailedException(f'生成签到卡片失败, {e}') from e
 
-        logger.success(f'SignIn | User({entity_interface.entity.tid}) 签到成功')
-        await matcher_interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
+        logger.success(f'SignIn | User({interface.entity.tid}) 签到成功')
+        await interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
     except DuplicateException:
         # 已签到, 设置一个状态指示生成卡片中添加文字
         state.update({'_checked_sign_in_text': '今天你已经签到过了哦~'})
-        logger.info(f'SignIn | User({entity_interface.entity.tid}) 重复签到, 生成运势卡片')
-        await handle_generate_fortune_card(bot=bot, event=event, state=state, entity_interface=entity_interface)
+        logger.info(f'SignIn | User({interface.entity.tid}) 重复签到, 生成运势卡片')
+        await handle_generate_fortune_card(bot=bot, event=event, state=state, interface=interface)
     except FailedException as e:
-        logger.error(f'SignIn | User({entity_interface.entity.tid}) 签到失败, {e}')
-        await matcher_interface.send_at_sender('签到失败了, 请稍后再试或联系管理员处理')
+        logger.error(f'SignIn | User({interface.entity.tid}) 签到失败, {e}')
+        await interface.send_at_sender('签到失败了, 请稍后再试或联系管理员处理')
     except Exception as e:
-        logger.error(f'SignIn | User({entity_interface.entity.tid}) 签到失败, 发生了预期外的错误, {e}')
-        await matcher_interface.send_at_sender('签到失败了, 请稍后再试或联系管理员处理')
+        logger.error(f'SignIn | User({interface.entity.tid}) 签到失败, 发生了预期外的错误, {e}')
+        await interface.send_at_sender('签到失败了, 请稍后再试或联系管理员处理')
 
 
 async def handle_generate_fortune_card(
         bot: Bot,
         event: Event,
         state: T_State,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))]
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]
 ) -> None:
     """处理生成运势卡片"""
-    matcher_interface = MatcherInterface()
+    interface.refresh_matcher_state()
+
     try:
         # 获取当前好感度信息
-        await entity_interface.entity.add_ignore_exists()
-        friendship = await entity_interface.entity.query_friendship()
+        await interface.entity.add_ignore_exists()
+        friendship = await interface.entity.query_friendship()
 
-        nick_name = matcher_interface.get_event_handler().get_user_nickname()
+        nick_name = interface.get_event_handler().get_user_nickname()
 
         # 获取一言
         try:
@@ -651,28 +653,28 @@ async def handle_generate_fortune_card(
             head_img = None
 
         try:
-            sign_in_card = await generate_signin_card(user_id=entity_interface.entity.entity_id, user_text=user_text,
+            sign_in_card = await generate_signin_card(user_id=interface.entity.entity_id, user_text=user_text,
                                                       friendship=friendship.friendship, top_img=top_img,
                                                       draw_fortune=False, head_img=head_img)
         except Exception as e:
             raise FailedException(f'生成运势卡片失败, {e}') from e
 
-        logger.success(f'SignIn | User({entity_interface.entity.tid}) 获取运势卡片成功')
-        await matcher_interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
+        logger.success(f'SignIn | User({interface.entity.tid}) 获取运势卡片成功')
+        await interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
     except Exception as e:
-        logger.error(f'SignIn | User({entity_interface.entity.tid}) 获取运势卡片失败, 发生了预期外的错误, {e}')
-        await matcher_interface.send_at_sender('获取今日运势失败了, 请稍后再试或联系管理员处理')
+        logger.error(f'SignIn | User({interface.entity.tid}) 获取运势卡片失败, 发生了预期外的错误, {e}')
+        await interface.send_at_sender('获取今日运势失败了, 请稍后再试或联系管理员处理')
 
 
 async def handle_fix_sign_in(
         bot: Bot,
         event: Event,
         state: T_State,
-        entity_interface: Annotated[EntityInterface, Depends(EntityInterface('user'))],
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))],
         ensure: Annotated[str | None, ArgStr('sign_in_ensure')]
 ) -> None:
     """处理补签"""
-    matcher_interface = MatcherInterface()
+    interface.refresh_matcher_state()
 
     # 检查是否收到确认消息后执行补签
     if ensure is None:
@@ -683,41 +685,41 @@ async def handle_fix_sign_in(
         fix_date_ordinal_: int | None = state.get('fix_date_ordinal')
 
         if not all((fix_cost_, fix_date_text_, fix_date_ordinal_)):
-            logger.warning(f'SignIn | User({entity_interface.entity.tid}) 补签参数异常, state: {state}')
-            await matcher_interface.send_at_sender('补签失败了, 补签参数异常, 请稍后再试或联系管理员处理')
+            logger.warning(f'SignIn | User({interface.entity.tid}) 补签参数异常, state: {state}')
+            await interface.send_at_sender('补签失败了, 补签参数异常, 请稍后再试或联系管理员处理')
             return
 
         try:
             # 尝试补签
-            await entity_interface.entity.sign_in(sign_in_info='Fixed sign in',
+            await interface.entity.sign_in(sign_in_info='Fixed sign in',
                                                   date_=datetime.fromordinal(fix_date_ordinal_))
-            await entity_interface.entity.change_friendship(currency=(- fix_cost_))
+            await interface.entity.change_friendship(currency=(- fix_cost_))
 
             # 设置一个状态指示生成卡片中添加文字
             state.update({'_checked_sign_in_text': f'已消耗{fix_cost_}{sign_in_config.signin_currency_alias}~\n'
                                                    f'成功补签了{fix_date_text_}的签到!'})
-            logger.success(f'SignIn | User({entity_interface.entity.tid}) 补签{fix_date_text_}成功')
-            await handle_generate_fortune_card(bot=bot, event=event, state=state, entity_interface=entity_interface)
-            await entity_interface.entity.commit_session()
+            logger.success(f'SignIn | User({interface.entity.tid}) 补签{fix_date_text_}成功')
+            await handle_generate_fortune_card(bot=bot, event=event, state=state, interface=interface)
+            await interface.entity.commit_session()
             return
         except Exception as e:
-            logger.error(f'SignIn | User({entity_interface.entity.tid}) 补签失败, 执行补签时发生了预期外的错误, {e}')
-            await matcher_interface.send_at_sender('补签失败了, 请稍后再试或联系管理员处理')
+            logger.error(f'SignIn | User({interface.entity.tid}) 补签失败, 执行补签时发生了预期外的错误, {e}')
+            await interface.send_at_sender('补签失败了, 请稍后再试或联系管理员处理')
             return
     else:
-        await matcher_interface.send_at_sender('已取消补签')
+        await interface.send_at_sender('已取消补签')
         return
 
     # 未收到确认消息后则为首次触发命令执行补签检查
     try:
         # 先检查签到状态
-        is_sign_in_today = await entity_interface.entity.check_today_sign_in()
+        is_sign_in_today = await interface.entity.check_today_sign_in()
         if not is_sign_in_today:
-            await matcher_interface.send_at_sender('你今天还没签到呢, 请先签到后再进行补签哦~')
+            await interface.send_at_sender('你今天还没签到呢, 请先签到后再进行补签哦~')
             return
 
         # 获取补签的时间
-        last_missing_sign_in_day = await entity_interface.entity.query_last_missing_sign_in_day()
+        last_missing_sign_in_day = await interface.entity.query_last_missing_sign_in_day()
 
         fix_date_text = datetime.fromordinal(last_missing_sign_in_day).strftime('%Y年%m月%d日')
         fix_days = datetime.now().toordinal() - last_missing_sign_in_day
@@ -725,12 +727,12 @@ async def handle_fix_sign_in(
         fix_cost = base_cost if fix_days <= 3 else fix_days * base_cost
 
         # 获取当前好感度信息
-        friendship = await entity_interface.entity.query_friendship()
+        friendship = await interface.entity.query_friendship()
 
         if fix_cost > friendship.currency:
-            logger.info(f'SignIn | User({entity_interface.entity.tid}) 未补签, {sign_in_config.signin_currency_alias}不足')
+            logger.info(f'SignIn | User({interface.entity.tid}) 未补签, {sign_in_config.signin_currency_alias}不足')
             tip_msg = f'没有足够的{sign_in_config.signin_currency_alias}【{fix_cost}】进行补签, 已取消操作'
-            await matcher_interface.send_at_sender(tip_msg)
+            await interface.send_at_sender(tip_msg)
             return
 
         state['fix_cost'] = fix_cost
@@ -738,13 +740,13 @@ async def handle_fix_sign_in(
         state['fix_date_ordinal'] = last_missing_sign_in_day
 
     except Exception as e:
-        logger.error(f'SignIn | User({entity_interface.entity.tid}) 补签失败, 检查状态时发生了预期外的错误, {e}')
-        await matcher_interface.send_at_sender('补签失败了, 签到状态异常, 请稍后再试或联系管理员处理')
+        logger.error(f'SignIn | User({interface.entity.tid}) 补签失败, 检查状态时发生了预期外的错误, {e}')
+        await interface.send_at_sender('补签失败了, 签到状态异常, 请稍后再试或联系管理员处理')
         return
 
     ensure_msg = f'使用{fix_cost}{sign_in_config.signin_currency_alias}补签{fix_date_text}\n\n确认吗?\n【是/否】'
-    await matcher_interface.send_at_sender(ensure_msg)
-    await matcher_interface.matcher.reject_arg('sign_in_ensure')
+    await interface.send_at_sender(ensure_msg)
+    await interface.matcher.reject_arg('sign_in_ensure')
 
 
 __all__ = [

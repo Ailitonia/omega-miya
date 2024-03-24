@@ -21,8 +21,8 @@ class EventGlobalPermissionRule:
 
     __slots__ = ()
 
-    async def __call__(self, entity_interface: Annotated[OmegaInterface, Depends(OmegaInterface('event'))]) -> bool:
-        return await entity_interface.check_global_permission()  # caught NoResultFound exception
+    async def __call__(self, interface: Annotated[OmegaInterface, Depends(OmegaInterface('event'))]) -> bool:
+        return await interface.check_global_permission()  # caught NoResultFound exception
 
 
 class EventPermissionLevelRule:
@@ -33,10 +33,10 @@ class EventPermissionLevelRule:
     def __init__(self, level: int):
         self.level = level
 
-    async def __call__(self, entity_interface: Annotated[OmegaInterface, Depends(OmegaInterface('event'))]) -> bool:
+    async def __call__(self, interface: Annotated[OmegaInterface, Depends(OmegaInterface('event'))]) -> bool:
         return (
-            await entity_interface.check_global_permission() and
-            await entity_interface.check_permission_level(level=self.level)
+            await interface.check_global_permission() and
+            await interface.check_permission_level(level=self.level)
         )  # caught NoResultFound exception
 
 
@@ -50,10 +50,10 @@ class EventPermissionNodeRule:
         self.plugin = plugin
         self.node = node
 
-    async def __call__(self, entity_interface: Annotated[OmegaInterface, Depends(OmegaInterface('event'))]) -> bool:
+    async def __call__(self, interface: Annotated[OmegaInterface, Depends(OmegaInterface('event'))]) -> bool:
         return (
-            await entity_interface.check_global_permission() and
-            await entity_interface.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
+            await interface.check_global_permission() and
+            await interface.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
         )  # caught NoResultFound exception
 
 
@@ -62,8 +62,8 @@ class UserGlobalPermissionRule:
 
     __slots__ = ()
 
-    async def __call__(self, entity_interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> bool:
-        return await entity_interface.check_global_permission()  # caught NoResultFound exception
+    async def __call__(self, interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> bool:
+        return await interface.check_global_permission()  # caught NoResultFound exception
 
 
 class UserPermissionLevelRule:
@@ -74,10 +74,10 @@ class UserPermissionLevelRule:
     def __init__(self, level: int):
         self.level = level
 
-    async def __call__(self, entity_interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> bool:
+    async def __call__(self, interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> bool:
         return (
-            await entity_interface.check_global_permission() and
-            await entity_interface.check_permission_level(level=self.level)
+            await interface.check_global_permission() and
+            await interface.check_permission_level(level=self.level)
         )  # caught NoResultFound exception
 
 
@@ -91,10 +91,10 @@ class UserPermissionNodeRule:
         self.plugin = plugin
         self.node = node
 
-    async def __call__(self, entity_interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> bool:
+    async def __call__(self, interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> bool:
         return (
-            await entity_interface.check_global_permission() and
-            await entity_interface.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
+            await interface.check_global_permission() and
+            await interface.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
         )  # caught NoResultFound exception
 
 

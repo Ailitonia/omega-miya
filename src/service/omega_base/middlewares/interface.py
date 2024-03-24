@@ -90,7 +90,7 @@ class OmegaInterface(object):
             if isinstance(self.entity, OmegaEntity):
                 return func(*args, **kwargs)
             else:
-                raise RuntimeError(f'{self} entity is not instantiated')
+                raise RuntimeError(f'{self} entity is not initialized')
 
         return _wrapper
 
@@ -103,7 +103,7 @@ class OmegaInterface(object):
             if isinstance(self.matcher, Matcher):
                 return func(*args, **kwargs)
             else:
-                raise RuntimeError(f'{self} matcher is not instantiated')
+                raise RuntimeError(f'{self} matcher is not initialized, using refresh_matcher_state() in matcher first')
 
         return _wrapper
 
@@ -124,6 +124,9 @@ class OmegaInterface(object):
                 self.entity.db_session = session
                 return await func(*args, **kwargs)
         return _wrapper
+
+    def refresh_matcher_state(self) -> None:
+        self.matcher = current_matcher.get()
 
     def get_api_caller(self, *, bot: BaseBot) -> ApiCaller:
         bot = bot if bot is not None else self.bot

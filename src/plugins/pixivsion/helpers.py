@@ -18,7 +18,7 @@ from nonebot.exception import ActionFailed
 from src.database import PixivisionArticleDAL, begin_db_session
 from src.database.internal.entity import Entity
 from src.database.internal.subscription_source import SubscriptionSource
-from src.service import EntityInterface, OmegaEntity, OmegaMessageSegment
+from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
 from src.service.omega_base.internal import OmegaPixivisionSubSource
 from src.utils.pixiv_api import Pixivision
 from src.utils.pixiv_api.model.pixivision import PixivisionIllustration
@@ -76,17 +76,16 @@ async def _add_pixivision_sub_source() -> SubscriptionSource:
     return source_res
 
 
-async def add_pixivision_sub(entity_interface: EntityInterface) -> None:
+async def add_pixivision_sub(interface: OmegaInterface) -> None:
     """目标对象添加 Pixivision 订阅"""
     source_res = await _add_pixivision_sub_source()
-    await entity_interface.entity.add_subscription(subscription_source=source_res,
-                                                   sub_info=f'Pixivision特辑订阅')
+    await interface.entity.add_subscription(subscription_source=source_res, sub_info=f'Pixivision特辑订阅')
 
 
-async def delete_pixivision_sub(entity_interface: EntityInterface) -> None:
+async def delete_pixivision_sub(interface: OmegaInterface) -> None:
     """为目标对象删除 Pixivision 订阅"""
     source_res = await _query_pixivision_sub_source()
-    await entity_interface.entity.delete_subscription(subscription_source=source_res)
+    await interface.entity.delete_subscription(subscription_source=source_res)
 
 
 async def _query_subscribed_entity() -> list[Entity]:
@@ -125,8 +124,8 @@ async def _msg_sender(entity: Entity, message: str | Message) -> None:
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
-            entity_interface = EntityInterface(entity=internal_entity)
-            await entity_interface.send_msg(message=message)
+            interface = OmegaInterface(entity=internal_entity)
+            await interface.send_msg(message=message)
     except ActionFailed as e:
         logger.warning(f'PixivisionArticleMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')
     except Exception as e:

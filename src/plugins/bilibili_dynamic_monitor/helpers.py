@@ -18,7 +18,7 @@ from nonebot.exception import ActionFailed
 from src.database import BiliDynamicDAL, begin_db_session
 from src.database.internal.entity import Entity
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
-from src.service import EntityInterface, OmegaEntity, OmegaMessageSegment
+from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from src.utils.bilibili_api.model import BilibiliDynamicCard
@@ -81,24 +81,24 @@ async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> Subscripti
     return source_res
 
 
-async def add_dynamic_sub(entity_interface: EntityInterface, bili_user: BilibiliUser) -> None:
+async def add_dynamic_sub(interface: OmegaInterface, bili_user: BilibiliUser) -> None:
     """为目标对象添加 Bilibili 用户动态订阅"""
     source_res = await _add_upgrade_dynamic_sub_source(bili_user=bili_user)
-    await entity_interface.entity.add_subscription(subscription_source=source_res,
-                                                   sub_info=f'Bilibili用户动态订阅(uid={bili_user.uid})')
+    await interface.entity.add_subscription(subscription_source=source_res,
+                                            sub_info=f'Bilibili用户动态订阅(uid={bili_user.uid})')
 
 
-async def delete_dynamic_sub(entity_interface: EntityInterface, uid: int) -> None:
+async def delete_dynamic_sub(interface: OmegaInterface, uid: int) -> None:
     """为目标对象删除 Bilibili 用户动态订阅"""
     source_res = await _query_dynamic_sub_source(uid=uid)
-    await entity_interface.entity.delete_subscription(subscription_source=source_res)
+    await interface.entity.delete_subscription(subscription_source=source_res)
 
 
-async def query_entity_subscribed_dynamic_sub_source(entity_interface: EntityInterface) -> dict[str, str]:
+async def query_entity_subscribed_dynamic_sub_source(interface: OmegaInterface) -> dict[str, str]:
     """获取目标对象已订阅的 Bilibili 用户动态
 
     :return: {用户 UID: 用户昵称} 的字典"""
-    subscribed_source = await entity_interface.entity.query_subscribed_source(sub_type=BILI_DYNAMIC_SUB_TYPE)
+    subscribed_source = await interface.entity.query_subscribed_source(sub_type=BILI_DYNAMIC_SUB_TYPE)
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 
@@ -141,8 +141,8 @@ async def _msg_sender(entity: Entity, message: str | Message) -> None:
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
-            entity_interface = EntityInterface(entity=internal_entity)
-            await entity_interface.send_msg(message=message)
+            interface = OmegaInterface(entity=internal_entity)
+            await interface.send_msg(message=message)
     except ActionFailed as e:
         logger.warning(f'BilibiliDynamicMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')
     except Exception as e:
