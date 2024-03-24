@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 class BaseTencentCloudModel(BaseModel):
     """腾讯云 API 数据基类"""
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
 class BaseTencentCloudError(BaseModel):
