@@ -24,7 +24,7 @@ class BilibiliConfig(BaseModel):
     bili_sessdata: str | None = None
     bili_csrf: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
     @property
     def bili_cookie(self) -> dict[str, str] | None:
