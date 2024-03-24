@@ -13,7 +13,7 @@ from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
 
-from src.service import OmegaEntity, EntityInterface
+from src.service import OmegaEntity, OmegaInterface
 
 from ..plugin_utils import parse_processor_state
 
@@ -40,7 +40,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Even
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
-    async with EntityInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
         is_enabled_global_permission = await event_entity.check_global_permission()
 
     if not is_enabled_global_permission:
@@ -78,7 +78,7 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Even
         return
 
     # 检查事件会话对象是否具备插件要求权限
-    async with EntityInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
         is_permission_allowed = await _check_event_entity_permission(
             entity=event_entity, module_name=module_name, plugin_name=plugin_name,
             level=processor_state.level, auth_node=processor_state.auth_node

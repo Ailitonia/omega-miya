@@ -1,9 +1,9 @@
 """
 @Author         : Ailitonia
 @Date           : 2023/8/12 20:57
-@FileName       : qqguild
+@FileName       : qq
 @Project        : nonebot2_miya
-@Description    : QQGuild support
+@Description    : QQ 官方协议支持
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Annotated
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from nonebot.params import Depends
-from nonebot.adapters.qqguild.bot import Bot
+from nonebot.adapters.qq.bot import Bot
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
@@ -22,16 +22,16 @@ from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 if TYPE_CHECKING:
-    from nonebot.adapters.qqguild.api.model import Guild, Channel
+    from nonebot.adapters.qq.models import Guild, Channel
 
 
 @event_preprocessor
-async def __qqguild_bot_connect(
+async def __qq_bot_connect(
         bot: Bot,
         event: BotConnectEvent,
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
-    """处理 QQGuild Bot 连接事件"""
+    """处理 QQ Bot 连接事件"""
     assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
 
     bot_dal = BotSelfDAL(session=session)
@@ -56,10 +56,10 @@ async def __qqguild_bot_connect(
         guild_query_data = {
             'bot_index_id': exist_bot.id,
             'entity_id': guild.id,
-            'entity_type': allowed_entity_type.qqguild_guild.value,
+            'entity_type': allowed_entity_type.qq_guild.value,
             'parent_id': guild.owner_id
         }
-        guild_info = f'QQGuild: {guild.id}, {guild.description}'
+        guild_info = f'QQ Guild: {guild.id}, {guild.description}'
         try:
             exist_guild = await entity_dal.query_unique(**guild_query_data)
             await entity_dal.update(id_=exist_guild.id, entity_name=guild.name, entity_info=guild_info)
@@ -79,10 +79,10 @@ async def __qqguild_bot_connect(
             channel_query_data = {
                 'bot_index_id': exist_bot.id,
                 'entity_id': channel.id,
-                'entity_type': allowed_entity_type.qqguild_channel.value,
+                'entity_type': allowed_entity_type.qq_channel.value,
                 'parent_id': channel.guild_id
             }
-            chan_info = f'QQGuild Channel: {channel.id}, guild: {channel.guild_id}, parent: {channel.parent_id}'
+            chan_info = f'QQ Channel: {channel.id}, guild: {channel.guild_id}, parent: {channel.parent_id}'
             try:
                 exist_channel = await entity_dal.query_unique(**channel_query_data)
                 await entity_dal.update(id_=exist_channel.id, entity_name=channel.name, entity_info=chan_info)
@@ -97,12 +97,12 @@ async def __qqguild_bot_connect(
 
 
 @event_preprocessor
-async def __qqguild_bot_disconnect(
+async def __qq_bot_disconnect(
         bot: Bot,
         event: BotDisconnectEvent,
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
-    """处理 QQGuild Bot 断开连接事件"""
+    """处理 QQ Bot 断开连接事件"""
     assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
 
     bot_dal = BotSelfDAL(session)

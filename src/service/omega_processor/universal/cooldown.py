@@ -17,7 +17,7 @@ from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
 
 
-from src.service import OmegaEntity, EntityInterface
+from src.service import OmegaEntity, OmegaInterface
 
 from ..plugin_utils import parse_processor_state
 
@@ -55,13 +55,13 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event)
     is_expired: bool = True
     expired_time: datetime = datetime.now()
 
-    async with EntityInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
         event_global_is_expired, event_global_expired_time = await event_entity.check_global_cooldown_expired()
     if not event_global_is_expired:
         is_expired = False
         expired_time = event_global_expired_time if event_global_expired_time > expired_time else expired_time
 
-    async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
+    async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
         user_global_is_expired, user_global_expired_time = await user_entity.check_global_cooldown_expired()
     if not user_global_is_expired:
         is_expired = False
@@ -111,7 +111,7 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event)
         return
 
     cooldown_event = f'{PLUGIN_CD_PREFIX}_{plugin_name}_{processor_state.name}'
-    entity_depend = EntityInterface(acquire_type=processor_state.cooldown_type)
+    entity_depend = OmegaInterface(acquire_type=processor_state.cooldown_type)
 
     # 检查冷却
     async with entity_depend.get_entity(bot=bot, event=event) as entity:

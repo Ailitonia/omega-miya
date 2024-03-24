@@ -14,7 +14,7 @@ from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
 
 from src.database import StatisticDAL, begin_db_session
-from src.service import EntityInterface
+from src.service import OmegaInterface
 
 from ..plugin_utils import parse_processor_state
 
@@ -52,7 +52,7 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
         return
 
     try:
-        async with EntityInterface().get_entity(bot=bot, event=event) as entity:
+        async with OmegaInterface().get_entity(bot=bot, event=event) as entity:
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
             call_info = f'{custom_plugin_name!r} called by {entity!r} in event {event}'

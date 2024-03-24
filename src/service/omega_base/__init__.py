@@ -10,13 +10,12 @@
 
 from .internal import OmegaEntity
 from .message import Message as OmegaMessage, MessageSegment as OmegaMessageSegment
-from .middlewares import EntityInterface, MatcherInterface
+from .middlewares import OmegaInterface
 
 
 __all__ = [
-    'EntityInterface',
-    'MatcherInterface',
     'OmegaEntity',
+    'OmegaInterface',
     'OmegaMessage',
     'OmegaMessageSegment'
 ]

@@ -13,7 +13,7 @@ from nonebot import logger
 from nonebot.internal.adapter import Bot, Event, Message
 
 from src.database import HistoryDAL, begin_db_session
-from src.service import EntityInterface
+from src.service import OmegaInterface
 
 
 LOG_PREFIX: str = '<lc>Event History</lc> | '
@@ -42,7 +42,7 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
         msg_data = msg_data[:4096]
 
     try:
-        async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+        async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
 

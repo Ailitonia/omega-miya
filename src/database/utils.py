@@ -11,7 +11,7 @@
 import inspect
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import AsyncGenerator, Callable, Coroutine, ParamSpec, TypeVar
+from typing import AsyncGenerator, AsyncIterator, Callable, Coroutine, ParamSpec, TypeVar
 
 from nonebot import get_driver, logger
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
@@ -55,18 +55,21 @@ async def __database_dispose():
 
 
 @asynccontextmanager
-async def begin_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def begin_db_session() -> AsyncIterator[AsyncSession]:
     """获取数据库 session 并开始事务"""
     async with async_session_factory() as session:
         async with session.begin():
-            yield session
+            try:
+                yield session
+            except Exception:
+                await session.rollback()
+                raise
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """获取数据库 session 生成器依赖 (Dependence for database async session)"""
-    async with async_session_factory() as session:
-        async with session.begin():
-            yield session
+    async with begin_db_session() as session:
+        yield session
 
 
 def return_query_standard_result(

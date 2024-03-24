@@ -18,11 +18,8 @@ from nonebot.adapters.console import (
     MessageEvent as ConsoleMessageEvent
 )
 
-from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
-from ..entity_tools import register_entity_depend
-from ..event_tools import register_event_handler
-from ..message_tools import register_builder, register_extractor, register_sender
+from ..register import PlatformRegister
 from ..types import (
     ApiCaller,
     EntityDepend,
@@ -42,7 +39,7 @@ from ...message import (
 )
 
 
-@register_api_caller(adapter_name=SupportedPlatform.console.value)
+@PlatformRegister.api_caller.register(SupportedPlatform.console.value)
 class ConsoleApiCaller(ApiCaller):
     """nonebot-console API 调用适配"""
 
@@ -53,7 +50,7 @@ class ConsoleApiCaller(ApiCaller):
         return ''
 
 
-@register_builder(adapter_name=SupportedPlatform.console.value)
+@PlatformRegister.message_builder.register(SupportedPlatform.console.value)
 class ConsoleMessageBuilder(MessageBuilder):
 
     @staticmethod
@@ -84,7 +81,7 @@ class ConsoleMessageBuilder(MessageBuilder):
             return ConsoleMessage(message)
 
 
-@register_extractor(adapter_name=SupportedPlatform.console.value)
+@PlatformRegister.message_extractor.register(SupportedPlatform.console.value)
 class ConsoleMessageExtractor(MessageExtractor):
 
     @staticmethod
@@ -117,7 +114,7 @@ class ConsoleMessageExtractor(MessageExtractor):
             return OmegaMessage(message)
 
 
-@register_sender(target_entity=SupportedTarget.console_user.value)
+@PlatformRegister.message_sender.register(SupportedTarget.console_user.value)
 class ConsoleMessageSender(MessageSender):
     """nonebot-console 消息 Sender"""
 
@@ -158,7 +155,7 @@ class ConsoleMessageSender(MessageSender):
         raise NotImplementedError
 
 
-@register_event_handler(event=ConsoleMessageEvent)
+@PlatformRegister.event_handler.register(ConsoleMessageEvent)
 class ConsoleMessageEventHandler(EventHandler):
     """ConsoleMessage 消息事件处理器"""
 
@@ -172,7 +169,7 @@ class ConsoleMessageEventHandler(EventHandler):
         return await self.bot.send(event=self.event, message=message, **kwargs)
 
 
-@register_entity_depend(event=ConsoleEvent)
+@PlatformRegister.entity_depend.register(ConsoleEvent)
 class ConsoleEventEntityDepend(EntityDepend):
     """nonebot-console 事件 Entity 对象依赖类"""
 

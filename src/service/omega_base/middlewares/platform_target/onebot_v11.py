@@ -26,11 +26,8 @@ from src.service.gocqhttp_guild_patch import (
     GuildMessageEvent as OneBotV11GuildMessageEvent
 )
 
-from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
-from ..event_tools import register_event_handler
-from ..entity_tools import register_entity_depend
-from ..message_tools import register_builder, register_extractor, register_sender
+from ..register import PlatformRegister
 from ..types import (
     ApiCaller,
     EntityDepend,
@@ -50,7 +47,7 @@ from ...message import (
 )
 
 
-@register_api_caller(adapter_name=SupportedPlatform.onebot_v11.value)
+@PlatformRegister.api_caller.register(SupportedPlatform.onebot_v11.value)
 class OneBotV11ApiCaller(ApiCaller):
     """OneBot V11 API 调用适配"""
 
@@ -96,7 +93,7 @@ class OneBotV11ApiCaller(ApiCaller):
         return url
 
 
-@register_builder(adapter_name=SupportedPlatform.onebot_v11.value)
+@PlatformRegister.message_builder.register(SupportedPlatform.onebot_v11.value)
 class OneBotV11MessageBuilder(MessageBuilder):
     """OneBot V11 消息构造器"""
 
@@ -141,7 +138,7 @@ class OneBotV11MessageBuilder(MessageBuilder):
             return OneBotV11Message(message)
 
 
-@register_extractor(adapter_name=SupportedPlatform.onebot_v11.value)
+@PlatformRegister.message_extractor.register(SupportedPlatform.onebot_v11.value)
 class OneBotV11MessageExtractor(MessageExtractor):
     """OneBot V11 消息解析器"""
 
@@ -222,7 +219,7 @@ class OneBotV11MessageSender(MessageSender):
         return RevokeParams(api='delete_msg', params={'message_id': content["message_id"]})
 
 
-@register_sender(target_entity=SupportedTarget.onebot_v11_user.value)
+@PlatformRegister.message_sender.register(SupportedTarget.onebot_v11_user.value)
 class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 用户消息 Sender"""
 
@@ -245,7 +242,7 @@ class OneBotV11QQUserMessageSender(OneBotV11MessageSender):
         )
 
 
-@register_sender(target_entity=SupportedTarget.onebot_v11_group.value)
+@PlatformRegister.message_sender.register(SupportedTarget.onebot_v11_group.value)
 class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 群组消息 Sender"""
 
@@ -268,7 +265,7 @@ class OneBotV11QQGroupMessageSender(OneBotV11MessageSender):
         )
 
 
-@register_sender(target_entity=SupportedTarget.onebot_v11_guild_channel.value)
+@PlatformRegister.message_sender.register(SupportedTarget.onebot_v11_guild_channel.value)
 class OneBotV11QQGuildChannelMessageSender(OneBotV11MessageSender):
     """OneBot V11 QQ 子频道消息 Sender"""
 
@@ -286,7 +283,7 @@ class OneBotV11QQGuildChannelMessageSender(OneBotV11MessageSender):
         return self.to_send_msg(**kwargs)
 
 
-@register_event_handler(event=OneBotV11MessageEvent)
+@PlatformRegister.event_handler.register(OneBotV11MessageEvent)
 class OneBotV11MessageEventHandler(EventHandler):
     """OneBot V11 消息事件处理器"""
 
@@ -302,7 +299,7 @@ class OneBotV11MessageEventHandler(EventHandler):
         return await self.bot.send(event=self.event, message=message, reply_message=True, **kwargs)
 
 
-@register_entity_depend(event=OneBotV11Event)
+@PlatformRegister.entity_depend.register(OneBotV11Event)
 class OneBotV11EventEntityDepend(EntityDepend):
     """OneBot V11 事件 Entity 对象依赖类"""
 
@@ -342,7 +339,7 @@ class OneBotV11EventEntityDepend(EntityDepend):
         return EntityParams(bot_id=bot_id, entity_type=entity_type, entity_id=entity_id, parent_id=parent_id)
 
 
-@register_entity_depend(event=OneBotV11GroupMessageEvent)
+@PlatformRegister.entity_depend.register(OneBotV11GroupMessageEvent)
 class OneBotV11GroupMessageEventEntityDepend(EntityDepend):
     """OneBot V11 群消息事件 Entity 对象依赖类"""
 
@@ -360,7 +357,7 @@ class OneBotV11GroupMessageEventEntityDepend(EntityDepend):
         )
 
 
-@register_entity_depend(event=OneBotV11PrivateMessageEvent)
+@PlatformRegister.entity_depend.register(OneBotV11PrivateMessageEvent)
 class OneBotV11PrivateMessageEventEntityDepend(EntityDepend):
     """OneBot V11 私聊消息事件 Entity 对象依赖类"""
 
@@ -376,7 +373,7 @@ class OneBotV11PrivateMessageEventEntityDepend(EntityDepend):
         )
 
 
-@register_entity_depend(event=OneBotV11GuildMessageEvent)
+@PlatformRegister.entity_depend.register(OneBotV11GuildMessageEvent)
 class OneBotV11GuildMessageEventEntityDepend(EntityDepend):
     """OneBot V11 频道消息事件 Entity 对象依赖类"""
 

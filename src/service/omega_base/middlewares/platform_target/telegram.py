@@ -26,11 +26,8 @@ from nonebot.adapters.telegram.event import (
 )
 from nonebot.adapters.telegram.message import Entity, File, User
 
-from ..api_tools import register_api_caller
 from ..const import SupportedPlatform, SupportedTarget
-from ..entity_tools import register_entity_depend
-from ..event_tools import register_event_handler
-from ..message_tools import register_builder, register_extractor, register_sender
+from ..register import PlatformRegister
 from ..types import (
     ApiCaller,
     EntityDepend,
@@ -50,7 +47,7 @@ from ...message import (
 )
 
 
-@register_api_caller(adapter_name=SupportedPlatform.telegram.value)
+@PlatformRegister.api_caller.register(SupportedPlatform.telegram.value)
 class TelegramApiCaller(ApiCaller):
     """Telegram API 调用适配"""
 
@@ -74,7 +71,7 @@ class TelegramApiCaller(ApiCaller):
         return f"https://api.telegram.org/file/bot{quote(self.bot.bot_config.token)}/{quote(file.file_path)}"
 
 
-@register_builder(adapter_name=SupportedPlatform.telegram.value)
+@PlatformRegister.message_builder.register(SupportedPlatform.telegram.value)
 class TelegramMessageBuilder(MessageBuilder):
 
     @staticmethod
@@ -112,7 +109,7 @@ class TelegramMessageBuilder(MessageBuilder):
             return TelegramMessage(message)
 
 
-@register_extractor(adapter_name=SupportedPlatform.telegram.value)
+@PlatformRegister.message_extractor.register(SupportedPlatform.telegram.value)
 class TelegramMessageExtractor(MessageExtractor):
     """Telegram 消息解析器"""
 
@@ -194,7 +191,7 @@ class TelegramMessageSender(MessageSender):
             )
 
 
-@register_sender(target_entity=SupportedTarget.telegram_user.value)
+@PlatformRegister.message_sender.register(SupportedTarget.telegram_user.value)
 class TelegramUserMessageSender(TelegramMessageSender):
     """Telegram 用户消息 Sender"""
 
@@ -211,7 +208,7 @@ class TelegramUserMessageSender(TelegramMessageSender):
         return self.to_send_msg(**kwargs)
 
 
-@register_sender(target_entity=SupportedTarget.telegram_group.value)
+@PlatformRegister.message_sender.register(SupportedTarget.telegram_group.value)
 class TelegramGroupMessageSender(TelegramMessageSender):
     """Telegram 群组消息 Sender"""
 
@@ -228,7 +225,7 @@ class TelegramGroupMessageSender(TelegramMessageSender):
         return self.to_send_msg(**kwargs)
 
 
-@register_sender(target_entity=SupportedTarget.telegram_channel.value)
+@PlatformRegister.message_sender.register(SupportedTarget.telegram_channel.value)
 class TelegramChannelMessageSender(TelegramMessageSender):
     """Telegram 频道消息 Sender"""
 
@@ -245,7 +242,7 @@ class TelegramChannelMessageSender(TelegramMessageSender):
         return self.to_send_msg(**kwargs)
 
 
-@register_event_handler(event=TelegramMessageEvent)
+@PlatformRegister.event_handler.register(TelegramMessageEvent)
 class TelegramMessageEventHandler(EventHandler):
     """Telegram 消息事件处理器"""
 
@@ -276,7 +273,7 @@ class TelegramMessageEventHandler(EventHandler):
         )
 
 
-@register_entity_depend(event=TelegramEvent)
+@PlatformRegister.entity_depend.register(TelegramEvent)
 class TelegramEventEntityDepend(EntityDepend):
     """Telegram 事件 Entity 对象依赖类"""
 
@@ -293,7 +290,7 @@ class TelegramEventEntityDepend(EntityDepend):
         )
 
 
-@register_entity_depend(event=TelegramGroupMessageEvent)
+@PlatformRegister.entity_depend.register(TelegramGroupMessageEvent)
 class TelegramGroupMessageEventEntityDepend(EntityDepend):
     """Telegram 群组消息事件 Entity 对象依赖类"""
 
@@ -315,7 +312,7 @@ class TelegramGroupMessageEventEntityDepend(EntityDepend):
         )
 
 
-@register_entity_depend(event=TelegramPrivateMessageEvent)
+@PlatformRegister.entity_depend.register(TelegramPrivateMessageEvent)
 class TelegramPrivateMessageEventEntityDepend(EntityDepend):
     """Telegram 私聊消息事件 Entity 对象依赖类"""
 
@@ -333,7 +330,7 @@ class TelegramPrivateMessageEventEntityDepend(EntityDepend):
         )
 
 
-@register_entity_depend(event=TelegramChannelPostEvent)
+@PlatformRegister.entity_depend.register(TelegramChannelPostEvent)
 class TelegramChannelPostEventEntityDepend(EntityDepend):
     """Telegram 频道事件 Entity 对象依赖类"""
 

@@ -13,7 +13,7 @@ from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
 
-from src.service import EntityInterface
+from src.service import OmegaInterface
 
 from ..plugin_utils import parse_processor_state
 
@@ -49,7 +49,7 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({plugin_name}) ignored with non-cost')
         return
 
-    async with EntityInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+    async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
         await entity.add_ignore_exists()
         friendship = await entity.query_friendship()
 
