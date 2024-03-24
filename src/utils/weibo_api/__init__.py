@@ -94,7 +94,7 @@ class Weibo(object):
                 'origin': 'https://m.weibo.cn/',
                 'referer': 'https://m.weibo.cn/'
             })
-
+        url = str(url)
         original_file_name = OmegaRequests.parse_url_file_name(url=url)
         file = weibo_resource_config.default_download_folder(original_file_name)
         requests = OmegaRequests(timeout=timeout, headers=headers)

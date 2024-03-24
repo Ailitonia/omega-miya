@@ -17,7 +17,7 @@ from typing import Optional, Literal
 class WeiboBaseModel(BaseModel):
     """微博基类"""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
 
 class WeiboUserBase(WeiboBaseModel):
@@ -239,9 +239,9 @@ class _CardsData(WeiboBaseModel):
     @model_validator(mode='after')
     @classmethod
     def exclude_null_card(cls, values):
-        cards: list[WeiboCard] = values.get('cards')
+        cards: list[WeiboCard] = values.cards
         cards = [x for x in cards.copy() if x.mblog is not None]
-        values['cards'] = cards
+        values.cards = cards
         return values
 
 
