@@ -48,7 +48,7 @@ class GuildMessageEvent(MessageEvent):
             return str(parse_obj_as(Message, raw_message))
         raise ValueError("unknown raw message type")
 
-    @model_validator(mode='after')
+    @model_validator(mode='before')
     @classmethod
     def _validate_is_tome(cls, values):
         message = values.get("message")
