@@ -9,7 +9,7 @@
 """
 
 from pydantic import AnyHttpUrl, Json, field_validator
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from .base_model import BaseBilibiliModel
 
@@ -164,7 +164,7 @@ class CardType8Video(_BaseCardType):
     tname: str  # 视频分区名称
     desc: str  # 视频简介
     owner: _Owner
-    first_frame: Optional[str] = None  # 视频第一帧图片
+    first_frame: Optional[AnyHttpUrl | str] = None  # 视频第一帧图片
     pic: AnyHttpUrl  # 视频封面
     videos: int  # 视频数
 
@@ -231,16 +231,16 @@ class CardType64Article(_BaseCardType):
 
     verify_type: int = 64
     id: int
-    category: _Category
-    categories: list[_Category]
+    category: Optional[_Category] = None  # Deactivated
+    categories: Optional[list[_Category]] = None  # Deactivated
     title: str
     summary: str
-    banner_url: AnyHttpUrl | str
+    banner_url: Optional[AnyHttpUrl | str] = None  # [Deactivated] 是否原创
     author: _Author
     image_urls: list[AnyHttpUrl]
     publish_time: int
     origin_image_urls: list[AnyHttpUrl]  # 源图片地址(这里才是真·头图)
-    original: int  # 是否原创
+    original: Optional[int] = None  # [Deactivated] 是否原创
 
     @property
     def user_name(self) -> str:
@@ -424,6 +424,7 @@ class CardType1Forward(_BaseCardType):
     verify_type: int = 1
     user: _UserInfo  # 转发者用户信息
     item: _Item  # 转发相关信息
+    # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
     origin: Optional[
         Json[CardType2OriginalWithImage]
         | Json[CardType4OriginalWithoutImage]
@@ -437,8 +438,9 @@ class CardType1Forward(_BaseCardType):
         | Json[CardType4200LiveRoom]
         | Json[CardType4300MediaListShare]
         | Json[CardType4308LiveRoom]
-        ]  # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
-    origin_user: Optional[BilibiliDynamicCardDescUserProfile]  # 被转发用户信息
+        | Literal['源动态已被作者删除', '源动态不见了', '直播结束了']
+        ]  # 原动态被删 origin 字段返回 message 是谁整出来的傻逼玩意儿
+    origin_user: Optional[BilibiliDynamicCardDescUserProfile] = None  # 被转发用户信息
 
     @property
     def user_name(self) -> str:
@@ -447,6 +449,9 @@ class CardType1Forward(_BaseCardType):
     def output_std_model(self) -> _StdCardOutputData:
         if self.origin is None:
             text = f'{self.user_name}转发了一条动态!\n\n“{self.item.content}”\n{"=" * 16}\n@源动态已被作者删除'
+            img_urls = []
+        elif self.origin and isinstance(self.origin, str):
+            text = f'{self.user_name}转发了一条动态!\n\n“{self.item.content}”\n{"=" * 16}\n@{self.origin}'
             img_urls = []
         else:
             text = f'{self.user_name}转发了{self.origin.user_name}的动态!\n\n“{self.item.content}”\n' \
@@ -519,7 +524,7 @@ class BilibiliUserDynamicModel(BaseBilibiliModel):
 class BilibiliDynamicData(BaseBilibiliModel):
     """Bilibili 单个动态 Data"""
     card: BilibiliDynamicCard
-    result: int
+    result: int = -1
 
     @field_validator('card')
     @classmethod
