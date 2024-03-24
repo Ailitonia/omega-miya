@@ -18,14 +18,15 @@ from .config import bilibili_config, bilibili_resource_config
 from .exception import BilibiliNetworkError
 from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
 from .model import (BilibiliUserModel, BilibiliUserDynamicModel, BilibiliDynamicModel,
-                    BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel, BilibiliWebInterfaceNav)
-from .wbi_utils import sign_wbi_params
+                    BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel,
+                    BilibiliWebInterfaceNav, BilibiliWebInterfaceSpi)
+from .exclimbwuzhi import gen_buvid_fp, gen_uuid_infoc, get_payload
+from .verify_utils import sign_wbi_params
 
 
 class Bilibili(object):
     """Bilibili 基类"""
     _root_url: str = 'https://www.bilibili.com'
-    _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 
     def __repr__(self) -> str:
         return self.__class__.__name__
@@ -35,18 +36,30 @@ class Bilibili(object):
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None
+            headers: Optional[dict[str, Any]] = None,
+            *,
+            method: Literal['GET', 'POST'] = 'GET',
+            cookies: Optional[dict[str, str]] = None,
+            data: Optional[Any] = None,
+            json: Optional[Any] = None
     ) -> Any:
         """请求 api 并返回 json 数据"""
+        url = str(url)
         if headers is None:
             headers = OmegaRequests.get_default_headers()
             headers.update({
                 'origin': 'https://www.bilibili.com',
                 'referer': 'https://www.bilibili.com/'
             })
+        if cookies is None:
+            cookies = bilibili_config.bili_cookie
 
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=bilibili_config.bili_cookie)
-        response = await requests.get(url=url, params=params)
+        requests = OmegaRequests(timeout=10, headers=headers, cookies=cookies)
+        match method:
+            case 'POST':
+                response = await requests.post(url=url, params=params, data=data, json=json)
+            case _:
+                response = await requests.get(url=url, params=params)
         if response.status_code != 200:
             raise BilibiliNetworkError(f'{response.request}, status code {response.status_code}')
 
@@ -61,6 +74,7 @@ class Bilibili(object):
             timeout: int = 30
     ) -> str | bytes | None:
         """请求原始资源内容"""
+        url = str(url)
         if headers is None:
             headers = OmegaRequests.get_default_headers()
             headers.update({
@@ -84,6 +98,7 @@ class Bilibili(object):
             timeout: int = 60
     ) -> TemporaryResource:
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+        url = str(url)
         if headers is None:
             headers = OmegaRequests.get_default_headers()
             headers.update({
@@ -100,8 +115,42 @@ class Bilibili(object):
     @classmethod
     async def update_wbi_params(cls, params: Optional[dict[str, Any]] = None) -> dict:
         """为 wbi 接口请求参数进行 wbi 签名"""
-        response = await cls.request_json(url=cls._wbi_nav_url)
+        _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
+
+        response = await cls.request_json(url=_wbi_nav_url)
         return sign_wbi_params(nav_data=BilibiliWebInterfaceNav.parse_obj(response), params=params)
+
+    @classmethod
+    async def update_buvid_params(cls) -> dict[str, Any]:
+        """为接口激活 buvid"""
+        _spi_url: str = 'https://api.bilibili.com/x/frontend/finger/spi'
+        _exclimbwuzhi_url: str = 'https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi'
+
+        # get buvid3, buvid4
+        spi_response = await cls.request_json(url=_spi_url)
+        spi_data = BilibiliWebInterfaceSpi.parse_obj(spi_response)
+
+        # active buvid
+        uuid = gen_uuid_infoc()
+        payload = get_payload()
+
+        headers = OmegaRequests.get_default_headers()
+        headers.update({
+            'origin': 'https://www.bilibili.com',
+            'referer': 'https://www.bilibili.com/',
+            'Content-Type': 'application/json'
+        })
+
+        cookies = bilibili_config.bili_cookie if bilibili_config.bili_cookie else {}
+        cookies.update({
+            "buvid3": spi_data.data.b_3,
+            "buvid4": spi_data.data.b_4,
+            "buvid_fp": gen_buvid_fp(payload, 31),
+            "_uuid": uuid
+        })
+
+        await cls.request_json(method='POST', url=_exclimbwuzhi_url, headers=headers, data=payload, cookies=cookies)
+        return cookies
 
     @classmethod
     async def _global_search(
@@ -227,7 +276,8 @@ class BilibiliUser(Bilibili):
         """获取并初始化用户对应 BilibiliUserModel"""
         if not isinstance(self.user_model, BilibiliUserModel):
             params = await self.update_wbi_params({'mid': self.mid})
-            user_data = await self.request_json(url=self._data_api_url, params=params)
+            cookies = await self.update_buvid_params()
+            user_data = await self.request_json(url=self._data_api_url, params=params, cookies=cookies)
             self.user_model = BilibiliUserModel.parse_obj(user_data)
 
         assert isinstance(self.user_model, BilibiliUserModel), 'Query user model failed'
@@ -252,9 +302,11 @@ class BilibiliUser(Bilibili):
         params = {'host_uid': self.uid, 'offset_dynamic_id': offset_dynamic_id, 'need_top': need_top, 'platform': 'web'}
         if bilibili_config.bili_cookie:
             params.update({'csrf': bilibili_config.bili_csrf, 'visitor_uid': bilibili_config.bili_uid})
+        # params = await self.update_wbi_params(params)
+        cookies = await self.update_buvid_params()
 
-        dynamics_data = await self.request_json(url=self._dynamic_api_url, params=params, headers=headers)
-        return BilibiliUserDynamicModel.parse_obj(dynamics_data)
+        data = await self.request_json(url=self._dynamic_api_url, params=params, headers=headers, cookies=cookies)
+        return BilibiliUserDynamicModel.parse_obj(data)
 
 
 class BilibiliDynamic(Bilibili):

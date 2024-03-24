@@ -33,6 +33,19 @@ class BilibiliWebInterfaceNav(BaseBilibiliModel):
     data: BilibiliWebInterfaceNavData
 
 
+class BilibiliWebInterfaceSpiData(BaseBilibiliModel):
+    b_3: str
+    b_4: str
+
+
+class BilibiliWebInterfaceSpi(BaseBilibiliModel):
+    """api.bilibili.com/x/frontend/finger/spi 返回值"""
+    code: int
+    message: str
+    data: BilibiliWebInterfaceSpiData
+
+
 __all__ = [
-    'BilibiliWebInterfaceNav'
+    'BilibiliWebInterfaceNav',
+    'BilibiliWebInterfaceSpi',
 ]

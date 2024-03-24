@@ -108,8 +108,8 @@ class BilibiliLiveRoomStatusUpdate(BaseModel):
     @model_validator(mode='after')
     @classmethod
     def check_is_update(cls, values):
-        is_update = values.get('is_update')
-        update = values.get('update')
+        is_update = values.is_update
+        update = values.update
         if (is_update and update is None) or (not is_update and update is not None):
             raise ValueError('status update info do not match')
         return values

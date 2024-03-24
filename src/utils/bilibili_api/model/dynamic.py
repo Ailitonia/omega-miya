@@ -9,7 +9,7 @@
 """
 
 from pydantic import AnyHttpUrl, Json, field_validator
-from typing import Optional
+from typing import Any, Optional
 
 from .base_model import BaseBilibiliModel
 
@@ -92,11 +92,11 @@ class CardType2OriginalWithImage(_BaseCardType):
             img_src: AnyHttpUrl
 
         id: int
-        category: str
+        category: Optional[str] = None  # Deactivated
         description: str  # 为文字内容
         pictures: list[_Picture]  # 图片内容
         pictures_count: int
-        title: str
+        title: Optional[str] = None  # Deactivated
 
     verify_type: int = 2
     user: _UserInfo
@@ -129,7 +129,9 @@ class CardType4OriginalWithoutImage(_BaseCardType):
         rp_id: int
         uid: int
         content: str
-        timestamp: int
+        timestamp: Optional[int] = None  # Deactivated
+        ctrl: Any
+        reply: Any
 
     verify_type: int = 4
     user: _UserInfo
@@ -156,13 +158,13 @@ class CardType8Video(_BaseCardType):
     verify_type: int = 8
     aid: int  # 视频avid
     cid: int  # 视频cid
-    copyright: int  # 原创信息, 1为原创, 2为转载
+    copyright: Optional[int] = None  # [Deactivated] 原创信息, 1为原创, 2为转载
     dynamic: str  # 动态文字内容
     title: str  # 视频标题
     tname: str  # 视频分区名称
     desc: str  # 视频简介
     owner: _Owner
-    first_frame: Optional[AnyHttpUrl]  # 视频第一帧图片
+    first_frame: Optional[str] = None  # 视频第一帧图片
     pic: AnyHttpUrl  # 视频封面
     videos: int  # 视频数
 
@@ -384,7 +386,7 @@ class CardType4308LiveRoom(_BaseCardType):
 
     verify_type: int = 4308
     live_play_info: _LivePlayInfo
-    live_record_info: Optional[str]
+    live_record_info: Optional[str] = None
     style: int
     type: int
 
@@ -414,8 +416,10 @@ class CardType1Forward(_BaseCardType):
         content: str
         orig_dy_id: int
         pre_dy_id: int
-        timestamp: int
         orig_type: int
+        timestamp: Optional[int] = None  # Deactivated
+        ctrl: Any
+        reply: Any
 
     verify_type: int = 1
     user: _UserInfo  # 转发者用户信息

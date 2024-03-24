@@ -3,7 +3,7 @@
 @Date           : 2023/6/27 22:13
 @FileName       : wbi_utils
 @Project        : nonebot2_miya
-@Description    : Bilibili wbi 接口签名模块
+@Description    : Bilibili 接口签名及验证模块
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """

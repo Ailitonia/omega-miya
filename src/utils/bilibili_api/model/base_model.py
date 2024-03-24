@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 class BaseBilibiliModel(BaseModel):
     """bilibili 数据基类"""
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
 __all = [
