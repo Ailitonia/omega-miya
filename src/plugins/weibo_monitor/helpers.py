@@ -127,7 +127,12 @@ async def _format_weibo_update_message(card: WeiboCard) -> str | Message:
         retweeted_username = card.mblog.retweeted_status.user.screen_name
         send_message += f'转发了{retweeted_username}的微博!\n'
         # 获取转发微博全文
-        retweeted_content = await Weibo.query_weibo_extend_text(mid=card.mblog.retweeted_status.mid)
+        try:
+            retweeted_content = await Weibo.query_weibo_extend_text(mid=card.mblog.retweeted_status.mid)
+        except Exception as e:
+            logger.debug(f'WeiboMonitor | Query retweeted origin content failed, '
+                         f'maybe deleted, mid: {card.mblog.retweeted_status.mid}, {e}')
+            retweeted_content = card.mblog.retweeted_status.text
         text = f'“{card.mblog.text}”\n{"=" * 16}\n@{retweeted_username}:\n“{retweeted_content}”\n'
         if card.mblog.retweeted_status.pics is not None:
             img_urls.extend(x.large.url for x in card.mblog.retweeted_status.pics)
