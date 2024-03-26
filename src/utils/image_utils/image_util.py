@@ -213,24 +213,34 @@ class ImageUtils(object):
         """在图片上添加标注文本"""
         image = self.image
         width, height = image.size
+        edge_w = width // 32 if width // 32 <= 10 else 10
+        edge_h = height // 32 if height // 32 <= 10 else 10
+
         font = ImageFont.truetype(image_utils_config.default_font_file.resolve_path, width // 32)
+        text_kwargs = {
+            'text': text,
+            'font': font,
+            'fill': fill,
+            'stroke_width': width // 256,
+            'stroke_fill': (255, 255, 255)
+        }
 
         match position:
             case 'c':
                 ImageDraw.Draw(image).text(
-                    xy=(width // 2, height // 2), text=text, font=font, align='center', anchor='mm', fill=fill)
+                    xy=(width // 2, height // 2), align='center', anchor='mm', **text_kwargs)
             case 'la':
                 ImageDraw.Draw(image).text(
-                    xy=(0, 0), text=text, font=font, align='left', anchor='la', fill=fill)
+                    xy=(0, 0), align='left', anchor='la', **text_kwargs)
             case 'ra':
                 ImageDraw.Draw(image).text(
-                    xy=(width, 0), text=text, font=font, align='right', anchor='ra', fill=fill)
+                    xy=(width - edge_w, 0), align='right', anchor='ra', **text_kwargs)
             case 'lb':
                 ImageDraw.Draw(image).text(
-                    xy=(0, height), text=text, font=font, align='left', anchor='lb', fill=fill)
+                    xy=(0, height - edge_h), align='left', anchor='lb', **text_kwargs)
             case 'rb' | _:
                 ImageDraw.Draw(image).text(
-                    xy=(width, height), text=text, font=font, align='right', anchor='rb', fill=fill)
+                    xy=(width - edge_w, height - edge_h), align='right', anchor='rb', **text_kwargs)
 
         self._image = image
         return self
@@ -295,7 +305,7 @@ class ImageUtils(object):
         scaled_size = int(width * (1 - edge_scale)), int(height * (1 - edge_scale))
 
         scale = min(scaled_size[0] / width, scaled_size[1] / height)
-        image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
+        image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
 
         box = (int(width * (1 - scale) / 2)), int(height * (1 - scale) / 2)
         background = Image.new(mode="RGBA", size=(width, height), color=edge_color)
@@ -319,7 +329,7 @@ class ImageUtils(object):
         rs_width, rs_height = size
         scale = min(rs_width / width, rs_height / height)
 
-        image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
+        image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
         box = (int(abs(width * scale - rs_width) / 2), int(abs(height * scale - rs_height) / 2))
         background = Image.new(mode="RGBA", size=size, color=background_color)
         background.paste(image, box=box, mask=image)
@@ -341,7 +351,7 @@ class ImageUtils(object):
         width, height = image.size
         rs_width, rs_height = size
         scale = max(rs_width / width, rs_height / height)
-        image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
+        image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
 
         box = (- int(abs(width * scale - rs_width) / 2), - int(abs(height * scale - rs_height) / 2))
         background = Image.new(mode="RGBA", size=size, color=background_color)
