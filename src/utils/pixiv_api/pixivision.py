@@ -51,7 +51,7 @@ class Pixivision(object):
             headers.update({'referer': 'https://www.pixivision.net/zh/'})
 
         requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=str(url), params=params)
+        response = await requests.get(url=url, params=params)
         if response.status_code != 200:
             raise PixivisionNetworkError(f'{response.request}, status code {response.status_code}')
 

@@ -83,7 +83,7 @@ class Pixiv(abc.ABC):
             headers.update({'referer': 'https://www.pixiv.net/'})
 
         requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=str(url), params=params)
+        response = await requests.get(url=url, params=params)
         if response.status_code != 200:
             raise PixivNetworkError(f'{response.request}, status code {response.status_code}')
 

@@ -8,8 +8,10 @@
 @Software       : PyCharm 
 """
 
-from pydantic import AnyHttpUrl, Json, field_validator
+from pydantic import Json, field_validator, model_validator
 from typing import Any, Literal, Optional
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
 from .base_model import BaseBilibiliModel
 
@@ -493,6 +495,15 @@ class BilibiliUserDynamicData(BaseBilibiliModel):
     has_more: int
     cards: list[BilibiliDynamicCard] = []
     next_offset: int
+
+    @model_validator(mode='before')
+    @classmethod
+    def _validate_card_is_none(cls, values):
+        """校验 cards 值为 null 时转为空列表"""
+        if isinstance(values, dict):
+            if values.get('cards') is None:
+                values['cards'] = []
+        return values
 
     @field_validator('cards')
     @classmethod

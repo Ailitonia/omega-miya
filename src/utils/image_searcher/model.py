@@ -10,7 +10,9 @@
 
 import abc
 from typing import Optional
-from pydantic import AnyUrl, BaseModel
+from pydantic import BaseModel
+
+from src.compat import AnyUrlStr as AnyUrl
 
 
 class ImageSearchingResult(BaseModel):

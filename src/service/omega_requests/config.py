@@ -10,7 +10,9 @@
 
 from nonebot import get_plugin_config, logger
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, IPvAnyAddress, AnyHttpUrl, ValidationError
+from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
 
 class HttpProxyConfig(BaseModel):

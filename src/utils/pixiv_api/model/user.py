@@ -9,7 +9,9 @@
 """
 
 from typing import Any, Optional
-from pydantic import AnyHttpUrl
+from pydantic import model_validator
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
 from .base_model import BasePixivModel
 
@@ -74,6 +76,16 @@ class PixivUserArtworkDataBody(BasePixivModel):
     illusts: dict[int, Any]
     manga: dict[int, Any]
     novels: dict[int, Any]
+
+    @model_validator(mode='before')
+    @classmethod
+    def _validate_content_is_none(cls, values):
+        """校验 illusts/manga/novels 值为空列表时转为空字典"""
+        if isinstance(values, dict):
+            for k, v in values.items():
+                if isinstance(v, list) and not v:
+                    values[k] = {}
+        return values
 
     @property
     def illust_list(self) -> list[int]:

@@ -9,9 +9,11 @@
 """
 
 from datetime import datetime
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import field_validator
 from pytz import timezone
 from typing import Optional
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
 from .base_model import BaseBilibiliModel
 

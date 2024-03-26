@@ -10,8 +10,10 @@
 
 from datetime import datetime
 from lxml import etree
-from pydantic import AnyUrl, BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional, Literal
+
+from src.compat import AnyUrlStr as AnyUrl
 
 
 class WeiboBaseModel(BaseModel):

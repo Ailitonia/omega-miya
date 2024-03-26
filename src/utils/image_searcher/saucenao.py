@@ -9,9 +9,10 @@
 """
 
 from typing import Optional
-from pydantic import BaseModel, AnyUrl, parse_obj_as
+from pydantic import BaseModel, parse_obj_as
 from nonebot.log import logger
 
+from src.compat import AnyUrlStr as AnyUrl
 from src.exception import WebSourceException
 from src.service import OmegaRequests
 

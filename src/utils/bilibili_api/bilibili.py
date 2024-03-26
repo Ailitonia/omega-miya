@@ -44,7 +44,6 @@ class Bilibili(object):
             json: Optional[Any] = None
     ) -> Any:
         """请求 api 并返回 json 数据"""
-        url = str(url)
         if headers is None:
             headers = OmegaRequests.get_default_headers()
             headers.update({
@@ -74,7 +73,6 @@ class Bilibili(object):
             timeout: int = 30
     ) -> str | bytes | None:
         """请求原始资源内容"""
-        url = str(url)
         if headers is None:
             headers = OmegaRequests.get_default_headers()
             headers.update({
@@ -98,7 +96,6 @@ class Bilibili(object):
             timeout: int = 60
     ) -> TemporaryResource:
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        url = str(url)
         if headers is None:
             headers = OmegaRequests.get_default_headers()
             headers.update({

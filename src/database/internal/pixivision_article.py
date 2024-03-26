@@ -13,7 +13,9 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete, desc
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, AnyUrl, parse_obj_as
+from pydantic import BaseModel, ConfigDict, parse_obj_as
+
+from src.compat import AnyUrlStr as AnyUrl
 
 from ..model import BaseDataAccessLayerModel, PixivisionArticleOrm
 

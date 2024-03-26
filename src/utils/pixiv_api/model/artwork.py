@@ -10,7 +10,9 @@
 
 from lxml import etree
 from typing import Optional
-from pydantic import AnyHttpUrl
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
+
 from .base_model import BasePixivModel
 from .searching import PixivSearchingData
 

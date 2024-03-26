@@ -8,8 +8,10 @@
 @Software       : PyCharm 
 """
 
-from pydantic import AnyHttpUrl
 from typing import Optional
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
+
 from .base_model import BasePixivModel
 
 

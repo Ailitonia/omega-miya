@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, parse_obj_as
+from pydantic import BaseModel, ConfigDict, Field, parse_obj_as
 from typing import Annotated, Optional
 
 from nonebot.log import logger
@@ -23,6 +23,7 @@ from nonebot.exception import AdapterException, IgnoredException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
 
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
