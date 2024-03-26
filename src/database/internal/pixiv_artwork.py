@@ -195,6 +195,19 @@ class PixivArtworkDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
+    async def query_exists_ids(self, pids: list[int]) -> list[int]:
+        """查询数据库中 pids 列表中已有的 pid"""
+        stmt = select(PixivArtworkOrm.pid).\
+            where(PixivArtworkOrm.pid.in_(pids)).\
+            order_by(desc(PixivArtworkOrm.pid))
+        session_result = await self.db_session.execute(stmt)
+        return parse_obj_as(list[int], session_result.scalars().all())
+
+    async def query_not_exists_ids(self, pids: list[int]) -> list[int]:
+        """查询数据库中 pids 列表中没有的 pid"""
+        exists_ids = await self.query_exists_ids(pids=pids)
+        return sorted(list(set(pids) - set(exists_ids)), reverse=True)
+
     async def query_all(self) -> list[PixivArtwork]:
         raise NotImplementedError('method not supported')
 
