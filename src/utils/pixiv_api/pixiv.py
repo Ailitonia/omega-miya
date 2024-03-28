@@ -18,6 +18,7 @@ from urllib.parse import quote
 from io import BytesIO
 
 from nonebot.utils import run_sync
+from pydantic import ValidationError
 
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
@@ -405,17 +406,21 @@ class PixivArtwork(Pixiv):
         if not isinstance(self.artwork_model, PixivArtworkCompleteDataModel):
             try:
                 artwork_data = await self._query_data()
-                if artwork_data.error:
-                    raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {artwork_data.message}')
+            except ValidationError:
+                raise
             except Exception as e:
                 raise PixivNetworkError(f'Query artwork(pid={self.pid}) data failed, {e}') from e
+            if artwork_data.error:
+                raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {artwork_data.message}')
 
             try:
                 page_data = await self._query_page_date()
-                if page_data.error:
-                    raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {page_data.message}')
+            except ValidationError:
+                raise
             except Exception as e:
                 raise PixivNetworkError(f'Query artwork(pid={self.pid}) page failed, {e}') from e
+            if page_data.error:
+                raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {page_data.message}')
 
             # 处理作品tag
             tags = artwork_data.body.tags.all_tags

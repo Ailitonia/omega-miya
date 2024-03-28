@@ -91,7 +91,7 @@ class PixivArtworkBody(BasePixivModel):
 
 class PixivArtworkDataModel(BasePixivModel):
     """Pixiv 作品信息 Model"""
-    body: PixivArtworkBody | list[None]
+    body: PixivArtworkBody
     error: bool
     message: str
 

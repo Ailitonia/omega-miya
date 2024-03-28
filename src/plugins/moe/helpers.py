@@ -135,14 +135,14 @@ async def add_artwork_into_database(
 ) -> None:
     """在数据库中添加作品信息"""
     artwork_data = await artwork.query_artwork()
+
+    nsfw_tag = 2 if artwork_data.is_r18 else nsfw_tag
+    classified = 2 if artwork_data.is_ai else 1
+
     # 作品信息写入数据库
-    async with begin_db_session() as session:
-        db_artwork = OmegaPixivArtwork(session=session, pid=artwork.pid)
-
-        nsfw_tag = 2 if artwork_data.is_r18 else nsfw_tag
-        classified = 2 if artwork_data.is_ai else 1
-
-        if add_ignored_exists:
+    if add_ignored_exists:
+        async with begin_db_session() as session:
+            db_artwork = OmegaPixivArtwork(session=session, pid=artwork.pid)
             await db_artwork.add_ignore_exists(
                 uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
                 classified=classified, nsfw_tag=nsfw_tag,
@@ -154,7 +154,9 @@ async def add_artwork_into_database(
                     page=index, original=url.original, regular=url.regular,
                     small=url.small, thumb_mini=url.thumb_mini
                 )
-        else:
+    else:
+        async with begin_db_session() as session:
+            db_artwork = OmegaPixivArtwork(session=session, pid=artwork.pid)
             await db_artwork.add_upgrade(
                 uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
                 classified=classified, nsfw_tag=nsfw_tag,
