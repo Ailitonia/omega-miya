@@ -50,7 +50,7 @@ class BaseRegister(object):
         def _decorator(target: Target_T) -> Target_T:
             self._filter_depend(depend=depend)
             self._map[depend] = target
-            logger.opt(colors=True).debug(f'{self.__class__.__name__!r} <e>{target.__name__!r}</e> is registered')
+            logger.opt(colors=True).debug(f'<e>{target.__name__!r}</e> is registered by {self.__class__.__name__!r}')
             return target
 
         return _decorator
