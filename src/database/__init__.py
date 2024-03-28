@@ -9,7 +9,8 @@
 """
 
 from .internal import *
-from .utils import begin_db_session, get_db_session, return_query_standard_result, return_execute_standard_result
+from .connector import begin_db_session, get_db_session
+from .helpers import return_query_standard_result, return_execute_standard_result
 
 
 __all__ = [

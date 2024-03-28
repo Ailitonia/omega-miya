@@ -9,15 +9,13 @@
 """
 
 import inspect
-from contextlib import asynccontextmanager
 from functools import wraps
-from typing import AsyncGenerator, AsyncIterator, Callable, Coroutine, ParamSpec, TypeVar
+from typing import Callable, Coroutine, ParamSpec, TypeVar
 
 from nonebot import get_driver, logger
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from .connector import engine, async_session_factory
+from .connector import engine
 from .model import Base, BaseDatabaseResult
 
 
@@ -52,24 +50,6 @@ async def __database_dispose():
 
     await engine.dispose()
     logger.opt(colors=True).info('<lc>Database</lc> | <ly>已断开数据库连接</ly>')
-
-
-@asynccontextmanager
-async def begin_db_session() -> AsyncIterator[AsyncSession]:
-    """获取数据库 session 并开始事务"""
-    async with async_session_factory() as session:
-        async with session.begin():
-            try:
-                yield session
-            except Exception:
-                await session.rollback()
-                raise
-
-
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """获取数据库 session 生成器依赖 (Dependence for database async session)"""
-    async with begin_db_session() as session:
-        yield session
 
 
 def return_query_standard_result(
@@ -131,8 +111,6 @@ def return_execute_standard_result(
 
 
 __all__ = [
-    'begin_db_session',
-    'get_db_session',
     'return_query_standard_result',
     'return_execute_standard_result'
 ]
