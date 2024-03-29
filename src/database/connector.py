@@ -74,8 +74,9 @@ async def begin_db_session() -> AsyncGenerator[AsyncSession, None]:
     except Exception:
         await scoped_session_factory.rollback()
         raise
-    finally:
+    else:
         await scoped_session_factory.commit()
+    finally:
         await scoped_session_factory.remove()
 
 
