@@ -51,6 +51,11 @@ async def handle_parse_args(state: T_State, cmd_arg: Annotated[Message, CommandA
         state.update({f'omega_arg_{index}': arg})
 
 
+@omega.command(tuple(), aliases={'Omega'}, permission=None, priority=10).handle()
+async def handle_hello(matcher: Matcher):
+    await matcher.finish('你好呀~\n我是Omega Miya~\n请问您今天要来点喵娘吗?')
+
+
 @omega.command('start', aliases={'Start', 'start', 'EnableOmega', 'enable_omega'}, permission=IS_ADMIN).handle()
 async def handle_start(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
     try:
