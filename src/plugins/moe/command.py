@@ -14,7 +14,6 @@ from copy import deepcopy
 from typing import Annotated
 
 from nonebot.adapters import Message
-from nonebot.exception import ParserExit
 from nonebot.matcher import Matcher
 from nonebot.log import logger
 from nonebot.params import ArgStr, CommandArg, Depends, ShellCommandArgs
@@ -24,7 +23,7 @@ from nonebot.rule import Namespace, to_me
 from nonebot.typing import T_State
 
 from src.database import begin_db_session
-from src.params.handler import get_command_str_single_arg_parser_handler
+from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
 from src.service import OmegaInterface, enable_processor_state
 from src.service.omega_base.internal import OmegaPixivArtwork
 from src.utils.pixiv_api import PixivArtwork
@@ -42,10 +41,11 @@ from .helpers import (
 )
 
 
-setu = on_shell_command(
+@on_shell_command(
     '来点涩图',
     aliases={'涩图', 'setu'},
     parser=get_query_argument_parser(),
+    handlers=[get_shell_command_parse_failed_handler()],
     priority=10,
     block=True,
     state=enable_processor_state(
@@ -55,16 +55,7 @@ setu = on_shell_command(
         extra_auth_node={ALLOW_R18_NODE},
         cooldown=60
     ),
-)
-
-
-@setu.handle()
-async def handle_parsed_failed(matcher: Matcher, args: Annotated[ParserExit, ShellCommandArgs()]):
-    """解析命令失败"""
-    await matcher.finish('命令参数错误\n' + args.message)
-
-
-@setu.handle()
+).handle()
 async def handle_parsed_success(
         matcher: Matcher,
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
@@ -131,10 +122,11 @@ async def handle_parsed_success(
     )
 
 
-moe = on_shell_command(
+@on_shell_command(
     '来点萌图',
     aliases={'萌图', 'moe'},
     parser=get_query_argument_parser(),
+    handlers=[get_shell_command_parse_failed_handler()],
     priority=10,
     block=True,
     state=enable_processor_state(
@@ -143,16 +135,7 @@ moe = on_shell_command(
         auth_node='moe',
         cooldown=60
     ),
-)
-
-
-@moe.handle()
-async def handle_parsed_failed(matcher: Matcher, args: Annotated[ParserExit, ShellCommandArgs()]):
-    """解析命令失败"""
-    await matcher.finish('命令参数错误\n' + args.message)
-
-
-@moe.handle()
+).handle()
 async def handle_parsed_success(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         args: Annotated[Namespace, ShellCommandArgs()]

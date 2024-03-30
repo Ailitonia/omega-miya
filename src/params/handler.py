@@ -11,8 +11,9 @@
 from typing import Annotated, Any, Optional
 
 from nonebot.adapters import Message
+from nonebot.exception import ParserExit
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot.params import CommandArg, ShellCommandArgs
 from nonebot.typing import T_Handler, T_State
 
 
@@ -91,8 +92,19 @@ def get_set_default_state_handler(
     return handle_set_default_state
 
 
+def get_shell_command_parse_failed_handler() -> T_Handler:
+    """构造处理解析 Shell 命令失败的 handler"""
+
+    async def handle_parse_failed(matcher: Matcher, shell_args: Annotated[ParserExit, ShellCommandArgs()]):
+        """解析命令失败"""
+        await matcher.finish('命令格式错误, 请确认后再重试吧\n' + shell_args.message)
+
+    return handle_parse_failed
+
+
 __all__ = [
     'get_command_str_single_arg_parser_handler',
     'get_command_message_arg_parser_handler',
-    'get_set_default_state_handler'
+    'get_set_default_state_handler',
+    'get_shell_command_parse_failed_handler'
 ]
