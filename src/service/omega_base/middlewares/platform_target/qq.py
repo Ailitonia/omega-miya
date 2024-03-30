@@ -270,6 +270,25 @@ class QQGuildMessageEventHandler(EventHandler):
         self.event = cast(QQGuildMessageEvent, self.event)
         return self.event.author.username
 
+    def get_msg_image_urls(self) -> list[str]:
+        return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
+
+    def get_reply_msg_image_urls(self) -> list[str]:
+        if self.event.reply:
+            return [
+                str(msg_seg.data.get('url'))
+                for msg_seg in QQMessage.from_guild_message(self.event.reply)
+                if msg_seg.type == 'image'
+            ]
+        else:
+            return []
+
+    def get_reply_msg_plain_text(self) -> Optional[str]:
+        if self.event.reply:
+            return QQMessage.from_guild_message(self.event.reply).extract_plain_text()
+        else:
+            return None
+
     async def send_at_sender(self, message: Union[str, None, QQMessage, QQMessageSegment], **kwargs):
         self.event = cast(QQGuildMessageEvent, self.event)
         message = QQMessageSegment.mention_user(user_id=self.event.author.id) + message

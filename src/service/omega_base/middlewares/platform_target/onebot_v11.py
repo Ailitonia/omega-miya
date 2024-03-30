@@ -290,6 +290,21 @@ class OneBotV11MessageEventHandler(EventHandler):
     def get_user_nickname(self) -> str:
         return self.event.sender.card if self.event.sender.card else self.event.sender.nickname
 
+    def get_msg_image_urls(self) -> list[str]:
+        return [str(msg_seg.data.get('url')) for msg_seg in self.event.message if msg_seg.type == 'image']
+
+    def get_reply_msg_image_urls(self) -> list[str]:
+        if self.event.reply:
+            return [str(msg_seg.data.get('url')) for msg_seg in self.event.reply.message if msg_seg.type == 'image']
+        else:
+            return []
+
+    def get_reply_msg_plain_text(self) -> Optional[str]:
+        if self.event.reply:
+            return self.event.reply.message.extract_plain_text()
+        else:
+            return None
+
     async def send_at_sender(self, message: Union[str, None, OneBotV11Message, OneBotV11MessageSegment], **kwargs):
         self.event = cast(OneBotV11MessageEvent, self.event)
         return await self.bot.send(event=self.event, message=message, at_sender=True, **kwargs)

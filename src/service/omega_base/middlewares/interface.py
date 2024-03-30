@@ -125,7 +125,18 @@ class OmegaInterface(object):
                 return await func(*args, **kwargs)
         return _wrapper
 
+    def refresh_bot_state(self) -> None:
+        self.bot = current_bot.get()
+
+    def refresh_event_state(self) -> None:
+        self.event = current_event.get()
+
     def refresh_matcher_state(self) -> None:
+        self.matcher = current_matcher.get()
+
+    def refresh_interface_state(self) -> None:
+        self.bot = current_bot.get()
+        self.event = current_event.get()
         self.matcher = current_matcher.get()
 
     def get_api_caller(self, *, bot: BaseBot) -> ApiCaller:

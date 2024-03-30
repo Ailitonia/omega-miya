@@ -162,6 +162,15 @@ class ConsoleMessageEventHandler(EventHandler):
     def get_user_nickname(self) -> str:
         return self.event.get_user_id()
 
+    def get_msg_image_urls(self) -> list[str]:
+        return []
+
+    def get_reply_msg_image_urls(self) -> list[str]:
+        return []
+
+    def get_reply_msg_plain_text(self) -> Optional[str]:
+        return None
+
     async def send_at_sender(self, message: Union[str, None, ConsoleMessage, ConsoleMessageSegment], **kwargs):
         return await self.bot.send(event=self.event, message=message, **kwargs)
 

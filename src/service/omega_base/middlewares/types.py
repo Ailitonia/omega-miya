@@ -107,6 +107,20 @@ class EventHandler(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_msg_image_urls(self) -> list[str]:
+        """获取当前事件消息中的全部图片链接"""
+
+    @abc.abstractmethod
+    def get_reply_msg_image_urls(self) -> list[str]:
+        """获取回复消息中的全部图片链接"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_reply_msg_plain_text(self) -> Optional[str]:
+        """获取回复消息的文本"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def send_at_sender(self, message: Union[str, None, BaseMessage, BaseMessageSegment], **kwargs):
         """发送消息并 @Sender"""
         raise NotImplementedError

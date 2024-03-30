@@ -252,6 +252,21 @@ class TelegramMessageEventHandler(EventHandler):
             return from_.first_name
         return self.event.chat.first_name if self.event.chat.first_name else self.event.chat.username
 
+    def get_msg_image_urls(self) -> list[str]:
+        return [str(msg_seg.data.get('file')) for msg_seg in self.event.get_message() if msg_seg.type == 'photo']
+
+    def get_reply_msg_image_urls(self) -> list[str]:
+        if self.event.reply_to_message:
+            return [
+                str(msg_seg.data.get('file'))
+                for msg_seg in self.event.reply_to_message.get_message()
+                if msg_seg.type == 'photo'
+            ]
+
+    def get_reply_msg_plain_text(self) -> Optional[str]:
+        if self.event.reply_to_message:
+            return self.event.reply_to_message.get_plaintext()
+
     async def send_at_sender(self, message: Union[str, None, TelegramMessage, TelegramMessageSegment], **kwargs):
         self.event = cast(TelegramMessageEvent, self.event)
 
