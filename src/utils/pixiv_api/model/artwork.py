@@ -160,7 +160,7 @@ class PixivArtworkUgoiraMetaBody(BasePixivModel):
 
 class PixivArtworkUgoiraMeta(BasePixivModel):
     """Pixiv 作品动图信息"""
-    body: PixivArtworkUgoiraMetaBody | list[None]
+    body: PixivArtworkUgoiraMetaBody
     error: bool
     message: str
 

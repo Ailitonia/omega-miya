@@ -45,7 +45,7 @@ class PixivSearchingResultBody(BasePixivModel):
 
 class PixivSearchingResultModel(BasePixivModel):
     """Pixiv 搜索结果 Model"""
-    body: PixivSearchingResultBody | list[None]
+    body: PixivSearchingResultBody
     error: bool
 
     @property

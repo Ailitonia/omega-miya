@@ -66,7 +66,7 @@ class PixivUserDataBody(BasePixivModel):
 
 class PixivUserDataModel(BasePixivModel):
     """Pixiv 用户信息 Model"""
-    body: PixivUserDataBody | list[None]
+    body: PixivUserDataBody
     error: bool
     message: str
 
@@ -102,7 +102,7 @@ class PixivUserArtworkDataBody(BasePixivModel):
 
 class PixivUserArtworkDataModel(BasePixivModel):
     """Pixiv 用户作品信息 Model"""
-    body: PixivUserArtworkDataBody | list[None]
+    body: PixivUserArtworkDataBody
     error: bool
     message: str
 
@@ -161,7 +161,7 @@ class PixivFollowLatestIllustBody(BasePixivModel):
 
 class PixivFollowLatestIllust(BasePixivModel):
     """关注用户的最新作品"""
-    body: PixivFollowLatestIllustBody | list[None]
+    body: PixivFollowLatestIllustBody
     error: bool
     message: str
 
@@ -215,7 +215,7 @@ class BookmarkBody(BasePixivModel):
 
 class PixivBookmark(BasePixivModel):
     """Pixiv 收藏作品"""
-    body: BookmarkBody | list[None]
+    body: BookmarkBody
     error: bool
     message: str
 

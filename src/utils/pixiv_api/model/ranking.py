@@ -34,8 +34,8 @@ class PixivRankingModel(BasePixivModel):
     page: int
     next: int
     prev: int
-    next_date: str
-    prev_date: str
+    next_date: str | bool
+    prev_date: str | bool
     rank_total: int
 
     def get_ranking(self, rank_num: int) -> PixivRankingContentModel:

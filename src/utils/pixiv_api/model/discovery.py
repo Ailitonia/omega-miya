@@ -34,7 +34,7 @@ class PixivDiscoveryBody(BasePixivModel):
 
 class PixivDiscoveryModel(BasePixivModel):
     """Pixiv 发现内容 Model"""
-    body: PixivDiscoveryBody | list[None]
+    body: PixivDiscoveryBody
     error: bool
     message: str
 
@@ -85,7 +85,7 @@ class PixivRecommendBody(BasePixivModel):
 
 class PixivRecommendModel(BasePixivModel):
     """Pixiv 首页推荐内容 Model"""
-    body: PixivRecommendBody | list[None]
+    body: PixivRecommendBody
     error: bool
     message: str
 
