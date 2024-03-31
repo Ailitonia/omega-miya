@@ -117,6 +117,7 @@ class OmegaRequests(object):
         final_exception = None
         while attempts_num < self.retry_limit:
             try:
+                logger.opt(colors=True).trace(f'<lc>Omega Requests</lc> | Starting request <ly>{setup!r}</ly>')
                 return await self.driver.request(setup=setup)
             except TimeoutError as e:
                 logger.opt(colors=True).debug(
