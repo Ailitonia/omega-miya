@@ -44,6 +44,32 @@ def get_command_str_single_arg_parser_handler(
     return handle_parse_command_str_single_arg
 
 
+def get_command_str_multi_args_parser_handler(
+        key_prefix: str,
+        *,
+        default: str | None = None,
+        ensure_keys_num: int = 0
+) -> T_Handler:
+    """构造解析多个文本命令参数并更新到 State 的 handler, 一般用于 on_command 的首个 handler
+
+    :param key_prefix: 参数前缀, 更新 State 的 key 格式: {key_prefix}_{index}
+    :param default: 未解析出参数时的默认值, 必须与 ensure_keys 参数同时使用
+    :param ensure_keys_num: 即便未解析出参数, 也要保证有这么多数量的 key 存在于 State 中
+    :return: T_Handler
+    """
+
+    async def handle_parse_command_str_multi_args(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
+        multi_args = cmd_arg.extract_plain_text().strip().split()
+        if multi_args:
+            for index, arg in enumerate(multi_args):
+                state.update({f'{key_prefix}_{index}': arg})
+        elif ensure_keys_num:
+            for index in range(ensure_keys_num):
+                state.update({f'{key_prefix}_{index}': default})
+
+    return handle_parse_command_str_multi_args
+
+
 def get_command_message_arg_parser_handler(
         key: str,
         *,
@@ -104,6 +130,7 @@ def get_shell_command_parse_failed_handler() -> T_Handler:
 
 __all__ = [
     'get_command_str_single_arg_parser_handler',
+    'get_command_str_multi_args_parser_handler',
     'get_command_message_arg_parser_handler',
     'get_set_default_state_handler',
     'get_shell_command_parse_failed_handler'
