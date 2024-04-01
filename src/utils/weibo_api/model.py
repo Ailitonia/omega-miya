@@ -110,10 +110,10 @@ class _PagePic(WeiboBaseModel):
 class _PageInfo(WeiboBaseModel):
     """page_info model"""
     type: str
-    object_type: str
+    object_type: Optional[str] = None
     page_pic: _PagePic
-    page_url: AnyUrl
-    page_title: str
+    page_url: Optional[AnyUrl] = None
+    page_title: Optional[str] = None
     title: Optional[str] = None
     content1: Optional[str] = None
     content2: Optional[str] = None
@@ -172,8 +172,11 @@ class _WeiboCardMbLog(WeiboBaseModel):
 
     @field_validator('text')
     @classmethod
-    def _remove_text_html_tags(cls, v):
-        text_html = etree.HTML(v)
+    def _remove_text_html_tags(cls, text: str):
+        if not text.strip():
+            return text
+
+        text_html = etree.HTML(text)
         text = ''.join(text for x in text_html.xpath('/html/*') for text in x.itertext()).strip()
         return text
 

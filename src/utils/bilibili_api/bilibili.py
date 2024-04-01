@@ -115,7 +115,7 @@ class Bilibili(object):
         _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 
         response = await cls.request_json(url=_wbi_nav_url)
-        return sign_wbi_params(nav_data=BilibiliWebInterfaceNav.parse_obj(response), params=params)
+        return sign_wbi_params(nav_data=BilibiliWebInterfaceNav.model_validate(response), params=params)
 
     @classmethod
     async def update_buvid_params(cls) -> dict[str, Any]:
@@ -125,7 +125,7 @@ class Bilibili(object):
 
         # get buvid3, buvid4
         spi_response = await cls.request_json(url=_spi_url)
-        spi_data = BilibiliWebInterfaceSpi.parse_obj(spi_response)
+        spi_data = BilibiliWebInterfaceSpi.model_validate(spi_response)
 
         # active buvid
         uuid = gen_uuid_infoc()
@@ -221,7 +221,7 @@ class Bilibili(object):
         }
         search_url: str = 'https://api.bilibili.com/x/web-interface/search/type'
         searching_data = await cls.request_json(url=search_url, params=params)
-        return BaseBilibiliSearchingModel.parse_obj(searching_data)
+        return BaseBilibiliSearchingModel.model_validate(searching_data)
 
 
 class BilibiliUser(Bilibili):
@@ -263,7 +263,7 @@ class BilibiliUser(Bilibili):
         searching_result = await cls._global_search(
             search_type='bili_user', page_size=36, keyword=user_name, order=order, order_sort=order_sort
         )
-        return UserSearchingModel.parse_obj(searching_result)
+        return UserSearchingModel.model_validate(searching_result)
 
     @property
     def mid(self) -> str:
@@ -275,7 +275,7 @@ class BilibiliUser(Bilibili):
             params = await self.update_wbi_params({'mid': self.mid})
             cookies = await self.update_buvid_params()
             user_data = await self.request_json(url=self._data_api_url, params=params, cookies=cookies)
-            self.user_model = BilibiliUserModel.parse_obj(user_data)
+            self.user_model = BilibiliUserModel.model_validate(user_data)
 
         assert isinstance(self.user_model, BilibiliUserModel), 'Query user model failed'
         return self.user_model
@@ -303,7 +303,7 @@ class BilibiliUser(Bilibili):
         cookies = await self.update_buvid_params()
 
         data = await self.request_json(url=self._dynamic_api_url, params=params, headers=headers, cookies=cookies)
-        return BilibiliUserDynamicModel.parse_obj(data)
+        return BilibiliUserDynamicModel.model_validate(data)
 
 
 class BilibiliDynamic(Bilibili):
@@ -346,7 +346,7 @@ class BilibiliDynamic(Bilibili):
             })
             params = {'dynamic_id': self.dy_id}
             dynamic_data = await self.request_json(url=self._dynamic_detail_api_url, params=params, headers=headers)
-            self.dynamic_model = BilibiliDynamicModel.parse_obj(dynamic_data)
+            self.dynamic_model = BilibiliDynamicModel.model_validate(dynamic_data)
 
         assert isinstance(self.dynamic_model, BilibiliDynamicModel), 'Query dynamic model failed'
         return self.dynamic_model
@@ -380,14 +380,14 @@ class BilibiliLiveRoom(Bilibili):
         if live_room_response.status_code != 200:
             raise BilibiliNetworkError(f'{live_room_response.request}, status code {live_room_response.status_code}')
 
-        return BilibiliUsersLiveRoomModel.parse_obj(OmegaRequests.parse_content_json(live_room_response))
+        return BilibiliUsersLiveRoomModel.model_validate(OmegaRequests.parse_content_json(live_room_response))
 
     async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""
         if not isinstance(self.live_room_model, BilibiliLiveRoomModel):
             params = {'id': self.rid}
             live_room_data = await self.request_json(url=self._live_api_url, params=params)
-            self.live_room_model = BilibiliLiveRoomModel.parse_obj(live_room_data)
+            self.live_room_model = BilibiliLiveRoomModel.model_validate(live_room_data)
 
         assert isinstance(self.live_room_model, BilibiliLiveRoomModel), 'Query live room model failed'
         return self.live_room_model

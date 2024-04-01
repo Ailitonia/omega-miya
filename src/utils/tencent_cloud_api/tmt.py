@@ -46,7 +46,7 @@ class TencentTMT(object):
             action='TextTranslate', version='2018-03-21', region='ap-chengdu', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextTranslateResponse.parse_obj(OmegaRequests.parse_content_json(result))
+        return TencentCloudTextTranslateResponse.model_validate(OmegaRequests.parse_content_json(result))
 
 
 __all__ = [

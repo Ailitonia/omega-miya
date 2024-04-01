@@ -11,10 +11,8 @@
 import hashlib
 import random
 import ujson as json
-from PIL import Image, ImageDraw, ImageFont
 from datetime import datetime
 from io import BytesIO
-from pydantic import BaseModel, parse_obj_as
 from typing import Annotated, Literal, Optional
 
 from nonebot.adapters import Bot, Event
@@ -22,7 +20,10 @@ from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.typing import T_State
 from nonebot.utils import run_sync
+from PIL import Image, ImageDraw, ImageFont
+from pydantic import BaseModel
 
+from src.compat import parse_obj_as
 from src.database import begin_db_session
 from src.database.internal.pixiv_artwork import PixivArtwork as PixivArtworkModel
 from src.resource import TemporaryResource
@@ -172,7 +173,7 @@ def get_fortune(user_id: str, *, date: datetime | None = None) -> Fortune:
     # 重置随机种子
     random.seed()
 
-    return Fortune.parse_obj(result)
+    return Fortune.model_validate(result)
 
 
 async def get_signin_top_image() -> tuple[PixivArtworkModel, TemporaryResource]:

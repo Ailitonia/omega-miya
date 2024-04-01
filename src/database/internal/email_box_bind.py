@@ -9,11 +9,13 @@
 """
 
 from datetime import datetime
-from sqlalchemy.future import select
-from sqlalchemy import update, delete
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, parse_obj_as
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import update, delete
+from sqlalchemy.future import select
+
+from src.compat import parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, EmailBoxBindOrm
 

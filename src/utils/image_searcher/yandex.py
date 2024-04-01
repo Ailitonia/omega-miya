@@ -9,9 +9,9 @@
 """
 
 from lxml import etree
-from pydantic import parse_obj_as
 from nonebot.log import logger
 
+from src.compat import parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
 

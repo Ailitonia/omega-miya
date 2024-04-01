@@ -34,8 +34,8 @@ class MessageSentEvent(MessageEvent):
     """自身发送消息事件"""
 
     post_type: Literal["message_sent"]
-    message_seq: Optional[int]
-    target_id: Optional[int]
+    message_seq: Optional[int] = None
+    target_id: Optional[int] = None
     group_id: Optional[int] = 0
     anonymous: Optional[Anonymous] = None
     to_me: bool = False

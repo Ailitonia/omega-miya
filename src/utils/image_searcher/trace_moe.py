@@ -10,10 +10,10 @@
 
 
 from typing import Optional
-from pydantic import BaseModel, Field, parse_obj_as
+from pydantic import BaseModel, Field
 from nonebot.log import logger
 
-from src.compat import AnyUrlStr as AnyUrl
+from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
@@ -115,7 +115,7 @@ class TraceMoe(ImageSearcher):
             logger.error(f'TraceMoe | AnilistApiError, {anilist_response}')
             raise AnilistApiError(f'{anilist_response.request}, status code {anilist_response.status_code}')
 
-        anilist_data = AnilistResult.parse_obj(OmegaRequests.parse_content_json(anilist_response))
+        anilist_data = AnilistResult.model_validate(OmegaRequests.parse_content_json(anilist_response))
         source = f'trace.moe & Anilist 数据库\n' \
                  f'原始名称: {anilist_data.media.title.native}\n' \
                  f'中文名称: {anilist_data.media.title.chinese}\n' \
@@ -138,7 +138,7 @@ class TraceMoe(ImageSearcher):
             logger.error(f'TraceMoe | TraceMoeApiError, {tracemoe_response}')
             raise TraceMoeApiError(f'{tracemoe_response.request}, status code {tracemoe_response.status_code}')
 
-        tracemoe_result = TraceMoeResult.parse_obj(OmegaRequests.parse_content_json(tracemoe_response))
+        tracemoe_result = TraceMoeResult.model_validate(OmegaRequests.parse_content_json(tracemoe_response))
 
         anilist_tasks = [
             self._handel_anilist_result(data=x)

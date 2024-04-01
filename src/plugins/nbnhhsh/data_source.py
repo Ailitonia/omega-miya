@@ -9,8 +9,9 @@
 """
 
 from typing import Optional
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel
 
+from src.compat import parse_obj_as
 from src.service import OmegaRequests
 
 

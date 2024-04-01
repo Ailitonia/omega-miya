@@ -70,9 +70,9 @@ class EntityDepend(abc.ABC):
     ) -> OmegaEntity:
         match self.acquire_type:
             case 'event':
-                return OmegaEntity(session=session, **self.extract_event_entity_from_event(bot, event).dict())
+                return OmegaEntity(session=session, **self.extract_event_entity_from_event(bot, event).model_dump())
             case 'user':
-                return OmegaEntity(session=session, **self.extract_user_entity_from_event(bot, event).dict())
+                return OmegaEntity(session=session, **self.extract_user_entity_from_event(bot, event).model_dump())
             case _:
                 raise ValueError(f'illegal acquire_type: {self.acquire_type!r}')
 

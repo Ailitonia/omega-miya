@@ -67,7 +67,7 @@ async def _init_schedule_message_job() -> None:
         for job in all_jobs:
             if job.available == 1:
                 try:
-                    add_schedule_job(job_data=ScheduleMessageJob.parse_obj(json.loads(job.value)))
+                    add_schedule_job(job_data=ScheduleMessageJob.model_validate(json.loads(job.value)))
                 except Exception as e:
                     logger.error(f'ScheduleMessageJob | Add job({job}) failed when init in startup, {e!r}')
 
@@ -87,7 +87,7 @@ async def generate_schedule_job_data(
         'message': message.dumps(),
         'mode': 'cron'
     }
-    return ScheduleMessageJob.parse_obj(job_data)
+    return ScheduleMessageJob.model_validate(job_data)
 
 
 async def get_schedule_message_job_list(interface: OmegaInterface) -> list[str]:
@@ -96,7 +96,7 @@ async def get_schedule_message_job_list(interface: OmegaInterface) -> list[str]:
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME
     )
     job_list = [
-        ScheduleMessageJob.parse_obj(json.loads(x.value)).schedule_job_name
+        ScheduleMessageJob.model_validate(json.loads(x.value)).schedule_job_name
         for x in all_jobs
         if x.available == 1
     ]
@@ -110,7 +110,7 @@ async def set_schedule_message_job(interface: OmegaInterface, job_data: Schedule
         plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_data.schedule_job_name,
         available=1,
-        value=json.dumps(job_data.dict(), ensure_ascii=False)
+        value=json.dumps(job_data.model_dump(), ensure_ascii=False)
     )
 
 
@@ -121,7 +121,7 @@ async def remove_schedule_message_job(interface: OmegaInterface, job_name: str) 
         plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_name
     )
-    job_data = ScheduleMessageJob.parse_obj(json.loads(job_setting.value))
+    job_data = ScheduleMessageJob.model_validate(json.loads(job_setting.value))
 
     await interface.entity.set_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,

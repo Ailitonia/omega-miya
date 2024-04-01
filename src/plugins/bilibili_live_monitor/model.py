@@ -34,10 +34,10 @@ class BilibiliLiveRoomStatus(BaseModel):
 
     def __sub__(self, other) -> "BilibiliLiveRoomStatusUpdate":
         if isinstance(other, BilibiliLiveRoomStatus):
-            differ = set(self.dict().items()) - set(other.dict().items())
+            differ = set(self.model_dump().items()) - set(other.model_dump().items())
             differ_data = {k: v for k, v in differ}
             differ_data = None if not differ_data else differ_data
-            return BilibiliLiveRoomStatusUpdate.parse_obj({'is_update': self != other, 'update': differ_data})
+            return BilibiliLiveRoomStatusUpdate.model_validate({'is_update': self != other, 'update': differ_data})
         else:
             raise ValueError('BilibiliLiveRoomStatus can only be subtracted by the same class')
 

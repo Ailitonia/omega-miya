@@ -85,7 +85,7 @@ async def handle_poke_sign_in(bot: Bot, event: OneBotV11PokeNotifyEvent):
     msg = f'{_DEFAULT_COMMAND_START}签到'
     event_t = OneBotV11PrivateMessageEvent if event.group_id is None else OneBotV11GroupMessageEvent
     message_type = 'private' if event.group_id is None else 'group'
-    event_ = event_t.parse_obj(
+    event_ = event_t.model_validate(
         {
             'time': event.time,
             'self_id': event.self_id,

@@ -11,11 +11,13 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum, unique
-from sqlalchemy.future import select
-from sqlalchemy import update, delete
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, parse_obj_as
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import update, delete
+from sqlalchemy.future import select
+
+from src.compat import parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm, SubscriptionOrm
 

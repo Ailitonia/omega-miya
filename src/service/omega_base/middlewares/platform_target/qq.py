@@ -227,7 +227,7 @@ class QQChannelMessageSender(QQMessageSender):
 
     def parse_revoke_sent_params(self, content: Any, **kwargs) -> RevokeParams:
         if isinstance(content, Message):
-            content = content.dict()
+            content = content.model_dump()
         return RevokeParams(
             api='delete_message',  # Patched
             params={'channel_id': content['channel_id'], 'message_id': content['id']}

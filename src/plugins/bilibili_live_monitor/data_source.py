@@ -42,7 +42,7 @@ def check_and_upgrade_live_status(
     else:
         live_user_name = exist_status.live_user_name if live_user_name is None else live_user_name
 
-    new_status = BilibiliLiveRoomStatus.parse_obj({
+    new_status = BilibiliLiveRoomStatus.model_validate({
         'live_room_id': live_room_data.room_id,
         'live_status': live_room_data.live_status,
         'live_title': live_room_data.title,

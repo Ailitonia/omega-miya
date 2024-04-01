@@ -87,7 +87,7 @@ def enable_processor_state(
         cost=cost,
         echo_processor_result=echo_processor_result
     )
-    return {__OMEGA_STATE_KEY: state_model.dict()}
+    return {__OMEGA_STATE_KEY: state_model.model_dump()}
 
 
 def parse_processor_state(state: T_State) -> OmegaProcessorState:
@@ -106,7 +106,7 @@ def parse_processor_state(state: T_State) -> OmegaProcessorState:
             echo_processor_result=False
         )
     else:
-        processor_state = OmegaProcessorState.parse_obj(state_data)
+        processor_state = OmegaProcessorState.model_validate(state_data)
     return processor_state
 
 

@@ -9,12 +9,14 @@
 """
 
 from datetime import datetime
-from sqlalchemy.sql.expression import func
-from sqlalchemy.future import select
-from sqlalchemy import update, delete, desc, or_
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, parse_obj_as
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import update, delete, desc, or_
+from sqlalchemy.future import select
+from sqlalchemy.sql.expression import func
+
+from src.compat import parse_obj_as
 
 from ..model import BaseDataAccessLayerModel, PixivArtworkOrm
 

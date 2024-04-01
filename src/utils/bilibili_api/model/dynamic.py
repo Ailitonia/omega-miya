@@ -110,7 +110,7 @@ class CardType2OriginalWithImage(_BaseCardType):
 
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新动态!\n\n“{self.item.description}”\n'
-        return _StdCardOutputData.parse_obj({
+        return _StdCardOutputData.model_validate({
             'content': self.item.description,
             'text': text,
             'img_urls': [x.img_src for x in self.item.pictures]
@@ -145,7 +145,7 @@ class CardType4OriginalWithoutImage(_BaseCardType):
 
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新动态!\n\n“{self.item.content}”'
-        return _StdCardOutputData.parse_obj({'content': self.item.content, 'text': text})
+        return _StdCardOutputData.model_validate({'content': self.item.content, 'text': text})
 
 
 class CardType8Video(_BaseCardType):
@@ -177,7 +177,7 @@ class CardType8Video(_BaseCardType):
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新的视频!\n\n《{self.title}》\n\n' \
                f'{self.dynamic if self.dynamic else ""}\n{self.desc}\n'
-        return _StdCardOutputData.parse_obj({'content': self.dynamic, 'text': text, 'img_urls': [self.pic]})
+        return _StdCardOutputData.model_validate({'content': self.dynamic, 'text': text, 'img_urls': [self.pic]})
 
 
 class CardType16ShortVideo(_BaseCardType):
@@ -196,7 +196,7 @@ class CardType16ShortVideo(_BaseCardType):
 
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新的小视频动态!\n\n“{self.item.description}”\n'
-        return _StdCardOutputData.parse_obj({'content': self.item.description, 'text': text})
+        return _StdCardOutputData.model_validate({'content': self.item.description, 'text': text})
 
 
 class CardType32Anime(_BaseCardType):
@@ -213,7 +213,7 @@ class CardType32Anime(_BaseCardType):
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新的番剧!\n\n《{self.title}》\n\n' \
                f'{self.dynamic if self.dynamic else ""}\n'
-        return _StdCardOutputData.parse_obj({'content': self.dynamic, 'text': text, 'img_urls': [self.pic]})
+        return _StdCardOutputData.model_validate({'content': self.dynamic, 'text': text, 'img_urls': [self.pic]})
 
 
 class CardType64Article(_BaseCardType):
@@ -250,7 +250,8 @@ class CardType64Article(_BaseCardType):
 
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新的文章!\n\n《{self.title}》\n\n{self.summary}......\n'
-        return _StdCardOutputData.parse_obj({'content': self.summary, 'text': text, 'img_urls': self.origin_image_urls})
+        return _StdCardOutputData.model_validate({'content': self.summary, 'text': text,
+                                                  'img_urls': self.origin_image_urls})
 
 
 class CardType256Music(_BaseCardType):
@@ -272,7 +273,7 @@ class CardType256Music(_BaseCardType):
 
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新的音乐!\n\n《{self.title}》\n\n{self.intro}\n'
-        return _StdCardOutputData.parse_obj({'content': self.intro, 'text': text, 'img_urls': [self.cover]})
+        return _StdCardOutputData.model_validate({'content': self.intro, 'text': text, 'img_urls': [self.cover]})
 
 
 class CardType512Anime(_BaseCardType):
@@ -293,7 +294,7 @@ class CardType512Anime(_BaseCardType):
     def output_std_model(self) -> _StdCardOutputData:
         text = f'{self.user_name}发布了新的番剧!\n\n《{self.apiSeasonInfo.title}》\n\n' \
                f'{self.index_title if self.index_title else ""}\n'
-        return _StdCardOutputData.parse_obj({'content': self.index_title, 'text': text, 'img_urls': [self.cover]})
+        return _StdCardOutputData.model_validate({'content': self.index_title, 'text': text, 'img_urls': [self.cover]})
 
 
 class CardType2048Active(_BaseCardType):
@@ -318,7 +319,7 @@ class CardType2048Active(_BaseCardType):
         text = f'{self.user_name}发布了一条活动相关动态!\n\n' \
                f'【{self.sketch.title}{(" - " + self.sketch.desc_text) if self.sketch.desc_text else ""}】\n\n' \
                f'“{self.vest.content}”\n'
-        return _StdCardOutputData.parse_obj({'content': self.vest.content, 'text': text})
+        return _StdCardOutputData.model_validate({'content': self.vest.content, 'text': text})
 
 
 class CardType4200LiveRoom(_BaseCardType):
@@ -335,7 +336,7 @@ class CardType4200LiveRoom(_BaseCardType):
     def output_std_model(self) -> _StdCardOutputData:
         content = f'{self.uname}的直播间 - {self.title}'
         text = f'{self.user_name}发布了一条直播间动态!\n\n{content}\n'
-        return _StdCardOutputData.parse_obj({'content': content, 'text': text, 'img_urls': [self.cover]})
+        return _StdCardOutputData.model_validate({'content': content, 'text': text, 'img_urls': [self.cover]})
 
 
 class CardType4300MediaListShare(_BaseCardType):
@@ -367,7 +368,7 @@ class CardType4300MediaListShare(_BaseCardType):
     def output_std_model(self) -> _StdCardOutputData:
         content = f'《{self.title}》\n{self.intro}\n- 共{self.media_count}个内容'
         text = f'{self.user_name}分享了收藏夹和播放列表!\n\n{content}\n'
-        return _StdCardOutputData.parse_obj({'content': content, 'text': text, 'img_urls': [self.cover]})
+        return _StdCardOutputData.model_validate({'content': content, 'text': text, 'img_urls': [self.cover]})
 
 
 class CardType4308LiveRoom(_BaseCardType):
@@ -398,8 +399,8 @@ class CardType4308LiveRoom(_BaseCardType):
 
     def output_std_model(self) -> _StdCardOutputData:
         content = f'bilibili直播间(房间号: {self.live_play_info.room_id})直播了!\n\n【{self.live_play_info.title}】'
-        return _StdCardOutputData.parse_obj({'content': content, 'text': content,
-                                             'img_urls': [self.live_play_info.cover]})
+        return _StdCardOutputData.model_validate({'content': content, 'text': content,
+                                                  'img_urls': [self.live_play_info.cover]})
 
 
 class CardType1Forward(_BaseCardType):
@@ -459,7 +460,7 @@ class CardType1Forward(_BaseCardType):
             text = f'{self.user_name}转发了{self.origin.user_name}的动态!\n\n“{self.item.content}”\n' \
                    f'{"=" * 16}\n@{self.origin.output_std_model().text}'
             img_urls = self.origin.output_std_model().img_urls
-        return _StdCardOutputData.parse_obj({'content': self.item.content, 'text': text, 'img_urls': img_urls})
+        return _StdCardOutputData.model_validate({'content': self.item.content, 'text': text, 'img_urls': img_urls})
 
 
 class BilibiliDynamicCard(BaseBilibiliModel):

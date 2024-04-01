@@ -11,7 +11,7 @@ from nonebot.adapters.onebot.v11 import (
 from nonebot.log import logger
 from nonebot.typing import overrides
 from nonebot.utils import escape_tag
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, parse_obj_as
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 from typing_extensions import Literal
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
@@ -45,7 +45,7 @@ class GuildMessageEvent(MessageEvent):
         if isinstance(raw_message, str):
             return raw_message
         elif isinstance(raw_message, list):
-            return str(parse_obj_as(Message, raw_message))
+            return str(TypeAdapter(Message).validate_python(raw_message))
         raise ValueError("unknown raw message type")
 
     @model_validator(mode='before')

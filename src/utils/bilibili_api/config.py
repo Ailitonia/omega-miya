@@ -62,7 +62,7 @@ async def verify_bilibili_cookie() -> None:
         bilibili_config.clear()
         logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 访问失败, {result.status_code}')
 
-    verify = BilibiliWebInterfaceNav.parse_obj(requests.parse_content_json(result))
+    verify = BilibiliWebInterfaceNav.model_validate(requests.parse_content_json(result))
     if verify.code != 0 or not verify.data.isLogin:
         bilibili_config.clear()
         logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, {verify.message}')

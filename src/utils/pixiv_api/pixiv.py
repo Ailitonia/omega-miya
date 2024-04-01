@@ -131,7 +131,7 @@ class Pixiv(abc.ABC):
             params.update({'content': content})
 
         ranking_data = await cls.request_json(url=url, params=params)
-        return PixivRankingModel.parse_obj(ranking_data)
+        return PixivRankingModel.model_validate(ranking_data)
 
     @classmethod
     async def query_daily_illust_ranking_with_preview(cls, page: int = 1) -> TemporaryResource:
@@ -238,7 +238,7 @@ class Pixiv(abc.ABC):
 
         searching_url = f'{cls._root_url}/ajax/search/{mode}/{word}'
         searching_data = await cls.request_json(url=searching_url, params=params)
-        return PixivSearchingResultModel.parse_obj(searching_data)
+        return PixivSearchingResultModel.model_validate(searching_data)
 
     @classmethod
     async def search_by_default_popular_condition(cls, word: str) -> PixivSearchingResultModel:
@@ -297,7 +297,7 @@ class Pixiv(abc.ABC):
         params = {'mode': mode, 'limit': limit, 'lang': lang}
 
         discovery_data = await cls.request_json(url=url, params=params)
-        return PixivDiscoveryModel.parse_obj(discovery_data)
+        return PixivDiscoveryModel.model_validate(discovery_data)
 
     @classmethod
     async def query_discovery_artworks_with_preview(cls) -> TemporaryResource:
@@ -325,7 +325,7 @@ class Pixiv(abc.ABC):
         params = {'mode': mode, 'lang': lang}
 
         recommend_data = await cls.request_json(url=url, params=params)
-        return PixivRecommendModel.parse_obj(recommend_data)
+        return PixivRecommendModel.model_validate(recommend_data)
 
     @classmethod
     async def query_recommend_artworks_with_preview(cls) -> TemporaryResource:
@@ -354,7 +354,7 @@ class Pixiv(abc.ABC):
         params = {'mode': mode, 'lang': lang, 'p': page}
 
         following_data = await cls.request_json(url=url, params=params)
-        return PixivFollowLatestIllust.parse_obj(following_data)
+        return PixivFollowLatestIllust.model_validate(following_data)
 
     @classmethod
     async def query_bookmarks(
@@ -379,7 +379,7 @@ class Pixiv(abc.ABC):
             params.update({'version': version})
 
         bookmark_data = await cls.request_json(url=url, params=params)
-        return PixivBookmark.parse_obj(bookmark_data)
+        return PixivBookmark.model_validate(bookmark_data)
 
 
 class PixivArtwork(Pixiv):
@@ -402,17 +402,17 @@ class PixivArtwork(Pixiv):
     async def _query_data(self) -> PixivArtworkDataModel:
         """获取作品信息"""
         artwork_data = await self.request_json(url=self.data_url)
-        return PixivArtworkDataModel.parse_obj(artwork_data)
+        return PixivArtworkDataModel.model_validate(artwork_data)
 
     async def _query_page_date(self) -> PixivArtworkPageModel:
         """获取多页信息"""
         page_data = await self.request_json(url=self.page_data_url)
-        return PixivArtworkPageModel.parse_obj(page_data)
+        return PixivArtworkPageModel.model_validate(page_data)
 
     async def _query_ugoira_meta(self) -> PixivArtworkUgoiraMeta:
         """获取动图信息"""
         ugoira_meta = await self.request_json(url=self.ugoira_meta_url)
-        return PixivArtworkUgoiraMeta.parse_obj(ugoira_meta)
+        return PixivArtworkUgoiraMeta.model_validate(ugoira_meta)
 
     async def query_artwork(self) -> PixivArtworkCompleteDataModel:
         """获取并初始化作品对应 PixivArtworkCompleteDataModel"""
@@ -503,7 +503,7 @@ class PixivArtwork(Pixiv):
                 'all_page': page_data.index_page,
                 'ugoira_meta': ugoira_meta
             }
-            self.artwork_model = PixivArtworkCompleteDataModel.parse_obj(_data)
+            self.artwork_model = PixivArtworkCompleteDataModel.model_validate(_data)
 
         assert isinstance(self.artwork_model, PixivArtworkCompleteDataModel), 'Query artwork model failed'
         return self.artwork_model
@@ -523,7 +523,7 @@ class PixivArtwork(Pixiv):
         if page > artwork_model.page_count - 1:
             raise ValueError(f'request page({page}) exceeds the page count range({artwork_model.page_count - 1})')
 
-        page_url = artwork_model.all_page.get(page).dict().get(url_type)
+        page_url = artwork_model.all_page.get(page).model_dump().get(url_type)
         return await self.request_resource(url=page_url)
 
     async def _save_page_resource(
@@ -622,7 +622,7 @@ class PixivArtwork(Pixiv):
         artwork_model = await self.query_artwork()
         if page > artwork_model.page_count - 1:
             raise ValueError(f'request page({page}) exceeds the page count range({artwork_model.page_count - 1})')
-        page_file_url = artwork_model.all_page.get(page).dict().get('original')
+        page_file_url = artwork_model.all_page.get(page).model_dump().get('original')
         return await self.download_resource(url=page_file_url)
 
     async def download_all_page(self) -> list[TemporaryResource]:
@@ -782,14 +782,14 @@ class PixivUser(Pixiv):
         params = {'lang': 'zh'}
 
         user_data = await self.request_json(url=self.data_url, params=params)
-        return PixivUserDataModel.parse_obj(user_data)
+        return PixivUserDataModel.model_validate(user_data)
 
     async def _query_user_artwork_data(self) -> PixivUserArtworkDataModel:
         """获取用户作品信息"""
         params = {'lang': 'zh'}
 
         user_artwork_data = await self.request_json(url=self.profile_url, params=params)
-        return PixivUserArtworkDataModel.parse_obj(user_artwork_data)
+        return PixivUserArtworkDataModel.model_validate(user_artwork_data)
 
     async def query_user_data(self) -> PixivUserModel:
         """获取并初始化用户对应 PixivUserModel"""
@@ -811,7 +811,7 @@ class PixivUser(Pixiv):
                 'manga': _user_artwork_data.body.manga_list,
                 'novels': _user_artwork_data.body.novel_list
             }
-            self.user_model = PixivUserModel.parse_obj(_data)
+            self.user_model = PixivUserModel.model_validate(_data)
 
         assert isinstance(self.user_model, PixivUserModel), 'Query user model failed'
         return self.user_model

@@ -9,10 +9,10 @@
 """
 
 from typing import Optional
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel
 from nonebot.log import logger
 
-from src.compat import AnyUrlStr as AnyUrl
+from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
 
@@ -174,7 +174,7 @@ class Saucenao(ImageSearcher):
             logger.error(f'Saucenao | SaucenaoApiError, {saucenao_response}')
             raise SaucenaoApiError(f'{saucenao_response.request}, status code {saucenao_response.status_code}')
 
-        saucenao_result = SaucenaoResult.parse_obj(OmegaRequests.parse_content_json(saucenao_response))
+        saucenao_result = SaucenaoResult.model_validate(OmegaRequests.parse_content_json(saucenao_response))
         data = (
             {
                 'source': f'{x.header.index_name}\n{x.data.data_text}',

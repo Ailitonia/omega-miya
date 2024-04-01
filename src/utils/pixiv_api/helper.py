@@ -117,7 +117,7 @@ def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
         'count': count,
         'users': user_list
     }
-    return PixivUserSearchingModel.parse_obj(result)
+    return PixivUserSearchingModel.model_validate(result)
 
 
 def parse_global_data(content: str) -> PixivGlobalData:
@@ -130,7 +130,7 @@ def parse_global_data(content: str) -> PixivGlobalData:
     global_data = html.xpath(
         '/html/head/meta[@name="global-data" and @id="meta-global-data"]'
     ).pop(0).attrib.get('content')
-    return PixivGlobalData.parse_obj(json.loads(global_data))
+    return PixivGlobalData.model_validate(json.loads(global_data))
 
 
 def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustrationList:
@@ -163,7 +163,7 @@ def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustr
             tag_url = root_url + tag_rela_url
             tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
         result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail, 'url': url, 'tags': tag_list})
-    return PixivisionIllustrationList.parse_obj({'illustrations': result_list})
+    return PixivisionIllustrationList.model_validate({'illustrations': result_list})
 
 
 def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArticle:
@@ -227,7 +227,7 @@ def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArti
         'artwork_list': artwork_list,
         'tags_list': tag_list
     }
-    return PixivisionArticle.parse_obj(result)
+    return PixivisionArticle.model_validate(result)
 
 
 async def _generate_user_searching_result_card(user: PixivUserSearchingBody, *, width: int = 1600) -> Image.Image:

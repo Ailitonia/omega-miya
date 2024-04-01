@@ -8,7 +8,6 @@
 @Software       : PyCharm 
 """
 
-from pydantic import BaseModel, ConfigDict, Field, parse_obj_as
 from typing import Annotated, Optional
 
 from nonebot.log import logger
@@ -22,8 +21,9 @@ from nonebot.exception import AdapterException, IgnoredException
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
+from pydantic import BaseModel, ConfigDict, Field
 
-from src.compat import AnyHttpUrlStr as AnyHttpUrl
+from src.compat import AnyHttpUrlStr as AnyHttpUrl, parse_obj_as
 from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
@@ -80,7 +80,7 @@ async def __obv11_unique_bot_responding_rule_updater(bot: Bot, event: Event, mat
 class BaseOneBotModel(BaseModel):
     """OneBot v11 基类"""
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
 class FriendInfo(BaseOneBotModel):
@@ -237,8 +237,8 @@ async def __obv11_bot_connect(
     allowed_entity_type = entity_dal.entity_type
 
     # 更新 bot 状态
-    bot_version_info = VersionInfo.parse_obj(await bot.get_version_info())
-    info = '||'.join([f'{k}:{v}' for (k, v) in bot_version_info.dict().items()])
+    bot_version_info = VersionInfo.model_validate(await bot.get_version_info())
+    info = '||'.join([f'{k}:{v}' for (k, v) in bot_version_info.model_dump().items()])
     try:
         exist_bot = await bot_dal.query_unique(self_id=bot.self_id)
         await bot_dal.update(id_=exist_bot.id, bot_type=event.bot_type, bot_status=1, bot_info=info)
@@ -291,7 +291,7 @@ async def __obv11_bot_connect(
             continue
 
     try:
-        guild_profile = GuildServiceProfile.parse_obj(await bot.get_guild_service_profile())
+        guild_profile = GuildServiceProfile.model_validate(await bot.get_guild_service_profile())
         guilds = parse_obj_as(list[GuildInfo], await bot.get_guild_list())
 
         # 更新频道相关信息

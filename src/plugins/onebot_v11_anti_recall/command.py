@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from pydantic import parse_obj_as
 from typing import Annotated, Literal
 
 from nonebot.log import logger
@@ -22,6 +21,7 @@ from nonebot.typing import T_State
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment, GroupMessageEvent, GroupRecallNoticeEvent
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 
+from src.compat import parse_obj_as
 from src.service import OmegaInterface, enable_processor_state
 from src.params.rule import event_has_permission_node
 

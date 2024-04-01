@@ -111,7 +111,7 @@ class Weibo(object):
             'containerid': containerid,
         }
         user_response = await cls.request_json(url=url, params=params)
-        user_info = WeiboUserInfo.parse_obj(user_response)
+        user_info = WeiboUserInfo.model_validate(user_response)
 
         if user_info.ok != 1:
             raise WeiboApiError(f'Query user(uid={uid}) data failed, {user_info.data}')
@@ -138,7 +138,7 @@ class Weibo(object):
                 'since_id': str(since_id)
             })
         cards_response = await cls.request_json(url=url, params=params)
-        cards = WeiboCards.parse_obj(cards_response)
+        cards = WeiboCards.model_validate(cards_response)
 
         if cards.ok != 1:
             raise WeiboApiError(f'Query user(uid={uid}) weibo cards failed, {cards.data}')
@@ -151,7 +151,7 @@ class Weibo(object):
         url = f'https://m.weibo.cn/status/{mid}'
         card_response = await cls.request_resource(url=url)
 
-        return WeiboCardStatus.parse_obj(parse_weibo_card_from_status_page(card_response))
+        return WeiboCardStatus.model_validate(parse_weibo_card_from_status_page(card_response))
 
     @classmethod
     async def query_weibo_extend_text(cls, mid: int | str) -> str:
@@ -161,7 +161,7 @@ class Weibo(object):
             'id': str(mid)
         }
         extend_response = await cls.request_json(url=url, params=params)
-        extend = WeiboExtend.parse_obj(extend_response)
+        extend = WeiboExtend.model_validate(extend_response)
 
         if extend.ok != 1 or extend.data.ok != 1:
             raise WeiboApiError(f'Query weibo(mid={mid}) extend content failed, {extend}')
@@ -178,7 +178,7 @@ class Weibo(object):
             'containerid': containerid,
         }
         realtime_hot_response = await cls.request_json(url=url, params=params)
-        realtime_hot = WeiboRealtimeHot.parse_obj(realtime_hot_response)
+        realtime_hot = WeiboRealtimeHot.model_validate(realtime_hot_response)
 
         if realtime_hot.ok != 1:
             raise WeiboApiError(f'Query realtime hot failed, {realtime_hot.data}')

@@ -141,7 +141,7 @@ class PixivArtworkPageModel(BasePixivModel):
             'small': [x.urls.small for x in self.body],
             'thumb_mini': [x.urls.thumb_mini for x in self.body]
         }
-        return PixivArtworkAllPages.parse_obj(_pages_data)
+        return PixivArtworkAllPages.model_validate(_pages_data)
 
 
 class PixivArtworkUgoiraFrames(BasePixivModel):

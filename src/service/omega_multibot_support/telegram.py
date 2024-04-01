@@ -36,7 +36,7 @@ async def __telegram_bot_connect(
     # 更新 bot 状态
     bot_info = await bot.get_me()
 
-    info = '||'.join([f'{k}:{v}' for (k, v) in bot_info.dict().items()])
+    info = '||'.join([f'{k}:{v}' for (k, v) in bot_info.model_dump().items()])
     try:
         exist_bot = await bot_dal.query_unique(self_id=bot.self_id)
         await bot_dal.update(id_=exist_bot.id, bot_type=event.bot_type, bot_status=1, bot_info=info)

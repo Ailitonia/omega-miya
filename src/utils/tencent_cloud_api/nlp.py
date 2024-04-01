@@ -35,7 +35,7 @@ class TencentNLP(object):
             action='ChatBot', version='2019-04-08', region='ap-guangzhou', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudChatBotResponse.parse_obj(OmegaRequests.parse_content_json(result))
+        return TencentCloudChatBotResponse.model_validate(OmegaRequests.parse_content_json(result))
 
     async def sentiment_analysis(
             self,
@@ -61,7 +61,7 @@ class TencentNLP(object):
             action='SentimentAnalysis', version='2019-04-08', region='ap-guangzhou', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudSentimentAnalysisResponse.parse_obj(OmegaRequests.parse_content_json(result))
+        return TencentCloudSentimentAnalysisResponse.model_validate(OmegaRequests.parse_content_json(result))
 
     async def lexical_analysis(
             self,
@@ -91,7 +91,7 @@ class TencentNLP(object):
             action='LexicalAnalysis', version='2019-04-08', region='ap-guangzhou', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudLexicalAnalysisResponse.parse_obj(OmegaRequests.parse_content_json(result))
+        return TencentCloudLexicalAnalysisResponse.model_validate(OmegaRequests.parse_content_json(result))
 
     async def text_correction(self, text: str) -> TencentCloudTextCorrectionResponse:
         """文本纠错
@@ -110,7 +110,7 @@ class TencentNLP(object):
             action='TextCorrection', version='2019-04-08', region='ap-guangzhou', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextCorrectionResponse.parse_obj(OmegaRequests.parse_content_json(result))
+        return TencentCloudTextCorrectionResponse.model_validate(OmegaRequests.parse_content_json(result))
 
 
 __all__ = [

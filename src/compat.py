@@ -8,9 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import Annotated
+from typing import Annotated, Any, Type, TypeVar
 
-from pydantic import AfterValidator, AnyUrl, AnyHttpUrl
+from pydantic import AfterValidator, AnyUrl, AnyHttpUrl, TypeAdapter
+
+
+T = TypeVar('T')
+
 
 # Compatibility for pydantic_core._pydantic_core.Url in V2
 # See https://github.com/pydantic/pydantic/discussions/8211 and https://github.com/pydantic/pydantic/discussions/6395
@@ -20,7 +24,20 @@ AnyHttpUrlStr = Annotated[AnyHttpUrl, AfterValidator(lambda v: str(v))]
 """使用 Annotated Validator 将 AnyHttpUrl 格式转换为 str"""
 
 
+def parse_obj_as(
+        type_: Type[T],
+        obj: Any,
+        *,
+        strict: bool | None = None,
+        from_attributes: bool | None = None,
+        context: dict[str, Any] | None = None,
+) -> T:
+    """`parse_obj_as` is deprecated. Use `pydantic.TypeAdapter.validate_python` instead."""
+    return TypeAdapter(type_).validate_python(obj, strict=strict, from_attributes=from_attributes, context=context)
+
+
 __all__ = [
     'AnyUrlStr',
-    'AnyHttpUrlStr'
+    'AnyHttpUrlStr',
+    'parse_obj_as'
 ]
