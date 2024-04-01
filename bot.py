@@ -30,22 +30,22 @@ nonebot.init()
 driver = nonebot.get_driver()
 
 # 按需注册 OneBot V11 Adapter
-if driver.config.dict().get('onebot_access_token'):
+if driver.config.model_dump().get('onebot_access_token'):
     from nonebot.adapters.onebot.v11.adapter import Adapter as OneBotAdapter
     driver.register_adapter(OneBotAdapter)
 
-# 按需注册 QQGuild Adapter
-if driver.config.dict().get('qqguild_bots'):
-    from nonebot.adapters.qqguild.adapter import Adapter as QQGuildAdapter
-    driver.register_adapter(QQGuildAdapter)
+# 按需注册 QQ Adapter
+if driver.config.model_dump().get('qq_bots'):
+    from nonebot.adapters.qq.adapter import Adapter as QQAdapter
+    driver.register_adapter(QQAdapter)
 
 # 按需注册 Telegram Adapter
-if driver.config.dict().get('telegram_bots'):
+if driver.config.model_dump().get('telegram_bots'):
     from nonebot.adapters.telegram.adapter import Adapter as TelegramAdapter
     driver.register_adapter(TelegramAdapter)
 
 # 按需注册 Console Adapter
-if driver.config.dict().get('enable_console'):
+if driver.config.model_dump().get('enable_console'):
     from nonebot.adapters.console import Adapter as ConsoleAdapter
     driver.register_adapter(ConsoleAdapter)
 
