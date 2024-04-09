@@ -8,8 +8,7 @@
 @Software       : PyCharm
 """
 
-from .nlp import TencentNLP
-from .tmt import TencentTMT
+from .api import TencentNLP, TencentTMT
 
 
 __all__ = [

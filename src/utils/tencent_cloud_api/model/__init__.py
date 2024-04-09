@@ -7,19 +7,3 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
-
-
-from .base_model import BaseTencentCloudErrorResponse as TencentCloudErrorResponse
-from .tmt import TencentCloudTextTranslateResponse
-from .nlp import (TencentCloudChatBotResponse, TencentCloudSentimentAnalysisResponse,
-                  TencentCloudLexicalAnalysisResponse, TencentCloudTextCorrectionResponse)
-
-
-__all__ = [
-    'TencentCloudErrorResponse',
-    'TencentCloudTextTranslateResponse',
-    'TencentCloudChatBotResponse',
-    'TencentCloudSentimentAnalysisResponse',
-    'TencentCloudLexicalAnalysisResponse',
-    'TencentCloudTextCorrectionResponse'
-]

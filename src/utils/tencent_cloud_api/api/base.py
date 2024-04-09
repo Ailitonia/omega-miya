@@ -6,7 +6,7 @@ from typing import Any
 
 from src.service.omega_requests import OmegaRequests, Response
 
-from .config import tencent_cloud_config
+from ..config import tencent_cloud_config
 
 
 class TencentCloudApi(object):
@@ -24,6 +24,14 @@ class TencentCloudApi(object):
         self._host = host
         self._endpoint = f'https://{host}'
         self._service = host.split('.')[0]
+
+        self._headers: dict[str, Any]
+        self._request_timestamp: int
+        self._date: str
+        self._credential_scope: str
+        self._signed_headers: str
+
+    def __prepare_signed_params(self) -> None:
         self._headers = {
             "Content-Type": "application/json",
             "Host": self._host
@@ -110,7 +118,7 @@ class TencentCloudApi(object):
 
         return authorization
 
-    async def post_request(
+    async def _post_request(
             self,
             action: str,
             region: str,
@@ -118,6 +126,7 @@ class TencentCloudApi(object):
             payload: dict[str, Any]
     ) -> Response:
         """计算请求签名并发送 api 请求"""
+        self.__prepare_signed_params()
         self.__upgrade_signed_header(action=action, region=region, version=version, payload=payload)
 
         return await OmegaRequests(timeout=10, headers=self._headers).post(url=self._endpoint, json=payload)

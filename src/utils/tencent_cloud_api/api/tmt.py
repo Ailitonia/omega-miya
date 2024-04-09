@@ -10,12 +10,12 @@
 
 from src.service import OmegaRequests
 
-from .cloud_api import TencentCloudApi
-from .model import TencentCloudTextTranslateResponse
-from .exception import TencentCloudNetworkError
+from .base import TencentCloudApi
+from ..exception import TencentCloudNetworkError
+from ..model.tmt import TencentCloudTextTranslateResponse
 
 
-class TencentTMT(object):
+class TencentTMT(TencentCloudApi):
     """腾讯云翻译"""
     def __init__(
             self,
@@ -24,7 +24,7 @@ class TencentTMT(object):
             secret_id: str | None = None,
             secret_key: str | None = None
     ):
-        self._api = TencentCloudApi(host=host, secret_id=secret_id, secret_key=secret_key)
+        super().__init__(host=host, secret_id=secret_id, secret_key=secret_key)
 
     async def translate(
             self,
@@ -42,7 +42,7 @@ class TencentTMT(object):
         :param project_id: 项目ID, 如无配置请填写默认项目ID:0
         """
         payload = {'SourceText': source_text, 'Source': source, 'Target': target, 'ProjectId': project_id}
-        result = await self._api.post_request(
+        result = await self._post_request(
             action='TextTranslate', version='2018-03-21', region='ap-chengdu', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
