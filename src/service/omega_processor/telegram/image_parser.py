@@ -35,26 +35,7 @@ class OmegaProcessorTelegramImageParserConfig(BaseModel):
 _plugin_config = get_plugin_config(OmegaProcessorTelegramImageParserConfig)
 
 
-async def handle_parse_message_image_event_preprocessor(bot: Bot, event: MessageEvent):
-    """事件预处理, 将 photo 消息段中的图片 file_id 替换为真实图片 url"""
-    origin_message = event.message.copy()
-    message = Message()
-
-    for seg in origin_message:
-        if seg.type == 'photo':
-            try:
-                parsed_seg = await parse_photo_segment(bot=bot, seg=seg)
-                message.append(parsed_seg)
-            except Exception as e:
-                logger.warning(f'parsing telegram message image {seg.data} failed, {e}')
-                message.append(seg)
-        else:
-            message.append(seg)
-
-    event.message = message
-
-
-async def parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
+async def _parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
     """解析 photo 消息段中图片的真实 url"""
     if seg.type != 'photo':
         return seg
@@ -70,8 +51,32 @@ async def parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
     await OmegaRequests().download(url=url, file=img_target_file)
 
     parsed_seg = File.photo(file=img_target_file.resolve_path, has_spoiler=seg.data.get('has_spoiler'))
+    parsed_seg.data.update({'origin_url': url})
 
     return parsed_seg
+
+
+async def _parse_message(bot: Bot, message: Message) -> Message:
+    output_message = Message()
+    for seg in message:
+        if seg.type == 'photo':
+            try:
+                parsed_seg = await _parse_photo_segment(bot=bot, seg=seg)
+                output_message.append(parsed_seg)
+            except Exception as e:
+                logger.warning(f'parsing telegram message image {seg.data} failed, {e}')
+                output_message.append(seg)
+        else:
+            output_message.append(seg)
+
+    return output_message
+
+
+async def handle_parse_message_image_event_preprocessor(bot: Bot, event: MessageEvent):
+    """事件预处理, 将 photo 消息段中的图片 file_id 替换为真实图片 url"""
+    event.message = await _parse_message(bot=bot, message=event.message.copy())
+    if event.reply_to_message:
+        event.reply_to_message.message = await _parse_message(bot=bot, message=event.reply_to_message.message.copy())
 
 
 __all__ = [

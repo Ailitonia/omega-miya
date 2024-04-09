@@ -253,12 +253,16 @@ class TelegramMessageEventHandler(EventHandler):
         return self.event.chat.first_name if self.event.chat.first_name else self.event.chat.username
 
     def get_msg_image_urls(self) -> list[str]:
-        return [str(msg_seg.data.get('file')) for msg_seg in self.event.get_message() if msg_seg.type == 'photo']
+        return [
+            str(msg_seg.data.get('origin_url') or msg_seg.data.get('file'))
+            for msg_seg in self.event.get_message()
+            if msg_seg.type == 'photo'
+        ]
 
     def get_reply_msg_image_urls(self) -> list[str]:
         if self.event.reply_to_message:
             return [
-                str(msg_seg.data.get('file'))
+                str(msg_seg.data.get('origin_url') or msg_seg.data.get('file'))
                 for msg_seg in self.event.reply_to_message.get_message()
                 if msg_seg.type == 'photo'
             ]
