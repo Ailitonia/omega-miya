@@ -12,7 +12,12 @@ from .base_model import BaseTencentCloudErrorResponse, BaseTencentCloudSuccessRe
 
 
 class TencentCloudTextTranslateSuccessResponse(BaseTencentCloudSuccessResponse):
-    """文本翻译 Api 调用成功返回内容"""
+    """文本翻译 Api 调用成功返回内容
+
+    - TargetText: 翻译后的文本
+    - Source: 源语言
+    - Target: 目标语言
+    """
     TargetText: str
     Source: str
     Target: str
@@ -23,6 +28,24 @@ class TencentCloudTextTranslateResponse(BaseTencentCloudResponse):
     Response: BaseTencentCloudErrorResponse | TencentCloudTextTranslateSuccessResponse
 
 
+class TencentCloudTextTranslateBatchSuccessResponse(BaseTencentCloudSuccessResponse):
+    """批量文本翻译 Api 调用成功返回内容
+
+    - Source: 源语言
+    - Target: 目标语言
+    - TargetTextList: 翻译后的文本列表
+    """
+    Source: str
+    Target: str
+    TargetTextList: list[str]
+
+
+class TencentCloudTextTranslateBatchResponse(BaseTencentCloudResponse):
+    """批量文本翻译 Api 调用成功返回"""
+    Response: BaseTencentCloudErrorResponse | TencentCloudTextTranslateBatchSuccessResponse
+
+
 __all__ = [
-    'TencentCloudTextTranslateResponse'
+    'TencentCloudTextTranslateResponse',
+    'TencentCloudTextTranslateBatchResponse'
 ]
