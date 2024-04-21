@@ -23,7 +23,7 @@ from .config import image_utils_config
 
 class ImageUtils(object):
     def __init__(self, image: Image.Image):
-        self._image = image
+        self._image: Image.Image = image
 
     @classmethod
     def init_from_bytes(cls, image: bytes) -> "ImageUtils":
@@ -187,6 +187,11 @@ class ImageUtils(object):
         """返回图片并在末尾添加空白比特"""
         return self.get_bytes(format_=format_) + b' '*bytes_num
 
+    def set_image(self, image: Image.Image) -> "ImageUtils":
+        """手动更新 Image"""
+        self._image = image
+        return self
+
     async def save(
             self,
             file: str | TemporaryResource,
@@ -202,6 +207,10 @@ class ImageUtils(object):
         async with save_file.async_open('wb') as af:
             await af.write(self.get_bytes(format_=format_))
         return save_file
+
+    def convert(self, mode: str) -> "ImageUtils":
+        self._image = self._image.convert(mode=mode)
+        return self
 
     def mark(
             self,
