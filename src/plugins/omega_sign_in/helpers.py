@@ -551,6 +551,7 @@ async def handle_generate_sign_in_card(
             raise FailedException(f'签到失败, {e}') from e
 
         # 查询连续签到时间
+        total_days = await interface.entity.query_total_sign_in_days()
         continuous_days = await interface.entity.query_continuous_sign_in_day()
 
         # 尝试为用户增加好感度
@@ -581,7 +582,7 @@ async def handle_generate_sign_in_card(
         nick_name = interface.get_event_handler().get_user_nickname()
         user_text = f'@{nick_name} {sign_in_config.signin_friendship_alias}+{int(base_friendship_inc)} ' \
                     f'{sign_in_config.signin_currency_alias}+{int(currency_inc)}\n' \
-                    f'已连续签到{continuous_days}天\n' \
+                    f'已连续签到{continuous_days}天, 累计签到{total_days}天\n' \
                     f'已将{int(friendship.energy)}{sign_in_config.signin_energy_alias}兑换为' \
                     f'{int(friendship.energy * sign_in_config.signin_ef_exchange_rate)}' \
                     f'{sign_in_config.signin_friendship_alias}\n' \

@@ -251,6 +251,10 @@ class InternalEntity(object):
         entity = await self.query_entity_self()
         return await SignInDAL(session=self.db_session).query_entity_sign_in_days(entity_index_id=entity.id)
 
+    async def query_total_sign_in_days(self) -> int:
+        """查询总共签到的日期数"""
+        return len(await self.query_sign_in_days())
+
     async def query_continuous_sign_in_day(self) -> int:
         """查询到现在为止最长连续签到日数"""
         sign_in_history = await self.query_sign_in_days()
