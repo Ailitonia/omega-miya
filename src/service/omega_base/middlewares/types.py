@@ -109,6 +109,7 @@ class EventHandler(abc.ABC):
     @abc.abstractmethod
     def get_msg_image_urls(self) -> list[str]:
         """获取当前事件消息中的全部图片链接"""
+        raise NotImplementedError
 
     @abc.abstractmethod
     def get_reply_msg_image_urls(self) -> list[str]:

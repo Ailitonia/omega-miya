@@ -25,6 +25,8 @@ class MessageSegmentType(Enum):
     forward_id: Literal['forward_id'] = 'forward_id'
     custom_node: Literal['custom_node'] = 'custom_node'
     image: Literal['image'] = 'image'
+    image_file: Literal['image_file'] = 'image_file'
+    file: Literal['file'] = 'file'
     text: Literal['text'] = 'text'
 
 
@@ -77,6 +79,24 @@ class MessageSegment(BaseMessageSegment):
             MessageSegmentType.image.value,
             {
                 'url': str(url.resolve()) if isinstance(url, Path) else url
+            }
+        )
+
+    @staticmethod
+    def image_file(file: Path) -> "MessageSegment":
+        return MessageSegment(
+            MessageSegmentType.image_file.value,
+            {
+                'file': str(file.resolve())
+            }
+        )
+
+    @staticmethod
+    def file(file: Path) -> "MessageSegment":
+        return MessageSegment(
+            MessageSegmentType.file.value,
+            {
+                'file': str(file.resolve())
             }
         )
 

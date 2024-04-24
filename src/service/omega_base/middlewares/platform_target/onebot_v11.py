@@ -119,6 +119,8 @@ class OneBotV11MessageBuilder(MessageBuilder):
                     if urlparse(url).scheme not in ['http', 'https']:
                         url = Path(url)
                     yield OneBotV11MessageSegment.image(file=url)
+                case MessageSegmentType.image_file.value:
+                    yield OneBotV11MessageSegment.image(file=Path(data.get('file')))
                 case MessageSegmentType.text.value:
                     yield OneBotV11MessageSegment.text(text=data.get('text'))
                 case _:

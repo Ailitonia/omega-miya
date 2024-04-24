@@ -90,6 +90,10 @@ class TelegramMessageBuilder(MessageBuilder):
                     if urlparse(url).scheme not in ['http', 'https']:
                         url = Path(url).as_posix()
                     yield File.photo(file=url)
+                case MessageSegmentType.image_file.value:
+                    yield File.document(file=Path(data.get('file')).as_posix())
+                case MessageSegmentType.file.value:
+                    yield File.document(file=Path(data.get('file')).as_posix())
                 case MessageSegmentType.text.value:
                     yield Entity.text(text=data.get('text'))
                 case _:
@@ -266,6 +270,8 @@ class TelegramMessageEventHandler(EventHandler):
                 for msg_seg in self.event.reply_to_message.get_message()
                 if msg_seg.type == 'photo'
             ]
+        else:
+            return []
 
     def get_reply_msg_plain_text(self) -> Optional[str]:
         if self.event.reply_to_message:

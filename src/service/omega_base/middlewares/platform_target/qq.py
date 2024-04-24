@@ -106,6 +106,8 @@ class QQMessageBuilder(MessageBuilder):
                         yield QQMessageSegment.file_image(data=Path(url))
                     else:
                         yield QQMessageSegment.image(url=url)
+                case MessageSegmentType.image_file.value:
+                    yield QQMessageSegment.file_image(data=Path(data.get('file')))
                 case MessageSegmentType.text.value:
                     yield QQMessageSegment.text(content=data.get('text'))
                 case _:
