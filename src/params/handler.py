@@ -60,6 +60,10 @@ def get_command_str_multi_args_parser_handler(
 
     async def handle_parse_command_str_multi_args(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
         multi_args = cmd_arg.extract_plain_text().strip().split()
+
+        if len(multi_args) < ensure_keys_num:
+            multi_args.extend([default for _ in range(ensure_keys_num - len(multi_args))])
+
         if multi_args:
             for index, arg in enumerate(multi_args):
                 state.update({f'{key_prefix}_{index}': arg})

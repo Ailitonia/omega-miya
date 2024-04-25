@@ -33,7 +33,7 @@ async def handle_mirage_tank(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         step_arg: Annotated[str, ArgStr('step_arg')],
         state: T_State
-):
+) -> None:
     interface.refresh_interface_state()
 
     if not state.get('mode') and step_arg.strip():
