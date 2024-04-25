@@ -16,6 +16,7 @@ from nonebot.exception import MockApiException
 from nonebot.adapters.qq.bot import Bot as QQBot
 from nonebot.adapters.qq.exception import AuditException
 from nonebot.adapters.qq.event import MessageAuditPassEvent
+from nonebot.adapters.qq.message import Message as QQMessage
 
 
 @QQBot.on_called_api
@@ -40,8 +41,7 @@ async def handle_api_result(
         if isinstance(audit_result, MessageAuditPassEvent):
             message_get = await bot.get_message_of_id(channel_id=audit_result.channel_id,
                                                       message_id=audit_result.message_id)
-            return_message = message_get.message
-            return_message.id = audit_result.message_id
+            return_message = QQMessage.from_guild_message(message_get)
             raise MockApiException(result=return_message)
 
 
