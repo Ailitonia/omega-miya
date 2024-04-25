@@ -97,7 +97,7 @@ class OmegaRequests(object):
         parsed_url = urlparse(url=url, allow_fragments=True)
         name_hash = hashlib.sha256(url.encode(encoding='utf8')).hexdigest()
         name_suffix = pathlib.Path(parsed_url.path).suffix
-        name_prefix = '_'.join(prefix)
+        name_prefix = '_'.join(prefix) if prefix else 'file'
         new_name = f'{name_prefix}_{name_hash}{name_suffix}'
         return new_name
 
