@@ -26,8 +26,8 @@ _TMP_IMG_PATH = TemporaryResource('telegram', 'tmp', 'images')
 class OmegaProcessorTelegramImageParserConfig(BaseModel):
     """OmegaProcessor-Telegram-ImageParser 插件配置"""
     # 是否在预处理消息中图片时保存为本地图片并替换原图片消息
-    # 启用: 对需要处理图片的插件兼容性更好, 但更消耗带宽和硬盘空间
-    # 禁用: 对需要处理图片的插件在向 Telegram 平台直接转发时可能失败
+    # 启用: 所有收到的图片均会以文件形式缓存在本地, 更消耗带宽和硬盘空间
+    # 禁用: 仅解析收到图片的真实 URL, 但在向 Telegram 平台直接转发图片链接时可能失败
     telegram_processor_parse_photo_replace_as_local: bool = False
     model_config = ConfigDict(extra="ignore")
 
