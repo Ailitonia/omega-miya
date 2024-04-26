@@ -18,7 +18,7 @@ from .config import encrypt_config
 class AESEncryptStr(object):
     def __init__(self, key: str | None = None):
         if key is None:
-            key = encrypt_config.aes_key
+            key = encrypt_config.omega_aes_key.get_secret_value()
 
         while len(key) % 16 != 0:
             key += '\0'

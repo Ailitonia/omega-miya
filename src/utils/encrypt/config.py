@@ -8,23 +8,36 @@
 @Software       : PyCharm 
 """
 
+import platform
+import uuid
+from hashlib import shake_128
+from typing import Annotated
+
 from nonebot import get_plugin_config, logger
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+
+
+def generate_aes_key_by_hardware() -> SecretStr:
+    processor = platform.processor()
+    machine = platform.machine()
+    system = platform.system()
+    node = str(uuid.getnode())
+
+    return SecretStr(shake_128(f'{system}+{machine}+{processor}+{node}'.encode(encoding='utf8')).hexdigest(8))
 
 
 class EncryptConfig(BaseModel):
     """Encrypt Utils 配置"""
-    aes_key: str
+    # 若不手动配置 AES key 则会使用系统及硬件信息生成, 更换平台或硬件可能导致 key 失效
+    omega_aes_key: Annotated[SecretStr, Field(default_factory=generate_aes_key_by_hardware)]
 
     model_config = ConfigDict(extra="ignore")
 
 
 try:
     encrypt_config = get_plugin_config(EncryptConfig)
-    if not encrypt_config.aes_key:
-        raise ValueError('Incorrect AES Key length, key can not be null')
-    if len(encrypt_config.aes_key) > 16:
-        raise ValueError('Incorrect AES key length, key length should be less than 16')
+    if not encrypt_config.omega_aes_key or len(encrypt_config.omega_aes_key) > 16:
+        raise ValueError('Incorrect AES key length, key length should be less than 16 and more than 0')
 except (ValidationError, ValueError) as e:
     import sys
     logger.opt(colors=True).critical(f'<lc>EncryptUtils</lc> | <lr>全局 AES Key 配置异常</lr>, 错误信息:\n{e}')
