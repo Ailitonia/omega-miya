@@ -22,8 +22,8 @@ from .utils import simple_white, simple_black, complex_gray, complex_color, comp
 
 
 @on_command(
-    'mirage-tank',
-    aliases={'幻影坦克'},
+    'mirage_tank',
+    aliases={'幻影坦克', 'MirageTank'},
     handlers=[get_command_str_single_arg_parser_handler('step_arg', default='白底')],
     priority=10,
     block=True,

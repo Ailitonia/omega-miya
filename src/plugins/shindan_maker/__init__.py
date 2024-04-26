@@ -17,8 +17,8 @@ __plugin_meta__ = PluginMetadata(
                 '使用ShindanMaker进行各种奇怪的占卜\n'
                 '禁止涩涩！',
     usage='/shindan [占卜名称|占卜ID] [对象名称]\n'
-          '/shindan-search [占卜名称]\n'
-          '/shindan-ranking',
+          '/shindan_search [占卜名称]\n'
+          '/shindan_ranking',
     extra={'author': 'Ailitonia'},
 )
 

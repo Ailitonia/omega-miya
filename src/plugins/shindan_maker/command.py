@@ -35,11 +35,9 @@ shindan_maker = CommandGroup(
 
 
 make_shindan = shindan_maker.command(
-    tuple(),
+    'make',
     aliases={'shindan', 'Shindan', 'ShindanMaker'},
-    handlers=[
-        get_command_str_multi_args_parser_handler('shindan_arg')
-    ]
+    handlers=[get_command_str_multi_args_parser_handler('shindan_arg')]
 )
 
 
@@ -47,13 +45,13 @@ make_shindan = shindan_maker.command(
 @make_shindan.got('shindan_arg_1', prompt='请输入您想要进行占卜对象的昵称:')
 async def handle_shindan_make(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        shindan_arg_0: Annotated[str, ArgStr('shindan_arg_0')],
-        shindan_arg_1: Annotated[str, ArgStr('shindan_arg_1')],
+        shindan_title: Annotated[str, ArgStr('shindan_arg_0')],
+        input_name: Annotated[str, ArgStr('shindan_arg_1')],
 ) -> None:
     interface.refresh_matcher_state()
 
-    shindan_title = shindan_arg_0.strip()
-    input_name = shindan_arg_1.strip()
+    shindan_title = shindan_title.strip()
+    input_name = input_name.strip()
 
     # 加入日期使每天的结果不一样
     today = f"@{datetime.today().strftime('%Y%m%d')}@"
@@ -91,7 +89,7 @@ async def handle_shindan_make(
 
 @shindan_maker.command(
     'search',
-    aliases={'shindan-search', 'ShindanSearch'},
+    aliases={'shindan_search', 'ShindanSearch'},
     handlers=[get_command_str_single_arg_parser_handler('keyword')]
 ).got('keyword', prompt='请输入搜索关键词:')
 async def handle_shindan_searching(
@@ -112,7 +110,7 @@ async def handle_shindan_searching(
 
 @shindan_maker.command(
     'ranking',
-    aliases={'shindan-ranking', 'ShindanRanking'},
+    aliases={'shindan_ranking', 'ShindanRanking'},
 ).handle()
 async def handle_shindan_ranking(interface: Annotated[OmegaInterface, Depends(OmegaInterface())]) -> None:
     interface.refresh_matcher_state()

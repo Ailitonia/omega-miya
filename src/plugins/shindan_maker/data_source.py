@@ -13,7 +13,6 @@ import ujson as json
 from typing import Literal, Optional
 
 from nonebot.log import logger
-from nonebot.utils import run_sync
 from rapidfuzz import process, fuzz
 from zhconv import convert as zh_convert
 
@@ -65,7 +64,7 @@ class ShindanMaker(object):
             logger.error(f'ShindanMaker | Get ranking list {mode!r} failed, {response}')
             raise ShindanMakerNetworkError(response)
 
-        return await run_sync(parse_searching_result_page)(content=OmegaRequests.parse_content_text(response=response))
+        return await parse_searching_result_page(content=OmegaRequests.parse_content_text(response=response))
 
     @classmethod
     async def search(
@@ -100,7 +99,7 @@ class ShindanMaker(object):
             logger.error(f'ShindanMaker | Searching {keyword!r} failed, {response}')
             raise ShindanMakerNetworkError(response)
 
-        return await run_sync(parse_searching_result_page)(content=OmegaRequests.parse_content_text(response=response))
+        return await parse_searching_result_page(content=OmegaRequests.parse_content_text(response=response))
 
     @classmethod
     async def complex_ranking(cls) -> list[ShindanMakerSearchResult]:
@@ -169,11 +168,11 @@ class ShindanMaker(object):
 
         # 更新缓存
         if self.shindan_id not in _SHINDAN_MAKER_CACHE.values():
-            shindan_title = await run_sync(parse_shindan_page_title)(content=page_content)
+            shindan_title = await parse_shindan_page_title(content=page_content)
             await self._upgrade_shindan_cache({shindan_title: self.shindan_id})
 
         # 解析请求参数
-        params = await run_sync(parse_shindan_page_token)(content=page_content)
+        params = await parse_shindan_page_token(content=page_content)
         params.update({'shindanName': input_name})
 
         cookies = {}
@@ -188,7 +187,7 @@ class ShindanMaker(object):
             logger.error(f'ShindanMaker | Make shindan {self.shindan_id!r} failed, {response}')
             raise ShindanMakerNetworkError(response)
 
-        return await run_sync(parse_shindan_result_page)(content=OmegaRequests.parse_content_text(response=response))
+        return await parse_shindan_result_page(content=OmegaRequests.parse_content_text(response=response))
 
     @classmethod
     async def fuzzy_shindan(cls, shindan: str, input_name: str) -> ShindanMakerResult | None:

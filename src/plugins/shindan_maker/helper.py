@@ -11,12 +11,14 @@
 import re
 
 from lxml import etree
+from nonebot.utils import run_sync
 
 from src.compat import parse_obj_as
 
 from .model import ShindanMakerResult, ShindanMakerSearchResult
 
 
+@run_sync
 def parse_searching_result_page(content: str) -> list[ShindanMakerSearchResult]:
     """解析 shindan 搜索结果页面"""
     html = etree.HTML(content)
@@ -41,6 +43,7 @@ def parse_searching_result_page(content: str) -> list[ShindanMakerSearchResult]:
     return parse_obj_as(list[ShindanMakerSearchResult], result)
 
 
+@run_sync
 def parse_shindan_page_title(content: str) -> str:
     """解析 shindan 占卜页面获取占卜名称和 id"""
     html = etree.HTML(content)
@@ -52,6 +55,7 @@ def parse_shindan_page_title(content: str) -> str:
     return title or title_href
 
 
+@run_sync
 def parse_shindan_page_token(content: str) -> dict:
     """解析 shindan 占卜页面 token 并生成具体的请求参数"""
     html = etree.HTML(content)
@@ -74,6 +78,7 @@ def parse_shindan_page_token(content: str) -> dict:
     }
 
 
+@run_sync
 def parse_shindan_result_page(content: str) -> ShindanMakerResult:
     """解析 shindan 占卜结果页面"""
     content = re.sub(re.compile(r'<br\s?/?>', re.IGNORECASE), '\n', content)
