@@ -64,7 +64,7 @@ def _generate_mail_snapshot(mail_content: str) -> ImageUtils:
 
 async def generate_mail_snapshot(mail_content: str) -> TemporaryResource:
     image = await _generate_mail_snapshot(mail_content=mail_content)
-    return await image.save(_TMP_FOLDER(f'mail_{datetime.now().strftime("%Y%m%d%H%M%S")}_{hash(mail_content)}'))
+    return await image.save(_TMP_FOLDER(f'mail_{datetime.now().strftime("%Y%m%d%H%M%S")}_{hash(mail_content)}.jpg'))
 
 
 __all__ = [
