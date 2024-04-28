@@ -31,14 +31,14 @@ class BaseRegister(object):
     def __init__(self):
         self._map: dict[Depend_T, Target_T] = {}
 
-    def _filter_depend(self, depend: Depend_T) -> None:
-        """预处理, 条件遍历 depend, 避免注册时出现重复等情况, 默认为空"""
+    def _preprocess_register_depend(self, depend: Depend_T) -> None:
+        """`register` 执行前预处理, 条件遍历 depend, 避免注册时出现重复等情况, 默认为空"""
         if depend in self._map.keys():
             logger.error(f'Duplicate {self.__class__.__name__!r} for {depend.__name__!r} has been registered')
             raise ValueError('Duplicate depend')
 
-    def _handle_depend(self, depend: Depend_T) -> Depend_T:
-        """预处理, 获取 target 时遍历 depend 保证结果唯一"""
+    def _preprocess_get_target(self, depend: Depend_T) -> Depend_T:
+        """`get_target` 执行前预处理, 获取 target 时遍历 depend 保证结果唯一"""
         if depend not in self._map.keys():
             logger.error(f'{self.__class__.__name__!r} not support {depend.__name__!r}')
             raise ValueError('Depend not support')
@@ -48,7 +48,7 @@ class BaseRegister(object):
         """注册不同目标对象依赖类"""
 
         def _decorator(target: Target_T) -> Target_T:
-            self._filter_depend(depend=depend)
+            self._preprocess_register_depend(depend=depend)
             self._map[depend] = target
             logger.opt(colors=True).debug(f'<e>{target.__name__!r}</e> is registered by {self.__class__.__name__!r}')
             return target
@@ -56,20 +56,20 @@ class BaseRegister(object):
         return _decorator
 
     def get_target(self, depend: Depend_T) -> Target_T:
-        """从适配器或事件中提取目标依赖"""
-        _depend = self._handle_depend(depend=depend)
+        """从适配器或事件中提取对应的适配器工具 target"""
+        _depend = self._preprocess_get_target(depend=depend)
         return self._map[_depend]
 
 
 class BaseAdapterRegister(BaseRegister):
     """Depend 为 Adapter 的注册器基类"""
 
-    def _filter_depend(self, depend: Depend_T) -> None:
+    def _preprocess_register_depend(self, depend: Depend_T) -> None:
         if depend not in SupportedPlatform.supported_adapter_names:
             raise AdapterNotSupported(adapter_name=depend)
-        super()._filter_depend(depend=depend)
+        super()._preprocess_register_depend(depend=depend)
 
-    def _handle_depend(self, depend: Depend_T) -> Depend_T:
+    def _preprocess_get_target(self, depend: Depend_T) -> Depend_T:
         adapter_name = depend.adapter.get_name() if isinstance(depend, Bot) else depend
 
         if adapter_name not in SupportedPlatform.supported_adapter_names or adapter_name not in self._map.keys():
@@ -80,7 +80,7 @@ class BaseAdapterRegister(BaseRegister):
 class BaseEventRegister(BaseRegister):
     """Depend 为 Event 的注册器基类"""
 
-    def _handle_depend(self, depend: Depend_T) -> Depend_T:
+    def _preprocess_get_target(self, depend: Depend_T) -> Depend_T:
         for event_type in depend.__class__.mro():
             if event_type in self._map:
                 if not issubclass(event_type, Event):
@@ -92,12 +92,12 @@ class BaseEventRegister(BaseRegister):
 class BaseTargetRegister(BaseRegister):
     """Depend 为平台对象实例的注册器基类"""
 
-    def _filter_depend(self, depend: Depend_T) -> None:
+    def _preprocess_register_depend(self, depend: Depend_T) -> None:
         if depend not in SupportedTarget.supported_target_names:
             raise TargetNotSupported(target_name=depend)
-        super()._filter_depend(depend=depend)
+        super()._preprocess_register_depend(depend=depend)
 
-    def _handle_depend(self, depend: Depend_T) -> Depend_T:
+    def _preprocess_get_target(self, depend: Depend_T) -> Depend_T:
         target_entity = depend.entity_type if isinstance(depend, OmegaEntity) else depend
 
         if target_entity not in SupportedTarget.supported_target_names or target_entity not in self._map.keys():
