@@ -22,7 +22,7 @@ from .config import image_searcher_config
 from .model import ImageSearcher, ImageSearchingResult
 
 
-class ComplexImageSearcher(object):
+class ComplexImageSearcher(ImageSearcher):
     """综合图片搜索"""
 
     _searcher: list[Type[ImageSearcher]] = []
@@ -30,21 +30,14 @@ class ComplexImageSearcher(object):
     if image_searcher_config.image_searcher_enable_saucenao:
         _searcher.append(Saucenao)
 
+    if image_searcher_config.image_searcher_enable_ascii2d:
+        _searcher.append(Ascii2d)
+
     if image_searcher_config.image_searcher_enable_iqdb:
         _searcher.append(Iqdb)
 
     if image_searcher_config.image_searcher_enable_yandex:
         _searcher.append(Yandex)
-
-    if image_searcher_config.image_searcher_enable_ascii2d:
-        _searcher.append(Ascii2d)
-
-    def __init__(self, image_url: str):
-        """仅支持传入图片 url
-
-        :param image_url: 待识别的图片 url
-        """
-        self.image_url = image_url
 
     async def search(self) -> list[ImageSearchingResult]:
         searching_tasks = [

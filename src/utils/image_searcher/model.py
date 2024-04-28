@@ -10,7 +10,7 @@
 
 import abc
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyUrlStr as AnyUrl
 
@@ -22,18 +22,7 @@ class ImageSearchingResult(BaseModel):
     similarity: Optional[str] = None  # 相似度
     thumbnail: Optional[AnyUrl] = None  # 缩略图地址
 
-    # async def get_output_message(self) -> Message:
-    #     """将识别结果转换为消息"""
-    #     url = '\n'.join(self.source_urls) if self.source_urls else '无可用来源'
-    #     message = f'来源: {self.source}\n相似度: {self.similarity if self.similarity else "未知"}\n来源地址:\n{url}'
-    #
-    #     if self.thumbnail:
-    #         thumbnail_file = _TMP_FOLDER(HttpFetcher.hash_url_file_name('ImageSearcher', url=self.thumbnail))
-    #         download_result = await run_async_catching_exception(HttpFetcher().download_file)(url=self.thumbnail,
-    #                                                                                           file=thumbnail_file)
-    #         if not isinstance(download_result, Exception):
-    #             message = message + '\n' + MessageSegment.image(thumbnail_file.file_uri)
-    #     return Message(message)
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
 class ImageSearcher(abc.ABC):
@@ -54,14 +43,6 @@ class ImageSearcher(abc.ABC):
     async def search(self) -> list[ImageSearchingResult]:
         """获取搜索结果"""
         raise NotImplementedError
-
-    # async def searching_result(self) -> list[Message]:
-    #     """获取搜索结果并转换为消息"""
-    #     searching_result = await self.search()
-    #     tasks = [x.get_output_message() for x in searching_result]
-    #     message_result = await semaphore_gather(tasks=tasks, semaphore_num=10, filter_exception=True)
-    #     searcher_text = f'识图引擎: {self._searcher_name}\n'
-    #     return [searcher_text + x for x in message_result]
 
 
 __all__ = [

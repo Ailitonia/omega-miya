@@ -10,9 +10,11 @@
 
 import base64
 import random
-from typing import Literal
 from copy import deepcopy
 from io import BytesIO
+from typing import Literal
+
+from nonebot.utils import run_sync
 from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
 
 from src.resource import BaseResource, TemporaryResource
@@ -53,6 +55,19 @@ class ImageUtils(object):
             image.load()
             new_obj = cls(image=image)
         return new_obj
+
+    @classmethod
+    @run_sync
+    def async_init_from_text(
+            cls,
+            text: str,
+            *,
+            image_width: int = 512,
+            font_name: str | None = None,
+            alpha: bool = False
+    ) -> "ImageUtils":
+        """异步从文本初始化, 文本转图片并自动裁切"""
+        return cls.init_from_text(text, image_width=image_width, font_name=font_name, alpha=alpha)
 
     @classmethod
     def init_from_text(

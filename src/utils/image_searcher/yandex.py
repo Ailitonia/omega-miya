@@ -23,7 +23,10 @@ class YandexNetworkError(WebSourceException):
 
 
 class Yandex(ImageSearcher):
-    """yandex 识图引擎"""
+    """yandex 识图引擎
+
+    [Deactivated]页面改版, 图片搜索内容不可靠, 放弃维护
+    """
     _searcher_name: str = 'yandex'
     _url: str = 'https://yandex.com/images/search'
 

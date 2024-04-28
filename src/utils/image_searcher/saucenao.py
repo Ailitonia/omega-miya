@@ -9,7 +9,7 @@
 """
 
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from nonebot.log import logger
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
@@ -28,18 +28,35 @@ class SaucenaoApiError(WebSourceException):
     """Saucenao Api 异常"""
 
 
-class SaucenaoResult(BaseModel):
+class BaseSaucenaoModel(BaseModel):
+    """Saucenao 数据基类"""
+
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
+
+
+class SaucenaoResult(BaseSaucenaoModel):
     """识图结果"""
 
-    class _Result(BaseModel):
+    class _GlobalStatusHeader(BaseSaucenaoModel):
+        user_id: str
+        account_type: str
+        short_limit: int
+        short_remaining: int
+        long_limit: int
+        long_remaining: int
+        status: int
+        results_requested: int
+        message: Optional[str] = None
 
-        class _Header(BaseModel):
+    class _Result(BaseSaucenaoModel):
+
+        class _Header(BaseSaucenaoModel):
             similarity: float
             thumbnail: Optional[AnyUrl] = None
             index_id: int
             index_name: str
 
-        class _BaseData(BaseModel):
+        class _BaseData(BaseSaucenaoModel):
             ext_urls: Optional[list[AnyUrl]] = None
 
             @property
@@ -150,7 +167,8 @@ class SaucenaoResult(BaseModel):
                _DefaultData |
                _NullData)
 
-    results: list[_Result]
+    header: _GlobalStatusHeader
+    results: Optional[list[_Result]] = None
 
 
 class Saucenao(ImageSearcher):
@@ -175,6 +193,11 @@ class Saucenao(ImageSearcher):
             raise SaucenaoApiError(f'{saucenao_response.request}, status code {saucenao_response.status_code}')
 
         saucenao_result = SaucenaoResult.model_validate(OmegaRequests.parse_content_json(saucenao_response))
+
+        if saucenao_result.results is None:
+            logger.warning(f'Saucenao | Not result found for image, {saucenao_result.header.message}')
+            return []
+
         data = (
             {
                 'source': f'{x.header.index_name}\n{x.data.data_text}',

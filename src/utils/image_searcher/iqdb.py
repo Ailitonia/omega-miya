@@ -64,29 +64,31 @@ class Iqdb(ImageSearcher):
         headers.update({
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
                       'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Cache-Control': 'max-age=0',
             'Connection': 'keep-alive',
-            'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryoHIdYHK9yZBsnMrM',
+            # 'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundarySXjX8c2sLFua7bEC',
+            'Cookie': 'Hm_lvt_765ecde8c11b85f1ac5f168fa6e6821f=1602471368; '
+                      'Hm_lpvt_765ecde8c11b85f1ac5f168fa6e6821f=1602472300',
             'Host': 'iqdb.org',
             'Origin': 'https://iqdb.org',
             'Referer': 'https://iqdb.org/'
         })
 
         form_data = [
-            ('MAX_FILE_SIZE', ''),  # type: ignore
-            ('service[]', '1'),  # type: ignore
-            ('service[]', '2'),  # type: ignore
-            ('service[]', '3'),  # type: ignore
-            ('service[]', '4'),  # type: ignore
-            ('service[]', '5'),  # type: ignore
-            ('service[]', '6'),  # type: ignore
-            ('service[]', '11'),  # type: ignore
-            ('service[]', '13'),  # type: ignore
-            ('service[]', '13'),  # type: ignore
+            ('MAX_FILE_SIZE', (None, '', None)),  # type: ignore
+            ('service[]', (None, '1', None)),  # type: ignore
+            ('service[]', (None, '2', None)),  # type: ignore
+            ('service[]', (None, '3', None)),  # type: ignore
+            ('service[]', (None, '4', None)),  # type: ignore
+            ('service[]', (None, '5', None)),  # type: ignore
+            ('service[]', (None, '6', None)),  # type: ignore
+            ('service[]', (None, '11', None)),  # type: ignore
+            ('service[]', (None, '13', None)),  # type: ignore
             ('file', ('', b'', 'application/octet-stream')),
-            ('url', self.image_url),  # type: ignore
+            ('url', (None, self.image_url, None)),  # type: ignore
         ]
 
-        iqdb_response = await OmegaRequests(timeout=20, headers=headers).post(url=self._url, files=form_data)
+        iqdb_response = await OmegaRequests(timeout=15, headers=headers).post(url=self._url, files=form_data)
         if iqdb_response.status_code != 200:
             logger.error(f'Iqdb | IqdbNetworkError, {iqdb_response}')
             raise IqdbNetworkError(f'{iqdb_response.request}, status code {iqdb_response.status_code}')

@@ -25,7 +25,16 @@ class Ascii2dNetworkError(WebSourceException):
 class Ascii2d(ImageSearcher):
     """Ascii2d 识图引擎"""
     _searcher_name: str = 'ascii2d'
-    _url: str = 'https://ascii2d.net/search'
+    _url: str = 'https://ascii2d.net'
+
+    @staticmethod
+    def _parse_search_token(content: str) -> dict[str, str]:
+        """解析页面获取搜索图片 hash"""
+        html = etree.HTML(content)
+
+        csrf_param = html.xpath('/html/head/meta[@name="csrf-param"]').pop(0).attrib.get('content')
+        csrf_token = html.xpath('/html/head/meta[@name="csrf-token"]').pop(0).attrib.get('content')
+        return {csrf_param: csrf_token}
 
     @staticmethod
     def _parse_search_hash(content: str) -> str:
@@ -53,8 +62,8 @@ class Ascii2d(ImageSearcher):
         )
 
         result = []
-        # ascii2d搜索偏差过大, 仅取前三个结果, 第一行是图片描述可略过
-        for row in rows[1:4]:
+        # ascii2d搜索偏差过大, 仅取前两个结果, 第一行是图片描述可略过
+        for row in rows[1:3]:
             # 对每个搜索结果进行解析
             try:
                 detail = row.xpath(
@@ -86,28 +95,37 @@ class Ascii2d(ImageSearcher):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'
         }
+        requests = OmegaRequests(headers=headers, timeout=15)
+
+        searching_page = await requests.get(url=f'{self._url}')
+        if searching_page.status_code != 200:
+            logger.error(f'Ascii2d | Ascii2dNetworkError, query searching token failed, {searching_page}')
+            raise Ascii2dNetworkError(f'{searching_page.request}, status code {searching_page.status_code}')
+
+        searching_token = self._parse_search_token(content=requests.parse_content_text(searching_page))
 
         form_data = {
             'utf8': '✓',  # type: ignore
+            **searching_token,  # type: ignore
             'uri': self.image_url,  # type: ignore
             'search': b''
         }
 
-        color_response = await OmegaRequests(headers=headers, timeout=15).post(url=f'{self._url}/uri', files=form_data)
+        color_response = await requests.post(url=f'{self._url}/search/uri', data=form_data)
         if color_response.status_code != 200:
             logger.error(f'Ascii2d | Ascii2dNetworkError, color searching failed, {color_response}')
             raise Ascii2dNetworkError(f'{color_response.request}, status code {color_response.status_code}')
 
-        color_search_content = OmegaRequests.parse_content_text(color_response)
+        color_search_content = requests.parse_content_text(color_response)
         image_hash = self._parse_search_hash(color_search_content)
 
-        bovw_url = f'{self._url}/bovw/{image_hash}'
-        bovw_response = await OmegaRequests(headers=headers, timeout=10).get(url=bovw_url)
+        bovw_url = f'{self._url}/search/bovw/{image_hash}'
+        bovw_response = await requests.get(url=bovw_url)
         if bovw_response.status_code != 200:
             logger.error(f'Ascii2d | Ascii2dNetworkError, bovw searching failed, {bovw_response}')
             raise Ascii2dNetworkError(f'{bovw_response.request}, status code {bovw_response.status_code}')
 
-        bovw_search_content = OmegaRequests.parse_content_text(bovw_response)
+        bovw_search_content = requests.parse_content_text(bovw_response)
 
         parsed_result = []
         parsed_result.extend(self._parser(content=color_search_content))

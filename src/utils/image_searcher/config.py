@@ -16,10 +16,10 @@ class ImageSearcherConfig(BaseModel):
     """ImageSearcher 配置"""
     saucenao_api_key: str | None = None
 
+    image_searcher_enable_ascii2d: bool = True
     image_searcher_enable_saucenao: bool = True
     image_searcher_enable_iqdb: bool = True
-    image_searcher_enable_yandex: bool = True
-    image_searcher_enable_ascii2d: bool = True
+    image_searcher_enable_yandex: bool = False
     image_searcher_enable_trace_moe: bool = True
 
     model_config = ConfigDict(extra="ignore")
