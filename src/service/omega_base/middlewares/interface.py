@@ -186,7 +186,7 @@ class OmegaInterface(object):
             entity = self(bot=bot, event=event, session=session).entity
             yield entity
 
-    # Matcher 接口
+    # Platform/Entity 接口
 
     @_ensure_session
     @_ensure_entity
