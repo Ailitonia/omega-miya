@@ -16,6 +16,7 @@ __plugin_meta__ = PluginMetadata(
     description='【QQ 群复读姬插件】\n'
                 '如同人类的本质一样复读',
     usage='由群聊复读触发',
+    supported_adapters={'OneBot V11'},
     extra={'author': 'Ailitonia'},
 )
 
