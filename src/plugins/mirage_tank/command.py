@@ -18,7 +18,8 @@ from nonebot.typing import T_State
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
 
-from .utils import simple_white, simple_black, complex_gray, complex_color, complex_difference
+from .utils import (simple_white, simple_black, simple_noise, color_noise,
+                    complex_gray, complex_color, complex_difference)
 
 
 @on_command(
@@ -39,7 +40,7 @@ async def handle_mirage_tank(
     if not state.get('mode') and step_arg.strip():
         state.update({'mode': step_arg.strip()})
         mode = state.get('mode')
-    elif state.get('mode') in ['白底', '黑底', '灰度混合', '彩色混合', '差分']:
+    elif state.get('mode') in ['白底', '黑底', '噪点', '彩色噪点', '灰度混合', '彩色混合', '差分']:
         mode = state.get('mode')
     else:
         await interface.reject_arg('step_arg', '请输入想要制作幻影坦克的模式:\n\n"白底", "黑底", "灰度混合", "彩色混合", "差分"')
@@ -61,6 +62,16 @@ async def handle_mirage_tank(
             if not msg_images:
                 await interface.reject_arg('step_arg', f'请发送你想要制作的图片:')
             generate_coro = simple_black(image_url=msg_images[0])
+
+        case '噪点':
+            if not msg_images:
+                await interface.reject_arg('step_arg', f'请发送你想要制作的图片:')
+            generate_coro = simple_noise(image_url=msg_images[0])
+
+        case '彩色噪点':
+            if not msg_images:
+                await interface.reject_arg('step_arg', f'请发送你想要制作的图片:')
+            generate_coro = color_noise(image_url=msg_images[0])
 
         case '灰度混合':
             white_img = state.get('complex_gray_white')

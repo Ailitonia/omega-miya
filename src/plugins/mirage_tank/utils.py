@@ -99,6 +99,34 @@ async def simple_black(image_url: str) -> TemporaryResource:
     return await generate_mirage_tank(factory=_simple_black, base_image_url=image_url)
 
 
+def _simple_noise(image: Image.Image) -> Image.Image:
+    """生成随机高斯噪点表层的黑白幻影坦克"""
+    # 生成高斯噪声底图
+    noise_image = Image.effect_noise(size=(image.width // 8, image.height // 8), sigma=128)
+    noise_image = noise_image.resize(image.size, Image.Resampling.NEAREST)
+
+    return _complex_gray(white_image=noise_image, black_image=image)
+
+
+async def simple_noise(image_url: str) -> TemporaryResource:
+    """生成随机高斯噪点表层的黑白幻影坦克"""
+    return await generate_mirage_tank(factory=_simple_noise, base_image_url=image_url)
+
+
+def _color_noise(image: Image.Image) -> Image.Image:
+    """生成随机高斯噪点表层的彩色幻影坦克"""
+    # 生成高斯噪声底图
+    noise_image = Image.effect_noise(size=(image.width // 32, image.height // 32), sigma=255)
+    noise_image = noise_image.resize(image.size, Image.Resampling.NEAREST)
+
+    return _complex_color(white_image=noise_image, black_image=image)
+
+
+async def color_noise(image_url: str) -> TemporaryResource:
+    """生成随机高斯噪点表层的彩色幻影坦克"""
+    return await generate_mirage_tank(factory=_color_noise, base_image_url=image_url)
+
+
 def _complex_gray(white_image: Image.Image, black_image: Image.Image) -> Image.Image:
     """生成由两张图合成的灰度幻影坦克
 
@@ -125,8 +153,8 @@ def _complex_gray(white_image: Image.Image, black_image: Image.Image) -> Image.I
     black_mask = black_mask.convert('L')
 
     # 处理
-    alpha_mask = ImageMath.eval('float(256-lw+lb)', lw=white_mask, lb=black_mask)
-    l_mask = ImageMath.eval('float(lb/a*256)', lb=black_mask, a=alpha_mask)
+    alpha_mask = ImageMath.unsafe_eval('float(256-lw+lb)', lw=white_mask, lb=black_mask)
+    l_mask = ImageMath.unsafe_eval('float(lb/a*256)', lb=black_mask, a=alpha_mask)
     alpha_mask = alpha_mask.convert('L')
     l_mask = l_mask.convert('L')
     mask = Image.merge(mode='RGBA', bands=(l_mask, l_mask, l_mask, alpha_mask))
@@ -167,17 +195,17 @@ def _complex_color(white_image: Image.Image, black_image: Image.Image) -> Image.
     black_r, black_g, black_b, _ = black_image.split()
 
     # 处理
-    r_mask = ImageMath.eval('float(256-wr+br)', wr=white_r, br=black_r)
-    g_mask = ImageMath.eval('float(256-wg+bg)', wg=white_g, bg=black_g)
-    b_mask = ImageMath.eval('float(256-wb+bb)', wb=white_b, bb=black_b)
+    r_mask = ImageMath.unsafe_eval('float(256-wr+br)', wr=white_r, br=black_r)
+    g_mask = ImageMath.unsafe_eval('float(256-wg+bg)', wg=white_g, bg=black_g)
+    b_mask = ImageMath.unsafe_eval('float(256-wb+bb)', wb=white_b, bb=black_b)
 
-    color_max_mask = ImageMath.eval('float(max(max(r, g), b))', r=black_r, g=black_g, b=black_b)
-    alpha_mask = ImageMath.eval('float(min(max(float(0.222*r + 0.707*g + 0.071*b), float(m)), 256))',
-                                r=r_mask, g=g_mask, b=b_mask, m=color_max_mask)
+    color_max_mask = ImageMath.unsafe_eval('float(max(max(r, g), b))', r=black_r, g=black_g, b=black_b)
+    alpha_mask = ImageMath.unsafe_eval('float(min(max(float(0.222*r + 0.707*g + 0.071*b), float(m)), 256))',
+                                       r=r_mask, g=g_mask, b=b_mask, m=color_max_mask)
 
-    output_r = ImageMath.eval('float(min(float(r/a), 256)*256)', r=black_r, a=alpha_mask).convert('L')
-    output_g = ImageMath.eval('float(min(float(g/a), 256)*256)', g=black_g, a=alpha_mask).convert('L')
-    output_b = ImageMath.eval('float(min(float(b/a), 256)*256)', b=black_b, a=alpha_mask).convert('L')
+    output_r = ImageMath.unsafe_eval('float(min(float(r/a), 256)*256)', r=black_r, a=alpha_mask).convert('L')
+    output_g = ImageMath.unsafe_eval('float(min(float(g/a), 256)*256)', g=black_g, a=alpha_mask).convert('L')
+    output_b = ImageMath.unsafe_eval('float(min(float(b/a), 256)*256)', b=black_b, a=alpha_mask).convert('L')
     output_a = alpha_mask.convert('L')
 
     make_image = Image.merge(mode='RGBA', bands=(output_r, output_g, output_b, output_a))
@@ -214,13 +242,13 @@ def _complex_difference(base_image: Image.Image, differ_image: Image.Image) -> I
     base_mask = ImageEnhance.Color(base_image).enhance(0)
     base_mask = base_mask.convert('L')
 
-    difference_mask = ImageMath.eval('float(abs(dm-bm))', dm=differ_mask, bm=base_mask)
+    difference_mask = ImageMath.unsafe_eval('float(abs(dm-bm))', dm=differ_mask, bm=base_mask)
 
     # 分离基础图片颜色通道
     base_r, base_g, base_b, base_a = base_image.split()
 
     # 根据差分重新计算透明度通道
-    output_a = ImageMath.eval('float(ba-da)', da=difference_mask, ba=base_a).convert('L')
+    output_a = ImageMath.unsafe_eval('float(ba-da)', da=difference_mask, ba=base_a).convert('L')
 
     make_image = Image.merge(mode='RGBA', bands=(base_r, base_g, base_b, output_a))
 
@@ -239,6 +267,8 @@ async def complex_difference(base_image_url: str, differ_image_url: str) -> Temp
 __all__ = [
     'simple_white',
     'simple_black',
+    'simple_noise',
+    'color_noise',
     'complex_gray',
     'complex_color',
     'complex_difference'
