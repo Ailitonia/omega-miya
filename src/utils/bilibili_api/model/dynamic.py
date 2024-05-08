@@ -423,6 +423,8 @@ class CardType1Forward(_BaseCardType):
         timestamp: Optional[int] = None  # Deactivated
         ctrl: Any
         reply: Any
+        miss: Optional[int] = None
+        tips: Optional[str] = None
 
     verify_type: int = 1
     user: _UserInfo  # 转发者用户信息
@@ -441,7 +443,7 @@ class CardType1Forward(_BaseCardType):
         | Json[CardType4200LiveRoom]
         | Json[CardType4300MediaListShare]
         | Json[CardType4308LiveRoom]
-        | Literal['源动态已被作者删除', '源动态不见了', '直播结束了']
+        | Literal['源动态已被作者删除', '源动态不见了', '直播结束了', '']
         ]  # 原动态被删 origin 字段返回 message 是谁整出来的傻逼玩意儿
     origin_user: Optional[BilibiliDynamicCardDescUserProfile] = None  # 被转发用户信息
 
@@ -453,8 +455,11 @@ class CardType1Forward(_BaseCardType):
         if self.origin is None:
             text = f'{self.user_name}转发了一条动态!\n\n“{self.item.content}”\n{"=" * 16}\n@源动态已被作者删除'
             img_urls = []
-        elif self.origin and isinstance(self.origin, str):
+        elif isinstance(self.origin, str) and self.origin:
             text = f'{self.user_name}转发了一条动态!\n\n“{self.item.content}”\n{"=" * 16}\n@{self.origin}'
+            img_urls = []
+        elif isinstance(self.origin, str):
+            text = f'{self.user_name}转发了一条动态!\n\n“{self.item.content}”\n{"=" * 16}\n@{self.item.tips}'
             img_urls = []
         else:
             text = f'{self.user_name}转发了{self.origin.user_name}的动态!\n\n“{self.item.content}”\n' \
