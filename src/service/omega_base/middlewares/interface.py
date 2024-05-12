@@ -352,6 +352,18 @@ class OmegaInterface(object):
         raise RejectedException
 
     @_ensure_matcher
+    async def reject_at_sender(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+        """与 `matcher.reject()` 作用相同，仅能用在事件响应器中"""
+        await self.send_at_sender(message=message, **kwargs)
+        raise RejectedException
+
+    @_ensure_matcher
+    async def reject_reply(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+        """与 `matcher.reject()` 作用相同，仅能用在事件响应器中"""
+        await self.send_reply(message=message, **kwargs)
+        raise RejectedException
+
+    @_ensure_matcher
     async def reject_arg(
             self,
             key: str,
@@ -363,6 +375,28 @@ class OmegaInterface(object):
         await self.matcher.reject_arg(key)
 
     @_ensure_matcher
+    async def reject_arg_at_sender(
+            self,
+            key: str,
+            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            **kwargs
+    ) -> NoReturn:
+        """与 `matcher.reject_arg()` 作用相同，仅能用在事件响应器中"""
+        await self.send_at_sender(message=message, **kwargs)
+        await self.matcher.reject_arg(key)
+
+    @_ensure_matcher
+    async def reject_arg_reply(
+            self,
+            key: str,
+            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            **kwargs
+    ) -> NoReturn:
+        """与 `matcher.reject_arg()` 作用相同，仅能用在事件响应器中"""
+        await self.send_reply(message=message, **kwargs)
+        await self.matcher.reject_arg(key)
+
+    @_ensure_matcher
     async def reject_receive(
             self,
             key: str,
@@ -371,6 +405,28 @@ class OmegaInterface(object):
     ) -> NoReturn:
         """与 `matcher.reject_receive()` 作用相同，仅能用在事件响应器中"""
         await self.send(message=message, **kwargs)
+        await self.matcher.reject_receive(key)
+
+    @_ensure_matcher
+    async def reject_receive_at_sender(
+            self,
+            key: str,
+            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            **kwargs
+    ) -> NoReturn:
+        """与 `matcher.reject_receive()` 作用相同，仅能用在事件响应器中"""
+        await self.send_at_sender(message=message, **kwargs)
+        await self.matcher.reject_receive(key)
+
+    @_ensure_matcher
+    async def reject_receive_reply(
+            self,
+            key: str,
+            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            **kwargs
+    ) -> NoReturn:
+        """与 `matcher.reject_receive()` 作用相同，仅能用在事件响应器中"""
+        await self.send_reply(message=message, **kwargs)
         await self.matcher.reject_receive(key)
 
 
