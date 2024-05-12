@@ -59,7 +59,10 @@ def get_command_str_multi_args_parser_handler(
     """
 
     async def handle_parse_command_str_multi_args(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
-        multi_args = cmd_arg.extract_plain_text().strip().split()
+        if ensure_keys_num > 0:
+            multi_args = cmd_arg.extract_plain_text().strip().split(maxsplit=ensure_keys_num - 1)
+        else:
+            multi_args = cmd_arg.extract_plain_text().strip().split()
 
         if len(multi_args) < ensure_keys_num:
             multi_args.extend([default for _ in range(ensure_keys_num - len(multi_args))])
