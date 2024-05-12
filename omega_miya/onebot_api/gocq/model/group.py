@@ -10,22 +10,22 @@
 
 from typing import Optional
 from pydantic import AnyHttpUrl
-from ...model import BaseOneBotModel
-from ...model import GroupInfo as OneBotGroupInfo, GroupHonor as OneBotGroupHonor
+from ...model import BaseOnebotModel
+from ...model import GroupInfo as OnebotGroupInfo, GroupHonor as OnebotGroupHonor
 
 
-class GroupInfo(OneBotGroupInfo):
+class GroupInfo(OnebotGroupInfo):
     """群信息"""
     group_memo: Optional[str] = ''
     group_create_time: int = 0
     group_level: int = 0
 
 
-class GroupHonor(OneBotGroupHonor):
+class GroupHonor(OnebotGroupHonor):
     """群荣耀信息"""
 
 
-class GroupInvitedRequest(BaseOneBotModel):
+class GroupInvitedRequest(BaseOnebotModel):
     """群邀请消息
 
     - request_id: 请求ID
@@ -45,7 +45,7 @@ class GroupInvitedRequest(BaseOneBotModel):
     actor: int
 
 
-class GroupJoinRequest(BaseOneBotModel):
+class GroupJoinRequest(BaseOnebotModel):
     """进群消息
 
     - request_id: 请求ID
@@ -67,7 +67,7 @@ class GroupJoinRequest(BaseOneBotModel):
     actor: int
 
 
-class GroupSystemMessage(BaseOneBotModel):
+class GroupSystemMessage(BaseOnebotModel):
     """群系统消息
 
     - invited_requests: 邀请消息列表
@@ -77,7 +77,7 @@ class GroupSystemMessage(BaseOneBotModel):
     join_requests: Optional[list[GroupJoinRequest]]
 
 
-class GroupFileSystemInfo(BaseOneBotModel):
+class GroupFileSystemInfo(BaseOnebotModel):
     """群文件系统信息
 
     - file_count: 文件总数
@@ -91,7 +91,7 @@ class GroupFileSystemInfo(BaseOneBotModel):
     total_space: int
 
 
-class GroupFile(BaseOneBotModel):
+class GroupFile(BaseOnebotModel):
     """群文件
 
     - group_id: 群号
@@ -119,7 +119,7 @@ class GroupFile(BaseOneBotModel):
     uploader_name: str
 
 
-class GroupFolder(BaseOneBotModel):
+class GroupFolder(BaseOnebotModel):
     """群文件文件夹
 
     - group_id: 群号
@@ -139,7 +139,7 @@ class GroupFolder(BaseOneBotModel):
     total_file_count: int
 
 
-class GroupRootFiles(BaseOneBotModel):
+class GroupRootFiles(BaseOnebotModel):
     """群根目录文件列表
 
     - files: 文件列表
@@ -157,12 +157,12 @@ class GroupFolderFiles(GroupRootFiles):
     """
 
 
-class GroupFileResource(BaseOneBotModel):
+class GroupFileResource(BaseOnebotModel):
     """群文件资源链接"""
     url: AnyHttpUrl
 
 
-class GroupAtAllRemain(BaseOneBotModel):
+class GroupAtAllRemain(BaseOnebotModel):
     """群 @全体成员 剩余次数
 
     - can_at_all: 是否可以 @全体成员
@@ -174,7 +174,7 @@ class GroupAtAllRemain(BaseOneBotModel):
     remain_at_all_count_for_uin: int
 
 
-class GroupEssenceMessage(BaseOneBotModel):
+class GroupEssenceMessage(BaseOnebotModel):
     """群精华消息
 
     - sender_id: 发送者QQ 号
@@ -194,34 +194,6 @@ class GroupEssenceMessage(BaseOneBotModel):
     message_id: int
 
 
-class GroupNotice(BaseOneBotModel):
-    """群公告
-
-    - sender_id: 公告发表者
-    - publish_time: 公告发表时间
-    - message: 公告内容
-    """
-
-    class _Message(BaseOneBotModel):
-        """公告内容
-
-        - text: 公告内容
-        - images: 公告图片
-        """
-
-        class _Images(BaseOneBotModel):
-            height: str
-            width: str
-            id: str
-
-        text: str
-        images: list[_Images]
-
-    sender_id: int
-    publish_time: int
-    message: _Message
-
-
 __all__ = [
     'GroupInfo',
     'GroupHonor',
@@ -231,6 +203,5 @@ __all__ = [
     'GroupFolderFiles',
     'GroupFileResource',
     'GroupAtAllRemain',
-    'GroupEssenceMessage',
-    'GroupNotice'
+    'GroupEssenceMessage'
 ]

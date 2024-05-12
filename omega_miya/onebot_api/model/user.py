@@ -3,16 +3,16 @@
 @Date           : 2022/04/13 23:35
 @FileName       : user.py
 @Project        : nonebot2_miya 
-@Description    : OneBot User Model
+@Description    : Onebot User Model
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from typing import Literal
-from .base_model import BaseOneBotModel
+from .base_model import BaseOnebotModel
 
 
-class LoginInfo(BaseOneBotModel):
+class LoginInfo(BaseOnebotModel):
     """登录号信息
 
     - user_id: QQ 号

@@ -8,39 +8,39 @@
 @Software       : PyCharm 
 """
 
-from ...model import BaseOneBotModel
-from ...model import StrangerInfo as OneBotStrangerInfo, LoginInfo as OneBotLoginInfo, FriendInfo as OneBotFriendInfo
-from ...model import GroupUser as OneBotGroupUser
+from ...model import BaseOnebotModel
+from ...model import StrangerInfo as OnebotStrangerInfo, LoginInfo as OnebotLoginInfo, FriendInfo as OnebotFriendInfo
+from ...model import GroupUser as OnebotGroupUser
 
 
-class StrangerInfo(OneBotStrangerInfo):
+class StrangerInfo(OnebotStrangerInfo):
     """陌生人"""
     qid: str
     level: int
     login_days: str
 
 
-class LoginInfo(OneBotLoginInfo):
+class LoginInfo(OnebotLoginInfo):
     """登录号信息"""
 
 
-class FriendInfo(OneBotFriendInfo):
+class FriendInfo(OnebotFriendInfo):
     """好友信息"""
 
 
-class GroupUser(OneBotGroupUser):
+class GroupUser(OnebotGroupUser):
     """群成员"""
     shut_up_timestamp: int
 
 
-class Anonymous(BaseOneBotModel):
+class Anonymous(BaseOnebotModel):
     """匿名用户"""
     flag: str
     id: int
     name: str
 
 
-class QidianAccountUser(BaseOneBotModel):
+class QidianAccountUser(BaseOnebotModel):
     """企点账号信息"""
     master_id: int
     ext_name: str

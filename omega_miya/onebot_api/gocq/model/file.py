@@ -10,27 +10,27 @@
 
 from typing import Optional
 from pydantic import AnyHttpUrl, Field
-from ...model import BaseOneBotModel
-from ...model import VersionInfo as OneBotVersionInfo
-from ...model import Cookies as OneBotCookies, CSRF as OneBotCSRF, Credentials as OneBotCredentials
-from ...model import RecordFile as OneBotRecordFile
-from ...model import CanSendImage as OneBotCanSendImage, CanSendRecord as OneBotCanSendRecord
-from ...model import Status as OneBotStatus
+from ...model import BaseOnebotModel
+from ...model import VersionInfo as OnebotVersionInfo
+from ...model import Cookies as OnebotCookies, CSRF as OnebotCSRF, Credentials as OnebotCredentials
+from ...model import RecordFile as OnebotRecordFile
+from ...model import CanSendImage as OnebotCanSendImage, CanSendRecord as OnebotCanSendRecord
+from ...model import Status as OnebotStatus
 
 
-class Cookies(OneBotCookies):
+class Cookies(OnebotCookies):
     """Cookies"""
 
 
-class CSRF(OneBotCSRF):
+class CSRF(OnebotCSRF):
     """CSRF Token"""
 
 
-class Credentials(OneBotCredentials):
+class Credentials(OnebotCredentials):
     """Cookies 和 CSRF Token"""
 
 
-class ImageFile(BaseOneBotModel):
+class ImageFile(BaseOnebotModel):
     """图片文件
 
     - size: 图片源文件大小
@@ -42,14 +42,14 @@ class ImageFile(BaseOneBotModel):
     url: AnyHttpUrl
 
 
-class OcrImageResult(BaseOneBotModel):
+class OcrImageResult(BaseOnebotModel):
     """图片 OCR 结果
 
     - texts: OCR结果
     - language: 语言
     """
 
-    class _TextDetection(BaseOneBotModel):
+    class _TextDetection(BaseOnebotModel):
         """OCR 文本内容
 
         - text: 文本
@@ -57,7 +57,7 @@ class OcrImageResult(BaseOneBotModel):
         - coordinates: 坐标
         """
 
-        class _Vector2(BaseOneBotModel):
+        class _Vector2(BaseOnebotModel):
             x: int
             y: int
 
@@ -69,24 +69,24 @@ class OcrImageResult(BaseOneBotModel):
     language: str
 
 
-class CanSendImage(OneBotCanSendImage):
+class CanSendImage(OnebotCanSendImage):
     """是否可以发送图片"""
 
 
-class RecordFile(OneBotRecordFile):
+class RecordFile(OnebotRecordFile):
     """语音文件"""
 
 
-class CanSendRecord(OneBotCanSendRecord):
+class CanSendRecord(OnebotCanSendRecord):
     """是否可以发送语音"""
 
 
-class DownloadedFile(BaseOneBotModel):
+class DownloadedFile(BaseOnebotModel):
     """下载的文件"""
     file: str
 
 
-class VersionInfo(OneBotVersionInfo):
+class VersionInfo(OnebotVersionInfo):
     """go-cqhttp 版本信息
 
     - app_name: 应用标识, 如 go-cqhttp 固定值
@@ -105,22 +105,22 @@ class VersionInfo(OneBotVersionInfo):
     - protocol: 当前登陆使用协议类型
     """
     is_go_cqhttp: bool = Field(default=True, alias='go-cqhttp')
-    app_full_name: str
-    coolq_edition: str
-    coolq_directory: str
-    plugin_version: str
-    plugin_build_number: int
-    plugin_build_configuration: str
-    runtime_version: str
-    runtime_os: str
-    version: str
-    protocol: int = Field(alias='protocol_name')
+    app_full_name: Optional[str]
+    coolq_edition: Optional[str]
+    coolq_directory: Optional[str]
+    plugin_version: Optional[str]
+    plugin_build_number: Optional[int]
+    plugin_build_configuration: Optional[str]
+    runtime_version: Optional[str]
+    runtime_os: Optional[str]
+    version: Optional[str]
+    protocol: Optional[int] = Field(alias='protocol_name')
 
     class Config:
         extra = 'ignore'
 
 
-class Status(OneBotStatus):
+class Status(OnebotStatus):
     """go-cqhttp 状态
 
     - app_initialized: 原 CQHTTP 字段, 恒定为 true
@@ -132,7 +132,7 @@ class Status(OneBotStatus):
     - stat: 运行统计
     """
 
-    class _Statistics(BaseOneBotModel):
+    class _Statistics(BaseOnebotModel):
         """统计信息
 
         - PacketReceived: 收到的数据包总数
@@ -163,7 +163,7 @@ class Status(OneBotStatus):
         extra = 'ignore'
 
 
-class OnlineDevice(BaseOneBotModel):
+class OnlineDevice(BaseOnebotModel):
     """在线客户端
 
     - app_id: 客户端ID
@@ -175,12 +175,12 @@ class OnlineDevice(BaseOneBotModel):
     device_kind: str
 
 
-class OnlineClients(BaseOneBotModel):
+class OnlineClients(BaseOnebotModel):
     """当前账号在线客户端列表"""
     clients: list[OnlineDevice]
 
 
-class UrlSafely(BaseOneBotModel):
+class UrlSafely(BaseOnebotModel):
     """链接安全性
 
     - level: 安全等级, 1: 安全 2: 未知 3: 危险

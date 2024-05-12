@@ -12,22 +12,17 @@ from typing import Optional
 from nonebot.adapters.onebot.v11.message import Message
 from nonebot.adapters.onebot.v11.event import Sender
 
-from ...model import BaseOneBotModel
-from ...model import SentMessage as OneBotSentMessage
+from ...model import BaseOnebotModel
+from ...model import SentMessage as OnebotSentMessage
 
 from .user import Anonymous
 
 
-class SentMessage(OneBotSentMessage):
+class SentMessage(OnebotSentMessage):
     """已发送的消息"""
 
 
-class SentForwardMessage(OneBotSentMessage):
-    """已发送的合并转发消息"""
-    forward_id: str
-
-
-class ReceiveMessage(BaseOneBotModel):
+class ReceiveMessage(BaseOnebotModel):
     """Api /get_msg 收到的消息
 
     这个字段 go-cqhttp 魔改严重
@@ -39,23 +34,20 @@ class ReceiveMessage(BaseOneBotModel):
     - message: 消息内容
     """
     group: bool
-    group_id: Optional[int]
+    message: Message
     message_id: int
-    real_id: int
+    message_id_v2: str
+    message_seq: int
     message_type: str
+    real_id: int
     sender: Sender
     time: int
-    message: Message
-    message_raw: Optional[Message]
-    raw_message: Optional[Message]
-    message_id_v2: Optional[str]
-    message_seq: Optional[int]
 
 
-class GroupMessageHistory(BaseOneBotModel):
+class GroupMessageHistory(BaseOnebotModel):
     """群消息历史记录"""
 
-    class _MessageHistory(BaseOneBotModel):
+    class _MessageHistory(BaseOnebotModel):
         anonymous: Optional[Anonymous]
         group_id: str
         message: Message
@@ -73,12 +65,12 @@ class GroupMessageHistory(BaseOneBotModel):
     messages: list[_MessageHistory]
 
 
-class ReceiveForwardMessage(BaseOneBotModel):
+class ReceiveForwardMessage(BaseOnebotModel):
     """合并转发消息"""
 
-    class _MessageNode(BaseOneBotModel):
+    class _MessageNode(BaseOnebotModel):
 
-        class _Sender(BaseOneBotModel):
+        class _Sender(BaseOnebotModel):
             nickname: str
             user_id: str
 
@@ -91,7 +83,6 @@ class ReceiveForwardMessage(BaseOneBotModel):
 
 __all__ = [
     'SentMessage',
-    'SentForwardMessage',
     'ReceiveMessage',
     'GroupMessageHistory',
     'ReceiveForwardMessage'

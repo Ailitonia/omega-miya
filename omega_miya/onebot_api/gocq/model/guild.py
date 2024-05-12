@@ -12,13 +12,13 @@ from typing import Optional
 from pydantic import AnyHttpUrl
 from nonebot.adapters.onebot.v11.message import Message
 
-from ...model.base_model import BaseOneBotModel
+from ...model.base_model import BaseOnebotModel
 
 
 T_GUILD_ID = str
 
 
-class GuildServiceProfile(BaseOneBotModel):
+class GuildServiceProfile(BaseOnebotModel):
     """Api /get_guild_service_profile 频道系统内BOT的资料 返回值
 
     - nickname: 昵称
@@ -30,7 +30,7 @@ class GuildServiceProfile(BaseOneBotModel):
     avatar_url: AnyHttpUrl
 
 
-class GuildInfo(BaseOneBotModel):
+class GuildInfo(BaseOnebotModel):
     """Api /get_guild_list 频道列表
     正常情况下响应 GuildInfo 数组, 未加入任何频道响应 null
 
@@ -43,7 +43,7 @@ class GuildInfo(BaseOneBotModel):
     guild_display_id: int
 
 
-class GuildMeta(BaseOneBotModel):
+class GuildMeta(BaseOnebotModel):
     """Api /get_guild_meta_by_guest 访客获取的频道元数据
 
     - guild_id: 频道ID
@@ -67,7 +67,7 @@ class GuildMeta(BaseOneBotModel):
     owner_id: str
 
 
-class ChannelInfo(BaseOneBotModel):
+class ChannelInfo(BaseOnebotModel):
     """Api /get_guild_channel_list 子频道信息
 
     - owner_guild_id: 所属频道ID
@@ -89,7 +89,7 @@ class ChannelInfo(BaseOneBotModel):
 
     """
 
-    class _SlowModeInfo(BaseOneBotModel):
+    class _SlowModeInfo(BaseOnebotModel):
         """慢速模式信息
 
         - slow_mode_key: 慢速模式Key
@@ -114,7 +114,7 @@ class ChannelInfo(BaseOneBotModel):
     slow_modes: list[_SlowModeInfo]
 
 
-class GuildMemberInfo(BaseOneBotModel):
+class GuildMemberInfo(BaseOnebotModel):
     """Api /get_guild_member_list 频道成员信息
 
     - tiny_id: 成员ID
@@ -130,7 +130,7 @@ class GuildMemberInfo(BaseOneBotModel):
     role_name: str
 
 
-class GuildMemberList(BaseOneBotModel):
+class GuildMemberList(BaseOnebotModel):
     """Api /get_guild_member_list 频道成员列表
 
     - members: 成员列表
@@ -142,7 +142,7 @@ class GuildMemberList(BaseOneBotModel):
     next_token: Optional[str]
 
 
-class GuildMemberProfile(BaseOneBotModel):
+class GuildMemberProfile(BaseOnebotModel):
     """Api /get_guild_member_profile 单独获取频道成员信息
 
     - tiny_id: 用户ID
@@ -152,7 +152,7 @@ class GuildMemberProfile(BaseOneBotModel):
     - roles: 加入的所有权限组
     """
 
-    class _RoleInfo(BaseOneBotModel):
+    class _RoleInfo(BaseOnebotModel):
         """权限组信息
 
         - role_id: 权限组ID
@@ -168,7 +168,7 @@ class GuildMemberProfile(BaseOneBotModel):
     roles: list[_RoleInfo]
 
 
-class GuildRoles(BaseOneBotModel):
+class GuildRoles(BaseOnebotModel):
     """Api /get_guild_roles 获取频道角色(身份组)列表
 
     - role_id: 频道角色(身份组)ID
@@ -190,7 +190,7 @@ class GuildRoles(BaseOneBotModel):
     disabled: bool
 
 
-class CreatedGuildRoles(BaseOneBotModel):
+class CreatedGuildRoles(BaseOnebotModel):
     """Api /create_guild_role 创建频道角色(身份组)
 
     - role_id: 频道角色(身份组)ID
@@ -198,12 +198,12 @@ class CreatedGuildRoles(BaseOneBotModel):
     role_id: int
 
 
-class SentGuildMessage(BaseOneBotModel):
+class SentGuildMessage(BaseOnebotModel):
     """频道消息"""
     message_id: str
 
 
-class ReceiveGuildMessage(BaseOneBotModel):
+class ReceiveGuildMessage(BaseOnebotModel):
     """收到的频道消息
 
     - message_id: 消息id
@@ -212,7 +212,7 @@ class ReceiveGuildMessage(BaseOneBotModel):
     - time: 发送时间
     - message: 消息内容
     """
-    class _GuildSender(BaseOneBotModel):
+    class _GuildSender(BaseOnebotModel):
         user_id: int
         nickname: str
 
@@ -227,7 +227,7 @@ class ReceiveGuildMessage(BaseOneBotModel):
     time: int
 
 
-class TopicChannelFeedInfo(BaseOneBotModel):
+class TopicChannelFeedInfo(BaseOnebotModel):
     """Api /get_topic_channel_feeds 话题频道帖子信息
 
     - id: 帖子ID
@@ -243,7 +243,7 @@ class TopicChannelFeedInfo(BaseOneBotModel):
     - contents: 帖子内容
     """
 
-    class _PosterInfo(BaseOneBotModel):
+    class _PosterInfo(BaseOnebotModel):
         """发帖人信息
 
         - tiny_id: 发帖人ID
@@ -254,14 +254,14 @@ class TopicChannelFeedInfo(BaseOneBotModel):
         nickname: str
         icon_url: AnyHttpUrl
 
-    class _FeedMedia(BaseOneBotModel):
+    class _FeedMedia(BaseOnebotModel):
         """帖子附带的媒体列表
 
         - images: 帖子附带的图片列表
         - videos: 帖子附带的视频列表
         """
 
-        class _FeedMediaResource(BaseOneBotModel):
+        class _FeedMediaResource(BaseOnebotModel):
             """帖子附带的媒体列表内容
 
             - file_id: 媒体ID
@@ -279,7 +279,7 @@ class TopicChannelFeedInfo(BaseOneBotModel):
         images: list[_FeedMediaResource]
         videos: list[_FeedMediaResource]
 
-    class _FeedContent(BaseOneBotModel):
+    class _FeedContent(BaseOnebotModel):
         """帖子内容
 
         - type: 内容类型
@@ -293,21 +293,21 @@ class TopicChannelFeedInfo(BaseOneBotModel):
             - channel_quote: 子频道引用
         """
 
-        class _TextData(BaseOneBotModel):
+        class _TextData(BaseOnebotModel):
             """文本
 
             - text: 文本内容
             """
             text: str
 
-        class _FaceData(BaseOneBotModel):
+        class _FaceData(BaseOnebotModel):
             """表情
 
             - id: 表情ID
             """
             id: str
 
-        class _AtData(BaseOneBotModel):
+        class _AtData(BaseOnebotModel):
             """At
 
             - id: 目标ID
@@ -316,7 +316,7 @@ class TopicChannelFeedInfo(BaseOneBotModel):
             id: str
             qq: str
 
-        class _UrlQuoteData(BaseOneBotModel):
+        class _UrlQuoteData(BaseOnebotModel):
             """链接引用
 
             - display_text: 显示文本
@@ -325,7 +325,7 @@ class TopicChannelFeedInfo(BaseOneBotModel):
             display_text: str
             url: AnyHttpUrl
 
-        class _ChannelQuoteData(BaseOneBotModel):
+        class _ChannelQuoteData(BaseOnebotModel):
             """子频道引用
 
             - display_text: 显示文本

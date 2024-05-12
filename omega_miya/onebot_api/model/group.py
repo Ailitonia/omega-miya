@@ -3,17 +3,17 @@
 @Date           : 2022/04/13 23:23
 @FileName       : group.py
 @Project        : nonebot2_miya 
-@Description    : OneBot group model
+@Description    : Onebot group model
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from typing import Optional
 from pydantic import AnyHttpUrl
-from .base_model import BaseOneBotModel
+from .base_model import BaseOnebotModel
 
 
-class GroupInfo(BaseOneBotModel):
+class GroupInfo(BaseOnebotModel):
     """群信息
 
     - group_id, 群号
@@ -30,7 +30,7 @@ class GroupInfo(BaseOneBotModel):
     max_member_count: int
 
 
-class GroupUserHonor(BaseOneBotModel):
+class GroupUserHonor(BaseOnebotModel):
     """群荣耀"""
     user_id: str
     nickname: str
@@ -38,7 +38,7 @@ class GroupUserHonor(BaseOneBotModel):
     description: str
 
 
-class GroupTalkative(BaseOneBotModel):
+class GroupTalkative(BaseOnebotModel):
     """群龙王"""
     user_id: str
     nickname: str
@@ -46,7 +46,7 @@ class GroupTalkative(BaseOneBotModel):
     day_count: int
 
 
-class GroupHonor(BaseOneBotModel):
+class GroupHonor(BaseOnebotModel):
     """群荣耀信息"""
     group_id: str
     current_talkative: Optional[GroupTalkative]
