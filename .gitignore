@@ -1,3 +1,8 @@
+
+# Created by https://www.toptal.com/developers/gitignore/api/python
+# Edit at https://www.toptal.com/developers/gitignore?templates=python
+
+### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -50,6 +55,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+pytestdebug.log
 
 # Translations
 *.mo
@@ -70,6 +76,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+doc/_build/
 
 # PyBuilder
 target/
@@ -103,12 +110,17 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.sample
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# IDE Config
+.idea/
 
 # Spyder project settings
 .spyderproject
@@ -127,3 +139,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# tmp folders
+omega_miya/tmp/
+tmp/
+.tmp/
+
+# sqlite database file
+*.db
+
+# End of https://www.toptal.com/developers/gitignore/api/python

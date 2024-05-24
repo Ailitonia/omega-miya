@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "omega-miya"
+version = "0.9.1"
+description = "基于 nonebot2 的多平台机器人"
+authors = ["Ailitonia <41713304+Ailitonia@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+nonebot2 = {version = "2.2.1", extras = ["fastapi", "aiohttp", "httpx", "websockets"]}
+pydantic = ">=2.6.4,<2.7.0"
+nonebot-adapter-console = {version = "^0.5.0", optional = true}
+nonebot-adapter-onebot = {version = "^2.4.3", optional = true}
+nonebot-adapter-qq = {version = "^1.4.3", optional = true}
+nonebot-adapter-telegram = {version = "^0.1.0b17", optional = true}
+sqlalchemy = ">=2.0.29,<3.0.0"
+asyncmy = {version = "^0.2.9", optional = true}
+aiomysql = {version = "^0.2.0", optional = true}
+asyncpg = {version = "^0.29.0", optional = true}
+aiosqlite = {version = "^0.20.0", optional = true}
+apscheduler = "^3.10.4"
+aiofiles = "^23.2.1"
+ujson = "^5.9.0"
+lxml = "^5.2.0"
+msgpack = "^1.0.8"
+numpy = "^1.26.4"
+matplotlib = "^3.8.3"
+pillow = "^10.2.0"
+imageio = "^2.34.0"
+psutil = "^5.9.8"
+pycryptodome = "^3.20.0"
+py7zr = "^0.21.0"
+pytz = "^2024.1"
+zhconv = "^1.4.3"
+rapidfuzz = "^3.7.0"
+emoji = "^2.11.0"
+openpyxl = "^3.1.2"
+
+
+[tool.poetry.extras]
+mysql = ["asyncmy", "aiomysql"]
+pgsql = ["asyncpg"]
+sqlite = ["aiosqlite"]
+console = ["nonebot-adapter-console"]
+qq = ["nonebot-adapter-onebot", "nonebot-adapter-qq"]
+telegram = ["nonebot-adapter-telegram"]
+
+
+[tool.poetry.group.dev.dependencies]
+bump-pydantic = "^0.8.0"
+types-lxml = "^2024.3.27"
+lxml-stubs = "^0.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
