@@ -10,6 +10,7 @@
 
 from .plugin_utils import enable_processor_state
 
+from . import onebot as onebot
 from . import telegram as telegram
 from . import universal as universal
 

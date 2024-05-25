@@ -19,7 +19,8 @@ from contextlib import asynccontextmanager
 
 from nonebot import get_driver, logger
 from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
-from nonebot.drivers import Request, Response, WebSocket, ForwardDriver, HTTPClientMixin, WebSocketClientMixin
+from nonebot.drivers import (ForwardDriver, HTTPClientMixin, HTTPClientSession, Response, Request,
+                             WebSocket, WebSocketClientMixin)
 
 from asyncio.exceptions import TimeoutError
 from src.exception import WebSourceException
@@ -104,6 +105,20 @@ class OmegaRequests(object):
     @classmethod
     def get_default_headers(cls) -> dict[str, str]:
         return deepcopy(cls._default_headers)
+
+    def get_session(self, params: Optional[QueryTypes] = None, use_proxy: bool = True) -> HTTPClientSession:
+        if not isinstance(self.driver, HTTPClientMixin):
+            raise RuntimeError(
+                f"Current driver {self.driver.type} doesn't support forward http connections! "
+                "OmegaRequests need a HTTPClient Driver to work."
+            )
+        return self.driver.get_session(
+            params=params,
+            headers=self.headers,
+            cookies=self.cookies,
+            timeout=self.timeout,
+            proxy=http_proxy_config.proxy_url if use_proxy else None
+        )
 
     async def request(self, setup: Request) -> Response:
         """装饰原 request 方法, 自动重试"""
