@@ -33,7 +33,8 @@ def _init_database() -> None:
         engine = create_async_engine(
             database_config.connector.url,
             future=True,  # 使用 2.0 API，向后兼容
-            pool_recycle=3600, pool_pre_ping=True, echo=False,  # 连接池配置
+            pool_size=10, max_overflow=20,
+            pool_pre_ping=True, pool_recycle=3600, echo=False,  # 连接池配置
             **database_config.connector.connect_args  # 数据库连接参数
         )
         logger.opt(colors=True).info(f'<lc>Database</lc> | 已配置 <lg>{database_config.database}</lg> 数据库连接')
