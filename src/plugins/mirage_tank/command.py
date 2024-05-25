@@ -43,7 +43,9 @@ async def handle_mirage_tank(
     elif state.get('mode') in ['白底', '黑底', '噪点', '彩色噪点', '灰度混合', '彩色混合', '差分']:
         mode = state.get('mode')
     else:
-        await interface.reject_arg('step_arg', '请输入想要制作幻影坦克的模式:\n\n"白底", "黑底", "灰度混合", "彩色混合", "差分"')
+        await interface.reject_arg(
+            'step_arg', '请输入想要制作幻影坦克的模式:\n\n"白底", "黑底", "噪点", "彩色噪点", "灰度混合", "彩色混合", "差分"'
+        )
     mode = mode.strip()
 
     event_handler = interface.get_event_handler()
