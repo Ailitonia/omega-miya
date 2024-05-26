@@ -17,7 +17,8 @@ from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, BiliDynamicOrm
+from ..model import BaseDataAccessLayerModel
+from ..schema import BiliDynamicOrm
 
 
 class BiliDynamic(BaseModel):

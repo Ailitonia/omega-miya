@@ -18,7 +18,8 @@ from sqlalchemy.sql.expression import func
 
 from src.compat import parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, PixivArtworkOrm
+from ..model import BaseDataAccessLayerModel
+from ..schema import PixivArtworkOrm
 
 
 class PixivArtwork(BaseModel):

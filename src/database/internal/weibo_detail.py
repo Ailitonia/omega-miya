@@ -17,7 +17,8 @@ from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, WeiboDetailOrm
+from ..model import BaseDataAccessLayerModel
+from ..schema import WeiboDetailOrm
 
 
 class WeiboDetail(BaseModel):

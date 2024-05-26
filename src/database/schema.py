@@ -3,24 +3,19 @@
 @Date           : 2022/12/01 22:04
 @FileName       : table_meta.py
 @Project        : nonebot2_miya 
-@Description    : database table meta
+@Description    : database table schema
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
 from datetime import date, datetime
 from sqlalchemy import Sequence, ForeignKey
-from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, String
 
+from .config import database_config
+from .schema_base import OmegaDeclarativeBase as Base
 from .types import IndexInt
-from ..config import database_config
-
-
-class Base(AsyncAttrs, DeclarativeBase):
-    """数据表声明基类"""
-    pass
 
 
 class SystemSettingOrm(Base):

@@ -9,25 +9,10 @@
 """
 
 import abc
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, AsyncGenerator, Generic, Optional, Self, TypeVar
+from typing import Any, AsyncGenerator, Self
 
-from ..connector import begin_db_session
-
-
-T = TypeVar("T")
-
-
-class BaseDatabaseResult(BaseModel, Generic[T]):
-    """数据库操作返回的标准结果 Model"""
-    error: bool
-    info: str
-    result: Optional[T] = None
-
-    @property
-    def success(self) -> bool:
-        return not self.error
+from .helpers import begin_db_session
 
 
 class BaseDataAccessLayerModel(abc.ABC):
@@ -76,6 +61,5 @@ class BaseDataAccessLayerModel(abc.ABC):
 
 
 __all__ = [
-    'BaseDatabaseResult',
     'BaseDataAccessLayerModel'
 ]
