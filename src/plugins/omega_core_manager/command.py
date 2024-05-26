@@ -151,7 +151,7 @@ async def handle_list_commands(matcher: Matcher):
 async def handle_list_plugins(matcher: Matcher, plugin_dal: Annotated[PluginDAL, Depends(PluginDAL.dal_dependence)]):
     def _desc(plugin_name: str) -> str:
         """根据 plugin name 获取插件自定义名称"""
-        plugin = get_plugin(name=plugin_name)
+        plugin = get_plugin(plugin_id=plugin_name)
         if (plugin is None) or (plugin.metadata is None):
             return plugin_name
 
@@ -290,7 +290,7 @@ async def handle_config_plugin_node(
     if auth_node not in plugin_auth_nodes:
         await matcher.finish(f'权限节点{auth_node!r}不是插件{plugin_name!r}的可配置权限节点, 操作已取消')
 
-    plugin = get_plugin(name=plugin_name)
+    plugin = get_plugin(plugin_id=plugin_name)
     module = plugin.module_name
     try:
         await interface.entity.set_auth_setting(
@@ -303,6 +303,20 @@ async def handle_config_plugin_node(
     except Exception as e:
         logger.error(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}失败, {e!r}')
         await matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r}失败, 请稍后再试或联系管理员处理')
+
+
+@omega.command('list-configured-auth', aliases={'ListOmegaConfiguredAuth', 'list_omega_configured_auth'}).handle()
+async def handle_list_configured_auth(
+        matcher: Matcher,
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())]
+) -> None:
+    try:
+        auth_settings = await interface.entity.query_all_auth_setting()
+        auth_text = '\n'.join(f'{x.available} | {x.plugin}:{x.node}' for x in auth_settings)
+        await matcher.send(f'Omega 已配置的权限节点有:\n\n{auth_text}')
+    except Exception as e:
+        logger.error(f'查询 Omega 已配置权限节点失败, {e!r}')
+        await matcher.send(f'查询 Omega 已配置权限节点失败, 请稍后再试或联系管理员处理')
 
 
 @omega.command(

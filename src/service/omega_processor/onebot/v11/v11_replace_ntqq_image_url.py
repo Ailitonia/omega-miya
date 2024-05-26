@@ -9,7 +9,7 @@
 """
 
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent, MessageSegment
+from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
 
 
 def _replace_image_url(seg: MessageSegment) -> MessageSegment:
@@ -37,10 +37,10 @@ def _parse_message(message: Message) -> Message:
     for seg in message:
         if seg.type == 'image':
             try:
-                parsed_seg = _replace_image_url(seg=seg)
-                output_message.append(parsed_seg)
+                replaced_seg = _replace_image_url(seg=seg)
+                output_message.append(replaced_seg)
             except Exception as e:
-                logger.warning(f'replace ntqq message image {seg.data} failed, {e}')
+                logger.warning(f'replace ntqq image {seg.data} url failed, {e}')
                 output_message.append(seg)
         else:
             output_message.append(seg)

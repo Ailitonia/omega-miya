@@ -28,6 +28,7 @@ __plugin_meta__ = PluginMetadata(
           '/omega.show-plugin-nodes [plugin_name]\n'
           '/omega.allow-plugin-node [plugin_name] [auth_node]\n'
           '/omega.deny-plugin-node [plugin_name] [auth_node]\n'
+          '/omega.list-configured-auth\n'
           '/omega.set-limiting [seconds]',
     config=None,
     extra={'author': 'Ailitonia'},
