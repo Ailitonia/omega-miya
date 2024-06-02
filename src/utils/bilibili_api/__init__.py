@@ -9,10 +9,12 @@
 """
 
 from .bilibili import BilibiliUser, BilibiliDynamic, BilibiliLiveRoom
+from .credential_helpers import BilibiliCredential
 
 
 __all__ = [
     'BilibiliUser',
     'BilibiliDynamic',
-    'BilibiliLiveRoom'
+    'BilibiliLiveRoom',
+    'BilibiliCredential'
 ]

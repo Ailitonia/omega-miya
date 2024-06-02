@@ -11,10 +11,10 @@
 import warnings
 from typing import Literal, Optional, Any
 
-from src.resource import TemporaryResource
 from src.service import OmegaRequests
 
-from .config import bilibili_config, bilibili_resource_config
+from .api_base import BilibiliBase
+from .config import bilibili_config
 from .exception import BilibiliNetworkError
 from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
 from .model import (BilibiliUserModel, BilibiliUserDynamicModel, BilibiliDynamicModel,
@@ -24,90 +24,8 @@ from .exclimbwuzhi import gen_buvid_fp, gen_uuid_infoc, get_payload
 from .verify_utils import sign_wbi_params
 
 
-class Bilibili(object):
-    """Bilibili 基类"""
-    _root_url: str = 'https://www.bilibili.com'
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__
-
-    @classmethod
-    async def request_json(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            *,
-            method: Literal['GET', 'POST'] = 'GET',
-            cookies: Optional[dict[str, str]] = None,
-            data: Optional[Any] = None,
-            json: Optional[Any] = None
-    ) -> Any:
-        """请求 api 并返回 json 数据"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({
-                'origin': 'https://www.bilibili.com',
-                'referer': 'https://www.bilibili.com/'
-            })
-        if cookies is None:
-            cookies = bilibili_config.bili_cookie
-
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=cookies)
-        match method:
-            case 'POST':
-                response = await requests.post(url=url, params=params, data=data, json=json)
-            case _:
-                response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise BilibiliNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return OmegaRequests.parse_content_json(response)
-
-    @classmethod
-    async def request_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 30
-    ) -> str | bytes | None:
-        """请求原始资源内容"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({
-                'origin': 'https://www.bilibili.com',
-                'referer': 'https://www.bilibili.com/'
-            })
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=bilibili_config.bili_cookie)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise BilibiliNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return response.content
-
-    @classmethod
-    async def download_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 60
-    ) -> TemporaryResource:
-        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({
-                'origin': 'https://www.bilibili.com',
-                'referer': 'https://www.bilibili.com/'
-            })
-
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
-        file = bilibili_resource_config.default_download_folder(original_file_name)
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=bilibili_config.bili_cookie)
-
-        return await requests.download(url=url, file=file, params=params)
+class Bilibili(BilibiliBase):
+    """Bilibili 主站方法"""
 
     @classmethod
     async def update_wbi_params(cls, params: Optional[dict[str, Any]] = None) -> dict:
@@ -138,13 +56,12 @@ class Bilibili(object):
             'Content-Type': 'application/json'
         })
 
-        cookies = bilibili_config.bili_cookie if bilibili_config.bili_cookie else {}
-        cookies.update({
-            "buvid3": spi_data.data.b_3,
-            "buvid4": spi_data.data.b_4,
-            "buvid_fp": gen_buvid_fp(payload, 31),
-            "_uuid": uuid
-        })
+        cookies = bilibili_config.update_bili_cookies(
+            buvid3=spi_data.data.b_3,
+            buvid4=spi_data.data.b_4,
+            buvid_fp=gen_buvid_fp(payload, 31),
+            _uuid=uuid
+        )
 
         await cls.request_json(method='POST', url=_exclimbwuzhi_url, headers=headers, data=payload, cookies=cookies)
         return cookies
@@ -297,8 +214,8 @@ class BilibiliUser(Bilibili):
             'referer': 'https://t.bilibili.com/'
         })
         params = {'host_uid': self.uid, 'offset_dynamic_id': offset_dynamic_id, 'need_top': need_top, 'platform': 'web'}
-        if bilibili_config.bili_cookie:
-            params.update({'csrf': bilibili_config.bili_csrf, 'visitor_uid': bilibili_config.bili_uid})
+        # if bilibili_config.bili_cookies:
+        #     params.update({'csrf': bilibili_config.bili_jct, 'visitor_uid': bilibili_config.bili_dedeuserid})
         # params = await self.update_wbi_params(params)
         cookies = await self.update_buvid_params()
 
@@ -306,7 +223,7 @@ class BilibiliUser(Bilibili):
         return BilibiliUserDynamicModel.model_validate(data)
 
 
-class BilibiliDynamic(Bilibili):
+class BilibiliDynamic(BilibiliBase):
     """Bilibili 动态"""
     _dynamic_root_url = 'https://t.bilibili.com/'
     _dynamic_detail_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'  # TODO
@@ -352,7 +269,7 @@ class BilibiliDynamic(Bilibili):
         return self.dynamic_model
 
 
-class BilibiliLiveRoom(Bilibili):
+class BilibiliLiveRoom(BilibiliBase):
     """Bilibili 直播间"""
     _live_root_url = 'https://live.bilibili.com/'
     _live_api_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
