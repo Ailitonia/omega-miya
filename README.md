@@ -29,7 +29,7 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
   - SQLite
 - 支持多协议端连接, 各协议端权限、订阅等配置相互独立
   - [Console Adapter (v0.5.0)](https://github.com/nonebot/adapter-console/releases/tag/v0.5.0) -> 本机调试
-  - [OneBot v11 Adapter (v2.4.3)](https://github.com/nonebot/adapter-onebot/releases/tag/v2.2.3) -> [go-cqhttp v1.1.0](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.1.0)
+  - [OneBot v11 Adapter (v2.4.3)](https://github.com/nonebot/adapter-onebot/releases/tag/v2.2.3) -> [go-cqhttp](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.1.0) / [Lagrange.OneBot](https://github.com/LagrangeDev/Lagrange.Core/releases/tag/nightly)
   - [QQ Adapter (v1.4.3)](https://github.com/nonebot/adapter-qq/releases/tag/v1.4.3) -> [QQ 开放平台](https://q.qq.com/)
   - [Telegram Adapter (v0.1.0b17)](https://github.com/nonebot/adapter-telegram/releases/tag/v0.1.0b14) -> [Telegram Bot](https://core.telegram.org/bots/api)
 - 插件管理系统
