@@ -22,7 +22,6 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-from . import monitor as monitor
 
 
 __all__ = []
