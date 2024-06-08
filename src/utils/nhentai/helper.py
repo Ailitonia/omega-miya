@@ -20,7 +20,7 @@ from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
 from src.utils.image_utils.template import generate_thumbs_preview_image
 
-from .config import nhentai_config
+from .config import nhentai_config, nhentai_resource_config
 from .exception import NhentaiParseError, NhentaiNetworkError
 from .model import (
     NhentaiSearchingResult,
@@ -42,7 +42,7 @@ async def _request_resource(
         headers = OmegaRequests.get_default_headers()
         headers.update({'referer': 'https://nhentai.net/'})
 
-    requests = OmegaRequests(timeout=timeout, headers=headers)
+    requests = OmegaRequests(timeout=timeout, headers=headers, cookies=nhentai_config.nhentai_cookies)
     response = await requests.get(url=url, params=params)
     if response.status_code != 200:
         raise NhentaiNetworkError(f'{response.request}, status code {response.status_code}')
@@ -200,7 +200,7 @@ async def emit_preview_model_from_gallery_model(
 async def generate_nhentai_preview_image(
         preview: NhentaiPreviewModel,
         *,
-        preview_size: tuple[int, int] = nhentai_config.default_preview_size,
+        preview_size: tuple[int, int] = nhentai_resource_config.default_preview_size,
         hold_ratio: bool = False,
         num_of_line: int = 6,
         limit: int = 1000
@@ -216,12 +216,12 @@ async def generate_nhentai_preview_image(
     return await generate_thumbs_preview_image(
         preview=preview,
         preview_size=preview_size,
-        font_path=nhentai_config.default_font_file,
+        font_path=nhentai_resource_config.default_font_file,
         header_color=(215, 64, 87),
         hold_ratio=hold_ratio,
         num_of_line=num_of_line,
         limit=limit,
-        output_folder=nhentai_config.default_preview_img_folder
+        output_folder=nhentai_resource_config.default_preview_img_folder
     )
 
 

@@ -17,7 +17,7 @@ from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
 from src.utils.zip_utils import ZipUtils
 
-from .config import nhentai_config
+from .config import nhentai_config, nhentai_resource_config
 from .exception import NhentaiNetworkError
 from .model import NhentaiSearchingResult, NhentaiGalleryModel, NhentaiDownloadResult
 from .helper import (
@@ -50,7 +50,7 @@ class Nhentai(object):
             headers = OmegaRequests.get_default_headers()
             headers.update({'referer': 'https://nhentai.net/'})
 
-        requests = OmegaRequests(timeout=timeout, headers=headers)
+        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=nhentai_config.nhentai_cookies)
         response = await requests.get(url=url, params=params)
         if response.status_code != 200:
             raise NhentaiNetworkError(f'{response.request}, status code {response.status_code}')
@@ -74,10 +74,10 @@ class Nhentai(object):
 
         original_file_name = OmegaRequests.parse_url_file_name(url=url)
         if folder_name is None:
-            file = nhentai_config.default_download_folder(original_file_name)
+            file = nhentai_resource_config.default_download_folder(original_file_name)
         else:
-            file = nhentai_config.default_download_folder(folder_name, original_file_name)
-        requests = OmegaRequests(timeout=timeout, headers=headers)
+            file = nhentai_resource_config.default_download_folder(folder_name, original_file_name)
+        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=nhentai_config.nhentai_cookies)
 
         return await requests.download(url=url, file=file, params=params, ignore_exist_file=ignore_exist_file)
 
@@ -153,7 +153,7 @@ class NhentaiGallery(Nhentai):
 
         # 下载目标文件夹
         folder_name = f'gallery_{gallery_model.id}'
-        download_folder = nhentai_config.default_download_folder(folder_name)
+        download_folder = nhentai_resource_config.default_download_folder(folder_name)
 
         # 生成下载任务序列
         download_tasks = []
