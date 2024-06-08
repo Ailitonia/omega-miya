@@ -46,8 +46,7 @@ pixiv = CommandGroup(
         level=50,
         auth_node='pixiv',
         extra_auth_node={ALLOW_R18_NODE},
-        cooldown=60,
-        cooldown_type='user'
+        cooldown=60
     ),
 )
 
