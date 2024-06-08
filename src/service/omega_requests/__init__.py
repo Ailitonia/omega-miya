@@ -258,14 +258,20 @@ class OmegaRequests(object):
             file: TemporaryResource,
             *,
             params: QueryTypes = None,
-            **kwargs) -> TemporaryResource:
+            ignore_exist_file: bool = False,
+            **kwargs
+    ) -> TemporaryResource:
         """下载文件
 
         :param url: 链接
         :param file: 下载目标路径
         :param params: 请求参数
+        :param ignore_exist_file: 忽略已存在文件
         :return: 下载目标路径
         """
+        if ignore_exist_file and file.is_file:
+            return file
+
         response = await self.get(url=url, params=params, **kwargs)
 
         if response.status_code != 200:
