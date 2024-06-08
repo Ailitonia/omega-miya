@@ -22,6 +22,7 @@ from nonebot.adapters import MessageSegment as BaseMessageSegment
 @unique
 class MessageSegmentType(Enum):
     at: Literal['at'] = 'at'
+    at_all: Literal['at_all'] = 'at_all'
     forward_id: Literal['forward_id'] = 'forward_id'
     custom_node: Literal['custom_node'] = 'custom_node'
     image: Literal['image'] = 'image'
@@ -57,6 +58,10 @@ class MessageSegment(BaseMessageSegment):
     @staticmethod
     def at(user_id: int | str) -> "MessageSegment":
         return MessageSegment(MessageSegmentType.at.value, {'user_id': str(user_id)})
+
+    @staticmethod
+    def at_all() -> "MessageSegment":
+        return MessageSegment(MessageSegmentType.at_all.value, {'at_all': True})
 
     @staticmethod
     def forward_id(id_: int | str) -> "MessageSegment":
