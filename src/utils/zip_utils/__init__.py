@@ -20,14 +20,21 @@ from .config import zip_utils_config, zip_utils_resource_config
 
 
 class ZipUtils(object):
-    def __init__(self, file_name: str):
-        self.file: TemporaryResource = zip_utils_resource_config.default_storage_folder(file_name)
+    def __init__(self, file_name: str, *, folder: TemporaryResource | None = None):
+        if folder is not None and folder.is_dir:
+            storage_folder: TemporaryResource = folder
+        else:
+            storage_folder: TemporaryResource = zip_utils_resource_config.default_storage_folder
 
+        self.file: TemporaryResource = storage_folder(file_name)
+
+    @run_sync
     def _create_zip(
             self,
             files: list[BaseResource],
             *,
-            compression: int | None = None) -> TemporaryResource:
+            compression: int | None = None
+    ) -> TemporaryResource:
         """创建 zip 压缩文件
 
         :param files: 被压缩的文件列表
@@ -51,19 +58,22 @@ class ZipUtils(object):
             self,
             files: list[BaseResource],
             *,
-            compression: int | None = None) -> TemporaryResource:
+            compression: int | None = None
+    ) -> TemporaryResource:
         """创建 zip 压缩文件, 异步方法
 
         :param files: 被压缩的文件列表
         :param compression: 压缩级别参数
         """
-        return await run_sync(self._create_zip)(files=files, compression=compression)
+        return await self._create_zip(files=files, compression=compression)
 
+    @run_sync
     def _create_7z(
             self,
             files: list[BaseResource],
             *,
-            password: str | None = None) -> TemporaryResource:
+            password: str | None = None
+    ) -> TemporaryResource:
         """创建 7z 压缩文件
 
         :param files: 被压缩的文件列表
@@ -87,13 +97,14 @@ class ZipUtils(object):
             self,
             files: list[BaseResource],
             *,
-            password: str | None = None) -> TemporaryResource:
+            password: str | None = None
+    ) -> TemporaryResource:
         """创建 7z 压缩文件, 异步方法
 
         :param files: 被压缩的文件列表
         :param password: 文件密码
         """
-        return await run_sync(self._create_7z)(files=files, password=password)
+        return await self._create_7z(files=files, password=password)
 
 
 __all__ = [
