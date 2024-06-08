@@ -81,7 +81,7 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
 
 数据集来源是我的 [这个频道](https://t.me/amoeloli), 虽然已经断更很久了...
 
-## 一张图看懂如何获取 Pixiv cookie
+## 一张图看懂如何获取 Pixiv Cookies
 
 **注意！该 cookie 等同于您账号控制权，请不要泄露给他人！**
 
