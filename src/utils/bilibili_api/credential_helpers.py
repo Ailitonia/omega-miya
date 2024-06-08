@@ -192,7 +192,7 @@ class BilibiliCredential(BilibiliBase):
 
     @classmethod
     async def refresh_cookies(cls) -> bool:
-        """刷新 Cookies"""
+        """刷新用户 Cookies"""
         url = 'https://passport.bilibili.com/x/passport-login/web/cookie/refresh'
 
         refresh_csrf = await cls.get_refresh_csrf()
@@ -208,7 +208,7 @@ class BilibiliCredential(BilibiliBase):
         refresh_info = BilibiliWebCookieRefreshInfo.model_validate(cls.parse_content_json(response))
 
         if refresh_info.code != 0:
-            logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 刷新 Cookies 失败, {refresh_info}')
+            logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 刷新用户 Cookies 失败, {refresh_info}')
             return False
 
         new_cookies = {}
@@ -230,7 +230,7 @@ class BilibiliCredential(BilibiliBase):
             csrf=new_cookies['bili_jct'], refresh_token=old_refresh_token
         )
         if confirm_result.code != 0:
-            logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 确认更新 Cookies 失败, {confirm_result.message}')
+            logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 确认更新用户 Cookies 失败, {confirm_result.message}')
             return False
 
         await cls.save_cookies_to_db()
@@ -239,23 +239,23 @@ class BilibiliCredential(BilibiliBase):
 
 async def _refresh_bilibili_login_status() -> None:
     """检查 bilibili 登录状态, 根据需要刷新 Cookies"""
-    logger.opt(colors=True).debug('<lc>Bilibili</lc> | 开始检查 Cookies 状态')
+    logger.opt(colors=True).debug('<lc>Bilibili</lc> | 开始检查用户 Cookies 状态')
     bc = BilibiliCredential()
 
     is_valid = await bc.check_valid()
     if not is_valid:
-        logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>Cookie 未配置或验证失败</r>, 部分功能可能不可用')
+        logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>用户 Cookies 未配置或验证失败</r>, 部分功能可能不可用')
 
     need_refresh = await bc.check_need_refresh()
     if need_refresh:
-        logger.opt(colors=True).warning('<lc>Bilibili</lc> | <ly>Cookie 需要刷新</ly>, 正在尝试刷新中')
+        logger.opt(colors=True).warning('<lc>Bilibili</lc> | <ly>用户 Cookies 需要刷新</ly>, 正在尝试刷新中')
         refresh_result = await bc.refresh_cookies()
         if refresh_result:
-            logger.opt(colors=True).warning('<lc>Bilibili</lc> | <lg>Cookie 刷新成功</lg>')
+            logger.opt(colors=True).warning('<lc>Bilibili</lc> | <lg>用户 Cookies 刷新成功</lg>')
         else:
-            logger.opt(colors=True).error('<lc>Bilibili</lc> | <r>Cookie 刷新失败</r>')
+            logger.opt(colors=True).error('<lc>Bilibili</lc> | <r>用户 Cookies 刷新失败</r>')
     else:
-        logger.opt(colors=True).debug('<lc>Bilibili</lc> | <lg>Cookie 有效, 无需刷新</lg>')
+        logger.opt(colors=True).debug('<lc>Bilibili</lc> | <lg>用户 Cookies 有效, 无需刷新</lg>')
 
 
 @get_driver().on_startup
@@ -264,7 +264,7 @@ async def _load_and_refresh_bilibili_login_status() -> None:
         await BilibiliCredential.load_cookies_from_db()
         await _refresh_bilibili_login_status()
     except Exception as e:
-        logger.opt(colors=True).error(f'<lc>Bilibili</lc> | <r>Cookie 刷新失败</r>, 请尝试重新登录, {e}')
+        logger.opt(colors=True).error(f'<lc>Bilibili</lc> | <r>用户 Cookies 刷新失败</r>, 请尝试重新登录, {e}')
 
 
 @scheduler.scheduled_job(
@@ -280,7 +280,7 @@ async def _bilibili_login_status_refresh_monitor() -> None:
     try:
         await _refresh_bilibili_login_status()
     except Exception as e:
-        logger.opt(colors=True).error(f'<lc>Bilibili</lc> | <r>Cookie 刷新失败</r>, 请尝试重新登录, {e}')
+        logger.opt(colors=True).error(f'<lc>Bilibili</lc> | <r>用户 Cookies 刷新失败</r>, 请尝试重新登录, {e}')
 
 
 __all__ = [

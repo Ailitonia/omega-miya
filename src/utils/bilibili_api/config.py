@@ -113,11 +113,26 @@ class BilibiliConfig(BaseModel):
     async def load_from_database(self) -> "BilibiliConfig":
         async with begin_db_session() as session:
             dal = SystemSettingDAL(session=session)
-            self.bili_sessdata = await self._load_config_from_db(dal=dal, setting_name='bili_sessdata')
-            self.bili_jct = await self._load_config_from_db(dal=dal, setting_name='bili_jct')
-            self.bili_buvid3 = await self._load_config_from_db(dal=dal, setting_name='bili_buvid3')
-            self.bili_dedeuserid = await self._load_config_from_db(dal=dal, setting_name='bili_dedeuserid')
-            self.bili_ac_time_value = await self._load_config_from_db(dal=dal, setting_name='bili_ac_time_value')
+            bili_sessdata = await self._load_config_from_db(dal=dal, setting_name='bili_sessdata')
+            if bili_sessdata is not None:
+                self.bili_sessdata = bili_sessdata
+
+            bili_jct = await self._load_config_from_db(dal=dal, setting_name='bili_jct')
+            if bili_jct is not None:
+                self.bili_jct = bili_jct
+
+            bili_buvid3 = await self._load_config_from_db(dal=dal, setting_name='bili_buvid3')
+            if bili_buvid3 is not None:
+                self.bili_buvid3 = bili_buvid3
+
+            bili_dedeuserid = await self._load_config_from_db(dal=dal, setting_name='bili_dedeuserid')
+            if bili_dedeuserid is not None:
+                self.bili_dedeuserid = bili_dedeuserid
+
+            bili_ac_time_value = await self._load_config_from_db(dal=dal, setting_name='bili_ac_time_value')
+            if bili_ac_time_value is not None:
+                self.bili_ac_time_value = bili_ac_time_value
+
         return self
 
 
