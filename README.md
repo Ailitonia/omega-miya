@@ -110,4 +110,6 @@ Omega_miya 的设计思路显然与 Nonebot 插件间应该尽可能解耦的设
 
 ## Supported by
 
+<a href="https://www.jetbrains.com/pycharm/">
 <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/PyCharm.svg" alt="PyCharm logo.">
+</a>
