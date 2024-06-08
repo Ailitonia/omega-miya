@@ -20,6 +20,7 @@ from src.service import OmegaInterface, enable_processor_state
 from src.utils.bilibili_api import BilibiliUser
 from src.utils.bilibili_api.exception import BilibiliApiError
 
+from .consts import NOTICE_AT_ALL
 from .monitor import scheduler
 from .helpers import add_dynamic_sub, delete_dynamic_sub, query_entity_subscribed_dynamic_sub_source
 
@@ -29,7 +30,11 @@ bili_dynamic = CommandGroup(
     permission=IS_ADMIN,
     priority=20,
     block=True,
-    state=enable_processor_state(name='BilibiliDynamicSubscriptionManager', level=20),
+    state=enable_processor_state(
+        name='BilibiliDynamicSubscriptionManager',
+        level=20,
+        extra_auth_node={NOTICE_AT_ALL}
+    ),
 )
 
 

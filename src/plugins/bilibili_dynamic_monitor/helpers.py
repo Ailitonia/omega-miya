@@ -17,7 +17,7 @@ from nonebot.exception import ActionFailed
 
 from src.database import BiliDynamicDAL, begin_db_session
 from src.database.internal.entity import Entity
-from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
+from src.database.internal.subscription_source import SubscriptionSource
 from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
@@ -25,9 +25,7 @@ from src.utils.bilibili_api.model import BilibiliDynamicCard
 from src.utils.bilibili_api.exception import BilibiliApiError
 from src.utils.process_utils import run_async_delay, semaphore_gather
 
-
-BILI_DYNAMIC_SUB_TYPE: str = SubscriptionSourceType.bili_dynamic.value
-"""b站动态订阅类型"""
+from .consts import BILI_DYNAMIC_SUB_TYPE, NOTICE_AT_ALL, MODULE_NAME, PLUGIN_NAME
 
 
 async def _query_dynamic_sub_source(uid: int) -> SubscriptionSource:
@@ -136,12 +134,25 @@ async def _format_dynamic_update_message(dynamic: BilibiliDynamicCard) -> str | 
     return send_message
 
 
+async def _has_notice_at_all_node(entity: OmegaEntity) -> bool:
+    """检查目标是否有通知@所有人的权限"""
+    try:
+        return await entity.check_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME, node=NOTICE_AT_ALL)
+    except Exception as e:
+        logger.warning(f'BilibiliDynamicMonitor | Checking {entity} notice at all node failed, {e!r}')
+        return False
+
+
 async def _msg_sender(entity: Entity, message: str | Message) -> None:
-    """向 entity 发送消息"""
+    """向 entity 发送动态消息"""
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
             interface = OmegaInterface(entity=internal_entity)
+
+            if await _has_notice_at_all_node(internal_entity):
+                message = OmegaMessageSegment.at_all() + message
+
             await interface.send_msg(message=message)
     except ActionFailed as e:
         logger.warning(f'BilibiliDynamicMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')
