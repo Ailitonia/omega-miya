@@ -75,6 +75,8 @@ class MysqlDatabaseConfig(DatabaseType):
             url=f'{self.database}+{self.db_driver.value}://{self.db_user}'
                 f':{quote(str(self.db_password))}@{self.db_host}:{self.db_port}/{self.db_name}',
             connect_args={
+                "pool_size": 10,
+                "max_overflow": 20,
                 'connect_args': {"use_unicode": True, "charset": "utf8mb4"}
             }
         )
@@ -100,6 +102,8 @@ class PostgresqlDatabaseConfig(DatabaseType):
             url=f'{self.database}+{self.db_driver.value}://{self.db_user}'
                 f':{quote(str(self.db_password))}@{self.db_host}:{self.db_port}/{self.db_name}',
             connect_args={
+                "pool_size": 10,
+                "max_overflow": 20,
                 'connect_args': {"server_settings": {"jit": "off"}}
             }
         )
