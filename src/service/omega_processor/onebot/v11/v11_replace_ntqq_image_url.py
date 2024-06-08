@@ -8,28 +8,61 @@
 @Software       : PyCharm 
 """
 
-from nonebot import logger
+from typing import Callable, Literal, TypeAlias
+
+from nonebot import get_plugin_config, logger
 from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
+from pydantic import BaseModel, ConfigDict
 
 
-def _replace_image_url(seg: MessageSegment) -> MessageSegment:
-    """替换 image 消息段中图片的 url 域名"""
-    old_ = 'https://multimedia.nt.qq.com.cn'
-    new_ = 'https://gchat.qpic.cn'
+T_SegReplacer: TypeAlias = Callable[[MessageSegment], MessageSegment]
 
-    if seg.type != 'image':
+
+class OneBotV11ImageUrlReplacerConfig(BaseModel):
+    """OneBot V11 图片 URL 替换处理配置"""
+    onebot_v11_image_url_replacer: Literal['http', 'domain'] | None = 'http'
+
+    model_config = ConfigDict(extra="ignore")
+
+
+def _ger_image_url_replacer() -> T_SegReplacer:
+    try:
+        replacer = get_plugin_config(OneBotV11ImageUrlReplacerConfig).onebot_v11_image_url_replacer
+    except Exception as e:
+        logger.warning(f'OneBotV11 图片 Url 替换处理配置验证失败, 错误信息:\n{e}')
+        replacer = None
+
+    match replacer:
+        case 'http':
+            old_ = 'https://'
+            new_ = 'http://'
+        case 'domain':
+            old_ = 'https://multimedia.nt.qq.com.cn'
+            new_ = 'https://gchat.qpic.cn'
+        case _:
+            old_ = ''
+            new_ = ''
+
+    def _image_url_replacer(seg: MessageSegment) -> MessageSegment:
+        """替换 image 消息段中图片的 url"""
+        if seg.type != 'image':
+            return seg
+
+        file = seg.data.get('file')
+        url = seg.data.get('url')
+
+        if file is not None and str(file).startswith('https://'):
+            seg.data['file'] = str(file).replace(old_, new_)
+
+        if url is not None and str(url).startswith('https://'):
+            seg.data['url'] = str(url).replace(old_, new_)
+
         return seg
 
-    file = seg.data.get('file')
-    url = seg.data.get('url')
+    return _image_url_replacer
 
-    if file is not None and str(file).startswith('https://'):
-        seg.data['file'] = str(file).replace(old_, new_)
 
-    if url is not None and str(url).startswith('https://'):
-        seg.data['url'] = str(url).replace(old_, new_)
-
-    return seg
+_REPLACER: T_SegReplacer = _ger_image_url_replacer()
 
 
 def _parse_message(message: Message) -> Message:
@@ -37,7 +70,7 @@ def _parse_message(message: Message) -> Message:
     for seg in message:
         if seg.type == 'image':
             try:
-                replaced_seg = _replace_image_url(seg=seg)
+                replaced_seg = _REPLACER(seg)
                 output_message.append(replaced_seg)
             except Exception as e:
                 logger.warning(f'replace ntqq image {seg.data} url failed, {e}')
