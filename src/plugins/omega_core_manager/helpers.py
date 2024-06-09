@@ -56,7 +56,7 @@ def get_plugin_desc(plugin_name: str, *, for_superuser: bool = False) -> str:
 
 def get_plugin_auth_node(plugin_name: str) -> list[str]:
     """根据插件名获取可配置的权限节点名称清单"""
-    plugin = get_plugin(name=plugin_name)
+    plugin = get_plugin(plugin_id=plugin_name)
     if plugin is None:
         return []
 

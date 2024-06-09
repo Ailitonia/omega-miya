@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict
 
 
@@ -21,9 +21,13 @@ class BaseApiModel(BaseModel):
 class BaseApiReturn(BaseApiModel):
     """api 返回值基类"""
     error: bool
-    body: BaseApiModel
+    body: Any
     message: str
     exception: Optional[str] = None
+
+    @property
+    def success(self) -> bool:
+        return not self.error
 
 
 __all = [

@@ -20,6 +20,7 @@ from src.service import OmegaInterface, enable_processor_state
 from src.utils.bilibili_api import BilibiliLiveRoom
 from src.utils.bilibili_api.exception import BilibiliApiError
 
+from .consts import NOTICE_AT_ALL
 from .monitor import scheduler
 from .helpers import add_live_room_sub, delete_live_room_sub, query_subscribed_live_room_sub_source
 
@@ -29,7 +30,11 @@ bili_live = CommandGroup(
     permission=IS_ADMIN,
     priority=20,
     block=True,
-    state=enable_processor_state(name='BilibiliLiveRoomSubscriptionManager', level=20),
+    state=enable_processor_state(
+        name='BilibiliLiveRoomSubscriptionManager',
+        level=20,
+        extra_auth_node={NOTICE_AT_ALL}
+    ),
 )
 
 

@@ -30,7 +30,7 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
     except (NotImplementedError, ValueError):
         event_id = f'{event_type}_{self_id}_{time}'
 
-    raw_data = event.json()
+    raw_data = event.model_dump_json()
     raw_data = str(raw_data) if not isinstance(raw_data, str) else raw_data
     msg_data = str(message)
 

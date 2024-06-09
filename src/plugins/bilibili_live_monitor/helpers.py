@@ -16,13 +16,14 @@ from nonebot.exception import ActionFailed
 
 from src.database import begin_db_session
 from src.database.internal.entity import Entity
-from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
+from src.database.internal.subscription_source import SubscriptionSource
 from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
 from src.utils.bilibili_api import BilibiliLiveRoom
 from src.utils.bilibili_api.model.live_room import BilibiliLiveRoomDataModel
 from src.utils.process_utils import semaphore_gather
 
+from .consts import BILI_LIVE_SUB_TYPE, NOTICE_AT_ALL, MODULE_NAME, PLUGIN_NAME
 from .data_source import (
     check_and_upgrade_live_status,
     get_all_live_room_status_uid,
@@ -38,10 +39,6 @@ from .model import (
     BilibiliLiveRoomStopLivingWithPlaylist,
     BilibiliLiveRoomStatusUpdate
 )
-
-
-BILI_LIVE_SUB_TYPE: str = SubscriptionSourceType.bili_live.value
-"""b站直播间订阅类型"""
 
 
 async def _query_room_sub_source(room_id: int) -> SubscriptionSource:
@@ -137,12 +134,25 @@ async def _format_live_room_update_message(
     return send_message
 
 
+async def _has_notice_at_all_node(entity: OmegaEntity) -> bool:
+    """检查目标是否有通知@所有人的权限"""
+    try:
+        return await entity.check_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME, node=NOTICE_AT_ALL)
+    except Exception as e:
+        logger.warning(f'BilibiliLiveRoomMonitor | Checking {entity} notice at all node failed, {e!r}')
+        return False
+
+
 async def _msg_sender(entity: Entity, message: str | Message) -> None:
-    """向 entity 发送消息"""
+    """向 entity 发送直播间通知"""
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
             interface = OmegaInterface(entity=internal_entity)
+
+            if await _has_notice_at_all_node(internal_entity):
+                message = OmegaMessageSegment.at_all() + message
+
             await interface.send_msg(message=message)
     except ActionFailed as e:
         logger.warning(f'BilibiliLiveRoomMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')

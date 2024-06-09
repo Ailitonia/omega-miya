@@ -9,7 +9,15 @@
 """
 
 from .dynamic import BilibiliDynamicCard, BilibiliUserDynamicModel, BilibiliDynamicModel
-from .interface import BilibiliWebInterfaceNav, BilibiliWebInterfaceSpi
+from .interface import (
+    BilibiliWebInterfaceNav,
+    BilibiliWebInterfaceSpi,
+    BilibiliWebCookieInfo,
+    BilibiliWebQrcodeGenerateInfo,
+    BilibiliWebQrcodePollInfo,
+    BilibiliWebCookieRefreshInfo,
+    BilibiliWebConfirmRefreshInfo
+)
 from .live_room import BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel
 from .search import UserSearchingModel
 from .user import BilibiliUserModel
@@ -21,6 +29,11 @@ __all__ = [
     'BilibiliLiveRoomModel',
     'BilibiliWebInterfaceNav',
     'BilibiliWebInterfaceSpi',
+    'BilibiliWebCookieInfo',
+    'BilibiliWebQrcodeGenerateInfo',
+    'BilibiliWebQrcodePollInfo',
+    'BilibiliWebCookieRefreshInfo',
+    'BilibiliWebConfirmRefreshInfo',
     'BilibiliUserDynamicModel',
     'BilibiliUsersLiveRoomModel',
     'BilibiliUserModel',

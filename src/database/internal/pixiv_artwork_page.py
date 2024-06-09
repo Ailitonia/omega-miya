@@ -17,7 +17,8 @@ from sqlalchemy.future import select
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, PixivArtworkPageOrm
+from ..model import BaseDataAccessLayerModel
+from ..schema import PixivArtworkPageOrm
 
 
 class PixivArtworkPage(BaseModel):

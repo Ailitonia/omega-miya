@@ -19,7 +19,8 @@ from contextlib import asynccontextmanager
 
 from nonebot import get_driver, logger
 from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
-from nonebot.drivers import Request, Response, WebSocket, ForwardDriver, HTTPClientMixin, WebSocketClientMixin
+from nonebot.drivers import (ForwardDriver, HTTPClientMixin, HTTPClientSession, Response, Request,
+                             WebSocket, WebSocketClientMixin)
 
 from asyncio.exceptions import TimeoutError
 from src.exception import WebSourceException
@@ -104,6 +105,20 @@ class OmegaRequests(object):
     @classmethod
     def get_default_headers(cls) -> dict[str, str]:
         return deepcopy(cls._default_headers)
+
+    def get_session(self, params: Optional[QueryTypes] = None, use_proxy: bool = True) -> HTTPClientSession:
+        if not isinstance(self.driver, HTTPClientMixin):
+            raise RuntimeError(
+                f"Current driver {self.driver.type} doesn't support forward http connections! "
+                "OmegaRequests need a HTTPClient Driver to work."
+            )
+        return self.driver.get_session(
+            params=params,
+            headers=self.headers,
+            cookies=self.cookies,
+            timeout=self.timeout,
+            proxy=http_proxy_config.proxy_url if use_proxy else None
+        )
 
     async def request(self, setup: Request) -> Response:
         """装饰原 request 方法, 自动重试"""
@@ -243,14 +258,20 @@ class OmegaRequests(object):
             file: TemporaryResource,
             *,
             params: QueryTypes = None,
-            **kwargs) -> TemporaryResource:
+            ignore_exist_file: bool = False,
+            **kwargs
+    ) -> TemporaryResource:
         """下载文件
 
         :param url: 链接
         :param file: 下载目标路径
         :param params: 请求参数
+        :param ignore_exist_file: 忽略已存在文件
         :return: 下载目标路径
         """
+        if ignore_exist_file and file.is_file:
+            return file
+
         response = await self.get(url=url, params=params, **kwargs)
 
         if response.status_code != 200:

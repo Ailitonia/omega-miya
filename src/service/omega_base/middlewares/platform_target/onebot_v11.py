@@ -108,6 +108,8 @@ class OneBotV11MessageBuilder(MessageBuilder):
             match type_:
                 case MessageSegmentType.at.value:
                     yield OneBotV11MessageSegment.at(user_id=data.get('user_id'))
+                case MessageSegmentType.at_all.value:
+                    yield OneBotV11MessageSegment.at(user_id='all')
                 case MessageSegmentType.forward_id.value:
                     yield OneBotV11MessageSegment.node(id_=data.get('id'))
                 case MessageSegmentType.custom_node.value:

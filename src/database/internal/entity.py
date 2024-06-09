@@ -19,7 +19,8 @@ from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
 
-from ..model import BaseDataAccessLayerModel, AuthSettingOrm, EntityOrm, SubscriptionOrm
+from ..model import BaseDataAccessLayerModel
+from ..schema import AuthSettingOrm, EntityOrm, SubscriptionOrm
 
 
 @unique

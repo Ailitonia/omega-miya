@@ -17,7 +17,9 @@ from typing import TypeVar, ParamSpec, Callable, Coroutine
 from nonebot import get_driver, get_app
 from nonebot.log import logger
 
+from .helpers import return_standard_api_result
 from .model import BaseApiModel, BaseApiReturn
+
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -61,7 +63,8 @@ def register_get_route(path: str, *, enabled: bool = True):
 
 
 __all__ = [
-    'register_get_route',
     'BaseApiModel',
-    'BaseApiReturn'
+    'BaseApiReturn',
+    'register_get_route',
+    'return_standard_api_result'
 ]
