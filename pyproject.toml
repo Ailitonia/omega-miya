@@ -53,6 +53,7 @@ telegram = ["nonebot-adapter-telegram"]
 bump-pydantic = "^0.8.0"
 types-lxml = "^2024.3.27"
 lxml-stubs = "^0.5.1"
+alembic = "^1.13.1"
 
 [build-system]
 requires = ["poetry-core"]

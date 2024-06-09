@@ -151,4 +151,7 @@ tmp/
 # sqlite database file
 *.db
 
+# alembic versions
+alembic_scripts/versions/
+
 # End of https://www.toptal.com/developers/gitignore/api/python
