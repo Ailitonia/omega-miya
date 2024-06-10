@@ -10,9 +10,8 @@
 
 from nonebot.log import logger
 
-from src.database import begin_db_session
 from src.service import scheduler
-from src.service.omega_base.internal import OmegaPixivArtwork
+from src.service.artwork_collection import PixivArtworkCollection
 from src.utils.pixiv_api import PixivArtwork
 from src.utils.process_utils import semaphore_gather
 
@@ -23,10 +22,9 @@ async def _prepare_signin_image() -> None:
     """预缓存签到头图资源, 使用 Pixiv 图库内容"""
     logger.debug(f'SignIn Utils | Started preparing sign in image')
     # 获取图片信息并下载图片
-    async with begin_db_session() as session:
-        artwork_result = await OmegaPixivArtwork.random(num=100, nsfw_tag=0, ratio=1, session=session)
+    random_artworks = await PixivArtworkCollection.random(num=100, nsfw_tag=0, ratio=1)
 
-    tasks = [PixivArtwork(pid=artwork.pid).get_page_file() for artwork in artwork_result]
+    tasks = [PixivArtwork(pid=artwork.pid).get_page_file() for artwork in random_artworks]
     pre_download_result = await semaphore_gather(tasks=tasks, semaphore_num=20)
 
     success_count = 0

@@ -25,10 +25,9 @@ from pydantic import BaseModel
 
 from src.compat import parse_obj_as
 from src.database import begin_db_session
-from src.database.internal.pixiv_artwork import PixivArtwork as PixivArtworkModel
 from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
-from src.service.omega_base.internal import OmegaPixivArtwork
+from src.service.artwork_collection.pixiv import CollectedPixivArtwork, PixivArtworkCollection
 from src.utils.image_utils import ImageUtils
 from src.utils.pixiv_api import PixivArtwork
 
@@ -176,10 +175,9 @@ def get_fortune(user_id: str, *, date: datetime | None = None) -> Fortune:
     return Fortune.model_validate(result)
 
 
-async def get_signin_top_image() -> tuple[PixivArtworkModel, TemporaryResource]:
+async def get_signin_top_image() -> tuple[CollectedPixivArtwork, TemporaryResource]:
     """获取一张生成签到卡片用的头图"""
-    async with begin_db_session() as session:
-        random_artworks = await OmegaPixivArtwork.random(session=session, num=5, nsfw_tag=0, ratio=1)
+    random_artworks = await PixivArtworkCollection.random(num=5, nsfw_tag=0, ratio=1)
 
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
     for random_artwork in random_artworks:
@@ -287,7 +285,7 @@ async def generate_signin_card(
         user_id: str,
         user_text: str,
         friendship: float,
-        top_img: tuple[PixivArtworkModel, TemporaryResource],
+        top_img: tuple[CollectedPixivArtwork, TemporaryResource],
         *,
         width: int = 1024,
         draw_fortune: bool = True,
@@ -592,8 +590,9 @@ async def handle_generate_sign_in_card(
         await interface.entity.commit_session()
 
         try:
-            sign_in_card = await generate_signin_card(user_id=interface.entity.entity_id, user_text=user_text,
-                                                      friendship=friendship_now, top_img=top_img)
+            sign_in_card = await generate_signin_card(
+                user_id=interface.entity.entity_id, user_text=user_text, friendship=friendship_now, top_img=top_img
+            )
         except Exception as e:
             raise FailedException(f'生成签到卡片失败, {e}') from e
 
@@ -655,9 +654,10 @@ async def handle_generate_fortune_card(
             head_img = None
 
         try:
-            sign_in_card = await generate_signin_card(user_id=interface.entity.entity_id, user_text=user_text,
-                                                      friendship=friendship.friendship, top_img=top_img,
-                                                      draw_fortune=False, head_img=head_img)
+            sign_in_card = await generate_signin_card(
+                user_id=interface.entity.entity_id, user_text=user_text, friendship=friendship.friendship,
+                top_img=top_img, draw_fortune=False, head_img=head_img
+            )
         except Exception as e:
             raise FailedException(f'生成运势卡片失败, {e}') from e
 
@@ -693,8 +693,7 @@ async def handle_fix_sign_in(
 
         try:
             # 尝试补签
-            await interface.entity.sign_in(sign_in_info='Fixed sign in',
-                                                  date_=datetime.fromordinal(fix_date_ordinal_))
+            await interface.entity.sign_in(sign_in_info='Fixed sign in', date_=datetime.fromordinal(fix_date_ordinal_))
             await interface.entity.change_friendship(currency=(- fix_cost_))
 
             # 设置一个状态指示生成卡片中添加文字

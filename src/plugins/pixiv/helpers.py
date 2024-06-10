@@ -25,8 +25,9 @@ from src.database import PixivArtworkDAL, begin_db_session
 from src.database.internal.entity import Entity
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.resource import TemporaryResource
-from src.service.omega_base import OmegaInterface, OmegaEntity, OmegaMessage, OmegaMessageSegment
-from src.service.omega_base.internal import OmegaPixivArtwork, OmegaPixivUserSubSource
+from src.service import OmegaInterface, OmegaEntity, OmegaMessage, OmegaMessageSegment
+from src.service.artwork_collection import PixivArtworkCollection
+from src.service.omega_base.internal import OmegaPixivUserSubSource
 from src.utils.pixiv_api import PixivArtwork, PixivUser
 from src.utils.process_utils import semaphore_gather
 from src.utils.image_utils import ImageUtils
@@ -207,19 +208,18 @@ async def _add_artwork_into_database(artwork: PixivArtwork) -> None:
     classified = 2 if artwork_data.is_ai else 0
 
     # 作品信息写入数据库
-    async with begin_db_session() as session:
-        db_artwork = OmegaPixivArtwork(session=session, pid=artwork.pid)
-        await db_artwork.add_ignore_exists(
-            uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
-            classified=classified, nsfw_tag=nsfw_tag,
-            width=artwork_data.width, height=artwork_data.height, tags=','.join(artwork_data.tags),
-            url=artwork_data.url
+    pixiv_collection = PixivArtworkCollection(artwork_id=str(artwork.pid))
+    await pixiv_collection.add_ignore_exists(
+        uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
+        classified=classified, nsfw_tag=nsfw_tag,
+        width=artwork_data.width, height=artwork_data.height, tags=','.join(artwork_data.tags),
+        url=artwork_data.url
+    )
+    for index, url in artwork_data.all_page.items():
+        await pixiv_collection.add_page_ignore_exists(
+            page=index, original=url.original, regular=url.regular,
+            small=url.small, thumb_mini=url.thumb_mini
         )
-        for index, url in artwork_data.all_page.items():
-            await db_artwork.add_page_ignore_exists(
-                page=index, original=url.original, regular=url.regular,
-                small=url.small, thumb_mini=url.thumb_mini
-            )
 
 
 async def _add_upgrade_pixiv_user_artworks(pixiv_user: PixivUser) -> None:

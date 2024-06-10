@@ -22,10 +22,9 @@ from nonebot.plugin import on_command, on_shell_command
 from nonebot.rule import Namespace, to_me
 from nonebot.typing import T_State
 
-from src.database import begin_db_session
 from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
 from src.service import OmegaInterface, enable_processor_state
-from src.service.omega_base.internal import OmegaPixivArtwork
+from src.service.artwork_collection import PixivArtworkCollection
 from src.utils.pixiv_api import PixivArtwork
 from src.utils.process_utils import semaphore_gather
 
@@ -82,16 +81,14 @@ async def handle_parsed_success(
     num_limit = moe_plugin_config.moe_plugin_query_image_limit
     num = args.num if args.num <= num_limit else num_limit
 
-    async with begin_db_session() as session:
-        artworks = await OmegaPixivArtwork.query_by_condition(
-            session=session,
-            keywords=keywords,
-            num=num,
-            nsfw_tag=nsfw_tag,
-            classified=args.classified,
-            acc_mode=args.acc_mode,
-            order_mode=args.order
-        )
+    artworks = await PixivArtworkCollection.query_by_condition(
+        keywords=keywords,
+        num=num,
+        nsfw_tag=nsfw_tag,
+        classified=args.classified,
+        acc_mode=args.acc_mode,
+        order_mode=args.order
+    )
 
     if not artworks:
         await interface.send_reply('找不到涩图QAQ')
@@ -100,7 +97,7 @@ async def handle_parsed_success(
     await interface.send_reply('稍等, 正在下载图片~')
 
     message_result = await semaphore_gather(
-        tasks=[prepare_send_image(pid=x.pid) for x in artworks],
+        tasks=[prepare_send_image(pid=int(x.aid)) for x in artworks],
         semaphore_num=5,
         filter_exception=True
     )
@@ -153,16 +150,14 @@ async def handle_parsed_success(
     num_limit = moe_plugin_config.moe_plugin_query_image_limit
     num = args.num if args.num <= num_limit else num_limit
 
-    async with begin_db_session() as session:
-        artworks = await OmegaPixivArtwork.query_by_condition(
-            session=session,
-            keywords=keywords,
-            num=num,
-            nsfw_tag=0,
-            classified=args.classified,
-            acc_mode=args.acc_mode,
-            order_mode=args.order
-        )
+    artworks = await PixivArtworkCollection.query_by_condition(
+        keywords=keywords,
+        num=num,
+        nsfw_tag=0,
+        classified=args.classified,
+        acc_mode=args.acc_mode,
+        order_mode=args.order
+    )
 
     if not artworks:
         await interface.send_reply('找不到萌图QAQ')
@@ -171,7 +166,7 @@ async def handle_parsed_success(
     await interface.send_reply('稍等, 正在下载图片~')
 
     message_result = await semaphore_gather(
-        tasks=[prepare_send_image(pid=x.pid) for x in artworks],
+        tasks=[prepare_send_image(pid=int(x.aid)) for x in artworks],
         semaphore_num=5,
         filter_exception=True
     )
@@ -214,11 +209,7 @@ async def handle_keyword_statistics(keyword: Annotated[str | None, ArgStr('keywo
         keywords = keyword.strip().split()
 
     try:
-        async with begin_db_session() as session:
-            statistics_data = await OmegaPixivArtwork.query_statistics(
-                session=session,
-                keywords=keywords
-            )
+        statistics_data = await PixivArtworkCollection.query_statistics(keywords=keywords)
         msg_prefix = f'本地数据库[{",".join(keywords) if keywords else "total"}]统计:'
     except Exception as e:
         logger.error(f'MoeStatistics | 查询图库统计(keyword={keywords})失败, {e!r}')
@@ -313,3 +304,6 @@ async def handle_database_import(
 
     logger.success(f'MoeDatabaseImport | 导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')
     await interface.send_reply(f'导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')
+
+
+__all__ = []

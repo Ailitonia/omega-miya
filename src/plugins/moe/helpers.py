@@ -15,9 +15,8 @@ from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.utils import run_sync
 
-from src.database import begin_db_session
-from src.service.omega_base import OmegaInterface, OmegaMessageSegment
-from src.service.omega_base.internal import OmegaPixivArtwork
+from src.service import OmegaInterface, OmegaMessageSegment
+from src.service.artwork_collection import PixivArtworkCollection
 from src.resource import TemporaryResource
 from src.utils.pixiv_api import PixivArtwork
 from src.utils.image_utils import ImageUtils
@@ -77,9 +76,8 @@ async def prepare_send_image(pid: int) -> OmegaMessageSegment:
 
         return await image.save(file=output_file_)
 
-    async with begin_db_session() as session:
-        internal_artwork = OmegaPixivArtwork(session=session, pid=pid)
-        artwork_data = await internal_artwork.query_artwork()
+    pixiv_collection = PixivArtworkCollection(artwork_id=str(pid))
+    artwork_data = await pixiv_collection.query_pixiv_artwork()
 
     if artwork_data.nsfw_tag != 0:
         need_noise = True
@@ -140,35 +138,32 @@ async def add_artwork_into_database(
     classified = 2 if artwork_data.is_ai else 1
 
     # 作品信息写入数据库
+    pixiv_collection = PixivArtworkCollection(artwork_id=str(artwork.pid))
     if add_ignored_exists:
-        async with begin_db_session() as session:
-            db_artwork = OmegaPixivArtwork(session=session, pid=artwork.pid)
-            await db_artwork.add_ignore_exists(
-                uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
-                classified=classified, nsfw_tag=nsfw_tag,
-                width=artwork_data.width, height=artwork_data.height, tags=','.join(artwork_data.tags),
-                url=artwork_data.url
+        await pixiv_collection.add_ignore_exists(
+            uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
+            classified=classified, nsfw_tag=nsfw_tag,
+            width=artwork_data.width, height=artwork_data.height, tags=','.join(artwork_data.tags),
+            url=artwork_data.url
+        )
+        for index, url in artwork_data.all_page.items():
+            await pixiv_collection.add_page_ignore_exists(
+                page=index, original=url.original, regular=url.regular,
+                small=url.small, thumb_mini=url.thumb_mini
             )
-            for index, url in artwork_data.all_page.items():
-                await db_artwork.add_page_ignore_exists(
-                    page=index, original=url.original, regular=url.regular,
-                    small=url.small, thumb_mini=url.thumb_mini
-                )
     else:
-        async with begin_db_session() as session:
-            db_artwork = OmegaPixivArtwork(session=session, pid=artwork.pid)
-            await db_artwork.add_upgrade(
-                uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
-                classified=classified, nsfw_tag=nsfw_tag,
-                width=artwork_data.width, height=artwork_data.height, tags=','.join(artwork_data.tags),
-                url=artwork_data.url,
-                ignore_mark=ignore_mark
+        await pixiv_collection.add_upgrade(
+            uid=artwork_data.uid, title=artwork_data.title, uname=artwork_data.uname,
+            classified=classified, nsfw_tag=nsfw_tag,
+            width=artwork_data.width, height=artwork_data.height, tags=','.join(artwork_data.tags),
+            url=artwork_data.url,
+            ignore_mark=ignore_mark
+        )
+        for index, url in artwork_data.all_page.items():
+            await pixiv_collection.add_upgrade_page(
+                page=index, original=url.original, regular=url.regular,
+                small=url.small, thumb_mini=url.thumb_mini
             )
-            for index, url in artwork_data.all_page.items():
-                await db_artwork.add_upgrade_page(
-                    page=index, original=url.original, regular=url.regular,
-                    small=url.small, thumb_mini=url.thumb_mini
-                )
 
 
 async def _get_database_import_pids() -> list[int]:
