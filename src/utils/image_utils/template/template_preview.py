@@ -12,6 +12,7 @@ from math import ceil
 from io import BytesIO
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
+from PIL import UnidentifiedImageError
 
 from nonebot.utils import run_sync
 
@@ -99,9 +100,12 @@ async def generate_thumbs_preview_image(
         # 处理拼图
         _line = 0
         for _index, _preview in enumerate(previews):
-            with BytesIO(_preview.preview_thumb) as bf:
-                _thumb_img: Image.Image = Image.open(bf)
-                _thumb_img.load()
+            try:
+                with BytesIO(_preview.preview_thumb) as bf:
+                    _thumb_img: Image.Image = Image.open(bf)
+                    _thumb_img.load()
+            except UnidentifiedImageError:
+                _thumb_img = Image.new(mode='RGB', size=preview_size, color=(127, 127, 127))
 
             # 调整图片大小
             if hold_ratio:

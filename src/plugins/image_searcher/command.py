@@ -99,9 +99,12 @@ async def handle_search_image(
 
 
 async def _fetch_result_as_preview_body(result: ImageSearchingResult) -> PreviewImageThumbs:
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'
+    }
     url = '\n'.join(result.source_urls) if result.source_urls else '无可用来源'
     desc_text = f'来源: {result.source[:16]}\n相似度: {result.similarity if result.similarity else "未知"}\n{url[:16]}...'
-    thumbnail_response = await OmegaRequests(timeout=15).get(result.thumbnail)
+    thumbnail_response = await OmegaRequests(timeout=15, headers=headers).get(result.thumbnail)
     return PreviewImageThumbs(desc_text=desc_text, preview_thumb=thumbnail_response.content)
 
 
