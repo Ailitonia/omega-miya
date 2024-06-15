@@ -2256,6 +2256,17 @@ files = [
 ]
 
 [[package]]
+name = "onedice"
+version = "1.0.7"
+description = "OneDice offical standard library for Python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "onedice-1.0.7-py3-none-any.whl", hash = "sha256:cf861ddc2d5641229fdba0eb3609870b8f5507698f2255451f1592c9fc65ecc7"},
+    {file = "onedice-1.0.7.tar.gz", hash = "sha256:111c0e8a19eb982218667f1bd71a66154a281c95b48a4af8a6cb2f08830a62f9"},
+]
+
+[[package]]
 name = "openpyxl"
 version = "3.1.3"
 description = "A Python library to read/write Excel 2010 xlsx/xlsm files"
@@ -4064,4 +4075,4 @@ sqlite = ["aiosqlite"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "8818aff9f714f2dc8933ed87db0a0e121ece7b1910872c6a085b947c194c9632"
+content-hash = "1bd356f863ad310c23a23c8c4afcea92cf3eb6e191a1caabfb801505e8f8ec44"
