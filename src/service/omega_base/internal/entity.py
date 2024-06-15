@@ -485,7 +485,7 @@ class InternalEntity(object):
             await cooldown_dal.add(entity_index_id=entity.id, event=cooldown_event, stop_at=stop_at,
                                    description=description)
 
-    async def check_cooldown_expired(self, cooldown_event: str) -> (bool, datetime):
+    async def check_cooldown_expired(self, cooldown_event: str) -> tuple[bool, datetime]:
         """查询冷却是否到期
 
         :return: True: 已到期(或不存在改冷却事件), False: 仍在冷却中, (到期时间)
