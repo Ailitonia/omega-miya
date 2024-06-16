@@ -654,6 +654,7 @@ class PixivArtwork(Pixiv):
         :param original: 是否下载原图
         """
 
+        @run_sync
         def _generate_frames_sequence(
                 ugoira_path: TemporaryResource,
                 data_model: PixivArtworkCompleteDataModel
@@ -680,7 +681,7 @@ class PixivArtwork(Pixiv):
         # 读取并解析动图帧信息, 生成 gif 文件
         artwork_model = await self.query_artwork()
         ugoira_file = await self.download_ugoira(original=original)
-        ugoira_content = await run_sync(_generate_frames_sequence)(ugoira_path=ugoira_file, data_model=artwork_model)
+        ugoira_content = await _generate_frames_sequence(ugoira_path=ugoira_file, data_model=artwork_model)
         # 写入文件
         gif_file_name = f'{self.pid}_ugoira_{"original" if original else "small"}.gif'
         gif_file = pixiv_resource_config.default_ugoira_gif_folder(gif_file_name)
@@ -857,6 +858,7 @@ async def _request_artwork_preview_body(pid: int, *, blur_r18: bool = True) -> P
     :param blur_r18: 是否模糊处理 r18 作品
     """
 
+    @run_sync
     def _handle_r18_blur(image: bytes) -> bytes:
         """模糊处理 r18 图"""
         return ImageUtils.init_from_bytes(image=image).gaussian_blur().get_bytes()
@@ -866,7 +868,7 @@ async def _request_artwork_preview_body(pid: int, *, blur_r18: bool = True) -> P
     _artwork_thumb = await _artwork.get_page_bytes(url_type='small')
 
     if blur_r18 and _artwork_model.is_r18:
-        _artwork_thumb = await run_sync(_handle_r18_blur)(image=_artwork_thumb)
+        _artwork_thumb = await _handle_r18_blur(image=_artwork_thumb)
 
     desc_text = format_artwork_preview_desc(
         pid=_artwork_model.pid, title=_artwork_model.title, uname=_artwork_model.uname)
