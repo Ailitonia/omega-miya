@@ -17,6 +17,7 @@ from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.plugin import CommandGroup
 
+from src.database import AuthSettingDAL
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import OmegaInterface, enable_processor_state
 
@@ -137,7 +138,7 @@ async def handle_ra(
     if result_int < 4:
         result_msg = '大成功！！'
 
-    await interface.send_reply(f'你对【{attr}({attr_value})】\n进行了检定=>{result_int}\n{result_msg}')
+    await interface.send_reply(f'你对【{attr}({attr_value})】\n进行了检定, 1D100=>{result_int}\n{result_msg}')
     return
 
 
@@ -168,10 +169,35 @@ async def handle_rs(
         await interface.entity.set_cooldown(cooldown_event=attr_cd_event, expired_time=timedelta(hours=6))
         await interface.entity.commit_session()
 
-        await interface.send_reply(f'你获得了属性{attr!r}, 属性值为【{set_attr}】')
+        await interface.send_reply(f'你获得了{attr!r}属性/技能, 属性/技能值为【{set_attr}】')
     except Exception as e:
         logger.error(f'Roll | 设置 {interface.entity} 属性 {attr!r} 失败, {e}')
-        await interface.send_reply(f'配置{attr!r}属性失败了, 请稍后重试或联系管理员处理')
+        await interface.send_reply(f'配置{attr!r}属性/技能失败了, 请稍后重试或联系管理员处理')
+
+
+@roll.command(
+    'rc',
+    handlers=[get_command_str_single_arg_parser_handler('attr')],
+).got('attr', prompt='请输入需要移除的属性/技能名')
+async def handle_rs(
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))],
+        auth_dal: Annotated[AuthSettingDAL, Depends(AuthSettingDAL.dal_dependence)],
+        attr: Annotated[str, ArgStr('attr')]
+) -> None:
+    attr = attr.strip()
+    interface.refresh_interface_state()
+
+    attr_node = f'{ATTR_PREFIX}{attr}'
+
+    try:
+        exist_attr = await interface.entity.query_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node)
+        await auth_dal.delete(id_=exist_attr.id)
+        await auth_dal.commit_session()
+
+        await interface.send_reply(f'你移除了{attr!r}属性/技能')
+    except Exception as e:
+        logger.error(f'Roll | 移除 {interface.entity} 属性 {attr!r} 失败, {e}')
+        await interface.send_reply(f'移除{attr!r}属性/技能失败了, 可能是你还没有配置{attr!r}属性/技能, 或属性值异常')
 
 
 @roll.command('show').handle()
