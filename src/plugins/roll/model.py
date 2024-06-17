@@ -10,6 +10,7 @@
 
 from typing import Optional
 
+from nonebot.utils import run_sync
 from onedice import RD
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -78,14 +79,15 @@ class RandomDice(object):
         self._dice = RD(self._expression, valueTable=self._value_map)
         self.last_result: Optional[DiceResult] = None
 
+    @run_sync
     def roll(self) -> DiceResult:
         self._dice.roll()
         self.last_result = DiceResult.model_validate(self._dice)
         return self.last_result
 
     @classmethod
-    def simple_roll(cls, num: int = 1, dice: int = 6) -> DiceResult:
-        return cls(f'{num}d{dice}').roll()
+    async def simple_roll(cls, num: int = 1, dice: int = 100) -> DiceResult:
+        return await cls(f'{num}d{dice}').roll()
 
 
 __all__ = [

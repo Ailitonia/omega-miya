@@ -18,7 +18,7 @@ from nonebot.params import ArgStr, Depends
 from nonebot.plugin import CommandGroup
 
 from src.database import AuthSettingDAL
-from src.params.handler import get_command_str_single_arg_parser_handler
+from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
 from src.service import OmegaInterface, enable_processor_state
 
 from .consts import MODULE_NAME, PLUGIN_NAME, ATTR_PREFIX
@@ -84,19 +84,19 @@ async def handle_roll(expression: Annotated[str, ArgStr('expression')]):
     'rd',
     handlers=[get_command_str_single_arg_parser_handler('expression')],
 ).got('expression', prompt='请掷骰子: AdB(kq)C(pb)DaE')
-async def handle_rd(expression: Annotated[str, ArgStr('expression')]):
+async def handle_roll_dice(expression: Annotated[str, ArgStr('expression')]):
     expression = expression.strip()
     interface = OmegaInterface()
     interface.refresh_matcher_state()
 
     dice = RandomDice(expression=expression)
-    result = dice.roll()
+    result = await dice.roll()
     if result.error_message is not None:
         logger.warning(f'Roll | 投骰异常, {result.error_message}')
         await interface.send_reply(f'掷骰异常, {result.error_message}')
         return
 
-    if len(result.result_detail) > 1024:
+    if not result.result_detail or len(result.result_detail) > 1024:
         await interface.send_reply(f'你掷出了【{result.result_int}】点')
     else:
         await interface.send_reply(f'你掷出了【{result.result_int}】点\n结果为:\n{result.result_detail}')
@@ -106,7 +106,7 @@ async def handle_rd(expression: Annotated[str, ArgStr('expression')]):
     'ra',
     handlers=[get_command_str_single_arg_parser_handler('attr')],
 ).got('attr', prompt='请输入需要鉴定的属性/技能名')
-async def handle_ra(
+async def handle_roll_attr(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))],
         attr: Annotated[str, ArgStr('attr')]
 ) -> None:
@@ -124,7 +124,7 @@ async def handle_ra(
         await interface.send_reply(f'你还没有配置{attr!r}属性/技能, 或属性值异常, 请使用"/roll.rs {attr}"配置后再试')
         return
 
-    result_int = RandomDice(expression='1d100').roll().result_int
+    result_int = (await RandomDice.simple_roll(1, 100)).result_int
 
     result_msg = '失败~'
     if result_int > 96:
@@ -146,7 +146,7 @@ async def handle_ra(
     'rs',
     handlers=[get_command_str_single_arg_parser_handler('attr')],
 ).got('attr', prompt='请输入需要随机的属性/技能名')
-async def handle_rs(
+async def handle_roll_set_attr(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))],
         attr: Annotated[str, ArgStr('attr')]
 ) -> None:
@@ -162,7 +162,7 @@ async def handle_rs(
             await interface.send_reply(f'属性{attr!r}重随冷却中!\n冷却到期: {expired_time.strftime("%Y-%m-%d %H:%M:%S")}')
             return
 
-        set_attr = RandomDice(expression='1d100').roll().result_int
+        set_attr = (await RandomDice.simple_roll(1, 100)).result_int
         await interface.entity.set_auth_setting(
             module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node, available=1, value=str(set_attr)
         )
@@ -179,7 +179,7 @@ async def handle_rs(
     'rc',
     handlers=[get_command_str_single_arg_parser_handler('attr')],
 ).got('attr', prompt='请输入需要移除的属性/技能名')
-async def handle_rs(
+async def handle_roll_clear_attr(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))],
         auth_dal: Annotated[AuthSettingDAL, Depends(AuthSettingDAL.dal_dependence)],
         attr: Annotated[str, ArgStr('attr')]
@@ -200,8 +200,37 @@ async def handle_rs(
         await interface.send_reply(f'移除{attr!r}属性/技能失败了, 可能是你还没有配置{attr!r}属性/技能, 或属性值异常')
 
 
+@roll.command(
+    'rca',
+    handlers=[get_set_default_state_handler('ensure', value=None)],
+).got('ensure')
+async def handle_roll_clear_all_attr(
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))],
+        auth_dal: Annotated[AuthSettingDAL, Depends(AuthSettingDAL.dal_dependence)],
+        ensure: Annotated[str | None, ArgStr('ensure')]
+) -> None:
+    interface.refresh_interface_state()
+
+    if ensure is None:
+        ensure_msg = f'即将移除你所有的属性/技能\n\n确认吗?\n【是/否】'
+        await interface.reject_arg_reply('ensure', ensure_msg)
+    elif ensure in ['是', '确认', 'Yes', 'yes', 'Y', 'y']:
+        exist_attrs = await interface.entity.query_plugin_all_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME)
+        for attrs in exist_attrs:
+            if attrs.node.startswith(ATTR_PREFIX):
+                await auth_dal.delete(id_=attrs.id)
+        await auth_dal.commit_session()
+
+        removed_attrs = [x.node.removeprefix(ATTR_PREFIX) for x in exist_attrs if x.node.startswith(ATTR_PREFIX)]
+        await interface.send_reply(f'你移除了{", ".join(removed_attrs)!r}属性/技能')
+        return
+    else:
+        await interface.send_reply('已取消操作')
+        return
+
+
 @roll.command('show').handle()
-async def handle_show(interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> None:
+async def handle_show_attr(interface: Annotated[OmegaInterface, Depends(OmegaInterface('user'))]) -> None:
     interface.refresh_interface_state()
 
     try:

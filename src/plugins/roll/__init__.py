@@ -21,6 +21,7 @@ __plugin_meta__ = PluginMetadata(
           '检定骰点: /roll.ra [属性/技能名]\n'
           '属性骰点: /roll.rs [属性/技能名]\n'
           '移除属性: /roll.rc [属性/技能名]\n'
+          '移除所有属性: /roll.rca\n'
           '属性清单: /roll.show\n\n'
           '说明:\n'
           '掷骰表达式支持加减乘除等简单运算,含义为掷A个面数为B的多面骰子,然后计算它们的点数总和,即:\n'
