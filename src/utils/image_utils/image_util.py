@@ -236,6 +236,9 @@ class ImageUtils(object):
     ) -> "ImageUtils":
         """在图片上添加标注文本"""
         image = self.image
+        if image.mode == 'L':
+            image = image.convert(mode='RGB')
+
         width, height = image.size
         edge_w = width // 32 if width // 32 <= 10 else 10
         edge_h = height // 32 if height // 32 <= 10 else 10
@@ -252,19 +255,24 @@ class ImageUtils(object):
         match position:
             case 'c':
                 ImageDraw.Draw(image).text(
-                    xy=(width // 2, height // 2), align='center', anchor='mm', **text_kwargs)
+                    xy=(width // 2, height // 2), align='center', anchor='mm', **text_kwargs
+                )
             case 'la':
                 ImageDraw.Draw(image).text(
-                    xy=(0, 0), align='left', anchor='la', **text_kwargs)
+                    xy=(0, 0), align='left', anchor='la', **text_kwargs
+                )
             case 'ra':
                 ImageDraw.Draw(image).text(
-                    xy=(width - edge_w, 0), align='right', anchor='ra', **text_kwargs)
+                    xy=(width - edge_w, 0), align='right', anchor='ra', **text_kwargs
+                )
             case 'lb':
                 ImageDraw.Draw(image).text(
-                    xy=(0, height - edge_h), align='left', anchor='lb', **text_kwargs)
+                    xy=(0, height - edge_h), align='left', anchor='lb', **text_kwargs
+                )
             case 'rb' | _:
                 ImageDraw.Draw(image).text(
-                    xy=(width - edge_w, height - edge_h), align='right', anchor='rb', **text_kwargs)
+                    xy=(width - edge_w, height - edge_h), align='right', anchor='rb', **text_kwargs
+                )
 
         self._image = image
         return self

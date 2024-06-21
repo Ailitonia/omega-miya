@@ -76,6 +76,7 @@ async def _prepare_artwork_preview(
     :return: 发送的消息
     """
 
+    @run_sync
     def _handle_noise(image: TemporaryResource) -> ImageUtils:
         """噪点处理图片"""
         image = ImageUtils.init_from_file(file=image)
@@ -83,6 +84,7 @@ async def _prepare_artwork_preview(
         image.mark(text=f'Pixiv | {artwork.pid}')
         return image
 
+    @run_sync
     def _handle_blur(image: TemporaryResource) -> ImageUtils:
         """模糊处理图片"""
         image = ImageUtils.init_from_file(file=image)
@@ -90,6 +92,7 @@ async def _prepare_artwork_preview(
         image.mark(text=f'Pixiv | {artwork.pid}')
         return image
 
+    @run_sync
     def _handle_mark(image: TemporaryResource) -> ImageUtils:
         """标记水印"""
         image = ImageUtils.init_from_file(file=image)
@@ -103,13 +106,13 @@ async def _prepare_artwork_preview(
         """异步处理图片"""
         is_r18 = (await artwork.query_artwork()).is_r18
         if is_r18 and allow_r18:
-            image = await run_sync(_handle_noise)(image=image_)
+            image = await _handle_noise(image=image_)
             file_name = f'{file_name_prefix}_noise_sigma16_marked.jpg'
         elif is_r18 and not allow_r18:
-            image = await run_sync(_handle_blur)(image=image_)
+            image = await _handle_blur(image=image_)
             file_name = f'{file_name_prefix}_blur_marked.jpg'
         else:
-            image = await run_sync(_handle_mark)(image=image_)
+            image = await _handle_mark(image=image_)
             file_name = f'{file_name_prefix}_marked.jpg'
 
         output_file_ = pixiv_plugin_resource_config.default_processed_image_folder(file_name)
