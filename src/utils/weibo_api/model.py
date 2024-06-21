@@ -132,7 +132,7 @@ class _WeiboCardMbLog(WeiboBaseModel):
     id: int
     mid: str
     can_edit: bool
-    show_additional_indication: int
+    show_additional_indication: Optional[int] = None
     text: str
     textLength: Optional[int] = None
     source: str
