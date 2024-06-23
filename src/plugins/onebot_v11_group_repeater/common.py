@@ -15,7 +15,7 @@ from nonebot.plugin import on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 
-from src.params.rule import event_has_permission_level
+from src.params.rule import event_has_global_permission
 from src.service import enable_processor_state
 
 
@@ -40,7 +40,7 @@ async def handle_ignore_msg(bot: Bot, event: GroupMessageEvent):
 
 
 @on_message(
-    rule=event_has_permission_level(level=10),
+    rule=event_has_global_permission(),
     permission=GROUP,
     handlers=[handle_ignore_msg],
     priority=100,
