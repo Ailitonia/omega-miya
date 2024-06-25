@@ -5,15 +5,23 @@
 @Project        : nonebot2_miya
 @Description    : 18Comic parser
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
+
+图片分割数算法参考:
+https://github.com/jiayaoO3O/18-comic-finder/blob/6caed4df25859439ef1ed9f3d9048f359c8e50f2/src/main/java/io/github/jiayaoO3O/finder/service/TaskService.java#L242-L302
+https://github.com/tonquer/JMComic-qt/blob/8b59628a0c0357b31911b98176c10c2bf4452b73/src/tools/tool.py#L845-L956
 """
 
+from hashlib import md5
 from typing import TYPE_CHECKING
 
 from lxml import etree
 from nonebot.log import logger
 from nonebot.utils import run_sync
+from PIL import Image
 from pydantic import ValidationError
+
+from src.utils.image_utils import ImageUtils
 
 from .model import AlbumData, AlbumPage, AlbumsResult
 
@@ -21,7 +29,7 @@ if TYPE_CHECKING:
     from lxml.etree import _Element
 
 
-class Comic19Parser(object):
+class Comic18Parser(object):
     """Comic18 解析工具"""
     def __init__(self, root_url: str):
         self.root_url = root_url
@@ -224,6 +232,57 @@ class Comic19Parser(object):
         })
 
 
+class Comic18ImgOps(ImageUtils):
+    """Comic18 图片处理工具"""
+
+    @staticmethod
+    def get_split_num(album_id: int, page_id: str) -> int:
+        """获取图片分割数"""
+        page_index_str = page_id.split('.')[0]
+
+        if album_id < 220971:
+            split_num = 0
+        elif album_id < 268850:
+            split_num = 10
+        elif album_id < 421926:
+            split_seed = md5(f'{album_id}{page_index_str}'.encode('utf-8')).hexdigest()
+            split_num = (ord(split_seed[-1]) % 10) * 2 + 2
+        else:
+            split_seed = md5(f'{album_id}{page_index_str}'.encode('utf-8')).hexdigest()
+            split_num = (ord(split_seed[-1]) % 8) * 2 + 2
+
+        return split_num
+
+    @run_sync
+    def reverse_segmental_image(self, album_id: int, page_id: str) -> "Comic18ImgOps":
+        """对被分割图片进行重新排序"""
+        split_num = self.get_split_num(album_id=album_id, page_id=page_id)
+        if split_num <= 1:
+            return self
+
+        src_image = self.image
+        width, height = src_image.size
+        output_image = Image.new(src_image.mode, src_image.size)
+
+        # 图片高度一般不能被分割数整除
+        # 分割图片最下面一条(即原图最上面一条)需保留余数高度
+        remain_height = height % split_num
+        split_height = (height - remain_height) // split_num
+
+        down_pointer = height
+        for up_pointer in range(height - remain_height - split_height, - split_height, - split_height):
+            # 裁剪分割区块
+            segment_block_image = src_image.crop(box=(0, up_pointer, width, down_pointer))
+            # 倒序粘贴
+            output_image.paste(segment_block_image, box=(0, height - down_pointer, width, height - up_pointer))
+            # 移动区块指针
+            down_pointer = up_pointer
+
+        self._image = output_image
+        return self
+
+
 __all__ = [
-    'Comic19Parser'
+    'Comic18Parser',
+    'Comic18ImgOps'
 ]

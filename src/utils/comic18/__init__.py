@@ -7,3 +7,10 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
+from .main import Comic18
+
+
+__all__ = [
+    'Comic18'
+]

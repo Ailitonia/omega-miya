@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from src.resource import TemporaryResource
+from src.resource import StaticResource, TemporaryResource
 
 
 class Comic18Config(BaseModel):
@@ -28,6 +28,8 @@ class Comic18Config(BaseModel):
 
 @dataclass
 class Comic18LocalResourceConfig:
+    # 默认字体文件
+    default_font_file: StaticResource = StaticResource('fonts', 'fzzxhk.ttf')
     # 默认的缓存资源保存路径
     default_preview_folder: TemporaryResource = TemporaryResource('comic18', 'preview')
     default_download_folder: TemporaryResource = TemporaryResource('comic18', 'download')
