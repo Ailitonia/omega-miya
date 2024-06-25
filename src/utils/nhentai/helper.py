@@ -170,7 +170,7 @@ async def emit_preview_model_from_gallery_model(
         *,
         use_thumbnail: bool = True
 ) -> NhentaiPreviewModel:
-    """从搜索结果中获取生成预览图所需要的数据模型"""
+    """从作品信息中获取生成预览图所需要的数据模型"""
     def _page_type(type_: str) -> str:
         match type_:
             case 'j':
