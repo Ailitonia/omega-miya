@@ -46,15 +46,21 @@ class ImageUtils(object):
         return new_obj
 
     @classmethod
-    async def init_from_url(cls, image_url: str) -> "ImageUtils":
+    async def async_init_from_url(cls, image_url: str) -> "ImageUtils":
         """从 URL 初始化"""
         fetcher = OmegaRequests(timeout=30)
         image_result = await fetcher.get(url=image_url)
-        with BytesIO(image_result.content) as bf:
-            image: Image.Image = Image.open(bf)
-            image.load()
-            new_obj = cls(image=image)
-        return new_obj
+        return await cls.async_init_from_bytes(image=image_result.content)
+
+    @classmethod
+    @run_sync
+    def async_init_from_bytes(cls, image: bytes) -> "ImageUtils":
+        return cls.init_from_bytes(image=image)
+
+    @classmethod
+    @run_sync
+    def async_init_from_file(cls, file: BaseResource) -> "ImageUtils":
+        return cls.init_from_file(file=file)
 
     @classmethod
     @run_sync
