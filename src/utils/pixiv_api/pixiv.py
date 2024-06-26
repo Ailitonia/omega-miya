@@ -689,7 +689,7 @@ class PixivArtwork(Pixiv):
             await af.write(ugoira_content)
         return gif_file
 
-    async def format_desc_msg(self, desc_len: int = 64) -> str:
+    async def format_desc_msg(self, desc_len: int = 128) -> str:
         """获取格式化作品描述文本
 
         :param desc_len: 描述文本长度限制
