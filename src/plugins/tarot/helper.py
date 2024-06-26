@@ -80,6 +80,7 @@ async def generate_tarot_card(
     tarot_card_file = resources.get_file_by_id(id_=id_)
     tarot_card = resources.pack.get_card_by_id(id_=id_)
 
+    @run_sync
     def _handle_tarot_card() -> bytes:
         """绘制卡片图片"""
         # 获取卡片图片
@@ -189,7 +190,7 @@ async def generate_tarot_card(
             content = bf.getvalue()
         return content
 
-    image_content = await run_sync(_handle_tarot_card)()
+    image_content = await _handle_tarot_card()
     image_file_name = f"tarot_{id_}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
     save_file = tarot_local_resource_config.default_save_folder(image_file_name)
     async with save_file.async_open('wb') as af:

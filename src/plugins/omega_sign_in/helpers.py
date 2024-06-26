@@ -306,6 +306,7 @@ async def generate_signin_card(
     # 头图作品来源
     top_img_origin_text = f'Pixiv | {signin_top_img_data.pid} | @{signin_top_img_data.uname}'
 
+    @run_sync
     def _handle_signin_card() -> bytes:
         """签到卡片绘制"""
         # 生成用户当天老黄历
@@ -511,7 +512,7 @@ async def generate_signin_card(
 
     file_name = f'sign_in_card_{user_id}_{datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}.jpg'
     save_file = sign_local_resource_config.default_save_folder('sign_in', file_name)
-    file_content = await run_sync(_handle_signin_card)()
+    file_content = await _handle_signin_card()
     async with save_file.async_open('wb') as af:
         await af.write(file_content)
     return save_file

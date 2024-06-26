@@ -10,8 +10,6 @@
 
 from typing import Optional, Any
 
-from nonebot.utils import run_sync
-
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
 
@@ -63,12 +61,10 @@ class Pixivision(object):
         params = {'p': page, 'lang': 'zh'}
         illustration_data = await cls.request_resource(url=cls._illustration_url, params=params)
 
-        # 解析页面
-        illustration_result = await run_sync(parse_pixivision_show_page)(
+        return await parse_pixivision_show_page(
             content=illustration_data,
             root_url=cls._root_url
         )
-        return illustration_result
 
     @classmethod
     async def query_illustration_list_with_preview(cls, page: int = 1) -> TemporaryResource:
@@ -87,12 +83,10 @@ class Pixivision(object):
         url = f'{self._articles_url}/{self.aid}'
         article_data = await self.request_resource(url=url)
 
-        # 解析页面
-        article_result = await run_sync(parse_pixivision_article_page)(
+        return await parse_pixivision_article_page(
             content=article_data,
             root_url=self._root_url
         )
-        return article_result
 
     async def query_eyecatch_image(self) -> TemporaryResource:
         """获取 Pixivision 文章头图"""

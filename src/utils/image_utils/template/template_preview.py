@@ -50,6 +50,7 @@ async def generate_thumbs_preview_image(
     preview_name = preview.preview_name
     previews = preview.previews[:limit]
 
+    @run_sync
     def _handle_preview_image() -> bytes:
         """用于图像生成处理的内部函数"""
         _thumb_w, _thumb_h = preview_size
@@ -144,7 +145,7 @@ async def generate_thumbs_preview_image(
             _content = _bf.getvalue()
         return _content
 
-    image_content = await run_sync(_handle_preview_image)()
+    image_content = await _handle_preview_image()
     image_file_name = f"preview_{preview_name}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
     save_file = output_folder(image_file_name)
     async with save_file.async_open('wb') as af:

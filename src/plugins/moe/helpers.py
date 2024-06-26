@@ -54,6 +54,7 @@ async def prepare_send_image(pid: int) -> OmegaMessageSegment:
     :return: 发送的消息
     """
 
+    @run_sync
     def _handle_noise(image: bytes) -> ImageUtils:
         """噪点处理图片"""
         image = ImageUtils.init_from_bytes(image=image)
@@ -61,6 +62,7 @@ async def prepare_send_image(pid: int) -> OmegaMessageSegment:
         image.mark(text=f'Pixiv | {pid}')
         return image
 
+    @run_sync
     def _handle_mark(image: bytes) -> ImageUtils:
         """标记水印"""
         image = ImageUtils.init_from_bytes(image=image)
@@ -70,9 +72,9 @@ async def prepare_send_image(pid: int) -> OmegaMessageSegment:
     async def _handle_image(image_: bytes, need_noise_: bool, output_file_: TemporaryResource) -> TemporaryResource:
         """异步处理图片"""
         if need_noise_:
-            image = await run_sync(_handle_noise)(image=image_)
+            image = await _handle_noise(image=image_)
         else:
-            image = await run_sync(_handle_mark)(image=image_)
+            image = await _handle_mark(image=image_)
 
         return await image.save(file=output_file_)
 

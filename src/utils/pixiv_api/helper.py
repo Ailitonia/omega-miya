@@ -69,6 +69,7 @@ def parse_pid_from_url(text: str, *, url_mode: bool = True) -> int | None:
     return None
 
 
+@run_sync
 def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
     """解析 pixiv 用户搜索结果页内容
 
@@ -133,6 +134,7 @@ def parse_global_data(content: str) -> PixivGlobalData:
     return PixivGlobalData.model_validate(json.loads(global_data))
 
 
+@run_sync
 def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustrationList:
     """解析 pixivision 导览页面内容
 
@@ -166,6 +168,7 @@ def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustr
     return PixivisionIllustrationList.model_validate({'illustrations': result_list})
 
 
+@run_sync
 def parse_pixivision_article_page(content: str, root_url: str) -> PixivisionArticle:
     """解析 pixivision 文章页面内容
 
@@ -239,6 +242,7 @@ async def _generate_user_searching_result_card(user: PixivUserSearchingBody, *, 
         semaphore_num=4
     )
 
+    @run_sync
     def _handle_generate_card() -> Image.Image:
         """用于图像生成处理的内部函数"""
         # 整体图片大小
@@ -344,8 +348,7 @@ async def _generate_user_searching_result_card(user: PixivUserSearchingBody, *, 
             )
         return _background
 
-    user_illusts_thumb_image = await run_sync(_handle_generate_card)()
-    return user_illusts_thumb_image
+    return await _handle_generate_card()
 
 
 async def generate_user_searching_result_image(
@@ -358,6 +361,7 @@ async def generate_user_searching_result_image(
     tasks = [_generate_user_searching_result_card(user=user, width=width) for user in users]
     cards = await semaphore_gather(tasks=tasks, semaphore_num=8, filter_exception=True)
 
+    @run_sync
     def _handle_generate_image() -> bytes:
         """用于图像生成处理的内部函数"""
         _card_height = int(width / pixiv_resource_config.user_searching_card_ratio)
@@ -392,7 +396,7 @@ async def generate_user_searching_result_image(
             _content = _bf.getvalue()
         return _content
 
-    image_content = await run_sync(_handle_generate_image)()
+    image_content = await _handle_generate_image()
     image_file_name = f"preview_search_user_{searching.search_name}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
     save_file = pixiv_resource_config.default_preview_img_folder(image_file_name)
     async with save_file.async_open('wb') as af:

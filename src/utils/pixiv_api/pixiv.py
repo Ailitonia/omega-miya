@@ -674,7 +674,7 @@ class PixivArtwork(Pixiv):
             _avg_duration = _avg_delay / 1000
             # 生成 gif
             with BytesIO() as _bf:
-                imageio.mimsave(_bf, _frames_list, format='GIF-PIL', duration=_avg_duration, quantizer=2)
+                imageio.mimsave(_bf, _frames_list, format='GIF', duration=_avg_duration, quantizer=2)
                 _content = _bf.getvalue()
             return _content
 
@@ -768,8 +768,7 @@ class PixivUser(Pixiv):
         searching_data = await cls.request_resource(url=url, params=params)
 
         # p站唯独画师搜索没有做前后端分离 只能解析页面了
-        searching_result = await run_sync(parse_user_searching_result_page)(content=searching_data)
-        return searching_result
+        return await parse_user_searching_result_page(content=searching_data)
 
     @classmethod
     async def search_user_with_preview(cls, nick: str) -> TemporaryResource:

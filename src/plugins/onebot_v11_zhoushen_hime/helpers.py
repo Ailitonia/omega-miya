@@ -520,6 +520,7 @@ class ZhouChecker(AssScriptLineTool):
 
         self.__is_init = True
 
+    @run_sync
     def _handle(self) -> HandleResult:
         """处理时轴检查"""
         if not self.__is_init:
@@ -691,7 +692,7 @@ class ZhouChecker(AssScriptLineTool):
         :param auto_style: 是否启用智能样式, 启用后会检查字幕文件使用样式数, 若只使用一种则自动停用style_mode
         """
         await self._init_file(auto_style=auto_style)
-        handle_result = await run_sync(self._handle)()
+        handle_result = await self._handle()
 
         # 输出文件
         time_text = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
