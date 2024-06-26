@@ -10,6 +10,7 @@
 
 import random
 import string
+from asyncio import sleep as async_sleep
 from typing import Any, Literal, Optional
 
 from nonebot.log import logger
@@ -77,6 +78,12 @@ class _BaseComic18(object):
 
         requests = OmegaRequests(timeout=timeout, headers=headers, cookies=comic18_config.cookies)
         response = await requests.get(url=url, params=params)
+
+        if response.status_code == 403:
+            # 403 可能是当前请求过快暂时被流控了 暂停一下重试一次
+            await async_sleep(3)
+            response = await requests.get(url=url, params=params)
+
         if response.status_code != 200:
             raise Comic18NetworkError(f'{response.request}, status code {response.status_code}')
 
