@@ -38,7 +38,7 @@ jm = CommandGroup(
     tuple(),
     aliases={'JM', '18comic'},
     handlers=[get_command_str_single_arg_parser_handler('aid')],
-).got('aid', prompt='想要查看哪个作品呢? 请输入作品车牌:')
+).got('aid', prompt='想要查看哪个作品呢? 请输入作品ID:')
 async def handle_preview_album_info(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         aid: Annotated[str, ArgStr('aid')]
@@ -47,7 +47,7 @@ async def handle_preview_album_info(
 
     aid = aid.lower().strip().removeprefix('jm')
     if not aid.isdigit():
-        await interface.finish('车牌应当为纯数字, 请确认后再重试吧')
+        await interface.finish('作品ID应当为纯数字, 请确认后再重试吧')
 
     await interface.send_reply('稍等, 正在获取作品信息~')
 
@@ -63,7 +63,7 @@ async def handle_preview_album_info(
     'preview',
     aliases={'jm_preview'},
     handlers=[get_command_str_single_arg_parser_handler('aid')],
-).got('aid', prompt='想要查看哪个作品呢? 请输入作品车牌:')
+).got('aid', prompt='想要查看哪个作品呢? 请输入作品ID:')
 async def handle_preview_gallery(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         aid: Annotated[str, ArgStr('aid')]
@@ -72,7 +72,7 @@ async def handle_preview_gallery(
 
     aid = aid.lower().strip().removeprefix('jm')
     if not aid.isdigit():
-        await interface.finish('车牌应当为纯数字, 请确认后再重试吧')
+        await interface.finish('作品ID应当为纯数字, 请确认后再重试吧')
 
     await interface.send_reply('稍等, 正在下载图片~')
 
@@ -97,18 +97,27 @@ async def handle_jm_searching(
     searching_args = parse_from_searching_parser(args=args)
     interface.refresh_matcher_state()
 
-    keyword = ' '.join(searching_args.keyword)
     await interface.send_reply('获取搜索结果中, 请稍候')
 
     try:
-        search_results = await Comic18.search_photos_with_preview(
-            search_query=keyword,
-            page=searching_args.page,
-            type_=searching_args.type,
-            time=searching_args.time,
-            order=searching_args.order,  # type: ignore
-            main_tag=searching_args.tag,
-        )
+        if ('分类' in searching_args.keyword) or ('排行' in searching_args.keyword):
+            search_results = await Comic18.query_albums_list(
+                page=searching_args.page,
+                type_=searching_args.type,
+                time=searching_args.time,
+                order=searching_args.order,
+            )
+        else:
+            keyword = ' '.join(searching_args.keyword)
+            search_results = await Comic18.search_photos_with_preview(
+                search_query=keyword,
+                page=searching_args.page,
+                type_=searching_args.type,
+                time=searching_args.time,
+                order=searching_args.order,  # type: ignore
+                main_tag=searching_args.tag,
+            )
+
         await interface.send_msg_auto_revoke(OmegaMessageSegment.image(search_results.path))
     except Exception as e:
         logger.error(f'JM | 获取搜索内容({searching_args})失败, {e}')

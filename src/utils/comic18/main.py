@@ -157,6 +157,7 @@ class Comic18(_BaseComic18):
             time: Optional[Literal['a', 't', 'w', 'm']] = None,
             order: Optional[Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf']] = None,
     ) -> TemporaryResource:
+        """获取分类漫画并生成预览图"""
         result = await cls.query_albums_list(page=page, type_=type_, time=time, order=order)
         name = f'AlbumsList - {type_} - Page {page}'
         preview = await cls._emit_preview_model_from_searching_data(searching_name=name, searching_data=result)
@@ -189,6 +190,7 @@ class Comic18(_BaseComic18):
             type_: int = 27,
             page: Optional[int] = None,
     ) -> TemporaryResource:
+        """获取漫画推荐专题并生成预览图"""
         result = await cls.query_promotes(type_=type_, page=page)
         name = f'PromotesList - {type_} - Page {page}'
         preview = await cls._emit_preview_model_from_searching_data(searching_name=name, searching_data=result)
@@ -244,6 +246,7 @@ class Comic18(_BaseComic18):
             order: Optional[Literal['mr', 'mv', 'mp', 'tf']] = None,
             main_tag: Optional[Literal['0', '1', '2', '3', '4']] = None,
     ) -> TemporaryResource:
+        """搜索漫画并生成预览图"""
         result = await cls.search_photos(search_query, page=page, type_=type_, time=time, order=order, main_tag=main_tag)
         name = f'Searching - {search_query} - Page {page}'
         preview = await cls._emit_preview_model_from_searching_data(searching_name=name, searching_data=result)
@@ -277,6 +280,7 @@ class Comic18(_BaseComic18):
         return self.album_data
 
     async def query_album_with_preview(self) -> TemporaryResource:
+        """获取漫画并生成漫画内容预览图"""
         return await self._generate_album_preview_image()
 
     async def query_pages(self, page: Optional[int] = None) -> AlbumPage:
