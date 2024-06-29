@@ -90,7 +90,7 @@ async def handle_make_sticker(
     # 制作表情包并输出
     try:
         sticker_result = await sticker_render(text=text, source_image=source_image).make()
-        await interface.send_reply(OmegaMessageSegment.image(sticker_result.path))
+        await interface.send(OmegaMessageSegment.image(sticker_result.path))
     except Exception as e:
         logger.error(f'StickerMaker | 制作表情包失败, {e}')
         await interface.send_reply('表情包制作失败了QAQ, 发生了意外的错误, 请稍后再试')
