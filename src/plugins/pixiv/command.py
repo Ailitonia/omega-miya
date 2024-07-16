@@ -366,7 +366,7 @@ async def handle_add_subscription(
     if ensure is None:
         pass
     elif ensure in ['是', '确认', 'Yes', 'yes', 'Y', 'y']:
-        await interface.send_at_sender('正在更新Pixiv用户订阅信息, 若首次订阅可能需要较长时间更新用户作品信息, 请稍候')
+        await interface.send_reply('正在更新Pixiv用户订阅信息, 若首次订阅可能需要较长时间更新用户作品信息, 请稍候')
 
         user = PixivUser(uid=int(user_id))
         scheduler.pause()  # 暂停计划任务避免中途检查更新
@@ -379,19 +379,19 @@ async def handle_add_subscription(
             logger.error(f"PixivAddUserSubscription | {interface.entity}订阅用户(uid={user_id})失败, {e!r}")
             msg = f'订阅Pixiv用户{user_id}失败, 可能是网络异常或发生了意外的错误, 请稍后重试或联系管理员处理'
         scheduler.resume()
-        await interface.send_at_sender(msg)
+        await interface.send_reply(msg)
         return
     else:
-        await interface.send_at_sender('已取消操作')
+        await interface.send_reply('已取消操作')
         return
 
     # 未收到确认消息后则为首次触发命令执行获取用户信息
     if user_id is None:
-        await interface.send_at_sender('未提供用户UID参数, 已取消操作')
+        await interface.send_reply('未提供用户UID参数, 已取消操作')
         return
     uid = user_id.strip()
     if not uid.isdigit():
-        await interface.send_at_sender('非有效的用户UID, 用户UID应当为纯数字, 已取消操作')
+        await interface.send_reply('非有效的用户UID, 用户UID应当为纯数字, 已取消操作')
         return
 
     try:
@@ -399,12 +399,11 @@ async def handle_add_subscription(
         user_data = await user.query_user_data()
     except Exception as e:
         logger.error(f'PixivAddUserSubscription | 获取用户(uid={user_id})数据失败, {e}')
-        await interface.send_at_sender('获取用户信息失败了QAQ, 可能是网络原因或没有这个用户, 请稍后再试')
+        await interface.send_reply('获取用户信息失败了QAQ, 可能是网络原因或没有这个用户, 请稍后再试')
         return
 
     ensure_msg = f'即将订阅Pixiv用户【{user_data.name}】的作品\n\n确认吗?\n【是/否】'
-    await interface.send_at_sender(ensure_msg)
-    await interface.matcher.reject_arg('ensure')
+    await interface.reject_arg_reply('ensure', ensure_msg)
 
 
 @pixiv_subscription.command(
@@ -434,19 +433,19 @@ async def handle_del_subscription(
         except Exception as e:
             logger.error(f'PixivDeleteUserSubscription | {interface.entity}取消订阅用户(uid={user_id})失败, {e!r}')
             msg = f'取消订阅Pixiv用户{user_id}失败, 请稍后再试或联系管理员处理'
-        await interface.send_at_sender(msg)
+        await interface.send_reply(msg)
         return
     else:
-        await interface.send_at_sender('已取消操作')
+        await interface.send_reply('已取消操作')
         return
 
     # 未收到确认消息后则为首次触发命令执行获取用户信息
     if user_id is None:
-        await interface.send_at_sender('未提供用户UID参数, 已取消操作')
+        await interface.send_reply('未提供用户UID参数, 已取消操作')
         return
     user_id = user_id.strip()
     if not user_id.isdigit():
-        await interface.send_at_sender('非有效的用户UID, 用户UID应当为纯数字, 已取消操作')
+        await interface.send_reply('非有效的用户UID, 用户UID应当为纯数字, 已取消操作')
         return
 
     try:
@@ -460,10 +459,10 @@ async def handle_del_subscription(
             reject_key = None
     except Exception as e:
         logger.error(f'PixivDeleteUserSubscription | 获取{interface}已订阅用户失败, {e!r}')
-        await interface.send_at_sender('获取已订阅Pixiv用户列表失败, 请稍后再试或联系管理员处理')
+        await interface.send_reply('获取已订阅Pixiv用户列表失败, 请稍后再试或联系管理员处理')
         return
 
-    await interface.send_at_sender(ensure_msg)
+    await interface.send_reply(ensure_msg)
     if reject_key is not None:
         await interface.matcher.reject_arg(reject_key)
     else:
@@ -482,10 +481,10 @@ async def handle_list_subscription(interface: Annotated[OmegaInterface, Depends(
     try:
         exist_sub = await query_entity_subscribed_user_sub_source(interface=interface)
         exist_text = '\n'.join(f'{sub_id}: {user_nickname}' for sub_id, user_nickname in exist_sub.items())
-        await interface.send_at_sender(f'当前已订阅的Pixiv用户列表:\n\n{exist_text if exist_text else "无"}')
+        await interface.send_reply(f'当前已订阅的Pixiv用户列表:\n\n{exist_text if exist_text else "无"}')
     except Exception as e:
         logger.error(f'PixivListUserSubscription | 获取{interface.entity}已订阅的Pixiv用户列表, {e!r}')
-        await interface.send_at_sender('获取已订阅的Pixiv用户列表失败, 请稍后再试或联系管理员处理')
+        await interface.send_reply('获取已订阅的Pixiv用户列表失败, 请稍后再试或联系管理员处理')
 
 
 __all__ = []

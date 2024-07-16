@@ -870,7 +870,8 @@ async def _request_artwork_preview_body(pid: int, *, blur_r18: bool = True) -> P
         _artwork_thumb = await _handle_r18_blur(image=_artwork_thumb)
 
     desc_text = format_artwork_preview_desc(
-        pid=_artwork_model.pid, title=_artwork_model.title, uname=_artwork_model.uname)
+        pid=_artwork_model.pid, title=_artwork_model.title, uname=_artwork_model.uname
+    )
     return PreviewImageThumbs(desc_text=desc_text, preview_thumb=_artwork_thumb)
 
 

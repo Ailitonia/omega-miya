@@ -87,8 +87,8 @@ def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
     users = html.xpath('/html/body//div[@class="user-search-result-container"]//li[@class="user-recommendation-item"]')
     for user in users:
         # 解析头像
-        user_head_url = user.xpath('a[@class="_user-icon size-128 cover-texture ui-scroll-view" '
-                                   'and @target="_blank" and @title]').pop(0).attrib.get('data-src')
+        user_head_a = user.xpath('a[contains(@class, "_user-icon") and @target="_blank" and @title]').pop(0)
+        user_head_url = user_head_a.attrib.get('data-src')
         # 解析用户名和uid
         user_href = user.xpath('h1/a[@class="title" and @target="_blank"]').pop(0)
         user_name = user_href.text
@@ -101,7 +101,7 @@ def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
         # 解析用户作品预览图
         illust_thumb_urls = [
             thumb.attrib.get('data-src')
-            for thumb in user.xpath('ul[@class="images"]/li[@class="action-open-thumbnail"]')
+            for thumb in user.xpath('ul[@class="images"]/li[@class="action-open-thumbnail"]/a')
             if thumb.attrib.get('data-src') is not None
         ]
 
@@ -487,7 +487,8 @@ async def emit_preview_model_from_pixivision_article_model(
     request_list = [
         PixivArtworkPreviewRequestModel(
             desc_text=format_artwork_preview_desc(
-                pid=data.artwork_id, title=data.artwork_title, uname=data.artwork_user),
+                pid=data.artwork_id, title=data.artwork_title, uname=data.artwork_user
+            ),
             request_url=data.image_url
         )
         for data in model.artwork_list
