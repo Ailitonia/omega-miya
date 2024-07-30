@@ -12,16 +12,17 @@ from pathlib import Path
 from typing import Any, Iterable, Tuple, Type, Union, Optional, cast
 from urllib.parse import urlparse
 
-from nonebot.matcher import current_event
-
 from nonebot.adapters.qq import (
     Bot as QQBot,
     Message as QQMessage,
     MessageSegment as QQMessageSegment,
     Event as QQEvent,
-    GuildMessageEvent as QQGuildMessageEvent
+    GuildMessageEvent as QQGuildMessageEvent,
+    C2CMessageCreateEvent as QQC2CMessageCreateEvent,
+    GroupAtMessageCreateEvent as QQGroupAtMessageCreateEvent,
 )
 from nonebot.adapters.qq.models import MessageReference, Message
+from nonebot.matcher import current_event
 
 from ..const import SupportedPlatform, SupportedTarget
 from ..register import PlatformRegister
@@ -308,14 +309,50 @@ class QQEventEntityDepend(EntityDepend):
 
     @classmethod
     def extract_event_entity_from_event(cls, bot: QQBot, event: QQEvent) -> EntityParams:
-        return EntityParams(
-            bot_id=bot.self_id, entity_type='qq_user', entity_id=bot.self_id, parent_id=bot.self_id
-        )
+        return cls.extract_user_entity_from_event(bot=bot, event=event)
 
     @classmethod
     def extract_user_entity_from_event(cls, bot: QQBot, event: QQEvent) -> EntityParams:
         return EntityParams(
             bot_id=bot.self_id, entity_type='qq_user', entity_id=bot.self_id, parent_id=bot.self_id
+        )
+
+
+@PlatformRegister.entity_depend.register(QQC2CMessageCreateEvent)
+class QQC2CMessageCreateEventEntityDepend(EntityDepend):
+    """QQ 官方适配器私聊事件 Entity 对象依赖类"""
+
+    @classmethod
+    def extract_event_entity_from_event(cls, bot: QQBot, event: QQC2CMessageCreateEvent) -> EntityParams:
+        return cls.extract_user_entity_from_event(bot=bot, event=event)
+
+    @classmethod
+    def extract_user_entity_from_event(cls, bot: QQBot, event: QQC2CMessageCreateEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='qq_user',
+            entity_id=event.get_user_id(), parent_id=bot.self_id,
+            entity_info=f'id: {event.author.id}, openid: {event.author.user_openid}'
+        )
+
+
+@PlatformRegister.entity_depend.register(QQGroupAtMessageCreateEvent)
+class QQGroupAtMessageCreateEventEntityDepend(EntityDepend):
+    """QQ 官方适配器群聊事件 Entity 对象依赖类"""
+
+    @classmethod
+    def extract_event_entity_from_event(cls, bot: QQBot, event: QQGroupAtMessageCreateEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='qq_group',
+            entity_id=event.group_openid, parent_id=bot.self_id,
+            entity_info=f'group_openid: {event.group_openid}'
+        )
+
+    @classmethod
+    def extract_user_entity_from_event(cls, bot: QQBot, event: QQGroupAtMessageCreateEvent) -> EntityParams:
+        return EntityParams(
+            bot_id=bot.self_id, entity_type='qq_user',
+            entity_id=event.get_user_id(), parent_id=bot.self_id,
+            entity_info=f'id: {event.author.id}, member_openid: {event.author.member_openid}'
         )
 
 
