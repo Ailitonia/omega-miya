@@ -12,17 +12,13 @@ from typing import Optional, Any
 
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
-
-from .config import pixiv_config
-from .exception import PixivisionNetworkError
+from .api_base import PixivApiBase
+from .helper import PixivParser, PixivPreviewGenerator
 from .model import PixivisionArticle, PixivisionIllustrationList
-from .helper import (parse_pixivision_show_page, parse_pixivision_article_page,
-                     emit_preview_model_from_pixivision_illustration_model,
-                     emit_preview_model_from_pixivision_article_model, generate_artworks_preview_image)
 
 
-class Pixivision(object):
-    """Pixiv 基类"""
+class Pixivision(PixivApiBase):
+    """Pixivision 接口集成"""
     _root_url: str = 'https://www.pixivision.net'
     _illustration_url: str = 'https://www.pixivision.net/zh/c/illustration'
     _articles_url: str = 'https://www.pixivision.net/zh/a'
@@ -48,12 +44,7 @@ class Pixivision(object):
             headers = OmegaRequests.get_default_headers()
             headers.update({'referer': 'https://www.pixivision.net/zh/'})
 
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise PixivisionNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return response.content
+        return await super().request_resource(url=url, params=params, headers=headers, timeout=timeout)
 
     @classmethod
     async def query_illustration_list(cls, page: int = 1) -> PixivisionIllustrationList:
@@ -61,7 +52,7 @@ class Pixivision(object):
         params = {'p': page, 'lang': 'zh'}
         illustration_data = await cls.request_resource(url=cls._illustration_url, params=params)
 
-        return await parse_pixivision_show_page(
+        return await PixivParser.parse_pixivision_show_page(
             content=illustration_data,
             root_url=cls._root_url
         )
@@ -72,10 +63,12 @@ class Pixivision(object):
         illustration_result = await cls.query_illustration_list(page=page)
         # 获取缩略图内容
         name = f'Pixivision Illustration - Page {page}'
-        preview_request = await emit_preview_model_from_pixivision_illustration_model(
-            preview_name=name, model=illustration_result)
-        preview_img_file = await generate_artworks_preview_image(
-            preview=preview_request, preview_size=(480, 270), hold_ratio=True, num_of_line=4)
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_pixivision_illustration_model(
+            preview_name=name, model=illustration_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
+            preview=preview_request, preview_size=(480, 270), hold_ratio=True, num_of_line=4
+        )
         return preview_img_file
 
     async def query_article(self) -> PixivisionArticle:
@@ -83,7 +76,7 @@ class Pixivision(object):
         url = f'{self._articles_url}/{self.aid}'
         article_data = await self.request_resource(url=url)
 
-        return await parse_pixivision_article_page(
+        return await PixivParser.parse_pixivision_article_page(
             content=article_data,
             root_url=self._root_url
         )
@@ -104,10 +97,12 @@ class Pixivision(object):
         article_result = await self.query_article()
         # 获取缩略图内容
         name = f'Pixivision - {article_result.title_without_mark}'
-        preview_request = await emit_preview_model_from_pixivision_article_model(
-            preview_name=name, model=article_result)
-        preview_img_file = await generate_artworks_preview_image(
-            preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=4)
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_pixivision_article_model(
+            preview_name=name, model=article_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
+            preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=4
+        )
         return preview_img_file
 
 

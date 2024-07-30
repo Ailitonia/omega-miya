@@ -8,107 +8,39 @@
 @Software       : PyCharm
 """
 
-import abc
 import re
 import zipfile
-import imageio
 from datetime import datetime
-from typing import Literal, Optional, Any
-from urllib.parse import quote
 from io import BytesIO
+from typing import Literal, Optional
+from urllib.parse import quote
 
+import imageio
 from nonebot.utils import run_sync
 from pydantic import ValidationError
 
 from src.resource import TemporaryResource
-from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
-from src.utils.image_utils import ImageUtils
-from src.utils.image_utils.template import PreviewImageModel, PreviewImageThumbs
-
-from .config import pixiv_config, pixiv_resource_config
+from .api_base import PixivApiBase
+from .config import pixiv_resource_config
 from .exception import PixivApiError, PixivNetworkError
+from .helper import PixivParser, PixivPreviewGenerator
 from .model import (PixivArtworkDataModel, PixivArtworkPageModel, PixivArtworkUgoiraMeta,
                     PixivArtworkCompleteDataModel, PixivArtworkRecommendModel,
                     PixivRankingModel, PixivSearchingResultModel,
                     PixivDiscoveryModel, PixivRecommendModel,
                     PixivGlobalData, PixivUserDataModel, PixivUserArtworkDataModel, PixivUserModel,
                     PixivUserSearchingModel, PixivFollowLatestIllust, PixivBookmark)
-from .helper import (parse_user_searching_result_page, parse_global_data, generate_user_searching_result_image,
-                     emit_preview_model_from_ranking_model, emit_preview_model_from_searching_model,
-                     format_artwork_preview_desc, generate_artworks_preview_image)
 
 
-class Pixiv(abc.ABC):
-    """Pixiv 基类"""
-    _root_url: str = 'https://www.pixiv.net'
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__
-
-    @classmethod
-    async def request_json(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None
-    ) -> Any:
-        """请求 api 并返回 json 数据"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({'referer': 'https://www.pixiv.net/'})
-
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise PixivNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return OmegaRequests.parse_content_json(response)
-
-    @classmethod
-    async def request_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 45
-    ) -> str | bytes | None:
-        """请求原始资源内容"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({'referer': 'https://www.pixiv.net/'})
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise PixivNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return response.content
-
-    @classmethod
-    async def download_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 60
-    ) -> TemporaryResource:
-        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({'referer': 'https://www.pixiv.net/'})
-
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
-        file = pixiv_resource_config.default_download_folder(original_file_name)
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
-
-        return await requests.download(url=url, file=file, params=params)
+class PixivCommon(PixivApiBase):
+    """Pixiv 主站通用类"""
 
     @classmethod
     async def query_global_data(cls) -> PixivGlobalData:
         """获取全局信息(需要 cookies)"""
         root_page_content = await cls.request_resource(url=cls._root_url)
-        return parse_global_data(content=root_page_content)
+        return await PixivParser.parse_global_data(content=root_page_content)
 
     @classmethod
     async def query_ranking(
@@ -137,8 +69,10 @@ class Pixiv(abc.ABC):
     async def query_daily_illust_ranking_with_preview(cls, page: int = 1) -> TemporaryResource:
         ranking_result = await cls.query_ranking(mode='daily', page=page, content='illust')
         name = f'Pixiv Daily Ranking {datetime.now().strftime("%Y-%m-%d")}'
-        preview_request = await emit_preview_model_from_ranking_model(ranking_name=name, model=ranking_result)
-        preview_img_file = await generate_artworks_preview_image(
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_ranking_model(
+            ranking_name=name, model=ranking_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -147,8 +81,10 @@ class Pixiv(abc.ABC):
     async def query_weekly_illust_ranking_with_preview(cls, page: int = 1) -> TemporaryResource:
         ranking_result = await cls.query_ranking(mode='weekly', page=page, content='illust')
         name = f'Pixiv Weekly Ranking {datetime.now().strftime("%Y-%m-%d")}'
-        preview_request = await emit_preview_model_from_ranking_model(ranking_name=name, model=ranking_result)
-        preview_img_file = await generate_artworks_preview_image(
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_ranking_model(
+            ranking_name=name, model=ranking_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -157,8 +93,10 @@ class Pixiv(abc.ABC):
     async def query_monthly_illust_ranking_with_preview(cls, page: int = 1) -> TemporaryResource:
         ranking_result = await cls.query_ranking(mode='monthly', page=page, content='illust')
         name = f'Pixiv Monthly Ranking {datetime.now().strftime("%Y-%m-%d")}'
-        preview_request = await emit_preview_model_from_ranking_model(ranking_name=name, model=ranking_result)
-        preview_img_file = await generate_artworks_preview_image(
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_ranking_model(
+            ranking_name=name, model=ranking_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -167,8 +105,10 @@ class Pixiv(abc.ABC):
     async def query_daily_r18_illust_ranking_with_preview(cls, page: int = 1) -> TemporaryResource:
         ranking_result = await cls.query_ranking(mode='daily_r18', page=page, content='illust')
         name = f'Pixiv R18 Daily Ranking {datetime.now().strftime("%Y-%m-%d")}'
-        preview_request = await emit_preview_model_from_ranking_model(ranking_name=name, model=ranking_result)
-        preview_img_file = await generate_artworks_preview_image(
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_ranking_model(
+            ranking_name=name, model=ranking_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -177,8 +117,10 @@ class Pixiv(abc.ABC):
     async def query_weekly_r18_illust_ranking_with_preview(cls, page: int = 1) -> TemporaryResource:
         ranking_result = await cls.query_ranking(mode='weekly_r18', page=page, content='illust')
         name = f'Pixiv R18 Weekly Ranking {datetime.now().strftime("%Y-%m-%d")}'
-        preview_request = await emit_preview_model_from_ranking_model(ranking_name=name, model=ranking_result)
-        preview_img_file = await generate_artworks_preview_image(
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_ranking_model(
+            ranking_name=name, model=ranking_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -271,8 +213,10 @@ class Pixiv(abc.ABC):
             word=word, mode=mode, page=page, order=order, mode_=mode_, s_mode_=s_mode_,
             type_=type_, ai_type=ai_type, ratio_=ratio_, scd_=scd_, ecd_=ecd_, blt_=blt_, bgt_=bgt_, lang_=lang_)
         name = f'Searching - {word}'
-        preview_request = await emit_preview_model_from_searching_model(searching_name=name, model=searching_result)
-        preview_img_file = await generate_artworks_preview_image(preview=preview_request)
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_searching_model(
+            searching_name=name, model=searching_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(preview=preview_request)
         return preview_img_file
 
     @classmethod
@@ -280,8 +224,10 @@ class Pixiv(abc.ABC):
         """搜索作品并生成预览图 (使用通用的好图筛选条件) (近三年的图) (会用到仅限pixiv高级会员可用的部分参数)"""
         searching_result = await cls.search_by_default_popular_condition(word=word)
         name = f'Searching - {word}'
-        preview_request = await emit_preview_model_from_searching_model(searching_name=name, model=searching_result)
-        preview_img_file = await generate_artworks_preview_image(preview=preview_request)
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_searching_model(
+            searching_name=name, model=searching_result
+        )
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(preview=preview_request)
         return preview_img_file
 
     @classmethod
@@ -305,10 +251,10 @@ class Pixiv(abc.ABC):
         discovery_result = await cls.query_discovery_artworks(limit=60)
         # 获取缩略图内容
         name = 'Pixiv Discovery'
-        preview_request = await _emit_preview_model_from_artwork_pids(
-            preview_name=name, pids=discovery_result.recommend_pids
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_artworks(
+            preview_name=name, artworks=[PixivArtwork(pid) for pid in discovery_result.recommend_pids]
         )
-        preview_img_file = await generate_artworks_preview_image(
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(360, 360), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -333,10 +279,10 @@ class Pixiv(abc.ABC):
         recommend_result = await cls.query_recommend_illust()
         # 获取缩略图内容
         name = 'Pixiv Top Recommend'
-        preview_request = await _emit_preview_model_from_artwork_pids(
-            preview_name=name, pids=recommend_result.recommend_pids
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_artworks(
+            preview_name=name, artworks=[PixivArtwork(pid) for pid in recommend_result.recommend_pids]
         )
-        preview_img_file = await generate_artworks_preview_image(
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=3
         )
         return preview_img_file
@@ -382,8 +328,8 @@ class Pixiv(abc.ABC):
         return PixivBookmark.model_validate(bookmark_data)
 
 
-class PixivArtwork(Pixiv):
-    """Pixiv 作品"""
+class PixivArtwork(PixivCommon):
+    """Pixiv 作品接口集成"""
 
     def __init__(self, pid: int):
         self.pid = pid
@@ -736,17 +682,17 @@ class PixivArtwork(Pixiv):
         recommend_result = await self.query_recommend(init_limit=init_limit, lang=lang)
         # 获取缩略图内容
         name = 'Pixiv Artwork Recommend'
-        preview_request = await _emit_preview_model_from_artwork_pids(
-            preview_name=name, pids=[x.id for x in recommend_result.illusts]
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_artworks(
+            preview_name=name, artworks=[self.__class__(x.id) for x in recommend_result.illusts]
         )
-        preview_img_file = await generate_artworks_preview_image(
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=3
         )
         return preview_img_file
 
 
-class PixivUser(Pixiv):
-    """Pixiv 用户"""
+class PixivUser(PixivCommon):
+    """Pixiv 用户接口集成"""
 
     def __init__(self, uid: int):
         self.uid = uid
@@ -768,13 +714,13 @@ class PixivUser(Pixiv):
         searching_data = await cls.request_resource(url=url, params=params)
 
         # p站唯独画师搜索没有做前后端分离 只能解析页面了
-        return await parse_user_searching_result_page(content=searching_data)
+        return await PixivParser.parse_user_searching_result_page(content=searching_data)
 
     @classmethod
     async def search_user_with_preview(cls, nick: str) -> TemporaryResource:
         """搜索用户并生成预览图"""
         searching_model = await cls.search_user(nick=nick)
-        preview_img_file = await generate_user_searching_result_image(searching=searching_model)
+        preview_img_file = await PixivPreviewGenerator.generate_user_searching_result_image(searching=searching_model)
         return preview_img_file
 
     async def _query_user_data(self) -> PixivUserDataModel:
@@ -824,10 +770,11 @@ class PixivUser(Pixiv):
 
         # 获取缩略图内容
         name = f'Pixiv User Artwork  - {user_data_result.name}'
-        preview_request = await _emit_preview_model_from_artwork_pids(
-            preview_name=name, pids=user_data_result.manga_illusts[index_start:index_end]
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_artworks(
+            preview_name=name,
+            artworks=[PixivArtwork(pid) for pid in user_data_result.manga_illusts[index_start:index_end]]
         )
-        preview_img_file = await generate_artworks_preview_image(
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(360, 360), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
@@ -841,47 +788,14 @@ class PixivUser(Pixiv):
         user_bookmark_result = await self.query_user_bookmarks(page=page)
         # 获取缩略图内容
         name = f'Pixiv User Bookmark  - {self.uid}'
-        preview_request = await _emit_preview_model_from_artwork_pids(
-            preview_name=name, pids=user_bookmark_result.illust_ids
+        preview_request = await PixivPreviewGenerator.emit_preview_model_from_artworks(
+            preview_name=name,
+            artworks=[PixivArtwork(pid) for pid in user_bookmark_result.illust_ids]
         )
-        preview_img_file = await generate_artworks_preview_image(
+        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
             preview=preview_request, preview_size=(360, 360), hold_ratio=True, num_of_line=6
         )
         return preview_img_file
-
-
-async def _request_artwork_preview_body(pid: int, *, blur_r18: bool = True) -> PreviewImageThumbs:
-    """生成多个作品的预览图, 获取生成预览图中每个作品的缩略图的数据
-
-    :param pid: 作品 PID
-    :param blur_r18: 是否模糊处理 r18 作品
-    """
-
-    @run_sync
-    def _handle_r18_blur(image: bytes) -> bytes:
-        """模糊处理 r18 图"""
-        return ImageUtils.init_from_bytes(image=image).gaussian_blur().get_bytes()
-
-    _artwork = PixivArtwork(pid=pid)
-    _artwork_model = await _artwork.query_artwork()
-    _artwork_thumb = await _artwork.get_page_bytes(url_type='small')
-
-    if blur_r18 and _artwork_model.is_r18:
-        _artwork_thumb = await _handle_r18_blur(image=_artwork_thumb)
-
-    desc_text = format_artwork_preview_desc(
-        pid=_artwork_model.pid, title=_artwork_model.title, uname=_artwork_model.uname
-    )
-    return PreviewImageThumbs(desc_text=desc_text, preview_thumb=_artwork_thumb)
-
-
-async def _emit_preview_model_from_artwork_pids(preview_name: str, pids: list[int]) -> PreviewImageModel:
-    """从作品信息中获取生成预览图所需要的数据模型"""
-    _tasks = [_request_artwork_preview_body(pid=pid) for pid in pids]
-    _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30, filter_exception=True)
-    _requests_data = list(_requests_data)
-    count = len(_requests_data)
-    return PreviewImageModel(preview_name=preview_name, count=count, previews=_requests_data)
 
 
 __all__ = [

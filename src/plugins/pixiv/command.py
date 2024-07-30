@@ -11,8 +11,8 @@
 from datetime import datetime, timedelta
 from typing import Annotated, Callable, Coroutine, Literal
 
-from nonebot.matcher import Matcher
 from nonebot.log import logger
+from nonebot.matcher import Matcher
 from nonebot.params import ArgStr, Depends, ShellCommandArgs
 from nonebot.plugin import CommandGroup
 from nonebot.rule import Namespace
@@ -26,8 +26,7 @@ from src.params.permission import IS_ADMIN
 from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
 from src.utils.pixiv_api import PixivArtwork, PixivUser
-from src.utils.pixiv_api.helper import parse_pid_from_url
-
+from src.utils.pixiv_api.helper import PixivParser
 from .config import pixiv_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (has_allow_r18_node, get_artwork_preview,
@@ -35,7 +34,6 @@ from .helpers import (has_allow_r18_node, get_artwork_preview,
                       add_pixiv_user_sub, delete_pixiv_user_sub,
                       query_entity_subscribed_user_sub_source)
 from .monitor import scheduler
-
 
 pixiv = CommandGroup(
     'pixiv',
@@ -100,11 +98,11 @@ async def handle_pixiv_recommend(
     if source is not None:
         if source.isdigit():
             recommend_pid = int(source)
-        elif pid := parse_pid_from_url(text=source, url_mode=False):
+        elif pid := PixivParser.parse_pid_from_url(text=source, url_mode=False):
             recommend_pid = int(pid)
     else:
         if reply_msg_test := interface.get_event_handler().get_reply_msg_plain_text():
-            if pid := parse_pid_from_url(text=reply_msg_test, url_mode=False):
+            if pid := PixivParser.parse_pid_from_url(text=reply_msg_test, url_mode=False):
                 recommend_pid = int(pid)
 
     await interface.send_reply('稍等, 正在下载图片~')
