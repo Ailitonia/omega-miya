@@ -8,15 +8,13 @@
 @Software       : PyCharm 
 """
 
-import inspect
 import asyncio
+import inspect
 from asyncio import Future
 from functools import wraps
-
 from typing import TypeVar, ParamSpec, Callable, Coroutine, Awaitable, Any
 
 from nonebot import logger
-
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -52,7 +50,7 @@ async def _semaphore_gather(
         semaphore_num: int,
         *,
         return_exceptions: bool = True
-) -> tuple[T | BaseException, ...]:
+) -> tuple[T | Exception, ...]:
     """[Deactivated]使用 asyncio.Semaphore 来限制一批需要并行的异步函数
 
     :param tasks: 任务序列
@@ -78,7 +76,7 @@ async def semaphore_gather(
         *,
         return_exceptions: bool = True,
         filter_exception: bool = False
-) -> tuple[T | BaseException, ...]:
+) -> tuple[T | Exception, ...]:
     """使用 asyncio.Semaphore 来限制一批需要并行的异步函数
     Python 3.11 推荐使用 asyncio.TaskGroup 创建和并发运行任务并等待它们完成
 
@@ -99,13 +97,13 @@ async def semaphore_gather(
 
     async def _wrap_coro(
             coro: Future[T] | Coroutine[Any, Any, T] | Awaitable[T]
-    ) -> T | BaseException:
+    ) -> T | Exception:
         """使用 asyncio.Semaphore 限制单个任务"""
         async with _semaphore:
             try:
                 _result = await coro
                 return _result
-            except BaseException as e:
+            except Exception as e:
                 if return_exceptions:
                     return e
                 else:
@@ -118,7 +116,13 @@ async def semaphore_gather(
 
     # 输出错误日志
     for i, r in enumerate(result):
-        if isinstance(r, BaseException):
+        if isinstance(r, ExceptionGroup):
+            logger.opt(colors=True).error(
+                f'<lc>SemaphoreGather</lc> | Task(s) called by <lc>"{_f_name}"</lc> in <lc>"{_f_filename}"</lc> '
+                f'raised <r>{r.__class__.__name__}</r> exceptions in task(<ly>{i}</ly>): '
+                f'<ly>{", ".join(str(x) for x in r.exceptions)}</ly>'
+            )
+        if isinstance(r, Exception):
             logger.opt(colors=True).error(
                 f'<lc>SemaphoreGather</lc> | Task(s) called by <lc>"{_f_name}"</lc> in <lc>"{_f_filename}"</lc> '
                 f'raised <r>{r.__class__.__name__}</r> exception in task(<ly>{i}</ly>): <ly>{r}</ly>'
@@ -126,7 +130,7 @@ async def semaphore_gather(
 
     # 过滤异常
     if filter_exception:
-        result = tuple(x for x in result if not isinstance(x, BaseException))
+        result = tuple(x for x in result if not isinstance(x, Exception))
 
     logger.opt(colors=True).debug(
         f'<lc>SemaphoreGather</lc> | All task(s) called by <lc>"{_f_name}"</lc> in <lc>"{_f_filename}"</lc> '

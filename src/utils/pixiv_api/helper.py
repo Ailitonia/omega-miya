@@ -314,7 +314,7 @@ class PixivPreviewGenerator(PixivApiBase):
             # 一般页面只有四张预览图 这里也只贴四张
             for _index, _illusts_thumb in enumerate(user_illusts_thumb[:4]):
                 # 检查缩略图加载情况
-                if isinstance(_illusts_thumb, BaseException):
+                if isinstance(_illusts_thumb, Exception):
                     # 获取失败或小说等作品没有预览图
                     _thumb_img = Image.new(mode="RGB", size=(_thumb_img_w, _thumb_img_w), color=(127, 127, 127))
                 else:

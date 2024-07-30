@@ -14,7 +14,6 @@ from src.service import scheduler
 from src.service.artwork_collection import PixivArtworkCollection
 from src.utils.pixiv_api import PixivArtwork
 from src.utils.process_utils import semaphore_gather
-
 from .config import sign_in_config
 
 
@@ -30,7 +29,7 @@ async def _prepare_signin_image() -> None:
     success_count = 0
     failed_count = 0
     for result in pre_download_result:
-        if isinstance(result, BaseException):
+        if isinstance(result, Exception):
             failed_count += 1
         else:
             success_count += 1

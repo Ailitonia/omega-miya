@@ -13,10 +13,10 @@ from typing import Annotated
 from nonebot.adapters import Message
 from nonebot.log import logger
 from nonebot.matcher import Matcher
-from nonebot.rule import to_me
 from nonebot.params import Arg, Depends
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command
+from nonebot.rule import to_me
 
 from src.database import EntityDAL
 from src.params.handler import get_command_message_arg_parser_handler
@@ -54,7 +54,7 @@ async def handle_announce(
 
     announce_result = await semaphore_gather(tasks=tasks, semaphore_num=3)
 
-    if any(isinstance(x, BaseException) for x in announce_result):
+    if any(isinstance(x, Exception) for x in announce_result):
         logger.warning(f'Announce | 公告批量发送完成, 部分公告发送失败')
         await matcher.finish('公告批量发送完成, 部分对象发送失败')
     else:

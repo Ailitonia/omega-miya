@@ -556,7 +556,7 @@ class PixivArtwork(PixivCommon):
                      if page < page_limit]
 
         all_page_file = await semaphore_gather(tasks=tasks, semaphore_num=10)
-        if any([isinstance(x, BaseException) for x in all_page_file]):
+        if any([isinstance(x, Exception) for x in all_page_file]):
             raise PixivApiError(f'Query artwork(pid={self.pid}) all page files failed')
         return list(all_page_file)
 
@@ -576,7 +576,7 @@ class PixivArtwork(PixivCommon):
         artwork_model = await self.query_artwork()
         tasks = [self.download_page(page=page) for page in range(artwork_model.page_count)]
         all_page_file = await semaphore_gather(tasks=tasks, semaphore_num=10)
-        if any([isinstance(x, BaseException) for x in all_page_file]):
+        if any([isinstance(x, Exception) for x in all_page_file]):
             raise PixivApiError(f'Download artwork(pid={self.pid}) all pages failed')
         return list(all_page_file)
 
@@ -620,7 +620,7 @@ class PixivArtwork(PixivCommon):
             _avg_duration = _avg_delay / 1000
             # 生成 gif
             with BytesIO() as _bf:
-                imageio.mimsave(_bf, _frames_list, format='GIF', duration=_avg_duration, quantizer=2)
+                imageio.mimsave(_bf, _frames_list, format='GIF', duration=_avg_duration, quantizer=2)  # type: ignore
                 _content = _bf.getvalue()
             return _content
 

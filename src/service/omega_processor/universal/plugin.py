@@ -18,7 +18,6 @@ from sqlalchemy.exc import NoResultFound
 from src.database import PluginDAL, begin_db_session
 from src.utils.process_utils import semaphore_gather
 
-
 LOG_PREFIX: str = '<lc>Plugin Manager</lc> | '
 SUPERUSERS = get_driver().config.superusers
 
@@ -41,7 +40,7 @@ async def startup_init_plugins():
     plugins_init_result = await semaphore_gather(tasks=tasks, semaphore_num=10)
 
     for result in plugins_init_result:
-        if isinstance(result, BaseException):
+        if isinstance(result, Exception):
             import sys
             logger.opt(colors=True).critical(f'{LOG_PREFIX}<r>初始化插件信息失败</r>, {result}')
             sys.exit(f'初始化插件信息失败, {result}')
