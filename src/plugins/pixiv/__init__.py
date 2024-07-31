@@ -17,6 +17,7 @@ __plugin_meta__ = PluginMetadata(
                 '查看Pixiv插画、发现与推荐、日榜、周榜、月榜以及搜索作品\n'
                 '订阅并跟踪画师作品更新',
     usage='/pixiv <PID>\n'
+          '/pixiv随机 [关键词]\n'
           '/pixiv推荐 [PID or ArtworkUrl]\n'
           '/pixiv发现\n'
           '/pixiv日榜 [页码]\n'

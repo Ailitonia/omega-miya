@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+import random
 from datetime import datetime, timedelta
 from typing import Annotated, Callable, Coroutine, Literal
 
@@ -27,6 +28,7 @@ from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
 from src.utils.pixiv_api import PixivArtwork, PixivUser
 from src.utils.pixiv_api.helper import PixivParser
+from src.utils.process_utils import semaphore_gather
 from .config import pixiv_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (has_allow_r18_node, get_artwork_preview,
@@ -81,6 +83,44 @@ async def handle_preview_artwork(
     except Exception as e:
         logger.error(f'Pixiv | 获取作品(pid={pid})预览失败, {e}')
         await interface.send_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+
+
+@pixiv.command(
+    'random',
+    aliases={'pixiv随机', 'Pixiv随机'},
+    handlers=[get_command_str_single_arg_parser_handler('source', ensure_key=True)],
+).got('source')
+async def handle_pixiv_random(
+        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        source: Annotated[str | None, ArgStr('source')]
+) -> None:
+    interface.refresh_interface_state()
+
+    try:
+        if source is not None:
+            searching_artworks = await PixivArtwork.search_by_default_popular_condition(word=source.strip())
+            pids = [x.id for x in searching_artworks.searching_result]
+        else:
+            discovery_artworks = await PixivArtwork.query_discovery_artworks()
+            pids = discovery_artworks.recommend_pids
+
+        await interface.send_reply(f'稍等, 正在获取{"随机" if source is None else source + "相关"}作品~')
+    except Exception as e:
+        logger.error(f'Pixiv | 获取随机作品(source={source})列表失败, {e}')
+        await interface.send_reply(message='获取随机作品失败了QAQ, 请稍后再试')
+        return
+
+    send_messages = await semaphore_gather(
+        tasks=[get_artwork_preview(artwork=PixivArtwork(pid)) for pid in random.sample(pids, k=3)],
+        semaphore_num=3,
+        filter_exception=True
+    )
+
+    if not send_messages:
+        await interface.send_reply(message='所有作品都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
+    else:
+        for message in send_messages:
+            await interface.send(message=message)
 
 
 @pixiv.command(
