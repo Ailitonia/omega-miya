@@ -30,12 +30,24 @@ class CollectedArtwork(BaseArtwork):
     tags: list[str]
     url: AnyHttpUrl
 
+    @property
+    @abc.abstractmethod
+    def source(self) -> str:
+        """注明作品原始来源"""
+        raise NotImplementedError
+
 
 class BaseArtworkCollection(abc.ABC):
     """作品合集基类, 封装后用于插件调用的数据库实体操作对象"""
 
     def __init__(self, artwork_id: str):
         self.artwork_id = artwork_id
+
+    @property
+    @abc.abstractmethod
+    def source(self) -> str:
+        """注明合集原始来源"""
+        raise NotImplementedError
 
     @classmethod
     @abc.abstractmethod

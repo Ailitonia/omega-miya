@@ -8,13 +8,13 @@
 @Software       : PyCharm 
 """
 
-from sqlalchemy.exc import NoResultFound
 from typing import Literal, Optional
+
+from sqlalchemy.exc import NoResultFound
 
 from src.database import begin_db_session
 from src.database.internal.pixiv_artwork import PixivArtwork, PixivArtworkDAL, PixivArtworkStatistic
 from src.database.internal.pixiv_artwork_page import PixivArtworkPage, PixivArtworkPageDAL
-
 from .models import CollectedArtwork, BaseArtworkCollection
 
 
@@ -28,6 +28,10 @@ class CollectedPixivArtwork(CollectedArtwork):
     def pid(self) -> int:
         return int(self.aid)
 
+    @property
+    def source(self) -> str:
+        return f'Pixiv | {self.aid}'
+
 
 class PixivArtworkCollection(BaseArtworkCollection):
     """Pixiv 作品合集"""
@@ -35,6 +39,10 @@ class PixivArtworkCollection(BaseArtworkCollection):
     @property
     def pid(self) -> int:
         return int(self.artwork_id)
+
+    @property
+    def source(self) -> str:
+        return 'Pixiv'
 
     @staticmethod
     def covert_collected_pixiv_artwork_model(data: PixivArtwork) -> CollectedPixivArtwork:

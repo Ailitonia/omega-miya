@@ -8,9 +8,11 @@
 @Software       : PyCharm 
 """
 
+from .models import CollectedArtwork
 from .pixiv import PixivArtworkCollection
 
 
 __all__ = [
-    'PixivArtworkCollection'
+    'CollectedArtwork',
+    'PixivArtworkCollection',
 ]

@@ -10,29 +10,31 @@
 
 import hashlib
 import random
-import ujson as json
 from datetime import datetime
 from io import BytesIO
 from typing import Annotated, Literal, Optional
 
+import ujson as json
+from PIL import Image, ImageDraw, ImageFont
 from nonebot.adapters import Bot, Event
 from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.typing import T_State
 from nonebot.utils import run_sync
-from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
 
 from src.compat import parse_obj_as
 from src.database import begin_db_session
 from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
-from src.service.artwork_collection.pixiv import CollectedPixivArtwork, PixivArtworkCollection
+from src.service.artwork_collection import CollectedArtwork, PixivArtworkCollection
 from src.utils.image_utils import ImageUtils
 from src.utils.pixiv_api import PixivArtwork
-
 from .config import sign_in_config, sign_local_resource_config
 from .exception import DuplicateException, FailedException
+
+__FORTUNE_EVENT: list["FortuneEvent"] = []
+"""缓存求签事件"""
 
 
 class Fortune(BaseModel):
@@ -59,10 +61,6 @@ class FortuneEvent(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.name + self.good + self.bad)
-
-
-__FORTUNE_EVENT: list[FortuneEvent] = []
-"""缓存求签事件"""
 
 
 def _load_fortune_event(file: TemporaryResource) -> list[FortuneEvent]:
@@ -175,8 +173,23 @@ def get_fortune(user_id: str, *, date: datetime | None = None) -> Fortune:
     return Fortune.model_validate(result)
 
 
-async def get_signin_top_image() -> tuple[CollectedPixivArtwork, TemporaryResource]:
+async def get_signin_top_image(
+        source: Literal['pixiv', 'local', 'mix'] = 'pixiv'
+) -> tuple[CollectedArtwork, TemporaryResource]:
     """获取一张生成签到卡片用的头图"""
+    match source:
+        case 'pixiv':
+            return await _get_signin_top_image_from_pixiv()
+        case 'local':
+            ...  # TODO 本地图片
+        case 'mix':
+            ...  # TODO 混合策略
+        case _:
+            ...
+
+
+async def _get_signin_top_image_from_pixiv() -> tuple[CollectedArtwork, TemporaryResource]:
+    """从 pixiv 获取一张生成签到卡片用的头图"""
     random_artworks = await PixivArtworkCollection.random(num=5, nsfw_tag=0, ratio=1)
 
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
@@ -285,7 +298,7 @@ async def generate_signin_card(
         user_id: str,
         user_text: str,
         friendship: float,
-        top_img: tuple[CollectedPixivArtwork, TemporaryResource],
+        top_img: tuple[CollectedArtwork, TemporaryResource],
         *,
         width: int = 1024,
         draw_fortune: bool = True,
@@ -304,7 +317,10 @@ async def generate_signin_card(
     # 获取头图
     signin_top_img_data, signin_top_img_file = top_img
     # 头图作品来源
-    top_img_origin_text = f'Pixiv | {signin_top_img_data.pid} | @{signin_top_img_data.uname}'
+    if not signin_top_img_data.uname.strip():
+        top_img_origin_text = f'{signin_top_img_data.source}'
+    else:
+        top_img_origin_text = f'{signin_top_img_data.source} | @{signin_top_img_data.uname}'
 
     @run_sync
     def _handle_signin_card() -> bytes:
