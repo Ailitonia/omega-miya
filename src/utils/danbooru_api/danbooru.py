@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import Optional, Any
+from typing import Any, Optional, Type, TypeVar
 
 from src.compat import parse_obj_as
 from .api_base import DanbooruBase
@@ -40,14 +40,10 @@ from .models import (
 )
 
 
-class Danbooru(DanbooruBase):
-    """Danbooru API"""
+class DanbooruCommonBase(DanbooruBase):
+    """Danbooru Common utils"""
 
     __slots__ = ('id',)
-
-    @classmethod
-    def get_root_url(cls) -> str:
-        return 'https://danbooru.donmai.us'
 
     @classmethod
     @abc.abstractmethod
@@ -78,7 +74,7 @@ class Danbooru(DanbooruBase):
     async def _index(
             cls,
             *,
-            enable_auth: bool = False,
+            enable_auth: bool = True,
             page: Optional[int] = None,
             limit: Optional[int] = None,
             **search_kwargs
@@ -87,7 +83,7 @@ class Danbooru(DanbooruBase):
         params = cls.generate_common_search_params(page=page, limit=limit, **search_kwargs)
         return await cls.get_json(url=cls.get_index_url(), params=params, enable_auth=enable_auth)
 
-    async def _show(self, *, enable_auth: bool = False, **kwargs) -> Any:
+    async def _show(self, *, enable_auth: bool = True, **kwargs) -> Any:
         """Show target data"""
         return await self.get_json(url=self.get_target_url(), params=kwargs, enable_auth=enable_auth)
 
@@ -95,7 +91,7 @@ class Danbooru(DanbooruBase):
 """Versioned Types"""
 
 
-class DanbooruArtist(Danbooru):
+class DanbooruArtistBase(DanbooruCommonBase):
     """Artist, Docs: https://danbooru.donmai.us/wiki_pages/api:artists"""
 
     def __init__(self, id_: int):
@@ -130,7 +126,7 @@ class DanbooruArtist(Danbooru):
         return Artist.model_validate(await self._show())
 
 
-class DanbooruArtistCommentary(Danbooru):
+class DanbooruArtistCommentaryBase(DanbooruCommonBase):
     """ArtistCommentary, Docs: https://danbooru.donmai.us/wiki_pages/api:artist_commentaries"""
 
     def __init__(self, id_: int):
@@ -159,7 +155,7 @@ class DanbooruArtistCommentary(Danbooru):
         return ArtistCommentary.model_validate(await self._show())
 
 
-class DanbooruNote(Danbooru):
+class DanbooruNoteBase(DanbooruCommonBase):
     """Note, Docs: https://danbooru.donmai.us/wiki_pages/api:notes"""
 
     def __init__(self, id_: int):
@@ -188,7 +184,7 @@ class DanbooruNote(Danbooru):
         return Note.model_validate(await self._show())
 
 
-class DanbooruPool(Danbooru):
+class DanbooruPoolBase(DanbooruCommonBase):
     """Pool, Docs: https://danbooru.donmai.us/wiki_pages/api:pools"""
 
     def __init__(self, id_: int):
@@ -217,7 +213,7 @@ class DanbooruPool(Danbooru):
         return Pool.model_validate(await self._show())
 
 
-class DanbooruPost(Danbooru):
+class DanbooruPostBase(DanbooruCommonBase):
     """Post, Docs: https://danbooru.donmai.us/wiki_pages/api:posts"""
 
     def __init__(self, id_: int):
@@ -241,6 +237,36 @@ class DanbooruPost(Danbooru):
         """Show posts index"""
         return parse_obj_as(list[Post], await cls._index(page=page, limit=limit, **search_kwargs))
 
+    @classmethod
+    async def explore_popular_posts(cls) -> list[Post]:
+        url = f'{cls.get_root_url()}/explore/posts/popular.json'
+        return parse_obj_as(list[Post], await cls.get_json(url=url))
+
+    @classmethod
+    async def explore_curated_posts(cls) -> list[Post]:
+        url = f'{cls.get_root_url()}/explore/posts/curated.json'
+        return parse_obj_as(list[Post], await cls.get_json(url=url))
+
+    @classmethod
+    async def explore_viewed_posts(cls) -> list[Post]:
+        url = f'{cls.get_root_url()}/explore/posts/viewed.json'
+        return parse_obj_as(list[Post], await cls.get_json(url=url))
+
+    @classmethod
+    async def explore_searchesr_posts(cls) -> list[tuple[str, float]]:
+        url = f'{cls.get_root_url()}/explore/posts/searches.json'
+        return parse_obj_as(list[tuple[str, float]], await cls.get_json(url=url))
+
+    @classmethod
+    async def explore_missed_searches_posts(cls) -> list[tuple[str, float]]:
+        url = f'{cls.get_root_url()}/explore/posts/missed_searches.json'
+        return parse_obj_as(list[tuple[str, float]], await cls.get_json(url=url))
+
+    @classmethod
+    async def random(cls) -> Post:
+        url = f'{cls.get_root_url()}/posts/random.json'
+        return Post.model_validate(await cls.get_json(url=url))
+
     async def show(self) -> Post:
         """Show post data"""
         return Post.model_validate(await self._show())
@@ -251,7 +277,7 @@ class DanbooruPost(Danbooru):
         return ArtistCommentary.model_validate(await self.get_json(url=url))
 
 
-class DanbooruWiki(Danbooru):
+class DanbooruWikiBase(DanbooruCommonBase):
     """Wiki, Docs: https://danbooru.donmai.us/wiki_pages/api:wikis"""
 
     def __init__(self, id_: int):
@@ -283,7 +309,7 @@ class DanbooruWiki(Danbooru):
 """Type Versions"""
 
 
-class DanbooruArtistVersion(Danbooru):
+class DanbooruArtistVersionBase(DanbooruCommonBase):
     """ArtistVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:artist_versions"""
 
     def __init__(self, id_: int):
@@ -312,7 +338,7 @@ class DanbooruArtistVersion(Danbooru):
         return ArtistVersion.model_validate(await self._show())
 
 
-class DanbooruArtistCommentaryVersion(Danbooru):
+class DanbooruArtistCommentaryVersionBase(DanbooruCommonBase):
     """ArtistCommentaryVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:artist_commentary_versions"""
 
     def __init__(self, id_: int):
@@ -341,7 +367,7 @@ class DanbooruArtistCommentaryVersion(Danbooru):
         return ArtistCommentaryVersion.model_validate(await self._show())
 
 
-class DanbooruNoteVersion(Danbooru):
+class DanbooruNoteVersionBase(DanbooruCommonBase):
     """NoteVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:note_versions"""
 
     def __init__(self, id_: int):
@@ -370,7 +396,7 @@ class DanbooruNoteVersion(Danbooru):
         return NoteVersion.model_validate(await self._show())
 
 
-class DanbooruPoolVersion(Danbooru):
+class DanbooruPoolVersionBase(DanbooruCommonBase):
     """PoolVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:pool_versions"""
 
     def __init__(self, id_: int):
@@ -399,7 +425,7 @@ class DanbooruPoolVersion(Danbooru):
         raise NotImplementedError
 
 
-class DanbooruPostVersion(Danbooru):
+class DanbooruPostVersionBase(DanbooruCommonBase):
     """PostVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:post_versions"""
 
     def __init__(self, id_: int):
@@ -428,7 +454,7 @@ class DanbooruPostVersion(Danbooru):
         raise NotImplementedError
 
 
-class DanbooruWikiPageVersion(Danbooru):
+class DanbooruWikiPageVersionBase(DanbooruCommonBase):
     """WikiPageVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:wiki_page_versions"""
 
     def __init__(self, id_: int):
@@ -460,7 +486,7 @@ class DanbooruWikiPageVersion(Danbooru):
 """Non-versioned Types"""
 
 
-class DanbooruComment(Danbooru):
+class DanbooruCommentBase(DanbooruCommonBase):
     """Comment, Docs: https://danbooru.donmai.us/wiki_pages/api:comments"""
 
     def __init__(self, id_: int):
@@ -489,7 +515,7 @@ class DanbooruComment(Danbooru):
         return Comment.model_validate(await self._show())
 
 
-class DanbooruDmail(Danbooru):
+class DanbooruDmailBase(DanbooruCommonBase):
     """Dmail, Docs: https://danbooru.donmai.us/wiki_pages/api:dmails"""
 
     def __init__(self, id_: int):
@@ -511,17 +537,17 @@ class DanbooruDmail(Danbooru):
             **search_kwargs
     ) -> list[Dmail]:
         """Show dmails index"""
-        return parse_obj_as(list[Dmail], await cls._index(enable_auth=True, page=page, limit=limit, **search_kwargs))
+        return parse_obj_as(list[Dmail], await cls._index(page=page, limit=limit, **search_kwargs))
 
     async def show(self, key: Optional[str] = None) -> Dmail:
         """Show dmail data"""
         if key is not None:
             return Dmail.model_validate(await self._show(key=key))
         else:
-            return Dmail.model_validate(await self._show(enable_auth=True))
+            return Dmail.model_validate(await self._show())
 
 
-class DanbooruForumPost(Danbooru):
+class DanbooruForumPostBase(DanbooruCommonBase):
     """ForumPost, Docs: https://danbooru.donmai.us/wiki_pages/api:forum_posts"""
 
     def __init__(self, id_: int):
@@ -550,7 +576,7 @@ class DanbooruForumPost(Danbooru):
         return ForumPost.model_validate(await self._show())
 
 
-class DanbooruForumTopic(Danbooru):
+class DanbooruForumTopicBase(DanbooruCommonBase):
     """ForumTopic, Docs: https://danbooru.donmai.us/wiki_pages/api:forum_topics"""
 
     def __init__(self, id_: int):
@@ -579,7 +605,7 @@ class DanbooruForumTopic(Danbooru):
         return ForumTopic.model_validate(await self._show())
 
 
-class DanbooruPostAppeal(Danbooru):
+class DanbooruPostAppealBase(DanbooruCommonBase):
     """PostAppeal, Docs: https://danbooru.donmai.us/wiki_pages/api:post_appeals"""
 
     def __init__(self, id_: int):
@@ -608,7 +634,7 @@ class DanbooruPostAppeal(Danbooru):
         return PostAppeal.model_validate(await self._show())
 
 
-class DanbooruPostFlag(Danbooru):
+class DanbooruPostFlagBase(DanbooruCommonBase):
     """PostFlag, Docs: https://danbooru.donmai.us/wiki_pages/api:post_flags"""
 
     def __init__(self, id_: int):
@@ -637,7 +663,7 @@ class DanbooruPostFlag(Danbooru):
         return PostFlag.model_validate(await self._show())
 
 
-class DanbooruTag(Danbooru):
+class DanbooruTagBase(DanbooruCommonBase):
     """Tag, Docs: https://danbooru.donmai.us/wiki_pages/api:tags"""
 
     def __init__(self, id_: int):
@@ -666,7 +692,7 @@ class DanbooruTag(Danbooru):
         return Tag.model_validate(await self._show())
 
 
-class DanbooruTagAlias(Danbooru):
+class DanbooruTagAliasBase(DanbooruCommonBase):
     """TagAlias, Docs: https://danbooru.donmai.us/wiki_pages/api:tag_aliases"""
 
     def __init__(self, id_: int):
@@ -695,7 +721,7 @@ class DanbooruTagAlias(Danbooru):
         return TagAlias.model_validate(await self._show())
 
 
-class DanbooruTagImplication(Danbooru):
+class DanbooruTagImplicationBase(DanbooruCommonBase):
     """TagImplication, Docs: https://danbooru.donmai.us/wiki_pages/api:tag_implications"""
 
     def __init__(self, id_: int):
@@ -724,7 +750,7 @@ class DanbooruTagImplication(Danbooru):
         return TagImplication.model_validate(await self._show())
 
 
-class DanbooruUpload(Danbooru):
+class DanbooruUploadBase(DanbooruCommonBase):
     """Upload, Docs: https://danbooru.donmai.us/wiki_pages/api:uploads"""
 
     def __init__(self, id_: int):
@@ -753,7 +779,7 @@ class DanbooruUpload(Danbooru):
         return Upload.model_validate(await self._show())
 
 
-class DanbooruUser(Danbooru):
+class DanbooruUserBase(DanbooruCommonBase):
     """User, Docs: https://danbooru.donmai.us/wiki_pages/api:users"""
 
     def __init__(self, id_: int):
@@ -777,33 +803,81 @@ class DanbooruUser(Danbooru):
         """Show users index"""
         return parse_obj_as(list[User], await cls._index(page=page, limit=limit, **search_kwargs))
 
+    @classmethod
+    async def profile(cls) -> User:
+        """Get profile"""
+        url = f'{cls.get_root_url()}/profile.json'
+        return User.model_validate(await cls.get_json(url=url))
+
     async def show(self) -> User:
         """Show user data"""
         return User.model_validate(await self._show())
 
 
+class DanbooruAPIBase:
+    """Danbooru API 基类"""
+
+    Type_T = TypeVar("Type_T", bound=Type[DanbooruCommonBase])
+
+    def __init__(self, root_url: str) -> None:
+        self._root_url = root_url
+
+        self.Artist = self.create_new_common_class(DanbooruArtistBase)
+        self.ArtistCommentary = self.create_new_common_class(DanbooruArtistCommentaryBase)
+        self.Note = self.create_new_common_class(DanbooruNoteBase)
+        self.Pool = self.create_new_common_class(DanbooruPoolBase)
+        self.Post = self.create_new_common_class(DanbooruPostBase)
+        self.Wiki = self.create_new_common_class(DanbooruWikiBase)
+        self.ArtistVersion = self.create_new_common_class(DanbooruArtistVersionBase)
+        self.ArtistCommentaryVersion = self.create_new_common_class(DanbooruArtistCommentaryVersionBase)
+        self.NoteVersion = self.create_new_common_class(DanbooruNoteVersionBase)
+        self.PoolVersion = self.create_new_common_class(DanbooruPoolVersionBase)
+        self.PostVersion = self.create_new_common_class(DanbooruPostVersionBase)
+        self.WikiPageVersion = self.create_new_common_class(DanbooruWikiPageVersionBase)
+        self.Comment = self.create_new_common_class(DanbooruCommentBase)
+        self.Dmail = self.create_new_common_class(DanbooruDmailBase)
+        self.ForumPost = self.create_new_common_class(DanbooruForumPostBase)
+        self.ForumTopic = self.create_new_common_class(DanbooruForumTopicBase)
+        self.PostAppeal = self.create_new_common_class(DanbooruPostAppealBase)
+        self.PostFlag = self.create_new_common_class(DanbooruPostFlagBase)
+        self.Tag = self.create_new_common_class(DanbooruTagBase)
+        self.TagAlias = self.create_new_common_class(DanbooruTagAliasBase)
+        self.TagImplication = self.create_new_common_class(DanbooruTagImplicationBase)
+        self.Upload = self.create_new_common_class(DanbooruUploadBase)
+        self.User = self.create_new_common_class(DanbooruUserBase)
+
+    def create_new_common_class(self, class_: Type_T) -> Type_T:
+        class _NewClass(class_):
+            @classmethod
+            def get_root_url(cls) -> str:
+                return self._root_url
+
+        return _NewClass
+
+
 __all__ = [
-    'DanbooruArtist',
-    'DanbooruArtistCommentary',
-    'DanbooruNote',
-    'DanbooruPool',
-    'DanbooruPost',
-    'DanbooruWiki',
-    'DanbooruArtistVersion',
-    'DanbooruArtistCommentaryVersion',
-    'DanbooruNoteVersion',
-    'DanbooruPoolVersion',
-    'DanbooruPostVersion',
-    'DanbooruWikiPageVersion',
-    'DanbooruComment',
-    'DanbooruDmail',
-    'DanbooruForumPost',
-    'DanbooruForumTopic',
-    'DanbooruPostAppeal',
-    'DanbooruPostFlag',
-    'DanbooruTag',
-    'DanbooruTagAlias',
-    'DanbooruTagImplication',
-    'DanbooruUpload',
-    'DanbooruUser',
+    'DanbooruArtistBase',
+    'DanbooruArtistCommentaryBase',
+    'DanbooruNoteBase',
+    'DanbooruPoolBase',
+    'DanbooruPostBase',
+    'DanbooruWikiBase',
+    'DanbooruArtistVersionBase',
+    'DanbooruArtistCommentaryVersionBase',
+    'DanbooruNoteVersionBase',
+    'DanbooruPoolVersionBase',
+    'DanbooruPostVersionBase',
+    'DanbooruWikiPageVersionBase',
+    'DanbooruCommentBase',
+    'DanbooruDmailBase',
+    'DanbooruForumPostBase',
+    'DanbooruForumTopicBase',
+    'DanbooruPostAppealBase',
+    'DanbooruPostFlagBase',
+    'DanbooruTagBase',
+    'DanbooruTagAliasBase',
+    'DanbooruTagImplicationBase',
+    'DanbooruUploadBase',
+    'DanbooruUserBase',
+    'DanbooruAPIBase',
 ]

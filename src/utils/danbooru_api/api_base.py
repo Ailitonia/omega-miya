@@ -13,9 +13,8 @@ from typing import Optional, Any
 
 from nonebot.drivers import Response
 
-from src.resource import TemporaryResource
 from src.service import OmegaRequests
-from .config import danbooru_config, danbooru_resource_config
+from .config import danbooru_config
 from .exception import DanbooruNetworkError
 
 
@@ -79,7 +78,7 @@ class DanbooruBase(abc.ABC):
             *,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
-            enable_auth: bool = False,
+            enable_auth: bool = True,
     ) -> Any:
         """使用 GET 方法请求 API, 返回 json 内容"""
         if headers:
@@ -105,7 +104,7 @@ class DanbooruBase(abc.ABC):
             json: Optional[Any] = None,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
-            enable_auth: bool = False,
+            enable_auth: bool = True,
     ) -> Any:
         """使用 POST 方法请求 API, 返回 json 内容"""
         if headers:
@@ -141,36 +140,6 @@ class DanbooruBase(abc.ABC):
 
         response = await cls._request_get(url, params, headers=headers, cookies=cookies)
         return response.content
-
-    @classmethod
-    async def download_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            *,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
-            timeout: int = 60,
-            folder_name: str | None = None,
-            ignore_exist_file: bool = False
-    ) -> TemporaryResource:
-        """下载资源到本地, 保持原始文件名, 默认直接覆盖同名文件"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-
-        headers.update({
-            'origin': f'{cls.get_root_url()}',
-            'referer': f'{cls.get_root_url()}/'
-        })
-
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
-        if folder_name is None:
-            file = danbooru_resource_config.default_download_folder(original_file_name)
-        else:
-            file = danbooru_resource_config.default_download_folder(folder_name, original_file_name)
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
-        return await requests.download(url=url, file=file, params=params, ignore_exist_file=ignore_exist_file)
 
 
 __all__ = [

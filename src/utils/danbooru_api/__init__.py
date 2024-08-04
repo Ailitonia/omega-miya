@@ -8,54 +8,11 @@
 @Software       : PyCharm 
 """
 
-from .danbooru import (
-    DanbooruArtist,
-    DanbooruArtistCommentary,
-    DanbooruNote,
-    DanbooruPool,
-    DanbooruPost,
-    DanbooruWiki,
-    DanbooruArtistVersion,
-    DanbooruArtistCommentaryVersion,
-    DanbooruNoteVersion,
-    DanbooruPoolVersion,
-    DanbooruPostVersion,
-    DanbooruWikiPageVersion,
-    DanbooruComment,
-    DanbooruDmail,
-    DanbooruForumPost,
-    DanbooruForumTopic,
-    DanbooruPostAppeal,
-    DanbooruPostFlag,
-    DanbooruTag,
-    DanbooruTagAlias,
-    DanbooruTagImplication,
-    DanbooruUpload,
-    DanbooruUser,
-)
+from .danbooru import DanbooruAPIBase
+
+danbooru_api = DanbooruAPIBase(root_url='https://danbooru.donmai.us')
+
 
 __all__ = [
-    'DanbooruArtist',
-    'DanbooruArtistCommentary',
-    'DanbooruNote',
-    'DanbooruPool',
-    'DanbooruPost',
-    'DanbooruWiki',
-    'DanbooruArtistVersion',
-    'DanbooruArtistCommentaryVersion',
-    'DanbooruNoteVersion',
-    'DanbooruPoolVersion',
-    'DanbooruPostVersion',
-    'DanbooruWikiPageVersion',
-    'DanbooruComment',
-    'DanbooruDmail',
-    'DanbooruForumPost',
-    'DanbooruForumTopic',
-    'DanbooruPostAppeal',
-    'DanbooruPostFlag',
-    'DanbooruTag',
-    'DanbooruTagAlias',
-    'DanbooruTagImplication',
-    'DanbooruUpload',
-    'DanbooruUser',
+    'danbooru_api',
 ]

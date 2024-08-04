@@ -8,12 +8,8 @@
 @Software       : PyCharm 
 """
 
-from dataclasses import dataclass
-
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
-
-from src.resource import StaticResource, TemporaryResource
 
 
 class DanbooruConfig(BaseModel):
@@ -28,17 +24,7 @@ class DanbooruConfig(BaseModel):
         return {'login': self.danbooru_username, 'api_key': self.danbooru_api_key}
 
 
-@dataclass
-class DanbooruLocalResourceConfig:
-    # 默认字体文件
-    default_font_file: StaticResource = StaticResource('fonts', 'fzzxhk.ttf')
-    # 默认的缓存资源保存路径
-    default_preview_folder: TemporaryResource = TemporaryResource('danbooru', 'preview')
-    default_download_folder: TemporaryResource = TemporaryResource('danbooru', 'download')
-
-
 try:
-    danbooru_resource_config = DanbooruLocalResourceConfig()
     danbooru_config = get_plugin_config(DanbooruConfig)
     if danbooru_config.danbooru_username is None or danbooru_config.danbooru_api_key is None:
         logger.opt(colors=True).warning(
@@ -51,5 +37,4 @@ except ValidationError as e:
 
 __all__ = [
     'danbooru_config',
-    'danbooru_resource_config',
 ]
