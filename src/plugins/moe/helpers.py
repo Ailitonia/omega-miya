@@ -9,18 +9,19 @@
 """
 
 from typing import Literal
-from pydantic import BaseModel, ConfigDict
+
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.utils import run_sync
+from pydantic import BaseModel, ConfigDict
 
+from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment
 from src.service.artwork_collection import PixivArtworkCollection
-from src.resource import TemporaryResource
-from src.utils.pixiv_api import PixivArtwork
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.utils.image_utils import ImageUtils
-
+from src.utils.pixiv_api import PixivArtwork
 from .config import moe_plugin_config, moe_plugin_resource_config
 from .consts import ALLOW_R18_NODE
 
@@ -90,7 +91,7 @@ async def prepare_send_image(pid: int) -> OmegaMessageSegment:
     output_file = moe_plugin_resource_config.default_processed_image_folder(file_name)
 
     # 获取并处理作品图片
-    artwork = PixivArtwork(pid=pid)
+    artwork = PixivArtworkProxy(pid)
     artwork_image = await artwork.get_page_bytes()
     image_file = await _handle_image(image_=artwork_image, need_noise_=need_noise, output_file_=output_file)
 

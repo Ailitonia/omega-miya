@@ -22,8 +22,6 @@ class PixivPluginConfig(BaseModel):
     pixiv_plugin_auto_recall_time: int = 60
     # 单个作品发送图片数量限制, 避免单个作品图过多导致一次性发送过多图导致网络堵塞和风控
     pixiv_plugin_artwork_preview_page_limiting: int = 10
-    # 启动 gif 动图生成, 针对动图作品生成 gif 图片, 消耗资源较大, 请谨慎开启
-    pixiv_plugin_enable_generate_gif: bool = False
 
     class Config:
         extra = "ignore"

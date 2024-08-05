@@ -28,8 +28,8 @@ from src.database import begin_db_session
 from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
 from src.service.artwork_collection import CollectedArtwork, PixivArtworkCollection
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.utils.image_utils import ImageUtils
-from src.utils.pixiv_api import PixivArtwork
 from .config import sign_in_config, sign_local_resource_config
 from .exception import DuplicateException, FailedException
 
@@ -195,7 +195,7 @@ async def _get_signin_top_image_from_pixiv() -> tuple[CollectedArtwork, Temporar
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
     for random_artwork in random_artworks:
         try:
-            artwork_file = await PixivArtwork(pid=random_artwork.pid).get_page_file()
+            artwork_file = await PixivArtworkProxy(random_artwork.pid).get_page_file()
             return random_artwork, artwork_file
         except Exception as e:
             logger.warning(f'getting pixiv artwork(pid={random_artwork.pid}) failed, {e}')

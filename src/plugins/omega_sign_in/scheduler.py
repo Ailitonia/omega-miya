@@ -12,7 +12,7 @@ from nonebot.log import logger
 
 from src.service import scheduler
 from src.service.artwork_collection import PixivArtworkCollection
-from src.utils.pixiv_api import PixivArtwork
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.utils.process_utils import semaphore_gather
 from .config import sign_in_config
 
@@ -23,7 +23,7 @@ async def _prepare_signin_image() -> None:
     # 获取图片信息并下载图片
     random_artworks = await PixivArtworkCollection.random(num=100, nsfw_tag=0, ratio=1)
 
-    tasks = [PixivArtwork(pid=artwork.pid).get_page_file() for artwork in random_artworks]
+    tasks = [PixivArtworkProxy(artwork.pid).get_page_file() for artwork in random_artworks]
     pre_download_result = await semaphore_gather(tasks=tasks, semaphore_num=20)
 
     success_count = 0

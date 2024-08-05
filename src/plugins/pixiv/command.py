@@ -8,7 +8,6 @@
 @Software       : PyCharm
 """
 
-import random
 from datetime import datetime, timedelta
 from typing import Annotated, Callable, Coroutine, Literal
 
@@ -26,9 +25,9 @@ from src.params.handler import (get_command_str_single_arg_parser_handler,
 from src.params.permission import IS_ADMIN
 from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
-from src.utils.pixiv_api import PixivArtwork, PixivUser
+from src.service.artwork_proxy import PixivArtworkProxy
+from src.utils.pixiv_api import PixivCommon, PixivUser
 from src.utils.pixiv_api.helper import PixivParser
-from src.utils.process_utils import semaphore_gather
 from .config import pixiv_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (has_allow_r18_node, get_artwork_preview,
@@ -70,8 +69,8 @@ async def handle_preview_artwork(
     await interface.send_reply('稍等, 正在下载图片~')
 
     try:
-        artwork = PixivArtwork(pid=int(pid))
-        is_r18 = (await artwork.query_artwork()).is_r18
+        artwork = PixivArtworkProxy(artwork_id=pid)
+        is_r18 = True if (await artwork.query()).rating.value >= 3 else False
         allow_r18 = await has_allow_r18_node(matcher=matcher, interface=interface)
         send_message = await get_artwork_preview(artwork=artwork, allow_r18=allow_r18)
 
@@ -83,44 +82,6 @@ async def handle_preview_artwork(
     except Exception as e:
         logger.error(f'Pixiv | 获取作品(pid={pid})预览失败, {e}')
         await interface.send_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
-
-
-@pixiv.command(
-    'random',
-    aliases={'pixiv随机', 'Pixiv随机'},
-    handlers=[get_command_str_single_arg_parser_handler('source', ensure_key=True)],
-).got('source')
-async def handle_pixiv_random(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        source: Annotated[str | None, ArgStr('source')]
-) -> None:
-    interface.refresh_interface_state()
-
-    try:
-        if source is not None:
-            searching_artworks = await PixivArtwork.search_by_default_popular_condition(word=source.strip())
-            pids = [x.id for x in searching_artworks.searching_result]
-        else:
-            discovery_artworks = await PixivArtwork.query_discovery_artworks()
-            pids = discovery_artworks.recommend_pids
-
-        await interface.send_reply(f'稍等, 正在获取{"随机" if source is None else source + "相关"}作品~')
-    except Exception as e:
-        logger.error(f'Pixiv | 获取随机作品(source={source})列表失败, {e}')
-        await interface.send_reply(message='获取随机作品失败了QAQ, 请稍后再试')
-        return
-
-    send_messages = await semaphore_gather(
-        tasks=[get_artwork_preview(artwork=PixivArtwork(pid)) for pid in random.sample(pids, k=3)],
-        semaphore_num=3,
-        filter_exception=True
-    )
-
-    if not send_messages:
-        await interface.send_reply(message='所有作品都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
-    else:
-        for message in send_messages:
-            await interface.send(message=message)
 
 
 @pixiv.command(
@@ -149,9 +110,9 @@ async def handle_pixiv_recommend(
 
     try:
         if recommend_pid:
-            recommend_img = await PixivArtwork(pid=recommend_pid).query_recommend_with_preview()
+            recommend_img = await PixivArtworkProxy(recommend_pid).query_recommend_with_preview()
         else:
-            recommend_img = await PixivArtwork.query_recommend_artworks_with_preview()
+            recommend_img = await PixivArtworkProxy.query_top_artworks_with_preview()
         await interface.send(OmegaMessageSegment.image(recommend_img.path))
     except Exception as e:
         logger.error(f'PixivRecommend | 获取作品推荐({source})失败, {e}')
@@ -168,7 +129,7 @@ async def handle_pixiv_discovery(interface: Annotated[OmegaInterface, Depends(Om
     await interface.send_reply('稍等, 正在下载图片~')
 
     try:
-        discovery_img = await PixivArtwork.query_discovery_artworks_with_preview()
+        discovery_img = await PixivArtworkProxy.query_discovery_artworks_with_preview()
         await interface.send(OmegaMessageSegment.image(discovery_img.path))
     except Exception as e:
         logger.error(f'PixivDiscovery | 获取作品发现(Discovery)失败, {e}')
@@ -208,7 +169,7 @@ async def handle_daily_ranking(
     await _handle_ranking(
         interface=interface,
         page=page,
-        ranking_preview_factory=PixivArtwork.query_daily_illust_ranking_with_preview
+        ranking_preview_factory=PixivArtworkProxy.query_daily_illust_ranking_with_preview
     )
 
 
@@ -217,14 +178,14 @@ async def handle_daily_ranking(
     aliases={'pixiv周榜', 'Pixiv周榜'},
     handlers=[get_command_str_single_arg_parser_handler('page', default='1')],
 ).got('page', prompt='想看榜单的哪一页呢? 请输入页码:')
-async def handle_daily_ranking(
+async def handle_weekly_ranking(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         page: Annotated[str, ArgStr('page')]
 ) -> None:
     await _handle_ranking(
         interface=interface,
         page=page,
-        ranking_preview_factory=PixivArtwork.query_weekly_illust_ranking_with_preview
+        ranking_preview_factory=PixivArtworkProxy.query_weekly_illust_ranking_with_preview
     )
 
 
@@ -233,14 +194,14 @@ async def handle_daily_ranking(
     aliases={'pixiv月榜', 'Pixiv月榜'},
     handlers=[get_command_str_single_arg_parser_handler('page', default='1')],
 ).got('page', prompt='想看榜单的哪一页呢? 请输入页码:')
-async def handle_daily_ranking(
+async def handle_monthly_ranking(
         interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
         page: Annotated[str, ArgStr('page')]
 ) -> None:
     await _handle_ranking(
         interface=interface,
         page=page,
-        ranking_preview_factory=PixivArtwork.query_monthly_illust_ranking_with_preview
+        ranking_preview_factory=PixivArtworkProxy.query_monthly_illust_ranking_with_preview
     )
 
 
@@ -271,12 +232,14 @@ async def handle_pixiv_searching(
 
     try:
         if searching_args.custom:
-            search_preview_img = await PixivArtwork.search_with_preview(
+            search_preview_img = await PixivArtworkProxy.query_search_result_with_preview(
                 word=word, mode=searching_args.mode, page=searching_args.page,
                 order=searching_args.order, mode_=nsfw_mode, ai_type=searching_args.ai_type, blt_=blt, scd_=scd
             )
         else:
-            search_preview_img = await PixivArtwork.search_by_default_popular_condition_with_preview(word=word)
+            search_preview_img = await PixivArtworkProxy.query_search_result_by_default_popular_condition_with_preview(
+                word=word
+            )
 
         if nsfw_mode == 'safe':
             await interface.send(OmegaMessageSegment.image(search_preview_img.path))
@@ -302,7 +265,7 @@ async def handle_searching_user(
     await interface.send_reply(f'搜索Pixiv用户: {user_nick}')
 
     try:
-        searching_image = await PixivUser.search_user_with_preview(nick=user_nick)
+        searching_image = await PixivArtworkProxy.query_user_search_result_with_preview(nick=user_nick)
         await interface.send(OmegaMessageSegment.image(searching_image.path))
     except Exception as e:
         logger.error(f'PixivUserSearching | 获取用户(nick={user_nick})搜索结果失败, {e}')
@@ -332,7 +295,7 @@ async def handle_preview_user_artworks(
     await interface.send_reply('稍等, 正在下载图片~')
 
     try:
-        preview_image = await PixivUser(uid=int(user_id)).query_user_artworks_with_preview(page=int(page))
+        preview_image = await PixivArtworkProxy.query_user_artworks_with_preview(uid=int(user_id), page=int(page))
         await interface.send(OmegaMessageSegment.image(preview_image.path))
     except Exception as e:
         logger.error(f'PixivUserArtworks | 获取用户(uid={user_id})作品失败, {e}')
@@ -353,7 +316,7 @@ async def handle_preview_user_bookmark(
     user_id = state.get('user_id_page_0')
     if user_id is None:
         try:
-            bot_owner_user_data = await PixivArtwork.query_global_data()
+            bot_owner_user_data = await PixivCommon.query_global_data()
             user_id = bot_owner_user_data.uid
         except Exception as e:
             logger.debug(f'PixivUserBookmark | 获取 Bot 所有者用户信息失败, 未配置或 cookies 失效, {e}')
@@ -369,7 +332,7 @@ async def handle_preview_user_bookmark(
     await interface.send_reply('稍等, 正在下载图片~')
 
     try:
-        preview_image = await PixivUser(uid=int(user_id)).query_user_bookmarks_with_preview(page=int(page))
+        preview_image = await PixivArtworkProxy.query_user_bookmarks_with_preview(uid=int(user_id), page=int(page))
         await interface.send(OmegaMessageSegment.image(preview_image.path))
     except Exception as e:
         logger.error(f'PixivUserBookmark | 获取用户(uid={user_id})收藏失败, {e}')

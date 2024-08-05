@@ -17,11 +17,10 @@ from nonebot.plugin import CommandGroup
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.permission import IS_ADMIN
 from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.utils.pixiv_api import Pixivision
-
-from .monitor import scheduler
 from .helpers import add_pixivision_sub, delete_pixivision_sub, format_pixivision_update_message
-
+from .monitor import scheduler
 
 pixivision = CommandGroup(
     'pixivision',
@@ -50,7 +49,7 @@ async def handle_query_articles_list(page: Annotated[str, ArgStr('page')]) -> No
         return
 
     try:
-        page_preview = await Pixivision.query_illustration_list_with_preview(page=int(page))
+        page_preview = await PixivArtworkProxy.query_pixivision_illustration_list_with_preview(page=int(page))
     except Exception as e:
         logger.error(f'获取 Pixivision 特辑页面(page={page})失败, {e!r}')
         await interface.send_at_sender('获取 Pixivision 特辑列表失败, 可能是网络原因异常, 请稍后再试')

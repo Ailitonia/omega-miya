@@ -1,15 +1,14 @@
 """
 @Author         : Ailitonia
-@Date           : 2024/8/4 下午5:32
-@FileName       : artwork_proxy
+@Date           : 2024/8/5 下午10:37
+@FileName       : site
 @Project        : nonebot2_miya
-@Description    : 图站 API 及本地图片缓存统一接口
+@Description    : 图库适配
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
-from .sites import PixivArtworkProxy
-
+from .pixiv import PixivArtworkProxy
 
 __all__ = [
     'PixivArtworkProxy',

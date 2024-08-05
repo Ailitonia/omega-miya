@@ -22,9 +22,9 @@ __plugin_meta__ = PluginMetadata(
           '/图库统计\n'
           '/图库查询 [关键词, ...]\n'
           '/导入图库',
-    config=None,
     extra={'author': 'Ailitonia'},
 )
+
 
 from . import command as command
 

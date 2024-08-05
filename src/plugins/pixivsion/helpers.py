@@ -8,17 +8,18 @@
 @Software       : PyCharm
 """
 
-from sqlalchemy.exc import NoResultFound
 from typing import Iterable
 
 from nonebot import logger
 from nonebot.adapters import Message
 from nonebot.exception import ActionFailed
+from sqlalchemy.exc import NoResultFound
 
 from src.database import PixivisionArticleDAL, begin_db_session
 from src.database.internal.entity import Entity
 from src.database.internal.subscription_source import SubscriptionSource
 from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.service.omega_base.internal import OmegaPixivisionSubSource
 from src.utils.pixiv_api import Pixivision
 from src.utils.pixiv_api.model.pixivision import PixivisionIllustration
@@ -102,13 +103,13 @@ async def format_pixivision_update_message(article: Pixivision, message_prefix: 
 
     send_message = f'《{pixivision_data.title}》\n'
     try:
-        eyecatch_image = await article.query_eyecatch_image()
+        eyecatch_image = await PixivArtworkProxy.query_pixivision_eyecatch_image(aid=article.aid)
         send_message += OmegaMessageSegment.image(url=eyecatch_image.path)
     except Exception as e:
         logger.warning(f'PixivisionArticleMonitor | Query {article} eye-catch image failed, {e!r}')
     send_message += f'\n{pixivision_data.description}\n'
     try:
-        preview_image = await article.query_article_with_preview()
+        preview_image = await PixivArtworkProxy.query_pixivision_article_with_preview(aid=article.aid)
         send_message += OmegaMessageSegment.image(url=preview_image.path)
     except Exception as e:
         logger.warning(f'PixivisionArticleMonitor | Query {article} preview image failed, {e!r}')

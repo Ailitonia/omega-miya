@@ -23,8 +23,9 @@ class ArtworkClassification(IntEnum):
     """作品分类(标记作品分级分类等是否是人工识别过的)"""
     Unknown: int = -1
     Unclassified: int = 0
-    Confirmed: int = 1  # 确认为 "人类生成" 作品, 已人工标记或从可信已标记来源获取
-    AIGenerated: int = 2  # 确认为 AI 生成作品
+    AIGenerated: int = 1  # 确认/疑似为 AI 生成作品
+    Automatic: int = 2  # 由图站分类/图站分级/第三方接口分类, 可能由人工进行分类但不完全可信, 一般可作为上层插件使用的最低可信级别
+    Confirmed: int = 3  # 由人工审核/确认为 "人类生成" 的作品
 
 
 @unique
@@ -60,12 +61,14 @@ class ArtworkPage(BaseArtworkProxyModel):
 
 class ArtworkData(BaseArtworkProxyModel):
     """作品信息"""
-    aid: str
     origin: str  # 作品来源(指收录该作品的站点, 如 Pixiv, Danbooru, yande 等)
+    aid: str
     title: str
     uid: Optional[str] = None
     uname: str
     tags: list[str]
+    width: int
+    height: int
     description: Optional[str] = None
     classification: ArtworkClassification
     rating: ArtworkRating  # 不同图站分级不同, 这里参考 Danbooru 的分级方式, Pixiv 的 r18 被视为 Explicit
@@ -73,19 +76,28 @@ class ArtworkData(BaseArtworkProxyModel):
     pages: list[ArtworkPage]
 
     @property
+    def cover_page_url(self) -> AnyHttpUrl:
+        """首页/封面原图链接"""
+        return self.index_pages[0].original_file.url
+
+    @property
     def index_pages(self) -> dict[int, ArtworkPage]:
+        """所有图片"""
         return {k: v for k, v in enumerate(self.pages)}
 
     @property
     def preview_pages_url(self) -> dict[int, AnyHttpUrl]:
+        """所有预览图"""
         return {k: v for k, v in enumerate(x.preview_file.url for x in self.pages)}
 
     @property
     def regular_pages_url(self) -> dict[int, AnyHttpUrl]:
+        """所有通常大图"""
         return {k: v for k, v in enumerate(x.regular_file.url for x in self.pages)}
 
     @property
     def original_pages_url(self) -> dict[int, AnyHttpUrl]:
+        """所有原图"""
         return {k: v for k, v in enumerate(x.original_file.url for x in self.pages)}
 
 

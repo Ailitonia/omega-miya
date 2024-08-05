@@ -11,14 +11,14 @@
 import asyncio
 from copy import deepcopy
 from typing import Literal
-from pydantic import BaseModel, ConfigDict
 
 from nonebot.adapters import Message
-from nonebot.log import logger
 from nonebot.exception import ActionFailed
+from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.rule import ArgumentParser, Namespace
 from nonebot.utils import run_sync
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import NoResultFound
 
 from src.database import PixivArtworkDAL, begin_db_session
@@ -27,14 +27,13 @@ from src.database.internal.subscription_source import SubscriptionSource, Subscr
 from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaEntity, OmegaMessage, OmegaMessageSegment
 from src.service.artwork_collection import PixivArtworkCollection
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.service.omega_base.internal import OmegaPixivUserSubSource
+from src.utils.image_utils import ImageUtils
 from src.utils.pixiv_api import PixivArtwork, PixivUser
 from src.utils.process_utils import semaphore_gather
-from src.utils.image_utils import ImageUtils
-
 from .config import pixiv_plugin_config, pixiv_plugin_resource_config
 from .consts import ALLOW_R18_NODE
-
 
 PIXIV_USER_SUB_TYPE: str = SubscriptionSourceType.pixiv_user.value
 """Pixiv 用户订阅类型"""
@@ -63,7 +62,7 @@ async def has_allow_r18_node(matcher: Matcher, interface: OmegaInterface) -> boo
 
 
 async def _prepare_artwork_preview(
-        artwork: PixivArtwork,
+        artwork: PixivArtworkProxy,
         *,
         allow_r18: bool = False,
         message_prefix: str | None = None,
@@ -81,7 +80,7 @@ async def _prepare_artwork_preview(
         """噪点处理图片"""
         image = ImageUtils.init_from_file(file=image)
         image.gaussian_noise(sigma=16)
-        image.mark(text=f'Pixiv | {artwork.pid}')
+        image.mark(text=f'Pixiv | {artwork.s_aid}')
         return image
 
     @run_sync
@@ -89,14 +88,14 @@ async def _prepare_artwork_preview(
         """模糊处理图片"""
         image = ImageUtils.init_from_file(file=image)
         image.gaussian_blur()
-        image.mark(text=f'Pixiv | {artwork.pid}')
+        image.mark(text=f'Pixiv | {artwork.s_aid}')
         return image
 
     @run_sync
     def _handle_mark(image: TemporaryResource) -> ImageUtils:
         """标记水印"""
         image = ImageUtils.init_from_file(file=image)
-        image.mark(text=f'Pixiv | {artwork.pid}')
+        image.mark(text=f'Pixiv | {artwork.s_aid}')
         return image
 
     async def _handle_image(
@@ -104,7 +103,7 @@ async def _prepare_artwork_preview(
             file_name_prefix: str
     ) -> TemporaryResource:
         """异步处理图片"""
-        is_r18 = (await artwork.query_artwork()).is_r18
+        is_r18 = True if (await artwork.query()).rating.value >= 3 else False
         if is_r18 and allow_r18:
             image = await _handle_noise(image=image_)
             file_name = f'{file_name_prefix}_noise_sigma16_marked.jpg'
@@ -119,27 +118,18 @@ async def _prepare_artwork_preview(
         return await image.save(file=output_file_)
 
     preview_page_limiting = pixiv_plugin_config.pixiv_plugin_artwork_preview_page_limiting
-    enable_generate_gif = pixiv_plugin_config.pixiv_plugin_enable_generate_gif
 
-    artwork_data = await artwork.query_artwork()
-    artwork_desc = await artwork.format_desc_msg()
+    artwork_data = await artwork.query()
+    artwork_desc = await artwork.get_std_desc()
 
-    if (enable_generate_gif
-            and artwork_data.illust_type == 2
-            and (not artwork_data.is_r18
-                 or (allow_r18 and artwork_data.is_r18))):
-        # 启用了动图作品生成 gif
-        artwork_gif = await artwork.generate_ugoira_gif(original=False)
-        send_msg = OmegaMessageSegment.image(url=artwork_gif.path)
-    else:
-        # 直接生成作品预览
-        artwork_pages = await artwork.get_all_page_file(page_limit=preview_page_limiting)
-        tasks = [_handle_image(x, file_name_prefix=x.path.name.removesuffix(x.path.suffix)) for x in artwork_pages]
-        send_pages = await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
-        send_msg = OmegaMessage(OmegaMessageSegment.image(url=x.path) for x in send_pages)
+    # 生成作品预览
+    artwork_pages = await artwork.get_all_pages_file(page_limit=preview_page_limiting)
+    tasks = [_handle_image(x, file_name_prefix=x.path.name.removesuffix(x.path.suffix)) for x in artwork_pages]
+    send_pages = await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
+    send_msg = OmegaMessage(OmegaMessageSegment.image(url=x.path) for x in send_pages)
 
-    if artwork_data.page_count > preview_page_limiting:
-        artwork_desc = f'({preview_page_limiting} of {artwork_data.page_count} pages)\n{"-"*16}\n{artwork_desc}'
+    if len(artwork_data.pages) > preview_page_limiting:
+        artwork_desc = f'({preview_page_limiting} of {len(artwork_data.pages)} pages)\n{"-" * 16}\n{artwork_desc}'
 
     if message_prefix is not None:
         send_msg = message_prefix + send_msg + f'\n{artwork_desc}'
@@ -150,7 +140,7 @@ async def _prepare_artwork_preview(
 
 
 async def get_artwork_preview(
-        artwork: PixivArtwork,
+        artwork: PixivArtworkProxy,
         *,
         allow_r18: bool = False,
         message_prefix: str | None = None
@@ -351,7 +341,8 @@ async def pixiv_user_new_artworks_monitor_main(pixiv_user: PixivUser) -> None:
 
     # 获取作品更新消息内容
     message_prefix = f'【Pixiv】{user_data.name}发布了新的作品!\n'
-    preview_msg_tasks = [get_artwork_preview(artwork=PixivArtwork(p), message_prefix=message_prefix) for p in new_pids]
+    preview_msg_tasks = [get_artwork_preview(artwork=PixivArtworkProxy(p), message_prefix=message_prefix) for p in
+                         new_pids]
     send_messages = await semaphore_gather(tasks=preview_msg_tasks, semaphore_num=3, return_exceptions=False)
 
     # 数据库中插入新作品信息

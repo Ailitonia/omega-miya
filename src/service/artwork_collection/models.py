@@ -3,7 +3,7 @@
 @Date           : 2024/6/11 上午1:54
 @FileName       : models
 @Project        : nonebot2_miya
-@Description    : 
+@Description    : Collection Artwork Models
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
