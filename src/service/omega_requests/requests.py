@@ -8,24 +8,22 @@
 @Software       : PyCharm 
 """
 
-import pathlib
 import hashlib
-import ujson
-from copy import deepcopy
-from urllib.parse import urlparse
-
-from typing import AsyncGenerator, Optional, Any
+import pathlib
+from asyncio.exceptions import TimeoutError
 from contextlib import asynccontextmanager
+from copy import deepcopy
+from typing import AsyncGenerator, Optional, Any
+from urllib.parse import urlparse, unquote
 
+import ujson
 from nonebot import get_driver, logger
-from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
 from nonebot.drivers import (ForwardDriver, HTTPClientMixin, HTTPClientSession, Response, Request,
                              WebSocket, WebSocketClientMixin)
+from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
 
-from asyncio.exceptions import TimeoutError
 from src.exception import WebSourceException
 from src.resource import TemporaryResource
-
 from .config import http_proxy_config
 
 
@@ -89,7 +87,7 @@ class OmegaRequests(object):
     def parse_url_file_name(cls, url: str) -> str:
         """尝试解析 url 对应的文件名"""
         parsed_url = urlparse(url=url, allow_fragments=True)
-        original_file_name = pathlib.Path(parsed_url.path).name
+        original_file_name = pathlib.PurePath(unquote(parsed_url.path)).name
         return original_file_name
 
     @classmethod
@@ -97,7 +95,7 @@ class OmegaRequests(object):
         """尝试解析 url 对应的文件后缀名并用 hash 和前缀代替"""
         parsed_url = urlparse(url=url, allow_fragments=True)
         name_hash = hashlib.sha256(url.encode(encoding='utf8')).hexdigest()
-        name_suffix = pathlib.Path(parsed_url.path).suffix
+        name_suffix = pathlib.PurePath(unquote(parsed_url.path)).suffix
         name_prefix = '_'.join(prefix) if prefix else 'file'
         new_name = f'{name_prefix}_{name_hash}{name_suffix}'
         return new_name
