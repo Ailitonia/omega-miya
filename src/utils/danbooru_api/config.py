@@ -21,6 +21,9 @@ class DanbooruConfig(BaseModel):
 
     @property
     def auth_params(self) -> dict[str, str]:
+        if self.danbooru_username is None or self.danbooru_api_key is None:
+            return {}
+
         return {'login': self.danbooru_username, 'api_key': self.danbooru_api_key}
 
 

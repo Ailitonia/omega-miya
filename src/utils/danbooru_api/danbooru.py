@@ -40,7 +40,7 @@ from .models import (
 )
 
 
-class DanbooruCommonBase(DanbooruBase):
+class DanbooruCommonBase(DanbooruBase, abc.ABC):
     """Danbooru Common utils"""
 
     __slots__ = ('id',)
@@ -91,7 +91,7 @@ class DanbooruCommonBase(DanbooruBase):
 """Versioned Types"""
 
 
-class DanbooruArtistBase(DanbooruCommonBase):
+class DanbooruArtistBase(DanbooruCommonBase, abc.ABC):
     """Artist, Docs: https://danbooru.donmai.us/wiki_pages/api:artists"""
 
     def __init__(self, id_: int):
@@ -126,7 +126,7 @@ class DanbooruArtistBase(DanbooruCommonBase):
         return Artist.model_validate(await self._show())
 
 
-class DanbooruArtistCommentaryBase(DanbooruCommonBase):
+class DanbooruArtistCommentaryBase(DanbooruCommonBase, abc.ABC):
     """ArtistCommentary, Docs: https://danbooru.donmai.us/wiki_pages/api:artist_commentaries"""
 
     def __init__(self, id_: int):
@@ -155,7 +155,7 @@ class DanbooruArtistCommentaryBase(DanbooruCommonBase):
         return ArtistCommentary.model_validate(await self._show())
 
 
-class DanbooruNoteBase(DanbooruCommonBase):
+class DanbooruNoteBase(DanbooruCommonBase, abc.ABC):
     """Note, Docs: https://danbooru.donmai.us/wiki_pages/api:notes"""
 
     def __init__(self, id_: int):
@@ -184,7 +184,7 @@ class DanbooruNoteBase(DanbooruCommonBase):
         return Note.model_validate(await self._show())
 
 
-class DanbooruPoolBase(DanbooruCommonBase):
+class DanbooruPoolBase(DanbooruCommonBase, abc.ABC):
     """Pool, Docs: https://danbooru.donmai.us/wiki_pages/api:pools"""
 
     def __init__(self, id_: int):
@@ -213,7 +213,7 @@ class DanbooruPoolBase(DanbooruCommonBase):
         return Pool.model_validate(await self._show())
 
 
-class DanbooruPostBase(DanbooruCommonBase):
+class DanbooruPostBase(DanbooruCommonBase, abc.ABC):
     """Post, Docs: https://danbooru.donmai.us/wiki_pages/api:posts"""
 
     def __init__(self, id_: int):
@@ -253,7 +253,7 @@ class DanbooruPostBase(DanbooruCommonBase):
         return parse_obj_as(list[Post], await cls.get_json(url=url))
 
     @classmethod
-    async def explore_searchesr_posts(cls) -> list[tuple[str, float]]:
+    async def explore_searches_posts(cls) -> list[tuple[str, float]]:
         url = f'{cls.get_root_url()}/explore/posts/searches.json'
         return parse_obj_as(list[tuple[str, float]], await cls.get_json(url=url))
 
@@ -277,7 +277,7 @@ class DanbooruPostBase(DanbooruCommonBase):
         return ArtistCommentary.model_validate(await self.get_json(url=url))
 
 
-class DanbooruWikiBase(DanbooruCommonBase):
+class DanbooruWikiBase(DanbooruCommonBase, abc.ABC):
     """Wiki, Docs: https://danbooru.donmai.us/wiki_pages/api:wikis"""
 
     def __init__(self, id_: int):
@@ -309,7 +309,7 @@ class DanbooruWikiBase(DanbooruCommonBase):
 """Type Versions"""
 
 
-class DanbooruArtistVersionBase(DanbooruCommonBase):
+class DanbooruArtistVersionBase(DanbooruCommonBase, abc.ABC):
     """ArtistVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:artist_versions"""
 
     def __init__(self, id_: int):
@@ -338,7 +338,7 @@ class DanbooruArtistVersionBase(DanbooruCommonBase):
         return ArtistVersion.model_validate(await self._show())
 
 
-class DanbooruArtistCommentaryVersionBase(DanbooruCommonBase):
+class DanbooruArtistCommentaryVersionBase(DanbooruCommonBase, abc.ABC):
     """ArtistCommentaryVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:artist_commentary_versions"""
 
     def __init__(self, id_: int):
@@ -367,7 +367,7 @@ class DanbooruArtistCommentaryVersionBase(DanbooruCommonBase):
         return ArtistCommentaryVersion.model_validate(await self._show())
 
 
-class DanbooruNoteVersionBase(DanbooruCommonBase):
+class DanbooruNoteVersionBase(DanbooruCommonBase, abc.ABC):
     """NoteVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:note_versions"""
 
     def __init__(self, id_: int):
@@ -396,7 +396,7 @@ class DanbooruNoteVersionBase(DanbooruCommonBase):
         return NoteVersion.model_validate(await self._show())
 
 
-class DanbooruPoolVersionBase(DanbooruCommonBase):
+class DanbooruPoolVersionBase(DanbooruCommonBase, abc.ABC):
     """PoolVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:pool_versions"""
 
     def __init__(self, id_: int):
@@ -425,7 +425,7 @@ class DanbooruPoolVersionBase(DanbooruCommonBase):
         raise NotImplementedError
 
 
-class DanbooruPostVersionBase(DanbooruCommonBase):
+class DanbooruPostVersionBase(DanbooruCommonBase, abc.ABC):
     """PostVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:post_versions"""
 
     def __init__(self, id_: int):
@@ -454,7 +454,7 @@ class DanbooruPostVersionBase(DanbooruCommonBase):
         raise NotImplementedError
 
 
-class DanbooruWikiPageVersionBase(DanbooruCommonBase):
+class DanbooruWikiPageVersionBase(DanbooruCommonBase, abc.ABC):
     """WikiPageVersion, Docs: https://danbooru.donmai.us/wiki_pages/api:wiki_page_versions"""
 
     def __init__(self, id_: int):
@@ -486,7 +486,7 @@ class DanbooruWikiPageVersionBase(DanbooruCommonBase):
 """Non-versioned Types"""
 
 
-class DanbooruCommentBase(DanbooruCommonBase):
+class DanbooruCommentBase(DanbooruCommonBase, abc.ABC):
     """Comment, Docs: https://danbooru.donmai.us/wiki_pages/api:comments"""
 
     def __init__(self, id_: int):
@@ -515,7 +515,7 @@ class DanbooruCommentBase(DanbooruCommonBase):
         return Comment.model_validate(await self._show())
 
 
-class DanbooruDmailBase(DanbooruCommonBase):
+class DanbooruDmailBase(DanbooruCommonBase, abc.ABC):
     """Dmail, Docs: https://danbooru.donmai.us/wiki_pages/api:dmails"""
 
     def __init__(self, id_: int):
@@ -547,7 +547,7 @@ class DanbooruDmailBase(DanbooruCommonBase):
             return Dmail.model_validate(await self._show())
 
 
-class DanbooruForumPostBase(DanbooruCommonBase):
+class DanbooruForumPostBase(DanbooruCommonBase, abc.ABC):
     """ForumPost, Docs: https://danbooru.donmai.us/wiki_pages/api:forum_posts"""
 
     def __init__(self, id_: int):
@@ -576,7 +576,7 @@ class DanbooruForumPostBase(DanbooruCommonBase):
         return ForumPost.model_validate(await self._show())
 
 
-class DanbooruForumTopicBase(DanbooruCommonBase):
+class DanbooruForumTopicBase(DanbooruCommonBase, abc.ABC):
     """ForumTopic, Docs: https://danbooru.donmai.us/wiki_pages/api:forum_topics"""
 
     def __init__(self, id_: int):
@@ -605,7 +605,7 @@ class DanbooruForumTopicBase(DanbooruCommonBase):
         return ForumTopic.model_validate(await self._show())
 
 
-class DanbooruPostAppealBase(DanbooruCommonBase):
+class DanbooruPostAppealBase(DanbooruCommonBase, abc.ABC):
     """PostAppeal, Docs: https://danbooru.donmai.us/wiki_pages/api:post_appeals"""
 
     def __init__(self, id_: int):
@@ -634,7 +634,7 @@ class DanbooruPostAppealBase(DanbooruCommonBase):
         return PostAppeal.model_validate(await self._show())
 
 
-class DanbooruPostFlagBase(DanbooruCommonBase):
+class DanbooruPostFlagBase(DanbooruCommonBase, abc.ABC):
     """PostFlag, Docs: https://danbooru.donmai.us/wiki_pages/api:post_flags"""
 
     def __init__(self, id_: int):
@@ -663,7 +663,7 @@ class DanbooruPostFlagBase(DanbooruCommonBase):
         return PostFlag.model_validate(await self._show())
 
 
-class DanbooruTagBase(DanbooruCommonBase):
+class DanbooruTagBase(DanbooruCommonBase, abc.ABC):
     """Tag, Docs: https://danbooru.donmai.us/wiki_pages/api:tags"""
 
     def __init__(self, id_: int):
@@ -692,7 +692,7 @@ class DanbooruTagBase(DanbooruCommonBase):
         return Tag.model_validate(await self._show())
 
 
-class DanbooruTagAliasBase(DanbooruCommonBase):
+class DanbooruTagAliasBase(DanbooruCommonBase, abc.ABC):
     """TagAlias, Docs: https://danbooru.donmai.us/wiki_pages/api:tag_aliases"""
 
     def __init__(self, id_: int):
@@ -721,7 +721,7 @@ class DanbooruTagAliasBase(DanbooruCommonBase):
         return TagAlias.model_validate(await self._show())
 
 
-class DanbooruTagImplicationBase(DanbooruCommonBase):
+class DanbooruTagImplicationBase(DanbooruCommonBase, abc.ABC):
     """TagImplication, Docs: https://danbooru.donmai.us/wiki_pages/api:tag_implications"""
 
     def __init__(self, id_: int):
@@ -750,7 +750,7 @@ class DanbooruTagImplicationBase(DanbooruCommonBase):
         return TagImplication.model_validate(await self._show())
 
 
-class DanbooruUploadBase(DanbooruCommonBase):
+class DanbooruUploadBase(DanbooruCommonBase, abc.ABC):
     """Upload, Docs: https://danbooru.donmai.us/wiki_pages/api:uploads"""
 
     def __init__(self, id_: int):
@@ -779,7 +779,7 @@ class DanbooruUploadBase(DanbooruCommonBase):
         return Upload.model_validate(await self._show())
 
 
-class DanbooruUserBase(DanbooruCommonBase):
+class DanbooruUserBase(DanbooruCommonBase, abc.ABC):
     """User, Docs: https://danbooru.donmai.us/wiki_pages/api:users"""
 
     def __init__(self, id_: int):
