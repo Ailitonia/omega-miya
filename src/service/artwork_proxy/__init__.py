@@ -10,7 +10,6 @@
 
 from .sites import PixivArtworkProxy
 
-
 __all__ = [
     'PixivArtworkProxy',
 ]

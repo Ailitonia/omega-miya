@@ -8,13 +8,15 @@
 @Software       : PyCharm 
 """
 
+from src.service.artwork_proxy import PixivArtworkProxy
 from ..internal import BaseArtworkCollection
 
 
 class PixivArtworkCollection(BaseArtworkCollection):
-    @property
-    def origin_desc(self) -> str:
-        return f'Pixiv | {self.aid}'
+
+    @classmethod
+    def _init_self_artwork_proxy(cls, artwork_id: str | int) -> PixivArtworkProxy:
+        return PixivArtworkProxy(artwork_id=artwork_id)
 
     @classmethod
     def _get_base_origin_name(cls) -> str:

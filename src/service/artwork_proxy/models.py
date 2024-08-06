@@ -9,13 +9,11 @@
 """
 
 from enum import IntEnum, unique
-from typing import Literal, Optional, TypeAlias
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
-ArtworkPageType: TypeAlias = Literal['preview', 'regular', 'original']
 
 
 @unique
@@ -105,7 +103,6 @@ __all__ = [
     'ArtworkData',
     'ArtworkPage',
     'ArtworkPageFile',
-    'ArtworkPageType',
     'ArtworkClassification',
-    'ArtworkRating'
+    'ArtworkRating',
 ]

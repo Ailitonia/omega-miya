@@ -15,10 +15,11 @@ from urllib.parse import urlparse, unquote
 
 from src.utils.process_utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
-from .models import ArtworkData, ArtworkPageType
+from .models import ArtworkData
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
+    from .typing import ArtworkPageParamType
 
 
 class BaseArtworkProxy(abc.ABC):
@@ -54,6 +55,11 @@ class BaseArtworkProxy(abc.ABC):
     def origin_name(self) -> str:
         """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
         return self._get_base_origin_name()
+
+    @property
+    def path_config(self) -> ArtworkProxyPathConfig:
+        """对外暴露该作品对应存储路径配置, 便于插件调用"""
+        return self._get_path_config()
 
     @staticmethod
     def parse_url_file_suffix(url: str) -> str:
@@ -115,7 +121,11 @@ class BaseArtworkProxy(abc.ABC):
         """获取格式化作品描述文本"""
         raise NotImplementedError
 
-    async def _query_page(self, page_index: int = 0, page_type: ArtworkPageType = 'regular') -> bytes:
+    async def _query_page(
+            self,
+            page_index: int = 0,
+            page_type: "ArtworkPageParamType" = 'regular'
+    ) -> bytes:
         """内部方法, 加载作品图片资源"""
         artwork_data = await self.query()
 
@@ -131,7 +141,11 @@ class BaseArtworkProxy(abc.ABC):
 
         return await self._get_resource(url=file_url)
 
-    async def _save_page(self, page_index: int = 0, page_type: ArtworkPageType = 'regular') -> "TemporaryResource":
+    async def _save_page(
+            self,
+            page_index: int = 0,
+            page_type: "ArtworkPageParamType" = 'regular'
+    ) -> "TemporaryResource":
         """内部方法, 保存作品资源到本地"""
         artwork_data = await self.query()
 
@@ -158,7 +172,11 @@ class BaseArtworkProxy(abc.ABC):
             await af.write(page_content)
         return page_file
 
-    async def _load_page(self, page_index: int = 0, page_type: ArtworkPageType = 'regular') -> bytes:
+    async def _load_page(
+            self,
+            page_index: int = 0,
+            page_type: "ArtworkPageParamType" = 'regular'
+    ) -> bytes:
         """内部方法, 获取作品资源, 优先从本地缓存资源加载"""
         page_file = await self._save_page(page_index=page_index, page_type=page_type)
 
@@ -166,18 +184,26 @@ class BaseArtworkProxy(abc.ABC):
             page_content = await af.read()
         return page_content
 
-    async def get_page_bytes(self, page_index: int = 0, page_type: ArtworkPageType = 'regular') -> bytes:
+    async def get_page_bytes(
+            self,
+            page_index: int = 0,
+            page_type: "ArtworkPageParamType" = 'regular'
+    ) -> bytes:
         """获取作品文件内容, 使用本地缓存"""
         return await self._load_page(page_index=page_index, page_type=page_type)
 
-    async def get_page_file(self, page_index: int = 0, page_type: ArtworkPageType = 'regular') -> "TemporaryResource":
+    async def get_page_file(
+            self,
+            page_index: int = 0,
+            page_type: "ArtworkPageParamType" = 'regular'
+    ) -> "TemporaryResource":
         """获取作品文件资源, 使用本地缓存"""
         return await self._save_page(page_index=page_index, page_type=page_type)
 
     async def get_all_pages_file(
             self,
             page_limit: int = 10,
-            page_type: ArtworkPageType = 'regular'
+            page_type: "ArtworkPageParamType" = 'regular'
     ) -> list["TemporaryResource"]:
         """获取作品所有文件资源列表, 使用本地缓存
 

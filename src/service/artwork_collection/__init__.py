@@ -10,7 +10,6 @@
 
 from .sites import PixivArtworkCollection
 
-
 __all__ = [
     'PixivArtworkCollection'
 ]
