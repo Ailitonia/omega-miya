@@ -64,14 +64,14 @@ class ArtworkData(BaseArtworkProxyModel):
     origin: str  # 作品来源(指收录该作品的站点, 如 Pixiv, Danbooru, yande 等)
     aid: str
     title: str
-    uid: Optional[str] = None
+    uid: str
     uname: str
-    tags: list[str]
-    width: int
-    height: int
-    description: Optional[str] = None
     classification: ArtworkClassification
     rating: ArtworkRating  # 不同图站分级不同, 这里参考 Danbooru 的分级方式, Pixiv 的 r18 被视为 Explicit
+    width: int
+    height: int
+    tags: list[str]
+    description: Optional[str] = None
     source: str  # 原始出处地址(指能直接获得该作品的来源), 一般来说为 url
     pages: list[ArtworkPage]
 

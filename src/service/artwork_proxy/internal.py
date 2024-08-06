@@ -50,6 +50,11 @@ class BaseArtworkProxy(abc.ABC):
     def meta_file(self) -> "TemporaryResource":
         return self._get_path_config().meta_path(self.meta_file_name)
 
+    @property
+    def origin_name(self) -> str:
+        """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
+        return self._get_base_origin_name()
+
     @staticmethod
     def parse_url_file_suffix(url: str) -> str:
         """尝试解析 url 对应的文件后缀名"""

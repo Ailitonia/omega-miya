@@ -52,12 +52,12 @@ class PixivArtworkProxy(BaseArtworkProxy):
             'title': artwork_data.title,
             'uid': artwork_data.uid,
             'uname': artwork_data.uname,
-            'tags': artwork_data.tags,
-            'width': artwork_data.width,
-            'height': artwork_data.height,
-            'description': artwork_data.description,
             'classification': 1 if artwork_data.is_ai else 0,
             'rating': 3 if artwork_data.is_r18 else -1,
+            'width': artwork_data.width,
+            'height': artwork_data.height,
+            'tags': artwork_data.tags,
+            'description': artwork_data.description,
             'source': artwork_data.url,
             'pages': [
                 {
