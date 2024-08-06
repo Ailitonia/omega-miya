@@ -12,7 +12,7 @@ import hashlib
 import random
 from datetime import datetime
 from io import BytesIO
-from typing import Annotated, Literal, Optional
+from typing import TYPE_CHECKING, Annotated, Literal, Optional
 
 import ujson as json
 from PIL import Image, ImageDraw, ImageFont
@@ -25,13 +25,17 @@ from pydantic import BaseModel
 
 from src.compat import parse_obj_as
 from src.database import begin_db_session
-from src.resource import TemporaryResource
 from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
-from src.service.artwork_collection import CollectedArtwork, PixivArtworkCollection
-from src.service.artwork_proxy import PixivArtworkProxy
+from src.service.artwork_collection import PixivArtworkCollection
 from src.utils.image_utils import ImageUtils
 from .config import sign_in_config, sign_local_resource_config
 from .exception import DuplicateException, FailedException
+
+if TYPE_CHECKING:
+    from src.database.internal.artwork_collection import ArtworkCollection
+    from src.resource import TemporaryResource
+    from src.service.artwork_collection.typing import ArtworkCollection_T
+
 
 __FORTUNE_EVENT: list["FortuneEvent"] = []
 """缓存求签事件"""
@@ -63,7 +67,7 @@ class FortuneEvent(BaseModel):
         return hash(self.name + self.good + self.bad)
 
 
-def _load_fortune_event(file: TemporaryResource) -> list[FortuneEvent]:
+def _load_fortune_event(file: "TemporaryResource") -> list[FortuneEvent]:
     """从文件读取求签事件"""
     if file.is_file:
         logger.debug(f'loading fortune event form {file}')
@@ -102,7 +106,7 @@ def random_fortune_event(num: int = 4) -> list[FortuneEvent]:
     return random.sample(get_fortune_event(), k=num)
 
 
-def get_fortune(user_id: str, *, date: datetime | None = None) -> Fortune:
+def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
     """根据 user_id 和当天日期生成老黄历"""
     if date is None:
         date_str = str(datetime.now().date())
@@ -175,11 +179,11 @@ def get_fortune(user_id: str, *, date: datetime | None = None) -> Fortune:
 
 async def get_signin_top_image(
         source: Literal['pixiv', 'local', 'mix'] = 'pixiv'
-) -> tuple[CollectedArtwork, TemporaryResource]:
+) -> tuple["ArtworkCollection", "TemporaryResource"]:
     """获取一张生成签到卡片用的头图"""
     match source:
         case 'pixiv':
-            return await _get_signin_top_image_from_pixiv()
+            return await _get_signin_top_image_from_pixiv(collection=PixivArtworkCollection)
         case 'local':
             ...  # TODO 本地图片
         case 'mix':
@@ -188,23 +192,25 @@ async def get_signin_top_image(
             ...
 
 
-async def _get_signin_top_image_from_pixiv() -> tuple[CollectedArtwork, TemporaryResource]:
-    """从 pixiv 获取一张生成签到卡片用的头图"""
-    random_artworks = await PixivArtworkCollection.random(num=5, nsfw_tag=0, ratio=1)
+async def _get_signin_top_image_from_pixiv(
+        collection: "ArtworkCollection_T"
+) -> tuple["ArtworkCollection", "TemporaryResource"]:
+    """从数据库获取一张生成签到卡片用的头图"""
+    random_artworks = await collection.random(num=5, ratio=1)
 
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
-    for random_artwork in random_artworks:
+    for artwork in random_artworks:
         try:
-            artwork_file = await PixivArtworkProxy(random_artwork.pid).get_page_file()
-            return random_artwork, artwork_file
+            artwork_file = await collection(artwork.aid).artwork_proxy.get_page_file()
+            return artwork, artwork_file
         except Exception as e:
-            logger.warning(f'getting pixiv artwork(pid={random_artwork.pid}) failed, {e}')
+            logger.warning(f'getting artwork(aid={artwork.aid}) page file failed, {e}')
             continue
 
     raise RuntimeError(f'all attempts to fetch artwork resources have failed')
 
 
-async def get_profile_image(bot: Bot, event: Event) -> TemporaryResource:
+async def get_profile_image(bot: Bot, event: Event) -> "TemporaryResource":
     """获取用户头像"""
     async with begin_db_session() as session:
         interface = OmegaInterface(acquire_type='user')(bot=bot, event=event, session=session)
@@ -298,11 +304,11 @@ async def generate_signin_card(
         user_id: str,
         user_text: str,
         friendship: float,
-        top_img: tuple[CollectedArtwork, TemporaryResource],
+        top_img: tuple["ArtworkCollection", "TemporaryResource"],
         *,
         width: int = 1024,
         draw_fortune: bool = True,
-        head_img: TemporaryResource | None = None) -> TemporaryResource:
+        head_img: Optional["TemporaryResource"] = None) -> "TemporaryResource":
     """生成签到卡片
 
     :param user_id: 用户id
@@ -317,10 +323,9 @@ async def generate_signin_card(
     # 获取头图
     signin_top_img_data, signin_top_img_file = top_img
     # 头图作品来源
-    if not signin_top_img_data.uname.strip():
-        top_img_origin_text = f'{signin_top_img_data.source}'
-    else:
-        top_img_origin_text = f'{signin_top_img_data.source} | @{signin_top_img_data.uname}'
+    top_img_origin_text = f'{signin_top_img_data.source.title()} | {signin_top_img_data.aid}'
+    if signin_top_img_data.uname.strip():
+        top_img_origin_text += f' | @{signin_top_img_data.uname}'
 
     @run_sync
     def _handle_signin_card() -> bytes:
@@ -381,7 +386,7 @@ async def generate_signin_card(
         fortune_text_width, fortune_text_height = ImageUtils.get_text_size(text=user_fortune.text, font=bd_text_font)
         fortune_star_width, fortune_star_height = ImageUtils.get_text_size(text=user_fortune.star, font=text_font)
         # 底部文字
-        bottom_text_width, bottom_text_height = ImageUtils.get_text_size(text=f'{"@@##"*4}\n', font=bottom_text_font)
+        bottom_text_width, bottom_text_height = ImageUtils.get_text_size(text=f'{"@@##" * 4}\n', font=bottom_text_font)
 
         # 总高度
         if draw_fortune:
@@ -573,16 +578,16 @@ async def handle_generate_sign_in_card(
         # 根据连签日期设置不同增幅
         if continuous_days < 7:
             base_friendship_inc = int(30 * (1 + random.gauss(0.25, 0.25)))
-            currency_inc = 1 * sign_in_config.signin_base_currency
+            currency_inc = 1 * sign_in_config.signin_plugin_base_currency
         elif continuous_days < 30:
             base_friendship_inc = int(70 * (1 + random.gauss(0.35, 0.2)))
-            currency_inc = 3 * sign_in_config.signin_base_currency
+            currency_inc = 3 * sign_in_config.signin_plugin_base_currency
         else:
             base_friendship_inc = int(110 * (1 + random.gauss(0.45, 0.15)))
-            currency_inc = 5 * sign_in_config.signin_base_currency
+            currency_inc = 5 * sign_in_config.signin_plugin_base_currency
 
         # 将能量值兑换为好感度
-        friendship_inc = friendship.energy * sign_in_config.signin_ef_exchange_rate + base_friendship_inc
+        friendship_inc = friendship.energy * sign_in_config.signin_plugin_ef_exchange_rate + base_friendship_inc
         # 增加后的好感度及硬币
         friendship_now = friendship.friendship + friendship_inc
         currency_now = friendship.currency + currency_inc
@@ -595,14 +600,14 @@ async def handle_generate_sign_in_card(
             raise FailedException(f'增加好感度失败, {e}') from e
 
         nick_name = interface.get_event_handler().get_user_nickname()
-        user_text = f'@{nick_name} {sign_in_config.signin_friendship_alias}+{int(base_friendship_inc)} ' \
-                    f'{sign_in_config.signin_currency_alias}+{int(currency_inc)}\n' \
+        user_text = f'@{nick_name} {sign_in_config.signin_plugin_friendship_alias}+{int(base_friendship_inc)} ' \
+                    f'{sign_in_config.signin_plugin_currency_alias}+{int(currency_inc)}\n' \
                     f'已连续签到{continuous_days}天, 累计签到{total_days}天\n' \
-                    f'已将{int(friendship.energy)}{sign_in_config.signin_energy_alias}兑换为' \
-                    f'{int(friendship.energy * sign_in_config.signin_ef_exchange_rate)}' \
-                    f'{sign_in_config.signin_friendship_alias}\n' \
-                    f'当前{sign_in_config.signin_friendship_alias}: {int(friendship_now)}\n' \
-                    f'当前{sign_in_config.signin_currency_alias}: {int(currency_now)}'
+                    f'已将{int(friendship.energy)}{sign_in_config.signin_plugin_energy_alias}兑换为' \
+                    f'{int(friendship.energy * sign_in_config.signin_plugin_ef_exchange_rate)}' \
+                    f'{sign_in_config.signin_plugin_friendship_alias}\n' \
+                    f'当前{sign_in_config.signin_plugin_friendship_alias}: {int(friendship_now)}\n' \
+                    f'当前{sign_in_config.signin_plugin_currency_alias}: {int(currency_now)}'
 
         await interface.entity.commit_session()
 
@@ -661,8 +666,8 @@ async def handle_generate_fortune_card(
         user_line = f'@{nick_name}\n' if not pock_text else f'@{nick_name} {pock_text}\n'
         user_text = f'{hitokoto}\n\n' \
                     f'{user_line}' \
-                    f'当前{sign_in_config.signin_friendship_alias}: {int(friendship.friendship)}\n' \
-                    f'当前{sign_in_config.signin_currency_alias}: {int(friendship.currency)}'
+                    f'当前{sign_in_config.signin_plugin_friendship_alias}: {int(friendship.friendship)}\n' \
+                    f'当前{sign_in_config.signin_plugin_currency_alias}: {int(friendship.currency)}'
 
         try:
             head_img = await get_profile_image(bot=bot, event=event)
@@ -714,7 +719,7 @@ async def handle_fix_sign_in(
             await interface.entity.change_friendship(currency=(- fix_cost_))
 
             # 设置一个状态指示生成卡片中添加文字
-            state.update({'_checked_sign_in_text': f'已消耗{fix_cost_}{sign_in_config.signin_currency_alias}~\n'
+            state.update({'_checked_sign_in_text': f'已消耗{fix_cost_}{sign_in_config.signin_plugin_currency_alias}~\n'
                                                    f'成功补签了{fix_date_text_}的签到!'})
             logger.success(f'SignIn | User({interface.entity.tid}) 补签{fix_date_text_}成功')
             await handle_generate_fortune_card(bot=bot, event=event, state=state, interface=interface)
@@ -741,15 +746,17 @@ async def handle_fix_sign_in(
 
         fix_date_text = datetime.fromordinal(last_missing_sign_in_day).strftime('%Y年%m月%d日')
         fix_days = datetime.now().toordinal() - last_missing_sign_in_day
-        base_cost = 2 * sign_in_config.signin_base_currency
+        base_cost = 2 * sign_in_config.signin_plugin_base_currency
         fix_cost = base_cost if fix_days <= 3 else fix_days * base_cost
 
         # 获取当前好感度信息
         friendship = await interface.entity.query_friendship()
 
         if fix_cost > friendship.currency:
-            logger.info(f'SignIn | User({interface.entity.tid}) 未补签, {sign_in_config.signin_currency_alias}不足')
-            tip_msg = f'没有足够的{sign_in_config.signin_currency_alias}【{fix_cost}】进行补签, 已取消操作'
+            logger.info(
+                f'SignIn | User({interface.entity.tid}) 未补签, {sign_in_config.signin_plugin_currency_alias}不足'
+            )
+            tip_msg = f'没有足够的{sign_in_config.signin_plugin_currency_alias}【{fix_cost}】进行补签, 已取消操作'
             await interface.send_at_sender(tip_msg)
             return
 
@@ -762,7 +769,7 @@ async def handle_fix_sign_in(
         await interface.send_at_sender('补签失败了, 签到状态异常, 请稍后再试或联系管理员处理')
         return
 
-    ensure_msg = f'使用{fix_cost}{sign_in_config.signin_currency_alias}补签{fix_date_text}\n\n确认吗?\n【是/否】'
+    ensure_msg = f'使用{fix_cost}{sign_in_config.signin_plugin_currency_alias}补签{fix_date_text}\n\n确认吗?\n【是/否】'
     await interface.send_at_sender(ensure_msg)
     await interface.matcher.reject_arg('sign_in_ensure')
 

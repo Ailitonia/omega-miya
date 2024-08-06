@@ -10,25 +10,22 @@
 
 from nonebot import get_driver
 from nonebot.adapters import Bot
-from nonebot.log import logger
-from nonebot.message import handle_event
-from nonebot.plugin import MatcherGroup, on_notice
-from nonebot.rule import to_me
-
 from nonebot.adapters.onebot.v11.event import (
     PokeNotifyEvent as OneBotV11PokeNotifyEvent,
     GroupMessageEvent as OneBotV11GroupMessageEvent,
     PrivateMessageEvent as OneBotV11PrivateMessageEvent
 )
 from nonebot.adapters.onebot.v11.message import Message as OneBotV11Message
+from nonebot.log import logger
+from nonebot.message import handle_event
+from nonebot.plugin import MatcherGroup, on_notice
+from nonebot.rule import to_me
 
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.rule import event_has_permission_level
 from src.service import enable_processor_state
-
 from .config import sign_in_config
 from .helpers import handle_generate_fortune_card, handle_generate_sign_in_card, handle_fix_sign_in
-
 
 _COMMAND_START: set[str] = get_driver().config.command_start
 _DEFAULT_COMMAND_START: str = list(_COMMAND_START)[0] if _COMMAND_START else ''
@@ -45,7 +42,7 @@ sign_in = MatcherGroup(
 sign_in.on_command('签到', handlers=[handle_generate_sign_in_card])
 sign_in.on_command('老黄历', aliases={'好感度', '一言'}, handlers=[handle_generate_fortune_card])
 
-if sign_in_config.signin_enable_regex_matcher:
+if sign_in_config.signin_plugin_enable_regex_matcher:
     sign_in.on_regex(r'^签到$', handlers=[handle_generate_sign_in_card])
     sign_in.on_regex(r'^(老黄历|今日(运势|人品)|一言|好感度|我的好感)$', handlers=[handle_generate_fortune_card])
 
