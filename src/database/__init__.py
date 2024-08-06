@@ -8,11 +8,11 @@
 @Software       : PyCharm 
 """
 
-from .internal import *
 from .helpers import begin_db_session, get_db_session
-
+from .internal import *
 
 __all__ = [
+    'ArtworkCollectionDAL',
     'AuthSettingDAL',
     'BiliDynamicDAL',
     'BotSelfDAL',
@@ -22,8 +22,6 @@ __all__ = [
     'EntityDAL',
     'FriendshipDAL',
     'HistoryDAL',
-    'PixivArtworkDAL',
-    'PixivArtworkPageDAL',
     'PixivisionArticleDAL',
     'PluginDAL',
     'SignInDAL',

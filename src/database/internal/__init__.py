@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+from .artwork_collection import ArtworkCollectionDAL
 from .auth_setting import AuthSettingDAL
 from .bili_dynamic import BiliDynamicDAL
 from .bot import BotSelfDAL
@@ -17,8 +18,6 @@ from .email_box_bind import EmailBoxBindDAL
 from .entity import EntityDAL
 from .friendship import FriendshipDAL
 from .history import HistoryDAL
-from .pixiv_artwork import PixivArtworkDAL
-from .pixiv_artwork_page import PixivArtworkPageDAL
 from .pixivision_article import PixivisionArticleDAL
 from .plugin import PluginDAL
 from .sign_in import SignInDAL
@@ -31,6 +30,7 @@ from .word_bank import WordBankDAL
 
 
 __all__ = [
+    'ArtworkCollectionDAL',
     'AuthSettingDAL',
     'BiliDynamicDAL',
     'BotSelfDAL',
@@ -40,8 +40,6 @@ __all__ = [
     'EntityDAL',
     'FriendshipDAL',
     'HistoryDAL',
-    'PixivArtworkDAL',
-    'PixivArtworkPageDAL',
     'PixivisionArticleDAL',
     'PluginDAL',
     'SignInDAL',
