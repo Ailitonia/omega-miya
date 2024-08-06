@@ -104,5 +104,8 @@ class ArtworkData(BaseArtworkProxyModel):
 __all__ = [
     'ArtworkData',
     'ArtworkPage',
+    'ArtworkPageFile',
     'ArtworkPageType',
+    'ArtworkClassification',
+    'ArtworkRating'
 ]
