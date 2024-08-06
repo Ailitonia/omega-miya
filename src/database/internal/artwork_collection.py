@@ -180,10 +180,14 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
 
     async def query_classification_statistic(
             self,
+            origin: Optional[str] = None,
             keywords: Optional[list[str]] = None
     ) -> ArtworkClassificationStatistic:
         """按分类统计收录作品数"""
         stmt = select(ArtworkCollectionOrm.classification, func.count(ArtworkCollectionOrm.id))
+
+        if origin is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
 
         if keywords:
             for keyword in keywords:
@@ -214,10 +218,14 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
 
     async def query_rating_statistic(
             self,
+            origin: Optional[str] = None,
             keywords: Optional[list[str]] = None
     ) -> ArtworkRatingStatistic:
         """按分级统计收录作品数"""
         stmt = select(ArtworkCollectionOrm.rating, func.count(ArtworkCollectionOrm.id))
+
+        if origin is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
 
         if keywords:
             for keyword in keywords:
@@ -246,12 +254,19 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
 
         return ArtworkRatingStatistic.model_validate(result)
 
-    async def query_user_all(self, uid: Optional[str] = None, uname: Optional[str] = None) -> list[ArtworkCollection]:
+    async def query_user_all(
+            self,
+            origin: Optional[str] = None,
+            uid: Optional[str] = None,
+            uname: Optional[str] = None
+    ) -> list[ArtworkCollection]:
         """通过 uid 或用户名精准查找用户所有作品"""
         if uid is None and uname is None:
             raise ValueError('need at least one of the uid and uname parameters')
 
         stmt = select(ArtworkCollectionOrm)
+        if origin is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
         if uid:
             stmt = stmt.where(ArtworkCollectionOrm.uid == uid)
         if uname:
@@ -261,12 +276,19 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[ArtworkCollection], session_result.scalars().all())
 
-    async def query_user_all_aids(self, uid: Optional[str] = None, uname: Optional[str] = None) -> list[str]:
+    async def query_user_all_aids(
+            self,
+            origin: Optional[str] = None,
+            uid: Optional[str] = None,
+            uname: Optional[str] = None
+    ) -> list[str]:
         """通过 uid 或用户名精准查找用户所有作品的 artwork_id"""
         if uid is None and uname is None:
             raise ValueError('need at least one of the uid and uname parameters')
 
         stmt = select(ArtworkCollectionOrm.aid)
+        if origin is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
         if uid:
             stmt = stmt.where(ArtworkCollectionOrm.uid == uid)
         if uname:
