@@ -183,7 +183,7 @@ async def get_signin_top_image(
     """获取一张生成签到卡片用的头图"""
     match source:
         case 'pixiv':
-            return await _get_signin_top_image_from_pixiv(collection=PixivArtworkCollection)
+            return await _get_signin_top_image(collection=PixivArtworkCollection)
         case 'local':
             ...  # TODO 本地图片
         case 'mix':
@@ -192,9 +192,7 @@ async def get_signin_top_image(
             ...
 
 
-async def _get_signin_top_image_from_pixiv(
-        collection: "ArtworkCollection_T"
-) -> tuple["ArtworkCollection", "TemporaryResource"]:
+async def _get_signin_top_image(collection: "ArtworkCollection_T") -> tuple["ArtworkCollection", "TemporaryResource"]:
     """从数据库获取一张生成签到卡片用的头图"""
     random_artworks = await collection.random(num=5, ratio=1)
 

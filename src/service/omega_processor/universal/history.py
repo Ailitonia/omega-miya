@@ -9,12 +9,12 @@
 """
 
 from datetime import datetime
+
 from nonebot import logger
 from nonebot.internal.adapter import Bot, Event, Message
 
 from src.database import HistoryDAL, begin_db_session
 from src.service import OmegaInterface
-
 
 LOG_PREFIX: str = '<lc>Event History</lc> | '
 
@@ -54,7 +54,7 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
             )
         logger.opt(colors=True).trace(f'{LOG_PREFIX}Recording event({event_id}) succeed')
     except Exception as e:
-        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording failed, error: {repr(e)}, event: {event.json()}')
+        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording failed, {e!r}, event: {event.model_dump_json()}')
 
 
 __all__ = [
