@@ -16,14 +16,9 @@ class BaseBilibiliError(WebSourceException):
 
 
 class BilibiliApiError(BaseBilibiliError):
-    """Api 返回错误"""
-
-
-class BilibiliNetworkError(BaseBilibiliError):
-    """Bilibili 网络异常"""
+    """Bilibili API 异常"""
 
 
 __all__ = [
     'BilibiliApiError',
-    'BilibiliNetworkError'
 ]
