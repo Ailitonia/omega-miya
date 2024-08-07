@@ -15,14 +15,14 @@ from typing import Any, Literal, Optional
 
 from nonebot.log import logger
 
+from src.exception import WebSourceException
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
+from src.utils.common_api import BaseCommonAPI
 from src.utils.image_utils.template import generate_thumbs_preview_image
 from src.utils.process_utils import semaphore_gather
 from src.utils.zip_utils import ZipUtils
-
 from .config import comic18_config, comic18_resource_config
-from .exception import Comic18NetworkError
 from .helper import Comic18Parser, Comic18ImgOps
 from .model import (
     AlbumData,
@@ -36,18 +36,20 @@ from .model import (
 )
 
 
-class _BaseComic18(object):
+class _BaseComic18(BaseCommonAPI):
     """18Comic 基类"""
     __root_url: Optional[str] = None
 
-    def __repr__(self) -> str:
-        return self.__class__.__name__
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        raise NotImplementedError
 
     @classmethod
-    async def get_root_url(
+    async def _async_get_root_url(
             cls,
-            *,
-            type_: Literal['300', '301', '302', '303', '304', '305', '306', '307', '308'] = '300'
+            *args,
+            type_: Literal['300', '301', '302', '303', '304', '305', '306', '307', '308'] = '300',
+            **kwargs,
     ) -> str:
         """获取主站地址
 
@@ -58,34 +60,41 @@ class _BaseComic18(object):
             go_url = f'https://raw.githubusercontent.com/jmcmomic/jmcmomic.github.io/main/go/{type_}.html'
             go_response = await OmegaRequests().get(go_url)
             if go_response.status_code != 200:
-                raise Comic18NetworkError(f'{go_response.request}, status code {go_response.status_code}')
+                raise WebSourceException(f'{go_response.request}, status code {go_response.status_code}')
             cls.__root_url = Comic18Parser.parse_root_url(content=go_response.content)
 
         return cls.__root_url
+
+    @classmethod
+    def _get_default_headers(cls) -> dict[str, Any]:
+        return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
+
+    @classmethod
+    def _get_default_cookies(cls) -> dict[str, str]:
+        return comic18_config.cookies
 
     @classmethod
     async def request_resource(
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
+            *,
             timeout: int = 30
     ) -> str | bytes | None:
         """请求原始资源内容"""
-        if headers is None:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
-            headers.update({'referer': url})
+        cookies = cls._get_default_cookies()
+        headers = cls._get_default_headers()
+        headers.update({'referer': url})
 
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=comic18_config.cookies)
-        response = await requests.get(url=url, params=params)
+        response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
 
         if response.status_code == 403:
             # 403 可能是当前请求过快暂时被流控了 暂停一下重试一次
             await async_sleep(3)
-            response = await requests.get(url=url, params=params)
+            response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
 
         if response.status_code != 200:
-            raise Comic18NetworkError(f'{response.request}, status code {response.status_code}')
+            raise WebSourceException(f'{response.request}, status code {response.status_code}')
 
         return response.content
 
@@ -94,15 +103,15 @@ class _BaseComic18(object):
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
+            *,
             timeout: int = 60,
             folder_name: str | None = None,
-            ignore_exist_file: bool = False
+            ignore_exist_file: bool = False,
     ) -> TemporaryResource:
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        if headers is None:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
-            headers.update({'referer': url})
+        cookies = cls._get_default_cookies()
+        headers = cls._get_default_headers()
+        headers.update({'referer': url})
 
         original_file_name = OmegaRequests.parse_url_file_name(url=url)
         if folder_name is None:
@@ -110,8 +119,7 @@ class _BaseComic18(object):
         else:
             file = comic18_resource_config.default_download_folder(folder_name, original_file_name)
 
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=comic18_config.cookies)
-
+        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
         return await requests.download(url=url, file=file, params=params, ignore_exist_file=ignore_exist_file)
 
 
@@ -123,6 +131,9 @@ class Comic18(_BaseComic18):
 
         # 实例缓存
         self.album_data: AlbumData | None = None
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(album_id={self.aid})'
 
     @classmethod
     async def query_albums_list(
@@ -139,7 +150,7 @@ class Comic18(_BaseComic18):
         :param time: 时间范围, a全部, t今天, w本周, m本月, 默认全部
         :param order: 结果排序, mr最新(most recent), mv最多点击(most view), mp最多图片(most page), md最多评论, tr最高评分, tf最多爱心
         """
-        root_url = await cls.get_root_url()
+        root_url = await cls._async_get_root_url()
         url = f'{root_url}/albums'
         if type_ is not None:
             url = f'{url}/{type_}'
@@ -181,7 +192,7 @@ class Comic18(_BaseComic18):
         :param type_: 专题类型, 26連載更新, 27本本推薦, ...
         :param page: 专题页数
         """
-        root_url = await cls.get_root_url()
+        root_url = await cls._async_get_root_url()
         url = f'{root_url}/promotes/{type_}'
         params = {}
         if page is not None:
@@ -223,7 +234,7 @@ class Comic18(_BaseComic18):
         :param order: 结果排序, mr最新(most recent), mv最多点击(most view), mp最多图片(most page), tf最多爱心
         :param main_tag: 搜索类型, 0站内搜索, 1作品, 2作者, 3标签, 4登场人物
         """
-        root_url = await cls.get_root_url()
+        root_url = await cls._async_get_root_url()
         url = f'{root_url}/search/photos'
         if type_ is not None:
             url = f'{url}/{type_}'
@@ -254,7 +265,9 @@ class Comic18(_BaseComic18):
             main_tag: Optional[Literal['0', '1', '2', '3', '4']] = None,
     ) -> TemporaryResource:
         """搜索漫画并生成预览图"""
-        result = await cls.search_photos(search_query, page=page, type_=type_, time=time, order=order, main_tag=main_tag)
+        result = await cls.search_photos(
+            search_query, page=page, type_=type_, time=time, order=order, main_tag=main_tag
+        )
         name = f'Searching - {search_query} - Page {page}'
         preview = await cls._emit_preview_model_from_searching_data(searching_name=name, searching_data=result)
         return await cls._generate_preview_image(preview=preview, num_of_line=8, hold_ratio=True)
@@ -277,7 +290,7 @@ class Comic18(_BaseComic18):
     async def query_album(self) -> AlbumData:
         """获取漫画信息"""
         if not isinstance(self.album_data, AlbumData):
-            root_url = await self.get_root_url()
+            root_url = await self._async_get_root_url()
             url = f'{root_url}/album/{self.aid}'
 
             content = await self.request_resource(url=url)
@@ -292,7 +305,7 @@ class Comic18(_BaseComic18):
 
     async def query_pages(self, page: Optional[int] = None) -> AlbumPage:
         """获取漫画图片"""
-        root_url = await self.get_root_url()
+        root_url = await self._async_get_root_url()
         url = f'{root_url}/photo/{self.aid}'
 
         params = None
@@ -347,7 +360,7 @@ class Comic18(_BaseComic18):
         download_result = await semaphore_gather(tasks=download_tasks, semaphore_num=10)
         for result in download_result:
             if isinstance(result, Exception):
-                raise Comic18NetworkError(f'Some page(s) download failed, {result}')
+                raise WebSourceException(f'Some page(s) download failed, {result}')
         logger.info(f'Comic18 | Downloaded album(id={self.aid}) original image completed, staring reversing')
 
         # 执行图片恢复
