@@ -9,9 +9,7 @@
 """
 from typing import Literal
 
-from src.service import OmegaRequests
-
-from .base import TencentCloudApi
+from .base import BaseTencentCloudAPI
 from ..exception import TencentCloudNetworkError
 from ..model.nlp import (
     TencentCloudComposeCoupletResponse,
@@ -29,7 +27,7 @@ from ..model.nlp import (
 )
 
 
-class TencentNLP(TencentCloudApi):
+class TencentNLP(BaseTencentCloudAPI):
     """腾讯云自然语言处理"""
     def __init__(
             self,
@@ -56,7 +54,7 @@ class TencentNLP(TencentCloudApi):
             action='ComposeCouplet', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudComposeCoupletResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudComposeCoupletResponse.model_validate(self._parse_content_json(result))
 
     async def compose_poetry(
             self,
@@ -76,7 +74,7 @@ class TencentNLP(TencentCloudApi):
             action='ComposePoetry', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudComposePoetryResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudComposePoetryResponse.model_validate(self._parse_content_json(result))
 
     async def text_embellish(
             self,
@@ -98,7 +96,7 @@ class TencentNLP(TencentCloudApi):
             action='TextEmbellish', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextEmbellishResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudTextEmbellishResponse.model_validate(self._parse_content_json(result))
 
     async def text_writing(
             self,
@@ -122,7 +120,7 @@ class TencentNLP(TencentCloudApi):
             action='TextWriting', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextWritingResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudTextWritingResponse.model_validate(self._parse_content_json(result))
 
     async def generate_keyword_sentence(
             self,
@@ -142,7 +140,7 @@ class TencentNLP(TencentCloudApi):
             action='GenerateKeywordSentence', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudGenerateKeywordSentenceResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudGenerateKeywordSentenceResponse.model_validate(self._parse_content_json(result))
 
     async def sentence_correction(self, text_list: list[str]) -> TencentCloudSentenceCorrectionResponse:
         """句子纠错
@@ -154,7 +152,7 @@ class TencentNLP(TencentCloudApi):
             action='SentenceCorrection', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudSentenceCorrectionResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudSentenceCorrectionResponse.model_validate(self._parse_content_json(result))
 
     async def classify_content(self, title: str, content: list[str]) -> TencentCloudClassifyContentResponse:
         """文本分类V2
@@ -167,7 +165,7 @@ class TencentNLP(TencentCloudApi):
             action='ClassifyContent', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudClassifyContentResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudClassifyContentResponse.model_validate(self._parse_content_json(result))
 
     async def analyze_sentiment(self, text: str) -> TencentCloudAnalyzeSentimentResponse:
         """情感分析V2
@@ -179,7 +177,7 @@ class TencentNLP(TencentCloudApi):
             action='AnalyzeSentiment', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudAnalyzeSentimentResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudAnalyzeSentimentResponse.model_validate(self._parse_content_json(result))
 
     async def evaluate_sentence_similarity(
             self,
@@ -196,7 +194,7 @@ class TencentNLP(TencentCloudApi):
             action='EvaluateSentenceSimilarity', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudEvaluateSentenceSimilarityResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudEvaluateSentenceSimilarityResponse.model_validate(self._parse_content_json(result))
 
     async def evaluate_word_similarity(
             self,
@@ -213,7 +211,7 @@ class TencentNLP(TencentCloudApi):
             action='EvaluateWordSimilarity', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudEvaluateWordSimilarityResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudEvaluateWordSimilarityResponse.model_validate(self._parse_content_json(result))
 
     async def parse_words(self, text: str) -> TencentCloudParseWordsResponse:
         """词法分析V2
@@ -225,7 +223,7 @@ class TencentNLP(TencentCloudApi):
             action='ParseWords', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudParseWordsResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudParseWordsResponse.model_validate(self._parse_content_json(result))
 
     async def retrieve_similar_words(self, text: str, *, number: int = 10) -> TencentCloudRetrieveSimilarWordsResponse:
         """相似词召回
@@ -238,9 +236,9 @@ class TencentNLP(TencentCloudApi):
             action='RetrieveSimilarWords', version='2019-04-08', region='', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudRetrieveSimilarWordsResponse.model_validate(OmegaRequests.parse_content_json(result))
+        return TencentCloudRetrieveSimilarWordsResponse.model_validate(self._parse_content_json(result))
 
 
 __all__ = [
-    'TencentNLP'
+    'TencentNLP',
 ]

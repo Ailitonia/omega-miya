@@ -1,16 +1,28 @@
-import json
+"""
+@Author         : Ailitonia
+@Date           : 2024/4/6 14:28
+@FileName       : base
+@Project        : nonebot2_miya
+@Description    : tencent cloud api 基类
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+import datetime
 import hashlib
 import hmac
-import datetime
-from typing import Any
+import json
+from typing import TYPE_CHECKING, Any
 
-from src.service.omega_requests import OmegaRequests, Response
-
+from src.service.omega_requests import OmegaRequests
 from ..config import tencent_cloud_config
 
+if TYPE_CHECKING:
+    from nonebot.drivers import Response
 
-class TencentCloudApi(object):
-    """腾讯云 Api"""
+
+class BaseTencentCloudAPI(object):
+    """腾讯云 API 基类"""
     def __init__(
             self,
             host: str,
@@ -30,6 +42,10 @@ class TencentCloudApi(object):
         self._date: str
         self._credential_scope: str
         self._signed_headers: str
+
+    @staticmethod
+    def _parse_content_json(response: "Response") -> Any:
+        return OmegaRequests.parse_content_json(response)
 
     def __prepare_signed_params(self) -> None:
         self._headers = {
@@ -124,7 +140,7 @@ class TencentCloudApi(object):
             region: str,
             version: str,
             payload: dict[str, Any]
-    ) -> Response:
+    ) -> "Response":
         """计算请求签名并发送 api 请求"""
         self.__prepare_signed_params()
         self.__upgrade_signed_header(action=action, region=region, version=version, payload=payload)
@@ -133,5 +149,5 @@ class TencentCloudApi(object):
 
 
 __all__ = [
-    'TencentCloudApi'
+    'BaseTencentCloudAPI',
 ]
