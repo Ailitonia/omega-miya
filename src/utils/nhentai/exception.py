@@ -8,10 +8,10 @@
 @Software       : PyCharm 
 """
 
-from src.exception import WebSourceException
+from src.exception import PluginException
 
 
-class BaseNhentaiException(WebSourceException):
+class BaseNhentaiException(PluginException):
     """Nhentai 异常基类"""
 
 
@@ -19,11 +19,6 @@ class NhentaiParseError(BaseNhentaiException):
     """Nhentai 页面解析异常"""
 
 
-class NhentaiNetworkError(BaseNhentaiException):
-    """Nhentai 网络连接异常"""
-
-
 __all__ = [
     'NhentaiParseError',
-    'NhentaiNetworkError'
 ]
