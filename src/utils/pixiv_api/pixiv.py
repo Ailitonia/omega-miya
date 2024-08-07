@@ -15,8 +15,9 @@ from urllib.parse import quote
 
 from pydantic import ValidationError
 
-from .api_base import PixivApiBase
-from .exception import PixivApiError, PixivNetworkError
+from src.exception import WebSourceException
+from .api_base import BasePixivAPI
+from .exception import PixivApiError
 from .helper import PixivParser
 from .model import (
     PixivArtworkDataModel,
@@ -38,13 +39,13 @@ from .model import (
 )
 
 
-class PixivCommon(PixivApiBase):
-    """Pixiv 主站通用类"""
+class PixivCommon(BasePixivAPI):
+    """Pixiv 主站通用接口"""
 
     @classmethod
     async def query_global_data(cls) -> PixivGlobalData:
         """获取全局信息(需要 cookies)"""
-        root_page_content = await cls.request_resource(url=cls._root_url)
+        root_page_content = await cls.get_resource(url=cls._get_root_url())
         return await PixivParser.parse_global_data(content=root_page_content)
 
     @classmethod
@@ -62,12 +63,12 @@ class PixivCommon(PixivApiBase):
         :param page: 页数
         :param content: 作品类型, None 为全部
         """
-        url = f'{cls._root_url}/ranking.php'  # Pixiv 排行榜
+        url = f'{cls._get_root_url()}/ranking.php'  # Pixiv 排行榜
         params = {'format': 'json', 'mode': mode, 'p': page}
         if content is not None:
             params.update({'content': content})
 
-        ranking_data = await cls.request_json(url=url, params=params)
+        ranking_data = await cls._get_json(url=url, params=params)
         return PixivRankingModel.model_validate(ranking_data)
 
     @classmethod
@@ -123,8 +124,8 @@ class PixivCommon(PixivApiBase):
         if bgt_:
             params.update({'bgt': bgt_})
 
-        searching_url = f'{cls._root_url}/ajax/search/{mode}/{word}'
-        searching_data = await cls.request_json(url=searching_url, params=params)
+        searching_url = f'{cls._get_root_url()}/ajax/search/{mode}/{word}'
+        searching_data = await cls._get_json(url=searching_url, params=params)
         return PixivSearchingResultModel.model_validate(searching_data)
 
     @classmethod
@@ -143,24 +144,24 @@ class PixivCommon(PixivApiBase):
             lang: Literal['zh'] = 'zh'
     ) -> PixivDiscoveryModel:
         """获取发现页内容"""
-        url = f'{cls._root_url}/ajax/discovery/artworks'  # Pixiv 发现
+        url = f'{cls._get_root_url()}/ajax/discovery/artworks'  # Pixiv 发现
         params = {'mode': mode, 'limit': limit, 'lang': lang}
 
-        discovery_data = await cls.request_json(url=url, params=params)
+        discovery_data = await cls._get_json(url=url, params=params)
         return PixivDiscoveryModel.model_validate(discovery_data)
 
     @classmethod
-    async def query_recommend_illust(
+    async def query_top_illust(
             cls,
             *,
             mode: Literal['all'] = 'all',
             lang: Literal['zh'] = 'zh'
     ) -> PixivRecommendModel:
         """获取首页推荐内容"""
-        url = f'{cls._root_url}/ajax/top/illust'
+        url = f'{cls._get_root_url()}/ajax/top/illust'
         params = {'mode': mode, 'lang': lang}
 
-        recommend_data = await cls.request_json(url=url, params=params)
+        recommend_data = await cls._get_json(url=url, params=params)
         return PixivRecommendModel.model_validate(recommend_data)
 
     @classmethod
@@ -172,10 +173,10 @@ class PixivCommon(PixivApiBase):
             lang: str = 'zh'
     ) -> PixivFollowLatestIllust:
         """获取已关注用户最新作品(需要 cookies)"""
-        url = f'{cls._root_url}/ajax/follow_latest/illust'
+        url = f'{cls._get_root_url()}/ajax/follow_latest/illust'
         params = {'mode': mode, 'lang': lang, 'p': page}
 
-        following_data = await cls.request_json(url=url, params=params)
+        following_data = await cls._get_json(url=url, params=params)
         return PixivFollowLatestIllust.model_validate(following_data)
 
     @classmethod
@@ -200,7 +201,7 @@ class PixivCommon(PixivApiBase):
         if version is not None:
             params.update({'version': version})
 
-        bookmark_data = await cls.request_json(url=url, params=params)
+        bookmark_data = await cls._get_json(url=url, params=params)
         return PixivBookmark.model_validate(bookmark_data)
 
 
@@ -209,8 +210,8 @@ class PixivArtwork(PixivCommon):
 
     def __init__(self, pid: int):
         self.pid = pid
-        self.artwork_url = f'{self._root_url}/artworks/{pid}'
-        self.data_url = f'{self._root_url}/ajax/illust/{pid}'
+        self.artwork_url = f'{self._get_root_url()}/artworks/{pid}'
+        self.data_url = f'{self._get_root_url()}/ajax/illust/{pid}'
         self.page_data_url = f'{self.data_url}/pages'
         self.ugoira_meta_url = f'{self.data_url}/ugoira_meta'
         self.recommend_url = f'{self.data_url}/recommend/init'
@@ -223,17 +224,17 @@ class PixivArtwork(PixivCommon):
 
     async def _query_data(self) -> PixivArtworkDataModel:
         """获取作品信息"""
-        artwork_data = await self.request_json(url=self.data_url)
+        artwork_data = await self._get_json(url=self.data_url)
         return PixivArtworkDataModel.model_validate(artwork_data)
 
     async def _query_page_date(self) -> PixivArtworkPageModel:
         """获取多页信息"""
-        page_data = await self.request_json(url=self.page_data_url)
+        page_data = await self._get_json(url=self.page_data_url)
         return PixivArtworkPageModel.model_validate(page_data)
 
     async def _query_ugoira_meta(self) -> PixivArtworkUgoiraMeta:
         """获取动图信息"""
-        ugoira_meta = await self.request_json(url=self.ugoira_meta_url)
+        ugoira_meta = await self._get_json(url=self.ugoira_meta_url)
         return PixivArtworkUgoiraMeta.model_validate(ugoira_meta)
 
     async def query_artwork(self) -> PixivArtworkCompleteDataModel:
@@ -244,7 +245,7 @@ class PixivArtwork(PixivCommon):
             except ValidationError:
                 raise
             except Exception as e:
-                raise PixivNetworkError(f'Query artwork(pid={self.pid}) data failed, {e}') from e
+                raise WebSourceException(f'Query artwork(pid={self.pid}) data failed, {e}') from e
             if artwork_data.error:
                 raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {artwork_data.message}')
 
@@ -253,7 +254,7 @@ class PixivArtwork(PixivCommon):
             except ValidationError:
                 raise
             except Exception as e:
-                raise PixivNetworkError(f'Query artwork(pid={self.pid}) page failed, {e}') from e
+                raise WebSourceException(f'Query artwork(pid={self.pid}) page failed, {e}') from e
             if page_data.error:
                 raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {page_data.message}')
 
@@ -294,7 +295,7 @@ class PixivArtwork(PixivCommon):
                     if ugoira_data.error:
                         raise PixivApiError(f'Query artwork(pid={self.pid}) ugoira meta failed, {ugoira_data.message}')
                 except Exception as e:
-                    raise PixivNetworkError(f'Query artwork(pid={self.pid}) ugoira meta failed, {e}') from e
+                    raise WebSourceException(f'Query artwork(pid={self.pid}) ugoira meta failed, {e}') from e
                 ugoira_meta = ugoira_data.body
             else:
                 ugoira_meta = None
@@ -337,7 +338,7 @@ class PixivArtwork(PixivCommon):
         :param lang: 语言
         """
         params = {'limit': init_limit, 'lang': lang}
-        recommend_data = await self.request_json(url=self.recommend_url, params=params)
+        recommend_data = await self._get_json(url=self.recommend_url, params=params)
 
         # 清理返回数据中的 isAdContainer 字段
         illusts = [illust for illust in recommend_data.get('body', {}).get('illusts', [])
@@ -351,9 +352,9 @@ class PixivUser(PixivCommon):
 
     def __init__(self, uid: int):
         self.uid = uid
-        self.user_url = f'{self._root_url}/users/{uid}'
-        self.data_url = f'{self._root_url}/ajax/user/{uid}'
-        self.profile_url = f'{self._root_url}/ajax/user/{uid}/profile/all'
+        self.user_url = f'{self._get_root_url()}/users/{uid}'
+        self.data_url = f'{self._get_root_url()}/ajax/user/{uid}'
+        self.profile_url = f'{self._get_root_url()}/ajax/user/{uid}/profile/all'
 
         # 实例缓存
         self.user_model: Optional[PixivUserModel] = None
@@ -364,9 +365,9 @@ class PixivUser(PixivCommon):
     @classmethod
     async def search_user(cls, nick: str) -> PixivUserSearchingModel:
         """搜索用户"""
-        url = f'{cls._root_url}/search_user.php'
+        url = f'{cls._get_root_url()}/search_user.php'
         params = {'s_mode': 's_usr', 'nick': nick}
-        searching_data = await cls.request_resource(url=url, params=params)
+        searching_data = await cls.get_resource(url=url, params=params)
 
         # p站唯独画师搜索没有做前后端分离 只能解析页面了
         return await PixivParser.parse_user_searching_result_page(content=searching_data)
@@ -375,14 +376,14 @@ class PixivUser(PixivCommon):
         """获取用户基本信息"""
         params = {'lang': 'zh'}
 
-        user_data = await self.request_json(url=self.data_url, params=params)
+        user_data = await self._get_json(url=self.data_url, params=params)
         return PixivUserDataModel.model_validate(user_data)
 
     async def _query_user_artwork_data(self) -> PixivUserArtworkDataModel:
         """获取用户作品信息"""
         params = {'lang': 'zh'}
 
-        user_artwork_data = await self.request_json(url=self.profile_url, params=params)
+        user_artwork_data = await self._get_json(url=self.profile_url, params=params)
         return PixivUserArtworkDataModel.model_validate(user_artwork_data)
 
     async def query_user_data(self) -> PixivUserModel:

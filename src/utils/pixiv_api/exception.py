@@ -16,19 +16,9 @@ class BasePixivError(WebSourceException):
 
 
 class PixivApiError(BasePixivError):
-    """Api 返回错误"""
-
-
-class PixivNetworkError(BasePixivError):
-    """Pixiv 网络异常"""
-
-
-class PixivisionNetworkError(BasePixivError):
-    """Pixivision 网络异常"""
+    """Pixiv API 返回错误"""
 
 
 __all__ = [
     'PixivApiError',
-    'PixivNetworkError',
-    'PixivisionNetworkError'
 ]

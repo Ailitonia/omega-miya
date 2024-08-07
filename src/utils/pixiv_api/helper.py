@@ -40,7 +40,7 @@ class PixivParser(object):
 
     @staticmethod
     @run_sync
-    def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
+    def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:  # TODO 页面已改版, 解析失效, 需重写
         """解析 pixiv 用户搜索结果页内容
 
         :param content: 网页 html

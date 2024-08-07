@@ -19,8 +19,8 @@ class PixivConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     @property
-    def cookie_phpssid(self) -> dict[str, str] | None:
-        return {'PHPSESSID': self.pixiv_phpsessid} if self.pixiv_phpsessid is not None else None
+    def cookie_phpssid(self) -> dict[str, str]:
+        return {'PHPSESSID': self.pixiv_phpsessid} if self.pixiv_phpsessid is not None else {}
 
 
 try:

@@ -18,7 +18,7 @@ from nonebot.utils import run_sync
 from src.utils.image_utils import ImageUtils
 from src.utils.image_utils.template import generate_thumbs_preview_image, PreviewImageThumbs, PreviewImageModel
 from src.utils.pixiv_api import PixivArtwork, PixivUser, Pixivision
-from src.utils.pixiv_api.api_base import PixivApiBase
+from src.utils.pixiv_api.api_base import BasePixivAPI
 from src.utils.pixiv_api.model.artwork import PixivArtworkPreviewRequestModel
 from src.utils.pixiv_api.model.pixivision import PixivisionArticle, PixivisionIllustrationList
 from src.utils.pixiv_api.model.ranking import PixivRankingModel
@@ -41,7 +41,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
 
     @classmethod
     async def _get_resource(cls, url: str, *, timeout: int = 30) -> str | bytes | None:
-        return await PixivArtwork.request_resource(url=url, timeout=timeout)
+        return await PixivArtwork.get_resource(url=url, timeout=timeout)
 
     async def _query(self) -> ArtworkData:
         artwork_data = await PixivArtwork(pid=self.i_aid).query_artwork()
@@ -87,7 +87,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
                         'height': artwork_data.height,
                     }
                 }
-                for index, page in artwork_data.all_page.items()
+                for _, page in artwork_data.all_page.items()
             ]
         })
 
@@ -222,7 +222,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def query_top_artworks_with_preview(cls) -> "TemporaryResource":
         """获取首页推荐内容并生成预览图"""
-        recommend_result = await PixivArtwork.query_recommend_illust()
+        recommend_result = await PixivArtwork.query_top_illust()
         name = 'Pixiv Top Recommend'
         path_config = cls._generate_path_config()
 
@@ -335,7 +335,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
             return file
 
         article_data = await Pixivision(aid=aid).query_article()
-        image_content = await Pixivision.request_resource(url=article_data.eyecatch_image)
+        image_content = await Pixivision.get_resource(url=article_data.eyecatch_image)
         async with file.async_open('wb') as af:
             await af.write(image_content)
         return file
@@ -357,7 +357,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
         return preview_img_file
 
 
-class PixivPreviewGenerator(PixivApiBase):
+class PixivPreviewGenerator(BasePixivAPI):
     """Pixiv 预览图生成工具集"""
 
     @classmethod
@@ -371,9 +371,9 @@ class PixivPreviewGenerator(PixivApiBase):
     ) -> Image.Image:
         """根据用户搜索结果页面解析内容, 生成单独一个用户的结果 card 图片"""
         # 首先获取用户相关图片资源
-        user_head = await cls.request_resource(url=user.user_head_url)
+        user_head = await cls.get_resource(url=user.user_head_url)
         user_illusts_thumb = await semaphore_gather(
-            tasks=[cls.request_resource(url=url) for url in user.illusts_thumb_urls],
+            tasks=[cls.get_resource(url=url) for url in user.illusts_thumb_urls],
             semaphore_num=4
         )
 
@@ -549,7 +549,7 @@ class PixivPreviewGenerator(PixivApiBase):
     @classmethod
     async def _request_preview_body(cls, request: PixivArtworkPreviewRequestModel) -> PreviewImageThumbs:
         """获取生成预览图中每个缩略图的数据"""
-        _request_data = await cls.request_resource(url=request.request_url)
+        _request_data = await cls.get_resource(url=request.request_url)
         return PreviewImageThumbs(desc_text=request.desc_text, preview_thumb=_request_data)
 
     @classmethod

@@ -8,61 +8,45 @@
 @Software       : PyCharm 
 """
 
-import abc
 from typing import Optional, Any
 
-from src.service import OmegaRequests
+from src.utils.common_api import BaseCommonAPI
 from .config import pixiv_config
-from .exception import PixivNetworkError
 
 
-class PixivApiBase(abc.ABC):
+class BasePixivAPI(BaseCommonAPI):
     """Pixiv API 基类"""
-    _root_url: str = 'https://www.pixiv.net'
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__
 
     @classmethod
-    async def request_json(
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://www.pixiv.net'
+
+    @classmethod
+    async def _async_get_root_url(cls, *args, **kwargs) -> str:
+        return cls._get_root_url(*args, **kwargs)
+
+    @classmethod
+    def _get_default_headers(cls) -> dict[str, Any]:
+        headers = cls._get_omega_requests_default_headers()
+        headers.update({'referer': 'https://www.pixiv.net/'})
+        return headers
+
+    @classmethod
+    def _get_default_cookies(cls) -> dict[str, str]:
+        return pixiv_config.cookie_phpssid
+
+    @classmethod
+    async def get_resource(
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None
-    ) -> Any:
-        """请求 api 并返回 json 数据"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({'referer': 'https://www.pixiv.net/'})
-
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise PixivNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return OmegaRequests.parse_content_json(response)
-
-    @classmethod
-    async def request_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 45
-    ) -> str | bytes | None:
+            *,
+            timeout: int = 30,
+    ) -> str | bytes:
         """请求原始资源内容"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({'referer': 'https://www.pixiv.net/'})
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=pixiv_config.cookie_phpssid)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise PixivNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return response.content
+        return await cls._get_resource(url, params, timeout=timeout)
 
 
 __all__ = [
-    'PixivApiBase'
+    'BasePixivAPI'
 ]
