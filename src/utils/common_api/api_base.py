@@ -36,6 +36,18 @@ class BaseCommonAPI(abc.ABC):
         """内部方法, 异步获取 API 地址"""
         raise NotImplementedError
 
+    @classmethod
+    @abc.abstractmethod
+    def _get_default_headers(cls) -> dict[str, Any]:
+        """内部方法, 获取默认 Headers"""
+        raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
+    def _get_default_cookies(cls) -> dict[str, str]:
+        """内部方法, 获取默认 Cookies"""
+        raise NotImplementedError
+
     @staticmethod
     def _parse_content_json(response: "Response") -> Any:
         return OmegaRequests.parse_content_json(response)
@@ -48,9 +60,16 @@ class BaseCommonAPI(abc.ABC):
             *,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
+            timeout: int = 10,
     ) -> "Response":
         """内部方法, 使用 GET 方法请求"""
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=cookies)
+        if headers is None:
+            headers = cls._get_default_headers()
+
+        if cookies is None:
+            cookies = cls._get_default_cookies()
+
+        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
         response = await requests.get(url=url, params=params)
         if response.status_code != 200:
             raise WebSourceException(f'{response.request}, status code {response.status_code}')
@@ -67,9 +86,16 @@ class BaseCommonAPI(abc.ABC):
             json: Optional[Any] = None,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
+            timeout: int = 10,
     ) -> "Response":
         """内部方法, 使用 POST 方法请求"""
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=cookies)
+        if headers is None:
+            headers = cls._get_default_headers()
+
+        if cookies is None:
+            cookies = cls._get_default_cookies()
+
+        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
         response = await requests.post(url=url, params=params, data=data, json=json)
         if response.status_code != 200:
             raise WebSourceException(f'{response.request}, status code {response.status_code}')
@@ -77,25 +103,21 @@ class BaseCommonAPI(abc.ABC):
         return response
 
     @classmethod
-    async def get_json(
+    async def _get_json(
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
             *,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
+            timeout: int = 10,
     ) -> Any:
-        """使用 GET 方法请求 API, 返回 json 内容"""
-        if headers:
-            headers.update({'Content-Type': 'application/json'})
-        else:
-            headers = {'Content-Type': 'application/json'}
-
-        response = await cls._request_get(url, params, headers=headers, cookies=cookies)
+        """内部方法, 使用 GET 方法请求 API, 返回 json 内容"""
+        response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
         return cls._parse_content_json(response)
 
     @classmethod
-    async def post_json(
+    async def _post_json(
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
@@ -104,30 +126,26 @@ class BaseCommonAPI(abc.ABC):
             json: Optional[Any] = None,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
+            timeout: int = 10,
     ) -> Any:
-        """使用 POST 方法请求 API, 返回 json 内容"""
-        if headers:
-            headers.update({'Content-Type': 'application/json'})
-        else:
-            headers = {'Content-Type': 'application/json'}
-
-        response = await cls._request_post(url, params, data=data, json=json, headers=headers, cookies=cookies)
+        """内部方法, 使用 POST 方法请求 API, 返回 json 内容"""
+        response = await cls._request_post(
+            url, params, data=data, json=json, headers=headers, cookies=cookies, timeout=timeout
+        )
         return cls._parse_content_json(response)
 
     @classmethod
-    async def get_resource(
+    async def _get_resource(
             cls,
             url: str,
             params: Optional[dict[str, Any]] = None,
             *,
             headers: Optional[dict[str, Any]] = None,
             cookies: Optional[dict[str, str]] = None,
+            timeout: int = 10,
     ) -> str | bytes:
-        """使用 GET 方法获取内容"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-
-        response = await cls._request_get(url, params, headers=headers, cookies=cookies)
+        """内部方法, 使用 GET 方法获取内容"""
+        response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
         return response.content
 
 
