@@ -69,7 +69,7 @@ class BaseArtworkCollection(abc.ABC):
             ratio: Optional[int] = None,
             order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
     ) -> list["ArtworkCollection"]:
-        """根据要求查询作品, default classification range: 2-3, default rating range: 0-1"""
+        """根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         if isinstance(keywords, str):
             keywords = [keywords]
 
@@ -77,7 +77,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_classification_range = (2, 3)
 
         if allow_rating_range is None:
-            allow_rating_range = (0, 1)
+            allow_rating_range = (0, 0)
 
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_by_condition(
@@ -97,7 +97,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_rating_range: Optional[tuple[int, int]] = None,
             ratio: Optional[int] = None
     ) -> list["ArtworkCollection"]:
-        """获取随机作品, default classification range: 2-3, default rating range: 0-1"""
+        """获取随机作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_by_condition(
             keywords=None, num=num, ratio=ratio,
             allow_classification_range=allow_classification_range, allow_rating_range=allow_rating_range

@@ -86,13 +86,13 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
     async def query_by_condition(
             self,
             origin: str,
-            keywords: Optional[list[str]] = None,
+            keywords: Optional[list[str]],
             num: int = 3,
             *,
             classification_min: int = 2,
             classification_max: int = 3,
             rating_min: int = 0,
-            rating_max: int = 1,
+            rating_max: int = 0,
             acc_mode: bool = False,
             ratio: Optional[int] = None,
             order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'

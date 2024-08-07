@@ -46,6 +46,13 @@ class PixivArtworkProxy(BaseArtworkProxy):
     async def _query(self) -> ArtworkData:
         artwork_data = await PixivArtwork(pid=self.i_aid).query_artwork()
 
+        """Pixiv 主站作品默认分类分级
+        (classification, rating)
+                    is_ai     not_ai
+        is_r18     (1,  3)    (0,  3)
+        not_r18    (1, -1)    (0, -1)
+        """
+
         return ArtworkData.model_validate({
             'origin': self._get_base_origin_name(),
             'aid': artwork_data.pid,
