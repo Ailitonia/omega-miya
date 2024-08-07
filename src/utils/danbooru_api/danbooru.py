@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import Any, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar
 
 from src.compat import parse_obj_as
 from src.utils.common_api import BaseCommonAPI
@@ -40,6 +40,9 @@ from .models import (
     User,
 )
 
+if TYPE_CHECKING:
+    from src.resource import TemporaryResource
+
 
 class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
     """Danbooru API 通用基类"""
@@ -56,7 +59,7 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
 
     @classmethod
     async def _async_get_root_url(cls, *args, **kwargs) -> str:
-        raise NotImplementedError
+        return cls._get_root_url(*args, **kwargs)
 
     @classmethod
     def _get_default_headers(cls) -> dict[str, Any]:
@@ -89,9 +92,26 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
             url: str,
             params: Optional[dict[str, Any]] = None,
             *,
-            timeout: int = 10,
+            timeout: int = 30,
     ) -> str | bytes:
         return await cls._get_resource(url, params, timeout=timeout)
+
+    @classmethod
+    async def download_resource(
+            cls,
+            save_folder: "TemporaryResource",
+            url: str,
+            *,
+            subdir: str | None = None,
+            ignore_exist_file: bool = False,
+    ) -> "TemporaryResource":
+        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+        return await cls._download_resource(
+            save_folder=save_folder,
+            url=url,
+            subdir=subdir,
+            ignore_exist_file=ignore_exist_file
+        )
 
     @classmethod
     @abc.abstractmethod
@@ -907,9 +927,25 @@ class BaseDanbooruAPI:
             url: str,
             params: Optional[dict[str, Any]] = None,
             *,
-            timeout: int = 10,
+            timeout: int = 30,
     ) -> str | bytes:
         return await BaseDanbooruCommon.get_resource(url, params, timeout=timeout)
+
+    @staticmethod
+    async def download_resource(
+            save_folder: "TemporaryResource",
+            url: str,
+            *,
+            subdir: str | None = None,
+            ignore_exist_file: bool = False,
+    ) -> "TemporaryResource":
+        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+        return await BaseDanbooruCommon.download_resource(
+            save_folder=save_folder,
+            url=url,
+            subdir=subdir,
+            ignore_exist_file=ignore_exist_file
+        )
 
 
 __all__ = [
