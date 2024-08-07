@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from .danbooru import DanbooruAPIBase
+from .danbooru import BaseDanbooruAPI
 
-danbooru_api = DanbooruAPIBase(root_url='https://danbooru.donmai.us')
+danbooru_api = BaseDanbooruAPI(root_url='https://danbooru.donmai.us')
 
 
 __all__ = [
