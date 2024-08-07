@@ -11,7 +11,6 @@
 import warnings
 from typing import Literal, Optional, Any
 
-from src.service import OmegaRequests
 from .api_base import BilibiliCommon
 from .config import bilibili_config
 from .exception import BilibiliApiError
@@ -54,7 +53,7 @@ class Bilibili(BilibiliCommon):
         uuid = gen_uuid_infoc()
         payload = get_payload()
 
-        headers = OmegaRequests.get_default_headers()
+        headers = cls._get_default_headers()
         headers.update({
             'origin': 'https://www.bilibili.com',
             'referer': 'https://www.bilibili.com/',
@@ -213,7 +212,7 @@ class BilibiliUser(Bilibili):
         :param offset_dynamic_id: 获取动态起始位置
         :param need_top: 是否获取置顶动态
         """
-        headers = OmegaRequests.get_default_headers()
+        headers = self._get_default_headers()
         headers.update({
             'origin': 'https://t.bilibili.com',
             'referer': 'https://t.bilibili.com/'
@@ -261,7 +260,7 @@ class BilibiliDynamic(BilibiliCommon):
     async def query_dynamic_data(self) -> BilibiliDynamicModel:
         """获取并初始化动态对应 BilibiliDynamicModel"""
         if not isinstance(self.dynamic_model, BilibiliDynamicModel):
-            headers = OmegaRequests.get_default_headers()
+            headers = self._get_default_headers()
             headers.update({
                 'origin': 'https://t.bilibili.com',
                 'referer': 'https://t.bilibili.com/'
@@ -298,11 +297,14 @@ class BilibiliLiveRoom(BilibiliCommon):
     async def query_live_room_by_uid_list(cls, uid_list: list[int | str]) -> BilibiliUsersLiveRoomModel:
         """根据用户 uid 列表获取这些用户的直播间信息(这个 api 没有认证方法，请不要在标头中添加 cookie)"""
         payload = {'uids': uid_list}
-        live_room_response = await OmegaRequests().post(url=cls._live_by_uids_api_url, json=payload)
+        live_room_response = await cls._request_post(
+            url=cls._live_by_uids_api_url, json=payload,
+            no_headers=True, no_cookies=True  # 该接口无需鉴权
+        )
         if live_room_response.status_code != 200:
             raise BilibiliApiError(f'{live_room_response.request}, status code {live_room_response.status_code}')
 
-        return BilibiliUsersLiveRoomModel.model_validate(OmegaRequests.parse_content_json(live_room_response))
+        return BilibiliUsersLiveRoomModel.model_validate(cls._parse_content_json(live_room_response))
 
     async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""

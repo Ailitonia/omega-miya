@@ -8,9 +8,8 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
-from src.service import OmegaRequests
 from src.utils.common_api import BaseCommonAPI
 from .config import bilibili_config, bilibili_resource_config
 
@@ -27,11 +26,11 @@ class BilibiliCommon(BaseCommonAPI):
 
     @classmethod
     async def _async_get_root_url(cls, *args, **kwargs) -> str:
-        return cls._get_root_url()
+        return cls._get_root_url(*args, **kwargs)
 
     @classmethod
     def _get_default_headers(cls) -> dict[str, Any]:
-        headers = OmegaRequests.get_default_headers()
+        headers = cls._get_omega_requests_default_headers()
         headers.update({
             'origin': 'https://www.bilibili.com',
             'referer': 'https://www.bilibili.com/'
@@ -43,21 +42,11 @@ class BilibiliCommon(BaseCommonAPI):
         return bilibili_config.bili_cookies
 
     @classmethod
-    async def download_resource(
-            cls, url: str,
-            params: Optional[dict[str, Any]] = None,
-            *,
-            timeout: int = 60,
-    ) -> "TemporaryResource":
+    async def download_resource(cls, url: str) -> "TemporaryResource":
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        headers = cls._get_default_headers()
-        cookies = cls._get_default_cookies()
-
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
-        file = bilibili_resource_config.default_download_folder(original_file_name)
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
-        return await requests.download(url=url, file=file, params=params)
+        return await cls._download_resource(
+            save_folder=bilibili_resource_config.default_download_folder, url=url,
+        )
 
 
 __all__ = [
