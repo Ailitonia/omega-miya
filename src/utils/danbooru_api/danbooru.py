@@ -84,6 +84,16 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
         return cls._parse_content_json(response)
 
     @classmethod
+    async def get_resource(
+            cls,
+            url: str,
+            params: Optional[dict[str, Any]] = None,
+            *,
+            timeout: int = 10,
+    ) -> str | bytes:
+        return await cls._get_resource(url, params, timeout=timeout)
+
+    @classmethod
     @abc.abstractmethod
     def get_index_url(cls) -> str:
         raise NotImplementedError
@@ -860,37 +870,46 @@ class BaseDanbooruAPI:
     def __init__(self, root_url: str) -> None:
         self._root_url = root_url
 
-        self.Artist = self.create_new_common_class(BaseDanbooruArtist)
-        self.ArtistCommentary = self.create_new_common_class(BaseDanbooruArtistCommentary)
-        self.Note = self.create_new_common_class(BaseDanbooruNote)
-        self.Pool = self.create_new_common_class(BaseDanbooruPool)
-        self.Post = self.create_new_common_class(BaseDanbooruPost)
-        self.Wiki = self.create_new_common_class(BaseDanbooruWiki)
-        self.ArtistVersion = self.create_new_common_class(BaseDanbooruArtistVersion)
-        self.ArtistCommentaryVersion = self.create_new_common_class(BaseDanbooruArtistCommentaryVersion)
-        self.NoteVersion = self.create_new_common_class(BaseDanbooruNoteVersion)
-        self.PoolVersion = self.create_new_common_class(BaseDanbooruPoolVersion)
-        self.PostVersion = self.create_new_common_class(BaseDanbooruPostVersion)
-        self.WikiPageVersion = self.create_new_common_class(BaseDanbooruWikiPageVersion)
-        self.Comment = self.create_new_common_class(BaseDanbooruComment)
-        self.Dmail = self.create_new_common_class(BaseDanbooruDmail)
-        self.ForumPost = self.create_new_common_class(BaseDanbooruForumPost)
-        self.ForumTopic = self.create_new_common_class(BaseDanbooruForumTopic)
-        self.PostAppeal = self.create_new_common_class(BaseDanbooruPostAppeal)
-        self.PostFlag = self.create_new_common_class(BaseDanbooruPostFlag)
-        self.Tag = self.create_new_common_class(BaseDanbooruTag)
-        self.TagAlias = self.create_new_common_class(BaseDanbooruTagAlias)
-        self.TagImplication = self.create_new_common_class(BaseDanbooruTagImplication)
-        self.Upload = self.create_new_common_class(BaseDanbooruUpload)
-        self.User = self.create_new_common_class(BaseDanbooruUser)
+        self.Artist = self._create_new_common_class(BaseDanbooruArtist)
+        self.ArtistCommentary = self._create_new_common_class(BaseDanbooruArtistCommentary)
+        self.Note = self._create_new_common_class(BaseDanbooruNote)
+        self.Pool = self._create_new_common_class(BaseDanbooruPool)
+        self.Post = self._create_new_common_class(BaseDanbooruPost)
+        self.Wiki = self._create_new_common_class(BaseDanbooruWiki)
+        self.ArtistVersion = self._create_new_common_class(BaseDanbooruArtistVersion)
+        self.ArtistCommentaryVersion = self._create_new_common_class(BaseDanbooruArtistCommentaryVersion)
+        self.NoteVersion = self._create_new_common_class(BaseDanbooruNoteVersion)
+        self.PoolVersion = self._create_new_common_class(BaseDanbooruPoolVersion)
+        self.PostVersion = self._create_new_common_class(BaseDanbooruPostVersion)
+        self.WikiPageVersion = self._create_new_common_class(BaseDanbooruWikiPageVersion)
+        self.Comment = self._create_new_common_class(BaseDanbooruComment)
+        self.Dmail = self._create_new_common_class(BaseDanbooruDmail)
+        self.ForumPost = self._create_new_common_class(BaseDanbooruForumPost)
+        self.ForumTopic = self._create_new_common_class(BaseDanbooruForumTopic)
+        self.PostAppeal = self._create_new_common_class(BaseDanbooruPostAppeal)
+        self.PostFlag = self._create_new_common_class(BaseDanbooruPostFlag)
+        self.Tag = self._create_new_common_class(BaseDanbooruTag)
+        self.TagAlias = self._create_new_common_class(BaseDanbooruTagAlias)
+        self.TagImplication = self._create_new_common_class(BaseDanbooruTagImplication)
+        self.Upload = self._create_new_common_class(BaseDanbooruUpload)
+        self.User = self._create_new_common_class(BaseDanbooruUser)
 
-    def create_new_common_class(self, class_: Type_T) -> Type_T:
+    def _create_new_common_class(self, class_: Type_T) -> Type_T:
         class _NewClass(class_):
             @classmethod
             def _get_root_url(cls) -> str:
                 return self._root_url
 
         return _NewClass
+
+    @staticmethod
+    async def get_resource(
+            url: str,
+            params: Optional[dict[str, Any]] = None,
+            *,
+            timeout: int = 10,
+    ) -> str | bytes:
+        return await BaseDanbooruCommon.get_resource(url, params, timeout=timeout)
 
 
 __all__ = [
