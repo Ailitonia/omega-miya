@@ -8,8 +8,9 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_plugin_config, logger
 from typing import Literal
+
+from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 
 

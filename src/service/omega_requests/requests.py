@@ -13,18 +13,25 @@ import pathlib
 from asyncio.exceptions import TimeoutError
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from typing import AsyncGenerator, Optional, Any
+from typing import TYPE_CHECKING, AsyncGenerator, Optional, Any
 from urllib.parse import urlparse, unquote
 
 import ujson
 from nonebot import get_driver, logger
-from nonebot.drivers import (ForwardDriver, HTTPClientMixin, HTTPClientSession, Response, Request,
-                             WebSocket, WebSocketClientMixin)
+from nonebot.drivers import (
+    ForwardDriver,
+    HTTPClientMixin,
+    Request,
+    WebSocketClientMixin,
+)
 from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
 
 from src.exception import WebSourceException
 from src.resource import TemporaryResource
 from .config import http_proxy_config
+
+if TYPE_CHECKING:
+    from nonebot.drivers import HTTPClientSession, Response, WebSocket
 
 
 class ExceededAttemptError(WebSourceException):
@@ -71,12 +78,12 @@ class OmegaRequests(object):
         self.retry_limit = self._default_retry_limit if retry is None else retry
 
     @staticmethod
-    def parse_content_json(response: Response, **kwargs) -> Any:
+    def parse_content_json(response: "Response", **kwargs) -> Any:
         """解析 Response Content 为 Json"""
         return ujson.loads(response.content, **kwargs)
 
     @staticmethod
-    def parse_content_text(response: Response, encoding: str = 'utf-8') -> str | None:
+    def parse_content_text(response: "Response", encoding: str = 'utf-8') -> str | None:
         """解析 Response Content 为字符串"""
         if isinstance(response.content, bytes):
             return response.content.decode(encoding=encoding)
@@ -104,7 +111,7 @@ class OmegaRequests(object):
     def get_default_headers(cls) -> dict[str, str]:
         return deepcopy(cls._default_headers)
 
-    def get_session(self, params: Optional[QueryTypes] = None, use_proxy: bool = True) -> HTTPClientSession:
+    def get_session(self, params: Optional[QueryTypes] = None, use_proxy: bool = True) -> "HTTPClientSession":
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward http connections! "
@@ -118,7 +125,7 @@ class OmegaRequests(object):
             proxy=http_proxy_config.proxy_url if use_proxy else None
         )
 
-    async def request(self, setup: Request) -> Response:
+    async def request(self, setup: Request) -> "Response":
         """装饰原 request 方法, 自动重试"""
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
@@ -167,7 +174,7 @@ class OmegaRequests(object):
             files: FilesTypes = None,
             timeout: Optional[float] = None,
             use_proxy: bool = True
-    ) -> AsyncGenerator[WebSocket, None]:
+    ) -> AsyncGenerator["WebSocket", None]:
         """建立 websocket 连接"""
         if not isinstance(self.driver, WebSocketClientMixin):
             raise RuntimeError(
@@ -205,7 +212,7 @@ class OmegaRequests(object):
             files: FilesTypes = None,
             timeout: Optional[float] = None,
             use_proxy: bool = True
-    ) -> Response:
+    ) -> "Response":
         setup = Request(
             method='GET',
             url=url,
@@ -234,7 +241,7 @@ class OmegaRequests(object):
             files: FilesTypes = None,
             timeout: Optional[float] = None,
             use_proxy: bool = True
-    ) -> Response:
+    ) -> "Response":
         setup = Request(
             method='POST',
             url=url,
@@ -288,7 +295,4 @@ class OmegaRequests(object):
 
 __all__ = [
     'OmegaRequests',
-    'Request',
-    'Response',
-    'WebSocket'
 ]
