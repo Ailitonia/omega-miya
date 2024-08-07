@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Literal, Optional
 from nonebot.log import logger
 
 from src.exception import WebSourceException
-from src.service import OmegaRequests
 from src.utils.common_api import BaseCommonAPI
 from src.utils.image_utils.template import generate_thumbs_preview_image
 from src.utils.process_utils import semaphore_gather
@@ -60,7 +59,7 @@ class _BaseComic18(BaseCommonAPI):
         """
         if cls.__root_url is None:
             go_url = f'https://raw.githubusercontent.com/jmcmomic/jmcmomic.github.io/main/go/{type_}.html'
-            go_response = await OmegaRequests().get(go_url)
+            go_response = await cls._request_get(go_url)
             if go_response.status_code != 200:
                 raise WebSourceException(f'{go_response.request}, status code {go_response.status_code}')
             cls.__root_url = Comic18Parser.parse_root_url(content=go_response.content)
@@ -104,25 +103,17 @@ class _BaseComic18(BaseCommonAPI):
     async def download_resource(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
             *,
-            timeout: int = 60,
             folder_name: str | None = None,
             ignore_exist_file: bool = False,
     ) -> "TemporaryResource":
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        cookies = cls._get_default_cookies()
-        headers = cls._get_default_headers()
-        headers.update({'referer': url})
-
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
-        if folder_name is None:
-            file = comic18_resource_config.default_download_folder(original_file_name)
-        else:
-            file = comic18_resource_config.default_download_folder(folder_name, original_file_name)
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
-        return await requests.download(url=url, file=file, params=params, ignore_exist_file=ignore_exist_file)
+        return await cls._download_resource(
+            save_folder=comic18_resource_config.default_download_folder,
+            url=url,
+            subdir=folder_name,
+            ignore_exist_file=ignore_exist_file
+        )
 
 
 class Comic18(_BaseComic18):

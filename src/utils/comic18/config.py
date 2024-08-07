@@ -9,6 +9,7 @@
 """
 
 from dataclasses import dataclass
+
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
