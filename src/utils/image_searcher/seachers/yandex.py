@@ -14,8 +14,7 @@ from nonebot.log import logger
 from src.compat import parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
-
-from .model import ImageSearcher, ImageSearchingResult
+from ..model import ImageSearcher, ImageSearchingResult
 
 
 class YandexNetworkError(WebSourceException):
@@ -97,5 +96,5 @@ class Yandex(ImageSearcher):
 
 
 __all__ = [
-    'Yandex'
+    'Yandex',
 ]

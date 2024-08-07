@@ -9,14 +9,12 @@
 """
 
 from lxml import etree
-
 from nonebot.log import logger
 
 from src.compat import parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
-
-from .model import ImageSearcher, ImageSearchingResult
+from ..model import ImageSearcher, ImageSearchingResult
 
 
 class IqdbNetworkError(WebSourceException):
@@ -99,5 +97,5 @@ class Iqdb(ImageSearcher):
 
 
 __all__ = [
-    'Iqdb'
+    'Iqdb',
 ]

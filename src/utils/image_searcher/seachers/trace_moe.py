@@ -10,16 +10,15 @@
 
 
 from typing import Optional
-from pydantic import BaseModel, Field
+
 from nonebot.log import logger
+from pydantic import BaseModel, Field
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
-
-from .model import ImageSearcher, ImageSearchingResult
-
+from ..model import ImageSearcher, ImageSearchingResult
 
 _SIMILARITY_THRESHOLD: float = 0.8
 """搜索结果相似度阈值"""
@@ -151,5 +150,5 @@ class TraceMoe(ImageSearcher):
 
 
 __all__ = [
-    'TraceMoe'
+    'TraceMoe',
 ]

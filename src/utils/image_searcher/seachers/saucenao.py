@@ -9,16 +9,15 @@
 """
 
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+
 from nonebot.log import logger
+from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
-
-from .model import ImageSearcher, ImageSearchingResult
-from .config import image_searcher_config
-
+from ..config import image_searcher_config
+from ..model import ImageSearcher, ImageSearchingResult
 
 _SIMILARITY_THRESHOLD: int = 60
 """搜索结果相似度阈值"""
@@ -212,5 +211,5 @@ class Saucenao(ImageSearcher):
 
 
 __all__ = [
-    'Saucenao'
+    'Saucenao',
 ]

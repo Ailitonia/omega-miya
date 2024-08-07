@@ -14,8 +14,7 @@ from nonebot.log import logger
 from src.compat import parse_obj_as
 from src.exception import WebSourceException
 from src.service import OmegaRequests
-
-from .model import ImageSearcher, ImageSearchingResult
+from ..model import ImageSearcher, ImageSearchingResult
 
 
 class Ascii2dNetworkError(WebSourceException):
@@ -132,3 +131,8 @@ class Ascii2d(ImageSearcher):
         parsed_result.extend(self._parser(content=bovw_search_content))
 
         return parse_obj_as(list[ImageSearchingResult], parsed_result)
+
+
+__all__ = [
+    'Ascii2d',
+]

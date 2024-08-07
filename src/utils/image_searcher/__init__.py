@@ -3,7 +3,7 @@
 @Date           : 2022/05/08 15:49
 @FileName       : image_searcher.py
 @Project        : nonebot2_miya 
-@Description    : 图片搜索引擎
+@Description    : 图片搜索工具
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -11,15 +11,15 @@
 from typing import Type
 
 from src.utils.process_utils import semaphore_gather
-
-from .ascii2d import Ascii2d
-from .iqdb import Iqdb
-from .saucenao import Saucenao
-from .trace_moe import TraceMoe
-from .yandex import Yandex
-
 from .config import image_searcher_config
 from .model import ImageSearcher, ImageSearchingResult
+from .seachers import (
+    Ascii2d,
+    Iqdb,
+    Saucenao,
+    TraceMoe,
+    Yandex,
+)
 
 
 class ComplexImageSearcher(ImageSearcher):
