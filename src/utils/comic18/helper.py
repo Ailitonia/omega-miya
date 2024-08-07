@@ -15,14 +15,13 @@ https://github.com/tonquer/JMComic-qt/blob/8b59628a0c0357b31911b98176c10c2bf4452
 from hashlib import md5
 from typing import TYPE_CHECKING
 
+from PIL import Image
 from lxml import etree
 from nonebot.log import logger
 from nonebot.utils import run_sync
-from PIL import Image
 from pydantic import ValidationError
 
 from src.utils.image_utils import ImageUtils
-
 from .model import AlbumData, AlbumPage, AlbumsResult
 
 if TYPE_CHECKING:

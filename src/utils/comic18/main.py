@@ -11,12 +11,11 @@
 import random
 import string
 from asyncio import sleep as async_sleep
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from nonebot.log import logger
 
 from src.exception import WebSourceException
-from src.resource import TemporaryResource
 from src.service import OmegaRequests
 from src.utils.common_api import BaseCommonAPI
 from src.utils.image_utils.template import generate_thumbs_preview_image
@@ -34,6 +33,9 @@ from .model import (
     Comic18PreviewModel,
     Comic18PreviewRequestModel,
 )
+
+if TYPE_CHECKING:
+    from src.resource import TemporaryResource
 
 
 class _BaseComic18(BaseCommonAPI):
@@ -107,7 +109,7 @@ class _BaseComic18(BaseCommonAPI):
             timeout: int = 60,
             folder_name: str | None = None,
             ignore_exist_file: bool = False,
-    ) -> TemporaryResource:
+    ) -> "TemporaryResource":
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         cookies = cls._get_default_cookies()
         headers = cls._get_default_headers()
@@ -174,7 +176,7 @@ class Comic18(_BaseComic18):
             type_: Optional[Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single']] = None,
             time: Optional[Literal['a', 't', 'w', 'm']] = None,
             order: Optional[Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf']] = None,
-    ) -> TemporaryResource:
+    ) -> "TemporaryResource":
         """获取分类漫画并生成预览图"""
         result = await cls.query_albums_list(page=page, type_=type_, time=time, order=order)
         name = f'AlbumsList - {type_} - Page {page}'
@@ -207,7 +209,7 @@ class Comic18(_BaseComic18):
             cls,
             type_: int = 27,
             page: Optional[int] = None,
-    ) -> TemporaryResource:
+    ) -> "TemporaryResource":
         """获取漫画推荐专题并生成预览图"""
         result = await cls.query_promotes(type_=type_, page=page)
         name = f'PromotesList - {type_} - Page {page}'
@@ -263,7 +265,7 @@ class Comic18(_BaseComic18):
             time: Optional[Literal['a', 't', 'w', 'm']] = None,
             order: Optional[Literal['mr', 'mv', 'mp', 'tf']] = None,
             main_tag: Optional[Literal['0', '1', '2', '3', '4']] = None,
-    ) -> TemporaryResource:
+    ) -> "TemporaryResource":
         """搜索漫画并生成预览图"""
         result = await cls.search_photos(
             search_query, page=page, type_=type_, time=time, order=order, main_tag=main_tag
@@ -299,7 +301,7 @@ class Comic18(_BaseComic18):
         assert isinstance(self.album_data, AlbumData), 'Query album data failed'
         return self.album_data
 
-    async def query_album_with_preview(self) -> TemporaryResource:
+    async def query_album_with_preview(self) -> "TemporaryResource":
         """获取漫画并生成漫画内容预览图"""
         return await self._generate_album_preview_image()
 
@@ -332,15 +334,15 @@ class Comic18(_BaseComic18):
     async def _reverse_image(
             self,
             page_id: str,
-            file: TemporaryResource,
-            save_folder: TemporaryResource
-    ) -> TemporaryResource:
+            file: "TemporaryResource",
+            save_folder: "TemporaryResource"
+    ) -> "TemporaryResource":
         """恢复被分割的图片"""
         image: Comic18ImgOps = await Comic18ImgOps.async_init_from_file(file=file)
         output_image = await image.reverse_segmental_image(album_id=self.aid, page_id=page_id)
         return await output_image.save(save_folder(f'{page_id}.jpg'))
 
-    async def download_album(self, *, ignore_exist_file: bool = True) -> list[TemporaryResource]:
+    async def download_album(self, *, ignore_exist_file: bool = True) -> list["TemporaryResource"]:
         """下载漫画"""
         album_pages = await self.query_all_pages()
 
@@ -370,7 +372,7 @@ class Comic18(_BaseComic18):
         reverse_result = await semaphore_gather(tasks=reverse_tasks, semaphore_num=10, return_exceptions=False)
         logger.success(f'Comic18 | Downloaded and reversed album(id={self.aid}) succeed')
 
-        return [x for x in reverse_result if isinstance(x, TemporaryResource)]
+        return [x for x in reverse_result if not isinstance(x, Exception)]
 
     async def download_and_pack_album(self, *, ignore_exist_file: bool = True) -> AlbumPackResult:
         """下载并打包漫画"""
@@ -433,7 +435,7 @@ class Comic18(_BaseComic18):
             hold_ratio: bool = False,
             num_of_line: int = 4,
             limit: int = 1000
-    ) -> TemporaryResource:
+    ) -> "TemporaryResource":
         """生成多个图片内容的预览图
 
         :param preview_size: 单个小缩略图的尺寸
@@ -489,7 +491,7 @@ class Comic18(_BaseComic18):
 
         return Comic18PreviewModel(preview_name=preview_name, count=count, previews=previews)
 
-    async def _generate_album_preview_image(self) -> TemporaryResource:
+    async def _generate_album_preview_image(self) -> "TemporaryResource":
         """生成作品预览图"""
         preview_data = await self._emit_preview_model_from_album_data()
         return await self._generate_preview_image(preview=preview_data, hold_ratio=True)
