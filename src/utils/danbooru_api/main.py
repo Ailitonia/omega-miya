@@ -915,12 +915,17 @@ class BaseDanbooruAPI:
         self.User = self._create_new_common_class(BaseDanbooruUser)
 
     def _create_new_common_class(self, class_: Type_T) -> Type_T:
-        class _NewClass(class_):
+        class DanbooruCommon(class_):
+            __slots__ = ('id',)
+
             @classmethod
             def _get_root_url(cls) -> str:
                 return self._root_url
 
-        return _NewClass
+            def __repr__(self) -> str:
+                return f'{class_.__name__.removeprefix("Base")}(id={self.id})'
+
+        return DanbooruCommon
 
     @staticmethod
     async def get_resource(
