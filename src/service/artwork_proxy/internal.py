@@ -45,7 +45,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @property
     def meta_file_name(self) -> str:
-        return f'{self.__id}.json'
+        return f'{self.s_aid}.json'
 
     @property
     def meta_file(self) -> "TemporaryResource":
@@ -132,11 +132,9 @@ class BaseArtworkProxy(abc.ABC):
         match page_type:
             case 'preview':
                 file_url = artwork_data.preview_pages_url[page_index]
-            case 'regular':
-                file_url = artwork_data.regular_pages_url[page_index]
             case 'original':
                 file_url = artwork_data.original_pages_url[page_index]
-            case _:
+            case 'regular' | _:
                 file_url = artwork_data.regular_pages_url[page_index]
 
         return await self._get_resource(url=file_url)
@@ -152,14 +150,12 @@ class BaseArtworkProxy(abc.ABC):
         match page_type:
             case 'preview':
                 page = artwork_data.index_pages[page_index].preview_file
-            case 'regular':
-                page = artwork_data.index_pages[page_index].regular_file
             case 'original':
                 page = artwork_data.index_pages[page_index].original_file
-            case _:
+            case 'regular' | _:
                 page = artwork_data.index_pages[page_index].regular_file
 
-        page_file_name = f'{self.__id}_{page_type}_p{page_index}.{page.file_ext.strip(".")}'
+        page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{page.file_ext.strip(".")}'
         page_file = self._get_path_config().artwork_path(page_file_name)
 
         # 如果已经存在则直接返回本地资源

@@ -25,6 +25,7 @@ from src.utils.pixiv_api.model.ranking import PixivRankingModel
 from src.utils.pixiv_api.model.searching import PixivSearchingResultModel
 from src.utils.pixiv_api.model.user import PixivUserSearchingBody, PixivUserSearchingModel
 from src.utils.process_utils import semaphore_gather
+from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData
 
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from src.resource import StaticResource, TemporaryResource
 
 
-class PixivArtworkProxy(BaseArtworkProxy):
+class PixivArtworkProxy(BaseArtworkProxy, ImageOpsMixin):
     """Pixiv 图库统一接口实现"""
 
     @classmethod
