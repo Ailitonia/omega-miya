@@ -121,6 +121,11 @@ class BaseArtworkProxy(abc.ABC):
         """获取格式化作品描述文本"""
         raise NotImplementedError
 
+    @abc.abstractmethod
+    async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
+        """获取格式化作品在预览图中的描述信息"""
+        raise NotImplementedError
+
     async def _query_page(
             self,
             page_index: int = 0,
@@ -221,7 +226,7 @@ class BaseArtworkProxy(abc.ABC):
                 if index < page_limit
             ]
 
-        all_pages_file = await semaphore_gather(tasks=tasks, semaphore_num=10)
+        all_pages_file = await semaphore_gather(tasks=tasks, semaphore_num=8)
         for index, file in enumerate(all_pages_file):
             assert not isinstance(file, Exception), f'Get page {index} file failed'
 

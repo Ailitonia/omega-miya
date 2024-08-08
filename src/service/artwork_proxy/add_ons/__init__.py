@@ -10,6 +10,7 @@
 
 from .image_ops import ImageOpsMixin
 
+
 __all__ = [
-    'ImageOpsMixin'
+    'ImageOpsMixin',
 ]

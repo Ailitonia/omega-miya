@@ -8,24 +8,38 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Literal, TypeAlias, cast
+from functools import wraps
+from typing import TYPE_CHECKING, Callable, Literal, TypeAlias, TypeVar, cast
 
 if TYPE_CHECKING:
     from .internal import BaseArtworkProxy
 
+T = TypeVar('T')
+
 ArtworkPageParamType: TypeAlias = Literal['preview', 'regular', 'original']
 """作品页面可选类型参数"""
 
-ArtworkProxy_T: TypeAlias = type["BaseArtworkProxy"]
+ArtworkProxyType: TypeAlias = type["BaseArtworkProxy"]
 
 
-def mark_as_artwork_proxy_mixin(class_: type) -> ArtworkProxy_T:
+def mark_as_artwork_proxy_mixin(class_: type) -> ArtworkProxyType:
     """标注类为 ArtworkProxy 方便类型检查, 仅供工具插件 Mixin 类使用"""
-    return cast(ArtworkProxy_T, class_)
+    return cast(ArtworkProxyType, class_)
+
+
+def mark_as_mixin(class_t: T) -> Callable[[type], T]:
+    """标注类为指定的类, 方便类型检查, 仅供工具插件 Mixin 类使用"""
+
+    @wraps(class_t)
+    def _decorator(class_: type) -> T:
+        return cast(class_t, class_)
+
+    return _decorator
 
 
 __all__ = [
     'ArtworkPageParamType',
-    'ArtworkProxy_T',
+    'ArtworkProxyType',
     'mark_as_artwork_proxy_mixin',
+    'mark_as_mixin',
 ]

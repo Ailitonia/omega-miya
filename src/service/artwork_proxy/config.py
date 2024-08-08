@@ -45,11 +45,6 @@ class ArtworkProxyPathConfig(object):
         return self.base_path('artwork')
 
     @property
-    def download_path(self) -> TemporaryResource:
-        """下载原始文件目录"""
-        return self.base_path('download')
-
-    @property
     def preview_path(self) -> TemporaryResource:
         """生成预览图缓存文件目录"""
         return self.base_path('preview')

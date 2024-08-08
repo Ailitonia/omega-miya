@@ -14,12 +14,11 @@ from copy import deepcopy
 from io import BytesIO
 from typing import Literal
 
-from nonebot.utils import run_sync
 from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
+from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
 from src.service import OmegaRequests
-
 from .config import image_utils_config
 
 
@@ -197,6 +196,25 @@ class ImageUtils(object):
         b64 = str(b64, encoding='utf-8')
         return 'base64://' + b64
 
+    @property
+    def bytes(self) -> bytes:
+        """转换为 bytes 输出"""
+        return self.get_bytes()
+
+    def set_image(self, image: Image.Image) -> "ImageUtils":
+        """手动更新 Image"""
+        self._image = image
+        return self
+
+    @run_sync
+    def async_get_bytes(self, *, format_: str = 'JPEG') -> bytes:
+        return self.get_bytes(format_=format_)
+
+    @run_sync
+    def async_get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
+        """返回图片并在末尾添加空白比特"""
+        return self.get_bytes_add_blank(bytes_num=bytes_num, format_=format_)
+
     def get_bytes(self, *, format_: str = 'JPEG') -> bytes:
         """获取 Image 内容, 以 Bytes 输出"""
         with BytesIO() as _bf:
@@ -207,11 +225,6 @@ class ImageUtils(object):
     def get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
         """返回图片并在末尾添加空白比特"""
         return self.get_bytes(format_=format_) + b' '*bytes_num
-
-    def set_image(self, image: Image.Image) -> "ImageUtils":
-        """手动更新 Image"""
-        self._image = image
-        return self
 
     async def save(
             self,
