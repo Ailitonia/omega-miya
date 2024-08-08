@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2024/8/2 14:30:31
-@FileName       : danbooru.py
+@FileName       : main.py
 @Project        : omega-miya
 @Description    : Danbooru API
 @GitHub         : https://github.com/Ailitonia

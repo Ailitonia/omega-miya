@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from .danbooru import BaseDanbooruAPI
+from .main import BaseDanbooruAPI
 
 danbooru_api = BaseDanbooruAPI(root_url='https://danbooru.donmai.us')
 
