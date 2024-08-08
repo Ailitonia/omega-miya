@@ -9,9 +9,10 @@
 """
 
 from datetime import datetime
+from typing import Optional, Literal
+
 from lxml import etree
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
-from typing import Optional, Literal
 
 from src.compat import AnyUrlStr as AnyUrl
 
@@ -351,5 +352,5 @@ __all__ = [
     'WeiboRealtimeHotCard',
     'WeiboRealtimeHot',
     'WeiboUserBase',
-    'WeiboUserInfo'
+    'WeiboUserInfo',
 ]

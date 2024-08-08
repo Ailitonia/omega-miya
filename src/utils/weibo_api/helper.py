@@ -8,9 +8,10 @@
 @Software       : PyCharm 
 """
 
+from typing import Any
+
 import ujson as json
 from lxml import etree
-from typing import Any
 
 
 def parse_weibo_card_from_status_page(content: bytes) -> Any:
@@ -26,5 +27,5 @@ def parse_weibo_card_from_status_page(content: bytes) -> Any:
 
 
 __all__ = [
-    'parse_weibo_card_from_status_page'
+    'parse_weibo_card_from_status_page',
 ]
