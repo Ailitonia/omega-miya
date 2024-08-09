@@ -19,7 +19,7 @@ class _PixivArtworkProxy(BaseArtworkProxy):
     """Pixiv 图库统一接口实现"""
 
     @classmethod
-    def _get_base_origin_name(cls) -> str:
+    def get_base_origin_name(cls) -> str:
         return 'pixiv'
 
     @classmethod
@@ -37,7 +37,7 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         """
 
         return ArtworkData.model_validate({
-            'origin': self._get_base_origin_name(),
+            'origin': self.get_base_origin_name(),
             'aid': artwork_data.pid,
             'title': artwork_data.title,
             'uid': artwork_data.uid,

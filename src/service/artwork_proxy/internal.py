@@ -54,7 +54,7 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def origin_name(self) -> str:
         """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
-        return self._get_base_origin_name()
+        return self.get_base_origin_name()
 
     @property
     def path_config(self) -> ArtworkProxyPathConfig:
@@ -68,14 +68,14 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _get_base_origin_name(cls) -> str:
+    def get_base_origin_name(cls) -> str:
         """内部方法, 返回该图库的来源名称, 作为缓存路径及数据库收录分类字段名"""
         raise NotImplementedError
 
     @classmethod
     def _generate_path_config(cls) -> ArtworkProxyPathConfig:
         """内部方法, 生成该图库的本地存储路径配置项"""
-        return ArtworkProxyPathConfig(base_path_name=cls._get_base_origin_name())
+        return ArtworkProxyPathConfig(base_path_name=cls.get_base_origin_name())
 
     def _get_path_config(self) -> ArtworkProxyPathConfig:
         """内部方法, 获取该图库的本地存储路径配置项"""

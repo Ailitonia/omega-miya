@@ -13,8 +13,9 @@ from typing import TYPE_CHECKING, TypeAlias
 if TYPE_CHECKING:
     from .internal import BaseArtworkCollection
 
-ArtworkCollection_T: TypeAlias = type["BaseArtworkCollection"]
+ArtworkCollectionType: TypeAlias = type["BaseArtworkCollection"]
+
 
 __all__ = [
-    'ArtworkCollection_T'
+    'ArtworkCollectionType',
 ]

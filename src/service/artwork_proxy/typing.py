@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Callable, Literal, TypeAlias, TypeVar, cast
 if TYPE_CHECKING:
     from .internal import BaseArtworkProxy
 
-T = TypeVar('T')
+T = TypeVar('T', bound=type["BaseArtworkProxy"])
 
 ArtworkPageParamType: TypeAlias = Literal['preview', 'regular', 'original']
 """作品页面可选类型参数"""
@@ -23,7 +23,7 @@ ArtworkProxyType: TypeAlias = type["BaseArtworkProxy"]
 
 
 def mark_as_artwork_proxy_mixin(class_: type) -> ArtworkProxyType:
-    """标注类为 ArtworkProxy 方便类型检查, 仅供工具插件 Mixin 类使用"""
+    """标注类为 ArtworkProxy 类型, 方便类型检查, 仅供工具插件 Mixin 类使用"""
     return cast(ArtworkProxyType, class_)
 
 

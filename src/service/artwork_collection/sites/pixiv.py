@@ -13,14 +13,11 @@ from ..internal import BaseArtworkCollection
 
 
 class PixivArtworkCollection(BaseArtworkCollection):
+    """Pixiv 收藏作品合集"""
 
     @classmethod
-    def _init_self_artwork_proxy(cls, artwork_id: str | int) -> PixivArtworkProxy:
-        return PixivArtworkProxy(artwork_id=artwork_id)
-
-    @classmethod
-    def _get_base_origin_name(cls) -> str:
-        return 'pixiv'
+    def _get_base_artwork_proxy_type(cls) -> type[PixivArtworkProxy]:
+        return PixivArtworkProxy
 
 
 __all__ = [

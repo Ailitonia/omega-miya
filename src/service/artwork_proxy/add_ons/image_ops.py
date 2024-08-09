@@ -61,6 +61,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             page_type: "ArtworkPageParamType" = 'regular',
             process_mode: Literal['mark', 'blur', 'noise'] = 'mark',
     ) -> "TemporaryResource":
+        """处理作品图片"""
         artwork_data = await self.query()
         origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
 
@@ -86,6 +87,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             page_type: "ArtworkPageParamType" = 'regular',
             process_mode: Literal['mark', 'blur', 'noise'] = 'mark',
     ) -> "TemporaryResource":
+        """使用自定义方法处理作品图片"""
         return await self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode=process_mode)
 
     async def get_proceed_page_file(
@@ -95,6 +97,13 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             page_type: "ArtworkPageParamType" = 'regular',
             no_blur_rating: int = 1,
     ) -> "TemporaryResource":
+        """根据作品分级处理作品图片
+
+        :param page_index: 作品图片页码
+        :param page_type: 作品图片类型
+        :param no_blur_rating: 最高不需要模糊处理的分级等级
+        :return: TemporaryResource
+        """
         max_no_blur_rating = max(0, no_blur_rating)
         artwork_data = await self.query()
 

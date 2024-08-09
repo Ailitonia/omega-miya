@@ -10,6 +10,7 @@
 
 from .pixiv import PixivArtworkCollection
 
+
 __all__ = [
-    'PixivArtworkCollection'
+    'PixivArtworkCollection',
 ]

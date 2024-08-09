@@ -23,10 +23,11 @@ from src.database.internal.artwork_collection import (
 
 if TYPE_CHECKING:
     from src.service.artwork_proxy.internal import BaseArtworkProxy
+    from src.service.artwork_proxy.typing import ArtworkProxyType
 
 
 class BaseArtworkCollection(abc.ABC):
-    """作品合集基类, 封装后用于插件调用的数据库实体操作对象"""
+    """收藏作品合集基类, 封装后用于插件调用的数据库实体操作对象"""
 
     def __init__(self, artwork_id: str | int):
         self.__ap = self._init_self_artwork_proxy(artwork_id=artwork_id)
@@ -43,19 +44,24 @@ class BaseArtworkCollection(abc.ABC):
     @property
     def origin_name(self) -> str:
         """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
-        return self._get_base_origin_name()
+        return self._get_origin_name()
 
     @classmethod
     @abc.abstractmethod
+    def _get_base_artwork_proxy_type(cls) -> "ArtworkProxyType":
+        """内部方法, 用于获取对应图站的统一接口类"""
+        raise NotImplementedError
+
+    @classmethod
+    def _get_origin_name(cls) -> str:
+        """内部方法, 返回该图库的来源名称, 作为数据库收录分类字段名"""
+        return cls._get_base_artwork_proxy_type().get_base_origin_name()
+
+    @classmethod
     def _init_self_artwork_proxy(cls, artwork_id: str | int) -> "BaseArtworkProxy":
         """内部方法, 实列化时初始化作品统一接口"""
-        raise NotImplementedError
-
-    @classmethod
-    @abc.abstractmethod
-    def _get_base_origin_name(cls) -> str:
-        """内部方法, 返回该图库的来源名称, 作为数据库收录分类字段名"""
-        raise NotImplementedError
+        artwork_proxy_class = cls._get_base_artwork_proxy_type()
+        return artwork_proxy_class(artwork_id=artwork_id)
 
     @classmethod
     async def query_by_condition(
@@ -81,7 +87,7 @@ class BaseArtworkCollection(abc.ABC):
 
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_by_condition(
-                origin=cls._get_base_origin_name(),
+                origin=cls._get_origin_name(),
                 keywords=keywords, num=num,
                 classification_min=min(allow_classification_range), classification_max=max(allow_classification_range),
                 rating_min=min(allow_rating_range), rating_max=max(allow_rating_range),
@@ -92,7 +98,7 @@ class BaseArtworkCollection(abc.ABC):
     @classmethod
     async def random(
             cls,
-            num: Optional[int],
+            num: int = 3,
             allow_classification_range: Optional[tuple[int, int]] = None,
             allow_rating_range: Optional[tuple[int, int]] = None,
             ratio: Optional[int] = None
@@ -115,7 +121,7 @@ class BaseArtworkCollection(abc.ABC):
 
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_classification_statistic(
-                origin=cls._get_base_origin_name(), keywords=keywords
+                origin=cls._get_origin_name(), keywords=keywords
             )
         return result
 
@@ -131,7 +137,7 @@ class BaseArtworkCollection(abc.ABC):
 
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_rating_statistic(
-                origin=cls._get_base_origin_name(), keywords=keywords
+                origin=cls._get_origin_name(), keywords=keywords
             )
         return result
 
@@ -140,7 +146,7 @@ class BaseArtworkCollection(abc.ABC):
         """通过 uid 或用户名精准查找用户所有作品"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_user_all(
-                origin=cls._get_base_origin_name(), uid=uid, uname=uname
+                origin=cls._get_origin_name(), uid=uid, uname=uname
             )
         return result
 
@@ -149,7 +155,7 @@ class BaseArtworkCollection(abc.ABC):
         """通过 uid 或用户名精准查找用户所有作品的 artwork_id"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_user_all_aids(
-                origin=cls._get_base_origin_name(), uid=uid, uname=uname
+                origin=cls._get_origin_name(), uid=uid, uname=uname
             )
         return result
 
