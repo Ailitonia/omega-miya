@@ -97,9 +97,9 @@ class BaseArtworkProxy(abc.ABC):
         async with self.meta_file.async_open('w', encoding='utf8') as af:
             await af.write(artwork_data.model_dump_json())
 
-    async def _fast_query(self) -> ArtworkData:
+    async def _fast_query(self, *, use_cache: bool = True) -> ArtworkData:
         """获取作品信息, 优先从本地缓存加载"""
-        if self.meta_file.is_file:
+        if use_cache and self.meta_file.is_file:
             async with self.meta_file.async_open('r', encoding='utf8') as af:
                 artwork_data = ArtworkData.model_validate_json(await af.read())
         else:
@@ -108,10 +108,10 @@ class BaseArtworkProxy(abc.ABC):
 
         return artwork_data
 
-    async def query(self) -> ArtworkData:
+    async def query(self, *, use_cache: bool = True) -> ArtworkData:
         """获取作品信息"""
         if not isinstance(self.artwork_data, ArtworkData):
-            self.artwork_data = await self._fast_query()
+            self.artwork_data = await self._fast_query(use_cache=use_cache)
 
         assert isinstance(self.artwork_data, ArtworkData), 'Query artwork data failed'
         return self.artwork_data

@@ -167,51 +167,23 @@ class BaseArtworkCollection(abc.ABC):
             )
         return result
 
-    async def add_artwork_into_database_ignore_exists(
-            self,
-            classification: Optional[int] = None,
-            rating: Optional[int] = None,
-    ) -> None:
-        """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在忽略
-
-        :param classification: 指定写入的 classification
-        :param rating: 指定写入的 rating
-        :return: None
-        """
-        async with begin_db_session() as session:
-            artwork_dal = ArtworkCollectionDAL(session=session)
-            try:
-                await artwork_dal.query_unique(origin=self.origin_name, aid=self.__ap.s_aid)
-            except NoResultFound:
-                artwork_data = await self.__ap.query()
-
-                classification = classification if (classification is not None) else artwork_data.classification.value
-                rating = rating if (rating is not None) else artwork_data.rating.value
-
-                await artwork_dal.add(
-                    origin=self.origin_name, aid=self.__ap.s_aid,
-                    title=artwork_data.title, uid=artwork_data.uid, uname=artwork_data.uname,
-                    classification=classification, rating=rating,
-                    width=artwork_data.width, height=artwork_data.height,
-                    tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
-                    description=artwork_data.description
-                )
-
     async def add_and_upgrade_artwork_into_database(
             self,
+            *,
+            use_cache: bool = True,
             classification: Optional[int] = None,
             rating: Optional[int] = None,
             force_update_mark: bool = False,
     ) -> None:
         """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在则更新
 
+        :param use_cache: 使用缓存的作品信息
         :param classification: 指定写入的 classification
         :param rating: 指定写入的 rating
         :param force_update_mark: 更新时是否强制更新数据库中存在的 classification 及 rating 标签, 若否则仅大于已有值时更新
         :return: None
         """
-        artwork_data = await self.__ap.query()
+        artwork_data = await self.__ap.query(use_cache=use_cache)
         classification = classification if (classification is not None) else artwork_data.classification.value
         rating = rating if (rating is not None) else artwork_data.rating.value
 
@@ -234,6 +206,40 @@ class BaseArtworkCollection(abc.ABC):
                     description=artwork_data.description
                 )
             except NoResultFound:
+                await artwork_dal.add(
+                    origin=self.origin_name, aid=self.__ap.s_aid,
+                    title=artwork_data.title, uid=artwork_data.uid, uname=artwork_data.uname,
+                    classification=classification, rating=rating,
+                    width=artwork_data.width, height=artwork_data.height,
+                    tags=','.join(tag for tag in artwork_data.tags),
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    description=artwork_data.description
+                )
+
+    async def add_artwork_into_database_ignore_exists(
+            self,
+            *,
+            use_cache: bool = True,
+            classification: Optional[int] = None,
+            rating: Optional[int] = None,
+    ) -> None:
+        """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在忽略
+
+        :param use_cache: 使用缓存的作品信息
+        :param classification: 指定写入的 classification
+        :param rating: 指定写入的 rating
+        :return: None
+        """
+        async with begin_db_session() as session:
+            artwork_dal = ArtworkCollectionDAL(session=session)
+            try:
+                await artwork_dal.query_unique(origin=self.origin_name, aid=self.__ap.s_aid)
+            except NoResultFound:
+                artwork_data = await self.__ap.query(use_cache=use_cache)
+
+                classification = classification if (classification is not None) else artwork_data.classification.value
+                rating = rating if (rating is not None) else artwork_data.rating.value
+
                 await artwork_dal.add(
                     origin=self.origin_name, aid=self.__ap.s_aid,
                     title=artwork_data.title, uid=artwork_data.uid, uname=artwork_data.uname,
