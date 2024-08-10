@@ -209,44 +209,6 @@ class Post(BaseDanbooruModel):
     created_at: datetime
     updated_at: datetime
 
-    @staticmethod
-    def _get_variant_model_data(variant: PostVariantsType | None) -> dict:
-        if variant is None:
-            model_data = {
-                'url': 'https://example.com/FileNotFound',
-                'file_ext': 'Unknown',
-                'width': None,
-                'height': None,
-            }
-        else:
-            model_data = {
-                'url': variant.url,
-                'file_ext': variant.file_ext,
-                'width': variant.width,
-                'height': variant.height,
-            }
-        return model_data
-
-    @property
-    def preview_file_model(self) -> dict:
-        return self._get_variant_model_data(variant=self.media_asset.variant_type_180)
-
-    @property
-    def regular_file_model(self) -> dict:
-        if self.media_asset.variant_type_sample is not None:
-            return self._get_variant_model_data(variant=self.media_asset.variant_type_sample)
-        elif self.media_asset.variant_type_720 is not None:
-            return self._get_variant_model_data(variant=self.media_asset.variant_type_720)
-        else:
-            return self._get_variant_model_data(variant=self.media_asset.variant_type_360)
-
-    @property
-    def original_file_model(self) -> dict:
-        if self.media_asset.variant_type_full is not None:
-            return self._get_variant_model_data(variant=self.media_asset.variant_type_full)
-        else:
-            return self._get_variant_model_data(variant=self.media_asset.variant_type_original)
-
 
 class Wiki(BaseDanbooruModel):
     id: int
@@ -603,6 +565,9 @@ __all__ = [
     'Note',
     'Pool',
     'Post',
+    'PostMediaAsset',
+    'PostVariant',
+    'PostVariantsType',
     'Wiki',
     'ArtistVersion',
     'ArtistCommentaryVersion',

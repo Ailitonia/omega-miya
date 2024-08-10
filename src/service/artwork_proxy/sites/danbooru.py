@@ -8,11 +8,15 @@
 @Software       : PyCharm 
 """
 
-from src.utils.danbooru_api import danbooru_api
+from typing import TYPE_CHECKING, Optional
 
+from src.utils.danbooru_api import danbooru_api
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData
+from ..models import ArtworkData, ArtworkPageFile
+
+if TYPE_CHECKING:
+    from src.utils.danbooru_api.models import PostMediaAsset, PostVariantsType
 
 
 class _DanbooruArtworkProxy(BaseArtworkProxy):
@@ -25,6 +29,44 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _get_resource(cls, url: str, *, timeout: int = 30) -> str | bytes | None:
         return await danbooru_api.get_resource(url=url, timeout=timeout)
+
+    @staticmethod
+    def _get_variant_page_file(variant: Optional["PostVariantsType"]) -> ArtworkPageFile:
+        if variant is None:
+            model_data = {
+                'url': 'https://example.com/FileNotFound',
+                'file_ext': 'Unknown',
+                'width': None,
+                'height': None,
+            }
+        else:
+            model_data = {
+                'url': variant.url,
+                'file_ext': variant.file_ext,
+                'width': variant.width,
+                'height': variant.height,
+            }
+        return ArtworkPageFile.model_validate(model_data)
+
+    @classmethod
+    def _get_preview_file(cls, media_asset: "PostMediaAsset") -> ArtworkPageFile:
+        return cls._get_variant_page_file(variant=media_asset.variant_type_180)
+
+    @classmethod
+    def _get_regular_file(cls, media_asset: "PostMediaAsset") -> ArtworkPageFile:
+        if media_asset.variant_type_sample is not None:
+            return cls._get_variant_page_file(variant=media_asset.variant_type_sample)
+        elif media_asset.variant_type_720 is not None:
+            return cls._get_variant_page_file(variant=media_asset.variant_type_720)
+        else:
+            return cls._get_variant_page_file(variant=media_asset.variant_type_360)
+
+    @classmethod
+    def _get_original_file(cls, media_asset: "PostMediaAsset") -> ArtworkPageFile:
+        if media_asset.variant_type_full is not None:
+            return cls._get_variant_page_file(variant=media_asset.variant_type_full)
+        else:
+            return cls._get_variant_page_file(variant=media_asset.variant_type_original)
 
     async def _query(self) -> ArtworkData:
         artwork_data = await danbooru_api.Post(id_=self.i_aid).show()
@@ -86,9 +128,9 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
             'description': None,
             'source': artwork_data.source,
             'pages': [{
-                'preview_file': artwork_data.preview_file_model,
-                'regular_file': artwork_data.regular_file_model,
-                'original_file': artwork_data.original_file_model
+                'preview_file': self._get_preview_file(media_asset=artwork_data.media_asset),
+                'regular_file': self._get_regular_file(media_asset=artwork_data.media_asset),
+                'original_file': self._get_original_file(media_asset=artwork_data.media_asset)
             }]
         })
 
