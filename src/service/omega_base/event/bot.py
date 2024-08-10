@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal
-from nonebot.typing import overrides
+from typing import Literal, override
+
 from nonebot.adapters import Message
 
 from .base import Event as OmegaEvent
@@ -23,23 +23,23 @@ class BotActionEvent(OmegaEvent):
     bot_type: str
     action: str
 
-    @overrides(OmegaEvent)
+    @override
     def get_message(self) -> Message:
         raise ValueError('Event has no message!')
 
-    @overrides(OmegaEvent)
+    @override
     def get_user_id(self) -> str:
         return str(self.bot_id)
 
-    @overrides(OmegaEvent)
+    @override
     def get_session_id(self) -> str:
         return str(self.bot_id)
 
-    @overrides(OmegaEvent)
+    @override
     def get_event_description(self) -> str:
         return f'Bot({self.bot_type}/{self.bot_id}) occurred the action: {self.action.upper()}'
 
-    @overrides(OmegaEvent)
+    @override
     def is_tome(self) -> bool:
         return True
 

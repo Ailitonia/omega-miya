@@ -8,13 +8,11 @@
 @Software       : PyCharm 
 """
 
-import ujson as json
 from enum import Enum, unique
 from pathlib import Path
-from typing import Iterable, Literal, Type, Union
+from typing import Iterable, Literal, Type, Union, override
 
-from nonebot.typing import overrides
-
+import ujson as json
 from nonebot.adapters import Message as BaseMessage
 from nonebot.adapters import MessageSegment as BaseMessageSegment
 
@@ -35,11 +33,11 @@ class MessageSegment(BaseMessageSegment):
     """Omega 中间件 MessageSegment 适配。具体方法参考协议消息段类型或源码。"""
 
     @classmethod
-    @overrides(BaseMessageSegment)
+    @override
     def get_message_class(cls) -> Type["Message"]:
         return Message
 
-    @overrides(BaseMessageSegment)
+    @override
     def __str__(self) -> str:
         if self.is_text():
             return self.data.get('text', '')
@@ -51,7 +49,7 @@ class MessageSegment(BaseMessageSegment):
         params = ', '.join([f'{k}={v}' for k, v in self.data.items() if v is not None])
         return f'[{self.type}{":" if params else ""}{params}]'
 
-    @overrides(BaseMessageSegment)
+    @override
     def is_text(self) -> bool:
         return self.type == MessageSegmentType.text.value
 
@@ -114,7 +112,7 @@ class Message(BaseMessage[MessageSegment]):
     """Omega 中间件 Message 适配。"""
 
     @classmethod
-    @overrides(BaseMessage)
+    @override
     def get_segment_class(cls) -> Type[MessageSegment]:
         return MessageSegment
 
@@ -122,7 +120,7 @@ class Message(BaseMessage[MessageSegment]):
         return "".join(repr(seg) for seg in self)
 
     @staticmethod
-    @overrides(BaseMessage)
+    @override
     def _construct(text: str) -> Iterable[MessageSegment]:
         yield MessageSegment.text(text=text)
 
