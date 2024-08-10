@@ -8,14 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import Callable, Literal, TypeAlias
+from typing import Callable, Literal
 
 from nonebot import get_plugin_config, logger
 from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
 from pydantic import BaseModel, ConfigDict
 
-
-T_SegReplacer: TypeAlias = Callable[[MessageSegment], MessageSegment]
+type SegReplacerType = Callable[[MessageSegment], MessageSegment]
 
 
 class OneBotV11ImageUrlReplacerConfig(BaseModel):
@@ -25,7 +24,7 @@ class OneBotV11ImageUrlReplacerConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-def _ger_image_url_replacer() -> T_SegReplacer:
+def _ger_image_url_replacer() -> SegReplacerType:
     try:
         replacer = get_plugin_config(OneBotV11ImageUrlReplacerConfig).onebot_v11_image_url_replacer
     except Exception as e:
@@ -62,7 +61,7 @@ def _ger_image_url_replacer() -> T_SegReplacer:
     return _image_url_replacer
 
 
-_REPLACER: T_SegReplacer = _ger_image_url_replacer()
+_REPLACER: SegReplacerType = _ger_image_url_replacer()
 
 
 def _parse_message(message: Message) -> Message:

@@ -9,17 +9,14 @@
 """
 
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Literal, TypeAlias, TypeVar, cast
+from typing import Callable, Literal, TypeVar, cast
 
-if TYPE_CHECKING:
-    from .internal import BaseArtworkProxy
+from .internal import BaseArtworkProxy
 
-T = TypeVar('T', bound=type["BaseArtworkProxy"])
-
-ArtworkPageParamType: TypeAlias = Literal['preview', 'regular', 'original']
+type ArtworkPageParamType = Literal['preview', 'regular', 'original']
 """作品页面可选类型参数"""
-
-ArtworkProxyType: TypeAlias = type["BaseArtworkProxy"]
+type ArtworkProxyType = type[BaseArtworkProxy]
+ArtworkProxy_T = TypeVar('ArtworkProxy_T', bound=ArtworkProxyType)
 
 
 def mark_as_artwork_proxy_mixin(class_: type) -> ArtworkProxyType:
@@ -27,11 +24,11 @@ def mark_as_artwork_proxy_mixin(class_: type) -> ArtworkProxyType:
     return cast(ArtworkProxyType, class_)
 
 
-def mark_as_mixin(class_t: T) -> Callable[[type], T]:
+def mark_as_mixin(class_t: ArtworkProxy_T) -> Callable[[type], ArtworkProxy_T]:
     """标注类为指定的类, 方便类型检查, 仅供工具插件 Mixin 类使用"""
 
     @wraps(class_t)
-    def _decorator(class_: type) -> T:
+    def _decorator(class_: type) -> ArtworkProxy_T:
         return cast(class_t, class_)
 
     return _decorator

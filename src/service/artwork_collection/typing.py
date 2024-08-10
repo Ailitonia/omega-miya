@@ -8,12 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, TypeAlias
-
-if TYPE_CHECKING:
-    from .internal import BaseArtworkCollection
-
-ArtworkCollectionType: TypeAlias = type["BaseArtworkCollection"]
+type ArtworkCollectionType = type["BaseArtworkCollection"]
 
 
 __all__ = [

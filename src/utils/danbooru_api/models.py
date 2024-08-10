@@ -10,7 +10,7 @@
 
 from datetime import datetime
 from enum import IntEnum, StrEnum, unique
-from typing import Any, Literal, Optional, TypeAlias, Union
+from typing import Any, Literal, Optional, Union, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, IPvAnyNetwork
 
@@ -73,7 +73,6 @@ class Pool(BaseDanbooruModel):
 
 
 class PostVariant(BaseDanbooruModel):
-    type: str
     url: str
     width: int
     height: int
@@ -104,7 +103,7 @@ class PostVariantTypeOriginal(PostVariant):
     type: Literal['original']
 
 
-PostVariantsType: TypeAlias = Union[
+type PostVariantsType = Union[
     PostVariantType180,
     PostVariantType360,
     PostVariantType720,
@@ -112,6 +111,8 @@ PostVariantsType: TypeAlias = Union[
     PostVariantTypeFull,
     PostVariantTypeOriginal
 ]
+
+PostVariant_T = TypeVar('PostVariant_T', bound=PostVariant)
 
 
 class PostMediaAsset(BaseDanbooruModel):
@@ -130,7 +131,7 @@ class PostMediaAsset(BaseDanbooruModel):
     created_at: datetime
     updated_at: datetime
 
-    def _get_variant(self, type_: type[PostVariantsType] = PostVariantTypeOriginal) -> PostVariantsType | None:
+    def _get_variant(self, type_: type[PostVariant_T]) -> PostVariant_T | None:
         if self.variants is None:
             return None
 
@@ -369,9 +370,9 @@ class ForumPost(BaseDanbooruModel):
 
 @unique
 class ForumTopicCategoryID(IntEnum):
-    General: int = 0
-    Tags: int = 1
-    BugsFeatures: int = 2
+    General = 0
+    Tags = 1
+    BugsFeatures = 2
 
 
 class ForumTopic(BaseDanbooruModel):
@@ -391,9 +392,9 @@ class ForumTopic(BaseDanbooruModel):
 
 @unique
 class PostAppealStatus(StrEnum):
-    pending: Literal['pending'] = 'pending'
-    succeeded: Literal['succeeded'] = 'succeeded'
-    rejected: Literal['rejected'] = 'rejected'
+    pending = 'pending'
+    succeeded = 'succeeded'
+    rejected = 'rejected'
 
 
 class PostAppeal(BaseDanbooruModel):
@@ -408,16 +409,16 @@ class PostAppeal(BaseDanbooruModel):
 
 @unique
 class PostFlagCategory(StrEnum):
-    normal: Literal['normal'] = 'normal'
-    unapproved: Literal['unapproved'] = 'unapproved'
-    rejected: Literal['rejected'] = 'rejected'
+    normal = 'normal'
+    unapproved = 'unapproved'
+    rejected = 'rejected'
 
 
 @unique
 class PostFlagStatus(StrEnum):
-    pending: Literal['pending'] = 'pending'
-    succeeded: Literal['succeeded'] = 'succeeded'
-    rejected: Literal['rejected'] = 'rejected'
+    pending = 'pending'
+    succeeded = 'succeeded'
+    rejected = 'rejected'
 
 
 class PostFlag(BaseDanbooruModel):
@@ -434,11 +435,11 @@ class PostFlag(BaseDanbooruModel):
 
 @unique
 class TagCategory(IntEnum):
-    General: int = 0
-    Artist: int = 1
-    Copyright: int = 3
-    Character: int = 4
-    Meta: int = 5
+    General = 0
+    Artist = 1
+    Copyright = 3
+    Character = 4
+    Meta = 5
 
 
 class Tag(BaseDanbooruModel):
@@ -566,7 +567,6 @@ __all__ = [
     'Pool',
     'Post',
     'PostMediaAsset',
-    'PostVariant',
     'PostVariantsType',
     'Wiki',
     'ArtistVersion',

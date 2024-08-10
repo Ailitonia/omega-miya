@@ -9,19 +9,18 @@
 """
 
 from datetime import datetime
-from typing import Callable, Optional, TypeAlias
+from typing import Callable, Optional
 
-from nonebot.utils import run_sync
 from PIL import Image, ImageEnhance, ImageOps, ImageMath
+from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
 from src.utils.image_utils import ImageUtils
 
-
 _TMP_FOLDER: TemporaryResource = TemporaryResource('mirage_tank')
 """缓存路径"""
-MIRAGE_FACTORY: TypeAlias = Callable[..., Image.Image]
+type MIRAGE_FACTORY = Callable[..., Image.Image]
 
 
 async def _fetch_image(image_url: str) -> bytes:
