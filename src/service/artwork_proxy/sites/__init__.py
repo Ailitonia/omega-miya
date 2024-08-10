@@ -8,8 +8,11 @@
 @Software       : PyCharm 
 """
 
+from .danbooru import DanbooruArtworkProxy
 from .pixiv import PixivArtworkProxy
 
+
 __all__ = [
+    'DanbooruArtworkProxy',
     'PixivArtworkProxy',
 ]

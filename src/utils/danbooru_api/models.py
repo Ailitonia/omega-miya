@@ -10,7 +10,7 @@
 
 from datetime import datetime
 from enum import IntEnum, StrEnum, unique
-from typing import Literal, Optional
+from typing import Any, Literal, Optional, TypeAlias, Union
 
 from pydantic import BaseModel, ConfigDict, Field, IPvAnyNetwork
 
@@ -72,40 +72,180 @@ class Pool(BaseDanbooruModel):
     updated_at: datetime
 
 
+class PostVariant(BaseDanbooruModel):
+    type: str
+    url: str
+    width: int
+    height: int
+    file_ext: str
+
+
+class PostVariantType180(PostVariant):
+    type: Literal['180x180']
+
+
+class PostVariantType360(PostVariant):
+    type: Literal['360x360']
+
+
+class PostVariantType720(PostVariant):
+    type: Literal['720x720']
+
+
+class PostVariantTypeSample(PostVariant):
+    type: Literal['sample']
+
+
+class PostVariantTypeFull(PostVariant):
+    type: Literal['full']
+
+
+class PostVariantTypeOriginal(PostVariant):
+    type: Literal['original']
+
+
+PostVariantsType: TypeAlias = Union[
+    PostVariantType180,
+    PostVariantType360,
+    PostVariantType720,
+    PostVariantTypeSample,
+    PostVariantTypeFull,
+    PostVariantTypeOriginal
+]
+
+
+class PostMediaAsset(BaseDanbooruModel):
+    id: int
+    md5: Optional[str] = None
+    file_key: Optional[str] = None
+    file_ext: str
+    file_size: int
+    image_width: int
+    image_height: int
+    duration: Optional[Any] = None
+    status: str
+    is_public: bool
+    pixel_hash: str
+    variants: Optional[list[PostVariantsType]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    def _get_variant(self, type_: type[PostVariantsType] = PostVariantTypeOriginal) -> PostVariantsType | None:
+        if self.variants is None:
+            return None
+
+        for variant in self.variants:
+            if isinstance(variant, type_):
+                return variant
+        else:
+            return None
+
+    @property
+    def variant_type_180(self) -> PostVariantType180 | None:
+        return self._get_variant(type_=PostVariantType180)
+
+    @property
+    def variant_type_360(self) -> PostVariantType360 | None:
+        return self._get_variant(type_=PostVariantType360)
+
+    @property
+    def variant_type_720(self) -> PostVariantType720 | None:
+        return self._get_variant(type_=PostVariantType720)
+
+    @property
+    def variant_type_sample(self) -> PostVariantTypeSample | None:
+        return self._get_variant(type_=PostVariantTypeSample)
+
+    @property
+    def variant_type_full(self) -> PostVariantTypeFull | None:
+        return self._get_variant(type_=PostVariantTypeFull)
+
+    @property
+    def variant_type_original(self) -> PostVariantTypeOriginal | None:
+        return self._get_variant(type_=PostVariantTypeOriginal)
+
+
 class Post(BaseDanbooruModel):
     id: int
     uploader_id: int
     approver_id: Optional[int]
+    is_banned: bool
+    is_deleted: bool
+    is_flagged: bool
+    is_pending: bool
     tag_string: str
     tag_string_general: str
     tag_string_artist: str
     tag_string_copyright: str
     tag_string_character: str
     tag_string_meta: str
-    rating: Optional[Literal['g', 's', 'q', 'e']]  # includes [g, s, q, e]
-    parent_id: Optional[int]
-    source: str
-    md5: Optional[str] = None
-    file_url: Optional[str] = None
-    large_file_url: Optional[str] = None
-    preview_file_url: Optional[str] = None
-    file_ext: str
-    file_size: int
-    image_width: int
-    score: int
-    fav_count: int
     tag_count_general: int
     tag_count_artist: int
     tag_count_copyright: int
     tag_count_character: int
     tag_count_meta: int
+    rating: Optional[Literal['g', 's', 'q', 'e']]  # includes [g, s, q, e]
+    parent_id: Optional[int]
+    has_children: bool
+    has_active_children: bool
+    has_visible_children: bool
+    has_large: bool
+    image_width: int
+    image_height: int
+    source: str
+    md5: Optional[str] = None  # some image need Gold+ account
+    file_url: Optional[str] = None  # some image need Gold+ account
+    large_file_url: Optional[str] = None  # some image need Gold+ account
+    preview_file_url: Optional[str] = None  # some image need Gold+ account
+    file_ext: str
+    file_size: int
+    score: int
+    up_score: int
+    down_score: int
+    fav_count: int
     last_comment_bumped_at: Optional[datetime]
     last_noted_at: Optional[datetime]
-    has_children: bool
-    image_height: int
-    media_asset: Optional[dict] = None  # media_asset not in api docs but it actually exists
+    media_asset: PostMediaAsset  # not in api docs but it actually exists
     created_at: datetime
     updated_at: datetime
+
+    @staticmethod
+    def _get_variant_model_data(variant: PostVariantsType | None) -> dict:
+        if variant is None:
+            model_data = {
+                'url': 'https://example.com/FileNotFound',
+                'file_ext': 'Unknown',
+                'width': None,
+                'height': None,
+            }
+        else:
+            model_data = {
+                'url': variant.url,
+                'file_ext': variant.file_ext,
+                'width': variant.width,
+                'height': variant.height,
+            }
+        return model_data
+
+    @property
+    def preview_file_model(self) -> dict:
+        return self._get_variant_model_data(variant=self.media_asset.variant_type_180)
+
+    @property
+    def regular_file_model(self) -> dict:
+        if self.media_asset.variant_type_sample is not None:
+            return self._get_variant_model_data(variant=self.media_asset.variant_type_sample)
+        elif self.media_asset.variant_type_720 is not None:
+            return self._get_variant_model_data(variant=self.media_asset.variant_type_720)
+        else:
+            return self._get_variant_model_data(variant=self.media_asset.variant_type_360)
+
+    @property
+    def original_file_model(self) -> dict:
+        if self.media_asset.variant_type_full is not None:
+            return self._get_variant_model_data(variant=self.media_asset.variant_type_full)
+        else:
+            return self._get_variant_model_data(variant=self.media_asset.variant_type_original)
 
 
 class Wiki(BaseDanbooruModel):
