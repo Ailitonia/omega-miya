@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc, or_, and_
@@ -85,7 +85,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
 
     async def query_by_condition(
             self,
-            origin: str,
+            origin: Optional[str | Sequence[str]],
             keywords: Optional[list[str]],
             num: int = 3,
             *,
@@ -116,7 +116,17 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         if rating_min > rating_max:
             raise ValueError('param: rating_min must be less than rating_max')
 
-        stmt = select(ArtworkCollectionOrm).where(ArtworkCollectionOrm.origin == origin)
+        stmt = select(ArtworkCollectionOrm)
+
+        if origin is None:
+            # 匹配所有来源
+            pass
+        elif isinstance(origin, str):
+            # 匹配单一来源
+            stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        else:
+            # 匹配任意来源
+            stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
 
         # classification 条件
         stmt = stmt.where(and_(ArtworkCollectionOrm.classification >= classification_min,

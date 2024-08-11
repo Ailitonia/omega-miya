@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, Sequence
 
 from sqlalchemy.exc import NoResultFound
 
@@ -46,6 +46,37 @@ class BaseArtworkCollection(abc.ABC):
         """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
         return self._get_origin_name()
 
+    @staticmethod
+    async def query_any_origin_by_condition(
+            keywords: Optional[str | list[str]],
+            origin: Optional[str | Sequence[str]] = None,
+            num: int = 3,
+            *,
+            allow_classification_range: Optional[tuple[int, int]] = (2, 3),
+            allow_rating_range: Optional[tuple[int, int]] = (0, 0),
+            acc_mode: bool = False,
+            ratio: Optional[int] = None,
+            order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
+    ) -> list["ArtworkCollection"]:
+        """从所有或任意指定来源根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
+        if isinstance(keywords, str):
+            keywords = [keywords]
+
+        if allow_classification_range is None:
+            allow_classification_range = (2, 3)
+
+        if allow_rating_range is None:
+            allow_rating_range = (0, 0)
+
+        async with begin_db_session() as session:
+            result = await ArtworkCollectionDAL(session=session).query_by_condition(
+                origin=origin, keywords=keywords, num=num,
+                classification_min=min(allow_classification_range), classification_max=max(allow_classification_range),
+                rating_min=min(allow_rating_range), rating_max=max(allow_rating_range),
+                acc_mode=acc_mode, ratio=ratio, order_mode=order_mode
+            )
+        return result
+
     @classmethod
     @abc.abstractmethod
     def _get_base_artwork_proxy_type(cls) -> "ArtworkProxyType":
@@ -69,38 +100,26 @@ class BaseArtworkCollection(abc.ABC):
             keywords: Optional[str | list[str]],
             num: int = 3,
             *,
-            allow_classification_range: Optional[tuple[int, int]] = None,
-            allow_rating_range: Optional[tuple[int, int]] = None,
+            allow_classification_range: Optional[tuple[int, int]] = (2, 3),
+            allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             acc_mode: bool = False,
             ratio: Optional[int] = None,
             order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
     ) -> list["ArtworkCollection"]:
         """根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
-        if isinstance(keywords, str):
-            keywords = [keywords]
-
-        if allow_classification_range is None:
-            allow_classification_range = (2, 3)
-
-        if allow_rating_range is None:
-            allow_rating_range = (0, 0)
-
-        async with begin_db_session() as session:
-            result = await ArtworkCollectionDAL(session=session).query_by_condition(
-                origin=cls._get_origin_name(),
-                keywords=keywords, num=num,
-                classification_min=min(allow_classification_range), classification_max=max(allow_classification_range),
-                rating_min=min(allow_rating_range), rating_max=max(allow_rating_range),
-                acc_mode=acc_mode, ratio=ratio, order_mode=order_mode
-            )
-        return result
+        return await cls.query_any_origin_by_condition(
+            origin=cls._get_origin_name(), keywords=keywords, num=num,
+            allow_classification_range=allow_classification_range, allow_rating_range=allow_rating_range,
+            acc_mode=acc_mode, ratio=ratio, order_mode=order_mode
+        )
 
     @classmethod
     async def random(
             cls,
             num: int = 3,
-            allow_classification_range: Optional[tuple[int, int]] = None,
-            allow_rating_range: Optional[tuple[int, int]] = None,
+            *,
+            allow_classification_range: Optional[tuple[int, int]] = (2, 3),
+            allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             ratio: Optional[int] = None
     ) -> list["ArtworkCollection"]:
         """获取随机作品, default classification range: 2-3, default rating range: 0-0"""
