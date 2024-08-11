@@ -20,6 +20,7 @@ from typing import (
     Any,
     AsyncContextManager,
     AsyncGenerator,
+    ContextManager,
     Generator,
     IO,
     Literal,
@@ -128,7 +129,7 @@ class BaseResource(abc.ABC):
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
             encoding: Optional[str] = None,
             **kwargs
-    ) -> Generator["TextIOWrapper", Any, None]:
+    ) -> ContextManager["TextIOWrapper"]:
         ...
 
     @overload
@@ -137,7 +138,7 @@ class BaseResource(abc.ABC):
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
             encoding: Optional[str] = None,
             **kwargs
-    ) -> Generator["FileIO", Any, None]:
+    ) -> ContextManager["FileIO"]:
         ...
 
     @contextmanager

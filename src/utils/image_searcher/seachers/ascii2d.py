@@ -47,7 +47,7 @@ class Ascii2d(ImageSearcher):
         return image_hash
 
     @staticmethod
-    def _parser(content: str) -> list[dict] | None:
+    def _parser(content: str) -> list[dict]:
         """解析结果页面"""
         html = etree.HTML(content)
         # 搜索模式
@@ -101,7 +101,7 @@ class Ascii2d(ImageSearcher):
             logger.error(f'Ascii2d | Ascii2dNetworkError, query searching token failed, {searching_page}')
             raise Ascii2dNetworkError(f'{searching_page.request}, status code {searching_page.status_code}')
 
-        searching_token = self._parse_search_token(content=requests.parse_content_text(searching_page))
+        searching_token = self._parse_search_token(content=requests.parse_content_as_text(searching_page))
 
         form_data = {
             'utf8': '✓',  # type: ignore
@@ -115,7 +115,7 @@ class Ascii2d(ImageSearcher):
             logger.error(f'Ascii2d | Ascii2dNetworkError, color searching failed, {color_response}')
             raise Ascii2dNetworkError(f'{color_response.request}, status code {color_response.status_code}')
 
-        color_search_content = requests.parse_content_text(color_response)
+        color_search_content = requests.parse_content_as_text(color_response)
         image_hash = self._parse_search_hash(color_search_content)
 
         bovw_url = f'{self._url}/search/bovw/{image_hash}'
@@ -124,7 +124,7 @@ class Ascii2d(ImageSearcher):
             logger.error(f'Ascii2d | Ascii2dNetworkError, bovw searching failed, {bovw_response}')
             raise Ascii2dNetworkError(f'{bovw_response.request}, status code {bovw_response.status_code}')
 
-        bovw_search_content = requests.parse_content_text(bovw_response)
+        bovw_search_content = requests.parse_content_as_text(bovw_response)
 
         parsed_result = []
         parsed_result.extend(self._parser(content=color_search_content))

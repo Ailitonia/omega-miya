@@ -9,6 +9,7 @@
 """
 
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
@@ -34,12 +35,12 @@ class BilibiliConfig(BaseModel):
     bili_dedeuserid: str | None = None
     bili_ac_time_value: str | None = None
 
-    __cookies_cache: dict | None = None
+    _cookies_cache: dict | None = None
 
     model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
     @property
-    def bili_cookies(self) -> dict[str, str]:
+    def bili_cookies(self) -> dict[str, Any]:
         sessdata = (
             None
             if self.bili_sessdata is None
@@ -58,19 +59,19 @@ class BilibiliConfig(BaseModel):
         return cookies
 
     def update_bili_cookies(self, **kwargs) -> dict[str, str]:
-        if self.__cookies_cache is not None and not kwargs:
-            return self.__cookies_cache
+        if self._cookies_cache is not None and not kwargs:
+            return self._cookies_cache
 
         cookies = self.bili_cookies
         for key, value in kwargs.items():
             if key not in cookies and value is not None:
                 cookies[key] = value
 
-        self.__cookies_cache = cookies
+        self._cookies_cache = cookies
         return cookies
 
     def clear_cookies_cache(self) -> None:
-        self.__cookies_cache = None
+        self._cookies_cache = None
 
     def clear_cookies_config(self) -> None:
         self.bili_sessdata = None
@@ -84,7 +85,7 @@ class BilibiliConfig(BaseModel):
         self.clear_cookies_cache()
 
     @staticmethod
-    async def _save_config_to_db(dal: SystemSettingDAL, setting_name: str, value: str) -> None:
+    async def _save_config_to_db(dal: SystemSettingDAL, setting_name: str, value: str | None) -> None:
         if value is None:
             return
         try:

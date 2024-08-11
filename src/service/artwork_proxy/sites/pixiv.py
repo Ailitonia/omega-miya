@@ -23,8 +23,12 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         return 'pixiv'
 
     @classmethod
-    async def _get_resource(cls, url: str, *, timeout: int = 30) -> str | bytes | None:
-        return await PixivArtwork.get_resource(url=url, timeout=timeout)
+    async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
+        return await PixivArtwork.get_resource_as_bytes(url=url, timeout=timeout)
+
+    @classmethod
+    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
+        return await PixivArtwork.get_resource_as_text(url=url, timeout=timeout)
 
     async def _query(self) -> ArtworkData:
         artwork_data = await PixivArtwork(pid=self.i_aid).query_artwork()
@@ -53,19 +57,19 @@ class _PixivArtworkProxy(BaseArtworkProxy):
                 {
                     'preview_file': {
                         'url': page.small,
-                        'file_ext': self.parse_url_file_suffix(page.small),
+                        'file_ext': self.parse_url_file_suffix(page.small),  # type: ignore
                         'width': None,
                         'height': None,
                     },
                     'regular_file': {
                         'url': page.regular,
-                        'file_ext': self.parse_url_file_suffix(page.regular),
+                        'file_ext': self.parse_url_file_suffix(page.regular),  # type: ignore
                         'width': None,
                         'height': None,
                     },
                     'original_file': {
                         'url': page.original,
-                        'file_ext': self.parse_url_file_suffix(page.original),
+                        'file_ext': self.parse_url_file_suffix(page.original),  # type: ignore
                         'width': artwork_data.width,
                         'height': artwork_data.height,
                     }

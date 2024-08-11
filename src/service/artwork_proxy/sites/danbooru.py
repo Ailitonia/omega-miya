@@ -16,7 +16,7 @@ from ..internal import BaseArtworkProxy
 from ..models import ArtworkData, ArtworkPageFile
 
 if TYPE_CHECKING:
-    from src.utils.danbooru_api.models import PostMediaAsset, PostVariantsType
+    from src.utils.danbooru_api.models import PostMediaAsset, PostVariantTypes
 
 
 class _DanbooruArtworkProxy(BaseArtworkProxy):
@@ -27,11 +27,15 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
         return 'danbooru'
 
     @classmethod
-    async def _get_resource(cls, url: str, *, timeout: int = 30) -> str | bytes | None:
-        return await danbooru_api.get_resource(url=url, timeout=timeout)
+    async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
+        return await danbooru_api.get_resource_as_bytes(url=url, timeout=timeout)
+
+    @classmethod
+    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
+        return await danbooru_api.get_resource_as_text(url=url, timeout=timeout)
 
     @staticmethod
-    def _get_variant_page_file(variant: Optional["PostVariantsType"]) -> ArtworkPageFile:
+    def _get_variant_page_file(variant: Optional["PostVariantTypes"]) -> ArtworkPageFile:
         if variant is None:
             model_data = {
                 'url': 'https://example.com/FileNotFound',

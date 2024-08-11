@@ -52,11 +52,11 @@ class BilibiliCredential(BilibiliCommon):
 
     @staticmethod
     async def save_cookies_to_db() -> None:
-        return await bilibili_config.save_to_database()
+        await bilibili_config.save_to_database()
 
     @staticmethod
     async def load_cookies_from_db() -> None:
-        return await bilibili_config.load_from_database()
+        await bilibili_config.load_from_database()
 
     @staticmethod
     def _get_correspond_path() -> str:
@@ -122,9 +122,9 @@ class BilibiliCredential(BilibiliCommon):
 
         cookies = parse_qs(urlparse(url=login_info.data.url).query)
         bilibili_config.clear_all()
-        bilibili_config.bili_sessdata = cookies.get('SESSDATA')[0]
-        bilibili_config.bili_jct = cookies.get('bili_jct')[0]
-        bilibili_config.bili_dedeuserid = cookies.get('DedeUserID')[0]
+        bilibili_config.bili_sessdata = cookies.get('SESSDATA', [])[0]
+        bilibili_config.bili_jct = cookies.get('bili_jct', [])[0]
+        bilibili_config.bili_dedeuserid = cookies.get('DedeUserID', [])[0]
         bilibili_config.bili_ac_time_value = login_info.data.refresh_token
 
         await cls.save_cookies_to_db()
@@ -133,6 +133,9 @@ class BilibiliCredential(BilibiliCommon):
     @classmethod
     async def check_need_refresh(cls) -> bool:
         """检查 Cookies 是否需要刷新"""
+        if bilibili_config.bili_jct is None:
+            return True
+
         url = 'https://passport.bilibili.com/x/passport-login/web/cookie/info'
         params = {'csrf': bilibili_config.bili_jct}
 
@@ -171,12 +174,12 @@ class BilibiliCredential(BilibiliCommon):
         # 不知道什么原因, 这里不暂停等一下就只会返回 404, 明明时间是同步的, 另外这里只 sleep(1) 也不行, 必须等两秒及以上
         await asyncio.sleep(2)
 
-        content = await cls._get_resource(url=url, cookies=bilibili_config.bili_cookies)
+        content = await cls._get_resource_as_text(url=url, cookies=bilibili_config.bili_cookies)
         refresh_csrf = etree.HTML(content).xpath('/html/body/div[@id="1-name"]').pop(0).text
         return refresh_csrf
 
     @classmethod
-    async def confirm_cookies_refresh(cls, csrf: str, refresh_token: str) -> BilibiliWebConfirmRefreshInfo:
+    async def confirm_cookies_refresh(cls, csrf: str, refresh_token: str | None) -> BilibiliWebConfirmRefreshInfo:
         """确认 Cookies 更新, 该步操作将让旧的 refresh_token 对应的 Cookie 失效
 
         :param csrf: 从新的 Cookies 中获取, 位于 Cookies 中的 bili_jct 字段
@@ -203,7 +206,7 @@ class BilibiliCredential(BilibiliCommon):
         }
 
         response = await cls._request_post(url=url, params=params, cookies=bilibili_config.bili_cookies)
-        refresh_info = BilibiliWebCookieRefreshInfo.model_validate(cls._parse_content_json(response))
+        refresh_info = BilibiliWebCookieRefreshInfo.model_validate(cls._parse_content_as_json(response))
 
         if refresh_info.code != 0:
             logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 刷新用户 Cookies 失败, {refresh_info}')

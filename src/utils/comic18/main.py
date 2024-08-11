@@ -10,8 +10,7 @@
 
 import random
 import string
-from asyncio import sleep as async_sleep
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 from nonebot.log import logger
 
@@ -34,6 +33,7 @@ from .model import (
 )
 
 if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, QueryTypes
     from src.resource import TemporaryResource
 
 
@@ -62,42 +62,49 @@ class _BaseComic18(BaseCommonAPI):
             go_response = await cls._request_get(go_url)
             if go_response.status_code != 200:
                 raise WebSourceException(f'{go_response.request}, status code {go_response.status_code}')
-            cls.__root_url = Comic18Parser.parse_root_url(content=go_response.content)
+            cls.__root_url = Comic18Parser.parse_root_url(content=cls._parse_content_as_text(go_response))
 
         return cls.__root_url
 
     @classmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
+    def _get_default_headers(cls) -> dict[str, str]:
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
+    def _get_default_cookies(cls) -> "CookieTypes":
         return comic18_config.cookies
 
     @classmethod
-    async def request_resource(
+    async def request_resource_as_bytes(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
             timeout: int = 30
-    ) -> str | bytes | None:
-        """请求原始资源内容"""
+    ) -> bytes:
+        """请求原始资源内容, 并转换为 bytes 返回"""
         cookies = cls._get_default_cookies()
         headers = cls._get_default_headers()
         headers.update({'referer': url})
 
         response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+        return cls._parse_content_as_bytes(response=response)
 
-        if response.status_code == 403:
-            # 403 可能是当前请求过快暂时被流控了 暂停一下重试一次
-            await async_sleep(3)
-            response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+    @classmethod
+    async def request_resource_as_text(
+            cls,
+            url: str,
+            params: "QueryTypes" = None,
+            *,
+            timeout: int = 10
+    ) -> str:
+        """请求原始资源内容, 并转换为 bytes 返回"""
+        cookies = cls._get_default_cookies()
+        headers = cls._get_default_headers()
+        headers.update({'referer': url})
 
-        if response.status_code != 200:
-            raise WebSourceException(f'{response.request}, status code {response.status_code}')
-
-        return response.content
+        response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+        return cls._parse_content_as_text(response=response)
 
     @classmethod
     async def download_resource(
@@ -156,7 +163,7 @@ class Comic18(_BaseComic18):
         if order is not None:
             params.update({'o': order})
 
-        content = await cls.request_resource(url=url, params=params)
+        content = await cls.request_resource_as_text(url=url, params=params)
 
         return await Comic18Parser(root_url=root_url).parse_query_albums_result_page(content=content)
 
@@ -191,7 +198,7 @@ class Comic18(_BaseComic18):
         if page is not None:
             params.update({'page': page})
 
-        content = await cls.request_resource(url=url, params=params)
+        content = await cls.request_resource_as_text(url=url, params=params)
 
         return await Comic18Parser(root_url=root_url).parse_query_albums_result_page(content=content)
 
@@ -234,7 +241,7 @@ class Comic18(_BaseComic18):
 
         params = {'search_query': search_query}
         if page is not None:
-            params.update({'page': page})
+            params.update({'page': str(page)})
         if main_tag is not None:
             params.update({'main_tag': main_tag})
         if time is not None:
@@ -242,7 +249,7 @@ class Comic18(_BaseComic18):
         if order is not None:
             params.update({'o': order})
 
-        content = await cls.request_resource(url=url, params=params)
+        content = await cls.request_resource_as_text(url=url, params=params)
 
         return await Comic18Parser(root_url=root_url).parse_search_photos_result_page(content=content)
 
@@ -286,7 +293,7 @@ class Comic18(_BaseComic18):
             root_url = await self._async_get_root_url()
             url = f'{root_url}/album/{self.aid}'
 
-            content = await self.request_resource(url=url)
+            content = await self.request_resource_as_text(url=url)
             self.album_data = await Comic18Parser(root_url=root_url).parse_album_page(content=content)
 
         assert isinstance(self.album_data, AlbumData), 'Query album data failed'
@@ -305,7 +312,7 @@ class Comic18(_BaseComic18):
         if page is not None:
             params = {'page': page}
 
-        content = await self.request_resource(url=url, params=params)
+        content = await self.request_resource_as_text(url=url, params=params)
 
         return await Comic18Parser(root_url=root_url).parse_pages_url(content=content)
 
@@ -342,24 +349,21 @@ class Comic18(_BaseComic18):
         download_folder = comic18_resource_config.default_download_folder(folder_name)
 
         # 生成下载任务序列
-        download_tasks = []
-        for page in album_pages:
-            download_tasks.append(
-                self.download_resource(url=page.url, folder_name=folder_name, ignore_exist_file=ignore_exist_file)
-            )
+        download_tasks = [
+            self.download_resource(url=page.url, folder_name=folder_name, ignore_exist_file=ignore_exist_file)
+            for page in album_pages
+        ]
 
         # 执行下载任务
         logger.info(f'Comic18 | Start downloading album(id={self.aid})')
-        download_result = await semaphore_gather(tasks=download_tasks, semaphore_num=10)
-        for result in download_result:
-            if isinstance(result, Exception):
-                raise WebSourceException(f'Some page(s) download failed, {result}')
+        download_result = await semaphore_gather(tasks=download_tasks, semaphore_num=10, return_exceptions=False)
         logger.info(f'Comic18 | Downloaded album(id={self.aid}) original image completed, staring reversing')
 
         # 执行图片恢复
-        reverse_tasks = []
-        for file in download_result:
-            reverse_tasks.append(self._reverse_image(page_id=file.path.name, file=file, save_folder=download_folder))
+        reverse_tasks = [
+            self._reverse_image(page_id=file.path.name, file=file, save_folder=download_folder)
+            for file in download_result
+        ]
         reverse_result = await semaphore_gather(tasks=reverse_tasks, semaphore_num=10, return_exceptions=False)
         logger.success(f'Comic18 | Downloaded and reversed album(id={self.aid}) succeed')
 
@@ -402,7 +406,7 @@ class Comic18(_BaseComic18):
     @classmethod
     async def _request_preview_body(cls, request: Comic18PreviewRequestModel) -> Comic18PreviewBody:
         """获取生成预览图中每个缩略图的数据"""
-        request_data = await cls.request_resource(url=request.request_url)
+        request_data = await cls.request_resource_as_bytes(url=request.request_url)  # type: ignore
         return Comic18PreviewBody(desc_text=request.desc_text, preview_thumb=request_data)
 
     @classmethod
@@ -416,7 +420,11 @@ class Comic18(_BaseComic18):
         _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30, filter_exception=True)
         _requests_data = list(_requests_data)
         count = len(_requests_data)
-        return Comic18PreviewModel(preview_name=preview_name, count=count, previews=_requests_data)
+        return Comic18PreviewModel.model_validate({
+            'preview_name': preview_name,
+            'count': count,
+            'previews': _requests_data
+        })
 
     @staticmethod
     async def _generate_preview_image(

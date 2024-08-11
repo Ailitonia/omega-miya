@@ -9,6 +9,7 @@
 """
 
 from typing import Optional
+
 from pydantic import BaseModel
 
 from src.compat import parse_obj_as
@@ -39,7 +40,7 @@ async def _query_guess(guess: str) -> list[GuessResult]:
     url = 'https://lab.magiconch.com/api/nbnhhsh/guess'
     payload = {'text': guess}
     response = await OmegaRequests().post(url=url, json=payload)
-    return parse_obj_as(list[GuessResult], OmegaRequests.parse_content_json(response=response))
+    return parse_obj_as(list[GuessResult], OmegaRequests.parse_content_as_json(response=response))
 
 
 async def query_guess(guess: str) -> list[str]:

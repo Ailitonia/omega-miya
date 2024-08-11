@@ -8,11 +8,11 @@
 @Software       : PyCharm 
 """
 
-from pydantic import Json, field_validator, model_validator
 from typing import Any, Literal, Optional
 
-from src.compat import AnyHttpUrlStr as AnyHttpUrl
+from pydantic import Json, field_validator, model_validator
 
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BaseBilibiliModel
 
 
@@ -564,7 +564,7 @@ class BilibiliDynamicModel(BaseBilibiliModel):
 
     @property
     def card(self) -> BilibiliDynamicCard:
-        return self.data.card
+        return self.data.card  # type: ignore
 
 
 __all__ = [

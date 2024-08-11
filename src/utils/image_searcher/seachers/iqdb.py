@@ -91,7 +91,7 @@ class Iqdb(ImageSearcher):
             logger.error(f'Iqdb | IqdbNetworkError, {iqdb_response}')
             raise IqdbNetworkError(f'{iqdb_response.request}, status code {iqdb_response.status_code}')
 
-        iqdb_search_content = OmegaRequests.parse_content_text(iqdb_response)
+        iqdb_search_content = OmegaRequests.parse_content_as_text(iqdb_response)
 
         return parse_obj_as(list[ImageSearchingResult], self._parser(content=iqdb_search_content))
 

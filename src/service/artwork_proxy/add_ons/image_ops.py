@@ -121,7 +121,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     @classmethod
     async def _get_any_image_preview_thumb_data(cls, url: str, desc_text: str) -> PreviewImageThumbs:
         """获取生成预览图所需要的任意图片的数据"""
-        return PreviewImageThumbs(desc_text=desc_text, preview_thumb=await cls._get_resource(url=url))
+        return PreviewImageThumbs(desc_text=desc_text, preview_thumb=await cls._get_resource_as_bytes(url=url))
 
     async def _get_preview_thumb_data(
             self,

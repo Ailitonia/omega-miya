@@ -118,9 +118,9 @@ class Weibo(BaseCommonAPI):
     async def query_weibo_card(cls, mid: int | str) -> WeiboCardStatus:
         """获取单条微博"""
         url = f'{cls._get_root_url()}/status/{mid}'
-        card_response = await cls._get_resource(url=url)
+        card_content = await cls._get_resource_as_text(url=url)
 
-        return WeiboCardStatus.model_validate(parse_weibo_card_from_status_page(card_response))
+        return WeiboCardStatus.model_validate(parse_weibo_card_from_status_page(card_content))
 
     @classmethod
     async def query_weibo_extend_text(cls, mid: int | str) -> str:

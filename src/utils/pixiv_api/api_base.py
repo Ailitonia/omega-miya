@@ -8,10 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional, Any
+from typing import TYPE_CHECKING
 
 from src.utils.common_api import BaseCommonAPI
 from .config import pixiv_config
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes, QueryTypes
 
 
 class BasePixivAPI(BaseCommonAPI):
@@ -26,25 +29,24 @@ class BasePixivAPI(BaseCommonAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
+    def _get_default_headers(cls) -> "HeaderTypes":
         headers = cls._get_omega_requests_default_headers()
         headers.update({'referer': 'https://www.pixiv.net/'})
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
+    def _get_default_cookies(cls) -> "CookieTypes":
         return pixiv_config.cookie_phpssid
 
     @classmethod
-    async def get_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            *,
-            timeout: int = 30,
-    ) -> str | bytes:
+    async def get_resource_as_bytes(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 30) -> bytes:
         """请求原始资源内容"""
-        return await cls._get_resource(url, params, timeout=timeout)
+        return await cls._get_resource_as_bytes(url, params, timeout=timeout)
+
+    @classmethod
+    async def get_resource_as_text(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 10) -> str:
+        """请求原始资源内容"""
+        return await cls._get_resource_as_text(url, params, timeout=timeout)
 
 
 __all__ = [

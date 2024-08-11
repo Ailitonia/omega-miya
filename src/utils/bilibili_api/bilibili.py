@@ -67,7 +67,7 @@ class Bilibili(BilibiliCommon):
             _uuid=uuid
         )
 
-        await cls._post_json(url=_exclimbwuzhi_url, headers=headers, data=payload, cookies=cookies)
+        await cls._post_json(url=_exclimbwuzhi_url, headers=headers, json=payload, cookies=cookies)
         return cookies
 
     @classmethod
@@ -304,7 +304,7 @@ class BilibiliLiveRoom(BilibiliCommon):
         if live_room_response.status_code != 200:
             raise BilibiliApiError(f'{live_room_response.request}, status code {live_room_response.status_code}')
 
-        return BilibiliUsersLiveRoomModel.model_validate(cls._parse_content_json(live_room_response))
+        return BilibiliUsersLiveRoomModel.model_validate(cls._parse_content_as_json(live_room_response))
 
     async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""

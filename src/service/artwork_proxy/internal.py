@@ -83,8 +83,14 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def _get_resource(cls, url: str, *, timeout: int = 30) -> str | bytes | None:
-        """内部方法, 请求原始资源内容"""
+    async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
+        """内部方法, 请求原始资源内容, 并转换为 bytes 类型返回"""
+        raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
+    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
+        """内部方法, 请求原始资源内容, 并转换为 str 类型返回"""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -142,7 +148,7 @@ class BaseArtworkProxy(abc.ABC):
             case 'regular' | _:
                 file_url = artwork_data.regular_pages_url[page_index]
 
-        return await self._get_resource(url=file_url)
+        return await self._get_resource_as_bytes(url=file_url)  # type: ignore
 
     async def _save_page(
             self,
@@ -226,9 +232,7 @@ class BaseArtworkProxy(abc.ABC):
                 if index < page_limit
             ]
 
-        all_pages_file = await semaphore_gather(tasks=tasks, semaphore_num=8)
-        for index, file in enumerate(all_pages_file):
-            assert not isinstance(file, Exception), f'Get page {index} file failed'
+        all_pages_file = await semaphore_gather(tasks=tasks, semaphore_num=8, return_exceptions=False)
 
         return list(all_pages_file)
 

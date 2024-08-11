@@ -44,8 +44,8 @@ class BaseTencentCloudAPI(object):
         self._signed_headers: str
 
     @staticmethod
-    def _parse_content_json(response: "Response") -> Any:
-        return OmegaRequests.parse_content_json(response)
+    def _parse_content_as_json(response: "Response") -> Any:
+        return OmegaRequests.parse_content_as_json(response)
 
     def __prepare_signed_params(self) -> None:
         self._headers = {

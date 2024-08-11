@@ -8,12 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from src.utils.common_api import BaseCommonAPI
 from .config import bilibili_config, bilibili_resource_config
 
 if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes
     from src.resource import TemporaryResource
 
 
@@ -29,7 +30,7 @@ class BilibiliCommon(BaseCommonAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
+    def _get_default_headers(cls) -> dict[str, str]:
         headers = cls._get_omega_requests_default_headers()
         headers.update({
             'origin': 'https://www.bilibili.com',
@@ -38,7 +39,7 @@ class BilibiliCommon(BaseCommonAPI):
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
+    def _get_default_cookies(cls) -> "CookieTypes":
         return bilibili_config.bili_cookies
 
     @classmethod

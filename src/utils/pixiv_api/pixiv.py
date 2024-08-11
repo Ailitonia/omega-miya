@@ -45,7 +45,7 @@ class PixivCommon(BasePixivAPI):
     @classmethod
     async def query_global_data(cls) -> PixivGlobalData:
         """获取全局信息(需要 cookies)"""
-        root_page_content = await cls.get_resource(url=cls._get_root_url())
+        root_page_content = await cls.get_resource_as_text(url=cls._get_root_url())
         return await PixivParser.parse_global_data(content=root_page_content)
 
     @classmethod
@@ -367,7 +367,7 @@ class PixivUser(PixivCommon):
         """搜索用户"""
         url = f'{cls._get_root_url()}/search_user.php'
         params = {'s_mode': 's_usr', 'nick': nick}
-        searching_data = await cls.get_resource(url=url, params=params)
+        searching_data = await cls.get_resource_as_text(url=url, params=params)
 
         # p站唯独画师搜索没有做前后端分离 只能解析页面了
         return await PixivParser.parse_user_searching_result_page(content=searching_data)

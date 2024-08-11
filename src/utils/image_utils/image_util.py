@@ -12,7 +12,7 @@ import base64
 import random
 from copy import deepcopy
 from io import BytesIO
-from typing import Literal
+from typing import Literal, Optional, Self
 
 from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
 from nonebot.utils import run_sync
@@ -27,16 +27,16 @@ class ImageUtils(object):
         self._image: Image.Image = image
 
     @classmethod
-    def init_from_bytes(cls, image: bytes) -> "ImageUtils":
+    def init_from_bytes(cls, image: bytes) -> Self:
         """从 Bytes 中初始化"""
         with BytesIO(image) as bf:
-            image: Image.Image = Image.open(bf)
-            image.load()
-            new_obj = cls(image=image)
+            _image: Image.Image = Image.open(bf)
+            _image.load()
+            new_obj = cls(image=_image)
         return new_obj
 
     @classmethod
-    def init_from_file(cls, file: BaseResource) -> "ImageUtils":
+    def init_from_file(cls, file: BaseResource) -> Self:
         """从文件初始化"""
         with file.open('rb') as f:
             image: Image.Image = Image.open(f)
@@ -45,20 +45,20 @@ class ImageUtils(object):
         return new_obj
 
     @classmethod
-    async def async_init_from_url(cls, image_url: str) -> "ImageUtils":
+    async def async_init_from_url(cls, image_url: str) -> Self:
         """从 URL 初始化"""
-        fetcher = OmegaRequests(timeout=30)
-        image_result = await fetcher.get(url=image_url)
-        return await cls.async_init_from_bytes(image=image_result.content)
+        requests = OmegaRequests(timeout=30)
+        response = await requests.get(url=image_url)
+        return await cls.async_init_from_bytes(image=requests.parse_content_as_bytes(response=response))
 
     @classmethod
     @run_sync
-    def async_init_from_bytes(cls, image: bytes) -> "ImageUtils":
+    def async_init_from_bytes(cls, image: bytes) -> Self:
         return cls.init_from_bytes(image=image)
 
     @classmethod
     @run_sync
-    def async_init_from_file(cls, file: BaseResource) -> "ImageUtils":
+    def async_init_from_file(cls, file: BaseResource) -> Self:
         return cls.init_from_file(file=file)
 
     @classmethod
@@ -70,7 +70,7 @@ class ImageUtils(object):
             image_width: int = 512,
             font_name: str | None = None,
             alpha: bool = False
-    ) -> "ImageUtils":
+    ) -> Self:
         """异步从文本初始化, 文本转图片并自动裁切"""
         return cls.init_from_text(text, image_width=image_width, font_name=font_name, alpha=alpha)
 
@@ -82,7 +82,7 @@ class ImageUtils(object):
             image_width: int = 512,
             font_name: str | None = None,
             alpha: bool = False
-    ) -> "ImageUtils":
+    ) -> Self:
         """从文本初始化, 文本转图片并自动裁切
 
         :param text: 待转换文本
@@ -122,7 +122,7 @@ class ImageUtils(object):
             text: str,
             font: ImageFont.FreeTypeFont,
             *,
-            anchor: str = None,
+            anchor: Optional[str] = None,
             spacing: int = 4,
             stroke_width: int = 0,
             **kwargs
@@ -142,7 +142,7 @@ class ImageUtils(object):
             stroke_width=0,
             anchor=None,
             **kwargs
-    ) -> tuple[int, int]:
+    ) -> tuple[float, float]:
         """获取文本宽度和长度(根据字体)"""
         left, top, right, bottom = font.getbbox(
             mode=mode, text=text, stroke_width=stroke_width, anchor=anchor, **kwargs
@@ -190,18 +190,18 @@ class ImageUtils(object):
         return deepcopy(self._image)
 
     @property
-    def base64(self) -> str:
+    def base64_output(self) -> str:
         """转换为 Base64 输出"""
         b64 = base64.b64encode(self.get_bytes())
         b64 = str(b64, encoding='utf-8')
         return 'base64://' + b64
 
     @property
-    def bytes(self) -> bytes:
+    def bytes_output(self) -> bytes:
         """转换为 bytes 输出"""
         return self.get_bytes()
 
-    def set_image(self, image: Image.Image) -> "ImageUtils":
+    def set_image(self, image: Image.Image) -> Self:
         """手动更新 Image"""
         self._image = image
         return self
@@ -242,7 +242,7 @@ class ImageUtils(object):
             await af.write(self.get_bytes(format_=format_))
         return save_file
 
-    def convert(self, mode: str) -> "ImageUtils":
+    def convert(self, mode: str) -> Self:
         self._image = self._image.convert(mode=mode)
         return self
 
@@ -252,7 +252,7 @@ class ImageUtils(object):
             *,
             position: Literal['la', 'ra', 'lb', 'rb', 'c'] = 'rb',
             fill: tuple[int, int, int] = (128, 128, 128)
-    ) -> "ImageUtils":
+    ) -> Self:
         """在图片上添加标注文本"""
         image = self.image
         if image.mode == 'L':
@@ -296,7 +296,7 @@ class ImageUtils(object):
         self._image = image
         return self
 
-    def gaussian_blur(self, radius: int | None = None) -> "ImageUtils":
+    def gaussian_blur(self, radius: int | None = None) -> Self:
         """高斯模糊"""
         _image = self.image
         if radius is None:
@@ -313,7 +313,7 @@ class ImageUtils(object):
             *,
             sigma: float = 8,
             enable_random: bool = True,
-            mask_factor: float = 0.25) -> "ImageUtils":
+            mask_factor: float = 0.25) -> Self:
         """为图片添加肉眼不可见的底噪
 
         :param sigma: 噪声sigma, 默认值8
@@ -343,7 +343,7 @@ class ImageUtils(object):
             self,
             edge_scale: float = 1/32,
             edge_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
-    ) -> "ImageUtils":
+    ) -> Self:
         """在保持原图大小的条件下, 使用透明图层为原图添加边框"""
         image = self.image
         if image.mode != 'RGBA':
@@ -369,7 +369,7 @@ class ImageUtils(object):
             self,
             size: tuple[int, int],
             background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
-    ) -> "ImageUtils":
+    ) -> Self:
         """在不损失原图长宽比的条件下, 使用透明图层将原图转换成指定大小"""
         image = self.image
         if image.mode != 'RGBA':
@@ -392,7 +392,7 @@ class ImageUtils(object):
             self,
             size: tuple[int, int],
             background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
-    ) -> "ImageUtils":
+    ) -> Self:
         """在不损失原图长宽比的条件下, 填充并平铺指定大小画布"""
         image = self.image
         if image.mode != 'RGBA':

@@ -9,9 +9,9 @@
 """
 
 import re
-import ujson as json
 from typing import Literal, Optional
 
+import ujson as json
 from nonebot.log import logger
 from rapidfuzz import process, fuzz
 from zhconv import convert as zh_convert
@@ -20,12 +20,10 @@ from src.exception import WebSourceException
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
 from src.utils.process_utils import semaphore_gather
-
 from .config import shindan_maker_plugin_config
-from .model import ShindanMakerResult, ShindanMakerSearchResult
 from .helper import (parse_searching_result_page, parse_shindan_page_title,
                      parse_shindan_page_token, parse_shindan_result_page)
-
+from .model import ShindanMakerResult, ShindanMakerSearchResult
 
 _TMP_FOLDER = TemporaryResource('shindan_maker')
 """缓存路径"""
@@ -64,7 +62,7 @@ class ShindanMaker(object):
             logger.error(f'ShindanMaker | Get ranking list {mode!r} failed, {response}')
             raise ShindanMakerNetworkError(response)
 
-        return await parse_searching_result_page(content=OmegaRequests.parse_content_text(response=response))
+        return await parse_searching_result_page(content=OmegaRequests.parse_content_as_text(response=response))
 
     @classmethod
     async def search(
@@ -88,9 +86,9 @@ class ShindanMaker(object):
         search_url = f'{cls._root_url()}/list/{mode}'
         params = {'q': keyword}
         if last_number is not None:
-            params.update({'lastnumber': last_number})
+            params.update({'lastnumber': str(last_number)})
         if page is not None:
-            params.update({'page': page})
+            params.update({'page': str(page)})
         if order is not None:
             params.update({'order': order})
 
@@ -99,7 +97,7 @@ class ShindanMaker(object):
             logger.error(f'ShindanMaker | Searching {keyword!r} failed, {response}')
             raise ShindanMakerNetworkError(response)
 
-        return await parse_searching_result_page(content=OmegaRequests.parse_content_text(response=response))
+        return await parse_searching_result_page(content=OmegaRequests.parse_content_as_text(response=response))
 
     @classmethod
     async def complex_ranking(cls) -> list[ShindanMakerSearchResult]:
@@ -164,7 +162,7 @@ class ShindanMaker(object):
             'upgrade-insecure-requests': '1'
         })
 
-        page_content = OmegaRequests.parse_content_text(response=page_response)
+        page_content = OmegaRequests.parse_content_as_text(response=page_response)
 
         # 更新缓存
         if self.shindan_id not in _SHINDAN_MAKER_CACHE.values():
@@ -187,7 +185,7 @@ class ShindanMaker(object):
             logger.error(f'ShindanMaker | Make shindan {self.shindan_id!r} failed, {response}')
             raise ShindanMakerNetworkError(response)
 
-        return await parse_shindan_result_page(content=OmegaRequests.parse_content_text(response=response))
+        return await parse_shindan_result_page(content=OmegaRequests.parse_content_as_text(response=response))
 
     @classmethod
     async def fuzzy_shindan(cls, shindan: str, input_name: str) -> ShindanMakerResult | None:

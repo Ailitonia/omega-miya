@@ -202,7 +202,7 @@ class BaseArtworkCollection(abc.ABC):
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
                     tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,  # type: ignore
                     description=artwork_data.description
                 )
             except NoResultFound:
@@ -212,7 +212,7 @@ class BaseArtworkCollection(abc.ABC):
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
                     tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,  # type: ignore
                     description=artwork_data.description
                 )
 
@@ -246,7 +246,7 @@ class BaseArtworkCollection(abc.ABC):
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
                     tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,  # type: ignore
                     description=artwork_data.description
                 )
 

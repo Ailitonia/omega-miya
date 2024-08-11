@@ -8,7 +8,9 @@
 @Software       : PyCharm 
 """
 
-type ArtworkCollectionType = type["BaseArtworkCollection"]
+from .internal import BaseArtworkCollection
+
+type ArtworkCollectionType = type[BaseArtworkCollection]
 
 
 __all__ = [

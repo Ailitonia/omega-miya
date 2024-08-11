@@ -191,7 +191,7 @@ class Saucenao(ImageSearcher):
             logger.error(f'Saucenao | SaucenaoApiError, {saucenao_response}')
             raise SaucenaoApiError(f'{saucenao_response.request}, status code {saucenao_response.status_code}')
 
-        saucenao_result = SaucenaoResult.model_validate(OmegaRequests.parse_content_json(saucenao_response))
+        saucenao_result = SaucenaoResult.model_validate(OmegaRequests.parse_content_as_json(saucenao_response))
 
         if saucenao_result.results is None:
             logger.warning(f'Saucenao | Not result found for image, {saucenao_result.header.message}')

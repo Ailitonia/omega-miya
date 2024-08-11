@@ -50,7 +50,7 @@ class TencentTMT(BaseTencentCloudAPI):
             action='TextTranslate', version='2018-03-21', region='ap-chengdu', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextTranslateResponse.model_validate(self._parse_content_json(result))
+        return TencentCloudTextTranslateResponse.model_validate(self._parse_content_as_json(result))
 
     async def text_translate_batch(
             self,
@@ -72,7 +72,7 @@ class TencentTMT(BaseTencentCloudAPI):
             action='TextTranslateBatch', version='2018-03-21', region='ap-chengdu', payload=payload)
         if result.status_code != 200:
             raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextTranslateBatchResponse.model_validate(self._parse_content_json(result))
+        return TencentCloudTextTranslateBatchResponse.model_validate(self._parse_content_as_json(result))
 
 
 __all__ = [

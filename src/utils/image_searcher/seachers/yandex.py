@@ -90,7 +90,7 @@ class Yandex(ImageSearcher):
             logger.error(f'Yandex | YandexNetworkError, {yandex_response}')
             raise YandexNetworkError(f'{yandex_response.request}, status code {yandex_response.status_code}')
 
-        yandex_search_content = OmegaRequests.parse_content_text(yandex_response)
+        yandex_search_content = OmegaRequests.parse_content_as_text(yandex_response)
 
         return parse_obj_as(list[ImageSearchingResult], self._parser(content=yandex_search_content))
 

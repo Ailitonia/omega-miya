@@ -43,7 +43,7 @@ class Pixivision(BasePixivAPI):
     async def query_illustration_list(cls, page: int = 1) -> PixivisionIllustrationList:
         """获取并解析 Pixivision Illustration 导览页面内容"""
         params = {'p': page, 'lang': 'zh'}
-        illustration_data = await cls.get_resource(url=cls._get_illustration_url(), params=params)
+        illustration_data = await cls.get_resource_as_text(url=cls._get_illustration_url(), params=params)
 
         return await PixivParser.parse_pixivision_show_page(
             content=illustration_data,
@@ -53,7 +53,7 @@ class Pixivision(BasePixivAPI):
     async def query_article(self) -> PixivisionArticle:
         """获取并解析 Pixivision 文章页面内容"""
         url = f'{self._get_articles_url()}/{self.aid}'
-        article_data = await self.get_resource(url=url)
+        article_data = await self.get_resource_as_text(url=url)
 
         return await PixivParser.parse_pixivision_article_page(
             content=article_data,

@@ -14,7 +14,7 @@ import ujson as json
 from lxml import etree
 
 
-def parse_weibo_card_from_status_page(content: bytes) -> Any:
+def parse_weibo_card_from_status_page(content: str) -> Any:
     """用微博页面解析微博 Json 数据"""
     html = etree.HTML(content)
     render_data = html.xpath('/html/body/script[2]').pop(0)

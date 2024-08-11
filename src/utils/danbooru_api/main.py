@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from src.compat import parse_obj_as
 from src.utils.common_api import BaseCommonAPI
@@ -41,6 +41,7 @@ from .models import (
 )
 
 if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes, QueryTypes
     from src.resource import TemporaryResource
 
 
@@ -62,12 +63,12 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
+    def _get_default_headers(cls) -> "HeaderTypes":
         return {}
 
     @classmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
-        return {}
+    def _get_default_cookies(cls) -> "CookieTypes":
+        return None
 
     @classmethod
     async def get_json(
@@ -84,17 +85,27 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
             params.update(danbooru_config.auth_params)
 
         response = await cls._request_get(url, params)
-        return cls._parse_content_json(response)
+        return cls._parse_content_as_json(response)
 
     @classmethod
-    async def get_resource(
+    async def get_resource_as_bytes(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
             timeout: int = 30,
-    ) -> str | bytes:
-        return await cls._get_resource(url, params, timeout=timeout)
+    ) -> bytes:
+        return await cls._get_resource_as_bytes(url, params, timeout=timeout)
+
+    @classmethod
+    async def get_resource_as_text(
+            cls,
+            url: str,
+            params: "QueryTypes" = None,
+            *,
+            timeout: int = 30,
+    ) -> str:
+        return await cls._get_resource_as_text(url, params, timeout=timeout)
 
     @classmethod
     async def download_resource(
@@ -885,7 +896,7 @@ class BaseDanbooruUser(BaseDanbooruCommon, abc.ABC):
 class BaseDanbooruAPI:
     """Danbooru API 基类"""
 
-    Type_T = TypeVar("Type_T", bound=Type[BaseDanbooruCommon])
+    Type_T = TypeVar('Type_T', bound=type[BaseDanbooruCommon]) 
 
     def __init__(self, root_url: str) -> None:
         self._root_url = root_url
@@ -925,16 +936,25 @@ class BaseDanbooruAPI:
             def __repr__(self) -> str:
                 return f'{class_.__name__.removeprefix("Base")}(id={self.id})'
 
-        return DanbooruCommon
+        return DanbooruCommon  # type: ignore
 
     @staticmethod
-    async def get_resource(
+    async def get_resource_as_bytes(
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
             timeout: int = 30,
-    ) -> str | bytes:
-        return await BaseDanbooruCommon.get_resource(url, params, timeout=timeout)
+    ) -> bytes:
+        return await BaseDanbooruCommon.get_resource_as_bytes(url, params, timeout=timeout)
+
+    @staticmethod
+    async def get_resource_as_text(
+            url: str,
+            params: "QueryTypes" = None,
+            *,
+            timeout: int = 30,
+    ) -> str:
+        return await BaseDanbooruCommon.get_resource_as_text(url, params, timeout=timeout)
 
     @staticmethod
     async def download_resource(

@@ -38,7 +38,10 @@ class NhentaiParser(object):
         for gallery in galleries:
             gallery_url = gallery.xpath('a[@class="cover"]').pop(0)
             gallery_href = gallery_url.attrib.get('href')
-            gallery_id = re.search(r'^/g/(\d+)/$', gallery_href).group(1)
+            matched_gallery_id = re.search(r'^/g/(\d+)/$', gallery_href)
+            if matched_gallery_id is None:
+                continue
+            gallery_id = matched_gallery_id.group(1)
             gallery_title = gallery_url.xpath('div[@class="caption"]').pop(0).text
 
             cover_image = gallery_url.xpath('img[@class="lazyload"]').pop(0)

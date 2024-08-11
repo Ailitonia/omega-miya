@@ -10,7 +10,7 @@
 
 import random
 import string
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from src.exception import WebSourceException
 from src.utils.common_api import BaseCommonAPI
@@ -29,6 +29,7 @@ from .model import (
 )
 
 if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes
     from src.resource import TemporaryResource
 
 
@@ -48,13 +49,13 @@ class BaseNhentai(BaseCommonAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
+    def _get_default_headers(cls) -> "HeaderTypes":
         headers = cls._get_omega_requests_default_headers()
         headers.update({'referer': 'https://nhentai.net/'})
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
+    def _get_default_cookies(cls) -> "CookieTypes":
         return nhentai_config.nhentai_cookies
 
     @classmethod
@@ -76,7 +77,7 @@ class BaseNhentai(BaseCommonAPI):
     @classmethod
     async def _request_preview_body(cls, request: NhentaiPreviewRequestModel) -> NhentaiPreviewBody:
         """获取生成预览图中每个缩略图的数据"""
-        _request_data = await cls._get_resource(url=request.request_url)
+        _request_data = await cls._get_resource_as_bytes(url=request.request_url)
         return NhentaiPreviewBody(desc_text=request.desc_text, preview_thumb=_request_data)
 
     @classmethod
@@ -90,7 +91,11 @@ class BaseNhentai(BaseCommonAPI):
         _requests_data = await semaphore_gather(tasks=_tasks, semaphore_num=30, filter_exception=True)
         _requests_data = list(_requests_data)
         count = len(_requests_data)
-        return NhentaiPreviewModel(preview_name=preview_name, count=count, previews=_requests_data)
+        return NhentaiPreviewModel.model_validate({
+            'preview_name': preview_name,
+            'count': count,
+            'previews': _requests_data
+        })
 
     @classmethod
     async def emit_preview_model_from_searching_model(
@@ -192,7 +197,7 @@ class Nhentai(BaseNhentai):
         :param sort: 结果排序方式
         """
         params = {'q': keyword, 'page': page, 'sort': sort}
-        searching_content = await cls._get_resource(url=cls._get_search_url(), params=params)
+        searching_content = await cls._get_resource_as_text(url=cls._get_search_url(), params=params)
         return await NhentaiParser.parse_gallery_searching_result_page(content=searching_content)
 
     @classmethod
@@ -230,7 +235,7 @@ class NhentaiGallery(Nhentai):
 
     async def query_gallery(self) -> NhentaiGalleryModel:
         if not isinstance(self.gallery_model, NhentaiGalleryModel):
-            gallery_content = await self._get_resource(url=self.gallery_url)
+            gallery_content = await self._get_resource_as_text(url=self.gallery_url)
             self.gallery_model = await NhentaiParser.parse_gallery_page(content=gallery_content)
 
         assert isinstance(self.gallery_model, NhentaiGalleryModel), 'Query gallery model failed'

@@ -126,7 +126,10 @@ class PixivParser(object):
             url = root_url + title_href.attrib.get('href')
 
             thumbnail = card.xpath('article//div[@class="_thumbnail"]').pop(0).attrib.get('style')
-            thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', thumbnail).group(1)
+            matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', thumbnail)
+            if matched_thumbnail is None:
+                continue
+            thumbnail_url = matched_thumbnail.group(1)
 
             tag_container = card.xpath('article//ul[@class="_tag-list"]/li[@class="tls__list-item-container"]')
             tag_list = []
@@ -137,7 +140,7 @@ class PixivParser(object):
                 tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
                 tag_url = root_url + tag_rela_url
                 tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
-            result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail, 'url': url, 'tags': tag_list})
+            result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail_url, 'url': url, 'tags': tag_list})
         return PixivisionIllustrationList.model_validate({'illustrations': result_list})
 
     @classmethod

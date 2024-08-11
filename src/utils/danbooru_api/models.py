@@ -103,7 +103,7 @@ class PostVariantTypeOriginal(PostVariant):
     type: Literal['original']
 
 
-type PostVariantsType = Union[
+type PostVariantTypes = Union[
     PostVariantType180,
     PostVariantType360,
     PostVariantType720,
@@ -127,7 +127,7 @@ class PostMediaAsset(BaseDanbooruModel):
     status: str
     is_public: bool
     pixel_hash: str
-    variants: Optional[list[PostVariantsType]] = None
+    variants: Optional[list[PostVariantTypes]] = None
     created_at: datetime
     updated_at: datetime
 
@@ -567,7 +567,7 @@ __all__ = [
     'Pool',
     'Post',
     'PostMediaAsset',
-    'PostVariantsType',
+    'PostVariantTypes',
     'Wiki',
     'ArtistVersion',
     'ArtistCommentaryVersion',

@@ -9,13 +9,13 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.exception import WebSourceException
 from src.service import OmegaRequests
 
 if TYPE_CHECKING:
-    from nonebot.drivers import Response
+    from nonebot.internal.driver import CookieTypes, DataTypes, HeaderTypes, QueryTypes, Response
     from src.resource import TemporaryResource
 
 
@@ -39,33 +39,41 @@ class BaseCommonAPI(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
+    def _get_default_headers(cls) -> "HeaderTypes":
         """内部方法, 获取默认 Headers"""
         raise NotImplementedError
 
     @classmethod
     @abc.abstractmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
+    def _get_default_cookies(cls) -> "CookieTypes":
         """内部方法, 获取默认 Cookies"""
         raise NotImplementedError
 
     @classmethod
-    def _get_omega_requests_default_headers(cls) -> dict[str, Any]:
+    def _get_omega_requests_default_headers(cls) -> dict[str, str]:
         """获取 OmegaRequests 默认 Headers"""
         return OmegaRequests.get_default_headers()
 
     @staticmethod
-    def _parse_content_json(response: "Response") -> Any:
-        return OmegaRequests.parse_content_json(response)
+    def _parse_content_as_bytes(response: "Response") -> bytes:
+        return OmegaRequests.parse_content_as_bytes(response)
+
+    @staticmethod
+    def _parse_content_as_json(response: "Response") -> Any:
+        return OmegaRequests.parse_content_as_json(response)
+
+    @staticmethod
+    def _parse_content_as_text(response: "Response") -> str:
+        return OmegaRequests.parse_content_as_text(response)
 
     @classmethod
     async def _request_get(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -92,12 +100,12 @@ class BaseCommonAPI(abc.ABC):
     async def _request_post(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
-            data: Optional[Any] = None,
-            json: Optional[Any] = None,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
+            data: "DataTypes" = None,
+            json: Any = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -124,10 +132,10 @@ class BaseCommonAPI(abc.ABC):
     async def _get_json(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -137,18 +145,18 @@ class BaseCommonAPI(abc.ABC):
             url=url, params=params,
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
-        return cls._parse_content_json(response)
+        return cls._parse_content_as_json(response)
 
     @classmethod
     async def _post_json(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
-            data: Optional[Any] = None,
-            json: Optional[Any] = None,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
+            data: "DataTypes" = None,
+            json: Any = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -158,36 +166,55 @@ class BaseCommonAPI(abc.ABC):
             url=url, params=params, data=data, json=json,
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
-        return cls._parse_content_json(response)
+        return cls._parse_content_as_json(response)
 
     @classmethod
-    async def _get_resource(
+    async def _get_resource_as_bytes(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
             timeout: int = 30,
             no_headers: bool = False,
             no_cookies: bool = False,
-    ) -> str | bytes:
-        """内部方法, 使用 GET 方法获取内容"""
+    ) -> bytes:
+        """内部方法, 使用 GET 方法获取内容, 并转换为 bytes 类型返回"""
         response = await cls._request_get(
             url=url, params=params,
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
-        return response.content
+        return cls._parse_content_as_bytes(response=response)
+
+    @classmethod
+    async def _get_resource_as_text(
+            cls,
+            url: str,
+            params: "QueryTypes" = None,
+            *,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
+            timeout: int = 30,
+            no_headers: bool = False,
+            no_cookies: bool = False,
+    ) -> str:
+        """内部方法, 使用 GET 方法获取内容, 并转换为 str 类型返回"""
+        response = await cls._request_get(
+            url=url, params=params,
+            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+        )
+        return cls._parse_content_as_text(response=response)
 
     @classmethod
     async def _download_resource(
             cls,
             save_folder: "TemporaryResource",
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: "QueryTypes" = None,
             *,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
             timeout: int = 60,
             subdir: str | None = None,
             ignore_exist_file: bool = False,

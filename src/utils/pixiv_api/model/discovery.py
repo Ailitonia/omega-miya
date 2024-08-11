@@ -9,6 +9,7 @@
 """
 
 import random
+
 from .base_model import BasePixivModel
 from .searching import PixivSearchingData
 
@@ -96,7 +97,7 @@ class PixivRecommendModel(BasePixivModel):
         return self.body.page.recommend.ids
 
     @property
-    def random_recommend_tag_pids(self) -> (str, list[int]):
+    def random_recommend_tag_pids(self) -> tuple[str, list[int]]:
         if self.error:
             raise ValueError('Recommend result status is error')
         random_recommend_by_tag = random.choice(self.body.page.recommendByTag)
