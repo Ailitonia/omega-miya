@@ -146,7 +146,11 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
         if limit:
             params.update({'limit': limit})
         if search_kwargs:
-            params.update({f'search[{k}]': v for k, v in search_kwargs.items()})
+            for k, v in search_kwargs.items():
+                if k.startswith('search_'):
+                    params.update({f'search[{k.removeprefix("search_")}]': v})
+                else:
+                    params.update({k: v})
         return params
 
     @classmethod
