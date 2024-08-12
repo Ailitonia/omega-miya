@@ -9,10 +9,14 @@
 """
 
 from .danbooru import DanbooruArtworkProxy
+from .local import LocalCollectedArtworkProxy
+from .none import NoneArtworkProxy
 from .pixiv import PixivArtworkProxy
 
 
 __all__ = [
     'DanbooruArtworkProxy',
+    'LocalCollectedArtworkProxy',
+    'NoneArtworkProxy',
     'PixivArtworkProxy',
 ]
