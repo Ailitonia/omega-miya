@@ -8,10 +8,17 @@
 @Software       : PyCharm 
 """
 
-from .sites import DanbooruArtworkCollection, PixivArtworkCollection
+from .sites import (
+    DanbooruArtworkCollection,
+    LocalCollectedArtworkCollection,
+    NoneArtworkCollection,
+    PixivArtworkCollection,
+)
 
 
 __all__ = [
     'DanbooruArtworkCollection',
+    'LocalCollectedArtworkCollection',
+    'NoneArtworkCollection',
     'PixivArtworkCollection',
 ]

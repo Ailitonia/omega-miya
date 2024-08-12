@@ -9,10 +9,14 @@
 """
 
 from .danbooru import DanbooruArtworkCollection
+from .local import LocalCollectedArtworkCollection
+from .none import NoneArtworkCollection
 from .pixiv import PixivArtworkCollection
 
 
 __all__ = [
     'DanbooruArtworkCollection',
+    'LocalCollectedArtworkCollection',
+    'NoneArtworkCollection',
     'PixivArtworkCollection',
 ]
