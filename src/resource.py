@@ -19,9 +19,9 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncContextManager,
-    AsyncGenerator,
     ContextManager,
     Generator,
+    NoReturn,
     IO,
     Literal,
     Optional,
@@ -78,15 +78,28 @@ class BaseResource(abc.ABC):
 
     @property
     def is_exist(self) -> bool:
+        """路径目标文件/文件夹是否存在"""
         return self.path.exists()
 
     @property
     def is_file(self) -> bool:
+        """路径目标是否为文件且存在"""
         return self.is_exist and self.path.is_file()
 
     @property
     def is_dir(self) -> bool:
+        """路径目标是否为文件夹且存在"""
         return self.is_exist and self.path.is_dir()
+
+    def raise_not_file(self) -> Optional[NoReturn]:
+        """路径目标不是文件或不存在时抛出 ResourceNotFileError 异常"""
+        if not self.is_file:
+            raise ResourceNotFileError(f'"{self}" is not a file, or file "{self}" is not exists')
+
+    def raise_not_dir(self) -> Optional[NoReturn]:
+        """路径目标不是文件夹或不存在时抛出 ResourceNotFolderError 异常"""
+        if not self.is_dir:
+            raise ResourceNotFolderError(f'"{self}" is not a directory, or directory "{self}" is not exists')
 
     @staticmethod
     def check_directory(func):
@@ -96,7 +109,7 @@ class BaseResource(abc.ABC):
             if self.path.exists() and self.path.is_dir():
                 return func(self, *args, **kwargs)
             else:
-                raise ResourceNotFolderError(f'"{self.path}" is not a directory, or directory {self.path} not exists')
+                raise ResourceNotFolderError(f'"{self}" is not a directory, or directory "{self}" is not exists')
         return _wrapper
 
     @staticmethod
@@ -111,7 +124,7 @@ class BaseResource(abc.ABC):
                     pathlib.Path.mkdir(self.path.parent, parents=True)
                 return func(self, *args, **kwargs)
             else:
-                raise ResourceNotFileError(f'"{self.path}" is not a file, or file {self.path} not exists')
+                raise ResourceNotFileError(f'"{self}" is not a file, or file "{self}" is not exists')
         return _wrapper
 
     @property
@@ -182,13 +195,6 @@ class BaseResource(abc.ABC):
                 for file_name in file_names:
                     file_list.append(self.__class__(dir_path, file_name))
         return file_list
-
-    @check_file
-    async def async_read_text_line(self, encoding: Optional[str] = 'utf-8', **kwargs) -> AsyncGenerator[str, Any]:
-        """返回按行读取文件内容的生成器"""
-        async with self.async_open(mode='r', encoding=encoding, **kwargs) as _af:
-            async for _line in _af:
-                yield _line
 
 
 class StaticResource(BaseResource):
