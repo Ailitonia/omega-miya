@@ -103,9 +103,9 @@ class BaseArtworkProxy(abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    async def random(cls) -> list[Self]:
+    async def random(cls, *, limit: int = 10) -> list[Self]:
         """随机获取作品列表"""
-        return [cls(artwork_id=aid) for aid in await cls._search(keyword=None)]
+        return [cls(artwork_id=aid) for aid in await cls._search(keyword=None)][:limit]
 
     @classmethod
     async def search(cls, keyword: str) -> list[Self]:

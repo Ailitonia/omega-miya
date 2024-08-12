@@ -3,7 +3,7 @@
 @Date           : 2024/8/12 16:13:15
 @FileName       : local.py
 @Project        : omega-miya
-@Description    : 本地图片(未知来源)适配
+@Description    : 本地图片适配
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -47,8 +47,13 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
         return self.path_config.artwork_path(self.s_aid)
 
     async def _query(self) -> ArtworkData:
-        if not self.self_file.is_file:
-            raise ValueError(f'{self.self_file} not exists')
+        self.self_file.raise_not_file()
+
+        """本地图片默认分类分级
+        (classification, rating)
+                (3, -1)
+        默认本地图片都是人工筛选后才放进来的, 分级未知
+        """
 
         return ArtworkData.model_validate({
             'origin': self.get_base_origin_name(),
