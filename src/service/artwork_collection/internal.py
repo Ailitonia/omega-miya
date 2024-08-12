@@ -32,6 +32,9 @@ class BaseArtworkCollection(abc.ABC):
     def __init__(self, artwork_id: str | int):
         self.__ap = self._init_self_artwork_proxy(artwork_id=artwork_id)
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(artwork_id={self.aid})'
+
     @property
     def aid(self) -> str:
         return self.__ap.s_aid
