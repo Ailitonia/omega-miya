@@ -10,7 +10,7 @@
 
 import abc
 from pathlib import PurePath
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Self
 from urllib.parse import urlparse, unquote
 
 from src.utils.process_utils import semaphore_gather
@@ -31,6 +31,9 @@ class BaseArtworkProxy(abc.ABC):
 
         # 实例缓存
         self.artwork_data: Optional[ArtworkData] = None
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(artwork_id={self.s_aid})'
 
     @property
     def i_aid(self) -> int:
@@ -92,6 +95,22 @@ class BaseArtworkProxy(abc.ABC):
     async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
         """内部方法, 请求原始资源内容, 并转换为 str 类型返回"""
         raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
+    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+        """内部方法, 根据关键词与分级搜索作品 ID 列表, 关键词为空则为随机获取"""
+        raise NotImplementedError
+
+    @classmethod
+    async def random(cls) -> list[Self]:
+        """随机获取作品列表"""
+        return [cls(artwork_id=aid) for aid in await cls._search(keyword=None)]
+
+    @classmethod
+    async def search(cls, keyword: str) -> list[Self]:
+        """根据关键词与分级搜索作品列表"""
+        return [cls(artwork_id=aid) for aid in await cls._search(keyword=keyword)]
 
     @abc.abstractmethod
     async def _query(self) -> ArtworkData:

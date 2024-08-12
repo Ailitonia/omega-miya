@@ -7,9 +7,9 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+from typing import Optional
 
 from src.utils.pixiv_api import PixivArtwork
-
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData
@@ -29,6 +29,15 @@ class _PixivArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
         return await PixivArtwork.get_resource_as_text(url=url, timeout=timeout)
+
+    @classmethod
+    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+        if keyword is None:
+            artworks_data = await PixivArtwork.query_discovery_artworks()
+            return [x for x in artworks_data.recommend_pids]
+        else:
+            artworks_data = await PixivArtwork.search_by_default_popular_condition(word=keyword)
+            return [x.id for x in artworks_data.searching_result]
 
     async def _query(self) -> ArtworkData:
         artwork_data = await PixivArtwork(pid=self.i_aid).query_artwork()

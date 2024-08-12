@@ -72,6 +72,15 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
         else:
             return cls._get_variant_page_file(variant=media_asset.variant_type_original)
 
+    @classmethod
+    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+        if keyword is None:
+            artwork_data = await danbooru_api.Post.random()
+            return [artwork_data.id]
+        else:
+            artworks_data = await danbooru_api.Post.index(tags=keyword)
+            return [x.id for x in artworks_data]
+
     async def _query(self) -> ArtworkData:
         artwork_data = await danbooru_api.Post(id_=self.i_aid).show()
 
