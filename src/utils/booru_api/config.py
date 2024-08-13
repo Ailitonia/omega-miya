@@ -17,7 +17,10 @@ class BooruConfig(BaseModel):
     danbooru_username: str | None = None
     danbooru_api_key: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    gelbooru_user_id: str | None = None
+    gelbooru_api_key: str | None = None
+
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, frozen=True)
 
 
 try:
@@ -27,7 +30,6 @@ except ValidationError as e:
 
     logger.opt(colors=True).critical(f'<r>Booru API 配置格式验证失败</r>, 错误信息:\n{e}')
     sys.exit(f'Booru API 配置格式验证失败, {e}')
-
 
 __all__ = [
     'booru_config',

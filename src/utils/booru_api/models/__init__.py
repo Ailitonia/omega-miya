@@ -33,6 +33,10 @@ from .danbooru import Upload as DanbooruUpload
 from .danbooru import User as DanbooruUser
 from .danbooru import Wiki as DanbooruWiki
 from .danbooru import WikiPageVersion as DanbooruWikiPageVersion
+from .gelbooru import CommentsData as GelbooruCommentsData
+from .gelbooru import PostsData as GelbooruPostsData
+from .gelbooru import TagsData as GelbooruTagsData
+from .gelbooru import UsersData as GelbooruUsersData
 
 __all__ = [
     'DanbooruArtist',
@@ -60,4 +64,8 @@ __all__ = [
     'DanbooruTagImplication',
     'DanbooruUpload',
     'DanbooruUser',
+    'GelbooruPostsData',
+    'GelbooruTagsData',
+    'GelbooruUsersData',
+    'GelbooruCommentsData',
 ]
