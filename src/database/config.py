@@ -11,12 +11,12 @@
 import os
 import pathlib
 import sys
-
 from enum import Enum, unique
-from nonebot import get_plugin_config, logger
-from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 from typing import Literal
 from urllib.parse import quote
+
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 
 
 @unique
@@ -48,7 +48,7 @@ class DatabaseType(BaseModel):
     """数据库类型"""
     database: Literal['mysql', 'postgresql', 'sqlite']  # 数据库类型
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def connector(self) -> DatabaseConnector:

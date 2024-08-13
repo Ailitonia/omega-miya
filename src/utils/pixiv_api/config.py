@@ -16,7 +16,7 @@ class PixivConfig(BaseModel):
     """Pixiv 配置"""
     pixiv_phpsessid: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def cookie_phpssid(self) -> dict[str, str]:

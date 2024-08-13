@@ -8,21 +8,21 @@
 @Software       : PyCharm 
 """
 
-import ujson as json
 from datetime import datetime, date
 from typing import Optional
 
+import ujson as json
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
 from src.database import BotSelfDAL, SubscriptionSourceDAL, EmailBoxDAL, begin_db_session
 from src.resource import TemporaryResource
-from src.service.omega_base import OmegaEntity
 from src.service.omega_api import register_get_route
+from src.service.omega_base import OmegaEntity
 
 
 class DateBaseModel(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 class _BotSelf(DateBaseModel):

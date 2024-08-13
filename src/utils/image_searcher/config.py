@@ -22,7 +22,7 @@ class ImageSearcherConfig(BaseModel):
     image_searcher_enable_yandex: bool = False
     image_searcher_enable_trace_moe: bool = True
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 try:

@@ -19,7 +19,6 @@ from pydantic import BaseModel, ConfigDict
 from ...omega_requests import OmegaRequests
 from ....resource import TemporaryResource
 
-
 _TMP_IMG_PATH = TemporaryResource('telegram', 'tmp', 'images')
 
 
@@ -29,7 +28,7 @@ class OmegaProcessorTelegramImageParserConfig(BaseModel):
     # 启用: 所有收到的图片均会以文件形式缓存在本地, 更消耗带宽和硬盘空间
     # 禁用: 仅解析收到图片的真实 URL, 但在向 Telegram 平台直接转发图片链接时可能失败
     telegram_processor_parse_photo_replace_as_local: bool = False
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 _plugin_config = get_plugin_config(OmegaProcessorTelegramImageParserConfig)

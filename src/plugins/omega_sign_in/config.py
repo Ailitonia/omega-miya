@@ -37,7 +37,7 @@ class SignInConfig(BaseModel):
     # 每日首次签到获取的基础硬币数 同时也是补签所需硬币的倍率基数
     signin_plugin_base_currency: int = 5
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 @dataclass

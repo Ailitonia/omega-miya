@@ -21,7 +21,7 @@ class OneBotV11ImageUrlReplacerConfig(BaseModel):
     """OneBot V11 图片 URL 替换处理配置"""
     onebot_v11_image_url_replacer: Literal['http', 'domain'] | None = 'http'
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 def _ger_image_url_replacer(replacer: Optional[str]) -> SegReplacerType:

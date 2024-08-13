@@ -37,7 +37,7 @@ class BilibiliConfig(BaseModel):
 
     _cookies_cache: dict | None = None
 
-    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True)
 
     @property
     def bili_cookies(self) -> dict[str, Any]:

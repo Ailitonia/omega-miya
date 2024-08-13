@@ -17,7 +17,7 @@ class TencentCloudConfig(BaseModel):
     tencent_cloud_secret_id: str | None = None
     tencent_cloud_secret_key: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 try:

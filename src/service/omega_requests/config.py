@@ -21,7 +21,7 @@ class HttpProxyConfig(BaseModel):
     proxy_address: IPvAnyAddress = '127.0.0.1'
     proxy_port: int = 1081
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def proxy_url(self) -> str | None:

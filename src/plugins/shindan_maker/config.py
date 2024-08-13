@@ -19,7 +19,7 @@ class ShindanMakerPluginConfig(BaseModel):
     # 站点类型
     shindan_maker_plugin_domain_version: Literal['default', 'cn'] = 'cn'
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def root_url(self) -> str:
