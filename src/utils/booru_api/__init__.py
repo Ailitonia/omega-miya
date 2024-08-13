@@ -8,9 +8,10 @@
 @Software       : PyCharm 
 """
 
-from .danbooru import BaseDanbooruAPI
+from .config import booru_config as booru_config
+from .danbooru import DanbooruAPI
 
-danbooru_api = BaseDanbooruAPI(root_url='https://danbooru.donmai.us')
+danbooru_api = DanbooruAPI(username=booru_config.danbooru_username, api_key=booru_config.danbooru_api_key)
 
 
 __all__ = [

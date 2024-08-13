@@ -75,14 +75,14 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _search(cls, keyword: Optional[str]) -> list[str | int]:
         if keyword is None:
-            artwork_data = await danbooru_api.Post.random()
+            artwork_data = await danbooru_api.post_random()
             return [artwork_data.id]
         else:
-            artworks_data = await danbooru_api.Post.index(tags=keyword)
+            artworks_data = await danbooru_api.posts_index(tags=keyword)
             return [x.id for x in artworks_data]
 
     async def _query(self) -> ArtworkData:
-        artwork_data = await danbooru_api.Post(id_=self.i_aid).show()
+        artwork_data = await danbooru_api.post_show(id_=self.i_aid)
 
         """Danbooru 图站收录作品默认分类分级
         (classification, rating)
