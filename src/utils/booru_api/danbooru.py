@@ -262,7 +262,7 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
 
         return Post.model_validate(await self.get_json(url=url))
 
-    async def post_show_artist_commentaries(self, id_: int) -> ArtistCommentary:
+    async def post_show_artist_commentary(self, id_: int) -> ArtistCommentary:
         """Show post's artists commentaries"""
         url = f'{self._get_root_url()}/posts/{id_}/artist_commentary.json'
 

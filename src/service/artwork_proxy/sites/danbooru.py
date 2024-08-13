@@ -10,6 +10,7 @@
 
 from typing import TYPE_CHECKING, Optional
 
+from src.exception import WebSourceException
 from src.utils.booru_api import danbooru_api
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
@@ -127,10 +128,18 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
             case _:
                 rating = -1
 
+        try:
+            commentary_data = await danbooru_api.post_show_artist_commentary(id_=self.i_aid)
+            title = commentary_data.original_title or commentary_data.translated_title
+            description = commentary_data.original_description or commentary_data.translated_description
+        except WebSourceException:
+            title = artwork_data.tag_string_copyright
+            description = None
+
         return ArtworkData.model_validate({
             'origin': self.get_base_origin_name(),
             'aid': artwork_data.id,
-            'title': artwork_data.tag_string_copyright,
+            'title': title,
             'uid': artwork_data.uploader_id,
             'uname': artwork_data.tag_string_artist,
             'classification': classification,
@@ -138,7 +147,7 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
             'width': artwork_data.image_width,
             'height': artwork_data.image_height,
             'tags': tags_general,
-            'description': None,
+            'description': description,
             'source': artwork_data.source,
             'pages': [{
                 'preview_file': self._get_preview_file(media_asset=artwork_data.media_asset),
@@ -166,7 +175,7 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
         artist = f"Artist: {artwork_data.uname}"
         artist = f"{artist[:text_len_limit]}..." if len(artist) > text_len_limit else artist
 
-        return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}\n {artist}'
+        return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}\n{artist}'
 
 
 class DanbooruArtworkProxy(_DanbooruArtworkProxy, ImageOpsMixin):
