@@ -12,8 +12,8 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 
-class DanbooruConfig(BaseModel):
-    """Danbooru 配置"""
+class BooruConfig(BaseModel):
+    """Booru API 配置"""
     danbooru_username: str | None = None
     danbooru_api_key: str | None = None
 
@@ -28,8 +28,8 @@ class DanbooruConfig(BaseModel):
 
 
 try:
-    danbooru_config = get_plugin_config(DanbooruConfig)
-    if danbooru_config.danbooru_username is None or danbooru_config.danbooru_api_key is None:
+    booru_config = get_plugin_config(BooruConfig)
+    if booru_config.danbooru_username is None or booru_config.danbooru_api_key is None:
         logger.opt(colors=True).warning(
             f'<lc>Danbooru</lc> | <lr>未配置 API key</lr>, <ly>部分功能可能无法正常使用</ly>')
 except ValidationError as e:
@@ -39,5 +39,5 @@ except ValidationError as e:
     sys.exit(f'Danbooru 配置格式验证失败, {e}')
 
 __all__ = [
-    'danbooru_config',
+    'booru_config',
 ]

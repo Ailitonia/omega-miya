@@ -1,9 +1,9 @@
 """
 @Author         : Ailitonia
 @Date           : 2024/8/2 14:30:31
-@FileName       : main.py
+@FileName       : danbooru.py
 @Project        : omega-miya
-@Description    : Danbooru API
+@Description    : Danbooru API (Latest version)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from src.compat import parse_obj_as
 from src.utils.common_api import BaseCommonAPI
-from .config import danbooru_config
-from .models import (
+from .config import booru_config
+from .models.danbooru import (
     Artist,
     ArtistCommentary,
     Note,
@@ -80,9 +80,9 @@ class BaseDanbooruCommon(BaseCommonAPI, abc.ABC):
     ) -> Any:
         """使用 GET 方法请求 API, 返回 json 内容"""
         if enable_auth and not params:
-            params = danbooru_config.auth_params
+            params = booru_config.auth_params
         elif enable_auth and params:
-            params.update(danbooru_config.auth_params)
+            params.update(booru_config.auth_params)
 
         response = await cls._request_get(url, params)
         return cls._parse_content_as_json(response)

@@ -1,14 +1,14 @@
 """
 @Author         : Ailitonia
 @Date           : 2024/8/1 14:45:35
-@FileName       : danbooru_api.py
+@FileName       : booru_api.py
 @Project        : omega-miya
-@Description    : Danbooru API
+@Description    : Danbooru 及其衍生 API (Read requests only)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
-from .main import BaseDanbooruAPI
+from .danbooru import BaseDanbooruAPI
 
 danbooru_api = BaseDanbooruAPI(root_url='https://danbooru.donmai.us')
 

@@ -10,13 +10,13 @@
 
 from typing import TYPE_CHECKING, Optional
 
-from src.utils.danbooru_api import danbooru_api
+from src.utils.booru_api import danbooru_api
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData, ArtworkPageFile
 
 if TYPE_CHECKING:
-    from src.utils.danbooru_api.models import PostMediaAsset, PostVariantTypes
+    from src.utils.booru_api.models.danbooru import PostMediaAsset, PostVariantTypes
 
 
 class _DanbooruArtworkProxy(BaseArtworkProxy):
