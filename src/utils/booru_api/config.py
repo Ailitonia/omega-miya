@@ -20,6 +20,12 @@ class BooruConfig(BaseModel):
     gelbooru_user_id: str | None = None
     gelbooru_api_key: str | None = None
 
+    yandere_login_name: str | None = None
+    yandere_password_hash: str | None = None
+
+    konachan_login_name: str | None = None
+    konachan_password_hash: str | None = None
+
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, frozen=True)
 
 

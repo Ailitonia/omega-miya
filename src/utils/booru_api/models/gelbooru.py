@@ -46,6 +46,7 @@ class Post(BaseGelbooruModel):
     tags: str
     rating: PostRating
     score: int
+    change: int
     directory: str
     image: str
     md5: str
@@ -57,10 +58,10 @@ class Post(BaseGelbooruModel):
     sample_height: int
     sample_width: int
     file_url: Optional[str] = None
+    jpeg_url: Optional[str] = None
     preview_url: Optional[str] = None
     sample_url: Optional[str] = None
     parent_id: int
-    change: int
     sample: int
     has_children: bool
     has_comments: bool

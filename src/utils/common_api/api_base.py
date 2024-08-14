@@ -195,7 +195,7 @@ class BaseCommonAPI(abc.ABC):
             *,
             headers: "HeaderTypes" = None,
             cookies: "CookieTypes" = None,
-            timeout: int = 30,
+            timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
     ) -> str:

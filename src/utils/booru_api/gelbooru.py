@@ -3,7 +3,7 @@
 @Date           : 2024/8/13 下午9:58
 @FileName       : gelbooru
 @Project        : nonebot2_miya
-@Description    : Gelbooru API (Gelbooru Beta 0.2.5)
+@Description    : Gelbooru API (Gelbooru Beta 0.2.5) (Read requests only)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -179,11 +179,11 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
 
 
 class GelbooruAPI(BaseGelbooruAPI):
-    """gelbooru.com 主站 API"""
+    """https://gelbooru.com 主站 API"""
 
     @classmethod
     def _get_root_url(cls, *args, **kwargs) -> str:
-        return 'https://gelbooru.com/'
+        return 'https://gelbooru.com'
 
 
 __all__ = [
