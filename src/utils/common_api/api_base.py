@@ -39,6 +39,12 @@ class BaseCommonAPI(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        """内部方法, 判断是否需要请求加载 Cloudflare Clearance 配置"""
+        raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
     def _get_default_headers(cls) -> "HeaderTypes":
         """内部方法, 获取默认 Headers"""
         raise NotImplementedError
@@ -53,6 +59,29 @@ class BaseCommonAPI(abc.ABC):
     def _get_omega_requests_default_headers(cls) -> dict[str, str]:
         """获取 OmegaRequests 默认 Headers"""
         return OmegaRequests.get_default_headers()
+
+    @classmethod
+    def _init_omega_requests(
+            cls,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
+            timeout: int = 10,
+            no_headers: bool = False,
+            no_cookies: bool = False,
+    ) -> OmegaRequests:
+        """获取 OmegaRequests 实例"""
+        if headers is None:
+            headers = cls._get_default_headers()
+        if no_headers:
+            headers = None
+
+        if cookies is None:
+            cookies = cls._get_default_cookies()
+        if no_cookies:
+            cookies = None
+
+        lcc = cls._load_cloudflare_clearance()
+        return OmegaRequests(headers=headers, cookies=cookies, timeout=timeout, load_cloudflare_clearance=lcc)
 
     @staticmethod
     def _parse_content_as_bytes(response: "Response") -> bytes:
@@ -79,17 +108,9 @@ class BaseCommonAPI(abc.ABC):
             no_cookies: bool = False,
     ) -> "Response":
         """内部方法, 使用 GET 方法请求"""
-        if headers is None:
-            headers = cls._get_default_headers()
-        if no_headers:
-            headers = None
-
-        if cookies is None:
-            cookies = cls._get_default_cookies()
-        if no_cookies:
-            cookies = None
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
+        requests = cls._init_omega_requests(
+            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+        )
         response = await requests.get(url=url, params=params)
         if response.status_code != 200:
             raise WebSourceException(f'{response.request}, status code {response.status_code}')
@@ -111,17 +132,9 @@ class BaseCommonAPI(abc.ABC):
             no_cookies: bool = False,
     ) -> "Response":
         """内部方法, 使用 POST 方法请求"""
-        if headers is None:
-            headers = cls._get_default_headers()
-        if no_headers:
-            headers = None
-
-        if cookies is None:
-            cookies = cls._get_default_cookies()
-        if no_cookies:
-            cookies = None
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
+        requests = cls._init_omega_requests(
+            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+        )
         response = await requests.post(url=url, params=params, data=data, json=json)
         if response.status_code != 200:
             raise WebSourceException(f'{response.request}, status code {response.status_code}')
@@ -222,16 +235,6 @@ class BaseCommonAPI(abc.ABC):
             no_cookies: bool = False,
     ) -> "TemporaryResource":
         """内部方法, 下载任意资源到本地, 保持原始文件名, 默认直接覆盖同名文件"""
-        if headers is None:
-            headers = cls._get_default_headers()
-        if no_headers:
-            headers = None
-
-        if cookies is None:
-            cookies = cls._get_default_cookies()
-        if no_cookies:
-            cookies = None
-
         original_file_name = OmegaRequests.parse_url_file_name(url=url)
 
         if subdir is None:
@@ -239,7 +242,9 @@ class BaseCommonAPI(abc.ABC):
         else:
             file = save_folder(subdir, original_file_name)
 
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
+        requests = cls._init_omega_requests(
+            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+        )
         return await requests.download(url=url, file=file, params=params, ignore_exist_file=ignore_exist_file)
 
 

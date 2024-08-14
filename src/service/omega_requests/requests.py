@@ -28,6 +28,7 @@ from nonebot.drivers import (
 from src.exception import WebSourceException
 from src.resource import TemporaryResource
 from .config import http_proxy_config
+from .utils import cloudflare_clearance_config
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import (
@@ -72,7 +73,8 @@ class OmegaRequests(object):
             timeout: Optional[float] = None,
             headers: "HeaderTypes" = None,
             cookies: "CookieTypes" = None,
-            retry: Optional[int] = None
+            retry: Optional[int] = None,
+            load_cloudflare_clearance: bool = False,
     ):
         self.driver = get_driver()
         if not isinstance(self.driver, ForwardDriver):
@@ -85,6 +87,7 @@ class OmegaRequests(object):
         self.headers = self._default_headers if headers is None else headers
         self.cookies = cookies
         self.retry_limit = self._default_retry_limit if retry is None else retry
+        self.load_cloudflare_clearance = load_cloudflare_clearance
 
     @staticmethod
     def parse_content_as_bytes(response: "Response", encoding: str = 'utf-8') -> bytes:
@@ -156,6 +159,14 @@ class OmegaRequests(object):
                 "OmegaRequests need a HTTPClient Driver to work."
             )
 
+        # 处理加载 Cloudflare Clearance Cookies
+        if self.load_cloudflare_clearance:
+            domain_cloudflare_clearance = cloudflare_clearance_config.get_url_config(url=str(setup.url))
+            if domain_cloudflare_clearance is not None:
+                setup.headers.update(domain_cloudflare_clearance.headers)
+                setup.cookies.update(domain_cloudflare_clearance.cookies)
+
+        # 处理自动重试
         attempts_num = 0
         final_exception = None
         while attempts_num < self.retry_limit:

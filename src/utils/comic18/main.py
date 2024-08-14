@@ -67,6 +67,10 @@ class _BaseComic18(BaseCommonAPI):
         return cls.__root_url
 
     @classmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        return True
+
+    @classmethod
     def _get_default_headers(cls) -> dict[str, str]:
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 

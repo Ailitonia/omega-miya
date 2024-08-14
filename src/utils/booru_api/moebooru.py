@@ -73,6 +73,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        return False
+
+    @classmethod
     def _get_default_headers(cls) -> "HeaderTypes":
         return {}
 
@@ -370,6 +374,10 @@ class BehoimiAPI(BaseMoebooruAPI):
 
 class KonachanAPI(BaseMoebooruAPI):
     """https://konachan.com 主站 API"""
+
+    @classmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        return True
 
     @classmethod
     def _get_default_headers(cls) -> "HeaderTypes":

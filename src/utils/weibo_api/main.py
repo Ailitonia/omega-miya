@@ -41,6 +41,10 @@ class Weibo(BaseCommonAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        return False
+
+    @classmethod
     def _get_default_headers(cls) -> dict[str, Any]:
         headers = cls._get_omega_requests_default_headers()
         headers.update({
