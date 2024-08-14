@@ -25,7 +25,7 @@ class Post(BaseMoebooruModel):
     creator_id: int
     approver_id: Optional[int] = None
     tags: str
-    rating: Literal['g', 's', 'q', 'e']
+    rating: Literal['s', 'q', 'e']
     change: int
     source: str
     score: int
@@ -34,24 +34,24 @@ class Post(BaseMoebooruModel):
     height: int
     preview_width: int
     preview_height: int
-    actual_preview_width: int
-    actual_preview_height: int
+    actual_preview_width: Optional[int] = None
+    actual_preview_height: Optional[int] = None
     sample_height: int
     sample_width: int
-    sample_file_size: int
-    jpeg_width: int
-    jpeg_height: int
-    jpeg_file_size: int
+    sample_file_size: Optional[int] = None
+    jpeg_width: Optional[int] = None
+    jpeg_height: Optional[int] = None
+    jpeg_file_size: Optional[int] = None
     file_ext: Optional[str] = None
     file_size: int
     file_url: Optional[str] = None
     jpeg_url: Optional[str] = None
     preview_url: Optional[str] = None
     sample_url: Optional[str] = None
-    frames_pending_string: str
-    frames_pending: list[Any]
-    frames_string: str
-    frames: list[Any]
+    frames_pending_string: Optional[str] = None
+    frames_pending: Optional[list[Any]] = None
+    frames_string: Optional[str] = None
+    frames: Optional[list[Any]] = None
     parent_id: Optional[int] = None
     has_children: bool
     status: str
@@ -62,8 +62,8 @@ class Post(BaseMoebooruModel):
     is_note_locked: bool = False
     last_noted_at: Optional[int] = None
     last_commented_at: Optional[int] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Any = None
+    updated_at: Any = None
 
 
 class SimilarPosts(BaseMoebooruModel):
@@ -94,7 +94,7 @@ class Comment(BaseMoebooruModel):
     creator: str
     creator_id: Optional[int] = None  # Anonymous creator
     body: str
-    created_at: Optional[str] = None
+    created_at: Any = None
 
 
 class Wiki(BaseMoebooruModel):
@@ -104,8 +104,8 @@ class Wiki(BaseMoebooruModel):
     updater_id: int
     locked: bool
     version: int
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Any = None
+    updated_at: Any = None
 
 
 class Note(BaseMoebooruModel):
@@ -119,8 +119,8 @@ class Note(BaseMoebooruModel):
     post_id: int
     body: str
     version: int
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Any = None
+    updated_at: Any = None
 
 
 class User(BaseMoebooruModel):
@@ -136,7 +136,7 @@ class Forum(BaseMoebooruModel):
     title: str
     body: str
     pages: int
-    updated_at: Optional[str] = None
+    updated_at: Any = None
 
 
 class Pool(BaseMoebooruModel):
@@ -145,10 +145,10 @@ class Pool(BaseMoebooruModel):
     user_id: int
     is_public: bool
     post_count: int
-    description: str
+    description: Optional[str] = None
     posts: Optional[list[Post]] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Any = None
+    updated_at: Any = None
 
 
 __all__ = [

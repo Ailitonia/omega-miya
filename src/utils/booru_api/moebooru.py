@@ -3,7 +3,7 @@
 @Date           : 2024/8/13 11:17:23
 @FileName       : moebooru.py
 @Project        : omega-miya
-@Description    : Moebooru API (Moebooru 1.13.0-1.13.0+update.3, 兼容 Gelbooru 1.13) (Read requests only)
+@Description    : Moebooru API (Moebooru 1.13.0-1.13.0+update.3, 兼容 Danbooru 1.13) (Read requests only)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -35,9 +35,19 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
 
     文档参考 https://github.com/moebooru/moebooru/blob/master/app/views/help/api.en.html.erb
     端点参考 https://github.com/moebooru/moebooru/blob/master/config/routes.rb
+    注意 Moebooru 分级不同, 端点 https://github.com/moebooru/moebooru/blob/master/app/views/help/ratings.en.html.erb
+        rating:s - Safe
+        rating:q - Questionable
+        rating:e - Explicit
     """
 
-    def __init__(self, *, login_name: Optional[str] = None, password_hash: Optional[str] = None):
+    def __init__(
+            self,
+            *,
+            login_name: Optional[str] = None,
+            password_hash: Optional[str] = None,
+            legacy_endpoint: bool = False,
+    ) -> None:
         """初始化鉴权信息
 
         :param login_name: Your login name.
@@ -45,9 +55,11 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             Simply hashing your plain password will NOT work since Danbooru salts its passwords.
             The actual string that is hashed is "{site_password_salt}--your-password--".
             The "site_password_salt" can be found in "Help:API" page.
+        :param legacy_endpoint: Using legacy endpoint for compatibility, but maybe been removed.
         """
         self.__login = login_name
         self.__password_hash = password_hash
+        self.__legacy_endpoint = legacy_endpoint
 
     @property
     def _auth_params(self) -> dict[str, str]:
@@ -108,7 +120,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             page: Optional[int] = None,
             tags: Optional[str] = None,
     ) -> list[Post]:
-        index_url = f'{self._get_root_url()}/post.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/post/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/post.json'
 
         params = {}
         if limit is not None:
@@ -165,7 +180,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             name: Optional[str] = None,
             name_pattern: Optional[str] = None,
     ) -> list[Tag]:
-        index_url = f'{self._get_root_url()}/tag.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/tag/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/tag.json'
 
         params = {}
         if limit is not None:
@@ -195,7 +213,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             order: Optional[Literal['date', 'name']] = None,
             page: Optional[int] = None,
     ) -> list[Artist]:
-        index_url = f'{self._get_root_url()}/artist.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/artist/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/artist.json'
 
         params = {}
         if name is not None:
@@ -226,7 +247,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             order: Optional[Literal['title', 'date']] = None,
             query: Optional[str] = None,
     ) -> list[Wiki]:
-        index_url = f'{self._get_root_url()}/wiki.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/wiki/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/wiki.json'
 
         params = {}
         if limit is not None:
@@ -252,7 +276,11 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
 
     async def note_post_show(self, post_id: int) -> list[Note]:
         """show post's notes"""
-        url = f'{self._get_root_url()}/note.json'
+        if self.__legacy_endpoint:
+            url = f'{self._get_root_url()}/note/index.json'
+        else:
+            url = f'{self._get_root_url()}/note.json'
+
         params = {'post_id': post_id}
 
         return parse_obj_as(list[Note], await self.get_json(url=url, params=params))
@@ -265,7 +293,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             id_: Optional[int] = None,
             name: Optional[str] = None,
     ) -> list[User]:
-        index_url = f'{self._get_root_url()}/user.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/user/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/user.json'
 
         params = {}
         if id_ is not None:
@@ -283,7 +314,11 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             *,
             parent_id: Optional[int] = None,
     ) -> list[Forum]:
-        index_url = f'{self._get_root_url()}/forum.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/forum/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/forum.json'
+
         params = {'parent_id': str(parent_id)} if parent_id is not None else None
 
         return parse_obj_as(list[Forum], await self.get_json(url=index_url, params=params))
@@ -296,7 +331,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
             query: Optional[str] = None,
             page: Optional[int] = None,
     ) -> list[Pool]:
-        index_url = f'{self._get_root_url()}/pool.json'
+        if self.__legacy_endpoint:
+            index_url = f'{self._get_root_url()}/pool/index.json'
+        else:
+            index_url = f'{self._get_root_url()}/pool.json'
 
         params = {}
         if query is not None:
@@ -318,12 +356,40 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
         return Pool.model_validate(await self.get_json(url=url, params=params))
 
 
+class BehoimiAPI(BaseMoebooruAPI):
+    """http://behoimi.org 主站 API"""
+
+    @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        return cls._get_omega_requests_default_headers()
+
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'http://behoimi.org'
+
+
 class KonachanAPI(BaseMoebooruAPI):
     """https://konachan.com 主站 API"""
 
     @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
+
+    @classmethod
     def _get_root_url(cls, *args, **kwargs) -> str:
         return 'https://konachan.com'
+
+
+class KonachanSafeAPI(BaseMoebooruAPI):
+    """https://konachan.net 全年龄站 API"""
+
+    @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
+
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://konachan.net'
 
 
 class YandereAPI(BaseMoebooruAPI):
@@ -335,6 +401,8 @@ class YandereAPI(BaseMoebooruAPI):
 
 
 __all__ = [
+    'BehoimiAPI',
     'KonachanAPI',
+    'KonachanSafeAPI',
     'YandereAPI',
 ]

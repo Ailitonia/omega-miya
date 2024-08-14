@@ -37,6 +37,16 @@ from .gelbooru import CommentsData as GelbooruCommentsData
 from .gelbooru import PostsData as GelbooruPostsData
 from .gelbooru import TagsData as GelbooruTagsData
 from .gelbooru import UsersData as GelbooruUsersData
+from .moebooru import Artist as MoebooruArtist
+from .moebooru import Comment as MoebooruComment
+from .moebooru import Forum as MoebooruForum
+from .moebooru import Note as MoebooruNote
+from .moebooru import Pool as MoebooruPool
+from .moebooru import Post as MoebooruPost
+from .moebooru import SimilarPosts as MoebooruSimilarPosts
+from .moebooru import Tag as MoebooruTag
+from .moebooru import User as MoebooruUser
+from .moebooru import Wiki as MoebooruWiki
 
 __all__ = [
     'DanbooruArtist',
@@ -68,4 +78,14 @@ __all__ = [
     'GelbooruTagsData',
     'GelbooruUsersData',
     'GelbooruCommentsData',
+    'MoebooruPost',
+    'MoebooruSimilarPosts',
+    'MoebooruTag',
+    'MoebooruArtist',
+    'MoebooruComment',
+    'MoebooruWiki',
+    'MoebooruNote',
+    'MoebooruUser',
+    'MoebooruForum',
+    'MoebooruPool',
 ]
