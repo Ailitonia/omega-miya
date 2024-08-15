@@ -24,9 +24,9 @@ from src.utils.booru_api.moebooru import (
     KonachanSafeAPI,
     YandereAPI
 )
-from ..add_ons import ImageOpsMixin
+from ..add_ons import ImageOpsPlusPoolMixin
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData
+from ..models import ArtworkData, ArtworkPool
 
 
 class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
@@ -148,8 +148,20 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         artwork_data = await self.query()
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}'
 
+    @classmethod
+    async def _query_pool(cls, pool_id: str) -> ArtworkPool:  # 提前实现 ImageOpsPlusPoolMixin 基类方法
+        pool_data = await cls._get_api().pool_posts_show(pool_id=int(pool_id))
 
-class BehoimiArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+        return ArtworkPool.model_validate({
+            'origin': cls.get_base_origin_name(),
+            'pool_id': pool_id,
+            'name': pool_data.name,
+            'description': pool_data.description,
+            'artwork_ids': [] if pool_data.posts is None else pool_data.posts,
+        })
+
+
+class BehoimiArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsPlusPoolMixin):
     """http://behoimi.org 主站图库统一接口实现"""
 
     @classmethod
@@ -161,7 +173,7 @@ class BehoimiArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
         return 'behoimi'
 
 
-class KonachanArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+class KonachanArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsPlusPoolMixin):
     """https://konachan.com 主站图库统一接口实现"""
 
     @classmethod
@@ -173,7 +185,7 @@ class KonachanArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
         return 'konachan'
 
 
-class KonachanSafeArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+class KonachanSafeArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsPlusPoolMixin):
     """https://konachan.net 全年龄站图库统一接口实现"""
 
     @classmethod
@@ -185,7 +197,7 @@ class KonachanSafeArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
         return 'konachan_safe'
 
 
-class YandereArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+class YandereArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsPlusPoolMixin):
     """https://yande.re 主站图库统一接口实现"""
 
     @classmethod

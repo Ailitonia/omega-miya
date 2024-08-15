@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, Optional
 from src.exception import WebSourceException
 from src.utils.booru_api import danbooru_api
 from src.utils.booru_api.danbooru import BaseDanbooruAPI, DanbooruAPI
-from ..add_ons import ImageOpsMixin
+from ..add_ons import ImageOpsPlusPoolMixin
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData, ArtworkPageFile
+from ..models import ArtworkData, ArtworkPageFile, ArtworkPool
 
 if TYPE_CHECKING:
     from src.utils.booru_api.models.danbooru import PostMediaAsset, PostVariantTypes
@@ -185,7 +185,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}\n{artist}'
 
 
-class DanbooruArtworkProxy(BaseDanbooruArtworkProxy, ImageOpsMixin):
+class DanbooruArtworkProxy(BaseDanbooruArtworkProxy, ImageOpsPlusPoolMixin):
     """https://danbooru.donmai.us 主站图库统一接口实现"""
 
     @classmethod
@@ -195,6 +195,18 @@ class DanbooruArtworkProxy(BaseDanbooruArtworkProxy, ImageOpsMixin):
     @classmethod
     def get_base_origin_name(cls) -> str:
         return 'danbooru'
+
+    @classmethod
+    async def _query_pool(cls, pool_id: str) -> ArtworkPool:
+        pool_data = await cls._get_api().pool_show(id_=int(pool_id))
+
+        return ArtworkPool.model_validate({
+            'origin': cls.get_base_origin_name(),
+            'pool_id': pool_id,
+            'name': pool_data.name,
+            'description': pool_data.description,
+            'artwork_ids': pool_data.post_ids,
+        })
 
 
 __all__ = [

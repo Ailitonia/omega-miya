@@ -8,9 +8,10 @@
 @Software       : PyCharm 
 """
 
-from .image_ops import ImageOpsMixin
+from .image_ops import ImageOpsMixin, ImageOpsPlusPoolMixin
 
 
 __all__ = [
     'ImageOpsMixin',
+    'ImageOpsPlusPoolMixin',
 ]

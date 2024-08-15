@@ -208,7 +208,7 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
         params = self.generate_common_search_params(page=page, limit=limit, **search_kwargs)
         return parse_obj_as(list[Pool], await self.get_json(url=index_url, params=params))
 
-    async def poll_show(self, id_: int) -> Pool:
+    async def pool_show(self, id_: int) -> Pool:
         """Show pool data"""
         url = f'{self._get_root_url()}/pools/{id_}.json'
 

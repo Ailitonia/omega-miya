@@ -8,16 +8,15 @@
 @Software       : PyCharm 
 """
 
-from math import ceil
-from io import BytesIO
 from datetime import datetime
+from io import BytesIO
+from math import ceil
+
 from PIL import Image, ImageDraw, ImageFont
 from PIL import UnidentifiedImageError
-
 from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
-
 from .model import PreviewImageModel
 from ..config import image_utils_config
 from ..image_util import ImageUtils
@@ -146,7 +145,7 @@ async def generate_thumbs_preview_image(
         return _content
 
     image_content = await _handle_preview_image()
-    image_file_name = f"preview_{preview_name}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
+    image_file_name = f"preview_{hash(preview_name)}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
     save_file = output_folder(image_file_name)
     async with save_file.async_open('wb') as af:
         await af.write(image_content)

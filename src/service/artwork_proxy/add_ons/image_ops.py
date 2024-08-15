@@ -16,10 +16,12 @@ from nonebot.utils import run_sync
 from src.utils.image_utils import ImageUtils
 from src.utils.image_utils.template import generate_thumbs_preview_image, PreviewImageThumbs, PreviewImageModel
 from src.utils.process_utils import semaphore_gather
-from .models import ArtworkProxyAddonsMixin
+from .typing import ArtworkProxyAddonsMixin
+from ..models import ArtworkPool
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
+    from ..models import ArtworkData
     from ..typing import ArtworkPageParamType
 
 
@@ -148,16 +150,18 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def _get_any_images_preview_data(
             cls,
             preview_name: str,
-            image_data: list[tuple[str, str]]
+            image_data: list[tuple[str, str]],
+            limit: int = 100,
     ) -> PreviewImageModel:
         """获取生成预览图所需要的所有任意图片的数据
 
         :param image_data: list of image data: (image_url, desc_text)
+        :param limit: 限制生成时缩略图数量的最大值
         :return: PreviewImageModel
         """
         tasks = [
             cls._get_any_image_preview_thumb_data(url=url, desc_text=desc_text)
-            for url, desc_text in image_data
+            for url, desc_text in image_data[:limit]
         ]
         requests_data = await semaphore_gather(tasks=tasks, semaphore_num=16, filter_exception=True)
         previews = list(requests_data)
@@ -172,11 +176,12 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             *,
             page_type: "ArtworkPageParamType" = 'preview',
             no_blur_rating: int = 1,
+            limit: int = 100,
     ) -> PreviewImageModel:
         """获取生成预览图所需要的所有作品的数据"""
         tasks = [
             artwork._get_preview_thumb_data(page_type=page_type, no_blur_rating=no_blur_rating)
-            for artwork in artworks
+            for artwork in artworks[:limit]
         ]
         requests_data = await semaphore_gather(tasks=tasks, semaphore_num=16, filter_exception=True)
         previews = list(requests_data)
@@ -193,7 +198,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             hold_ratio: bool = True,
             edge_scale: float = 1 / 32,
             num_of_line: int = 6,
-            limit: int = 1000
+            limit: int = 100,
     ) -> "TemporaryResource":
         """生成多个任意图片的预览图
 
@@ -206,7 +211,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         :param limit: 限制生成时缩略图数量的最大值
         :return: TemporaryResource
         """
-        preview = await cls._get_any_images_preview_data(preview_name=preview_name, image_data=image_data)
+        preview = await cls._get_any_images_preview_data(preview_name=preview_name, image_data=image_data, limit=limit)
         path_config = cls._generate_path_config()
 
         return await generate_thumbs_preview_image(
@@ -232,7 +237,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             preview_size: tuple[int, int] = (256, 256),  # 默认预览图缩略图大小
             edge_scale: float = 1 / 32,
             num_of_line: int = 6,
-            limit: int = 1000
+            limit: int = 100,
     ) -> "TemporaryResource":
         """生成多个作品的预览图
 
@@ -247,7 +252,8 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         :return: TemporaryResource
         """
         preview = await cls._get_artworks_preview_data(
-            preview_name=preview_name, artworks=artworks, page_type=page_type, no_blur_rating=no_blur_rating
+            preview_name=preview_name, artworks=artworks,
+            page_type=page_type, no_blur_rating=no_blur_rating, limit=limit
         )
         path_config = cls._generate_path_config()
 
@@ -264,6 +270,74 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         )
 
 
+class ImageOpsPlusPoolMixin(ImageOpsMixin, abc.ABC):
+    """作品图片处理工具插件(附加图集处理功能)"""
+
+    @classmethod
+    def _get_pool_meta_file(cls, pool_id: str) -> "TemporaryResource":
+        return cls._generate_path_config().meta_path(f'pool_{pool_id}.json')
+
+    @classmethod
+    async def _dumps_pool_meta(cls, pool_data: ArtworkPool) -> None:
+        """内部方法, 缓存图集元数据"""
+        async with cls._get_pool_meta_file(pool_id=pool_data.pool_id).async_open('w', encoding='utf8') as af:
+            await af.write(pool_data.model_dump_json())
+
+    @classmethod
+    @abc.abstractmethod
+    async def _query_pool(cls, pool_id: str) -> ArtworkPool:
+        """获取图集信息"""
+        raise NotImplementedError
+
+    @classmethod
+    async def _fast_query_pool(cls, pool_id: str, *, use_cache: bool = True) -> ArtworkPool:
+        """获取图集信息, 优先从本地缓存加载"""
+        if use_cache and cls._get_pool_meta_file(pool_id=pool_id).is_file:
+            async with cls._get_pool_meta_file(pool_id=pool_id).async_open('r', encoding='utf8') as af:
+                pool_data = ArtworkPool.model_validate_json(await af.read())
+        else:
+            pool_data = await cls._query_pool(pool_id=pool_id)
+            await cls._dumps_pool_meta(pool_data=pool_data)
+
+        return pool_data
+
+    @classmethod
+    async def query_pool(cls, pool_id: str, *, use_cache: bool = True) -> ArtworkPool:
+        """获取图集信息"""
+        return await cls._fast_query_pool(pool_id=pool_id, use_cache=use_cache)
+
+    @classmethod
+    async def query_pool_all_artworks(cls, pool_id: str) -> list["ArtworkData"]:
+        """获取图集中所有作品信息"""
+        pool_data = await cls.query_pool(pool_id=pool_id)
+
+        tasks = [cls(aid).query() for aid in pool_data.artwork_ids]
+        all_artwork_data = await semaphore_gather(tasks=tasks, semaphore_num=4, return_exceptions=False)
+
+        return list(all_artwork_data)
+
+    @classmethod
+    async def query_pool_all_artwork_pages(cls, pool_id: str) -> list["TemporaryResource"]:
+        """获取图集中所有作品图片"""
+        pool_data = await cls.query_pool(pool_id=pool_id)
+
+        tasks = [cls(aid).get_all_pages_file() for aid in pool_data.artwork_ids]
+        all_artwork_pages = await semaphore_gather(tasks=tasks, semaphore_num=4, return_exceptions=False)
+
+        return [file for artwork_pages in all_artwork_pages for file in artwork_pages]
+
+    @classmethod
+    async def generate_pool_preview(cls, pool_id: str) -> "TemporaryResource":
+        """生成图集的预览图"""
+        pool_data = await cls.query_pool(pool_id=pool_id)
+
+        return await cls.generate_artworks_preview(
+            preview_name=f'{cls.get_base_origin_name().title()} Pool #{pool_id}: {pool_data.name}',
+            artworks=[cls(aid) for aid in pool_data.artwork_ids]
+        )
+
+
 __all__ = [
     'ImageOpsMixin',
+    'ImageOpsPlusPoolMixin',
 ]

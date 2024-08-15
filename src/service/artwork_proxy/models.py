@@ -99,10 +99,23 @@ class ArtworkData(BaseArtworkProxyModel):
         return {k: v for k, v in enumerate(x.original_file.url for x in self.pages)}
 
 
+class ArtworkPool(BaseArtworkProxyModel):
+    origin: str
+    pool_id: str
+    name: str
+    description: Optional[str] = None
+    artwork_ids: list[str]
+
+    @property
+    def artwork_count(self) -> int:
+        return len(self.artwork_ids)
+
+
 __all__ = [
+    'ArtworkClassification',
     'ArtworkData',
     'ArtworkPage',
     'ArtworkPageFile',
-    'ArtworkClassification',
+    'ArtworkPool',
     'ArtworkRating',
 ]
