@@ -114,6 +114,7 @@ class CommentsData(BaseIndexData):
 
 
 __all__ = [
+    'Post',
     'PostsData',
     'TagsData',
     'UsersData',

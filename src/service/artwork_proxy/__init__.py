@@ -12,6 +12,10 @@ from .sites import (
     DanbooruArtworkProxy,
     GelbooruArtworkProxy,
     LocalCollectedArtworkProxy,
+    BehoimiArtworkProxy,
+    KonachanArtworkProxy,
+    KonachanSafeArtworkProxy,
+    YandereArtworkProxy,
     NoneArtworkProxy,
     PixivArtworkProxy,
 )
@@ -21,6 +25,10 @@ __all__ = [
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',
     'LocalCollectedArtworkProxy',
+    'BehoimiArtworkProxy',
+    'KonachanArtworkProxy',
+    'KonachanSafeArtworkProxy',
+    'YandereArtworkProxy',
     'NoneArtworkProxy',
     'PixivArtworkProxy',
 ]

@@ -12,7 +12,7 @@ import abc
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from src.utils.common_api import BaseCommonAPI
-from .models.gelbooru import PostsData, TagsData, UsersData, CommentsData
+from .models.gelbooru import Post, PostsData, TagsData, UsersData, CommentsData
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, HeaderTypes, QueryTypes
@@ -106,8 +106,11 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
 
         return PostsData.model_validate(await self.get_json(url=index_url, params=params))
 
-    async def post_show(self, id_: int) -> PostsData:
-        return await self.posts_index(id_=id_)
+    async def post_show(self, id_: int) -> Post:
+        posts = await self.posts_index(id_=id_)
+        if not posts.post:
+            raise IndexError(f'Post(id={id_}) Not Found')
+        return posts.post[0]
 
     """Tag API"""
 

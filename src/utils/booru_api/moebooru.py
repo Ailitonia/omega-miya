@@ -365,7 +365,11 @@ class BehoimiAPI(BaseMoebooruAPI):
 
     @classmethod
     def _get_default_headers(cls) -> "HeaderTypes":
-        return cls._get_omega_requests_default_headers()
+        return {
+            'origin': f'{cls._get_root_url()}/',
+            'referer': f'{cls._get_root_url()}/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'
+        }
 
     @classmethod
     def _get_root_url(cls, *args, **kwargs) -> str:
@@ -409,6 +413,7 @@ class YandereAPI(BaseMoebooruAPI):
 
 
 __all__ = [
+    'BaseMoebooruAPI',
     'BehoimiAPI',
     'KonachanAPI',
     'KonachanSafeAPI',

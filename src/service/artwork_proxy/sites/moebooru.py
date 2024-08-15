@@ -1,29 +1,40 @@
 """
 @Author         : Ailitonia
-@Date           : 2024/8/15 10:17:11
-@FileName       : gelbooru.py
-@Project        : omega-miya
-@Description    : Gelbooru 图库统一接口实现
+@Date           : 2024/8/15 下午7:01
+@FileName       : moebooru
+@Project        : nonebot2_miya
+@Description    : moebooru 图库统一接口实现
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm
+@Software       : PyCharm 
 """
 
 import abc
 from typing import Optional
 
-from src.utils.booru_api import gelbooru_api
-from src.utils.booru_api.gelbooru import BaseGelbooruAPI, GelbooruAPI
+from src.utils.booru_api import (
+    behoimi_api,
+    konachan_api,
+    konachan_safe_api,
+    yandere_api
+)
+from src.utils.booru_api.moebooru import (
+    BaseMoebooruAPI,
+    BehoimiAPI,
+    KonachanAPI,
+    KonachanSafeAPI,
+    YandereAPI
+)
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData
 
 
-class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
-    """Gelbooru 图库统一接口实现"""
+class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
+    """Moebooru 图库统一接口实现"""
 
     @classmethod
     @abc.abstractmethod
-    def _get_api(cls) -> BaseGelbooruAPI:
+    def _get_api(cls) -> BaseMoebooruAPI:
         """内部方法, 获取 API 实例"""
         raise NotImplementedError
 
@@ -38,20 +49,19 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
     @classmethod
     async def _search(cls, keyword: Optional[str]) -> list[str | int]:
         if keyword is None:
-            artworks_data = await cls._get_api().posts_index(tags='sort:random')
+            artworks_data = await cls._get_api().posts_index(tags='order:random')
         else:
             artworks_data = await cls._get_api().posts_index(tags=keyword)
 
-        return [x.id for x in artworks_data.post]
+        return [x.id for x in artworks_data]
 
     async def _query(self) -> ArtworkData:
         artwork_data = await self._get_api().post_show(id_=self.i_aid)
 
-        """Gelbooru 图站收录作品默认分类分级
+        """moebooru 图站收录作品默认分类分级
         (classification, rating)
                             has_ai-generated_tag  status_is_active  other_status
-        rate: General             (1,  0)             (2,  0)          (0,  0)
-        rate: Sensitive           (1,  1)             (2,  1)          (0,  1)
+        rate: Safe                (1,  0)             (2,  0)          (0,  0)
         rate: Questionable        (1,  2)             (2,  2)          (0,  2)
         rate: Explicit            (1,  3)             (2,  3)          (0,  3)
         rate: Unknown             (1, -1)             (2, -1)          (0, -1)
@@ -73,14 +83,12 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         else:
             classification = 0
 
-        match artwork_data.rating.value:
-            case 'general':
+        match artwork_data.rating:
+            case 's':
                 rating = 0
-            case 'sensitive':
-                rating = 1
-            case 'questionable':
+            case 'q':
                 rating = 2
-            case 'explicit':
+            case 'e':
                 rating = 3
             case _:
                 rating = -1
@@ -92,9 +100,9 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return ArtworkData.model_validate({
             'origin': self.get_base_origin_name(),
             'aid': artwork_data.id,
-            'title': artwork_data.title,
+            'title': f'Upload by: {artwork_data.author}',
             'uid': artwork_data.creator_id,
-            'uname': 'Unknown',
+            'uname': artwork_data.author,
             'classification': classification,
             'rating': rating,
             'width': artwork_data.width,
@@ -141,18 +149,57 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}'
 
 
-class GelbooruArtworkProxy(BaseGelbooruArtworkProxy, ImageOpsMixin):
-    """https://gelbooru.com 主站图库统一接口实现"""
+class BehoimiArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+    """http://behoimi.org 主站图库统一接口实现"""
 
     @classmethod
-    def _get_api(cls) -> GelbooruAPI:
-        return gelbooru_api
+    def _get_api(cls) -> BehoimiAPI:
+        return behoimi_api
 
     @classmethod
     def get_base_origin_name(cls) -> str:
-        return 'gelbooru'
+        return 'behoimi'
+
+
+class KonachanArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+    """https://konachan.com 主站图库统一接口实现"""
+
+    @classmethod
+    def _get_api(cls) -> KonachanAPI:
+        return konachan_api
+
+    @classmethod
+    def get_base_origin_name(cls) -> str:
+        return 'konachan'
+
+
+class KonachanSafeArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+    """https://konachan.net 全年龄站图库统一接口实现"""
+
+    @classmethod
+    def _get_api(cls) -> KonachanSafeAPI:
+        return konachan_safe_api
+
+    @classmethod
+    def get_base_origin_name(cls) -> str:
+        return 'konachan_safe'
+
+
+class YandereArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsMixin):
+    """https://yande.re 主站图库统一接口实现"""
+
+    @classmethod
+    def _get_api(cls) -> YandereAPI:
+        return yandere_api
+
+    @classmethod
+    def get_base_origin_name(cls) -> str:
+        return 'yandere'
 
 
 __all__ = [
-    'GelbooruArtworkProxy',
+    'BehoimiArtworkProxy',
+    'KonachanArtworkProxy',
+    'KonachanSafeArtworkProxy',
+    'YandereArtworkProxy',
 ]
