@@ -9,6 +9,7 @@
 """
 
 from .danbooru import DanbooruArtworkProxy
+from .gelbooru import GelbooruArtworkProxy
 from .local import LocalCollectedArtworkProxy
 from .none import NoneArtworkProxy
 from .pixiv import PixivArtworkProxy
@@ -16,6 +17,7 @@ from .pixiv import PixivArtworkProxy
 
 __all__ = [
     'DanbooruArtworkProxy',
+    'GelbooruArtworkProxy',
     'LocalCollectedArtworkProxy',
     'NoneArtworkProxy',
     'PixivArtworkProxy',

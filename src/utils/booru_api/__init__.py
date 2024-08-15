@@ -27,6 +27,12 @@ yandere_api = YandereAPI(login_name=booru_config.yandere_login_name, password_ha
 
 
 __all__ = [
+    'DanbooruAPI',
+    'GelbooruAPI',
+    'BehoimiAPI',
+    'KonachanAPI',
+    'KonachanSafeAPI',
+    'YandereAPI',
     'danbooru_api',
     'gelbooru_api',
     'behoimi_api',

@@ -10,6 +10,7 @@
 
 from .sites import (
     DanbooruArtworkProxy,
+    GelbooruArtworkProxy,
     LocalCollectedArtworkProxy,
     NoneArtworkProxy,
     PixivArtworkProxy,
@@ -18,6 +19,7 @@ from .sites import (
 
 __all__ = [
     'DanbooruArtworkProxy',
+    'GelbooruArtworkProxy',
     'LocalCollectedArtworkProxy',
     'NoneArtworkProxy',
     'PixivArtworkProxy',

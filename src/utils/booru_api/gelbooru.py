@@ -191,5 +191,6 @@ class GelbooruAPI(BaseGelbooruAPI):
 
 
 __all__ = [
+    'BaseGelbooruAPI',
     'GelbooruAPI',
 ]

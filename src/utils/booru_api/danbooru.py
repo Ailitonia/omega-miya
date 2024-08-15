@@ -641,7 +641,7 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
 
 
 class DanbooruAPI(BaseDanbooruAPI):
-    """Danbooru API"""
+    """https://danbooru.donmai.us 主站 API"""
 
     @classmethod
     def _get_root_url(cls, *args, **kwargs) -> str:
@@ -649,5 +649,6 @@ class DanbooruAPI(BaseDanbooruAPI):
 
 
 __all__ = [
+    'BaseDanbooruAPI',
     'DanbooruAPI',
 ]

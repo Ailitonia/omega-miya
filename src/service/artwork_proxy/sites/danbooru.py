@@ -8,10 +8,12 @@
 @Software       : PyCharm 
 """
 
+import abc
 from typing import TYPE_CHECKING, Optional
 
 from src.exception import WebSourceException
 from src.utils.booru_api import danbooru_api
+from src.utils.booru_api.danbooru import BaseDanbooruAPI, DanbooruAPI
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData, ArtworkPageFile
@@ -20,20 +22,22 @@ if TYPE_CHECKING:
     from src.utils.booru_api.models.danbooru import PostMediaAsset, PostVariantTypes
 
 
-class _DanbooruArtworkProxy(BaseArtworkProxy):
+class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
     """Danbooru 图库统一接口实现"""
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
-        return 'danbooru'
+    @abc.abstractmethod
+    def _get_api(cls) -> BaseDanbooruAPI:
+        """内部方法, 获取 API 实例"""
+        raise NotImplementedError
 
     @classmethod
     async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
-        return await danbooru_api.get_resource_as_bytes(url=url, timeout=timeout)
+        return await cls._get_api().get_resource_as_bytes(url=url, timeout=timeout)
 
     @classmethod
     async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
-        return await danbooru_api.get_resource_as_text(url=url, timeout=timeout)
+        return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
 
     @staticmethod
     def _get_variant_page_file(variant: Optional["PostVariantTypes"]) -> ArtworkPageFile:
@@ -76,14 +80,17 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _search(cls, keyword: Optional[str]) -> list[str | int]:
         if keyword is None:
-            artwork_data = await danbooru_api.post_random()
-            return [artwork_data.id]
+            # artworks_data = await cls._get_api().posts_index(tags='order:random')  # More likely to timeout due to increased database load.
+            artworks_data = await cls._get_api().posts_index(
+                tags='random:100')  # May be less reliable than order:random, but significantly faster.
+            # artwork_data = await cls._get_api().post_random()  # only get one artwork
         else:
-            artworks_data = await danbooru_api.posts_index(tags=keyword)
-            return [x.id for x in artworks_data]
+            artworks_data = await cls._get_api().posts_index(tags=keyword)
+
+        return [x.id for x in artworks_data]
 
     async def _query(self) -> ArtworkData:
-        artwork_data = await danbooru_api.post_show(id_=self.i_aid)
+        artwork_data = await self._get_api().post_show(id_=self.i_aid)
 
         """Danbooru 图站收录作品默认分类分级
         (classification, rating)
@@ -129,7 +136,7 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
                 rating = -1
 
         try:
-            commentary_data = await danbooru_api.post_show_artist_commentary(id_=self.i_aid)
+            commentary_data = await self._get_api().post_show_artist_commentary(id_=self.i_aid)
             title = commentary_data.original_title or commentary_data.translated_title
             description = commentary_data.original_description or commentary_data.translated_description
         except WebSourceException:
@@ -178,8 +185,16 @@ class _DanbooruArtworkProxy(BaseArtworkProxy):
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}\n{artist}'
 
 
-class DanbooruArtworkProxy(_DanbooruArtworkProxy, ImageOpsMixin):
-    """Danbooru 图库统一接口实现"""
+class DanbooruArtworkProxy(BaseDanbooruArtworkProxy, ImageOpsMixin):
+    """https://danbooru.donmai.us 主站图库统一接口实现"""
+
+    @classmethod
+    def _get_api(cls) -> DanbooruAPI:
+        return danbooru_api
+
+    @classmethod
+    def get_base_origin_name(cls) -> str:
+        return 'danbooru'
 
 
 __all__ = [
