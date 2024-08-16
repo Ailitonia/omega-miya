@@ -31,10 +31,13 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         return await PixivArtwork.get_resource_as_text(url=url, timeout=timeout)
 
     @classmethod
-    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
         if keyword is None:
             artworks_data = await PixivArtwork.query_discovery_artworks()
             return [x for x in artworks_data.recommend_pids]
+        elif kwargs:
+            artworks_data = await PixivArtwork.search(word=keyword, **kwargs)
+            return [x.id for x in artworks_data.searching_result]
         else:
             artworks_data = await PixivArtwork.search_by_default_popular_condition(word=keyword)
             return [x.id for x in artworks_data.searching_result]

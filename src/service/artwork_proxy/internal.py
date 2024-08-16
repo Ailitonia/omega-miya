@@ -98,7 +98,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
         """内部方法, 根据关键词与分级搜索作品 ID 列表, 关键词为空则为随机获取"""
         raise NotImplementedError
 
@@ -108,9 +108,9 @@ class BaseArtworkProxy(abc.ABC):
         return [cls(artwork_id=aid) for aid in await cls._search(keyword=None)][:limit]
 
     @classmethod
-    async def search(cls, keyword: str) -> list[Self]:
+    async def search(cls, keyword: str, **kwargs) -> list[Self]:
         """根据关键词与分级搜索作品列表"""
-        return [cls(artwork_id=aid) for aid in await cls._search(keyword=keyword)]
+        return [cls(artwork_id=aid) for aid in await cls._search(keyword=keyword, **kwargs)]
 
     @abc.abstractmethod
     async def _query(self) -> ArtworkData:

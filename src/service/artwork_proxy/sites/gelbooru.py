@@ -36,11 +36,11 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
 
     @classmethod
-    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
         if keyword is None:
-            artworks_data = await cls._get_api().posts_index(tags='sort:random')
+            artworks_data = await cls._get_api().posts_index(tags='sort:random', **kwargs)
         else:
-            artworks_data = await cls._get_api().posts_index(tags=keyword)
+            artworks_data = await cls._get_api().posts_index(tags=keyword, **kwargs)
 
         return [x.id for x in artworks_data.post]
 

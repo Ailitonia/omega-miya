@@ -30,7 +30,7 @@ class NoneArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
         raise NotImplementedError
 
     async def _query(self) -> ArtworkData:

@@ -34,7 +34,7 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
         path_config = cls._generate_path_config()
 
         if keyword is None:

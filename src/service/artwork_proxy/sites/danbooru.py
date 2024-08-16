@@ -78,14 +78,18 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             return cls._get_variant_page_file(variant=media_asset.variant_type_original)
 
     @classmethod
-    async def _search(cls, keyword: Optional[str]) -> list[str | int]:
+    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
         if keyword is None:
-            # artworks_data = await cls._get_api().posts_index(tags='order:random')  # More likely to timeout due to increased database load.
-            artworks_data = await cls._get_api().posts_index(
-                tags='random:100')  # May be less reliable than order:random, but significantly faster.
-            # artwork_data = await cls._get_api().post_random()  # only get one artwork
+            # More likely to timeout due to increased database load.
+            # artworks_data = await cls._get_api().posts_index(tags='order:random', **kwargs)
+
+            # May be less reliable than order:random, but significantly faster.
+            artworks_data = await cls._get_api().posts_index(tags='random:100', **kwargs)
+
+            # Return only get one artwork.
+            # artwork_data = await cls._get_api().post_random()
         else:
-            artworks_data = await cls._get_api().posts_index(tags=keyword)
+            artworks_data = await cls._get_api().posts_index(tags=keyword, **kwargs)
 
         return [x.id for x in artworks_data]
 
