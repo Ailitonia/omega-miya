@@ -10,6 +10,7 @@
 
 import random
 import string
+from asyncio import sleep as async_sleep
 from typing import TYPE_CHECKING, Literal, Optional
 
 from nonebot.log import logger
@@ -91,7 +92,13 @@ class _BaseComic18(BaseCommonAPI):
         headers = cls._get_default_headers()
         headers.update({'referer': url})
 
-        response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+        try:
+            response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+        except WebSourceException:
+            # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
+            await async_sleep(3)
+            response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+
         return cls._parse_content_as_bytes(response=response)
 
     @classmethod
@@ -107,7 +114,13 @@ class _BaseComic18(BaseCommonAPI):
         headers = cls._get_default_headers()
         headers.update({'referer': url})
 
-        response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+        try:
+            response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+        except WebSourceException:
+            # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
+            await async_sleep(3)
+            response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
+
         return cls._parse_content_as_text(response=response)
 
     @classmethod
@@ -119,12 +132,19 @@ class _BaseComic18(BaseCommonAPI):
             ignore_exist_file: bool = False,
     ) -> "TemporaryResource":
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        return await cls._download_resource(
-            save_folder=comic18_resource_config.default_download_folder,
-            url=url,
-            subdir=folder_name,
-            ignore_exist_file=ignore_exist_file
-        )
+        try:
+            file = await cls._download_resource(
+                save_folder=comic18_resource_config.default_download_folder,
+                url=url, subdir=folder_name, ignore_exist_file=ignore_exist_file
+            )
+        except WebSourceException:
+            # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
+            await async_sleep(3)
+            file = await cls._download_resource(
+                save_folder=comic18_resource_config.default_download_folder,
+                url=url, subdir=folder_name, ignore_exist_file=ignore_exist_file
+            )
+        return file
 
 
 class Comic18(_BaseComic18):
