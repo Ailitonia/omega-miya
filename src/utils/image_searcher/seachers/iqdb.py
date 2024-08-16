@@ -8,23 +8,49 @@
 @Software       : PyCharm 
 """
 
+from typing import TYPE_CHECKING
+
 from lxml import etree
 from nonebot.log import logger
 
 from src.compat import parse_obj_as
-from src.exception import WebSourceException
-from src.service import OmegaRequests
-from ..model import ImageSearcher, ImageSearchingResult
+from ..model import BaseImageSearcherAPI, ImageSearchingResult
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes
 
 
-class IqdbNetworkError(WebSourceException):
-    """Iqdb 网络异常"""
-
-
-class Iqdb(ImageSearcher):
+class Iqdb(BaseImageSearcherAPI):
     """iqdb 识图引擎"""
-    _searcher_name: str = 'iqdb'
-    _url: str = 'https://iqdb.org/'
+
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://iqdb.org'
+
+    @classmethod
+    async def _async_get_root_url(cls, *args, **kwargs) -> str:
+        return cls._get_root_url(*args, **kwargs)
+
+    @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        headers = cls._get_omega_requests_default_headers()
+        headers.update({
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
+                      'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Cache-Control': 'max-age=0',
+            'Connection': 'keep-alive',
+            # 'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundarySXjX8c2sLFua7bEC',
+            'Cookie': 'Hm_lvt_765ecde8c11b85f1ac5f168fa6e6821f=1602471368; '
+                      'Hm_lpvt_765ecde8c11b85f1ac5f168fa6e6821f=1602472300',
+            'Host': 'iqdb.org',
+            'Origin': 'https://iqdb.org',
+            'Referer': 'https://iqdb.org/'
+        })
+        return headers
+
+    @classmethod
+    def _get_default_cookies(cls) -> "CookieTypes":
+        return None
 
     @staticmethod
     def _parser(content: str) -> list[dict]:
@@ -58,40 +84,22 @@ class Iqdb(ImageSearcher):
         return result
 
     async def search(self) -> list[ImageSearchingResult]:
-        headers = OmegaRequests.get_default_headers()
-        headers.update({
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
-                      'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Cache-Control': 'max-age=0',
-            'Connection': 'keep-alive',
-            # 'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundarySXjX8c2sLFua7bEC',
-            'Cookie': 'Hm_lvt_765ecde8c11b85f1ac5f168fa6e6821f=1602471368; '
-                      'Hm_lpvt_765ecde8c11b85f1ac5f168fa6e6821f=1602472300',
-            'Host': 'iqdb.org',
-            'Origin': 'https://iqdb.org',
-            'Referer': 'https://iqdb.org/'
-        })
-
         form_data = [
-            ('MAX_FILE_SIZE', (None, '', None)),  # type: ignore
-            ('service[]', (None, '1', None)),  # type: ignore
-            ('service[]', (None, '2', None)),  # type: ignore
-            ('service[]', (None, '3', None)),  # type: ignore
-            ('service[]', (None, '4', None)),  # type: ignore
-            ('service[]', (None, '5', None)),  # type: ignore
-            ('service[]', (None, '6', None)),  # type: ignore
-            ('service[]', (None, '11', None)),  # type: ignore
-            ('service[]', (None, '13', None)),  # type: ignore
+            ('MAX_FILE_SIZE', (None, '', None)),
+            ('service[]', (None, '1', None)),
+            ('service[]', (None, '2', None)),
+            ('service[]', (None, '3', None)),
+            ('service[]', (None, '4', None)),
+            ('service[]', (None, '5', None)),
+            ('service[]', (None, '6', None)),
+            ('service[]', (None, '11', None)),
+            ('service[]', (None, '13', None)),
             ('file', ('', b'', 'application/octet-stream')),
-            ('url', (None, self.image_url, None)),  # type: ignore
+            ('url', (None, self.image_url, None)),
         ]
 
-        iqdb_response = await OmegaRequests(timeout=15, headers=headers).post(url=self._url, files=form_data)
-        if iqdb_response.status_code != 200:
-            logger.error(f'Iqdb | IqdbNetworkError, {iqdb_response}')
-            raise IqdbNetworkError(f'{iqdb_response.request}, status code {iqdb_response.status_code}')
-
-        iqdb_search_content = OmegaRequests.parse_content_as_text(iqdb_response)
+        iqdb_response = await self._request_post(url=self._get_root_url(), files=form_data)
+        iqdb_search_content = self._parse_content_as_text(iqdb_response)
 
         return parse_obj_as(list[ImageSearchingResult], self._parser(content=iqdb_search_content))
 

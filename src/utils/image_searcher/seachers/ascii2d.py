@@ -8,23 +8,40 @@
 @Software       : PyCharm 
 """
 
+from typing import TYPE_CHECKING
+
 from lxml import etree
 from nonebot.log import logger
 
 from src.compat import parse_obj_as
-from src.exception import WebSourceException
-from src.service import OmegaRequests
-from ..model import ImageSearcher, ImageSearchingResult
+from ..model import BaseImageSearcherAPI, ImageSearchingResult
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes
 
 
-class Ascii2dNetworkError(WebSourceException):
-    """Ascii2d 网络异常"""
-
-
-class Ascii2d(ImageSearcher):
+class Ascii2d(BaseImageSearcherAPI):
     """Ascii2d 识图引擎"""
-    _searcher_name: str = 'ascii2d'
-    _url: str = 'https://ascii2d.net'
+
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://ascii2d.net'
+
+    @classmethod
+    async def _async_get_root_url(cls, *args, **kwargs) -> str:
+        return cls._get_root_url(*args, **kwargs)
+
+    @classmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        return True
+
+    @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
+
+    @classmethod
+    def _get_default_cookies(cls) -> "CookieTypes":
+        return None
 
     @staticmethod
     def _parse_search_token(content: str) -> dict[str, str]:
@@ -91,17 +108,8 @@ class Ascii2d(ImageSearcher):
         return result
 
     async def search(self) -> list[ImageSearchingResult]:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'
-        }
-        requests = OmegaRequests(headers=headers, timeout=15)
-
-        searching_page = await requests.get(url=f'{self._url}')
-        if searching_page.status_code != 200:
-            logger.error(f'Ascii2d | Ascii2dNetworkError, query searching token failed, {searching_page}')
-            raise Ascii2dNetworkError(f'{searching_page.request}, status code {searching_page.status_code}')
-
-        searching_token = self._parse_search_token(content=requests.parse_content_as_text(searching_page))
+        searching_page = await self._get_resource_as_text(url=self._get_root_url())
+        searching_token = self._parse_search_token(content=searching_page)
 
         form_data = {
             'utf8': '✓',  # type: ignore
@@ -110,21 +118,11 @@ class Ascii2d(ImageSearcher):
             'search': b''
         }
 
-        color_response = await requests.post(url=f'{self._url}/search/uri', data=form_data)
-        if color_response.status_code != 200:
-            logger.error(f'Ascii2d | Ascii2dNetworkError, color searching failed, {color_response}')
-            raise Ascii2dNetworkError(f'{color_response.request}, status code {color_response.status_code}')
+        color_response = await self._request_post(url=f'{self._get_root_url()}/search/uri', data=form_data)
+        color_search_content = self._parse_content_as_text(color_response)
 
-        color_search_content = requests.parse_content_as_text(color_response)
         image_hash = self._parse_search_hash(color_search_content)
-
-        bovw_url = f'{self._url}/search/bovw/{image_hash}'
-        bovw_response = await requests.get(url=bovw_url)
-        if bovw_response.status_code != 200:
-            logger.error(f'Ascii2d | Ascii2dNetworkError, bovw searching failed, {bovw_response}')
-            raise Ascii2dNetworkError(f'{bovw_response.request}, status code {bovw_response.status_code}')
-
-        bovw_search_content = requests.parse_content_as_text(bovw_response)
+        bovw_search_content = await self._get_resource_as_text(url=f'{self._get_root_url()}/search/bovw/{image_hash}')
 
         parsed_result = []
         parsed_result.extend(self._parser(content=color_search_content))

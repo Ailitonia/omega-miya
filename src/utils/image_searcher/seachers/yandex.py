@@ -8,26 +8,51 @@
 @Software       : PyCharm 
 """
 
+from typing import TYPE_CHECKING
+
 from lxml import etree
 from nonebot.log import logger
 
 from src.compat import parse_obj_as
-from src.exception import WebSourceException
-from src.service import OmegaRequests
-from ..model import ImageSearcher, ImageSearchingResult
+from ..model import BaseImageSearcherAPI, ImageSearchingResult
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes
 
 
-class YandexNetworkError(WebSourceException):
-    """yandex 网络异常"""
-
-
-class Yandex(ImageSearcher):
+class Yandex(BaseImageSearcherAPI):
     """yandex 识图引擎
 
     [Deactivated]页面改版, 图片搜索内容不可靠, 放弃维护
     """
-    _searcher_name: str = 'yandex'
-    _url: str = 'https://yandex.com/images/search'
+
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://yandex.com'
+
+    @classmethod
+    async def _async_get_root_url(cls, *args, **kwargs) -> str:
+        return cls._get_root_url(*args, **kwargs)
+
+    @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        headers = cls._get_omega_requests_default_headers()
+        headers.update({
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
+                      'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Host': 'yandex.com',
+            'Origin': 'https://yandex.com/images',
+            'Referer': 'https://yandex.com/images/'
+        })
+        return headers
+
+    @classmethod
+    def _get_default_cookies(cls) -> "CookieTypes":
+        return None
+
+    @property
+    def api_url(self) -> str:
+        return f'{self._get_root_url()}/images/search'
 
     @staticmethod
     def _parser(content: str) -> list[dict]:
@@ -75,23 +100,8 @@ class Yandex(ImageSearcher):
         return result
 
     async def search(self) -> list[ImageSearchingResult]:
-        headers = OmegaRequests.get_default_headers()
-        headers.update({
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
-                      'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Host': 'yandex.com',
-            'Origin': 'https://yandex.com/images',
-            'Referer': 'https://yandex.com/images/'
-        })
-
         params = {'rpt': 'imageview', 'url': self.image_url}
-        yandex_response = await OmegaRequests(timeout=15, headers=headers).get(url=self._url, params=params)
-        if yandex_response.status_code != 200:
-            logger.error(f'Yandex | YandexNetworkError, {yandex_response}')
-            raise YandexNetworkError(f'{yandex_response.request}, status code {yandex_response.status_code}')
-
-        yandex_search_content = OmegaRequests.parse_content_as_text(yandex_response)
-
+        yandex_search_content = await self._get_resource_as_text(url=self.api_url, params=params)
         return parse_obj_as(list[ImageSearchingResult], self._parser(content=yandex_search_content))
 
 

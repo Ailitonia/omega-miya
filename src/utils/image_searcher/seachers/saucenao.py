@@ -8,23 +8,17 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
-from src.exception import WebSourceException
-from src.service import OmegaRequests
 from ..config import image_searcher_config
-from ..model import ImageSearcher, ImageSearchingResult
+from ..model import BaseImageSearcherAPI, ImageSearchingResult
 
-_SIMILARITY_THRESHOLD: int = 60
-"""搜索结果相似度阈值"""
-
-
-class SaucenaoApiError(WebSourceException):
-    """Saucenao Api 异常"""
+if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes, HeaderTypes
 
 
 class BaseSaucenaoModel(BaseModel):
@@ -170,10 +164,31 @@ class SaucenaoResult(BaseSaucenaoModel):
     results: Optional[list[_Result]] = None
 
 
-class Saucenao(ImageSearcher):
+class Saucenao(BaseImageSearcherAPI):
     """Saucenao 识图引擎"""
-    _searcher_name: str = 'Saucenao'
-    _api: str = 'https://saucenao.com/search.php'
+
+    _similarity_threshold: int = 60
+    """搜索结果相似度阈值"""
+
+    @classmethod
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://saucenao.com'
+
+    @classmethod
+    async def _async_get_root_url(cls, *args, **kwargs) -> str:
+        return cls._get_root_url(*args, **kwargs)
+
+    @classmethod
+    def _get_default_headers(cls) -> "HeaderTypes":
+        return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
+
+    @classmethod
+    def _get_default_cookies(cls) -> "CookieTypes":
+        return None
+
+    @property
+    def api_url(self) -> str:
+        return f'{self._get_root_url()}/search.php'
 
     async def search(self) -> list[ImageSearchingResult]:
         params = {
@@ -186,12 +201,7 @@ class Saucenao(ImageSearcher):
         if image_searcher_config.saucenao_api_key:
             params.update({'api_key': image_searcher_config.saucenao_api_key})
 
-        saucenao_response = await OmegaRequests(timeout=15).get(url=self._api, params=params)
-        if saucenao_response.status_code != 200:
-            logger.error(f'Saucenao | SaucenaoApiError, {saucenao_response}')
-            raise SaucenaoApiError(f'{saucenao_response.request}, status code {saucenao_response.status_code}')
-
-        saucenao_result = SaucenaoResult.model_validate(OmegaRequests.parse_content_as_json(saucenao_response))
+        saucenao_result = SaucenaoResult.model_validate(await self._get_json(url=self.api_url, params=params))
 
         if saucenao_result.results is None:
             logger.warning(f'Saucenao | Not result found for image, {saucenao_result.header.message}')
@@ -204,7 +214,7 @@ class Saucenao(ImageSearcher):
                 'similarity': x.header.similarity,
                 'thumbnail': x.header.thumbnail
             }
-            for x in saucenao_result.results if x.header.similarity >= _SIMILARITY_THRESHOLD
+            for x in saucenao_result.results if x.header.similarity >= self._similarity_threshold
         )
 
         return parse_obj_as(list[ImageSearchingResult], data)
