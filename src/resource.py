@@ -62,12 +62,12 @@ class BaseResource(abc.ABC):
     path: pathlib.Path
 
     @abc.abstractmethod
-    def __init__(self, *args: str):
+    def __init__(self, *args: str | pathlib.PurePath):
         raise NotImplementedError
 
-    def __call__(self, *args) -> Self:
+    def __call__(self, *args: str | pathlib.PurePath) -> Self:
         new_obj = deepcopy(self)
-        new_obj.path = self.path.joinpath(*[str(x) for x in args])
+        new_obj.path = self.path.joinpath(*args)
         return new_obj
 
     def __repr__(self) -> str:
@@ -199,18 +199,20 @@ class BaseResource(abc.ABC):
 
 class StaticResource(BaseResource):
     """静态资源文件"""
-    def __init__(self, *args: str):
+
+    def __init__(self, *args: str | pathlib.PurePath):
         self.path: pathlib.Path = deepcopy(_static_resource_folder)
         if args:
-            self.path = self.path.joinpath(*[str(x) for x in args])
+            self.path = self.path.joinpath(*args)
 
 
 class TemporaryResource(BaseResource):
     """临时资源文件"""
-    def __init__(self, *args: str):
+
+    def __init__(self, *args: str | pathlib.PurePath):
         self.path: pathlib.Path = deepcopy(_temporary_resource_folder)
         if args:
-            self.path = self.path.joinpath(*[str(x) for x in args])
+            self.path = self.path.joinpath(*args)
 
 
 __all__ = [
