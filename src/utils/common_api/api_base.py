@@ -15,7 +15,15 @@ from src.exception import WebSourceException
 from src.service import OmegaRequests
 
 if TYPE_CHECKING:
-    from nonebot.internal.driver import CookieTypes, DataTypes, HeaderTypes, QueryTypes, Response
+    from nonebot.internal.driver import (
+        ContentTypes,
+        CookieTypes,
+        DataTypes,
+        FilesTypes,
+        HeaderTypes,
+        QueryTypes,
+        Response,
+    )
     from src.resource import TemporaryResource
 
 
@@ -123,8 +131,10 @@ class BaseCommonAPI(abc.ABC):
             url: str,
             params: "QueryTypes" = None,
             *,
+            content: "ContentTypes" = None,
             data: "DataTypes" = None,
             json: Any = None,
+            files: "FilesTypes" = None,
             headers: "HeaderTypes" = None,
             cookies: "CookieTypes" = None,
             timeout: int = 10,
@@ -135,7 +145,7 @@ class BaseCommonAPI(abc.ABC):
         requests = cls._init_omega_requests(
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
-        response = await requests.post(url=url, params=params, data=data, json=json)
+        response = await requests.post(url=url, params=params, content=content, data=data, json=json, files=files)
         if response.status_code != 200:
             raise WebSourceException(f'{response.request}, status code {response.status_code}')
 
@@ -166,8 +176,10 @@ class BaseCommonAPI(abc.ABC):
             url: str,
             params: "QueryTypes" = None,
             *,
+            content: "ContentTypes" = None,
             data: "DataTypes" = None,
             json: Any = None,
+            files: "FilesTypes" = None,
             headers: "HeaderTypes" = None,
             cookies: "CookieTypes" = None,
             timeout: int = 10,
@@ -176,7 +188,7 @@ class BaseCommonAPI(abc.ABC):
     ) -> Any:
         """内部方法, 使用 POST 方法请求 API, 返回 json 内容"""
         response = await cls._request_post(
-            url=url, params=params, data=data, json=json,
+            url=url, params=params, content=content, data=data, json=json, files=files,
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
         return cls._parse_content_as_json(response)
