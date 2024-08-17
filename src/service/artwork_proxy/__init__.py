@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, overload
 
 from .sites import (
     DanbooruArtworkProxy,
@@ -26,16 +26,62 @@ if TYPE_CHECKING:
     from .typing import ArtworkProxyType
 
 type ALLOW_ARTWORK_ORIGIN = Literal[
-    "pixiv",
-    "danbooru",
-    "gelbooru",
-    "behoimi",
-    "konachan",
-    "konachan_safe",
-    "yandere",
-    "local",
-    "none",
+    'pixiv',
+    'danbooru',
+    'gelbooru',
+    'behoimi',
+    'konachan',
+    'konachan_safe',
+    'yandere',
+    'local',
+    'local_collected_artwork',
+    'none',
 ]
+
+
+@overload
+def get_artwork_proxy(origin: Literal['pixiv']) -> type[PixivArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['danbooru']) -> type[DanbooruArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['gelbooru']) -> type[GelbooruArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['behoimi']) -> type[BehoimiArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['konachan']) -> type[KonachanArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['konachan_safe']) -> type[KonachanSafeArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['yandere']) -> type[YandereArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['local', 'local_collected_artwork']) -> type[LocalCollectedArtworkProxy]:
+    ...
+
+
+@overload
+def get_artwork_proxy(origin: Literal['none', None] = None) -> type[NoneArtworkProxy]:
+    ...
 
 
 def get_artwork_proxy(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "ArtworkProxyType":
@@ -54,7 +100,7 @@ def get_artwork_proxy(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "Artwork
             return KonachanSafeArtworkProxy
         case 'yandere':
             return YandereArtworkProxy
-        case 'local':
+        case 'local' | 'local_collected_artwork':
             return LocalCollectedArtworkProxy
         case 'none' | _:
             return NoneArtworkProxy

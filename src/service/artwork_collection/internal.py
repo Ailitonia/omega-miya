@@ -47,7 +47,7 @@ class BaseArtworkCollection(abc.ABC):
     @property
     def origin_name(self) -> str:
         """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
-        return self._get_origin_name()
+        return self.__ap.get_base_origin_name()
 
     @staticmethod
     async def query_any_origin_by_condition(

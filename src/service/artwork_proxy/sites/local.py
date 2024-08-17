@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Self
 
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData
@@ -41,6 +41,13 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
             return [file.path.name for file in path_config.artwork_path.list_all_files()]
         else:
             return [file.path.name for file in path_config.artwork_path.list_all_files() if keyword in file.path.name]
+
+    @classmethod
+    async def list_all_artwork(cls) -> list[Self]:
+        """列出所有的本地图片作品"""
+        path_config = cls._generate_path_config()
+
+        return [cls(file.path.name) for file in path_config.artwork_path.list_all_files()]
 
     @property
     def self_file(self) -> "TemporaryResource":
