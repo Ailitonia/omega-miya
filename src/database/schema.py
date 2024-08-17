@@ -494,8 +494,8 @@ class ArtworkCollectionOrm(Base):
         Integer, nullable=False, index=True, comment='分级标签, -1=Unknown, 0=G, 1=S, 2=Q, 3=E'
     )
     # 作品图片信息
-    width: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片宽度')
-    height: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片高度')
+    width: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片宽度')
+    height: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片高度')
     tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品标签')
     description: Mapped[str] = mapped_column(String(1024), nullable=True, comment='作品描述')
     source: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品原始出处地址')
