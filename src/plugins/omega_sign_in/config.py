@@ -14,6 +14,7 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src.resource import StaticResource, TemporaryResource
+from src.service.artwork_collection import ALLOW_ARTWORK_ORIGIN
 
 
 class SignInConfig(BaseModel):
@@ -23,9 +24,9 @@ class SignInConfig(BaseModel):
     # 如果 bot 没有配置命令前缀或空白前缀, 请将本选项设置为 False, 避免重复响应
     signin_plugin_enable_regex_matcher: bool = True
 
-    # 是否启用自动下载签到头图的定时任务
-    # 会大幅增加图库缓存文件量, 硬盘空间小于 10G 请谨慎开启
-    signin_plugin_enable_pixiv_preparing_scheduler: bool = False  # 图库来源: Pixiv
+    # 签到头图图库来源, 可配置: pixiv, danbooru, gelbooru, konachan, konachan_safe, yandere, local
+    # 配置后需要数据库里面有图才能正常获取到
+    signin_plugin_top_image_origin: ALLOW_ARTWORK_ORIGIN = 'pixiv'
 
     # 相关数值显示命令
     signin_plugin_friendship_alias: str = '好感度'
@@ -49,6 +50,7 @@ class SignLocalResourceConfig:
     default_bold_font: StaticResource = default_font_folder('SourceHanSansSC-Heavy.otf')
     default_level_font: StaticResource = default_font_folder('pixel.ttf')
     default_footer_font: StaticResource = default_font_folder('fzzxhk.ttf')
+
     # 默认生成的缓存资源保存路径
     default_save_folder: TemporaryResource = TemporaryResource('sign_in')
 

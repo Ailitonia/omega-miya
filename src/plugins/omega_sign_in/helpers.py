@@ -12,7 +12,7 @@ import hashlib
 import random
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Annotated, Literal, Optional
+from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union
 
 import ujson as json
 from PIL import Image, ImageDraw, ImageFont
@@ -26,15 +26,14 @@ from pydantic import BaseModel
 from src.compat import parse_obj_as
 from src.database import begin_db_session
 from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
-from src.service.artwork_collection import PixivArtworkCollection
+from src.service.artwork_collection import get_artwork_collection
 from src.utils.image_utils import ImageUtils
 from .config import sign_in_config, sign_local_resource_config
 from .exception import DuplicateException, FailedException
 
 if TYPE_CHECKING:
-    from src.database.internal.artwork_collection import ArtworkCollection
-    from src.resource import TemporaryResource
-    from src.service.artwork_collection.typing import ArtworkCollection_T
+    from src.resource import StaticResource, TemporaryResource
+    from src.service.artwork_collection.typing import CollectedArtwork
 
 
 __FORTUNE_EVENT: list["FortuneEvent"] = []
@@ -67,7 +66,7 @@ class FortuneEvent(BaseModel):
         return hash(self.name + self.good + self.bad)
 
 
-def _load_fortune_event(file: "TemporaryResource") -> list[FortuneEvent]:
+def _load_fortune_event(file: Union["StaticResource", "TemporaryResource"]) -> list[FortuneEvent]:
     """从文件读取求签事件"""
     if file.is_file:
         logger.debug(f'loading fortune event form {file}')
@@ -177,32 +176,27 @@ def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
     return Fortune.model_validate(result)
 
 
-async def get_signin_top_image(
-        source: Literal['pixiv', 'local', 'mix'] = 'pixiv'
-) -> tuple["ArtworkCollection", "TemporaryResource"]:
-    """获取一张生成签到卡片用的头图"""
-    match source:
-        case 'pixiv':
-            return await _get_signin_top_image(collection=PixivArtworkCollection)
-        case 'local':
-            ...  # TODO 本地图片
-        case 'mix':
-            ...  # TODO 混合策略
-        case _:
-            ...
-
-
-async def _get_signin_top_image(collection: "ArtworkCollection_T") -> tuple["ArtworkCollection", "TemporaryResource"]:
+async def get_signin_top_image() -> "CollectedArtwork":
     """从数据库获取一张生成签到卡片用的头图"""
-    random_artworks = await collection.random(num=5, ratio=1)
+    artwork_collecting_t = get_artwork_collection(origin=sign_in_config.signin_plugin_top_image_origin)
+
+    if sign_in_config.signin_plugin_top_image_origin == 'none':
+        random_artworks = await artwork_collecting_t.query_any_origin_by_condition(keywords=None, num=5, ratio=1)
+    else:
+        random_artworks = await artwork_collecting_t.random(num=5, ratio=1)
 
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
     for artwork in random_artworks:
         try:
-            artwork_file = await collection(artwork.aid).artwork_proxy.get_page_file()
-            return artwork, artwork_file
+            if sign_in_config.signin_plugin_top_image_origin == 'none':
+                collected_artwork = get_artwork_collection(origin=artwork.origin)(artwork.aid)  # type: ignore
+            else:
+                collected_artwork = artwork_collecting_t(artwork.aid)
+
+            await collected_artwork.artwork_proxy.get_page_file()
+            return collected_artwork
         except Exception as e:
-            logger.warning(f'getting artwork(aid={artwork.aid}) page file failed, {e}')
+            logger.warning(f'getting artwork(origin={artwork.origin}, aid={artwork.aid}) page file failed, {e}')
             continue
 
     raise RuntimeError(f'all attempts to fetch artwork resources have failed')
@@ -290,7 +284,7 @@ async def get_hitokoto(*, c: Optional[str] = None) -> str:
     headers.update({'accept': 'application/json'})
 
     hitokoto_response = await OmegaRequests(headers=headers).get(url=url, params=params)
-    hitokoto_data = OmegaRequests.parse_content_json(response=hitokoto_response)
+    hitokoto_data = OmegaRequests.parse_content_as_json(response=hitokoto_response)
 
     text = f'{hitokoto_data.get("hitokoto")}\n——《{hitokoto_data.get("from")}》'
     if hitokoto_data.get("from_who"):
@@ -302,7 +296,7 @@ async def generate_signin_card(
         user_id: str,
         user_text: str,
         friendship: float,
-        top_img: tuple["ArtworkCollection", "TemporaryResource"],
+        top_img: "CollectedArtwork",
         *,
         width: int = 1024,
         draw_fortune: bool = True,
@@ -319,11 +313,16 @@ async def generate_signin_card(
     :return: 生成图片地址
     """
     # 获取头图
-    signin_top_img_data, signin_top_img_file = top_img
-    # 头图作品来源
-    top_img_origin_text = f'{signin_top_img_data.source.title()} | {signin_top_img_data.aid}'
-    if signin_top_img_data.uname.strip():
-        top_img_origin_text += f' | @{signin_top_img_data.uname}'
+    top_img_data = await top_img.artwork_proxy.query()
+    top_img_file = await top_img.artwork_proxy.get_page_file()
+
+    # 标注头图作品来源
+    if top_img_data.origin in ['local', 'none']:
+        top_img_origin_text = top_img_data.origin.title()
+    elif top_img_data.origin == 'pixiv':
+        top_img_origin_text = f'{top_img_data.origin.title()} | {top_img_data.aid} | @{top_img_data.uname}'
+    else:
+        top_img_origin_text = f'{top_img_data.origin.title()} | {top_img_data.aid}'
 
     @run_sync
     def _handle_signin_card() -> bytes:
@@ -332,7 +331,7 @@ async def generate_signin_card(
         user_fortune = get_fortune(user_id=user_id)
 
         # 加载头图
-        draw_top_img: Image.Image = Image.open(signin_top_img_file.resolve_path)
+        draw_top_img: Image.Image = Image.open(top_img_file.resolve_path)
         # 调整头图宽度
         top_img_height = int(width * draw_top_img.height / draw_top_img.width)
         draw_top_img = draw_top_img.resize((width, top_img_height))
@@ -775,5 +774,5 @@ async def handle_fix_sign_in(
 __all__ = [
     'handle_generate_fortune_card',
     'handle_generate_sign_in_card',
-    'handle_fix_sign_in'
+    'handle_fix_sign_in',
 ]
