@@ -86,7 +86,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
     async def query_by_condition(
             self,
             origin: Optional[str | Sequence[str]],
-            keywords: Optional[list[str]],
+            keywords: Optional[Sequence[str]],
             num: int = 3,
             *,
             classification_min: int = 2,

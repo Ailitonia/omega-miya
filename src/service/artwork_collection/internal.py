@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING, Literal, Optional, Sequence
 from sqlalchemy.exc import NoResultFound
 
 from src.database import begin_db_session
-from src.database.internal.artwork_collection import (
-    ArtworkCollection,
-    ArtworkCollectionDAL,
-    ArtworkClassificationStatistic,
-    ArtworkRatingStatistic,
-)
+from src.database.internal.artwork_collection import ArtworkCollectionDAL
 
 if TYPE_CHECKING:
+    from src.database.internal.artwork_collection import (
+        ArtworkCollection as DBArtworkCollection,
+        ArtworkClassificationStatistic as DBArtworkClassificationStatistic,
+        ArtworkRatingStatistic as DBArtworkRatingStatistic,
+    )
     from src.service.artwork_proxy.internal import BaseArtworkProxy
     from src.service.artwork_proxy.typing import ArtworkProxyType
 
@@ -51,7 +51,7 @@ class BaseArtworkCollection(abc.ABC):
 
     @staticmethod
     async def query_any_origin_by_condition(
-            keywords: Optional[str | list[str]],
+            keywords: Optional[str | Sequence[str]],
             origin: Optional[str | Sequence[str]] = None,
             num: int = 3,
             *,
@@ -60,7 +60,7 @@ class BaseArtworkCollection(abc.ABC):
             acc_mode: bool = False,
             ratio: Optional[int] = None,
             order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
-    ) -> list["ArtworkCollection"]:
+    ) -> list["DBArtworkCollection"]:
         """从所有或任意指定来源根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         if isinstance(keywords, str):
             keywords = [keywords]
@@ -100,7 +100,7 @@ class BaseArtworkCollection(abc.ABC):
     @classmethod
     async def query_by_condition(
             cls,
-            keywords: Optional[str | list[str]],
+            keywords: Optional[str | Sequence[str]],
             num: int = 3,
             *,
             allow_classification_range: Optional[tuple[int, int]] = (2, 3),
@@ -108,7 +108,7 @@ class BaseArtworkCollection(abc.ABC):
             acc_mode: bool = False,
             ratio: Optional[int] = None,
             order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
-    ) -> list["ArtworkCollection"]:
+    ) -> list["DBArtworkCollection"]:
         """根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_any_origin_by_condition(
             origin=cls._get_origin_name(), keywords=keywords, num=num,
@@ -124,7 +124,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_classification_range: Optional[tuple[int, int]] = (2, 3),
             allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             ratio: Optional[int] = None
-    ) -> list["ArtworkCollection"]:
+    ) -> list["DBArtworkCollection"]:
         """获取随机作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_by_condition(
             keywords=None, num=num, ratio=ratio,
@@ -136,7 +136,7 @@ class BaseArtworkCollection(abc.ABC):
             cls,
             *,
             keywords: Optional[str | list[str]] = None,
-    ) -> ArtworkClassificationStatistic:
+    ) -> "DBArtworkClassificationStatistic":
         """按分类统计收录作品数"""
         if isinstance(keywords, str):
             keywords = [keywords]
@@ -152,7 +152,7 @@ class BaseArtworkCollection(abc.ABC):
             cls,
             *,
             keywords: Optional[str | list[str]] = None,
-    ) -> ArtworkRatingStatistic:
+    ) -> "DBArtworkRatingStatistic":
         """按分级统计收录作品数"""
         if isinstance(keywords, str):
             keywords = [keywords]
@@ -164,7 +164,11 @@ class BaseArtworkCollection(abc.ABC):
         return result
 
     @classmethod
-    async def query_user_all(cls, uid: Optional[str] = None, uname: Optional[str] = None) -> list[ArtworkCollection]:
+    async def query_user_all(
+            cls,
+            uid: Optional[str] = None,
+            uname: Optional[str] = None,
+    ) -> list["DBArtworkCollection"]:
         """通过 uid 或用户名精准查找用户所有作品"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_user_all(
@@ -173,7 +177,11 @@ class BaseArtworkCollection(abc.ABC):
         return result
 
     @classmethod
-    async def query_user_all_aids(cls, uid: Optional[str] = None, uname: Optional[str] = None) -> list[str]:
+    async def query_user_all_aids(
+            cls,
+            uid: Optional[str] = None,
+            uname: Optional[str] = None,
+    ) -> list[str]:
         """通过 uid 或用户名精准查找用户所有作品的 artwork_id"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_user_all_aids(
@@ -181,7 +189,7 @@ class BaseArtworkCollection(abc.ABC):
             )
         return result
 
-    async def query_artwork(self) -> ArtworkCollection:
+    async def query_artwork(self) -> "DBArtworkCollection":
         """查询数据库获取作品信息"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_unique(

@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from src.compat import parse_obj_as
 from src.database import begin_db_session
 from src.service import OmegaInterface, OmegaMessageSegment, OmegaRequests
-from src.service.artwork_collection import get_artwork_collection
+from src.service.artwork_collection import get_artwork_collection, get_artwork_collection_type
 from src.utils.image_utils import ImageUtils
 from .config import sign_in_config, sign_local_resource_config
 from .exception import DuplicateException, FailedException
@@ -178,7 +178,7 @@ def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
 
 async def get_signin_top_image() -> "CollectedArtwork":
     """从数据库获取一张生成签到卡片用的头图"""
-    artwork_collecting_t = get_artwork_collection(origin=sign_in_config.signin_plugin_top_image_origin)
+    artwork_collecting_t = get_artwork_collection_type(origin=sign_in_config.signin_plugin_top_image_origin)
 
     if sign_in_config.signin_plugin_top_image_origin == 'none':
         random_artworks = await artwork_collecting_t.query_any_origin_by_condition(keywords=None, num=5, ratio=1)
@@ -188,11 +188,7 @@ async def get_signin_top_image() -> "CollectedArtwork":
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
     for artwork in random_artworks:
         try:
-            if sign_in_config.signin_plugin_top_image_origin == 'none':
-                collected_artwork = get_artwork_collection(origin=artwork.origin)(artwork.aid)  # type: ignore
-            else:
-                collected_artwork = artwork_collecting_t(artwork.aid)
-
+            collected_artwork = get_artwork_collection(artwork=artwork)
             await collected_artwork.artwork_proxy.get_page_file()
             return collected_artwork
         except Exception as e:

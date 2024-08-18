@@ -24,55 +24,57 @@ from .sites import (
 )
 
 if TYPE_CHECKING:
-    from .typing import ArtworkCollectionType
+    from src.database.internal.artwork_collection import ArtworkCollection as DBArtworkCollection
+    from .typing import ArtworkCollectionType, CollectedArtwork
 
 
 @overload
-def get_artwork_collection(origin: Literal['pixiv']) -> type[PixivArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['pixiv']) -> type[PixivArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['danbooru']) -> type[DanbooruArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['danbooru']) -> type[DanbooruArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['gelbooru']) -> type[GelbooruArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['gelbooru']) -> type[GelbooruArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['behoimi']) -> type[BehoimiArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['behoimi']) -> type[BehoimiArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['konachan']) -> type[KonachanArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['konachan']) -> type[KonachanArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['konachan_safe']) -> type[KonachanSafeArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['konachan_safe']) -> type[KonachanSafeArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['yandere']) -> type[YandereArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['yandere']) -> type[YandereArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['local', 'local_collected_artwork']) -> type[LocalCollectedArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['local_collected_artwork']) -> type[LocalCollectedArtworkCollection]:
     ...
 
 
 @overload
-def get_artwork_collection(origin: Literal['none', None] = None) -> type[NoneArtworkCollection]:
+def get_artwork_collection_type(origin: Literal['none', None] = None) -> type[NoneArtworkCollection]:
     ...
 
 
-def get_artwork_collection(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "ArtworkCollectionType":
+def get_artwork_collection_type(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "ArtworkCollectionType":
+    """根据 origin 名称获取 ArtworkCollection 类"""
     match origin:
         case 'pixiv':
             return PixivArtworkCollection
@@ -88,10 +90,16 @@ def get_artwork_collection(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "Ar
             return KonachanSafeArtworkCollection
         case 'yandere':
             return YandereArtworkCollection
-        case 'local' | 'local_collected_artwork':
+        case 'local_collected_artwork':
             return LocalCollectedArtworkCollection
         case 'none' | _:
             return NoneArtworkCollection
+
+
+def get_artwork_collection(artwork: "DBArtworkCollection") -> "CollectedArtwork":
+    """根据数据库查询 ArtworkCollection 结果获取对应的 ArtworkCollection 实例"""
+    artwork_collection_type = get_artwork_collection_type(origin=artwork.origin)  # type: ignore
+    return artwork_collection_type(artwork_id=artwork.aid)
 
 
 __all__ = [
@@ -106,4 +114,5 @@ __all__ = [
     'NoneArtworkCollection',
     'PixivArtworkCollection',
     'get_artwork_collection',
+    'get_artwork_collection_type',
 ]
