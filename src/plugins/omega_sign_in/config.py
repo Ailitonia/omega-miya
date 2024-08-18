@@ -9,6 +9,7 @@
 """
 
 from dataclasses import dataclass
+from typing import Optional
 
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -25,8 +26,9 @@ class SignInConfig(BaseModel):
     signin_plugin_enable_regex_matcher: bool = True
 
     # 签到头图图库来源, 可配置: pixiv, danbooru, gelbooru, konachan, konachan_safe, yandere, local
+    # 特别的: 当配置为 `None` 时, 代表从所有的来源随机获取
     # 配置后需要数据库里面有图才能正常获取到
-    signin_plugin_top_image_origin: ALLOW_ARTWORK_ORIGIN = 'pixiv'
+    signin_plugin_top_image_origin: Optional[ALLOW_ARTWORK_ORIGIN] = 'pixiv'
 
     # 相关数值显示命令
     signin_plugin_friendship_alias: str = '好感度'

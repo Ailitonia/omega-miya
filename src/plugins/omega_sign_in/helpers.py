@@ -178,12 +178,10 @@ def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
 
 async def get_signin_top_image() -> "CollectedArtwork":
     """从数据库获取一张生成签到卡片用的头图"""
-    artwork_collecting_t = get_artwork_collection_type(origin=sign_in_config.signin_plugin_top_image_origin)
-
-    if sign_in_config.signin_plugin_top_image_origin == 'none':
-        random_artworks = await artwork_collecting_t.query_any_origin_by_condition(keywords=None, num=5, ratio=1)
-    else:
-        random_artworks = await artwork_collecting_t.random(num=5, ratio=1)
+    random_artworks = await get_artwork_collection_type().query_any_origin_by_condition(
+        keywords=None, origin=sign_in_config.signin_plugin_top_image_origin, num=5,
+        allow_classification_range=(2, 3), allow_rating_range=(0, 0), ratio=1
+    )
 
     # 因为图库中部分图片可能因为作者删稿失效, 所以要多随机几个备选
     for artwork in random_artworks:
@@ -313,8 +311,8 @@ async def generate_signin_card(
     top_img_file = await top_img.artwork_proxy.get_page_file()
 
     # 标注头图作品来源
-    if top_img_data.origin in ['local', 'none']:
-        top_img_origin_text = top_img_data.origin.title()
+    if top_img_data.origin in ['local_collected_artwork', 'none']:
+        top_img_origin_text = top_img_data.origin.title().replace('_', '')
     elif top_img_data.origin == 'pixiv':
         top_img_origin_text = f'{top_img_data.origin.title()} | {top_img_data.aid} | @{top_img_data.uname}'
     else:
