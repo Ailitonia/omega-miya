@@ -12,7 +12,6 @@ import asyncio
 import inspect
 from contextlib import asynccontextmanager
 from functools import wraps, partial
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated, Any, Callable, Iterable, Literal, NoReturn, Optional, ParamSpec, Type, TypeVar, Union
 
 from nonebot.exception import PausedException, FinishedException, RejectedException
@@ -21,20 +20,18 @@ from nonebot.internal.adapter.event import Event as BaseEvent
 from nonebot.log import logger
 from nonebot.matcher import Matcher, current_bot, current_event, current_matcher
 from nonebot.params import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import begin_db_session, get_db_session
 from src.service.omega_multibot_support import get_online_bots
-
 from .exception import BotNoFound
 from .register import PlatformRegister
 from .types import ApiCaller, EntityDepend, EventHandler, MessageBuilder, MessageExtractor, MessageSender, RevokeParams
-
+from ..internal import OmegaEntity
 from ..message import (
     Message as OmegaMessage,
     MessageSegment as OmegaMessageSegment
 )
-from ..internal import OmegaEntity
-
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -320,14 +317,14 @@ class OmegaInterface(object):
         return await self.matcher.send(message=send_message, **kwargs)
 
     @_ensure_matcher
-    async def send_at_sender(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs):
+    async def send_at_sender(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs):
         """发送消息并@上条消息发送者"""
         builder = self.get_msg_builder()
         send_message = builder(message=message).message
         return await self.get_event_handler().send_at_sender(message=send_message, **kwargs)
 
     @_ensure_matcher
-    async def send_reply(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs):
+    async def send_reply(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs):
         """发送消息并回复/引用上条消息"""
         builder = self.get_msg_builder()
         send_message = builder(message=message).message
@@ -340,9 +337,33 @@ class OmegaInterface(object):
         raise FinishedException
 
     @_ensure_matcher
+    async def finish_at_sender(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+        """与 `matcher.finish()` 作用相同，仅能用在事件响应器中"""
+        await self.send_at_sender(message=message, **kwargs)
+        raise FinishedException
+
+    @_ensure_matcher
+    async def finish_reply(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+        """与 `matcher.finish()` 作用相同，仅能用在事件响应器中"""
+        await self.send_reply(message=message, **kwargs)
+        raise FinishedException
+
+    @_ensure_matcher
     async def pause(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
         """与 `matcher.pause()` 作用相同，仅能用在事件响应器中"""
         await self.send(message=message, **kwargs)
+        raise PausedException
+
+    @_ensure_matcher
+    async def pause_at_sender(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+        """与 `matcher.pause()` 作用相同，仅能用在事件响应器中"""
+        await self.send_at_sender(message=message, **kwargs)
+        raise PausedException
+
+    @_ensure_matcher
+    async def pause_reply(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+        """与 `matcher.pause()` 作用相同，仅能用在事件响应器中"""
+        await self.send_reply(message=message, **kwargs)
         raise PausedException
 
     @_ensure_matcher
@@ -352,13 +373,13 @@ class OmegaInterface(object):
         raise RejectedException
 
     @_ensure_matcher
-    async def reject_at_sender(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+    async def reject_at_sender(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
         """与 `matcher.reject()` 作用相同，仅能用在事件响应器中"""
         await self.send_at_sender(message=message, **kwargs)
         raise RejectedException
 
     @_ensure_matcher
-    async def reject_reply(self, message: Union[str, None, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
+    async def reject_reply(self, message: Union[str, OmegaMessage, OmegaMessageSegment], **kwargs) -> NoReturn:
         """与 `matcher.reject()` 作用相同，仅能用在事件响应器中"""
         await self.send_reply(message=message, **kwargs)
         raise RejectedException
@@ -378,7 +399,7 @@ class OmegaInterface(object):
     async def reject_arg_at_sender(
             self,
             key: str,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            message: Union[str, OmegaMessage, OmegaMessageSegment],
             **kwargs
     ) -> NoReturn:
         """与 `matcher.reject_arg()` 作用相同，仅能用在事件响应器中"""
@@ -389,7 +410,7 @@ class OmegaInterface(object):
     async def reject_arg_reply(
             self,
             key: str,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            message: Union[str, OmegaMessage, OmegaMessageSegment],
             **kwargs
     ) -> NoReturn:
         """与 `matcher.reject_arg()` 作用相同，仅能用在事件响应器中"""
@@ -411,7 +432,7 @@ class OmegaInterface(object):
     async def reject_receive_at_sender(
             self,
             key: str,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            message: Union[str, OmegaMessage, OmegaMessageSegment],
             **kwargs
     ) -> NoReturn:
         """与 `matcher.reject_receive()` 作用相同，仅能用在事件响应器中"""
@@ -422,7 +443,7 @@ class OmegaInterface(object):
     async def reject_receive_reply(
             self,
             key: str,
-            message: Union[str, None, OmegaMessage, OmegaMessageSegment],
+            message: Union[str, OmegaMessage, OmegaMessageSegment],
             **kwargs
     ) -> NoReturn:
         """与 `matcher.reject_receive()` 作用相同，仅能用在事件响应器中"""
