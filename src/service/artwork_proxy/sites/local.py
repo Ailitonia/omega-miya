@@ -58,8 +58,8 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
 
         """本地图片默认分类分级
         (classification, rating)
-                (3, -1)
-        默认本地图片都是人工筛选后才放进来的, 分级未知
+                (-1, -1)
+        默认本地图片分类分级未知, 导入数据库的本地图片另作处理
         """
 
         return ArtworkData.model_validate({
@@ -68,7 +68,7 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
             'title': 'Unknown',
             'uid': 'Unknown',
             'uname': 'Unknown',
-            'classification': 3,
+            'classification': -1,
             'rating': -1,
             'width': -1,
             'height': -1,
