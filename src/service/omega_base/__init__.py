@@ -17,5 +17,5 @@ __all__ = [
     'OmegaEntity',
     'OmegaInterface',
     'OmegaMessage',
-    'OmegaMessageSegment'
+    'OmegaMessageSegment',
 ]

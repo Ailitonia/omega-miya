@@ -9,9 +9,9 @@
 """
 
 from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING, Literal, Optional
+
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Literal, Optional
 
 from src.database.internal.auth_setting import AuthSetting, AuthSettingDAL
 from src.database.internal.bot import BotSelf, BotSelfDAL
@@ -23,8 +23,6 @@ from src.database.internal.friendship import Friendship, FriendshipDAL
 from src.database.internal.sign_in import SignInDAL
 from src.database.internal.subscription import SubscriptionDAL
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceDAL
-
-
 from .consts import (
     PermissionGlobal,
     PermissionLevel,
@@ -33,13 +31,16 @@ from .consts import (
     RATE_LIMITING_COOLDOWN_EVENT
 )
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 
 class InternalEntity(object):
     """封装后用于插件调用的数据库实体操作对象"""
 
     def __init__(
             self,
-            session: AsyncSession,
+            session: "AsyncSession",
             bot_id: str,
             entity_type: str,
             entity_id: str,
@@ -64,24 +65,24 @@ class InternalEntity(object):
         return f'{self.entity_type}_{self.entity_id}'
 
     @classmethod
-    async def init_from_entity_index_id(cls, session: AsyncSession, index_id: int) -> "InternalEntity":
+    async def init_from_entity_index_id(cls, session: "AsyncSession", index_id: int) -> "InternalEntity":
         entity = await EntityDAL(session=session).query_by_index_id(index_id=index_id)
         bot = await BotSelfDAL(session=session).query_by_index_id(index_id=entity.bot_index_id)
         return cls(
             session=session,
             bot_id=bot.self_id,
-            entity_type=entity.entity_type.value,
+            entity_type=entity.entity_type,
             entity_id=entity.entity_id,
             parent_id=entity.parent_id
         )
 
     @classmethod
-    async def query_all_entity_by_type(cls, session: AsyncSession, entity_type: str) -> list[Entity]:
+    async def query_all_entity_by_type(cls, session: "AsyncSession", entity_type: str) -> list[Entity]:
         """查询符合 entity_type 的全部结果"""
         return await EntityDAL(session=session).query_all_by_type(entity_type=entity_type)
 
     @classmethod
-    async def query_all_entity(cls, session: AsyncSession) -> list[Entity]:
+    async def query_all_entity(cls, session: "AsyncSession") -> list[Entity]:
         """查询符合 entity_type 的全部结果"""
         return await EntityDAL(session=session).query_all()
 
@@ -507,7 +508,7 @@ class InternalEntity(object):
         return await self.set_cooldown(cooldown_event=GLOBAL_COOLDOWN_EVENT, expired_time=expired_time,
                                        description='全局冷却')
 
-    async def check_global_cooldown_expired(self) -> (bool, datetime):
+    async def check_global_cooldown_expired(self) -> tuple[bool, datetime]:
         """查询全局冷却是否到期
 
         :return: 冷却是否已到期, (若仍在冷却中的)到期时间
@@ -522,7 +523,7 @@ class InternalEntity(object):
         return await self.set_cooldown(cooldown_event=RATE_LIMITING_COOLDOWN_EVENT, expired_time=expired_time,
                                        description='流控冷却')
 
-    async def _check_rate_limiting_cooldown_expired(self) -> (bool, datetime):
+    async def _check_rate_limiting_cooldown_expired(self) -> tuple[bool, datetime]:
         """(Deactivated)查询流控专用冷却是否到期
 
         :return: 冷却是否已到期, (若仍在冷却中的)到期时间
@@ -592,5 +593,5 @@ class InternalEntity(object):
 
 
 __all__ = [
-    'InternalEntity'
+    'InternalEntity',
 ]
