@@ -32,5 +32,5 @@ __all__ = [
     'WeiboDetailDAL',
     'WordBankDAL',
     'begin_db_session',
-    'get_db_session'
+    'get_db_session',
 ]

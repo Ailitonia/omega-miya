@@ -22,5 +22,5 @@ IndexInt = IndexInt.with_variant(sqlite.INTEGER(), 'sqlite')
 
 
 __all__ = [
-    'IndexInt'
+    'IndexInt',
 ]

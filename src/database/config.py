@@ -141,5 +141,5 @@ except (ValidationError, ValueError) as e:
 
 
 __all__ = [
-    'database_config'
+    'database_config',
 ]

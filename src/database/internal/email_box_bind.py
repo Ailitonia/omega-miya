@@ -16,7 +16,6 @@ from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import EmailBoxBindOrm
 
@@ -81,5 +80,5 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'EmailBoxBind',
-    'EmailBoxBindDAL'
+    'EmailBoxBindDAL',
 ]

@@ -10,27 +10,26 @@
 
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum, unique
-from typing import Literal, Optional
+from enum import StrEnum, unique
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import SubscriptionOrm, SubscriptionSourceOrm
 
 
 @unique
-class SubscriptionSourceType(Enum):
+class SubscriptionSourceType(StrEnum):
     """订阅源 类型"""
-    bili_live: Literal['bili_live'] = 'bili_live'
-    bili_dynamic: Literal['bili_dynamic'] = 'bili_dynamic'
-    pixiv_user: Literal['pixiv_user'] = 'pixiv_user'
-    pixivision: Literal['pixivision'] = 'pixivision'
-    weibo_user: Literal['weibo_user'] = 'weibo_user'
+    bili_live = 'bili_live'
+    bili_dynamic = 'bili_dynamic'
+    pixiv_user = 'pixiv_user'
+    pixivision = 'pixivision'
+    weibo_user = 'weibo_user'
 
     @classmethod
     def verify(cls, unverified: str):
@@ -135,5 +134,5 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
 __all__ = [
     'SubscriptionSource',
     'SubscriptionSourceDAL',
-    'SubscriptionSourceType'
+    'SubscriptionSourceType',
 ]

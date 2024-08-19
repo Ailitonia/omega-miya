@@ -16,7 +16,6 @@ from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import PixivisionArticleOrm
 
@@ -117,5 +116,5 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'PixivisionArticle',
-    'PixivisionArticleDAL'
+    'PixivisionArticleDAL',
 ]

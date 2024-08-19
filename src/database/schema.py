@@ -603,5 +603,5 @@ __all__ = [
     'ArtworkCollectionOrm',
     'PixivisionArticleOrm',
     'WeiboDetailOrm',
-    'WordBankOrm'
+    'WordBankOrm',
 ]

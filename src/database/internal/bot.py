@@ -10,27 +10,26 @@
 
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum, unique
-from typing import Literal, Optional
+from enum import StrEnum, unique
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import BotSelfOrm
 
 
 @unique
-class BotType(Enum):
+class BotType(StrEnum):
     """Bot 类型"""
-    console: Literal['Console'] = 'Console'
-    onebot_v11: Literal['OneBot V11'] = 'OneBot V11'
-    onebot_v12: Literal['OneBot V12'] = 'OneBot V12'
-    qq: Literal['QQ'] = 'QQ'
-    telegram: Literal['Telegram'] = 'Telegram'
+    console = 'Console'
+    onebot_v11 = 'OneBot V11'
+    onebot_v12 = 'OneBot V12'
+    qq = 'QQ'
+    telegram = 'Telegram'
 
     @classmethod
     def verify(cls, unverified: str) -> None:
@@ -122,5 +121,5 @@ class BotSelfDAL(BaseDataAccessLayerModel):
 __all__ = [
     'BotSelf',
     'BotSelfDAL',
-    'BotType'
+    'BotType',
 ]
