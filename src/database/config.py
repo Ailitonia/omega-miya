@@ -11,8 +11,8 @@
 import os
 import pathlib
 import sys
-from enum import Enum, unique
-from typing import Literal
+from enum import StrEnum, unique
+from typing import Any, Literal, Optional
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
@@ -20,20 +20,20 @@ from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 
 
 @unique
-class MysqlDriver(Enum):
+class MysqlDriver(StrEnum):
     """mysql 数据库驱动"""
     asyncmy = 'asyncmy'
     aiomysql = 'aiomysql'
 
 
 @unique
-class PostgresqlDriver(Enum):
+class PostgresqlDriver(StrEnum):
     """PostgreSQL 数据库驱动"""
     asyncpg = 'asyncpg'
 
 
 @unique
-class SQLiteDriver(Enum):
+class SQLiteDriver(StrEnum):
     """SQLite 数据库驱动"""
     aiosqlite = 'aiosqlite'
 
@@ -41,7 +41,7 @@ class SQLiteDriver(Enum):
 class DatabaseConnector(BaseModel):
     """数据库链接对象"""
     url: str
-    connect_args: dict
+    connect_args: dict[str, Any]
 
 
 class DatabaseType(BaseModel):
@@ -55,7 +55,7 @@ class DatabaseType(BaseModel):
         raise NotImplementedError
 
     @property
-    def table_args(self) -> dict | None:
+    def table_args(self) -> Optional[dict[str, Any]]:
         return None
 
 

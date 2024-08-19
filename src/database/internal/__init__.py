@@ -29,7 +29,6 @@ from .weibo_detail import WeiboDetailDAL
 from .word_bank import WordBankDAL
 
 
-
 __all__ = [
     'ArtworkCollectionDAL',
     'AuthSettingDAL',

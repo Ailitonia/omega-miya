@@ -130,7 +130,7 @@ def get_shell_command_parse_failed_handler() -> T_Handler:
 
     async def handle_parse_failed(matcher: Matcher, shell_args: Annotated[ParserExit, ShellCommandArgs()]):
         """解析命令失败"""
-        await matcher.finish('命令格式错误, 请确认后再重试吧\n' + shell_args.message)
+        await matcher.finish('命令参数解析错误, 请确认后重试\n' + shell_args.message)
 
     return handle_parse_failed
 
