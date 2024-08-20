@@ -53,8 +53,7 @@ class EntityType(StrEnum):
             raise ValueError(f'illegal entity_type: "{unverified}"')
 
     @classmethod
-    @property
-    def supported_target_names(cls) -> set:
+    def get_supported_target_names(cls) -> set[str]:
         return set(member.value for _, member in cls.__members__.items())
 
 

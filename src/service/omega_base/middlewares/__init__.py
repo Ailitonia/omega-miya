@@ -8,10 +8,11 @@
 @Software       : PyCharm 
 """
 
-from . import platform_target as platform_target
-from .interface import OmegaInterface
+from . import platforms as platforms
+from .interface import OmegaEntityInterface, OmegaMatcherInterface
 
 
 __all__ = [
-    'OmegaInterface'
+    'OmegaEntityInterface',
+    'OmegaMatcherInterface',
 ]

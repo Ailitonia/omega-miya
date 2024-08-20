@@ -9,18 +9,16 @@
 """
 
 from datetime import datetime, timedelta
-from pydantic import BaseModel
 
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
-from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
+from nonebot.matcher import Matcher
+from pydantic import BaseModel
 
-
-from src.service import OmegaEntity, OmegaInterface
-
+from src.database import begin_db_session
+from src.service import OmegaEntity, OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
-
 
 SUPERUSERS = get_driver().config.superusers
 PLUGIN_CD_PREFIX: str = 'plugin_cd'
@@ -36,6 +34,11 @@ class _CooldownCheckingResult(BaseModel):
 
 async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 冷却全局处理"""
+
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
+        return
 
     # 从 state 中解析已配置的权限要求
     plugin_name = matcher.plugin.name
@@ -55,13 +58,15 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: Bot, event: Event)
     is_expired: bool = True
     expired_time: datetime = datetime.now()
 
-    async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with begin_db_session() as session:
+        event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
         event_global_is_expired, event_global_expired_time = await event_entity.check_global_cooldown_expired()
     if not event_global_is_expired:
         is_expired = False
         expired_time = event_global_expired_time if event_global_expired_time > expired_time else expired_time
 
-    async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
+    async with begin_db_session() as session:
+        user_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
         user_global_is_expired, user_global_expired_time = await user_entity.check_global_cooldown_expired()
     if not user_global_is_expired:
         is_expired = False
@@ -89,6 +94,11 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event)
     if matcher.temp:
         return
 
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
+        return
+
     # 从 state 中解析已配置的权限要求
     plugin_name = matcher.plugin.name
     module_name = matcher.plugin.module_name
@@ -111,10 +121,11 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event)
         return
 
     cooldown_event = f'{PLUGIN_CD_PREFIX}_{plugin_name}_{processor_state.name}'
-    entity_depend = OmegaInterface(acquire_type=processor_state.cooldown_type)
+    acquire_type = processor_state.cooldown_type
 
     # 检查冷却
-    async with entity_depend.get_entity(bot=bot, event=event) as entity:
+    async with begin_db_session() as session:
+        entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type=acquire_type)
         cooldown_checking_result = await _check_entity_cooldown(
             entity=entity, cooldown_event=cooldown_event, plugin_name=plugin_name, module_name=module_name
         )
@@ -130,7 +141,8 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: Bot, event: Event)
         return
     elif is_expired:
         # 冷却过期后就要新增冷却
-        async with entity_depend.get_entity(bot=bot, event=event) as entity:
+        async with begin_db_session() as session:
+            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type=acquire_type)
             await entity.set_cooldown(
                 cooldown_event=cooldown_event, expired_time=timedelta(seconds=processor_state.cooldown)
             )
@@ -177,5 +189,5 @@ async def _check_entity_cooldown(
 
 __all__ = [
     'preprocessor_global_cooldown',
-    'preprocessor_plugin_cooldown'
+    'preprocessor_plugin_cooldown',
 ]

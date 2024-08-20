@@ -10,13 +10,12 @@
 
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
-from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
+from nonebot.matcher import Matcher
 
-from src.service import OmegaEntity, OmegaInterface
-
+from src.database import begin_db_session
+from src.service import OmegaEntity, OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
-
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Permission Manager</lc> | '
@@ -24,6 +23,11 @@ LOG_PREFIX: str = '<lc>Permission Manager</lc> | '
 
 async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 检查是否启用全局权限"""
+
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
+        return
 
     # 从 state 中解析已配置的权限要求
     plugin_name = matcher.plugin.name
@@ -40,7 +44,8 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Even
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
-    async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with begin_db_session() as session:
+        event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
         is_enabled_global_permission = await event_entity.check_global_permission()
 
     if not is_enabled_global_permission:
@@ -61,6 +66,11 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Even
 async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Event):
     """运行预处理, 检查会话对象是否具备插件要求权限"""
 
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
+        return
+
     # 从 state 中解析已配置的权限要求
     plugin_name = matcher.plugin.name
     module_name = matcher.plugin.module_name
@@ -78,7 +88,8 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Even
         return
 
     # 检查事件会话对象是否具备插件要求权限
-    async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+    async with begin_db_session() as session:
+        event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
         is_permission_allowed = await _check_event_entity_permission(
             entity=event_entity, module_name=module_name, plugin_name=plugin_name,
             level=processor_state.level, auth_node=processor_state.auth_node
@@ -152,5 +163,5 @@ async def _check_event_entity_permission(
 
 __all__ = [
     'preprocessor_global_permission',
-    'preprocessor_plugin_permission'
+    'preprocessor_plugin_permission',
 ]

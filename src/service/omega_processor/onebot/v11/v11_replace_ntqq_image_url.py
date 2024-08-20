@@ -90,5 +90,5 @@ async def handle_replace_image_url_event_preprocessor(event: MessageEvent):
 
 
 __all__ = [
-    'handle_replace_image_url_event_preprocessor'
+    'handle_replace_image_url_event_preprocessor',
 ]
