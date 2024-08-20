@@ -9,7 +9,7 @@
 """
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, Self
 
 from sqlalchemy.exc import NoResultFound
 
@@ -65,7 +65,7 @@ class InternalEntity(object):
         return f'{self.entity_type}_{self.entity_id}'
 
     @classmethod
-    async def init_from_entity_index_id(cls, session: "AsyncSession", index_id: int) -> "InternalEntity":
+    async def init_from_entity_index_id(cls, session: "AsyncSession", index_id: int) -> Self:
         entity = await EntityDAL(session=session).query_by_index_id(index_id=index_id)
         bot = await BotSelfDAL(session=session).query_by_index_id(index_id=entity.bot_index_id)
         return cls(
