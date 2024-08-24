@@ -191,7 +191,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
     async def query_classification_statistic(
             self,
             origin: Optional[str] = None,
-            keywords: Optional[list[str]] = None
+            keywords: Optional[Sequence[str]] = None
     ) -> ArtworkClassificationStatistic:
         """按分类统计收录作品数"""
         stmt = select(ArtworkCollectionOrm.classification, func.count(ArtworkCollectionOrm.id))
@@ -229,7 +229,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
     async def query_rating_statistic(
             self,
             origin: Optional[str] = None,
-            keywords: Optional[list[str]] = None
+            keywords: Optional[Sequence[str]] = None
     ) -> ArtworkRatingStatistic:
         """按分级统计收录作品数"""
         stmt = select(ArtworkCollectionOrm.rating, func.count(ArtworkCollectionOrm.id))
@@ -308,7 +308,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[str], session_result.scalars().all())
 
-    async def query_exists_aids(self, aids: list[str]) -> list[str]:
+    async def query_exists_aids(self, aids: Sequence[str]) -> list[str]:
         """根据提供的 aids 列表查询数据库中已存在的列表中的 aid"""
         stmt = (select(ArtworkCollectionOrm.aid).
                 where(ArtworkCollectionOrm.aid.in_(aids)).
@@ -316,7 +316,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[str], session_result.scalars().all())
 
-    async def query_not_exists_ids(self, aids: list[str]) -> list[str]:
+    async def query_not_exists_ids(self, aids: Sequence[str]) -> list[str]:
         """根据提供的 aids 列表查询数据库中不存在的列表中的 aid"""
         exists_aids = await self.query_exists_aids(aids=aids)
         return sorted(list(set(aids) - set(exists_aids)), reverse=True)
@@ -343,7 +343,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         new_obj = ArtworkCollectionOrm(
             origin=origin, aid=aid, title=title, uid=uid, uname=uname,
             classification=classification, rating=rating, width=width, height=height,
-            tags=tags, source=source, cover_page=cover_page, description=description,
+            tags=tags[:2048], source=source, cover_page=cover_page,
+            description=description if description is None else description[:2048],
             created_at=datetime.now()
         )
         self.db_session.add(new_obj)
@@ -387,13 +388,13 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         if height is not None:
             stmt = stmt.values(height=height)
         if tags is not None:
-            stmt = stmt.values(tags=tags)
+            stmt = stmt.values(tags=tags[:2048])
         if source is not None:
             stmt = stmt.values(source=source)
         if cover_page is not None:
             stmt = stmt.values(cover_page=cover_page)
         if description is not None:
-            stmt = stmt.values(description=description)
+            stmt = stmt.values(description=description[:2048])
         stmt = stmt.values(updated_at=datetime.now())
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)

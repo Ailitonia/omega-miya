@@ -55,7 +55,7 @@ class PluginOrm(Base):
     enabled: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装'
     )
-    info: Mapped[str] = mapped_column(String(256), nullable=True, comment='附加说明')
+    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='附加说明')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -337,7 +337,7 @@ class EmailBoxOrm(Base):
     server_host: Mapped[str] = mapped_column(String(128), nullable=False, comment='IMAP/POP3服务器地址')
     protocol: Mapped[str] = mapped_column(String(16), nullable=False, comment='协议')
     port: Mapped[int] = mapped_column(Integer, nullable=False, comment='服务器端口')
-    password: Mapped[str] = mapped_column(String(256), nullable=False, comment='密码')
+    password: Mapped[str] = mapped_column(String(255), nullable=False, comment='密码')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -482,10 +482,10 @@ class ArtworkCollectionOrm(Base):
     )
     # 作品信息部分
     origin: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='作品来源/收录该作品的站点')
-    aid: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='作品id')
-    title: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='作品标题title')
-    uid: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='作者uid')
-    uname: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='作者名')
+    aid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品id')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品标题title')
+    uid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者uid')
+    uname: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者名')
     # 分类分级信息
     classification: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='标记标签, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
@@ -496,8 +496,8 @@ class ArtworkCollectionOrm(Base):
     # 作品图片信息
     width: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片宽度')
     height: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片高度')
-    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品标签')
-    description: Mapped[str] = mapped_column(String(1024), nullable=True, comment='作品描述')
+    tags: Mapped[str] = mapped_column(String(2048), nullable=False, comment='作品标签')
+    description: Mapped[str] = mapped_column(String(2048), nullable=True, comment='作品描述')
     source: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品原始出处地址')
     cover_page: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品首页/封面原图链接')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -523,7 +523,7 @@ class PixivisionArticleOrm(Base):
         Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
     )
     aid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, unique=True, comment='aid')
-    title: Mapped[str] = mapped_column(String(256), nullable=False, comment='title')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='title')
     description: Mapped[str] = mapped_column(String(1024), nullable=False, comment='description')
     tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='tags')
     artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='article artwork_id')
@@ -549,8 +549,8 @@ class WeiboDetailOrm(Base):
     )
     mid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='微博id')
     uid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='用户uid')
-    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='微博内容')
-    retweeted_content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='转发的微博内容')
+    content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='微博内容')
+    retweeted_content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='转发的微博内容')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
