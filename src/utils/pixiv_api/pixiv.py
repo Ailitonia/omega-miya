@@ -28,7 +28,7 @@ from .model import (
     PixivRankingModel,
     PixivSearchingResultModel,
     PixivDiscoveryModel,
-    PixivRecommendModel,
+    PixivTopModel,
     PixivGlobalData,
     PixivUserDataModel,
     PixivUserArtworkDataModel,
@@ -156,13 +156,13 @@ class PixivCommon(BasePixivAPI):
             *,
             mode: Literal['all'] = 'all',
             lang: Literal['zh'] = 'zh'
-    ) -> PixivRecommendModel:
+    ) -> PixivTopModel:
         """获取首页推荐内容"""
         url = f'{cls._get_root_url()}/ajax/top/illust'
         params = {'mode': mode, 'lang': lang}
 
         recommend_data = await cls._get_json(url=url, params=params)
-        return PixivRecommendModel.model_validate(recommend_data)
+        return PixivTopModel.model_validate(recommend_data)
 
     @classmethod
     async def query_following_user_latest_illust(
