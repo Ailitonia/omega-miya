@@ -10,6 +10,7 @@
 
 from typing import TYPE_CHECKING, Optional, Self
 
+from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from ..typing import ArtworkPageParamType
 
 
-class LocalCollectedArtworkProxy(BaseArtworkProxy):
+class _LocalCollectedArtworkProxy(BaseArtworkProxy):
     """本地图片适配, 需要自行将图片添加到对应目录中, 缺省 artwork_id 为文件名 (含后缀)"""
 
     @classmethod
@@ -111,6 +112,10 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
             page_type: "ArtworkPageParamType" = 'regular'
     ) -> "TemporaryResource":
         return self.self_file
+
+
+class LocalCollectedArtworkProxy(_LocalCollectedArtworkProxy, ImageOpsMixin):
+    """本地图片适配, 需要自行将图片添加到对应目录中, 缺省 artwork_id 为文件名 (含后缀)"""
 
 
 __all__ = [

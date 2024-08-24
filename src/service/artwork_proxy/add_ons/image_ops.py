@@ -35,6 +35,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         _image = ImageUtils.init_from_file(file=image)
         _image.gaussian_blur()
         _image.mark(text=origin_mark)
+        _image.convert(mode='RGB')
         return _image
 
     @staticmethod
@@ -43,6 +44,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         """标记水印"""
         _image = ImageUtils.init_from_file(file=image)
         _image.mark(text=origin_mark)
+        _image.convert(mode='RGB')
         return _image
 
     @staticmethod
@@ -52,6 +54,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         _image = ImageUtils.init_from_file(file=image)
         _image.gaussian_noise(sigma=16)
         _image.mark(text=origin_mark)
+        _image.convert(mode='RGB')
         return _image
 
     """图片标记工具"""
