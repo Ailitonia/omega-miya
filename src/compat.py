@@ -10,13 +10,16 @@
 
 from typing import Annotated, Any
 
-from pydantic import AfterValidator, AnyUrl, AnyHttpUrl, TypeAdapter
+from pydantic import AnyUrl, AnyHttpUrl, BeforeValidator, TypeAdapter
 
 # Compatibility for pydantic_core._pydantic_core.Url in V2
 # See https://github.com/pydantic/pydantic/discussions/8211 and https://github.com/pydantic/pydantic/discussions/6395
-AnyUrlStr = Annotated[AnyUrl, AfterValidator(lambda v: str(v))]
+AnyUrlAdapter = TypeAdapter(AnyUrl)
+AnyUrlStr = Annotated[str, BeforeValidator(lambda v: str(AnyUrlAdapter.validate_python(v)))]
 """使用 Annotated Validator 将 AnyUrl 格式转换为 str"""
-AnyHttpUrlStr = Annotated[AnyHttpUrl, AfterValidator(lambda v: str(v))]
+
+AnyHttpUrlAdapter = TypeAdapter(AnyHttpUrl)
+AnyHttpUrlStr = Annotated[str, BeforeValidator(lambda v: str(AnyHttpUrlAdapter.validate_python(v)))]
 """使用 Annotated Validator 将 AnyHttpUrl 格式转换为 str"""
 
 

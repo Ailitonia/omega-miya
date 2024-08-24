@@ -374,7 +374,7 @@ class Comic18(_BaseComic18):
 
         # 生成下载任务序列
         download_tasks = [
-            self.download_resource(url=str(page.url), folder_name=folder_name, ignore_exist_file=ignore_exist_file)
+            self.download_resource(url=page.url, folder_name=folder_name, ignore_exist_file=ignore_exist_file)
             for page in album_pages
         ]
 
@@ -430,7 +430,7 @@ class Comic18(_BaseComic18):
     @classmethod
     async def _request_preview_body(cls, request: Comic18PreviewRequestModel) -> Comic18PreviewBody:
         """获取生成预览图中每个缩略图的数据"""
-        request_data = await cls.request_resource_as_bytes(url=str(request.request_url))
+        request_data = await cls.request_resource_as_bytes(url=request.request_url)
         return Comic18PreviewBody(desc_text=request.desc_text, preview_thumb=request_data)
 
     @classmethod

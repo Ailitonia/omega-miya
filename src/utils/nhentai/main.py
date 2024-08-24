@@ -81,7 +81,7 @@ class BaseNhentai(BaseCommonAPI):
     @classmethod
     async def _request_preview_body(cls, request: NhentaiPreviewRequestModel) -> NhentaiPreviewBody:
         """获取生成预览图中每个缩略图的数据"""
-        _request_data = await cls._get_resource_as_bytes(url=str(request.request_url))
+        _request_data = await cls._get_resource_as_bytes(url=request.request_url)
         return NhentaiPreviewBody(desc_text=request.desc_text, preview_thumb=_request_data)
 
     @classmethod

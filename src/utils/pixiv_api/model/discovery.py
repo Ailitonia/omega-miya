@@ -11,6 +11,7 @@
 import random
 from typing import Optional
 
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BasePixivModel
 
 
@@ -26,7 +27,7 @@ class ThumbnailData(BasePixivModel):
     pageCount: int
     width: int
     height: int
-    url: str
+    url: AnyHttpUrl
     tags: list[str]
 
 
@@ -99,7 +100,7 @@ class PixivTopPixivision(BasePixivModel):
     """Pixiv 首页推荐 Pixivision 特辑内容"""
     id: int
     title: str
-    url: str
+    url: AnyHttpUrl
     thumbnailUrl: str
 
 
