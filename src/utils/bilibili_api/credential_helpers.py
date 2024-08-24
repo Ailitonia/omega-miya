@@ -285,5 +285,5 @@ async def _bilibili_login_status_refresh_monitor() -> None:
 
 
 __all__ = [
-    'BilibiliCredential'
+    'BilibiliCredential',
 ]

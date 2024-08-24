@@ -81,7 +81,7 @@ class BaseNhentai(BaseCommonAPI):
     @classmethod
     async def _request_preview_body(cls, request: NhentaiPreviewRequestModel) -> NhentaiPreviewBody:
         """获取生成预览图中每个缩略图的数据"""
-        _request_data = await cls._get_resource_as_bytes(url=request.request_url)
+        _request_data = await cls._get_resource_as_bytes(url=str(request.request_url))
         return NhentaiPreviewBody(desc_text=request.desc_text, preview_thumb=_request_data)
 
     @classmethod
@@ -145,10 +145,10 @@ class BaseNhentai(BaseCommonAPI):
             ]
         else:
             request_list = [
-                NhentaiPreviewRequestModel(
-                    desc_text=f'Page: {index + 1}',
-                    request_url=f'https://i.nhentai.net/galleries/{model.media_id}/{index + 1}.{_page_type(data.t)}'
-                )
+                NhentaiPreviewRequestModel.model_validate({
+                    'desc_text': f'Page: {index + 1}',
+                    'request_url': f'https://i.nhentai.net/galleries/{model.media_id}/{index + 1}.{_page_type(data.t)}'
+                })
                 for index, data in enumerate(model.images.pages)
             ]
         return await cls._request_preview_model(preview_name=gallery_name, requests=request_list)

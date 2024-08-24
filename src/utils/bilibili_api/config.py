@@ -155,5 +155,5 @@ except ValidationError as e:
 
 __all__ = [
     'bilibili_config',
-    'bilibili_resource_config'
+    'bilibili_resource_config',
 ]

@@ -22,7 +22,7 @@ class BaseMoebooruModel(BaseModel):
 class Post(BaseMoebooruModel):
     id: int
     author: str
-    creator_id: int
+    creator_id: Optional[int] = None
     approver_id: Optional[int] = None
     tags: str
     rating: Literal['s', 'q', 'e']
