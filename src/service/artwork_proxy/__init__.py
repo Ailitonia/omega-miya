@@ -28,7 +28,6 @@ type ALLOW_ARTWORK_ORIGIN = Literal[
     'gelbooru',
     'behoimi',
     'konachan',
-    'konachan_safe',
     'yandere',
     'local_collected_artwork',
     'none',
