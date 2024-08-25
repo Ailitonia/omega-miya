@@ -57,7 +57,7 @@ class ImapMailbox(BaseMailbox):
     @staticmethod
     def _decode_header(header: Header | str) -> str:
         """解析邮件 header 为文本"""
-        header_content = email.header.decode_header(header)
+        header_content = email.header.decode_header(header)  # type: ignore
         output_text = ''
         for content, charset in header_content:
             if charset and isinstance(content, bytes):
@@ -103,18 +103,18 @@ class ImapMailbox(BaseMailbox):
             if msg_content is None:
                 continue
             else:
-                msg = email.message_from_bytes(msg_content[1])
+                msg = email.message_from_bytes(msg_content[1])  # type: ignore
 
             # 解析邮件
             # 日期
-            date = email.header.decode_header(msg.get('Date'))[0][0]
+            date = email.header.decode_header(msg.get('Date'))[0][0]  # type: ignore
             date = str(date)
             # 标题
-            header = self._decode_header(msg.get('subject'))
+            header = self._decode_header(msg.get('subject', ''))
             # 发件人
-            sender = self._decode_header(msg.get('from'))
+            sender = self._decode_header(msg.get('from', ''))
             # 收件人
-            receiver = self._decode_header(msg.get('to'))
+            receiver = self._decode_header(msg.get('to', ''))
 
             body_list = []
             html_list = []
@@ -160,5 +160,5 @@ class ImapMailbox(BaseMailbox):
 
 __all__ = [
     'Email',
-    'ImapMailbox'
+    'ImapMailbox',
 ]
