@@ -1,3 +1,13 @@
+"""
+@Author         : Ailitonia
+@Date           : 2022/04/28 20:26
+@FileName       : helpers.py
+@Project        : nonebot2_miya
+@Description    : 求签结果生成工具
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 import hashlib
 import random
 from datetime import datetime
@@ -48,5 +58,5 @@ def query_divination(divination_text: str, user_id: str | int) -> str:
 
 
 __all__ = [
-    'query_divination'
+    'query_divination',
 ]
