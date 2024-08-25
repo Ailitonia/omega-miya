@@ -101,7 +101,7 @@ class PixivTopPixivision(BasePixivModel):
     id: int
     title: str
     url: AnyHttpUrl
-    thumbnailUrl: str
+    thumbnailUrl: AnyHttpUrl
 
 
 class PixivTopTags(BasePixivModel):
@@ -127,8 +127,8 @@ class PixivTopUser(BasePixivModel):
     userId: int
     name: str
     isFollowed: bool
-    image: str
-    imageBig: str
+    image: AnyHttpUrl
+    imageBig: AnyHttpUrl
     premium: bool
     comment: Optional[str] = None
 
