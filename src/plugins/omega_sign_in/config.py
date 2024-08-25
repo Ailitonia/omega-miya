@@ -25,7 +25,7 @@ class SignInConfig(BaseModel):
     # 如果 bot 没有配置命令前缀或空白前缀, 请将本选项设置为 False, 避免重复响应
     signin_plugin_enable_regex_matcher: bool = True
 
-    # 签到头图图库来源, 可配置: pixiv, danbooru, gelbooru, konachan, konachan_safe, yandere, local
+    # 签到头图图库来源, 可配置: pixiv, danbooru, gelbooru, konachan, yandere, local
     # 特别的: 当配置为 `None` 时, 代表从所有的来源随机获取
     # 配置后需要数据库里面有图才能正常获取到
     signin_plugin_top_image_origin: Optional[ALLOW_ARTWORK_ORIGIN] = 'pixiv'
@@ -72,5 +72,5 @@ except ValidationError as e:
 
 __all__ = [
     'sign_in_config',
-    'sign_local_resource_config'
+    'sign_local_resource_config',
 ]
