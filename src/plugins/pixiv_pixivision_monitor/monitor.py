@@ -3,7 +3,7 @@
 @Date           : 2022/05/01 13:53
 @FileName       : monitor.py
 @Project        : nonebot2_miya
-@Description    : Pixiv User Artwork Update Monitor
+@Description    : Pixivision Update Monitor
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -11,7 +11,6 @@
 from nonebot.log import logger
 
 from src.service import scheduler
-
 from .helpers import pixivision_monitor_main
 
 
@@ -35,7 +34,7 @@ scheduler.add_job(
     # day='*/1',
     # week=None,
     # day_of_week=None,
-    # hour=None,
+    hour='9-20',  # 一般来说 Pixivision 文章是在下午三点到五点间更新, 偶尔早上会更新
     minute='*/20',
     second='17',
     # start_date=None,
@@ -48,5 +47,5 @@ scheduler.add_job(
 
 
 __all__ = [
-    'scheduler'
+    'scheduler',
 ]
