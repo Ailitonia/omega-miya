@@ -49,5 +49,5 @@ async def query_guess(guess: str) -> list[str]:
 
 
 __all__ = [
-    'query_guess'
+    'query_guess',
 ]
