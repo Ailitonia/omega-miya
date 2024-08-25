@@ -8,9 +8,14 @@
 @Software       : PyCharm
 """
 
+from typing import TYPE_CHECKING
+
 from .api_base import BasePixivAPI
 from .helper import PixivParser
 from .model import PixivisionArticle, PixivisionIllustrationList
+
+if TYPE_CHECKING:
+    from src.resource import TemporaryResource
 
 
 class Pixivision(BasePixivAPI):
@@ -38,6 +43,23 @@ class Pixivision(BasePixivAPI):
     @classmethod
     def _get_tag_url(cls) -> str:
         return f'{cls._get_root_url()}/zh/t'
+
+    @classmethod
+    async def download_resource(
+            cls,
+            url: str,
+            save_folder: "TemporaryResource",
+            *,
+            subdir: str | None = None,
+            ignore_exist_file: bool = False
+    ) -> "TemporaryResource":
+        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+        return await cls._download_resource(
+            save_folder=save_folder,
+            url=url,
+            subdir=subdir,
+            ignore_exist_file=ignore_exist_file
+        )
 
     @classmethod
     async def query_illustration_list(cls, page: int = 1) -> PixivisionIllustrationList:
