@@ -8,13 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal
+from src.database.internal.subscription_source import SubscriptionSourceType
 
-
-ALLOW_R18_NODE: Literal['allow_r18'] = 'allow_r18'
-"""允许预览 r18 作品的权限节点"""
+PIXIV_USER_SUB_TYPE: str = SubscriptionSourceType.pixiv_user.value
+"""Pixiv 用户订阅类型"""
 
 
 __all__ = [
-    'ALLOW_R18_NODE'
+    'PIXIV_USER_SUB_TYPE',
 ]
