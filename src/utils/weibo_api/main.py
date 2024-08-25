@@ -124,7 +124,7 @@ class Weibo(BaseCommonAPI):
         url = f'{cls._get_root_url()}/status/{mid}'
         card_content = await cls._get_resource_as_text(url=url)
 
-        return WeiboCardStatus.model_validate(parse_weibo_card_from_status_page(card_content))
+        return parse_weibo_card_from_status_page(card_content)
 
     @classmethod
     async def query_weibo_extend_text(cls, mid: int | str) -> str:

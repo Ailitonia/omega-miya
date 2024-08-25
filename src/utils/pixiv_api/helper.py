@@ -10,10 +10,10 @@
 
 import re
 
-import ujson as json
 from lxml import etree
 from nonebot.utils import run_sync
 
+from src.compat import parse_json_as
 from .model.pixivision import PixivisionArticle, PixivisionIllustrationList
 from .model.user import PixivGlobalData, PixivUserSearchingModel
 
@@ -104,7 +104,7 @@ class PixivParser(object):
         global_data = html.xpath(
             '/html/head/meta[@name="global-data" and @id="meta-global-data"]'
         ).pop(0).attrib.get('content')
-        return PixivGlobalData.model_validate(json.loads(global_data))
+        return parse_json_as(PixivGlobalData, global_data)
 
     @staticmethod
     @run_sync

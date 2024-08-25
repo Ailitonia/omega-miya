@@ -11,8 +11,9 @@
 import datetime
 import hashlib
 import hmac
-import json
 from typing import TYPE_CHECKING, Any
+
+import ujson as json
 
 from src.service.omega_requests import OmegaRequests
 from ..config import tencent_cloud_config
