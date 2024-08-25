@@ -189,6 +189,24 @@ class BaseArtworkCollection(abc.ABC):
             )
         return result
 
+    @classmethod
+    async def query_exists_aids(cls, aids: Sequence[str]) -> list[str]:
+        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid"""
+        async with begin_db_session() as session:
+            result = await ArtworkCollectionDAL(session=session).query_exists_aids(
+                origin=cls._get_origin_name(), aids=aids
+            )
+        return result
+
+    @classmethod
+    async def query_not_exists_aids(cls, aids: Sequence[str]) -> list[str]:
+        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid"""
+        async with begin_db_session() as session:
+            result = await ArtworkCollectionDAL(session=session).query_not_exists_aids(
+                origin=cls._get_origin_name(), aids=aids
+            )
+        return result
+
     async def query_artwork(self) -> "DBArtworkCollection":
         """查询数据库获取作品信息"""
         async with begin_db_session() as session:

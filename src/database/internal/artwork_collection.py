@@ -308,17 +308,19 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[str], session_result.scalars().all())
 
-    async def query_exists_aids(self, aids: Sequence[str]) -> list[str]:
+    async def query_exists_aids(self, origin: Optional[str], aids: Sequence[str]) -> list[str]:
         """根据提供的 aids 列表查询数据库中已存在的列表中的 aid"""
-        stmt = (select(ArtworkCollectionOrm.aid).
-                where(ArtworkCollectionOrm.aid.in_(aids)).
-                order_by(desc(ArtworkCollectionOrm.aid)))
+        stmt = select(ArtworkCollectionOrm.aid)
+        if origin is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        stmt = stmt.where(ArtworkCollectionOrm.aid.in_(aids)).order_by(desc(ArtworkCollectionOrm.aid))
+
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[str], session_result.scalars().all())
 
-    async def query_not_exists_ids(self, aids: Sequence[str]) -> list[str]:
+    async def query_not_exists_aids(self, origin: Optional[str], aids: Sequence[str]) -> list[str]:
         """根据提供的 aids 列表查询数据库中不存在的列表中的 aid"""
-        exists_aids = await self.query_exists_aids(aids=aids)
+        exists_aids = await self.query_exists_aids(origin=origin, aids=aids)
         return sorted(list(set(aids) - set(exists_aids)), reverse=True)
 
     async def query_all(self) -> list[ArtworkCollection]:
