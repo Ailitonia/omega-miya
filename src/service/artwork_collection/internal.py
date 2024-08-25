@@ -250,8 +250,8 @@ class BaseArtworkCollection(abc.ABC):
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
                     tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,  # type: ignore
-                    description=artwork_data.description
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    description=None if not artwork_data.description else artwork_data.description
                 )
             except NoResultFound:
                 await artwork_dal.add(
@@ -260,8 +260,8 @@ class BaseArtworkCollection(abc.ABC):
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
                     tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,  # type: ignore
-                    description=artwork_data.description
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    description=None if not artwork_data.description else artwork_data.description
                 )
 
     async def add_artwork_into_database_ignore_exists(
@@ -294,8 +294,8 @@ class BaseArtworkCollection(abc.ABC):
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
                     tags=','.join(tag for tag in artwork_data.tags),
-                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,  # type: ignore
-                    description=artwork_data.description
+                    source=artwork_data.source, cover_page=artwork_data.cover_page_url,
+                    description=None if not artwork_data.description else artwork_data.description
                 )
 
     async def delete_artwork_from_database(self) -> None:
