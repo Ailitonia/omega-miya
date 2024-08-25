@@ -14,13 +14,12 @@ from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
-import ujson as json
 from PIL import Image, ImageDraw, ImageFont
 from nonebot.log import logger
 from nonebot.utils import run_sync
 from pydantic import BaseModel
 
-from src.compat import parse_obj_as
+from src.compat import parse_json_as, parse_obj_as
 from src.service import OmegaRequests
 from src.service.artwork_collection import get_artwork_collection, get_artwork_collection_type
 from src.utils.image_utils import ImageUtils
@@ -67,8 +66,8 @@ def _load_fortune_event(file: Union["StaticResource", "TemporaryResource"]) -> l
     if file.is_file:
         logger.debug(f'loading fortune event form {file}')
         with file.open('r', encoding='utf8') as f:
-            fortune_event = json.loads(f.read())
-        return parse_obj_as(list[FortuneEvent], fortune_event)
+            fortune_event_data = f.read()
+        return parse_json_as(list[FortuneEvent], fortune_event_data)
     else:
         return []
 

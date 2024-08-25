@@ -40,12 +40,11 @@ sign_in = MatcherGroup(
 )
 
 sign_in.on_command('签到', handlers=[handle_generate_sign_in_card])
-sign_in.on_command('老黄历', aliases={'好感度', '一言'}, handlers=[handle_generate_fortune_card])
+sign_in.on_command('老黄历', aliases={'今日运势', '好感度', '一言'}, handlers=[handle_generate_fortune_card])
 
-
-if sign_in_config.signin_plugin_enable_regex_matcher:
+if sign_in_config.signin_plugin_enable_full_matcher:
     sign_in.on_fullmatch(('签到',), handlers=[handle_generate_sign_in_card])
-    sign_in.on_fullmatch(('老黄历', '今日运势', '一言', '好感度',), handlers=[handle_generate_fortune_card])
+    sign_in.on_fullmatch(('老黄历', '今日运势', '好感度', '一言',), handlers=[handle_generate_fortune_card])
 
 
 sign_in.on_command(

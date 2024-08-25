@@ -10,11 +10,11 @@
 
 from typing import TYPE_CHECKING
 
-import ujson as json
 from apscheduler.triggers.cron import CronTrigger
 from nonebot import get_driver
 from nonebot.log import logger
 
+from src.compat import parse_json_as
 from src.database import AuthSettingDAL, begin_db_session
 from src.service import (
     OmegaEntityInterface as OmEI,
@@ -74,7 +74,7 @@ async def _init_schedule_message_job() -> None:
         for job in all_jobs:
             if job.available == 1 and job.value is not None:
                 try:
-                    add_schedule_job(job_data=ScheduleMessageJob.model_validate(json.loads(job.value)))
+                    add_schedule_job(job_data=parse_json_as(ScheduleMessageJob, job.value))
                 except Exception as e:
                     logger.error(f'ScheduleMessageJob | Add job({job}) failed when init in startup, {e!r}')
 
@@ -103,7 +103,7 @@ async def get_schedule_message_job_list(interface: "OmegaMatcherInterface") -> l
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME
     )
     job_list = [
-        ScheduleMessageJob.model_validate(json.loads(x.value)).schedule_job_name
+        parse_json_as(ScheduleMessageJob, x.value).schedule_job_name
         for x in all_jobs
         if (x.available == 1 and x.value is not None)
     ]
@@ -117,7 +117,7 @@ async def set_schedule_message_job(interface: "OmegaMatcherInterface", job_data:
         plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         node=job_data.schedule_job_name,
         available=1,
-        value=json.dumps(job_data.model_dump(), ensure_ascii=False)
+        value=job_data.model_dump_json()
     )
 
 
@@ -131,7 +131,7 @@ async def remove_schedule_message_job(interface: "OmegaMatcherInterface", job_na
     if job_setting.value is None:
         raise ValueError(f'{interface.entity} job({job_name}) not confined')
 
-    job_data = ScheduleMessageJob.model_validate(json.loads(job_setting.value))
+    job_data = parse_json_as(ScheduleMessageJob, job_setting.value)
 
     await interface.entity.set_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
