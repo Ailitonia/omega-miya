@@ -40,8 +40,71 @@ class PixivParser(object):
 
     @staticmethod
     @run_sync
-    def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:  # TODO 页面已改版, 解析失效, 需重写
+    def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
         """解析 pixiv 用户搜索结果页内容
+
+        :param content: 网页 html
+        """
+        html = etree.HTML(content)
+
+        title_h1 = html.xpath('/html/body/div/div/div/div/div/div/div/h1').pop(0)
+        title = title_h1.text
+        count = title_h1.xpath('following-sibling::div/span[1]').pop(0).text
+
+        # 直接定位到用户头像部分
+        user_icon_list = html.xpath(
+            '/html/body/div[@id="__next"]/div/div/div/div/div/div/'
+            'li[contains(@class, "list-none")]/div/div/div/a[@data-ga4-label="user_icon_link"]'
+        )
+
+        # 解析搜索结果中用户内容的部分
+        user_list = []
+        for user_icon in user_icon_list:
+            # 解析头像
+            # user_icon_img = user_icon.xpath('div/img').pop(0)  # 头像是动态加载的, 忽略
+            # user_head_url = user_icon_img.attrib.get('src')
+
+            # 解析用户名和uid, 用户名在其相邻节点
+            user_name_a = user_icon.xpath('following-sibling::div/div[1]/a[@data-ga4-label="user_name_link"]').pop(0)
+            user_name = user_name_a.text
+            user_id = user_name_a.attrib.get('id')
+
+            # 解析用户简介
+            user_desc_divs = user_icon.xpath('following-sibling::div/div[2]')
+            if user_desc_divs:
+                user_desc = user_desc_divs.pop(0).text
+                user_desc = '' if not user_desc else user_desc.replace('\r\n', ' ')
+            else:
+                user_desc = None
+
+            # 解析用户作品预览图
+            illust_thumbs = user_icon.xpath(
+                f'parent::div/parent::div/parent::div//div[@type="illust"]/div/a[@data-gtm-user-id="{user_id}"]/div/img'
+            )
+            illusts_thumb_urls = [
+                x.attrib.get('src')
+                for x in illust_thumbs
+                if x.attrib.get('src') is not None
+            ]
+
+            user_list.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'user_desc': user_desc,
+                'illusts_thumb_urls': illusts_thumb_urls
+            })
+
+        result = {
+            'search_name': title,
+            'count': count,
+            'users': user_list
+        }
+        return PixivUserSearchingModel.model_validate(result)
+
+    @staticmethod
+    @run_sync
+    def _parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
+        """[Deactivated]解析 pixiv 用户搜索结果页内容 (旧版页面)
 
         :param content: 网页 html
         """

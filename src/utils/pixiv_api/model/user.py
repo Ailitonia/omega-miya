@@ -9,10 +9,10 @@
 """
 
 from typing import Any, Optional
+
 from pydantic import model_validator
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BasePixivModel
 
 
@@ -128,10 +128,10 @@ class PixivUserSearchingBody(BasePixivModel):
     """Pixiv 用户搜索结果 body"""
     user_id: int
     user_name: str
-    user_head_url: str
-    user_illust_count: int
-    user_desc: str
-    illusts_thumb_urls: list[AnyHttpUrl]
+    user_head_url: Optional[str] = None
+    user_illust_count: Optional[int] = None
+    user_desc: Optional[str] = None
+    illusts_thumb_urls: list[AnyHttpUrl] = []
 
 
 class PixivUserSearchingModel(BasePixivModel):
