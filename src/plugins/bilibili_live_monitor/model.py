@@ -9,6 +9,7 @@
 """
 
 from typing import Literal, Optional
+
 from pydantic import BaseModel, ConfigDict, model_validator
 
 
@@ -122,5 +123,5 @@ __all__ = [
     'BilibiliLiveRoomStartLivingWithUpdateTitle',
     'BilibiliLiveRoomStopLiving',
     'BilibiliLiveRoomStopLivingWithPlaylist',
-    'BilibiliLiveRoomStatusUpdate'
+    'BilibiliLiveRoomStatusUpdate',
 ]

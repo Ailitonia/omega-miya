@@ -11,7 +11,6 @@
 from nonebot.log import logger
 
 from src.service import scheduler
-
 from .helpers import bili_live_room_monitor_main
 
 
@@ -48,5 +47,5 @@ scheduler.add_job(
 
 
 __all__ = [
-    'scheduler'
+    'scheduler',
 ]
