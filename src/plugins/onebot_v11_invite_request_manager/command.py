@@ -12,24 +12,27 @@ import random
 import string
 from typing import Annotated
 
+from nonebot.adapters.onebot.v11 import (
+    Bot as OneBotV11Bot,
+    Message as OneBotV11Message,
+    FriendRequestEvent as OneBotV11FriendRequestEvent,
+    GroupRequestEvent as OneBotV11GroupRequestEvent,
+)
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.params import ArgStr, CommandArg
-from nonebot.plugin import on_command, on_request
 from nonebot.permission import SUPERUSER
+from nonebot.plugin import on_command, on_request
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
-from nonebot.adapters.onebot.v11 import Bot, Message, FriendRequestEvent, GroupRequestEvent
-
 from src.service import enable_processor_state
-
 
 _FRIEND_ADD_VERIFY_CODE: dict[str, str] = {}
 """为好友请求分配的验证码"""
 
 
-async def handle_parse_user_qq(_: Bot, state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
+async def handle_parse_user_qq(_: OneBotV11Bot, state: T_State, cmd_arg: Annotated[OneBotV11Message, CommandArg()]):
     """首次运行时解析用户 qq 号作为命令参数"""
     user_qq = cmd_arg.extract_plain_text().strip()
     if user_qq and user_qq.isdigit():
@@ -46,7 +49,7 @@ async def handle_parse_user_qq(_: Bot, state: T_State, cmd_arg: Annotated[Messag
     block=True,
     state=enable_processor_state(name='OneBotV11FriendVerifyCode', enable_processor=False)
 ).got('user_qq', prompt='请发送需要生成好友验证码的用户QQ号:')
-async def handle_user_verify_code(_: Bot, matcher: Matcher, user_qq: Annotated[str, ArgStr('user_qq')]):
+async def handle_user_verify_code(_: OneBotV11Bot, matcher: Matcher, user_qq: Annotated[str, ArgStr('user_qq')]):
     user_qq = user_qq.strip()
     if not user_qq.isdigit():
         await matcher.reject_arg('user_qq', 'qq号应为纯数字, 请重新输入:')
@@ -67,7 +70,7 @@ invite_request_manager = on_request(
 
 
 @invite_request_manager.handle()
-async def handle_friend_request(bot: Bot, event: FriendRequestEvent):
+async def handle_friend_request(bot: OneBotV11Bot, event: OneBotV11FriendRequestEvent) -> None:
     """处理加好友申请"""
     global _FRIEND_ADD_VERIFY_CODE
     user_id = str(event.user_id)
@@ -90,7 +93,7 @@ async def handle_friend_request(bot: Bot, event: FriendRequestEvent):
 
 
 @invite_request_manager.handle()
-async def handle_group_invite(bot: Bot, event: GroupRequestEvent):
+async def handle_group_invite(bot: OneBotV11Bot, event: OneBotV11GroupRequestEvent) -> None:
     """处理被邀请进群请求
 
     检查被邀请进群时邀请人是否具是好友, 若否则尝试退群
