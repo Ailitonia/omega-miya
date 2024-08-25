@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .api_base import BasePixivAPI
 from .helper import PixivParser
@@ -49,6 +49,7 @@ class Pixivision(BasePixivAPI):
             cls,
             url: str,
             save_folder: "TemporaryResource",
+            custom_file_name: Optional[str] = None,
             *,
             subdir: str | None = None,
             ignore_exist_file: bool = False
@@ -58,7 +59,8 @@ class Pixivision(BasePixivAPI):
             save_folder=save_folder,
             url=url,
             subdir=subdir,
-            ignore_exist_file=ignore_exist_file
+            ignore_exist_file=ignore_exist_file,
+            custom_file_name=custom_file_name,
         )
 
     @classmethod

@@ -36,7 +36,7 @@ scheduler.add_job(
     # day_of_week=None,
     hour='9-20',  # 一般来说 Pixivision 文章是在下午三点到五点间更新, 偶尔早上会更新
     minute='*/20',
-    second='17',
+    second='37',
     # start_date=None,
     # end_date=None,
     # timezone=None,

@@ -150,8 +150,11 @@ async def format_pixivision_article_message(article: Pixivision, msg_prefix: str
     try:
         if article_data.eyecatch_image is None:
             raise ValueError('article eyecatch image not found')
+
         eyecatch_image = await article.download_resource(
-            url=article_data.eyecatch_image, save_folder=_TMP_FOLDER('eyecatch')
+            url=article_data.eyecatch_image,
+            save_folder=_TMP_FOLDER('eyecatch'),
+            custom_file_name=f'eyecatch_{article.aid}.jpg'
         )
         send_message += OmegaMessageSegment.image(url=eyecatch_image.path)
     except Exception as e:
@@ -192,7 +195,7 @@ async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
 async def pixivision_monitor_main() -> None:
     """向已订阅的用户或群发送 Pixivision 更新的特辑"""
     articles_data = await Pixivision.query_illustration_list()
-    new_articles = await _check_new_article(articles=articles_data.illustrations)
+    new_articles = await _check_new_article(articles=articles_data.illustrations[:8])
 
     if new_articles:
         logger.info(
