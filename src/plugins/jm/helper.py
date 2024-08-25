@@ -68,5 +68,5 @@ async def format_album_desc_msg(album: Comic18) -> OmegaMessage:
 __all__ = [
     'get_searching_argument_parser',
     'parse_from_searching_parser',
-    'format_album_desc_msg'
+    'format_album_desc_msg',
 ]
