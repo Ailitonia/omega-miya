@@ -13,13 +13,12 @@ from copy import deepcopy
 from typing import Annotated
 
 from nonebot.log import logger
-from nonebot.matcher import Matcher
 from nonebot.params import Depends, ShellCommandArgs
 from nonebot.plugin import on_shell_command
 from nonebot.rule import Namespace
 
 from src.params.handler import get_shell_command_parse_failed_handler
-from src.service import OmegaInterface, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from src.utils.process_utils import semaphore_gather
 from .config import moe_plugin_config
 from .consts import ALLOW_R18_NODE
@@ -48,13 +47,10 @@ from .helpers import (
     ),
 ).handle()
 async def handle_setu(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        args: Annotated[Namespace, ShellCommandArgs()]
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        args: Annotated[Namespace, ShellCommandArgs()],
 ) -> None:
     """解析命令成功"""
-    interface.refresh_matcher_state()
-
     try:
         parsed_args = parse_from_query_parser(args=args)
         keywords = parsed_args.keywords
@@ -71,7 +67,7 @@ async def handle_setu(
 
     # 对于 rate:E 以上的作品就需要检查权限
     if max(allow_rating_range) >= 3:
-        allow_r18 = await has_allow_r18_node(matcher=matcher, interface=interface)
+        allow_r18 = await has_allow_r18_node(interface=interface)
         if not allow_r18:
             await interface.finish_reply('没有涩涩的权限, 禁止开车车!')
 
@@ -99,7 +95,7 @@ async def handle_setu(
 
     await semaphore_gather(
         tasks=[
-            interface.send_msg_auto_revoke(
+            interface.send_auto_revoke(
                 message=message,
                 revoke_interval=moe_plugin_config.moe_plugin_setu_auto_recall_time
             )
@@ -125,12 +121,10 @@ async def handle_setu(
     ),
 ).handle()
 async def handle_moe(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         args: Annotated[Namespace, ShellCommandArgs()]
 ) -> None:
     """解析命令成功"""
-    interface.refresh_matcher_state()
-
     try:
         parsed_args = parse_from_query_parser(args=args)
         keywords = parsed_args.keywords
@@ -167,7 +161,7 @@ async def handle_moe(
 
     await semaphore_gather(
         tasks=[
-            interface.send_msg_auto_revoke(
+            interface.send_auto_revoke(
                 message=message,
                 revoke_interval=moe_plugin_config.moe_plugin_moe_auto_recall_time
             )
