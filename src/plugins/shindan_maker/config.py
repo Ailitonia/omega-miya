@@ -21,18 +21,6 @@ class ShindanMakerPluginConfig(BaseModel):
 
     model_config = ConfigDict(extra='ignore')
 
-    @property
-    def root_url(self) -> str:
-        return self._get_root_url()
-
-    def _get_root_url(self) -> str:
-        """获取对应版本网站 url"""
-        match self.shindan_maker_plugin_domain_version:
-            case 'cn':
-                return 'https://cn.shindanmaker.com'
-            case 'default' | _:
-                return 'https://shindanmaker.com'
-
 
 try:
     shindan_maker_plugin_config = get_plugin_config(ShindanMakerPluginConfig)
@@ -43,5 +31,5 @@ except ValidationError as e:
 
 
 __all__ = [
-    'shindan_maker_plugin_config'
+    'shindan_maker_plugin_config',
 ]

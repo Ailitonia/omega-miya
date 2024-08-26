@@ -16,7 +16,7 @@ from src.compat import AnyUrlStr as AnyUrl
 class BaseShindanMakerModel(BaseModel):
     """ShindanMaker 数据基类"""
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
 class ShindanMakerResult(BaseShindanMakerModel):
@@ -34,5 +34,5 @@ class ShindanMakerSearchResult(BaseShindanMakerModel):
 
 __all__ = [
     'ShindanMakerResult',
-    'ShindanMakerSearchResult'
+    'ShindanMakerSearchResult',
 ]

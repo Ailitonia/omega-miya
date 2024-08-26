@@ -14,7 +14,6 @@ from lxml import etree
 from nonebot.utils import run_sync
 
 from src.compat import parse_obj_as
-
 from .model import ShindanMakerResult, ShindanMakerSearchResult
 
 
@@ -35,7 +34,10 @@ def parse_searching_result_page(content: str) -> list[ShindanMakerSearchResult]:
     for link in shindan_links:
         try:
             link_url = link.attrib.get('href')
-            link_id = re.search(r'/(\d+?)$', link_url).group(1)
+            matched_link_id = re.search(r'/(\d+?)$', link_url)
+            if matched_link_id is None:
+                continue
+            link_id = matched_link_id.group(1)
             link_name = link.xpath('.//h2/span').pop(-1).text
             result.append({'id': link_id, 'name': link_name, 'url': link_url})
         except (KeyError, AttributeError):
@@ -95,5 +97,5 @@ __all__ = [
     'parse_searching_result_page',
     'parse_shindan_page_title',
     'parse_shindan_page_token',
-    'parse_shindan_result_page'
+    'parse_shindan_result_page',
 ]
