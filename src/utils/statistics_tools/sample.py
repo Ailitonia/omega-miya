@@ -14,8 +14,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .consts import STATISTICS_TOOLS_RESOURCE
-from .plots import create_simple_subplots_figure
+from .plots import create_simple_subplots_figure, output_figure
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -35,10 +34,7 @@ def run_figure_example() -> "TemporaryResource":
     ax.set_title('Simple Plot')  # Add a title to the axes.
     ax.legend()  # Add a legend.
 
-    output_file = STATISTICS_TOOLS_RESOURCE.default_output_folder('sample.jpg')
-    with output_file.open('wb') as f:
-        fig.savefig(f, dpi=300, format='JPG', bbox_inches='tight')
-    return output_file
+    return output_figure(fig, 'sample.jpg')
 
 
 def invest_test(step: int = 100, init_balance: float = 1000000.0) -> "NDArray":
@@ -68,10 +64,7 @@ def run_invest_test(step: int = 100, times: int = 10) -> "TemporaryResource":
     ax.set_ylabel('金额')
     ax.set_title('投资-金额图表')
 
-    output_file = STATISTICS_TOOLS_RESOURCE.default_output_folder('invest_test.jpg')
-    with output_file.open('wb') as f:
-        fig.savefig(f, dpi=300, format='JPG', bbox_inches='tight')
-    return output_file
+    return output_figure(fig, 'invest_test.jpg')
 
 
 def coin_test(init_balance: int = 0) -> tuple["NDArray", int]:
@@ -103,10 +96,7 @@ def run_coin_test(times: int = 10) -> "TemporaryResource":
     ax.set_ylabel('出现次数')
     ax.set_title('最终金额分布图表')
 
-    output_file = STATISTICS_TOOLS_RESOURCE.default_output_folder('coin_test.jpg')
-    with output_file.open('wb') as f:
-        fig.savefig(f, dpi=300, format='JPG', bbox_inches='tight')
-    return output_file
+    return output_figure(fig, 'coin_test.jpg')
 
 
 if __name__ == '__main__':

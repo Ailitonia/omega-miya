@@ -9,19 +9,26 @@
 """
 
 import sys
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from matplotlib import font_manager, pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from .consts import STATISTICS_TOOLS_RESOURCE
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+    from src.resource import TemporaryResource
+
+
 # 添加中文字体
 font_manager.fontManager.addfont(STATISTICS_TOOLS_RESOURCE.default_font_file.path)
+font_manager.fontManager.addfont(STATISTICS_TOOLS_RESOURCE.alternative_font_file.path)
+
 # 设置字体
 plt.rcParams['font.family'] = ['sans-serif']
 plt.rcParams['font.sans-serif'].insert(0, 'Microsoft YaHei')
+plt.rcParams['font.sans-serif'].insert(1, 'FZZhengHei-EL-GBK')
 
 # Fix RuntimeError caused by GUI needed
 plt.switch_backend('agg')
@@ -44,7 +51,7 @@ def create_simple_figure(
         figsize: Optional[tuple[float, float]] = None,
         dpi: Optional[float] = None,
         **kwargs
-) -> Figure:
+) -> "Figure":
     """Create an empty figure with no Axes"""
     fig = plt.figure(num=num, figsize=figsize, dpi=dpi, **kwargs)
     return fig
@@ -54,13 +61,31 @@ def create_simple_subplots_figure(
         *,
         figsize: Optional[tuple[float, float]] = None,
         dpi: Optional[float] = None,
-) -> tuple[Figure, Axes]:
+) -> tuple["Figure", "Axes"]:
     """Create a figure with a single Axes"""
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, dpi=dpi)
     return fig, ax
 
 
+def output_figure(
+        fig: "Figure",
+        output_filename: str,
+        *,
+        dpi: int = 300,
+        format_: str = 'JPG',
+        bbox_inches: str = 'tight',
+        **kwargs
+) -> "TemporaryResource":
+    """保存并导出生成的图表"""
+    output_file = STATISTICS_TOOLS_RESOURCE.default_output_folder(output_filename)
+    with output_file.open('wb') as f:
+        fig.savefig(f, dpi=dpi, format=format_, bbox_inches=bbox_inches, **kwargs)
+    return output_file
+
+
+
 __all__ = [
     'create_simple_figure',
     'create_simple_subplots_figure',
+    'output_figure',
 ]

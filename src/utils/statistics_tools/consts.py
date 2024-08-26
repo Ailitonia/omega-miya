@@ -15,10 +15,11 @@ from src.resource import StaticResource, TemporaryResource
 
 @dataclass
 class StatisticsToolsResource:
-    # 默认字体文件
+    # 字体文件
     default_font_file: StaticResource = StaticResource('fonts', 'msyh.ttc')
+    alternative_font_file: StaticResource = StaticResource('fonts', 'fzzxhk.ttf')
 
-    # 默认的缓存资源保存路径
+    # 生成图片保存路径
     default_output_folder: TemporaryResource = TemporaryResource('statistics_tools', 'output')
 
 

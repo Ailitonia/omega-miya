@@ -8,32 +8,24 @@
 @Software       : PyCharm 
 """
 
-import sys
 from datetime import datetime
-from io import BytesIO
-from matplotlib import font_manager
-from matplotlib import pyplot as plt
+from typing import TYPE_CHECKING
 
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
 from nonebot.utils import run_sync
 
-from src.database.internal.statistic import CountStatisticModel
-from src.resource import StaticResource, TemporaryResource
+from src.utils.statistics_tools import create_simple_subplots_figure, output_figure
 
-
-_DEFAULT_FONT: StaticResource = StaticResource('fonts', 'fzzxhk.ttf')
-"""默认使用字体"""
-_TMP_STATISTIC_PATH: TemporaryResource = TemporaryResource('statistic')
-"""生成统计图临时文件路径"""
-
-
-# 添加资源文件中字体
-font_manager.fontManager.addfont(_DEFAULT_FONT.resolve_path)
+if TYPE_CHECKING:
+    from src.database.internal.statistic import CountStatisticModel
+    from src.resource import TemporaryResource
 
 
 async def draw_statistics(
-        statistics_data: list[CountStatisticModel],
-        title: str = '插件使用统计'
-) -> TemporaryResource:
+        statistics_data: list["CountStatisticModel"],
+        title: str = '插件使用情况统计',
+) -> "TemporaryResource":
     """绘制插件使用统计图
 
     :param statistics_data: 统计信息
@@ -41,32 +33,33 @@ async def draw_statistics(
     """
 
     @run_sync
-    def _handle(statistics_data_: list[CountStatisticModel]) -> bytes:
-        plt.switch_backend('agg')  # Fix RuntimeError caused by GUI needed
-        plt.rcParams['font.sans-serif'] = ['FZZhengHei-EL-GBK']
-        if sys.platform.startswith('win'):
-            plt.rcParams['axes.unicode_minus'] = False
+    def _handle(_statistics_data: list["CountStatisticModel"]) -> "TemporaryResource":
+        y_name = [x.custom_name for x in _statistics_data]
+        x_value = [x.call_count for x in _statistics_data]
+
+        # 归一化数据以适用于颜色映射
+        viridis = cm.get_cmap('plasma')
+        norm = Normalize(vmin=min(x_value), vmax=max(x_value))
 
         # 绘制条形图
-        _bar_c = plt.barh([x.custom_name for x in statistics_data_], [x.call_count for x in statistics_data_])
-        plt.bar_label(_bar_c, label_type='edge')
-        plt.title(title)
+        fig, ax = create_simple_subplots_figure()
+        bar = ax.barh(y_name, x_value, color=viridis(norm(x_value)))
+        # 添加数据标签
+        ax.bar_label(bar, label_type='edge')
+        # 添加颜色条
+        cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=viridis), ax=ax, orientation='horizontal')
+        # 添加坐标轴标签和图表标题
+        ax.set_xlabel('调用次数')
+        ax.set_ylabel('插件名称')
+        ax.set_title(title)
 
         # 导出图片
-        with BytesIO() as bf:
-            plt.savefig(bf, dpi=300, format='JPG', bbox_inches='tight')
-            img_bytes = bf.getvalue()
-        plt.clf()
-        return img_bytes
+        file_name = f"statistic_{title}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.jpg"
+        return output_figure(fig, file_name)
 
-    image_content = await _handle(statistics_data_=statistics_data)
-    image_file_name = f"statistic_{title}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
-    save_file = _TMP_STATISTIC_PATH(image_file_name)
-    async with save_file.async_open('wb') as af:
-        await af.write(image_content)
-    return save_file
+    return await _handle(_statistics_data=statistics_data)
 
 
 __all__ = [
-    'draw_statistics'
+    'draw_statistics',
 ]
