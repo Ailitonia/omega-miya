@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
     from src.resource import TemporaryResource
 
-
 # 添加中文字体
 font_manager.fontManager.addfont(STATISTICS_TOOLS_RESOURCE.default_font_file.path)
 font_manager.fontManager.addfont(STATISTICS_TOOLS_RESOURCE.alternative_font_file.path)
@@ -81,7 +80,6 @@ def output_figure(
     with output_file.open('wb') as f:
         fig.savefig(f, dpi=dpi, format=format_, bbox_inches=bbox_inches, **kwargs)
     return output_file
-
 
 
 __all__ = [

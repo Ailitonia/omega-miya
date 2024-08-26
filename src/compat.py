@@ -52,9 +52,17 @@ def parse_json_as[T](
     return TypeAdapter(type_).validate_json(data, strict=strict, context=context)
 
 
+def dump_json_as[T](type_: type[T], obj: Any, *, encoding: str = 'utf-8') -> str:
+    """Validate a Python object against the model and serialize it to JSON."""
+    custom_type_adapter = TypeAdapter(type_)
+    validated_instance = custom_type_adapter.validate_python(obj)
+    return custom_type_adapter.dump_json(validated_instance).decode(encoding=encoding)
+
+
 __all__ = [
     'AnyUrlStr',
     'AnyHttpUrlStr',
     'parse_obj_as',
     'parse_json_as',
+    'dump_json_as',
 ]
