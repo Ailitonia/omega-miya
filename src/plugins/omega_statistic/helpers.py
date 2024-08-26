@@ -47,7 +47,7 @@ async def draw_statistics(
         # 添加数据标签
         ax.bar_label(bar, label_type='edge')
         # 添加颜色条
-        cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=viridis), ax=ax, orientation='horizontal')
+        fig.colorbar(cm.ScalarMappable(norm=norm, cmap=viridis), ax=ax, orientation='horizontal')
         # 添加坐标轴标签和图表标题
         ax.set_xlabel('调用次数')
         ax.set_ylabel('插件名称')
