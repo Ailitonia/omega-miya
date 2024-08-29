@@ -13,7 +13,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-
 TAROT_TYPE = Literal['special', 'major_arcana', 'minor_arcana']
 """塔罗牌类型"""
 
@@ -74,38 +73,38 @@ class TarotPack(TarotBaseModel):
 
 @unique
 class Elements(Enum):
-    earth: ElementModel = ElementModel(id=0, orig_name='Earth', name='土元素')
-    water: ElementModel = ElementModel(id=0, orig_name='Water', name='水元素')
-    air: ElementModel = ElementModel(id=0, orig_name='Air', name='风元素')
-    fire: ElementModel = ElementModel(id=0, orig_name='Fire', name='火元素')
-    aether: ElementModel = ElementModel(id=0, orig_name='Aether', name='以太')
+    earth = ElementModel(id=0, orig_name='Earth', name='土元素')
+    water = ElementModel(id=0, orig_name='Water', name='水元素')
+    air = ElementModel(id=0, orig_name='Air', name='风元素')
+    fire = ElementModel(id=0, orig_name='Fire', name='火元素')
+    aether = ElementModel(id=0, orig_name='Aether', name='以太')
 
 
 @unique
 class Constellations(Enum):
-    pluto: ConstellationModel = ConstellationModel(id=-9, orig_name='Pluto', name='冥王星')
-    neptunus: ConstellationModel = ConstellationModel(id=-8, orig_name='Neptunus', name='海王星')
-    uranus: ConstellationModel = ConstellationModel(id=-7, orig_name='Uranus', name='天王星')
-    saturn: ConstellationModel = ConstellationModel(id=-6, orig_name='Saturn', name='土星')
-    jupiter: ConstellationModel = ConstellationModel(id=-5, orig_name='Jupiter', name='木星')
-    mars: ConstellationModel = ConstellationModel(id=-4, orig_name='Mars', name='火星')
-    earth: ConstellationModel = ConstellationModel(id=-3, orig_name='Earth', name='地球')
-    moon: ConstellationModel = ConstellationModel(id=-10, orig_name='Moon', name='月亮')
-    venus: ConstellationModel = ConstellationModel(id=-2, orig_name='Venus', name='金星')
-    mercury: ConstellationModel = ConstellationModel(id=-1, orig_name='Mercury', name='水星')
-    sun: ConstellationModel = ConstellationModel(id=0, orig_name='Sun', name='太阳')
-    aries: ConstellationModel = ConstellationModel(id=1, orig_name='Aries', name='白羊座')
-    taurus: ConstellationModel = ConstellationModel(id=2, orig_name='Taurus', name='金牛座')
-    gemini: ConstellationModel = ConstellationModel(id=3, orig_name='Gemini', name='双子座')
-    cancer: ConstellationModel = ConstellationModel(id=4, orig_name='Cancer', name='巨蟹座')
-    leo: ConstellationModel = ConstellationModel(id=5, orig_name='Leo', name='狮子座')
-    virgo: ConstellationModel = ConstellationModel(id=6, orig_name='Virgo', name='室女座')
-    libra: ConstellationModel = ConstellationModel(id=7, orig_name='Libra', name='天秤座')
-    scorpio: ConstellationModel = ConstellationModel(id=8, orig_name='Scorpio', name='天蝎座')
-    sagittarius: ConstellationModel = ConstellationModel(id=9, orig_name='Sagittarius', name='人马座')
-    capricorn: ConstellationModel = ConstellationModel(id=10, orig_name='Capricorn', name='摩羯座')
-    aquarius: ConstellationModel = ConstellationModel(id=11, orig_name='Aquarius', name='宝瓶座')
-    pisces: ConstellationModel = ConstellationModel(id=12, orig_name='Pisces', name='双鱼座')
+    pluto = ConstellationModel(id=-9, orig_name='Pluto', name='冥王星')
+    neptunus = ConstellationModel(id=-8, orig_name='Neptunus', name='海王星')
+    uranus = ConstellationModel(id=-7, orig_name='Uranus', name='天王星')
+    saturn = ConstellationModel(id=-6, orig_name='Saturn', name='土星')
+    jupiter = ConstellationModel(id=-5, orig_name='Jupiter', name='木星')
+    mars = ConstellationModel(id=-4, orig_name='Mars', name='火星')
+    earth = ConstellationModel(id=-3, orig_name='Earth', name='地球')
+    moon = ConstellationModel(id=-10, orig_name='Moon', name='月亮')
+    venus = ConstellationModel(id=-2, orig_name='Venus', name='金星')
+    mercury = ConstellationModel(id=-1, orig_name='Mercury', name='水星')
+    sun = ConstellationModel(id=0, orig_name='Sun', name='太阳')
+    aries = ConstellationModel(id=1, orig_name='Aries', name='白羊座')
+    taurus = ConstellationModel(id=2, orig_name='Taurus', name='金牛座')
+    gemini = ConstellationModel(id=3, orig_name='Gemini', name='双子座')
+    cancer = ConstellationModel(id=4, orig_name='Cancer', name='巨蟹座')
+    leo = ConstellationModel(id=5, orig_name='Leo', name='狮子座')
+    virgo = ConstellationModel(id=6, orig_name='Virgo', name='室女座')
+    libra = ConstellationModel(id=7, orig_name='Libra', name='天秤座')
+    scorpio = ConstellationModel(id=8, orig_name='Scorpio', name='天蝎座')
+    sagittarius = ConstellationModel(id=9, orig_name='Sagittarius', name='人马座')
+    capricorn = ConstellationModel(id=10, orig_name='Capricorn', name='摩羯座')
+    aquarius = ConstellationModel(id=11, orig_name='Aquarius', name='宝瓶座')
+    pisces = ConstellationModel(id=12, orig_name='Pisces', name='双鱼座')
 
 
 @unique
@@ -123,14 +122,14 @@ class TarotCards(Enum):
         cards = cls.get_all_cards()
         return [card for card in cards if card.type in type_]
 
-    blank: TarotCardModel = TarotCardModel(
+    blank = TarotCardModel(
         id=-1, index='blank', type='special', orig_name='Blank', name='空白',
         intro='空白的卡面，似乎可以用来作为卡牌背面图案使用',
         words='',
         desc='', upright='', reversed=''
     )
 
-    the_fool: TarotCardModel = TarotCardModel(
+    the_fool = TarotCardModel(
         id=0, index='the_fool', type='major_arcana', orig_name='The Fool', name='愚者',
         intro='愚人穿着色彩斑斓的服装，头上戴顶象征成功的桂冠，无视于前方的悬崖，昂首阔步向前行。\n\n他左手拿着一朵白玫瑰，白色象征纯洁，'
               '玫瑰象征热情。他的右手则轻轻握着一根杖，象征经验的包袱即系于其上。那根杖可不是普通的杖，它是一根权杖，象征力量。'
@@ -146,7 +145,7 @@ class TarotCards(Enum):
         reversed='过于盲目、不顾现实的、横冲直撞的、拒绝负担责任的、违背常理的、逃避的心态、一段危险的旅程、想法如孩童般天真幼稚的。'
     )
 
-    the_magician: TarotCardModel = TarotCardModel(
+    the_magician = TarotCardModel(
         id=1, index='the_magician', type='major_arcana', orig_name='The Magician (I)', name='魔术师',
         intro='魔术师高举拿着权杖的右手指向天，左手食指指向地，他本人就是沟通上天与地面的桥梁。他身前的桌上放着象征四要素的权杖、'
               '圣杯、宝剑与星币，同时也代表塔罗牌的四个牌组。\n\n他身穿的大红袍象征热情与主动，白色内衫表示纯洁与智慧的内在。'
@@ -162,7 +161,7 @@ class TarotCards(Enum):
         reversed='变魔术耍花招的、瞒骗的、失败的、狡猾的、善于谎言的、能力不足的、丧失信心的、以不正当手段获取认同的。'
     )
 
-    the_high_priestess: TarotCardModel = TarotCardModel(
+    the_high_priestess = TarotCardModel(
         id=2, index='the_high_priestess', type='major_arcana', orig_name='The High Priestess (II)', name='女祭司',
         intro='相较于上一张魔术师纯粹阳性的力量，女祭司表现的则是纯粹阴性的力量。她身穿代表纯洁的白色内袍，与圣母的蓝色外袍，静默端坐。'
               '胸前挂个十字架，象征阴阳平衡、与神合一。\n\n她头戴的帽子是由上弦月、下弦月和一轮满月所构成的，象征所有的处女神祇。'
@@ -184,7 +183,7 @@ class TarotCards(Enum):
         reversed='冷酷无情的、无法正确思考的、错误的方向、迷信的、无理取闹的、情绪不安的、缺乏前瞻性的、严厉拒绝爱情的。'
     )
 
-    the_empress: TarotCardModel = TarotCardModel(
+    the_empress = TarotCardModel(
         id=3, index='the_empress', type='major_arcana', orig_name='The Empress (III)', name='女皇',
         intro='体态丰腴的皇后坐在宝座上，手持象征地球的圆形手杖，戴着由九颗珍珠组成的项链，象征九颗行星，也代表金星维纳斯。\n\n'
               '皇后头冠由十二个六角星组成，象征十二星座与一年的十二个月。更进一步，六角星本身是由一个正三角形和倒三角形组成，'
@@ -200,7 +199,7 @@ class TarotCards(Enum):
                  '挥霍无度的、骄纵的、纵欲的、为爱颓废的、不正当的爱情、不伦之恋、美丽的诱惑。'
     )
 
-    the_emperor: TarotCardModel = TarotCardModel(
+    the_emperor = TarotCardModel(
         id=4, index='the_emperor', type='major_arcana', orig_name='The Emperor (IV)', name='皇帝',
         intro='一国之尊的皇帝头戴皇冠，身着红袍，脚穿象征严格纪律的盔甲，左手拿着一颗球，右手持的是象征生命的古埃及十字架，'
               '自信满满的坐在王位上。\n\n王位上有四个牡羊头作为装饰，如图所示，皇帝牌正是代表白羊座的牌。'
@@ -216,7 +215,7 @@ class TarotCards(Enum):
                  '过于在乎世俗的、权力欲望过重的、权力使人腐败的、徒劳无功的。'
     )
 
-    the_hierophant: TarotCardModel = TarotCardModel(
+    the_hierophant = TarotCardModel(
         id=5, index='the_hierophant', type='major_arcana', orig_name='The Hierophant (V)', name='教皇',
         intro='教皇身穿大红袍子，端坐在信众前。他头戴象征权力的三层皇冠，分别代表身心灵三种层次的世界。\n\n他的右手食中指指向天，象征祝福﹔'
               '左手持着主字形的权杖，象征神圣与权力。他耳朵旁边垂挂的白色小物，代表内心的声音。教皇前方放着两把交叉的钥匙，'
@@ -234,7 +233,7 @@ class TarotCards(Enum):
                  '以不正当手段取得认同的、毫无能力的、爱情遭破坏、第三者的介入。'
     )
 
-    the_lovers: TarotCardModel = TarotCardModel(
+    the_lovers = TarotCardModel(
         id=6, index='the_lovers', type='major_arcana', orig_name='The Lovers (VI)', name='恋人',
         intro='恋人牌背景在伊甸园，亚当与夏娃分站两边，两者皆裸身，代表他们没什么需要隐藏的。两人所踩的土地相当肥沃，生机盎然。\n\n'
               '夏娃的背后是知识之树，生有五颗苹果，象征五种感官，有条蛇缠绕树上。蛇在世界文化中的象征丰富多元，此处可能象征智慧，'
@@ -255,7 +254,7 @@ class TarotCards(Enum):
                  '遭受破坏的关系、爱错了人、不被祝福的恋情、因一时的寂寞而结合。'
     )
 
-    the_chariot: TarotCardModel = TarotCardModel(
+    the_chariot = TarotCardModel(
         id=7, index='the_chariot', type='major_arcana', orig_name='The Chariot (VII)', name='战车',
         intro='一位英勇的战士驾着一座由两只人面狮身兽拉着的战车。人面狮身兽一只是黑的，代表严厉，另一只是白的，代表慈悲。'
               '两兽同时来看，也是阴阳平衡的象征。\n\n战车上有四根柱子（四个代表上帝的希伯来字母YHWH或火水风土四要素）支撑着蓝色车棚，'
@@ -278,7 +277,7 @@ class TarotCards(Enum):
         reversed='不易驾驭的、严重失败、交通意外、遭遇挫折的、遇到障碍的、挣扎的、意外冲击的、失去方向的、丧失理智的、鲁莽冲撞的。'
     )
 
-    strength: TarotCardModel = TarotCardModel(
+    strength = TarotCardModel(
         id=8, index='strength', type='major_arcana', orig_name='Strength (VIII)', name='力量',
         intro='代表力量的女人轻柔地合上狮子的嘴。女人头上有魔术师牌中出现的倒８符号，象征她的力量是无穷尽的。她头上戴着花环，腰间也系着花环，'
               '而且腰间花环还连系在狮子颈间，形成第二个倒８符号。狮子身体微倾，尾巴轻垂，表现出彻底的顺服，还伸出舌头来舔着女人的手。',
@@ -292,7 +291,7 @@ class TarotCards(Enum):
                  '任性而为的、退缩的、没有能力处理问题的、充满负面情绪的。'
     )
 
-    the_hermit: TarotCardModel = TarotCardModel(
+    the_hermit = TarotCardModel(
         id=9, index='the_hermit', type='major_arcana', orig_name='The Hermit (IX)', name='隐者',
         intro='身穿灰色斗篷和帽子的老人站在冰天雪地的山巅上，低头沉思，四周渺无人烟。他右手高高举着一盏灯，这是真理之灯，'
               '灯里是颗发亮的六角星，名称是所罗门的封印，散发出潜意识之光。老人左手拄着一根族长之杖，这跟杖在愚人、魔术师、战车都曾经出现过。'
@@ -309,7 +308,7 @@ class TarotCards(Enum):
                  '被排挤的、没有足够智慧的、退缩的、自以为是的、与环境不合的。'
     )
 
-    wheel_of_fortune: TarotCardModel = TarotCardModel(
+    wheel_of_fortune = TarotCardModel(
         id=10, index='wheel_of_fortune', type='major_arcana', orig_name='Wheel of Fortune (X)', name='命运之轮',
         intro='所有的大牌都有人物，命运之轮是唯一的例外，可见这张牌独树一格。深蓝色的天空悬着一个轮子，轮盘由三个圆圈构成，'
               '最里面的小圈代表创造力，中间是形成力，最外层是物质世界。小圈里头没有任何符号，因为创造力潜能无限；中间圆圈里有四个符号，'
@@ -335,7 +334,7 @@ class TarotCards(Enum):
                  '无法掌握命运的关键时刻而导致失败、不利的突发状况、没有答案、被人摆布、有人暗中操作。'
     )
 
-    justice: TarotCardModel = TarotCardModel(
+    justice = TarotCardModel(
         id=11, index='justice', type='major_arcana', orig_name='Justice (XI)', name='正义',
         intro='一个女人端坐在石凳上，右手持剑高高举起，左手在下拿着天秤。身穿红袍，头戴金冠，绿色披肩用一个方形扣子扣起。'
               '她的右脚微微往外踏出，似乎想站起来，而左脚仍隐藏在袍子里面。她高举宝剑，象征她的决心。宝剑不偏不倚，象征公正，'
@@ -354,7 +353,7 @@ class TarotCards(Enum):
                  '存有偏见的、冥顽不灵的、小心眼、过于冷漠的、不懂感情的。'
     )
 
-    the_hanged_man: TarotCardModel = TarotCardModel(
+    the_hanged_man = TarotCardModel(
         id=12, index='the_hanged_man', type='major_arcana', orig_name='The Hanged Man (XII)', name='倒吊人',
         intro='倒吊人图案简单，涵义却深远。我们看到一个男人在一棵Ｔ字形树上倒吊着。他两手背在背后，形成一个三角形。'
               '两腿交叉形成十字。十字和三角形结合在一起，就是一个炼金符号，象征伟大志业的完成，'
@@ -378,7 +377,7 @@ class TarotCards(Enum):
                  '冷淡的、自私自利的、要求回报的付出、逃离綑绑和束缚、以错误的方式看世界。'
     )
 
-    death: TarotCardModel = TarotCardModel(
+    death = TarotCardModel(
         id=13, index='death', type='major_arcana', orig_name='Death (XIII)', name='死神',
         intro='传统的死神牌，通常是由骷髅人拿着镰刀来代表，而伟特将死神的意象提升到更深一层的境界。\n\n最显眼的就是那位骑着白马的骷髅骑士。'
               '他身边有四个人，国王、主教、女人、小孩，象征无论是世俗或出世、男或女、老或少，都逃不过死亡这个自然现象。'
@@ -402,7 +401,7 @@ class TarotCards(Enum):
         reversed='已经历经了重生阶段了、革命已经完成、挥别了过去、失去了、结束了、失败了、病了、走出阴霾的时刻到了、没有转圜余地了。'
     )
 
-    temperance: TarotCardModel = TarotCardModel(
+    temperance = TarotCardModel(
         id=14, index='temperance', type='major_arcana', orig_name='Temperance (XIV)', name='节制',
         intro='十四号的节制牌，出现在死神牌之后。大天使麦可手持两个金杯，把左手杯中的水倒入右手杯中。\n\n'
               '金发的天使身着白袍，背长红翅膀，胸前有个方形图案（地元素），中间是个橘色的三角形（火元素），同样的图案在正义牌中也可看到。'
@@ -422,7 +421,7 @@ class TarotCards(Enum):
                  '不确定的、重复犯错的、挫败的、受阻碍的、暂时的分离、希望与承诺遥遥无期。'
     )
 
-    the_devil: TarotCardModel = TarotCardModel(
+    the_devil = TarotCardModel(
         id=15, index='the_devil', type='major_arcana', orig_name='The Devil (XV)', name='恶魔',
         intro='在恶魔牌上，我们看到和恋人相似的构图，只是恋人牌的天使在这里换成了恶魔，而亚当夏娃已然沉沦，上天的祝福变成了诅咒。\n\n'
               '牌中的恶魔有蝙蝠翅膀、羊角、羊腿和鸟足，象征动物的本能与天性。牠的驴耳则代表固执。'
@@ -444,7 +443,7 @@ class TarotCards(Enum):
                  '被诅咒的、欲望强大的、不利的环境、盲目做判断、被唾弃的。'
     )
 
-    the_tower: TarotCardModel = TarotCardModel(
+    the_tower = TarotCardModel(
         id=16, index='the_tower', type='major_arcana', orig_name='The Tower (XVI)', name='塔',
         intro='一座位于山巅上的高塔，被雷击中而毁坏，塔中两人头上脚下的坠落。塔顶有个王冠受雷殛而即将坠落。'
               '塔象征物质，王冠象征统治和成就，也代表物质与财富，受雷一殛，便荡然无存。天上的落雷是直接来自上帝的语言，'
@@ -459,7 +458,7 @@ class TarotCards(Enum):
         reversed='全盘覆没、一切都已破坏殆尽、毫无转圜余地的、失去了、不安的、暴力的、已经遭逢厄运了、急需重建的。'
     )
 
-    the_star: TarotCardModel = TarotCardModel(
+    the_star = TarotCardModel(
         id=17, index='the_star', type='major_arcana', orig_name='The Star (XVII)', name='星星',
         intro='一位赤裸的金发女子，左膝跪在象征显意识的地面上，右脚踏在象征潜意识的池水里。她左右手各持一个水壶，壶中装的是生命之水，'
               '她右手壶的水倾倒入池，激起阵阵涟漪，左手壶的水则倒在青翠的草地上，分成象征人类五种感官的五道水流，其中一道又流回池塘，'
@@ -475,7 +474,7 @@ class TarotCards(Enum):
                  '好运远离的、毫无进展的、过于虚幻、假想的爱情运、偏执于理想、希望破灭的。'
     )
 
-    the_moon: TarotCardModel = TarotCardModel(
+    the_moon = TarotCardModel(
         id=18, index='the_moon', type='major_arcana', orig_name='The Moon (XVIII)', name='月亮',
         intro='相较于其它的牌，月亮整体呈现的图面经常令人感到诡异。近景是一只龙虾爬出池塘的景象，龙虾象征比恐惧和兽性更深的情绪，'
               '伟特说牠总是爬到一半又缩回去。中景处有频频吠叫的一只狗和一匹狼，分位于左右两边，分别象征人类内心中已驯化和未驯化的兽性。'
@@ -493,7 +492,7 @@ class TarotCards(Enum):
                  '恢复理智的、看清现实的、摆脱欲望的、脚踏实地的、走出谎言欺骗。'
     )
 
-    the_sun: TarotCardModel = TarotCardModel(
+    the_sun = TarotCardModel(
         id=19, index='the_sun', type='major_arcana', orig_name='The Sun (XIX)', name='太阳',
         intro='可爱的裸体孩童骑在马背上，跨越灰色的围墙，脸上带着微笑。\n\n孩童头上戴着雏菊花环，以及一根红色的羽毛。'
               '这根羽毛就是在愚人与死神出现的同一根，象征太阳牌已经跨越了死亡的界限，而重获新生。'
@@ -515,7 +514,7 @@ class TarotCards(Enum):
                  '失去活力的、没有未来的、物质的贫乏、不快乐的人生阶段。'
     )
 
-    judgement: TarotCardModel = TarotCardModel(
+    judgement = TarotCardModel(
         id=20, index='judgement', type='major_arcana', orig_name='Judgement (XX)', name='审判',
         intro='天使加百列（Gabriel）在空中居高临下吹号角，号角口处有七条放射状的线，象征七个音阶，能够将人类从物质世界的限制解放出来，'
               '并且疗愈人们的身心。\n\n喇叭绑着一张正方形红十字旗帜，象征业力的平衡。天使下方是个象征潜意识的海洋，'
@@ -535,7 +534,7 @@ class TarotCards(Enum):
                  '对生命的看法狭隘的、后悔莫及的、自责的、不满意的结果、被击垮的。'
     )
 
-    the_world: TarotCardModel = TarotCardModel(
+    the_world = TarotCardModel(
         id=21, index='the_world', type='major_arcana', orig_name='The World (XXI)', name='世界',
         intro='终于来到愚人旅程的终点。一位赤裸的舞者自由地在空中跳舞，她外貌看起来虽是女的，但在许多版本的塔罗牌中，'
               '她是雌雄同体，象征愚人终于成功将阴阳两股力量融合。\n\n舞者身体缠绕着象征高贵与神圣的紫色丝巾，象征神性其实就在每个人身上。'
@@ -555,7 +554,7 @@ class TarotCards(Enum):
                  '无法挽回的局势、不完美的结局、无法再继续的、残缺的。'
     )
 
-    ace_of_wands: TarotCardModel = TarotCardModel(
+    ace_of_wands = TarotCardModel(
         id=22, index='ace_of_wands', type='minor_arcana', orig_name='Ace of Wands', name='权杖首牌',
         intro='一只手从云中伸出，强而有力，握住一根长满绿叶的权杖。那根权杖是如此茂盛，以致鲜嫩的绿叶几乎从杖上“爆”开，'
               '有八片叶子脱离权杖，在空中飞舞。遍地青草溪流。远方的城堡似乎暗示着未来成功的可能。',
@@ -567,7 +566,7 @@ class TarotCards(Enum):
         reversed='错误的开始、乌云密布的前景、未实现的目标、空虚的存在、计划的取消、失去干劲的、丧失目的的、错过时机的。'
     )
 
-    two_of_wands: TarotCardModel = TarotCardModel(
+    two_of_wands = TarotCardModel(
         id=23, index='two_of_wands', type='minor_arcana', orig_name='Two of Wands', name='权杖二',
         intro='一位身穿领主服装的男子，站在他的城墙上，俯视他的辽阔领土，遥望远方海洋。他右手拿着一颗类似地球仪的球体，'
               '左手扶着一根权杖。右边的权杖则是被铁环系在墙上。城墙上有个白百合与红玫瑰交叉的图案，白百合象征纯洁的思想，'
@@ -580,7 +579,7 @@ class TarotCards(Enum):
         reversed='迟疑不决的、谨慎行事的、出现意外的、步调不一致的、进展遇到麻烦的、行动受到拘束的、生活穷困潦倒的。'
     )
 
-    three_of_wands: TarotCardModel = TarotCardModel(
+    three_of_wands = TarotCardModel(
         id=24, index='three_of_wands', type='minor_arcana', orig_name='Three of Wands', name='权杖三',
         intro='山巅上站着一个成功的商人，三根权杖笔直地竖立在地面上，商人右手握着其中一根，目送自己的贸易船出海。'
               '天空是鲜明的黄色，海映着天，也是黄色。',
@@ -592,7 +591,7 @@ class TarotCards(Enum):
         reversed='发展倒退的、计划延迟的、事业被终止的、受挫的、不如预期的、徒劳无功的、计划被延迟的。'
     )
 
-    four_of_wands: TarotCardModel = TarotCardModel(
+    four_of_wands = TarotCardModel(
         id=25, index='four_of_wands', type='minor_arcana', orig_name='Four of Wands', name='权杖四',
         intro='四根巨大的权杖耸立在前方，其上挂着象征胜利的花环。两位女子手持花束高举头顶欢庆舞蹈着，远方隐约可见庆祝的人群，'
               '呈现一幅和谐且繁荣的景象。右边有护城河上有座桥，通往远方的表示稳固庄园城堡。',
@@ -603,7 +602,7 @@ class TarotCards(Enum):
         reversed='缺乏支持的、失去基础的、失去平衡的、家庭冲突的、不稳定的、关系出现裂痕的、无法满足的、安于现状的。'
     )
 
-    five_of_wands: TarotCardModel = TarotCardModel(
+    five_of_wands = TarotCardModel(
         id=26, index='five_of_wands', type='minor_arcana', orig_name='Five of Wands', name='权杖五',
         intro='迥异于权杖四的和谐稳定局面，权杖五呈现一群年轻人混战的场面。'
               '每个人手上都拿着一根杖，彼此僵持不下，谁也不让谁。伟特说：这是一场模仿的战役。',
@@ -615,7 +614,7 @@ class TarotCards(Enum):
         reversed='充满诡计的、自相矛盾的、错综复杂的、受到牵累的、无法收拾的、没有着落的。'
     )
 
-    six_of_wands: TarotCardModel = TarotCardModel(
+    six_of_wands = TarotCardModel(
         id=27, index='six_of_wands', type='minor_arcana', orig_name='Six of Wands', name='权杖六',
         intro='一位年轻男子，戴着胜利的桂冠，骑着白马凯旋而归。四周都是围绕簇拥着他的群众。白色代表纯洁，马象征力量。'
               '红色的外衣象征积极主动与热忱。男子手持的权杖饰以胜利花环。艰辛奋斗已然过去，他现在抬头挺胸，享受属于他的荣耀时刻。',
@@ -627,7 +626,7 @@ class TarotCards(Enum):
         reversed='无限期的延迟、表面上的利益、不确定的获得、不如预期的、自尊心过高的。'
     )
 
-    seven_of_wands: TarotCardModel = TarotCardModel(
+    seven_of_wands = TarotCardModel(
         id=28, index='seven_of_wands', type='minor_arcana', orig_name='Seven of Wands', name='权杖七',
         intro='绿衣男子站在青葱的山顶上，手持权杖，奋力迎击敌人从山下攻上的六根权杖。他高举右手，表情坚毅。',
         words='挑战',
@@ -637,7 +636,7 @@ class TarotCards(Enum):
         reversed='放弃、屈服、困惑茫然的、不知所措的、卷入争斗中、受到妨碍、无谓的付出、陷入苦战的。'
     )
 
-    eight_of_wands: TarotCardModel = TarotCardModel(
+    eight_of_wands = TarotCardModel(
         id=29, index='eight_of_wands', type='minor_arcana', orig_name='Eight of Wands', name='权杖八',
         intro='八根权杖整齐划一的在空中航行，背景是蔚蓝的天空与青翠的山丘平原，还有一条宁静的小溪流过。',
         words='自由',
@@ -649,7 +648,7 @@ class TarotCards(Enum):
         reversed='运气急转直下、停滞不前的、匆忙而没有准备的。'
     )
 
-    nine_of_wands: TarotCardModel = TarotCardModel(
+    nine_of_wands = TarotCardModel(
         id=30, index='nine_of_wands', type='minor_arcana', orig_name='Nine of Wands', name='权杖九',
         intro='一个壮汉靠着长杖，似乎在等待着什么。他的头上扎绷带，显示他在过去战役中曾经受伤，尚未复原。'
               '但他并不畏惧，仍然紧锣密鼓等待着敌人的下一波来袭。他身后竖立八根权杖，井井有条，像是栅栏，包围着壮汉所守护的家园。',
@@ -662,7 +661,7 @@ class TarotCards(Enum):
         reversed='障碍、逆境、无法掌握的、须克服的阻碍、态度悠哉的。'
     )
 
-    ten_of_wands: TarotCardModel = TarotCardModel(
+    ten_of_wands = TarotCardModel(
         id=31, index='ten_of_wands', type='minor_arcana', orig_name='Ten of Wands', name='权杖十',
         intro='一个男人奋力的扛着十根沉重的权杖，朝着远方的房子前进。'
               '他被权杖的重量压得喘不过气，疲累万分，但他仍不愿放弃，为了生活，一步一脚印的往前走。',
@@ -677,7 +676,7 @@ class TarotCards(Enum):
         reversed='从压力解脱、逃离现况的、逃避责任的、无法委任的、承担太多责任、精神崩溃的。'
     )
 
-    page_of_wands: TarotCardModel = TarotCardModel(
+    page_of_wands = TarotCardModel(
         id=32, index='page_of_wands', type='minor_arcana', orig_name='Page of Wands', name='权杖侍从',
         intro='权杖侍从把权杖拄在地上，好奇地看着杖顶，好像在研究什么东西。他的服装是明亮的鲜黄色，外衣上有权杖家族图腾火蜥蜴，'
               '有些蜥蜴的嘴没有真正咬到尾巴，形成不完整循环，但有些却有。牌的背景是沙漠和三个金字塔。',
@@ -690,7 +689,7 @@ class TarotCards(Enum):
         reversed='做事没有准则的、一事无成的、不采取行动而优柔寡断的、不情愿的、携带坏消息的人、使你伤心的人。'
     )
 
-    knight_of_wands: TarotCardModel = TarotCardModel(
+    knight_of_wands = TarotCardModel(
         id=33, index='knight_of_wands', type='minor_arcana', orig_name='Knight of Wands', name='权杖骑士',
         intro='权杖骑士骑着健马，高举权杖，表情自信地看着远方。他穿着明亮黄色服装，上面同样有权杖的家族象征火蜥蜴，'
               '但蜥蜴的嘴没有触碰到尾巴，形成一个不完整的循环。骑士的头盔顶端和背後都饰着红色的长穗，还戴着红手套，'
@@ -704,7 +703,7 @@ class TarotCards(Enum):
         reversed='被动的、急躁的、没有行动规划的、冲动的、鲁莽的、傲慢的、缺乏自我控制的、盛气凌人的、预料之外的转变。'
     )
 
-    queen_of_wands: TarotCardModel = TarotCardModel(
+    queen_of_wands = TarotCardModel(
         id=34, index='queen_of_wands', type='minor_arcana', orig_name='Queen of Wands', name='权杖皇后',
         intro='权杖皇后戴着盛开绿叶的王冠，穿着阳光般金黄服饰，坐在宝座上。她的体态强健。她的左手拿着一朵向日葵，'
               '她的右手持权杖，眼光向左望。宝座的扶手是两只狮子，后面悬吊的帷幕上，再度出现火象的狮子图腾和向日葵。'
@@ -716,7 +715,7 @@ class TarotCards(Enum):
         reversed='失去活力的、善于计谋的、情绪失控的、欺诈的、缺乏安全感的、嫉妒心强的、自私的、喜怒无常的、恃强凌弱的。'
     )
 
-    king_of_wands: TarotCardModel = TarotCardModel(
+    king_of_wands = TarotCardModel(
         id=35, index='king_of_wands', type='minor_arcana', orig_name='King of Wands', name='权杖国王',
         intro='权杖国王坐在宝座上，身躯稍微向前倾，好像随时准备出发。他右手持权杖，杖上长有新鲜的绿叶。'
               '宝座和披风饰以狮子和火蜥蜴，地上还有一只火蜥蜴陪伴着他。',
@@ -730,7 +729,7 @@ class TarotCards(Enum):
         reversed='任性的、不成熟的领导、意气用事的、独断专行的、专横的、严格而苛刻的、极端和夸张的想法。'
     )
 
-    ace_of_cups: TarotCardModel = TarotCardModel(
+    ace_of_cups = TarotCardModel(
         id=36, index='ace_of_cups', type='minor_arcana', orig_name='Ace of Cups', name='圣杯首牌',
         intro='圣杯首牌是所有小牌的一号牌中最富象征意义的。图中的圣杯就是耶稣在最后晚餐中使用的杯子，杯上有个倒立的Ｍ字母。据说，在耶稣死后，'
               '他的鲜血就是由这个圣杯所承装着。\n\n白鸽是天主教中圣灵的象征，牠衔着象征耶稣身体的圣饼，自上而下彷佛要进入杯中。'
@@ -745,7 +744,7 @@ class TarotCards(Enum):
         reversed='失落内心不稳定的、空虚的、寂寞的。'
     )
 
-    two_of_cups: TarotCardModel = TarotCardModel(
+    two_of_cups = TarotCardModel(
         id=37, index='two_of_cups', type='minor_arcana', orig_name='Two of Cups', name='圣杯二',
         intro='一男一女面对彼此，向对方持杯致意。两人头上都戴着花环，男人身躯微微向前，左脚踏出，右手也伸向女人，而女人站姿端凝如山。'
               '他们中间浮着一根两条蛇缠绕的杖，称为“赫米斯之杖”，是治疗的象征。杖上的狮子头象征沟通，'
@@ -758,7 +757,7 @@ class TarotCards(Enum):
         reversed='沟通不良的、不和谐的、情绪崩溃的。'
     )
 
-    three_of_cups: TarotCardModel = TarotCardModel(
+    three_of_cups = TarotCardModel(
         id=38, index='three_of_cups', type='minor_arcana', orig_name='Three of Cups', name='圣杯三',
         intro='三个女子紧靠彼此，围成圆圈，高举圣杯互相庆贺。她们头上都戴着象征丰收的花圈，穿着色彩艳丽的袍子，脸上幸福洋溢。'
               '四周有藤蔓、葫芦及南瓜，一位女子手上提着一串葡萄，这些植物很容易让人联想到丰收的时节。这三位女子分别有不同颜色的头发与眼珠，'
@@ -773,7 +772,7 @@ class TarotCards(Enum):
         reversed='孤立无援的、孤独的、独处的、被背叛的、功亏一篑的。'
     )
 
-    four_of_cups: TarotCardModel = TarotCardModel(
+    four_of_cups = TarotCardModel(
         id=39, index='four_of_cups', type='minor_arcana', orig_name='Four of Cups', name='圣杯四',
         intro='一个男人百无聊赖地坐在树下，双眼紧闭，双手双脚合在一起，形成防御的姿态。他前方三个杯子象征他过去的经验。'
               '云中伸出一只手给他第四个杯子，他却视而不见，独自沉浸在自己的世界中。',
@@ -786,7 +785,7 @@ class TarotCards(Enum):
         reversed='错过机会的、抑郁的, 充满负面情绪的。'
     )
 
-    five_of_cups: TarotCardModel = TarotCardModel(
+    five_of_cups = TarotCardModel(
         id=40, index='five_of_cups', type='minor_arcana', orig_name='Five of Cups', name='圣杯五',
         intro='在灰暗的天空底下，有一个人身着黑色斗篷，低头哀悼地上三个倾倒的杯子，里头五颜六色的酒流了出来。'
               '他的前方是一条河，象征悲伤之流，但河上有座象征意识与决心的桥，通往远处的房子。灰暗的天色反映牌中人的沮丧的内心世界。'
@@ -799,7 +798,7 @@ class TarotCards(Enum):
         reversed='新的开始、宽恕、接受、继续前进、寻找和平、知足常乐、看到积极的一面。'
     )
 
-    six_of_cups: TarotCardModel = TarotCardModel(
+    six_of_cups = TarotCardModel(
         id=41, index='six_of_cups', type='minor_arcana', orig_name='Six of Cups', name='圣杯六',
         intro='在一座宁静安详的庄园里，有六个盛装星币花朵的圣杯。一个小男孩捧着圣杯，似乎在嗅着花香，又好像把圣杯献给小女孩。'
               '背景充斥代表快乐的鲜黄色，而天气晴和。让人彷佛有置身童话世界的感受。',
@@ -812,7 +811,7 @@ class TarotCards(Enum):
         reversed='离家、陷于过去、不平等的爱、沉溺过去。'
     )
 
-    seven_of_cups: TarotCardModel = TarotCardModel(
+    seven_of_cups = TarotCardModel(
         id=42, index='seven_of_cups', type='minor_arcana', orig_name='Seven of Cups', name='圣杯七',
         intro='七个圣杯飘浮在云雾弥漫的半空中，杯中分别装着城堡（象征冒险）、珠宝（财富）、桂冠（胜利）、龙（恐惧，另一说是诱惑）、'
               '人头、盖着布发光的人（自己）以及蛇（智慧，另一说是嫉妒）。请注意桂冠的下方有颗不显眼的骷髅头，'
@@ -829,7 +828,7 @@ class TarotCards(Enum):
         reversed='缺乏目标的、转移注意力、混淆的、混乱的、分心的、做出选择、做出决定。'
     )
 
-    eight_of_cups: TarotCardModel = TarotCardModel(
+    eight_of_cups = TarotCardModel(
         id=43, index='eight_of_cups', type='minor_arcana', orig_name='Eight of Cups', name='圣杯八',
         intro='身穿红衣红鞋的男子在暮色中，手持长杖，离开他先前辛苦建立的的八个杯子，越过河川，转身而去。'
               '四周沼泽密布，象征淤塞的情感，如同一滩死水。',
@@ -843,7 +842,7 @@ class TarotCards(Enum):
         reversed='逃避、害怕改变、停滞不前的、单调乏味的、胆怯的、不安全感的。'
     )
 
-    nine_of_cups: TarotCardModel = TarotCardModel(
+    nine_of_cups = TarotCardModel(
         id=44, index='nine_of_cups', type='minor_arcana', orig_name='Nine of Cups', name='圣杯九',
         intro='一个财主装扮的的男子坐在小凳上，双手抱胸，神情怡然自得。'
               '他身后的高桌上，覆盖蓝色桌布，九个圣杯排排站。背景则是一片光明的鲜黄色。',
@@ -856,7 +855,7 @@ class TarotCards(Enum):
         reversed='缺乏内心的喜悦、自以为是的、不满意的、缺乏成就感的、失望的。'
     )
 
-    ten_of_cups: TarotCardModel = TarotCardModel(
+    ten_of_cups = TarotCardModel(
         id=45, index='ten_of_cups', type='minor_arcana', orig_name='Ten of Cups', name='圣杯十',
         intro='在卡面中我们看到一家四口和乐融融，父母亲搂抱对方，各举一只手迎向圣杯彩虹，'
               '两个孩子快乐的手牵手跳舞，背景是清翠的树木河流，和一栋房屋。',
@@ -869,7 +868,7 @@ class TarotCards(Enum):
         reversed='失去和谐的、破裂的关系、梦想破灭的、家庭破碎的、家庭不幸福的、分离的、家庭冲突。'
     )
 
-    page_of_cups: TarotCardModel = TarotCardModel(
+    page_of_cups = TarotCardModel(
         id=46, index='page_of_cups', type='minor_arcana', orig_name='Page of Cups', name='圣杯侍从',
         intro='圣杯侍从穿着花朵图案的衣服，身体很轻松地站着，左手叉腰，面带微笑，用好奇的眼光，没有任何压力地看着圣杯中蹦出的一条鱼。',
         words='奉献',
@@ -883,7 +882,7 @@ class TarotCards(Enum):
         reversed='情感不成熟的、不安全感的、情感脆弱的、不成熟的、逃避主义的、不愿意付出的、软弱不振的。'
     )
 
-    knight_of_cups: TarotCardModel = TarotCardModel(
+    knight_of_cups = TarotCardModel(
         id=47, index='knight_of_cups', type='minor_arcana', orig_name='Knight of Cups', name='圣杯骑士',
         intro='不同于权杖骑士或宝剑骑士的迅捷骑马姿态，圣杯骑士的白马很有绅士风度，优雅地行进，跟主人一样。'
               '圣杯骑士平举着圣杯，他的眼光有些梦幻，深深注视着圣杯。',
@@ -895,7 +894,7 @@ class TarotCards(Enum):
         reversed='喜怒无常的、动荡的、逃避冲突的、虚荣心强的、不愿意付出的、花心的、拖延迟疑的、感情用事的。'
     )
 
-    queen_of_cups: TarotCardModel = TarotCardModel(
+    queen_of_cups = TarotCardModel(
         id=48, index='queen_of_cups', type='minor_arcana', orig_name='Queen of Cups', name='圣杯皇后',
         intro='圣杯皇后双手捧着圣杯，眼神直直的注视着圣杯。那圣杯是教堂形状，两臂各有一位天使，顶端是十字架，象征圣杯皇后的虔诚。'
               '她坐在海边的宝座上，宝座基部有个小美人鱼抓鱼的图案，顶部是两个小美人鱼共同抱着一个大蚌壳。',
@@ -908,7 +907,7 @@ class TarotCards(Enum):
         reversed='不安全感、过度敏感的、脆弱的、滥情、不切实际的、多愁善感的。'
     )
 
-    king_of_cups: TarotCardModel = TarotCardModel(
+    king_of_cups = TarotCardModel(
         id=49, index='king_of_cups', type='minor_arcana', orig_name='King of Cups', name='圣杯国王',
         intro='国王坐在波涛汹涌海中央的宝座上，左边有条鱼跳出海面，右边有一艘帆船。他的内袍是代表水要素的蓝色，胸前还挂著鱼形项链。'
               '他左手拿著象征权力的杖，右手持圣杯，他却是圣杯家族中唯一不注视圣杯的人。',
@@ -922,7 +921,7 @@ class TarotCards(Enum):
         reversed='冷漠的、糟糕的建议、不知所措的、冷淡的、压抑的、控制欲的、伪善的。'
     )
 
-    ace_of_swords: TarotCardModel = TarotCardModel(
+    ace_of_swords = TarotCardModel(
         id=50, index='ace_of_swords', type='minor_arcana', orig_name='Ace of Swords', name='宝剑首牌',
         intro='一只手从云中伸出，紧紧握住宝剑，宝剑穿过皇冠与桂冠，而远方是毫无绿意的尖锐山头，以及灰白空旷的天际。',
         words='思想',
@@ -934,7 +933,7 @@ class TarotCards(Enum):
         reversed='混乱的、粗暴的、沟通不畅的、争论的、破坏的。'
     )
 
-    two_of_swords: TarotCardModel = TarotCardModel(
+    two_of_swords = TarotCardModel(
         id=51, index='two_of_swords', type='minor_arcana', orig_name='Two of Swords', name='宝剑二',
         intro='身穿浅灰长袍的女人坐在灰石凳上，背对着澎湃汹涌、暗礁满布的海洋。她眼蒙白布，双手持剑，在胸前交叉不动。天际高挂一轮新月。',
         words='抉择',
@@ -946,7 +945,7 @@ class TarotCards(Enum):
         reversed='两害相权取其轻的、没有正确的选择的、需做出决定的、敷衍了事的、走投无路的。'
     )
 
-    three_of_swords: TarotCardModel = TarotCardModel(
+    three_of_swords = TarotCardModel(
         id=52, index='three_of_swords', type='minor_arcana', orig_name='Three of Swords', name='宝剑三',
         intro='映入眼帘的是一幅令人痛苦的画面。即使是完全没有接触过塔罗牌的朋友，也可以轻易道出宝剑三的涵义──伤心。'
               '三把剑合力刺进一颗鲜红的心，背景是灰暗的雨和云。某些版本的塔罗牌给这张牌一个更直接的名称，叫做“悲伤”。',
@@ -960,7 +959,7 @@ class TarotCards(Enum):
         reversed='恢复、宽恕、继续前进、愈合、和解、压抑的情绪、接受事实的。'
     )
 
-    four_of_swords: TarotCardModel = TarotCardModel(
+    four_of_swords = TarotCardModel(
         id=53, index='four_of_swords', type='minor_arcana', orig_name='Four of Swords', name='宝剑四',
         intro='图中的男人在类似修道院的建筑物内休息，双手合抱胸前，呈现安详的状态。彩绘玻璃表现一个祈祷者跪在圣母面前的画面，'
               '好像在寻求什么建议，以获得内心的宁静。三把宝剑挂在墙上不用，但他身旁仍保有一把宝剑，当他醒来，随时可以拿起宝剑来采取行动。',
@@ -973,7 +972,7 @@ class TarotCards(Enum):
         reversed='烦躁的、倦怠的、充满压力的、重新进入世界、从孤立中释放出来、做好准备再次启动。'
     )
 
-    five_of_swords: TarotCardModel = TarotCardModel(
+    five_of_swords = TarotCardModel(
         id=54, index='five_of_swords', type='minor_arcana', orig_name='Five of Swords', name='宝剑五',
         intro='红发的男子右手抱着两把剑，左手拄着另一把，回头注视远方两个失败者，嘴角似乎带着微笑。很明显的，他们刚结束一场争执，'
               '也许暴力相向。地上还散落着两把剑。另外两人中，一人怅然离去，一人用手摀着脸，似乎难以接受，或者感到伤心羞辱。'
@@ -986,7 +985,7 @@ class TarotCards(Enum):
         reversed='背叛欺骗的、挥之不去的怨恨、渴望和解的、妥协的、后悔或悔恨的、减轻损失。'
     )
 
-    six_of_swords: TarotCardModel = TarotCardModel(
+    six_of_swords = TarotCardModel(
         id=55, index='six_of_swords', type='minor_arcana', orig_name='Six of Swords', name='宝剑六',
         intro='一艘小船上插着六把宝剑，船上有一个女人、一个小孩与一位船夫。\n\n船缓缓的朝远方的岸边前进，而此端的水汹涌，彼方的水平静。'
               '象征伤害的六把剑插在船身上，以及三个主角哀伤的背影，构成宝剑六缓慢低回的基调。沉重的剑身让船夫只能缓行，疗伤的过程亦同。'
@@ -1002,7 +1001,7 @@ class TarotCards(Enum):
         reversed='受到连累的、绊脚石、情感包袱、未解决的问题、困在过去的、回到麻烦中、逃避问题。'
     )
 
-    seven_of_swords: TarotCardModel = TarotCardModel(
+    seven_of_swords = TarotCardModel(
         id=56, index='seven_of_swords', type='minor_arcana', orig_name='Seven of Swords', name='宝剑七',
         intro='图中的男子身处军营中，趁着远方敌人炊饭没有防备时，悄悄偷走五把剑，还留着两把在原处。',
         words='逃避',
@@ -1016,7 +1015,7 @@ class TarotCards(Enum):
         reversed='觉察危险的、突发奇想的、防范未然的、另辟蹊径的、忏悔的、真理的揭示。'
     )
 
-    eight_of_swords: TarotCardModel = TarotCardModel(
+    eight_of_swords = TarotCardModel(
         id=57, index='eight_of_swords', type='minor_arcana', orig_name='Eight of Swords', name='宝剑八',
         intro='一个女人眼睛被布蒙住，上半身被捆绑着，身处八把宝剑群中。'
               '地上满是象征羞辱的泥泞，而远方是座矗立于峭壁之上的城堡，象征绑住她的权威。',
@@ -1032,7 +1031,7 @@ class TarotCards(Enum):
         reversed='恢复自由、自我接受、新视角、释放、降服、幸存者、面对恐惧的。'
     )
 
-    nine_of_swords: TarotCardModel = TarotCardModel(
+    nine_of_swords = TarotCardModel(
         id=58, index='nine_of_swords', type='minor_arcana', orig_name='Nine of Swords', name='宝剑九',
         intro='午夜梦回，一个女子从睡梦中惊醒，把脸埋在双手中。墙上横挂着九把剑，看起来彷佛从后面刺穿那女子，带给人极大的压迫感。'
               '棉被图案是由象征热情的玫瑰，以及星座符号组成的。床侧则雕刻着一人击败另一人的画面。',
@@ -1045,7 +1044,7 @@ class TarotCards(Enum):
         reversed='回忆困扰、痛苦减轻的、寻找希望的、伸出援手、学会应对、寻找帮助。'
     )
 
-    ten_of_swords: TarotCardModel = TarotCardModel(
+    ten_of_swords = TarotCardModel(
         id=59, index='ten_of_swords', type='minor_arcana', orig_name='Ten of Swords', name='宝剑十',
         intro='一个俯卧的男人，背上插着十把剑，有一把甚至从插进耳朵里去。这画面实在令人怵目惊心。牌面中有一半被黑色的天空和乌云所占去，'
               '多少暗示宝剑十这张牌是大家避之唯恐不及的所谓的“坏牌”。',
@@ -1059,7 +1058,7 @@ class TarotCards(Enum):
         reversed='释怀的、往好的方向看、不可避免的结束、改善、愈合、学到的教训。'
     )
 
-    page_of_swords: TarotCardModel = TarotCardModel(
+    page_of_swords = TarotCardModel(
         id=60, index='page_of_swords', type='minor_arcana', orig_name='Page of Swords', name='宝剑侍从',
         intro='宝剑侍从两手握著宝剑，眼光却朝著远方。他的头发和背景中的树都被风吹得飞扬。'
               '远方天空中有十只小鸟成群飞舞。背景灰云带来些许混乱的气氛',
@@ -1073,7 +1072,7 @@ class TarotCards(Enum):
         reversed='错误评估、冲动的、不谨慎的、心不在焉的、愤世嫉俗的、爱说闲话的、粗鲁的、缺乏规划的。'
     )
 
-    knight_of_swords: TarotCardModel = TarotCardModel(
+    knight_of_swords = TarotCardModel(
         id=61, index='knight_of_swords', type='minor_arcana', orig_name='Knight of Swords', name='宝剑骑士',
         intro='宝剑骑士和圣杯骑士同样骑着白马，但宝剑骑士这匹马在狂风中极速奔驰，与圣杯骑士平缓前进的马形成强烈对比。'
               '宝剑骑士将宝剑高举过头，表情狰狞，向前冲杀。马鞍上饰以蝴蝶和鸟，象征风要素。他穿着铁甲，外袍也有鸟的图案，'
@@ -1087,7 +1086,7 @@ class TarotCards(Enum):
         reversed='逃避问题的、强势冲动的、盲目做出行为、没有方向的、不顾后果的、不可预测的、没有策略的、咄咄逼人的。'
     )
 
-    queen_of_swords: TarotCardModel = TarotCardModel(
+    queen_of_swords = TarotCardModel(
         id=62, index='queen_of_swords', type='minor_arcana', orig_name='Queen of Swords', name='宝剑皇后',
         intro='宝剑皇后戴著蝴蝶花纹的王冠，象征灵魂，也象征风要素。她穿着灰色内袍，和蓝天灰云花纹的披风。她的表情坚毅，似乎皱著眉头，'
               '左手却对世界敞开。她右手高举宝剑，剑尖笔直向上。她的宝座扶手之下有个人头花纹，那是风之精灵，宝座的底部又有蝴蝶花纹。'
@@ -1100,7 +1099,7 @@ class TarotCards(Enum):
         reversed='是非不分的、装腔作势的、冷酷无情的、残酷的、恶毒的、苛刻的、不宽容。'
     )
 
-    king_of_swords: TarotCardModel = TarotCardModel(
+    king_of_swords = TarotCardModel(
         id=63, index='king_of_swords', type='minor_arcana', orig_name='King of Swords', name='宝剑国王',
         intro='宝剑国王是四张国王牌中唯一以正面出现的。他穿著蓝色内袍和红色披风，他的右手持剑，剑尖偏右，偏向行动的那一边。'
               '左手戴着象征权力的戒指，轻松的放在腿上。他后方帷幕上饰有象征灵魂和风要素的蝴蝶花纹。天空中的鸟的数量有两只，'
@@ -1115,7 +1114,7 @@ class TarotCards(Enum):
         reversed='独裁的、失控的的、矛盾混乱的、自私的、不理性的、独裁者、压迫的、不人道的、控制欲的、冷酷的。'
     )
 
-    ace_of_pentacles: TarotCardModel = TarotCardModel(
+    ace_of_pentacles = TarotCardModel(
         id=64, index='ace_of_pentacles', type='minor_arcana', orig_name='Ace of Pentacles', name='星币首牌',
         intro='云中伸出一只手，捧着一枚星币。背景是花草满布的繁盛庭园，绿树拱门外的远方有座白色的山，'
               '暗示星币一不只有关物质，也可以延伸到精神层面。',
@@ -1127,7 +1126,7 @@ class TarotCards(Enum):
         reversed='失去的机会、只为利益的、错过的机会、糟糕的投资、匮乏的、不稳定的、吝啬的。'
     )
 
-    two_of_pentacles: TarotCardModel = TarotCardModel(
+    two_of_pentacles = TarotCardModel(
         id=65, index='two_of_pentacles', type='minor_arcana', orig_name='Two of Pentacles', name='星币二',
         intro='一个红衣装扮，头戴高帽，类似街头艺人的男子，正在耍弄两个星币，星币外围的带子形成８自形无限符号，'
               '魔术师和力量牌中也有这个符号。他背后的海面起伏剧烈，两艘船正在其上行驶。',
@@ -1139,7 +1138,7 @@ class TarotCards(Enum):
         reversed='失去平衡的、无序的、不堪重负的、不平衡的、无组织的、混乱的、过度扩张的。'
     )
 
-    three_of_pentacles: TarotCardModel = TarotCardModel(
+    three_of_pentacles = TarotCardModel(
         id=66, index='three_of_pentacles', type='minor_arcana', orig_name='Three of Pentacles', name='星币三',
         intro='在一座修道院里头，有位雕刻师正在工作，旁边两位修道人拿着草图，似乎正在和雕刻师讨论工作的进度。',
         words='学习',
@@ -1153,7 +1152,7 @@ class TarotCards(Enum):
         reversed='能力不足的、缺乏团队合作的、组织混乱的、群体冲突、缺乏凝聚力的、动力不足的、自负的。'
     )
 
-    four_of_pentacles: TarotCardModel = TarotCardModel(
+    four_of_pentacles = TarotCardModel(
         id=67, index='four_of_pentacles', type='minor_arcana', orig_name='Four of Pentacles', name='星币四',
         intro='图中的男人戴着皇冠，身穿象征统治威权的红色袍子，下摆饰以蓝边，显示出崇高的领主身分。他坐在一个箱子上，头顶一枚星币，'
               '双手紧抓着另一枚，双脚又各踩着两枚，紧张的神情似乎深怕他失去任何一丁点财产。这个人虽有钱，却孤绝于城市人群之外。',
@@ -1166,7 +1165,7 @@ class TarotCards(Enum):
         reversed='贪婪的、慷慨、给予、开放的、财务不安全的、胡乱消费的。'
     )
 
-    five_of_pentacles: TarotCardModel = TarotCardModel(
+    five_of_pentacles = TarotCardModel(
         id=68, index='five_of_pentacles', type='minor_arcana', orig_name='Five of Pentacles', name='星币五',
         intro='冰天雪地中，两个乞丐蹒跚前行，又瘸又驼背，身上的衣服破烂不堪。'
               '他们经过一间象征物质与精神庇护的教堂，却视而不见，挺着饥饿且疲惫的身躯，径自赶路。',
@@ -1181,7 +1180,7 @@ class TarotCards(Enum):
         reversed='恢复、慈善、改善的、积极的变化、从损失中恢复、克服逆境的、宽恕的、感觉受到欢迎的。'
     )
 
-    six_of_pentacles: TarotCardModel = TarotCardModel(
+    six_of_pentacles = TarotCardModel(
         id=69, index='six_of_pentacles', type='minor_arcana', orig_name='Six of Pentacles', name='星币六',
         intro='一个商人装扮的男子，脚边跪着两个乞丐。商人右手施舍其中一名乞丐，左手拿着象征平衡的天秤。',
         words='施舍',
@@ -1195,7 +1194,7 @@ class TarotCards(Enum):
         reversed='有条件的施舍、权力和支配、附带条件的礼物、不平等的、勒索、贪婪。'
     )
 
-    seven_of_pentacles: TarotCardModel = TarotCardModel(
+    seven_of_pentacles = TarotCardModel(
         id=70, index='seven_of_pentacles', type='minor_arcana', orig_name='Seven of Pentacles', name='星币七',
         intro='一位农夫把下巴架在杖上，低头看着他长久辛勤得来的收成。这丛农作物在他的耕耘下，已经可以自己成长茁壮了。'
               '农夫的表情似乎很满足，又彷佛在思考下一步该怎么做。',
@@ -1210,7 +1209,7 @@ class TarotCards(Enum):
         reversed='过度劳累的、无法享受成果的、看不见目标的、工作没有结果的、缺乏回报的、努力不足、挫折、缺乏回报的。'
     )
 
-    eight_of_pentacles: TarotCardModel = TarotCardModel(
+    eight_of_pentacles = TarotCardModel(
         id=71, index='eight_of_pentacles', type='minor_arcana', orig_name='Eight of Pentacles', name='星币八',
         intro='一位雕刻匠坐在长板凳上，专注而勤劳地刻着星币星币，他前面已经完成六个了，脚边还有一个未完成。'
               '有一条黄色的道路连接远方的市镇与雕刻匠，连接工作与社会，无论什么工作，目的都是服务人群，雕刻匠并未忘记这一点。',
@@ -1224,7 +1223,7 @@ class TarotCards(Enum):
         reversed='错误百出的、敷衍的、缺乏激情的、没有灵感的、没有动力的、缺乏质量的、工作仓促的、平庸懒惰的、技能低下的、没有前途的工作。'
     )
 
-    nine_of_pentacles: TarotCardModel = TarotCardModel(
+    nine_of_pentacles = TarotCardModel(
         id=72, index='nine_of_pentacles', type='minor_arcana', orig_name='Nine of Pentacles', name='星币九',
         intro='一位衣着华丽的女子站在她的庄园中，四周葡萄茂盛，正是收成时节。她右手扶在星币上，'
               '大拇指还扣着一根葡萄藤，左手则戴着白手套，让她的小鸟站在上面，小鸟的头部却被红布遮住了。',
@@ -1236,7 +1235,7 @@ class TarotCards(Enum):
         reversed='日常琐事干扰、缺乏果断的决策力、面对重大挫折、孤立无援、肆意挥霍、入不敷出、虚假的成功、物质上不稳定的。'
     )
 
-    ten_of_pentacles: TarotCardModel = TarotCardModel(
+    ten_of_pentacles = TarotCardModel(
         id=73, index='ten_of_pentacles', type='minor_arcana', orig_name='Ten of Pentacles', name='星币十',
         intro='星币十的近景是一位老年人，他舒服的坐着，身旁围绕着两只狗。'
               '拱门外的市镇中有一对青年男女，似乎在讨论什么，还有一个小孩子。十个星币排列成生命之树的符号。',
@@ -1251,7 +1250,7 @@ class TarotCards(Enum):
         reversed='昙花一现的成功、缺乏稳定、缺乏资源、家庭纠纷、破产债务、失去金钱援助、过往的经验或财力逐渐入不敷出、团队关系不和睦。'
     )
 
-    page_of_pentacles: TarotCardModel = TarotCardModel(
+    page_of_pentacles = TarotCardModel(
         id=74, index='page_of_pentacles', type='minor_arcana', orig_name='Page of Pentacles', name='星币侍从',
         intro='星币待从双脚坚稳的站立在地面上，高高捧着星币，他所着迷的东西，在眼前仔细地观察着。他头戴红色软帽头饰，带子围着肩颈。'
               '身上的穿着是以棕色为底，套着绿色的外衣，鞋子和腰带也是棕色的。'
@@ -1264,7 +1263,7 @@ class TarotCards(Enum):
         reversed='经验不足的、不合逻辑的、懒惰的、不成熟的、不负责任的、拖延的、错失机会的、前景不佳的。'
     )
 
-    knight_of_pentacles: TarotCardModel = TarotCardModel(
+    knight_of_pentacles = TarotCardModel(
         id=75, index='knight_of_pentacles', type='minor_arcana', orig_name='Knight of Pentacles', name='星币骑士',
         intro='星币骑士笔直地坐在黑马背上，仔细打量手上的星币。黑色的强壮马匹配着厚实的红色马鞍和缰绳，侧面垂着红色的软坐垫，'
               '牢牢地站在地面，是四张骑士牌中唯一不动的座骑。骑士戴着头盔，头盔顶端饰有穗状的绿叶，黑马的头顶也有相同的叶穗。'
@@ -1278,7 +1277,7 @@ class TarotCards(Enum):
         reversed='半途而废的、停滞的、工作狂、没有主动性、不负责任的、赌徒、高风险的投资。'
     )
 
-    queen_of_pentacles: TarotCardModel = TarotCardModel(
+    queen_of_pentacles = TarotCardModel(
         id=76, index='queen_of_pentacles', type='minor_arcana', orig_name='Queen of Pentacles', name='星币皇后',
         intro='星币皇后的面貌端庄而正直，双手捧着星币，并低头凝望着星币，神情若有所思。她的后冠是圆顶的，中间有插着两根红色羽毛，'
               '星币皇后的后袍是红色的，内衫露出的袖子是白色的，是红白对立的组合，绿色的披风由头上往下延伸到椅上。'
@@ -1295,7 +1294,7 @@ class TarotCards(Enum):
         reversed='以自我为中心的、不修边幅的、没有安全感的、物质主义的、爱慕虚荣的、拜金的、误判局势。'
     )
 
-    king_of_pentacles: TarotCardModel = TarotCardModel(
+    king_of_pentacles = TarotCardModel(
         id=77, index='king_of_pentacles', type='minor_arcana', orig_name='King of Pentacles', name='星币国王',
         intro='星币国王悠然自得的坐在他的花园里。他的左手拿着星币，右手拿着权杖，姿态轻松。花围中长满象征丰收成果的葡萄和各种植物，'
               '他的服装也满是葡萄图案，整个人似乎与大自然融成一体。宝座上有牛头图案，是星币的家族图腾。国王的右手靠在座椅的扶手上，'
@@ -1312,5 +1311,5 @@ class TarotCards(Enum):
 
 __all__ = [
     'TarotCards',
-    'TarotPack'
+    'TarotPack',
 ]

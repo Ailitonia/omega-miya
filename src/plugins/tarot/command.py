@@ -12,14 +12,12 @@ import random
 from typing import Annotated
 
 from nonebot.log import logger
-from nonebot.matcher import Matcher
 from nonebot.params import ArgStr, Depends
 from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.permission import IS_ADMIN
-from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
-
+from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
 from .helper import generate_tarot_card, get_tarot_resource_name, set_tarot_resource
 from .resources import get_tarot_resource, get_available_tarot_resource
 
@@ -33,12 +31,10 @@ from .resources import get_tarot_resource, get_available_tarot_resource
     state=enable_processor_state(name='Tarot', level=10),
 ).got('card_name', prompt='你想要看哪张塔罗牌呢?')
 async def handle_show_tarot(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        matcher: Matcher,
-        card_name: Annotated[str | None, ArgStr('card_name')]
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        card_name: Annotated[str | None, ArgStr('card_name')],
 ) -> None:
-    interface.refresh_matcher_state()
-    resource_name = await get_tarot_resource_name(matcher=matcher, interface=interface)
+    resource_name = await get_tarot_resource_name(interface=interface)
     card_resource = get_tarot_resource(resource_name=resource_name)
 
     if card_name is not None:
@@ -84,23 +80,21 @@ async def handle_show_tarot(
     state=enable_processor_state(name='SetTarotResource', level=10),
 ).got('resource_name', prompt='请输入想要配置的塔罗牌组名称:')
 async def handle_set_tarot_resource(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        resource_name: Annotated[str | None, ArgStr('resource_name')]
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        resource_name: Annotated[str | None, ArgStr('resource_name')],
 ) -> None:
-    interface.refresh_matcher_state()
     resource_msg = '\n'.join(get_available_tarot_resource())
 
     if resource_name is None:
         await interface.send_reply(f'当前可用的塔罗牌组有:\n\n{resource_msg}')
-        await interface.reject('请输入想要配置的塔罗牌组名称:')
+        await interface.reject_reply('请输入想要配置的塔罗牌组名称:')
 
     resource_name = resource_name.strip()
     if resource_name not in get_available_tarot_resource():
         await interface.send_reply(f'{resource_name}不是可用的塔罗牌组, 当前可用的塔罗牌组有:\n\n{resource_msg}\n\n请确认后重试')
     else:
         try:
-            await set_tarot_resource(resource_name=resource_name, matcher=matcher, interface=interface)
+            await set_tarot_resource(resource_name=resource_name, interface=interface)
             logger.success(f'SetTarotResource | {interface.entity} 配置塔罗资源成功')
             await interface.send_reply(f'已将塔罗牌组配置为: {resource_name}')
         except Exception as e:
