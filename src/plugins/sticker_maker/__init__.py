@@ -3,7 +3,7 @@
 @Date           : 2024/5/12 下午7:09
 @FileName       : __init__.py
 @Project        : nonebot2_miya
-@Description    : 
+@Description    : 表情包助手插件
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """

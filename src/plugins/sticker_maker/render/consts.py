@@ -28,5 +28,5 @@ __all__ = [
     'FONT_RESOURCE',
     'STATIC_RESOURCE',
     'STICKER_OUTPUT_PATH',
-    'TMP_PATH'
+    'TMP_PATH',
 ]
