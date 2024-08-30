@@ -129,10 +129,10 @@ class PixivCommon(BasePixivAPI):
         return PixivSearchingResultModel.model_validate(searching_data)
 
     @classmethod
-    async def search_by_default_popular_condition(cls, word: str) -> PixivSearchingResultModel:
+    async def search_by_default_popular_condition(cls, word: str, *, page: int = 1) -> PixivSearchingResultModel:
         """Pixiv 搜索 (使用热度作为过滤条件筛选条件) (需要pixiv高级会员)"""
         return await cls.search(
-            word=word, mode='illustrations', order='popular_d', mode_='safe', type_='illust', ai_type=1
+            word=word, mode='illustrations', page=page, order='popular_d', mode_='safe', type_='illust', ai_type=1
         )
 
     @classmethod

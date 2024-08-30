@@ -96,6 +96,7 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
         if limit is not None:
             params.update({'limit': str(limit)})
         if page is not None:
+            page = page - 1 if page > 0 else 0
             params.update({'pid': str(page)})
         if tags is not None:
             params.update({'tags': tags})

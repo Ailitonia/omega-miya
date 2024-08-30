@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+import random
 from typing import TYPE_CHECKING, Optional, Self
 
 from ..add_ons import ImageOpsMixin
@@ -35,13 +36,14 @@ class _LocalCollectedArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
+    async def _random(cls, *, limit: int = 20) -> list[str | int]:
         path_config = cls._generate_path_config()
+        return [file.path.name for file in random.sample(path_config.artwork_path.list_all_files(), k=limit)]
 
-        if keyword is None:
-            return [file.path.name for file in path_config.artwork_path.list_all_files()]
-        else:
-            return [file.path.name for file in path_config.artwork_path.list_all_files() if keyword in file.path.name]
+    @classmethod
+    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+        path_config = cls._generate_path_config()
+        return [file.path.name for file in path_config.artwork_path.list_all_files() if keyword in file.path.name]
 
     @classmethod
     async def list_all_artwork(cls) -> list[Self]:

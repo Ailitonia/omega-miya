@@ -100,19 +100,25 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
-        """内部方法, 根据关键词与分级搜索作品 ID 列表, 关键词为空则为随机获取"""
+    async def _random(cls, *, limit: int = 20) -> list[str | int]:
+        """内部方法, 随机获取作品 ID 列表"""
         raise NotImplementedError
 
     @classmethod
-    async def random(cls, *, limit: int = 10) -> list[Self]:
-        """随机获取作品列表"""
-        return [cls(artwork_id=aid) for aid in await cls._search(keyword=None)][:limit]
+    @abc.abstractmethod
+    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+        """内部方法, 根据关键词搜索作品 ID 列表"""
+        raise NotImplementedError
 
     @classmethod
-    async def search(cls, keyword: str, **kwargs) -> list[Self]:
-        """根据关键词与分级搜索作品列表"""
-        return [cls(artwork_id=aid) for aid in await cls._search(keyword=keyword, **kwargs)]
+    async def random(cls, *, limit: int = 20) -> list[Self]:
+        """随机获取作品列表"""
+        return [cls(artwork_id=aid) for aid in await cls._random(limit=limit)]
+
+    @classmethod
+    async def search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[Self]:
+        """根据关键词搜索作品列表"""
+        return [cls(artwork_id=aid) for aid in await cls._search(keyword=keyword, page=page, **kwargs)]
 
     @abc.abstractmethod
     async def _query(self) -> ArtworkData:

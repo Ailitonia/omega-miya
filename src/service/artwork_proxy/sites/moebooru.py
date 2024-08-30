@@ -47,12 +47,13 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
 
     @classmethod
-    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
-        if keyword is None:
-            artworks_data = await cls._get_api().posts_index(tags='order:random', **kwargs)
-        else:
-            artworks_data = await cls._get_api().posts_index(tags=keyword, **kwargs)
+    async def _random(cls, *, limit: int = 20) -> list[str | int]:
+        artworks_data = await cls._get_api().posts_index(tags='order:random', limit=limit)
+        return [x.id for x in artworks_data]
 
+    @classmethod
+    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+        artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data]
 
     async def _query(self) -> ArtworkData:

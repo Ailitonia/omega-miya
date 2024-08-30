@@ -7,6 +7,8 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
+import random
 from typing import Optional
 
 from src.utils.pixiv_api import PixivArtwork
@@ -31,15 +33,18 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         return await PixivArtwork.get_resource_as_text(url=url, timeout=timeout)
 
     @classmethod
-    async def _search(cls, keyword: Optional[str], **kwargs) -> list[str | int]:
-        if keyword is None:
-            artworks_data = await PixivArtwork.query_discovery_artworks()
-            return [x for x in artworks_data.recommend_pids]
-        elif kwargs:
-            artworks_data = await PixivArtwork.search(word=keyword, **kwargs)
+    async def _random(cls, *, limit: int = 20) -> list[str | int]:
+        artworks_data = await PixivArtwork.query_discovery_artworks()
+        return [x for x in random.sample(artworks_data.recommend_pids, k=limit)]
+
+    @classmethod
+    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+        page = 1 if page is None else page
+        if kwargs:
+            artworks_data = await PixivArtwork.search(word=keyword, page=page, **kwargs)
             return [x.id for x in artworks_data.searching_result]
         else:
-            artworks_data = await PixivArtwork.search_by_default_popular_condition(word=keyword)
+            artworks_data = await PixivArtwork.search_by_default_popular_condition(word=keyword, page=page)
             return [x.id for x in artworks_data.searching_result]
 
     async def _query(self) -> ArtworkData:
