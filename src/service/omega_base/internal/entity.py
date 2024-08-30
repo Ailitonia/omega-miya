@@ -48,10 +48,9 @@ class InternalEntity(object):
             entity_name: Optional[str] = None,
             entity_info: Optional[str] = None
     ) -> None:
-        EntityType.verify(entity_type)
         self.db_session = session
         self.bot_id = bot_id
-        self.entity_type = entity_type
+        self.entity_type = EntityType(entity_type)
         self.entity_id = entity_id
         self.parent_id = parent_id
         self.entity_name = f'{entity_type}_{entity_id}' if entity_name is None else entity_name

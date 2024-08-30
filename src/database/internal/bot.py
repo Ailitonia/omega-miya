@@ -32,11 +32,6 @@ class BotType(StrEnum):
     telegram = 'Telegram'
 
     @classmethod
-    def verify(cls, unverified: str) -> None:
-        if unverified not in [member.value for _, member in cls.__members__.items()]:
-            raise ValueError(f'illegal bot_type: "{unverified}"')
-
-    @classmethod
     def get_supported_adapter_names(cls) -> set[str]:
         return set(member.value for _, member in cls.__members__.items())
 
@@ -85,9 +80,13 @@ class BotSelfDAL(BaseDataAccessLayerModel):
         return parse_obj_as(list[BotSelf], session_result.scalars().all())
 
     async def add(self, self_id: str, bot_type: str, bot_status: int, bot_info: Optional[str] = None) -> None:
-        BotType.verify(bot_type)
-        new_obj = BotSelfOrm(self_id=self_id, bot_type=bot_type, bot_status=bot_status,
-                             bot_info=bot_info, created_at=datetime.now())
+        new_obj = BotSelfOrm(
+            self_id=self_id,
+            bot_type=BotType(bot_type),
+            bot_status=bot_status,
+            bot_info=bot_info,
+            created_at=datetime.now()
+        )
         self.db_session.add(new_obj)
         await self.db_session.flush()
 
@@ -101,8 +100,7 @@ class BotSelfDAL(BaseDataAccessLayerModel):
     ) -> None:
         stmt = update(BotSelfOrm).where(BotSelfOrm.id == id_)
         if bot_type is not None:
-            BotType.verify(bot_type)
-            stmt = stmt.values(bot_type=bot_type)
+            stmt = stmt.values(bot_type=BotType(bot_type))
         if bot_status is not None:
             stmt = stmt.values(bot_status=bot_status)
         if bot_info is not None:

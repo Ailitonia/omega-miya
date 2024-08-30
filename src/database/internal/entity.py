@@ -48,11 +48,6 @@ class EntityType(StrEnum):
     telegram_channel = 'telegram_channel'  # Telegram 频道
 
     @classmethod
-    def verify(cls, unverified: str):
-        if unverified not in [member.value for _, member in cls.__members__.items()]:
-            raise ValueError(f'illegal entity_type: "{unverified}"')
-
-    @classmethod
     def get_supported_target_names(cls) -> set[str]:
         return set(member.value for _, member in cls.__members__.items())
 
@@ -89,12 +84,11 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_type: str,
             parent_id: str
     ) -> Entity:
-        EntityType.verify(entity_type)
-        stmt = select(EntityOrm).\
-            where(EntityOrm.bot_index_id == bot_index_id).\
-            where(EntityOrm.entity_id == entity_id).\
-            where(EntityOrm.entity_type == entity_type).\
-            where(EntityOrm.parent_id == parent_id)
+        stmt = (select(EntityOrm).
+                where(EntityOrm.bot_index_id == bot_index_id).
+                where(EntityOrm.entity_id == entity_id).
+                where(EntityOrm.entity_type == EntityType(entity_type)).
+                where(EntityOrm.parent_id == parent_id))
         session_result = await self.db_session.execute(stmt)
         return Entity.model_validate(session_result.scalar_one())
 
@@ -124,10 +118,10 @@ class EntityDAL(BaseDataAccessLayerModel):
             strict_match_available: bool = True
     ) -> list[Entity]:
         """根据权限节点查询具备该节点的 Entity 对象"""
-        stmt = select(EntityOrm).join(AuthSettingOrm).\
-            where(AuthSettingOrm.module == module).\
-            where(AuthSettingOrm.plugin == plugin).\
-            where(AuthSettingOrm.node == node)
+        stmt = (select(EntityOrm).join(AuthSettingOrm).
+                where(AuthSettingOrm.module == module).
+                where(AuthSettingOrm.plugin == plugin).
+                where(AuthSettingOrm.node == node))
 
         if strict_match_available:
             stmt = stmt.where(AuthSettingOrm.available == available)
@@ -144,8 +138,8 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_type: Optional[str] = None
     ) -> list[Entity]:
         """查询订阅了某订阅源的 Entity 对象"""
-        stmt = select(EntityOrm).join(SubscriptionOrm).\
-            where(SubscriptionOrm.sub_source_index_id == sub_source_index_id)
+        stmt = (select(EntityOrm).join(SubscriptionOrm).
+                where(SubscriptionOrm.sub_source_index_id == sub_source_index_id))
 
         if entity_type is not None:
             stmt = stmt.where(EntityOrm.entity_type == entity_type)
@@ -163,10 +157,15 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_name: str,
             entity_info: Optional[str] = None
     ) -> None:
-        EntityType.verify(entity_type)
-        new_obj = EntityOrm(bot_index_id=bot_index_id, entity_id=entity_id, entity_type=entity_type,
-                            parent_id=parent_id, entity_name=entity_name,
-                            entity_info=entity_info, created_at=datetime.now())
+        new_obj = EntityOrm(
+            bot_index_id=bot_index_id,
+            entity_id=entity_id,
+            entity_type=EntityType(entity_type),
+            parent_id=parent_id,
+            entity_name=entity_name,
+            entity_info=entity_info,
+            created_at=datetime.now()
+        )
         self.db_session.add(new_obj)
         await self.db_session.flush()
 
@@ -187,8 +186,7 @@ class EntityDAL(BaseDataAccessLayerModel):
         if entity_id is not None:
             stmt = stmt.values(entity_id=entity_id)
         if entity_type is not None:
-            EntityType.verify(entity_type)
-            stmt = stmt.values(entity_type=entity_type)
+            stmt = stmt.values(entity_type=EntityType(entity_type))
         if parent_id is not None:
             stmt = stmt.values(parent_id=parent_id)
         if entity_name is not None:

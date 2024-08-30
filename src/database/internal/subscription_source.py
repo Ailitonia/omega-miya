@@ -31,11 +31,6 @@ class SubscriptionSourceType(StrEnum):
     pixivision = 'pixivision'
     weibo_user = 'weibo_user'
 
-    @classmethod
-    def verify(cls, unverified: str):
-        if unverified not in [member.value for _, member in cls.__members__.items()]:
-            raise ValueError(f'illegal subscription_source_type: "{unverified}"')
-
 
 class SubscriptionSource(BaseModel):
     """订阅源 Model"""
@@ -58,9 +53,9 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
         return deepcopy(SubscriptionSourceType)
 
     async def query_unique(self, sub_type: str, sub_id: str) -> SubscriptionSource:
-        stmt = select(SubscriptionSourceOrm).\
-            where(SubscriptionSourceOrm.sub_type == sub_type).\
-            where(SubscriptionSourceOrm.sub_id == sub_id)
+        stmt = (select(SubscriptionSourceOrm).
+                where(SubscriptionSourceOrm.sub_type == sub_type).
+                where(SubscriptionSourceOrm.sub_id == sub_id))
         session_result = await self.db_session.execute(stmt)
         return SubscriptionSource.model_validate(session_result.scalar_one())
 
@@ -70,12 +65,11 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
             sub_type: Optional[str] = None
     ) -> list[SubscriptionSource]:
         """查询 Entity 所订阅的全部订阅源"""
-        stmt = select(SubscriptionSourceOrm).join(SubscriptionOrm).\
-            where(SubscriptionOrm.entity_index_id == entity_index_id)
+        stmt = (select(SubscriptionSourceOrm).join(SubscriptionOrm).
+                where(SubscriptionOrm.entity_index_id == entity_index_id))
 
         if sub_type is not None:
-            SubscriptionSourceType.verify(sub_type)
-            stmt = stmt.where(SubscriptionSourceOrm.sub_type == sub_type)
+            stmt = stmt.where(SubscriptionSourceOrm.sub_type == SubscriptionSourceType(sub_type))
 
         stmt = stmt.order_by(SubscriptionSourceOrm.sub_type)
         session_result = await self.db_session.execute(stmt)
@@ -83,10 +77,9 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
 
     async def query_type_all(self, sub_type: str) -> list[SubscriptionSource]:
         """查询 sub_type 对应的全部订阅源"""
-        SubscriptionSourceType.verify(sub_type)
-        stmt = select(SubscriptionSourceOrm).\
-            where(SubscriptionSourceOrm.sub_type == sub_type).\
-            order_by(SubscriptionSourceOrm.sub_type)
+        stmt = (select(SubscriptionSourceOrm).
+                where(SubscriptionSourceOrm.sub_type == SubscriptionSourceType(sub_type)).
+                order_by(SubscriptionSourceOrm.sub_type))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[SubscriptionSource], session_result.scalars().all())
 
@@ -96,9 +89,13 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
         return parse_obj_as(list[SubscriptionSource], session_result.scalars().all())
 
     async def add(self, sub_type: str, sub_id: str, sub_user_name: str, sub_info: Optional[str] = None) -> None:
-        SubscriptionSourceType.verify(sub_type)
-        new_obj = SubscriptionSourceOrm(sub_type=sub_type, sub_id=sub_id, sub_user_name=sub_user_name,
-                                        sub_info=sub_info, created_at=datetime.now())
+        new_obj = SubscriptionSourceOrm(
+            sub_type=SubscriptionSourceType(sub_type),
+            sub_id=sub_id,
+            sub_user_name=sub_user_name,
+            sub_info=sub_info,
+            created_at=datetime.now()
+        )
         self.db_session.add(new_obj)
         await self.db_session.flush()
 
@@ -113,8 +110,7 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel):
     ) -> None:
         stmt = update(SubscriptionSourceOrm).where(SubscriptionSourceOrm.id == id_)
         if sub_type is not None:
-            SubscriptionSourceType.verify(sub_type)
-            stmt = stmt.values(sub_type=sub_type)
+            stmt = stmt.values(sub_type=SubscriptionSourceType(sub_type))
         if sub_id is not None:
             stmt = stmt.values(sub_id=sub_id)
         if sub_user_name is not None:
