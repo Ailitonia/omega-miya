@@ -82,7 +82,7 @@ async def handle_setu(
     if not artworks:
         await interface.finish_reply('找不到涩图QAQ')
 
-    await interface.send_reply('稍等, 正在下载图片~')
+    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
 
     send_messages = await semaphore_gather(
         tasks=[prepare_send_image(x) for x in artworks],
@@ -148,7 +148,7 @@ async def handle_moe(
     if not artworks:
         await interface.finish_reply('找不到萌图QAQ')
 
-    await interface.send_reply('稍等, 正在下载图片~')
+    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
 
     send_messages = await semaphore_gather(
         tasks=[prepare_send_image(x) for x in artworks],

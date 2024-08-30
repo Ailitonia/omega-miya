@@ -282,6 +282,22 @@ class OmegaMatcherInterface(object):
         )
 
     @check_implemented
+    async def send_reply_auto_revoke(
+            self,
+            message: "SentOmegaMessage",
+            revoke_interval: int = 60,
+            **revoke_kwargs
+    ) -> asyncio.TimerHandle:
+        """发送消息指定时间后自动撤回"""
+        sent_return = await self.send_reply(message=message)
+
+        loop = asyncio.get_running_loop()
+        return loop.call_later(
+            revoke_interval,
+            lambda: loop.create_task(self.get_event_depend().revoke(sent_return=sent_return, **revoke_kwargs)),
+        )
+
+    @check_implemented
     def send_background(self, message: "SentOmegaMessage", **kwargs) -> asyncio.Task[Any]:
         """立即发送消息 (一般放在 IO 调用之前)"""
         loop = asyncio.get_running_loop()
