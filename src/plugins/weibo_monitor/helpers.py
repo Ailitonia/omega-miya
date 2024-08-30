@@ -8,21 +8,28 @@
 @Software       : PyCharm 
 """
 
-from sqlalchemy.exc import NoResultFound
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from nonebot import logger
-from nonebot.adapters import Message
 from nonebot.exception import ActionFailed
+from sqlalchemy.exc import NoResultFound
 
 from src.database import WeiboDetailDAL, begin_db_session
-from src.database.internal.entity import Entity
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
-from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
+from src.service import (
+    OmegaMatcherInterface as OmMI,
+    OmegaEntityInterface as OmEI,
+    OmegaEntity,
+    OmegaMessage,
+    OmegaMessageSegment,
+)
 from src.service.omega_base.internal import OmegaWeiboUserSubSource
-from src.utils.weibo_api import Weibo
-from src.utils.weibo_api.model import WeiboCard
 from src.utils.process_utils import run_async_delay, semaphore_gather
+from src.utils.weibo_api import Weibo
+
+if TYPE_CHECKING:
+    from src.database.internal.entity import Entity
+    from src.utils.weibo_api.model import WeiboCard
 
 
 WEIBO_SUB_TYPE: str = SubscriptionSourceType.weibo_user.value
@@ -36,7 +43,7 @@ async def _query_weibo_sub_source(uid: int) -> SubscriptionSource:
     return source_res
 
 
-async def _check_new_weibo(cards: Iterable[WeiboCard]) -> list[WeiboCard]:
+async def _check_new_weibo(cards: Iterable["WeiboCard"]) -> list["WeiboCard"]:
     """检查新的微博(数据库中没有的)"""
     async with begin_db_session() as session:
         all_mids = [x.mblog.id for x in cards]
@@ -44,17 +51,23 @@ async def _check_new_weibo(cards: Iterable[WeiboCard]) -> list[WeiboCard]:
     return [x for x in cards if x.mblog.id in new_mids]
 
 
-async def _add_upgrade_weibo_content(card: WeiboCard) -> None:
+async def _add_upgrade_weibo_content(card: "WeiboCard") -> None:
     """在数据库中添加微博内容"""
-    retweeted_content = card.mblog.retweeted_status.text if card.mblog.is_retweeted else ''
+    retweeted_content = (
+        card.mblog.retweeted_status.text
+        if card.mblog.is_retweeted and card.mblog.retweeted_status is not None
+        else ''
+    )
+
     async with begin_db_session() as session:
         dal = WeiboDetailDAL(session=session)
         try:
             weibo = await dal.query_unique(mid=card.mblog.id)
             await dal.update(id_=weibo.id, content=card.mblog.text, retweeted_content=retweeted_content)
         except NoResultFound:
-            await dal.add(mid=card.mblog.id, uid=card.mblog.user.id,
-                          content=card.mblog.text, retweeted_content=retweeted_content)
+            await dal.add(
+                mid=card.mblog.id, uid=card.mblog.user.id, content=card.mblog.text, retweeted_content=retweeted_content
+            )
 
 
 async def _add_user_new_weibo_content(uid: int) -> None:
@@ -79,19 +92,19 @@ async def _add_upgrade_weibo_user_sub_source(uid: int) -> SubscriptionSource:
     return source_res
 
 
-async def add_weibo_user_sub(interface: OmegaInterface, uid: int) -> None:
+async def add_weibo_user_sub(interface: OmMI, uid: int) -> None:
     """为目标对象添加微博用户订阅"""
     source_res = await _add_upgrade_weibo_user_sub_source(uid=uid)
     await interface.entity.add_subscription(subscription_source=source_res, sub_info=f'微博用户订阅(uid={uid})')
 
 
-async def delete_weibo_user_sub(interface: OmegaInterface, uid: int) -> None:
+async def delete_weibo_user_sub(interface: OmMI, uid: int) -> None:
     """为目标对象删除微博用户订阅"""
     source_res = await _query_weibo_sub_source(uid=uid)
     await interface.entity.delete_subscription(subscription_source=source_res)
 
 
-async def query_entity_subscribed_weibo_user_sub_source(interface: OmegaInterface) -> dict[str, str]:
+async def query_entity_subscribed_weibo_user_sub_source(interface: OmMI) -> dict[str, str]:
     """获取目标对象已订阅的微博用户
 
     :return: {用户 UID: 用户昵称} 的字典"""
@@ -109,7 +122,7 @@ async def query_all_subscribed_weibo_user_sub_source() -> list[int]:
     return [int(x.sub_id) for x in source_res]
 
 
-async def query_subscribed_entity_by_weibo_user(uid: int) -> list[Entity]:
+async def query_subscribed_entity_by_weibo_user(uid: int) -> list["Entity"]:
     """根据微博用户查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaWeiboUserSubSource(session=session, uid=uid)
@@ -117,13 +130,13 @@ async def query_subscribed_entity_by_weibo_user(uid: int) -> list[Entity]:
     return subscribed_entity
 
 
-async def _format_weibo_update_message(card: WeiboCard) -> str | Message:
+async def _format_weibo_update_message(card: "WeiboCard") -> str | OmegaMessage:
     """处理微博内容为消息"""
     send_message = f'【微博】{card.mblog.user.screen_name}'
     img_urls = []
 
     # 检测转发
-    if card.mblog.is_retweeted:
+    if card.mblog.is_retweeted and card.mblog.retweeted_status is not None:
         retweeted_username = card.mblog.retweeted_status.user.screen_name
         send_message += f'转发了{retweeted_username}的微博!\n'
         # 获取转发微博全文
@@ -166,13 +179,13 @@ async def _format_weibo_update_message(card: WeiboCard) -> str | Message:
     return send_message
 
 
-async def _msg_sender(entity: Entity, message: str | Message) -> None:
+async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
     """向 entity 发送消息"""
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
-            interface = OmegaInterface(entity=internal_entity)
-            await interface.send_msg(message=message)
+            interface = OmEI(entity=internal_entity)
+            await interface.send_entity_message(message=message)
     except ActionFailed as e:
         logger.warning(f'WeiboMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')
     except Exception as e:
@@ -187,8 +200,9 @@ async def weibo_user_monitor_main(uid: int) -> None:
 
     new_weibo_cards = await _check_new_weibo(cards=weibo_user_cards)
     if new_weibo_cards:
-        logger.info(f'WeiboMonitor | Confirmed user {uid} '
-                    f'new weibo: {", ".join(str(x.mblog.mid) for x in new_weibo_cards)}')
+        logger.info(
+            f'WeiboMonitor | Confirmed user {uid} new weibo: {", ".join(str(x.mblog.mid) for x in new_weibo_cards)}'
+        )
     else:
         logger.debug(f'WeiboMonitor | User {uid} has not new weibo')
         return
@@ -215,5 +229,5 @@ __all__ = [
     'delete_weibo_user_sub',
     'query_entity_subscribed_weibo_user_sub_source',
     'query_all_subscribed_weibo_user_sub_source',
-    'weibo_user_monitor_main'
+    'weibo_user_monitor_main',
 ]

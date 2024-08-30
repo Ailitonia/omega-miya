@@ -33,5 +33,5 @@ def reschedule_job(job: Job, trigger_mode: Literal['date', 'cron', 'interval'], 
 
 
 __all__ = [
-    'reschedule_job'
+    'reschedule_job',
 ]
