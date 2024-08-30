@@ -34,7 +34,8 @@ async def handle_qrcode_login(interface: Annotated[OmMI, Depends(OmMI.depend())]
 
     try:
         if await bc.check_valid():
-            await interface.finish_reply('bilibili账号已登录, 无需重复登录')
+            await interface.send_reply('bilibili账号已登录, 无需重复登录')
+            return
     except Exception as e:
         logger.warning(f'BilibiliQrcodeLogin | 检查登录状态失败, 尝试重新登录, {e}')
 
