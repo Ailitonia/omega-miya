@@ -145,10 +145,10 @@ class BaseNhentai(BaseCommonAPI):
             ]
         else:
             request_list = [
-                NhentaiPreviewRequestModel(
-                    desc_text=f'Page: {index + 1}',
-                    request_url=f'https://i.nhentai.net/galleries/{model.media_id}/{index + 1}.{_page_type(data.t)}'
-                )
+                NhentaiPreviewRequestModel.model_validate({
+                    'desc_text': f'Page: {index + 1}',
+                    'request_url': f'https://i.nhentai.net/galleries/{model.media_id}/{index + 1}.{_page_type(data.t)}'
+                })
                 for index, data in enumerate(model.images.pages)
             ]
         return await cls._request_preview_model(preview_name=gallery_name, requests=request_list)

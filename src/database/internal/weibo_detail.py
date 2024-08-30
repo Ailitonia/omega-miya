@@ -75,7 +75,9 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
 
     async def add(self, mid: int, uid: int, content: str, retweeted_content: str = '') -> None:
         new_obj = WeiboDetailOrm(
-            mid=mid, uid=uid, content=content, retweeted_content=retweeted_content, created_at=datetime.now()
+            mid=mid, uid=uid,
+            content=content[:2048], retweeted_content=retweeted_content[:2048],
+            created_at=datetime.now()
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
@@ -95,9 +97,9 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
         if uid is not None:
             stmt = stmt.values(uid=uid)
         if content is not None:
-            stmt = stmt.values(content=content)
+            stmt = stmt.values(content=content[:2048])
         if retweeted_content is not None:
-            stmt = stmt.values(retweeted_content=retweeted_content)
+            stmt = stmt.values(retweeted_content=retweeted_content[:2048])
         stmt = stmt.values(updated_at=datetime.now())
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)

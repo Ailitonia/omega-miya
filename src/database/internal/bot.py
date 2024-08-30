@@ -37,8 +37,7 @@ class BotType(StrEnum):
             raise ValueError(f'illegal bot_type: "{unverified}"')
 
     @classmethod
-    @property
-    def supported_adapter_names(cls) -> set:
+    def get_supported_adapter_names(cls) -> set[str]:
         return set(member.value for _, member in cls.__members__.items())
 
 

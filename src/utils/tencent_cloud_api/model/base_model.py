@@ -10,6 +10,7 @@
 
 from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -20,7 +21,7 @@ class BaseTencentCloudModel(BaseModel):
 
 
 class BaseTencentCloudError(BaseModel):
-    """Api 调用失败错误信息
+    """API 调用失败错误信息
 
     - Code: 错误码
     - Message: 错误消息
@@ -30,7 +31,7 @@ class BaseTencentCloudError(BaseModel):
 
 
 class BaseTencentCloudErrorResponse(BaseModel):
-    """Api 调用失败返回基类
+    """API 调用失败返回基类
 
     - Error: 错误内容
     - RequestId: 唯一请求 ID, 由服务端生成, 每次请求都会返回(若请求因其他原因未能抵达服务端, 则该次请求不会获得 RequestId), 定位问题时需要提供该次请求的 RequestId
@@ -40,7 +41,7 @@ class BaseTencentCloudErrorResponse(BaseModel):
 
 
 class BaseTencentCloudSuccessResponse(BaseModel):
-    """Api 调用成功返回基类
+    """API 调用成功返回基类
 
     - RequestId: 唯一请求 ID, 由服务端生成, 每次请求都会返回(若请求因其他原因未能抵达服务端, 则该次请求不会获得 RequestId), 定位问题时需要提供该次请求的 RequestId
     """
@@ -48,7 +49,7 @@ class BaseTencentCloudSuccessResponse(BaseModel):
 
 
 class BaseTencentCloudResponse(BaseModel):
-    """Api 调用返回基类"""
+    """API 调用返回基类"""
     Response: BaseTencentCloudErrorResponse | BaseTencentCloudSuccessResponse
 
     @property
@@ -64,5 +65,5 @@ __all = [
     'BaseTencentCloudModel',
     'BaseTencentCloudErrorResponse',
     'BaseTencentCloudSuccessResponse',
-    'BaseTencentCloudResponse'
+    'BaseTencentCloudResponse',
 ]

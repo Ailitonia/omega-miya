@@ -101,7 +101,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'origin': self.get_base_origin_name(),
             'aid': artwork_data.id,
             'title': f'Upload by: {artwork_data.author}',
-            'uid': artwork_data.creator_id,
+            'uid': -1 if artwork_data.creator_id is None else artwork_data.creator_id,
             'uname': artwork_data.author,
             'classification': classification,
             'rating': rating,
@@ -178,7 +178,7 @@ class BehoimiArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
 
 
 class KonachanArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
-    """https://konachan.com 主站图库统一接口实现"""
+    """https://konachan.com 主站图库统一接口实现, 主站有 Cloudflare 盾, 建议直接使用全年龄站接口"""
 
     @classmethod
     def _get_api(cls) -> KonachanAPI:
@@ -190,7 +190,7 @@ class KonachanArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
 
 
 class KonachanSafeArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
-    """https://konachan.net 全年龄站图库统一接口实现"""
+    """https://konachan.net 全年龄站图库统一接口实现, 与主站共用后端, 只是网站页面不显示 rating:E 的作品"""
 
     @classmethod
     def _get_api(cls) -> KonachanSafeAPI:
@@ -198,7 +198,7 @@ class KonachanSafeArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
 
     @classmethod
     def get_base_origin_name(cls) -> str:
-        return 'konachan_safe'
+        return 'konachan'
 
 
 class YandereArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):

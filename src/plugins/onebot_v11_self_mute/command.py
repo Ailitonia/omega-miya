@@ -13,19 +13,23 @@ import random
 import re
 from typing import Annotated
 
+from nonebot.adapters.onebot.v11 import (
+    Bot as OneBotV11Bot,
+    Message as OneBotV11Message,
+    GroupMessageEvent as OneBotV11GroupMessageEvent,
+)
+from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, Depends
 from nonebot.plugin import on_command
 from nonebot.typing import T_State
 
-from nonebot.adapters.onebot.v11 import Bot, Message, GroupMessageEvent, GROUP
-
 from src.service import enable_processor_state
 
 
 @Depends
-async def role_checker(bot: Bot, event: GroupMessageEvent, matcher: Matcher):
+async def role_checker(bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent, matcher: Matcher):
     bot_role = await bot.get_group_member_info(group_id=event.group_id, user_id=int(bot.self_id))
     if bot_role.get('role') not in ['owner', 'admin']:
         await matcher.finish('Bot非群管理员, 无法执行禁言操作QAQ')
@@ -35,7 +39,7 @@ async def role_checker(bot: Bot, event: GroupMessageEvent, matcher: Matcher):
         await matcher.finish('你也是个管理, 别来凑热闹OwO')
 
 
-async def handle_parse_multiple(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
+async def handle_parse_multiple(state: T_State, cmd_arg: Annotated[OneBotV11Message, CommandArg()]):
     if cmd_arg:
         cmd_text = cmd_arg.extract_plain_text().strip()
 
@@ -61,7 +65,7 @@ async def handle_parse_multiple(state: T_State, cmd_arg: Annotated[Message, Comm
     block=True,
     state=enable_processor_state(name='OneBotV11SelfMute', level=10)
 ).handle(parameterless=[role_checker])
-async def handle_self_mute(bot: Bot, event: GroupMessageEvent, matcher: Matcher, state: T_State):
+async def handle_self_mute(bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent, matcher: Matcher, state: T_State):
     multiple = int(state.get('multiple', 1))
 
     # 随机禁言时间

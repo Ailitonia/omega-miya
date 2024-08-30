@@ -9,11 +9,10 @@
 """
 
 import warnings
-from typing import Literal, Optional, Any
+from typing import Any, Literal, Optional, Sequence
 
 from .api_base import BilibiliCommon
 from .config import bilibili_config
-from .exception import BilibiliApiError
 from .exclimbwuzhi import gen_buvid_fp, gen_uuid_infoc, get_payload
 from .model import (
     BilibiliUserModel,
@@ -294,17 +293,13 @@ class BilibiliLiveRoom(BilibiliCommon):
         return str(self.room_id)
 
     @classmethod
-    async def query_live_room_by_uid_list(cls, uid_list: list[int | str]) -> BilibiliUsersLiveRoomModel:
+    async def query_live_room_by_uid_list(cls, uid_list: Sequence[int | str]) -> BilibiliUsersLiveRoomModel:
         """根据用户 uid 列表获取这些用户的直播间信息(这个 api 没有认证方法，请不要在标头中添加 cookie)"""
         payload = {'uids': uid_list}
-        live_room_response = await cls._request_post(
-            url=cls._live_by_uids_api_url, json=payload,
-            no_headers=True, no_cookies=True  # 该接口无需鉴权
+        live_room_data = await cls._post_json(
+            url=cls._live_by_uids_api_url, json=payload, no_headers=True, no_cookies=True  # 该接口无需鉴权
         )
-        if live_room_response.status_code != 200:
-            raise BilibiliApiError(f'{live_room_response.request}, status code {live_room_response.status_code}')
-
-        return BilibiliUsersLiveRoomModel.model_validate(cls._parse_content_as_json(live_room_response))
+        return BilibiliUsersLiveRoomModel.model_validate(live_room_data)
 
     async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""
@@ -325,5 +320,5 @@ class BilibiliLiveRoom(BilibiliCommon):
 __all__ = [
     'BilibiliUser',
     'BilibiliDynamic',
-    'BilibiliLiveRoom'
+    'BilibiliLiveRoom',
 ]

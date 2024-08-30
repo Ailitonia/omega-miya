@@ -59,6 +59,11 @@ async def preprocessor_plugin_manager(matcher: Matcher, event: Event):
         logger.opt(colors=True).error(f'{LOG_PREFIX}Detecting event type failed, {e}')
         return
 
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
+        return
+
     # 忽略超级用户
     if user_id in SUPERUSERS:
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
@@ -86,5 +91,5 @@ async def preprocessor_plugin_manager(matcher: Matcher, event: Event):
 
 __all__ = [
     'startup_init_plugins',
-    'preprocessor_plugin_manager'
+    'preprocessor_plugin_manager',
 ]

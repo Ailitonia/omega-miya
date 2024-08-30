@@ -10,23 +10,23 @@
 
 import random
 import re
-import ujson as json
-from typing import Literal
+from typing import Literal, Optional
 
 from nonebot.log import logger
 from nonebot.utils import run_sync
 from pydantic import BaseModel
 
-from src.compat import parse_obj_as
+from src.compat import parse_json_as
 from src.resource import StaticResource, TemporaryResource
 from src.service import OmegaMessage, OmegaMessageSegment, OmegaRequests
-
 
 _RESOURCE_PATH: StaticResource = StaticResource('images', 'what_to_eat')
 _TMP_PATH: TemporaryResource = TemporaryResource('what_to_eat')
 """本地资源路径"""
-_FOOD_TYPE: type[str] = Literal['早', '午', '晚', '夜']
+
+type FoodType = Literal['早', '午', '晚', '夜']
 """菜品类型"""
+
 _MENU_TMP: list["MenuFood"] = []
 """菜单缓存"""
 
@@ -34,7 +34,7 @@ _MENU_TMP: list["MenuFood"] = []
 class MenuFood(BaseModel):
     """菜单菜品"""
     name: str
-    type: list[_FOOD_TYPE]
+    type: list[FoodType]
     img: list[str]
 
 
@@ -43,12 +43,12 @@ async def _get_menu() -> list[MenuFood]:
     global _MENU_TMP
     if not _MENU_TMP:
         async with _RESOURCE_PATH('index.json').async_open('r', encoding='utf8') as af:
-            index = parse_obj_as(list[MenuFood], json.loads(await af.read()))
+            index = parse_json_as(list[MenuFood], await af.read())
             _MENU_TMP.extend(index)
         for file in _RESOURCE_PATH.path.iterdir():
             if re.search(re.compile(r'^index_addition_.+.json'), file.name):
                 async with _RESOURCE_PATH(file.name).async_open('r', encoding='utf8') as af:
-                    index = parse_obj_as(list[MenuFood], json.loads(await af.read()))
+                    index = parse_json_as(list[MenuFood], await af.read())
                     _MENU_TMP.extend(index)
     return _MENU_TMP
 
@@ -67,7 +67,7 @@ async def _get_food_msg(food: MenuFood) -> OmegaMessage:
 
 
 @run_sync
-def _get_random_food(menu: list[MenuFood], food_type: _FOOD_TYPE | None = None) -> MenuFood:
+def _get_random_food(menu: list[MenuFood], food_type: Optional[FoodType] = None) -> MenuFood:
     """获取随机食谱"""
     match food_type:
         case '早':
@@ -83,7 +83,7 @@ def _get_random_food(menu: list[MenuFood], food_type: _FOOD_TYPE | None = None) 
     return food
 
 
-async def get_random_food_msg(food_type: _FOOD_TYPE | None = None) -> OmegaMessage:
+async def get_random_food_msg(food_type: Optional[FoodType] = None) -> OmegaMessage | OmegaMessageSegment:
     menu = await _get_menu()
     food = await _get_random_food(menu=menu, food_type=food_type)
 
@@ -97,5 +97,5 @@ async def get_random_food_msg(food_type: _FOOD_TYPE | None = None) -> OmegaMessa
 
 
 __all__ = [
-    'get_random_food_msg'
+    'get_random_food_msg',
 ]

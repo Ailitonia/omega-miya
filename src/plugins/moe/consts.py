@@ -15,7 +15,6 @@ type ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN = Literal[
     'danbooru',
     'gelbooru',
     'konachan',
-    'konachan_safe',
     'yandere',
 ]
 
@@ -24,7 +23,6 @@ ALL_MOE_PLUGIN_ARTWORK_ORIGIN: tuple[str, ...] = (
     'danbooru',
     'gelbooru',
     'konachan',
-    'konachan_safe',
     'yandere',
 )
 

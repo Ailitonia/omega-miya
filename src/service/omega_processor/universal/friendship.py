@@ -11,8 +11,8 @@
 from nonebot import logger
 from nonebot.internal.adapter import Bot, Event
 
-from src.service import OmegaInterface
-
+from src.database import begin_db_session
+from src.service import OmegaMatcherInterface
 
 LOG_PREFIX: str = '<lc>Friendship</lc> | '
 ENERGY_INCREMENTAL = 0.5
@@ -24,7 +24,8 @@ async def postprocessor_friendship(bot: Bot, event: Event):
     user_id = event.get_user_id()
 
     try:
-        async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+        async with begin_db_session() as session:
+            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
             await entity.add_ignore_exists()
             await entity.change_friendship(energy=ENERGY_INCREMENTAL, currency=CURRENCY_INCREMENTAL)
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Increased User({user_id}) friendship succeed')
@@ -33,5 +34,5 @@ async def postprocessor_friendship(bot: Bot, event: Event):
 
 
 __all__ = [
-    'postprocessor_friendship'
+    'postprocessor_friendship',
 ]

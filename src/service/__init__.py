@@ -9,18 +9,19 @@
 """
 
 from .apscheduler import scheduler, reschedule_job
-from .omega_base import OmegaEntity, OmegaInterface, OmegaMessage, OmegaMessageSegment
+from .omega_base import OmegaEntity, OmegaEntityInterface, OmegaMatcherInterface, OmegaMessage, OmegaMessageSegment
 from .omega_processor import enable_processor_state
 from .omega_requests import OmegaRequests
 
 
 __all__ = [
     'OmegaEntity',
-    'OmegaInterface',
+    'OmegaEntityInterface',
+    'OmegaMatcherInterface',
     'OmegaMessage',
     'OmegaMessageSegment',
     'OmegaRequests',
     'enable_processor_state',
     'reschedule_job',
-    'scheduler'
+    'scheduler',
 ]

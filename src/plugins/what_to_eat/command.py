@@ -15,8 +15,7 @@ from nonebot import get_driver, logger
 from nonebot.params import Depends, RawCommand
 from nonebot.plugin import on_command
 
-from src.service import OmegaInterface, enable_processor_state
-
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from .data_source import get_random_food_msg
 
 
@@ -28,11 +27,10 @@ from .data_source import get_random_food_msg
     state=enable_processor_state(name='what_to_eat', level=10),
 ).handle()
 async def handle_what_to_eat(
-        cmd: Annotated[str | None, RawCommand()],
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())]
+        cmd: Annotated[str, RawCommand()],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     command_text = cmd.lstrip(''.join(get_driver().config.command_start))
-    interface.refresh_matcher_state()
 
     if '早' in command_text:
         food_type = '早'

@@ -55,5 +55,5 @@ class BilibiliCommon(BaseCommonAPI):
 
 
 __all__ = [
-    'BilibiliCommon'
+    'BilibiliCommon',
 ]

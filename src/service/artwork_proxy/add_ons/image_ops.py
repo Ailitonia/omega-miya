@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Sequence
 
 from nonebot.utils import run_sync
 
@@ -35,6 +35,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         _image = ImageUtils.init_from_file(file=image)
         _image.gaussian_blur()
         _image.mark(text=origin_mark)
+        _image.convert(mode='RGB')
         return _image
 
     @staticmethod
@@ -43,6 +44,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         """标记水印"""
         _image = ImageUtils.init_from_file(file=image)
         _image.mark(text=origin_mark)
+        _image.convert(mode='RGB')
         return _image
 
     @staticmethod
@@ -52,6 +54,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         _image = ImageUtils.init_from_file(file=image)
         _image.gaussian_noise(sigma=16)
         _image.mark(text=origin_mark)
+        _image.convert(mode='RGB')
         return _image
 
     """图片标记工具"""
@@ -150,7 +153,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def _get_any_images_preview_data(
             cls,
             preview_name: str,
-            image_data: list[tuple[str, str]],
+            image_data: Sequence[tuple[str, str]],
             limit: int = 100,
     ) -> PreviewImageModel:
         """获取生成预览图所需要的所有任意图片的数据
@@ -172,7 +175,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def _get_artworks_preview_data(
             cls,
             preview_name: str,
-            artworks: list["ImageOpsMixin"],
+            artworks: Sequence["ImageOpsMixin"],
             *,
             page_type: "ArtworkPageParamType" = 'preview',
             no_blur_rating: int = 1,
@@ -192,7 +195,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def generate_any_images_preview(
             cls,
             preview_name: str,
-            image_data: list[tuple[str, str]],
+            image_data: Sequence[tuple[str, str]],
             *,
             preview_size: tuple[int, int] = (256, 256),  # 默认预览图缩略图大小
             hold_ratio: bool = True,
@@ -230,7 +233,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def generate_artworks_preview(
             cls,
             preview_name: str,
-            artworks: list["ImageOpsMixin"],
+            artworks: Sequence["ImageOpsMixin"],
             *,
             page_type: "ArtworkPageParamType" = 'preview',
             no_blur_rating: int = 1,

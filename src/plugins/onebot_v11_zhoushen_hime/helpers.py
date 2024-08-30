@@ -12,14 +12,13 @@ import datetime
 from dataclasses import dataclass
 from typing import Optional
 
-from nonebot.adapters.onebot.v11.bot import Bot
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
 from nonebot.utils import run_sync
 from pydantic import BaseModel, ConfigDict
 
 from src.exception import PluginException
 from src.resource import TemporaryResource
 from src.service import OmegaRequests
-
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('zhoushen_hime')
 """缓存文件夹"""
@@ -39,7 +38,7 @@ class AssScriptLine(object):
 
     # 为方便时间计算, 字幕时间起点以0点为基准
     @classmethod
-    def __time_handle(cls, time: str):
+    def __time_handle(cls, time: str) -> datetime.time:
         split_time = time.split(':')
 
         # 检查时间格式
@@ -61,89 +60,89 @@ class AssScriptLine(object):
         return datetime.time(hour=raw_hour, minute=raw_min, second=raw_sec_int, microsecond=raw_sec_dec * 10000)
 
     # 定义实例时只赋值原始行信息, 其他属性由初始化函数处理
-    def __init__(self, line_num: int, raw_text: str):
+    def __init__(self, line_num: int, raw_text: str) -> None:
         self.__line_num: int = line_num
         self.__event_line_num: int = 0
         self.__raw_text: str = raw_text
         self.__is_init: bool = False
-        self.__type = None
-        self.__start_time = None
-        self.__end_time = None
-        self.__line_duration: datetime.timedelta = datetime.timedelta(0)
-        self.__style = None
-        self.__actor = None
-        self.__left_margin = 0
-        self.__right_margin = 0
-        self.__vertical_margin = 0
-        self.__effect = None
-        self.__text = None
+        self.__type = ''
+        self.__start_time = datetime.time()
+        self.__end_time = datetime.time()
+        self.__line_duration = datetime.timedelta(0)
+        self.__style = ''
+        self.__actor = ''
+        self.__left_margin = '0'
+        self.__right_margin = '0'
+        self.__vertical_margin = '0'
+        self.__effect = ''
+        self.__text = ''
 
     @property
-    def line_num(self):
+    def line_num(self) -> int:
         return self.__line_num
 
     @property
-    def event_line_num(self):
+    def event_line_num(self) -> int:
         return self.__event_line_num
 
     @event_line_num.setter
-    def event_line_num(self, event_line_num: int):
+    def event_line_num(self, event_line_num: int) -> None:
         self.__event_line_num = event_line_num
 
     @property
-    def raw_text(self):
+    def raw_text(self) -> str:
         return self.__raw_text
 
     @property
-    def is_init(self):
+    def is_init(self) -> bool:
         return self.__is_init
 
     @property
-    def type(self):
+    def type(self) -> str:
         return self.__type
 
     @property
-    def start_time(self):
+    def start_time(self) -> datetime.time:
         return self.__start_time
 
     @property
-    def end_time(self):
+    def end_time(self) -> datetime.time:
         return self.__end_time
 
     @property
-    def line_duration(self):
+    def line_duration(self) -> datetime.timedelta:
         return self.__line_duration
 
     @property
-    def style(self):
+    def style(self) -> str:
         return self.__style
 
     @property
-    def actor(self):
+    def actor(self) -> str:
         return self.__actor
 
     @property
-    def left_margin(self):
+    def left_margin(self) -> str:
         return self.__left_margin
 
     @property
-    def right_margin(self):
+    def right_margin(self) -> str:
         return self.__right_margin
 
     @property
-    def vertical_margin(self):
+    def vertical_margin(self) -> str:
         return self.__vertical_margin
 
     @property
-    def effect(self):
+    def effect(self) -> None | str:
         return self.__effect
 
     @property
-    def text(self):
+    def text(self) -> str:
         return self.__text
 
     @text.setter
-    def text(self, text: str):
+    def text(self, text: str) -> None:
         self.__text = text
 
     def init(self) -> None:
@@ -719,11 +718,13 @@ class ZhouChecker(AssScriptLineTool):
         return result
 
 
-class BaseOnebotApiModel(BaseModel):
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
+class BaseOneBotV11Model(BaseModel):
+    """OneBot V11 API 返回数据模型 (go-cqhttp 兼容)"""
+
+    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True, coerce_numbers_to_str=True)
 
 
-class GroupFile(BaseOnebotApiModel):
+class OneBotV11GroupFile(BaseOneBotV11Model):
     """群文件
 
     - group_id: 群号
@@ -751,7 +752,7 @@ class GroupFile(BaseOnebotApiModel):
     uploader_name: str
 
 
-class GroupFolder(BaseOnebotApiModel):
+class OneBotV11GroupFolder(BaseOneBotV11Model):
     """群文件文件夹
 
     - group_id: 群号
@@ -771,14 +772,14 @@ class GroupFolder(BaseOnebotApiModel):
     total_file_count: int
 
 
-class GroupRootFiles(BaseOnebotApiModel):
+class OneBotV11GroupRootFiles(BaseOneBotV11Model):
     """群根目录文件列表
 
     - files: 文件列表
     - folders: 文件夹列表
     """
-    files: list[GroupFile]
-    folders: Optional[list[GroupFolder]] = None
+    files: list[OneBotV11GroupFile]
+    folders: Optional[list[OneBotV11GroupFolder]] = None
 
 
 async def download_file(url: str, file_name: str) -> TemporaryResource:
@@ -787,10 +788,10 @@ async def download_file(url: str, file_name: str) -> TemporaryResource:
     return await OmegaRequests().download(url=url, file=file)
 
 
-async def upload_result_file(group_id: int | str, bot: Bot, file_data: OutputHandleResult) -> None:
+async def upload_result_file(group_id: int | str, bot: OneBotV11Bot, file_data: OutputHandleResult) -> None:
     """上传审轴结果到群文件"""
     api_response = await bot.call_api('get_group_root_files', group_id=group_id)
-    group_root_files = GroupRootFiles.model_validate(api_response)
+    group_root_files = OneBotV11GroupRootFiles.model_validate(api_response)
     group_folders = group_root_files.folders
 
     folder_id = None
@@ -814,5 +815,5 @@ async def upload_result_file(group_id: int | str, bot: Bot, file_data: OutputHan
 __all__ = [
     'ZhouChecker',
     'download_file',
-    'upload_result_file'
+    'upload_result_file',
 ]

@@ -21,27 +21,29 @@ from .config import moe_plugin_config
 from .consts import ALL_MOE_PLUGIN_ARTWORK_ORIGIN, ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN, ALLOW_R18_NODE
 
 if TYPE_CHECKING:
-    from nonebot.matcher import Matcher
-    from src.service import OmegaInterface
+    from src.service import OmegaMatcherInterface
     from src.service.artwork_collection.typing import CollectedArtwork
 
 
-async def _has_allow_r18_node(matcher: "Matcher", interface: "OmegaInterface") -> bool:
+async def _has_allow_r18_node(interface: "OmegaMatcherInterface") -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
+    if interface.matcher.plugin is None:
+        return False
+
     return (
             await interface.entity.check_global_permission() and
             await interface.entity.check_auth_setting(
-                module=matcher.plugin.module_name,
-                plugin=matcher.plugin.name,
+                module=interface.matcher.plugin.module_name,
+                plugin=interface.matcher.plugin.name,
                 node=ALLOW_R18_NODE
             )
     )
 
 
-async def has_allow_r18_node(matcher: "Matcher", interface: "OmegaInterface") -> bool:
+async def has_allow_r18_node(interface: "OmegaMatcherInterface") -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     try:
-        allow_r18 = await _has_allow_r18_node(matcher=matcher, interface=interface)
+        allow_r18 = await _has_allow_r18_node(interface=interface)
     except Exception as e:
         logger.warning(f'Checking {interface.entity} r18 node failed, {e!r}')
         allow_r18 = False

@@ -377,7 +377,7 @@ class BehoimiAPI(BaseMoebooruAPI):
 
 
 class KonachanAPI(BaseMoebooruAPI):
-    """https://konachan.com 主站 API"""
+    """https://konachan.com 主站 API, 主站有 Cloudflare 盾, 建议直接使用全年龄站接口"""
 
     @classmethod
     def _load_cloudflare_clearance(cls) -> bool:
@@ -393,7 +393,7 @@ class KonachanAPI(BaseMoebooruAPI):
 
 
 class KonachanSafeAPI(BaseMoebooruAPI):
-    """https://konachan.net 全年龄站 API"""
+    """https://konachan.net 全年龄站 API, 与主站 API 数据相同, 只是网站页面不显示 rating:E 的作品"""
 
     @classmethod
     def _get_default_headers(cls) -> "HeaderTypes":

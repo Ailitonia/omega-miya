@@ -28,7 +28,7 @@ from .model import (
     PixivRankingModel,
     PixivSearchingResultModel,
     PixivDiscoveryModel,
-    PixivRecommendModel,
+    PixivTopModel,
     PixivGlobalData,
     PixivUserDataModel,
     PixivUserArtworkDataModel,
@@ -156,13 +156,13 @@ class PixivCommon(BasePixivAPI):
             *,
             mode: Literal['all'] = 'all',
             lang: Literal['zh'] = 'zh'
-    ) -> PixivRecommendModel:
+    ) -> PixivTopModel:
         """获取首页推荐内容"""
         url = f'{cls._get_root_url()}/ajax/top/illust'
         params = {'mode': mode, 'lang': lang}
 
         recommend_data = await cls._get_json(url=url, params=params)
-        return PixivRecommendModel.model_validate(recommend_data)
+        return PixivTopModel.model_validate(recommend_data)
 
     @classmethod
     async def query_following_user_latest_illust(
@@ -363,13 +363,19 @@ class PixivUser(PixivCommon):
         return f'{self.__class__.__name__}(uid={self.uid})'
 
     @classmethod
-    async def search_user(cls, nick: str) -> PixivUserSearchingModel:
+    async def search_user(
+            cls,
+            nick: str,
+            *,
+            mode: Literal['s_usr', 's_usr_full'] = 's_usr',
+            page: int = 1,
+    ) -> PixivUserSearchingModel:
         """搜索用户"""
-        url = f'{cls._get_root_url()}/search_user.php'
-        params = {'s_mode': 's_usr', 'nick': nick}
+        url = f'{cls._get_root_url()}/search/users'
+        params = {'nick': nick, 's_mode': mode, 'p': page}
         searching_data = await cls.get_resource_as_text(url=url, params=params)
 
-        # p站唯独画师搜索没有做前后端分离 只能解析页面了
+        # p站唯独画师搜索没有做前后端分离, 只能解析页面, 页面改版后有些数据还获取不到了
         return await PixivParser.parse_user_searching_result_page(content=searching_data)
 
     async def _query_user_data(self) -> PixivUserDataModel:

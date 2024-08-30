@@ -10,8 +10,8 @@
 
 from nonebot import get_driver, logger
 from nonebot.internal.adapter import Bot, Event
-from nonebot.message import event_preprocessor, run_preprocessor, run_postprocessor, event_postprocessor
 from nonebot.matcher import Matcher
+from nonebot.message import event_preprocessor, run_preprocessor, run_postprocessor, event_postprocessor
 
 from .cancellation import preprocessor_cancellation
 from .cooldown import preprocessor_global_cooldown, preprocessor_plugin_cooldown
@@ -22,7 +22,6 @@ from .permission import preprocessor_global_permission, preprocessor_plugin_perm
 from .plugin import startup_init_plugins, preprocessor_plugin_manager
 from .rate_limiting import preprocessor_rate_limiting
 from .statistic import postprocessor_statistic
-
 
 driver = get_driver()
 

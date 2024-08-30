@@ -30,8 +30,8 @@ async def _fetch_image(image_url: str) -> bytes:
     return response.content
 
 
-def _load_image(image_content: bytes) -> ImageUtils:
-    image = ImageUtils.init_from_bytes(image=image_content)
+async def _load_image(image_content: bytes) -> ImageUtils:
+    image = await ImageUtils.async_init_from_bytes(image=image_content)
     image = image.convert('RGBA')
     return image
 
@@ -43,14 +43,14 @@ async def generate_mirage_tank(
 ) -> TemporaryResource:
     """生成幻影坦克图片"""
     base_image_content = await _fetch_image(image_url=base_image_url)
-    base_image = _load_image(image_content=base_image_content)
+    base_image = await _load_image(image_content=base_image_content)
 
     if addition_image_url is None:
         make_image = await run_sync(factory)(base_image.image)
         base_image.set_image(image=make_image)
     else:
         addition_image_content = await _fetch_image(image_url=addition_image_url)
-        addition_image = _load_image(image_content=addition_image_content)
+        addition_image = await _load_image(image_content=addition_image_content)
 
         make_image = await run_sync(factory)(base_image.image, addition_image.image)
         base_image.set_image(image=make_image)
@@ -270,5 +270,5 @@ __all__ = [
     'color_noise',
     'complex_gray',
     'complex_color',
-    'complex_difference'
+    'complex_difference',
 ]

@@ -11,7 +11,8 @@
 from nonebot.adapters import Bot as BaseBot, Event as BaseEvent
 from nonebot.rule import Rule
 
-from src.service import OmegaInterface
+from src.database import begin_db_session
+from src.service import OmegaMatcherInterface
 
 
 class EventGlobalPermissionRule:
@@ -20,7 +21,8 @@ class EventGlobalPermissionRule:
     __slots__ = ()
 
     async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+        async with begin_db_session() as session:
+            event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
             has_global_permission = await event_entity.check_global_permission()
         return has_global_permission  # caught NoResultFound exception
 
@@ -34,7 +36,8 @@ class EventPermissionLevelRule:
         self.level = level
 
     async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+        async with begin_db_session() as session:
+            event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
             has_global_permission = await event_entity.check_global_permission()
             has_permission_level = await event_entity.check_permission_level(level=self.level)
         return has_global_permission and has_permission_level  # caught NoResultFound exception
@@ -51,7 +54,8 @@ class EventPermissionNodeRule:
         self.node = node
 
     async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        async with OmegaInterface(acquire_type='event').get_entity(bot=bot, event=event) as event_entity:
+        async with begin_db_session() as session:
+            event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
             has_global_permission = await event_entity.check_global_permission()
             has_auth = await event_entity.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
         return has_global_permission and has_auth  # caught NoResultFound exception
@@ -63,7 +67,8 @@ class UserGlobalPermissionRule:
     __slots__ = ()
 
     async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
+        async with begin_db_session() as session:
+            user_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
             has_global_permission = await user_entity.check_global_permission()
         return has_global_permission  # caught NoResultFound exception
 
@@ -77,7 +82,8 @@ class UserPermissionLevelRule:
         self.level = level
 
     async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
+        async with begin_db_session() as session:
+            user_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
             has_global_permission = await user_entity.check_global_permission()
             has_permission_level = await user_entity.check_permission_level(level=self.level)
         return has_global_permission and has_permission_level  # caught NoResultFound exception
@@ -94,7 +100,8 @@ class UserPermissionNodeRule:
         self.node = node
 
     async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as user_entity:
+        async with begin_db_session() as session:
+            user_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
             has_global_permission = await user_entity.check_global_permission()
             has_auth = await user_entity.check_auth_setting(module=self.module, plugin=self.plugin, node=self.node)
         return has_global_permission and has_auth  # caught NoResultFound exception

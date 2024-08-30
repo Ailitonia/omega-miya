@@ -39,7 +39,10 @@ async def _parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
     if seg.type != 'photo':
         return seg
 
-    file = await bot.get_file(file_id=seg.data.get('file'))
+    file = await bot.get_file(file_id=seg.data.get('file', ''))
+    if file.file_path is None:
+        return seg
+
     url = f"https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}"
     # 该链接不能直接作为向 Telegram 平台发送图片的 url, 会返回错误: "wrong file identifier/HTTP URL specified"
 
@@ -79,5 +82,5 @@ async def handle_parse_message_image_event_preprocessor(bot: Bot, event: Message
 
 
 __all__ = [
-    'handle_parse_message_image_event_preprocessor'
+    'handle_parse_message_image_event_preprocessor',
 ]

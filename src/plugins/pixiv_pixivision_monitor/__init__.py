@@ -3,7 +3,7 @@
 @Date           : 2023/8/30 21:42
 @FileName       : pixivision
 @Project        : nonebot2_miya
-@Description    : pixivision plugin
+@Description    : Pixivision plugin
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
@@ -13,7 +13,7 @@ from nonebot.plugin import PluginMetadata
 
 __plugin_meta__ = PluginMetadata(
     name='Pixivision',
-    description='【Pixivision 插件】\n'
+    description='【Pixivision 特辑助手】\n'
                 '探索并查看Pixivision文章\n'
                 '订阅最新的Pixivision特辑',
     usage='/pixivision列表 [page]\n'

@@ -54,11 +54,6 @@ def get_artwork_collection_type(origin: Literal['konachan']) -> type[KonachanArt
 
 
 @overload
-def get_artwork_collection_type(origin: Literal['konachan_safe']) -> type[KonachanSafeArtworkCollection]:
-    ...
-
-
-@overload
 def get_artwork_collection_type(origin: Literal['yandere']) -> type[YandereArtworkCollection]:
     ...
 
@@ -85,8 +80,6 @@ def get_artwork_collection_type(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -
         case 'behoimi':
             return BehoimiArtworkCollection
         case 'konachan':
-            return KonachanArtworkCollection
-        case 'konachan_safe':
             return KonachanSafeArtworkCollection
         case 'yandere':
             return YandereArtworkCollection

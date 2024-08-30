@@ -9,16 +9,19 @@
 """
 
 from copy import deepcopy
+from typing import TYPE_CHECKING
+
 from nonebot import get_driver, logger
 
 from src.database import begin_db_session
+from src.exception import WebSourceException
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
 from src.utils.bilibili_api import BilibiliLiveRoom
-from src.utils.bilibili_api.exception import BilibiliApiError
-from src.utils.bilibili_api.model.live_room import BilibiliLiveRoomDataModel
 from src.utils.process_utils import semaphore_gather
-
 from .model import BilibiliLiveRoomStatus, BilibiliLiveRoomStatusUpdate
+
+if TYPE_CHECKING:
+    from src.utils.bilibili_api.model.live_room import BilibiliLiveRoomDataModel
 
 
 __LIVE_STATUS: dict[int, BilibiliLiveRoomStatus] = {}
@@ -26,7 +29,7 @@ __LIVE_STATUS: dict[int, BilibiliLiveRoomStatus] = {}
 
 
 def check_and_upgrade_live_status(
-        live_room_data: BilibiliLiveRoomDataModel,
+        live_room_data: "BilibiliLiveRoomDataModel",
         *,
         live_user_name: str | None = None
 ) -> BilibiliLiveRoomStatusUpdate | None:
@@ -38,15 +41,18 @@ def check_and_upgrade_live_status(
     exist_status = __LIVE_STATUS.get(live_room_data.uid, None)
 
     if exist_status is None and live_user_name is None:
-        raise ValueError(f'upgrade new live room status must provide "live_user_name" parameter')
+        raise ValueError(f'Add new live room status must provide "live_user_name" parameter')
+
+    if exist_status is None:  # make typing checker happy
+        new_live_user_name = live_user_name if live_user_name is not None else f'bilibili直播间{live_room_data.room_id}'
     else:
-        live_user_name = exist_status.live_user_name if live_user_name is None else live_user_name
+        new_live_user_name = exist_status.live_user_name if live_user_name is None else live_user_name
 
     new_status = BilibiliLiveRoomStatus.model_validate({
         'live_room_id': live_room_data.room_id,
         'live_status': live_room_data.live_status,
         'live_title': live_room_data.title,
-        'live_user_name': live_user_name
+        'live_user_name': new_live_user_name
     })
     __LIVE_STATUS.update({live_room_data.uid: new_status})
     logger.trace(f'Upgrade live room({live_room_data.room_id}) status: {new_status}')
@@ -78,12 +84,12 @@ async def query_and_upgrade_live_room_status(live_room: BilibiliLiveRoom) -> Bil
     logger.debug(f'BilibiliLiveRoomMonitor | Updating live room({live_room.room_id}) status')
 
     live_room_data = await live_room.query_live_room_data()
-    if live_room_data.error:
-        raise BilibiliApiError(f'query {live_room} data failed, {live_room_data.message}')
+    if live_room_data.error or live_room_data.data is None:
+        raise WebSourceException(f'query {live_room} data failed, {live_room_data.message}')
 
     live_room_user_data = await live_room.query_live_room_user_data()
-    if live_room_user_data.error:
-        raise BilibiliApiError(f'query {live_room} user data failed, {live_room_user_data.message}')
+    if live_room_user_data.error or live_room_user_data.data is None:
+        raise WebSourceException(f'query {live_room} user data failed, {live_room_user_data.message}')
 
     return check_and_upgrade_live_status(live_room_data.data, live_user_name=live_room_user_data.data.name)
 
@@ -112,5 +118,5 @@ __all__ = [
     'get_all_live_room_status_uid',
     'get_live_room_status',
     'get_user_live_room_status',
-    'query_and_upgrade_live_room_status'
+    'query_and_upgrade_live_room_status',
 ]

@@ -8,13 +8,15 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal
-from pydantic import BaseModel, ConfigDict
+from typing import TYPE_CHECKING, Literal
 
 from nonebot.rule import ArgumentParser, Namespace
+from pydantic import BaseModel, ConfigDict
 
 from src.service import OmegaMessage, OmegaMessageSegment
-from src.utils.nhentai import NhentaiGallery
+
+if TYPE_CHECKING:
+    from src.utils.nhentai import NhentaiGallery
 
 
 def get_searching_argument_parser() -> ArgumentParser:
@@ -40,7 +42,7 @@ def parse_from_searching_parser(args: Namespace) -> SearchingArguments:
     return SearchingArguments.model_validate(args)
 
 
-async def format_gallery_desc_msg(gallery: NhentaiGallery) -> OmegaMessage:
+async def format_gallery_desc_msg(gallery: "NhentaiGallery") -> OmegaMessage:
     """获取格式化作品描述文本"""
     gallery_data = await gallery.query_gallery()
     folder_name = f'gallery_{gallery_data.id}'
@@ -67,5 +69,5 @@ async def format_gallery_desc_msg(gallery: NhentaiGallery) -> OmegaMessage:
 __all__ = [
     'get_searching_argument_parser',
     'parse_from_searching_parser',
-    'format_gallery_desc_msg'
+    'format_gallery_desc_msg',
 ]

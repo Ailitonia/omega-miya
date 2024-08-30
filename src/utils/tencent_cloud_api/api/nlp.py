@@ -10,7 +10,6 @@
 from typing import Literal
 
 from .base import BaseTencentCloudAPI
-from ..exception import TencentCloudNetworkError
 from ..model.nlp import (
     TencentCloudComposeCoupletResponse,
     TencentCloudComposePoetryResponse,
@@ -50,11 +49,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param target_type: 返回的文本结果为繁体还是简体, 0: 简体, 1: 繁体
         """
         payload = {'Text': text, 'TargetType': target_type}
-        result = await self._post_request(
-            action='ComposeCouplet', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudComposeCoupletResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudComposeCoupletResponse.model_validate(
+            await self._post_request(action='ComposeCouplet', version='2019-04-08', region='', payload=payload)
+        )
 
     async def compose_poetry(
             self,
@@ -70,11 +68,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param genre: 诗的体裁, 0: 五言律诗或七言律诗, 5: 五言律诗, 7: 七言律诗
         """
         payload = {'Text': text, 'PoetryType': poetry_type, 'Genre': genre}
-        result = await self._post_request(
-            action='ComposePoetry', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudComposePoetryResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudComposePoetryResponse.model_validate(
+            await self._post_request(action='ComposePoetry', version='2019-04-08', region='', payload=payload)
+        )
 
     async def text_embellish(
             self,
@@ -92,11 +89,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param style: 控制润色类型, both: 同时返回改写和扩写, expansion: 扩写, rewriting: 改写, m2a: 从现代文改写为古文, a2m: 从古文改写为现代文
         """
         payload = {'Text': text, 'SourceLang': source_lang, 'Number': number, 'Style': style}
-        result = await self._post_request(
-            action='TextEmbellish', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextEmbellishResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudTextEmbellishResponse.model_validate(
+            await self._post_request(action='TextEmbellish', version='2019-04-08', region='', payload=payload)
+        )
 
     async def text_writing(
             self,
@@ -116,11 +112,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param style: 指定续写风格, 支持风格如下: science_fiction: 科幻, military_history: 军事, xuanhuan_wuxia: 武侠, urban_officialdom: 职场
         """
         payload = {'Text': text, 'SourceLang': source_lang, 'Number': number, 'Domain': domain, 'Style': style}
-        result = await self._post_request(
-            action='TextWriting', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextWritingResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudTextWritingResponse.model_validate(
+            await self._post_request(action='TextWriting', version='2019-04-08', region='', payload=payload)
+        )
 
     async def generate_keyword_sentence(
             self,
@@ -136,11 +131,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param domain: 指定生成句子的领域, 支持领域如下: general: 通用领域, 支持中英文, academic: 学术领域, 仅支持英文
         """
         payload = {'WordList': word_list, 'Number': number, 'Domain': domain}
-        result = await self._post_request(
-            action='GenerateKeywordSentence', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudGenerateKeywordSentenceResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudGenerateKeywordSentenceResponse.model_validate(
+            await self._post_request(action='GenerateKeywordSentence', version='2019-04-08', region='', payload=payload)
+        )
 
     async def sentence_correction(self, text_list: list[str]) -> TencentCloudSentenceCorrectionResponse:
         """句子纠错
@@ -148,11 +142,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param text_list: 待纠错的句子列表, 可以以数组方式在一次请求中填写多个待纠错的句子, 文本统一使用 utf-8 格式编码, 每个中文句子的长度不超过 150 字符, 每个英文句子的长度不超过100个单词, 且数组长度需小于30
         """
         payload = {'TextList': text_list}
-        result = await self._post_request(
-            action='SentenceCorrection', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudSentenceCorrectionResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudSentenceCorrectionResponse.model_validate(
+            await self._post_request(action='SentenceCorrection', version='2019-04-08', region='', payload=payload)
+        )
 
     async def classify_content(self, title: str, content: list[str]) -> TencentCloudClassifyContentResponse:
         """文本分类V2
@@ -161,11 +154,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param content: 待分类文章的内容, 每个元素对应一个段落(支持 UTF-8 格式, 文章内容长度总和不超过 2000 字符)
         """
         payload = {'Title': title, 'Content': content}
-        result = await self._post_request(
-            action='ClassifyContent', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudClassifyContentResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudClassifyContentResponse.model_validate(
+            await self._post_request(action='ClassifyContent', version='2019-04-08', region='', payload=payload)
+        )
 
     async def analyze_sentiment(self, text: str) -> TencentCloudAnalyzeSentimentResponse:
         """情感分析V2
@@ -173,11 +165,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param text: 待分析的文本（仅支持 UTF-8 格式, 不超过 200 字）
         """
         payload = {'Text': text}
-        result = await self._post_request(
-            action='AnalyzeSentiment', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudAnalyzeSentimentResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudAnalyzeSentimentResponse.model_validate(
+            await self._post_request(action='AnalyzeSentiment', version='2019-04-08', region='', payload=payload)
+        )
 
     async def evaluate_sentence_similarity(
             self,
@@ -190,11 +181,12 @@ class TencentNLP(BaseTencentCloudAPI):
         :param target_text: 目标句子(仅支持 UTF-8 格式, 不超过 500 字符)
         """
         payload = {'SentencePairList': [{'SourceText': source_text, 'TargetText': target_text}]}
-        result = await self._post_request(
-            action='EvaluateSentenceSimilarity', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudEvaluateSentenceSimilarityResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudEvaluateSentenceSimilarityResponse.model_validate(
+            await self._post_request(
+                action='EvaluateSentenceSimilarity', version='2019-04-08', region='', payload=payload
+            )
+        )
 
     async def evaluate_word_similarity(
             self,
@@ -207,11 +199,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param target_word: 计算相似度的目标词(仅支持 UTF-8 格式, 不超过 10 字符)
         """
         payload = {'SourceWord': source_word, 'TargetWord': target_word}
-        result = await self._post_request(
-            action='EvaluateWordSimilarity', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudEvaluateWordSimilarityResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudEvaluateWordSimilarityResponse.model_validate(
+            await self._post_request(action='EvaluateWordSimilarity', version='2019-04-08', region='', payload=payload)
+        )
 
     async def parse_words(self, text: str) -> TencentCloudParseWordsResponse:
         """词法分析V2
@@ -219,11 +210,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param text: 待分析的文本(支持中英文文本, 不超过 500 字符)
         """
         payload = {'Text': text}
-        result = await self._post_request(
-            action='ParseWords', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudParseWordsResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudParseWordsResponse.model_validate(
+            await self._post_request(action='ParseWords', version='2019-04-08', region='', payload=payload)
+        )
 
     async def retrieve_similar_words(self, text: str, *, number: int = 10) -> TencentCloudRetrieveSimilarWordsResponse:
         """相似词召回
@@ -232,11 +222,10 @@ class TencentNLP(BaseTencentCloudAPI):
         :param number: 召回的相似词个数, 取值范围为 1-20
         """
         payload = {'Text': text, 'Number': number}
-        result = await self._post_request(
-            action='RetrieveSimilarWords', version='2019-04-08', region='', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudRetrieveSimilarWordsResponse.model_validate(self._parse_content_as_json(result))
+
+        return TencentCloudRetrieveSimilarWordsResponse.model_validate(
+            await self._post_request(action='RetrieveSimilarWords', version='2019-04-08', region='', payload=payload)
+        )
 
 
 __all__ = [

@@ -10,13 +10,12 @@
 
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
-from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
+from nonebot.matcher import Matcher
 
-from src.service import OmegaInterface
-
+from src.database import begin_db_session
+from src.service import OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
-
 
 SUPERUSERS = get_driver().config.superusers
 CURRENCY_ALIAS: str = '硬币'
@@ -28,6 +27,11 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
 
     # 跳过临时 matcher 避免在命令交互中被不正常触发
     if matcher.temp:
+        return
+
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
         return
 
     user_id = event.get_user_id()
@@ -49,7 +53,8 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({plugin_name}) ignored with non-cost')
         return
 
-    async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+    async with begin_db_session() as session:
+        entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
         await entity.add_ignore_exists()
         friendship = await entity.query_friendship()
 
@@ -78,5 +83,5 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: Bot, event: Event):
 
 
 __all__ = [
-    'preprocessor_plugin_cost'
+    'preprocessor_plugin_cost',
 ]

@@ -8,11 +8,15 @@
 @Software       : PyCharm 
 """
 
-from .base_model import BaseTencentCloudErrorResponse, BaseTencentCloudSuccessResponse, BaseTencentCloudResponse
+from .base_model import (
+    BaseTencentCloudErrorResponse,
+    BaseTencentCloudSuccessResponse,
+    BaseTencentCloudResponse,
+)
 
 
 class TencentCloudTextTranslateSuccessResponse(BaseTencentCloudSuccessResponse):
-    """文本翻译 Api 调用成功返回内容
+    """文本翻译 API 调用成功返回内容
 
     - TargetText: 翻译后的文本
     - Source: 源语言
@@ -24,12 +28,12 @@ class TencentCloudTextTranslateSuccessResponse(BaseTencentCloudSuccessResponse):
 
 
 class TencentCloudTextTranslateResponse(BaseTencentCloudResponse):
-    """文本翻译 Api 调用成功返回"""
+    """文本翻译 API 调用成功返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudTextTranslateSuccessResponse
 
 
 class TencentCloudTextTranslateBatchSuccessResponse(BaseTencentCloudSuccessResponse):
-    """批量文本翻译 Api 调用成功返回内容
+    """批量文本翻译 API 调用成功返回内容
 
     - Source: 源语言
     - Target: 目标语言
@@ -41,11 +45,11 @@ class TencentCloudTextTranslateBatchSuccessResponse(BaseTencentCloudSuccessRespo
 
 
 class TencentCloudTextTranslateBatchResponse(BaseTencentCloudResponse):
-    """批量文本翻译 Api 调用成功返回"""
+    """批量文本翻译 API 调用成功返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudTextTranslateBatchSuccessResponse
 
 
 __all__ = [
     'TencentCloudTextTranslateResponse',
-    'TencentCloudTextTranslateBatchResponse'
+    'TencentCloudTextTranslateBatchResponse',
 ]

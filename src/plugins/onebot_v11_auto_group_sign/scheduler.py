@@ -8,17 +8,16 @@
 @Software       : PyCharm 
 """
 
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
 from nonebot.log import logger
-from nonebot.adapters import Bot
 
 from src.service import scheduler
 from src.service.omega_multibot_support import get_online_bots
 from src.utils.process_utils import semaphore_gather
-
 from .config import auto_group_sign_config
 
 
-async def _bot_group_sign(bot: Bot):
+async def _bot_group_sign(bot: OneBotV11Bot):
     tasks = [
         bot.send_group_sign(group_id=group_data['group_id'])
         for group_data in await bot.get_group_list()
@@ -29,7 +28,11 @@ async def _bot_group_sign(bot: Bot):
 
 async def _auto_group_sign_main() -> None:
     logger.info('AutoGroupSign | Starting sign all groups')
-    tasks = [_bot_group_sign(bot=bot) for _, bot in get_online_bots().get('OneBot V11', {}).items()]
+    tasks = [
+        _bot_group_sign(bot=bot)
+        for _, bot in get_online_bots().get('OneBot V11', {}).items()
+        if isinstance(bot, OneBotV11Bot)
+    ]
     await semaphore_gather(tasks=tasks, semaphore_num=2)
     logger.info('AutoGroupSign | Sign tasks completed')
 

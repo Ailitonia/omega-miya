@@ -76,5 +76,5 @@ scheduler.add_job(
 
 
 __all__ = [
-    'scheduler'
+    'scheduler',
 ]

@@ -430,7 +430,7 @@ class Comic18(_BaseComic18):
     @classmethod
     async def _request_preview_body(cls, request: Comic18PreviewRequestModel) -> Comic18PreviewBody:
         """获取生成预览图中每个缩略图的数据"""
-        request_data = await cls.request_resource_as_bytes(url=request.request_url)  # type: ignore
+        request_data = await cls.request_resource_as_bytes(url=request.request_url)
         return Comic18PreviewBody(desc_text=request.desc_text, preview_thumb=request_data)
 
     @classmethod

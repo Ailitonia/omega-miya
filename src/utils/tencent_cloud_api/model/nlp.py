@@ -10,23 +10,27 @@
 
 from typing import Literal, Optional
 
-from .base_model import (BaseTencentCloudModel, BaseTencentCloudErrorResponse,
-                         BaseTencentCloudSuccessResponse, BaseTencentCloudResponse)
+from .base_model import (
+    BaseTencentCloudModel,
+    BaseTencentCloudErrorResponse,
+    BaseTencentCloudSuccessResponse,
+    BaseTencentCloudResponse,
+)
 
 
 class TencentCloudChatBotSuccessResponse(BaseTencentCloudSuccessResponse):
-    """闲聊 Api 调用成功返回内容"""
+    """闲聊 API 调用成功返回内容"""
     Reply: str
     Confidence: float
 
 
 class TencentCloudChatBotResponse(BaseTencentCloudResponse):
-    """闲聊 Api 调用返回"""
+    """闲聊 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudChatBotSuccessResponse
 
 
 class TencentCloudComposeCoupletSuccessResponse(BaseTencentCloudSuccessResponse):
-    """对联生成 Api 调用成功返回内容
+    """对联生成 API 调用成功返回内容
 
     - TopScroll: 横批
     - Content: 上联与下联
@@ -38,12 +42,12 @@ class TencentCloudComposeCoupletSuccessResponse(BaseTencentCloudSuccessResponse)
 
 
 class TencentCloudComposeCoupletResponse(BaseTencentCloudResponse):
-    """对联生成 Api 调用返回"""
+    """对联生成 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudComposeCoupletSuccessResponse
 
 
 class TencentCloudComposePoetrySuccessResponse(BaseTencentCloudSuccessResponse):
-    """诗词生成 Api 调用成功返回内容
+    """诗词生成 API 调用成功返回内容
 
     - Title: 诗题, 即输入的生成诗词的关键词
     """
@@ -52,7 +56,7 @@ class TencentCloudComposePoetrySuccessResponse(BaseTencentCloudSuccessResponse):
 
 
 class TencentCloudComposePoetryResponse(BaseTencentCloudResponse):
-    """诗词生成 Api 调用返回"""
+    """诗词生成 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudComposePoetrySuccessResponse
 
 
@@ -67,7 +71,7 @@ class TencentCloudEmbellishList(BaseTencentCloudModel):
 
 
 class TencentCloudTextEmbellishSuccessResponse(BaseTencentCloudSuccessResponse):
-    """文本润色 Api 调用成功返回内容
+    """文本润色 API 调用成功返回内容
 
     - EmbellishList: 润色结果列表
     """
@@ -75,7 +79,7 @@ class TencentCloudTextEmbellishSuccessResponse(BaseTencentCloudSuccessResponse):
 
 
 class TencentCloudTextEmbellishResponse(BaseTencentCloudResponse):
-    """文本润色 Api 调用返回"""
+    """文本润色 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudTextEmbellishSuccessResponse
 
 
@@ -90,7 +94,7 @@ class TencentCloudWritingList(BaseTencentCloudModel):
 
 
 class TencentCloudTextWritingSuccessResponse(BaseTencentCloudSuccessResponse):
-    """文本补全 Api 调用成功返回内容
+    """文本补全 API 调用成功返回内容
 
     - WritingList: 续写结果列表
     """
@@ -98,7 +102,7 @@ class TencentCloudTextWritingSuccessResponse(BaseTencentCloudSuccessResponse):
 
 
 class TencentCloudTextWritingResponse(BaseTencentCloudResponse):
-    """文本补全 Api 调用返回"""
+    """文本补全 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudTextWritingSuccessResponse
 
 
@@ -111,7 +115,7 @@ class TencentCloudKeywordSentence(BaseTencentCloudModel):
 
 
 class TencentCloudGenerateKeywordSentenceSuccessResponse(BaseTencentCloudSuccessResponse):
-    """句子生成 Api 调用成功返回内容
+    """句子生成 API 调用成功返回内容
 
     - KeywordSentenceList: 生成的句子列表
     """
@@ -119,7 +123,7 @@ class TencentCloudGenerateKeywordSentenceSuccessResponse(BaseTencentCloudSuccess
 
 
 class TencentCloudGenerateKeywordSentenceResponse(BaseTencentCloudResponse):
-    """句子生成 Api 调用返回"""
+    """句子生成 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudGenerateKeywordSentenceSuccessResponse
 
 
@@ -148,7 +152,7 @@ class TencentCloudCorrectionItem(BaseTencentCloudModel):
 
 
 class TencentCloudSentenceCorrectionSuccessResponse(BaseTencentCloudSuccessResponse):
-    """句子纠错 Api 调用成功返回内容
+    """句子纠错 API 调用成功返回内容
 
     - CorrectionList: 纠错结果列表(注意仅展示错误句子的纠错结果, 若句子无错则不展示, 若全部待纠错句子都被认为无错, 则可能返回数组为空)
     """
@@ -156,7 +160,7 @@ class TencentCloudSentenceCorrectionSuccessResponse(BaseTencentCloudSuccessRespo
 
 
 class TencentCloudSentenceCorrectionResponse(BaseTencentCloudResponse):
-    """句子纠错 Api 调用返回"""
+    """句子纠错 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudSentenceCorrectionSuccessResponse
 
 
@@ -175,7 +179,7 @@ class TencentCloudCategory(BaseTencentCloudModel):
 
 
 class TencentCloudClassifyContentSuccessResponse(BaseTencentCloudSuccessResponse):
-    """文本分类 V2 Api 调用成功返回内容
+    """文本分类 V2 API 调用成功返回内容
 
     - FirstClassification: 一级分类
     - SecondClassification: 二级分类
@@ -187,12 +191,12 @@ class TencentCloudClassifyContentSuccessResponse(BaseTencentCloudSuccessResponse
 
 
 class TencentCloudClassifyContentResponse(BaseTencentCloudResponse):
-    """句子纠错 Api 调用返回"""
+    """句子纠错 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudClassifyContentSuccessResponse
 
 
 class TencentCloudAnalyzeSentimentSuccessResponse(BaseTencentCloudSuccessResponse):
-    """情感分析V2 Api 调用成功返回内容
+    """情感分析V2 API 调用成功返回内容
 
     - Positive: 正面情感概率
     - Neutral: 中性情感概率
@@ -206,12 +210,12 @@ class TencentCloudAnalyzeSentimentSuccessResponse(BaseTencentCloudSuccessRespons
 
 
 class TencentCloudAnalyzeSentimentResponse(BaseTencentCloudResponse):
-    """情感分析V2 Api 调用返回"""
+    """情感分析V2 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudAnalyzeSentimentSuccessResponse
 
 
 class TencentCloudEvaluateSentenceSimilaritySuccessResponse(BaseTencentCloudSuccessResponse):
-    """句子相似度V2 Api 调用成功返回内容
+    """句子相似度V2 API 调用成功返回内容
 
     - ScoreList: 每个句子对的相似度分值
     """
@@ -219,12 +223,12 @@ class TencentCloudEvaluateSentenceSimilaritySuccessResponse(BaseTencentCloudSucc
 
 
 class TencentCloudEvaluateSentenceSimilarityResponse(BaseTencentCloudResponse):
-    """句子相似度V2 Api 调用返回"""
+    """句子相似度V2 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudEvaluateSentenceSimilaritySuccessResponse
 
 
 class TencentCloudEvaluateWordSimilaritySuccessResponse(BaseTencentCloudSuccessResponse):
-    """词相似度V2 Api 调用成功返回内容
+    """词相似度V2 API 调用成功返回内容
 
     - Similarity: 词相似度分值
     """
@@ -232,7 +236,7 @@ class TencentCloudEvaluateWordSimilaritySuccessResponse(BaseTencentCloudSuccessR
 
 
 class TencentCloudEvaluateWordSimilarityResponse(BaseTencentCloudResponse):
-    """词相似度V2 Api 调用返回"""
+    """词相似度V2 API 调用返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudEvaluateWordSimilaritySuccessResponse
 
 
@@ -277,7 +281,7 @@ class TencentCloudEntity(BaseTencentCloudModel):
 
 
 class TencentCloudParseWordsSuccessResponse(BaseTencentCloudSuccessResponse):
-    """词法分析V2 Api 调用成功返回内容
+    """词法分析V2 API 调用成功返回内容
 
     - NormalText: 输入文本正则化的结果(包括对英文文本中的开头和实体进行大写等)
     - BasicParticiples: 基础粒度分词和词性标注的结果
@@ -291,12 +295,12 @@ class TencentCloudParseWordsSuccessResponse(BaseTencentCloudSuccessResponse):
 
 
 class TencentCloudParseWordsResponse(BaseTencentCloudResponse):
-    """词法分析V2 Api 调用成功返回"""
+    """词法分析V2 API 调用成功返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudParseWordsSuccessResponse
 
 
 class TencentCloudRetrieveSimilarWordsSuccessResponse(BaseTencentCloudSuccessResponse):
-    """相似词召回 Api 调用成功返回内容
+    """相似词召回 API 调用成功返回内容
 
     - WordList: 召回的相似词数组
     """
@@ -304,7 +308,7 @@ class TencentCloudRetrieveSimilarWordsSuccessResponse(BaseTencentCloudSuccessRes
 
 
 class TencentCloudRetrieveSimilarWordsResponse(BaseTencentCloudResponse):
-    """相似词召回 Api 调用成功返回"""
+    """相似词召回 API 调用成功返回"""
     Response: BaseTencentCloudErrorResponse | TencentCloudRetrieveSimilarWordsSuccessResponse
 
 

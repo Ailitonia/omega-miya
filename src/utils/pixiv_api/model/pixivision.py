@@ -11,7 +11,6 @@
 import re
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BasePixivModel
 
 

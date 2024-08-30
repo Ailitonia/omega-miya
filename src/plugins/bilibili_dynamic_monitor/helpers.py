@@ -8,34 +8,40 @@
 @Software       : PyCharm 
 """
 
-from sqlalchemy.exc import NoResultFound
-from typing import Iterable
+from typing import TYPE_CHECKING, Sequence
 
 from nonebot import logger
-from nonebot.adapters import Message
 from nonebot.exception import ActionFailed
+from sqlalchemy.exc import NoResultFound
 
 from src.database import BiliDynamicDAL, begin_db_session
-from src.database.internal.entity import Entity
-from src.database.internal.subscription_source import SubscriptionSource
-from src.service import OmegaInterface, OmegaEntity, OmegaMessageSegment
+from src.exception import WebSourceException
+from src.service import (
+    OmegaMatcherInterface as OmMI,
+    OmegaEntityInterface as OmEI,
+    OmegaEntity,
+    OmegaMessage,
+    OmegaMessageSegment,
+)
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
-from src.utils.bilibili_api.model import BilibiliDynamicCard
-from src.utils.bilibili_api.exception import BilibiliApiError
 from src.utils.process_utils import run_async_delay, semaphore_gather
-
 from .consts import BILI_DYNAMIC_SUB_TYPE, NOTICE_AT_ALL, MODULE_NAME, PLUGIN_NAME
 
+if TYPE_CHECKING:
+    from src.database.internal.entity import Entity
+    from src.database.internal.subscription_source import SubscriptionSource
+    from src.utils.bilibili_api.model import BilibiliDynamicCard
 
-async def _query_dynamic_sub_source(uid: int) -> SubscriptionSource:
+
+async def _query_dynamic_sub_source(uid: int) -> "SubscriptionSource":
     """从数据库查询动态订阅源"""
     async with begin_db_session() as session:
         source_res = await OmegaBiliDynamicSubSource(session=session, uid=uid).query_subscription_source()
     return source_res
 
 
-async def _check_new_dynamic(cards: Iterable[BilibiliDynamicCard]) -> list[BilibiliDynamicCard]:
+async def _check_new_dynamic(cards: Sequence["BilibiliDynamicCard"]) -> list["BilibiliDynamicCard"]:
     """检查新的动态(数据库中没有的)"""
     async with begin_db_session() as session:
         all_ids = [x.desc.dynamic_id for x in cards]
@@ -43,7 +49,7 @@ async def _check_new_dynamic(cards: Iterable[BilibiliDynamicCard]) -> list[Bilib
     return [x for x in cards if x.desc.dynamic_id in new_ids]
 
 
-async def _add_upgrade_dynamic_content(card: BilibiliDynamicCard) -> None:
+async def _add_upgrade_dynamic_content(card: "BilibiliDynamicCard") -> None:
     """在数据库中添加动态信息"""
     async with begin_db_session() as session:
         dal = BiliDynamicDAL(session=session)
@@ -64,11 +70,11 @@ async def _add_user_new_dynamic_content(bili_user: BilibiliUser) -> None:
     await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
 
 
-async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> SubscriptionSource:
+async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> "SubscriptionSource":
     """在数据库中新更新动态订阅源"""
     user_data = await bili_user.query_user_data()
     if user_data.error:
-        raise BilibiliApiError(f'query {bili_user} data failed, {user_data.message}')
+        raise WebSourceException(f'query {bili_user} data failed, {user_data.message}')
 
     await _add_user_new_dynamic_content(bili_user=bili_user)
 
@@ -79,20 +85,20 @@ async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> Subscripti
     return source_res
 
 
-async def add_dynamic_sub(interface: OmegaInterface, bili_user: BilibiliUser) -> None:
+async def add_dynamic_sub(interface: OmMI, bili_user: BilibiliUser) -> None:
     """为目标对象添加 Bilibili 用户动态订阅"""
     source_res = await _add_upgrade_dynamic_sub_source(bili_user=bili_user)
     await interface.entity.add_subscription(subscription_source=source_res,
                                             sub_info=f'Bilibili用户动态订阅(uid={bili_user.uid})')
 
 
-async def delete_dynamic_sub(interface: OmegaInterface, uid: int) -> None:
+async def delete_dynamic_sub(interface: OmMI, uid: int) -> None:
     """为目标对象删除 Bilibili 用户动态订阅"""
     source_res = await _query_dynamic_sub_source(uid=uid)
     await interface.entity.delete_subscription(subscription_source=source_res)
 
 
-async def query_entity_subscribed_dynamic_sub_source(interface: OmegaInterface) -> dict[str, str]:
+async def query_entity_subscribed_dynamic_sub_source(interface: OmMI) -> dict[str, str]:
     """获取目标对象已订阅的 Bilibili 用户动态
 
     :return: {用户 UID: 用户昵称} 的字典"""
@@ -110,7 +116,7 @@ async def query_all_subscribed_dynamic_sub_source() -> list[int]:
     return [int(x.sub_id) for x in source_res]
 
 
-async def query_subscribed_entity_by_bili_user(uid: int) -> list[Entity]:
+async def query_subscribed_entity_by_bili_user(uid: int) -> list["Entity"]:
     """根据 Bilibili 用户查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaBiliDynamicSubSource(session=session, uid=uid)
@@ -118,7 +124,7 @@ async def query_subscribed_entity_by_bili_user(uid: int) -> list[Entity]:
     return subscribed_entity
 
 
-async def _format_dynamic_update_message(dynamic: BilibiliDynamicCard) -> str | Message:
+async def _format_dynamic_update_message(dynamic: "BilibiliDynamicCard") -> str | OmegaMessage:
     """处理动态为消息"""
     send_message = f'【bilibili】{dynamic.output_text}\n'
 
@@ -143,17 +149,17 @@ async def _has_notice_at_all_node(entity: OmegaEntity) -> bool:
         return False
 
 
-async def _msg_sender(entity: Entity, message: str | Message) -> None:
+async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
     """向 entity 发送动态消息"""
     try:
         async with begin_db_session() as session:
             internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
-            interface = OmegaInterface(entity=internal_entity)
+            interface = OmEI(entity=internal_entity)
 
             if await _has_notice_at_all_node(internal_entity):
                 message = OmegaMessageSegment.at_all() + message
 
-            await interface.send_msg(message=message)
+            await interface.send_entity_message(message=message)
     except ActionFailed as e:
         logger.warning(f'BilibiliDynamicMonitor | Sending message to {entity} failed with ActionFailed, {e!r}')
     except Exception as e:
@@ -197,5 +203,5 @@ __all__ = [
     'delete_dynamic_sub',
     'query_entity_subscribed_dynamic_sub_source',
     'query_all_subscribed_dynamic_sub_source',
-    'bili_dynamic_monitor_main'
+    'bili_dynamic_monitor_main',
 ]

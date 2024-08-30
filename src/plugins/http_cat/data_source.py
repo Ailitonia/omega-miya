@@ -35,5 +35,5 @@ async def get_http_cat(http_code: int | str) -> TemporaryResource:
 
 
 __all__ = [
-    'get_http_cat'
+    'get_http_cat',
 ]

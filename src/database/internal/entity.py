@@ -29,9 +29,9 @@ class EntityType(StrEnum):
 
     onebot_v11_user = 'onebot_v11_user'  # QQ 用户
     onebot_v11_group = 'onebot_v11_group'  # QQ 群组
-    onebot_v11_guild = 'onebot_v11_guild'  # QQ 频道 (Onebot 协议)
-    onebot_v11_guild_user = 'onebot_v11_guild_user'  # QQ 频道系统内用户 (Onebot 协议)
-    onebot_v11_guild_channel = 'onebot_v11_guild_channel'  # QQ 频道子频道 (Onebot 协议)
+    onebot_v11_guild = 'onebot_v11_guild'  # QQ 频道 (OneBot 协议)
+    onebot_v11_guild_user = 'onebot_v11_guild_user'  # QQ 频道系统内用户 (OneBot 协议)
+    onebot_v11_guild_channel = 'onebot_v11_guild_channel'  # QQ 频道子频道 (OneBot 协议)
 
     qqguild_guild = 'qqguild_guild'  # [Deactivate] QQ 频道子频道 (QQGuild 协议)
     qqguild_user = 'qqguild_user'  # [Deactivate] QQ 频道系统内用户 (QQGuild 协议)
@@ -53,8 +53,7 @@ class EntityType(StrEnum):
             raise ValueError(f'illegal entity_type: "{unverified}"')
 
     @classmethod
-    @property
-    def supported_target_names(cls) -> set:
+    def get_supported_target_names(cls) -> set[str]:
         return set(member.value for _, member in cls.__members__.items())
 
 

@@ -63,5 +63,5 @@ def sign_wbi_params(nav_data: BilibiliWebInterfaceNav, params: Optional[dict[str
 
 
 __all__ = [
-    'sign_wbi_params'
+    'sign_wbi_params',
 ]

@@ -9,15 +9,14 @@
 """
 
 from datetime import datetime
+
 from nonebot import logger
-from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Bot, Event
+from nonebot.matcher import Matcher
 
 from src.database import StatisticDAL, begin_db_session
-from src.service import OmegaInterface
-
+from src.service import OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
-
 
 LOG_PREFIX: str = '<lc>Statistic</lc> | '
 
@@ -28,6 +27,11 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
     # 跳过临时会话
     if matcher.temp:
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Temp matcher, ignore')
+        return
+
+    # 跳过非插件创建的 Matcher
+    if matcher.plugin is None:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}Non-plugin matcher, ignore')
         return
 
     # 跳过没有配置自定义名称的(一般来说这样的插件也不用展示统计信息)
@@ -52,12 +56,12 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
         return
 
     try:
-        async with OmegaInterface().get_entity(bot=bot, event=event) as entity:
+        async with begin_db_session() as session:
+            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session)
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
             call_info = f'{custom_plugin_name!r} called by {entity!r} in event {event}'
 
-        async with begin_db_session() as session:
             dal = StatisticDAL(session=session)
             await dal.add(module_name=module_name, plugin_name=custom_plugin_name,
                           bot_self_id=bot.self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
@@ -68,5 +72,5 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
 
 
 __all__ = [
-    'postprocessor_statistic'
+    'postprocessor_statistic',
 ]

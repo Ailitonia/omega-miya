@@ -13,6 +13,8 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING, Optional, Self
 from urllib.parse import urlparse, unquote
 
+from pydantic import ValidationError
+
 from src.utils.process_utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
 from .models import ArtworkData
@@ -125,8 +127,12 @@ class BaseArtworkProxy(abc.ABC):
     async def _fast_query(self, *, use_cache: bool = True) -> ArtworkData:
         """获取作品信息, 优先从本地缓存加载"""
         if use_cache and self.meta_file.is_file:
-            async with self.meta_file.async_open('r', encoding='utf8') as af:
-                artwork_data = ArtworkData.model_validate_json(await af.read())
+            try:
+                async with self.meta_file.async_open('r', encoding='utf8') as af:
+                    artwork_data = ArtworkData.model_validate_json(await af.read())
+            except ValidationError:
+                artwork_data = await self._query()
+                await self._dumps_meta(artwork_data=artwork_data)
         else:
             artwork_data = await self._query()
             await self._dumps_meta(artwork_data=artwork_data)

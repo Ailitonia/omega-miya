@@ -17,9 +17,7 @@ from nonebot.utils import run_sync
 from src.resource import TemporaryResource
 from src.utils.encrypt import AESEncryptStr
 from src.utils.image_utils import ImageUtils
-
 from .imap import Email, ImapMailbox
-
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('receive_email')
 """已收邮件图片缓存路径"""
@@ -72,5 +70,5 @@ __all__ = [
     'get_unseen_mail_data',
     'encrypt_password',
     'decrypt_password',
-    'generate_mail_snapshot'
+    'generate_mail_snapshot',
 ]

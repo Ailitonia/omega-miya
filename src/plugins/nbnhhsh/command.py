@@ -11,12 +11,11 @@
 from typing import Annotated
 
 from nonebot.log import logger
-from nonebot.params import ArgStr
+from nonebot.params import ArgStr, Depends
 from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaInterface, enable_processor_state
-
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from .data_source import query_guess
 
 
@@ -28,9 +27,12 @@ from .data_source import query_guess
     block=True,
     state=enable_processor_state(name='nbnhhsh', level=20),
 ).got('guess_word', prompt='有啥缩写搞不懂? 发来给你看看:')
-async def handle_guess(guess_word: Annotated[str, ArgStr('guess_word')]):
+async def handle_guess(
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        guess_word: Annotated[str, ArgStr('guess_word')],
+) -> None:
     guess_word = guess_word.strip()
-    interface = OmegaInterface()
+
     try:
         guess_result = await query_guess(guess=guess_word)
         if guess_result:

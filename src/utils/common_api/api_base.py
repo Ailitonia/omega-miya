@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from src.exception import WebSourceException
 from src.service import OmegaRequests
@@ -245,14 +245,21 @@ class BaseCommonAPI(abc.ABC):
             ignore_exist_file: bool = False,
             no_headers: bool = False,
             no_cookies: bool = False,
+            hash_file_name: bool = False,
+            custom_file_name: Optional[str] = None,
     ) -> "TemporaryResource":
         """内部方法, 下载任意资源到本地, 保持原始文件名, 默认直接覆盖同名文件"""
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
+        if custom_file_name is not None:
+            file_name = custom_file_name
+        elif hash_file_name:
+            file_name = OmegaRequests.hash_url_file_name(url=url)
+        else:
+            file_name = OmegaRequests.parse_url_file_name(url=url)
 
         if subdir is None:
-            file = save_folder(original_file_name)
+            file = save_folder(file_name)
         else:
-            file = save_folder(subdir, original_file_name)
+            file = save_folder(subdir, file_name)
 
         requests = cls._init_omega_requests(
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
