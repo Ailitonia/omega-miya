@@ -8,12 +8,9 @@
 @Software       : PyCharm
 """
 
-from .requests import OmegaRequests, Request, Response, WebSocket
+from .requests import OmegaRequests
 
 
 __all__ = [
     'OmegaRequests',
-    'Request',
-    'Response',
-    'WebSocket'
 ]

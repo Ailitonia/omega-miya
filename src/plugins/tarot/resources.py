@@ -97,5 +97,5 @@ def get_available_tarot_resource() -> list[str]:
 __all__ = [
     'TarotResource',
     'get_tarot_resource',
-    'get_available_tarot_resource'
+    'get_available_tarot_resource',
 ]

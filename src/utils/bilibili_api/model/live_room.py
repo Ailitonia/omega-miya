@@ -9,14 +9,13 @@
 """
 
 from datetime import datetime
-from pydantic import field_validator
-from pytz import timezone
 from typing import Optional
 
+from pydantic import field_validator
+from pytz import timezone
+
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BaseBilibiliModel
-
 
 _DEFAULT_LOCAL_TZ = timezone('Asia/Shanghai')
 """默认本地时区"""
@@ -59,7 +58,7 @@ class BilibiliLiveRoomModel(BaseBilibiliModel):
 
     @property
     def uid(self) -> int:
-        return self.data.uid
+        return self.data.uid  # type: ignore
 
 
 class BilibiliUsersLiveRoomModel(BaseBilibiliModel):

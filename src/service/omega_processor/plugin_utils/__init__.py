@@ -8,10 +8,10 @@
 @Software       : PyCharm 
 """
 
-from nonebot.typing import T_State
-from pydantic import BaseModel, ConfigDict
 from typing import Literal, Optional
 
+from nonebot.typing import T_State
+from pydantic import BaseModel, ConfigDict
 
 __OMEGA_STATE_KEY: str = '_omega_processor'
 """omega_processor 使用的 state key"""
@@ -112,5 +112,5 @@ def parse_processor_state(state: T_State) -> OmegaProcessorState:
 
 __all__ = [
     'enable_processor_state',
-    'parse_processor_state'
+    'parse_processor_state',
 ]

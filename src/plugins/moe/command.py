@@ -8,26 +8,18 @@
 @Software       : PyCharm
 """
 
-import asyncio
 import re
 from copy import deepcopy
 from typing import Annotated
 
-from nonebot.adapters import Message
-from nonebot.matcher import Matcher
 from nonebot.log import logger
-from nonebot.params import ArgStr, CommandArg, Depends, ShellCommandArgs
-from nonebot.permission import SUPERUSER
-from nonebot.plugin import on_command, on_shell_command
-from nonebot.rule import Namespace, to_me
-from nonebot.typing import T_State
+from nonebot.params import Depends, ShellCommandArgs
+from nonebot.plugin import on_shell_command
+from nonebot.rule import Namespace
 
-from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
-from src.service import OmegaInterface, enable_processor_state
-from src.service.artwork_collection import PixivArtworkCollection
-from src.utils.pixiv_api import PixivArtwork
+from src.params.handler import get_shell_command_parse_failed_handler
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from src.utils.process_utils import semaphore_gather
-
 from .config import moe_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (
@@ -35,8 +27,7 @@ from .helpers import (
     get_query_argument_parser,
     parse_from_query_parser,
     prepare_send_image,
-    get_database_import_pids,
-    add_artwork_into_database
+    query_artworks_from_database,
 )
 
 
@@ -55,60 +46,56 @@ from .helpers import (
         cooldown=60
     ),
 ).handle()
-async def handle_parsed_success(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        args: Annotated[Namespace, ShellCommandArgs()]
+async def handle_setu(
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        args: Annotated[Namespace, ShellCommandArgs()],
 ) -> None:
     """解析命令成功"""
-    interface.refresh_matcher_state()
+    try:
+        parsed_args = parse_from_query_parser(args=args)
+        keywords = parsed_args.keywords
+    except Exception as e:
+        logger.warning(f'Setu | 命令参数解析错误, {e}')
+        await interface.finish_reply('命令参数解析错误, 请确认后重试')
 
-    args = parse_from_query_parser(args=args)
-    keywords = args.word
-
-    nsfw_tag = 1 if args.nsfw_tag == 0 else args.nsfw_tag
+    # 根据搜索关键词再判断一次 allow_rating_range
+    allow_rating_range = (3, 3) if parsed_args.r18 else (1, 2)
     for word in deepcopy(keywords):
         if re.match(r'^[Rr]-?18[Gg]?$', word):
             keywords.remove(word)
-            nsfw_tag = 2
+            allow_rating_range = (3, 3)
 
-    allow_r18 = await has_allow_r18_node(matcher=matcher, interface=interface)
-    if not allow_r18 and nsfw_tag != 1:
-        await matcher.finish('没有涩涩的权限, 禁止开车车!')
-    if not allow_r18:
-        nsfw_tag = 1
+    # 对于 rate:E 以上的作品就需要检查权限
+    if max(allow_rating_range) >= 3:
+        allow_r18 = await has_allow_r18_node(interface=interface)
+        if not allow_r18:
+            await interface.finish_reply('没有涩涩的权限, 禁止开车车!')
 
-    num_limit = moe_plugin_config.moe_plugin_query_image_limit
-    num = args.num if args.num <= num_limit else num_limit
-
-    artworks = await PixivArtworkCollection.query_by_condition(
+    artworks = await query_artworks_from_database(
         keywords=keywords,
-        num=num,
-        nsfw_tag=nsfw_tag,
-        classified=args.classified,
-        acc_mode=args.acc_mode,
-        order_mode=args.order
+        origin=parsed_args.origin,
+        all_origin=parsed_args.all_origin,
+        allow_rating_range=allow_rating_range,
+        num=parsed_args.num,
     )
 
     if not artworks:
-        await interface.send_reply('找不到涩图QAQ')
-        return
+        await interface.finish_reply('找不到涩图QAQ')
 
-    await interface.send_reply('稍等, 正在下载图片~')
+    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
 
-    message_result = await semaphore_gather(
-        tasks=[prepare_send_image(pid=int(x.aid)) for x in artworks],
-        semaphore_num=5,
+    send_messages = await semaphore_gather(
+        tasks=[prepare_send_image(x) for x in artworks],
+        semaphore_num=4,
         filter_exception=True
     )
-    send_messages = list(message_result)
+
     if not send_messages:
-        await interface.send_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
-        return
+        await interface.finish_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
 
     await semaphore_gather(
         tasks=[
-            interface.send_msg_auto_revoke(
+            interface.send_auto_revoke(
                 message=message,
                 revoke_interval=moe_plugin_config.moe_plugin_setu_auto_recall_time
             )
@@ -133,51 +120,48 @@ async def handle_parsed_success(
         cooldown=60
     ),
 ).handle()
-async def handle_parsed_success(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+async def handle_moe(
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         args: Annotated[Namespace, ShellCommandArgs()]
 ) -> None:
     """解析命令成功"""
-    interface.refresh_matcher_state()
+    try:
+        parsed_args = parse_from_query_parser(args=args)
+        keywords = parsed_args.keywords
+    except Exception as e:
+        logger.warning(f'Moe | 命令参数解析错误, {e}')
+        await interface.finish_reply('命令参数解析错误, 请确认后重试')
 
-    args = parse_from_query_parser(args=args)
-    keywords = args.word
-
+    # 移除无用的 r-18 关键词
     for word in deepcopy(keywords):
         if re.match(r'^[Rr]-?18[Gg]?$', word):
             keywords.remove(word)
 
-    num_limit = moe_plugin_config.moe_plugin_query_image_limit
-    num = args.num if args.num <= num_limit else num_limit
-
-    artworks = await PixivArtworkCollection.query_by_condition(
+    artworks = await query_artworks_from_database(
         keywords=keywords,
-        num=num,
-        nsfw_tag=0,
-        classified=args.classified,
-        acc_mode=args.acc_mode,
-        order_mode=args.order
+        origin=parsed_args.origin,
+        all_origin=parsed_args.all_origin,
+        allow_rating_range=(0, 0),
+        num=parsed_args.num,
     )
 
     if not artworks:
-        await interface.send_reply('找不到萌图QAQ')
-        return
+        await interface.finish_reply('找不到萌图QAQ')
 
-    await interface.send_reply('稍等, 正在下载图片~')
+    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
 
-    message_result = await semaphore_gather(
-        tasks=[prepare_send_image(pid=int(x.aid)) for x in artworks],
-        semaphore_num=5,
+    send_messages = await semaphore_gather(
+        tasks=[prepare_send_image(x) for x in artworks],
+        semaphore_num=4,
         filter_exception=True
     )
-    send_messages = list(message_result)
+
     if not send_messages:
-        await interface.send_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
-        return
+        await interface.finish_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
 
     await semaphore_gather(
         tasks=[
-            interface.send_msg_auto_revoke(
+            interface.send_auto_revoke(
                 message=message,
                 revoke_interval=moe_plugin_config.moe_plugin_moe_auto_recall_time
             )
@@ -186,124 +170,6 @@ async def handle_parsed_success(
         semaphore_num=3,
         filter_exception=True
     )
-
-
-@on_command(
-    '图库统计',
-    rule=to_me(),
-    aliases={'图库查询', '查询图库'},
-    priority=20,
-    block=True,
-    permission=SUPERUSER,
-    handlers=[
-        get_command_str_single_arg_parser_handler('keyword', ensure_key=True)
-    ],
-    state=enable_processor_state(name='MoeStatistics', enable_processor=False),
-).got('keyword')
-async def handle_keyword_statistics(keyword: Annotated[str | None, ArgStr('keyword')]):
-    interface = OmegaInterface()
-
-    if not keyword:
-        keywords = []
-    else:
-        keywords = keyword.strip().split()
-
-    try:
-        statistics_data = await PixivArtworkCollection.query_statistics(keywords=keywords)
-        msg_prefix = f'本地数据库[{",".join(keywords) if keywords else "total"}]统计:'
-    except Exception as e:
-        logger.error(f'MoeStatistics | 查询图库统计(keyword={keywords})失败, {e!r}')
-        await interface.send_reply('查询统计信息失败, 详情请查看日志')
-        return
-
-    msg = f'{msg_prefix}\n\n' \
-          f'Total: {statistics_data.total}\n' \
-          f'Moe: {statistics_data.moe}\n' \
-          f'Setu: {statistics_data.setu}\n' \
-          f'R18: {statistics_data.r18}'
-    await interface.send_reply(msg)
-
-
-async def handle_parse_database_import_pid(state: T_State, cmd_arg: Annotated[Message, CommandArg()]):
-    """首次运行时解析命令参数"""
-    cmd_args = cmd_arg.extract_plain_text().strip().split()
-    arg_num = len(cmd_args)
-    if arg_num == 1:
-        state.update({'mode': cmd_args[0], 'pids': []})
-    elif arg_num > 1:
-        state.update({'mode': cmd_args[0], 'pids': [pid for pid in cmd_args[1:] if pid.isdigit()]})
-    else:
-        state.update({'pids': []})
-
-
-@on_command(
-    '导入图库',
-    aliases={'图库导入'},
-    priority=20,
-    block=True,
-    rule=to_me(),
-    permission=SUPERUSER,
-    handlers=[handle_parse_database_import_pid],
-    state=enable_processor_state(name='MoeDatabaseImport', enable_processor=False),
-).got('mode', prompt='请输入导入模式:\n【setu/moe】')
-async def handle_database_import(
-        mode: Annotated[str, ArgStr('mode')],
-        state: T_State
-) -> None:
-    interface = OmegaInterface()
-
-    mode = mode.strip()
-    match mode:
-        case 'moe':
-            nsfw_tag = 0
-        case 'setu':
-            nsfw_tag = 1
-        case _:
-            await interface.send_at_sender('不支持的导入模式参数, 请在【setu/moe】中选择, 已取消操作')
-            return
-
-    pids: list[int] = [int(x) for x in state.get('pids', [])]
-    if not pids:
-        await interface.send_at_sender('尝试从文件中读取导入文件列表')
-        pids = await get_database_import_pids()
-    if not pids:
-        await interface.send_at_sender('导入列表不存在, 已取消操作, 详情请查看日志')
-        return
-
-    pids = sorted(list(set(pids)), reverse=True)
-    all_count = len(pids)
-    await interface.send_at_sender(f'已获取导入列表, 总计: {all_count}, 开始获取作品信息')
-
-    # 应对 pixiv 流控, 对获取作品信息进行分段处理
-    pids = deepcopy(pids)
-    handle_pids: list[int] = []
-    failed_count = 0
-    while pids:
-        while len(handle_pids) < 20:
-            try:
-                handle_pids.append(pids.pop())
-            except IndexError:
-                break
-
-        tasks = [
-            add_artwork_into_database(
-                PixivArtwork(pid),
-                nsfw_tag=nsfw_tag,
-                add_ignored_exists=False,
-                ignore_mark=True
-            )
-            for pid in handle_pids
-        ]
-        handle_pids.clear()
-        import_result = await semaphore_gather(tasks=tasks, semaphore_num=20)
-        failed_count += len([x for x in import_result if isinstance(x, Exception)])
-
-        if pids:
-            logger.info(f'MoeDatabaseImport | 导入操作中, 剩余: {len(pids)}, 预计时间: {int(len(pids) * 1.52)} 秒')
-            await asyncio.sleep(int((len(pids) if len(pids) < 20 else 20) * 1.5))
-
-    logger.success(f'MoeDatabaseImport | 导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')
-    await interface.send_reply(f'导入操作已完成, 成功: {all_count - failed_count}, 总计: {all_count}')
 
 
 __all__ = []

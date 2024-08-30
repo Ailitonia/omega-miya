@@ -17,7 +17,6 @@ from sqlalchemy.future import select
 from sqlalchemy.sql.expression import func
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import StatisticOrm
 
@@ -141,5 +140,5 @@ class StatisticDAL(BaseDataAccessLayerModel):
 __all__ = [
     'CountStatisticModel',
     'Statistic',
-    'StatisticDAL'
+    'StatisticDAL',
 ]

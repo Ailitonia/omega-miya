@@ -26,5 +26,5 @@ tarot_local_resource_config = TarotLocalResourceConfig()
 
 
 __all__ = [
-    'tarot_local_resource_config'
+    'tarot_local_resource_config',
 ]

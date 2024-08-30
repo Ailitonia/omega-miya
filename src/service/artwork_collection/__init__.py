@@ -8,11 +8,104 @@
 @Software       : PyCharm 
 """
 
-from .models import CollectedArtwork
-from .pixiv import PixivArtworkCollection
+from typing import TYPE_CHECKING, Literal, Optional, overload
+
+from src.service.artwork_proxy import ALLOW_ARTWORK_ORIGIN
+from .sites import (
+    DanbooruArtworkCollection,
+    GelbooruArtworkCollection,
+    BehoimiArtworkCollection,
+    KonachanArtworkCollection,
+    KonachanSafeArtworkCollection,
+    YandereArtworkCollection,
+    LocalCollectedArtworkCollection,
+    NoneArtworkCollection,
+    PixivArtworkCollection,
+)
+
+if TYPE_CHECKING:
+    from src.database.internal.artwork_collection import ArtworkCollection as DBArtworkCollection
+    from .typing import ArtworkCollectionType, CollectedArtwork
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['pixiv']) -> type[PixivArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['danbooru']) -> type[DanbooruArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['gelbooru']) -> type[GelbooruArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['behoimi']) -> type[BehoimiArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['konachan']) -> type[KonachanArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['yandere']) -> type[YandereArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['local_collected_artwork']) -> type[LocalCollectedArtworkCollection]:
+    ...
+
+
+@overload
+def get_artwork_collection_type(origin: Literal['none', None] = None) -> type[NoneArtworkCollection]:
+    ...
+
+
+def get_artwork_collection_type(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "ArtworkCollectionType":
+    """根据 origin 名称获取 ArtworkCollection 类"""
+    match origin:
+        case 'pixiv':
+            return PixivArtworkCollection
+        case 'danbooru':
+            return DanbooruArtworkCollection
+        case 'gelbooru':
+            return GelbooruArtworkCollection
+        case 'behoimi':
+            return BehoimiArtworkCollection
+        case 'konachan':
+            return KonachanSafeArtworkCollection
+        case 'yandere':
+            return YandereArtworkCollection
+        case 'local_collected_artwork':
+            return LocalCollectedArtworkCollection
+        case 'none' | _:
+            return NoneArtworkCollection
+
+
+def get_artwork_collection(artwork: "DBArtworkCollection") -> "CollectedArtwork":
+    """根据数据库查询 ArtworkCollection 结果获取对应的 ArtworkCollection 实例"""
+    artwork_collection_type = get_artwork_collection_type(origin=artwork.origin)  # type: ignore
+    return artwork_collection_type(artwork_id=artwork.aid)
 
 
 __all__ = [
-    'CollectedArtwork',
+    'ALLOW_ARTWORK_ORIGIN',
+    'DanbooruArtworkCollection',
+    'GelbooruArtworkCollection',
+    'BehoimiArtworkCollection',
+    'KonachanArtworkCollection',
+    'KonachanSafeArtworkCollection',
+    'YandereArtworkCollection',
+    'LocalCollectedArtworkCollection',
+    'NoneArtworkCollection',
     'PixivArtworkCollection',
+    'get_artwork_collection',
+    'get_artwork_collection_type',
 ]

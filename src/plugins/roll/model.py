@@ -92,5 +92,5 @@ class RandomDice(object):
 
 __all__ = [
     'DiceResult',
-    'RandomDice'
+    'RandomDice',
 ]

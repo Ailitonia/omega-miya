@@ -7,11 +7,11 @@
 _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
 
 ![GitHub](https://img.shields.io/github/license/Ailitonia/omega-miya)
-![Python](https://img.shields.io/badge/Python-3.11+-blue)
+![Python](https://img.shields.io/badge/Python-3.12+-blue)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Ailitonia/omega-miya?include_prereleases)
 ![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/Ailitonia/omega-miya)
 <br>
-![Nonebot2](https://img.shields.io/badge/Nonebot2-Release_v2.0.0-brightgreen)
+![Nonebot2](https://img.shields.io/badge/Nonebot2-Release_v2.3.2-brightgreen)
 ![OneBot v11](https://img.shields.io/badge/OneBot-v11-black?style=social&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABABAMAAABYR2ztAAAAIVBMVEUAAAAAAAADAwMHBwceHh4UFBQNDQ0ZGRkoKCgvLy8iIiLWSdWYAAAAAXRSTlMAQObYZgAAAQVJREFUSMftlM0RgjAQhV+0ATYK6i1Xb+iMd0qgBEqgBEuwBOxU2QDKsjvojQPvkJ/ZL5sXkgWrFirK4MibYUdE3OR2nEpuKz1/q8CdNxNQgthZCXYVLjyoDQftaKuniHHWRnPh2GCUetR2/9HsMAXyUT4/3UHwtQT2AggSCGKeSAsFnxBIOuAggdh3AKTL7pDuCyABcMb0aQP7aM4AnAbc/wHwA5D2wDHTTe56gIIOUA/4YYV2e1sg713PXdZJAuncdZMAGkAukU9OAn40O849+0ornPwT93rphWF0mgAbauUrEOthlX8Zu7P5A6kZyKCJy75hhw1Mgr9RAUvX7A3csGqZegEdniCx30c3agAAAABJRU5ErkJggg==)
 ![QQ频道](https://img.shields.io/badge/QQ%E9%A2%91%E9%81%93-Bot-lightgrey?style=social&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTIuODIgMTMwLjg5Ij48ZyBkYXRhLW5hbWU9IuWbvuWxgiAyIj48ZyBkYXRhLW5hbWU9IuWbvuWxgiAxIj48cGF0aCBkPSJNNTUuNjMgMTMwLjhjLTcgMC0xMy45LjA4LTIwLjg2IDAtMTkuMTUtLjI1LTMxLjcxLTExLjQtMzQuMjItMzAuMy00LjA3LTMwLjY2IDE0LjkzLTU5LjIgNDQuODMtNjYuNjQgMi0uNTEgNS4yMS0uMzEgNS4yMS0xLjYzIDAtMi4xMy4xNC0yLjEzLjE0LTUuNTcgMC0uODktMS4zLTEuNDYtMi4yMi0yLjMxLTYuNzMtNi4yMy03LjY3LTEzLjQxLTEtMjAuMTggNS40LTUuNTIgMTEuODctNS40IDE3LjgtLjU5IDYuNDkgNS4yNiA2LjMxIDEzLjA4LS44NiAyMS0uNjguNzQtMS43OCAxLjYtMS43OCAyLjY3djQuMjFjMCAxLjM1IDIuMiAxLjYyIDQuNzkgMi4zNSAzMS4wOSA4LjY1IDQ4LjE3IDM0LjEzIDQ1IDY2LjM3LTEuNzYgMTguMTUtMTQuNTYgMzAuMjMtMzIuNyAzMC42My04LjAyLjE5LTE2LjA3LS4wMS0yNC4xMy0uMDF6IiBmaWxsPSIjMDI5OWZlIi8+PHBhdGggZD0iTTMxLjQ2IDExOC4zOGMtMTAuNS0uNjktMTYuOC02Ljg2LTE4LjM4LTE3LjI3LTMtMTkuNDIgMi43OC0zNS44NiAxOC40Ni00Ny44MyAxNC4xNi0xMC44IDI5Ljg3LTEyIDQ1LjM4LTMuMTkgMTcuMjUgOS44NCAyNC41OSAyNS44MSAyNCA0NS4yOS0uNDkgMTUuOS04LjQyIDIzLjE0LTI0LjM4IDIzLjUtNi41OS4xNC0xMy4xOSAwLTE5Ljc5IDAiIGZpbGw9IiNmZWZlZmUiLz48cGF0aCBkPSJNNDYuMDUgNzkuNThjLjA5IDUgLjIzIDkuODItNyA5Ljc3LTcuODItLjA2LTYuMS01LjY5LTYuMjQtMTAuMTktLjE1LTQuODItLjczLTEwIDYuNzMtOS44NHM2LjM3IDUuNTUgNi41MSAxMC4yNnoiIGZpbGw9IiMxMDlmZmUiLz48cGF0aCBkPSJNODAuMjcgNzkuMjdjLS41MyAzLjkxIDEuNzUgOS42NC01Ljg4IDEwLTcuNDcuMzctNi44MS00LjgyLTYuNjEtOS41LjItNC4zMi0xLjgzLTEwIDUuNzgtMTAuNDJzNi41OSA0Ljg5IDYuNzEgOS45MnoiIGZpbGw9IiMwODljZmUiLz48L2c+PC9nPjwvc3ZnPg==)
 ![Telegram](https://img.shields.io/badge/telegram-Bot-lightgrey?style=social&logo=telegram)
@@ -19,7 +19,7 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
 
 ## 当前适配 nonebot2 版本
 
-[Nonebot2 Release v2.2.1](https://github.com/nonebot/nonebot2/releases/tag/v2.2.1)
+[Nonebot2 Release v2.3.2](https://github.com/nonebot/nonebot2/releases/tag/v2.3.2)
 
 ## 功能 & 特点
 
@@ -29,8 +29,8 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
   - SQLite
 - 支持多协议端连接, 各协议端权限、订阅等配置相互独立
   - [Console Adapter (v0.5.0)](https://github.com/nonebot/adapter-console/releases/tag/v0.5.0) -> 本机调试
-  - [OneBot v11 Adapter (v2.4.3)](https://github.com/nonebot/adapter-onebot/releases/tag/v2.2.3) -> [go-cqhttp](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.1.0) / [Lagrange.OneBot](https://github.com/LagrangeDev/Lagrange.Core/releases/tag/nightly)
-  - [QQ Adapter (v1.4.3)](https://github.com/nonebot/adapter-qq/releases/tag/v1.4.3) -> [QQ 开放平台](https://q.qq.com/)
+  - [OneBot v11 Adapter (v2.4.4)](https://github.com/nonebot/adapter-onebot/releases/tag/v2.4.4) -> [go-cqhttp](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.1.0) / [Lagrange.OneBot](https://github.com/LagrangeDev/Lagrange.Core/releases/tag/nightly)
+  - [QQ Adapter (v1.5.0)](https://github.com/nonebot/adapter-qq/releases/tag/v1.5.0) -> [QQ 开放平台](https://q.qq.com/)
   - [Telegram Adapter (v0.1.0b17)](https://github.com/nonebot/adapter-telegram/releases/tag/v0.1.0b14) -> [Telegram Bot](https://core.telegram.org/bots/api)
 - 插件管理系统
 - 权限控制系统

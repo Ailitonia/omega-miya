@@ -16,5 +16,5 @@ __all__ = [
     'Event',
     'BotActionEvent',
     'BotConnectEvent',
-    'BotDisconnectEvent'
+    'BotDisconnectEvent',
 ]

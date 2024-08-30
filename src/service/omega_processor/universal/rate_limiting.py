@@ -11,10 +11,10 @@
 import time
 from datetime import datetime, timedelta
 from typing import Union, Dict
-from nonebot import get_driver, logger
-from nonebot.exception import IgnoredException
-from nonebot.adapters import Bot, Event
 
+from nonebot import get_driver, logger
+from nonebot.adapters import Bot, Event
+from nonebot.exception import IgnoredException
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Rate Limiting</lc> | '
@@ -113,5 +113,5 @@ async def preprocessor_rate_limiting(bot: Bot, event: Event):
 
 
 __all__ = [
-    'preprocessor_rate_limiting'
+    'preprocessor_rate_limiting',
 ]

@@ -8,12 +8,13 @@
 @Software       : PyCharm 
 """
 
-import ujson as json
 from lxml import etree
-from typing import Any
+
+from src.compat import parse_json_as
+from .model import WeiboCardStatus
 
 
-def parse_weibo_card_from_status_page(content: bytes) -> Any:
+def parse_weibo_card_from_status_page(content: str) -> WeiboCardStatus:
     """用微博页面解析微博 Json 数据"""
     html = etree.HTML(content)
     render_data = html.xpath('/html/body/script[2]').pop(0)
@@ -22,9 +23,9 @@ def parse_weibo_card_from_status_page(content: bytes) -> Any:
     start_index = render_data.text.find(start_mark) + len(start_mark) - 1
     end_mark = '][0] || {};'
     end_index = render_data.text.find(end_mark)
-    return json.loads(render_data.text[start_index:end_index])
+    return parse_json_as(WeiboCardStatus, render_data.text[start_index:end_index])
 
 
 __all__ = [
-    'parse_weibo_card_from_status_page'
+    'parse_weibo_card_from_status_page',
 ]

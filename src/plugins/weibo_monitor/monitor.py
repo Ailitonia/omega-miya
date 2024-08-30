@@ -9,14 +9,13 @@
 """
 
 from typing import Literal
+
 from nonebot.log import logger
 
+from src.exception import WebSourceException
 from src.service import scheduler, reschedule_job
-from src.utils.weibo_api.exception import WeiboApiError, WeiboNetworkError
 from src.utils.process_utils import semaphore_gather
-
 from .helpers import query_all_subscribed_weibo_user_sub_source, weibo_user_monitor_main
-
 
 _MONITOR_JOB_ID: Literal['weibo_update_monitor'] = 'weibo_update_monitor'
 """微博更新检查的定时任务 ID"""
@@ -46,7 +45,7 @@ async def weibo_update_monitor() -> None:
     # 检查新微博并发送消息
     tasks = [weibo_user_monitor_main(uid=uid) for uid in subscribed_uid]
     sent_result = await semaphore_gather(tasks=tasks, semaphore_num=5, return_exceptions=True, filter_exception=False)
-    if any(e for e in sent_result if isinstance(e, (WeiboApiError, WeiboNetworkError))):
+    if any(isinstance(e, WebSourceException) for e in sent_result):
         # 如果 API 异常则大概率被风控, 推迟下一次检查
         if monitor_job is not None:
             reschedule_job(job=monitor_job, trigger_mode='interval', minutes=_CHECKING_DELAY_UNDER_RATE_LIMITING)
@@ -77,5 +76,5 @@ scheduler.add_job(
 
 
 __all__ = [
-    'scheduler'
+    'scheduler',
 ]

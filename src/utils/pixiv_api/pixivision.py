@@ -8,102 +8,81 @@
 @Software       : PyCharm
 """
 
-from typing import Optional, Any
+from typing import TYPE_CHECKING, Optional
 
-from src.resource import TemporaryResource
-from src.service import OmegaRequests
-from .api_base import PixivApiBase
-from .helper import PixivParser, PixivPreviewGenerator
+from .api_base import BasePixivAPI
+from .helper import PixivParser
 from .model import PixivisionArticle, PixivisionIllustrationList
 
+if TYPE_CHECKING:
+    from src.resource import TemporaryResource
 
-class Pixivision(PixivApiBase):
+
+class Pixivision(BasePixivAPI):
     """Pixivision 接口集成"""
-    _root_url: str = 'https://www.pixivision.net'
-    _illustration_url: str = 'https://www.pixivision.net/zh/c/illustration'
-    _articles_url: str = 'https://www.pixivision.net/zh/a'
-    _tag_url: str = 'https://www.pixivision.net/zh/t'
 
     def __init__(self, aid: int):
         self.aid = aid
-        self.url = f'{self._articles_url}/{aid}'
+        self.url = f'{self._get_articles_url()}/{aid}'
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(aid={self.aid})'
 
     @classmethod
-    async def request_resource(
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://www.pixivision.net'
+
+    @classmethod
+    def _get_illustration_url(cls) -> str:
+        return f'{cls._get_root_url()}/zh/c/illustration'
+
+    @classmethod
+    def _get_articles_url(cls) -> str:
+        return f'{cls._get_root_url()}/zh/a'
+
+    @classmethod
+    def _get_tag_url(cls) -> str:
+        return f'{cls._get_root_url()}/zh/t'
+
+    @classmethod
+    async def download_resource(
             cls,
             url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 45
-    ) -> str | bytes | None:
-        """请求原始资源内容"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({'referer': 'https://www.pixivision.net/zh/'})
-
-        return await super().request_resource(url=url, params=params, headers=headers, timeout=timeout)
+            save_folder: "TemporaryResource",
+            custom_file_name: Optional[str] = None,
+            *,
+            subdir: str | None = None,
+            ignore_exist_file: bool = False
+    ) -> "TemporaryResource":
+        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+        return await cls._download_resource(
+            save_folder=save_folder,
+            url=url,
+            subdir=subdir,
+            ignore_exist_file=ignore_exist_file,
+            custom_file_name=custom_file_name,
+        )
 
     @classmethod
     async def query_illustration_list(cls, page: int = 1) -> PixivisionIllustrationList:
         """获取并解析 Pixivision Illustration 导览页面内容"""
         params = {'p': page, 'lang': 'zh'}
-        illustration_data = await cls.request_resource(url=cls._illustration_url, params=params)
+        illustration_data = await cls.get_resource_as_text(url=cls._get_illustration_url(), params=params)
 
         return await PixivParser.parse_pixivision_show_page(
             content=illustration_data,
-            root_url=cls._root_url
+            root_url=cls._get_root_url()
         )
-
-    @classmethod
-    async def query_illustration_list_with_preview(cls, page: int = 1) -> TemporaryResource:
-        """获取并解析 Pixivision Illustration 导览页面内容并生成预览图"""
-        illustration_result = await cls.query_illustration_list(page=page)
-        # 获取缩略图内容
-        name = f'Pixivision Illustration - Page {page}'
-        preview_request = await PixivPreviewGenerator.emit_preview_model_from_pixivision_illustration_model(
-            preview_name=name, model=illustration_result
-        )
-        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
-            preview=preview_request, preview_size=(480, 270), hold_ratio=True, num_of_line=4
-        )
-        return preview_img_file
 
     async def query_article(self) -> PixivisionArticle:
         """获取并解析 Pixivision 文章页面内容"""
-        url = f'{self._articles_url}/{self.aid}'
-        article_data = await self.request_resource(url=url)
+        url = f'{self._get_articles_url()}/{self.aid}'
+        article_data = await self.get_resource_as_text(url=url)
 
         return await PixivParser.parse_pixivision_article_page(
             content=article_data,
-            root_url=self._root_url
+            root_url=self._get_root_url()
         )
-
-    async def query_eyecatch_image(self) -> TemporaryResource:
-        """获取 Pixivision 文章头图"""
-        article_data = await self.query_article()
-        image_content = await self.request_resource(url=article_data.eyecatch_image)
-
-        file_name = f'eyecatch_{self.aid}.jpg'
-        file = TemporaryResource('pixivision', 'eyecatch', file_name)
-        async with file.async_open('wb') as af:
-            await af.write(image_content)
-        return file
-
-    async def query_article_with_preview(self) -> TemporaryResource:
-        """获取并解析 Pixivision 文章页面内容并生成预览图"""
-        article_result = await self.query_article()
-        # 获取缩略图内容
-        name = f'Pixivision - {article_result.title_without_mark}'
-        preview_request = await PixivPreviewGenerator.emit_preview_model_from_pixivision_article_model(
-            preview_name=name, model=article_result
-        )
-        preview_img_file = await PixivPreviewGenerator.generate_artworks_preview_image(
-            preview=preview_request, preview_size=(512, 512), hold_ratio=True, num_of_line=4
-        )
-        return preview_img_file
 
 
 __all__ = [

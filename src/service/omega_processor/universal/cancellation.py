@@ -13,9 +13,8 @@ from typing import Union
 
 from nonebot import logger
 from nonebot.exception import IgnoredException
-from nonebot.matcher import Matcher
 from nonebot.internal.adapter import Message
-
+from nonebot.matcher import Matcher
 
 CANCEL_PROMPT: str = '操作取消，已退出命令交互'
 CHINESE_CANCELLATION_WORDS = {"算", "别", "不", "停", "取消"}
@@ -56,5 +55,5 @@ async def preprocessor_cancellation(matcher: Matcher, message: Message):
 
 
 __all__ = [
-    'preprocessor_cancellation'
+    'preprocessor_cancellation',
 ]

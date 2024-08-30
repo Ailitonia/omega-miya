@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Type, TypeVar
+from typing import List, Optional, Tuple, Type, TypeVar, override
 
 from nonebot.adapters.onebot.v11 import (
     Adapter,
@@ -9,7 +9,6 @@ from nonebot.adapters.onebot.v11 import (
     NoticeEvent,
 )
 from nonebot.log import logger
-from nonebot.typing import overrides
 from nonebot.utils import escape_tag
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 from typing_extensions import Literal
@@ -59,7 +58,7 @@ class GuildMessageEvent(MessageEvent):
         )
         return values
 
-    @overrides(Event)
+    @override
     def is_tome(self) -> bool:
         return self.to_me or any(
             str(msg_seg.data.get("qq", "")) == str(self.self_tiny_id)
@@ -67,7 +66,7 @@ class GuildMessageEvent(MessageEvent):
             if msg_seg.type == "at"
         )
 
-    @overrides(Event)
+    @override
     def get_event_description(self) -> str:
         return (
             f"Message {self.message_id} from "
@@ -82,7 +81,7 @@ class GuildMessageEvent(MessageEvent):
             )
         )
 
-    @overrides(MessageEvent)
+    @override
     def get_session_id(self) -> str:
         return f"guild_{self.guild_id}_channel_{self.channel_id}_{self.user_id}"
 

@@ -3,29 +3,32 @@
 @Date           : 2022/05/08 15:49
 @FileName       : image_searcher.py
 @Project        : nonebot2_miya 
-@Description    : 图片搜索引擎
+@Description    : 图片搜索工具
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
 
-from typing import Type
+from typing import TYPE_CHECKING
 
 from src.utils.process_utils import semaphore_gather
-
-from .ascii2d import Ascii2d
-from .iqdb import Iqdb
-from .saucenao import Saucenao
-from .trace_moe import TraceMoe
-from .yandex import Yandex
-
 from .config import image_searcher_config
-from .model import ImageSearcher, ImageSearchingResult
+from .model import BaseImageSearcher
+from .seachers import (
+    Ascii2d,
+    Iqdb,
+    Saucenao,
+    TraceMoe,
+    Yandex,
+)
+
+if TYPE_CHECKING:
+    from .model import BaseImageSearcherAPI, ImageSearchingResult
 
 
-class ComplexImageSearcher(ImageSearcher):
+class ComplexImageSearcher(BaseImageSearcher):
     """综合图片搜索"""
 
-    _searcher: list[Type[ImageSearcher]] = []
+    _searcher: list[type["BaseImageSearcherAPI"]] = []
 
     if image_searcher_config.image_searcher_enable_saucenao:
         _searcher.append(Saucenao)
@@ -39,14 +42,14 @@ class ComplexImageSearcher(ImageSearcher):
     if image_searcher_config.image_searcher_enable_yandex:
         _searcher.append(Yandex)
 
-    async def search(self) -> list[ImageSearchingResult]:
+    async def search(self) -> list["ImageSearchingResult"]:
         searching_tasks = [
             searcher(image_url=self.image_url).search()
             for searcher in self._searcher
         ]
-        searching_results = await semaphore_gather(tasks=searching_tasks, semaphore_num=4, filter_exception=True)
+        all_results = await semaphore_gather(tasks=searching_tasks, semaphore_num=4, filter_exception=True)
 
-        return [result for x in searching_results for result in x]
+        return [x for searcher_results in all_results for x in searcher_results]
 
 
 __all__ = [
@@ -55,5 +58,5 @@ __all__ = [
     'Iqdb',
     'Saucenao',
     'TraceMoe',
-    'Yandex'
+    'Yandex',
 ]

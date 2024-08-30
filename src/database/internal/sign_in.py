@@ -16,7 +16,6 @@ from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import SignInOrm
 
@@ -93,5 +92,5 @@ class SignInDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'SignIn',
-    'SignInDAL'
+    'SignInDAL',
 ]

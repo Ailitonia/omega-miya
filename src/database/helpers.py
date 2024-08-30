@@ -89,5 +89,5 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 __all__ = [
     'begin_db_session',
-    'get_db_session'
+    'get_db_session',
 ]

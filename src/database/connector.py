@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from .config import database_config
 
-
 engine: AsyncEngine
 async_session_factory: async_sessionmaker[AsyncSession]
 
@@ -48,5 +47,5 @@ _init_database()
 
 __all__ = [
     'async_session_factory',
-    'engine'
+    'engine',
 ]

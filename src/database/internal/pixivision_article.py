@@ -9,14 +9,13 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import PixivisionArticleOrm
 
@@ -49,7 +48,7 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
-    async def query_exists_ids(self, aids: list[int]) -> list[int]:
+    async def query_exists_ids(self, aids: Sequence[int]) -> list[int]:
         """查询数据库中已有的特辑文章 aid"""
         stmt = select(PixivisionArticleOrm.aid).\
             where(PixivisionArticleOrm.aid.in_(aids)).\
@@ -57,7 +56,7 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
-    async def query_not_exists_ids(self, aids: list[int]) -> list[int]:
+    async def query_not_exists_ids(self, aids: Sequence[int]) -> list[int]:
         """查询数据库中没有的特辑文章 aid"""
         exists_aids = await self.query_exists_ids(aids=aids)
         return sorted(list(set(aids) - set(exists_aids)), reverse=True)
@@ -117,5 +116,5 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'PixivisionArticle',
-    'PixivisionArticleDAL'
+    'PixivisionArticleDAL',
 ]

@@ -31,7 +31,7 @@ class EncryptConfig(BaseModel):
     # 若不手动配置 AES key 则会使用系统及硬件信息生成, 更换平台或硬件可能导致 key 失效
     omega_aes_key: Annotated[SecretStr, Field(default_factory=generate_aes_key_by_hardware)]
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 try:

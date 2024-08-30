@@ -9,6 +9,7 @@
 """
 
 from dataclasses import dataclass
+
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -19,7 +20,7 @@ class Comic18Config(BaseModel):
     """Comic18 配置"""
     comic18_cookie_avs: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def cookies(self) -> dict[str, str] | None:

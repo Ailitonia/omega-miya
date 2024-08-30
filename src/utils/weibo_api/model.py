@@ -9,9 +9,10 @@
 """
 
 from datetime import datetime
+from typing import Optional, Literal
+
 from lxml import etree
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
-from typing import Optional, Literal
 
 from src.compat import AnyUrlStr as AnyUrl
 
@@ -19,7 +20,7 @@ from src.compat import AnyUrlStr as AnyUrl
 class WeiboBaseModel(BaseModel):
     """微博基类"""
 
-    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True)
 
 
 class WeiboUserBase(WeiboBaseModel):
@@ -218,8 +219,8 @@ class WeiboCardStatus(WeiboBaseModel):
 class WeiboCard(WeiboBaseModel):
     """单条微博内容(data.cards.card model)"""
     card_type: str
+    mblog: _WeiboCardMbLog
     itemid: Optional[str] = None
-    mblog: Optional[_WeiboCardMbLog] = None
     profile_type_id: Optional[str] = None
     scheme: Optional[str] = None
 
@@ -241,12 +242,13 @@ class _CardsData(WeiboBaseModel):
     scheme: AnyUrl
     showAppTips: int
 
-    @model_validator(mode='after')
+    @model_validator(mode='before')
     @classmethod
     def exclude_null_card(cls, values):
-        cards: list[WeiboCard] = values.cards
-        cards = [x for x in cards.copy() if x.mblog is not None]
-        values.cards = cards
+        """排除所有无内容的微博"""
+        if isinstance(values, dict):
+            cards = filter(lambda x: (isinstance(x, dict) and x.get('mblog') is not None), values.get('cards', []))
+            values['cards'] = cards
         return values
 
 
@@ -351,5 +353,5 @@ __all__ = [
     'WeiboRealtimeHotCard',
     'WeiboRealtimeHot',
     'WeiboUserBase',
-    'WeiboUserInfo'
+    'WeiboUserInfo',
 ]

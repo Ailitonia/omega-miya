@@ -9,8 +9,9 @@
 """
 
 import abc
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, AsyncGenerator, Self
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .helpers import begin_db_session
 
@@ -61,5 +62,5 @@ class BaseDataAccessLayerModel(abc.ABC):
 
 
 __all__ = [
-    'BaseDataAccessLayerModel'
+    'BaseDataAccessLayerModel',
 ]

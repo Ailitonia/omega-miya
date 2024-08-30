@@ -8,37 +8,49 @@
 @Software       : PyCharm 
 """
 
-import aiohttp
-from typing import Iterable, Any
+from nonebot import get_plugin_config, logger
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 
-class FormData(aiohttp.FormData):
-    """Patched aiohttp FormData"""
+class CloudflareClearanceModel(BaseModel):
+    model_config = ConfigDict(extra='ignore')
 
-    def __init__(
-            self,
-            fields: Iterable[Any] = (),
-            *,
-            is_multipart: bool = False,
-            is_processed: bool = False,
-            quote_fields: bool = True,
-            charset: str | None = None,
-            boundary: str | None = None
-    ) -> None:
-        self._writer = aiohttp.multipart.MultipartWriter("form-data", boundary=boundary)
-        self._fields: list = []
-        self._is_multipart = is_multipart
-        self._is_processed = is_processed
-        self._quote_fields = quote_fields
-        self._charset = charset
 
-        if isinstance(fields, dict):
-            fields = list(fields.items())
-        elif not isinstance(fields, (list, tuple)):
-            fields = (fields,)
-        self.add_fields(*fields)
+class DomainCloudflareClearance(CloudflareClearanceModel):
+    """网站的 Cloudflare Clearance cookie 内容"""
+    domain: str
+    cookies: dict[str, str]
+    headers: dict[str, str]
+
+
+class CloudflareClearanceConfig(CloudflareClearanceModel):
+    """Cloudflare Clearance 配置"""
+    cloudflare_clearance_config: list[DomainCloudflareClearance] = []
+
+    @property
+    def _config_map(self) -> dict[str, DomainCloudflareClearance]:
+        return {config.domain: config for config in self.cloudflare_clearance_config}
+
+    def get_domain_config(self, domain: str) -> DomainCloudflareClearance | None:
+        if (domain_config := self._config_map.get(domain, None)) is None:
+            return None
+
+        return domain_config
+
+    def get_url_config(self, url: str) -> DomainCloudflareClearance | None:
+        domain = TypeAdapter(AnyHttpUrl).validate_python(url).host
+        return self.get_domain_config(domain=domain)
+
+
+try:
+    cloudflare_clearance_config = get_plugin_config(CloudflareClearanceConfig)
+except ValidationError as e:
+    import sys
+
+    logger.opt(colors=True).critical(f'<r>Cloudflare Clearance 配置格式验证失败</r>, 错误信息:\n{e}')
+    sys.exit(f'Cloudflare Clearance 配置格式验证失败, {e}')
 
 
 __all__ = [
-    'FormData'
+    'cloudflare_clearance_config'
 ]

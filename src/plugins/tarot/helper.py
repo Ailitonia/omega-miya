@@ -10,29 +10,32 @@
 
 from datetime import datetime
 from io import BytesIO
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from nonebot.matcher import Matcher
-from nonebot.utils import run_sync
 from PIL import Image, ImageDraw, ImageFont
+from nonebot.utils import run_sync
 from sqlalchemy.exc import NoResultFound
 
-from src.resource import TemporaryResource
-from src.service import OmegaInterface
 from src.utils.image_utils import ImageUtils
-
 from .config import tarot_local_resource_config
 from .resources import TarotResource
+
+if TYPE_CHECKING:
+    from src.service import OmegaMatcherInterface as OmMI
+    from src.resource import TemporaryResource
 
 
 _TAROT_RESOURCE_NODE: Literal['tarot_resource'] = 'tarot_resource'
 """配置卡牌资源的节点"""
 
 
-async def get_tarot_resource_name(matcher: Matcher, interface: OmegaInterface) -> str | None:
+async def get_tarot_resource_name(interface: "OmMI") -> str | None:
     """根据当前 Event 获取对应 Entity 配置的塔罗资源名"""
-    plugin_name = matcher.plugin.name
-    module_name = matcher.plugin.module_name
+    if interface.matcher.plugin is None:
+        return None
+
+    plugin_name = interface.matcher.plugin.name
+    module_name = interface.matcher.plugin.module_name
 
     try:
         resource_setting = await interface.entity.query_auth_setting(
@@ -46,10 +49,13 @@ async def get_tarot_resource_name(matcher: Matcher, interface: OmegaInterface) -
         return None
 
 
-async def set_tarot_resource(resource_name: str, matcher: Matcher, interface: OmegaInterface) -> None:
+async def set_tarot_resource(resource_name: str, interface: "OmMI") -> None:
     """根据当前 event 配置对应对象塔罗资源"""
-    plugin_name = matcher.plugin.name
-    module_name = matcher.plugin.module_name
+    if interface.matcher.plugin is None:
+        return None
+
+    plugin_name = interface.matcher.plugin.name
+    module_name = interface.matcher.plugin.module_name
 
     await interface.entity.set_auth_setting(
         module=module_name, plugin=plugin_name, node=_TAROT_RESOURCE_NODE, available=1, value=resource_name
@@ -64,7 +70,8 @@ async def generate_tarot_card(
         need_desc: bool = True,
         need_upright: bool = True,
         need_reversed: bool = True,
-        width: int = 1024) -> TemporaryResource:
+        width: int = 1024
+) -> "TemporaryResource":
     """绘制塔罗卡片
 
     :param id_: 牌id
@@ -102,26 +109,26 @@ async def generate_tarot_card(
         text_font = ImageFont.truetype(font_file.resolve_path, width // 25)
 
         # 标题
-        title_width, title_height = ImageUtils.get_text_size(text=tarot_card.name, font=title_font)
-        m_title_width, m_title_height = ImageUtils.get_text_size(text=tarot_card.name, font=m_title_font)
+        _, title_height = ImageUtils.get_text_size(text=tarot_card.name, font=title_font)
+        _, m_title_height = ImageUtils.get_text_size(text=tarot_card.name, font=m_title_font)
 
         # 描述
         desc_text = ImageUtils.split_multiline_text(
             text=tarot_card.desc, width=(width - int(width * 0.125)), font=text_font
         )
-        desc_text_width, desc_text_height = ImageUtils.get_text_size(text=desc_text, font=text_font)
+        _, desc_text_height = ImageUtils.get_text_size(text=desc_text, font=text_font)
 
         # 正位描述
         upright_text = ImageUtils.split_multiline_text(
             text=tarot_card.upright, width=(width - int(width * 0.125)), font=text_font
         )
-        upright_text_width, upright_text_height = ImageUtils.get_text_size(text=upright_text, font=text_font)
+        _, upright_text_height = ImageUtils.get_text_size(text=upright_text, font=text_font)
 
         # 逆位描述
         reversed_text = ImageUtils.split_multiline_text(
             text=tarot_card.reversed, width=(width - int(width * 0.125)), font=text_font
         )
-        reversed_text_width, reversed_text_height = ImageUtils.get_text_size(text=reversed_text, font=text_font)
+        _, reversed_text_height = ImageUtils.get_text_size(text=reversed_text, font=text_font)
 
         # 计算高度
         background_height = title_height + m_title_height + tarot_img_height + int(0.09375 * width)
@@ -201,5 +208,5 @@ async def generate_tarot_card(
 __all__ = [
     'generate_tarot_card',
     'get_tarot_resource_name',
-    'set_tarot_resource'
+    'set_tarot_resource',
 ]

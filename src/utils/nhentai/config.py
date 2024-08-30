@@ -21,7 +21,7 @@ class NhentaiConfig(BaseModel):
     nhentai_csrftoken: str | None = None
     nhentai_sessionid: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def nhentai_cookies(self) -> dict[str, str] | None:

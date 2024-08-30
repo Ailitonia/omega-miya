@@ -13,18 +13,35 @@ import pathlib
 from asyncio.exceptions import TimeoutError
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from typing import AsyncGenerator, Optional, Any
+from typing import TYPE_CHECKING, AsyncGenerator, Optional, Any
 from urllib.parse import urlparse, unquote
 
 import ujson
 from nonebot import get_driver, logger
-from nonebot.drivers import (ForwardDriver, HTTPClientMixin, HTTPClientSession, Response, Request,
-                             WebSocket, WebSocketClientMixin)
-from nonebot.internal.driver.model import QueryTypes, HeaderTypes, CookieTypes, ContentTypes, DataTypes, FilesTypes
+from nonebot.drivers import (
+    ForwardDriver,
+    HTTPClientMixin,
+    Request,
+    WebSocketClientMixin,
+)
 
 from src.exception import WebSourceException
 from src.resource import TemporaryResource
 from .config import http_proxy_config
+from .utils import cloudflare_clearance_config
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import (
+        CookieTypes,
+        ContentTypes,
+        DataTypes,
+        FilesTypes,
+        HeaderTypes,
+        HTTPClientSession,
+        QueryTypes,
+        Response,
+        WebSocket,
+    )
 
 
 class ExceededAttemptError(WebSourceException):
@@ -47,16 +64,17 @@ class OmegaRequests(object):
         'sec-gpc': '1',
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/125.0.0.0 Safari/537.36'
+                      'Chrome/127.0.0.0 Safari/537.36'
     }
 
     def __init__(
             self,
             *,
             timeout: Optional[float] = None,
-            headers: HeaderTypes = None,
-            cookies: CookieTypes = None,
-            retry: Optional[int] = None
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
+            retry: Optional[int] = None,
+            load_cloudflare_clearance: bool = False,
     ):
         self.driver = get_driver()
         if not isinstance(self.driver, ForwardDriver):
@@ -69,19 +87,34 @@ class OmegaRequests(object):
         self.headers = self._default_headers if headers is None else headers
         self.cookies = cookies
         self.retry_limit = self._default_retry_limit if retry is None else retry
+        self.load_cloudflare_clearance = load_cloudflare_clearance
 
     @staticmethod
-    def parse_content_json(response: Response, **kwargs) -> Any:
+    def parse_content_as_bytes(response: "Response", encoding: str = 'utf-8') -> bytes:
+        """解析 Response Content 为 bytes"""
+        if isinstance(response.content, str):
+            return response.content.encode(encoding=encoding)
+        elif isinstance(response.content, bytes):
+            return response.content
+        else:
+            return b'' if response.content is None else bytes(response.content)
+
+    @staticmethod
+    def parse_content_as_json(response: "Response", **kwargs) -> Any:
         """解析 Response Content 为 Json"""
+        if response.content is None:
+            raise ValueError('content of response is None')
         return ujson.loads(response.content, **kwargs)
 
     @staticmethod
-    def parse_content_text(response: Response, encoding: str = 'utf-8') -> str | None:
+    def parse_content_as_text(response: "Response", encoding: str = 'utf-8') -> str:
         """解析 Response Content 为字符串"""
-        if isinstance(response.content, bytes):
+        if isinstance(response.content, str):
+            return response.content
+        elif isinstance(response.content, bytes):
             return response.content.decode(encoding=encoding)
         else:
-            return response.content
+            return '' if response.content is None else str(response.content)
 
     @classmethod
     def parse_url_file_name(cls, url: str) -> str:
@@ -104,7 +137,7 @@ class OmegaRequests(object):
     def get_default_headers(cls) -> dict[str, str]:
         return deepcopy(cls._default_headers)
 
-    def get_session(self, params: Optional[QueryTypes] = None, use_proxy: bool = True) -> HTTPClientSession:
+    def get_session(self, params: Optional["QueryTypes"] = None, use_proxy: bool = True) -> "HTTPClientSession":
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward http connections! "
@@ -118,7 +151,7 @@ class OmegaRequests(object):
             proxy=http_proxy_config.proxy_url if use_proxy else None
         )
 
-    async def request(self, setup: Request) -> Response:
+    async def request(self, setup: Request) -> "Response":
         """装饰原 request 方法, 自动重试"""
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
@@ -126,6 +159,14 @@ class OmegaRequests(object):
                 "OmegaRequests need a HTTPClient Driver to work."
             )
 
+        # 处理加载 Cloudflare Clearance Cookies
+        if self.load_cloudflare_clearance:
+            domain_cloudflare_clearance = cloudflare_clearance_config.get_url_config(url=str(setup.url))
+            if domain_cloudflare_clearance is not None:
+                setup.headers.update(domain_cloudflare_clearance.headers)
+                setup.cookies.update(domain_cloudflare_clearance.cookies)
+
+        # 处理自动重试
         attempts_num = 0
         final_exception = None
         while attempts_num < self.retry_limit:
@@ -158,16 +199,16 @@ class OmegaRequests(object):
             method: str,
             url: str,
             *,
-            params: QueryTypes = None,
-            headers: HeaderTypes = None,
-            cookies: CookieTypes = None,
-            content: ContentTypes = None,
-            data: DataTypes = None,
+            params: "QueryTypes" = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
+            content: "ContentTypes" = None,
+            data: "DataTypes" = None,
             json: Any = None,
-            files: FilesTypes = None,
+            files: "FilesTypes" = None,
             timeout: Optional[float] = None,
             use_proxy: bool = True
-    ) -> AsyncGenerator[WebSocket, None]:
+    ) -> AsyncGenerator["WebSocket", None]:
         """建立 websocket 连接"""
         if not isinstance(self.driver, WebSocketClientMixin):
             raise RuntimeError(
@@ -196,16 +237,16 @@ class OmegaRequests(object):
             self,
             url: str,
             *,
-            params: QueryTypes = None,
-            headers: HeaderTypes = None,
-            cookies: CookieTypes = None,
-            content: ContentTypes = None,
-            data: DataTypes = None,
+            params: "QueryTypes" = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
+            content: "ContentTypes" = None,
+            data: "DataTypes" = None,
             json: Any = None,
-            files: FilesTypes = None,
+            files: "FilesTypes" = None,
             timeout: Optional[float] = None,
             use_proxy: bool = True
-    ) -> Response:
+    ) -> "Response":
         setup = Request(
             method='GET',
             url=url,
@@ -225,16 +266,16 @@ class OmegaRequests(object):
             self,
             url: str,
             *,
-            params: QueryTypes = None,
-            headers: HeaderTypes = None,
-            cookies: CookieTypes = None,
-            content: ContentTypes = None,
-            data: DataTypes = None,
+            params: "QueryTypes" = None,
+            headers: "HeaderTypes" = None,
+            cookies: "CookieTypes" = None,
+            content: "ContentTypes" = None,
+            data: "DataTypes" = None,
             json: Any = None,
-            files: FilesTypes = None,
+            files: "FilesTypes" = None,
             timeout: Optional[float] = None,
             use_proxy: bool = True
-    ) -> Response:
+    ) -> "Response":
         setup = Request(
             method='POST',
             url=url,
@@ -255,7 +296,7 @@ class OmegaRequests(object):
             url: str,
             file: TemporaryResource,
             *,
-            params: QueryTypes = None,
+            params: "QueryTypes" = None,
             ignore_exist_file: bool = False,
             **kwargs
     ) -> TemporaryResource:
@@ -277,18 +318,12 @@ class OmegaRequests(object):
                                           f'to {file!r} failed with code <lr>{response.status_code!r}</lr>')
             raise WebSourceException(f'Download {url!r} to {file!r} failed with code {response.status_code!r}')
 
-        if isinstance(response.content, str):
-            response.content = response.content.encode(encoding='utf-8')
-
         async with file.async_open(mode='wb') as af:
-            await af.write(response.content)
+            await af.write(self.parse_content_as_bytes(response=response))
 
         return file
 
 
 __all__ = [
     'OmegaRequests',
-    'Request',
-    'Response',
-    'WebSocket'
 ]

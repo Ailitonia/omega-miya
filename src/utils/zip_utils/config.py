@@ -10,8 +10,9 @@
 
 import zipfile
 from dataclasses import dataclass
-from pydantic import BaseModel, ConfigDict, ValidationError
+
 from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from src.resource import TemporaryResource
 
@@ -20,7 +21,7 @@ class ZipUtilsConfig(BaseModel):
     """ZipUtils 配置"""
     default_zip_compression: int = zipfile.ZIP_STORED
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 @dataclass

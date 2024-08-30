@@ -12,7 +12,7 @@ import asyncio
 import inspect
 from asyncio import Future
 from functools import wraps
-from typing import TypeVar, ParamSpec, Callable, Coroutine, Awaitable, Any
+from typing import Any, Awaitable, Callable, Coroutine, Literal, ParamSpec, Sequence, TypeVar, overload
 
 from nonebot import logger
 
@@ -45,37 +45,45 @@ def run_async_delay(delay_time: float = 5):
     return decorator
 
 
-async def _semaphore_gather(
-        tasks: list[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
+@overload
+async def semaphore_gather(
+        tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
-        return_exceptions: bool = True
+        return_exceptions: Literal[True] = True,
+        filter_exception: Literal[False] = False,
 ) -> tuple[T | Exception, ...]:
-    """[Deactivated]使用 asyncio.Semaphore 来限制一批需要并行的异步函数
+    ...
 
-    :param tasks: 任务序列
-    :param semaphore_num: 单次并行的信号量限制
-    :param return_exceptions: 是否将异常视为成功结果, 并在结果列表中聚合
-    """
-    _semaphore = asyncio.Semaphore(semaphore_num)
 
-    async def _wrap_coro(
-            coro: Future[T] | Coroutine[Any, Any, T] | Awaitable[T]
-    ) -> T:
-        """使用 asyncio.Semaphore 限制单个任务"""
-        async with _semaphore:
-            _result = await coro
-            return _result
+@overload
+async def semaphore_gather(
+        tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
+        semaphore_num: int,
+        *,
+        return_exceptions: Literal[True] = True,
+        filter_exception: Literal[True] = True,
+) -> tuple[T, ...]:
+    ...
 
-    return await asyncio.gather(*(_wrap_coro(coro) for coro in tasks), return_exceptions=return_exceptions)  # type: ignore
+
+@overload
+async def semaphore_gather(
+        tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
+        semaphore_num: int,
+        *,
+        return_exceptions: Literal[False] = False,
+        filter_exception: bool = False,
+) -> tuple[T, ...]:
+    ...
 
 
 async def semaphore_gather(
-        tasks: list[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
+        tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
         return_exceptions: bool = True,
-        filter_exception: bool = False
+        filter_exception: bool = False,
 ) -> tuple[T | Exception, ...]:
     """使用 asyncio.Semaphore 来限制一批需要并行的异步函数
     Python 3.11 推荐使用 asyncio.TaskGroup 创建和并发运行任务并等待它们完成

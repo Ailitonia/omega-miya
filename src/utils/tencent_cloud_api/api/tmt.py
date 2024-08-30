@@ -10,14 +10,11 @@
 
 from typing import Optional
 
-from src.service import OmegaRequests
-
-from .base import TencentCloudApi
-from ..exception import TencentCloudNetworkError
+from .base import BaseTencentCloudAPI
 from ..model.tmt import TencentCloudTextTranslateResponse, TencentCloudTextTranslateBatchResponse
 
 
-class TencentTMT(TencentCloudApi):
+class TencentTMT(BaseTencentCloudAPI):
     """腾讯云翻译"""
     def __init__(
             self,
@@ -48,11 +45,10 @@ class TencentTMT(TencentCloudApi):
         payload = {'SourceText': source_text, 'Source': source, 'Target': target, 'ProjectId': project_id}
         if untranslated_text is not None:
             payload.update({'UntranslatedText': untranslated_text})
-        result = await self._post_request(
-            action='TextTranslate', version='2018-03-21', region='ap-chengdu', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextTranslateResponse.model_validate(OmegaRequests.parse_content_json(result))
+
+        return TencentCloudTextTranslateResponse.model_validate(
+            await self._post_request(action='TextTranslate', version='2018-03-21', region='ap-chengdu', payload=payload)
+        )
 
     async def text_translate_batch(
             self,
@@ -70,13 +66,14 @@ class TencentTMT(TencentCloudApi):
         :param project_id: 项目ID, 如无配置请填写默认项目ID: 0
         """
         payload = {'Source': source, 'Target': target, 'ProjectId': project_id, 'SourceTextList': source_text_list}
-        result = await self._post_request(
-            action='TextTranslateBatch', version='2018-03-21', region='ap-chengdu', payload=payload)
-        if result.status_code != 200:
-            raise TencentCloudNetworkError(f'TencentCloudNetworkError, status code {result.status_code}')
-        return TencentCloudTextTranslateBatchResponse.model_validate(OmegaRequests.parse_content_json(result))
+
+        return TencentCloudTextTranslateBatchResponse.model_validate(
+            await self._post_request(
+                action='TextTranslateBatch', version='2018-03-21', region='ap-chengdu', payload=payload
+            )
+        )
 
 
 __all__ = [
-    'TencentTMT'
+    'TencentTMT',
 ]

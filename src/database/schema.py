@@ -9,6 +9,7 @@
 """
 
 from datetime import date, datetime
+
 from sqlalchemy import Sequence, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, String
@@ -25,8 +26,9 @@ class SystemSettingOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     setting_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True, comment='参数名称')
     setting_value: Mapped[str] = mapped_column(String(512), nullable=False, index=True, comment='参数值')
     info: Mapped[str] = mapped_column(String(512), nullable=True, comment='参数说明')
@@ -45,13 +47,15 @@ class PluginOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True, comment='插件名称')
     module_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, unique=True, comment='插件模块名称')
-    enabled: Mapped[int] = mapped_column(Integer, nullable=False, index=True,
-                                         comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装')
-    info: Mapped[str] = mapped_column(String(256), nullable=True, comment='附加说明')
+    enabled: Mapped[int] = mapped_column(
+        Integer, nullable=False, index=True, comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装'
+    )
+    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='附加说明')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -68,8 +72,9 @@ class StatisticOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     module_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件模块名称')
     plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件显示名称')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应的Bot')
@@ -94,8 +99,9 @@ class HistoryOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     time: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='事件发生的时间戳')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到事件的机器人id')
     parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象父实体id')
@@ -122,10 +128,12 @@ class BotSelfOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True,
-                                         comment='bot身份id, 用于识别bot, qq号等')
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
+    self_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True, unique=True, comment='bot身份id, 用于识别bot, qq号等'
+    )
     bot_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='Bot类型, 具体使用的协议')
     bot_status: Mapped[int] = mapped_column(Integer, nullable=False, comment='Bot在线状态')
     bot_info: Mapped[str] = mapped_column(String(512), nullable=True, comment='Bot描述信息')
@@ -149,12 +157,15 @@ class EntityOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    bot_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(BotSelfOrm.id, ondelete='CASCADE'),
-                                              nullable=False, comment='所属bot')
-    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True,
-                                           comment='实体身份id, 不同类型实体可能相同, qq号/群号等')
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
+    bot_index_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(BotSelfOrm.id, ondelete='CASCADE'), nullable=False, comment='所属bot'
+    )
+    entity_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True, comment='实体身份id, 不同类型实体可能相同, qq号/群号等'
+    )
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='实体类型')
     parent_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='父实体id, qq号/群号等')
     entity_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='实体名称')
@@ -200,17 +211,20 @@ class FriendshipOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'),
-                                                 nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
+    entity_index_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False, unique=True
+    )
     status: Mapped[str] = mapped_column(String(64), nullable=False, comment='当前状态')
     mood: Mapped[float] = mapped_column(Float, nullable=False, comment='情绪值, 大于0: 好心情, 小于零: 坏心情')
     friendship: Mapped[float] = mapped_column(Float, nullable=False, comment='好感度/亲密度, 大于0: 友好, 小于0: 厌恶')
     energy: Mapped[float] = mapped_column(Float, nullable=False, comment='能量值')
     currency: Mapped[float] = mapped_column(Float, nullable=False, comment='持有货币')
-    response_threshold: Mapped[float] = mapped_column(Float, nullable=False,
-                                                      comment='响应阈值, 控制对交互做出响应的概率或频率, 根据具体插件使用数值')
+    response_threshold: Mapped[float] = mapped_column(
+        Float, nullable=False, comment='响应阈值, 控制对交互做出响应的概率或频率, 根据具体插件使用数值'
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -232,8 +246,9 @@ class SignInOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
     sign_in_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment='签到日期')
     sign_in_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='签到信息')
@@ -256,14 +271,16 @@ class AuthSettingOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
     module: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='模块名')
     plugin: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件名')
     node: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='权限节点/配置名')
-    available: Mapped[int] = mapped_column(Integer, nullable=False, index=True,
-                                           comment='需求值, 0=deny/disable, 1=allow/enable, 1<=level')
+    available: Mapped[int] = mapped_column(
+        Integer, nullable=False, index=True, comment='需求值, 0=deny/disable, 1=allow/enable, 1<=level'
+    )
     value: Mapped[str] = mapped_column(String(8192), nullable=True, comment='若为插件配置项且对象具有的配置信息')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -286,8 +303,9 @@ class CoolDownOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
     event: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='冷却事件, 用于唯一标识某个/类冷却')
     stop_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='冷却结束时间')
@@ -312,13 +330,14 @@ class EmailBoxOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     address: Mapped[str] = mapped_column(String(128), nullable=False, index=True, unique=True, comment='邮箱地址')
     server_host: Mapped[str] = mapped_column(String(128), nullable=False, comment='IMAP/POP3服务器地址')
     protocol: Mapped[str] = mapped_column(String(16), nullable=False, comment='协议')
     port: Mapped[int] = mapped_column(Integer, nullable=False, comment='服务器端口')
-    password: Mapped[str] = mapped_column(String(256), nullable=False, comment='密码')
+    password: Mapped[str] = mapped_column(String(255), nullable=False, comment='密码')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -340,12 +359,15 @@ class EmailBoxBindOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    email_box_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EmailBoxOrm.id,
-                                                                        ondelete='CASCADE'), nullable=False)
-    entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id,
-                                                                     ondelete='CASCADE'), nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
+    email_box_index_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(EmailBoxOrm.id, ondelete='CASCADE'), nullable=False
+    )
+    entity_index_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False
+    )
     bind_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='邮箱绑定信息')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -370,8 +392,9 @@ class SubscriptionSourceOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     sub_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='订阅类型')
     sub_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='订阅id，直播间房间号/用户uid等')
     sub_user_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅用户的名称')
@@ -397,12 +420,15 @@ class SubscriptionOrm(Base):
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    sub_source_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(SubscriptionSourceOrm.id,
-                                                                         ondelete='CASCADE'), nullable=False)
-    entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'),
-                                                 nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
+    sub_source_index_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(SubscriptionSourceOrm.id, ondelete='CASCADE'), nullable=False
+    )
+    entity_index_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False
+    )
     sub_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='订阅信息')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -428,8 +454,9 @@ class BiliDynamicOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     dynamic_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='动态id')
     dynamic_type: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='动态类型')
     uid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='用户uid')
@@ -443,70 +470,45 @@ class BiliDynamicOrm(Base):
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
-class PixivArtworkOrm(Base):
-    """Pixiv 作品表"""
-    __tablename__ = f'{database_config.db_prefix}pixiv_artwork'
+class ArtworkCollectionOrm(Base):
+    """图库作品表"""
+    __tablename__ = f'{database_config.db_prefix}artwork_collection'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    pid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='作品pid')
-    uid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='作者uid')
-    title: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='作品标题title')
-    uname: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='作者名')
-    classified: Mapped[int] = mapped_column(Integer, nullable=False, index=True,
-                                            comment='标记标签, 0=未标记, 1=已人工标记或从可信已标记来源获取, 2=AI生成作品')
-    nsfw_tag: Mapped[int] = mapped_column(Integer, nullable=False, index=True,
-                                          comment='nsfw标签, -1=未标记, 0=safe, 1=setu. 2=r18')
-    width: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片宽度')
-    height: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片高度')
-    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品标签')
-    url: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品页面链接')
+    id: Mapped[int] = mapped_column(
+        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
+    # 作品信息部分
+    origin: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='作品来源/收录该作品的站点')
+    aid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品id')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品标题title')
+    uid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者uid')
+    uname: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者名')
+    # 分类分级信息
+    classification: Mapped[int] = mapped_column(
+        Integer, nullable=False, index=True, comment='标记标签, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
+    )
+    rating: Mapped[int] = mapped_column(
+        Integer, nullable=False, index=True, comment='分级标签, -1=Unknown, 0=G, 1=S, 2=Q, 3=E'
+    )
+    # 作品图片信息
+    width: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片宽度')
+    height: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片高度')
+    tags: Mapped[str] = mapped_column(String(2048), nullable=False, comment='作品标签')
+    description: Mapped[str] = mapped_column(String(2048), nullable=True, comment='作品描述')
+    source: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品原始出处地址')
+    cover_page: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品首页/封面原图链接')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    # 设置级联和关系加载
-    pixiv_artwork_pixiv_artwork_page: Mapped[list['PixivArtworkPageOrm']] = relationship(
-        'PixivArtworkPageOrm',
-        back_populates='pixiv_artwork_page_back_pixiv_artwork', cascade='all, delete-orphan', passive_deletes=True
-    )
-
     def __repr__(self) -> str:
-        return (f"PixivArtworkOrm(pid={self.pid!r}, uid={self.uid!r}, title={self.title!r}, uname={self.uname!r}, "
-                f"classified={self.classified!r}, nsfw_tag={self.nsfw_tag!r}, "
-                f"width={self.width!r}, height={self.height!r}, tags={self.tags!r}, url={self.url!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
-
-
-class PixivArtworkPageOrm(Base):
-    """Pixiv 作品图片链接表"""
-    __tablename__ = f'{database_config.db_prefix}pixiv_artwork_page'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
-    artwork_index_id: Mapped[int] = mapped_column(IndexInt, ForeignKey(PixivArtworkOrm.id, ondelete='CASCADE'),
-                                                  nullable=False)
-    page: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='页码')
-    original: Mapped[str] = mapped_column(String(512), nullable=False, comment='original image url')
-    regular: Mapped[str] = mapped_column(String(512), nullable=False, comment='regular image url')
-    small: Mapped[str] = mapped_column(String(512), nullable=False, comment='small image url')
-    thumb_mini: Mapped[str] = mapped_column(String(512), nullable=False, comment='thumb_mini image url')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    # 设置级联和关系加载
-    pixiv_artwork_page_back_pixiv_artwork: Mapped[PixivArtworkOrm] = relationship(
-        PixivArtworkOrm, back_populates='pixiv_artwork_pixiv_artwork_page', lazy='joined', innerjoin=True
-    )
-
-    def __repr__(self) -> str:
-        return (f"PixivPage(artwork_index_id={self.artwork_index_id!r}, page={self.page!r}, "
-                f"original={self.original!r}, regular={self.regular!r}, "
-                f"small={self.small!r}, thumb_mini={self.thumb_mini!r}, "
+        return (f"ArtworkCollectionOrm(artwork_id={self.aid!r}, title={self.title!r}, "
+                f"uid={self.uid!r}, uname={self.uname!r}, "
+                f"classification={self.classification!r}, rating={self.rating!r}, "
+                f"width={self.width!r}, height={self.height!r}, tags={self.tags!r}, "
+                f"source={self.source!r}, cover_page={self.cover_page!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
@@ -517,10 +519,11 @@ class PixivisionArticleOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     aid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, unique=True, comment='aid')
-    title: Mapped[str] = mapped_column(String(256), nullable=False, comment='title')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='title')
     description: Mapped[str] = mapped_column(String(1024), nullable=False, comment='description')
     tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='tags')
     artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='article artwork_id')
@@ -541,12 +544,13 @@ class WeiboDetailOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(IndexInt, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     mid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='微博id')
     uid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='用户uid')
-    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='微博内容')
-    retweeted_content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='转发的微博内容')
+    content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='微博内容')
+    retweeted_content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='转发的微博内容')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -563,11 +567,13 @@ class WordBankOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(Integer, Sequence(f'{__tablename__}_id_seq'),
-                                    primary_key=True, nullable=False, index=True, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    )
     key_word: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='匹配目标')
-    reply_entity: Mapped[str] = mapped_column(String(64), nullable=False, index=True,
-                                              comment='响应对象, 可为群号/用户qq/频道id等标识')
+    reply_entity: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True, comment='响应对象, 可为群号/用户qq/频道id等标识'
+    )
     result_word: Mapped[str] = mapped_column(String(8192), nullable=False, comment='结果文本')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
@@ -594,9 +600,8 @@ __all__ = [
     'SubscriptionSourceOrm',
     'SubscriptionOrm',
     'BiliDynamicOrm',
-    'PixivArtworkOrm',
-    'PixivArtworkPageOrm',
+    'ArtworkCollectionOrm',
     'PixivisionArticleOrm',
     'WeiboDetailOrm',
-    'WordBankOrm'
+    'WordBankOrm',
 ]

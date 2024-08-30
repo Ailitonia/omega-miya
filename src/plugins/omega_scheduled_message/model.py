@@ -9,8 +9,8 @@
 """
 
 from typing import Literal
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME: Literal['Omega.ScheduleMessage'] = 'Omega.ScheduleMessage'
 """固定写入数据库的 module name 参数"""
@@ -33,5 +33,5 @@ class ScheduleMessageJob(BaseModel):
 __all__ = [
     'SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME',
     'SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME',
-    'ScheduleMessageJob'
+    'ScheduleMessageJob',
 ]

@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-import sys
 import pathlib
+import sys
 
 from alembic import command
 from alembic.config import Config
@@ -54,5 +54,5 @@ def run_downgrade_migrations(revision: str = 'head') -> None:
 __all__ = [
     'run_revision',
     'run_upgrade_migrations',
-    'run_downgrade_migrations'
+    'run_downgrade_migrations',
 ]

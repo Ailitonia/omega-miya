@@ -12,10 +12,9 @@ import time
 import urllib.parse
 from functools import reduce
 from hashlib import md5
-from typing import Any
+from typing import Any, Optional
 
 from .model import BilibiliWebInterfaceNav
-
 
 __MIXIN_KEY_ENC_TAB = [
     46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
@@ -30,7 +29,7 @@ def get_mixin_key(orig: str) -> str:
     return reduce(lambda s, i: s + orig[i], __MIXIN_KEY_ENC_TAB, '')[:32]
 
 
-def enc_wbi(params: dict, img_key: str, sub_key: str) -> dict:
+def enc_wbi(params: Optional[dict[str, Any]], img_key: str, sub_key: str) -> dict[str, Any]:
     """为请求参数进行 wbi 签名"""
     mixin_key = get_mixin_key(img_key + sub_key)
     curr_time = round(time.time())
@@ -57,12 +56,12 @@ def extract_key_from_wbi_image(url: Any) -> str:
     return str(url).rsplit('/', 1)[-1].split('.')[0]
 
 
-def sign_wbi_params(nav_data: BilibiliWebInterfaceNav, params: dict) -> dict:
+def sign_wbi_params(nav_data: BilibiliWebInterfaceNav, params: Optional[dict[str, Any]]) -> dict[str, Any]:
     img_key = extract_key_from_wbi_image(url=nav_data.data.wbi_img.img_url)
     sub_key = extract_key_from_wbi_image(url=nav_data.data.wbi_img.sub_url)
     return enc_wbi(params=params, img_key=img_key, sub_key=sub_key)
 
 
 __all__ = [
-    'sign_wbi_params'
+    'sign_wbi_params',
 ]

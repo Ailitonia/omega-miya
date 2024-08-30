@@ -8,14 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import Type, TypeVar, Literal
+from typing import Type, TypeVar, Literal, override
 
 from nonebot.adapters.onebot.v11.adapter import Adapter
 from nonebot.adapters.onebot.v11.event import Event, NoticeEvent
 from nonebot.log import logger
-from nonebot.typing import overrides
 from pydantic import BaseModel, ConfigDict
-
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
 
@@ -39,15 +37,15 @@ class GroupCardNoticeEvent(NoticeEvent):
     card_new: str
     card_old: str
 
-    @overrides(Event)
+    @override
     def is_tome(self) -> bool:
         return self.user_id == self.self_id
 
-    @overrides(NoticeEvent)
+    @override
     def get_user_id(self) -> str:
         return str(self.user_id)
 
-    @overrides(NoticeEvent)
+    @override
     def get_session_id(self) -> str:
         return f"group_{self.group_id}_{self.user_id}"
 
@@ -68,15 +66,15 @@ class OfflineFileNoticeEvent(NoticeEvent):
     user_id: int
     file: OfflineFile
 
-    @overrides(Event)
+    @override
     def is_tome(self) -> bool:
         return True
 
-    @overrides(NoticeEvent)
+    @override
     def get_user_id(self) -> str:
         return str(self.user_id)
 
-    @overrides(NoticeEvent)
+    @override
     def get_session_id(self) -> str:
         return f"{self.user_id}_{self.file.name}"
 
@@ -103,15 +101,15 @@ class ClientStatusNoticeEvent(NoticeEvent):
     client: Device
     online: bool
 
-    @overrides(Event)
+    @override
     def is_tome(self) -> bool:
         return True
 
-    @overrides(NoticeEvent)
+    @override
     def get_user_id(self) -> str:
         return str(self.self_id)
 
-    @overrides(NoticeEvent)
+    @override
     def get_session_id(self) -> str:
         return f"{self.self_id}_{self.client.app_id}"
 
@@ -127,15 +125,15 @@ class EssenceNoticeEvent(NoticeEvent):
     operator_id: int
     message_id: int
 
-    @overrides(Event)
+    @override
     def is_tome(self) -> bool:
         return self.self_id == self.sender_id or self.self_id == self.operator_id
 
-    @overrides(NoticeEvent)
+    @override
     def get_user_id(self) -> str:
         return str(self.sender_id)
 
-    @overrides(NoticeEvent)
+    @override
     def get_session_id(self) -> str:
         return f"group_{self.group_id}_{self.sender_id}"
 

@@ -18,5 +18,5 @@ class OmegaDeclarativeBase(AsyncAttrs, DeclarativeBase):
 
 
 __all__ = [
-    'OmegaDeclarativeBase'
+    'OmegaDeclarativeBase',
 ]

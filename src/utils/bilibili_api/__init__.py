@@ -16,5 +16,5 @@ __all__ = [
     'BilibiliUser',
     'BilibiliDynamic',
     'BilibiliLiveRoom',
-    'BilibiliCredential'
+    'BilibiliCredential',
 ]

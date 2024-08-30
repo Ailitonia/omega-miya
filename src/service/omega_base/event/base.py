@@ -8,9 +8,10 @@
 @Software       : PyCharm 
 """
 
+from typing import override
+
 from nonebot.adapters import Event as BaseEvent
 from nonebot.adapters import Message
-from nonebot.typing import overrides
 from nonebot.utils import escape_tag
 
 
@@ -19,31 +20,31 @@ class Event(BaseEvent):
 
     event_type: str
 
-    @overrides(BaseEvent)
+    @override
     def get_type(self) -> str:
         return self.event_type
 
-    @overrides(BaseEvent)
+    @override
     def get_event_name(self) -> str:
         return self.event_type
 
-    @overrides(BaseEvent)
+    @override
     def get_event_description(self) -> str:
         return escape_tag(str(self.model_dump()))
 
-    @overrides(BaseEvent)
+    @override
     def get_message(self) -> Message:
         raise NotImplementedError
 
-    @overrides(BaseEvent)
+    @override
     def get_user_id(self) -> str:
         raise NotImplementedError
 
-    @overrides(BaseEvent)
+    @override
     def get_session_id(self) -> str:
         raise NotImplementedError
 
-    @overrides(BaseEvent)
+    @override
     def is_tome(self) -> bool:
         raise NotImplementedError
 

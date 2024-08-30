@@ -19,7 +19,7 @@ class AutoGroupSignConfig(BaseModel):
     # 自动群打卡延迟(每日零时之后, 单位秒)
     auto_group_sign_delay: int = 0
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
 try:

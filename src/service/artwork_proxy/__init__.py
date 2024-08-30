@@ -8,8 +8,41 @@
 @Software       : PyCharm 
 """
 
-from .pixiv import PixivArtworkProxy
+from typing import Literal
+
+from .sites import (
+    DanbooruArtworkProxy,
+    GelbooruArtworkProxy,
+    LocalCollectedArtworkProxy,
+    BehoimiArtworkProxy,
+    KonachanArtworkProxy,
+    KonachanSafeArtworkProxy,
+    YandereArtworkProxy,
+    NoneArtworkProxy,
+    PixivArtworkProxy,
+)
+
+type ALLOW_ARTWORK_ORIGIN = Literal[
+    'pixiv',
+    'danbooru',
+    'gelbooru',
+    'behoimi',
+    'konachan',
+    'yandere',
+    'local_collected_artwork',
+    'none',
+]
+
 
 __all__ = [
-    'PixivArtworkProxy'
+    'ALLOW_ARTWORK_ORIGIN',
+    'DanbooruArtworkProxy',
+    'GelbooruArtworkProxy',
+    'LocalCollectedArtworkProxy',
+    'BehoimiArtworkProxy',
+    'KonachanArtworkProxy',
+    'KonachanSafeArtworkProxy',
+    'YandereArtworkProxy',
+    'NoneArtworkProxy',
+    'PixivArtworkProxy',
 ]
