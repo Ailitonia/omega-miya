@@ -41,7 +41,7 @@ class BooruArtworksUpdater(object):
     async def _add_artwork_into_database(
             ac_t: "ArtworkCollectionType",
             artworks: Sequence["ProxiedArtwork"],
-            semaphore_num: int = 6,
+            semaphore_num: int = 4,
     ) -> None:
         tasks = [ac_t(x.s_aid).add_artwork_into_database_ignore_exists() for x in artworks]
         await semaphore_gather(tasks=tasks, semaphore_num=semaphore_num, return_exceptions=False)
