@@ -20,6 +20,7 @@ from nonebot.adapters.onebot.v11 import (
     MessageEvent as OneBotV11MessageEvent,
     GroupMessageEvent as OneBotV11GroupMessageEvent,
     PrivateMessageEvent as OneBotV11PrivateMessageEvent,
+    NotifyEvent as OneBotV11NotifyEvent,
 )
 
 from src.service.gocqhttp_guild_patch import (
@@ -287,6 +288,26 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
 
     def get_reply_msg_plain_text(self) -> Optional[str]:
         raise NotImplementedError
+
+
+@event_depend_register.register_depend(OneBotV11NotifyEvent)
+class OneBotV11NotifyEventDepend[Event_T: OneBotV11NotifyEvent](OneBotV11EventDepend[Event_T]):
+
+    def _extract_event_entity_params(self) -> "EntityInitParams":
+        return EntityInitParams(
+            bot_id=self.bot.self_id,
+            entity_type='onebot_v11_group',
+            entity_id=str(self.event.group_id),
+            parent_id=self.bot.self_id
+        )
+
+    def _extract_user_entity_params(self) -> "EntityInitParams":
+        return EntityInitParams(
+            bot_id=self.bot.self_id,
+            entity_type='onebot_v11_user',
+            entity_id=str(self.event.user_id),
+            parent_id=self.bot.self_id,
+        )
 
 
 @event_depend_register.register_depend(OneBotV11MessageEvent)
