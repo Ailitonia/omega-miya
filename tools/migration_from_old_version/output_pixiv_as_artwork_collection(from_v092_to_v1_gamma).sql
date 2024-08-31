@@ -1,9 +1,9 @@
-# 执行去重
+-- 执行去重 --
 DELETE
 FROM omega_pixiv_artwork_page
 WHERE omega_pixiv_artwork_page.page != 0;
 
-# 导出去重后数据
+-- 导出去重后数据 --
 SELECT
   'pixiv' as origin,
   omega_pixiv_artwork.pid as aid,
