@@ -1,4 +1,4 @@
-<div style="text-align:center;">
+<div align="center">
 
 <img alt="omega miya" src="https://raw.githubusercontent.com/Ailitonia/omega-miya/master/docs/img/omega-miya-logo.png" width="25%">
 
