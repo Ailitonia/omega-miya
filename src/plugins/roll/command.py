@@ -69,7 +69,7 @@ async def handle_roll(
         await interface.finish_reply(f'【错误】你掷出了不存在的骰子, 只有上帝知道结果是多少')
 
     dice_result = 0
-    for i in range(dice_num):
+    for _ in range(dice_num):
         this_dice_result = random.choice(range(dice_side)) + 1
         dice_result += this_dice_result
     await interface.finish_reply(f'你掷出了{dice_num}个{dice_side}面骰子。\n点数为【{dice_result}】')

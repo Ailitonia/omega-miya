@@ -190,7 +190,7 @@ class BaseResource(abc.ABC):
     def list_all_files(self) -> list[Self]:
         """遍历文件夹内所有文件并返回文件列表"""
         file_list = []
-        for dir_path, dir_names, file_names in os.walk(self.path):
+        for dir_path, _, file_names in os.walk(self.path):
             if file_names:
                 for file_name in file_names:
                     file_list.append(self.__class__(dir_path, file_name))

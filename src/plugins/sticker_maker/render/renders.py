@@ -142,7 +142,7 @@ class JichouRender(BaseStickerRender):
         font = ImageFont.truetype(fonts[0].resolve_path, font_main_size)
         # 按长度切分文本
         text_main_fin = ImageUtils.split_multiline_text(text=text, width=(image.width * 7 // 8), font=font)
-        text_w, text_h = ImageUtils.get_text_size(text=text_main_fin, font=font)
+        _, text_h = ImageUtils.get_text_size(text=text_main_fin, font=font)
 
         # 处理图片
         background_h = int(image.height * 1.08) + text_h
@@ -310,8 +310,8 @@ class LuxunSayRender(BaseStickerRender):
         )
 
         # 文本大小
-        main_text_width, main_text_height = ImageUtils.get_text_size(text_, font, stroke_width=text_stroke_width)
-        sign_text_width, sign_text_height = ImageUtils.get_text_size(sign_text, font, stroke_width=text_stroke_width)
+        _, main_text_height = ImageUtils.get_text_size(text_, font, stroke_width=text_stroke_width)
+        _, sign_text_height = ImageUtils.get_text_size(sign_text, font, stroke_width=text_stroke_width)
 
         # 创建背景图层
         # 定位主体文字到图片下侧往上 1/4 处, 落款与主体文字间隔半行, 底部间隔一行, 超出部分为所有文字高度减去图片 1/4 高度

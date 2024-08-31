@@ -98,7 +98,7 @@ class ImapMailbox(BaseMailbox):
             if num == '':
                 continue
 
-            stat_code, data = self.__mail.fetch(num, 'RFC822')
+            _, data = self.__mail.fetch(num, 'RFC822')
             msg_content: bytes | tuple[bytes, bytes] | None = data[0]
             if msg_content is None:
                 continue

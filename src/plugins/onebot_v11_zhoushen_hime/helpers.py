@@ -567,13 +567,13 @@ class ZhouChecker(AssScriptLineTool):
 
         # 直接暴力遍历整个字典
         seq = 0
-        for start_line_num, start_line in event_lines.items():
+        for _, start_line in event_lines.items():
             seq += 1
             if seq >= len(event_lines):
                 # 这里是最后一行了
                 break
             # 由前向后搜索, 匹配最近符合的两行. 处理完直接跳出
-            for end_line_num, end_line in list(event_lines.items())[seq:]:
+            for _, end_line in list(event_lines.items())[seq:]:
 
                 # 开启style_mode后跳过不比较不同style的行
                 if style_mode:
@@ -582,20 +582,24 @@ class ZhouChecker(AssScriptLineTool):
 
                 # 检查自己是不是闪轴
                 single_flash, single_flash_lines_duration = start_line.check_flash(
-                    threshold_time=self.__single_threshold_time)
+                    threshold_time=self.__single_threshold_time
+                )
 
                 # 检查连轴
-                continuous, continuous_lines_duration = self.check_continuous(
-                    start_line=start_line, end_line=end_line, style_mode=style_mode)
+                continuous, _ = self.check_continuous(
+                    start_line=start_line, end_line=end_line, style_mode=style_mode
+                )
 
                 # 检查叠轴
-                overlap, overlap_duration = self.check_overlap(
-                    start_line=start_line, end_line=end_line, style_mode=style_mode)
+                overlap, _ = self.check_overlap(
+                    start_line=start_line, end_line=end_line, style_mode=style_mode
+                )
 
                 # 检查轴间闪轴
                 multi_flash, multi_flash_lines_duration = self.check_flash(
                     start_line=start_line, end_line=end_line,
-                    threshold_time=self.__multi_threshold_time, style_mode=style_mode)
+                    threshold_time=self.__multi_threshold_time, style_mode=style_mode
+                )
 
                 # 处理叠轴
                 if overlap == 1:

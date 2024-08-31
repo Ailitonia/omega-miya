@@ -349,12 +349,12 @@ async def generate_signin_card(
             top_text = '晚上好'
         else:
             top_text = '晚安'
-        top_text_width, top_text_height = ImageUtils.get_text_size(text=top_text, font=bd_font)
+        _, top_text_height = ImageUtils.get_text_size(text=top_text, font=bd_font)
 
         # 计算好感度等级条
         level = _get_level(friendship=friendship)
         level_text = f'Level {level[0]}'
-        level_text_width, level_text_height = ImageUtils.get_text_size(text=level_text, font=level_font)
+        _, level_text_height = ImageUtils.get_text_size(text=level_text, font=level_font)
         fs_text = f'{level[1]}/{level[2]}'
         fs_rat = level[1] / level[2] if level[1] < level[2] else 1
         fs_text_width, fs_text_height = ImageUtils.get_text_size(text=fs_text, font=text_font)
@@ -363,13 +363,13 @@ async def generate_signin_card(
         date_text = datetime.now().strftime('%m/%d')
         # 预处理用户文本 包括昵称、好感度、积分
         user_text_ = ImageUtils.split_multiline_text(text=user_text, width=(width - int(width * 0.125)), font=text_font)
-        user_text_width, user_text_height = ImageUtils.get_text_size(text=user_text_, font=text_font)
+        _, user_text_height = ImageUtils.get_text_size(text=user_text_, font=text_font)
 
         # 今日运势
-        fortune_text_width, fortune_text_height = ImageUtils.get_text_size(text=user_fortune.text, font=bd_text_font)
-        fortune_star_width, fortune_star_height = ImageUtils.get_text_size(text=user_fortune.star, font=text_font)
+        _, fortune_text_height = ImageUtils.get_text_size(text=user_fortune.text, font=bd_text_font)
+        _, fortune_star_height = ImageUtils.get_text_size(text=user_fortune.star, font=text_font)
         # 底部文字
-        bottom_text_width, bottom_text_height = ImageUtils.get_text_size(text=f'{"@@##" * 4}\n', font=bottom_text_font)
+        _, bottom_text_height = ImageUtils.get_text_size(text=f'{"@@##" * 4}\n', font=bottom_text_font)
 
         # 总高度
         if draw_fortune:
