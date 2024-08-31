@@ -10,16 +10,15 @@
 
 from typing import Annotated, Optional
 
-from nonebot.log import logger
-from nonebot.message import event_preprocessor, run_preprocessor
-from nonebot.params import Depends
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event
 from nonebot.exception import AdapterException, IgnoredException
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import NoResultFound
+from nonebot.log import logger
+from nonebot.message import event_preprocessor, run_preprocessor
+from nonebot.params import Depends
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl, parse_obj_as
 from src.database import BotSelfDAL, EntityDAL, get_db_session
@@ -188,7 +187,8 @@ async def __obv11_bot_connect(
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
     """处理 OneBot V11(go-cqhttp) Bot 连接事件"""
-    assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
+    if not str(bot.self_id) == str(event.bot_id):
+        raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     bot_dal = BotSelfDAL(session=session)
     entity_dal = EntityDAL(session=session)
@@ -313,7 +313,8 @@ async def __obv11_bot_disconnect(
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
     """处理 OneBot V11(go-cqhttp) Bot 断开连接事件"""
-    assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
+    if not str(bot.self_id) == str(event.bot_id):
+        raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     bot_dal = BotSelfDAL(session)
     try:

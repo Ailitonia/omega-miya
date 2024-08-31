@@ -197,7 +197,8 @@ class BilibiliUser(Bilibili):
             user_data = await self._get_json(url=self._data_api_url, params=params, cookies=cookies)
             self.user_model = BilibiliUserModel.model_validate(user_data)
 
-        assert isinstance(self.user_model, BilibiliUserModel), 'Query user model failed'
+        if not isinstance(self.user_model, BilibiliUserModel):
+            raise TypeError('Query user model failed')
         return self.user_model
 
     async def query_dynamics(
@@ -268,7 +269,8 @@ class BilibiliDynamic(BilibiliCommon):
             dynamic_data = await self._get_json(url=self._dynamic_detail_api_url, params=params, headers=headers)
             self.dynamic_model = BilibiliDynamicModel.model_validate(dynamic_data)
 
-        assert isinstance(self.dynamic_model, BilibiliDynamicModel), 'Query dynamic model failed'
+        if not isinstance(self.dynamic_model, BilibiliDynamicModel):
+            raise TypeError('Query dynamic model failed')
         return self.dynamic_model
 
 
@@ -308,7 +310,8 @@ class BilibiliLiveRoom(BilibiliCommon):
             live_room_data = await self._get_json(url=self._live_api_url, params=params)
             self.live_room_model = BilibiliLiveRoomModel.model_validate(live_room_data)
 
-        assert isinstance(self.live_room_model, BilibiliLiveRoomModel), 'Query live room model failed'
+        if not isinstance(self.live_room_model, BilibiliLiveRoomModel):
+            raise TypeError('Query live room model failed')
         return self.live_room_model
 
     async def query_live_room_user_data(self) -> BilibiliUserModel:

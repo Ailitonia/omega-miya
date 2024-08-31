@@ -328,7 +328,8 @@ class PixivArtwork(PixivCommon):
             }
             self.artwork_model = PixivArtworkCompleteDataModel.model_validate(_data)
 
-        assert isinstance(self.artwork_model, PixivArtworkCompleteDataModel), 'Query artwork model failed'
+        if not isinstance(self.artwork_model, PixivArtworkCompleteDataModel):
+            raise TypeError('Query artwork model failed')
         return self.artwork_model
 
     async def query_recommend(self, *, init_limit: int = 18, lang: Literal['zh'] = 'zh') -> PixivArtworkRecommendModel:
@@ -414,7 +415,8 @@ class PixivUser(PixivCommon):
             }
             self.user_model = PixivUserModel.model_validate(_data)
 
-        assert isinstance(self.user_model, PixivUserModel), 'Query user model failed'
+        if not isinstance(self.user_model, PixivUserModel):
+            raise TypeError('Query user model failed')
         return self.user_model
 
     async def query_user_bookmarks(self, page: int = 1) -> PixivBookmark:

@@ -242,7 +242,8 @@ class NhentaiGallery(Nhentai):
             gallery_content = await self._get_resource_as_text(url=self.gallery_url)
             self.gallery_model = await NhentaiParser.parse_gallery_page(content=gallery_content)
 
-        assert isinstance(self.gallery_model, NhentaiGalleryModel), 'Query gallery model failed'
+        if not isinstance(self.gallery_model, NhentaiGalleryModel):
+            raise TypeError('Query gallery model failed')
         return self.gallery_model
 
     async def query_gallery_with_preview(self) -> "TemporaryResource":

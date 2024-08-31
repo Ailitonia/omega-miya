@@ -150,7 +150,8 @@ class BaseArtworkProxy(abc.ABC):
         if not isinstance(self.artwork_data, ArtworkData):
             self.artwork_data = await self._fast_query(use_cache=use_cache)
 
-        assert isinstance(self.artwork_data, ArtworkData), 'Query artwork data failed'
+        if not isinstance(self.artwork_data, ArtworkData):
+            raise TypeError('Query artwork data failed')
         return self.artwork_data
 
     @abc.abstractmethod

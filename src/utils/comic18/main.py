@@ -320,7 +320,8 @@ class Comic18(_BaseComic18):
             content = await self.request_resource_as_text(url=url)
             self.album_data = await Comic18Parser(root_url=root_url).parse_album_page(content=content)
 
-        assert isinstance(self.album_data, AlbumData), 'Query album data failed'
+        if not isinstance(self.album_data, AlbumData):
+            raise TypeError('Query album data failed')
         return self.album_data
 
     async def query_album_with_preview(self) -> "TemporaryResource":

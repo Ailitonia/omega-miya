@@ -10,13 +10,12 @@
 
 from typing import Annotated
 
+from nonebot.adapters.telegram.bot import Bot
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from nonebot.params import Depends
-from nonebot.adapters.telegram.bot import Bot
-
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import BotSelfDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
@@ -29,7 +28,8 @@ async def __telegram_bot_connect(
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
     """处理 Telegram Bot 连接事件"""
-    assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
+    if not str(bot.self_id) == str(event.bot_id):
+        raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     bot_dal = BotSelfDAL(session=session)
 
@@ -53,7 +53,8 @@ async def __telegram_bot_disconnect(
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
     """处理 Telegram Bot 断开连接事件"""
-    assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
+    if not str(bot.self_id) == str(event.bot_id):
+        raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     bot_dal = BotSelfDAL(session)
     try:
