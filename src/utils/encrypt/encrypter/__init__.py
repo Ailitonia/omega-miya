@@ -1,15 +1,14 @@
 """
 @Author         : Ailitonia
-@Date           : 2024/8/31 下午2:32
-@FileName       : encrypt
+@Date           : 2024/8/31 下午2:31
+@FileName       : encrypter
 @Project        : omega-miya
-@Description    : 加密解密工具集
+@Description    : 加密套件
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from .encrypter import AESEncrypter
-
+from .aes import AESEncrypter
 
 __all__ = [
     'AESEncrypter',
