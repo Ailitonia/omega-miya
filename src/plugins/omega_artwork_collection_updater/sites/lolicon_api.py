@@ -92,7 +92,7 @@ class LoliconAPI(BaseCommonAPI):
         """从 lolicon API 获取涩图数据并导入数据库"""
         setu_data = await cls._query_setu(r18=2, num=20)
         tasks = [cls._add_lolicon_setu_into_database(PixivArtworkCollection(artwork_id=x.pid)) for x in setu_data.data]
-        await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
+        await semaphore_gather(tasks=tasks, semaphore_num=8, return_exceptions=False)
 
 
 __all__ = [
