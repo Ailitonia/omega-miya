@@ -183,7 +183,7 @@ class BilibiliUser(Bilibili):
         searching_result = await cls._global_search(
             search_type='bili_user', page_size=36, keyword=user_name, order=order, order_sort=order_sort
         )
-        return UserSearchingModel.model_validate(searching_result)
+        return UserSearchingModel.model_validate(searching_result.model_dump())
 
     @property
     def mid(self) -> str:

@@ -12,13 +12,9 @@ import asyncio
 import inspect
 from asyncio import Future
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, Literal, ParamSpec, Sequence, TypeVar, overload
+from typing import Any, Awaitable, Callable, Coroutine, Literal, Sequence, overload
 
 from nonebot import logger
-
-P = ParamSpec("P")
-T = TypeVar("T")
-R = TypeVar("R")
 
 
 def run_async_delay(delay_time: float = 5):
@@ -27,7 +23,7 @@ def run_async_delay(delay_time: float = 5):
     :param delay_time: 延迟的时间, 单位秒
     """
 
-    def decorator(func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
+    def decorator[R, ** P](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
         if not inspect.iscoroutinefunction(func):
             raise ValueError('The decorated function must be coroutine function')
 
@@ -46,7 +42,7 @@ def run_async_delay(delay_time: float = 5):
 
 
 @overload
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -57,7 +53,7 @@ async def semaphore_gather(
 
 
 @overload
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -68,7 +64,7 @@ async def semaphore_gather(
 
 
 @overload
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -78,7 +74,7 @@ async def semaphore_gather(
     ...
 
 
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,

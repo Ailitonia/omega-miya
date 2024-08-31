@@ -8,16 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import Generic, TypeVar, Optional
-
-from pydantic import BaseModel
+from typing import Optional
 
 from .base_model import BaseBilibiliModel
 
-T = TypeVar("T")
 
-
-class BaseBilibiliSearchingDataModel(BaseBilibiliModel, BaseModel, Generic[T]):
+class BaseBilibiliSearchingDataModel[T](BaseBilibiliModel):
     """Bilibili 搜索结果 Data 基类"""
     cost_time: dict
     egg_hit: int
@@ -33,10 +29,10 @@ class BaseBilibiliSearchingDataModel(BaseBilibiliModel, BaseModel, Generic[T]):
     result: list[T] = []
 
 
-class BaseBilibiliSearchingModel(BaseBilibiliModel, BaseModel, Generic[T]):
+class BaseBilibiliSearchingModel[T: BaseBilibiliSearchingDataModel](BaseBilibiliModel):
     """Bilibili 搜索结果 Model 基类"""
     code: int
-    data: Optional[BaseBilibiliSearchingDataModel[T]] = None
+    data: Optional[T] = None
     message: str
 
     @property
@@ -70,12 +66,12 @@ class UserSearchingData(BaseBilibiliSearchingDataModel[UserSearchingResult]):
     result: list[UserSearchingResult] = []
 
 
-class UserSearchingModel(BaseBilibiliSearchingModel[UserSearchingResult]):
+class UserSearchingModel(BaseBilibiliSearchingModel[UserSearchingData]):
     """用户搜索 Model"""
     data: Optional[UserSearchingData] = None
 
 
 __all__ = [
     'BaseBilibiliSearchingModel',
-    'UserSearchingModel'
+    'UserSearchingModel',
 ]
