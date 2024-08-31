@@ -94,7 +94,6 @@ class ShindanMaker(BaseCommonAPI):
     @classmethod
     async def _load_shindan_cache(cls) -> None:
         """从文件中读取并更新占卜名缓存"""
-        global _SHINDAN_CACHE
         if _SHINDAN_CACHE_FILE.is_file:
             try:
                 async with _SHINDAN_CACHE_FILE.async_open('r', encoding='utf8') as af:
@@ -114,7 +113,6 @@ class ShindanMaker(BaseCommonAPI):
     @classmethod
     async def _upgrade_shindan_cache(cls, data: dict[str, int]) -> None:
         """更新并写入占卜名缓存到文件"""
-        global _SHINDAN_CACHE
         await cls._load_shindan_cache()
 
         _SHINDAN_CACHE.update(data)

@@ -82,7 +82,6 @@ async def __unique_bot_responding_limit(bot: Bot, event: Event):
 @driver.on_bot_connect
 async def __init_bot_connect(bot: Bot):
     """在 Bot 连接时执行初始化操作"""
-    global __ONLINE_BOTS
     async with lock:
         __ONLINE_BOTS.update({str(bot.self_id): bot})
         await handle_event(bot=bot, event=BotConnectEvent(bot_id=bot.self_id, bot_type=bot.type))
@@ -91,7 +90,6 @@ async def __init_bot_connect(bot: Bot):
 @driver.on_bot_disconnect
 async def __dispose_bot_disconnect(bot: Bot):
     """在 Bot 断开连接时执行后续处理"""
-    global __ONLINE_BOTS
     async with lock:
         __ONLINE_BOTS.pop(str(bot.self_id), None)
         await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.type))

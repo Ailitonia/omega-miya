@@ -37,7 +37,6 @@ def check_and_upgrade_live_status(
 
     :return: 更新后的直播间状态(如有)
     """
-    global __LIVE_STATUS
     exist_status = __LIVE_STATUS.get(live_room_data.uid, None)
 
     if exist_status is None and live_user_name is None:

@@ -56,10 +56,6 @@ async def preprocessor_rate_limiting(bot: Bot, event: Event):
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
-    global USER_LAST_MSG_TIME
-    global RATE_LIMITING_COUNT
-    global RATE_LIMITING_USER_TEMP
-
     # 用户标识符根据 bot 生成
     user_flag = f'{bot.type}_{bot.self_id}_{user_id}'
 

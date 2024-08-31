@@ -54,7 +54,6 @@ async def handle_user_verify_code(_: OneBotV11Bot, matcher: Matcher, user_qq: An
     if not user_qq.isdigit():
         await matcher.reject_arg('user_qq', 'qq号应为纯数字, 请重新输入:')
 
-    global _FRIEND_ADD_VERIFY_CODE
     verify_code = ''.join(random.sample(string.ascii_letters, k=6))
     _FRIEND_ADD_VERIFY_CODE.update({user_qq: verify_code})
 
@@ -72,7 +71,6 @@ invite_request_manager = on_request(
 @invite_request_manager.handle()
 async def handle_friend_request(bot: OneBotV11Bot, event: OneBotV11FriendRequestEvent) -> None:
     """处理加好友申请"""
-    global _FRIEND_ADD_VERIFY_CODE
     user_id = str(event.user_id)
     comment = event.comment
 

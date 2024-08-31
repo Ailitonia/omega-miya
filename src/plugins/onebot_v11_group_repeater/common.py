@@ -47,8 +47,6 @@ async def handle_ignore_msg(bot: OneBotV11Bot, event: OneBotV11GroupMessageEvent
 ).handle()
 async def handle_repeater(event: OneBotV11GroupMessageEvent, matcher: Matcher):
     """处理复读"""
-    global LAST_MSG, LAST_REPEAT_MSG, REPEAT_COUNT
-
     group_id = event.group_id
     try:
         LAST_MSG[group_id]
