@@ -46,7 +46,7 @@ async def handle_parse_switch(_: OneBotV11Bot, state: T_State, cmd_arg: Annotate
 
 
 @on_command(
-    'anti_recall',
+    'anti-recall',
     aliases={'AntiRecall', '反撤回'},
     permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     handlers=[handle_parse_switch],

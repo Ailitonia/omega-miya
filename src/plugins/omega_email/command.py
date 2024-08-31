@@ -25,7 +25,7 @@ from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enab
 from .helpers import check_mailbox, get_unseen_mail_data, encrypt_password, decrypt_password, generate_mail_snapshot
 
 mailbox_manager = CommandGroup(
-    'mailbox_manager',
+    'mailbox-manager',
     rule=to_me(),
     permission=SUPERUSER,
     priority=10,

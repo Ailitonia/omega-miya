@@ -22,8 +22,8 @@ from .utils import (simple_white, simple_black, simple_noise, color_noise,
 
 
 @on_command(
-    'mirage_tank',
-    aliases={'幻影坦克', 'MirageTank'},
+    'mirage-tank',
+    aliases={'幻影坦克', 'MirageTank', 'mirage_tank'},
     handlers=[get_command_str_single_arg_parser_handler('step_arg', default='白底')],
     priority=10,
     block=True,

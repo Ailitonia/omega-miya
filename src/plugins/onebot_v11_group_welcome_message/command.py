@@ -31,7 +31,7 @@ _SETTING_NAME: Literal['group_welcome_message'] = 'group_welcome_message'
 
 
 welcome_message_manager = CommandGroup(
-    'welcome_message',
+    'welcome-message',
     permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     priority=20,
     block=True,

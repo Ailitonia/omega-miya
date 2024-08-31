@@ -27,7 +27,7 @@ from .helpers import (
 )
 
 schedule_message = CommandGroup(
-    'schedule_message',
+    'schedule-message',
     permission=IS_ADMIN,
     priority=20,
     block=True,

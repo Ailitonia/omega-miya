@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 @on_command(
-    'search_image',
+    'search-image',
     aliases={'识图', '搜图', '识番', '搜番'},
     handlers=[get_command_str_single_arg_parser_handler('image_url', ensure_key=True)],
     priority=10,

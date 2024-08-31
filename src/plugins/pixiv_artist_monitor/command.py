@@ -199,7 +199,7 @@ async def handle_preview_user_bookmark(
 
 
 pixiv_artist_subscription = CommandGroup(
-    'pixiv_artist_subscription',
+    'pixiv-artist-subscription',
     permission=IS_ADMIN,
     priority=20,
     block=True,

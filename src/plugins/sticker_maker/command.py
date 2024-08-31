@@ -20,7 +20,7 @@ from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enab
 from .render import get_render, get_all_render_name, download_source_image
 
 sticker_maker = on_command(
-    'sticker_maker',
+    'sticker-maker',
     aliases={'sticker', '表情包'},
     handlers=[
         get_set_default_state_handler(key='source_images'),

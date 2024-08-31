@@ -24,7 +24,7 @@ from .helpers import add_dynamic_sub, delete_dynamic_sub, query_entity_subscribe
 from .monitor import scheduler
 
 bili_dynamic = CommandGroup(
-    'bili_dynamic',
+    'bili-dynamic',
     permission=IS_ADMIN,
     priority=20,
     block=True,

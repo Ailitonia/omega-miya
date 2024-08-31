@@ -1,7 +1,18 @@
+"""
+@Author         : Ailitonia
+@Date           : 2024/8/31 上午10:44
+@FileName       : omega_any_artworks
+@Project        : bot.py
+@Description    : omega-miya 启动入口文件
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
 import os
 import sys
-import nonebot
 from datetime import datetime
+
+import nonebot
 from nonebot.log import logger, default_format
 
 # Log file path
@@ -59,4 +70,7 @@ nonebot.load_plugins('src/plugins')
 
 
 if __name__ == '__main__':
+    # from src.database.migrate import run_upgrade_migrations
+    # run_upgrade_migrations()
+
     nonebot.run()

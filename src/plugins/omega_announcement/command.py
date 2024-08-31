@@ -31,7 +31,7 @@ from src.utils.process_utils import semaphore_gather
 @on_command(
     'announce',
     rule=to_me(),
-    aliases={'公告', 'ta'},
+    aliases={'公告'},
     permission=SUPERUSER,
     handlers=[get_command_message_arg_parser_handler('announcement_content')],
     priority=10,

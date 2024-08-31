@@ -19,12 +19,12 @@ from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 
 
 @on_command(
-    'choice_helper',
+    'choice-helper',
     aliases={'帮我选', '选择困难症'},
     handlers=[get_command_str_single_arg_parser_handler('choices')],
     priority=10,
     block=True,
-    state=enable_processor_state(name='choice_helper', level=10),
+    state=enable_processor_state(name='ChoiceHelper', level=10),
 ).got('choices', prompt='有啥选项, 发来我帮你选~')
 async def handle_help_choices(
         interface: Annotated[OmMI, Depends(OmMI.depend())],

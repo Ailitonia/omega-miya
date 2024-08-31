@@ -32,7 +32,7 @@ weibo = CommandGroup(
 
 @weibo.command(
     'add-subscription',
-    aliases={'微博订阅'},
+    aliases={'微博订阅', '微博用户订阅'},
     handlers=[
         get_set_default_state_handler('ensure', value=None),
         get_command_str_single_arg_parser_handler('uid', ensure_key=True)
@@ -82,7 +82,7 @@ async def handle_add_subscription(
 
 @weibo.command(
     'del-subscription',
-    aliases={'取消微博订阅'},
+    aliases={'取消微博订阅', '取消微博用户订阅'},
     handlers=[
         get_set_default_state_handler('ensure', value=None),
         get_command_str_single_arg_parser_handler('uid', ensure_key=True)

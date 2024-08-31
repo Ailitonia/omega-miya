@@ -24,7 +24,7 @@ from .helpers import add_live_room_sub, delete_live_room_sub, query_subscribed_l
 from .monitor import scheduler
 
 bili_live = CommandGroup(
-    'bili_live',
+    'bili-live',
     permission=IS_ADMIN,
     priority=20,
     block=True,

@@ -24,7 +24,7 @@ from nonebot.plugin import on_command
 from src.service import enable_processor_state
 
 self_recall = on_command(
-    'self_recall',
+    'self-recall',
     aliases={'撤回'},
     permission=SUPERUSER,
     priority=10,

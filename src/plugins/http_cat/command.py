@@ -20,8 +20,8 @@ from .data_source import get_http_cat
 
 
 @on_command(
-    'http_cat',
-    aliases={'HttpCat', 'httpcat'},
+    'http-cat',
+    aliases={'HttpCat', 'httpcat', 'http_cat'},
     handlers=[get_command_str_single_arg_parser_handler('code', default='200')],
     priority=10,
     block=True,

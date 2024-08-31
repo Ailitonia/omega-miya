@@ -21,7 +21,7 @@ from src.utils.process_utils import semaphore_gather
 from .data_source import ShindanMaker
 
 shindan_maker = CommandGroup(
-    'shindan_maker',
+    'shindan-maker',
     priority=10,
     block=True,
     state=enable_processor_state(
@@ -34,7 +34,7 @@ shindan_maker = CommandGroup(
 
 make_shindan = shindan_maker.command(
     'make',
-    aliases={'shindan', 'Shindan', 'ShindanMaker'},
+    aliases={'shindan', 'Shindan', 'ShindanMaker', 'shindan_maker'},
     handlers=[get_command_str_multi_args_parser_handler('shindan_arg')]
 )
 

@@ -25,7 +25,7 @@ jm = CommandGroup(
     priority=10,
     block=True,
     state=enable_processor_state(
-        name='jm',
+        name='JM',
         auth_node='allow_view',
         cooldown=60
     ),

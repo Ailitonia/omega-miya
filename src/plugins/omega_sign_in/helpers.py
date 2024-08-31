@@ -357,7 +357,7 @@ async def generate_signin_card(
         _, level_text_height = ImageUtils.get_text_size(text=level_text, font=level_font)
         fs_text = f'{level[1]}/{level[2]}'
         fs_rat = level[1] / level[2] if level[1] < level[2] else 1
-        fs_text_width, fs_text_height = ImageUtils.get_text_size(text=fs_text, font=text_font)
+        fs_text_width, _ = ImageUtils.get_text_size(text=fs_text, font=text_font)
 
         # 日期
         date_text = datetime.now().strftime('%m/%d')

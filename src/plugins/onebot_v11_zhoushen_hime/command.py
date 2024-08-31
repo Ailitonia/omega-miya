@@ -38,7 +38,7 @@ _ENABLE_ZHOUSHEN_HIME_NODE: Literal['enable_zhoushen_hime'] = 'enable_zhoushen_h
 
 
 @on_command(
-    'zhoushen_hime_manager',
+    'zhoushen-hime-manager',
     aliases={'审轴姬', '审轴机'},
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     handlers=[get_command_str_single_arg_parser_handler('switch')],

@@ -40,7 +40,7 @@ async def handle_parse_user_qq(_: OneBotV11Bot, state: T_State, cmd_arg: Annotat
 
 
 @on_command(
-    'friend_verify_code',
+    'friend-verify-code',
     rule=to_me(),
     aliases={'好友验证码'},
     permission=SUPERUSER,

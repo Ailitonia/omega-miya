@@ -57,7 +57,7 @@ async def handle_parse_multiple(state: T_State, cmd_arg: Annotated[OneBotV11Mess
 
 # 注册事件响应器
 @on_command(
-    'self_mute',
+    'self-mute',
     aliases={'随机口球', '口球'},
     permission=GROUP,
     handlers=[handle_parse_multiple],
