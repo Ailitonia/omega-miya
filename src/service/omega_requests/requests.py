@@ -182,16 +182,18 @@ class OmegaRequests(object):
             except Exception as e:
                 logger.opt(colors=True).warning(
                     f'<lc>Omega Requests</lc> | <ly>{setup!r} failed on the {attempts_num + 1} attempt</ly> <c>></c> '
-                    f'<r>Exception {e.__class__.__name__}</r>: {e}')
+                    f'<r>Exception {e.__class__.__name__}</r>: {e}'
+                )
                 final_exception = e
             finally:
                 attempts_num += 1
-        else:
-            logger.opt(colors=True).error(
-                f'<lc>Omega Requests</lc> | <ly>{setup!r} failed with {attempts_num} times attempts</ly> <c>></c> '
-                f'<r>Exception ExceededAttemptError</r>: The number of attempts exceeds limit with final exception: '
-                f'<r>{final_exception.__class__.__name__}</r>: {final_exception}')
-            raise ExceededAttemptError('The number of attempts exceeds limit.')
+
+        logger.opt(colors=True).error(
+            f'<lc>Omega Requests</lc> | <ly>{setup!r} failed with {attempts_num} times attempts</ly> <c>></c> '
+            f'<r>Exception ExceededAttemptError</r>: The number of attempts exceeds limit with final exception: '
+            f'<r>{final_exception.__class__.__name__}</r>: {final_exception}'
+        )
+        raise ExceededAttemptError('The number of attempts exceeds limit.')
 
     @asynccontextmanager
     async def websocket(

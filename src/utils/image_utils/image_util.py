@@ -179,8 +179,7 @@ class ImageUtils(object):
             if text_width > width:
                 spl_list.append(text[spl_num:num])
                 spl_num = num
-        else:
-            spl_list.append(text[spl_num:])
+        spl_list.append(text[spl_num:])
 
         return '\n'.join(spl_list)
 

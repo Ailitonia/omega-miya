@@ -273,9 +273,9 @@ class InternalEntity(object):
         for index, value in enumerate(all_sign_in_list):
             if index != date_now_ordinal - value:
                 return index
-        else:
-            # 如果全部遍历完了那就说明全部没有断签
-            return len(all_sign_in_list)
+
+        # 如果全部遍历完了那就说明全部没有断签
+        return len(all_sign_in_list)
 
     async def query_last_missing_sign_in_day(self) -> int:
         """查询上一次断签的时间, 返回 ordinal datetime"""
@@ -299,9 +299,9 @@ class InternalEntity(object):
         for index, value in enumerate(all_sign_in_list):
             if index != date_now_ordinal - value:
                 return all_sign_in_list[index - 1] - 1
-        else:
-            # 如果全部遍历完了那就说明全部没有返回开始签到的前一天
-            return date_now_ordinal - len(all_sign_in_list)
+
+        # 如果全部遍历完了那就说明全部没有返回开始签到的前一天
+        return date_now_ordinal - len(all_sign_in_list)
 
     async def query_all_auth_setting(self) -> list[AuthSetting]:
         """查询 Entity 全部的权限配置"""
