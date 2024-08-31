@@ -23,7 +23,7 @@ class ArtworkClassification(IntEnum):
     Unclassified = 0  # 未分类, 一般为无分级图站作品默认分类级别
     AIGenerated = 1  # 确认/疑似为 AI 生成作品
     Automatic = 2  # 由图站分类/图站分级/第三方接口分类, 可能由人工进行分类但不完全可信, 一般可作为应用层插件使用的最低可信级别
-    Confirmed = 3  # 由人工审核/确认为 "人类生成" 的作品
+    Confirmed = 3  # 由人工审核/确认为 "人类生成" 的作品, 且分级可信
 
 
 @unique

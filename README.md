@@ -1,4 +1,4 @@
-<div align="center">
+<div style="text-align:center;">
 
 <img alt="omega miya" src="https://raw.githubusercontent.com/Ailitonia/omega-miya/master/docs/img/omega-miya-logo.png" width="25%">
 
@@ -19,7 +19,7 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
 
 ## 当前适配 nonebot2 版本
 
-[Nonebot2 Release v2.3.2](https://github.com/nonebot/nonebot2/releases/tag/v2.3.2)
+[Nonebot2 Release v2.3.3](https://github.com/nonebot/nonebot2/releases/tag/v2.3.3)
 
 ## 功能 & 特点
 
@@ -28,10 +28,10 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
   - MySQL and MariaDB
   - SQLite
 - 支持多协议端连接, 各协议端权限、订阅等配置相互独立
-  - [Console Adapter (v0.5.0)](https://github.com/nonebot/adapter-console/releases/tag/v0.5.0) -> 本机调试
-  - [OneBot v11 Adapter (v2.4.4)](https://github.com/nonebot/adapter-onebot/releases/tag/v2.4.4) -> [go-cqhttp](https://github.com/Mrs4s/go-cqhttp/releases/tag/v1.1.0) / [Lagrange.OneBot](https://github.com/LagrangeDev/Lagrange.Core/releases/tag/nightly)
-  - [QQ Adapter (v1.5.0)](https://github.com/nonebot/adapter-qq/releases/tag/v1.5.0) -> [QQ 开放平台](https://q.qq.com/)
-  - [Telegram Adapter (v0.1.0b17)](https://github.com/nonebot/adapter-telegram/releases/tag/v0.1.0b14) -> [Telegram Bot](https://core.telegram.org/bots/api)
+  - [Console Adapter](https://github.com/nonebot/adapter-console/releases/latest/) -> 本机调试
+  - [OneBot v11 Adapter](https://github.com/nonebot/adapter-onebot/releases/latest/) -> [go-cqhttp](https://github.com/Mrs4s/go-cqhttp/releases/latest/) / [Lagrange.OneBot](https://github.com/LagrangeDev/Lagrange.Core/releases/tag/nightly) / [NapCatQQ](https://github.com/NapNeko/NapCatQQ/releases/latest/)
+  - [QQ Adapter](https://github.com/nonebot/adapter-qq/releases/latest/) -> [QQ 开放平台](https://q.qq.com/)
+  - [Telegram Adapter](https://github.com/nonebot/adapter-telegram/releases/latest/) -> [Telegram Bot](https://core.telegram.org/bots/api)
 - 插件管理系统
 - 权限控制系统
 - 命令冷却系统
@@ -45,8 +45,9 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
 - B站动态订阅
 - B站直播间监控
 - 微博用户订阅
-- Pixiv (需要 HTTP 代理, 或部署在外网)
-- Pixivision (需要 HTTP 代理, 或部署在外网)
+- 图站作品预览 (需要 HTTP 代理, 或部署在外网)
+- Pixiv用户订阅 (需要 HTTP 代理, 或部署在外网)
+- Pixivision特辑订阅 (需要 HTTP 代理, 或部署在外网)
 - 签到卡片
 - 求签
 - 抽卡
@@ -72,14 +73,46 @@ _基于 [Nonebot2](https://github.com/nonebot/nonebot2) 的多平台机器人_
 
 ## 关于图片数据
 
-如果你不想自己收集图片数据, 可以将 [这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/master/archive_data/db_pixiv.7z) 导入, 基本都是按我自己口味收集的图片
+### 手动导入
 
-- Update 2022.5.30: 最新发布图片数据库共 13w1 条图片数据 (包含已失效或画师已删除作品)
-- Update 2021.8.10: 最新发布图片数据库共 9w7 条图片数据 (包含已失效或画师已删除作品)
+如果你不想自己收集图片数据,
+可以将 [这个图片数据库](https://github.com/Ailitonia/omega-miya/raw/master/archive_data/omega_artwork_collection_20240831201102.7z)
+导入, 基本都是按我自己口味收集的图片
 
-解压后直接把 `omega_pixiv_illusts.sql` 导入对应的 pixiv_illusts 表就好了
+- Update 2024.8.31: 更新图片数据库共 21.7 万条图片数据 (仅 `Pixiv` 来源, 包含已失效或画师已删除作品)
+- Update 2022.5.30: 更新图片数据库共 13.1 万条图片数据 (仅 `Pixiv` 来源, 包含已失效或画师已删除作品)
+- Update 2021.8.10: 更新图片数据库共 9.7 万条图片数据 (仅 `Pixiv` 来源, 包含已失效或画师已删除作品)
 
-数据集来源是我的 [这个频道](https://t.me/amoeloli), 虽然已经断更很久了...
+解压后直接把 `omega_artwork_collection_20240831201102.csv` 导入对应的 `artwork_collection` 表就好了
+
+数据集来源大部分是我的 [这个频道](https://t.me/amoeloli), 虽然已经断更很久了...
+
+### 自动导入
+
+目前内置的 `omega_artwork_collection_updater` 插件可以自动从图站收录图片作品, 来源包括 lolicon API, Pixiv 发现及首页推荐,
+danbooru/konachan/yande.re 的高评分作品
+
+不过上述来源作品以 NSFW 居多, 还是建议导入上面的图库, 里面有很多 SFW 的萌图
+
+### 关于图片分级分类
+
+图片数据的分类分级字段解释如下
+
+#### Classification: 主要体现图片由谁分级以及分级的**可靠性**
+
+- `Unknown = -1`  无法确认分类级别, 一般为本地图片或无确切来源的图片
+- `Unclassified = 0`  未分类, 一般为无分级图站作品默认分类级别
+- `AIGenerated = 1`  确认/疑似为 AI 生成作品
+- `Automatic = 2`  由图站分类/图站分级/第三方接口分类, 可能由人工进行分类但不完全可信, 一般可作为应用层插件使用的最低可信级别
+- `Confirmed = 3`  由人工审核/确认为 "人类生成" 的作品, 且分级可信
+
+#### Rating: 图片分级
+
+- `Unknown = -1`  未知, 可能为下面任意一种分级的其中之一, 绝对不要直接当作 G-rated 作品使用
+- `General = 0`  G-rated content, 任何人随时可观看的, sfw
+- `Sensitive = 1`  Ecchi, sexy, suggestive, or mildly erotic, 包含内衣/泳装/部分裸露/暗示性动作等, 涩图, nsfw
+- `Questionable = 2`  Softcore erotica, 除了关键之外的明目张胆, 官能作品, nsfw+
+- `Explicit = 3`  Hardcore erotica, 限制级作品, R18, nsfw+++
 
 ## 一张图看懂如何获取 Pixiv Cookies
 
