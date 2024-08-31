@@ -29,7 +29,7 @@ try:
     image_searcher_config = get_plugin_config(ImageSearcherConfig)
     if image_searcher_config.image_searcher_enable_saucenao and not image_searcher_config.saucenao_api_key:
         logger.opt(colors=True).warning(
-            f'<lc>ImageSearcher</lc> | <lr>未配置 Saucenao API KEY</lr>, <ly>部分识图功能可能无法正常使用</ly>'
+            '<lc>ImageSearcher</lc> | <lr>未配置 Saucenao API KEY</lr>, <ly>部分识图功能可能无法正常使用</ly>'
         )
 except ValidationError as e:
     import sys

@@ -112,7 +112,7 @@ async def handle_shindan_ranking(interface: Annotated[OmMI, Depends(OmMI.depend(
         await interface.send_reply(f'根据热度及排行榜获取到了以下占卜\n\n{ranking_text}')
     except Exception as e:
         logger.error(f'ShindanMaker | 获取占卜排行榜失败, {e}')
-        await interface.send_reply(f'获取排行榜失败了, 请稍后再试或联系管理员处理')
+        await interface.send_reply('获取排行榜失败了, 请稍后再试或联系管理员处理')
 
 
 __all__ = []

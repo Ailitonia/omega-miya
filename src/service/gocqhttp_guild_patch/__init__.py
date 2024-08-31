@@ -50,19 +50,19 @@ async def patched_send(
 
 Bot.send = patched_send
 
-logger.opt(colors=True).info(f'<lc>Guild patch(go-cqhttp)</lc> loaded')
+logger.opt(colors=True).info('<lc>Guild patch(go-cqhttp)</lc> loaded')
 
 
 __all__ = [
-    "GUILD",
-    "GUILD_OWNER",
-    "GUILD_ADMIN",
-    "GUILD_SUPERUSER",
-    "GuildMessageEvent",
-    "ChannelNoticeEvent",
-    "GuildChannelRecallNoticeEvent",
-    "MessageReactionsUpdatedNoticeEvent",
-    "ChannelUpdatedNoticeEvent",
-    "ChannelCreatedNoticeEvent",
-    "ChannelDestroyedNoticeEvent",
+    'GUILD',
+    'GUILD_OWNER',
+    'GUILD_ADMIN',
+    'GUILD_SUPERUSER',
+    'GuildMessageEvent',
+    'ChannelNoticeEvent',
+    'GuildChannelRecallNoticeEvent',
+    'MessageReactionsUpdatedNoticeEvent',
+    'ChannelUpdatedNoticeEvent',
+    'ChannelCreatedNoticeEvent',
+    'ChannelDestroyedNoticeEvent',
 ]

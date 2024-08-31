@@ -188,7 +188,7 @@ async def get_signin_top_image() -> "CollectedArtwork":
             logger.warning(f'getting artwork(origin={artwork.origin}, aid={artwork.aid}) page file failed, {e}')
             continue
 
-    raise RuntimeError(f'all attempts to fetch artwork resources have failed')
+    raise RuntimeError('all attempts to fetch artwork resources have failed')
 
 
 async def get_profile_image(interface: "OmegaMatcherInterface") -> "TemporaryResource":
@@ -469,7 +469,7 @@ async def generate_signin_card(
         if draw_fortune:
             this_height += fortune_star_height + int(0.046875 * width)
             ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                            text=f'宜', font=bd_text_font, align='left', anchor='lt',
+                                            text='宜', font=bd_text_font, align='left', anchor='lt',
                                             fill=(0, 0, 0))  # 宜
 
             this_height += fortune_text_height + int(0.02 * width)
@@ -484,7 +484,7 @@ async def generate_signin_card(
 
             this_height += fortune_star_height + int(0.046875 * width)
             ImageDraw.Draw(background).text(xy=(int(width * 0.0625), this_height),
-                                            text=f'不宜', font=bd_text_font, align='left', anchor='lt',
+                                            text='不宜', font=bd_text_font, align='left', anchor='lt',
                                             fill=(0, 0, 0))  # 不宜
 
             this_height += fortune_text_height + int(0.02 * width)

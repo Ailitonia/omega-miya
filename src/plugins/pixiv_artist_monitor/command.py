@@ -109,7 +109,7 @@ async def handle_searching_user(
 
         message_prefix = f'【Pixiv用户搜索结果: {user_nick}】'
         result_message = f'\n{"-" * 6 + "+" + "-" * 6 + "+" + "-" * 6}\n'.join(
-            f'UID: {x.user_id} | {x.user_name}\n{'用户无自我介绍' if x.user_desc is None else x.user_desc}'
+            f'UID: {x.user_id} | {x.user_name}\n{"用户无自我介绍" if x.user_desc is None else x.user_desc}'
             for x in searching_result.users
         )
         await interface.send_reply(f'{message_prefix}\n\n{result_message}')

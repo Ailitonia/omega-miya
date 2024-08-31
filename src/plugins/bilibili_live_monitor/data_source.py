@@ -40,7 +40,7 @@ def check_and_upgrade_live_status(
     exist_status = __LIVE_STATUS.get(live_room_data.uid, None)
 
     if exist_status is None and live_user_name is None:
-        raise ValueError(f'Add new live room status must provide "live_user_name" parameter')
+        raise ValueError('Add new live room status must provide "live_user_name" parameter')
 
     if exist_status is None:  # make typing checker happy
         new_live_user_name = live_user_name if live_user_name is not None else f'bilibili直播间{live_room_data.room_id}'
@@ -96,7 +96,7 @@ async def query_and_upgrade_live_room_status(live_room: BilibiliLiveRoom) -> Bil
 @get_driver().on_startup
 async def _init_all_live_room_subscription_source_status() -> None:
     """启动时初始化所有订阅源中直播间的状态"""
-    logger.opt(colors=True).info(f'<lc>BilibiliLiveRoomMonitor</lc> | Initializing live room status')
+    logger.opt(colors=True).info('<lc>BilibiliLiveRoomMonitor</lc> | Initializing live room status')
 
     try:
         async with begin_db_session() as session:
@@ -106,7 +106,7 @@ async def _init_all_live_room_subscription_source_status() -> None:
                 for source in source_result
             ]
         await semaphore_gather(tasks=tasks, semaphore_num=10)
-        logger.opt(colors=True).success(f'<lc>BilibiliLiveRoomMonitor</lc> | Live room status initializing completed')
+        logger.opt(colors=True).success('<lc>BilibiliLiveRoomMonitor</lc> | Live room status initializing completed')
     except Exception as e:
         logger.error(f'BilibiliLiveRoomMonitor | Live room status initializing failed, {e!r}')
         raise e

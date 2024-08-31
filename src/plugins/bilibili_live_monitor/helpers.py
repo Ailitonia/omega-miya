@@ -203,7 +203,7 @@ async def bili_live_room_monitor_main() -> None:
     """向已订阅的用户或群发送 Bilibili 直播间状态更新"""
     uid_list = get_all_live_room_status_uid()
     if not uid_list:
-        logger.debug(f'BilibiliLiveRoomMonitor | None of live room subscription, ignored')
+        logger.debug('BilibiliLiveRoomMonitor | None of live room subscription, ignored')
         return
 
     room_status_data = await BilibiliLiveRoom.query_live_room_by_uid_list(uid_list=uid_list)

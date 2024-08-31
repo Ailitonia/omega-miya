@@ -23,7 +23,8 @@ class TencentCloudConfig(BaseModel):
 try:
     tencent_cloud_config = get_plugin_config(TencentCloudConfig)
     if not tencent_cloud_config.tencent_cloud_secret_id or not tencent_cloud_config.tencent_cloud_secret_key:
-        logger.opt(colors=True).warning(f'<lc>Tencent Cloud</lc> | <r>未配置腾讯云 API Key</r>, 部分功能可能无法正常使用')
+        logger.opt(colors=True).warning(
+            '<lc>Tencent Cloud</lc> | <r>未配置腾讯云 API Key</r>, 部分功能可能无法正常使用')
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>Tencent Cloud 配置格式验证失败</r>, 错误信息:\n{e}')

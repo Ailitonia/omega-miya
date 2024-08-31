@@ -12,13 +12,12 @@ from nonebot.log import logger
 
 from .model import GroupCardNoticeEvent, OfflineFileNoticeEvent, ClientStatusNoticeEvent, EssenceNoticeEvent
 
-
-logger.opt(colors=True).info(f'<lc>Addition event patch(go-cqhttp)</lc> loaded')
+logger.opt(colors=True).info('<lc>Addition event patch(go-cqhttp)</lc> loaded')
 
 
 __all__ = [
     'GroupCardNoticeEvent',
     'OfflineFileNoticeEvent',
     'ClientStatusNoticeEvent',
-    'EssenceNoticeEvent'
+    'EssenceNoticeEvent',
 ]

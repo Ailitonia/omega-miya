@@ -8,15 +8,16 @@
 @Software       : PyCharm 
 """
 
-import os
-import nonebot
-import pathlib
-import aiofiles
-import ujson as json
 import inspect
-from typing import Literal
+import os
+import pathlib
 from datetime import datetime
 from functools import wraps
+from typing import Literal
+
+import aiofiles
+import nonebot
+import ujson as json
 from pydantic import BaseModel, parse_obj_as
 
 driver = nonebot.get_driver()
@@ -64,7 +65,7 @@ async def import_sub_source():
 
     from omega_miya.database import InternalSubscriptionSource
     data = parse_obj_as(list[SubSource], await read_json('sub_source.json'))
-    nonebot.logger.opt(colors=True).info(f'<W><lc>importing sub source</lc></W>')
+    nonebot.logger.opt(colors=True).info('<W><lc>importing sub source</lc></W>')
     for sub_source in data:
         nonebot.logger.debug(f'importing sub source: {sub_source}')
         await InternalSubscriptionSource(sub_type=sub_source.sub_type, sub_id=sub_source.sub_id).add_upgrade(sub_user_name=sub_source.sub_user_name, sub_info=sub_source.sub_info)
@@ -75,7 +76,7 @@ async def import_sub_source():
 async def import_bot_data():
     from omega_miya.database import InternalOneBotV11Bot
     data = parse_obj_as(list[str], await read_json('bot_self.json'))
-    nonebot.logger.opt(colors=True).info(f'<W><lc>importing bot data</lc></W>')
+    nonebot.logger.opt(colors=True).info('<W><lc>importing bot data</lc></W>')
     for bot in data:
         nonebot.logger.debug(f'importing bot data: {bot}')
         await InternalOneBotV11Bot(bot_self_id=bot, bot_type='OneBot V11').add_upgrade(bot_status=0)
@@ -98,7 +99,7 @@ async def import_user_data():
     from omega_miya.database import InternalBotUser
     bot_data = parse_obj_as(list[str], await read_json('bot_self.json'))
     data = parse_obj_as(list[BotUser], await read_json('user_data.json'))
-    nonebot.logger.opt(colors=True).info(f'<W><lc>importing user data</lc></W>')
+    nonebot.logger.opt(colors=True).info('<W><lc>importing user data</lc></W>')
     for user_data in data:
         nonebot.logger.debug(f'importing user data: {user_data}')
         for bot in bot_data:
@@ -121,7 +122,7 @@ async def import_mail_box_data():
 
     from omega_miya.database import EmailBox
     data = parse_obj_as(list[MailBox], await read_json('mail_box_data.json'))
-    nonebot.logger.opt(colors=True).info(f'<W><lc>importing mail box data</lc></W>')
+    nonebot.logger.opt(colors=True).info('<W><lc>importing mail box data</lc></W>')
     for mail_box in data:
         nonebot.logger.debug(f'importing mail box data: {mail_box}')
         await EmailBox(address=mail_box.address).add_upgrade_unique_self(server_host=mail_box.server_host, password=mail_box.password, protocol=mail_box.protocol, port=mail_box.port)
@@ -147,7 +148,7 @@ async def import_bot_group_data():
 
     from omega_miya.database import InternalBotGroup
     data = parse_obj_as(list[BotGroup], await read_json('bot_group_data.json'))
-    nonebot.logger.opt(colors=True).info(f'<W><lc>importing bot_group data</lc></W>')
+    nonebot.logger.opt(colors=True).info('<W><lc>importing bot_group data</lc></W>')
     for bot_group in data:
         nonebot.logger.debug(f'importing bot_group data: {bot_group.group_id}, {bot_group.group_name}')
         group = InternalBotGroup(bot_id=bot_group.bot_id, parent_id=bot_group.bot_id, entity_id=bot_group.group_id)
@@ -185,7 +186,7 @@ async def import_bot_friend_data():
 
     from omega_miya.database import InternalBotUser
     data = parse_obj_as(list[BotFriend], await read_json('bot_friend.json'))
-    nonebot.logger.opt(colors=True).info(f'<W><lc>importing bot_friend data</lc></W>')
+    nonebot.logger.opt(colors=True).info('<W><lc>importing bot_friend data</lc></W>')
     for bot_friend in data:
         nonebot.logger.debug(f'importing bot_friend data: {bot_friend.qq}, {bot_friend.nickname}')
         user = InternalBotUser(bot_id=bot_friend.bot_id, parent_id=bot_friend.bot_id, entity_id=bot_friend.qq)

@@ -26,7 +26,8 @@ class PixivConfig(BaseModel):
 try:
     pixiv_config = get_plugin_config(PixivConfig)
     if not pixiv_config.pixiv_phpsessid:
-        logger.opt(colors=True).warning(f'<lc>Pixiv</lc> | <lr>未配置 Pixiv Cookie</lr>, <ly>部分功能可能无法正常使用</ly>')
+        logger.opt(colors=True).warning(
+            '<lc>Pixiv</lc> | <lr>未配置 Pixiv Cookie</lr>, <ly>部分功能可能无法正常使用</ly>')
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>Pixiv 配置格式验证失败</r>, 错误信息:\n{e}')

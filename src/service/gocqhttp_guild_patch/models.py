@@ -230,14 +230,14 @@ class ChannelDestroyedNoticeEvent(ChannelNoticeEvent):
 
 
 __all__ = [
-    "GuildMessageEvent",
-    "ChannelNoticeEvent",
-    "GuildChannelRecallNoticeEvent",
-    "MessageReactionsUpdatedNoticeEvent",
-    "ChannelUpdatedNoticeEvent",
-    "ChannelCreatedNoticeEvent",
-    "ChannelDestroyedNoticeEvent",
-    "ReactionInfo",
-    "SlowModeInfo",
-    "ChannelInfo",
+    'GuildMessageEvent',
+    'ChannelNoticeEvent',
+    'GuildChannelRecallNoticeEvent',
+    'MessageReactionsUpdatedNoticeEvent',
+    'ChannelUpdatedNoticeEvent',
+    'ChannelCreatedNoticeEvent',
+    'ChannelDestroyedNoticeEvent',
+    'ReactionInfo',
+    'SlowModeInfo',
+    'ChannelInfo',
 ]

@@ -54,7 +54,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: Bot, event: Even
         )
         if processor_state.echo_processor_result:
             try:
-                echo_message = f'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理'
+                echo_message = 'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理'
                 await matcher.send(message=echo_message)
             except Exception as e:
                 logger.opt(colors=True).warning(
@@ -106,14 +106,14 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Even
             f'<ly>Entity({event_entity.tid})</ly> permission request')
         if processor_state.echo_processor_result:
             try:
-                echo_message = f'权限不足! 需要'
+                echo_message = '权限不足! 需要'
                 if processor_state.level <= 100:
                     echo_message += f'权限等级 Level-{processor_state.level} 或'
                     echo_message += f'权限节点 "{processor_state.name}.{processor_state.auth_node}", '
                     echo_message += f'请联系管理员使用 "/SetOmegaLevel {processor_state.level}" 提升权限等级或配置插件对应权限节点'
                 else:
                     echo_message += f'权限节点 "{processor_state.name}.{processor_state.auth_node}", '
-                    echo_message += f'请联系管理员配置插件对应权限节点'
+                    echo_message += '请联系管理员配置插件对应权限节点'
                 await matcher.send(message=echo_message)
             except Exception as e:
                 logger.opt(colors=True).warning(

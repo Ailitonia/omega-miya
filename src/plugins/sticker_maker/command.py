@@ -69,9 +69,9 @@ async def handle_make_sticker(
     # 获取表情包模板并检查是否需要文字或图片作为素材
     sticker_render = get_render(render_name)
     if sticker_render.need_external_image() and not source_images:
-        await interface.reject_arg_reply('source_image', f'请发送你想要制作的表情包的图片:')
+        await interface.reject_arg_reply('source_image', '请发送你想要制作的表情包的图片:')
     if sticker_render.need_text() and not text:
-        await interface.reject_arg_reply('sticker_arg_1', f'请输入你想要制作的表情包的文字:')
+        await interface.reject_arg_reply('sticker_arg_1', '请输入你想要制作的表情包的文字:')
 
     source_image = None
     # 若需要外部图片素材则首先尝试下载图片资源

@@ -101,7 +101,7 @@ class BilibiliCredential(BilibiliCommon):
         while True:
             login_info = await cls.check_qrcode_login(qrcode_info=qrcode_info)
             if login_info.data.code == 0:
-                logger.opt(colors=True).success(f'<lc>Bilibili</lc> | 扫码登录: 成功')
+                logger.opt(colors=True).success('<lc>Bilibili</lc> | 扫码登录: 成功')
                 break
             elif attempt >= 10:
                 logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 扫码登录: {login_info.data.message}, 等待超时')
@@ -160,7 +160,7 @@ class BilibiliCredential(BilibiliCommon):
             return False
         elif verify.data.mid != bilibili_config.bili_dedeuserid:
             bilibili_config.clear_all()
-            logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, 用户 UID 不匹配')
+            logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, 用户 UID 不匹配')
             return False
         else:
             logger.opt(colors=True).success(f'<lc>Bilibili</lc> | <lg>Cookie 已验证</lg>, 登录用户: {verify.data.uname}')

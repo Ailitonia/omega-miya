@@ -10,13 +10,12 @@
 
 from typing import Any, Dict, Optional
 
-from nonebot.log import logger
-from nonebot.exception import MockApiException
-
 from nonebot.adapters.qq.bot import Bot as QQBot
-from nonebot.adapters.qq.exception import AuditException
 from nonebot.adapters.qq.event import MessageAuditPassEvent
+from nonebot.adapters.qq.exception import AuditException
 from nonebot.adapters.qq.message import Message as QQMessage
+from nonebot.exception import MockApiException
+from nonebot.log import logger
 
 
 @QQBot.on_called_api
@@ -45,7 +44,7 @@ async def handle_api_result(
             raise MockApiException(result=return_message)
 
 
-logger.opt(colors=True).info(f'<lc>QQ GuildAudit patch</lc> loaded')
+logger.opt(colors=True).info('<lc>QQ GuildAudit patch</lc> loaded')
 
 
 __all__ = []

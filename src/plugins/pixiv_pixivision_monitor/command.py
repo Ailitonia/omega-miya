@@ -95,10 +95,10 @@ async def handle_add_subscription(interface: Annotated[OmMI, Depends(OmMI.depend
         await add_pixivision_sub(interface=interface)
         await interface.entity.commit_session()
         logger.success(f'{interface.entity}订阅 Pixivision 成功')
-        msg = f'订阅 Pixivision 成功'
+        msg = '订阅 Pixivision 成功'
     except Exception as e:
         logger.error(f'{interface.entity}订阅 Pixivision 失败, {e!r}')
-        msg = f'订阅 Pixivision 失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
+        msg = '订阅 Pixivision 失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
     scheduler.resume()
 
     await interface.finish_reply(msg)
@@ -113,10 +113,10 @@ async def handle_del_subscription(interface: Annotated[OmMI, Depends(OmMI.depend
         await delete_pixivision_sub(interface=interface)
         await interface.entity.commit_session()
         logger.success(f'{interface.entity}取消订阅 Pixivision 成功')
-        msg = f'已取消 Pixivision 订阅'
+        msg = '已取消 Pixivision 订阅'
     except Exception as e:
         logger.error(f'{interface.entity}取消订阅 Pixivision 失败, {e!r}')
-        msg = f'取消 Pixivision 订阅失败, 请稍后再试或联系管理员处理'
+        msg = '取消 Pixivision 订阅失败, 请稍后再试或联系管理员处理'
 
     await interface.finish_reply(msg)
 

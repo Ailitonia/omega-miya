@@ -65,7 +65,7 @@ async def handle_set_welcome_message(
         await interface.send_reply(f'已为本群设置了欢迎消息:\n{"=" * 8}\n' + parsed_message)
     except Exception as e:
         logger.error(f'为 {interface.entity} 设置自定义欢迎消息失败, {e!r}')
-        await interface.send_reply(f'为本群设置欢迎消息失败, 请稍后再试或联系管理员处理')
+        await interface.send_reply('为本群设置欢迎消息失败, 请稍后再试或联系管理员处理')
 
 
 @welcome_message_manager.command('remove', aliases={'删除欢迎消息', '移除欢迎消息', '取消欢迎消息'}).handle()
@@ -85,10 +85,10 @@ async def handle_remove_welcome_message(
         )
         await interface.entity.commit_session()
         logger.success(f'已为 {interface.entity} 移除了自定义欢迎消息')
-        await interface.send_reply(f'已移除了本群设置的欢迎消息')
+        await interface.send_reply('已移除了本群设置的欢迎消息')
     except Exception as e:
         logger.error(f'为 {interface.entity} 移除自定义欢迎消息失败, {e!r}')
-        await interface.send_reply(f'为本群移除欢迎消息失败, 请稍后再试或联系管理员处理')
+        await interface.send_reply('为本群移除欢迎消息失败, 请稍后再试或联系管理员处理')
 
 
 @on_notice(

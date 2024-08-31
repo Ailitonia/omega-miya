@@ -315,7 +315,7 @@ async def handle_list_configured_auth(interface: Annotated[OmMI, Depends(OmMI.de
         await interface.matcher.send(f'Omega 已配置的权限节点有:\n\n{auth_text}')
     except Exception as e:
         logger.error(f'查询 Omega 已配置权限节点失败, {e!r}')
-        await interface.matcher.send(f'查询 Omega 已配置权限节点失败, 请稍后再试或联系管理员处理')
+        await interface.matcher.send('查询 Omega 已配置权限节点失败, 请稍后再试或联系管理员处理')
 
 
 @omega.command(

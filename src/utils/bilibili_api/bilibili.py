@@ -150,7 +150,7 @@ class BilibiliUser(Bilibili):
     _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'  # TODO
 
     warnings.warn(
-        f"The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
+        "The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
         "future version should change to new API instead.",
         PendingDeprecationWarning,
         stacklevel=2,

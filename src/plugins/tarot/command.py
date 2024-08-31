@@ -99,7 +99,7 @@ async def handle_set_tarot_resource(
             await interface.send_reply(f'已将塔罗牌组配置为: {resource_name}')
         except Exception as e:
             logger.error(f'SetTarotResource | {interface.entity} 配置塔罗资源失败, {e}')
-            await interface.send_reply(f'配置塔罗牌组失败了, 请稍后重试或联系管理员处理')
+            await interface.send_reply('配置塔罗牌组失败了, 请稍后重试或联系管理员处理')
 
 
 __all__ = []

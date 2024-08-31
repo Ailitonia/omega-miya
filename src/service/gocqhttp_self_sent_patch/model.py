@@ -63,5 +63,5 @@ class MessageSentEvent(MessageEvent):
 
 
 __all__ = [
-    'MessageSentEvent'
+    'MessageSentEvent',
 ]

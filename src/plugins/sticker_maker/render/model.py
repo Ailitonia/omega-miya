@@ -195,7 +195,7 @@ class BaseStickerRender(abc.ABC):
         file_format = self.get_output_format().lower() if not save_gif else 'gif'
 
         file_name = (
-            f'sticker_{self.get_sticker_name()}_{hash(self)}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file_format}'
+            f'sticker_{self.get_sticker_name()}_{hash(self)}_{datetime.now().strftime("%Y%m%d%H%M%S")}.{file_format}'
         )
         save_file = STICKER_OUTPUT_PATH(file_name)
 

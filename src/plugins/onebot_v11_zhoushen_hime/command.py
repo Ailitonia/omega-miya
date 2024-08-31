@@ -74,7 +74,7 @@ async def handle_zhoushen_hime_manager(
         await interface.send_reply(f'已设置审轴姬功能开关为 {switch}!')
     except Exception as e:
         logger.error(f"ZhoushenHimeManager | {interface.entity} 设置审轴姬功能开关为 {switch} 失败, {e}")
-        await interface.send_reply(f'设置审轴姬功能开关失败, 请稍后重试或联系管理员处理')
+        await interface.send_reply('设置审轴姬功能开关失败, 请稍后重试或联系管理员处理')
 
 
 @on_notice(

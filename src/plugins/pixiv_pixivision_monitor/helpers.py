@@ -98,7 +98,7 @@ async def _add_pixivision_sub_source() -> "SubscriptionSource":
 async def add_pixivision_sub(interface: OmMI) -> None:
     """目标对象添加 Pixivision 订阅"""
     source_res = await _add_pixivision_sub_source()
-    await interface.entity.add_subscription(subscription_source=source_res, sub_info=f'Pixivision特辑订阅')
+    await interface.entity.add_subscription(subscription_source=source_res, sub_info='Pixivision特辑订阅')
 
 
 async def delete_pixivision_sub(interface: OmMI) -> None:
@@ -202,7 +202,7 @@ async def pixivision_monitor_main() -> None:
             f'PixivisionArticleMonitor | Confirmed new articles: {", ".join(str(x.aid) for x in new_articles)}'
         )
     else:
-        logger.debug(f'PixivisionArticleMonitor | No new pixivision article found')
+        logger.debug('PixivisionArticleMonitor | No new pixivision article found')
         return
 
     # 获取特辑文章消息内容

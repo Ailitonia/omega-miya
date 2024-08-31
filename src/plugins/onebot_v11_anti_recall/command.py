@@ -82,7 +82,7 @@ async def handle_set_anti_recall(
                 return
     except Exception as e:
         logger.error(f'{interface.entity} 设置 AntiRecall 反撤回功能开关为 {switch} 失败, {e!r}')
-        await interface.finish_reply(f'设置 AntiRecall 反撤回功能开关失败, 请稍后再试或联系管理员处理')
+        await interface.finish_reply('设置 AntiRecall 反撤回功能开关失败, 请稍后再试或联系管理员处理')
 
     logger.success(f'{interface.entity} 设置 AntiRecall 反撤回功能开关为 {switch} 成功')
     await interface.finish_reply(f'已设置 AntiRecall 反撤回功能开关为 {switch.upper()!r}')

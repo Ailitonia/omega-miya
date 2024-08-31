@@ -142,5 +142,5 @@ __all__ = [
     'GroupCardNoticeEvent',
     'OfflineFileNoticeEvent',
     'ClientStatusNoticeEvent',
-    'EssenceNoticeEvent'
+    'EssenceNoticeEvent',
 ]

@@ -53,22 +53,22 @@ async def handle_mirage_tank(
     match process_mode:
         case '白底':
             if not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送你想要制作的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送你想要制作的图片:')
             generate_coro = simple_white(image_url=msg_images[0])
 
         case '黑底':
             if not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送你想要制作的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送你想要制作的图片:')
             generate_coro = simple_black(image_url=msg_images[0])
 
         case '噪点':
             if not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送你想要制作的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送你想要制作的图片:')
             generate_coro = simple_noise(image_url=msg_images[0])
 
         case '彩色噪点':
             if not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送你想要制作的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送你想要制作的图片:')
             generate_coro = color_noise(image_url=msg_images[0])
 
         case '灰度混合':
@@ -76,12 +76,12 @@ async def handle_mirage_tank(
             black_img = state.get('complex_gray_black')
 
             if not white_img and not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送作为白色表层的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送作为白色表层的图片:')
             elif not white_img and msg_images:
                 state.update({'complex_gray_white': msg_images.pop(0)})
 
             if not black_img and not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送作为黑色里层的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送作为黑色里层的图片:')
             elif not black_img and msg_images:
                 state.update({'complex_gray_black': msg_images.pop(0)})
 
@@ -94,12 +94,12 @@ async def handle_mirage_tank(
             black_img = state.get('complex_color_black')
 
             if not white_img and not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送作为白色表层的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送作为白色表层的图片:')
             elif not white_img and msg_images:
                 state.update({'complex_color_white': msg_images.pop(0)})
 
             if not black_img and not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送作为彩色里层的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送作为彩色里层的图片:')
             elif not black_img and msg_images:
                 state.update({'complex_color_black': msg_images.pop(0)})
 
@@ -113,12 +113,12 @@ async def handle_mirage_tank(
             differ_img = state.get('complex_difference_differ')
 
             if not base_img and not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送作为基础层的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送作为基础层的图片:')
             elif not base_img and msg_images:
                 state.update({'complex_difference_base': msg_images.pop(0)})
 
             if not differ_img and not msg_images:
-                await interface.reject_arg_reply('step_arg', f'请发送作为差分层的图片:')
+                await interface.reject_arg_reply('step_arg', '请发送作为差分层的图片:')
             elif not differ_img and msg_images:
                 state.update({'complex_difference_differ': msg_images.pop(0)})
 

@@ -58,15 +58,15 @@ async def handle_roll(
         dice_num = 1
         dice_side = int(expression)
     else:
-        await interface.finish_reply(f'骰子格式不对呢, 确认后请重新输入:\n<骰子个数>D<骰子面数>')
+        await interface.finish_reply('骰子格式不对呢, 确认后请重新输入:\n<骰子个数>D<骰子面数>')
 
     # 加入一个趣味的机制
     if random.randint(1, 100) == 99:
-        await interface.finish_reply(f'【彩蛋】骰子之神似乎不看好你, 你掷出的骰子全部消失了')
+        await interface.finish_reply('【彩蛋】骰子之神似乎不看好你, 你掷出的骰子全部消失了')
     if dice_num > 1024 or dice_side > 1024:
-        await interface.finish_reply(f'【错误】谁没事干扔那么多骰子啊(╯°□°）╯︵ ┻━┻')
+        await interface.finish_reply('【错误】谁没事干扔那么多骰子啊(╯°□°）╯︵ ┻━┻')
     if dice_num <= 0 or dice_side <= 0:
-        await interface.finish_reply(f'【错误】你掷出了不存在的骰子, 只有上帝知道结果是多少')
+        await interface.finish_reply('【错误】你掷出了不存在的骰子, 只有上帝知道结果是多少')
 
     dice_result = 0
     for _ in range(dice_num):
@@ -205,7 +205,7 @@ async def handle_roll_clear_all_attr(
         ensure: Annotated[str | None, ArgStr('ensure')],
 ) -> None:
     if ensure is None:
-        ensure_msg = f'即将移除你所有的属性/技能\n\n确认吗?\n【是/否】'
+        ensure_msg = '即将移除你所有的属性/技能\n\n确认吗?\n【是/否】'
         await interface.reject_arg_reply('ensure', ensure_msg)
     elif ensure in ['是', '确认', 'Yes', 'yes', 'Y', 'y']:
         exist_attrs = await interface.entity.query_plugin_all_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME)

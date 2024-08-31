@@ -55,10 +55,10 @@ async def handle_announce(
 
     announce_result = await semaphore_gather(tasks=tasks, semaphore_num=3)
     if any(isinstance(x, Exception) for x in announce_result):
-        logger.warning(f'Announce | 公告批量发送完成, 部分公告发送失败')
+        logger.warning('Announce | 公告批量发送完成, 部分公告发送失败')
         await interface.finish_reply('公告批量发送完成, 部分对象发送失败')
     else:
-        logger.success(f'Announce | 公告批量发送完成')
+        logger.success('Announce | 公告批量发送完成')
         await interface.finish_reply('公告批量发送完成, 所有对象均已发送成功')
 
 

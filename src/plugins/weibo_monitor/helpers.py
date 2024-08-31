@@ -152,7 +152,7 @@ async def _format_weibo_update_message(card: "WeiboCard") -> str | OmegaMessage:
         if card.mblog.retweeted_status.page_info is not None:
             img_urls.append(card.mblog.retweeted_status.page_info.pic_url)
     else:
-        send_message += f'发布了新微博!\n'
+        send_message += '发布了新微博!\n'
         text = f'“{card.mblog.text}”\n'
         if card.mblog.pics is not None:
             img_urls.extend(x.large.url for x in card.mblog.pics)

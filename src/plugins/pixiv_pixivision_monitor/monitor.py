@@ -15,7 +15,7 @@ from .helpers import pixivision_monitor_main
 
 
 async def pixivision_article_monitor() -> None:
-    logger.debug(f'PixivisionArticleMonitor | Start checking new pixivision articles')
+    logger.debug('PixivisionArticleMonitor | Start checking new pixivision articles')
 
     # 检查新特辑并发送消息
     try:

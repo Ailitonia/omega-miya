@@ -52,7 +52,7 @@ async def handle_search_image(
     msg_images = interface.get_event_reply_msg_image_urls() + interface.get_event_msg_image_urls()
 
     if image_url is None and not msg_images:
-        await interface.reject_arg_reply('image_url', f'请发送你想要识别的图片或图片链接:')
+        await interface.reject_arg_reply('image_url', '请发送你想要识别的图片或图片链接:')
 
     match search_mode:
         case '识番' | '搜番':
