@@ -49,7 +49,7 @@ class AssScriptLine(object):
             raw_hour = int(split_time[0])
             raw_min = int(split_time[1])
             # 分离秒数部分
-            raw_sec_int, raw_sec_dec = map(lambda x: int(x), split_time[2].split('.'))
+            raw_sec_int, raw_sec_dec = map(int, split_time[2].split('.'))
         except ValueError:
             raise AssScriptException(f'时间格式错误, original_values: {repr(time)}')
 

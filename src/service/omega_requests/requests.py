@@ -10,7 +10,7 @@
 
 import hashlib
 import pathlib
-from asyncio.exceptions import TimeoutError
+from asyncio.exceptions import TimeoutError as AsyncTimeoutError
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from typing import TYPE_CHECKING, AsyncGenerator, Optional, Any
@@ -173,7 +173,7 @@ class OmegaRequests(object):
             try:
                 logger.opt(colors=True).trace(f'<lc>Omega Requests</lc> | Starting request <ly>{setup!r}</ly>')
                 return await self.driver.request(setup=setup)
-            except TimeoutError as e:
+            except AsyncTimeoutError as e:
                 logger.opt(colors=True).debug(
                     f'<lc>Omega Requests</lc> | <ly>{setup!r} failed on the {attempts_num + 1} attempt</ly> <c>></c> '
                     f'<r>TimeoutError</r>'
