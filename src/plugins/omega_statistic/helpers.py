@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 async def draw_statistics(
-        statistics_data: list["CountStatisticModel"],
+        statistics_data: Sequence["CountStatisticModel"],
         title: str = '插件使用情况统计',
 ) -> "TemporaryResource":
     """绘制插件使用统计图
@@ -33,7 +33,7 @@ async def draw_statistics(
     """
 
     @run_sync
-    def _handle(_statistics_data: list["CountStatisticModel"]) -> "TemporaryResource":
+    def _handle(_statistics_data: Sequence["CountStatisticModel"]) -> "TemporaryResource":
         y_name = [x.custom_name for x in _statistics_data]
         x_value = [x.call_count for x in _statistics_data]
 

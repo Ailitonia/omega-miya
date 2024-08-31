@@ -7,7 +7,8 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
-from typing import Literal
+
+from typing import Literal, Sequence
 
 from .base import BaseTencentCloudAPI
 from ..model.nlp import (
@@ -119,7 +120,7 @@ class TencentNLP(BaseTencentCloudAPI):
 
     async def generate_keyword_sentence(
             self,
-            word_list: list[str],
+            word_list: Sequence[str],
             *,
             number: Literal[1, 2, 3, 4, 5] = 1,
             domain: Literal['general', 'academic'] = 'general',

@@ -11,7 +11,7 @@
 import random
 import string
 from asyncio import sleep as async_sleep
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, Sequence
 
 from nonebot.log import logger
 
@@ -438,7 +438,7 @@ class Comic18(_BaseComic18):
     async def _request_preview_model(
             cls,
             preview_name: str,
-            requests: list[Comic18PreviewRequestModel]
+            requests: Sequence[Comic18PreviewRequestModel],
     ) -> Comic18PreviewModel:
         """获取生成预览图所需要的数据模型"""
         _tasks = [cls._request_preview_body(request) for request in requests]
@@ -482,7 +482,7 @@ class Comic18(_BaseComic18):
     async def _emit_preview_model_from_searching_data(
             cls,
             searching_name: str,
-            searching_data: list[AlbumsResult],
+            searching_data: Sequence[AlbumsResult],
     ) -> Comic18PreviewModel:
         """从搜索结果中获取生成预览图所需要的数据模型"""
         request_list = [

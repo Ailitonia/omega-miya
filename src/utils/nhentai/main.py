@@ -10,7 +10,7 @@
 
 import random
 import string
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Sequence
 
 from src.exception import WebSourceException
 from src.utils.common_api import BaseCommonAPI
@@ -88,7 +88,7 @@ class BaseNhentai(BaseCommonAPI):
     async def _request_preview_model(
             cls,
             preview_name: str,
-            requests: list[NhentaiPreviewRequestModel]
+            requests: Sequence[NhentaiPreviewRequestModel]
     ) -> NhentaiPreviewModel:
         """获取生成预览图所需要的数据模型"""
         _tasks = [cls._request_preview_body(request) for request in requests]

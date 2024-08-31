@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
@@ -41,7 +41,7 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return WeiboDetail.model_validate(session_result.scalar_one())
 
-    async def query_exists_ids(self, mids: list[int]) -> list[int]:
+    async def query_exists_ids(self, mids: Sequence[int]) -> list[int]:
         """查询数据库中 mids 列表中已有的微博 id"""
         stmt = select(WeiboDetailOrm.mid).\
             where(WeiboDetailOrm.mid.in_(mids)).\
@@ -49,7 +49,7 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
-    async def query_not_exists_ids(self, mids: list[int]) -> list[int]:
+    async def query_not_exists_ids(self, mids: Sequence[int]) -> list[int]:
         """查询数据库中 mids 列表中没有的微博 id"""
         exists_mids = await self.query_exists_ids(mids=mids)
         return sorted(list(set(mids) - set(exists_mids)), reverse=True)

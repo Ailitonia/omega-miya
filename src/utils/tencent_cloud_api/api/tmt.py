@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
+from typing import Optional, Sequence
 
 from .base import BaseTencentCloudAPI
 from ..model.tmt import TencentCloudTextTranslateResponse, TencentCloudTextTranslateBatchResponse
@@ -52,7 +52,7 @@ class TencentTMT(BaseTencentCloudAPI):
 
     async def text_translate_batch(
             self,
-            source_text_list: list[str],
+            source_text_list: Sequence[str],
             *,
             source: str = 'auto',
             target: str = 'zh',

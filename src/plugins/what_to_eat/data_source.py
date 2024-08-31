@@ -10,7 +10,7 @@
 
 import random
 import re
-from typing import Literal, Optional
+from typing import Literal, Optional, Sequence
 
 from nonebot.log import logger
 from nonebot.utils import run_sync
@@ -67,7 +67,7 @@ async def _get_food_msg(food: MenuFood) -> OmegaMessage:
 
 
 @run_sync
-def _get_random_food(menu: list[MenuFood], food_type: Optional[FoodType] = None) -> MenuFood:
+def _get_random_food(menu: Sequence[MenuFood], food_type: Optional[FoodType] = None) -> MenuFood:
     """获取随机食谱"""
     match food_type:
         case '早':
