@@ -10,7 +10,7 @@
 
 import platform
 import uuid
-from hashlib import shake_128
+from hashlib import sha256
 from typing import Annotated
 
 from nonebot import get_plugin_config, logger
@@ -23,7 +23,7 @@ def generate_aes_key_by_hardware() -> SecretStr:
     system = platform.system()
     node = str(uuid.getnode())
 
-    return SecretStr(shake_128(f'{system}+{machine}+{processor}+{node}'.encode(encoding='utf8')).hexdigest(8))
+    return SecretStr(sha256(f'{system}+{machine}+{processor}+{node}'.encode(encoding='utf8')).hexdigest())
 
 
 class EncryptConfig(BaseModel):
@@ -36,8 +36,6 @@ class EncryptConfig(BaseModel):
 
 try:
     encrypt_config = get_plugin_config(EncryptConfig)
-    if not encrypt_config.omega_aes_key or len(encrypt_config.omega_aes_key) > 16:
-        raise ValueError('Incorrect AES key length, key length should be less than 16 and more than 0')
 except (ValidationError, ValueError) as e:
     import sys
     logger.opt(colors=True).critical(f'<lc>EncryptUtils</lc> | <lr>全局 AES Key 配置异常</lr>, 错误信息:\n{e}')
@@ -45,5 +43,5 @@ except (ValidationError, ValueError) as e:
 
 
 __all__ = [
-    'encrypt_config'
+    'encrypt_config',
 ]
