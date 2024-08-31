@@ -16,7 +16,6 @@ from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import SystemSettingOrm
 
@@ -79,5 +78,5 @@ class SystemSettingDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'SystemSetting',
-    'SystemSettingDAL'
+    'SystemSettingDAL',
 ]

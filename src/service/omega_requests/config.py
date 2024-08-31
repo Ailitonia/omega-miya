@@ -8,11 +8,10 @@
 @Software       : PyCharm 
 """
 
-from nonebot import get_plugin_config, logger
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 
-from src.compat import AnyHttpUrlStr as AnyHttpUrl
+from nonebot import get_plugin_config, logger
+from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
 
 
 class HttpProxyConfig(BaseModel):
@@ -21,10 +20,8 @@ class HttpProxyConfig(BaseModel):
     proxy_type: Literal['http'] = 'http'  # 仅支持 http 代理
     proxy_address: IPvAnyAddress = '127.0.0.1'
     proxy_port: int = 1081
-    proxy_check_url: AnyHttpUrl = 'https://www.google.com'
-    proxy_check_timeout: int = 5
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def proxy_url(self) -> str | None:

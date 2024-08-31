@@ -10,16 +10,13 @@
 
 from datetime import datetime
 
-import ujson as json
 from nonebot.log import logger
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.utils.encrypt import AESEncryptStr
+from src.utils.encrypt import AESEncrypter
 from src.utils.image_utils import ImageUtils
-
 from .imap import Email, ImapMailbox
-
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('receive_email')
 """已收邮件图片缓存路径"""
@@ -45,16 +42,12 @@ def get_unseen_mail_data(address: str, server_host: str, password: str) -> list[
 
 @run_sync
 def encrypt_password(plaintext: str) -> str:
-    return json.dumps(list(AESEncryptStr().encrypt(plaintext)))
+    return AESEncrypter().ecb_encrypt(plaintext)
 
 
 @run_sync
 def decrypt_password(ciphertext: str) -> str:
-    data = json.loads(ciphertext)
-    stat, plaintext = AESEncryptStr().decrypt(data[0], data[1], data[2])
-    if not stat:
-        raise ValueError('Key incorrect or message corrupted')
-    return plaintext
+    return AESEncrypter().ecb_decrypt(ciphertext)
 
 
 @run_sync
@@ -72,5 +65,5 @@ __all__ = [
     'get_unseen_mail_data',
     'encrypt_password',
     'decrypt_password',
-    'generate_mail_snapshot'
+    'generate_mail_snapshot',
 ]

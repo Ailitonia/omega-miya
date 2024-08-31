@@ -8,14 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional, Type, TypeVar, Literal
+from typing import Optional, Type, TypeVar, Literal, override
 
 from nonebot.adapters.onebot.utils import highlight_rich_message
 from nonebot.adapters.onebot.v11.adapter import Adapter
 from nonebot.adapters.onebot.v11.event import Event, MessageEvent, Anonymous
 from nonebot.log import logger
-from nonebot.typing import overrides
-
 
 Event_T = TypeVar("Event_T", bound=Type[Event])
 
@@ -40,30 +38,30 @@ class MessageSentEvent(MessageEvent):
     anonymous: Optional[Anonymous] = None
     to_me: bool = False
 
-    @overrides(Event)
+    @override
     def get_type(self) -> str:
         return "message"
 
-    @overrides(Event)
+    @override
     def get_event_description(self) -> str:
         return (
             f"Message {self.message_id} from Bot {self.user_id}@[self-sent] "
             f"{''.join(highlight_rich_message(repr(self.original_message.to_rich_text())))}"
         )
 
-    @overrides(MessageEvent)
+    @override
     def get_user_id(self) -> str:
         return str(self.self_id)
 
-    @overrides(MessageEvent)
+    @override
     def get_session_id(self) -> str:
         return f"self_sent_{self.self_id}"
 
-    @overrides(Event)
+    @override
     def is_tome(self) -> bool:
         return False
 
 
 __all__ = [
-    'MessageSentEvent'
+    'MessageSentEvent',
 ]

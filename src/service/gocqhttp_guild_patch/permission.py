@@ -48,4 +48,9 @@ GUILD_ADMIN: Permission = Permission(_guild_admin)
 GUILD_OWNER: Permission = Permission(_guild_owner)
 """匹配任意频道频道主消息类型事件"""
 
-__all__ = ["GUILD", "GUILD_OWNER", "GUILD_ADMIN", "GUILD_SUPERUSER"]
+__all__ = [
+    'GUILD',
+    'GUILD_OWNER',
+    'GUILD_ADMIN',
+    'GUILD_SUPERUSER',
+]

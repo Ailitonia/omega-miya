@@ -21,11 +21,9 @@ from nonebot.typing import T_State
 
 from src.database import PluginDAL
 from src.params.permission import IS_ADMIN
-from src.service import OmegaInterface, enable_processor_state
-
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from .helpers import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node, list_command_by_priority
 from .status import get_status
-
 
 DEFAULT_PERMISSION_LEVEL: int = 30
 """初始化时默认的权限等级"""
@@ -57,7 +55,7 @@ async def handle_hello(matcher: Matcher):
 
 
 @omega.command('start', aliases={'Start', 'start', 'EnableOmega', 'enable_omega'}, permission=IS_ADMIN).handle()
-async def handle_start(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
+async def handle_start(interface: Annotated[OmMI, Depends(OmMI.depend())]):
     try:
         await interface.entity.add_ignore_exists()
         await interface.entity.enable_global_permission()
@@ -65,14 +63,14 @@ async def handle_start(matcher: Matcher, interface: Annotated[OmegaInterface, De
         await interface.entity.commit_session()
 
         logger.success(f'Omega 启用成功, Entity: {interface.entity}')
-        await matcher.send('Omega 启用/初始化成功')
+        await interface.matcher.send('Omega 启用/初始化成功')
     except Exception as e:
         logger.error(f'Omega 启用/初始化失败, {e!r}')
-        await matcher.send('Omega 启用/初始化失败, 请联系管理员处理')
+        await interface.matcher.send('Omega 启用/初始化失败, 请联系管理员处理')
 
 
 @omega.command('disable', aliases={'DisableOmega', 'disable_omega'}, permission=IS_ADMIN).handle()
-async def handle_disable(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
+async def handle_disable(interface: Annotated[OmMI, Depends(OmMI.depend())]):
     try:
         await interface.entity.add_ignore_exists()
         await interface.entity.disable_global_permission()
@@ -80,14 +78,14 @@ async def handle_disable(matcher: Matcher, interface: Annotated[OmegaInterface, 
         await interface.entity.commit_session()
 
         logger.success(f'Omega 禁用成功, Entity: {interface.entity}')
-        await matcher.send('Omega 禁用成功')
+        await interface.matcher.send('Omega 禁用成功')
     except Exception as e:
         logger.error(f'Omega 禁用失败, {e!r}')
-        await matcher.send('Omega 禁用失败, 请联系管理员处理')
+        await interface.matcher.send('Omega 禁用失败, 请联系管理员处理')
 
 
 @omega.command('status', aliases={'Status', 'status'}, permission=None, priority=10).handle()
-async def handle_status(matcher: Matcher, interface: Annotated[OmegaInterface, Depends(OmegaInterface())]):
+async def handle_status(interface: Annotated[OmMI, Depends(OmMI.depend())]):
     try:
         global_permission = await interface.entity.query_global_permission()
         global_permission_text = '已启用(Enabled)' if global_permission.available == 1 else '已禁用(Disabled)'
@@ -98,10 +96,10 @@ async def handle_status(matcher: Matcher, interface: Annotated[OmegaInterface, D
         permission_status = f'Omega 功能开关: {global_permission_text}\nOmega 权限等级: {permission_level_text}'
 
         status = await get_status()
-        await matcher.send(f'{permission_status}\n\nOmega 运行状态:\n{"-" * 16}\n{status}')
+        await interface.matcher.send(f'{permission_status}\n\nOmega 运行状态:\n{"-" * 16}\n{status}')
     except Exception as e:
         logger.error(f'获取 Omega 状态失败, {e!r}')
-        await matcher.send('获取 Omega 状态失败, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理')
+        await interface.matcher.send('获取 Omega 状态失败, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理')
 
 
 @omega.command('help', aliases={'Help', 'help', '帮助'}, permission=None, priority=10).handle()
@@ -119,27 +117,26 @@ async def handle_help(bot: Bot, event: Event, matcher: Matcher, cmd_arg: Annotat
     'set-level', aliases={'SetOmegaLevel', 'set_omega_level'}, handlers=[handle_parse_args], permission=IS_ADMIN
 ).got('omega_arg_0', prompt='请输入需要设定的权限等级:')
 async def handle_set_level(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        level: Annotated[str, ArgStr('omega_arg_0')]
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        level_str: Annotated[str, ArgStr('omega_arg_0')]
 ) -> None:
-    level = level.strip()
-    if not level.isdigit():
-        await matcher.finish('异常参数, 权限等级应当为整数, 操作已取消')
+    level_str = level_str.strip()
+    if not level_str.isdigit():
+        await interface.matcher.finish('异常参数, 权限等级应当为整数, 操作已取消')
 
-    level = int(level)
+    level = int(level_str)
     if level < 0 or level > MAX_PERMISSION_LEVEL:
-        await matcher.finish(f'异常参数, 可设定的权限等级范围为 0~{MAX_PERMISSION_LEVEL}, 操作已取消')
+        await interface.matcher.finish(f'异常参数, 可设定的权限等级范围为 0~{MAX_PERMISSION_LEVEL}, 操作已取消')
 
     try:
         await interface.entity.set_permission_level(level)
         await interface.entity.commit_session()
 
         logger.success(f'Omega 设置权限等级{level!r}成功, Entity: {interface.entity}')
-        await matcher.send(f'Omega 已将当前会话权限等级设置为: Level-{level!r}')
+        await interface.matcher.send(f'Omega 已将当前会话权限等级设置为: Level-{level!r}')
     except Exception as e:
         logger.error(f'Omega 设置权限等级失败, {e!r}')
-        await matcher.send('Omega 设置权限等级失败, 请联系管理员处理')
+        await interface.matcher.send('Omega 设置权限等级失败, 请联系管理员处理')
 
 
 @omega.command('list-commands', aliases={'ListOmegaCommands', 'list_omega_commands'}).handle()
@@ -191,8 +188,11 @@ async def handle_enable_plugin(
     if plugin_name not in (x.name for x in get_loaded_plugins()):
         await matcher.finish(f'未找到插件{plugin_name!r}, 操作已取消')
 
+    if (imported_plugin := get_plugin(plugin_name)) is None:
+        await matcher.finish(f'插件{plugin_name!r}未加载, 操作已取消')
+
     try:
-        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=get_plugin(plugin_name).module_name)
+        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=imported_plugin.module_name)
         await plugin_dal.update(id_=plugin.id, enabled=1, info='Enabled by OPM')
         await plugin_dal.commit_session()
 
@@ -215,8 +215,11 @@ async def handle_disable_plugin(
     if plugin_name not in (x.name for x in get_loaded_plugins()):
         await matcher.finish(f'未找到插件{plugin_name!r}, 操作已取消')
 
+    if (imported_plugin := get_plugin(plugin_name)) is None:
+        await matcher.finish(f'插件{plugin_name!r}未加载, 操作已取消')
+
     try:
-        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=get_plugin(plugin_name).module_name)
+        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=imported_plugin.module_name)
         await plugin_dal.update(id_=plugin.id, enabled=0, info='Disabled by OPM')
         await plugin_dal.commit_session()
 
@@ -249,12 +252,11 @@ allow_plugin_node = omega.command(
 @allow_plugin_node.got('omega_arg_0', prompt='请输入需要配置的插件名称:')
 @allow_plugin_node.got('omega_arg_1', prompt='请输入需要配置的权限节点:')
 async def handle_allow_plugin_node(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')],
         auth_node: Annotated[str, ArgStr('omega_arg_1')]
 ) -> None:
-    await handle_config_plugin_node(matcher, interface, plugin_name, auth_node, 1)
+    await handle_config_plugin_node(interface=interface, plugin_name=plugin_name, auth_node=auth_node, available=1)
 
 
 deny_plugin_node = omega.command(
@@ -265,17 +267,15 @@ deny_plugin_node = omega.command(
 @deny_plugin_node.got('omega_arg_0', prompt='请输入需要配置的插件名称:')
 @deny_plugin_node.got('omega_arg_1', prompt='请输入需要配置的权限节点:')
 async def handle_deny_plugin_node(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         plugin_name: Annotated[str, ArgStr('omega_arg_0')],
         auth_node: Annotated[str, ArgStr('omega_arg_1')]
 ) -> None:
-    await handle_config_plugin_node(matcher, interface, plugin_name, auth_node, 0)
+    await handle_config_plugin_node(interface=interface, plugin_name=plugin_name, auth_node=auth_node, available=0)
 
 
 async def handle_config_plugin_node(
-        matcher: Matcher,
-        interface: OmegaInterface,
+        interface: OmMI,
         plugin_name: str,
         auth_node: str,
         available: int
@@ -285,63 +285,61 @@ async def handle_config_plugin_node(
     plugin_auth_nodes = get_plugin_auth_node(plugin_name=plugin_name)
 
     if not plugin_auth_nodes:
-        await matcher.finish(f'插件{plugin_name!r}不存在, 或该插件无可配置权限节点')
+        await interface.matcher.finish(f'插件{plugin_name!r}不存在, 或该插件无可配置权限节点')
 
     if auth_node not in plugin_auth_nodes:
-        await matcher.finish(f'权限节点{auth_node!r}不是插件{plugin_name!r}的可配置权限节点, 操作已取消')
+        await interface.matcher.finish(f'权限节点{auth_node!r}不是插件{plugin_name!r}的可配置权限节点, 操作已取消')
 
     plugin = get_plugin(plugin_id=plugin_name)
+    if plugin is None:
+        await interface.matcher.finish(f'插件{plugin_name!r}不存在')
     module = plugin.module_name
+
     try:
-        await interface.entity.set_auth_setting(
-            module=module, plugin=plugin_name, node=auth_node, available=available
-        )
+        await interface.entity.set_auth_setting(module=module, plugin=plugin_name, node=auth_node, available=available)
         await interface.entity.commit_session()
 
         logger.success(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
-        await matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
+        await interface.matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}成功')
     except Exception as e:
         logger.error(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r} -> {available!r}失败, {e!r}')
-        await matcher.send(f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r}失败, 请稍后再试或联系管理员处理')
+        await interface.matcher.send(
+            f'Omega 配置插件{plugin_name!r}权限节点{auth_node!r}失败, 请稍后再试或联系管理员处理')
 
 
 @omega.command('list-configured-auth', aliases={'ListOmegaConfiguredAuth', 'list_omega_configured_auth'}).handle()
-async def handle_list_configured_auth(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())]
-) -> None:
+async def handle_list_configured_auth(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
     try:
         auth_settings = await interface.entity.query_all_auth_setting()
         auth_text = '\n'.join(f'{x.available} | {x.plugin}:{x.node}' for x in auth_settings)
-        await matcher.send(f'Omega 已配置的权限节点有:\n\n{auth_text}')
+        await interface.matcher.send(f'Omega 已配置的权限节点有:\n\n{auth_text}')
     except Exception as e:
         logger.error(f'查询 Omega 已配置权限节点失败, {e!r}')
-        await matcher.send(f'查询 Omega 已配置权限节点失败, 请稍后再试或联系管理员处理')
+        await interface.matcher.send('查询 Omega 已配置权限节点失败, 请稍后再试或联系管理员处理')
 
 
 @omega.command(
     'set-limiting', aliases={'SetOmegaLimiting', 'set_omega_limiting'}, handlers=[handle_parse_args]
 ).got('omega_arg_0', prompt='请输入限制时间(秒):')
 async def handle_set_limiting(
-        matcher: Matcher,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
-        time: Annotated[str, ArgStr('omega_arg_0')]
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        time_str: Annotated[str, ArgStr('omega_arg_0')]
 ) -> None:
-    time = time.strip()
-    if not time.isdigit():
-        await matcher.finish('异常参数, 时间应当为整数, 操作已取消')
+    time_str = time_str.strip()
+    if not time_str.isdigit():
+        await interface.matcher.finish('异常参数, 时间应当为整数, 操作已取消')
 
-    time = int(time)
+    time = int(time_str)
 
     try:
         await interface.entity.set_global_cooldown(expired_time=timedelta(seconds=time))
         await interface.entity.commit_session()
 
         logger.success(f'Omega 设置流控限制{time!r}秒, Entity: {interface.entity}')
-        await matcher.send(f'Omega 已限制当前会话使用{time!r}秒')
+        await interface.matcher.send(f'Omega 已限制当前会话使用{time!r}秒')
     except Exception as e:
         logger.error(f'Omega 设置流控限制失败, {e!r}')
-        await matcher.send('Omega 设置流控限制失败, 请联系管理员处理')
+        await interface.matcher.send('Omega 设置流控限制失败, 请联系管理员处理')
 
 
 __all__ = []

@@ -8,30 +8,23 @@
 @Software       : PyCharm 
 """
 
-from typing import Callable, Literal, TypeAlias
+from typing import Callable, Literal, Optional
 
 from nonebot import get_plugin_config, logger
 from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
 from pydantic import BaseModel, ConfigDict
 
-
-T_SegReplacer: TypeAlias = Callable[[MessageSegment], MessageSegment]
+type SegReplacerType = Callable[[MessageSegment], MessageSegment]
 
 
 class OneBotV11ImageUrlReplacerConfig(BaseModel):
     """OneBot V11 图片 URL 替换处理配置"""
     onebot_v11_image_url_replacer: Literal['http', 'domain'] | None = 'http'
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
 
-def _ger_image_url_replacer() -> T_SegReplacer:
-    try:
-        replacer = get_plugin_config(OneBotV11ImageUrlReplacerConfig).onebot_v11_image_url_replacer
-    except Exception as e:
-        logger.warning(f'OneBotV11 图片 Url 替换处理配置验证失败, 错误信息:\n{e}')
-        replacer = None
-
+def _ger_image_url_replacer(replacer: Optional[str]) -> SegReplacerType:
     match replacer:
         case 'http':
             old_ = 'https://'
@@ -62,7 +55,17 @@ def _ger_image_url_replacer() -> T_SegReplacer:
     return _image_url_replacer
 
 
-_REPLACER: T_SegReplacer = _ger_image_url_replacer()
+def _get_confined_replacer() -> SegReplacerType:
+    try:
+        replacer_config = get_plugin_config(OneBotV11ImageUrlReplacerConfig).onebot_v11_image_url_replacer
+    except Exception as e:
+        logger.warning(f'OneBotV11 图片 Url 替换处理配置验证失败, 错误信息:\n{e}')
+        replacer_config = None
+
+    return _ger_image_url_replacer(replacer_config)
+
+
+_REPLACER: SegReplacerType = _get_confined_replacer()
 
 
 def _parse_message(message: Message) -> Message:
@@ -87,5 +90,5 @@ async def handle_replace_image_url_event_preprocessor(event: MessageEvent):
 
 
 __all__ = [
-    'handle_replace_image_url_event_preprocessor'
+    'handle_replace_image_url_event_preprocessor',
 ]

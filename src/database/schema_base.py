@@ -14,9 +14,8 @@ from sqlalchemy.orm import DeclarativeBase
 
 class OmegaDeclarativeBase(AsyncAttrs, DeclarativeBase):
     """数据表声明基类"""
-    pass
 
 
 __all__ = [
-    'OmegaDeclarativeBase'
+    'OmegaDeclarativeBase',
 ]

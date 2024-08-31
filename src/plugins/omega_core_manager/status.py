@@ -95,5 +95,5 @@ async def get_status() -> str:
 
 
 __all__ = [
-    'get_status'
+    'get_status',
 ]

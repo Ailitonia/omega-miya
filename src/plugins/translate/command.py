@@ -17,7 +17,7 @@ from nonebot.rule import ArgumentParser, Namespace
 from pydantic import BaseModel, ConfigDict
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
-from src.service import OmegaInterface, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from src.utils.tencent_cloud_api import TencentTMT
 
 
@@ -56,19 +56,18 @@ def parse_arguments(args: Namespace) -> TranslateArguments:
     ),
 ).got('word')
 async def handle_translate(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         args: Annotated[Namespace, ShellCommandArgs()],
-        word: Annotated[str | None, ArgStr('word')]
+        word: Annotated[str | None, ArgStr('word')],
 ) -> None:
-    args = parse_arguments(args=args)
-    interface.refresh_matcher_state()
+    parsed_args = parse_arguments(args=args)
 
-    if args.word:
-        translate_word = ' '.join(args.word).strip()
+    if parsed_args.word:
+        translate_word = ' '.join(parsed_args.word).strip()
     elif word and word.strip():
         translate_word = word.strip()
     else:
-        await interface.reject('请发送需要翻译的内容:')
+        await interface.reject_reply('请发送需要翻译的内容:')
 
     try:
         result = await TencentTMT().text_translate(source_text=translate_word, source=args.source, target=args.target)

@@ -10,8 +10,8 @@
 
 from typing import Annotated, Any, Optional
 
-from nonebot.adapters import Message
 from nonebot.exception import ParserExit
+from nonebot.internal.adapter import Message
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg, ShellCommandArgs
 from nonebot.typing import T_Handler, T_State
@@ -65,7 +65,7 @@ def get_command_str_multi_args_parser_handler(
             multi_args = cmd_arg.extract_plain_text().strip().split()
 
         if len(multi_args) < ensure_keys_num:
-            multi_args.extend([default for _ in range(ensure_keys_num - len(multi_args))])
+            multi_args.extend(default for _ in range(ensure_keys_num - len(multi_args)))  # type: ignore
 
         if multi_args:
             for index, arg in enumerate(multi_args):
@@ -94,12 +94,13 @@ def get_command_message_arg_parser_handler(
     async def handle_parse_command_message_arg(matcher: Matcher, cmd_arg: Annotated[Message, CommandArg()]):
         """首次运行时解析命令参数"""
         message_arg = cmd_arg
+        message_class = cmd_arg.__class__
         if message_arg:
             matcher.set_arg(key=key, message=message_arg)
         elif default:
-            matcher.set_arg(key=key, message=Message(default))
+            matcher.set_arg(key=key, message=message_class(default))
         elif ensure_key:
-            matcher.set_arg(key=key, message=Message(''))
+            matcher.set_arg(key=key, message=message_class(''))
 
     return handle_parse_command_message_arg
 
@@ -130,7 +131,7 @@ def get_shell_command_parse_failed_handler() -> T_Handler:
 
     async def handle_parse_failed(matcher: Matcher, shell_args: Annotated[ParserExit, ShellCommandArgs()]):
         """解析命令失败"""
-        await matcher.finish('命令格式错误, 请确认后再重试吧\n' + shell_args.message)
+        await matcher.finish(f'命令参数解析错误, 请确认后重试\n{shell_args.message}')
 
     return handle_parse_failed
 
@@ -140,5 +141,5 @@ __all__ = [
     'get_command_str_multi_args_parser_handler',
     'get_command_message_arg_parser_handler',
     'get_set_default_state_handler',
-    'get_shell_command_parse_failed_handler'
+    'get_shell_command_parse_failed_handler',
 ]

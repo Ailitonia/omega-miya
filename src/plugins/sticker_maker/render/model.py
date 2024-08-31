@@ -9,149 +9,222 @@
 """
 
 import abc
-import imageio
 from datetime import datetime
 from io import BytesIO
-from typing import Iterable
+from typing import TYPE_CHECKING, Literal, Optional, Sequence
+
+import imageio.v3 as iio
 from PIL import Image
-
 from nonebot.utils import run_sync
-
-from src.resource import StaticResource, TemporaryResource
 
 from .consts import STICKER_OUTPUT_PATH
 
+if TYPE_CHECKING:
+    from src.resource import StaticResource, TemporaryResource
 
-class StickerRender(abc.ABC):
-    """表情包生成器"""
-    _sticker_name: str = 'abc_render'
 
-    _need_text: bool = True
-    """是否需要输入生成表情包的文字内容"""
-    _need_external_img: bool = False
-    """是否需要外部图片来作为表情包生成的内容"""
-
-    _default_output_width: int = 512
-    """输出图片宽度"""
-    _default_output_format: str = 'jpg'
-    """输出图片格式"""
+class BaseStickerRender(abc.ABC):
+    """表情包生成器基类"""
 
     def __init__(
             self,
-            text: str | None = None,
-            source_image: TemporaryResource | None = None
-    ):
+            text: Optional[str] = None,
+            external_image: Optional["TemporaryResource"] = None,
+    ) -> None:
         """使用待生成的素材实例化生成器
 
-        :param text: 表情包文字
-        :param source_image: 生成素材图片, 若有必须是文件
+        :param text: 生成表情包所使用的文字内容
+        :param external_image: 生成表情包所使用的图片 (非内置模板图片, 而是需要由用户提供的图片)
         """
-        self.text = text
-        self.source_image = source_image
+        if self.need_text() and text is None:
+            raise ValueError('text arg can not be None')
+        self.__text = text
+
+        if self.need_external_image() and external_image is None:
+            raise ValueError('external_image arg can not be None')
+        self.__external_image = external_image
 
     @classmethod
-    @property
+    @abc.abstractmethod
     def need_text(cls) -> bool:
-        """是否需要输入生成表情包的文字内容"""
-        return cls._need_text
+        """是否需要输入生成表情包的文字内容, 若返回为 True, 则 self.text 不能为 None"""
+        raise NotImplementedError
 
     @classmethod
-    @property
-    def need_image(cls) -> bool:
-        """是否需要外部图片来作为表情包生成的内容"""
-        return cls._need_external_img
-
     @abc.abstractmethod
-    def _static_handler(self, *args, **kwargs) -> bytes:
-        """静态图片表情包制作方法"""
+    def need_external_image(cls) -> bool:
+        """是否需要用户提供图片来作为表情包生成的内容, 若返回为 True, 则 self.external_image 不能为 None"""
         raise NotImplementedError
 
+    @classmethod
+    def get_sticker_name(cls) -> str:
+        """获取表情包模板名称"""
+        return cls.__name__.lower().removesuffix('render')
+
+    @classmethod
     @abc.abstractmethod
-    def _gif_handler(self, *args, **kwargs) -> bytes:
-        """动态图片表情包制作方法"""
+    def get_output_width(cls) -> int:
+        """获取输出图片宽度"""
         raise NotImplementedError
 
+    @classmethod
     @abc.abstractmethod
-    def _handler(self) -> bytes:
-        """表情包制作入口函数"""
+    def get_output_format(cls) -> Literal['JPEG', 'PNG', 'GIF']:
+        """获取输出图片格式"""
         raise NotImplementedError
 
-    def _get_source_image_info(self) -> (str, dict):
-        """获取图片素材格式信息
+    @classmethod
+    @abc.abstractmethod
+    def get_default_fonts(cls) -> list["StaticResource"]:
+        """获取获取制作表情包所需要的字体集"""
+        raise NotImplementedError
 
-        :return: format: str, num of frames: int, info: dict
-        """
-        with Image.open(self.source_image.resolve_path) as im:
-            f_im = im.format
-            info = im.info
-        return f_im, info
+    @classmethod
+    @abc.abstractmethod
+    def get_static_images(cls) -> list["StaticResource"]:
+        """获取获取制作表情包所需要的模板图片集"""
+        raise NotImplementedError
 
-    def _load_source_image(self, frame: int | None = None) -> Image.Image:
-        """载入并初始化图片素材"""
-        image: Image.Image = Image.open(self.source_image.resolve_path)
-        if frame:
-            image.seek(frame=frame)
-        image.load()
-        return image
+    def get_external_image(self) -> Optional["TemporaryResource"]:
+        """获取获取制作表情包所需要的, 由用户提供的图片 (默认用户仅能通过命令提供一张图片)"""
+        return self.__external_image
+
+    def get_text(self) -> Optional[str]:
+        """生成表情包所使用的文字"""
+        return self.__text
+
+    def set_text(self, text: str) -> None:
+        """手动更新生成表情包所使用的文字"""
+        self.__text = text
 
     @staticmethod
-    def _load_extra_source_image(source_file: StaticResource) -> Image.Image:
-        """载入并初始化额外图片素材"""
-        with source_file.open('rb') as f:
-            image: Image.Image = Image.open(f)
-            image.load()
-        return image
-
-    @staticmethod
-    def _resize_to_width(image: Image.Image, width: int) -> Image.Image:
+    def _resize_to_width(image: "Image.Image", width: int) -> "Image.Image":
         """等比缩放 PIL.Image.Image 为指定宽度"""
         image_resize_height = width * image.height // image.width
         make_image = image.resize((width, image_resize_height))
         return make_image
 
     @staticmethod
-    def _get_pil_image(image: Image.Image, output_format: str = 'JPEG') -> bytes:
+    def _output_pil_image(image: "Image.Image", output_format: str = 'JPEG') -> bytes:
         """提取 PIL.Image.Image 为 bytes"""
         match output_format.upper():
-            case 'JPEG' | 'JPG':
-                if image.mode != 'RGB':
-                    image = image.convert(mode='RGB')
             case 'PNG':
                 if image.mode != 'RGBA':
                     image = image.convert(mode='RGBA')
+            case 'JPEG' | _:
+                output_format = 'JPEG'
+                if image.mode != 'RGB':
+                    image = image.convert(mode='RGB')
 
         with BytesIO() as bf:
             image.save(bf, output_format)
             content = bf.getvalue()
         return content
 
-    @staticmethod
-    def _generate_gif_from_bytes_seq(
-            frames: Iterable[bytes],
-            duration: float = 0.06,
+    @classmethod
+    @abc.abstractmethod
+    def _core_render(
+            cls,
+            text: Optional[str],
+            static_images: Sequence["Image.Image"],
+            external_image: Optional["Image.Image"],
             *,
-            quantizer: int = 2
-    ) -> bytes:
-        """使用图片序列输出 GIF 图像"""
-        frames_list = [imageio.v2.imread(frame) for frame in frames]
+            fonts: Sequence["StaticResource"],
+            output_width: int,
+            output_format: str,
+    ) -> "Image.Image":
+        """模板处理核心流程, 负责使用提供的各项素材生成表情包, 返回为表情包图片的内容 (默认用户仅能通过命令提供一张图片)"""
+        raise NotImplementedError
 
-        with BytesIO() as bf:
-            imageio.mimsave(bf, frames_list, 'GIF', duration=duration, quantizer=quantizer)
-            content = bf.getvalue()
+    @classmethod
+    def _main_render(
+            cls,
+            text: Optional[str],
+            static_images: Sequence["Image.Image"],
+            external_image: Optional["Image.Image"],
+            *,
+            fonts: Sequence["StaticResource"],
+            output_width: int,
+            output_format: str,
+    ) -> list["Image.Image"]:
+        """针对用户提供的图片进行处理, 自动识别用户提供图片是否为动态图片, 返回为表情包图片的内容"""
 
-        return content
+        def iter_gif_frame(_image: Image.Image):
+            index = 0
+            while True:
+                try:
+                    _image.seek(frame=index)
+                    yield _image
+                    index += 1
+                except EOFError:
+                    return
 
-    async def make(self) -> TemporaryResource:
-        """使用 _handle 方法制作表情包并输出"""
-        image_content = await run_sync(self._handler)()
-        file_name = f"sticker_{self._sticker_name}_" \
-                    f"{datetime.now().strftime('%Y%m%d%H%M%S')}.{self._default_output_format}"
+        if external_image is not None and external_image.format == 'GIF':
+            output_images = [
+                cls._core_render(
+                    text=text, static_images=static_images, external_image=x,
+                    fonts=fonts, output_width=output_width, output_format=output_format
+                ) for x in iter_gif_frame(_image=external_image)
+            ]
+        else:
+            output_images = [
+                cls._core_render(
+                    text=text, static_images=static_images, external_image=external_image,
+                    fonts=fonts, output_width=output_width, output_format=output_format,
+                )
+            ]
+
+        return output_images
+
+    def _make(self) -> "TemporaryResource":
+        """默认的表情包处理流程"""
+        external_image_file = self.get_external_image()
+        external_image = Image.open(external_image_file.path) if external_image_file is not None else None
+
+        output_images = self._main_render(
+            text=self.get_text(),
+            static_images=[Image.open(x.path) for x in self.get_static_images()],
+            external_image=external_image,
+            fonts=self.get_default_fonts(),
+            output_width=self.get_output_width(),
+            output_format=self.get_output_format(),
+        )
+
+        save_gif = True if (external_image is not None and external_image.format == 'GIF') else False
+        save_gif = True if self.get_output_format() == 'GIF' else save_gif
+        file_format = self.get_output_format().lower() if not save_gif else 'gif'
+
+        file_name = (
+            f'sticker_{self.get_sticker_name()}_{hash(self)}_{datetime.now().strftime("%Y%m%d%H%M%S")}.{file_format}'
+        )
         save_file = STICKER_OUTPUT_PATH(file_name)
-        async with save_file.async_open('wb') as af:
-            await af.write(image_content)
+
+        if save_gif:
+            with save_file.open('wb') as f:
+                iio.imwrite(
+                    uri=f,
+                    image=[iio.imread(self._output_pil_image(frame)) for frame in output_images],
+                    extension='.gif',
+                    duration=60,
+                    quantizer=2,
+                    loop=0,
+                )
+        else:
+            with save_file.open('wb') as f:
+                output_images[0].save(f, format=self.get_output_format())
+
         return save_file
+
+    @run_sync
+    def _async_make(self) -> "TemporaryResource":
+        """异步执行默认的表情包处理流程"""
+        return self._make()
+
+    async def make(self) -> "TemporaryResource":
+        """表情包制作入口函数, 默认使用 self._async_make 方法制作表情包并输出, 但可被重载并自定义其他制作流程"""
+        return await self._async_make()
 
 
 __all__ = [
-    'StickerRender'
+    'BaseStickerRender',
 ]

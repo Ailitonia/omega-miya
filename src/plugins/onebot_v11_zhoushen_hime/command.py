@@ -12,7 +12,11 @@
 
 from typing import Annotated, Literal
 
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, GroupUploadNoticeEvent
+from nonebot.adapters.onebot.v11 import (
+    Bot as OneBotV11Bot,
+    GroupMessageEvent as OneBotV11GroupMessageEvent,
+    GroupUploadNoticeEvent as OneBotV11GroupUploadNoticeEvent,
+)
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.log import logger
 from nonebot.matcher import Matcher
@@ -20,12 +24,10 @@ from nonebot.params import ArgStr, Depends
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command, on_notice
 
-from src.service import OmegaInterface, enable_processor_state
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.rule import event_has_permission_node
-
+from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
 from .helpers import ZhouChecker, download_file, upload_result_file
-
 
 _ZHOUSHEN_HIME_CUSTOM_MODULE_NAME: Literal['Omega.ZhoushenHime'] = 'Omega.ZhoushenHime'
 """固定写入数据库的 module name 参数"""
@@ -36,7 +38,7 @@ _ENABLE_ZHOUSHEN_HIME_NODE: Literal['enable_zhoushen_hime'] = 'enable_zhoushen_h
 
 
 @on_command(
-    'zhoushen_hime_manager',
+    'zhoushen-hime-manager',
     aliases={'审轴姬', '审轴机'},
     permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER,
     handlers=[get_command_str_single_arg_parser_handler('switch')],
@@ -45,13 +47,12 @@ _ENABLE_ZHOUSHEN_HIME_NODE: Literal['enable_zhoushen_hime'] = 'enable_zhoushen_h
     state=enable_processor_state(name='ZhoushenHimeManager', level=10, auth_node='zhoushen_hime_manager'),
 ).got('switch', prompt='启用或关闭审轴姬:\n【ON/OFF】')
 async def handle_zhoushen_hime_manager(
-        _bot: Bot,
-        _event: GroupMessageEvent,
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        __bot: OneBotV11Bot,
+        __event: OneBotV11GroupMessageEvent,
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         switch: Annotated[str, ArgStr('switch')],
 ) -> None:
     switch = switch.strip().lower()
-    interface.refresh_matcher_state()
 
     match switch:
         case 'on':
@@ -65,8 +66,7 @@ async def handle_zhoushen_hime_manager(
                 node=_ENABLE_ZHOUSHEN_HIME_NODE, available=0
             )
         case _:
-            await interface.send_reply('无效选项, 请输入【ON/OFF】以启用或关闭审轴姬, 操作已取消')
-            return
+            await interface.finish_reply('无效选项, 请输入【ON/OFF】以启用或关闭审轴姬, 操作已取消')
 
     try:
         await switch_coro
@@ -74,7 +74,7 @@ async def handle_zhoushen_hime_manager(
         await interface.send_reply(f'已设置审轴姬功能开关为 {switch}!')
     except Exception as e:
         logger.error(f"ZhoushenHimeManager | {interface.entity} 设置审轴姬功能开关为 {switch} 失败, {e}")
-        await interface.send_reply(f'设置审轴姬功能开关失败, 请稍后重试或联系管理员处理')
+        await interface.send_reply('设置审轴姬功能开关失败, 请稍后重试或联系管理员处理')
 
 
 @on_notice(
@@ -87,7 +87,7 @@ async def handle_zhoushen_hime_manager(
     priority=100,
     block=False
 ).handle()
-async def handle_zhoushen_hime_process(bot: Bot, event: GroupUploadNoticeEvent, matcher: Matcher):
+async def handle_zhoushen_hime_process(bot: OneBotV11Bot, event: OneBotV11GroupUploadNoticeEvent, matcher: Matcher):
     file_name = event.file.name
     file_url = getattr(event.file, 'url')
 

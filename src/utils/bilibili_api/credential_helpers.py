@@ -13,22 +13,21 @@ https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.
 
 import asyncio
 import binascii
-import time
 import re
-from lxml import etree
+import time
 from urllib.parse import urlparse, parse_qs
 
 import qrcode
+from Cryptodome.Cipher import PKCS1_OAEP
 from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
-from Cryptodome.Cipher import PKCS1_OAEP
+from lxml import etree
 from nonebot import logger, get_driver
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
 from src.service import scheduler
-
-from .api_base import BilibiliBase
+from .api_base import BilibiliCommon
 from .config import bilibili_config, bilibili_resource_config
 from .model import (
     BilibiliWebInterfaceNav,
@@ -39,7 +38,6 @@ from .model import (
     BilibiliWebConfirmRefreshInfo
 )
 
-
 _PUB_KEY = RSA.importKey('''\
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg
@@ -49,16 +47,16 @@ JNrRuoEUXpabUzGB8QIDAQAB
 -----END PUBLIC KEY-----''')
 
 
-class BilibiliCredential(BilibiliBase):
+class BilibiliCredential(BilibiliCommon):
     """Bilibili 凭据操作类"""
 
     @staticmethod
     async def save_cookies_to_db() -> None:
-        return await bilibili_config.save_to_database()
+        await bilibili_config.save_to_database()
 
     @staticmethod
     async def load_cookies_from_db() -> None:
-        return await bilibili_config.load_from_database()
+        await bilibili_config.load_from_database()
 
     @staticmethod
     def _get_correspond_path() -> str:
@@ -81,7 +79,7 @@ class BilibiliCredential(BilibiliBase):
     async def get_login_qrcode(cls) -> BilibiliWebQrcodeGenerateInfo:
         """获取登录二维码信息"""
         url = 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header'
-        data = await cls.request_json(url=url)
+        data = await cls._get_json(url=url)
         return BilibiliWebQrcodeGenerateInfo.model_validate(data)
 
     @classmethod
@@ -94,7 +92,7 @@ class BilibiliCredential(BilibiliBase):
         """检查二维码登录状态"""
         url = 'https://passport.bilibili.com/x/passport-login/web/qrcode/poll'
         params = {'qrcode_key': qrcode_info.data.qrcode_key}
-        data = await cls.request_json(url=url, params=params)
+        data = await cls._get_json(url=url, params=params)
         return BilibiliWebQrcodePollInfo.model_validate(data)
 
     @classmethod
@@ -103,7 +101,7 @@ class BilibiliCredential(BilibiliBase):
         while True:
             login_info = await cls.check_qrcode_login(qrcode_info=qrcode_info)
             if login_info.data.code == 0:
-                logger.opt(colors=True).success(f'<lc>Bilibili</lc> | 扫码登录: 成功')
+                logger.opt(colors=True).success('<lc>Bilibili</lc> | 扫码登录: 成功')
                 break
             elif attempt >= 10:
                 logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 扫码登录: {login_info.data.message}, 等待超时')
@@ -124,9 +122,9 @@ class BilibiliCredential(BilibiliBase):
 
         cookies = parse_qs(urlparse(url=login_info.data.url).query)
         bilibili_config.clear_all()
-        bilibili_config.bili_sessdata = cookies.get('SESSDATA')[0]
-        bilibili_config.bili_jct = cookies.get('bili_jct')[0]
-        bilibili_config.bili_dedeuserid = cookies.get('DedeUserID')[0]
+        bilibili_config.bili_sessdata = cookies.get('SESSDATA', [])[0]
+        bilibili_config.bili_jct = cookies.get('bili_jct', [])[0]
+        bilibili_config.bili_dedeuserid = cookies.get('DedeUserID', [])[0]
         bilibili_config.bili_ac_time_value = login_info.data.refresh_token
 
         await cls.save_cookies_to_db()
@@ -135,10 +133,13 @@ class BilibiliCredential(BilibiliBase):
     @classmethod
     async def check_need_refresh(cls) -> bool:
         """检查 Cookies 是否需要刷新"""
+        if bilibili_config.bili_jct is None:
+            return True
+
         url = 'https://passport.bilibili.com/x/passport-login/web/cookie/info'
         params = {'csrf': bilibili_config.bili_jct}
 
-        data = await cls.request_json(url=url, params=params)
+        data = await cls._get_json(url=url, params=params)
         return BilibiliWebCookieInfo.model_validate(data).data.refresh
 
     @classmethod
@@ -147,7 +148,7 @@ class BilibiliCredential(BilibiliBase):
         url = 'https://api.bilibili.com/x/web-interface/nav'
 
         try:
-            data = await cls.request_json(url=url, cookies=bilibili_config.bili_cookies)
+            data = await cls._get_json(url=url, cookies=bilibili_config.bili_cookies)
             verify = BilibiliWebInterfaceNav.model_validate(data)
         except Exception as e:
             logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 访问失败, {e}')
@@ -159,7 +160,7 @@ class BilibiliCredential(BilibiliBase):
             return False
         elif verify.data.mid != bilibili_config.bili_dedeuserid:
             bilibili_config.clear_all()
-            logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, 用户 UID 不匹配')
+            logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, 用户 UID 不匹配')
             return False
         else:
             logger.opt(colors=True).success(f'<lc>Bilibili</lc> | <lg>Cookie 已验证</lg>, 登录用户: {verify.data.uname}')
@@ -173,12 +174,12 @@ class BilibiliCredential(BilibiliBase):
         # 不知道什么原因, 这里不暂停等一下就只会返回 404, 明明时间是同步的, 另外这里只 sleep(1) 也不行, 必须等两秒及以上
         await asyncio.sleep(2)
 
-        content = await cls.request_resource(url=url, cookies=bilibili_config.bili_cookies)
+        content = await cls._get_resource_as_text(url=url, cookies=bilibili_config.bili_cookies)
         refresh_csrf = etree.HTML(content).xpath('/html/body/div[@id="1-name"]').pop(0).text
         return refresh_csrf
 
     @classmethod
-    async def confirm_cookies_refresh(cls, csrf: str, refresh_token: str) -> BilibiliWebConfirmRefreshInfo:
+    async def confirm_cookies_refresh(cls, csrf: str, refresh_token: str | None) -> BilibiliWebConfirmRefreshInfo:
         """确认 Cookies 更新, 该步操作将让旧的 refresh_token 对应的 Cookie 失效
 
         :param csrf: 从新的 Cookies 中获取, 位于 Cookies 中的 bili_jct 字段
@@ -187,7 +188,7 @@ class BilibiliCredential(BilibiliBase):
         url = 'https://passport.bilibili.com/x/passport-login/web/confirm/refresh'
         params = {'csrf': csrf, 'refresh_token': refresh_token}
 
-        data = await cls.request_json(method='POST', url=url, params=params)
+        data = await cls._post_json(url=url, params=params)
         return BilibiliWebConfirmRefreshInfo.model_validate(data)
 
     @classmethod
@@ -204,8 +205,8 @@ class BilibiliCredential(BilibiliBase):
             "source": "main_web",
         }
 
-        response = await cls.request(method='POST', url=url, params=params, cookies=bilibili_config.bili_cookies)
-        refresh_info = BilibiliWebCookieRefreshInfo.model_validate(cls.parse_content_json(response))
+        response = await cls._request_post(url=url, params=params, cookies=bilibili_config.bili_cookies)
+        refresh_info = BilibiliWebCookieRefreshInfo.model_validate(cls._parse_content_as_json(response))
 
         if refresh_info.code != 0:
             logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 刷新用户 Cookies 失败, {refresh_info}')
@@ -284,5 +285,5 @@ async def _bilibili_login_status_refresh_monitor() -> None:
 
 
 __all__ = [
-    'BilibiliCredential'
+    'BilibiliCredential',
 ]

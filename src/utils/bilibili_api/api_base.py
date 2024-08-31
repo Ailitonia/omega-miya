@@ -8,124 +8,52 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Optional, Any
+from typing import TYPE_CHECKING
 
-from src.resource import TemporaryResource
-from src.service import OmegaRequests
-
+from src.utils.common_api import BaseCommonAPI
 from .config import bilibili_config, bilibili_resource_config
-from .exception import BilibiliNetworkError
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import CookieTypes
+    from src.resource import TemporaryResource
 
 
-class BilibiliBase(object):
-    """Bilibili 基类"""
-    _root_url: str = 'https://www.bilibili.com'
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__
-
-    @staticmethod
-    def parse_content_json(response: Any) -> Any:
-        return OmegaRequests.parse_content_json(response)
+class BilibiliCommon(BaseCommonAPI):
+    """Bilibili API 基类"""
 
     @classmethod
-    async def request(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            *,
-            method: Literal['GET', 'POST'] = 'GET',
-            cookies: Optional[dict[str, str]] = None,
-            data: Optional[Any] = None,
-            json: Optional[Any] = None
-    ) -> Any:
-        """请求 api"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({
-                'origin': 'https://www.bilibili.com',
-                'referer': 'https://www.bilibili.com/'
-            })
-        if cookies is None:
-            cookies = bilibili_config.bili_cookies
-
-        requests = OmegaRequests(timeout=10, headers=headers, cookies=cookies)
-        match method:
-            case 'POST':
-                response = await requests.post(url=url, params=params, data=data, json=json)
-            case _:
-                response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise BilibiliNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return response
+    def _get_root_url(cls, *args, **kwargs) -> str:
+        return 'https://www.bilibili.com'
 
     @classmethod
-    async def request_json(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            *,
-            method: Literal['GET', 'POST'] = 'GET',
-            cookies: Optional[dict[str, str]] = None,
-            data: Optional[Any] = None,
-            json: Optional[Any] = None
-    ) -> Any:
-        """请求 api 并返回 json 数据"""
-        response = await cls.request(url, params, headers, method=method, cookies=cookies, data=data, json=json)
-        return OmegaRequests.parse_content_json(response)
+    async def _async_get_root_url(cls, *args, **kwargs) -> str:
+        return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    async def request_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            cookies: Optional[dict[str, str]] = None,
-            timeout: int = 30
-    ) -> str | bytes | None:
-        """请求原始资源内容"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({
-                'origin': 'https://www.bilibili.com',
-                'referer': 'https://www.bilibili.com/'
-            })
-        if cookies is None:
-            cookies = bilibili_config.bili_cookies
-
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=cookies)
-        response = await requests.get(url=url, params=params)
-        if response.status_code != 200:
-            raise BilibiliNetworkError(f'{response.request}, status code {response.status_code}')
-
-        return response.content
+    def _load_cloudflare_clearance(cls) -> bool:
+        return False
 
     @classmethod
-    async def download_resource(
-            cls,
-            url: str,
-            params: Optional[dict[str, Any]] = None,
-            headers: Optional[dict[str, Any]] = None,
-            timeout: int = 60
-    ) -> TemporaryResource:
+    def _get_default_headers(cls) -> dict[str, str]:
+        headers = cls._get_omega_requests_default_headers()
+        headers.update({
+            'origin': 'https://www.bilibili.com',
+            'referer': 'https://www.bilibili.com/'
+        })
+        return headers
+
+    @classmethod
+    def _get_default_cookies(cls) -> "CookieTypes":
+        return bilibili_config.bili_cookies
+
+    @classmethod
+    async def download_resource(cls, url: str) -> "TemporaryResource":
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        if headers is None:
-            headers = OmegaRequests.get_default_headers()
-            headers.update({
-                'origin': 'https://www.bilibili.com',
-                'referer': 'https://www.bilibili.com/'
-            })
-
-        original_file_name = OmegaRequests.parse_url_file_name(url=url)
-        file = bilibili_resource_config.default_download_folder(original_file_name)
-        requests = OmegaRequests(timeout=timeout, headers=headers, cookies=bilibili_config.bili_cookies)
-
-        return await requests.download(url=url, file=file, params=params)
+        return await cls._download_resource(
+            save_folder=bilibili_resource_config.default_download_folder, url=url,
+        )
 
 
 __all__ = [
-    'BilibiliBase'
+    'BilibiliCommon',
 ]

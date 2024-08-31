@@ -113,5 +113,5 @@ __all__ = [
     'get_all_plugins_desc',
     'get_plugin_desc',
     'get_plugin_auth_node',
-    'list_command_by_priority'
+    'list_command_by_priority',
 ]

@@ -28,12 +28,11 @@ SELF_SENT = Permission(_self_sent)
 SU_SELF_SENT = Permission(_su_self_sent)
 """匹配以"!SU"开头的自身发送消息类型事件"""
 
-
-logger.opt(colors=True).info(f'<lc>MessageSent patch(go-cqhttp)</lc> loaded')
+logger.opt(colors=True).info('<lc>MessageSent patch(go-cqhttp)</lc> loaded')
 
 
 __all__ = [
     'MessageSentEvent',
     'SELF_SENT',
-    'SU_SELF_SENT'
+    'SU_SELF_SENT',
 ]

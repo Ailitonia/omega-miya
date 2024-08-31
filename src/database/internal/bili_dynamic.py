@@ -9,14 +9,13 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import BiliDynamicOrm
 
@@ -56,7 +55,7 @@ class BiliDynamicDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
-    async def query_exists_ids(self, dynamic_ids: list[int]) -> list[int]:
+    async def query_exists_ids(self, dynamic_ids: Sequence[int]) -> list[int]:
         """查询数据库中 dynamic_id 列表中已有的动态 id"""
         stmt = select(BiliDynamicOrm.dynamic_id).\
             where(BiliDynamicOrm.dynamic_id.in_(dynamic_ids)).\
@@ -64,7 +63,7 @@ class BiliDynamicDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
-    async def query_not_exists_ids(self, dynamic_ids: list[int]) -> list[int]:
+    async def query_not_exists_ids(self, dynamic_ids: Sequence[int]) -> list[int]:
         """查询数据库中 dynamic_id 列表中没有的动态 id"""
         exists_ids = await self.query_exists_ids(dynamic_ids=dynamic_ids)
         return sorted(list(set(dynamic_ids) - set(exists_ids)), reverse=True)
@@ -110,5 +109,5 @@ class BiliDynamicDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'BiliDynamic',
-    'BiliDynamicDAL'
+    'BiliDynamicDAL',
 ]

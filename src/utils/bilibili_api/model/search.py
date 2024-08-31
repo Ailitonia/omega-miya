@@ -8,11 +8,11 @@
 @Software       : PyCharm 
 """
 
-from pydantic import BaseModel
 from typing import Generic, TypeVar, Optional
 
-from .base_model import BaseBilibiliModel
+from pydantic import BaseModel
 
+from .base_model import BaseBilibiliModel
 
 T = TypeVar("T")
 
@@ -67,7 +67,7 @@ class UserSearchingResult(BaseBilibiliModel):
 
 class UserSearchingData(BaseBilibiliSearchingDataModel[UserSearchingResult]):
     """用户搜索 Data"""
-    result: list[UserSearchingResult]
+    result: list[UserSearchingResult] = []
 
 
 class UserSearchingModel(BaseBilibiliSearchingModel[UserSearchingResult]):

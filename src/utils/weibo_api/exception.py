@@ -19,11 +19,6 @@ class WeiboApiError(BaseWeiboError):
     """Api 返回错误"""
 
 
-class WeiboNetworkError(BaseWeiboError):
-    """Weibo 网络异常"""
-
-
 __all__ = [
     'WeiboApiError',
-    'WeiboNetworkError'
 ]

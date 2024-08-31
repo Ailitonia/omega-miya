@@ -12,7 +12,6 @@ from nonebot.plugin import PluginMetadata
 
 from .config import sign_in_config
 
-
 __plugin_meta__ = PluginMetadata(
     name='签到',
     description='【OmegaSignIn 签到插件】\n'
@@ -27,7 +26,6 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-from . import scheduler as scheduler
 
 
 __all__ = []

@@ -9,12 +9,12 @@
 """
 
 from datetime import datetime
+
 from nonebot import logger
 from nonebot.internal.adapter import Bot, Event, Message
 
 from src.database import HistoryDAL, begin_db_session
-from src.service import OmegaInterface
-
+from src.service import OmegaMatcherInterface
 
 LOG_PREFIX: str = '<lc>Event History</lc> | '
 
@@ -42,11 +42,11 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
         msg_data = msg_data[:4096]
 
     try:
-        async with OmegaInterface(acquire_type='user').get_entity(bot=bot, event=event) as entity:
+        async with begin_db_session() as session:
+            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
 
-        async with begin_db_session() as session:
             dal = HistoryDAL(session=session)
             await dal.add(
                 time=time, bot_self_id=self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
@@ -54,9 +54,9 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
             )
         logger.opt(colors=True).trace(f'{LOG_PREFIX}Recording event({event_id}) succeed')
     except Exception as e:
-        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording failed, error: {repr(e)}, event: {event.json()}')
+        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording failed, {e!r}, event: {event.model_dump_json()}')
 
 
 __all__ = [
-    'postprocessor_history'
+    'postprocessor_history',
 ]

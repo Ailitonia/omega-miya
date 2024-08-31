@@ -24,5 +24,5 @@ weibo_resource_config = WeiboLocalResourceConfig()
 
 
 __all__ = [
-    'weibo_resource_config'
+    'weibo_resource_config',
 ]

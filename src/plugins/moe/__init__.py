@@ -17,14 +17,10 @@ __plugin_meta__ = PluginMetadata(
                 '随机萌图和随机涩图\n'
                 '不可以随意涩涩!',
     usage='/来点萌图 [关键词, ...]\n'
-          '/来点涩图 [关键词, ...]\n\n'
-          '仅限管理员使用:\n'
-          '/图库统计\n'
-          '/图库查询 [关键词, ...]\n'
-          '/导入图库',
-    config=None,
+          '/来点涩图 [关键词, ...]',
     extra={'author': 'Ailitonia'},
 )
+
 
 from . import command as command
 

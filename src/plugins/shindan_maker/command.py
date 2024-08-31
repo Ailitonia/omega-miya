@@ -16,14 +16,12 @@ from nonebot.params import ArgStr, Depends
 from nonebot.plugin import CommandGroup
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_command_str_multi_args_parser_handler
-from src.service import OmegaInterface, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
 from src.utils.process_utils import semaphore_gather
-
 from .data_source import ShindanMaker
 
-
 shindan_maker = CommandGroup(
-    'shindan_maker',
+    'shindan-maker',
     priority=10,
     block=True,
     state=enable_processor_state(
@@ -36,7 +34,7 @@ shindan_maker = CommandGroup(
 
 make_shindan = shindan_maker.command(
     'make',
-    aliases={'shindan', 'Shindan', 'ShindanMaker'},
+    aliases={'shindan', 'Shindan', 'ShindanMaker', 'shindan_maker'},
     handlers=[get_command_str_multi_args_parser_handler('shindan_arg')]
 )
 
@@ -44,12 +42,10 @@ make_shindan = shindan_maker.command(
 @make_shindan.got('shindan_arg_0', prompt='你想做什么占卜呢?\n请输入想要做的占卜名称或ID:')
 @make_shindan.got('shindan_arg_1', prompt='请输入您想要进行占卜对象的昵称:')
 async def handle_shindan_make(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         shindan_title: Annotated[str, ArgStr('shindan_arg_0')],
         input_name: Annotated[str, ArgStr('shindan_arg_1')],
 ) -> None:
-    interface.refresh_matcher_state()
-
     shindan_title = shindan_title.strip()
     input_name = input_name.strip()
 
@@ -65,13 +61,11 @@ async def handle_shindan_make(
             result = await ShindanMaker.fuzzy_shindan(shindan=shindan_title, input_name=input_name)
     except Exception as e:
         logger.error(f'ShindanMaker | 获取占卜结果 {shindan_title!r}-{input_name!r} 失败, {e}')
-        await interface.send_reply('获取结果失败了, 请稍后再试或联系管理员处理')
-        return
+        await interface.finish_reply('获取结果失败了, 请稍后再试或联系管理员处理')
 
     if result is None:
         logger.warning(f'ShindanMaker | 未找到占卜 {shindan_title!r}')
-        await interface.send_reply(f'没有找到{shindan_title!r}, 请确认占卜名或使用占卜ID重试')
-        return
+        await interface.finish_reply(f'没有找到{shindan_title!r}, 请确认占卜名或使用占卜ID重试')
 
     # 删除之前加入的日期字符
     result_text = result.text.replace(today, '')
@@ -79,12 +73,12 @@ async def handle_shindan_make(
 
     # 结果有图片就处理图片
     if result.image_url:
-        image_download_tasks = [ShindanMaker.download_image(url=x) for x in result.image_url]
+        image_download_tasks = [ShindanMaker.download_resource(url=x, subdir='image') for x in result.image_url]
         image_result = await semaphore_gather(tasks=image_download_tasks, semaphore_num=10, filter_exception=True)
         for img in image_result:
             send_msg += OmegaMessageSegment.image(img.path)
 
-    await interface.send_reply(send_msg)
+    await interface.finish_reply(send_msg)
 
 
 @shindan_maker.command(
@@ -93,10 +87,9 @@ async def handle_shindan_make(
     handlers=[get_command_str_single_arg_parser_handler('keyword')]
 ).got('keyword', prompt='请输入搜索关键词:')
 async def handle_shindan_searching(
-        interface: Annotated[OmegaInterface, Depends(OmegaInterface())],
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
         keyword: Annotated[str, ArgStr('keyword')],
 ) -> None:
-    interface.refresh_matcher_state()
     keyword = keyword.strip()
 
     try:
@@ -112,16 +105,14 @@ async def handle_shindan_searching(
     'ranking',
     aliases={'shindan_ranking', 'ShindanRanking'},
 ).handle()
-async def handle_shindan_ranking(interface: Annotated[OmegaInterface, Depends(OmegaInterface())]) -> None:
-    interface.refresh_matcher_state()
-
+async def handle_shindan_ranking(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
     try:
         ranking_result = await ShindanMaker.complex_ranking()
         ranking_text = '\n'.join(f'{x.id}: {x.name}' for x in ranking_result)
         await interface.send_reply(f'根据热度及排行榜获取到了以下占卜\n\n{ranking_text}')
     except Exception as e:
         logger.error(f'ShindanMaker | 获取占卜排行榜失败, {e}')
-        await interface.send_reply(f'获取排行榜失败了, 请稍后再试或联系管理员处理')
+        await interface.send_reply('获取排行榜失败了, 请稍后再试或联系管理员处理')
 
 
 __all__ = []

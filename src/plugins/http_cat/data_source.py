@@ -26,7 +26,7 @@ async def get_http_cat(http_code: int | str) -> TemporaryResource:
         url = f'https://http.cat/{http_code}.jpg'
         await OmegaRequests().download(url=url, file=file)
     except WebSourceException:
-        url = f'https://http.cat/404.jpg'
+        url = 'https://http.cat/404.jpg'
         await OmegaRequests().download(url=url, file=file)
     except Exception as e:
         raise RuntimeError(f'download httpcat {http_code} failed, {e!r}') from e
@@ -35,5 +35,5 @@ async def get_http_cat(http_code: int | str) -> TemporaryResource:
 
 
 __all__ = [
-    'get_http_cat'
+    'get_http_cat',
 ]

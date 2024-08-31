@@ -16,7 +16,6 @@ from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import AuthSettingOrm
 
@@ -60,7 +59,7 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
             stmt = stmt.where(AuthSettingOrm.module == module)
         if plugin is not None:
             stmt = stmt.where(AuthSettingOrm.plugin == plugin)
-        stmt = stmt.order_by(AuthSettingOrm.module)
+        stmt = stmt.order_by(AuthSettingOrm.module).order_by(AuthSettingOrm.plugin).order_by(AuthSettingOrm.node)
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[AuthSetting], session_result.scalars().all())
 
@@ -69,7 +68,7 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
         stmt = select(AuthSettingOrm).\
             where(AuthSettingOrm.module == module).\
             where(AuthSettingOrm.plugin == plugin).\
-            order_by(AuthSettingOrm.module)
+            order_by(AuthSettingOrm.module).order_by(AuthSettingOrm.plugin).order_by(AuthSettingOrm.node)
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[AuthSetting], session_result.scalars().all())
 
@@ -128,5 +127,5 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'AuthSetting',
-    'AuthSettingDAL'
+    'AuthSettingDAL',
 ]

@@ -10,13 +10,12 @@
 
 from typing import TYPE_CHECKING, Annotated
 
+from nonebot.adapters.qq.bot import Bot
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from nonebot.params import Depends
-from nonebot.adapters.qq.bot import Bot
-
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
@@ -32,7 +31,8 @@ async def __qq_bot_connect(
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
     """处理 QQ Bot 连接事件"""
-    assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
+    if not str(bot.self_id) == str(event.bot_id):
+        raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     bot_dal = BotSelfDAL(session=session)
     entity_dal = EntityDAL(session=session)
@@ -51,7 +51,7 @@ async def __qq_bot_connect(
         logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, Bot status added Success')
 
     # 更新频道相关信息
-    guilds: list[Guild] = await bot.guilds()
+    guilds: list["Guild"] = await bot.guilds()
     for guild in guilds:
         guild_query_data = {
             'bot_index_id': exist_bot.id,
@@ -74,7 +74,7 @@ async def __qq_bot_connect(
 
     # 更新子频道相关信息
     for guild in guilds:
-        channels: list[Channel] = await bot.get_channels(guild_id=guild.id)
+        channels: list["Channel"] = await bot.get_channels(guild_id=guild.id)
         for channel in channels:
             channel_query_data = {
                 'bot_index_id': exist_bot.id,
@@ -103,7 +103,8 @@ async def __qq_bot_disconnect(
         session: Annotated[AsyncSession, Depends(get_db_session)]
 ) -> None:
     """处理 QQ Bot 断开连接事件"""
-    assert str(bot.self_id) == str(event.bot_id), 'Bot self_id not match BotActionEvent bot_id'
+    if not str(bot.self_id) == str(event.bot_id):
+        raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     bot_dal = BotSelfDAL(session)
     try:

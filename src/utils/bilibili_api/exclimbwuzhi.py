@@ -18,12 +18,12 @@ Reference: https://github.com/Nemo2011/bilibili-api/commit/f7de473bc42d60604372f
 From: https://github.com/Nemo2011/bilibili-api/blob/f7de473bc42d60604372f80d06244e45a08bdbb4/bilibili_api/utils/exclimbwuzhi.py
 """
 
-import time
+import io
 import random
 import struct
-import io
-import ujson as json
+import time
 
+import ujson as json
 
 MOD = 1 << 64
 
@@ -62,7 +62,7 @@ def gen_buvid_fp(key: str, seed: int):
     return "{}{}".format(hex(m & (MOD - 1))[2:], hex(m >> 64)[2:])
 
 
-def murmur3_x64_128(source: io.BufferedIOBase, seed: int) -> int:
+def murmur3_x64_128(source: io.BufferedIOBase, seed: int) -> int:  # type: ignore
     C1 = 0x87C3_7B91_1142_53D5
     C2 = 0x4CF5_AD43_2745_937F
     C3 = 0x52DC_E729

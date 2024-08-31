@@ -9,14 +9,13 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-
 from ..model import BaseDataAccessLayerModel
 from ..schema import WeiboDetailOrm
 
@@ -42,7 +41,7 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return WeiboDetail.model_validate(session_result.scalar_one())
 
-    async def query_exists_ids(self, mids: list[int]) -> list[int]:
+    async def query_exists_ids(self, mids: Sequence[int]) -> list[int]:
         """查询数据库中 mids 列表中已有的微博 id"""
         stmt = select(WeiboDetailOrm.mid).\
             where(WeiboDetailOrm.mid.in_(mids)).\
@@ -50,7 +49,7 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
-    async def query_not_exists_ids(self, mids: list[int]) -> list[int]:
+    async def query_not_exists_ids(self, mids: Sequence[int]) -> list[int]:
         """查询数据库中 mids 列表中没有的微博 id"""
         exists_mids = await self.query_exists_ids(mids=mids)
         return sorted(list(set(mids) - set(exists_mids)), reverse=True)
@@ -76,7 +75,9 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
 
     async def add(self, mid: int, uid: int, content: str, retweeted_content: str = '') -> None:
         new_obj = WeiboDetailOrm(
-            mid=mid, uid=uid, content=content, retweeted_content=retweeted_content, created_at=datetime.now()
+            mid=mid, uid=uid,
+            content=content[:2048], retweeted_content=retweeted_content[:2048],
+            created_at=datetime.now()
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
@@ -96,9 +97,9 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
         if uid is not None:
             stmt = stmt.values(uid=uid)
         if content is not None:
-            stmt = stmt.values(content=content)
+            stmt = stmt.values(content=content[:2048])
         if retweeted_content is not None:
-            stmt = stmt.values(retweeted_content=retweeted_content)
+            stmt = stmt.values(retweeted_content=retweeted_content[:2048])
         stmt = stmt.values(updated_at=datetime.now())
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
@@ -111,5 +112,5 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
 
 __all__ = [
     'WeiboDetail',
-    'WeiboDetailDAL'
+    'WeiboDetailDAL',
 ]

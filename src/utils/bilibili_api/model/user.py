@@ -11,7 +11,6 @@
 from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BaseBilibiliModel
 
 
@@ -52,15 +51,15 @@ class BilibiliUserModel(BaseBilibiliModel):
 
     @property
     def mid(self) -> int:
-        return self.data.mid
+        return self.data.mid  # type: ignore
 
     @property
     def uname(self) -> str:
-        return self.data.name
+        return self.data.name  # type: ignore
 
     @property
     def live_room(self) -> BilibiliUserLiveRoom:
-        return self.data.live_room
+        return self.data.live_room  # type: ignore
 
 
 __all__ = [

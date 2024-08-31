@@ -8,10 +8,6 @@
 @Software       : PyCharm 
 """
 
-from nonebot.log import logger
-from nonebot.plugin import on_command
-from nonebot.permission import SUPERUSER
-
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
     MessageEvent as OneBotV11MessageEvent
@@ -21,13 +17,14 @@ from nonebot.adapters.telegram.event import (
     PrivateMessageEvent as TelegramPrivateMessageEvent,
     GroupMessageEvent as TelegramGroupMessageEvent
 )
-
+from nonebot.log import logger
+from nonebot.permission import SUPERUSER
+from nonebot.plugin import on_command
 
 from src.service import enable_processor_state
 
-
 self_recall = on_command(
-    'self_recall',
+    'self-recall',
     aliases={'撤回'},
     permission=SUPERUSER,
     priority=10,

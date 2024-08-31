@@ -9,22 +9,25 @@
 """
 
 import warnings
-from typing import Literal, Optional, Any
+from typing import Any, Literal, Optional, Sequence
 
-from src.service import OmegaRequests
-
-from .api_base import BilibiliBase
+from .api_base import BilibiliCommon
 from .config import bilibili_config
-from .exception import BilibiliNetworkError
-from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
-from .model import (BilibiliUserModel, BilibiliUserDynamicModel, BilibiliDynamicModel,
-                    BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel,
-                    BilibiliWebInterfaceNav, BilibiliWebInterfaceSpi)
 from .exclimbwuzhi import gen_buvid_fp, gen_uuid_infoc, get_payload
+from .model import (
+    BilibiliUserModel,
+    BilibiliUserDynamicModel,
+    BilibiliDynamicModel,
+    BilibiliLiveRoomModel,
+    BilibiliUsersLiveRoomModel,
+    BilibiliWebInterfaceNav,
+    BilibiliWebInterfaceSpi
+)
+from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
 from .verify_utils import sign_wbi_params
 
 
-class Bilibili(BilibiliBase):
+class Bilibili(BilibiliCommon):
     """Bilibili 主站方法"""
 
     @classmethod
@@ -32,7 +35,7 @@ class Bilibili(BilibiliBase):
         """为 wbi 接口请求参数进行 wbi 签名"""
         _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 
-        response = await cls.request_json(url=_wbi_nav_url)
+        response = await cls._get_json(url=_wbi_nav_url)
         return sign_wbi_params(nav_data=BilibiliWebInterfaceNav.model_validate(response), params=params)
 
     @classmethod
@@ -42,14 +45,14 @@ class Bilibili(BilibiliBase):
         _exclimbwuzhi_url: str = 'https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi'
 
         # get buvid3, buvid4
-        spi_response = await cls.request_json(url=_spi_url)
+        spi_response = await cls._get_json(url=_spi_url)
         spi_data = BilibiliWebInterfaceSpi.model_validate(spi_response)
 
         # active buvid
         uuid = gen_uuid_infoc()
         payload = get_payload()
 
-        headers = OmegaRequests.get_default_headers()
+        headers = cls._get_default_headers()
         headers.update({
             'origin': 'https://www.bilibili.com',
             'referer': 'https://www.bilibili.com/',
@@ -63,7 +66,7 @@ class Bilibili(BilibiliBase):
             _uuid=uuid
         )
 
-        await cls.request_json(method='POST', url=_exclimbwuzhi_url, headers=headers, data=payload, cookies=cookies)
+        await cls._post_json(url=_exclimbwuzhi_url, headers=headers, json=payload, cookies=cookies)
         return cookies
 
     @classmethod
@@ -137,7 +140,7 @@ class Bilibili(BilibiliBase):
             'com2co': com2co,
         }
         search_url: str = 'https://api.bilibili.com/x/web-interface/search/type'
-        searching_data = await cls.request_json(url=search_url, params=params)
+        searching_data = await cls._get_json(url=search_url, params=params)
         return BaseBilibiliSearchingModel.model_validate(searching_data)
 
 
@@ -147,7 +150,7 @@ class BilibiliUser(Bilibili):
     _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'  # TODO
 
     warnings.warn(
-        f"The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
+        "The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
         "future version should change to new API instead.",
         PendingDeprecationWarning,
         stacklevel=2,
@@ -191,10 +194,11 @@ class BilibiliUser(Bilibili):
         if not isinstance(self.user_model, BilibiliUserModel):
             params = await self.update_wbi_params({'mid': self.mid})
             cookies = await self.update_buvid_params()
-            user_data = await self.request_json(url=self._data_api_url, params=params, cookies=cookies)
+            user_data = await self._get_json(url=self._data_api_url, params=params, cookies=cookies)
             self.user_model = BilibiliUserModel.model_validate(user_data)
 
-        assert isinstance(self.user_model, BilibiliUserModel), 'Query user model failed'
+        if not isinstance(self.user_model, BilibiliUserModel):
+            raise TypeError('Query user model failed')
         return self.user_model
 
     async def query_dynamics(
@@ -208,7 +212,7 @@ class BilibiliUser(Bilibili):
         :param offset_dynamic_id: 获取动态起始位置
         :param need_top: 是否获取置顶动态
         """
-        headers = OmegaRequests.get_default_headers()
+        headers = self._get_default_headers()
         headers.update({
             'origin': 'https://t.bilibili.com',
             'referer': 'https://t.bilibili.com/'
@@ -219,11 +223,11 @@ class BilibiliUser(Bilibili):
         # params = await self.update_wbi_params(params)
         cookies = await self.update_buvid_params()
 
-        data = await self.request_json(url=self._dynamic_api_url, params=params, headers=headers, cookies=cookies)
+        data = await self._get_json(url=self._dynamic_api_url, params=params, headers=headers, cookies=cookies)
         return BilibiliUserDynamicModel.model_validate(data)
 
 
-class BilibiliDynamic(BilibiliBase):
+class BilibiliDynamic(BilibiliCommon):
     """Bilibili 动态"""
     _dynamic_root_url = 'https://t.bilibili.com/'
     _dynamic_detail_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'  # TODO
@@ -256,20 +260,21 @@ class BilibiliDynamic(BilibiliBase):
     async def query_dynamic_data(self) -> BilibiliDynamicModel:
         """获取并初始化动态对应 BilibiliDynamicModel"""
         if not isinstance(self.dynamic_model, BilibiliDynamicModel):
-            headers = OmegaRequests.get_default_headers()
+            headers = self._get_default_headers()
             headers.update({
                 'origin': 'https://t.bilibili.com',
                 'referer': 'https://t.bilibili.com/'
             })
             params = {'dynamic_id': self.dy_id}
-            dynamic_data = await self.request_json(url=self._dynamic_detail_api_url, params=params, headers=headers)
+            dynamic_data = await self._get_json(url=self._dynamic_detail_api_url, params=params, headers=headers)
             self.dynamic_model = BilibiliDynamicModel.model_validate(dynamic_data)
 
-        assert isinstance(self.dynamic_model, BilibiliDynamicModel), 'Query dynamic model failed'
+        if not isinstance(self.dynamic_model, BilibiliDynamicModel):
+            raise TypeError('Query dynamic model failed')
         return self.dynamic_model
 
 
-class BilibiliLiveRoom(BilibiliBase):
+class BilibiliLiveRoom(BilibiliCommon):
     """Bilibili 直播间"""
     _live_root_url = 'https://live.bilibili.com/'
     _live_api_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
@@ -290,23 +295,23 @@ class BilibiliLiveRoom(BilibiliBase):
         return str(self.room_id)
 
     @classmethod
-    async def query_live_room_by_uid_list(cls, uid_list: list[int | str]) -> BilibiliUsersLiveRoomModel:
+    async def query_live_room_by_uid_list(cls, uid_list: Sequence[int | str]) -> BilibiliUsersLiveRoomModel:
         """根据用户 uid 列表获取这些用户的直播间信息(这个 api 没有认证方法，请不要在标头中添加 cookie)"""
         payload = {'uids': uid_list}
-        live_room_response = await OmegaRequests().post(url=cls._live_by_uids_api_url, json=payload)
-        if live_room_response.status_code != 200:
-            raise BilibiliNetworkError(f'{live_room_response.request}, status code {live_room_response.status_code}')
-
-        return BilibiliUsersLiveRoomModel.model_validate(OmegaRequests.parse_content_json(live_room_response))
+        live_room_data = await cls._post_json(
+            url=cls._live_by_uids_api_url, json=payload, no_headers=True, no_cookies=True  # 该接口无需鉴权
+        )
+        return BilibiliUsersLiveRoomModel.model_validate(live_room_data)
 
     async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""
         if not isinstance(self.live_room_model, BilibiliLiveRoomModel):
             params = {'id': self.rid}
-            live_room_data = await self.request_json(url=self._live_api_url, params=params)
+            live_room_data = await self._get_json(url=self._live_api_url, params=params)
             self.live_room_model = BilibiliLiveRoomModel.model_validate(live_room_data)
 
-        assert isinstance(self.live_room_model, BilibiliLiveRoomModel), 'Query live room model failed'
+        if not isinstance(self.live_room_model, BilibiliLiveRoomModel):
+            raise TypeError('Query live room model failed')
         return self.live_room_model
 
     async def query_live_room_user_data(self) -> BilibiliUserModel:
@@ -318,5 +323,5 @@ class BilibiliLiveRoom(BilibiliBase):
 __all__ = [
     'BilibiliUser',
     'BilibiliDynamic',
-    'BilibiliLiveRoom'
+    'BilibiliLiveRoom',
 ]

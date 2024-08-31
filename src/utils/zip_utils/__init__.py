@@ -10,12 +10,12 @@
 
 import pathlib
 import zipfile
-import py7zr
+from typing import Sequence
 
+import py7zr
 from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
-
 from .config import zip_utils_config, zip_utils_resource_config
 
 
@@ -31,7 +31,7 @@ class ZipUtils(object):
     @run_sync
     def _create_zip(
             self,
-            files: list[BaseResource],
+            files: Sequence[BaseResource],
             *,
             compression: int | None = None
     ) -> TemporaryResource:
@@ -56,7 +56,7 @@ class ZipUtils(object):
 
     async def create_zip(
             self,
-            files: list[BaseResource],
+            files: Sequence[BaseResource],
             *,
             compression: int | None = None
     ) -> TemporaryResource:
@@ -70,7 +70,7 @@ class ZipUtils(object):
     @run_sync
     def _create_7z(
             self,
-            files: list[BaseResource],
+            files: Sequence[BaseResource],
             *,
             password: str | None = None
     ) -> TemporaryResource:
@@ -95,7 +95,7 @@ class ZipUtils(object):
 
     async def create_7z(
             self,
-            files: list[BaseResource],
+            files: Sequence[BaseResource],
             *,
             password: str | None = None
     ) -> TemporaryResource:

@@ -9,8 +9,26 @@
 """
 
 import random
+from typing import Optional
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BasePixivModel
-from .searching import PixivSearchingData
+
+
+class ThumbnailData(BasePixivModel):
+    id: int
+    title: str
+    alt: Optional[str] = None
+    userId: int
+    userName: str
+    aiType: int
+    illustType: int
+    xRestrict: int
+    pageCount: int
+    width: int
+    height: int
+    url: AnyHttpUrl
+    tags: list[str]
 
 
 class PixivDiscoveryContent(BasePixivModel):
@@ -23,7 +41,7 @@ class PixivDiscoveryContent(BasePixivModel):
 
 class PixivThumbnails(BasePixivModel):
     """Pixiv 结果内容预览"""
-    illust: list[PixivSearchingData]
+    illust: list[ThumbnailData]
 
 
 class PixivDiscoveryBody(BasePixivModel):
@@ -45,47 +63,86 @@ class PixivDiscoveryModel(BasePixivModel):
         return [x.illustId for x in self.body.recommendedIllusts]
 
     @property
-    def recommend_data(self) -> list[PixivSearchingData]:
+    def recommend_data(self) -> list[ThumbnailData]:
         if self.error:
             raise ValueError('Discovery result status is error')
         return self.body.thumbnails.illust
 
 
-class PixivRecommendDetails(BasePixivModel):
+class PixivTopDetails(BasePixivModel):
     """Pixiv 首页推荐内容 Details"""
     methods: list[str]
     score: float
     seedIllustIds: list[int]
 
 
-class PixivRecommendContent(BasePixivModel):
+class PixivTopRecommendContent(BasePixivModel):
     """Pixiv 首页推荐内容"""
-    details: dict[int, PixivRecommendDetails]
+    details: dict[int, PixivTopDetails]
     ids: list[int]
 
 
-class PixivRecommendTagContent(BasePixivModel):
+class PixivTopTagRecommendContent(BasePixivModel):
     """Pixiv 首页推荐 tag 内容"""
     tag: str
-    details: dict[int, PixivRecommendDetails]
+    details: dict[int, PixivTopDetails]
     ids: list[int]
 
 
-class PixivRecommendPage(BasePixivModel):
+class PixivTopUserRecommendContent(BasePixivModel):
+    """Pixiv 首页推荐用户内容"""
+    id: int
+    illustIds: list[int]
+    novelIds: list[int]
+
+
+class PixivTopPixivision(BasePixivModel):
+    """Pixiv 首页推荐 Pixivision 特辑内容"""
+    id: int
+    title: str
+    url: AnyHttpUrl
+    thumbnailUrl: AnyHttpUrl
+
+
+class PixivTopTags(BasePixivModel):
+    """Pixiv 首页推送 Tag"""
+    tag: str
+    ids: list[int]
+
+
+class PixivTopPage(BasePixivModel):
     """Pixiv 首页推荐内容 Page"""
-    recommend: PixivRecommendContent
-    recommendByTag: list[PixivRecommendTagContent]
+    follow: list[int]  # 已关注用户的最新作品
+    myFavoriteTags: list[str]  # 收藏的 Tag
+    newPost: list[int]  # 全站最新作品
+    pixivision: list[PixivTopPixivision]  # 最新的 Pixivision 特辑
+    recommend: PixivTopRecommendContent  # 首页推荐作品
+    recommendByTag: list[PixivTopTagRecommendContent]  # 首页 Tag 及作品推荐
+    recommendUser: list[PixivTopUserRecommendContent]  # 首页用户推荐
+    tags: list[PixivTopTags]  # 你的 XP
 
 
-class PixivRecommendBody(BasePixivModel):
+class PixivTopUser(BasePixivModel):
+    """Pixiv 首页推荐用户"""
+    userId: int
+    name: str
+    isFollowed: bool
+    image: AnyHttpUrl
+    imageBig: AnyHttpUrl
+    premium: bool
+    comment: Optional[str] = None
+
+
+class PixivTopBody(BasePixivModel):
     """Pixiv 首页推荐内容 Body"""
-    page: PixivRecommendPage
+    page: PixivTopPage
     thumbnails: PixivThumbnails
+    users: list[PixivTopUser]
 
 
-class PixivRecommendModel(BasePixivModel):
+class PixivTopModel(BasePixivModel):
     """Pixiv 首页推荐内容 Model"""
-    body: PixivRecommendBody
+    body: PixivTopBody
     error: bool
     message: str
 
@@ -96,7 +153,7 @@ class PixivRecommendModel(BasePixivModel):
         return self.body.page.recommend.ids
 
     @property
-    def random_recommend_tag_pids(self) -> (str, list[int]):
+    def random_recommend_tag_pids(self) -> tuple[str, list[int]]:
         if self.error:
             raise ValueError('Recommend result status is error')
         random_recommend_by_tag = random.choice(self.body.page.recommendByTag)
@@ -105,5 +162,5 @@ class PixivRecommendModel(BasePixivModel):
 
 __all__ = [
     'PixivDiscoveryModel',
-    'PixivRecommendModel'
+    'PixivTopModel',
 ]

@@ -21,7 +21,7 @@ class NhentaiConfig(BaseModel):
     nhentai_csrftoken: str | None = None
     nhentai_sessionid: str | None = None
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra='ignore')
 
     @property
     def nhentai_cookies(self) -> dict[str, str] | None:
@@ -47,7 +47,7 @@ try:
     nhentai_resource_config = NhentaiResourceConfig()
     nhentai_config = get_plugin_config(NhentaiConfig)
     if not nhentai_config.nhentai_cookies:
-        logger.opt(colors=True).debug(f'<lc>Nhentai</lc> | <ly>未配置 Nhentai Cookies</ly>')
+        logger.opt(colors=True).debug('<lc>Nhentai</lc> | <ly>未配置 Nhentai Cookies</ly>')
 except ValidationError as e:
     import sys
     logger.opt(colors=True).critical(f'<r>Nhentai 配置格式验证失败</r>, 错误信息:\n{e}')

@@ -8,15 +8,15 @@
 @Software       : PyCharm 
 """
 
-from math import ceil
-from io import BytesIO
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
+from math import ceil
 
+from PIL import Image, ImageDraw, ImageFont
+from PIL import UnidentifiedImageError
 from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
-
 from .model import PreviewImageModel
 from ..config import image_utils_config
 from ..image_util import ImageUtils
@@ -49,6 +49,7 @@ async def generate_thumbs_preview_image(
     preview_name = preview.preview_name
     previews = preview.previews[:limit]
 
+    @run_sync
     def _handle_preview_image() -> bytes:
         """用于图像生成处理的内部函数"""
         _thumb_w, _thumb_h = preview_size
@@ -99,9 +100,12 @@ async def generate_thumbs_preview_image(
         # 处理拼图
         _line = 0
         for _index, _preview in enumerate(previews):
-            with BytesIO(_preview.preview_thumb) as bf:
-                _thumb_img: Image.Image = Image.open(bf)
-                _thumb_img.load()
+            try:
+                with BytesIO(_preview.preview_thumb) as bf:
+                    _thumb_img: Image.Image = Image.open(bf)
+                    _thumb_img.load()
+            except UnidentifiedImageError:
+                _thumb_img = Image.new(mode='RGB', size=preview_size, color=(127, 127, 127))
 
             # 调整图片大小
             if hold_ratio:
@@ -140,8 +144,8 @@ async def generate_thumbs_preview_image(
             _content = _bf.getvalue()
         return _content
 
-    image_content = await run_sync(_handle_preview_image)()
-    image_file_name = f"preview_{preview_name}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
+    image_content = await _handle_preview_image()
+    image_file_name = f"preview_{hash(preview_name)}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
     save_file = output_folder(image_file_name)
     async with save_file.async_open('wb') as af:
         await af.write(image_content)

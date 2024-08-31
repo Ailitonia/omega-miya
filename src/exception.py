@@ -25,10 +25,6 @@ class WebSourceException(OmegaException):
     """网络资源异常"""
 
 
-class OneBotApiException(OmegaException):
-    """[Deactivated]OneBot API 异常"""
-
-
 class PlatformException(OmegaException):
     """平台中间件异常"""
 
@@ -42,7 +38,6 @@ __all__ = [
     'DatabaseException',
     'LocalSourceException',
     'WebSourceException',
-    'OneBotApiException',
     'PlatformException',
-    'PluginException'
+    'PluginException',
 ]

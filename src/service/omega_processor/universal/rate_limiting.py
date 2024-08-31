@@ -11,10 +11,10 @@
 import time
 from datetime import datetime, timedelta
 from typing import Union, Dict
-from nonebot import get_driver, logger
-from nonebot.exception import IgnoredException
-from nonebot.adapters import Bot, Event
 
+from nonebot import get_driver, logger
+from nonebot.adapters import Bot, Event
+from nonebot.exception import IgnoredException
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Rate Limiting</lc> | '
@@ -55,10 +55,6 @@ async def preprocessor_rate_limiting(bot: Bot, event: Event):
     if user_id in SUPERUSERS:
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
-
-    global USER_LAST_MSG_TIME
-    global RATE_LIMITING_COUNT
-    global RATE_LIMITING_USER_TEMP
 
     # 用户标识符根据 bot 生成
     user_flag = f'{bot.type}_{bot.self_id}_{user_id}'
@@ -113,5 +109,5 @@ async def preprocessor_rate_limiting(bot: Bot, event: Event):
 
 
 __all__ = [
-    'preprocessor_rate_limiting'
+    'preprocessor_rate_limiting',
 ]

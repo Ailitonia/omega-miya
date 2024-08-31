@@ -8,13 +8,11 @@
 @Software       : PyCharm 
 """
 
-from .plugin_utils import enable_processor_state
-
 from . import onebot as onebot
 from . import telegram as telegram
 from . import universal as universal
-
+from .plugin_utils import enable_processor_state
 
 __all__ = [
-    'enable_processor_state'
+    'enable_processor_state',
 ]

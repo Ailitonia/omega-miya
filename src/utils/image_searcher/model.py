@@ -9,10 +9,15 @@
 """
 
 import abc
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
 from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyUrlStr as AnyUrl
+from src.utils.common_api import BaseCommonAPI
+
+if TYPE_CHECKING:
+    from nonebot.internal.driver import QueryTypes
 
 
 class ImageSearchingResult(BaseModel):
@@ -25,9 +30,8 @@ class ImageSearchingResult(BaseModel):
     model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
-class ImageSearcher(abc.ABC):
+class BaseImageSearcher(abc.ABC):
     """识图引擎基类"""
-    _searcher_name: str = 'abc_searcher'
 
     def __init__(self, image_url: str):
         """仅支持传入图片 url
@@ -37,7 +41,7 @@ class ImageSearcher(abc.ABC):
         self.image_url = image_url
 
     def __repr__(self) -> str:
-        return f'ImageSearcher(name={self._searcher_name.upper()}, image_url={self.image_url})'
+        return f'{self.__class__.__name__}(image_url={self.image_url})'
 
     @abc.abstractmethod
     async def search(self) -> list[ImageSearchingResult]:
@@ -45,7 +49,26 @@ class ImageSearcher(abc.ABC):
         raise NotImplementedError
 
 
+class BaseImageSearcherAPI(BaseImageSearcher, BaseCommonAPI, abc.ABC):
+    """识图引擎 API 基类"""
+
+    @classmethod
+    def _load_cloudflare_clearance(cls) -> bool:
+        return False
+
+    @classmethod
+    async def get_resource_as_bytes(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 30) -> bytes:
+        """请求原始资源内容"""
+        return await cls._get_resource_as_bytes(url, params, timeout=timeout)
+
+    @classmethod
+    async def get_resource_as_text(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 10) -> str:
+        """请求原始资源内容"""
+        return await cls._get_resource_as_text(url, params, timeout=timeout)
+
+
 __all__ = [
+    'BaseImageSearcher',
+    'BaseImageSearcherAPI',
     'ImageSearchingResult',
-    'ImageSearcher'
 ]
