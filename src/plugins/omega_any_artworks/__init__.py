@@ -16,7 +16,8 @@ __plugin_meta__ = PluginMetadata(
                 '浏览各个图站作品',
     usage='/<图站名称> [作品ID]\n'
           '/<图站名称> --random\n'
-          '/<图站名称> --search [关键词]',
+          '/<图站名称> --search [关键词]\n\n'
+          '目前支持的图站: Danbooru, Gelbooru, Konachan, Yandere, Pixiv',
     extra={'author': 'Ailitonia'},
 )
 

@@ -166,7 +166,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             cls._get_any_image_preview_thumb_data(url=url, desc_text=desc_text)
             for url, desc_text in image_data[:limit]
         ]
-        requests_data = await semaphore_gather(tasks=tasks, semaphore_num=16, filter_exception=True)
+        requests_data = await semaphore_gather(tasks=tasks, semaphore_num=8, filter_exception=True)
         previews = list(requests_data)
         count = len(previews)
         return PreviewImageModel(preview_name=preview_name, count=count, previews=previews)
@@ -186,7 +186,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             artwork._get_preview_thumb_data(page_type=page_type, no_blur_rating=no_blur_rating)
             for artwork in artworks[:limit]
         ]
-        requests_data = await semaphore_gather(tasks=tasks, semaphore_num=16, filter_exception=True)
+        requests_data = await semaphore_gather(tasks=tasks, semaphore_num=8, filter_exception=True)
         previews = list(requests_data)
         count = len(previews)
         return PreviewImageModel(preview_name=preview_name, count=count, previews=previews)

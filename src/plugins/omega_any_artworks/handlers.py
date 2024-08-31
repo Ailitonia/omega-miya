@@ -99,6 +99,9 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
 
         # 处理作品预览
         show_page_num = min(len(artwork_data.pages), show_page_limiting)
+        if len(artwork_data.pages) > show_page_num:
+            artwork_desc = f'({show_page_limiting} of {len(artwork_data.pages)} pages)\n{"-" * 16}\n{artwork_desc}'
+
         tasks = [
             artwork_ap.get_proceed_page_file(page_index=page_index, no_blur_rating=no_blur_rating)
             for page_index in range(show_page_num)
@@ -148,9 +151,6 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
         ) -> None:
             try:
                 parsed_args = self._parse_from_query_parser(args=args)
-                is_random = parsed_args.random
-                is_search = parsed_args.search
-                search_page = parsed_args.page
                 keyword = ' '.join(parsed_args.keywords)
             except Exception as e:
                 logger.warning(f'OmegaAnyArtwork | 命令参数解析错误, {e}')
@@ -163,7 +163,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
             await interface.send_reply_auto_revoke('稍等, 正在获取作品信息~', 30)
 
             try:
-                if is_random:
+                if parsed_args.random:
                     artworks = await self._artwork_class.random()
                     await self._send_artworks_preview_message(
                         interface=interface,
@@ -171,8 +171,8 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
                         artworks=artworks,
                         no_blur_rating=no_blur_rating,
                     )
-                elif is_search:
-                    artworks = await self._artwork_class.search(keyword=keyword, page=search_page)
+                elif parsed_args.search:
+                    artworks = await self._artwork_class.search(keyword=keyword, page=parsed_args.page)
                     await self._send_artworks_preview_message(
                         interface=interface,
                         title=f'{self._command_name.title()} Search: {keyword}',
