@@ -302,6 +302,8 @@ async def __obv11_bot_connect(
         logger.warning(
             f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, guild api not supported, {e}'
         )
+    except Exception as e:
+        logger.error(f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, {e}')
 
     logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, All entity data upgraded Success')
 
