@@ -218,9 +218,9 @@ class BilibiliUser(Bilibili):
             'referer': 'https://t.bilibili.com/'
         })
         params = {'host_uid': self.uid, 'offset_dynamic_id': offset_dynamic_id, 'need_top': need_top, 'platform': 'web'}
-        # if bilibili_config.bili_cookies:
-        #     params.update({'csrf': bilibili_config.bili_jct, 'visitor_uid': bilibili_config.bili_dedeuserid})
-        # params = await self.update_wbi_params(params)
+
+        # 这里是风控玄学, 虽然加不加这个好像也没啥影响, 但请求数量多了好像是有点用, 就是不知道有多大用
+        params = await self.update_wbi_params(params)
         cookies = await self.update_buvid_params()
 
         data = await self._get_json(url=self._dynamic_api_url, params=params, headers=headers, cookies=cookies)

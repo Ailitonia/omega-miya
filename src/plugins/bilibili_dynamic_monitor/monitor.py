@@ -15,6 +15,7 @@ from nonebot.log import logger
 from src.exception import WebSourceException
 from src.service import scheduler, reschedule_job
 from src.utils.process_utils import semaphore_gather
+from .consts import MONITOR_USER_CHECK_DELAY
 from .helpers import query_all_subscribed_dynamic_sub_source, bili_dynamic_monitor_main
 
 _MONITOR_JOB_ID: Literal['bili_dynamic_update_monitor'] = 'bili_dynamic_update_monitor'
@@ -36,15 +37,20 @@ async def bili_dynamic_update_monitor() -> None:
         return
 
     # 避免风控, 根据订阅的用户数动态调整检查时间间隔
+    tasks_semaphore_num = 5
     monitor_job = scheduler.get_job(job_id=_MONITOR_JOB_ID)
     if monitor_job is not None:
         interval_min = int(len(subscribed_uid) // _AVERAGE_CHECKING_PER_MINUTE)
         interval_min = interval_min if interval_min > 2 else 2
         reschedule_job(job=monitor_job, trigger_mode='interval', minutes=interval_min)
 
+        # 要让检查完所有用户动态的时间为检查间隔时间的一半, 有下面的等式, 然后调整一下就可得到期望的并发数
+        # (user_num / tasks_semaphore_num) * (MONITOR_USER_CHECK_DELAY / 60) == (interval_min / 2)
+        tasks_semaphore_num = round(len(subscribed_uid) / (interval_min / 2) * (MONITOR_USER_CHECK_DELAY / 60))
+
     # 检查新作品并发送消息
     tasks = [bili_dynamic_monitor_main(uid=uid) for uid in subscribed_uid]
-    sent_result = await semaphore_gather(tasks=tasks, semaphore_num=5, return_exceptions=True, filter_exception=False)
+    sent_result = await semaphore_gather(tasks=tasks, semaphore_num=tasks_semaphore_num, filter_exception=False)
     if any(isinstance(e, WebSourceException) for e in sent_result):
         # 如果 API 异常则大概率被风控, 推迟下一次检查
         if monitor_job is not None:

@@ -26,7 +26,13 @@ from src.service import (
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from src.utils.process_utils import run_async_delay, semaphore_gather
-from .consts import BILI_DYNAMIC_SUB_TYPE, NOTICE_AT_ALL, MODULE_NAME, PLUGIN_NAME
+from .consts import (
+    BILI_DYNAMIC_SUB_TYPE,
+    NOTICE_AT_ALL,
+    MONITOR_USER_CHECK_DELAY,
+    MODULE_NAME,
+    PLUGIN_NAME,
+)
 
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
@@ -166,7 +172,7 @@ async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
         logger.error(f'BilibiliDynamicMonitor | Sending message to {entity} failed, {e!r}')
 
 
-@run_async_delay(delay_time=5)
+@run_async_delay(delay_time=MONITOR_USER_CHECK_DELAY)
 async def bili_dynamic_monitor_main(uid: int) -> None:
     """向已订阅的用户或群发送 Bilibili 用户动态更新"""
     bili_user = BilibiliUser(uid=uid)
@@ -175,8 +181,10 @@ async def bili_dynamic_monitor_main(uid: int) -> None:
 
     new_dynamic_card = await _check_new_dynamic(cards=dynamic_data.all_cards)
     if new_dynamic_card:
-        logger.info(f'BilibiliDynamicMonitor | Confirmed {bili_user} '
-                    f'new dynamic: {", ".join(str(x.desc.dynamic_id) for x in new_dynamic_card)}')
+        logger.info(
+            f'BilibiliDynamicMonitor | Confirmed {bili_user} '
+            f'new dynamic: {", ".join(str(x.desc.dynamic_id) for x in new_dynamic_card)}'
+        )
     else:
         logger.debug(f'BilibiliDynamicMonitor | {bili_user} has not new dynamics')
         return
