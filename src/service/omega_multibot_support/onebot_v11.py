@@ -16,7 +16,7 @@ from nonebot.exception import AdapterException, IgnoredException
 from nonebot.log import logger
 from nonebot.message import event_preprocessor, run_preprocessor
 from nonebot.params import Depends
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,7 +73,7 @@ class GroupInfo(BaseOneBotModel):
 
 
 class GuildServiceProfile(BaseOneBotModel):
-    """Api /get_guild_service_profile 频道系统内BOT的资料 返回值
+    """API /get_guild_service_profile 频道系统内BOT的资料 返回值
 
     - nickname: 昵称
     - tiny_id: 自身的ID
@@ -85,7 +85,7 @@ class GuildServiceProfile(BaseOneBotModel):
 
 
 class GuildInfo(BaseOneBotModel):
-    """Api /get_guild_list 频道列表
+    """API /get_guild_list 频道列表
     正常情况下响应 GuildInfo 数组, 未加入任何频道响应 null
 
     - guild_id, 频道ID
@@ -98,7 +98,7 @@ class GuildInfo(BaseOneBotModel):
 
 
 class ChannelInfo(BaseOneBotModel):
-    """Api /get_guild_channel_list 子频道信息
+    """API /get_guild_channel_list 子频道信息
 
     - owner_guild_id: 所属频道ID
     - channel_id: 子频道ID
@@ -300,7 +300,13 @@ async def __obv11_bot_connect(
 
     except AdapterException as e:
         logger.warning(
-            f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, guild api not supported, {e}'
+            f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, '
+            f'the OneBot V11 client does not support the guild API, {e}'
+        )
+    except ValidationError as e:
+        logger.warning(
+            f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, '
+            f'the OneBot V11 client guild API returns data out of expected, {e}'
         )
     except Exception as e:
         logger.error(f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, {e}')

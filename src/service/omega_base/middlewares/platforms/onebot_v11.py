@@ -21,6 +21,7 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent as OneBotV11GroupMessageEvent,
     PrivateMessageEvent as OneBotV11PrivateMessageEvent,
     NotifyEvent as OneBotV11NotifyEvent,
+    PokeNotifyEvent as OneBotV11PokeNotifyEvent,
 )
 
 from src.service.gocqhttp_guild_patch import (
@@ -307,6 +308,20 @@ class OneBotV11NotifyEventDepend[Event_T: OneBotV11NotifyEvent](OneBotV11EventDe
             entity_type='onebot_v11_user',
             entity_id=str(self.event.user_id),
             parent_id=self.bot.self_id,
+        )
+
+
+@event_depend_register.register_depend(OneBotV11PokeNotifyEvent)
+class OneBotV11PokeNotifyEventDepend(OneBotV11NotifyEventDepend[OneBotV11PokeNotifyEvent]):
+    def _extract_event_entity_params(self) -> "EntityInitParams":
+        if self.event.group_id is None:
+            return self._extract_user_entity_params()
+
+        return EntityInitParams(
+            bot_id=self.bot.self_id,
+            entity_type='onebot_v11_group',
+            entity_id=str(self.event.group_id),
+            parent_id=self.bot.self_id
         )
 
 
