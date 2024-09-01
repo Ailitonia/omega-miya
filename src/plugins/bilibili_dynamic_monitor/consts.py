@@ -16,7 +16,7 @@ BILI_DYNAMIC_SUB_TYPE: str = SubscriptionSourceType.bili_dynamic.value
 """b站动态订阅类型"""
 NOTICE_AT_ALL: Literal['notice_at_all'] = 'notice_at_all'
 """允许通知时@所有人的权限节点"""
-MONITOR_USER_CHECK_DELAY: int = 15
+MONITOR_USER_CHECK_DELAY: int = 30
 """检查用户动态时的延迟, 用于规避流控和风控"""
 
 MODULE_NAME = str(__name__).rsplit('.', maxsplit=1)[0]

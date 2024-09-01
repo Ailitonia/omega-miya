@@ -20,7 +20,7 @@ from .helpers import query_all_subscribed_dynamic_sub_source, bili_dynamic_monit
 
 _MONITOR_JOB_ID: Literal['bili_dynamic_update_monitor'] = 'bili_dynamic_update_monitor'
 """动态检查的定时任务 ID"""
-_AVERAGE_CHECKING_PER_MINUTE: float = 7.5
+_AVERAGE_CHECKING_PER_MINUTE: float = 5
 """期望平均每分钟检查动态的用户数(数值大小影响风控概率, 请谨慎调整)"""
 _CHECKING_DELAY_UNDER_RATE_LIMITING: int = 20
 """被风控时的延迟间隔"""
