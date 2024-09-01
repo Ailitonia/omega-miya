@@ -71,10 +71,8 @@ async def handle_poke_sign_in(bot: OneBotV11Bot, event: OneBotV11PokeNotifyEvent
         'user_id': event.user_id,
         'nickname': sender_data.get('nickname'),
         'sex': sender_data.get('sex'),
-        'age': sender_data.get('age'),
         'card': sender_data.get('card'),
         'area': sender_data.get('area'),
-        'level': sender_data.get('level'),
         'role': sender_data.get('role'),
         'title': sender_data.get('title')
     }
