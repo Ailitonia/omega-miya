@@ -21,35 +21,51 @@ def query_divination(divination_text: str, user_id: str | int) -> str:
     md5.update(random_seed_str.encode('utf-8'))
     random_seed = md5.hexdigest()
     random.seed(random_seed)
-    # 生成求签随机数, 9分一级
-    divination_result = random.randint(1, 109)
+    # 生成求签随机数
+    divination_result = random.randint(1, 108)
     # 大吉・中吉・小吉・吉・半吉・末吉・末小吉・凶・小凶・半凶・末凶・大凶
-    if divination_result < 9:
-        result_text = '大凶'
-    elif divination_result < 18:
-        result_text = '末凶'
-    elif divination_result < 27:
-        result_text = '半凶'
+    if divination_result < 4:
+        divination_star = 0
+        divination_text = '大凶'
+    elif divination_result < 9:
+        divination_star = 1
+        divination_text = '末凶'
+    elif divination_result < 16:
+        divination_star = 2
+        divination_text = '半凶'
+    elif divination_result < 25:
+        divination_star = 3
+        divination_text = '小凶'
     elif divination_result < 36:
-        result_text = '小凶'
-    elif divination_result < 45:
-        result_text = '凶'
-    elif divination_result < 54:
-        result_text = '末小吉'
-    elif divination_result < 63:
-        result_text = '末吉'
+        divination_star = 4
+        divination_text = '凶'
+    elif divination_result < 48:
+        divination_star = 5
+        divination_text = '末小吉'
+    elif divination_result < 60:
+        divination_star = 6
+        divination_text = '末吉'
     elif divination_result < 72:
-        result_text = '半吉'
-    elif divination_result < 81:
-        result_text = '吉'
-    elif divination_result < 90:
-        result_text = '小吉'
-    elif divination_result < 99:
-        result_text = '中吉'
+        divination_star = 7
+        divination_text = '半吉'
+    elif divination_result < 84:
+        divination_star = 8
+        divination_text = '吉'
+    elif divination_result < 96:
+        divination_star = 9
+        divination_text = '小吉'
+    elif divination_result < 102:
+        divination_star = 10
+        divination_text = '中吉'
     else:
-        result_text = '大吉'
+        divination_star = 11
+        divination_text = '大吉'
 
-    msg = f'所求之事: “{divination_text}”\n\n结果: 【{result_text}】'
+    msg = (
+        f'所求之事: “{divination_text}”\n\n'
+        f'结果: 【{divination_text}】\n'
+        f'{"★" * divination_star}{"☆" * (11 - divination_star)}'
+    )
 
     # 重置随机种子
     random.seed()
