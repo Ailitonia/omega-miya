@@ -46,20 +46,30 @@ async def _get_custom_import_artworks_data_from_file() -> list[CustomImportArtwo
     return parse_json_as(list[CustomImportArtwork], data)
 
 
-async def _import_artwork_into_database(artwork_data: CustomImportArtwork, log_index: int = -1) -> None:
-    collected_artwork = get_artwork_collection_type(origin=artwork_data.origin)(artwork_id=artwork_data.aid)
+async def _import_artwork_into_database(import_data: CustomImportArtwork, log_index: int = -1) -> None:
+    collected_artwork = get_artwork_collection_type(origin=import_data.origin)(artwork_id=import_data.aid)
 
     try:
+        artwork_data = await collected_artwork.artwork_proxy.query()
+        classification = 1 if artwork_data.classification.value == 1 else import_data.classification
+        rating = 3 if artwork_data.rating.value == 3 else import_data.rating
+
         await collected_artwork.add_and_upgrade_artwork_into_database(
-            classification=artwork_data.classification, rating=artwork_data.rating, force_update_mark=True
+            classification=classification, rating=rating, force_update_mark=True
         )
     except WebSourceException as e:
         # 网络问题有可能是风控/限流, 小概率是作品已经被删除, 反正这里 sleep 一下后再试试
         logger.warning(
-            f'ImportCustomCollectedArtworks | 获取作品 {collected_artwork} 信息时发生异常, {e!r}, 60秒后重试')
+            f'ImportCustomCollectedArtworks | 获取作品 {collected_artwork} 信息时发生异常, {e!r}, 60秒后重试'
+        )
         await async_sleep(60)
+
+        artwork_data = await collected_artwork.artwork_proxy.query()
+        classification = 1 if artwork_data.classification.value == 1 else import_data.classification
+        rating = 3 if artwork_data.rating.value == 3 else import_data.rating
+
         await collected_artwork.add_and_upgrade_artwork_into_database(
-            classification=artwork_data.classification, rating=artwork_data.rating, force_update_mark=True
+            classification=classification, rating=rating, force_update_mark=True
         )
 
     if log_index % 10 == 0:
@@ -87,7 +97,7 @@ async def handle_import_collected_artworks(matcher: Matcher) -> None:
         await matcher.finish('解析导入数据失败, 或导入文件不存在, 已取消操作, 详情请查看日志')
 
     import_tasks = [
-        _import_artwork_into_database(artwork_data=x, log_index=index)
+        _import_artwork_into_database(import_data=x, log_index=index)
         for index, x in enumerate(artworks_data)
     ]
     await semaphore_gather(tasks=import_tasks, semaphore_num=8, return_exceptions=True)
