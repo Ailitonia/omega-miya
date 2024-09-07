@@ -14,7 +14,7 @@ from nonebot.log import logger
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.utils.encrypt import AESEncrypter
+from src.utils.encrypt import AESEncryptor
 from src.utils.image_utils import ImageUtils
 from .imap import Email, ImapMailbox
 
@@ -42,12 +42,12 @@ def get_unseen_mail_data(address: str, server_host: str, password: str) -> list[
 
 @run_sync
 def encrypt_password(plaintext: str) -> str:
-    return AESEncrypter().ecb_encrypt(plaintext)
+    return AESEncryptor().ecb_encrypt(plaintext)
 
 
 @run_sync
 def decrypt_password(ciphertext: str) -> str:
-    return AESEncrypter().ecb_decrypt(ciphertext)
+    return AESEncryptor().ecb_decrypt(ciphertext)
 
 
 @run_sync

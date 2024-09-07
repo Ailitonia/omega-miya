@@ -8,9 +8,10 @@
 @Software       : PyCharm
 """
 
-from .encrypter import AESEncrypter
+from .encrypter import AESEncryptor, ChaCha20Encryptor
 
 
 __all__ = [
-    'AESEncrypter',
+    'AESEncryptor',
+    'ChaCha20Encryptor',
 ]

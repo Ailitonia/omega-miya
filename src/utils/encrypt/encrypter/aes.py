@@ -19,7 +19,9 @@ from Crypto.Util.Padding import pad, unpad
 from ..config import encrypt_config
 
 
-class AESEncrypter(object):
+class AESEncryptor(object):
+    """AES 加解密工具集"""
+
     def __init__(
             self,
             key: Optional[str] = None,
@@ -194,5 +196,5 @@ class AESEncrypter(object):
 
 
 __all__ = [
-    'AESEncrypter',
+    'AESEncryptor',
 ]
