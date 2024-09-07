@@ -33,7 +33,7 @@ class BooruArtworksUpdater(object):
 
     Tips:
         danbooru 图比较杂, 使用 score:>600 筛选还算可以的作品
-        gelbooru 平均水平惨不忍睹, 且限制搜索条件, 略
+        gelbooru 平均水平惨不忍睹, 没有通用的搜索条件, 略
         konachan 和 yandere 的图整体较好, 但请求限制相对较严
     """
 
@@ -48,7 +48,7 @@ class BooruArtworksUpdater(object):
 
     @classmethod
     async def update_danbooru_high_score_sfw_artworks(cls) -> None:
-        random_result = await DanbooruArtworkProxy.search('status:active is:sfw score:>600 random:30 limit:20')
+        random_result = await DanbooruArtworkProxy.search('status:active is:sfw score:>600 order:random limit:20')
         top_result = await DanbooruArtworkProxy.search('status:active is:sfw score:>500 limit:20',
                                                        page=random.randint(1, 10))
         await cls._add_artwork_into_database(DanbooruArtworkCollection, random_result + top_result)
