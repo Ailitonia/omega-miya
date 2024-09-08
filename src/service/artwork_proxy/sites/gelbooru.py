@@ -102,6 +102,7 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'height': artwork_data.height,
             'tags': tags,
             'description': None,
+            'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
                 'preview_file': {

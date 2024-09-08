@@ -70,6 +70,10 @@ class ArtworkData(BaseArtworkProxyModel):
     height: int
     tags: list[str]
     description: Optional[str] = None
+    like_count: Optional[int] = None  # 喜欢/点赞数量
+    bookmark_count: Optional[int] = None  # 收藏数量
+    view_count: Optional[int] = None  # 浏览次数
+    comment_count: Optional[int] = None  # 评论量
     source: str  # 原始出处地址(指能直接获得该作品的来源), 一般来说为 url
     pages: list[ArtworkPage]
 

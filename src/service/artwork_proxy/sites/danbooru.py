@@ -161,6 +161,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'height': artwork_data.image_height,
             'tags': tags_general,
             'description': description,
+            'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
                 'preview_file': self._get_preview_file(media_asset=artwork_data.media_asset),

@@ -69,6 +69,10 @@ class _PixivArtworkProxy(BaseArtworkProxy):
             'height': artwork_data.height,
             'tags': artwork_data.tags,
             'description': artwork_data.description,
+            'like_count': artwork_data.like_count,
+            'bookmark_count': artwork_data.bookmark_count,
+            'view_count': artwork_data.view_count,
+            'comment_count': artwork_data.comment_count,
             'source': artwork_data.url,
             'pages': [
                 {
