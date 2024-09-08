@@ -196,6 +196,16 @@ class BaseResource(abc.ABC):
                     file_list.append(self.__class__(dir_path, file_name))
         return file_list
 
+    @check_directory
+    def list_current_files(self) -> list[Self]:
+        """遍历文件夹内所有文件并返回文件列表(不包含子目录)"""
+        file_list = []
+        for file_name in os.listdir(self.path):
+            file = self.__class__(self.path, file_name)
+            if file.is_file:
+                file_list.append(file)
+        return file_list
+
 
 class StaticResource(BaseResource):
     """静态资源文件"""
