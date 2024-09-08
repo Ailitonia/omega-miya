@@ -96,7 +96,8 @@ class _PixivArtworkProxy(BaseArtworkProxy):
                     }
                 }
                 for _, page in artwork_data.all_page.items()
-            ]
+            ],
+            'extra_resource': [artwork_data.ugoira_meta.originalSrc] if artwork_data.ugoira_meta is not None else []
         })
 
     async def get_std_desc(self, *, desc_len_limit: int = 128) -> str:

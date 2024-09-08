@@ -11,7 +11,7 @@
 from enum import IntEnum, unique
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
@@ -76,6 +76,7 @@ class ArtworkData(BaseArtworkProxyModel):
     comment_count: Optional[int] = None  # 评论量
     source: str  # 原始出处地址(指能直接获得该作品的来源), 一般来说为 url
     pages: list[ArtworkPage]
+    extra_resource: list[AnyHttpUrl] = Field(default_factory=list)  # 其他额外资源链接
 
     @property
     def cover_page_url(self) -> AnyHttpUrl:
