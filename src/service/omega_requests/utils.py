@@ -8,19 +8,37 @@
 @Software       : PyCharm 
 """
 
+from typing import Any, Optional
+
 from nonebot import get_plugin_config, logger
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, TypeAdapter, ValidationError
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 
 class CloudflareClearanceModel(BaseModel):
     model_config = ConfigDict(extra='ignore')
 
 
+class DomainCloudflareClearanceCookies(CloudflareClearanceModel):
+    cf_clearance: str
+    cf_bm: Optional[str] = Field(None, alias='__cf_bm')
+    cflb: Optional[str] = Field(None, alias='__cflb')
+
+
+class DomainCloudflareClearanceHeaders(CloudflareClearanceModel):
+    user_agent: Optional[str] = Field(None, alias='User-Agent')
+
+
 class DomainCloudflareClearance(CloudflareClearanceModel):
     """网站的 Cloudflare Clearance cookie 内容"""
     domain: str
-    cookies: dict[str, str]
-    headers: dict[str, str]
+    cookies: DomainCloudflareClearanceCookies
+    headers: DomainCloudflareClearanceHeaders
+
+    def get_cookies(self) -> dict[str, Any]:
+        return {k: v for k, v in self.cookies.model_dump(by_alias=True).items() if v is not None}
+
+    def get_headers(self) -> dict[str, Any]:
+        return {k: v for k, v in self.headers.model_dump(by_alias=True).items() if v is not None}
 
 
 class CloudflareClearanceConfig(CloudflareClearanceModel):
@@ -52,5 +70,5 @@ except ValidationError as e:
 
 
 __all__ = [
-    'cloudflare_clearance_config'
+    'cloudflare_clearance_config',
 ]

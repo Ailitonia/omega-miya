@@ -163,8 +163,8 @@ class OmegaRequests(object):
         if self.load_cloudflare_clearance:
             domain_cloudflare_clearance = cloudflare_clearance_config.get_url_config(url=str(setup.url))
             if domain_cloudflare_clearance is not None:
-                setup.headers.update(domain_cloudflare_clearance.headers)
-                setup.cookies.update(domain_cloudflare_clearance.cookies)
+                setup.headers.update(domain_cloudflare_clearance.get_headers())
+                setup.cookies.update(domain_cloudflare_clearance.get_cookies())
 
         # 处理自动重试
         attempts_num = 0
