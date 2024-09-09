@@ -11,14 +11,14 @@
 from typing import Literal
 
 from nonebot import get_plugin_config, logger
-from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress, ValidationError
 
 
 class HttpProxyConfig(BaseModel):
     """Http 代理配置"""
     enable_proxy: bool = False
     proxy_type: Literal['http'] = 'http'  # 仅支持 http 代理
-    proxy_address: IPvAnyAddress = '127.0.0.1'
+    proxy_address: IPvAnyAddress = Field('127.0.0.1')
     proxy_port: int = 1081
 
     model_config = ConfigDict(extra='ignore')
