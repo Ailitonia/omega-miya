@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2024/8/31 下午2:31
-@FileName       : encrypter
+@FileName       : encryptor
 @Project        : omega-miya
 @Description    : 加密套件
 @GitHub         : https://github.com/Ailitonia

@@ -14,7 +14,7 @@ from nonebot.log import logger
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.utils.encrypt import AESEncryptor
+from src.utils.crypto import AESEncryptor
 from src.utils.image_utils import ImageUtils
 from .imap import Email, ImapMailbox
 
