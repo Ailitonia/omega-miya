@@ -137,7 +137,7 @@ async def handle_roll_attr(
         result_msg = '大成功！！'
 
     await interface.finish_reply(
-        f'你进行了【{attr}({attr_value})】\n检定, 1D100=>{roll_result.result_int}\n{result_msg}'
+        f'你进行了【{attr}({attr_value})】检定,\n1D100=>{roll_result.result_int}\n{result_msg}'
     )
 
 
