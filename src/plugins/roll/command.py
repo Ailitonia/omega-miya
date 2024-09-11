@@ -77,6 +77,7 @@ async def handle_roll(
 
 @roll.command(
     'rd',
+    aliases={'rrd', '掷骰'},
     handlers=[get_command_str_single_arg_parser_handler('expression')],
 ).got('expression', prompt='请掷骰子: AdB(kq)C(pb)DaE')
 async def handle_roll_dice(
@@ -99,6 +100,7 @@ async def handle_roll_dice(
 
 @roll.command(
     'ra',
+    aliases={'rra', '检定'},
     handlers=[get_command_str_single_arg_parser_handler('attr')],
 ).got('attr', prompt='请输入需要鉴定的属性/技能名')
 async def handle_roll_attr(
@@ -115,7 +117,7 @@ async def handle_roll_attr(
         attr_value = int(user_attr.value)
     except Exception as e:
         logger.warning(f'Roll | 查询 {interface.entity} 属性 {attr!r} 失败, {e}')
-        await interface.finish_reply(f'你还没有配置{attr!r}属性/技能, 或属性值异常, 请使用"/roll.rs {attr}"配置后再试')
+        await interface.finish_reply(f'你还没有{attr!r}属性/技能, 或属性值异常, 请使用"/rrs {attr}"获取属性/技能后再试')
 
     roll_result = await RandomDice.simple_roll(1, 100)
     if roll_result.result_int is None or roll_result.error_message is not None:
@@ -135,11 +137,13 @@ async def handle_roll_attr(
         result_msg = '大成功！！'
 
     await interface.finish_reply(
-        f'你对【{attr}({attr_value})】\n进行了检定, 1D100=>{roll_result.result_int}\n{result_msg}')
+        f'你进行了【{attr}({attr_value})】\n检定, 1D100=>{roll_result.result_int}\n{result_msg}'
+    )
 
 
 @roll.command(
     'rs',
+    aliases={'rrs'},
     handlers=[get_command_str_single_arg_parser_handler('attr')],
 ).got('attr', prompt='请输入需要随机的属性/技能名')
 async def handle_roll_set_attr(
@@ -174,6 +178,7 @@ async def handle_roll_set_attr(
 
 @roll.command(
     'rc',
+    aliases={'rrc'},
     handlers=[get_command_str_single_arg_parser_handler('attr')],
 ).got('attr', prompt='请输入需要移除的属性/技能名')
 async def handle_roll_clear_attr(
@@ -197,6 +202,7 @@ async def handle_roll_clear_attr(
 
 @roll.command(
     'rca',
+    aliases={'rrca'},
     handlers=[get_set_default_state_handler('ensure', value=None)],
 ).got('ensure')
 async def handle_roll_clear_all_attr(
@@ -220,7 +226,7 @@ async def handle_roll_clear_all_attr(
         await interface.finish_reply('已取消操作')
 
 
-@roll.command('show').handle()
+@roll.command('show', aliases={'rlsa'}).handle()
 async def handle_show_attr(interface: Annotated[OmMI, Depends(OmMI.depend('user'))]) -> None:
     try:
         attrs = await interface.entity.query_plugin_all_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME)
