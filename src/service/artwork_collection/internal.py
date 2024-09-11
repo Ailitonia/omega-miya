@@ -190,20 +190,44 @@ class BaseArtworkCollection(abc.ABC):
         return result
 
     @classmethod
-    async def query_exists_aids(cls, aids: Sequence[str]) -> list[str]:
-        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid"""
+    async def query_exists_aids(
+            cls,
+            aids: Sequence[str],
+            *,
+            filter_classification: Optional[int] = None,
+            filter_rating: Optional[int] = None,
+    ) -> list[str]:
+        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid
+
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param filter_classification: 筛选指定的作品分类, 只有该分类的作品都会被视为存在
+        :param filter_rating: 筛选指定的作品分级, 只有该分级的作品都会被视为存在
+        """
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_exists_aids(
-                origin=cls._get_origin_name(), aids=aids
+                origin=cls._get_origin_name(), aids=aids,
+                filter_classification=filter_classification, filter_rating=filter_rating
             )
         return result
 
     @classmethod
-    async def query_not_exists_aids(cls, aids: Sequence[str]) -> list[str]:
-        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid"""
+    async def query_not_exists_aids(
+            cls,
+            aids: Sequence[str],
+            *,
+            exclude_classification: Optional[int] = None,
+            exclude_rating: Optional[int] = None,
+    ) -> list[str]:
+        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid
+
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param exclude_classification: 排除指定的作品分类, 所有非该分类的作品都会被视为不存在
+        :param exclude_rating: 排除指定的作品分级, 所有非该分级的作品都会被视为不存在
+        """
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_not_exists_aids(
-                origin=cls._get_origin_name(), aids=aids
+                origin=cls._get_origin_name(), aids=aids,
+                exclude_classification=exclude_classification, exclude_rating=exclude_rating
             )
         return result
 

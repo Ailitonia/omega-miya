@@ -308,19 +308,53 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[str], session_result.scalars().all())
 
-    async def query_exists_aids(self, origin: Optional[str], aids: Sequence[str]) -> list[str]:
-        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid"""
+    async def query_exists_aids(
+            self,
+            origin: Optional[str],
+            aids: Sequence[str],
+            *,
+            filter_classification: Optional[int] = None,
+            filter_rating: Optional[int] = None,
+    ) -> list[str]:
+        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid
+
+        :param origin: 指定作品源
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param filter_classification: 筛选指定的作品分类, 只有该分类的作品都会被视为存在
+        :param filter_rating: 筛选指定的作品分级, 只有该分级的作品都会被视为存在
+        :return: 数据库中已存在的, 匹配提供的作品清单的 artwork_id 列表
+        """
         stmt = select(ArtworkCollectionOrm.aid)
         if origin is not None:
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        if filter_classification is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.classification == filter_classification)
+        if filter_rating is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.rating == filter_rating)
         stmt = stmt.where(ArtworkCollectionOrm.aid.in_(aids)).order_by(desc(ArtworkCollectionOrm.aid))
 
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[str], session_result.scalars().all())
 
-    async def query_not_exists_aids(self, origin: Optional[str], aids: Sequence[str]) -> list[str]:
-        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid"""
-        exists_aids = await self.query_exists_aids(origin=origin, aids=aids)
+    async def query_not_exists_aids(
+            self,
+            origin: Optional[str],
+            aids: Sequence[str],
+            *,
+            exclude_classification: Optional[int] = None,
+            exclude_rating: Optional[int] = None,
+    ) -> list[str]:
+        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid
+
+        :param origin: 指定作品源
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param exclude_classification: 排除指定的作品分类, 所有非该分类的作品都会被视为不存在
+        :param exclude_rating: 排除指定的作品分级, 所有非该分级的作品都会被视为不存在
+        :return: 数据库中不存在的, 匹配提供的作品清单的 artwork_id 列表
+        """
+        exists_aids = await self.query_exists_aids(
+            origin=origin, aids=aids, filter_classification=exclude_classification, filter_rating=exclude_rating
+        )
         return sorted(list(set(aids) - set(exists_aids)), reverse=True)
 
     async def query_all(self) -> list[ArtworkCollection]:
