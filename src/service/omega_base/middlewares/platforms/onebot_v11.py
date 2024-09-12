@@ -249,16 +249,23 @@ class OneBotV11GuildUserEntityTarget(BaseEntityTarget):
 class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot, Event_T, OneBotV11Message]):
 
     def _extract_event_entity_params(self) -> "EntityInitParams":
+        if group_id := getattr(self.event, 'group_id', None):
+            return EntityInitParams(
+                bot_id=self.bot.self_id,
+                entity_type='onebot_v11_group',
+                entity_id=str(group_id),
+                parent_id=self.bot.self_id
+            )
+
         return self._extract_user_entity_params()
 
     def _extract_user_entity_params(self) -> "EntityInitParams":
         bot_self_id = self.bot.self_id
+        entity_type = 'onebot_v11_user'
 
         if user_id := getattr(self.event, 'user_id', None):
-            entity_type = 'onebot_v11_user'
             entity_id = str(user_id)
         else:
-            entity_type = 'onebot_v11_user'
             entity_id = bot_self_id
 
         return EntityInitParams(bot_id=bot_self_id, entity_type=entity_type, entity_id=entity_id, parent_id=bot_self_id)
