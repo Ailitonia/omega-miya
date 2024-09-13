@@ -9,8 +9,9 @@
 """
 
 import asyncio
+import inspect
 from functools import wraps
-from typing import TYPE_CHECKING, Annotated, Any, Callable, NoReturn, Optional, Self
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Coroutine, NoReturn, Optional, Self, cast
 
 from nonebot.exception import PausedException, FinishedException, RejectedException
 from nonebot.internal.adapter import Bot as BaseBot, Event as BaseEvent
@@ -65,14 +66,19 @@ class OmegaEntityInterface(object):
         return _depend
 
     @staticmethod
-    def check_implemented(func):
-        """装饰一个方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 TargetNotSupported 异常"""
+    def check_target_implemented[** P, R](
+            func: Callable[P, Coroutine[Any, Any, R]],
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
+        """装饰一个调用平台 API 的异步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 TargetNotSupported 异常"""
+        if not inspect.iscoroutinefunction(func):
+            raise TypeError(f'{func.__name__} is not coroutine function')
 
         @wraps(func)
-        def _wrapper(self: Self, *args, **kwargs):
+        async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
-                return func(self, *args, **kwargs)
+                return await func(*args, **kwargs)
             except NotImplementedError:
+                self: Self = cast(Self, args[0])
                 logger.warning(f'{self._entity} not support method {func.__name__!r}')
                 raise TargetNotSupported(self._entity.entity_type)
 
@@ -99,7 +105,7 @@ class OmegaEntityInterface(object):
 
     """在 Event/Matcher 之外向目标 Entity 直接发送消息的相关方法"""
 
-    @check_implemented
+    @check_target_implemented
     async def send_entity_message(self, message: "SentOmegaMessage", **kwargs) -> Any:
         """向 Entity 直接发送消息"""
         bot = await self.get_bot()
@@ -111,7 +117,7 @@ class OmegaEntityInterface(object):
         bot_api_params = {send_params.message_param_name: send_message, **send_params.params}
         return await getattr(bot, send_params.api)(**bot_api_params)
 
-    @check_implemented
+    @check_target_implemented
     async def send_entity_message_auto_revoke(
             self,
             message: "SentOmegaMessage",
@@ -131,11 +137,11 @@ class OmegaEntityInterface(object):
 
     """Entity 相关信息获取方法"""
 
-    @check_implemented
+    @check_target_implemented
     async def get_entity_name(self) -> str:
         return await self.get_entity_target().call_api_get_entity_name()
 
-    @check_implemented
+    @check_target_implemented
     async def get_entity_profile_image_url(self) -> str:
         return await self.get_entity_target().call_api_get_entity_profile_image_url()
 
@@ -196,14 +202,34 @@ class OmegaMatcherInterface(object):
         return _depend
 
     @staticmethod
-    def check_implemented(func):
-        """装饰一个方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
+    def check_adapter_implemented[** P, R](
+            func: Callable[P, Coroutine[Any, Any, R]],
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
+        """装饰一个调用平台 API 的异步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
+        if not inspect.iscoroutinefunction(func):
+            raise TypeError(f'{func.__name__} is not coroutine function')
 
         @wraps(func)
-        def _wrapper(self: Self, *args, **kwargs):
+        async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
-                return func(self, *args, **kwargs)
+                return await func(*args, **kwargs)
             except NotImplementedError:
+                self: Self = cast(Self, args[0])
+                logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
+                raise AdapterNotSupported(self.bot.adapter.get_name())
+
+        return _wrapper
+
+    @staticmethod
+    def check_event_implemented[** P, R](func: Callable[P, R]) -> Callable[P, R]:
+        """装饰一个事件依赖的同步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
+
+        @wraps(func)
+        def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            try:
+                return func(*args, **kwargs)
+            except NotImplementedError:
+                self: Self = cast(Self, args[0])
                 logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
                 raise AdapterNotSupported(self.bot.adapter.get_name())
 
@@ -231,41 +257,41 @@ class OmegaMatcherInterface(object):
 
     """平台事件信息提取相关方法"""
 
-    @check_implemented
+    @check_event_implemented
     def get_event_user_nickname(self) -> str:
         """获取当前事件用户昵称"""
         return self.get_event_depend().get_user_nickname()
 
-    @check_implemented
+    @check_event_implemented
     def get_event_msg_image_urls(self) -> list[str]:
         """获取当前事件消息中的全部图片链接"""
         return self.get_event_depend().get_msg_image_urls()
 
-    @check_implemented
+    @check_event_implemented
     def get_event_reply_msg_image_urls(self) -> list[str]:
         """获取当前事件回复消息中的全部图片链接"""
         return self.get_event_depend().get_reply_msg_image_urls()
 
-    @check_implemented
+    @check_event_implemented
     def get_event_reply_msg_plain_text(self) -> Optional[str]:
         """获取当前事件回复消息的文本"""
         return self.get_event_depend().get_reply_msg_plain_text()
 
     """Matcher 及流程控制相关方法"""
 
-    @check_implemented
+    @check_adapter_implemented
     async def send(self, message: "SentOmegaMessage", **kwargs) -> Any:
         return await self.get_event_depend().send(message=message, **kwargs)
 
-    @check_implemented
+    @check_adapter_implemented
     async def send_at_sender(self, message: "SentOmegaMessage", **kwargs) -> Any:
         return await self.get_event_depend().send_at_sender(message=message, **kwargs)
 
-    @check_implemented
+    @check_adapter_implemented
     async def send_reply(self, message: "SentOmegaMessage", **kwargs) -> Any:
         return await self.get_event_depend().send_reply(message=message, **kwargs)
 
-    @check_implemented
+    @check_adapter_implemented
     async def send_auto_revoke(
             self,
             message: "SentOmegaMessage",
@@ -281,7 +307,7 @@ class OmegaMatcherInterface(object):
             lambda: loop.create_task(self.get_event_depend().revoke(sent_return=sent_return, **revoke_kwargs)),
         )
 
-    @check_implemented
+    @check_adapter_implemented
     async def send_reply_auto_revoke(
             self,
             message: "SentOmegaMessage",
@@ -297,83 +323,77 @@ class OmegaMatcherInterface(object):
             lambda: loop.create_task(self.get_event_depend().revoke(sent_return=sent_return, **revoke_kwargs)),
         )
 
-    @check_implemented
-    def send_background(self, message: "SentOmegaMessage", **kwargs) -> asyncio.Task[Any]:
-        """立即发送消息 (一般放在 IO 调用之前)"""
-        loop = asyncio.get_running_loop()
-        return loop.create_task(self.send(message=message, **kwargs))
-
-    @check_implemented
+    @check_adapter_implemented
     async def finish(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send(message=message, **kwargs)
         raise FinishedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def finish_at_sender(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_at_sender(message=message, **kwargs)
         raise FinishedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def finish_reply(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_reply(message=message, **kwargs)
         raise FinishedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def pause(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send(message=message, **kwargs)
         raise PausedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def pause_at_sender(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_at_sender(message=message, **kwargs)
         raise PausedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def pause_reply(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_reply(message=message, **kwargs)
         raise PausedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send(message=message, **kwargs)
         raise RejectedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_at_sender(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_at_sender(message=message, **kwargs)
         raise RejectedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_reply(self, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_reply(message=message, **kwargs)
         raise RejectedException
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_arg(self, key: str, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send(message=message, **kwargs)
         await self.matcher.reject_arg(key)
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_arg_at_sender(self, key: str, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_at_sender(message=message, **kwargs)
         await self.matcher.reject_arg(key)
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_arg_reply(self, key: str, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_reply(message=message, **kwargs)
         await self.matcher.reject_arg(key)
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_receive(self, key: str, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send(message=message, **kwargs)
         await self.matcher.reject_receive(key)
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_receive_at_sender(self, key: str, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_at_sender(message=message, **kwargs)
         await self.matcher.reject_receive(key)
 
-    @check_implemented
+    @check_adapter_implemented
     async def reject_receive_reply(self, key: str, message: "SentOmegaMessage", **kwargs) -> NoReturn:
         await self.send_reply(message=message, **kwargs)
         await self.matcher.reject_receive(key)
