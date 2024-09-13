@@ -20,6 +20,7 @@ from nonebot.adapters.onebot.v11 import (
     MessageEvent as OneBotV11MessageEvent,
     GroupMessageEvent as OneBotV11GroupMessageEvent,
     PrivateMessageEvent as OneBotV11PrivateMessageEvent,
+    NoticeEvent as OneBotV11NoticeEvent,
     NotifyEvent as OneBotV11NotifyEvent,
     PokeNotifyEvent as OneBotV11PokeNotifyEvent,
 )
@@ -298,8 +299,18 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
         raise NotImplementedError
 
 
+@event_depend_register.register_depend(OneBotV11NoticeEvent)
+class OneBotV11NoticeEventDepend[Event_T: OneBotV11NoticeEvent](OneBotV11EventDepend[Event_T]):
+
+    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+        return await self.send(message=message, at_sender=True, **kwargs)
+
+    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+        return await self.send(message=message, reply_message=True, **kwargs)
+
+
 @event_depend_register.register_depend(OneBotV11NotifyEvent)
-class OneBotV11NotifyEventDepend[Event_T: OneBotV11NotifyEvent](OneBotV11EventDepend[Event_T]):
+class OneBotV11NotifyEventDepend[Event_T: OneBotV11NotifyEvent](OneBotV11NoticeEventDepend[Event_T]):
 
     def _extract_event_entity_params(self) -> "EntityInitParams":
         return EntityInitParams(
