@@ -118,6 +118,8 @@ class QQGuildEntityTarget(BaseEntityTarget):
         url = getattr(guild_data, 'icon', '')
         return str(url)
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError
 
 @entity_target_register.register_target(SupportedTarget.qq_channel)
 class QQChannelEntityTarget(BaseEntityTarget):
@@ -159,6 +161,8 @@ class QQChannelEntityTarget(BaseEntityTarget):
     async def call_api_get_entity_profile_image_url(self) -> str:
         raise NotImplementedError
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError  # TODO
 
 @entity_target_register.register_target(SupportedTarget.qq_group)
 class QQGroupEntityTarget(BaseEntityTarget):
@@ -175,6 +179,8 @@ class QQGroupEntityTarget(BaseEntityTarget):
     async def call_api_get_entity_profile_image_url(self) -> str:
         raise NotImplementedError  # TODO
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError  # TODO post_group_files
 
 @entity_target_register.register_target(SupportedTarget.qq_user)
 class QQUserEntityTarget(BaseEntityTarget):
@@ -191,6 +197,8 @@ class QQUserEntityTarget(BaseEntityTarget):
     async def call_api_get_entity_profile_image_url(self) -> str:
         raise NotImplementedError  # TODO
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError  # TODO post_c2c_files
 
 @entity_target_register.register_target(SupportedTarget.qq_guild_user)
 class QQGuildUserEntityTarget(BaseEntityTarget):
@@ -234,6 +242,8 @@ class QQGuildUserEntityTarget(BaseEntityTarget):
         url = getattr(getattr(guild_user_data, 'user', object()), 'avatar', '')
         return str(url)
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError  # TODO
 
 @event_depend_register.register_depend(QQEvent)
 class QQEventDepend[Event_T: QQEvent](BaseEventDepend[QQBot, Event_T, QQMessage]):

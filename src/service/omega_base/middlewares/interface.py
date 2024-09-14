@@ -27,6 +27,7 @@ from .platform_interface import entity_target_register, event_depend_register, m
 from .typing import EntityAcquireType, BaseSentMessageType
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from .platform_interface.entity_target import BaseEntityTarget
     from .platform_interface.event_depend import EventDepend
     from .platform_interface.message_builder import Builder, Extractor
@@ -139,11 +140,21 @@ class OmegaEntityInterface(object):
 
     @check_target_implemented
     async def get_entity_name(self) -> str:
+        """获取对象名称/昵称"""
         return await self.get_entity_target().call_api_get_entity_name()
 
     @check_target_implemented
     async def get_entity_profile_image_url(self) -> str:
+        """获取对象头像/图标"""
         return await self.get_entity_target().call_api_get_entity_profile_image_url()
+
+    @check_target_implemented
+    async def send_entity_file(self, file: "Path", *, file_name: Optional[str] = None) -> None:
+        """向对象发送本地文件"""
+        if file_name is None:
+            file_name = file.name
+
+        return await self.get_entity_target().call_api_send_file(file_path=file.as_posix(), file_name=file_name)
 
 
 class OmegaMatcherInterface(object):

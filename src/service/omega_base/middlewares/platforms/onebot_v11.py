@@ -150,6 +150,10 @@ class OneBotV11UserEntityTarget(BaseEntityTarget):
                 url = f'https://q1.qlogo.cn/g?b=qq&nk={self.entity.entity_id}&s={head_img_size}'
         return url
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        bot = await self.get_bot()
+        await bot.call_api('upload_private_file', user_id=self.entity.entity_id, file=file_path, name=file_name)
+
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_group)
 class OneBotV11GroupEntityTarget(BaseEntityTarget):
@@ -177,6 +181,10 @@ class OneBotV11GroupEntityTarget(BaseEntityTarget):
         head_img_size = 640
         return f'https://p.qlogo.cn/gh/{self.entity.entity_id}/{self.entity.entity_id}/{head_img_size}/'
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        bot = await self.get_bot()
+        await bot.call_api('upload_group_file', group_id=self.entity.entity_id, file=file_path, name=file_name)
+
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_guild)
 class OneBotV11GuildEntityTarget(BaseEntityTarget):
@@ -194,6 +202,9 @@ class OneBotV11GuildEntityTarget(BaseEntityTarget):
         return str(entity_name)
 
     async def call_api_get_entity_profile_image_url(self) -> str:
+        raise NotImplementedError  # 非标准 API, 协议端未实现
+
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
 
@@ -217,6 +228,9 @@ class OneBotV11GuildChannelEntityTarget(BaseEntityTarget):
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
     async def call_api_get_entity_profile_image_url(self) -> str:
+        raise NotImplementedError  # 非标准 API, 协议端未实现
+
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
 
@@ -244,6 +258,9 @@ class OneBotV11GuildUserEntityTarget(BaseEntityTarget):
         )
         avatar_url = guild_user_data.get('avatar_url', '')
         return str(avatar_url)
+
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError  # 非标准 API, 协议端未实现
 
 
 @event_depend_register.register_depend(OneBotV11Event)

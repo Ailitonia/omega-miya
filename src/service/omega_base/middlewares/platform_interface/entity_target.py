@@ -62,6 +62,11 @@ class BaseEntityTarget(abc.ABC):
         """调用平台 API: 获取对象头像/图标"""
         raise NotImplementedError
 
+    @abc.abstractmethod
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        """调用平台 API: 发送本地文件"""
+        raise NotImplementedError
+
 
 @dataclass
 class EntityTargetRegister:

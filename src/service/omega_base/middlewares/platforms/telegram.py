@@ -138,6 +138,12 @@ class BaseTelegramEntityTarget(BaseEntityTarget):
         file = await bot.call_api('get_file', file_id=getattr(photo, 'big_file_id', ''))
         return f"https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}"
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        bot = cast(TelegramBot, await self.get_bot())
+        file_message = File.document(file=Path(file_path).as_posix())
+
+        await bot.send_to(chat_id=self.entity.entity_id, message=file_message)
+
 
 @entity_target_register.register_target(SupportedTarget.telegram_user)
 class TelegramUserEntityTarget(BaseTelegramEntityTarget):

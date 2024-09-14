@@ -94,6 +94,9 @@ class ConsoleEntityTarget(BaseEntityTarget):
     async def call_api_get_entity_profile_image_url(self) -> str:
         return ''
 
+    async def call_api_send_file(self, file_path: str, file_name: str) -> None:
+        raise NotImplementedError
+
 
 @event_depend_register.register_depend(ConsoleEvent)
 class ConsoleEventDepend[Event_T: ConsoleEvent](BaseEventDepend[ConsoleBot, Event_T, ConsoleMessage]):
