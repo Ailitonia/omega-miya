@@ -81,7 +81,7 @@ class OmegaEntityInterface(object):
             except NotImplementedError:
                 self: Self = cast(Self, args[0])
                 logger.warning(f'{self._entity} not support method {func.__name__!r}')
-                raise TargetNotSupported(self._entity.entity_type)
+                raise TargetNotSupported(self._entity.entity_type, f'method {func.__name__!r} is not implemented')
 
         return _wrapper
 
@@ -227,7 +227,7 @@ class OmegaMatcherInterface(object):
             except NotImplementedError:
                 self: Self = cast(Self, args[0])
                 logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
-                raise AdapterNotSupported(self.bot.adapter.get_name())
+                raise AdapterNotSupported(self.bot.adapter.get_name(), f'method {func.__name__!r} is not implemented')
 
         return _wrapper
 
@@ -242,7 +242,7 @@ class OmegaMatcherInterface(object):
             except NotImplementedError:
                 self: Self = cast(Self, args[0])
                 logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
-                raise AdapterNotSupported(self.bot.adapter.get_name())
+                raise AdapterNotSupported(self.bot.adapter.get_name(), f'method {func.__name__!r} is not implemented')
 
         return _wrapper
 

@@ -10,9 +10,9 @@
 
 from typing import TYPE_CHECKING, Any
 
+from src.exception import WebSourceException
 from src.utils.common_api import BaseCommonAPI
 from .config import weibo_resource_config
-from .exception import WeiboApiError
 from .helper import parse_weibo_card_from_status_page
 from .model import (
     WeiboCard,
@@ -87,7 +87,7 @@ class Weibo(BaseCommonAPI):
         user_info = WeiboUserInfo.model_validate(user_response)
 
         if user_info.ok != 1:
-            raise WeiboApiError(f'Query user(uid={uid}) data failed, {user_info.data}')
+            raise WebSourceException(404, f'Query user(uid={uid}) data failed, {user_info.data}')
 
         return user_info.data.userInfo
 
@@ -114,7 +114,7 @@ class Weibo(BaseCommonAPI):
         cards = WeiboCards.model_validate(cards_response)
 
         if cards.ok != 1:
-            raise WeiboApiError(f'Query user(uid={uid}) weibo cards failed, {cards.data}')
+            raise WebSourceException(404, f'Query user(uid={uid}) weibo cards failed, {cards.data}')
 
         return cards.data.cards
 
@@ -137,7 +137,7 @@ class Weibo(BaseCommonAPI):
         extend = WeiboExtend.model_validate(extend_response)
 
         if extend.ok != 1 or extend.data.ok != 1:
-            raise WeiboApiError(f'Query weibo(mid={mid}) extend content failed, {extend}')
+            raise WebSourceException(404, f'Query weibo(mid={mid}) extend content failed, {extend}')
 
         return extend.data.longTextContent
 
@@ -154,7 +154,7 @@ class Weibo(BaseCommonAPI):
         realtime_hot = WeiboRealtimeHot.model_validate(realtime_hot_response)
 
         if realtime_hot.ok != 1:
-            raise WeiboApiError(f'Query realtime hot failed, {realtime_hot.data}')
+            raise WebSourceException(404, f'Query realtime hot failed, {realtime_hot.data}')
 
         return realtime_hot.data.cards
 

@@ -23,7 +23,7 @@ def run_async_delay(delay_time: float = 5):
     :param delay_time: 延迟的时间, 单位秒
     """
 
-    def decorator[R, ** P](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
+    def decorator[** P, R](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
         if not inspect.iscoroutinefunction(func):
             raise ValueError('The decorated function must be coroutine function')
 

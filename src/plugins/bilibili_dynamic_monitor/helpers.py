@@ -80,7 +80,7 @@ async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> "Subscript
     """在数据库中新更新动态订阅源"""
     user_data = await bili_user.query_user_data()
     if user_data.error:
-        raise WebSourceException(f'query {bili_user} data failed, {user_data.message}')
+        raise WebSourceException(404, f'query {bili_user} data failed, {user_data.message}')
 
     await _add_user_new_dynamic_content(bili_user=bili_user)
 

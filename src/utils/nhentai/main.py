@@ -285,7 +285,7 @@ class NhentaiGallery(Nhentai):
         download_result = await semaphore_gather(tasks=download_tasks, semaphore_num=10)
         for result in download_result:
             if isinstance(result, Exception):
-                raise WebSourceException(f'Some page(s) download failed, {result}')
+                raise WebSourceException(404, f'Some page(s) download failed, {result}')
 
         # 生成包含本子原始信息的文件
         manifest_path = download_folder('manifest.json')

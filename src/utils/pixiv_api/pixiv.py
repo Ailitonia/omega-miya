@@ -17,7 +17,6 @@ from pydantic import ValidationError
 
 from src.exception import WebSourceException
 from .api_base import BasePixivAPI
-from .exception import PixivApiError
 from .helper import PixivParser
 from .model import (
     PixivArtworkDataModel,
@@ -110,19 +109,26 @@ class PixivCommon(BasePixivAPI):
         """
         word = quote(word, encoding='utf-8')
         params = {
-            'word': word, 'order': order, 'mode': mode_, 'p': page, 's_mode': s_mode_, 'type': type_, 'lang': lang_}
-        if ai_type:
-            params.update({'ai_type': ai_type})
-        if ratio_:
+            'word': word,
+            'order': order,
+            'mode': mode_,
+            'p': str(page),
+            's_mode': s_mode_,
+            'type': type_,
+            'lang': lang_,
+        }
+        if ai_type is not None:
+            params.update({'ai_type': str(ai_type)})
+        if ratio_ is not None:
             params.update({'ratio': ratio_})
-        if scd_:
+        if scd_ is not None:
             params.update({'scd': scd_.strftime('%Y-%m-%d')})
-        if ecd_:
+        if ecd_ is not None:
             params.update({'ecd': ecd_.strftime('%Y-%m-%d')})
-        if blt_:
-            params.update({'blt': blt_})
-        if bgt_:
-            params.update({'bgt': bgt_})
+        if blt_ is not None:
+            params.update({'blt': str(blt_)})
+        if bgt_ is not None:
+            params.update({'bgt': str(bgt_)})
 
         searching_url = f'{cls._get_root_url()}/ajax/search/{mode}/{word}'
         searching_data = await cls._get_json(url=searching_url, params=params)
@@ -245,18 +251,18 @@ class PixivArtwork(PixivCommon):
             except ValidationError:
                 raise
             except Exception as e:
-                raise WebSourceException(f'Query artwork(pid={self.pid}) data failed, {e}') from e
+                raise WebSourceException(404, f'Query {self!r} data failed, {e}') from e
             if artwork_data.error:
-                raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {artwork_data.message}')
+                raise WebSourceException(404, f'Query {self!r} data failed, {artwork_data.message}')
 
             try:
                 page_data = await self._query_page_date()
             except ValidationError:
                 raise
             except Exception as e:
-                raise WebSourceException(f'Query artwork(pid={self.pid}) page failed, {e}') from e
+                raise WebSourceException(404, f'Query {self!r} page failed, {e}') from e
             if page_data.error:
-                raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {page_data.message}')
+                raise WebSourceException(404, f'Query {self!r} page failed, {page_data.message}')
 
             # 处理作品tag
             tags = artwork_data.body.tags.all_tags
@@ -290,12 +296,9 @@ class PixivArtwork(PixivCommon):
             # 如果是动图额外处理动图资源
             illust_type = artwork_data.body.illustType
             if illust_type == 2:
-                try:
-                    ugoira_data = await self._query_ugoira_meta()
-                    if ugoira_data.error:
-                        raise PixivApiError(f'Query artwork(pid={self.pid}) ugoira meta failed, {ugoira_data.message}')
-                except Exception as e:
-                    raise WebSourceException(f'Query artwork(pid={self.pid}) ugoira meta failed, {e}') from e
+                ugoira_data = await self._query_ugoira_meta()
+                if ugoira_data.error:
+                    raise WebSourceException(404, f'Query {self!r} ugoira meta failed, {ugoira_data.message}')
                 ugoira_meta = ugoira_data.body
             else:
                 ugoira_meta = None
@@ -398,11 +401,11 @@ class PixivUser(PixivCommon):
         if not isinstance(self.user_model, PixivUserModel):
             _user_data = await self._query_user_data()
             if _user_data.error:
-                raise PixivApiError(f'Query user(uid={self.uid}) data failed, {_user_data.message}')
+                raise WebSourceException(404, f'Query {self!r} data failed, {_user_data.message}')
 
             _user_artwork_data = await self._query_user_artwork_data()
             if _user_artwork_data.error:
-                raise PixivApiError(f'Query user(uid={self.uid}) artwork data failed, {_user_artwork_data.message}')
+                raise WebSourceException(404, f'Query {self!r} artwork data failed, {_user_artwork_data.message}')
 
             _data = {
                 'user_id': _user_data.body.userId,

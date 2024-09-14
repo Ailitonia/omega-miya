@@ -81,7 +81,7 @@ async def handle_add_subscription(
         user = BilibiliUser(uid=int(uid))
         user_data = await user.query_user_data()
         if user_data.error or user_data.data is None:
-            raise WebSourceException(f'query {user} data failed, {user_data.message}')
+            raise WebSourceException(404, f'query {user} data failed, {user_data.message}')
     except Exception as e:
         logger.error(f'获取用户{uid}信息失败, {e!r}')
         await interface.finish_reply('获取用户信息失败, 可能是网络原因或没有这个用户, 请稍后再试')

@@ -84,11 +84,11 @@ async def query_and_upgrade_live_room_status(live_room: BilibiliLiveRoom) -> Bil
 
     live_room_data = await live_room.query_live_room_data()
     if live_room_data.error or live_room_data.data is None:
-        raise WebSourceException(f'query {live_room} data failed, {live_room_data.message}')
+        raise WebSourceException(404, f'query {live_room} data failed, {live_room_data.message}')
 
     live_room_user_data = await live_room.query_live_room_user_data()
     if live_room_user_data.error or live_room_user_data.data is None:
-        raise WebSourceException(f'query {live_room} user data failed, {live_room_user_data.message}')
+        raise WebSourceException(404, f'query {live_room} user data failed, {live_room_user_data.message}')
 
     return check_and_upgrade_live_status(live_room_data.data, live_user_name=live_room_user_data.data.name)
 

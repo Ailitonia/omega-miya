@@ -121,7 +121,7 @@ class BaseCommonAPI(abc.ABC):
         )
         response = await requests.get(url=url, params=params)
         if response.status_code != 200:
-            raise WebSourceException(f'{response.request}, status code {response.status_code}')
+            raise WebSourceException(response.status_code, f'{response.request}, status code {response.status_code}')
 
         return response
 
@@ -147,7 +147,7 @@ class BaseCommonAPI(abc.ABC):
         )
         response = await requests.post(url=url, params=params, content=content, data=data, json=json, files=files)
         if response.status_code != 200:
-            raise WebSourceException(f'{response.request}, status code {response.status_code}')
+            raise WebSourceException(response.status_code, f'{response.request}, status code {response.status_code}')
 
         return response
 

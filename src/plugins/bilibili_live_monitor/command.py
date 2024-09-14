@@ -81,11 +81,11 @@ async def handle_add_subscription(
         room = BilibiliLiveRoom(room_id=int(room_id))
         live_room_data = await room.query_live_room_data()
         if live_room_data.error or live_room_data.data is None:
-            raise WebSourceException(f'query {room} data failed, {live_room_data.message}')
+            raise WebSourceException(404, f'query {room} data failed, {live_room_data.message}')
 
         live_room_user_data = await room.query_live_room_user_data()
         if live_room_user_data.error or live_room_user_data.data is None:
-            raise WebSourceException(f'query {room} user data failed, {live_room_user_data.message}')
+            raise WebSourceException(404, f'query {room} user data failed, {live_room_user_data.message}')
 
         # 针对直播间短号进行处理
         if room_id == str(live_room_data.data.short_id) and room_id != str(live_room_data.data.room_id):

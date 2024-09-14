@@ -35,7 +35,7 @@ class BaseEntityTarget(abc.ABC):
         bot_self = await self.entity.query_bot_self()
         bot = get_online_bots().get(bot_self.bot_type, {}).get(bot_self.self_id)
         if not bot:
-            raise BotNoFound(f'{bot_self} not online')
+            raise BotNoFound(bot_self.self_id)
         return bot
 
     """平台发送消息 API 调用适配"""

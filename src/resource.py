@@ -26,7 +26,8 @@ from typing import (
     Literal,
     Optional,
     Self,
-    overload
+    final,
+    overload,
 )
 
 import aiofiles
@@ -39,12 +40,28 @@ if TYPE_CHECKING:
     from io import FileIO, TextIOWrapper
 
 
+@final
 class ResourceNotFolderError(LocalSourceException):
     """LocalResource 实例不是文件夹"""
 
+    @property
+    def message(self) -> str:
+        return f'{self.path.as_posix()!r} is not a directory, or directory {self.path.as_posix()!r} is not exists'
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
+
+
+@final
 class ResourceNotFileError(LocalSourceException):
     """LocalResource 实例不是文件"""
+
+    @property
+    def message(self) -> str:
+        return f'{self.path.as_posix()!r} is not a file, or file {self.path.as_posix()!r} is not exists'
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
 
 
 _static_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('static')
@@ -94,12 +111,12 @@ class BaseResource(abc.ABC):
     def raise_not_file(self) -> Optional[NoReturn]:
         """路径目标不是文件或不存在时抛出 ResourceNotFileError 异常"""
         if not self.is_file:
-            raise ResourceNotFileError(f'"{self}" is not a file, or file "{self}" is not exists')
+            raise ResourceNotFileError(self.path)
 
     def raise_not_dir(self) -> Optional[NoReturn]:
         """路径目标不是文件夹或不存在时抛出 ResourceNotFolderError 异常"""
         if not self.is_dir:
-            raise ResourceNotFolderError(f'"{self}" is not a directory, or directory "{self}" is not exists')
+            raise ResourceNotFolderError(self.path)
 
     @staticmethod
     def check_directory(func):
@@ -109,7 +126,7 @@ class BaseResource(abc.ABC):
             if self.path.exists() and self.path.is_dir():
                 return func(self, *args, **kwargs)
             else:
-                raise ResourceNotFolderError(f'"{self}" is not a directory, or directory "{self}" is not exists')
+                raise ResourceNotFolderError(self.path)
         return _wrapper
 
     @staticmethod
@@ -124,7 +141,7 @@ class BaseResource(abc.ABC):
                     pathlib.Path.mkdir(self.path.parent, parents=True)
                 return func(self, *args, **kwargs)
             else:
-                raise ResourceNotFileError(f'"{self}" is not a file, or file "{self}" is not exists')
+                raise ResourceNotFileError(self.path)
         return _wrapper
 
     @property

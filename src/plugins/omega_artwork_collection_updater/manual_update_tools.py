@@ -58,7 +58,10 @@ async def _import_artwork_into_database(import_data: CustomImportArtwork, log_in
             classification=classification, rating=rating, force_update_mark=True
         )
     except WebSourceException as e:
-        # 网络问题有可能是风控/限流, 小概率是作品已经被删除, 反正这里 sleep 一下后再试试
+        # 网络问题有可能是风控/限流, 小概率是作品已经被删除
+        if e.status_code == 404:
+            raise e
+
         logger.warning(
             f'ImportCustomCollectedArtworks | 获取作品 {collected_artwork} 信息时发生异常, {e!r}, 60秒后重试'
         )

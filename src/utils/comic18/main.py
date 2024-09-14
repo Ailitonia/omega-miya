@@ -62,7 +62,9 @@ class _BaseComic18(BaseCommonAPI):
             go_url = f'https://raw.githubusercontent.com/jmcmomic/jmcmomic.github.io/main/go/{type_}.html'
             go_response = await cls._request_get(go_url)
             if go_response.status_code != 200:
-                raise WebSourceException(f'{go_response.request}, status code {go_response.status_code}')
+                raise WebSourceException(
+                    go_response.status_code, f'{go_response.request}, status code {go_response.status_code}'
+                )
             cls.__root_url = Comic18Parser.parse_root_url(content=cls._parse_content_as_text(go_response))
 
         return cls.__root_url
@@ -94,7 +96,10 @@ class _BaseComic18(BaseCommonAPI):
 
         try:
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
-        except WebSourceException:
+        except WebSourceException as e:
+            if e.status_code != 403:
+                raise e
+
             # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
             await async_sleep(3)
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
@@ -116,7 +121,10 @@ class _BaseComic18(BaseCommonAPI):
 
         try:
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
-        except WebSourceException:
+        except WebSourceException as e:
+            if e.status_code != 403:
+                raise e
+
             # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
             await async_sleep(3)
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
@@ -137,13 +145,17 @@ class _BaseComic18(BaseCommonAPI):
                 save_folder=comic18_resource_config.default_download_folder,
                 url=url, subdir=folder_name, ignore_exist_file=ignore_exist_file
             )
-        except WebSourceException:
+        except WebSourceException as e:
+            if e.status_code != 403:
+                raise e
+
             # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
             await async_sleep(3)
             file = await cls._download_resource(
                 save_folder=comic18_resource_config.default_download_folder,
                 url=url, subdir=folder_name, ignore_exist_file=ignore_exist_file
             )
+
         return file
 
 

@@ -44,10 +44,6 @@ if TYPE_CHECKING:
     )
 
 
-class ExceededAttemptError(WebSourceException):
-    """重试次数超过限制异常"""
-
-
 class OmegaRequests(object):
     """对 ForwardDriver 二次封装实现的 HttpClient"""
 
@@ -190,10 +186,10 @@ class OmegaRequests(object):
 
         logger.opt(colors=True).error(
             f'<lc>Omega Requests</lc> | <ly>{setup!r} failed with {attempts_num} times attempts</ly> <c>></c> '
-            f'<r>Exception ExceededAttemptError</r>: The number of attempts exceeds limit with final exception: '
+            f'<r>ExceededAttemptLimited</r>: The number of attempts exceeds limit with final exception: '
             f'<r>{final_exception.__class__.__name__}</r>: {final_exception}'
         )
-        raise ExceededAttemptError('The number of attempts exceeds limit.')
+        raise WebSourceException(500, 'The number of attempts exceeds limit.')
 
     @asynccontextmanager
     async def websocket(
@@ -318,7 +314,9 @@ class OmegaRequests(object):
         if response.status_code != 200:
             logger.opt(colors=True).error(f'<lc>Omega Requests</lc> | Download <ly>{url!r}</ly> '
                                           f'to {file!r} failed with code <lr>{response.status_code!r}</lr>')
-            raise WebSourceException(f'Download {url!r} to {file!r} failed with code {response.status_code!r}')
+            raise WebSourceException(
+                response.status_code, f'Download {url!r} to {file!r} failed with code {response.status_code!r}'
+            )
 
         async with file.async_open(mode='wb') as af:
             await af.write(self.parse_content_as_bytes(response=response))
