@@ -80,21 +80,21 @@ class MessageSegment(BaseMessageSegment["Message"]):
     def image(url: Union[str, Path]) -> "MessageSegment":
         return MessageSegment(
             type=MessageSegmentType.image,
-            data={'url': str(url.resolve()) if isinstance(url, Path) else url}
+            data={'url': url.resolve().as_posix() if isinstance(url, Path) else url}
         )
 
     @staticmethod
     def image_file(file: Path) -> "MessageSegment":
         return MessageSegment(
             type=MessageSegmentType.image_file,
-            data={'file': str(file.resolve())}
+            data={'file': file.resolve().as_posix()}
         )
 
     @staticmethod
     def file(file: Path) -> "MessageSegment":
         return MessageSegment(
             type=MessageSegmentType.file,
-            data={'file': str(file.resolve())}
+            data={'file': file.resolve().as_posix()}
         )
 
     @staticmethod

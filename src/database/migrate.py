@@ -25,8 +25,8 @@ def construct_config() -> Config:
     sqlalchemy_url = database_config.connector.url.replace('%', '%%')
 
     alembic_cfg = Config()
-    alembic_cfg.set_main_option('prepend_sys_path', str(prepend_sys_path.resolve()))
-    alembic_cfg.set_main_option('script_location', str(script_location.resolve()))
+    alembic_cfg.set_main_option('prepend_sys_path', prepend_sys_path.resolve().as_posix())
+    alembic_cfg.set_main_option('script_location', script_location.resolve().as_posix())
     alembic_cfg.set_main_option('file_template', file_template)
     alembic_cfg.set_main_option('sqlalchemy.url', sqlalchemy_url)
 

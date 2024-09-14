@@ -129,7 +129,7 @@ class BaseResource(abc.ABC):
 
     @property
     def resolve_path(self) -> str:
-        return str(self.path.resolve())
+        return self.path.resolve().as_posix()
 
     @property
     @check_file
