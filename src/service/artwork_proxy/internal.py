@@ -42,7 +42,7 @@ class BaseArtworkProxy(abc.ABC):
         if isinstance(self.__id, int):
             return self.__id
         else:
-            return int(self.__id)  # 忽略类型检查，任由异常抛出并由后续流程处理
+            return int(self.__id)  # 忽略数字类型检查，任由 `ValueError` 异常抛出并由后续流程处理
 
     @property
     def s_aid(self) -> str:
@@ -54,7 +54,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @property
     def meta_file(self) -> "TemporaryResource":
-        return self._get_path_config().meta_path(self.meta_file_name)
+        return self.path_config.meta_path(self.meta_file_name)
 
     @property
     def origin_name(self) -> str:
@@ -64,7 +64,7 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def path_config(self) -> ArtworkProxyPathConfig:
         """对外暴露该作品对应存储路径配置, 便于插件调用"""
-        return self._get_path_config()
+        return self.__path_config
 
     @staticmethod
     def parse_url_file_suffix(url: str) -> str:
@@ -81,10 +81,6 @@ class BaseArtworkProxy(abc.ABC):
     def _generate_path_config(cls) -> ArtworkProxyPathConfig:
         """内部方法, 生成该图库的本地存储路径配置项"""
         return ArtworkProxyPathConfig(base_path_name=cls.get_base_origin_name())
-
-    def _get_path_config(self) -> ArtworkProxyPathConfig:
-        """内部方法, 获取该图库的本地存储路径配置项"""
-        return self.__path_config
 
     @classmethod
     @abc.abstractmethod
@@ -199,7 +195,7 @@ class BaseArtworkProxy(abc.ABC):
                 page = artwork_data.index_pages[page_index].regular_file
 
         page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{page.file_ext.strip(".")}'
-        page_file = self._get_path_config().artwork_path(page_file_name)
+        page_file = self.path_config.artwork_path(page_file_name)
 
         # 如果已经存在则直接返回本地资源
         if page_file.is_file:

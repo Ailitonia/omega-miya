@@ -82,7 +82,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
                 image = await self._handle_mark(image=page_file, origin_mark=origin_mark)
                 output_file_name = f'{page_file.path.stem}_marked.jpg'
 
-        output_file = self._get_path_config().processed_path(output_file_name)
+        output_file = self.path_config.processed_path(output_file_name)
         return await image.save(file=output_file)
 
     async def get_custom_proceed_page_file(
