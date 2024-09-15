@@ -250,8 +250,10 @@ class PixivArtwork(PixivCommon):
                 artwork_data = await self._query_data()
             except ValidationError:
                 raise
+            except WebSourceException as e:
+                raise WebSourceException(e.status_code, f'Query {self!r} data failed') from e
             except Exception as e:
-                raise WebSourceException(404, f'Query {self!r} data failed, {e}') from e
+                raise WebSourceException(404, f'Query {self!r} data failed, {e!r}') from e
             if artwork_data.error:
                 raise WebSourceException(404, f'Query {self!r} data failed, {artwork_data.message}')
 
@@ -259,8 +261,10 @@ class PixivArtwork(PixivCommon):
                 page_data = await self._query_page_date()
             except ValidationError:
                 raise
+            except WebSourceException as e:
+                raise WebSourceException(e.status_code, f'Query {self!r} data failed') from e
             except Exception as e:
-                raise WebSourceException(404, f'Query {self!r} page failed, {e}') from e
+                raise WebSourceException(404, f'Query {self!r} page failed, {e!r}') from e
             if page_data.error:
                 raise WebSourceException(404, f'Query {self!r} page failed, {page_data.message}')
 
