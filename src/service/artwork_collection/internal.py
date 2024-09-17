@@ -59,7 +59,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
+            order_mode: Literal['random', 'aid', 'aid_desc', 'index_id', 'index_id_desc'] = 'random',
     ) -> list["DBArtworkCollection"]:
         """从所有或任意指定来源根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         if isinstance(keywords, str):
@@ -107,7 +107,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
+            order_mode: Literal['random', 'aid', 'aid_desc', 'index_id', 'index_id_desc'] = 'random',
     ) -> list["DBArtworkCollection"]:
         """根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_any_origin_by_condition(

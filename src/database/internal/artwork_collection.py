@@ -95,7 +95,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
             rating_max: int = 0,
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
+            order_mode: Literal['random', 'aid', 'aid_desc', 'index_id', 'index_id_desc'] = 'random',
     ) -> list[ArtworkCollection]:
         """按条件搜索图库收录作品
 
@@ -168,16 +168,16 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel):
 
         # 根据 order_mode 构造排序语句
         match order_mode:
-            case 'random':
-                stmt = stmt.order_by(func.random())
             case 'aid':
                 stmt = stmt.order_by(ArtworkCollectionOrm.aid)
             case 'aid_desc':
                 stmt = stmt.order_by(desc(ArtworkCollectionOrm.aid))
-            case 'create_time':
-                stmt = stmt.order_by(ArtworkCollectionOrm.created_at)
-            case 'create_time_desc':
-                stmt = stmt.order_by(desc(ArtworkCollectionOrm.created_at))
+            case 'index_id':
+                stmt = stmt.order_by(ArtworkCollectionOrm.id)
+            case 'index_id_desc':
+                stmt = stmt.order_by(desc(ArtworkCollectionOrm.id))
+            case 'random' | _:
+                stmt = stmt.order_by(func.random())
 
         # 结果数量限制
         if num is None:
