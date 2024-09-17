@@ -160,7 +160,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
             allow_r18 = await self._has_allow_r18_node(interface=interface)
             no_blur_rating = 3 if allow_r18 else 1
 
-            await interface.send_reply_auto_revoke('稍等, 正在获取作品信息~', 30)
+            await interface.send_reply('稍等, 正在获取作品信息~')
 
             try:
                 if parsed_args.random:

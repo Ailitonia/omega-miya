@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Literal, Sequence
 
 from nonebot.log import logger
 from nonebot.rule import ArgumentParser, Namespace
@@ -56,6 +56,8 @@ def get_query_argument_parser() -> ArgumentParser:
     parser.add_argument('-o', '--origin', type=str, default=None)
     parser.add_argument('-a', '--all-origin', action='store_true')
     parser.add_argument('-r', '--r18', action='store_true')
+    parser.add_argument('-l', '--latest', action='store_true')
+    parser.add_argument('-m', '--ratio', type=int, default=None)
     parser.add_argument('-n', '--num', type=int, default=0)
     parser.add_argument('keywords', nargs='*')
     return parser
@@ -66,6 +68,8 @@ class QueryArguments(BaseModel):
     origin: Optional[ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN]
     all_origin: bool
     r18: bool
+    latest: bool
+    ratio: Optional[int]
     num: int
     keywords: list[str]
 
@@ -82,11 +86,15 @@ async def query_artworks_from_database(
         origin: Optional[ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN] = None,
         all_origin: bool = False,
         allow_rating_range: tuple[int, int] = (0, 0),
+        latest: bool = False,
+        ratio: Optional[int] = None,
         num: int = 0,
 ) -> list["CollectedArtwork"]:
     """从数据库查询收藏作品, 特别的: 当参数 `origin` 值为 `none` 时代表从所有的来源随机获取"""
     if all_origin:
         query_origin = ALL_MOE_PLUGIN_ARTWORK_ORIGIN
+    elif origin is None:
+        query_origin = moe_plugin_config.moe_plugin_default_origin
     else:
         query_origin = origin
 
@@ -95,9 +103,11 @@ async def query_artworks_from_database(
         moe_plugin_config.moe_plugin_query_image_limit
     )
 
+    order_mode: Literal['index_id_desc', 'random'] = 'index_id_desc' if latest else 'random'
+
     random_artworks = await get_artwork_collection_type().query_any_origin_by_condition(
         keywords=keywords, origin=query_origin, num=query_num,
-        allow_classification_range=(2, 3), allow_rating_range=allow_rating_range,
+        allow_classification_range=(2, 3), allow_rating_range=allow_rating_range, ratio=ratio, order_mode=order_mode,
     )
 
     return [get_artwork_collection(artwork=artwork) for artwork in random_artworks]

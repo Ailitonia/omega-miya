@@ -76,13 +76,15 @@ async def handle_setu(
         origin=parsed_args.origin,
         all_origin=parsed_args.all_origin,
         allow_rating_range=allow_rating_range,
+        latest=parsed_args.latest,
+        ratio=parsed_args.ratio,
         num=parsed_args.num,
     )
 
     if not artworks:
         await interface.finish_reply('找不到涩图QAQ')
 
-    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
+    await interface.send_reply('稍等, 正在下载图片~')
 
     send_messages = await semaphore_gather(
         tasks=[prepare_send_image(x) for x in artworks],
@@ -142,13 +144,15 @@ async def handle_moe(
         origin=parsed_args.origin,
         all_origin=parsed_args.all_origin,
         allow_rating_range=(0, 0),
+        latest=parsed_args.latest,
+        ratio=parsed_args.ratio,
         num=parsed_args.num,
     )
 
     if not artworks:
         await interface.finish_reply('找不到萌图QAQ')
 
-    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
+    await interface.send_reply('稍等, 正在下载图片~')
 
     send_messages = await semaphore_gather(
         tasks=[prepare_send_image(x) for x in artworks],
