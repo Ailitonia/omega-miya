@@ -10,7 +10,7 @@
 
 from src.exception import WebSourceException
 from src.resource import TemporaryResource
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('http_cat')

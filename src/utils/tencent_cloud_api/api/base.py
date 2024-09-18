@@ -14,7 +14,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from src.service.omega_requests import OmegaRequests
+from src.utils import OmegaRequests
 from ..config import tencent_cloud_config
 
 

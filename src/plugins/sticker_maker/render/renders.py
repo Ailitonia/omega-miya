@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, Literal
 import numpy
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 from src.utils.image_utils import ImageUtils
 from src.utils.tencent_cloud_api import TencentTMT
 from .consts import STATIC_RESOURCE, FONT_RESOURCE, TMP_PATH

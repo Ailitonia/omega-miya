@@ -18,7 +18,8 @@ from pydantic import BaseModel
 
 from src.compat import parse_json_as
 from src.resource import StaticResource, TemporaryResource
-from src.service import OmegaMessage, OmegaMessageSegment, OmegaRequests
+from src.service import OmegaMessage, OmegaMessageSegment
+from src.utils import OmegaRequests
 
 _RESOURCE_PATH: StaticResource = StaticResource('images', 'what_to_eat')
 _TMP_PATH: TemporaryResource = TemporaryResource('what_to_eat')

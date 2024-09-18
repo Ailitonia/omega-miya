@@ -20,8 +20,8 @@ from nonebot.utils import run_sync
 from pydantic import BaseModel
 
 from src.compat import parse_json_as, parse_obj_as
-from src.service import OmegaRequests
 from src.service.artwork_collection import get_artwork_collection, get_artwork_collection_type
+from src.utils import OmegaRequests
 from src.utils.image_utils import ImageUtils
 from .config import sign_in_config, sign_local_resource_config
 

@@ -18,7 +18,7 @@ from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
 from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 from .config import image_utils_config
 
 

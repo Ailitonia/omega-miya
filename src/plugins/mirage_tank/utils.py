@@ -15,7 +15,7 @@ from PIL import Image, ImageEnhance, ImageOps, ImageMath
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 from src.utils.image_utils import ImageUtils
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('mirage_tank')

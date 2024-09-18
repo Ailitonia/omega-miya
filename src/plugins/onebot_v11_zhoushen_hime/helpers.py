@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.exception import PluginException
 from src.resource import TemporaryResource
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('zhoushen_hime')
 """缓存文件夹"""

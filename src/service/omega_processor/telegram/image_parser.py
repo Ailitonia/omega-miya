@@ -16,8 +16,8 @@ from nonebot.adapters.telegram.event import MessageEvent
 from nonebot.adapters.telegram.message import Message, MessageSegment, File
 from pydantic import BaseModel, ConfigDict
 
-from ...omega_requests import OmegaRequests
-from ....resource import TemporaryResource
+from src.resource import TemporaryResource
+from src.utils import OmegaRequests
 
 _TMP_IMG_PATH = TemporaryResource('telegram', 'tmp', 'images')
 
