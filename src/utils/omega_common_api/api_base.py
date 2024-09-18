@@ -12,7 +12,7 @@ import abc
 from typing import TYPE_CHECKING, Any, Optional
 
 from src.exception import WebSourceException
-from src.utils import OmegaRequests
+from ..omega_requests import OmegaRequests
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import (
