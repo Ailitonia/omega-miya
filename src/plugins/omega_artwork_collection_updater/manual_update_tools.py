@@ -33,7 +33,7 @@ class CustomImportArtwork(BaseModel):
     """手动导入/更新作品信息"""
     origin: ALLOW_ARTWORK_ORIGIN
     aid: str
-    classification: int = 3
+    classification: int
     rating: int
 
     model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
