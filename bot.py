@@ -8,31 +8,18 @@
 @Software       : PyCharm
 """
 
-import os
-import sys
-from datetime import datetime
-
 import nonebot
 from nonebot.log import logger, default_format
 
+from src.resource import LogFileResource
+
 # Log file path
-bot_log_path = os.path.abspath(os.path.join(sys.path[0], 'log'))
-if not os.path.exists(bot_log_path):
-    os.makedirs(bot_log_path)
-
-# Custom logger
-log_info_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-INFO.log'
-log_error_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-ERROR.log'
-log_info_path = os.path.join(bot_log_path, log_info_name)
-log_error_path = os.path.join(bot_log_path, log_error_name)
-
-logger.add(log_info_path, rotation='00:00', diagnose=False, level='INFO', format=default_format, encoding='utf-8')
-logger.add(log_error_path, rotation='00:00', diagnose=False, level='ERROR', format=default_format, encoding='utf-8')
+log_path = LogFileResource()
+logger.add(log_path.info, rotation='00:00', diagnose=False, level='INFO', format=default_format, encoding='utf-8')
+logger.add(log_path.error, rotation='00:00', diagnose=False, level='ERROR', format=default_format, encoding='utf-8')
 
 # Add extra debug log file
-# log_debug_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-DEBUG.log'
-# log_debug_path = os.path.join(bot_log_path, log_debug_name)
-# logger.add(log_debug_path, rotation='00:00', diagnose=False, level='DEBUG', format=default_format, encoding='utf-8')
+# logger.add(log_path.debug, rotation='00:00', diagnose=False, level='DEBUG', format=default_format, encoding='utf-8')
 
 # You can pass some keyword args config to init function
 nonebot.init()

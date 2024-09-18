@@ -26,7 +26,6 @@ from nonebot.drivers import (
 )
 
 from src.exception import WebSourceException
-from src.resource import TemporaryResource
 from .config import http_proxy_config
 from .utils import cloudflare_clearance_config
 
@@ -42,6 +41,7 @@ if TYPE_CHECKING:
         Response,
         WebSocket,
     )
+    from src.resource import BaseResource
 
 
 class OmegaRequests(object):
@@ -289,15 +289,15 @@ class OmegaRequests(object):
         )
         return await self.request(setup=setup)
 
-    async def download(
+    async def download[T: "BaseResource"](
             self,
             url: str,
-            file: TemporaryResource,
+            file: T,
             *,
             params: "QueryTypes" = None,
             ignore_exist_file: bool = False,
             **kwargs
-    ) -> TemporaryResource:
+    ) -> T:
         """下载文件
 
         :param url: 链接
