@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import EmailBoxBindOrm
 
 
-class EmailBoxBind(BaseModel):
+class EmailBoxBind(BaseDataQueryResultModel):
     """邮箱绑定 Model"""
     id: int
     email_box_index_id: int
@@ -29,16 +28,14 @@ class EmailBoxBind(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class EmailBoxBindDAL(BaseDataAccessLayerModel):
+class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBind]):
     """邮箱绑定 数据库操作对象"""
 
     async def query_unique(self, email_box_index_id: int, entity_index_id: int) -> EmailBoxBind:
-        stmt = select(EmailBoxBindOrm).\
-            where(EmailBoxBindOrm.email_box_index_id == email_box_index_id).\
-            where(EmailBoxBindOrm.entity_index_id == entity_index_id)
+        stmt = (select(EmailBoxBindOrm)
+                .where(EmailBoxBindOrm.email_box_index_id == email_box_index_id)
+                .where(EmailBoxBindOrm.entity_index_id == entity_index_id))
         session_result = await self.db_session.execute(stmt)
         return EmailBoxBind.model_validate(session_result.scalar_one())
 

@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import BiliDynamicOrm
 
 
-class BiliDynamic(BaseModel):
+class BiliDynamic(BaseDataQueryResultModel):
     """bilibili 主站动态 Model"""
     id: int
     dynamic_id: int
@@ -30,10 +29,8 @@ class BiliDynamic(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class BiliDynamicDAL(BaseDataAccessLayerModel):
+class BiliDynamicDAL(BaseDataAccessLayerModel[BiliDynamic]):
     """B站动态 数据库操作对象"""
 
     async def query_unique(self, dynamic_id: int) -> BiliDynamic:
@@ -49,17 +46,17 @@ class BiliDynamicDAL(BaseDataAccessLayerModel):
 
     async def query_user_all_dynamic_ids(self, uid: int) -> list[int]:
         """查询用户的全部动态id"""
-        stmt = select(BiliDynamicOrm.dynamic_id).\
-            where(BiliDynamicOrm.uid == uid).\
-            order_by(desc(BiliDynamicOrm.dynamic_id))
+        stmt = (select(BiliDynamicOrm.dynamic_id)
+                .where(BiliDynamicOrm.uid == uid)
+                .order_by(desc(BiliDynamicOrm.dynamic_id)))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
     async def query_exists_ids(self, dynamic_ids: Sequence[int]) -> list[int]:
         """查询数据库中 dynamic_id 列表中已有的动态 id"""
-        stmt = select(BiliDynamicOrm.dynamic_id).\
-            where(BiliDynamicOrm.dynamic_id.in_(dynamic_ids)).\
-            order_by(desc(BiliDynamicOrm.dynamic_id))
+        stmt = (select(BiliDynamicOrm.dynamic_id)
+                .where(BiliDynamicOrm.dynamic_id.in_(dynamic_ids))
+                .order_by(desc(BiliDynamicOrm.dynamic_id)))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 

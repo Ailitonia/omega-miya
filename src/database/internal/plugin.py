@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import PluginOrm
 
 
-class Plugin(BaseModel):
+class Plugin(BaseDataQueryResultModel):
     """插件 Model"""
     id: int
     plugin_name: str
@@ -30,10 +29,8 @@ class Plugin(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class PluginDAL(BaseDataAccessLayerModel):
+class PluginDAL(BaseDataAccessLayerModel[Plugin]):
     """插件 数据库操作对象"""
 
     async def query_unique(self, plugin_name: str, module_name: str) -> Plugin:

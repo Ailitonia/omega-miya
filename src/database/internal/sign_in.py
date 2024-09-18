@@ -11,16 +11,15 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import SignInOrm
 
 
-class SignIn(BaseModel):
+class SignIn(BaseDataQueryResultModel):
     """签到 Model"""
     id: int
     entity_index_id: int
@@ -29,23 +28,21 @@ class SignIn(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class SignInDAL(BaseDataAccessLayerModel):
+class SignInDAL(BaseDataAccessLayerModel[SignIn]):
     """签到 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int, sign_in_date: date) -> SignIn:
-        stmt = select(SignInOrm).\
-            where(SignInOrm.entity_index_id == entity_index_id).\
-            where(SignInOrm.sign_in_date == sign_in_date)
+        stmt = (select(SignInOrm)
+                .where(SignInOrm.entity_index_id == entity_index_id)
+                .where(SignInOrm.sign_in_date == sign_in_date))
         session_result = await self.db_session.execute(stmt)
         return SignIn.model_validate(session_result.scalar_one())
 
     async def query_entity_sign_in_days(self, entity_index_id: int) -> list[date]:
-        stmt = select(SignInOrm.sign_in_date).\
-            where(SignInOrm.entity_index_id == entity_index_id).\
-            order_by(desc(SignInOrm.sign_in_date))
+        stmt = (select(SignInOrm.sign_in_date)
+                .where(SignInOrm.entity_index_id == entity_index_id)
+                .order_by(desc(SignInOrm.sign_in_date)))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[date], session_result.scalars().all())
 

@@ -11,17 +11,16 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 from sqlalchemy.sql.expression import func
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import StatisticOrm
 
 
-class Statistic(BaseModel):
+class Statistic(BaseDataQueryResultModel):
     """统计信息 Model"""
     id: int
     module_name: str
@@ -34,18 +33,14 @@ class Statistic(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class CountStatisticModel(BaseModel):
+class CountStatisticModel(BaseDataQueryResultModel):
     """查询统计信息结果 Model"""
     custom_name: str
     call_count: int
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class StatisticDAL(BaseDataAccessLayerModel):
+class StatisticDAL(BaseDataAccessLayerModel[Statistic]):
     """统计信息 数据库操作对象"""
 
     async def query_unique(self):

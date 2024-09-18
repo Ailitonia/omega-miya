@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import PixivisionArticleOrm
 
 
-class PixivisionArticle(BaseModel):
+class PixivisionArticle(BaseDataQueryResultModel):
     """Pixivision 特辑 Model"""
     id: int
     aid: int
@@ -32,10 +31,8 @@ class PixivisionArticle(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class PixivisionArticleDAL(BaseDataAccessLayerModel):
+class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticle]):
     """Pixivision 特辑 数据库操作对象"""
 
     async def query_unique(self, aid: int) -> PixivisionArticle:
@@ -50,9 +47,9 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel):
 
     async def query_exists_ids(self, aids: Sequence[int]) -> list[int]:
         """查询数据库中已有的特辑文章 aid"""
-        stmt = select(PixivisionArticleOrm.aid).\
-            where(PixivisionArticleOrm.aid.in_(aids)).\
-            order_by(desc(PixivisionArticleOrm.aid))
+        stmt = (select(PixivisionArticleOrm.aid)
+                .where(PixivisionArticleOrm.aid.in_(aids))
+                .order_by(desc(PixivisionArticleOrm.aid)))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 

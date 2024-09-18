@@ -9,15 +9,22 @@
 """
 
 import abc
-from typing import Any, AsyncGenerator, Self
+from typing import AsyncGenerator, Self
 
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .helpers import begin_db_session
 
 
-class BaseDataAccessLayerModel(abc.ABC):
-    """数据库操作对象"""
+class BaseDataQueryResultModel(BaseModel):
+    """数据库查询结果数据模型基类"""
+
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True, frozen=True)
+
+
+class BaseDataAccessLayerModel[R: BaseDataQueryResultModel](abc.ABC):
+    """数据库操作对象基类"""
 
     def __init__(self, session: AsyncSession):
         self.db_session = session
@@ -31,12 +38,12 @@ class BaseDataAccessLayerModel(abc.ABC):
             yield cls(session)
 
     @abc.abstractmethod
-    async def query_unique(self, *args, **kwargs) -> Any:
+    async def query_unique(self, *args, **kwargs) -> R:
         """查询唯一行"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def query_all(self) -> list[Any]:
+    async def query_all(self) -> list[R]:
         """查询全部行"""
         raise NotImplementedError
 
@@ -63,4 +70,5 @@ class BaseDataAccessLayerModel(abc.ABC):
 
 __all__ = [
     'BaseDataAccessLayerModel',
+    'BaseDataQueryResultModel',
 ]

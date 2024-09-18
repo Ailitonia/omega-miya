@@ -13,12 +13,11 @@ from datetime import datetime
 from enum import StrEnum, unique
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import AuthSettingOrm, EntityOrm, SubscriptionOrm
 
 
@@ -52,7 +51,7 @@ class EntityType(StrEnum):
         return set(member.value for _, member in cls.__members__.items())
 
 
-class Entity(BaseModel):
+class Entity(BaseDataQueryResultModel):
     """实体对象 Model"""
     id: int
     bot_index_id: int  # 所属 Bot 索引 ID
@@ -64,13 +63,11 @@ class Entity(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
-
     def __str__(self) -> str:
         return f'Entity.{self.entity_type.value}(id={self.id}, entity_id={self.entity_id}, name={self.entity_name})'
 
 
-class EntityDAL(BaseDataAccessLayerModel):
+class EntityDAL(BaseDataAccessLayerModel[Entity]):
     """实体对象 数据库操作对象"""
 
     @property
@@ -84,11 +81,11 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_type: str,
             parent_id: str
     ) -> Entity:
-        stmt = (select(EntityOrm).
-                where(EntityOrm.bot_index_id == bot_index_id).
-                where(EntityOrm.entity_id == entity_id).
-                where(EntityOrm.entity_type == EntityType(entity_type)).
-                where(EntityOrm.parent_id == parent_id))
+        stmt = (select(EntityOrm)
+                .where(EntityOrm.bot_index_id == bot_index_id)
+                .where(EntityOrm.entity_id == entity_id)
+                .where(EntityOrm.entity_type == EntityType(entity_type))
+                .where(EntityOrm.parent_id == parent_id))
         session_result = await self.db_session.execute(stmt)
         return Entity.model_validate(session_result.scalar_one())
 
@@ -118,10 +115,11 @@ class EntityDAL(BaseDataAccessLayerModel):
             strict_match_available: bool = True
     ) -> list[Entity]:
         """根据权限节点查询具备该节点的 Entity 对象"""
-        stmt = (select(EntityOrm).join(AuthSettingOrm).
-                where(AuthSettingOrm.module == module).
-                where(AuthSettingOrm.plugin == plugin).
-                where(AuthSettingOrm.node == node))
+        stmt = (select(EntityOrm)
+                .join(AuthSettingOrm)
+                .where(AuthSettingOrm.module == module)
+                .where(AuthSettingOrm.plugin == plugin)
+                .where(AuthSettingOrm.node == node))
 
         if strict_match_available:
             stmt = stmt.where(AuthSettingOrm.available == available)
@@ -138,8 +136,9 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_type: Optional[str] = None
     ) -> list[Entity]:
         """查询订阅了某订阅源的 Entity 对象"""
-        stmt = (select(EntityOrm).join(SubscriptionOrm).
-                where(SubscriptionOrm.sub_source_index_id == sub_source_index_id))
+        stmt = (select(EntityOrm)
+                .join(SubscriptionOrm)
+                .where(SubscriptionOrm.sub_source_index_id == sub_source_index_id))
 
         if entity_type is not None:
             stmt = stmt.where(EntityOrm.entity_type == entity_type)

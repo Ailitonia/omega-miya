@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import SubscriptionOrm
 
 
-class Subscription(BaseModel):
+class Subscription(BaseDataQueryResultModel):
     """订阅 Model"""
     id: int
     sub_source_index_id: int
@@ -29,16 +28,14 @@ class Subscription(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class SubscriptionDAL(BaseDataAccessLayerModel):
+class SubscriptionDAL(BaseDataAccessLayerModel[Subscription]):
     """订阅 数据库操作对象"""
 
     async def query_unique(self, sub_source_index_id: int, entity_index_id: int) -> Subscription:
-        stmt = select(SubscriptionOrm).\
-            where(SubscriptionOrm.sub_source_index_id == sub_source_index_id).\
-            where(SubscriptionOrm.entity_index_id == entity_index_id)
+        stmt = (select(SubscriptionOrm)
+                .where(SubscriptionOrm.sub_source_index_id == sub_source_index_id)
+                .where(SubscriptionOrm.entity_index_id == entity_index_id))
         session_result = await self.db_session.execute(stmt)
         return Subscription.model_validate(session_result.scalar_one())
 

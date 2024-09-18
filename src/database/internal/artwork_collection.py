@@ -11,17 +11,16 @@
 from datetime import datetime
 from typing import Literal, Optional, Sequence
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc, or_, and_
 from sqlalchemy.future import select
 from sqlalchemy.sql.expression import func
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import ArtworkCollectionOrm
 
 
-class ArtworkCollection(BaseModel):
+class ArtworkCollection(BaseDataQueryResultModel):
     """图库作品 Model"""
     id: int
     origin: str
@@ -40,10 +39,8 @@ class ArtworkCollection(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class ArtworkClassificationStatistic(BaseModel):
+class ArtworkClassificationStatistic(BaseDataQueryResultModel):
     """分类统计信息查询结果"""
     unknown: int = 0
     unclassified: int = 0
@@ -51,14 +48,12 @@ class ArtworkClassificationStatistic(BaseModel):
     automatic: int = 0
     confirmed: int = 0
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
-
     @property
     def total(self) -> int:
         return self.unknown + self.unclassified + self.ai_generated + self.automatic + self.confirmed
 
 
-class ArtworkRatingStatistic(BaseModel):
+class ArtworkRatingStatistic(BaseDataQueryResultModel):
     """分级统计信息查询结果"""
     unknown: int = 0
     general: int = 0
@@ -66,20 +61,18 @@ class ArtworkRatingStatistic(BaseModel):
     questionable: int = 0
     explicit: int = 0
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
-
     @property
     def total(self) -> int:
         return self.unknown + self.general + self.sensitive + self.questionable + self.explicit
 
 
-class ArtworkCollectionDAL(BaseDataAccessLayerModel):
+class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
     """图库作品 数据库操作对象"""
 
     async def query_unique(self, origin: str, aid: str) -> ArtworkCollection:
-        stmt = (select(ArtworkCollectionOrm).
-                where(ArtworkCollectionOrm.origin == origin).
-                where(ArtworkCollectionOrm.aid == aid))
+        stmt = (select(ArtworkCollectionOrm)
+                .where(ArtworkCollectionOrm.origin == origin)
+                .where(ArtworkCollectionOrm.aid == aid))
         session_result = await self.db_session.execute(stmt)
         return ArtworkCollection.model_validate(session_result.scalar_one())
 

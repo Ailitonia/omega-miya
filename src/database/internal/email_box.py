@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import EmailBoxOrm, EmailBoxBindOrm
 
 
-class EmailBox(BaseModel):
+class EmailBox(BaseDataQueryResultModel):
     """邮箱 Model"""
     id: int
     address: str
@@ -31,10 +30,8 @@ class EmailBox(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class EmailBoxDAL(BaseDataAccessLayerModel):
+class EmailBoxDAL(BaseDataAccessLayerModel[EmailBox]):
     """邮箱 数据库操作对象"""
 
     async def query_unique(self, address: str) -> EmailBox:
@@ -44,9 +41,10 @@ class EmailBoxDAL(BaseDataAccessLayerModel):
 
     async def query_entity_bound_all(self, entity_index_id: int) -> list[EmailBox]:
         """查询 Entity 所绑定的全部邮箱"""
-        stmt = select(EmailBoxOrm).join(EmailBoxBindOrm).\
-            where(EmailBoxBindOrm.entity_index_id == entity_index_id).\
-            order_by(EmailBoxOrm.address)
+        stmt = (select(EmailBoxOrm)
+                .join(EmailBoxBindOrm)
+                .where(EmailBoxBindOrm.entity_index_id == entity_index_id)
+                .order_by(EmailBoxOrm.address))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[EmailBox], session_result.scalars().all())
 

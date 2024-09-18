@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete, desc
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import WeiboDetailOrm
 
 
-class WeiboDetail(BaseModel):
+class WeiboDetail(BaseDataQueryResultModel):
     """微博内容 Model"""
     id: int
     mid: int
@@ -30,10 +29,8 @@ class WeiboDetail(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class WeiboDetailDAL(BaseDataAccessLayerModel):
+class WeiboDetailDAL(BaseDataAccessLayerModel[WeiboDetail]):
     """微博内容 数据库操作对象"""
 
     async def query_unique(self, mid: int) -> WeiboDetail:
@@ -43,9 +40,9 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
 
     async def query_exists_ids(self, mids: Sequence[int]) -> list[int]:
         """查询数据库中 mids 列表中已有的微博 id"""
-        stmt = select(WeiboDetailOrm.mid).\
-            where(WeiboDetailOrm.mid.in_(mids)).\
-            order_by(desc(WeiboDetailOrm.mid))
+        stmt = (select(WeiboDetailOrm.mid)
+                .where(WeiboDetailOrm.mid.in_(mids))
+                .order_by(desc(WeiboDetailOrm.mid)))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 
@@ -67,9 +64,9 @@ class WeiboDetailDAL(BaseDataAccessLayerModel):
 
     async def query_user_all_weibo_mids(self, uid: int) -> list[int]:
         """查询用户的全部微博id"""
-        stmt = select(WeiboDetailOrm.mid).\
-            where(WeiboDetailOrm.uid == uid).\
-            order_by(desc(WeiboDetailOrm.mid))
+        stmt = (select(WeiboDetailOrm.mid)
+                .where(WeiboDetailOrm.uid == uid)
+                .order_by(desc(WeiboDetailOrm.mid)))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[int], session_result.scalars().all())
 

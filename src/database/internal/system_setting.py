@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import SystemSettingOrm
 
 
-class SystemSetting(BaseModel):
+class SystemSetting(BaseDataQueryResultModel):
     """系统参数 Model"""
     id: int
     setting_name: str
@@ -29,10 +28,8 @@ class SystemSetting(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class SystemSettingDAL(BaseDataAccessLayerModel):
+class SystemSettingDAL(BaseDataAccessLayerModel[SystemSetting]):
     """系统参数 数据库操作对象"""
 
     async def query_unique(self, setting_name: str) -> SystemSetting:

@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import CoolDownOrm
 
 
-class CoolDown(BaseModel):
+class CoolDown(BaseDataQueryResultModel):
     """冷却事件 Model"""
     id: int
     entity_index_id: int
@@ -30,16 +29,14 @@ class CoolDown(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class CoolDownDAL(BaseDataAccessLayerModel):
+class CoolDownDAL(BaseDataAccessLayerModel[CoolDown]):
     """冷却事件 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int, event: str) -> CoolDown:
-        stmt = select(CoolDownOrm).\
-            where(CoolDownOrm.entity_index_id == entity_index_id).\
-            where(CoolDownOrm.event == event)
+        stmt = (select(CoolDownOrm)
+                .where(CoolDownOrm.entity_index_id == entity_index_id)
+                .where(CoolDownOrm.event == event))
         session_result = await self.db_session.execute(stmt)
         return CoolDown.model_validate(session_result.scalar_one())
 

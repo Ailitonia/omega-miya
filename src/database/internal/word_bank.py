@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import ConfigDict, BaseModel
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import WordBankOrm
 
 
-class WordBank(BaseModel):
+class WordBank(BaseDataQueryResultModel):
     """问答语料词句 Model"""
     id: int
     key_word: str
@@ -29,16 +28,14 @@ class WordBank(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class WordBankDAL(BaseDataAccessLayerModel):
+class WordBankDAL(BaseDataAccessLayerModel[WordBank]):
     """问答语料词句 数据库操作对象"""
 
     async def query_unique(self, key_word: str, reply_entity: str) -> WordBank:
-        stmt = select(WordBankOrm).\
-            where(WordBankOrm.key_word == key_word).\
-            where(WordBankOrm.reply_entity == reply_entity)
+        stmt = (select(WordBankOrm)
+                .where(WordBankOrm.key_word == key_word)
+                .where(WordBankOrm.reply_entity == reply_entity))
         session_result = await self.db_session.execute(stmt)
         return WordBank.model_validate(session_result.scalar_one())
 

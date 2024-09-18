@@ -11,16 +11,15 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import AuthSettingOrm
 
 
-class AuthSetting(BaseModel):
+class AuthSetting(BaseDataQueryResultModel):
     """授权配置 Model"""
     id: int
     entity_index_id: int
@@ -32,18 +31,16 @@ class AuthSetting(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
 
-
-class AuthSettingDAL(BaseDataAccessLayerModel):
+class AuthSettingDAL(BaseDataAccessLayerModel[AuthSetting]):
     """授权配置 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int, module: str, plugin: str, node: str) -> AuthSetting:
-        stmt = select(AuthSettingOrm).\
-            where(AuthSettingOrm.entity_index_id == entity_index_id).\
-            where(AuthSettingOrm.module == module).\
-            where(AuthSettingOrm.plugin == plugin).\
-            where(AuthSettingOrm.node == node)
+        stmt = (select(AuthSettingOrm)
+                .where(AuthSettingOrm.entity_index_id == entity_index_id)
+                .where(AuthSettingOrm.module == module)
+                .where(AuthSettingOrm.plugin == plugin)
+                .where(AuthSettingOrm.node == node))
         session_result = await self.db_session.execute(stmt)
         return AuthSetting.model_validate(session_result.scalar_one())
 
@@ -65,10 +62,12 @@ class AuthSettingDAL(BaseDataAccessLayerModel):
 
     async def query_module_plugin_all(self, module: str, plugin: str) -> list[AuthSetting]:
         """查询某个模块/插件所有已配置的权限配置"""
-        stmt = select(AuthSettingOrm).\
-            where(AuthSettingOrm.module == module).\
-            where(AuthSettingOrm.plugin == plugin).\
-            order_by(AuthSettingOrm.module).order_by(AuthSettingOrm.plugin).order_by(AuthSettingOrm.node)
+        stmt = (select(AuthSettingOrm)
+                .where(AuthSettingOrm.module == module)
+                .where(AuthSettingOrm.plugin == plugin)
+                .order_by(AuthSettingOrm.module)
+                .order_by(AuthSettingOrm.plugin)
+                .order_by(AuthSettingOrm.node))
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[AuthSetting], session_result.scalars().all())
 

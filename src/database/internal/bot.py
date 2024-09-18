@@ -13,12 +13,11 @@ from datetime import datetime
 from enum import StrEnum, unique
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import BotSelfOrm
 
 
@@ -36,7 +35,7 @@ class BotType(StrEnum):
         return set(member.value for _, member in cls.__members__.items())
 
 
-class BotSelf(BaseModel):
+class BotSelf(BaseDataQueryResultModel):
     """BotSelf Model"""
     id: int
     self_id: str
@@ -46,13 +45,11 @@ class BotSelf(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
-
     def __str__(self) -> str:
         return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
 
 
-class BotSelfDAL(BaseDataAccessLayerModel):
+class BotSelfDAL(BaseDataAccessLayerModel[BotSelf]):
     """BotSelf 数据库操作对象"""
 
     @property
