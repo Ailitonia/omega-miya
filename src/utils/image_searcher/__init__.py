@@ -10,7 +10,7 @@
 
 from typing import TYPE_CHECKING
 
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .config import image_searcher_config
 from .model import BaseImageSearcher
 from .seachers import (

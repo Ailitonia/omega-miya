@@ -25,7 +25,7 @@ from src.service import (
     OmegaEntity,
     enable_processor_state
 )
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 
 
 @on_command(

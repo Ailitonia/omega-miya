@@ -11,7 +11,7 @@
 from typing import TYPE_CHECKING, Any
 
 from src.exception import WebSourceException
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 from .config import weibo_resource_config
 from .helper import parse_weibo_card_from_status_page
 from .model import (

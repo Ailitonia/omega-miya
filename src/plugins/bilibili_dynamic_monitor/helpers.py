@@ -24,8 +24,8 @@ from src.service import (
     OmegaMessageSegment,
 )
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
+from src.utils import run_async_delay, semaphore_gather
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
-from src.utils.process_utils import run_async_delay, semaphore_gather
 from .consts import (
     BILI_DYNAMIC_SUB_TYPE,
     NOTICE_AT_ALL,

@@ -10,7 +10,7 @@
 
 from typing import TYPE_CHECKING
 
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 from .config import pixiv_config
 
 if TYPE_CHECKING:

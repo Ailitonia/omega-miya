@@ -20,8 +20,7 @@ from zhconv import convert as zh_convert
 
 from src.compat import parse_json_as, dump_json_as
 from src.resource import TemporaryResource
-from src.utils.common_api import BaseCommonAPI
-from src.utils.process_utils import semaphore_gather
+from src.utils import BaseCommonAPI, semaphore_gather
 from .config import shindan_maker_plugin_config
 from .helper import (
     parse_searching_result_page,

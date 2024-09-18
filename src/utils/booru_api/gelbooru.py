@@ -11,7 +11,7 @@
 import abc
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 from .models.gelbooru import Post, PostsData, TagsData, UsersData, CommentsData
 
 if TYPE_CHECKING:

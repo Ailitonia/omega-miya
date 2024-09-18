@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Literal, Sequence
 
 from nonebot.utils import run_sync
 
+from src.utils import semaphore_gather
 from src.utils.image_utils import ImageUtils
 from src.utils.image_utils.template import generate_thumbs_preview_image, PreviewImageThumbs, PreviewImageModel
-from src.utils.process_utils import semaphore_gather
 from .typing import ArtworkProxyAddonsMixin
 from ..models import ArtworkPool
 

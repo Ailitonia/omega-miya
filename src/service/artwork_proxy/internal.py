@@ -15,7 +15,7 @@ from urllib.parse import urlparse, unquote
 
 from pydantic import ValidationError
 
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
 from .models import ArtworkData
 

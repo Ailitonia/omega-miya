@@ -20,10 +20,10 @@ from nonebot.typing import T_State
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.resource import TemporaryResource, StaticResource
 from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, OmegaRequests, enable_processor_state
+from src.utils import semaphore_gather
 from src.utils.image_searcher import ComplexImageSearcher, TraceMoe
 from src.utils.image_utils import ImageUtils
 from src.utils.image_utils.template import PreviewImageModel, PreviewImageThumbs, generate_thumbs_preview_image
-from src.utils.process_utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.utils.image_searcher.model import ImageSearchingResult

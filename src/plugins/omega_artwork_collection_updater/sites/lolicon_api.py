@@ -13,8 +13,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
 from src.service.artwork_collection import PixivArtworkCollection
-from src.utils.common_api import BaseCommonAPI
-from src.utils.process_utils import semaphore_gather
+from src.utils import BaseCommonAPI, semaphore_gather
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, HeaderTypes

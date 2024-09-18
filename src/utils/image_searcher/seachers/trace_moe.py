@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import BaseModel, Field
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from ..model import BaseImageSearcherAPI, ImageSearchingResult
 
 if TYPE_CHECKING:

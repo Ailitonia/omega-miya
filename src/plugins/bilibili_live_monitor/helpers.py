@@ -23,8 +23,8 @@ from src.service import (
     OmegaMessageSegment,
 )
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
+from src.utils import semaphore_gather
 from src.utils.bilibili_api import BilibiliLiveRoom
-from src.utils.process_utils import semaphore_gather
 from .consts import BILI_LIVE_SUB_TYPE, NOTICE_AT_ALL, MODULE_NAME, PLUGIN_NAME
 from .data_source import (
     check_and_upgrade_live_status,

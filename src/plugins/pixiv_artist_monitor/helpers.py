@@ -26,8 +26,8 @@ from src.service import (
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
 from src.service.omega_base.internal import OmegaPixivUserSubSource
+from src.utils import semaphore_gather
 from src.utils.pixiv_api import PixivUser
-from src.utils.process_utils import semaphore_gather
 from .consts import PIXIV_USER_SUB_TYPE
 
 if TYPE_CHECKING:

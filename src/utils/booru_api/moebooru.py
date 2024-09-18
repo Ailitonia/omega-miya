@@ -12,7 +12,7 @@ import abc
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from src.compat import parse_obj_as
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 from .models.moebooru import (
     Post,
     SimilarPosts,

@@ -146,5 +146,5 @@ async def semaphore_gather[T](
 
 __all__ = [
     'run_async_delay',
-    'semaphore_gather'
+    'semaphore_gather',
 ]

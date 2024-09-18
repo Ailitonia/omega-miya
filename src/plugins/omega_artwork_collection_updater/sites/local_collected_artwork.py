@@ -10,7 +10,7 @@
 
 from src.service.artwork_collection import LocalCollectedArtworkCollection
 from src.service.artwork_proxy import LocalCollectedArtworkProxy
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 
 
 class LocalCollectedArtworkUpdater:

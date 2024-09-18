@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.params.handler import get_shell_command_parse_failed_handler
 from src.service import OmegaMatcherInterface as OmMI, OmegaMessage, OmegaMessageSegment, enable_processor_state
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .consts import ALLOW_R18_NODE
 
 if TYPE_CHECKING:

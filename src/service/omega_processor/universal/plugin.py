@@ -16,7 +16,7 @@ from nonebot.plugin import Plugin
 from sqlalchemy.exc import NoResultFound
 
 from src.database import PluginDAL, begin_db_session
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 
 LOG_PREFIX: str = '<lc>Plugin Manager</lc> | '
 SUPERUSERS = get_driver().config.superusers

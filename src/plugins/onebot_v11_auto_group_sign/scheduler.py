@@ -13,7 +13,7 @@ from nonebot.log import logger
 
 from src.service import scheduler
 from src.service.omega_multibot_support import get_online_bots
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .config import auto_group_sign_config
 
 

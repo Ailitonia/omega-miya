@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyUrlStr as AnyUrl
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import QueryTypes

@@ -12,8 +12,8 @@ from asyncio import sleep as async_sleep
 from typing import Sequence
 
 from src.service.artwork_collection import PixivArtworkCollection
+from src.utils import semaphore_gather
 from src.utils.pixiv_api import PixivArtwork
-from src.utils.process_utils import semaphore_gather
 
 
 class PixivArtworkUpdater(object):

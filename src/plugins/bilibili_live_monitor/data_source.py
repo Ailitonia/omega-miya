@@ -16,8 +16,8 @@ from nonebot import get_driver, logger
 from src.database import begin_db_session
 from src.exception import WebSourceException
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
+from src.utils import semaphore_gather
 from src.utils.bilibili_api import BilibiliLiveRoom
-from src.utils.process_utils import semaphore_gather
 from .model import BilibiliLiveRoomStatus, BilibiliLiveRoomStatusUpdate
 
 if TYPE_CHECKING:

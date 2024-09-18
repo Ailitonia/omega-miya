@@ -14,7 +14,7 @@ from nonebot.log import logger
 
 from src.exception import WebSourceException
 from src.service import scheduler, reschedule_job
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .consts import MONITOR_USER_CHECK_DELAY
 from .helpers import query_all_subscribed_dynamic_sub_source, bili_dynamic_monitor_main
 

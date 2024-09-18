@@ -21,7 +21,7 @@ from src.service.artwork_proxy import (
     KonachanSafeArtworkProxy,
     YandereArtworkProxy,
 )
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.service.artwork_collection.typing import ArtworkCollectionType

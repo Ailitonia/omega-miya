@@ -19,7 +19,7 @@ from nonebot.rule import Namespace
 
 from src.params.handler import get_shell_command_parse_failed_handler
 from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .config import moe_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (

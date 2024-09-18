@@ -26,8 +26,8 @@ from src.service import (
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
 from src.service.omega_base.internal import OmegaPixivisionSubSource
+from src.utils import semaphore_gather
 from src.utils.pixiv_api import Pixivision
-from src.utils.process_utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity

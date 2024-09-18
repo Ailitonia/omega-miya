@@ -26,7 +26,7 @@ from src.params.handler import get_command_str_single_arg_parser_handler
 from src.resource import TemporaryResource
 from src.service import enable_processor_state
 from src.service.artwork_collection import ALLOW_ARTWORK_ORIGIN, get_artwork_collection_type
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 
 
 class CustomImportArtwork(BaseModel):

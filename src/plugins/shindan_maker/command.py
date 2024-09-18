@@ -17,7 +17,7 @@ from nonebot.plugin import CommandGroup
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_command_str_multi_args_parser_handler
 from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 from .data_source import ShindanMaker
 
 shindan_maker = CommandGroup(

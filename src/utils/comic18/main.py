@@ -16,9 +16,8 @@ from typing import TYPE_CHECKING, Literal, Optional, Sequence
 from nonebot.log import logger
 
 from src.exception import WebSourceException
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI, semaphore_gather
 from src.utils.image_utils.template import generate_thumbs_preview_image
-from src.utils.process_utils import semaphore_gather
 from src.utils.zip_utils import ZipUtils
 from .config import comic18_config, comic18_resource_config
 from .helper import Comic18Parser, Comic18ImgOps
