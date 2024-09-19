@@ -29,7 +29,6 @@ from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from .consts import (
     BILI_DYNAMIC_SUB_TYPE,
     NOTICE_AT_ALL,
-    MONITOR_USER_CHECK_DELAY,
     MODULE_NAME,
     PLUGIN_NAME,
 )
@@ -172,7 +171,7 @@ async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
         logger.error(f'BilibiliDynamicMonitor | Sending message to {entity} failed, {e!r}')
 
 
-@run_async_delay(delay_time=MONITOR_USER_CHECK_DELAY)
+@run_async_delay(delay_time=5)
 async def bili_dynamic_monitor_main(uid: int) -> None:
     """向已订阅的用户或群发送 Bilibili 用户动态更新"""
     bili_user = BilibiliUser(uid=uid)
