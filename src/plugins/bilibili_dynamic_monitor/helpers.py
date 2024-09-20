@@ -171,7 +171,7 @@ async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
         logger.error(f'BilibiliDynamicMonitor | Sending message to {entity} failed, {e!r}')
 
 
-@run_async_delay(delay_time=8, random_sigma=6.4)
+@run_async_delay(delay_time=8, random_sigma=8)
 async def bili_dynamic_monitor_main(uid: int) -> None:
     """向已订阅的用户或群发送 Bilibili 用户动态更新"""
     bili_user = BilibiliUser(uid=uid)
