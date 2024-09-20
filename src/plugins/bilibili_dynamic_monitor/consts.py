@@ -23,7 +23,7 @@ MONITOR_JOB_ID: Literal['bili_dynamic_update_monitor'] = 'bili_dynamic_update_mo
 """动态检查的定时任务 ID"""
 AVERAGE_CHECKING_PER_MINUTE: int = 6
 """每分钟检查动态的用户数(数值大小影响风控概率, 请谨慎调整)"""
-CHECKING_DELAY_UNDER_RATE_LIMITING: int = 10
+CHECKING_DELAY_UNDER_RATE_LIMITING: int = 5
 """被风控时的延迟间隔"""
 
 # 插件相关

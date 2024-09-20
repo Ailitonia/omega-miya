@@ -20,11 +20,11 @@ from .consts import MONITOR_JOB_ID, AVERAGE_CHECKING_PER_MINUTE, CHECKING_DELAY_
 from .helpers import query_all_subscribed_dynamic_sub_source, bili_dynamic_monitor_main
 
 _UID_CHECKING_QUEUE: AsyncQueue[int] = AsyncQueue()
-"""用于动态检查主函数使用的已订阅用户 UID 队列"""
+"""用于动态更新监控使用的已订阅用户 UID 队列"""
 
 
 class NullBiliDynamicSubscribedSource(PluginException):
-    """没有任何 bilibili 用户动态订阅源"""
+    """当前没有任何已订阅的 bilibili 用户动态订阅源"""
 
 
 async def _reload_uid_queue() -> None:

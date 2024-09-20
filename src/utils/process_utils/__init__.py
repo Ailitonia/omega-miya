@@ -10,17 +10,19 @@
 
 import asyncio
 import inspect
+import random
 from asyncio import Future
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, Literal, Sequence, overload
+from typing import Any, Awaitable, Callable, Coroutine, Literal, Optional, Sequence, overload
 
 from nonebot import logger
 
 
-def run_async_delay(delay_time: float = 5):
+def run_async_delay(delay_time: float = 5, *, random_sigma: Optional[float] = None):
     """一个用于包装 async function 使其延迟运行的装饰器
 
     :param delay_time: 延迟的时间, 单位秒
+    :param random_sigma: 启用延迟随机分布的标准差
     """
 
     def decorator[** P, R](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
@@ -29,11 +31,13 @@ def run_async_delay(delay_time: float = 5):
 
         @wraps(func)
         async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            delay = abs(random.gauss(delay_time, random_sigma)) if random_sigma is not None else delay_time
             _module = inspect.getmodule(func)
             logger.opt(colors=True).debug(
                 f'<lc>Decorator RunAsyncDelay</lc> | <ly>{_module.__name__ if _module is not None else "Unknown"}.'
-                f'{func.__name__}</ly> <c>></c> will delay execution after {delay_time} second(s)')
-            await asyncio.sleep(delay=delay_time)
+                f'{func.__name__}</ly> <c>></c> will delay execution after {delay:.2f} second(s)'
+            )
+            await asyncio.sleep(delay=delay)
             return await func(*args, **kwargs)
 
         return _wrapper
