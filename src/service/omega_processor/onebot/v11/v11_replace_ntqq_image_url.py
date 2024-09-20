@@ -19,7 +19,7 @@ type SegReplacerType = Callable[[MessageSegment], MessageSegment]
 
 class OneBotV11ImageUrlReplacerConfig(BaseModel):
     """OneBot V11 图片 URL 替换处理配置"""
-    onebot_v11_image_url_replacer: Literal['http', 'domain'] | None = 'http'
+    onebot_v11_image_url_replacer: Optional[Literal['http', 'domain']] = None
 
     model_config = ConfigDict(extra='ignore')
 
@@ -32,7 +32,7 @@ def _ger_image_url_replacer(replacer: Optional[str]) -> SegReplacerType:
         case 'domain':
             old_ = 'https://multimedia.nt.qq.com.cn'
             new_ = 'https://gchat.qpic.cn'
-        case _:
+        case None | _:
             old_ = ''
             new_ = ''
 
@@ -68,7 +68,7 @@ def _get_confined_replacer() -> SegReplacerType:
 _REPLACER: SegReplacerType = _get_confined_replacer()
 
 
-def _parse_message(message: Message) -> Message:
+def _replace_message_image(message: Message) -> Message:
     output_message = Message()
     for seg in message:
         if seg.type == 'image':
@@ -86,7 +86,9 @@ def _parse_message(message: Message) -> Message:
 
 async def handle_replace_image_url_event_preprocessor(event: MessageEvent):
     """事件预处理, 替换 image 消息段中的图片 url 域名"""
-    event.message = _parse_message(message=event.message.copy())
+    event.message = _replace_message_image(message=event.message.copy())
+    if event.reply is not None:
+        event.reply.message = _replace_message_image(message=event.reply.message)
 
 
 __all__ = [
