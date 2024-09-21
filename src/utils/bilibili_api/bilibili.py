@@ -9,65 +9,21 @@
 """
 
 import warnings
-from typing import Any, Literal, Optional, Sequence
+from typing import Literal, Optional, Sequence
 
 from .api_base import BilibiliCommon
-from .config import bilibili_config
-from .exclimbwuzhi import gen_buvid_fp, gen_uuid_infoc, get_payload
 from .model import (
     BilibiliUserModel,
     BilibiliUserDynamicModel,
     BilibiliDynamicModel,
     BilibiliLiveRoomModel,
     BilibiliUsersLiveRoomModel,
-    BilibiliWebInterfaceNav,
-    BilibiliWebInterfaceSpi
 )
 from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
-from .verify_utils import sign_wbi_params
 
 
 class Bilibili(BilibiliCommon):
     """Bilibili 主站方法"""
-
-    @classmethod
-    async def update_wbi_params(cls, params: Optional[dict[str, Any]] = None) -> dict:
-        """为 wbi 接口请求参数进行 wbi 签名"""
-        _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
-
-        response = await cls._get_json(url=_wbi_nav_url)
-        return sign_wbi_params(nav_data=BilibiliWebInterfaceNav.model_validate(response), params=params)
-
-    @classmethod
-    async def update_buvid_params(cls) -> dict[str, Any]:
-        """为接口激活 buvid"""
-        _spi_url: str = 'https://api.bilibili.com/x/frontend/finger/spi'
-        _exclimbwuzhi_url: str = 'https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi'
-
-        # get buvid3, buvid4
-        spi_response = await cls._get_json(url=_spi_url)
-        spi_data = BilibiliWebInterfaceSpi.model_validate(spi_response)
-
-        # active buvid
-        uuid = gen_uuid_infoc()
-        payload = get_payload()
-
-        headers = cls._get_default_headers()
-        headers.update({
-            'origin': 'https://www.bilibili.com',
-            'referer': 'https://www.bilibili.com/',
-            'Content-Type': 'application/json'
-        })
-
-        cookies = bilibili_config.update_bili_cookies(
-            buvid3=spi_data.data.b_3,
-            buvid4=spi_data.data.b_4,
-            buvid_fp=gen_buvid_fp(payload, 31),
-            _uuid=uuid
-        )
-
-        await cls._post_json(url=_exclimbwuzhi_url, headers=headers, json=payload, cookies=cookies)
-        return cookies
 
     @classmethod
     async def _global_search(
@@ -145,9 +101,6 @@ class Bilibili(BilibiliCommon):
 
 
 class BilibiliUser(Bilibili):
-    # _data_api_url = 'https://api.bilibili.com/x/space/acc/info'  # Deactivated
-    _data_api_url = 'https://api.bilibili.com/x/space/wbi/acc/info'
-    _dynamic_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'  # TODO
 
     warnings.warn(
         "The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
@@ -191,10 +144,11 @@ class BilibiliUser(Bilibili):
 
     async def query_user_data(self) -> BilibiliUserModel:
         """获取并初始化用户对应 BilibiliUserModel"""
+        api_url = 'https://api.bilibili.com/x/space/wbi/acc/info'
+
         if not isinstance(self.user_model, BilibiliUserModel):
             params = await self.update_wbi_params({'mid': self.mid})
-            cookies = await self.update_buvid_params()
-            user_data = await self._get_json(url=self._data_api_url, params=params, cookies=cookies)
+            user_data = await self._get_json(url=api_url, params=params)
             self.user_model = BilibiliUserModel.model_validate(user_data)
 
         if not isinstance(self.user_model, BilibiliUserModel):
@@ -212,6 +166,7 @@ class BilibiliUser(Bilibili):
         :param offset_dynamic_id: 获取动态起始位置
         :param need_top: 是否获取置顶动态
         """
+        api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'  # TODO: Update to New API
         headers = self._get_default_headers()
         headers.update({
             'origin': 'https://t.bilibili.com',
@@ -221,16 +176,13 @@ class BilibiliUser(Bilibili):
 
         # 这里是风控玄学, 虽然加不加这个好像也没啥影响, 但请求数量多了好像是有点用, 就是不知道有多大用
         params = await self.update_wbi_params(params)
-        cookies = await self.update_buvid_params()
 
-        data = await self._get_json(url=self._dynamic_api_url, params=params, headers=headers, cookies=cookies)
+        data = await self._get_json(url=api_url, params=params, headers=headers)
         return BilibiliUserDynamicModel.model_validate(data)
 
 
 class BilibiliDynamic(BilibiliCommon):
     """Bilibili 动态"""
-    _dynamic_root_url = 'https://t.bilibili.com/'
-    _dynamic_detail_api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'  # TODO
 
     warnings.warn(
         f"The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
@@ -241,14 +193,14 @@ class BilibiliDynamic(BilibiliCommon):
 
     def __init__(self, dynamic_id: int):
         self.dynamic_id = dynamic_id
-        self.dynamic_url = f'{self._dynamic_root_url}{dynamic_id}'
+        self.dynamic_url = f'{self.get_dynamic_root_url()}/{dynamic_id}'
 
         # 实例缓存
         self.dynamic_model: Optional[BilibiliDynamicModel] = None
 
     @classmethod
     def get_dynamic_root_url(cls) -> str:
-        return cls._dynamic_root_url
+        return 'https://t.bilibili.com'
 
     @property
     def dy_id(self) -> str:
@@ -259,6 +211,8 @@ class BilibiliDynamic(BilibiliCommon):
 
     async def query_dynamic_data(self) -> BilibiliDynamicModel:
         """获取并初始化动态对应 BilibiliDynamicModel"""
+        api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail'  # TODO: Update to New API
+
         if not isinstance(self.dynamic_model, BilibiliDynamicModel):
             headers = self._get_default_headers()
             headers.update({
@@ -266,7 +220,7 @@ class BilibiliDynamic(BilibiliCommon):
                 'referer': 'https://t.bilibili.com/'
             })
             params = {'dynamic_id': self.dy_id}
-            dynamic_data = await self._get_json(url=self._dynamic_detail_api_url, params=params, headers=headers)
+            dynamic_data = await self._get_json(url=api_url, params=params, headers=headers)
             self.dynamic_model = BilibiliDynamicModel.model_validate(dynamic_data)
 
         if not isinstance(self.dynamic_model, BilibiliDynamicModel):
@@ -276,13 +230,10 @@ class BilibiliDynamic(BilibiliCommon):
 
 class BilibiliLiveRoom(BilibiliCommon):
     """Bilibili 直播间"""
-    _live_root_url = 'https://live.bilibili.com/'
-    _live_api_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
-    _live_by_uids_api_url = 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids'
 
     def __init__(self, room_id: int):
         self.room_id = room_id
-        self.live_room_url = f'{self._live_root_url}{room_id}'
+        self.live_room_url = f'{self.get_live_root_url()}/{room_id}'
 
         # 实例缓存
         self.live_room_model: Optional[BilibiliLiveRoomModel] = None
@@ -295,19 +246,26 @@ class BilibiliLiveRoom(BilibiliCommon):
         return str(self.room_id)
 
     @classmethod
+    def get_live_root_url(cls) -> str:
+        return 'https://live.bilibili.com'
+
+    @classmethod
     async def query_live_room_by_uid_list(cls, uid_list: Sequence[int | str]) -> BilibiliUsersLiveRoomModel:
         """根据用户 uid 列表获取这些用户的直播间信息(这个 api 没有认证方法，请不要在标头中添加 cookie)"""
+        api_url = 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids'
         payload = {'uids': uid_list}
-        live_room_data = await cls._post_json(
-            url=cls._live_by_uids_api_url, json=payload, no_headers=True, no_cookies=True  # 该接口无需鉴权
-        )
+
+        # 该接口无需鉴权
+        live_room_data = await cls._post_json(url=api_url, json=payload, no_headers=True, no_cookies=True)
         return BilibiliUsersLiveRoomModel.model_validate(live_room_data)
 
     async def query_live_room_data(self) -> BilibiliLiveRoomModel:
         """获取并初始化直播间对应 Model"""
+        api_url = 'https://api.live.bilibili.com/room/v1/Room/get_info'
+
         if not isinstance(self.live_room_model, BilibiliLiveRoomModel):
             params = {'id': self.rid}
-            live_room_data = await self._get_json(url=self._live_api_url, params=params)
+            live_room_data = await self._get_json(url=api_url, params=params)
             self.live_room_model = BilibiliLiveRoomModel.model_validate(live_room_data)
 
         if not isinstance(self.live_room_model, BilibiliLiveRoomModel):

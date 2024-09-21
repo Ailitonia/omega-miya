@@ -226,7 +226,12 @@ class BilibiliCredential(BilibiliCommon):
         if new_cookies['DedeUserID']:
             bilibili_config.bili_dedeuserid = new_cookies['DedeUserID']
         bilibili_config.bili_ac_time_value = refresh_info.data.refresh_token
+        bilibili_config.update_cookies_cache(**new_cookies)
 
+        # 激活 buvid
+        await cls.update_buvid_params()
+
+        # 确认更新并注销旧 token
         confirm_result = await cls.confirm_cookies_refresh(
             csrf=new_cookies['bili_jct'], refresh_token=old_refresh_token
         )
@@ -246,7 +251,9 @@ async def _refresh_bilibili_login_status() -> None:
     is_valid = await bc.check_valid()
     if not is_valid:
         logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>用户 Cookies 未配置或验证失败</r>, 部分功能可能不可用')
+        return
 
+    await bc.update_buvid_params()
     need_refresh = await bc.check_need_refresh()
     if need_refresh:
         logger.opt(colors=True).warning('<lc>Bilibili</lc> | <ly>用户 Cookies 需要刷新</ly>, 正在尝试刷新中')

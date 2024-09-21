@@ -56,16 +56,17 @@ class BilibiliConfig(BaseModel):
         if self.bili_dedeuserid:
             cookies.update({"DedeUserID": self.bili_dedeuserid})
 
+        if self._cookies_cache is not None:
+            cookies.update(self._cookies_cache)
+
         return cookies
 
-    def update_bili_cookies(self, **kwargs) -> dict[str, str]:
+    def update_cookies_cache(self, **kwargs) -> dict[str, str]:
         if self._cookies_cache is not None and not kwargs:
             return self._cookies_cache
 
         cookies = self.bili_cookies
-        for key, value in kwargs.items():
-            if key not in cookies and value is not None:
-                cookies[key] = value
+        cookies.update(**kwargs)
 
         self._cookies_cache = cookies
         return cookies
