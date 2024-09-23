@@ -56,7 +56,7 @@ sign_in.on_command(
 # 针对 OneBot V11 的戳一戳事件进行特殊处理
 @on_notice(
     rule=to_me() & event_has_permission_level(level=20),
-    state=enable_processor_state(name='OmegaPokeSignIn', echo_processor_result=False),
+    state=enable_processor_state(name='OmegaPokeSignIn', enable_processor=False, echo_processor_result=False),
     priority=11,
     block=False
 ).handle()
