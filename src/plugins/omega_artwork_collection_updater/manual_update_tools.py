@@ -127,10 +127,10 @@ async def handle_artwork_collection_statistics(
     if origins is None:
         query_origin = None
         query_keywords = None
-    elif len(split_origins := origins.strip().split(maxsplit=1)) == 1:
+    elif len(split_origins := origins.strip().split()) == 1:
         query_origin = split_origins[0]
         query_keywords = None
-    elif len(split_origins := origins.strip().split(maxsplit=1)) > 1:
+    elif len(split_origins := origins.strip().split()) > 1:
         query_origin = split_origins[0]
         query_keywords = split_origins[1:]
     else:
