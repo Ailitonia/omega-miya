@@ -147,7 +147,7 @@ async def handle_artwork_collection_statistics(
     prefix_text = f'本地数据库{origins if origins is not None else "全量"!r}统计信息:'
     classification_text = (
         f'-- Classification --\n'
-        f'Unknown: {classification_statistic.unknown}\n'
+        f'Unused: {classification_statistic.unused}\n'
         f'Unclassified: {classification_statistic.unclassified}\n'
         f'AIGenerated: {classification_statistic.ai_generated}\n'
         f'Automatic: {classification_statistic.automatic}\n'

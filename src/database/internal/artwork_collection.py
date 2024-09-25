@@ -42,7 +42,7 @@ class ArtworkCollection(BaseDataQueryResultModel):
 
 class ArtworkClassificationStatistic(BaseDataQueryResultModel):
     """分类统计信息查询结果"""
-    unknown: int = 0
+    unused: int = 0
     unclassified: int = 0
     ai_generated: int = 0
     automatic: int = 0
@@ -50,7 +50,7 @@ class ArtworkClassificationStatistic(BaseDataQueryResultModel):
 
     @property
     def total(self) -> int:
-        return self.unknown + self.unclassified + self.ai_generated + self.automatic + self.confirmed
+        return self.unused + self.unclassified + self.ai_generated + self.automatic + self.confirmed
 
 
 class ArtworkRatingStatistic(BaseDataQueryResultModel):
@@ -215,7 +215,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
                 case 3:
                     result.update({'confirmed': v})
                 case _:
-                    result.update({'unknown': v})
+                    result.update({'unused': v})
 
         return ArtworkClassificationStatistic.model_validate(result)
 
