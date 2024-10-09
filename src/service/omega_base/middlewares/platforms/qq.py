@@ -88,7 +88,7 @@ class QQMessageExtractor(BaseMessageBuilder[QQMessage, OmegaMessage]):
                 return OmegaMessageSegment.at(user_id=seg_data.get('user_id', ''))
             case 'reference':
                 return OmegaMessageSegment.forward_id(id_=seg_data.get('reference', {}).get('message_id'))
-            case 'attachment':
+            case 'attachment' | 'image':
                 url = 'https://' + str(seg_data.get('url')).removeprefix('http://').removeprefix('https://')
                 return OmegaMessageSegment.image(url=url)
             case 'text':
