@@ -45,27 +45,6 @@ class OmegaEntityInterface(object):
     def __init__(self, entity: "OmegaEntity") -> None:
         self._entity = entity
 
-    @classmethod
-    def depend(cls, acquire_type: EntityAcquireType = 'event') -> Callable[[BaseBot, BaseEvent, AsyncSession], Self]:
-        """获取注入依赖, 用于 Event/Matcher 中初始化"""
-
-        def _depend(
-                bot: BaseBot,
-                event: BaseEvent,
-                session: Annotated[AsyncSession, Depends(get_db_session)]
-        ) -> Self:
-            event_depend = event_depend_register.get_depend(target_event=event)(bot=bot, event=event)
-            match acquire_type:
-                case 'event':
-                    entity_depend = event_depend.event_entity_depend
-                case 'user':
-                    entity_depend = event_depend.user_entity_depend
-                case _:
-                    raise ValueError(f'Not supported entity acquire_type: {acquire_type!r}')
-            return cls(entity_depend(session))
-
-        return _depend
-
     @staticmethod
     def check_target_implemented[** P, R](
             func: Callable[P, Coroutine[Any, Any, R]],
