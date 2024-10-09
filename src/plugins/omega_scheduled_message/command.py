@@ -18,6 +18,7 @@ from nonebot.plugin import CommandGroup
 from src.params.handler import get_command_message_arg_parser_handler
 from src.params.permission import IS_ADMIN
 from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.utils.message_transfer_utils import MessageTransferUtils
 from .helpers import (
     add_schedule_job,
     generate_schedule_job_data,
@@ -56,7 +57,7 @@ async def handle_set_schedule_message(
         await interface.reject_arg_reply('job_name', '设置的定时消息任务名称过长(超过50字), 请重新输入:')
 
     try:
-        parsed_message = interface.get_message_extractor()(message=message).message
+        parsed_message = await MessageTransferUtils(interface=interface, origin_message=message).dumps()
         job_data = await generate_schedule_job_data(
             interface=interface, job_name=job_name, crontab=crontab, message=parsed_message
         )
