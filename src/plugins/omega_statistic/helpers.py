@@ -57,7 +57,7 @@ async def draw_statistics(
         file_name = f"statistic_{title}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.jpg"
         return output_figure(fig, file_name)
 
-    return await _handle(_statistics_data=statistics_data)
+    return await _handle(_statistics_data=sorted(statistics_data, key=lambda x: x.call_count))
 
 
 __all__ = [
