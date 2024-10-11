@@ -41,7 +41,7 @@ class MessageTransferUtils[TM: "BaseMessage"]:
 
     async def dump_segment_resource(self, message_segment: "OmegaMessageSegment") -> "OmegaMessageSegment":
         match message_segment.type:
-            case 'image':
+            case 'audio' | 'image' | 'video' | 'voice':
                 if str(image_url := message_segment.data.get('url', '')).startswith(('http://', 'https://')):
                     target_file = await self._download_resource_file(seg_type=message_segment.type, url=image_url)
                     message_segment = OmegaMessageSegment.image(url=target_file.path)

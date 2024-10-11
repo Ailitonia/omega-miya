@@ -20,7 +20,7 @@ class MessageTransferPath:
     # 缓存文件夹
     default_save_folder: TemporaryResource = TemporaryResource('message_transfer_utils')
 
-    def get_target_folder(self, adapter_name: str, seg_type: str):
+    def get_target_folder(self, adapter_name: str, seg_type: str) -> TemporaryResource:
         return self.default_save_folder(adapter_name, seg_type)
 
 
