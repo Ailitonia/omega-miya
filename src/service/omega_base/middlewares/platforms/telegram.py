@@ -10,7 +10,7 @@
 
 from pathlib import Path
 from typing import Any, Optional, Sequence, cast
-from urllib.parse import urlparse, quote
+from urllib.parse import quote
 
 from nonebot.adapters.telegram import (
     Bot as TelegramBot,
@@ -53,18 +53,23 @@ class TelegramMessageBuilder(BaseMessageBuilder[OmegaMessage, TelegramMessage]):
     @staticmethod
     def _construct_platform_segment(seg_type: str, seg_data: dict[str, Any]) -> TelegramMessageSegment:
         match seg_type:
-            case MessageSegmentType.at.value:
+            case MessageSegmentType.at:
                 return Entity.mention(text='@' + seg_data.get('user_id', ''))
-            case MessageSegmentType.image.value:
-                url = str(seg_data.get('url'))
-                if urlparse(url).scheme not in ['http', 'https']:
-                    url = Path(url).as_posix()
-                return File.photo(file=url)
-            case MessageSegmentType.image_file.value:
-                return File.document(file=Path(seg_data.get('file', '')).as_posix())
-            case MessageSegmentType.file.value:
-                return File.document(file=Path(seg_data.get('file', '')).as_posix())
-            case MessageSegmentType.text.value:
+            case MessageSegmentType.emoji:
+                return Entity.custom_emoji(text=seg_data.get('name', ''), custom_emoji_id=seg_data.get('id', ''))
+            case MessageSegmentType.audio:
+                return File.audio(file=seg_data.get('url', ''))
+            case MessageSegmentType.voice:
+                return File.voice(file=seg_data.get('url', ''))
+            case MessageSegmentType.video:
+                return File.video(file=seg_data.get('url', ''))
+            case MessageSegmentType.image:
+                return File.photo(file=seg_data.get('url', ''))
+            case MessageSegmentType.image_file:
+                return File.document(file=seg_data.get('file', ''))
+            case MessageSegmentType.file:
+                return File.document(file=seg_data.get('file', ''))
+            case MessageSegmentType.text:
                 return Entity.text(text=seg_data.get('text', ''))
             case _:
                 return Entity.text(text='')
@@ -86,12 +91,20 @@ class TelegramMessageExtractor(BaseMessageBuilder[TelegramMessage, OmegaMessage]
         match seg_type:
             case 'mention':
                 return OmegaMessageSegment.at(user_id=str(seg_data.get('text')).removeprefix('@'))
+            case 'custom_emoji':
+                return OmegaMessageSegment.emoji(id_=seg_data.get('custom_emoji_id', ''), name=seg_data.get('text', ''))
+            case 'audio':
+                return OmegaMessageSegment.audio(url=seg_data.get('file', ''))
+            case 'voice':
+                return OmegaMessageSegment.voice(url=seg_data.get('file', ''))
+            case 'video':
+                return OmegaMessageSegment.video(url=seg_data.get('file', ''))
             case 'photo':
                 return OmegaMessageSegment.image(url=seg_data.get('file', ''))
             case 'text':
                 return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case _:
-                return OmegaMessageSegment.text(text='')
+                return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 
 class BaseTelegramEntityTarget(BaseEntityTarget):

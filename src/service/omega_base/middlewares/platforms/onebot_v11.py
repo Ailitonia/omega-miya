@@ -55,26 +55,29 @@ class OneBotV11MessageBuilder(BaseMessageBuilder[OmegaMessage, OneBotV11Message]
     @staticmethod
     def _construct_platform_segment(seg_type: str, seg_data: dict[str, Any]) -> OneBotV11MessageSegment:
         match seg_type:
-            case MessageSegmentType.at.value:
+            case MessageSegmentType.at:
                 return OneBotV11MessageSegment.at(user_id=seg_data.get('user_id', 0))
-            case MessageSegmentType.at_all.value:
+            case MessageSegmentType.at_all:
                 return OneBotV11MessageSegment.at(user_id='all')
-            case MessageSegmentType.forward_id.value:
+            case MessageSegmentType.emoji:
+                return OneBotV11MessageSegment.face(id_=seg_data.get('id', 0))
+            case MessageSegmentType.audio | MessageSegmentType.voice:
+                return OneBotV11MessageSegment.record(file=_parse_url_to_path(str(seg_data.get('url', ''))))
+            case MessageSegmentType.video:
+                return OneBotV11MessageSegment.video(file=_parse_url_to_path(str(seg_data.get('url', ''))))
+            case MessageSegmentType.image:
+                return OneBotV11MessageSegment.image(file=_parse_url_to_path(str(seg_data.get('url', ''))))
+            case MessageSegmentType.image_file:
+                return OneBotV11MessageSegment.image(file=Path(seg_data.get('file', '')))
+            case MessageSegmentType.ref_node:
                 return OneBotV11MessageSegment.node(id_=seg_data.get('id', 0))
-            case MessageSegmentType.custom_node.value:
+            case MessageSegmentType.custom_node:
                 return OneBotV11MessageSegment.node_custom(
                     user_id=seg_data.get('user_id', 0),
                     nickname=seg_data.get('nickname', ''),
-                    content=seg_data.get('content', '')
+                    content=OneBotV11Message(seg_data.get('content', []))
                 )
-            case MessageSegmentType.image.value:
-                url = str(seg_data.get('url', ''))
-                if urlparse(url).scheme not in ['http', 'https']:
-                    url = Path(url)
-                return OneBotV11MessageSegment.image(file=url)
-            case MessageSegmentType.image_file.value:
-                return OneBotV11MessageSegment.image(file=Path(seg_data.get('file', '')))
-            case MessageSegmentType.text.value:
+            case MessageSegmentType.text:
                 return OneBotV11MessageSegment.text(text=seg_data.get('text', ''))
             case _:
                 return OneBotV11MessageSegment.text(text='')
@@ -95,24 +98,27 @@ class OneBotV11MessageExtractor(BaseMessageBuilder[OneBotV11Message, OmegaMessag
     def _construct_platform_segment(seg_type: str, seg_data: dict[str, Any]) -> OmegaMessageSegment:
         match seg_type:
             case 'at':
-                return OmegaMessageSegment.at(user_id=seg_data.get('qq', 0))
-            case 'forward':
-                return OmegaMessageSegment.forward_id(id_=seg_data.get('id', 0))
-            case 'node':
-                return OmegaMessageSegment.custom_node(
-                    user_id=seg_data.get('user_id', 0),
-                    nickname=seg_data.get('nickname', ''),
-                    content=seg_data.get('content', '')
-                )
+                user_id = seg_data.get('qq', 0)
+                if user_id == 'all':
+                    return OmegaMessageSegment.at_all()
+                return OmegaMessageSegment.at(user_id=user_id)
+            case 'face':
+                return OmegaMessageSegment.emoji(id_=seg_data.get('id', '0'))
+            case 'record':
+                url = str(seg_data.get('url', '') if seg_data.get('url') else seg_data.get('file', ''))
+                return OmegaMessageSegment.audio(url=_parse_url_to_path(url))
+            case 'video':
+                url = str(seg_data.get('url', '') if seg_data.get('url') else seg_data.get('file', ''))
+                return OmegaMessageSegment.video(url=_parse_url_to_path(url))
             case 'image':
                 url = str(seg_data.get('url', '') if seg_data.get('url') else seg_data.get('file', ''))
-                if urlparse(url).scheme not in ['http', 'https']:
-                    url = Path(url)
-                return OmegaMessageSegment.image(url=url)
+                return OmegaMessageSegment.image(url=_parse_url_to_path(url))
+            case 'forward' | 'node':
+                return OmegaMessageSegment.ref_node(id_=seg_data.get('id', 0))
             case 'text':
                 return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case _:
-                return OmegaMessageSegment.text(text='')
+                return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_user)
@@ -451,6 +457,12 @@ class OneBotV11GuildMessageEventDepend(OneBotV11MessageEventDepend[OneBotV11Guil
             entity_name=self.event.sender.nickname,
             entity_info=self.event.sender.card
         )
+
+
+def _parse_url_to_path(url: str) -> str | Path:
+    if urlparse(url).scheme not in ['http', 'https']:
+        return Path(url)
+    return url
 
 
 __all__ = []

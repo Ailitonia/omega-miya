@@ -45,7 +45,7 @@ class ConsoleMessageBuilder(BaseMessageBuilder[OmegaMessage, ConsoleMessage]):
     @staticmethod
     def _construct_platform_segment(seg_type: str, seg_data: dict[str, Any]) -> ConsoleMessageSegment:
         match seg_type:
-            case MessageSegmentType.text.value:
+            case MessageSegmentType.text:
                 return ConsoleMessageSegment.text(text=seg_data.get('text', ''))
             case _:
                 return ConsoleMessageSegment.text(text='')
@@ -70,7 +70,7 @@ class ConsoleMessageExtractor(BaseMessageBuilder[ConsoleMessage, OmegaMessage]):
             case 'text':
                 return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case _:
-                return OmegaMessageSegment.text(text='')
+                return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 
 @entity_target_register.register_target(SupportedTarget.console_user)

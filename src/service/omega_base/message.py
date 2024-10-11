@@ -10,7 +10,7 @@
 
 from enum import StrEnum, unique
 from pathlib import Path
-from typing import Iterable, Type, Union, override
+from typing import Any, Iterable, Optional, Sequence, Type, Union, override
 
 import ujson as json
 from nonebot.adapters import Message as BaseMessage
@@ -21,12 +21,24 @@ from nonebot.adapters import MessageSegment as BaseMessageSegment
 class MessageSegmentType(StrEnum):
     at = 'at'
     at_all = 'at_all'
-    forward_id = 'forward_id'
-    custom_node = 'custom_node'
+    emoji = 'emoji'
+
+    audio = 'audio'
+    file = 'file'
     image = 'image'
     image_file = 'image_file'
-    file = 'file'
+    video = 'video'
+    voice = 'voice'
+
+    reply = 'reply'
+    ref_node = 'ref_node'
+    custom_node = 'custom_node'
+
+    json_hyper = 'json_hyper'
+    xml_hyper = 'xml_hyper'
+
     text = 'text'
+    other = 'other'
 
 
 class MessageSegment(BaseMessageSegment["Message"]):
@@ -55,29 +67,62 @@ class MessageSegment(BaseMessageSegment["Message"]):
 
     @staticmethod
     def at(user_id: int | str) -> "MessageSegment":
+        """At 消息段, 表示一类提醒某用户的消息段类型
+
+        - type: at
+        - data_map: {user_id: str}
+        """
         return MessageSegment(type=MessageSegmentType.at, data={'user_id': str(user_id)})
 
     @staticmethod
     def at_all() -> "MessageSegment":
+        """AtAll 消息段, 表示一类提醒所有人的消息段类型
+
+        - type: at_all
+        - data_map: {at_all: bool}
+        """
         return MessageSegment(type=MessageSegmentType.at_all, data={'at_all': True})
 
     @staticmethod
-    def forward_id(id_: int | str) -> "MessageSegment":
-        return MessageSegment(type=MessageSegmentType.forward_id, data={'id': str(id_)})
+    def emoji(id_: str, *, name: Optional[str] = None) -> "MessageSegment":
+        """Emoji 消息段, 表示一类表情元素消息段类型
+
+        - type: emoji
+        - data_map: {id: str, name: Optional[str]}
+        """
+        return MessageSegment(type=MessageSegmentType.emoji, data={'id': id_, 'name': name})
 
     @staticmethod
-    def custom_node(user_id: int | str, nickname: str, content: str | BaseMessageSegment) -> "MessageSegment":
+    def audio(url: Union[str, Path]) -> "MessageSegment":
+        """Audio 消息段, 表示一类音频消息段类型
+
+        - type: audio
+        - data_map: {url: str}
+        """
         return MessageSegment(
-            type=MessageSegmentType.custom_node,
-            data={
-                'user_id': str(user_id),
-                'nickname': str(nickname),
-                'content': MessageSegment.text(content) if isinstance(content, str) else content
-            }
+            type=MessageSegmentType.audio,
+            data={'url': url.resolve().as_posix() if isinstance(url, Path) else url}
+        )
+
+    @staticmethod
+    def file(file: Path) -> "MessageSegment":
+        """File 消息段, 表示一类文件消息段类型
+
+        - type: file
+        - data_map: {file: str}
+        """
+        return MessageSegment(
+            type=MessageSegmentType.file,
+            data={'file': file.resolve().as_posix()}
         )
 
     @staticmethod
     def image(url: Union[str, Path]) -> "MessageSegment":
+        """Image 消息段, 表示一类图片消息段类型
+
+        - type: image
+        - data_map: {url: str}
+        """
         return MessageSegment(
             type=MessageSegmentType.image,
             data={'url': url.resolve().as_posix() if isinstance(url, Path) else url}
@@ -85,21 +130,113 @@ class MessageSegment(BaseMessageSegment["Message"]):
 
     @staticmethod
     def image_file(file: Path) -> "MessageSegment":
+        """ImageFile 消息段, 表示一类以文件发送的图片消息段类型
+
+        - type: image_file
+        - data_map: {file: str}
+        """
         return MessageSegment(
             type=MessageSegmentType.image_file,
             data={'file': file.resolve().as_posix()}
         )
 
     @staticmethod
-    def file(file: Path) -> "MessageSegment":
+    def video(url: Union[str, Path]) -> "MessageSegment":
+        """Video 消息段, 表示一类视频消息段类型
+
+        - type: video
+        - data_map: {url: str}
+        """
         return MessageSegment(
-            type=MessageSegmentType.file,
-            data={'file': file.resolve().as_posix()}
+            type=MessageSegmentType.video,
+            data={'url': url.resolve().as_posix() if isinstance(url, Path) else url}
         )
 
     @staticmethod
+    def voice(url: Union[str, Path]) -> "MessageSegment":
+        """Voice 消息段, 表示一类语音消息段类型
+
+        - type: voice
+        - data_map: {url: str}
+        """
+        return MessageSegment(
+            type=MessageSegmentType.voice,
+            data={'url': url.resolve().as_posix() if isinstance(url, Path) else url}
+        )
+
+    @staticmethod
+    def reply(id_: int | str) -> "MessageSegment":
+        """Reply 消息段, 表示一类回复消息段类型
+
+        - type: reply
+        - data_map: {id: str}
+        """
+        return MessageSegment(type=MessageSegmentType.reply, data={'id': str(id_)})
+
+    @staticmethod
+    def ref_node(id_: int | str) -> "MessageSegment":
+        """ReferenceNode 消息段, 表示转发消息的引用消息段类型
+
+        - type: ref_node
+        - data_map: {id: str}
+        """
+        return MessageSegment(type=MessageSegmentType.ref_node, data={'id': str(id_)})
+
+    @staticmethod
+    def custom_node(
+            user_id: int | str,
+            nickname: str,
+            content: Sequence[Union[str, "MessageSegment"]],
+    ) -> "MessageSegment":
+        """CustomNode 消息段, 表示转发消息的自定义消息段类型
+
+        - type: custom_node
+        - data_map: {user_id: str, nickname: str, content: list[MessageSegment]}
+        """
+        return MessageSegment(
+            type=MessageSegmentType.custom_node,
+            data={
+                'user_id': str(user_id),
+                'nickname': str(nickname),
+                'content': [MessageSegment.text(x) if isinstance(x, str) else x for x in content]
+            }
+        )
+
+    @staticmethod
+    def json_hyper(raw: str) -> "MessageSegment":
+        """JSON Hyper 消息段, 表示一类以 JSON 传输的超文本消息内容, 如卡片消息、ark消息、小程序等消息段类型
+
+        - type: json_hyper
+        - data_map: {raw: str}
+        """
+        return MessageSegment(type=MessageSegmentType.json_hyper, data={'raw': raw})
+
+    @staticmethod
+    def xml_hyper(raw: str) -> "MessageSegment":
+        """XML Hyper 消息段, 表示一类以 XML 传输的超文本消息内容, 如卡片消息、ark消息、小程序等消息段类型
+
+        - type: xml_hyper
+        - data_map: {raw: str}
+        """
+        return MessageSegment(type=MessageSegmentType.xml_hyper, data={'raw': raw})
+
+    @staticmethod
     def text(text: str) -> "MessageSegment":
+        """纯文本消息段类型
+
+        - type: text
+        - data_map: {text: str}
+        """
         return MessageSegment(type=MessageSegmentType.text, data={'text': text})
+
+    @staticmethod
+    def other(type_: str, data: dict[str, Any]) -> "MessageSegment":
+        """其他消息段类型
+
+        - type: other
+        - data_map: {type: str, data: dict[str, Any]}
+        """
+        return MessageSegment(type=MessageSegmentType.other, data={'type': type_, 'data': data})
 
 
 class Message(BaseMessage[MessageSegment]):
@@ -134,7 +271,7 @@ class Message(BaseMessage[MessageSegment]):
         return [
             segment.data['url']
             for segment in self
-            if (segment.type == MessageSegmentType.image.value) and ('url' in segment.data)
+            if (segment.type == MessageSegmentType.image) and ('url' in segment.data)
         ]
 
     def filter(self, types: Iterable[str]) -> "Message":

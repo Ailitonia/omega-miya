@@ -51,19 +51,34 @@ class QQMessageBuilder(BaseMessageBuilder[OmegaMessage, QQMessage]):
     @staticmethod
     def _construct_platform_segment(seg_type: str, seg_data: dict[str, Any]) -> QQMessageSegment:
         match seg_type:
-            case MessageSegmentType.at.value:
+            case MessageSegmentType.at:
                 return QQMessageSegment.mention_user(user_id=seg_data.get('user_id', ''))
-            case MessageSegmentType.forward_id.value:
-                return QQMessageSegment.reference(reference=seg_data.get('id', ''))
-            case MessageSegmentType.image.value:
-                url = str(seg_data.get('url'))
-                if urlparse(url).scheme not in ['http', 'https']:
-                    return QQMessageSegment.file_image(data=Path(url))
-                else:
-                    return QQMessageSegment.image(url=url)
-            case MessageSegmentType.image_file.value:
+            case MessageSegmentType.at_all:
+                return QQMessageSegment.mention_everyone()
+            case MessageSegmentType.emoji:
+                return QQMessageSegment.emoji(id=seg_data.get('id', '0'))
+            case MessageSegmentType.audio | MessageSegmentType.voice:
+                file = _parse_url_to_path(str(seg_data.get('url', '')))
+                if isinstance(file, Path):
+                    return QQMessageSegment.file_audio(data=file)
+                return QQMessageSegment.audio(url=file)
+            case MessageSegmentType.video:
+                file = _parse_url_to_path(str(seg_data.get('url', '')))
+                if isinstance(file, Path):
+                    return QQMessageSegment.file_video(data=file)
+                return QQMessageSegment.video(url=file)
+            case MessageSegmentType.image:
+                file = _parse_url_to_path(str(seg_data.get('url', '')))
+                if isinstance(file, Path):
+                    return QQMessageSegment.file_image(data=file)
+                return QQMessageSegment.image(url=file)
+            case MessageSegmentType.image_file:
                 return QQMessageSegment.file_image(data=Path(seg_data.get('file', '')))
-            case MessageSegmentType.text.value:
+            case MessageSegmentType.file:
+                return QQMessageSegment.file_file(data=Path(seg_data.get('file', '')))
+            case MessageSegmentType.reply:
+                return QQMessageSegment.reference(reference=seg_data.get('id', ''))
+            case MessageSegmentType.text:
                 return QQMessageSegment.text(content=seg_data.get('text', ''))
             case _:
                 return QQMessageSegment.text(content='')
@@ -86,16 +101,25 @@ class QQMessageExtractor(BaseMessageBuilder[QQMessage, OmegaMessage]):
         match seg_type:
             case 'mention_user':
                 return OmegaMessageSegment.at(user_id=seg_data.get('user_id', ''))
-            case 'reference':
-                return OmegaMessageSegment.forward_id(id_=seg_data.get('reference', {}).get('message_id'))
-            case 'attachment' | 'image':
+            case 'mention_everyone':
+                return OmegaMessageSegment.at_all()
+            case 'emoji':
+                return OmegaMessageSegment.emoji(id_=seg_data.get('id', ''))
+            case 'audio':
+                url = 'https://' + str(seg_data.get('url')).removeprefix('http://').removeprefix('https://')
+                return OmegaMessageSegment.audio(url=url)
+            case 'video':
+                url = 'https://' + str(seg_data.get('url')).removeprefix('http://').removeprefix('https://')
+                return OmegaMessageSegment.video(url=url)
+            case 'image':
                 url = 'https://' + str(seg_data.get('url')).removeprefix('http://').removeprefix('https://')
                 return OmegaMessageSegment.image(url=url)
+            case 'reference':
+                return OmegaMessageSegment.reply(id_=seg_data.get('reference', {}).get('message_id'))
             case 'text':
                 return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case _:
-                return OmegaMessageSegment.text(text='')
-
+                return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 @entity_target_register.register_target(SupportedTarget.qq_guild)
 class QQGuildEntityTarget(BaseEntityTarget):
@@ -416,6 +440,12 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
 
     def get_reply_msg_plain_text(self) -> Optional[str]:
         raise NotImplementedError  # QQ 协议消息只有回复序列 id, 不支持获取回复消息内容
+
+
+def _parse_url_to_path(url: str) -> str | Path:
+    if urlparse(url).scheme not in ['http', 'https']:
+        return Path(url)
+    return url
 
 
 __all__ = []
