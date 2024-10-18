@@ -89,11 +89,7 @@ class BilibiliConfig(BaseModel):
     async def _save_config_to_db(dal: SystemSettingDAL, setting_name: str, value: str | None) -> None:
         if value is None:
             return
-        try:
-            setting = await dal.query_unique(setting_name=setting_name)
-            await dal.update(id_=setting.id, setting_value=value)
-        except NoResultFound:
-            await dal.add(setting_name=setting_name, setting_value=value)
+        await dal.upsert(setting_name=setting_name, setting_value=value)
 
     @staticmethod
     async def _load_config_from_db(dal: SystemSettingDAL, setting_name: str) -> str | None:
