@@ -26,18 +26,17 @@ class SystemSettingOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    setting_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True, comment='参数名称')
-    setting_value: Mapped[str] = mapped_column(String(512), nullable=False, index=True, comment='参数值')
-    info: Mapped[str] = mapped_column(String(512), nullable=True, comment='参数说明')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    setting_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    setting_key: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    setting_value: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='参数值')
+    info: Mapped[str] = mapped_column(String(64), nullable=True, comment='参数说明')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"SystemSettingOrm(setting_name={self.setting_name!r}, setting_value={self.setting_value!r}, "
-                f"info={self.info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f"SystemSettingOrm(setting_name={self.setting_name!r}, setting_key={self.setting_key!r}, "
+                f"setting_value={self.setting_value!r}, info={self.info!r}, "
+                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
 class PluginOrm(Base):
