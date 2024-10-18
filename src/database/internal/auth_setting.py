@@ -32,7 +32,7 @@ class AuthSetting(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class AuthSettingDAL(BaseDataAccessLayerModel[AuthSetting]):
+class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
     """授权配置 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int, module: str, plugin: str, node: str) -> AuthSetting:
@@ -87,8 +87,10 @@ class AuthSettingDAL(BaseDataAccessLayerModel[AuthSetting]):
     ) -> None:
         new_obj = AuthSettingOrm(entity_index_id=entity_index_id, module=module, plugin=plugin, node=node,
                                  available=available, value=value, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

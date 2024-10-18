@@ -30,7 +30,7 @@ class Plugin(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class PluginDAL(BaseDataAccessLayerModel[Plugin]):
+class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
     """插件 数据库操作对象"""
 
     async def query_unique(self, plugin_name: str, module_name: str) -> Plugin:
@@ -55,8 +55,10 @@ class PluginDAL(BaseDataAccessLayerModel[Plugin]):
     async def add(self, plugin_name: str, module_name: str, enabled: int, info: Optional[str] = None) -> None:
         new_obj = PluginOrm(plugin_name=plugin_name, module_name=module_name,
                             enabled=enabled, info=info, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

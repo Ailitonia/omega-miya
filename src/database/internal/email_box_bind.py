@@ -29,7 +29,7 @@ class EmailBoxBind(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBind]):
+class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBindOrm, EmailBoxBind]):
     """邮箱绑定 数据库操作对象"""
 
     async def query_unique(self, email_box_index_id: int, entity_index_id: int) -> EmailBoxBind:
@@ -47,8 +47,10 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBind]):
     async def add(self, email_box_index_id: int, entity_index_id: int, bind_info: Optional[str] = None) -> None:
         new_obj = EmailBoxBindOrm(email_box_index_id=email_box_index_id, entity_index_id=entity_index_id,
                                   bind_info=bind_info, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

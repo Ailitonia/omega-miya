@@ -33,7 +33,7 @@ class Friendship(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class FriendshipDAL(BaseDataAccessLayerModel[Friendship]):
+class FriendshipDAL(BaseDataAccessLayerModel[FriendshipOrm, Friendship]):
     """好感度 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int) -> Friendship:
@@ -59,8 +59,10 @@ class FriendshipDAL(BaseDataAccessLayerModel[Friendship]):
         new_obj = FriendshipOrm(entity_index_id=entity_index_id, status=status, mood=mood, friendship=friendship,
                                 energy=energy, currency=currency, response_threshold=response_threshold,
                                 created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

@@ -66,7 +66,7 @@ class ArtworkRatingStatistic(BaseDataQueryResultModel):
         return self.unknown + self.general + self.sensitive + self.questionable + self.explicit
 
 
-class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
+class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, ArtworkCollection]):
     """图库作品 数据库操作对象"""
 
     async def query_unique(self, origin: str, aid: str) -> ArtworkCollection:
@@ -376,8 +376,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
             description=description if description is None else description[:2048],
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

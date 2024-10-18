@@ -29,7 +29,7 @@ class Subscription(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class SubscriptionDAL(BaseDataAccessLayerModel[Subscription]):
+class SubscriptionDAL(BaseDataAccessLayerModel[SubscriptionOrm, Subscription]):
     """订阅 数据库操作对象"""
 
     async def query_unique(self, sub_source_index_id: int, entity_index_id: int) -> Subscription:
@@ -47,8 +47,10 @@ class SubscriptionDAL(BaseDataAccessLayerModel[Subscription]):
     async def add(self, sub_source_index_id: int, entity_index_id: int, sub_info: Optional[str] = None) -> None:
         new_obj = SubscriptionOrm(sub_source_index_id=sub_source_index_id, entity_index_id=entity_index_id,
                                   sub_info=sub_info, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

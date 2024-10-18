@@ -30,7 +30,7 @@ class BiliDynamic(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class BiliDynamicDAL(BaseDataAccessLayerModel[BiliDynamic]):
+class BiliDynamicDAL(BaseDataAccessLayerModel[BiliDynamicOrm, BiliDynamic]):
     """B站动态 数据库操作对象"""
 
     async def query_unique(self, dynamic_id: int) -> BiliDynamic:
@@ -71,10 +71,13 @@ class BiliDynamicDAL(BaseDataAccessLayerModel[BiliDynamic]):
         return parse_obj_as(list[BiliDynamic], session_result.scalars().all())
 
     async def add(self, dynamic_id: int, dynamic_type: int, uid: int, content: str) -> None:
-        new_obj = BiliDynamicOrm(dynamic_id=dynamic_id, dynamic_type=dynamic_type,
-                                 uid=uid, content=content, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        new_obj = BiliDynamicOrm(
+            dynamic_id=dynamic_id, dynamic_type=dynamic_type, uid=uid, content=content, created_at=datetime.now()
+        )
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

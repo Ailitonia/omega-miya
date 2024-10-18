@@ -29,7 +29,7 @@ class SystemSetting(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class SystemSettingDAL(BaseDataAccessLayerModel[SystemSetting]):
+class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]):
     """系统参数 数据库操作对象"""
 
     async def query_unique(self, setting_name: str) -> SystemSetting:
@@ -45,8 +45,7 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSetting]):
     async def add(self, setting_name: str, setting_value: str, info: Optional[str] = None) -> None:
         new_obj = SystemSettingOrm(setting_name=setting_name, setting_value=setting_value,
                                    info=info, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
 
     async def update(
             self,

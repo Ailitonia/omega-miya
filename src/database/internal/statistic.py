@@ -40,7 +40,7 @@ class CountStatisticModel(BaseDataQueryResultModel):
     call_count: int
 
 
-class StatisticDAL(BaseDataAccessLayerModel[Statistic]):
+class StatisticDAL(BaseDataAccessLayerModel[StatisticOrm, Statistic]):
     """统计信息 数据库操作对象"""
 
     async def query_unique(self):
@@ -92,8 +92,10 @@ class StatisticDAL(BaseDataAccessLayerModel[Statistic]):
         new_obj = StatisticOrm(module_name=module_name, plugin_name=plugin_name, bot_self_id=bot_self_id,
                                parent_entity_id=parent_entity_id, entity_id=entity_id,
                                call_time=call_time, call_info=call_info, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

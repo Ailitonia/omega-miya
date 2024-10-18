@@ -32,7 +32,7 @@ class PixivisionArticle(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticle]):
+class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticleOrm, PixivisionArticle]):
     """Pixivision 特辑 数据库操作对象"""
 
     async def query_unique(self, aid: int) -> PixivisionArticle:
@@ -74,8 +74,10 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticle]):
     ) -> None:
         new_obj = PixivisionArticleOrm(aid=aid, title=title, description=description, tags=tags,
                                        artworks_id=artworks_id, url=url, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

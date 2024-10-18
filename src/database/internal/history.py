@@ -34,10 +34,10 @@ class History(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class HistoryDAL(BaseDataAccessLayerModel[History]):
+class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
     """系统参数 数据库操作对象"""
 
-    async def query_unique(self):
+    async def query_unique(self, *args, **kwargs):
         raise NotImplementedError('method not supported')
 
     async def query_by_condition(
@@ -89,8 +89,10 @@ class HistoryDAL(BaseDataAccessLayerModel[History]):
         new_obj = HistoryOrm(bot_self_id=bot_self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
                              event_type=event_type, event_id=event_id, time=time,
                              raw_data=raw_data, msg_data=msg_data, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

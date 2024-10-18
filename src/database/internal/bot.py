@@ -49,7 +49,7 @@ class BotSelf(BaseDataQueryResultModel):
         return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
 
 
-class BotSelfDAL(BaseDataAccessLayerModel[BotSelf]):
+class BotSelfDAL(BaseDataAccessLayerModel[BotSelfOrm, BotSelf]):
     """BotSelf 数据库操作对象"""
 
     @property
@@ -84,8 +84,10 @@ class BotSelfDAL(BaseDataAccessLayerModel[BotSelf]):
             bot_info=bot_info,
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

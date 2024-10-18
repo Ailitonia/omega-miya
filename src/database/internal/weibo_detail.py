@@ -30,7 +30,7 @@ class WeiboDetail(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class WeiboDetailDAL(BaseDataAccessLayerModel[WeiboDetail]):
+class WeiboDetailDAL(BaseDataAccessLayerModel[WeiboDetailOrm, WeiboDetail]):
     """微博内容 数据库操作对象"""
 
     async def query_unique(self, mid: int) -> WeiboDetail:
@@ -76,8 +76,10 @@ class WeiboDetailDAL(BaseDataAccessLayerModel[WeiboDetail]):
             content=content[:2048], retweeted_content=retweeted_content[:2048],
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,
