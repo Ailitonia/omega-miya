@@ -25,13 +25,12 @@ SUPERUSERS = get_driver().config.superusers
 async def _add_update_plugin(plugin: Plugin) -> None:
     """更新数据库中插件信息"""
     async with begin_db_session() as session:
-        dal = PluginDAL(session=session)
-        try:
-            _plugin = await dal.query_unique(plugin_name=plugin.name, module_name=plugin.module_name)
-            await dal.update(id_=_plugin.id, info=plugin.metadata.name if plugin.metadata else None)
-        except NoResultFound:
-            await dal.add(plugin_name=plugin.name, module_name=plugin.module_name,
-                          enabled=1, info=plugin.metadata.name if plugin.metadata else None)
+        await PluginDAL(session=session).upsert(
+            plugin_name=plugin.name,
+            module_name=plugin.module_name,
+            enabled=1,
+            info=plugin.metadata.name if plugin.metadata else None,
+        )
 
 
 async def startup_init_plugins():
