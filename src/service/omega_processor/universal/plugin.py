@@ -8,6 +8,8 @@
 @Software       : PyCharm 
 """
 
+from typing import Iterable
+
 from nonebot import get_driver, get_loaded_plugins, logger
 from nonebot.adapters import Event
 from nonebot.exception import IgnoredException
@@ -16,33 +18,40 @@ from nonebot.plugin import Plugin
 from sqlalchemy.exc import NoResultFound
 
 from src.database import PluginDAL, begin_db_session
-from src.utils import semaphore_gather
 
 LOG_PREFIX: str = '<lc>Plugin Manager</lc> | '
 SUPERUSERS = get_driver().config.superusers
 
 
-async def _add_update_plugin(plugin: Plugin) -> None:
+async def _upsert_plugins(plugins: Iterable[Plugin]) -> None:
     """更新数据库中插件信息"""
     async with begin_db_session() as session:
-        await PluginDAL(session=session).upsert(
-            plugin_name=plugin.name,
-            module_name=plugin.module_name,
-            enabled=1,
-            info=plugin.metadata.name if plugin.metadata else None,
-        )
+        dal = PluginDAL(session=session)
+        for plugin in plugins:
+            try:
+                await dal.query_unique(plugin_name=plugin.name, module_name=plugin.module_name)
+                await dal.update(
+                    plugin_name=plugin.name,
+                    module_name=plugin.module_name,
+                    info=plugin.metadata.name if plugin.metadata else None,
+                )
+            except NoResultFound:
+                await dal.add(
+                    plugin_name=plugin.name,
+                    module_name=plugin.module_name,
+                    enabled=1,
+                    info=plugin.metadata.name if plugin.metadata else None,
+                )
 
 
 async def startup_init_plugins():
     """初始化已加载的插件到数据库"""
-    tasks = [_add_update_plugin(plugin=plugin) for plugin in get_loaded_plugins()]
-    plugins_init_result = await semaphore_gather(tasks=tasks, semaphore_num=10)
-
-    for result in plugins_init_result:
-        if isinstance(result, Exception):
-            import sys
-            logger.opt(colors=True).critical(f'{LOG_PREFIX}<r>初始化插件信息失败</r>, {result}')
-            sys.exit(f'初始化插件信息失败, {result}')
+    try:
+        await _upsert_plugins(plugins=get_loaded_plugins())
+    except Exception as e:
+        import sys
+        logger.opt(colors=True).critical(f'{LOG_PREFIX}<r>初始化插件信息失败</r>, {e}')
+        sys.exit(f'初始化插件信息失败, {e}')
 
     logger.opt(colors=True).success(f'{LOG_PREFIX}<lg>插件信息初始化已完成.</lg>')
 
