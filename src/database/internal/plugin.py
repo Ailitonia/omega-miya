@@ -21,7 +21,6 @@ from ..schema import PluginOrm
 
 class Plugin(BaseDataQueryResultModel):
     """插件 Model"""
-    id: int
     plugin_name: str
     module_name: str
     enabled: int
@@ -34,7 +33,9 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
     """插件 数据库操作对象"""
 
     async def query_unique(self, plugin_name: str, module_name: str) -> Plugin:
-        stmt = select(PluginOrm).where(PluginOrm.plugin_name == plugin_name).where(PluginOrm.module_name == module_name)
+        stmt = (select(PluginOrm)
+                .where(PluginOrm.plugin_name == plugin_name)
+                .where(PluginOrm.module_name == module_name))
         session_result = await self.db_session.execute(stmt)
         return Plugin.model_validate(session_result.scalar_one())
 
@@ -52,28 +53,46 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[Plugin], session_result.scalars().all())
 
-    async def add(self, plugin_name: str, module_name: str, enabled: int, info: Optional[str] = None) -> None:
+    async def add(
+            self,
+            plugin_name: str,
+            module_name: str,
+            enabled: int,
+            info: Optional[str] = None,
+    ) -> None:
         new_obj = PluginOrm(plugin_name=plugin_name, module_name=module_name,
                             enabled=enabled, info=info, created_at=datetime.now())
         await self._add(new_obj)
 
-    async def upsert(self, *args, **kwargs) -> None:
-        raise NotImplementedError
+    async def upsert(
+            self,
+            plugin_name: str,
+            module_name: str,
+            enabled: int,
+            info: Optional[str] = None,
+    ) -> None:
+        obj_attrs = {
+            'plugin_name': plugin_name,
+            'module_name': module_name,
+            'enabled': enabled,
+            'updated_at': datetime.now()
+        }
+        if info is not None:
+            obj_attrs.update({'info': info})
+        new_obj = PluginOrm(**obj_attrs)
+        await self._merge(new_obj)
 
     async def update(
             self,
-            id_: int,
+            plugin_name: str,
+            module_name: str,
             *,
-            plugin_name: Optional[str] = None,
-            module_name: Optional[str] = None,
             enabled: Optional[int] = None,
             info: Optional[str] = None
     ) -> None:
-        stmt = update(PluginOrm).where(PluginOrm.id == id_)
-        if plugin_name is not None:
-            stmt = stmt.values(plugin_name=plugin_name)
-        if module_name is not None:
-            stmt = stmt.values(module_name=module_name)
+        stmt = (update(PluginOrm)
+                .where(PluginOrm.plugin_name == plugin_name)
+                .where(PluginOrm.module_name == module_name))
         if enabled is not None:
             stmt = stmt.values(enabled=enabled)
         if info is not None:
@@ -82,8 +101,10 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
 
-    async def delete(self, id_: int) -> None:
-        stmt = delete(PluginOrm).where(PluginOrm.id == id_)
+    async def delete(self, plugin_name: str, module_name: str) -> None:
+        stmt = (delete(PluginOrm)
+                .where(PluginOrm.plugin_name == plugin_name)
+                .where(PluginOrm.module_name == module_name))
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
 

@@ -46,15 +46,12 @@ class PluginOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True, comment='插件名称')
-    module_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, unique=True, comment='插件模块名称')
+    plugin_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, unique=True)
+    module_name: Mapped[str] = mapped_column(String(128), primary_key=True, nullable=False, index=True, unique=True)
     enabled: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装'
     )
-    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='附加说明')
+    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='插件信息及附加说明')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
