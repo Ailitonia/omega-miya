@@ -11,9 +11,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import update, delete, desc
-from sqlalchemy.future import select
-from sqlalchemy.sql.expression import func
+from sqlalchemy import desc, select, func
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -40,18 +38,19 @@ class CountStatisticModel(BaseDataQueryResultModel):
     call_count: int
 
 
-class StatisticDAL(BaseDataAccessLayerModel[Statistic]):
+class StatisticDAL(BaseDataAccessLayerModel[StatisticOrm, Statistic]):
     """统计信息 数据库操作对象"""
 
-    async def query_unique(self):
-        raise NotImplementedError('method not supported')
+    async def query_unique(self, *args, **kwargs) -> Statistic:
+        raise NotImplementedError
 
     async def count_by_condition(
             self,
+            *,
             bot_self_id: Optional[str] = None,
             parent_entity_id: Optional[str] = None,
             entity_id: Optional[str] = None,
-            start_time: Optional[datetime] = None
+            start_time: Optional[datetime] = None,
     ) -> list[CountStatisticModel]:
         """按条件查询统计信息
 
@@ -87,49 +86,21 @@ class StatisticDAL(BaseDataAccessLayerModel[Statistic]):
             parent_entity_id: str,
             entity_id: str,
             call_time: datetime,
-            call_info: Optional[str] = None
+            call_info: Optional[str] = None,
     ) -> None:
         new_obj = StatisticOrm(module_name=module_name, plugin_name=plugin_name, bot_self_id=bot_self_id,
                                parent_entity_id=parent_entity_id, entity_id=entity_id,
                                call_time=call_time, call_info=call_info, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
 
-    async def update(
-            self,
-            id_: int,
-            *,
-            module_name: Optional[str] = None,
-            plugin_name: Optional[str] = None,
-            bot_self_id: Optional[str] = None,
-            parent_entity_id: Optional[str] = None,
-            entity_id: Optional[str] = None,
-            call_time: Optional[datetime] = None,
-            call_info: Optional[str] = None
-    ) -> None:
-        stmt = update(StatisticOrm).where(StatisticOrm.id == id_)
-        if module_name is not None:
-            stmt = stmt.values(module_name=module_name)
-        if plugin_name is not None:
-            stmt = stmt.values(plugin_name=plugin_name)
-        if bot_self_id is not None:
-            stmt = stmt.values(bot_self_id=bot_self_id)
-        if parent_entity_id is not None:
-            stmt = stmt.values(parent_entity_id=parent_entity_id)
-        if entity_id is not None:
-            stmt = stmt.values(entity_id=entity_id)
-        if call_time is not None:
-            stmt = stmt.values(call_time=call_time)
-        if call_info is not None:
-            stmt = stmt.values(call_info=call_info)
-        stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
-        await self.db_session.execute(stmt)
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
-    async def delete(self, id_: int) -> None:
-        stmt = delete(StatisticOrm).where(StatisticOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
-        await self.db_session.execute(stmt)
+    async def update(self, *args, **kwargs) -> None:
+        raise NotImplementedError
+
+    async def delete(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
 
 __all__ = [

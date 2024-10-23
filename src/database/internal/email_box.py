@@ -11,8 +11,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -31,7 +30,7 @@ class EmailBox(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class EmailBoxDAL(BaseDataAccessLayerModel[EmailBox]):
+class EmailBoxDAL(BaseDataAccessLayerModel[EmailBoxOrm, EmailBox]):
     """邮箱 数据库操作对象"""
 
     async def query_unique(self, address: str) -> EmailBox:
@@ -56,8 +55,10 @@ class EmailBoxDAL(BaseDataAccessLayerModel[EmailBox]):
     async def add(self, address: str, server_host: str, protocol: str, port: int, password: str) -> None:
         new_obj = EmailBoxOrm(address=address, server_host=server_host, protocol=protocol, port=port,
                               password=password, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

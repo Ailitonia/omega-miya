@@ -13,8 +13,7 @@ from datetime import datetime
 from enum import StrEnum, unique
 from typing import Optional
 
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -67,7 +66,7 @@ class Entity(BaseDataQueryResultModel):
         return f'Entity.{self.entity_type.value}(id={self.id}, entity_id={self.entity_id}, name={self.entity_name})'
 
 
-class EntityDAL(BaseDataAccessLayerModel[Entity]):
+class EntityDAL(BaseDataAccessLayerModel[EntityOrm, Entity]):
     """实体对象 数据库操作对象"""
 
     @property
@@ -165,8 +164,10 @@ class EntityDAL(BaseDataAccessLayerModel[Entity]):
             entity_info=entity_info,
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

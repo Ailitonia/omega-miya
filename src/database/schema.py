@@ -26,18 +26,17 @@ class SystemSettingOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    setting_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True, comment='参数名称')
-    setting_value: Mapped[str] = mapped_column(String(512), nullable=False, index=True, comment='参数值')
-    info: Mapped[str] = mapped_column(String(512), nullable=True, comment='参数说明')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    setting_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    setting_key: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    setting_value: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='参数值')
+    info: Mapped[str] = mapped_column(String(64), nullable=True, comment='参数说明')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"SystemSettingOrm(setting_name={self.setting_name!r}, setting_value={self.setting_value!r}, "
-                f"info={self.info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f"SystemSettingOrm(setting_name={self.setting_name!r}, setting_key={self.setting_key!r}, "
+                f"setting_value={self.setting_value!r}, info={self.info!r}, "
+                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
 class PluginOrm(Base):
@@ -47,16 +46,13 @@ class PluginOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, unique=True, comment='插件名称')
-    module_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, unique=True, comment='插件模块名称')
+    plugin_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, unique=True)
+    module_name: Mapped[str] = mapped_column(String(128), primary_key=True, nullable=False, index=True, unique=True)
     enabled: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装'
     )
-    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='附加说明')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='插件信息及附加说明')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
@@ -75,14 +71,14 @@ class StatisticOrm(Base):
     id: Mapped[int] = mapped_column(
         IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
     )
-    module_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件模块名称')
+    module_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='插件模块名称')
     plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件显示名称')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应的Bot')
     parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应调用用户父实体信息')
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应调用用户实体信息')
     call_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='调用时间')
     call_info: Mapped[str] = mapped_column(String(4096), nullable=True, index=False, comment='调用信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
@@ -93,8 +89,8 @@ class StatisticOrm(Base):
 
 
 class HistoryOrm(Base):
-    """记录表"""
-    __tablename__ = f'{database_config.db_prefix}history'
+    """原始消息记录表"""
+    __tablename__ = f'{database_config.db_prefix}message_history'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
@@ -102,22 +98,22 @@ class HistoryOrm(Base):
     id: Mapped[int] = mapped_column(
         IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
     )
-    time: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='事件发生的时间戳')
-    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到事件的机器人id')
-    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象父实体id')
-    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象实体id')
-    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件类型')
-    event_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件id')
-    raw_data: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始事件内容')
-    msg_data: Mapped[str] = mapped_column(String(4096), nullable=True, comment='经处理的事件内容')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息ID')
+    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到消息的机器人ID')
+    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送对象父实体ID')
+    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送的对象实体ID')
+    received_time: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='收到消息事件的时间戳')
+    message_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='消息事件类型')
+    message_raw: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始消息数据')
+    message_text: Mapped[str] = mapped_column(String(4096), nullable=False, comment='经处理的消息文本内容')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"HistoryOrm(time={self.time!r}, bot_self_id={self.bot_self_id!r}, "
+        return (f"HistoryOrm(message_id={self.message_id!r}, bot_self_id={self.bot_self_id!r}, "
                 f"parent_entity_id={self.parent_entity_id!r}, entity_id={self.entity_id!r}, "
-                f"event_type={self.event_type!r}, event_id={self.event_id!r}, "
-                f"raw_data={self.raw_data!r}, msg_data={self.msg_data!r}, "
+                f"received_time={self.received_time!r}, message_type={self.message_type!r}, "
+                f"message_raw={self.message_raw!r}, message_text={self.message_text!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
@@ -137,7 +133,7 @@ class BotSelfOrm(Base):
     bot_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='Bot类型, 具体使用的协议')
     bot_status: Mapped[int] = mapped_column(Integer, nullable=False, comment='Bot在线状态')
     bot_info: Mapped[str] = mapped_column(String(512), nullable=True, comment='Bot描述信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -170,7 +166,7 @@ class EntityOrm(Base):
     parent_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='父实体id, qq号/群号等')
     entity_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='实体名称')
     entity_info: Mapped[str] = mapped_column(String(512), nullable=True, comment='实体描述信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -225,7 +221,7 @@ class FriendshipOrm(Base):
     response_threshold: Mapped[float] = mapped_column(
         Float, nullable=False, comment='响应阈值, 控制对交互做出响应的概率或频率, 根据具体插件使用数值'
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -252,7 +248,7 @@ class SignInOrm(Base):
     entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
     sign_in_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment='签到日期')
     sign_in_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='签到信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -281,8 +277,8 @@ class AuthSettingOrm(Base):
     available: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='需求值, 0=deny/disable, 1=allow/enable, 1<=level'
     )
-    value: Mapped[str] = mapped_column(String(8192), nullable=True, comment='若为插件配置项且对象具有的配置信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    value: Mapped[str] = mapped_column(String(4096), nullable=True, comment='若为插件配置项且对象具有的配置信息')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -310,7 +306,7 @@ class CoolDownOrm(Base):
     event: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='冷却事件, 用于唯一标识某个/类冷却')
     stop_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='冷却结束时间')
     description: Mapped[str] = mapped_column(String(128), nullable=True, comment='事件描述')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -338,7 +334,7 @@ class EmailBoxOrm(Base):
     protocol: Mapped[str] = mapped_column(String(16), nullable=False, comment='协议')
     port: Mapped[int] = mapped_column(Integer, nullable=False, comment='服务器端口')
     password: Mapped[str] = mapped_column(String(255), nullable=False, comment='密码')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -369,7 +365,7 @@ class EmailBoxBindOrm(Base):
         Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False
     )
     bind_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='邮箱绑定信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -399,7 +395,7 @@ class SubscriptionSourceOrm(Base):
     sub_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='订阅id，直播间房间号/用户uid等')
     sub_user_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅用户的名称')
     sub_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='订阅源信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -430,7 +426,7 @@ class SubscriptionOrm(Base):
         Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False
     )
     sub_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='订阅信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # 设置级联和关系加载
@@ -447,26 +443,25 @@ class SubscriptionOrm(Base):
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
-class BiliDynamicOrm(Base):
-    """B站动态表"""
-    __tablename__ = f'{database_config.db_prefix}bili_dynamic'
+class SocialMediaContentOrm(Base):
+    """社交媒体平台内容表"""
+    __tablename__ = f'{database_config.db_prefix}social_media_content'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    dynamic_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='动态id')
-    dynamic_type: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='动态类型')
-    uid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='用户uid')
-    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='动态内容')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    source: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='出处平台')
+    m_id: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='内容原始ID')
+    m_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容原始类型')
+    m_uid: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容发布者ID')
+    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容文本')
+    ref_content: Mapped[str] = mapped_column(String(4096), nullable=True, comment='引用内容文本')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"BiliDynamicOrm(dynamic_id={self.dynamic_id!r}, dynamic_type={self.dynamic_type!r}, "
-                f"uid={self.uid!r}, content={self.content!r}, "
+        return (f"SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, m_type={self.m_type!r}, "
+                f"m_uid={self.m_uid!r}, content={self.content!r}, ref_content={self.ref_content!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
@@ -477,18 +472,18 @@ class ArtworkCollectionOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    origin: Mapped[str] = mapped_column(
+        String(64), primary_key=True, nullable=False, index=True, comment='作品来源/收录该作品的站点'
     )
-    # 作品信息部分
-    origin: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='作品来源/收录该作品的站点')
-    aid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品id')
+    aid: Mapped[str] = mapped_column(
+        String(64), primary_key=True, nullable=False, index=True, comment='作品原始ID/收录该作品的站点索引ID'
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品标题title')
     uid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者uid')
     uname: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者名')
     # 分类分级信息
     classification: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True, comment='标记标签, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
+        Integer, nullable=False, index=True, comment='标记标签, -2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
     )
     rating: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='分级标签, -1=Unknown, 0=G, 1=S, 2=Q, 3=E'
@@ -496,67 +491,41 @@ class ArtworkCollectionOrm(Base):
     # 作品图片信息
     width: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片宽度')
     height: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片高度')
-    tags: Mapped[str] = mapped_column(String(2048), nullable=False, comment='作品标签')
-    description: Mapped[str] = mapped_column(String(2048), nullable=True, comment='作品描述')
-    source: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品原始出处地址')
-    cover_page: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品首页/封面原图链接')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    tags: Mapped[str] = mapped_column(String(4096), nullable=False, comment='作品标签')
+    description: Mapped[str] = mapped_column(String(4096), nullable=True, comment='作品描述')
+    source: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品原始出处地址')
+    cover_page: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品首页/封面原图链接')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"ArtworkCollectionOrm(artwork_id={self.aid!r}, title={self.title!r}, "
+        return (f"ArtworkCollectionOrm(origin={self.origin!r}, aid={self.aid!r}, title={self.title!r}, "
                 f"uid={self.uid!r}, uname={self.uname!r}, "
                 f"classification={self.classification!r}, rating={self.rating!r}, "
                 f"width={self.width!r}, height={self.height!r}, tags={self.tags!r}, "
-                f"source={self.source!r}, cover_page={self.cover_page!r}, "
+                f"description={self.description!r}, source={self.source!r}, cover_page={self.cover_page!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
 class PixivisionArticleOrm(Base):
-    """Pixivision 表"""
+    """Pixivision 特辑表"""
     __tablename__ = f'{database_config.db_prefix}pixivision_article'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    aid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, unique=True, comment='aid')
-    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='title')
-    description: Mapped[str] = mapped_column(String(1024), nullable=False, comment='description')
-    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='tags')
-    artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='article artwork_id')
-    url: Mapped[str] = mapped_column(String(1024), nullable=False, comment='url')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    aid: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False, index=True, unique=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='特辑标题')
+    description: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容描述')
+    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑tags')
+    artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑内包含的所有作品ID')
+    url: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑链接')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         return (f"PixivisionArticleOrm(aid={self.aid!r}, title={self.title!r}, description={self.description!r}, "
                 f"tags={self.tags!r}, artworks_id={self.artworks_id!r}, url={self.url!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
-
-
-class WeiboDetailOrm(Base):
-    """微博内容表"""
-    __tablename__ = f'{database_config.db_prefix}weibo_detail'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    mid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='微博id')
-    uid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='用户uid')
-    content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='微博内容')
-    retweeted_content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='转发的微博内容')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    def __repr__(self) -> str:
-        return (f"WeiboDetailOrm(mid={self.mid!r}, uid={self.uid!r}, "
-                f"content={self.content!r}, retweeted_content={self.retweeted_content!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
@@ -574,8 +543,8 @@ class WordBankOrm(Base):
     reply_entity: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True, comment='响应对象, 可为群号/用户qq/频道id等标识'
     )
-    result_word: Mapped[str] = mapped_column(String(8192), nullable=False, comment='结果文本')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    result_word: Mapped[str] = mapped_column(String(4096), nullable=False, comment='结果文本')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
@@ -599,9 +568,8 @@ __all__ = [
     'EmailBoxBindOrm',
     'SubscriptionSourceOrm',
     'SubscriptionOrm',
-    'BiliDynamicOrm',
+    'SocialMediaContentOrm',
     'ArtworkCollectionOrm',
     'PixivisionArticleOrm',
-    'WeiboDetailOrm',
     'WordBankOrm',
 ]

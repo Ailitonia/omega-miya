@@ -9,7 +9,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
@@ -18,6 +18,9 @@ from sqlalchemy.exc import NoResultFound
 
 from src.database import SystemSettingDAL, begin_db_session
 from src.resource import TemporaryResource
+
+_BILI_SETTING_NAME: Literal['bilibili_api'] = 'bilibili_api'
+"""数据库系统配置表固定字段"""
 
 
 class BilibiliConfig(BaseModel):
@@ -86,19 +89,15 @@ class BilibiliConfig(BaseModel):
         self.clear_cookies_cache()
 
     @staticmethod
-    async def _save_config_to_db(dal: SystemSettingDAL, setting_name: str, value: str | None) -> None:
+    async def _save_config_to_db(dal: SystemSettingDAL, setting_key: str, value: str | None) -> None:
         if value is None:
             return
-        try:
-            setting = await dal.query_unique(setting_name=setting_name)
-            await dal.update(id_=setting.id, setting_value=value)
-        except NoResultFound:
-            await dal.add(setting_name=setting_name, setting_value=value)
+        await dal.upsert(setting_name=_BILI_SETTING_NAME, setting_key=setting_key, setting_value=value)
 
     @staticmethod
-    async def _load_config_from_db(dal: SystemSettingDAL, setting_name: str) -> str | None:
+    async def _load_config_from_db(dal: SystemSettingDAL, setting_key: str) -> str | None:
         try:
-            setting = await dal.query_unique(setting_name=setting_name)
+            setting = await dal.query_unique(setting_name=_BILI_SETTING_NAME, setting_key=setting_key)
             return setting.setting_value
         except NoResultFound:
             return None
@@ -106,32 +105,32 @@ class BilibiliConfig(BaseModel):
     async def save_to_database(self) -> None:
         async with begin_db_session() as session:
             dal = SystemSettingDAL(session=session)
-            await self._save_config_to_db(dal=dal, setting_name='bili_sessdata', value=self.bili_sessdata)
-            await self._save_config_to_db(dal=dal, setting_name='bili_jct', value=self.bili_jct)
-            await self._save_config_to_db(dal=dal, setting_name='bili_buvid3', value=self.bili_buvid3)
-            await self._save_config_to_db(dal=dal, setting_name='bili_dedeuserid', value=self.bili_dedeuserid)
-            await self._save_config_to_db(dal=dal, setting_name='bili_ac_time_value', value=self.bili_ac_time_value)
+            await self._save_config_to_db(dal=dal, setting_key='bili_sessdata', value=self.bili_sessdata)
+            await self._save_config_to_db(dal=dal, setting_key='bili_jct', value=self.bili_jct)
+            await self._save_config_to_db(dal=dal, setting_key='bili_buvid3', value=self.bili_buvid3)
+            await self._save_config_to_db(dal=dal, setting_key='bili_dedeuserid', value=self.bili_dedeuserid)
+            await self._save_config_to_db(dal=dal, setting_key='bili_ac_time_value', value=self.bili_ac_time_value)
 
     async def load_from_database(self) -> "BilibiliConfig":
         async with begin_db_session() as session:
             dal = SystemSettingDAL(session=session)
-            bili_sessdata = await self._load_config_from_db(dal=dal, setting_name='bili_sessdata')
+            bili_sessdata = await self._load_config_from_db(dal=dal, setting_key='bili_sessdata')
             if bili_sessdata is not None:
                 self.bili_sessdata = bili_sessdata
 
-            bili_jct = await self._load_config_from_db(dal=dal, setting_name='bili_jct')
+            bili_jct = await self._load_config_from_db(dal=dal, setting_key='bili_jct')
             if bili_jct is not None:
                 self.bili_jct = bili_jct
 
-            bili_buvid3 = await self._load_config_from_db(dal=dal, setting_name='bili_buvid3')
+            bili_buvid3 = await self._load_config_from_db(dal=dal, setting_key='bili_buvid3')
             if bili_buvid3 is not None:
                 self.bili_buvid3 = bili_buvid3
 
-            bili_dedeuserid = await self._load_config_from_db(dal=dal, setting_name='bili_dedeuserid')
+            bili_dedeuserid = await self._load_config_from_db(dal=dal, setting_key='bili_dedeuserid')
             if bili_dedeuserid is not None:
                 self.bili_dedeuserid = bili_dedeuserid
 
-            bili_ac_time_value = await self._load_config_from_db(dal=dal, setting_name='bili_ac_time_value')
+            bili_ac_time_value = await self._load_config_from_db(dal=dal, setting_key='bili_ac_time_value')
             if bili_ac_time_value is not None:
                 self.bili_ac_time_value = bili_ac_time_value
 

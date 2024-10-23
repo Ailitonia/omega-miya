@@ -11,8 +11,7 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from sqlalchemy import update, delete, desc
-from sqlalchemy.future import select
+from sqlalchemy import delete, desc, select, update
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -21,7 +20,6 @@ from ..schema import PixivisionArticleOrm
 
 class PixivisionArticle(BaseDataQueryResultModel):
     """Pixivision 特辑 Model"""
-    id: int
     aid: int
     title: str
     description: str
@@ -32,7 +30,7 @@ class PixivisionArticle(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticle]):
+class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticleOrm, PixivisionArticle]):
     """Pixivision 特辑 数据库操作对象"""
 
     async def query_unique(self, aid: int) -> PixivisionArticle:
@@ -70,27 +68,36 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticle]):
             description: str,
             tags: str,
             artworks_id: str,
-            url: str
+            url: str,
     ) -> None:
         new_obj = PixivisionArticleOrm(aid=aid, title=title, description=description, tags=tags,
                                        artworks_id=artworks_id, url=url, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(
+            self,
+            aid: int,
+            title: str,
+            description: str,
+            tags: str,
+            artworks_id: str,
+            url: str,
+    ) -> None:
+        new_obj = PixivisionArticleOrm(aid=aid, title=title, description=description, tags=tags,
+                                       artworks_id=artworks_id, url=url, updated_at=datetime.now())
+        await self._merge(new_obj)
 
     async def update(
             self,
-            id_: int,
+            aid: int,
             *,
-            aid: Optional[int] = None,
             title: Optional[str] = None,
             description: Optional[str] = None,
             tags: Optional[str] = None,
             artworks_id: Optional[str] = None,
-            url: Optional[str] = None
+            url: Optional[str] = None,
     ) -> None:
-        stmt = update(PixivisionArticleOrm).where(PixivisionArticleOrm.id == id_)
-        if aid is not None:
-            stmt = stmt.values(aid=aid)
+        stmt = update(PixivisionArticleOrm).where(PixivisionArticleOrm.aid == aid)
         if title is not None:
             stmt = stmt.values(title=title)
         if description is not None:
@@ -105,8 +112,8 @@ class PixivisionArticleDAL(BaseDataAccessLayerModel[PixivisionArticle]):
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
 
-    async def delete(self, id_: int) -> None:
-        stmt = delete(PixivisionArticleOrm).where(PixivisionArticleOrm.id == id_)
+    async def delete(self, aid: int) -> None:
+        stmt = delete(PixivisionArticleOrm).where(PixivisionArticleOrm.aid == aid)
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
 

@@ -13,8 +13,7 @@ from datetime import datetime
 from enum import StrEnum, unique
 from typing import Optional
 
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -42,7 +41,7 @@ class SubscriptionSource(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSource]):
+class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSourceOrm, SubscriptionSource]):
     """订阅源 数据库操作对象"""
 
     @property
@@ -94,8 +93,10 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSource]):
             sub_info=sub_info,
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

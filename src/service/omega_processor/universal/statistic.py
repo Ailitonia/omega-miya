@@ -60,7 +60,7 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
             entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session)
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
-            call_info = f'{custom_plugin_name!r} called by {entity!r} in event {event}'
+            call_info = f'{custom_plugin_name!r} called by {entity!r} in Event: {event}'
 
             dal = StatisticDAL(session=session)
             await dal.add(module_name=module_name, plugin_name=custom_plugin_name,

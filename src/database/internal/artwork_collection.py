@@ -11,9 +11,7 @@
 from datetime import datetime
 from typing import Literal, Optional, Sequence
 
-from sqlalchemy import update, delete, desc, or_, and_
-from sqlalchemy.future import select
-from sqlalchemy.sql.expression import func
+from sqlalchemy import delete, desc, select, update, and_, or_, func
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -22,7 +20,6 @@ from ..schema import ArtworkCollectionOrm
 
 class ArtworkCollection(BaseDataQueryResultModel):
     """图库作品 Model"""
-    id: int
     origin: str
     aid: str
     title: str
@@ -66,7 +63,7 @@ class ArtworkRatingStatistic(BaseDataQueryResultModel):
         return self.unknown + self.general + self.sensitive + self.questionable + self.explicit
 
 
-class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
+class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, ArtworkCollection]):
     """图库作品 数据库操作对象"""
 
     async def query_unique(self, origin: str, aid: str) -> ArtworkCollection:
@@ -88,7 +85,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
             rating_max: int = 0,
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'index_id', 'index_id_desc'] = 'random',
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
     ) -> list[ArtworkCollection]:
         """按条件搜索图库收录作品
 
@@ -165,10 +162,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
                 stmt = stmt.order_by(ArtworkCollectionOrm.aid)
             case 'aid_desc':
                 stmt = stmt.order_by(desc(ArtworkCollectionOrm.aid))
-            case 'index_id':
-                stmt = stmt.order_by(ArtworkCollectionOrm.id)
-            case 'index_id_desc':
-                stmt = stmt.order_by(desc(ArtworkCollectionOrm.id))
+            case 'latest':
+                stmt = stmt.order_by(desc(ArtworkCollectionOrm.created_at))
             case 'random' | _:
                 stmt = stmt.order_by(func.random())
 
@@ -187,7 +182,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
             keywords: Optional[Sequence[str]] = None
     ) -> ArtworkClassificationStatistic:
         """按分类统计收录作品数"""
-        stmt = select(ArtworkCollectionOrm.classification, func.count(ArtworkCollectionOrm.id))
+        stmt = select(ArtworkCollectionOrm.classification, func.count(ArtworkCollectionOrm.aid))
 
         if origin is not None:
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
@@ -225,7 +220,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
             keywords: Optional[Sequence[str]] = None
     ) -> ArtworkRatingStatistic:
         """按分级统计收录作品数"""
-        stmt = select(ArtworkCollectionOrm.rating, func.count(ArtworkCollectionOrm.id))
+        stmt = select(ArtworkCollectionOrm.rating, func.count(ArtworkCollectionOrm.aid))
 
         if origin is not None:
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
@@ -351,7 +346,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
         return sorted(list(set(aids) - set(exists_aids)), reverse=True)
 
     async def query_all(self) -> list[ArtworkCollection]:
-        raise NotImplementedError('method not supported')
+        raise NotImplementedError
 
     async def add(
             self,
@@ -369,22 +364,43 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
             cover_page: str,
             description: Optional[str] = None,
     ) -> None:
-        new_obj = ArtworkCollectionOrm(
-            origin=origin, aid=aid, title=title, uid=uid, uname=uname,
-            classification=classification, rating=rating, width=width, height=height,
-            tags=tags[:2048], source=source, cover_page=cover_page,
-            description=description if description is None else description[:2048],
-            created_at=datetime.now()
-        )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        new_obj = ArtworkCollectionOrm(origin=origin, aid=aid, title=title, uid=uid, uname=uname,
+                                       classification=classification, rating=rating,
+                                       width=width, height=height,
+                                       tags=tags[:4096], source=source, cover_page=cover_page,
+                                       description=description if description is None else description[:4096],
+                                       created_at=datetime.now())
+        await self._add(new_obj)
+
+    async def upsert(
+            self,
+            origin: str,
+            aid: str,
+            title: str,
+            uid: str,
+            uname: str,
+            classification: int,
+            rating: int,
+            width: int,
+            height: int,
+            tags: str,
+            source: str,
+            cover_page: str,
+            description: Optional[str] = None,
+    ) -> None:
+        new_obj = ArtworkCollectionOrm(origin=origin, aid=aid, title=title, uid=uid, uname=uname,
+                                       classification=classification, rating=rating,
+                                       width=width, height=height,
+                                       tags=tags[:4096], source=source, cover_page=cover_page,
+                                       description=description if description is None else description[:4096],
+                                       updated_at=datetime.now())
+        await self._merge(new_obj)
 
     async def update(
             self,
-            id_: int,
+            origin: str,
+            aid: str,
             *,
-            origin: Optional[str] = None,
-            aid: Optional[str] = None,
             title: Optional[str] = None,
             uid: Optional[str] = None,
             uname: Optional[str] = None,
@@ -397,11 +413,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
             cover_page: Optional[str] = None,
             description: Optional[str] = None,
     ) -> None:
-        stmt = update(ArtworkCollectionOrm).where(ArtworkCollectionOrm.id == id_)
-        if origin is not None:
-            stmt = stmt.values(origin=origin)
-        if aid is not None:
-            stmt = stmt.values(aid=aid)
+        stmt = (update(ArtworkCollectionOrm)
+                .where(ArtworkCollectionOrm.origin == origin)
+                .where(ArtworkCollectionOrm.aid == aid))
         if title is not None:
             stmt = stmt.values(title=title)
         if uid is not None:
@@ -417,19 +431,21 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollection]):
         if height is not None:
             stmt = stmt.values(height=height)
         if tags is not None:
-            stmt = stmt.values(tags=tags[:2048])
+            stmt = stmt.values(tags=tags[:4096])
         if source is not None:
             stmt = stmt.values(source=source)
         if cover_page is not None:
             stmt = stmt.values(cover_page=cover_page)
         if description is not None:
-            stmt = stmt.values(description=description[:2048])
+            stmt = stmt.values(description=description[:4096])
         stmt = stmt.values(updated_at=datetime.now())
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
 
-    async def delete(self, id_: int) -> None:
-        stmt = delete(ArtworkCollectionOrm).where(ArtworkCollectionOrm.id == id_)
+    async def delete(self, origin: str, aid: str) -> None:
+        stmt = (delete(ArtworkCollectionOrm)
+                .where(ArtworkCollectionOrm.origin == origin)
+                .where(ArtworkCollectionOrm.aid == aid))
         stmt.execution_options(synchronize_session="fetch")
         await self.db_session.execute(stmt)
 

@@ -11,8 +11,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -29,7 +28,7 @@ class WordBank(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class WordBankDAL(BaseDataAccessLayerModel[WordBank]):
+class WordBankDAL(BaseDataAccessLayerModel[WordBankOrm, WordBank]):
     """问答语料词句 数据库操作对象"""
 
     async def query_unique(self, key_word: str, reply_entity: str) -> WordBank:
@@ -53,8 +52,10 @@ class WordBankDAL(BaseDataAccessLayerModel[WordBank]):
     async def add(self, key_word: str, reply_entity: str, result_word: str) -> None:
         new_obj = WordBankOrm(key_word=key_word, reply_entity=reply_entity,
                               result_word=result_word, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

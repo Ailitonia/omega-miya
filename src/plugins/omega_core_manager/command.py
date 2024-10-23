@@ -192,8 +192,12 @@ async def handle_enable_plugin(
         await matcher.finish(f'插件{plugin_name!r}未加载, 操作已取消')
 
     try:
-        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=imported_plugin.module_name)
-        await plugin_dal.update(id_=plugin.id, enabled=1, info='Enabled by OPM')
+        await plugin_dal.upsert(
+            plugin_name=plugin_name,
+            module_name=imported_plugin.module_name,
+            enabled=1,
+            info='Enabled by OPM',
+        )
         await plugin_dal.commit_session()
 
         logger.success(f'Omega 启用插件{plugin_name!r}成功')
@@ -219,8 +223,12 @@ async def handle_disable_plugin(
         await matcher.finish(f'插件{plugin_name!r}未加载, 操作已取消')
 
     try:
-        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=imported_plugin.module_name)
-        await plugin_dal.update(id_=plugin.id, enabled=0, info='Disabled by OPM')
+        await plugin_dal.upsert(
+            plugin_name=plugin_name,
+            module_name=imported_plugin.module_name,
+            enabled=0,
+            info='Disabled by OPM',
+        )
         await plugin_dal.commit_session()
 
         logger.success(f'Omega 禁用插件{plugin_name!r}成功')

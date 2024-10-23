@@ -11,8 +11,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -30,7 +29,7 @@ class CoolDown(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class CoolDownDAL(BaseDataAccessLayerModel[CoolDown]):
+class CoolDownDAL(BaseDataAccessLayerModel[CoolDownOrm, CoolDown]):
     """冷却事件 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int, event: str) -> CoolDown:
@@ -54,8 +53,10 @@ class CoolDownDAL(BaseDataAccessLayerModel[CoolDown]):
     ) -> None:
         new_obj = CoolDownOrm(entity_index_id=entity_index_id, event=event, stop_at=stop_at,
                               description=description, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

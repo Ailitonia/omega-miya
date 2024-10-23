@@ -11,8 +11,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import update, delete, desc
-from sqlalchemy.future import select
+from sqlalchemy import delete, desc, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -29,7 +28,7 @@ class SignIn(BaseDataQueryResultModel):
     updated_at: Optional[datetime] = None
 
 
-class SignInDAL(BaseDataAccessLayerModel[SignIn]):
+class SignInDAL(BaseDataAccessLayerModel[SignInOrm, SignIn]):
     """签到 数据库操作对象"""
 
     async def query_unique(self, entity_index_id: int, sign_in_date: date) -> SignIn:
@@ -59,8 +58,10 @@ class SignInDAL(BaseDataAccessLayerModel[SignIn]):
     ) -> None:
         new_obj = SignInOrm(entity_index_id=entity_index_id, sign_in_date=sign_in_date, sign_in_info=sign_in_info,
                             created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,

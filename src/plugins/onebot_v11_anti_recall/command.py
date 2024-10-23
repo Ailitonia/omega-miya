@@ -8,7 +8,6 @@
 @Software       : PyCharm
 """
 
-from datetime import datetime
 from typing import Annotated, Literal
 
 from nonebot.adapters.onebot.v11 import (
@@ -26,9 +25,10 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command, on_notice
 from nonebot.typing import T_State
 
-from src.compat import parse_obj_as
 from src.params.rule import event_has_permission_node
 from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from .config import onebot_v11_anti_recall_config
+from .helpers import query_message_from_adapter, query_message_from_database
 
 _ANTI_RECALL_CUSTOM_MODULE_NAME: Literal['Omega.AntiRecall'] = 'Omega.AntiRecall'
 """固定写入数据库的 module name 参数"""
@@ -70,6 +70,7 @@ async def handle_set_anti_recall(
                     node=_ENABLE_ANTI_RECALL_NODE,
                     available=1
                 )
+                await interface.entity.commit_session()
             case 'off':
                 await interface.entity.set_auth_setting(
                     module=_ANTI_RECALL_CUSTOM_MODULE_NAME,
@@ -77,6 +78,7 @@ async def handle_set_anti_recall(
                     node=_ENABLE_ANTI_RECALL_NODE,
                     available=0
                 )
+                await interface.entity.commit_session()
             case _:
                 await interface.send_reply(f'无效输入{switch!r}, 操作已取消')
                 return
@@ -104,22 +106,21 @@ async def check_recall_notice(bot: OneBotV11Bot, event: OneBotV11GroupRecallNoti
     if user_id == event.self_id or event.operator_id == event.self_id:
         return
 
-    message_id = event.message_id
-
     try:
-        message_result = await bot.get_msg(message_id=message_id)
+        if onebot_v11_anti_recall_config.onebot_v11_anti_recall_plugin_enable_internal_database:
+            message = await query_message_from_database(bot=bot, event=event, message_id=event.message_id)
+        else:
+            message = await query_message_from_adapter(bot=bot, message_id=event.message_id)
     except Exception as e:
-        logger.error(f'AntiRecall 查询历史消息失败, message_id: {message_id}, {e!r}')
+        logger.error(f'AntiRecall 查询历史消息失败, message_id: {event.message_id}, {e!r}')
         return
 
-    message = parse_obj_as(OneBotV11Message, message_result['message']).include('image', 'text')
-
-    sent_msg = f'已检测到撤回消息:\n{datetime.fromtimestamp(message_result["time"]).strftime("%Y/%m/%d %H:%M:%S")} '
+    sent_msg = '已检测到撤回消息: '
     sent_msg += OneBotV11MessageSegment.at(user_id=user_id)
     sent_msg += '\n----消息内容----\n'
     sent_msg += message
 
-    logger.success(f'AntiRecall 已捕获并处理撤回消息, message_id: {message_id}')
+    logger.success(f'AntiRecall 已捕获并处理撤回消息, message_id: {event.message_id}')
     await matcher.finish(sent_msg)
 
 
