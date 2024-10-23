@@ -71,7 +71,7 @@ class StatisticOrm(Base):
     id: Mapped[int] = mapped_column(
         IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
     )
-    module_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件模块名称')
+    module_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='插件模块名称')
     plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件显示名称')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应的Bot')
     parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应调用用户父实体信息')
