@@ -465,29 +465,6 @@ class SocialMediaContentOrm(Base):
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
-class BiliDynamicOrm(Base):
-    """B站动态表"""
-    __tablename__ = f'{database_config.db_prefix}bili_dynamic'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    dynamic_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='动态id')
-    dynamic_type: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='动态类型')
-    uid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='用户uid')
-    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='动态内容')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    def __repr__(self) -> str:
-        return (f"BiliDynamicOrm(dynamic_id={self.dynamic_id!r}, dynamic_type={self.dynamic_type!r}, "
-                f"uid={self.uid!r}, content={self.content!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
-
-
 class ArtworkCollectionOrm(Base):
     """图库作品表"""
     __tablename__ = f'{database_config.db_prefix}artwork_collection'
@@ -555,29 +532,6 @@ class PixivisionArticleOrm(Base):
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
-class WeiboDetailOrm(Base):
-    """微博内容表"""
-    __tablename__ = f'{database_config.db_prefix}weibo_detail'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    mid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, unique=True, comment='微博id')
-    uid: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='用户uid')
-    content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='微博内容')
-    retweeted_content: Mapped[str] = mapped_column(String(2048), nullable=False, comment='转发的微博内容')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    def __repr__(self) -> str:
-        return (f"WeiboDetailOrm(mid={self.mid!r}, uid={self.uid!r}, "
-                f"content={self.content!r}, retweeted_content={self.retweeted_content!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
-
-
 class WordBankOrm(Base):
     """问答语料词句表"""
     __tablename__ = f'{database_config.db_prefix}word_bank'
@@ -618,9 +572,7 @@ __all__ = [
     'SubscriptionSourceOrm',
     'SubscriptionOrm',
     'SocialMediaContentOrm',
-    'BiliDynamicOrm',
     'ArtworkCollectionOrm',
     'PixivisionArticleOrm',
-    'WeiboDetailOrm',
     'WordBankOrm',
 ]

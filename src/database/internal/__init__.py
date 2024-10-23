@@ -10,7 +10,6 @@
 
 from .artwork_collection import ArtworkCollectionDAL
 from .auth_setting import AuthSettingDAL
-from .bili_dynamic import BiliDynamicDAL
 from .bot import BotSelfDAL
 from .cooldown import CoolDownDAL
 from .email_box import EmailBoxDAL
@@ -26,14 +25,12 @@ from .statistic import StatisticDAL
 from .subscription import SubscriptionDAL
 from .subscription_source import SubscriptionSourceDAL
 from .system_setting import SystemSettingDAL
-from .weibo_detail import WeiboDetailDAL
 from .word_bank import WordBankDAL
 
 
 __all__ = [
     'ArtworkCollectionDAL',
     'AuthSettingDAL',
-    'BiliDynamicDAL',
     'BotSelfDAL',
     'CoolDownDAL',
     'EmailBoxDAL',
@@ -49,6 +46,5 @@ __all__ = [
     'SubscriptionDAL',
     'SubscriptionSourceDAL',
     'SystemSettingDAL',
-    'WeiboDetailDAL',
     'WordBankDAL',
 ]

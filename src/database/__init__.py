@@ -14,7 +14,6 @@ from .internal import *
 __all__ = [
     'ArtworkCollectionDAL',
     'AuthSettingDAL',
-    'BiliDynamicDAL',
     'BotSelfDAL',
     'CoolDownDAL',
     'EmailBoxDAL',
@@ -30,7 +29,6 @@ __all__ = [
     'SubscriptionDAL',
     'SubscriptionSourceDAL',
     'SystemSettingDAL',
-    'WeiboDetailDAL',
     'WordBankDAL',
     'begin_db_session',
     'get_db_session',
