@@ -75,8 +75,7 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]
         }
         if info is not None:
             obj_attrs.update({'info': info})
-        new_obj = SystemSettingOrm(**obj_attrs)
-        await self._merge(new_obj)
+        await self._merge(SystemSettingOrm(**obj_attrs))
 
     async def update(
             self,

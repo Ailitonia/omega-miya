@@ -79,8 +79,7 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
         }
         if info is not None:
             obj_attrs.update({'info': info})
-        new_obj = PluginOrm(**obj_attrs)
-        await self._merge(new_obj)
+        await self._merge(PluginOrm(**obj_attrs))
 
     async def update(
             self,
@@ -88,7 +87,7 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
             module_name: str,
             *,
             enabled: Optional[int] = None,
-            info: Optional[str] = None
+            info: Optional[str] = None,
     ) -> None:
         stmt = (update(PluginOrm)
                 .where(PluginOrm.plugin_name == plugin_name)
