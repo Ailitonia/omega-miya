@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Sequence
 
 from nonebot import logger
 from nonebot.exception import ActionFailed
-from sqlalchemy.exc import NoResultFound
 
 from src.database import PixivisionArticleDAL, begin_db_session
 from src.resource import TemporaryResource
@@ -53,22 +52,18 @@ async def _check_new_article(articles: Sequence["PixivisionIllustration"]) -> li
 
 
 async def _add_upgrade_article_content(article: Pixivision) -> None:
-    """在数据库中添加特辑文章信息(仅新增不更新)"""
+    """在数据库中添加特辑文章信息"""
     article_data = await article.query_article()
 
     async with begin_db_session() as session:
-        dal = PixivisionArticleDAL(session=session)
-        try:
-            await dal.query_unique(aid=article.aid)
-        except NoResultFound:
-            await dal.add(
-                aid=article.aid,
-                title=article_data.title_without_mark,
-                description=article_data.description,
-                tags=','.join(x.tag_name for x in article_data.tags_list),
-                artworks_id=','.join(str(x.artwork_id) for x in article_data.artwork_list),
-                url=article.url
-            )
+        await PixivisionArticleDAL(session=session).upsert(
+            aid=article.aid,
+            title=article_data.title_without_mark,
+            description=article_data.description,
+            tags=','.join(x.tag_name for x in article_data.tags_list),
+            artworks_id=','.join(str(x.artwork_id) for x in article_data.artwork_list),
+            url=article.url
+        )
 
 
 async def _add_new_pixivision_article(articles: Sequence["PixivisionIllustration"]) -> None:
