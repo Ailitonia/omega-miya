@@ -49,7 +49,7 @@ async def _check_new_weibo(cards: Iterable["WeiboCard"]) -> list["WeiboCard"]:
         new_mids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
             source=WEIBO_SUB_TYPE, mids=all_mids
         )
-    return [x for x in cards if x.mblog.id in new_mids]
+    return [x for x in cards if str(x.mblog.id) in new_mids]
 
 
 async def _add_upgrade_weibo_content(card: "WeiboCard") -> None:

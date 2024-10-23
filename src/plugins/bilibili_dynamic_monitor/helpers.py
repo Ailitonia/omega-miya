@@ -52,7 +52,7 @@ async def _check_new_dynamic(cards: Sequence["BilibiliDynamicCard"]) -> list["Bi
         new_ids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
             source=BILI_DYNAMIC_SUB_TYPE, mids=all_ids
         )
-    return [x for x in cards if x.desc.dynamic_id in new_ids]
+    return [x for x in cards if str(x.desc.dynamic_id) in new_ids]
 
 
 async def _add_upgrade_dynamic_content(card: "BilibiliDynamicCard") -> None:
