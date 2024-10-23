@@ -89,8 +89,8 @@ class StatisticOrm(Base):
 
 
 class HistoryOrm(Base):
-    """记录表"""
-    __tablename__ = f'{database_config.db_prefix}history'
+    """原始消息记录表"""
+    __tablename__ = f'{database_config.db_prefix}message_history'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
@@ -98,22 +98,23 @@ class HistoryOrm(Base):
     id: Mapped[int] = mapped_column(
         IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
     )
-    time: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='事件发生的时间戳')
-    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到事件的机器人id')
-    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象父实体id')
-    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件对应对象实体id')
-    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件类型')
-    event_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='事件id')
-    raw_data: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始事件内容')
-    msg_data: Mapped[str] = mapped_column(String(4096), nullable=True, comment='经处理的事件内容')
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息ID')
+    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到消息的机器人ID')
+    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True,
+                                                  comment='发送消息的对象父实体ID')
+    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送消息的对象实体ID')
+    received_time: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='收到消息事件的时间戳')
+    message_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='消息事件类型')
+    message_raw: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始消息数据')
+    message_text: Mapped[str] = mapped_column(String(4096), nullable=False, comment='经处理的消息文本内容')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"HistoryOrm(time={self.time!r}, bot_self_id={self.bot_self_id!r}, "
+        return (f"HistoryOrm(message_id={self.message_id!r}, bot_self_id={self.bot_self_id!r}, "
                 f"parent_entity_id={self.parent_entity_id!r}, entity_id={self.entity_id!r}, "
-                f"event_type={self.event_type!r}, event_id={self.event_id!r}, "
-                f"raw_data={self.raw_data!r}, msg_data={self.msg_data!r}, "
+                f"received_time={self.received_time!r}, message_type={self.message_type!r}, "
+                f"message_raw={self.message_raw!r}, message_text={self.message_text!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
