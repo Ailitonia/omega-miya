@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING, Iterable
 
 from nonebot import logger
 from nonebot.exception import ActionFailed
-from sqlalchemy.exc import NoResultFound
 
-from src.database import WeiboDetailDAL, begin_db_session
+from src.database import SocialMediaContentDAL, begin_db_session
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.service import (
     OmegaMatcherInterface as OmMI,
@@ -46,8 +45,10 @@ async def _query_weibo_sub_source(uid: int) -> SubscriptionSource:
 async def _check_new_weibo(cards: Iterable["WeiboCard"]) -> list["WeiboCard"]:
     """检查新的微博(数据库中没有的)"""
     async with begin_db_session() as session:
-        all_mids = [x.mblog.id for x in cards]
-        new_mids = await WeiboDetailDAL(session=session).query_not_exists_ids(mids=all_mids)
+        all_mids = [str(x.mblog.id) for x in cards]
+        new_mids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
+            source=WEIBO_SUB_TYPE, mids=all_mids
+        )
     return [x for x in cards if x.mblog.id in new_mids]
 
 
@@ -60,14 +61,14 @@ async def _add_upgrade_weibo_content(card: "WeiboCard") -> None:
     )
 
     async with begin_db_session() as session:
-        dal = WeiboDetailDAL(session=session)
-        try:
-            weibo = await dal.query_unique(mid=card.mblog.id)
-            await dal.update(id_=weibo.id, content=card.mblog.text, retweeted_content=retweeted_content)
-        except NoResultFound:
-            await dal.add(
-                mid=card.mblog.id, uid=card.mblog.user.id, content=card.mblog.text, retweeted_content=retweeted_content
-            )
+        await SocialMediaContentDAL(session=session).upsert(
+            source=WEIBO_SUB_TYPE,
+            m_id=str(card.mblog.id),
+            m_type=card.card_type,
+            m_uid=str(card.mblog.user.id),
+            content=card.mblog.text,
+            ref_content=retweeted_content
+        )
 
 
 async def _add_user_new_weibo_content(uid: int) -> None:

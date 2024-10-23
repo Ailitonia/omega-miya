@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING, Sequence
 
 from nonebot import logger
 from nonebot.exception import ActionFailed
-from sqlalchemy.exc import NoResultFound
 
-from src.database import BiliDynamicDAL, begin_db_session
+from src.database import SocialMediaContentDAL, begin_db_session
 from src.exception import WebSourceException
 from src.service import (
     OmegaMatcherInterface as OmMI,
@@ -49,21 +48,23 @@ async def _query_dynamic_sub_source(uid: int) -> "SubscriptionSource":
 async def _check_new_dynamic(cards: Sequence["BilibiliDynamicCard"]) -> list["BilibiliDynamicCard"]:
     """检查新的动态(数据库中没有的)"""
     async with begin_db_session() as session:
-        all_ids = [x.desc.dynamic_id for x in cards]
-        new_ids = await BiliDynamicDAL(session=session).query_not_exists_ids(dynamic_ids=all_ids)
+        all_ids = [str(x.desc.dynamic_id) for x in cards]
+        new_ids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
+            source=BILI_DYNAMIC_SUB_TYPE, mids=all_ids
+        )
     return [x for x in cards if x.desc.dynamic_id in new_ids]
 
 
 async def _add_upgrade_dynamic_content(card: "BilibiliDynamicCard") -> None:
     """在数据库中添加动态信息"""
     async with begin_db_session() as session:
-        dal = BiliDynamicDAL(session=session)
-        try:
-            dynamic = await dal.query_unique(dynamic_id=card.desc.dynamic_id)
-            await dal.update(id_=dynamic.id, content=card.card.output_std_model().content)
-        except NoResultFound:
-            await dal.add(dynamic_id=card.desc.dynamic_id, dynamic_type=card.desc.type,
-                          uid=card.desc.uid, content=card.card.output_std_model().content)
+        await SocialMediaContentDAL(session=session).upsert(
+            source=BILI_DYNAMIC_SUB_TYPE,
+            m_id=str(card.desc.dynamic_id),
+            m_type=str(card.desc.type),
+            m_uid=str(card.desc.uid),
+            content=card.card.output_std_model().content,
+        )
 
 
 async def _add_user_new_dynamic_content(bili_user: BilibiliUser) -> None:
