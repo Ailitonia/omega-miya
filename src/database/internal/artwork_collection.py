@@ -11,9 +11,7 @@
 from datetime import datetime
 from typing import Literal, Optional, Sequence
 
-from sqlalchemy import update, delete, desc, or_, and_
-from sqlalchemy.future import select
-from sqlalchemy.sql.expression import func
+from sqlalchemy import delete, desc, select, update, and_, or_, func
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -351,7 +349,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
         return sorted(list(set(aids) - set(exists_aids)), reverse=True)
 
     async def query_all(self) -> list[ArtworkCollection]:
-        raise NotImplementedError('method not supported')
+        raise NotImplementedError
 
     async def add(
             self,

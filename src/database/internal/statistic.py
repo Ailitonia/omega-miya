@@ -11,9 +11,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import desc
-from sqlalchemy.future import select
-from sqlalchemy.sql.expression import func
+from sqlalchemy import desc, select, func
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -44,7 +42,7 @@ class StatisticDAL(BaseDataAccessLayerModel[StatisticOrm, Statistic]):
     """统计信息 数据库操作对象"""
 
     async def query_unique(self, *args, **kwargs) -> Statistic:
-        raise NotImplementedError('method not supported')
+        raise NotImplementedError
 
     async def count_by_condition(
             self,

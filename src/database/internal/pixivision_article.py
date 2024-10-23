@@ -11,8 +11,7 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from sqlalchemy import update, delete, desc
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
