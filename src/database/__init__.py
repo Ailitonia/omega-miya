@@ -25,6 +25,7 @@ __all__ = [
     'PixivisionArticleDAL',
     'PluginDAL',
     'SignInDAL',
+    'SocialMediaContentDAL',
     'StatisticDAL',
     'SubscriptionDAL',
     'SubscriptionSourceDAL',

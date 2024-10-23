@@ -21,6 +21,7 @@ from .history import HistoryDAL
 from .pixivision_article import PixivisionArticleDAL
 from .plugin import PluginDAL
 from .sign_in import SignInDAL
+from .social_media_content import SocialMediaContentDAL
 from .statistic import StatisticDAL
 from .subscription import SubscriptionDAL
 from .subscription_source import SubscriptionSourceDAL
@@ -43,6 +44,7 @@ __all__ = [
     'PixivisionArticleDAL',
     'PluginDAL',
     'SignInDAL',
+    'SocialMediaContentDAL',
     'StatisticDAL',
     'SubscriptionDAL',
     'SubscriptionSourceDAL',

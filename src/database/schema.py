@@ -100,9 +100,8 @@ class HistoryOrm(Base):
     )
     message_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息ID')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到消息的机器人ID')
-    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True,
-                                                  comment='发送消息的对象父实体ID')
-    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送消息的对象实体ID')
+    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送对象父实体ID')
+    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送的对象实体ID')
     received_time: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='收到消息事件的时间戳')
     message_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='消息事件类型')
     message_raw: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始消息数据')
@@ -278,7 +277,7 @@ class AuthSettingOrm(Base):
     available: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='需求值, 0=deny/disable, 1=allow/enable, 1<=level'
     )
-    value: Mapped[str] = mapped_column(String(8192), nullable=True, comment='若为插件配置项且对象具有的配置信息')
+    value: Mapped[str] = mapped_column(String(4096), nullable=True, comment='若为插件配置项且对象具有的配置信息')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -444,6 +443,28 @@ class SubscriptionOrm(Base):
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
+class SocialMediaContentOrm(Base):
+    """社交媒体平台内容表"""
+    __tablename__ = f'{database_config.db_prefix}social_media_content'
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
+
+    # 表结构
+    source: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='出处平台')
+    m_id: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='内容原始ID')
+    m_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容原始类型')
+    m_uid: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容发布者ID')
+    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容文本')
+    ref_content: Mapped[str] = mapped_column(String(4096), nullable=True, comment='引用内容文本')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return (f"SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, m_type={self.m_type!r}, "
+                f"m_uid={self.m_uid!r}, content={self.content!r}, ref_content={self.ref_content!r}, "
+                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+
+
 class BiliDynamicOrm(Base):
     """B站动态表"""
     __tablename__ = f'{database_config.db_prefix}bili_dynamic'
@@ -571,7 +592,7 @@ class WordBankOrm(Base):
     reply_entity: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True, comment='响应对象, 可为群号/用户qq/频道id等标识'
     )
-    result_word: Mapped[str] = mapped_column(String(8192), nullable=False, comment='结果文本')
+    result_word: Mapped[str] = mapped_column(String(4096), nullable=False, comment='结果文本')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
@@ -596,6 +617,7 @@ __all__ = [
     'EmailBoxBindOrm',
     'SubscriptionSourceOrm',
     'SubscriptionOrm',
+    'SocialMediaContentOrm',
     'BiliDynamicOrm',
     'ArtworkCollectionOrm',
     'PixivisionArticleOrm',
