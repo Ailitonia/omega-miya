@@ -115,7 +115,7 @@ async def check_recall_notice(bot: OneBotV11Bot, event: OneBotV11GroupRecallNoti
         logger.error(f'AntiRecall 查询历史消息失败, message_id: {event.message_id}, {e!r}')
         return
 
-    sent_msg = f'已检测到撤回消息: '
+    sent_msg = '已检测到撤回消息: '
     sent_msg += OneBotV11MessageSegment.at(user_id=user_id)
     sent_msg += '\n----消息内容----\n'
     sent_msg += message
