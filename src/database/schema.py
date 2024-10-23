@@ -508,21 +508,18 @@ class ArtworkCollectionOrm(Base):
 
 
 class PixivisionArticleOrm(Base):
-    """Pixivision 表"""
+    """Pixivision 特辑表"""
     __tablename__ = f'{database_config.db_prefix}pixivision_article'
     if database_config.table_args is not None:
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    aid: Mapped[int] = mapped_column(Integer, nullable=False, index=True, unique=True, comment='aid')
-    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='title')
-    description: Mapped[str] = mapped_column(String(1024), nullable=False, comment='description')
-    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='tags')
-    artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='article artwork_id')
-    url: Mapped[str] = mapped_column(String(1024), nullable=False, comment='url')
+    aid: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False, index=True, unique=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='特辑标题')
+    description: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容描述')
+    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑tags')
+    artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑内包含的所有作品ID')
+    url: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑链接')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
