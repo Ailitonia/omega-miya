@@ -472,18 +472,18 @@ class ArtworkCollectionOrm(Base):
         __table_args__ = database_config.table_args
 
     # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    origin: Mapped[str] = mapped_column(
+        String(64), primary_key=True, nullable=False, index=True, comment='作品来源/收录该作品的站点'
     )
-    # 作品信息部分
-    origin: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='作品来源/收录该作品的站点')
-    aid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品id')
+    aid: Mapped[str] = mapped_column(
+        String(64), primary_key=True, nullable=False, index=True, comment='作品原始ID/收录该作品的站点索引ID'
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品标题title')
     uid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者uid')
     uname: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者名')
     # 分类分级信息
     classification: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True, comment='标记标签, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
+        Integer, nullable=False, index=True, comment='标记标签, -2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
     )
     rating: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True, comment='分级标签, -1=Unknown, 0=G, 1=S, 2=Q, 3=E'
@@ -491,19 +491,19 @@ class ArtworkCollectionOrm(Base):
     # 作品图片信息
     width: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片宽度')
     height: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片高度')
-    tags: Mapped[str] = mapped_column(String(2048), nullable=False, comment='作品标签')
-    description: Mapped[str] = mapped_column(String(2048), nullable=True, comment='作品描述')
-    source: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品原始出处地址')
-    cover_page: Mapped[str] = mapped_column(String(512), nullable=False, comment='作品首页/封面原图链接')
+    tags: Mapped[str] = mapped_column(String(4096), nullable=False, comment='作品标签')
+    description: Mapped[str] = mapped_column(String(4096), nullable=True, comment='作品描述')
+    source: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品原始出处地址')
+    cover_page: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品首页/封面原图链接')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"ArtworkCollectionOrm(artwork_id={self.aid!r}, title={self.title!r}, "
+        return (f"ArtworkCollectionOrm(origin={self.origin!r}, aid={self.aid!r}, title={self.title!r}, "
                 f"uid={self.uid!r}, uname={self.uname!r}, "
                 f"classification={self.classification!r}, rating={self.rating!r}, "
                 f"width={self.width!r}, height={self.height!r}, tags={self.tags!r}, "
-                f"source={self.source!r}, cover_page={self.cover_page!r}, "
+                f"description={self.description!r}, source={self.source!r}, cover_page={self.cover_page!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 

@@ -103,7 +103,7 @@ async def query_artworks_from_database(
         moe_plugin_config.moe_plugin_query_image_limit
     )
 
-    order_mode: Literal['index_id_desc', 'random'] = 'index_id_desc' if latest else 'random'
+    order_mode: Literal['latest', 'random'] = 'latest' if latest else 'random'
 
     random_artworks = await get_artwork_collection_type().query_any_origin_by_condition(
         keywords=keywords, origin=query_origin, num=query_num,

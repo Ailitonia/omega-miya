@@ -59,7 +59,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'index_id', 'index_id_desc'] = 'random',
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
     ) -> list["DBArtworkCollection"]:
         """从所有或任意指定来源根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         if isinstance(keywords, str):
@@ -107,7 +107,7 @@ class BaseArtworkCollection(abc.ABC):
             allow_rating_range: Optional[tuple[int, int]] = (0, 0),
             acc_mode: bool = False,
             ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'index_id', 'index_id_desc'] = 'random',
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
     ) -> list["DBArtworkCollection"]:
         """根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_any_origin_by_condition(
@@ -269,7 +269,7 @@ class BaseArtworkCollection(abc.ABC):
                     rating = max(artwork.rating, rating)
 
                 await artwork_dal.update(
-                    id_=artwork.id,
+                    origin=self.origin_name, aid=self.__ap.s_aid,
                     title=artwork_data.title, uid=artwork_data.uid, uname=artwork_data.uname,
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
@@ -325,9 +325,7 @@ class BaseArtworkCollection(abc.ABC):
     async def delete_artwork_from_database(self) -> None:
         """从数据库删除该作品信息"""
         async with begin_db_session() as session:
-            artwork_dal = ArtworkCollectionDAL(session=session)
-            artwork = await artwork_dal.query_unique(origin=self.origin_name, aid=self.__ap.s_aid)
-            await artwork_dal.delete(id_=artwork.id)
+            await ArtworkCollectionDAL(session=session).delete(origin=self.origin_name, aid=self.__ap.s_aid)
 
 
 __all__ = [
