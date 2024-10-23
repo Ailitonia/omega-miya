@@ -131,7 +131,7 @@ class SocialMediaContentDAL(BaseDataAccessLayerModel[SocialMediaContentOrm, Soci
     ) -> None:
         new_obj = SocialMediaContentOrm(source=source, m_id=m_id, m_type=m_type, m_uid=m_uid,
                                         content=content[:4096], ref_content=ref_content[:4096],
-                                        created_at=datetime.now())
+                                        updated_at=datetime.now())
         await self._merge(new_obj)
 
     async def update(self, *args, **kwargs) -> None:
