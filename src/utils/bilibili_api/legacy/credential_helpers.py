@@ -156,14 +156,16 @@ class BilibiliCredential(BilibiliCommon):
 
         if verify.code != 0 or not verify.data.isLogin:
             bilibili_config.clear_all()
-            logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, {verify.message}')
+            logger.opt(colors=True).warning(
+                f'<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, {verify.message}')
             return False
         elif verify.data.mid != bilibili_config.bili_dedeuserid:
             bilibili_config.clear_all()
             logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>Cookie 验证失败</r>, 登录状态异常, 用户 UID 不匹配')
             return False
         else:
-            logger.opt(colors=True).success(f'<lc>Bilibili</lc> | <lg>Cookie 已验证</lg>, 登录用户: {verify.data.uname}')
+            logger.opt(colors=True).success(
+                f'<lc>Bilibili</lc> | <lg>Cookie 已验证</lg>, 登录用户: {verify.data.uname}')
             return True
 
     @classmethod

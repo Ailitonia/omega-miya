@@ -11,7 +11,6 @@
 from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BaseBilibiliModel
 
 

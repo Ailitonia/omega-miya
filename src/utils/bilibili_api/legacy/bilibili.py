@@ -101,7 +101,6 @@ class Bilibili(BilibiliCommon):
 
 
 class BilibiliUser(Bilibili):
-
     warnings.warn(
         "The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
         "future version should change to new API instead.",
