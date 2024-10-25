@@ -40,12 +40,13 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
 
     try:
         async with begin_db_session() as session:
-            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
+            event_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='event')
+            user_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='user')
             await HistoryDAL(session=session).add(
                 message_id=message_id,
                 bot_self_id=bot.self_id,
-                parent_entity_id=entity.parent_id,
-                entity_id=entity.entity_id,
+                event_entity_id=event_entity.entity_id,
+                user_entity_id=user_entity.entity_id,
                 received_time=int(datetime.now().timestamp()),
                 message_type=event.get_event_name(),
                 message_raw=message_raw,
