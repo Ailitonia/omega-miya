@@ -100,8 +100,8 @@ class HistoryOrm(Base):
     )
     message_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息ID')
     bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到消息的机器人ID')
-    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送对象父实体ID')
-    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送的对象实体ID')
+    event_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息事件实体ID')
+    user_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送对象实体ID')
     received_time: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='收到消息事件的时间戳')
     message_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='消息事件类型')
     message_raw: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始消息数据')
@@ -111,7 +111,7 @@ class HistoryOrm(Base):
 
     def __repr__(self) -> str:
         return (f"HistoryOrm(message_id={self.message_id!r}, bot_self_id={self.bot_self_id!r}, "
-                f"parent_entity_id={self.parent_entity_id!r}, entity_id={self.entity_id!r}, "
+                f"event_entity_id={self.event_entity_id!r}, user_entity_id={self.user_entity_id!r}, "
                 f"received_time={self.received_time!r}, message_type={self.message_type!r}, "
                 f"message_raw={self.message_raw!r}, message_text={self.message_text!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
