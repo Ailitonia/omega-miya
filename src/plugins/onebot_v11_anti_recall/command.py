@@ -108,14 +108,14 @@ async def check_recall_notice(bot: OneBotV11Bot, event: OneBotV11GroupRecallNoti
 
     try:
         if onebot_v11_anti_recall_config.onebot_v11_anti_recall_plugin_enable_internal_database:
-            message = await query_message_from_database(bot=bot, event=event, message_id=event.message_id)
+            sent_time, message = await query_message_from_database(bot=bot, event=event, message_id=event.message_id)
         else:
-            message = await query_message_from_adapter(bot=bot, message_id=event.message_id)
+            sent_time, message = await query_message_from_adapter(bot=bot, message_id=event.message_id)
     except Exception as e:
         logger.error(f'AntiRecall 查询历史消息失败, message_id: {event.message_id}, {e!r}')
         return
 
-    sent_msg = '已检测到撤回消息: '
+    sent_msg = f'已检测到撤回消息:\n{sent_time.strftime("%Y-%m-%d %H:%M:%S")} '
     sent_msg += OneBotV11MessageSegment.at(user_id=user_id)
     sent_msg += '\n----消息内容----\n'
     sent_msg += message

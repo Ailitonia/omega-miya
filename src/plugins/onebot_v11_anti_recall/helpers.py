@@ -8,6 +8,8 @@
 @Software       : PyCharm 
 """
 
+from datetime import datetime
+
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
     Event as OneBotV11Event,
@@ -18,24 +20,32 @@ from src.compat import parse_json_as, parse_obj_as
 from src.database import HistoryDAL, begin_db_session
 from src.service import OmegaMatcherInterface
 
+type MessageHistory = tuple[datetime, OneBotV11Message]
+"""查询到的消息记录: 消息发送时间, 消息内容"""
 
-async def query_message_from_adapter(bot: OneBotV11Bot, message_id: int) -> OneBotV11Message:
+
+async def query_message_from_adapter(bot: OneBotV11Bot, message_id: int) -> MessageHistory:
     """从协议端查询用户消息"""
     message_result = await bot.get_msg(message_id=message_id)
-    return parse_obj_as(OneBotV11Message, message_result['message']).include('image', 'text')
+    message = parse_obj_as(OneBotV11Message, message_result['message']).include('image', 'text')
+    sent_time = datetime.fromtimestamp(message_result['time'])
+    return sent_time, message
 
 
-async def query_message_from_database(bot: OneBotV11Bot, event: OneBotV11Event, message_id: int) -> OneBotV11Message:
+async def query_message_from_database(bot: OneBotV11Bot, event: OneBotV11Event, message_id: int) -> MessageHistory:
     """从数据库查询用户消息"""
     async with begin_db_session() as session:
-        entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
+        event_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='event')
+        user_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='user')
         message_recording = await HistoryDAL(session=session).query_unique(
             message_id=message_id,
             bot_self_id=bot.self_id,
-            parent_entity_id=entity.parent_id,
-            entity_id=entity.entity_id,
+            event_entity_id=event_entity.entity_id,
+            user_entity_id=user_entity.entity_id,
         )
-    return parse_json_as(OneBotV11Message, message_recording.message_raw).include('image', 'text')
+    message = parse_json_as(OneBotV11Message, message_recording.message_raw).include('image', 'text')
+    sent_time = datetime.fromtimestamp(message_recording.received_time)
+    return sent_time, message
 
 
 __all__ = [
