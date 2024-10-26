@@ -41,6 +41,8 @@ emoji = ">=2.14.0,<3.0.0"
 openpyxl = ">=3.1.2,<4.0.0"
 qrcode = { extras = ["pil"], version = ">=8.0.0,<9.0.0" }
 onedice = "1.0.7"
+jieba = ">=0.42.1,<1.0.0"
+wordcloud = ">=1.9.3,<2.0.0"
 
 
 [tool.poetry.extras]
