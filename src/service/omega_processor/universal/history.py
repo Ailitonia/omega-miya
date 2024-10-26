@@ -30,7 +30,7 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
         message_id = str(hash(message))
 
     message_raw = dump_json_as(Message, message, encoding='utf-8')
-    message_text = str(message)
+    message_text = message.extract_plain_text()
     if len(message_raw) > 4096:
         logger.opt(colors=True).debug(f'{LOG_PREFIX}message_raw reduced by exceeding field limiting, {message_raw!r}')
         message_raw = message_raw[:4096]
