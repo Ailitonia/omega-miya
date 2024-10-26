@@ -7,6 +7,7 @@ license = "MIT"
 readme = "README.md"
 package-mode = false
 
+
 [tool.poetry.dependencies]
 python = "^3.12"
 nonebot2 = { version = "2.3.3", extras = ["fastapi", "aiohttp", "httpx", "websockets"] }
@@ -50,11 +51,81 @@ sqlite = ["aiosqlite"]
 
 [tool.poetry.group.dev.dependencies]
 mypy = ">=1.13.0,<2.0.0"
+ruff = ">=0.7.0,<1.0.0"
 bump-pydantic = "^0.8.0"
 types-lxml = "^2024.3.27"
 lxml-stubs = "^0.5.1"
 alembic = "^1.13.3"
 
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".github",
+    ".hg",
+    ".idea",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+line-length = 120
+indent-width = 4
+target-version = "py312"  # Assume Python 3.12
+
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = [
+    "F", # Pyflakes
+    "E", # pycodestyle Error (E)
+    "W", # pycodestyle Warning (W)
+    "I001", # unsorted-imports
+    "UP", # pyupgrade (UP)
+    "C4", # flake8-comprehensions (C4)
+    "T10", # flake8-debugger (T10)
+    "T20", # flake8-print (T20)
+    "PYI", # flake8-pyi (PYI)
+    "PT", # flake8-pytest-style (PT)
+    "Q", # flake8-quotes (Q)
+    "NPY", # NumPy-specific rules (NPY)
+    "FAST", # FastAPI (FAST)
+]
+ignore = [
+    "E402", # module-import-not-at-top-of-file
+    "C901", # complex-structure
+    "PT023", # pytest-incorrect-mark-parentheses-style
+]
+
+
+[tool.ruff.format]
+quote-style = "double"  # Use double quotes for strings.
+indent-style = "space"  # Indent with spaces, rather than tabs.
