@@ -9,11 +9,11 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Generator, Self
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy.exc import NoResultFound
 
 from src.database import SystemSettingDAL, begin_db_session
@@ -31,6 +31,10 @@ class BaseConfigModel(BaseModel):
             k: v for k, v in self.model_dump(by_alias=True).items()
             if v is not None
         }
+
+    def iter_config(self) -> Generator[tuple[str, str | None], Any, None]:
+        for config_name, config_value in self.model_dump(by_alias=True).items():
+            yield config_name, config_value
 
 
 class BilibiliLoginCookies(BaseConfigModel):
@@ -62,47 +66,54 @@ class BilibiliCookies(BilibiliLoginCookies):
     bilibili_api_uuid: str | None = Field(default=None, alias='_uuid')
 
 
-class BilibiliAPIConfig(BilibiliCookies):
+@dataclass
+class BilibiliLocalResourceConfig:
+    # 默认的缓存资源保存路径
+    default_folder: TemporaryResource = TemporaryResource('bilibili')
+
+    def get_path(self, *args: str) -> "TemporaryResource":
+        """获取缓存路径"""
+        return self.default_folder(*args)
+
+
+class BilibiliAPIConfigManager(object):
     """bilibili API 配置"""
 
-    cookies_cache: BilibiliCookies = Field(default_factory=BilibiliCookies)
+    __slots__ = ('_cookies_config', '_resource_config',)
 
-    @model_validator(mode='before')
-    @classmethod
-    def init_cookies_cache(cls, values):
-        """初始化内部缓存"""
-        values.update({"cookies_cache": values})
-        return values
+    _cookies_config: "BilibiliCookies"
+    _resource_config: "BilibiliLocalResourceConfig"
+
+    def __init__(self, cookies_config: "BilibiliCookies") -> None:
+        self._cookies_config = cookies_config
+        self._resource_config = BilibiliLocalResourceConfig()
 
     @property
     def bili_cookies(self) -> dict[str, Any]:
         """从内部缓存获取 bilibili Cookies"""
-        return self.cookies_cache.get_config_dict()
+        return self._cookies_config.get_config_dict()
 
-    def update_cookies_cache(self, **kwargs) -> None:
+    def _iter_config(self) -> Generator[tuple[str, str | None], Any, None]:
+        """遍历配置项"""
+        return self._cookies_config.iter_config()
+
+    def get_download_file_path(self, file_name: str) -> "TemporaryResource":
+        """获取缓存下载文件路径"""
+        return self._resource_config.get_path('download', file_name)
+
+    def get_tmp_file_path(self, file_name: str) -> "TemporaryResource":
+        """获取缓存文件路径"""
+        return self._resource_config.get_path(file_name)
+
+    def update_config(self, **kwargs) -> None:
         """更新 bilibili Cookies 内部缓存"""
-        kwargs.setdefault('SESSDATA', self.bilibili_api_sessdata)
-        kwargs.setdefault('bili_jct', self.bilibili_api_jct)
-        kwargs.setdefault('DedeUserID', self.bilibili_api_dedeuserid)
-        kwargs.setdefault('ac_time_value', self.bilibili_api_refresh_token)
-        kwargs.setdefault('buvid3', self.bilibili_api_buvid3)
-        kwargs.setdefault('buvid4', self.bilibili_api_buvid4)
-        kwargs.setdefault('buvid_fp', self.bilibili_api_buvid_fp)
-        kwargs.setdefault('_uuid', self.bilibili_api_uuid)
+        for config_name, config_value in self._iter_config():
+            kwargs.setdefault(config_name, config_value)
+        self._cookies_config = BilibiliCookies.model_validate(kwargs)
 
-        self.cookies_cache = BilibiliCookies.model_validate(kwargs)
-
-    def clear_cookies_cache(self) -> None:
-        """清空内部缓存"""
-        self.cookies_cache = BilibiliCookies()
-
-    def clear_all(self) -> None:
+    def clear_config(self) -> None:
         """清空所有配置内容"""
-        for field_name in self.model_fields.keys():
-            if field_name == 'cookies_cache':
-                continue
-            setattr(self, field_name, None)
-        self.clear_cookies_cache()
+        self._cookies_config = BilibiliCookies()
 
     @staticmethod
     async def _save_config_to_db(dal: SystemSettingDAL, setting_key: str, value: str | None) -> None:
@@ -122,34 +133,23 @@ class BilibiliAPIConfig(BilibiliCookies):
         """持久化保存用户登录 Cookies 到数据库"""
         async with begin_db_session() as session:
             dal = SystemSettingDAL(session=session)
-            await self._save_config_to_db(dal=dal, setting_key='SESSDATA', value=self.bilibili_api_sessdata)
-            await self._save_config_to_db(dal=dal, setting_key='bili_jct', value=self.bilibili_api_jct)
-            await self._save_config_to_db(dal=dal, setting_key='DedeUserID', value=self.bilibili_api_dedeuserid)
-            await self._save_config_to_db(dal=dal, setting_key='ac_time_value', value=self.bilibili_api_refresh_token)
+            for config_name, config_value in self._iter_config():
+                await self._save_config_to_db(dal=dal, setting_key=config_name, value=config_value)
 
     async def load_from_database(self) -> Self:
         """从数据库读取用户登录 Cookies"""
         async with begin_db_session() as session:
             dal = SystemSettingDAL(session=session)
-            self.bilibili_api_sessdata = await self._load_config_from_db(dal=dal, setting_key='SESSDATA')
-            self.bilibili_api_jct = await self._load_config_from_db(dal=dal, setting_key='bili_jct')
-            self.bilibili_api_dedeuserid = await self._load_config_from_db(dal=dal, setting_key='DedeUserID')
-            self.bilibili_api_refresh_token = await self._load_config_from_db(dal=dal, setting_key='ac_time_value')
-
-        self.update_cookies_cache()
+            update_data = {
+                config_name: await self._load_config_from_db(dal=dal, setting_key=config_name)
+                for config_name, _ in self._iter_config()
+            }
+        self.update_config(**update_data)
         return self
 
 
-@dataclass
-class BilibiliAPILocalResourceConfig:
-    # 默认的缓存资源保存路径
-    default_tmp_folder: TemporaryResource = TemporaryResource('bilibili')
-    default_download_folder: TemporaryResource = default_tmp_folder('download')
-
-
 try:
-    bilibili_api_resource_config = BilibiliAPILocalResourceConfig()
-    bilibili_api_config = get_plugin_config(BilibiliAPIConfig)
+    bilibili_api_config = BilibiliAPIConfigManager(get_plugin_config(BilibiliCookies))
 except ValidationError as e:
     import sys
 
@@ -158,5 +158,4 @@ except ValidationError as e:
 
 __all__ = [
     'bilibili_api_config',
-    'bilibili_api_resource_config',
 ]
