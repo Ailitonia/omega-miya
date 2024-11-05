@@ -7,3 +7,9 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
+from .login import BilibiliCredential
+
+__all__ = [
+    'BilibiliCredential',
+]

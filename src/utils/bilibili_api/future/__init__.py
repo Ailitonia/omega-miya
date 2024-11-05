@@ -7,3 +7,10 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
+from . import tasks as tasks
+from .api import BilibiliCredential
+
+__all__ = [
+    'BilibiliCredential',
+]

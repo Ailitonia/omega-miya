@@ -9,7 +9,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Generator, Self
+from typing import Any, Generator, Optional, Self
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
@@ -93,17 +93,24 @@ class BilibiliAPIConfigManager(object):
         """从内部缓存获取 bilibili Cookies"""
         return self._cookies_config.get_config_dict()
 
+    @property
+    def download_folder(self) -> "TemporaryResource":
+        """缓存下载文件目录"""
+        return self.get_resource_path('download')
+
     def _iter_config(self) -> Generator[tuple[str, str | None], Any, None]:
         """遍历配置项"""
         return self._cookies_config.iter_config()
 
-    def get_download_file_path(self, file_name: str) -> "TemporaryResource":
-        """获取缓存下载文件路径"""
-        return self._resource_config.get_path('download', file_name)
+    def get_resource_path(self, *file_name: str) -> "TemporaryResource":
+        """获取缓存资源文件路径"""
+        return self._resource_config.get_path(*file_name)
 
-    def get_tmp_file_path(self, file_name: str) -> "TemporaryResource":
-        """获取缓存文件路径"""
-        return self._resource_config.get_path(file_name)
+    def get_config(self, key: str, *, alias: bool = True) -> Optional[Any]:
+        """根据 alias 获取配置项"""
+        if alias:
+            return self.bili_cookies.get(key, None)
+        return getattr(self._cookies_config, key, None)
 
     def update_config(self, **kwargs) -> None:
         """更新 bilibili Cookies 内部缓存"""
