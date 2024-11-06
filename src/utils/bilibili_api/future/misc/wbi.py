@@ -53,15 +53,24 @@ def enc_wbi(params: Optional[dict[str, Any]], img_key: str, sub_key: str) -> dic
 
 
 def extract_key_from_wbi_image(url: Any) -> str:
+    """从 img_key 与 sub_key 字段中提取 Token"""
     return str(url).rsplit('/', 1)[-1].split('.')[0]
 
 
-def sign_wbi_params(nav_data: WebInterfaceNav, params: Optional[dict[str, Any]]) -> dict[str, Any]:
+def sign_wbi_params(params: Optional[dict[str, Any]], img_key: str, sub_key: str) -> dict[str, Any]:
+    """使用 img_key 与 sub_key 数据签名请求参数"""
+    return enc_wbi(params=params, img_key=img_key, sub_key=sub_key)
+
+
+def sign_wbi_params_nav(nav_data: WebInterfaceNav, params: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """使用 WebInterfaceNav 原始数据签名请求参数"""
     img_key = extract_key_from_wbi_image(url=nav_data.data.wbi_img.img_url)
     sub_key = extract_key_from_wbi_image(url=nav_data.data.wbi_img.sub_url)
     return enc_wbi(params=params, img_key=img_key, sub_key=sub_key)
 
 
 __all__ = [
+    'extract_key_from_wbi_image',
     'sign_wbi_params',
+    'sign_wbi_params_nav',
 ]

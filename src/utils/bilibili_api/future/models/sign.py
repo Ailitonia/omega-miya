@@ -14,6 +14,27 @@ from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BaseBilibiliModel
 
 
+class TicketNav(BaseBilibiliModel):
+    img: str
+    sub: str
+
+
+class TicketData(BaseBilibiliModel):
+    ticket: str
+    created_at: int
+    ttl: int
+    context: Optional[dict]
+    nav: TicketNav
+
+
+class Ticket(BaseBilibiliModel):
+    """api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket 返回值"""
+    code: int
+    message: str
+    ttl: int
+    data: TicketData
+
+
 class WbiImg(BaseBilibiliModel):
     img_url: AnyHttpUrl
     sub_url: AnyHttpUrl
@@ -137,6 +158,7 @@ class WebConfirmRefreshInfo(BaseBilibiliModel):
 
 
 __all__ = [
+    'Ticket',
     'WebInterfaceNav',
     'WebInterfaceSpi',
     'WebCookieInfo',

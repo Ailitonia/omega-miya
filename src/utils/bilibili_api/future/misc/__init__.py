@@ -9,11 +9,15 @@
 """
 
 from .exclimbwuzhi import gen_buvid_fp, gen_uuid_infoc, get_payload
-from .wbi import sign_wbi_params
+from .wbi import extract_key_from_wbi_image, sign_wbi_params, sign_wbi_params_nav
+from .web_ticket import create_gen_web_ticket_params
 
 __all__ = [
     'gen_buvid_fp',
     'get_payload',
     'gen_uuid_infoc',
+    'extract_key_from_wbi_image',
     'sign_wbi_params',
+    'sign_wbi_params_nav',
+    'create_gen_web_ticket_params',
 ]

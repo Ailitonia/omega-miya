@@ -9,6 +9,7 @@
 """
 
 from .sign import (
+    Ticket,
     WebInterfaceNav,
     WebInterfaceSpi,
     WebCookieInfo,
@@ -19,6 +20,7 @@ from .sign import (
 )
 
 __all__ = [
+    'Ticket',
     'WebCookieInfo',
     'WebCookieRefreshInfo',
     'WebConfirmRefreshInfo',

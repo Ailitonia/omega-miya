@@ -24,17 +24,20 @@ async def _refresh_bilibili_login_status() -> None:
         logger.opt(colors=True).warning('<lc>Bilibili</lc> | <r>用户 Cookies 未配置或验证失败</r>, 部分功能可能不可用')
         return
 
-    await bc.update_buvid_cookies()
     need_refresh = await bc.check_need_refresh()
     if need_refresh:
-        logger.opt(colors=True).warning('<lc>Bilibili</lc> | <ly>用户 Cookies 需要刷新</ly>, 正在尝试刷新中')
+        logger.opt(colors=True).warning('<lc>Bilibili</lc> | <ly>用户登录凭据需要刷新</ly>, 正在尝试刷新中')
         refresh_result = await bc.refresh_cookies()
         if refresh_result:
-            logger.opt(colors=True).warning('<lc>Bilibili</lc> | <lg>用户 Cookies 刷新成功</lg>')
+            logger.opt(colors=True).success('<lc>Bilibili</lc> | <lg>用户登录凭据刷新成功</lg>')
         else:
-            logger.opt(colors=True).error('<lc>Bilibili</lc> | <r>用户 Cookies 刷新失败</r>')
+            logger.opt(colors=True).error('<lc>Bilibili</lc> | <r>用户登录凭据刷新失败</r>')
     else:
         logger.opt(colors=True).debug('<lc>Bilibili</lc> | <lg>用户 Cookies 有效, 无需刷新</lg>')
+        await bc.update_buvid_cookies()
+        await bc.update_ticket_wbi_cookies()
+        await bc.save_cookies_to_db()
+        logger.opt(colors=True).success('<lc>Bilibili</lc> | <lg>用户接口鉴权缓存刷新成功</lg>')
 
 
 @get_driver().on_startup

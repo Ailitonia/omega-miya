@@ -240,6 +240,9 @@ class BilibiliCredential(BilibiliCommon):
         # 激活 buvid
         await cls.update_buvid_cookies()
 
+        # 更新 wbi
+        await cls.update_ticket_wbi_cookies()
+
         # 确认更新并注销旧 token
         confirm_result = await cls.confirm_cookies_refresh(
             csrf=new_cookies['bili_jct'], refresh_token=old_refresh_token
