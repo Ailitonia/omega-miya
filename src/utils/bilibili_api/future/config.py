@@ -43,7 +43,8 @@ class BilibiliLoginCookies(BaseConfigModel):
     bilibili_api_sessdata: str | None = Field(default=None, alias='SESSDATA')
     bilibili_api_jct: str | None = Field(default=None, alias='bili_jct')
     bilibili_api_dedeuserid: str | None = Field(default=None, alias='DedeUserID')
-    bilibili_api_refresh_token: str | None = Field(default=None, alias='ac_time_value')
+    bilibili_api_dedeuserid_md5: str | None = Field(default=None, alias='DedeUserID__ckMd5')
+    bilibili_api_sid: str | None = Field(default=None, alias='sid')
 
     @field_validator('bilibili_api_sessdata', mode='after')
     @classmethod
@@ -60,10 +61,26 @@ class BilibiliLoginCookies(BaseConfigModel):
 class BilibiliCookies(BilibiliLoginCookies):
     """Bilibili API 请求所需 Cookies 值"""
 
+    # buvid3_4 相关
     bilibili_api_buvid3: str | None = Field(default=None, alias='buvid3')
     bilibili_api_buvid4: str | None = Field(default=None, alias='buvid4')
     bilibili_api_buvid_fp: str | None = Field(default=None, alias='buvid_fp')
     bilibili_api_uuid: str | None = Field(default=None, alias='_uuid')
+
+    # BiliTicket 相关
+    bilibili_api_web_ticket: str | None = Field(default=None, alias='bili_ticket')
+    bilibili_api_web_ticket_expires: str | None = Field(default=None, alias='bili_ticket_expires')
+
+
+class BilibiliAllCachedCookies(BilibiliCookies):
+    """Bilibili API 相关的所有所需 Cookies 值 (包含缓存的其他临时性但不直接用于请求的参数)"""
+
+    # localStorage 中缓存的 refresh_token
+    bilibili_api_refresh_token: str | None = Field(default=None, alias='ac_time_value')
+
+    # WBI 签名相关
+    bilibili_api_wbi_img_key: str | None = Field(default=None, alias='img_key')
+    bilibili_api_wbi_sub_key: str | None = Field(default=None, alias='sub_key')
 
 
 @dataclass
@@ -81,17 +98,17 @@ class BilibiliAPIConfigManager(object):
 
     __slots__ = ('_cookies_config', '_resource_config',)
 
-    _cookies_config: "BilibiliCookies"
+    _cookies_config: "BilibiliAllCachedCookies"
     _resource_config: "BilibiliLocalResourceConfig"
 
-    def __init__(self, cookies_config: "BilibiliCookies") -> None:
+    def __init__(self, cookies_config: "BilibiliAllCachedCookies") -> None:
         self._cookies_config = cookies_config
         self._resource_config = BilibiliLocalResourceConfig()
 
     @property
     def bili_cookies(self) -> dict[str, Any]:
         """从内部缓存获取 bilibili Cookies"""
-        return self._cookies_config.get_config_dict()
+        return BilibiliCookies.model_validate(self._cookies_config.get_config_dict()).get_config_dict()
 
     @property
     def download_folder(self) -> "TemporaryResource":
@@ -109,18 +126,18 @@ class BilibiliAPIConfigManager(object):
     def get_config(self, key: str, *, alias: bool = True) -> Optional[Any]:
         """根据 alias 获取配置项"""
         if alias:
-            return self.bili_cookies.get(key, None)
+            return self._cookies_config.get_config_dict().get(key, None)
         return getattr(self._cookies_config, key, None)
 
     def update_config(self, **kwargs) -> None:
         """更新 bilibili Cookies 内部缓存"""
         for config_name, config_value in self._iter_config():
             kwargs.setdefault(config_name, config_value)
-        self._cookies_config = BilibiliCookies.model_validate(kwargs)
+        self._cookies_config = BilibiliAllCachedCookies.model_validate(kwargs)
 
     def clear_config(self) -> None:
         """清空所有配置内容"""
-        self._cookies_config = BilibiliCookies()
+        self._cookies_config = BilibiliAllCachedCookies()
 
     @staticmethod
     async def _save_config_to_db(dal: SystemSettingDAL, setting_key: str, value: str | None) -> None:
@@ -156,7 +173,7 @@ class BilibiliAPIConfigManager(object):
 
 
 try:
-    bilibili_api_config = BilibiliAPIConfigManager(get_plugin_config(BilibiliCookies))
+    bilibili_api_config = BilibiliAPIConfigManager(get_plugin_config(BilibiliAllCachedCookies))
 except ValidationError as e:
     import sys
 

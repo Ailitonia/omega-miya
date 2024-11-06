@@ -16,7 +16,6 @@ import binascii
 import re
 import time
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse, parse_qs
 
 import qrcode
 from Cryptodome.Cipher import PKCS1_OAEP
@@ -80,7 +79,7 @@ class BilibiliCredential(BilibiliCommon):
     @classmethod
     async def get_login_qrcode(cls) -> WebQrcodeGenerateInfo:
         """获取登录二维码信息"""
-        url = 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header'
+        url = 'https://passport.bilibili.com/x/passport-login/web/qrcode/generate'
         data = await cls._get_json(url=url)
         return WebQrcodeGenerateInfo.model_validate(data)
 
@@ -90,18 +89,35 @@ class BilibiliCredential(BilibiliCommon):
         return await cls._make_qrcode(qrcode_info.data.url)
 
     @classmethod
-    async def check_qrcode_login(cls, qrcode_info: WebQrcodeGenerateInfo) -> WebQrcodePollInfo:
-        """检查二维码登录状态"""
+    async def check_qrcode_login(
+            cls,
+            qrcode_info: WebQrcodeGenerateInfo
+    ) -> tuple[WebQrcodePollInfo, dict[str, str]]:
+        """检查二维码登录状态
+
+        :param qrcode_info: 登录二维码信息
+        :return: (WebQrcodePollInfo, SetCookiesDict)
+        """
         url = 'https://passport.bilibili.com/x/passport-login/web/qrcode/poll'
         params = {'qrcode_key': qrcode_info.data.qrcode_key}
-        data = await cls._get_json(url=url, params=params)
-        return WebQrcodePollInfo.model_validate(data)
+        login_response = await cls._request_get(url=url, params=params)
+        login_data = WebQrcodePollInfo.model_validate(cls._parse_content_as_json(login_response))
+
+        login_set_cookies: dict[str, str] = {}
+        for k, v in login_response.headers.items():
+            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
+                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
+                if len(item) == 2:
+                    login_set_cookies.update({item[0]: item[1]})
+
+        return login_data, login_set_cookies
 
     @classmethod
     async def login_with_qrcode(cls, qrcode_info: WebQrcodeGenerateInfo) -> bool:
         attempt = 0
         while True:
-            login_info = await cls.check_qrcode_login(qrcode_info=qrcode_info)
+            login_info, login_set_cookies = await cls.check_qrcode_login(qrcode_info=qrcode_info)
+
             if login_info.data.code == 0:
                 logger.opt(colors=True).success('<lc>Bilibili</lc> | 扫码登录: 成功')
                 break
@@ -122,12 +138,9 @@ class BilibiliCredential(BilibiliCommon):
                 attempt += 1
             await asyncio.sleep(6)
 
-        cookies = parse_qs(urlparse(url=login_info.data.url).query)
-        cookies_data = {k: v[0] for k, v in cookies.items() if v}
-        cookies_data.update({'ac_time_value': login_info.data.refresh_token})
-
+        login_set_cookies.update({'ac_time_value': login_info.data.refresh_token})
         bilibili_api_config.clear_config()
-        bilibili_api_config.update_config(**cookies_data)
+        bilibili_api_config.update_config(**login_set_cookies)
 
         await cls.save_cookies_to_db()
         return await cls.check_valid()
@@ -174,7 +187,7 @@ class BilibiliCredential(BilibiliCommon):
         url = f'https://www.bilibili.com/correspond/1/{cls._get_correspond_path()}'
 
         # 不知道什么原因, 这里不暂停等一下就只会返回 404, 明明时间是同步的, 另外这里只 sleep(1) 也不行, 必须等两秒及以上
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         content = await cls._get_resource_as_text(url=url, cookies=bilibili_api_config.bili_cookies)
         refresh_csrf = etree.HTML(content).xpath('/html/body/div[@id="1-name"]').pop(0).text
