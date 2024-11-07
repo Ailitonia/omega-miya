@@ -8,6 +8,7 @@
 @Software       : PyCharm 
 """
 
+import re
 from typing import TYPE_CHECKING, Any, Optional
 
 from src.utils import BaseCommonAPI
@@ -24,7 +25,7 @@ from ..misc import (
 from ..models import Ticket, WebInterfaceNav, WebInterfaceSpi
 
 if TYPE_CHECKING:
-    from nonebot.internal.driver import CookieTypes
+    from nonebot.internal.driver import CookieTypes, Response
     from src.resource import TemporaryResource
 
 
@@ -55,6 +56,17 @@ class BilibiliCommon(BaseCommonAPI):
     @classmethod
     def _get_default_cookies(cls) -> "CookieTypes":
         return bilibili_api_config.bili_cookies
+
+    @classmethod
+    def _extra_set_cookies_from_response(cls, response: "Response") -> dict[str, str]:
+        """从请求的响应头中获取 set-cookie 字段内容"""
+        set_cookies: dict[str, str] = {}
+        for k, v in response.headers.items():
+            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
+                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
+                if len(item) == 2:
+                    set_cookies.update({item[0]: item[1]})
+        return set_cookies
 
     @classmethod
     async def download_resource(cls, url: str) -> "TemporaryResource":
@@ -114,20 +126,21 @@ class BilibiliCommon(BaseCommonAPI):
         uuid = gen_uuid_infoc()
         payload = get_payload()
 
+        bilibili_api_config.update_config(
+            buvid3=spi_data.data.b_3,
+            buvid4=spi_data.data.b_4,
+            buvid_fp=gen_buvid_fp(payload, 31),
+            b_nut='100',
+            _uuid=uuid
+        )
+        cookies = bilibili_api_config.bili_cookies
+
         headers = cls._get_default_headers()
         headers.update({
             'origin': 'https://www.bilibili.com',
             'referer': 'https://www.bilibili.com/',
             'Content-Type': 'application/json'
         })
-
-        bilibili_api_config.update_config(
-            buvid3=spi_data.data.b_3,
-            buvid4=spi_data.data.b_4,
-            buvid_fp=gen_buvid_fp(payload, 31),
-            _uuid=uuid
-        )
-        cookies = bilibili_api_config.bili_cookies
         await cls._post_json(url=_exclimbwuzhi_url, headers=headers, json=payload, cookies=cookies)
         return cookies
 

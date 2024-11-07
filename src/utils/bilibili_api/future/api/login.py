@@ -13,7 +13,6 @@ https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.
 
 import asyncio
 import binascii
-import re
 import time
 from typing import TYPE_CHECKING
 
@@ -101,14 +100,9 @@ class BilibiliCredential(BilibiliCommon):
         url = 'https://passport.bilibili.com/x/passport-login/web/qrcode/poll'
         params = {'qrcode_key': qrcode_info.data.qrcode_key}
         login_response = await cls._request_get(url=url, params=params)
-        login_data = WebQrcodePollInfo.model_validate(cls._parse_content_as_json(login_response))
 
-        login_set_cookies: dict[str, str] = {}
-        for k, v in login_response.headers.items():
-            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
-                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
-                if len(item) == 2:
-                    login_set_cookies.update({item[0]: item[1]})
+        login_data = WebQrcodePollInfo.model_validate(cls._parse_content_as_json(login_response))
+        login_set_cookies = cls._extra_set_cookies_from_response(response=login_response)
 
         return login_data, login_set_cookies
 
@@ -227,13 +221,7 @@ class BilibiliCredential(BilibiliCommon):
             logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 刷新用户 Cookies 失败, {refresh_info}')
             return False
 
-        new_cookies = {}
-        for k, v in response.headers.items():
-            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
-                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
-                if len(item) == 2:
-                    new_cookies.update({item[0]: item[1]})
-
+        new_cookies = cls._extra_set_cookies_from_response(response=response)
         new_cookies.update({'ac_time_value': refresh_info.data.refresh_token})
         bilibili_api_config.update_config(**new_cookies)
 

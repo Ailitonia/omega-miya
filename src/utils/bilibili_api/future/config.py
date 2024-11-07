@@ -65,6 +65,7 @@ class BilibiliCookies(BilibiliLoginCookies):
     bilibili_api_buvid3: str | None = Field(default=None, alias='buvid3')
     bilibili_api_buvid4: str | None = Field(default=None, alias='buvid4')
     bilibili_api_buvid_fp: str | None = Field(default=None, alias='buvid_fp')
+    bilibili_api_b_nut: str | None = Field(default=None, alias='b_nut')
     bilibili_api_uuid: str | None = Field(default=None, alias='_uuid')
 
     # BiliTicket 相关
