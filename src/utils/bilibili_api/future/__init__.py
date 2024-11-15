@@ -8,8 +8,12 @@
 @Software       : PyCharm 
 """
 
-from .api import BilibiliCredential
+from .api import (
+    BilibiliCredential,
+    BilibiliUser,
+)
 
 __all__ = [
     'BilibiliCredential',
+    'BilibiliUser',
 ]

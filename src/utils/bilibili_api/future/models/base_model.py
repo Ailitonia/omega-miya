@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseBilibiliModel(BaseModel):
@@ -17,6 +17,18 @@ class BaseBilibiliModel(BaseModel):
     model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
+class BaseBilibiliResponse(BaseBilibiliModel):
+    """bilibili 通用 API 调用响应结果基类"""
+    code: int
+    message: str
+    ttl: int = Field(default=1)
+
+    @property
+    def error(self) -> bool:
+        return self.code != 0
+
+
 __all = [
-    'BaseBilibiliModel'
+    'BaseBilibiliModel',
+    'BaseBilibiliResponse',
 ]

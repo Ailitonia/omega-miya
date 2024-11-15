@@ -18,8 +18,16 @@ from .sign import (
     WebCookieRefreshInfo,
     WebConfirmRefreshInfo,
 )
+from .user import (
+    Account,
+    User,
+    UserLiveRoom,
+    UserSpaceRenderData,
+    VipInfo,
+)
 
 __all__ = [
+    'Account',
     'Ticket',
     'WebCookieInfo',
     'WebCookieRefreshInfo',
@@ -28,4 +36,8 @@ __all__ = [
     'WebInterfaceSpi',
     'WebQrcodeGenerateInfo',
     'WebQrcodePollInfo',
+    'User',
+    'UserLiveRoom',
+    'UserSpaceRenderData',
+    'VipInfo',
 ]

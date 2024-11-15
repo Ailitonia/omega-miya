@@ -11,7 +11,7 @@
 from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-from .base_model import BaseBilibiliModel
+from .base_model import BaseBilibiliModel, BaseBilibiliResponse
 
 
 class TicketNav(BaseBilibiliModel):
@@ -27,11 +27,8 @@ class TicketData(BaseBilibiliModel):
     nav: TicketNav
 
 
-class Ticket(BaseBilibiliModel):
+class Ticket(BaseBilibiliResponse):
     """api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket 返回值"""
-    code: int
-    message: str
-    ttl: int
     data: TicketData
 
 
@@ -47,10 +44,8 @@ class WebInterfaceNavData(BaseBilibiliModel):
     mid: Optional[str] = None
 
 
-class WebInterfaceNav(BaseBilibiliModel):
+class WebInterfaceNav(BaseBilibiliResponse):
     """api.bilibili.com/x/web-interface/nav 返回值"""
-    code: int
-    message: str
     data: WebInterfaceNavData
 
 
@@ -59,10 +54,8 @@ class WebInterfaceSpiData(BaseBilibiliModel):
     b_4: str
 
 
-class WebInterfaceSpi(BaseBilibiliModel):
+class WebInterfaceSpi(BaseBilibiliResponse):
     """api.bilibili.com/x/frontend/finger/spi 返回值"""
-    code: int
-    message: str
     data: WebInterfaceSpiData
 
 
@@ -75,11 +68,8 @@ class WebCookieInfoData(BaseBilibiliModel):
     timestamp: int
 
 
-class WebCookieInfo(BaseBilibiliModel):
+class WebCookieInfo(BaseBilibiliResponse):
     """passport.bilibili.com/x/passport-login/web/cookie/info 返回值"""
-    code: int
-    message: str
-    ttl: int
     data: WebCookieInfoData
 
 
@@ -88,11 +78,8 @@ class WebQrcodeGenerateData(BaseBilibiliModel):
     qrcode_key: str
 
 
-class WebQrcodeGenerateInfo(BaseBilibiliModel):
+class WebQrcodeGenerateInfo(BaseBilibiliResponse):
     """passport.bilibili.com/x/passport-login/web/qrcode/generate 返回值"""
-    code: int
-    message: str
-    ttl: int
     data: WebQrcodeGenerateData
 
 
@@ -111,11 +98,8 @@ class WebQrcodePollData(BaseBilibiliModel):
     message: str
 
 
-class WebQrcodePollInfo(BaseBilibiliModel):
+class WebQrcodePollInfo(BaseBilibiliResponse):
     """passport.bilibili.com/x/passport-login/web/qrcode/poll 返回值"""
-    code: int
-    message: str
-    ttl: int
     data: WebQrcodePollData
 
 
@@ -128,7 +112,7 @@ class WebCookieRefreshData(BaseBilibiliModel):
     refresh_token: str
 
 
-class WebCookieRefreshInfo(BaseBilibiliModel):
+class WebCookieRefreshInfo(BaseBilibiliResponse):
     """passport.bilibili.com/x/passport-login/web/cookie/refresh 返回值
 
     code:
@@ -137,13 +121,10 @@ class WebCookieRefreshInfo(BaseBilibiliModel):
     - -111: csrf 校验失败
     - 86095: refresh_csrf 错误或 refresh_token 与 cookie 不匹配
     """
-    code: int
-    message: str
-    ttl: int
     data: WebCookieRefreshData
 
 
-class WebConfirmRefreshInfo(BaseBilibiliModel):
+class WebConfirmRefreshInfo(BaseBilibiliResponse):
     """passport.bilibili.com/x/passport-login/web/confirm/refresh 返回值
 
     code:
@@ -152,9 +133,6 @@ class WebConfirmRefreshInfo(BaseBilibiliModel):
     - -111: csrf 校验失败
     - -400: 请求错误
     """
-    code: int
-    message: str
-    ttl: int
 
 
 __all__ = [

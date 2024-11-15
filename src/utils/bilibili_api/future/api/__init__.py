@@ -9,7 +9,9 @@
 """
 
 from .login import BilibiliCredential
+from .user import BilibiliUser
 
 __all__ = [
     'BilibiliCredential',
+    'BilibiliUser',
 ]
