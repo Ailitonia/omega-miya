@@ -8,12 +8,50 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from pydantic import Field
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BaseBilibiliModel, BaseBilibiliResponse
+
+
+class ActivitySearchResult(BaseBilibiliModel):
+    """站内活动搜索结果"""
+    type: Literal['activity']
+    id: int
+    title: str
+    desc: str
+    cover: str
+    corner: str
+    pos: int
+    url: str
+    card_type: int
+    card_value: str
+    state: int
+    status: int
+    author: str
+    position: int
+
+
+class WebGameSearchResult(BaseBilibiliModel):
+    """游戏(网页)搜索结果"""
+    game_base_id: int
+    game_name: str
+    game_icon: str
+    summary: str
+    game_status: int
+    game_link: str
+    grade: float
+    book_num: int
+    download_num: int
+    comment_num: int
+    platform: str
+    notice_title: str
+    notice: str
+    game_tags: str
+    recommend_reason: str
+    official_account: int
 
 
 class VideoSearchResult(BaseBilibiliModel):
@@ -24,7 +62,7 @@ class VideoSearchResult(BaseBilibiliModel):
     mid: int
     typeid: str
     typename: str
-    arcurl: AnyHttpUrl
+    arcurl: str
     aid: int
     bvid: str
     title: str
@@ -38,9 +76,9 @@ class VideoSearchResult(BaseBilibiliModel):
     pubdate: int
     senddate: int
     duration: str
-    hit_columns: list[str]
     is_union_video: int
     rank_score: int
+    hit_columns: list[str]
 
 
 class _MediaScore(BaseBilibiliModel):
@@ -50,9 +88,9 @@ class _MediaScore(BaseBilibiliModel):
 
 class _Ep(BaseBilibiliModel):
     id: int
-    cover: str
+    cover: AnyHttpUrl
     title: str
-    url: str
+    url: AnyHttpUrl
     release_date: str
     index_title: str
     long_title: str
@@ -65,7 +103,7 @@ class MediaSearchResult(BaseBilibiliModel):
     season_id: int
     title: str
     org_title: str
-    cover: AnyHttpUrl
+    cover: str
     media_type: int
     areas: str
     styles: str
@@ -74,20 +112,18 @@ class MediaSearchResult(BaseBilibiliModel):
     goto_url: AnyHttpUrl
     desc: str
     pubtime: int
-    media_mode: int
-    is_avid: bool
     fix_pubtime_str: str
-    media_score: _MediaScore
-    hit_columns: list[str]
-    hit_epids: str
     pgc_season_id: int
     season_type: int
     season_type_name: str
     selection_style: str
     ep_size: int
     eps: list[_Ep]
-    url: AnyHttpUrl
+    url: str
     is_follow: int
+    media_score: _MediaScore
+    hit_columns: list[str]
+    hit_epids: str
 
 
 class LiveRoomSearchResult(BaseBilibiliModel):
@@ -98,7 +134,6 @@ class LiveRoomSearchResult(BaseBilibiliModel):
     roomid: int
     short_id: int
     tags: str
-    hit_columns: list[str]
     live_time: str
     cate_name: str
     live_status: int
@@ -111,7 +146,8 @@ class LiveRoomSearchResult(BaseBilibiliModel):
     online: int
     rank_index: int
     rank_score: int
-    attentions: int
+    attentions: Optional[int] = Field(default=None)
+    hit_columns: list[str]
 
 
 class LiveUserSearchResult(BaseBilibiliModel):
@@ -122,7 +158,6 @@ class LiveUserSearchResult(BaseBilibiliModel):
     roomid: int
     tags: str
     live_time: str
-    hit_columns: list[str]
     live_status: int
     area: int
     is_live: bool
@@ -131,6 +166,7 @@ class LiveUserSearchResult(BaseBilibiliModel):
     rank_index: int
     rank_score: int
     attentions: int
+    hit_columns: list[str]
 
 
 class ArticleSearchResult(BaseBilibiliModel):
@@ -138,18 +174,18 @@ class ArticleSearchResult(BaseBilibiliModel):
     type: Literal['article']
     id: int
     category_name: str
-    pub_time: int
-    like: int
     title: str
-    rank_offset: int
     mid: int
+    desc: str
     image_urls: list[str]
+    pub_time: int
     template_id: int
     category_id: int
     view: int
+    like: int
     reply: int
+    rank_offset: int
     rank_index: int
-    desc: str
     rank_score: int
 
 
@@ -159,21 +195,20 @@ class TopicSearchResult(BaseBilibiliModel):
     description: str
     pubdate: int
     title: str
-    favourite: int
-    hit_columns: list[str]
-    review: int
-    rank_offset: int
-    cover: AnyHttpUrl
-    update: int
     mid: int
-    click: int
-    tp_type: int
-    keyword: str
-    tp_id: int
-    rank_index: int
     author: str
-    arcurl: AnyHttpUrl
+    arcurl: str
+    keyword: str
+    cover: str
+    update: int
+    favourite: int
+    review: int
+    tp_id: int
+    tp_type: int
+    rank_offset: int
+    rank_index: int
     rank_score: int
+    hit_columns: list[str]
 
 
 class _Res(BaseBilibiliModel):
@@ -181,7 +216,7 @@ class _Res(BaseBilibiliModel):
     bvid: str
     title: str
     pubdate: int
-    arcurl: AnyHttpUrl
+    arcurl: str
     pic: str
     play: str
     dm: int
@@ -189,7 +224,7 @@ class _Res(BaseBilibiliModel):
     fav: int
     desc: str
     duration: str
-    is_pay: int
+    is_pay: Optional[int] = Field(default=None)
     is_union_video: int
 
 
@@ -222,16 +257,16 @@ class PhotoSearchResult(BaseBilibiliModel):
     type: Literal['photo']
     id: int
     mid: int
+    title: str
+    cover: str
+    uname: str
     count: int
     like: int
-    title: str
-    hit_columns: list[str]
-    rank_offset: int
-    cover: AnyHttpUrl
-    uname: str
-    rank_index: int
     view: int
+    rank_index: int
     rank_score: int
+    rank_offset: int
+    hit_columns: list[str]
 
 
 type SearchType = Literal[
@@ -248,6 +283,8 @@ type SearchType = Literal[
 ]
 
 type AllSearchResultType = Union[
+    ActivitySearchResult,
+    WebGameSearchResult,
     VideoSearchResult,
     MediaSearchResult,
     LiveRoomSearchResult,
