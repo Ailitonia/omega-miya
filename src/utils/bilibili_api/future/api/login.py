@@ -181,7 +181,7 @@ class BilibiliCredential(BilibiliCommon):
         url = f'https://www.bilibili.com/correspond/1/{cls._get_correspond_path()}'
 
         # 不知道什么原因, 这里不暂停等一下就只会返回 404, 明明时间是同步的, 另外这里只 sleep(1) 也不行, 必须等待足够长的时间
-        await asyncio.sleep(5)
+        await asyncio.sleep(3)
 
         content = await cls._get_resource_as_text(url=url, cookies=bilibili_api_config.bili_cookies)
         refresh_csrf = etree.HTML(content).xpath('/html/body/div[@id="1-name"]').pop(0).text
