@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2022/06/27 20:48
-@FileName       : auto_group_sign.py
+@FileName       : scheduled_tasks
 @Project        : nonebot2_miya 
 @Description    : 自动群打卡定时任务
 @GitHub         : https://github.com/Ailitonia
