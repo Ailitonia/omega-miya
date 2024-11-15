@@ -8,6 +8,20 @@
 @Software       : PyCharm 
 """
 
+from .search import (
+    AllSearchResultType,
+    ArticleSearchResult,
+    LiveRoomSearchResult,
+    LiveUserSearchResult,
+    MediaSearchResult,
+    PhotoSearchResult,
+    SearchAllResult,
+    SearchType,
+    SearchTypeResult,
+    TopicSearchResult,
+    UserSearchResult,
+    VideoSearchResult,
+)
 from .sign import (
     Ticket,
     WebInterfaceNav,
@@ -28,7 +42,17 @@ from .user import (
 
 __all__ = [
     'Account',
+    'AllSearchResultType',
+    'ArticleSearchResult',
+    'LiveRoomSearchResult',
+    'LiveUserSearchResult',
+    'MediaSearchResult',
+    'PhotoSearchResult',
+    'SearchAllResult',
+    'SearchType',
+    'SearchTypeResult',
     'Ticket',
+    'TopicSearchResult',
     'WebCookieInfo',
     'WebCookieRefreshInfo',
     'WebConfirmRefreshInfo',
@@ -38,6 +62,8 @@ __all__ = [
     'WebQrcodePollInfo',
     'User',
     'UserLiveRoom',
+    'UserSearchResult',
     'UserSpaceRenderData',
+    'VideoSearchResult',
     'VipInfo',
 ]

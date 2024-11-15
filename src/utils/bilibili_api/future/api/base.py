@@ -22,7 +22,14 @@ from ..misc import (
     extract_key_from_wbi_image,
     create_gen_web_ticket_params,
 )
-from ..models import Ticket, WebInterfaceNav, WebInterfaceSpi
+from ..models import (
+    SearchAllResult,
+    SearchType,
+    SearchTypeResult,
+    Ticket,
+    WebInterfaceNav,
+    WebInterfaceSpi,
+)
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, Response
@@ -143,6 +150,41 @@ class BilibiliCommon(BaseCommonAPI):
         })
         await cls._post_json(url=_exclimbwuzhi_url, headers=headers, json=payload, cookies=cookies)
         return cookies
+
+    @classmethod
+    async def global_search_all(cls, keyword: str) -> SearchAllResult:
+        """综合搜索 (web端), 返回和关键字相关的 20 条信息
+
+        综合搜索为默认搜索方式, 主要用于优先搜索用户、影视、番剧、游戏、话题等, 并加载第一页的20项相关视频
+        """
+        url = 'https://api.bilibili.com/x/web-interface/wbi/search/all/v2'
+        params = await cls.sign_wbi_params(params={'keyword': keyword})
+        data = await cls._get_json(url=url, params=params)
+        return SearchAllResult.model_validate(data)
+
+    @classmethod
+    async def global_search_by_type(
+            cls,
+            search_type: SearchType,
+            keyword: str,
+            page: int = 1,
+            **kwargs,
+    ) -> SearchTypeResult:
+        """分类搜索 (web端), 根据关键词进行搜索, 返回结果每页 20 项
+
+        :param search_type: 搜索类型
+        :param keyword: 搜索关键词
+        :param page: 搜索页码
+        """
+        params = {
+            'search_type': search_type,
+            'keyword': keyword,
+            'page': page,
+            **kwargs
+        }
+        search_url: str = 'https://api.bilibili.com/x/web-interface/wbi/search/type'
+        searching_data = await cls._get_json(url=search_url, params=params)
+        return SearchTypeResult.model_validate(searching_data)
 
 
 __all__ = [
