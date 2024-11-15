@@ -18,6 +18,7 @@ from .base import BilibiliCommon
 from ..models import (
     Account,
     User,
+    UserSearchResult,
     UserSpaceRenderData,
     VipInfo,
 )
@@ -63,6 +64,12 @@ class BilibiliUser(BilibiliCommon):
         params = await cls.sign_wbi_params(params={'mid': str(mid), 'w_webid': render_data.access_id})
         data = await cls._get_json(url=url, params=params)
         return User.model_validate(data)
+
+    @classmethod
+    async def search_user(cls, keyword: str) -> list[UserSearchResult]:
+        """搜索用户"""
+        search_result = await cls.global_search_by_type(search_type='bili_user', keyword=keyword)
+        return [x for x in search_result.all_results if isinstance(x, UserSearchResult)]
 
 
 __all__ = [
