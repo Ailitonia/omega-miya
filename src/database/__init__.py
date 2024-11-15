@@ -20,6 +20,7 @@ __all__ = [
     'EmailBoxBindDAL',
     'EntityDAL',
     'FriendshipDAL',
+    'GlobalCacheDAL',
     'HistoryDAL',
     'PixivisionArticleDAL',
     'PluginDAL',

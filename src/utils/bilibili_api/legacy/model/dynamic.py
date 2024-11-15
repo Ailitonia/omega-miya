@@ -87,6 +87,7 @@ class CardType2OriginalWithImage(_BaseCardType):
 
     class _Item(BaseBilibiliModel):
         """内部内容信息字段"""
+
         class _Picture(BaseBilibiliModel):
             img_width: int
             img_height: int
@@ -472,19 +473,19 @@ class BilibiliDynamicCard(BaseBilibiliModel):
     """Bilibili 动态 Card"""
     desc: BilibiliDynamicCardDesc
     card: (
-        Json[CardType1Forward]
-        | Json[CardType2OriginalWithImage]
-        | Json[CardType4OriginalWithoutImage]
-        | Json[CardType8Video]
-        #  | Json[CardType16ShortVideo]
-        #  | Json[CardType32Anime]
-        | Json[CardType64Article]
-        | Json[CardType256Music]
-        | Json[CardType512Anime]
-        | Json[CardType2048Active]
-        | Json[CardType4200LiveRoom]
-        | Json[CardType4300MediaListShare]
-        | Json[CardType4308LiveRoom]
+            Json[CardType1Forward]
+            | Json[CardType2OriginalWithImage]
+            | Json[CardType4OriginalWithoutImage]
+            | Json[CardType8Video]
+            #  | Json[CardType16ShortVideo]
+            #  | Json[CardType32Anime]
+            | Json[CardType64Article]
+            | Json[CardType256Music]
+            | Json[CardType512Anime]
+            | Json[CardType2048Active]
+            | Json[CardType4200LiveRoom]
+            | Json[CardType4300MediaListShare]
+            | Json[CardType4308LiveRoom]
     )
 
     @property

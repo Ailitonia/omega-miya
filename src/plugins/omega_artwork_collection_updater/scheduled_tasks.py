@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2024/8/17 下午7:02
-@FileName       : scheduler
+@FileName       : scheduled_tasks
 @Project        : nonebot2_miya
 @Description    : 更新任务管理
 @GitHub         : https://github.com/Ailitonia

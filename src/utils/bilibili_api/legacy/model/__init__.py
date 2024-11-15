@@ -22,7 +22,6 @@ from .live_room import BilibiliLiveRoomModel, BilibiliUsersLiveRoomModel
 from .search import UserSearchingModel
 from .user import BilibiliUserModel
 
-
 __all__ = [
     'BilibiliDynamicCard',
     'BilibiliDynamicModel',

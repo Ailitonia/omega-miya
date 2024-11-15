@@ -149,9 +149,9 @@ try:
     bilibili_config = get_plugin_config(BilibiliConfig)
 except ValidationError as e:
     import sys
+
     logger.opt(colors=True).critical(f'<r>Bilibili 配置格式验证失败</r>, 错误信息:\n{e}')
     sys.exit(f'Bilibili 配置格式验证失败, {e}')
-
 
 __all__ = [
     'bilibili_config',

@@ -19,6 +19,26 @@ from .schema_base import OmegaDeclarativeBase as Base
 from .types import IndexInt
 
 
+class GlobalCacheOrm(Base):
+    """全局缓存表, 存放各种需要持久化的缓存数据"""
+    __tablename__ = f'{database_config.db_prefix}global_cache'
+    if database_config.table_args is not None:
+        __table_args__ = database_config.table_args
+
+    # 表结构
+    cache_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    cache_value: Mapped[str] = mapped_column(String(4096), nullable=False)
+    expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='缓存到期时间')
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return (f"GlobalCacheOrm(cache_name={self.cache_name!r}, cache_key={self.cache_key!r}, "
+                f"cache_value={self.cache_value!r}, expired_at={self.expired_at!r}, "
+                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+
+
 class SystemSettingOrm(Base):
     """系统参数表, 存放运行时配置"""
     __tablename__ = f'{database_config.db_prefix}system_setting'
@@ -554,6 +574,7 @@ class WordBankOrm(Base):
 
 __all__ = [
     'Base',
+    'GlobalCacheOrm',
     'SystemSettingOrm',
     'PluginOrm',
     'StatisticOrm',

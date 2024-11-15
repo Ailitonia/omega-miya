@@ -16,6 +16,7 @@ from .email_box import EmailBoxDAL
 from .email_box_bind import EmailBoxBindDAL
 from .entity import EntityDAL
 from .friendship import FriendshipDAL
+from .global_cache import GlobalCacheDAL
 from .history import HistoryDAL
 from .pixivision_article import PixivisionArticleDAL
 from .plugin import PluginDAL
@@ -37,6 +38,7 @@ __all__ = [
     'EmailBoxBindDAL',
     'EntityDAL',
     'FriendshipDAL',
+    'GlobalCacheDAL',
     'HistoryDAL',
     'PixivisionArticleDAL',
     'PluginDAL',
