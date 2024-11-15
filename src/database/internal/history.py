@@ -54,25 +54,30 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
     async def query_entity_records(
             self,
             bot_self_id: str,
-            event_entity_id: str,
-            user_entity_id: str,
+            event_entity_id: Optional[str] = None,
+            user_entity_id: Optional[str] = None,
             *,
             start_time: Optional[datetime] = None,
             end_time: Optional[datetime] = None,
     ) -> list[History]:
         """查询某个实体一段时间内的消息历史记录
 
-        :param bot_self_id: 收到消息的机器人ID, 为空则返回全部
+        :param bot_self_id: 收到消息的机器人ID
         :param event_entity_id: 消息事件实体ID, 为空则返回全部
         :param user_entity_id: 发送对象实体ID, 为空则返回全部
         :param start_time: 起始时间, 为空则返回全部
         :param end_time: 结束时间, 为空则返回全部
         """
+        if event_entity_id is None and user_entity_id is None:
+            raise ValueError('need at least one of the event_entity_id and user_entity_id parameters')
+
         stmt = (select(HistoryOrm)
                 .where(HistoryOrm.bot_self_id == bot_self_id)
-                .where(HistoryOrm.event_entity_id == event_entity_id)
-                .where(HistoryOrm.user_entity_id == user_entity_id)
                 .order_by(desc(HistoryOrm.received_time)))
+        if event_entity_id is not None:
+            stmt = stmt.where(HistoryOrm.event_entity_id == event_entity_id)
+        if user_entity_id is not None:
+            stmt = stmt.where(HistoryOrm.user_entity_id == user_entity_id)
         if start_time is not None:
             stmt = stmt.where(HistoryOrm.received_time >= int(start_time.timestamp()))
         if end_time is not None:
