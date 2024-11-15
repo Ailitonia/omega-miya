@@ -10,7 +10,12 @@
 
 import warnings
 from typing import Literal, Optional, Sequence
+from urllib.parse import unquote
 
+from lxml import etree
+from nonebot.utils import run_sync
+
+from src.compat import parse_json_as
 from .api_base import BilibiliCommon
 from .model import (
     BilibiliUserModel,
@@ -141,12 +146,28 @@ class BilibiliUser(Bilibili):
     def mid(self) -> str:
         return str(self.uid)
 
+    @staticmethod
+    @run_sync
+    def _parse_user_space_w_webid(content: str) -> dict[str, str]:
+        """解析用户页面 __RENDER_DATA__ 内容"""
+        html = etree.HTML(content)
+        render_data = html.xpath('/html/head/script[@id="__RENDER_DATA__"]').pop(0).text
+        return parse_json_as(dict[str, str], unquote(render_data))
+
+    @classmethod
+    async def _query_user_space_w_webid(cls, mid: int | str) -> dict[str, str]:
+        """获取并解析用户页面 __RENDER_DATA__ 内容"""
+        user_space_url = f'https://space.bilibili.com/{mid}'
+        user_space_page = await cls._get_resource_as_text(url=user_space_url)
+        return await cls._parse_user_space_w_webid(content=user_space_page)
+
     async def query_user_data(self) -> BilibiliUserModel:
         """获取并初始化用户对应 BilibiliUserModel"""
         api_url = 'https://api.bilibili.com/x/space/wbi/acc/info'
 
         if not isinstance(self.user_model, BilibiliUserModel):
-            params = await self.update_wbi_params({'mid': self.mid})
+            render_data = await self._query_user_space_w_webid(mid=self.mid)
+            params = await self.update_wbi_params({'mid': self.mid, 'w_webid': render_data['access_id']})
             user_data = await self._get_json(url=api_url, params=params)
             self.user_model = BilibiliUserModel.model_validate(user_data)
 

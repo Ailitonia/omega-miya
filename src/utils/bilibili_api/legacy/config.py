@@ -19,7 +19,7 @@ from sqlalchemy.exc import NoResultFound
 from src.database import SystemSettingDAL, begin_db_session
 from src.resource import TemporaryResource
 
-_BILI_SETTING_NAME: Literal['bilibili_api'] = 'bilibili_api'
+_BILI_SETTING_NAME: Literal['bilibili_api_legacy'] = 'bilibili_api_legacy'
 """数据库系统配置表固定字段"""
 
 

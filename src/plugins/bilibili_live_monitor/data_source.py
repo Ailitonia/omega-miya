@@ -21,7 +21,7 @@ from src.utils.bilibili_api import BilibiliLiveRoom
 from .model import BilibiliLiveRoomStatus, BilibiliLiveRoomStatusUpdate
 
 if TYPE_CHECKING:
-    from src.utils.bilibili_api.model.live_room import BilibiliLiveRoomDataModel
+    from src.utils.bilibili_api.legacy.model.live_room import BilibiliLiveRoomDataModel
 
 
 __LIVE_STATUS: dict[int, BilibiliLiveRoomStatus] = {}
