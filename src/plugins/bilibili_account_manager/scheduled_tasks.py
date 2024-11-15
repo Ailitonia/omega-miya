@@ -1,17 +1,16 @@
 """
 @Author         : Ailitonia
-@Date           : 2024/11/5 10:58:52
-@FileName       : helpers.py
+@Date           : 2024/11/15 14:42:29
+@FileName       : scheduled_tasks.py
 @Project        : omega-miya
-@Description    : 定时任务模块
+@Description    : 账户鉴权信息更新定时任务
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
-
 from nonebot import logger, get_driver
 
 from src.service import scheduler
-from .api import BilibiliCredential
+from src.utils.bilibili_api.future import BilibiliCredential
 
 
 async def _refresh_bilibili_login_status() -> None:
