@@ -78,13 +78,10 @@ class OmegaGlobalCache(object):
         self._cache.clear()
 
     async def sync_internal(self):
-        """同步内部内存缓存与数据库缓存"""
+        """同步内部内存缓存与数据库缓存一致"""
         await self._clean_db_expired()
-        exists_data = await self._query_db_series()
-        exists_data.update(self._cache)
-
-        for key, value in exists_data.items():
-            await self.save(key=key, value=value)
+        self._cache.clear()
+        self._cache.update(await self._query_db_series())
 
 
 __all__ = [
