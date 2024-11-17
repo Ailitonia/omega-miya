@@ -38,7 +38,7 @@ wordcloud = CommandGroup(
     aliases={'词云添加自定义词典', '词云添加用户词典'},
     handlers=[get_command_str_single_arg_parser_handler('content')],
     permission=SUPERUSER
-).handle()
+).got('content', prompt='请输入需要添加的词语或短语:')
 async def handle_add_user_dict(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
         content: Annotated[str, ArgStr('content')],
