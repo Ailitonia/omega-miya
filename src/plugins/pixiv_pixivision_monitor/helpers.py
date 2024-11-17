@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Sequence
 from nonebot import logger
 from nonebot.exception import ActionFailed
 
-from src.database import PixivisionArticleDAL, begin_db_session
+from src.database import SocialMediaContentDAL, begin_db_session
+from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.resource import TemporaryResource
 from src.service import (
     OmegaMatcherInterface as OmMI,
@@ -30,9 +31,10 @@ from src.utils.pixiv_api import Pixivision
 
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
-    from src.database.internal.subscription_source import SubscriptionSource
     from src.utils.pixiv_api.model.pixivision import PixivisionArticle, PixivisionIllustration
 
+_PIXIVISION_SUB_TYPE: str = SubscriptionSourceType.pixivision.value
+"""微博用户订阅类型"""
 _TMP_FOLDER: TemporaryResource = TemporaryResource('pixivision')
 """图片缓存文件夹"""
 
@@ -47,8 +49,10 @@ async def _query_pixivision_sub_source() -> "SubscriptionSource":
 async def _check_new_article(articles: Sequence["PixivisionIllustration"]) -> list["PixivisionIllustration"]:
     """检查新的 pixivision 特辑文章(数据库中没有的)"""
     async with begin_db_session() as session:
-        new_aids = await PixivisionArticleDAL(session=session).query_not_exists_ids(aids=[x.aid for x in articles])
-    return [x for x in articles if x.aid in new_aids]
+        new_aids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
+            source=_PIXIVISION_SUB_TYPE, mids=[str(x.aid) for x in articles]
+        )
+    return [x for x in articles if str(x.aid) in new_aids]
 
 
 async def _add_upgrade_article_content(article: Pixivision) -> None:
@@ -56,13 +60,14 @@ async def _add_upgrade_article_content(article: Pixivision) -> None:
     article_data = await article.query_article()
 
     async with begin_db_session() as session:
-        await PixivisionArticleDAL(session=session).upsert(
-            aid=article.aid,
+        await SocialMediaContentDAL(session=session).upsert(
+            source=_PIXIVISION_SUB_TYPE,
+            m_id=str(article.aid),
+            m_type='pixivision_article',
+            m_uid='-1',
             title=article_data.title_without_mark,
-            description=article_data.description,
-            tags=','.join(x.tag_name for x in article_data.tags_list),
-            artworks_id=','.join(str(x.artwork_id) for x in article_data.artwork_list),
-            url=article.url
+            content=f'{article_data.description}\n{",".join(x.tag_name for x in article_data.tags_list)}',
+            ref_content=','.join(str(x.artwork_id) for x in article_data.artwork_list),
         )
 
 

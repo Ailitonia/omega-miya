@@ -529,28 +529,6 @@ class ArtworkCollectionOrm(Base):
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 
-class PixivisionArticleOrm(Base):
-    """Pixivision 特辑表"""
-    __tablename__ = f'{database_config.db_prefix}pixivision_article'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    aid: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False, index=True, unique=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='特辑标题')
-    description: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容描述')
-    tags: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑tags')
-    artworks_id: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑内包含的所有作品ID')
-    url: Mapped[str] = mapped_column(String(1024), nullable=False, comment='特辑链接')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    def __repr__(self) -> str:
-        return (f"PixivisionArticleOrm(aid={self.aid!r}, title={self.title!r}, description={self.description!r}, "
-                f"tags={self.tags!r}, artworks_id={self.artworks_id!r}, url={self.url!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
-
-
 class WordBankOrm(Base):
     """问答语料词句表"""
     __tablename__ = f'{database_config.db_prefix}word_bank'
@@ -593,6 +571,5 @@ __all__ = [
     'SubscriptionOrm',
     'SocialMediaContentOrm',
     'ArtworkCollectionOrm',
-    'PixivisionArticleOrm',
     'WordBankOrm',
 ]

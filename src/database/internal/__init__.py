@@ -18,7 +18,6 @@ from .entity import EntityDAL
 from .friendship import FriendshipDAL
 from .global_cache import GlobalCacheDAL
 from .history import HistoryDAL
-from .pixivision_article import PixivisionArticleDAL
 from .plugin import PluginDAL
 from .sign_in import SignInDAL
 from .social_media_content import SocialMediaContentDAL
@@ -40,7 +39,6 @@ __all__ = [
     'FriendshipDAL',
     'GlobalCacheDAL',
     'HistoryDAL',
-    'PixivisionArticleDAL',
     'PluginDAL',
     'SignInDAL',
     'SocialMediaContentDAL',

@@ -22,7 +22,6 @@ __all__ = [
     'FriendshipDAL',
     'GlobalCacheDAL',
     'HistoryDAL',
-    'PixivisionArticleDAL',
     'PluginDAL',
     'SignInDAL',
     'SocialMediaContentDAL',
