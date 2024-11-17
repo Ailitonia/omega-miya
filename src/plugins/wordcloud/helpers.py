@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Optional
 import jieba
 import jieba.analyse
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 from emoji import replace_emoji
 from nonebot.log import logger
 from nonebot.utils import run_sync
@@ -127,7 +127,8 @@ def _draw_message_history_wordcloud(
     """根据查询到的消息历史记录绘制词云"""
     if background_file is not None:
         background = Image.open(background_file.resolve_path).convert('RGBA')
-        background = Image.blend(background, Image.new('RGBA', background.size, (255, 255, 255, 255)), 0.7)
+        background = Image.blend(background, Image.new('RGBA', background.size, (255, 255, 255, 255)), 0.6)
+        background = background.filter(ImageFilter.GaussianBlur(radius=2))
         width, height = background.size
     else:
         background = Image.new('RGBA', wordcloud_plugin_config.default_image_size, (255, 255, 255, 255))
