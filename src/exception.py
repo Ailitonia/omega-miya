@@ -2,10 +2,10 @@
 @Author         : Ailitonia
 @Date           : 2022/12/01 19:55
 @FileName       : exception.py
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : Omega exceptions
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import TYPE_CHECKING, final
@@ -24,7 +24,7 @@ class OmegaException(Exception):
 class LocalSourceException(OmegaException):
     """本地资源异常"""
 
-    def __init__(self, path: "PurePath"):
+    def __init__(self, path: 'PurePath'):
         self.path = path
 
 

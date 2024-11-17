@@ -2,30 +2,29 @@
 @Author         : Ailitonia
 @Date           : 2022/04/05 3:27
 @FileName       : resource.py
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : 本地资源文件模块
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 import abc
 import os
 import pathlib
 import sys
-from contextlib import contextmanager, asynccontextmanager
+from collections.abc import Generator
+from contextlib import asynccontextmanager, contextmanager
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
 from typing import (
+    IO,
     TYPE_CHECKING,
     Any,
     AsyncContextManager,
     ContextManager,
-    Generator,
-    NoReturn,
-    IO,
     Literal,
-    Optional,
+    NoReturn,
     Self,
     final,
     overload,
@@ -36,9 +35,10 @@ import aiofiles
 from src.exception import LocalSourceException
 
 if TYPE_CHECKING:
+    from io import FileIO, TextIOWrapper
+
     from aiofiles.threadpool.binary import AsyncFileIO
     from aiofiles.threadpool.text import AsyncTextIOWrapper
-    from io import FileIO, TextIOWrapper
 
 
 @final
@@ -117,12 +117,12 @@ class BaseResource(abc.ABC):
         """路径目标是否为文件夹且存在"""
         return self.is_exist and self.path.is_dir()
 
-    def raise_not_file(self) -> Optional[NoReturn]:
+    def raise_not_file(self) -> NoReturn | None:
         """路径目标不是文件或不存在时抛出 ResourceNotFileError 异常"""
         if not self.is_file:
             raise ResourceNotFileError(self.path)
 
-    def raise_not_dir(self) -> Optional[NoReturn]:
+    def raise_not_dir(self) -> NoReturn | None:
         """路径目标不是文件夹或不存在时抛出 ResourceNotFolderError 异常"""
         if not self.is_dir:
             raise ResourceNotFolderError(self.path)
@@ -166,23 +166,23 @@ class BaseResource(abc.ABC):
     def open(
             self,
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> ContextManager["TextIOWrapper"]:
+    ) -> ContextManager['TextIOWrapper']:
         ...
 
     @overload
     def open(
             self,
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> ContextManager["FileIO"]:
+    ) -> ContextManager['FileIO']:
         ...
 
     @contextmanager
     @check_file
-    def open(self, mode, encoding: Optional[str] = None, **kwargs) -> Generator[IO, Any, None]:
+    def open(self, mode, encoding: str | None = None, **kwargs) -> Generator[IO, Any, None]:
         """返回文件 handle"""
         with self.path.open(mode=mode, encoding=encoding, **kwargs) as _fh:
             yield _fh
@@ -191,23 +191,23 @@ class BaseResource(abc.ABC):
     def async_open(
             self,
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> AsyncContextManager["AsyncTextIOWrapper"]:
+    ) -> AsyncContextManager['AsyncTextIOWrapper']:
         ...
 
     @overload
     def async_open(
             self,
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> AsyncContextManager["AsyncFileIO"]:
+    ) -> AsyncContextManager['AsyncFileIO']:
         ...
 
     @asynccontextmanager
     @check_file
-    async def async_open(self, mode, encoding: Optional[str] = None, **kwargs):
+    async def async_open(self, mode, encoding: str | None = None, **kwargs):
         """返回文件 async handle"""
         async with aiofiles.open(file=self.path, mode=mode, encoding=encoding, **kwargs) as _afh:
             yield _afh
@@ -247,7 +247,7 @@ class LogFileResource(BaseResource):
 
     def __init__(self):
         self.path: pathlib.Path = deepcopy(_LOG_FOLDER)
-        self.timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.timestamp_str = datetime.now().strftime('%Y%m%d-%H%M%S')
 
     @property
     def debug(self) -> pathlib.Path:
