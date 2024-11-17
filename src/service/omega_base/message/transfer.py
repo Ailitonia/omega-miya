@@ -1,23 +1,39 @@
 """
 @Author         : Ailitonia
-@Date           : 2024/10/9 14:59:09
-@FileName       : main.py
+@Date           : 2024/11/17 18:11
+@FileName       : transfer
 @Project        : omega-miya
 @Description    : 消息转储工具
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from src.service import OmegaMessage, OmegaMessageSegment
+from src.resource import TemporaryResource
 from src.utils import OmegaRequests
-from .consts import save_path
+from .message import Message as OmegaMessage, MessageSegment as OmegaMessageSegment
 
 if TYPE_CHECKING:
     from nonebot.internal.adapter import Message as BaseMessage
     from src.resource import TemporaryResource
     from src.service import OmegaMatcherInterface
+
+
+@dataclass
+class MessageTransferPath:
+    """消息转储缓存配置"""
+
+    # 缓存文件夹
+    default_save_folder: TemporaryResource = TemporaryResource('message_transfer_utils')
+
+    def get_target_folder(self, adapter_name: str, seg_type: str) -> TemporaryResource:
+        return self.default_save_folder(adapter_name, seg_type)
+
+
+_SAVE_PATH = MessageTransferPath()
+"""媒体文件缓存路径"""
 
 
 class MessageTransferUtils[TM: "BaseMessage"]:
@@ -30,7 +46,7 @@ class MessageTransferUtils[TM: "BaseMessage"]:
 
     def _generate_resource_file(self, seg_type: str, url: str) -> "TemporaryResource":
         """生成缓存文件路径"""
-        target_folder = save_path.get_target_folder(adapter_name=self._adapter_name, seg_type=seg_type)
+        target_folder = _SAVE_PATH.get_target_folder(adapter_name=self._adapter_name, seg_type=seg_type)
         file_name = OmegaRequests.hash_url_file_name(url=url)
         return target_folder(file_name)
 

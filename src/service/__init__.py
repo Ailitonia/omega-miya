@@ -9,7 +9,14 @@
 """
 
 from .apscheduler import scheduler, reschedule_job
-from .omega_base import OmegaEntity, OmegaEntityInterface, OmegaMatcherInterface, OmegaMessage, OmegaMessageSegment
+from .omega_base import (
+    OmegaEntity,
+    OmegaEntityInterface,
+    OmegaMatcherInterface,
+    OmegaMessage,
+    OmegaMessageSegment,
+    OmegaMessageTransfer,
+)
 from .omega_global_cache import OmegaGlobalCache
 from .omega_processor import enable_processor_state
 
@@ -17,10 +24,11 @@ from .omega_processor import enable_processor_state
 __all__ = [
     'OmegaEntity',
     'OmegaEntityInterface',
+    'OmegaGlobalCache',
     'OmegaMatcherInterface',
     'OmegaMessage',
     'OmegaMessageSegment',
-    'OmegaGlobalCache',
+    'OmegaMessageTransfer',
     'enable_processor_state',
     'reschedule_job',
     'scheduler',

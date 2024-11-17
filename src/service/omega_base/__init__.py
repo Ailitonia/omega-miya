@@ -9,7 +9,11 @@
 """
 
 from .internal import OmegaEntity
-from .message import Message as OmegaMessage, MessageSegment as OmegaMessageSegment
+from .message import (
+    Message as OmegaMessage,
+    MessageSegment as OmegaMessageSegment,
+    MessageTransferUtils as OmegaMessageTransfer,
+)
 from .middlewares import OmegaEntityInterface, OmegaMatcherInterface
 
 
@@ -19,4 +23,5 @@ __all__ = [
     'OmegaMatcherInterface',
     'OmegaMessage',
     'OmegaMessageSegment',
+    'OmegaMessageTransfer',
 ]

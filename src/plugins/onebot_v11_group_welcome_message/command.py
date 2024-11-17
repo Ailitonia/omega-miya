@@ -24,8 +24,7 @@ from nonebot.plugin import CommandGroup, on_notice
 
 from src.params.handler import get_command_message_arg_parser_handler
 from src.params.rule import event_has_permission_level
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessage, enable_processor_state
-from src.utils.message_transfer_utils import MessageTransferUtils
+from src.service import OmegaMatcherInterface as OmMI, OmegaMessage, OmegaMessageTransfer, enable_processor_state
 
 _SETTING_NAME: Literal['group_welcome_message'] = 'group_welcome_message'
 """数据库配置节点名称"""
@@ -57,7 +56,7 @@ async def handle_set_welcome_message(
     module_name = interface.matcher.plugin.module_name
 
     try:
-        parsed_message = await MessageTransferUtils(interface=interface, origin_message=message).dumps()
+        parsed_message = await OmegaMessageTransfer(interface=interface, origin_message=message).dumps()
         await interface.entity.set_auth_setting(
             module=module_name, plugin=plugin_name, node=_SETTING_NAME, available=1, value=parsed_message.dumps()
         )
