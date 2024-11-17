@@ -9,13 +9,14 @@
 """
 
 from typing import Any
+
+from nonebot.internal.adapter.message import Message
+from nonebot.matcher import Matcher
 from nonebot.params import Depends
 from nonebot.typing import T_State
-from nonebot.matcher import Matcher
-from nonebot.internal.adapter.message import Message
 
 
-class StatePlainTextInner(object):
+class StatePlainTextInner:
     """State 中的纯文本值"""
 
     def __init__(self, key: Any):

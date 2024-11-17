@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 from nonebot.exception import ParserExit
 from nonebot.internal.adapter import Message
@@ -107,9 +107,9 @@ def get_command_message_arg_parser_handler(
 
 def get_set_default_state_handler(
         key: str,
-        value: Optional[Any] = None,
+        value: Any | None = None,
         *,
-        extra_data: Optional[dict[str, Optional[Any]]] = None
+        extra_data: dict[str, Any | None] | None = None
 ) -> T_Handler:
     """构造设置 State 默认值的 handler"""
 
