@@ -112,11 +112,12 @@ class SocialMediaContentDAL(BaseDataAccessLayerModel[SocialMediaContentOrm, Soci
             m_id: str,
             m_type: str,
             m_uid: str,
+            title: str,
             content: str,
             ref_content: str = '',
     ) -> None:
         new_obj = SocialMediaContentOrm(source=source, m_id=m_id, m_type=m_type, m_uid=m_uid,
-                                        content=content[:4096], ref_content=ref_content[:4096],
+                                        title=title[:255], content=content[:4096], ref_content=ref_content[:4096],
                                         created_at=datetime.now())
         await self._add(new_obj)
 
@@ -126,11 +127,12 @@ class SocialMediaContentDAL(BaseDataAccessLayerModel[SocialMediaContentOrm, Soci
             m_id: str,
             m_type: str,
             m_uid: str,
+            title: str,
             content: str,
             ref_content: str = '',
     ) -> None:
         new_obj = SocialMediaContentOrm(source=source, m_id=m_id, m_type=m_type, m_uid=m_uid,
-                                        content=content[:4096], ref_content=ref_content[:4096],
+                                        title=title[:255], content=content[:4096], ref_content=ref_content[:4096],
                                         updated_at=datetime.now())
         await self._merge(new_obj)
 

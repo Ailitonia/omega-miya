@@ -66,8 +66,9 @@ async def _add_upgrade_weibo_content(card: "WeiboCard") -> None:
             m_id=str(card.mblog.id),
             m_type=card.card_type,
             m_uid=str(card.mblog.user.id),
+            title=f'{card.mblog.user.screen_name}的微博',
             content=card.mblog.text,
-            ref_content=retweeted_content
+            ref_content=retweeted_content,
         )
 
 

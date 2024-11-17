@@ -474,14 +474,16 @@ class SocialMediaContentOrm(Base):
     m_id: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='内容原始ID')
     m_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容原始类型')
     m_uid: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容发布者ID')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='内容标题')
     content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容文本')
-    ref_content: Mapped[str] = mapped_column(String(4096), nullable=True, comment='引用内容文本')
+    ref_content: Mapped[str] = mapped_column(String(4096), nullable=True, comment='引用/转发内容文本')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, m_type={self.m_type!r}, "
-                f"m_uid={self.m_uid!r}, content={self.content!r}, ref_content={self.ref_content!r}, "
+        return (f"SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, "
+                f"m_type={self.m_type!r}, m_uid={self.m_uid!r}, "
+                f"title={self.title!r}, content={self.content!r}, ref_content={self.ref_content!r}, "
                 f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
 
 

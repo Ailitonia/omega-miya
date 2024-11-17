@@ -63,6 +63,7 @@ async def _add_upgrade_dynamic_content(card: "BilibiliDynamicCard") -> None:
             m_id=str(card.desc.dynamic_id),
             m_type=str(card.desc.type),
             m_uid=str(card.desc.uid),
+            title=f'{card.card.user_name}的动态',
             content=card.card.output_std_model().content,
         )
 
