@@ -11,7 +11,6 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import StrEnum, unique
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -58,9 +57,9 @@ class Entity(BaseDataQueryResultModel):
     entity_type: EntityType  # 实体对象类型
     parent_id: str  # 父实体 ID
     entity_name: str  # 实体名称
-    entity_info: Optional[str] = None  # 实体描述信息
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    entity_info: str | None = None  # 实体描述信息
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     def __str__(self) -> str:
         return f'Entity.{self.entity_type.value}(id={self.id}, entity_id={self.entity_id}, name={self.entity_name})'
@@ -132,7 +131,7 @@ class EntityDAL(BaseDataAccessLayerModel[EntityOrm, Entity]):
     async def query_all_entity_subscribed_source(
             self,
             sub_source_index_id: int,
-            entity_type: Optional[str] = None
+            entity_type: str | None = None
     ) -> list[Entity]:
         """查询订阅了某订阅源的 Entity 对象"""
         stmt = (select(EntityOrm)
@@ -153,7 +152,7 @@ class EntityDAL(BaseDataAccessLayerModel[EntityOrm, Entity]):
             entity_type: str,
             parent_id: str,
             entity_name: str,
-            entity_info: Optional[str] = None
+            entity_info: str | None = None
     ) -> None:
         new_obj = EntityOrm(
             bot_index_id=bot_index_id,
@@ -173,12 +172,12 @@ class EntityDAL(BaseDataAccessLayerModel[EntityOrm, Entity]):
             self,
             id_: int,
             *,
-            bot_index_id: Optional[int] = None,
-            entity_id: Optional[str] = None,
-            entity_type: Optional[str] = None,
-            parent_id: Optional[str] = None,
-            entity_name: Optional[str] = None,
-            entity_info: Optional[str] = None
+            bot_index_id: int | None = None,
+            entity_id: str | None = None,
+            entity_type: str | None = None,
+            parent_id: str | None = None,
+            entity_name: str | None = None,
+            entity_info: str | None = None
     ) -> None:
         stmt = update(EntityOrm).where(EntityOrm.id == id_)
         if bot_index_id is not None:
@@ -194,12 +193,12 @@ class EntityDAL(BaseDataAccessLayerModel[EntityOrm, Entity]):
         if entity_info is not None:
             stmt = stmt.values(entity_info=entity_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(EntityOrm).where(EntityOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

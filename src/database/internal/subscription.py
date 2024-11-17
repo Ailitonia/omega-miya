@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -23,9 +22,9 @@ class Subscription(BaseDataQueryResultModel):
     id: int
     sub_source_index_id: int
     entity_index_id: int
-    sub_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    sub_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class SubscriptionDAL(BaseDataAccessLayerModel[SubscriptionOrm, Subscription]):
@@ -43,7 +42,7 @@ class SubscriptionDAL(BaseDataAccessLayerModel[SubscriptionOrm, Subscription]):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[Subscription], session_result.scalars().all())
 
-    async def add(self, sub_source_index_id: int, entity_index_id: int, sub_info: Optional[str] = None) -> None:
+    async def add(self, sub_source_index_id: int, entity_index_id: int, sub_info: str | None = None) -> None:
         new_obj = SubscriptionOrm(sub_source_index_id=sub_source_index_id, entity_index_id=entity_index_id,
                                   sub_info=sub_info, created_at=datetime.now())
         await self._add(new_obj)
@@ -55,9 +54,9 @@ class SubscriptionDAL(BaseDataAccessLayerModel[SubscriptionOrm, Subscription]):
             self,
             id_: int,
             *,
-            sub_source_index_id: Optional[int] = None,
-            entity_index_id: Optional[int] = None,
-            sub_info: Optional[str] = None
+            sub_source_index_id: int | None = None,
+            entity_index_id: int | None = None,
+            sub_info: str | None = None
     ) -> None:
         stmt = update(SubscriptionOrm).where(SubscriptionOrm.id == id_)
         if sub_source_index_id is not None:
@@ -67,12 +66,12 @@ class SubscriptionDAL(BaseDataAccessLayerModel[SubscriptionOrm, Subscription]):
         if sub_info is not None:
             stmt = stmt.values(sub_info=sub_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(SubscriptionOrm).where(SubscriptionOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

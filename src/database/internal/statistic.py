@@ -9,9 +9,8 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import desc, select, func
+from sqlalchemy import desc, func, select
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
@@ -27,9 +26,9 @@ class Statistic(BaseDataQueryResultModel):
     parent_entity_id: str
     entity_id: str
     call_time: datetime
-    call_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    call_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class CountStatisticModel(BaseDataQueryResultModel):
@@ -47,10 +46,10 @@ class StatisticDAL(BaseDataAccessLayerModel[StatisticOrm, Statistic]):
     async def count_by_condition(
             self,
             *,
-            bot_self_id: Optional[str] = None,
-            parent_entity_id: Optional[str] = None,
-            entity_id: Optional[str] = None,
-            start_time: Optional[datetime] = None,
+            bot_self_id: str | None = None,
+            parent_entity_id: str | None = None,
+            entity_id: str | None = None,
+            start_time: datetime | None = None,
     ) -> list[CountStatisticModel]:
         """按条件查询统计信息
 
@@ -86,7 +85,7 @@ class StatisticDAL(BaseDataAccessLayerModel[StatisticOrm, Statistic]):
             parent_entity_id: str,
             entity_id: str,
             call_time: datetime,
-            call_info: Optional[str] = None,
+            call_info: str | None = None,
     ) -> None:
         new_obj = StatisticOrm(module_name=module_name, plugin_name=plugin_name, bot_self_id=bot_self_id,
                                parent_entity_id=parent_entity_id, entity_id=entity_id,

@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -26,9 +25,9 @@ class AuthSetting(BaseDataQueryResultModel):
     plugin: str
     node: str
     available: int
-    value: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    value: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
@@ -46,8 +45,8 @@ class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
     async def query_entity_all(
             self,
             entity_index_id: int,
-            module: Optional[str] = None,
-            plugin: Optional[str] = None
+            module: str | None = None,
+            plugin: str | None = None
     ) -> list[AuthSetting]:
         """查询 Entity 具有的全部/某个模块/插件的权限配置"""
         stmt = select(AuthSettingOrm).where(AuthSettingOrm.entity_index_id == entity_index_id)
@@ -82,7 +81,7 @@ class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
             plugin: str,
             node: str,
             available: int,
-            value: Optional[str] = None
+            value: str | None = None
     ) -> None:
         new_obj = AuthSettingOrm(entity_index_id=entity_index_id, module=module, plugin=plugin, node=node,
                                  available=available, value=value, created_at=datetime.now())
@@ -95,12 +94,12 @@ class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
             self,
             id_: int,
             *,
-            entity_index_id: Optional[int] = None,
-            module: Optional[str] = None,
-            plugin: Optional[str] = None,
-            node: Optional[str] = None,
-            available: Optional[int] = None,
-            value: Optional[str] = None
+            entity_index_id: int | None = None,
+            module: str | None = None,
+            plugin: str | None = None,
+            node: str | None = None,
+            available: int | None = None,
+            value: str | None = None
     ) -> None:
         stmt = update(AuthSettingOrm).where(AuthSettingOrm.id == id_)
         if entity_index_id is not None:
@@ -116,12 +115,12 @@ class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
         if value is not None:
             stmt = stmt.values(value=value)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(AuthSettingOrm).where(AuthSettingOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

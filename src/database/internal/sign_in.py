@@ -9,7 +9,6 @@
 """
 
 from datetime import date, datetime
-from typing import Optional
 
 from sqlalchemy import delete, desc, select, update
 
@@ -23,9 +22,9 @@ class SignIn(BaseDataQueryResultModel):
     id: int
     entity_index_id: int
     sign_in_date: date
-    sign_in_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    sign_in_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class SignInDAL(BaseDataAccessLayerModel[SignInOrm, SignIn]):
@@ -54,7 +53,7 @@ class SignInDAL(BaseDataAccessLayerModel[SignInOrm, SignIn]):
             self,
             entity_index_id: int,
             sign_in_date: date,
-            sign_in_info: Optional[str] = None
+            sign_in_info: str | None = None
     ) -> None:
         new_obj = SignInOrm(entity_index_id=entity_index_id, sign_in_date=sign_in_date, sign_in_info=sign_in_info,
                             created_at=datetime.now())
@@ -67,9 +66,9 @@ class SignInDAL(BaseDataAccessLayerModel[SignInOrm, SignIn]):
             self,
             id_: int,
             *,
-            entity_index_id: Optional[int] = None,
-            sign_in_date: Optional[date] = None,
-            sign_in_info: Optional[str] = None
+            entity_index_id: int | None = None,
+            sign_in_date: date | None = None,
+            sign_in_info: str | None = None
     ) -> None:
         stmt = update(SignInOrm).where(SignInOrm.id == id_)
         if entity_index_id is not None:
@@ -79,12 +78,12 @@ class SignInDAL(BaseDataAccessLayerModel[SignInOrm, SignIn]):
         if sign_in_info is not None:
             stmt = stmt.values(sign_in_info=sign_in_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(SignInOrm).where(SignInOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

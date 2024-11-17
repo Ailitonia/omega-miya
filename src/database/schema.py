@@ -10,7 +10,7 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import Sequence, ForeignKey
+from sqlalchemy import ForeignKey, Sequence
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, String
 
@@ -34,9 +34,9 @@ class GlobalCacheOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"GlobalCacheOrm(cache_name={self.cache_name!r}, cache_key={self.cache_key!r}, "
-                f"cache_value={self.cache_value!r}, expired_at={self.expired_at!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'GlobalCacheOrm(cache_name={self.cache_name!r}, cache_key={self.cache_key!r}, '
+                f'cache_value={self.cache_value!r}, expired_at={self.expired_at!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class SystemSettingOrm(Base):
@@ -54,9 +54,9 @@ class SystemSettingOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"SystemSettingOrm(setting_name={self.setting_name!r}, setting_key={self.setting_key!r}, "
-                f"setting_value={self.setting_value!r}, info={self.info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'SystemSettingOrm(setting_name={self.setting_name!r}, setting_key={self.setting_key!r}, '
+                f'setting_value={self.setting_value!r}, info={self.info!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class PluginOrm(Base):
@@ -76,9 +76,9 @@ class PluginOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"PluginOrm(plugin_name={self.plugin_name!r}, module_name={self.module_name!r}, "
-                f"enabled={self.enabled!r}, info={self.info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'PluginOrm(plugin_name={self.plugin_name!r}, module_name={self.module_name!r}, '
+                f'enabled={self.enabled!r}, info={self.info!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class StatisticOrm(Base):
@@ -102,10 +102,10 @@ class StatisticOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"StatisticOrm(module_name={self.module_name!r}, plugin_name={self.plugin_name!r}, "
-                f"bot_self_id={self.bot_self_id!r}, parent_entity_id={self.parent_entity_id!r}, "
-                f"entity_id={self.entity_id!r}, call_time={self.call_time!r}, call_info={self.call_info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'StatisticOrm(module_name={self.module_name!r}, plugin_name={self.plugin_name!r}, '
+                f'bot_self_id={self.bot_self_id!r}, parent_entity_id={self.parent_entity_id!r}, '
+                f'entity_id={self.entity_id!r}, call_time={self.call_time!r}, call_info={self.call_info!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class HistoryOrm(Base):
@@ -130,11 +130,11 @@ class HistoryOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"HistoryOrm(message_id={self.message_id!r}, bot_self_id={self.bot_self_id!r}, "
-                f"event_entity_id={self.event_entity_id!r}, user_entity_id={self.user_entity_id!r}, "
-                f"received_time={self.received_time!r}, message_type={self.message_type!r}, "
-                f"message_raw={self.message_raw!r}, message_text={self.message_text!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'HistoryOrm(message_id={self.message_id!r}, bot_self_id={self.bot_self_id!r}, '
+                f'event_entity_id={self.event_entity_id!r}, user_entity_id={self.user_entity_id!r}, '
+                f'received_time={self.received_time!r}, message_type={self.message_type!r}, '
+                f'message_raw={self.message_raw!r}, message_text={self.message_text!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class BotSelfOrm(Base):
@@ -162,8 +162,8 @@ class BotSelfOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"BotSelfOrm(self_id={self.self_id!r}, bot_type={self.bot_type!r}, bot_status={self.bot_status!r}, "
-                f"bot_info={self.bot_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'BotSelfOrm(self_id={self.self_id!r}, bot_type={self.bot_type!r}, bot_status={self.bot_status!r}, '
+                f'bot_info={self.bot_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class EntityOrm(Base):
@@ -215,10 +215,10 @@ class EntityOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"EntityOrm(bot_index_id={self.bot_index_id!r}, entity_id={self.entity_id!r}, "
-                f"entity_type={self.entity_type!r}, parent_id={self.parent_id!r}, "
-                f"entity_name={self.entity_name!r}, entity_info={self.entity_info!r} "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'EntityOrm(bot_index_id={self.bot_index_id!r}, entity_id={self.entity_id!r}, '
+                f'entity_type={self.entity_type!r}, parent_id={self.parent_id!r}, '
+                f'entity_name={self.entity_name!r}, entity_info={self.entity_info!r} '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class FriendshipOrm(Base):
@@ -250,10 +250,10 @@ class FriendshipOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"FriendshipOrm(entity_index_id={self.entity_index_id!r}, status={self.status!r}, "
-                f"mood={self.mood!r}, friendship={self.friendship!r}, energy={self.energy!r}, "
-                f"currency={self.currency!r}, response_threshold={self.response_threshold!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'FriendshipOrm(entity_index_id={self.entity_index_id!r}, status={self.status!r}, '
+                f'mood={self.mood!r}, friendship={self.friendship!r}, energy={self.energy!r}, '
+                f'currency={self.currency!r}, response_threshold={self.response_threshold!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class SignInOrm(Base):
@@ -277,8 +277,8 @@ class SignInOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"SignInOrm(entity_index_id={self.entity_index_id!r}, sign_in_date={self.sign_in_date!r}, "
-                f"sign_in_info={self.sign_in_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'SignInOrm(entity_index_id={self.entity_index_id!r}, sign_in_date={self.sign_in_date!r}, '
+                f'sign_in_info={self.sign_in_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class AuthSettingOrm(Base):
@@ -307,9 +307,9 @@ class AuthSettingOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"AuthSettingOrm(entity_index_id={self.entity_index_id!r}, module={self.module!r}, "
-                f"plugin={self.plugin!r}, node={self.node!r}, available={self.available!r}, value={self.value!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'AuthSettingOrm(entity_index_id={self.entity_index_id!r}, module={self.module!r}, '
+                f'plugin={self.plugin!r}, node={self.node!r}, available={self.available!r}, value={self.value!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class CoolDownOrm(Base):
@@ -335,9 +335,9 @@ class CoolDownOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"CoolDownOrm(entity_index_id={self.entity_index_id!r}, event={self.event!r}, "
-                f"stop_at={self.stop_at!r}, description={self.description!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'CoolDownOrm(entity_index_id={self.entity_index_id!r}, event={self.event!r}, '
+                f'stop_at={self.stop_at!r}, description={self.description!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class EmailBoxOrm(Base):
@@ -364,9 +364,9 @@ class EmailBoxOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"EmailBoxOrm(address={self.address!r}, server_host={self.server_host!r}, "
-                f"protocol={self.protocol!r}, port={self.port!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'EmailBoxOrm(address={self.address!r}, server_host={self.server_host!r}, '
+                f'protocol={self.protocol!r}, port={self.port!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class EmailBoxBindOrm(Base):
@@ -397,9 +397,9 @@ class EmailBoxBindOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"EmailBoxBindOrm(email_box_index_id={self.email_box_index_id!r}, "
-                f"entity_index_id={self.entity_index_id!r}, bind_info={self.bind_info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'EmailBoxBindOrm(email_box_index_id={self.email_box_index_id!r}, '
+                f'entity_index_id={self.entity_index_id!r}, bind_info={self.bind_info!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class SubscriptionSourceOrm(Base):
@@ -425,9 +425,9 @@ class SubscriptionSourceOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"SubscriptionSourceOrm(sub_type={self.sub_type!r}, sub_id={self.sub_id!r}, "
-                f"sub_user_name={self.sub_user_name!r}, sub_info={self.sub_info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'SubscriptionSourceOrm(sub_type={self.sub_type!r}, sub_id={self.sub_id!r}, '
+                f'sub_user_name={self.sub_user_name!r}, sub_info={self.sub_info!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class SubscriptionOrm(Base):
@@ -458,9 +458,9 @@ class SubscriptionOrm(Base):
     )
 
     def __repr__(self) -> str:
-        return (f"SubscriptionOrm(sub_source_index_id={self.sub_source_index_id!r}, "
-                f"entity_index_id={self.entity_index_id!r}, sub_info={self.sub_info!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'SubscriptionOrm(sub_source_index_id={self.sub_source_index_id!r}, '
+                f'entity_index_id={self.entity_index_id!r}, sub_info={self.sub_info!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class SocialMediaContentOrm(Base):
@@ -481,10 +481,10 @@ class SocialMediaContentOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, "
-                f"m_type={self.m_type!r}, m_uid={self.m_uid!r}, "
-                f"title={self.title!r}, content={self.content!r}, ref_content={self.ref_content!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, '
+                f'm_type={self.m_type!r}, m_uid={self.m_uid!r}, '
+                f'title={self.title!r}, content={self.content!r}, ref_content={self.ref_content!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class ArtworkCollectionOrm(Base):
@@ -521,12 +521,12 @@ class ArtworkCollectionOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"ArtworkCollectionOrm(origin={self.origin!r}, aid={self.aid!r}, title={self.title!r}, "
-                f"uid={self.uid!r}, uname={self.uname!r}, "
-                f"classification={self.classification!r}, rating={self.rating!r}, "
-                f"width={self.width!r}, height={self.height!r}, tags={self.tags!r}, "
-                f"description={self.description!r}, source={self.source!r}, cover_page={self.cover_page!r}, "
-                f"created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'ArtworkCollectionOrm(origin={self.origin!r}, aid={self.aid!r}, title={self.title!r}, '
+                f'uid={self.uid!r}, uname={self.uname!r}, '
+                f'classification={self.classification!r}, rating={self.rating!r}, '
+                f'width={self.width!r}, height={self.height!r}, tags={self.tags!r}, '
+                f'description={self.description!r}, source={self.source!r}, cover_page={self.cover_page!r}, '
+                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 class WordBankOrm(Base):
@@ -548,8 +548,8 @@ class WordBankOrm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
-        return (f"WordBankOrm(key_word={self.key_word!r}, reply_entity={self.reply_entity!r}, "
-                f"result_word={self.result_word!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})")
+        return (f'WordBankOrm(key_word={self.key_word!r}, reply_entity={self.reply_entity!r}, '
+                f'result_word={self.result_word!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
 __all__ = [

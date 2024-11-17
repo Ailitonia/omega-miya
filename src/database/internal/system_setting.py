@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -23,9 +22,9 @@ class SystemSetting(BaseDataQueryResultModel):
     setting_name: str
     setting_key: str
     setting_value: str
-    info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]):
@@ -53,7 +52,7 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]
             setting_name: str,
             setting_key: str,
             setting_value: str,
-            info: Optional[str] = None,
+            info: str | None = None,
     ) -> None:
         new_obj = SystemSettingOrm(setting_name=setting_name, setting_key=setting_key,
                                    setting_value=setting_value, info=info, created_at=datetime.now())
@@ -64,7 +63,7 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]
             setting_name: str,
             setting_key: str,
             setting_value: str,
-            info: Optional[str] = None,
+            info: str | None = None,
     ) -> None:
         obj_attrs = {
             'setting_name': setting_name,
@@ -81,8 +80,8 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]
             setting_name: str,
             setting_key: str,
             *,
-            setting_value: Optional[str] = None,
-            info: Optional[str] = None,
+            setting_value: str | None = None,
+            info: str | None = None,
     ) -> None:
         stmt = (update(SystemSettingOrm)
                 .where(SystemSettingOrm.setting_name == setting_name)
@@ -92,14 +91,14 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]
         if info is not None:
             stmt = stmt.values(info=info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, setting_name: str, setting_key: str) -> None:
         stmt = (delete(SystemSettingOrm)
                 .where(SystemSettingOrm.setting_name == setting_name)
                 .where(SystemSettingOrm.setting_key == setting_key))
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -11,7 +11,6 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import StrEnum, unique
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -40,9 +39,9 @@ class BotSelf(BaseDataQueryResultModel):
     self_id: str
     bot_type: BotType
     bot_status: int
-    bot_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    bot_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     def __str__(self) -> str:
         return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
@@ -75,7 +74,7 @@ class BotSelfDAL(BaseDataAccessLayerModel[BotSelfOrm, BotSelf]):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[BotSelf], session_result.scalars().all())
 
-    async def add(self, self_id: str, bot_type: str, bot_status: int, bot_info: Optional[str] = None) -> None:
+    async def add(self, self_id: str, bot_type: str, bot_status: int, bot_info: str | None = None) -> None:
         new_obj = BotSelfOrm(
             self_id=self_id,
             bot_type=BotType(bot_type),
@@ -92,9 +91,9 @@ class BotSelfDAL(BaseDataAccessLayerModel[BotSelfOrm, BotSelf]):
             self,
             id_: int,
             *,
-            bot_type: Optional[str] = None,
-            bot_status: Optional[int] = None,
-            bot_info: Optional[str] = None
+            bot_type: str | None = None,
+            bot_status: int | None = None,
+            bot_info: str | None = None
     ) -> None:
         stmt = update(BotSelfOrm).where(BotSelfOrm.id == id_)
         if bot_type is not None:
@@ -104,12 +103,12 @@ class BotSelfDAL(BaseDataAccessLayerModel[BotSelfOrm, BotSelf]):
         if bot_info is not None:
             stmt = stmt.values(bot_info=bot_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(BotSelfOrm).where(BotSelfOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

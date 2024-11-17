@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import desc, select
 
@@ -29,8 +28,8 @@ class History(BaseDataQueryResultModel):
     message_type: str
     message_raw: str
     message_text: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
@@ -54,11 +53,11 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
     async def query_entity_records(
             self,
             bot_self_id: str,
-            event_entity_id: Optional[str] = None,
-            user_entity_id: Optional[str] = None,
+            event_entity_id: str | None = None,
+            user_entity_id: str | None = None,
             *,
-            start_time: Optional[datetime] = None,
-            end_time: Optional[datetime] = None,
+            start_time: datetime | None = None,
+            end_time: datetime | None = None,
     ) -> list[History]:
         """查询某个实体一段时间内的消息历史记录
 

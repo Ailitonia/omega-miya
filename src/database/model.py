@@ -9,7 +9,8 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, AsyncGenerator, Self
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +27,7 @@ class BaseDataQueryResultModel(BaseModel):
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True, frozen=True)
 
 
-class BaseDataAccessLayerModel[TB: "OmegaDeclarativeBase", TR: BaseDataQueryResultModel](abc.ABC):
+class BaseDataAccessLayerModel[TB: 'OmegaDeclarativeBase', TR: BaseDataQueryResultModel](abc.ABC):
     """数据库操作对象基类"""
 
     def __init__(self, session: AsyncSession):

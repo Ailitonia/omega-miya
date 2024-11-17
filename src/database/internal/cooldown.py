@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -24,9 +23,9 @@ class CoolDown(BaseDataQueryResultModel):
     entity_index_id: int
     event: str
     stop_at: datetime
-    description: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    description: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class CoolDownDAL(BaseDataAccessLayerModel[CoolDownOrm, CoolDown]):
@@ -49,7 +48,7 @@ class CoolDownDAL(BaseDataAccessLayerModel[CoolDownOrm, CoolDown]):
             entity_index_id: int,
             event: str,
             stop_at: datetime,
-            description: Optional[str] = None
+            description: str | None = None
     ) -> None:
         new_obj = CoolDownOrm(entity_index_id=entity_index_id, event=event, stop_at=stop_at,
                               description=description, created_at=datetime.now())
@@ -62,10 +61,10 @@ class CoolDownDAL(BaseDataAccessLayerModel[CoolDownOrm, CoolDown]):
             self,
             id_: int,
             *,
-            entity_index_id: Optional[int] = None,
-            event: Optional[str] = None,
-            stop_at: Optional[datetime] = None,
-            description: Optional[str] = None
+            entity_index_id: int | None = None,
+            event: str | None = None,
+            stop_at: datetime | None = None,
+            description: str | None = None
     ) -> None:
         stmt = update(CoolDownOrm).where(CoolDownOrm.id == id_)
         if entity_index_id is not None:
@@ -77,18 +76,18 @@ class CoolDownDAL(BaseDataAccessLayerModel[CoolDownOrm, CoolDown]):
         if description is not None:
             stmt = stmt.values(description=description)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(CoolDownOrm).where(CoolDownOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def clear_expired(self) -> None:
         """清理所有已过期的冷却事件"""
         stmt = delete(CoolDownOrm).where(CoolDownOrm.stop_at <= datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -23,9 +22,9 @@ class EmailBoxBind(BaseDataQueryResultModel):
     id: int
     email_box_index_id: int
     entity_index_id: int
-    bind_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    bind_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBindOrm, EmailBoxBind]):
@@ -43,7 +42,7 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBindOrm, EmailBoxBind]):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[EmailBoxBind], session_result.scalars().all())
 
-    async def add(self, email_box_index_id: int, entity_index_id: int, bind_info: Optional[str] = None) -> None:
+    async def add(self, email_box_index_id: int, entity_index_id: int, bind_info: str | None = None) -> None:
         new_obj = EmailBoxBindOrm(email_box_index_id=email_box_index_id, entity_index_id=entity_index_id,
                                   bind_info=bind_info, created_at=datetime.now())
         await self._add(new_obj)
@@ -55,9 +54,9 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBindOrm, EmailBoxBind]):
             self,
             id_: int,
             *,
-            email_box_index_id: Optional[int] = None,
-            entity_index_id: Optional[int] = None,
-            bind_info: Optional[str] = None
+            email_box_index_id: int | None = None,
+            entity_index_id: int | None = None,
+            bind_info: str | None = None
     ) -> None:
         stmt = update(EmailBoxBindOrm).where(EmailBoxBindOrm.id == id_)
         if email_box_index_id is not None:
@@ -67,12 +66,12 @@ class EmailBoxBindDAL(BaseDataAccessLayerModel[EmailBoxBindOrm, EmailBoxBind]):
         if bind_info is not None:
             stmt = stmt.values(bind_info=bind_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(EmailBoxBindOrm).where(EmailBoxBindOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -27,7 +27,6 @@ from .subscription_source import SubscriptionSourceDAL
 from .system_setting import SystemSettingDAL
 from .word_bank import WordBankDAL
 
-
 __all__ = [
     'ArtworkCollectionDAL',
     'AuthSettingDAL',

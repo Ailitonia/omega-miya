@@ -9,8 +9,9 @@
 """
 
 from asyncio import current_task
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from nonebot import get_driver, logger
 from nonebot.matcher import current_event, current_matcher

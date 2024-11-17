@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -28,8 +27,8 @@ class Friendship(BaseDataQueryResultModel):
     energy: float
     currency: float
     response_threshold: float
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class FriendshipDAL(BaseDataAccessLayerModel[FriendshipOrm, Friendship]):
@@ -67,13 +66,13 @@ class FriendshipDAL(BaseDataAccessLayerModel[FriendshipOrm, Friendship]):
             self,
             id_: int,
             *,
-            entity_index_id: Optional[int] = None,
-            status: Optional[str] = None,
-            mood: Optional[float] = None,
-            friendship: Optional[float] = None,
-            energy: Optional[float] = None,
-            currency: Optional[float] = None,
-            response_threshold: Optional[float] = None
+            entity_index_id: int | None = None,
+            status: str | None = None,
+            mood: float | None = None,
+            friendship: float | None = None,
+            energy: float | None = None,
+            currency: float | None = None,
+            response_threshold: float | None = None
     ) -> None:
         stmt = update(FriendshipOrm).where(FriendshipOrm.id == id_)
         if entity_index_id is not None:
@@ -91,12 +90,12 @@ class FriendshipDAL(BaseDataAccessLayerModel[FriendshipOrm, Friendship]):
         if response_threshold is not None:
             stmt = stmt.values(response_threshold=response_threshold)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(FriendshipOrm).where(FriendshipOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

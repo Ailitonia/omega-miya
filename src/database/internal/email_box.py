@@ -9,13 +9,12 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
 from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
-from ..schema import EmailBoxOrm, EmailBoxBindOrm
+from ..schema import EmailBoxBindOrm, EmailBoxOrm
 
 
 class EmailBox(BaseDataQueryResultModel):
@@ -26,8 +25,8 @@ class EmailBox(BaseDataQueryResultModel):
     protocol: str
     port: int
     password: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class EmailBoxDAL(BaseDataAccessLayerModel[EmailBoxOrm, EmailBox]):
@@ -64,11 +63,11 @@ class EmailBoxDAL(BaseDataAccessLayerModel[EmailBoxOrm, EmailBox]):
             self,
             id_: int,
             *,
-            address: Optional[str] = None,
-            server_host: Optional[str] = None,
-            protocol: Optional[str] = None,
-            port: Optional[int] = None,
-            password: Optional[str] = None
+            address: str | None = None,
+            server_host: str | None = None,
+            protocol: str | None = None,
+            port: int | None = None,
+            password: str | None = None
     ) -> None:
         stmt = update(EmailBoxOrm).where(EmailBoxOrm.id == id_)
         if address is not None:
@@ -82,12 +81,12 @@ class EmailBoxDAL(BaseDataAccessLayerModel[EmailBoxOrm, EmailBox]):
         if password is not None:
             stmt = stmt.values(password=password)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(EmailBoxOrm).where(EmailBoxOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

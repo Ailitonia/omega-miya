@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -24,8 +23,8 @@ class WordBank(BaseDataQueryResultModel):
     key_word: str
     reply_entity: str
     result_word: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class WordBankDAL(BaseDataAccessLayerModel[WordBankOrm, WordBank]):
@@ -61,9 +60,9 @@ class WordBankDAL(BaseDataAccessLayerModel[WordBankOrm, WordBank]):
             self,
             id_: int,
             *,
-            key_word: Optional[str] = None,
-            reply_entity: Optional[str] = None,
-            result_word: Optional[str] = None
+            key_word: str | None = None,
+            reply_entity: str | None = None,
+            result_word: str | None = None
     ) -> None:
         stmt = update(WordBankOrm).where(WordBankOrm.id == id_)
         if key_word is not None:
@@ -73,12 +72,12 @@ class WordBankDAL(BaseDataAccessLayerModel[WordBankOrm, WordBank]):
         if result_word is not None:
             stmt = stmt.values(result_word=result_word)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(WordBankOrm).where(WordBankOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

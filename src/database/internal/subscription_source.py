@@ -11,7 +11,6 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import StrEnum, unique
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -36,9 +35,9 @@ class SubscriptionSource(BaseDataQueryResultModel):
     sub_type: SubscriptionSourceType
     sub_id: str
     sub_user_name: str
-    sub_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    sub_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSourceOrm, SubscriptionSource]):
@@ -58,7 +57,7 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSourceOrm, Subs
     async def query_entity_subscribed_all(
             self,
             entity_index_id: int,
-            sub_type: Optional[str] = None
+            sub_type: str | None = None
     ) -> list[SubscriptionSource]:
         """查询 Entity 所订阅的全部订阅源"""
         stmt = (select(SubscriptionSourceOrm)
@@ -85,7 +84,7 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSourceOrm, Subs
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[SubscriptionSource], session_result.scalars().all())
 
-    async def add(self, sub_type: str, sub_id: str, sub_user_name: str, sub_info: Optional[str] = None) -> None:
+    async def add(self, sub_type: str, sub_id: str, sub_user_name: str, sub_info: str | None = None) -> None:
         new_obj = SubscriptionSourceOrm(
             sub_type=SubscriptionSourceType(sub_type),
             sub_id=sub_id,
@@ -102,10 +101,10 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSourceOrm, Subs
             self,
             id_: int,
             *,
-            sub_type: Optional[str] = None,
-            sub_id: Optional[str] = None,
-            sub_user_name: Optional[str] = None,
-            sub_info: Optional[str] = None
+            sub_type: str | None = None,
+            sub_id: str | None = None,
+            sub_user_name: str | None = None,
+            sub_info: str | None = None
     ) -> None:
         stmt = update(SubscriptionSourceOrm).where(SubscriptionSourceOrm.id == id_)
         if sub_type is not None:
@@ -117,12 +116,12 @@ class SubscriptionSourceDAL(BaseDataAccessLayerModel[SubscriptionSourceOrm, Subs
         if sub_info is not None:
             stmt = stmt.values(sub_info=sub_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(SubscriptionSourceOrm).where(SubscriptionSourceOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

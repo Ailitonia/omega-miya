@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import delete, select, update
 
@@ -23,9 +22,9 @@ class Plugin(BaseDataQueryResultModel):
     plugin_name: str
     module_name: str
     enabled: int
-    info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
@@ -57,7 +56,7 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
             plugin_name: str,
             module_name: str,
             enabled: int,
-            info: Optional[str] = None,
+            info: str | None = None,
     ) -> None:
         new_obj = PluginOrm(plugin_name=plugin_name, module_name=module_name,
                             enabled=enabled, info=info, created_at=datetime.now())
@@ -68,7 +67,7 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
             plugin_name: str,
             module_name: str,
             enabled: int,
-            info: Optional[str] = None,
+            info: str | None = None,
     ) -> None:
         obj_attrs = {
             'plugin_name': plugin_name,
@@ -85,8 +84,8 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
             plugin_name: str,
             module_name: str,
             *,
-            enabled: Optional[int] = None,
-            info: Optional[str] = None,
+            enabled: int | None = None,
+            info: str | None = None,
     ) -> None:
         stmt = (update(PluginOrm)
                 .where(PluginOrm.plugin_name == plugin_name)
@@ -96,14 +95,14 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
         if info is not None:
             stmt = stmt.values(info=info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, plugin_name: str, module_name: str) -> None:
         stmt = (delete(PluginOrm)
                 .where(PluginOrm.plugin_name == plugin_name)
                 .where(PluginOrm.module_name == module_name))
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

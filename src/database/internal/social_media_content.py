@@ -8,8 +8,8 @@
 @Software       : PyCharm
 """
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Optional, Sequence
 
 from sqlalchemy import desc, select
 
@@ -26,8 +26,8 @@ class SocialMediaContent(BaseDataQueryResultModel):
     m_uid: str
     content: str
     ref_content: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class SocialMediaContentDAL(BaseDataAccessLayerModel[SocialMediaContentOrm, SocialMediaContent]):
