@@ -19,8 +19,9 @@ from nonebot.plugin import CommandGroup
 
 from src.database import AuthSettingDAL
 from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
-from .consts import MODULE_NAME, PLUGIN_NAME, ATTR_PREFIX
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
+from .consts import ATTR_PREFIX, MODULE_NAME, PLUGIN_NAME
 from .model import RandomDice
 
 roll = CommandGroup(
@@ -126,7 +127,7 @@ async def handle_roll_attr(
 
     result_msg = '失败~'
     if roll_result.result_int > 96:
-        result_msg = "大失败~"
+        result_msg = '大失败~'
     if roll_result.result_int < attr_value:
         result_msg = '成功！'
     if roll_result.result_int < attr_value * 0.5:

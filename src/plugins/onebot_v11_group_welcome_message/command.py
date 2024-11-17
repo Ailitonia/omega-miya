@@ -12,9 +12,15 @@ from typing import Annotated, Literal
 
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
-    Message as OneBotV11Message,
-    GroupMessageEvent as OneBotV11GroupMessageEvent,
+)
+from nonebot.adapters.onebot.v11 import (
     GroupIncreaseNoticeEvent as OneBotV11GroupIncreaseNoticeEvent,
+)
+from nonebot.adapters.onebot.v11 import (
+    GroupMessageEvent as OneBotV11GroupMessageEvent,
+)
+from nonebot.adapters.onebot.v11 import (
+    Message as OneBotV11Message,
 )
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.log import logger
@@ -24,7 +30,8 @@ from nonebot.plugin import CommandGroup, on_notice
 
 from src.params.handler import get_command_message_arg_parser_handler
 from src.params.rule import event_has_permission_level
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessage, OmegaMessageTransfer, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessage, OmegaMessageTransfer, enable_processor_state
 
 _SETTING_NAME: Literal['group_welcome_message'] = 'group_welcome_message'
 """数据库配置节点名称"""

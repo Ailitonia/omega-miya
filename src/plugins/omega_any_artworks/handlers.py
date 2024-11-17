@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Annotated, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Annotated
 
 from nonebot.log import logger
 from nonebot.params import Depends, ShellCommandArgs
@@ -17,12 +18,14 @@ from nonebot.rule import ArgumentParser, Namespace
 from pydantic import BaseModel, ConfigDict
 
 from src.params.handler import get_shell_command_parse_failed_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessage, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessage, OmegaMessageSegment, enable_processor_state
 from src.utils import semaphore_gather
 from .consts import ALLOW_R18_NODE
 
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler
+
     from src.service.artwork_proxy.add_ons.image_ops import ImageOpsMixin
 
 
@@ -36,7 +39,7 @@ class ArtworkHandlerQueryArguments(BaseModel):
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True)
 
 
-class ArtworkHandlerManager[T: "ImageOpsMixin"]:
+class ArtworkHandlerManager[T: 'ImageOpsMixin']:
     """图站作品搜索预览等命令整合"""
 
     def __init__(self, artwork_class: type[T]):
@@ -44,7 +47,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
         self._command_name = artwork_class.get_base_origin_name().lower()
 
     @staticmethod
-    async def _allow_r18_node_checker(interface: "OmMI") -> bool:
+    async def _allow_r18_node_checker(interface: 'OmMI') -> bool:
         """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
         if interface.matcher.plugin is None:
             return False
@@ -59,7 +62,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
         )
 
     @classmethod
-    async def _has_allow_r18_node(cls, interface: "OmMI") -> bool:
+    async def _has_allow_r18_node(cls, interface: 'OmMI') -> bool:
         """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
         try:
             allow_r18 = await cls._allow_r18_node_checker(interface=interface)
@@ -71,7 +74,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
     @staticmethod
     def _get_query_argument_parser() -> ArgumentParser:
         """命令的参数解析器"""
-        parser = ArgumentParser(prog=f'作品查询命令参数解析', description='Parse artwork query arguments')
+        parser = ArgumentParser(prog='作品查询命令参数解析', description='Parse artwork query arguments')
         parser.add_argument('-r', '--random', action='store_true')
         parser.add_argument('-s', '--search', action='store_true')
         parser.add_argument('-p', '--page', type=int, default=1)
@@ -142,7 +145,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
         else:
             await interface.send_reply(send_msg)
 
-    def generate_shell_handler(self) -> "T_Handler":
+    def generate_shell_handler(self) -> 'T_Handler':
         """生成插件命令流程函数以供注册"""
 
         async def _handler(
@@ -193,7 +196,7 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
 
         return _handler
 
-    def register_handler(self) -> "T_Handler":
+    def register_handler(self) -> 'T_Handler':
         """注册插件命令"""
         return on_shell_command(
             cmd=self._command_name,
@@ -213,5 +216,5 @@ class ArtworkHandlerManager[T: "ImageOpsMixin"]:
 
 
 __all__ = [
-    "ArtworkHandlerManager",
+    'ArtworkHandlerManager',
 ]

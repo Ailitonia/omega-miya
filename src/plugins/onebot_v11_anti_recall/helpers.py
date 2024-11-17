@@ -12,7 +12,11 @@ from datetime import datetime
 
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
+)
+from nonebot.adapters.onebot.v11 import (
     Event as OneBotV11Event,
+)
+from nonebot.adapters.onebot.v11 import (
     Message as OneBotV11Message,
 )
 

@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -33,7 +33,7 @@ class BilibiliLiveRoomStatus(BaseModel):
     def __ne__(self, other) -> bool:
         return not self.__eq__(other)
 
-    def __sub__(self, other) -> "BilibiliLiveRoomStatusUpdate":
+    def __sub__(self, other) -> 'BilibiliLiveRoomStatusUpdate':
         if isinstance(other, BilibiliLiveRoomStatus):
             differ = set(self.model_dump().items()) - set(other.model_dump().items())
             differ_data = {k: v for k, v in differ}
@@ -98,13 +98,7 @@ class BilibiliLiveRoomStopLivingWithPlaylist(BaseModel):
 class BilibiliLiveRoomStatusUpdate(BaseModel):
     """Bilibili 直播间状态更新"""
     is_update: bool
-    update: Optional[
-        BilibiliLiveRoomTitleChange |
-        BilibiliLiveRoomStartLiving |
-        BilibiliLiveRoomStartLivingWithUpdateTitle |
-        BilibiliLiveRoomStopLiving |
-        BilibiliLiveRoomStopLivingWithPlaylist
-    ] = None
+    update: BilibiliLiveRoomTitleChange | BilibiliLiveRoomStartLiving | BilibiliLiveRoomStartLivingWithUpdateTitle | BilibiliLiveRoomStopLiving | BilibiliLiveRoomStopLivingWithPlaylist | None = None
 
     @model_validator(mode='after')
     @classmethod

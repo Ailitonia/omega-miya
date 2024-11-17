@@ -8,16 +8,17 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Sequence
 from datetime import date
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 import numpy
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 from src.utils import OmegaRequests
 from src.utils.image_utils import ImageUtils
 from src.utils.tencent_cloud_api import TencentTMT
-from .consts import STATIC_RESOURCE, FONT_RESOURCE, TMP_PATH
+from .consts import FONT_RESOURCE, STATIC_RESOURCE, TMP_PATH
 from .model import BaseStickerRender
 
 if TYPE_CHECKING:
@@ -44,24 +45,24 @@ class TraitorRender(BaseStickerRender):
         return 'PNG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('pixel.ttf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('traitor', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         image = cls._resize_to_width(image=static_images[0], width=output_width)
         text = '有内鬼, 中止交易' if text is None else text[:100]
 
@@ -115,24 +116,24 @@ class JichouRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('SourceHanSansSC-Regular.otf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('jichou', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         image = cls._resize_to_width(image=static_images[0], width=output_width)
 
         # 处理文本主体
@@ -179,24 +180,24 @@ class PhLogoRender(BaseStickerRender):
         return 'PNG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('SourceHanSansSC-Heavy.otf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         # 处理文本主体
         text = 'Git Hub' if text is None else text
         test_sentences = text.strip().split(maxsplit=1)
@@ -275,24 +276,24 @@ class LuxunSayRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('SourceHanSansSC-Regular.otf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('luxunsay', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         image = cls._resize_to_width(image=static_images[0], width=output_width)
 
         # 处理文本主体
@@ -347,7 +348,7 @@ class LuxunWriteRender(LuxunSayRender):
     """鲁迅写表情包模板"""
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('luxunwrite', 'default_bg.png')]
 
 
@@ -371,24 +372,24 @@ class JiangzhuangRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('HanYiWeiBeiJian.ttf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('jiangzhuang', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         image = cls._resize_to_width(image=static_images[0], width=output_width)
 
         # 处理文本主体
@@ -430,24 +431,24 @@ class XibaoHorizontalRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('HanYiWeiBeiJian.ttf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('xibaoh', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         image = cls._resize_to_width(image=static_images[0], width=output_width)
 
         # 处理文本主体
@@ -494,24 +495,24 @@ class XibaoVerticalRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('SourceHanSerif-Bold.ttc')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('xibaos', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         image = cls._resize_to_width(image=static_images[0], width=output_width)
 
         # 处理文本主体
@@ -558,24 +559,24 @@ class DefaultRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('msyhbd.ttc')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGB':
@@ -623,24 +624,24 @@ class LittleAngelRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('msyhbd.ttc')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGB':
@@ -718,24 +719,24 @@ class WhiteBackgroundRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('msyhbd.ttc')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGB':
@@ -790,24 +791,24 @@ class BlackBackgroundRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('msyhbd.ttc')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGB':
@@ -860,24 +861,24 @@ class DeColorizeRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return []
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGB':
@@ -909,24 +910,24 @@ class GunjoRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('SourceHanSansSC-Bold.otf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGBA':
@@ -983,24 +984,24 @@ class MarriageRender(BaseStickerRender):
         return 'PNG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return []
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('marriage', 'default_bg.png')]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGBA':
@@ -1036,24 +1037,24 @@ class GrassJaRender(BaseStickerRender):
         return 'JPEG'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('fzzxhk.ttf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return []
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGB':
@@ -1108,7 +1109,7 @@ class GrassJaRender(BaseStickerRender):
         text_ja = text_ja.replace('\n', ' ')
         self.set_text(f'{text_origin.strip()}\n{text_ja.strip()}')
 
-    async def make(self) -> "TemporaryResource":
+    async def make(self) -> 'TemporaryResource':
         await self._translate_preprocessor()
         return await self._async_make()
 
@@ -1133,37 +1134,37 @@ class PetPetRender(BaseStickerRender):
         return 'GIF'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return []
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('petpet', f'template_p{i}.png') for i in range(5)]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         raise NotImplementedError
 
     @classmethod
     def _main_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> list["Image.Image"]:
+    ) -> list['Image.Image']:
         resize_paste_loc: list[tuple[tuple[int, int], tuple[int, int]]] = [
             ((95, 95), (12, 15)),
             ((97, 80), (11, 30)),
@@ -1207,24 +1208,24 @@ class WorshipRender(BaseStickerRender):
         return 'GIF'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return []
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('worship', f'template_p{i}.png') for i in range(10)]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         raise NotImplementedError
 
     @staticmethod
@@ -1250,14 +1251,14 @@ class WorshipRender(BaseStickerRender):
     @classmethod
     def _main_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> list["Image.Image"]:
+    ) -> list['Image.Image']:
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGBA':
@@ -1305,37 +1306,37 @@ class TwistRender(BaseStickerRender):
         return 'GIF'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return []
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('twist', f'template_p{i}.png') for i in range(10)]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         raise NotImplementedError
 
     @classmethod
     def _main_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> list["Image.Image"]:
+    ) -> list['Image.Image']:
         if external_image is None:
             raise ValueError('external_image can not be None')
         if external_image.format != 'RGBA':
@@ -1382,37 +1383,37 @@ class WangjingzeRender(BaseStickerRender):
         return 'GIF'
 
     @classmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         return [FONT_RESOURCE('SourceHanSansSC-Regular.otf')]
 
     @classmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         return [STATIC_RESOURCE('wangjingze', f'template_p{i}.jpg') for i in range(46)]
 
     @classmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         raise NotImplementedError
 
     @classmethod
     def _main_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> list["Image.Image"]:
+    ) -> list['Image.Image']:
         text = '我王境泽就是饿死 死外边,从这跳下去 也不会吃你们一点东西 真香' if text is None else text
 
         # 分割文本
@@ -1483,7 +1484,7 @@ def get_all_render_name() -> list[str]:
     return [str(x) for x in _ALL_Render.keys()]
 
 
-async def download_source_image(url: str) -> "TemporaryResource":
+async def download_source_image(url: str) -> 'TemporaryResource':
     """下载图片到本地, 保持原始文件名, 直接覆盖同名文件"""
     file_name = OmegaRequests.hash_url_file_name('sticker_source_tmp', url=url)
     return await OmegaRequests().download(url=url, file=TMP_PATH(file_name))

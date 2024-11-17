@@ -11,15 +11,17 @@
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from nonebot.internal.adapter import Bot as BaseBot, Event as BaseEvent
+from nonebot.internal.adapter import Bot as BaseBot
+from nonebot.internal.adapter import Event as BaseEvent
 from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from .data_source import query_entity_message_history, query_profile_image, add_user_dict
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
+from .data_source import add_user_dict, query_entity_message_history, query_profile_image
 from .helpers import draw_message_history_wordcloud
 
 # 注册事件响应器
@@ -47,7 +49,7 @@ async def handle_add_user_dict(
         await interface.send_reply(f'已添加自定义词典: {content}')
     except Exception as e:
         logger.error(f'WordCloud | 添加自定义词典失败, {e}')
-        await interface.send_reply(f'添加自定义词典失败')
+        await interface.send_reply('添加自定义词典失败')
 
 
 @wordcloud.command('daily', aliases={'词云', '今日词云'}).handle()

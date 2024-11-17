@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from nonebot import logger
 from nonebot.exception import ActionFailed
@@ -16,19 +17,23 @@ from nonebot.exception import ActionFailed
 from src.database import SocialMediaContentDAL, begin_db_session
 from src.exception import WebSourceException
 from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
     OmegaEntity,
     OmegaMessage,
     OmegaMessageSegment,
+)
+from src.service import (
+    OmegaEntityInterface as OmEI,
+)
+from src.service import (
+    OmegaMatcherInterface as OmMI,
 )
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
 from src.utils import run_async_delay, semaphore_gather
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from .consts import (
     BILI_DYNAMIC_SUB_TYPE,
-    NOTICE_AT_ALL,
     MODULE_NAME,
+    NOTICE_AT_ALL,
     PLUGIN_NAME,
 )
 
@@ -38,14 +43,14 @@ if TYPE_CHECKING:
     from src.utils.bilibili_api.legacy.model import BilibiliDynamicCard
 
 
-async def _query_dynamic_sub_source(uid: int) -> "SubscriptionSource":
+async def _query_dynamic_sub_source(uid: int) -> 'SubscriptionSource':
     """从数据库查询动态订阅源"""
     async with begin_db_session() as session:
         source_res = await OmegaBiliDynamicSubSource(session=session, uid=uid).query_subscription_source()
     return source_res
 
 
-async def _check_new_dynamic(cards: Sequence["BilibiliDynamicCard"]) -> list["BilibiliDynamicCard"]:
+async def _check_new_dynamic(cards: Sequence['BilibiliDynamicCard']) -> list['BilibiliDynamicCard']:
     """检查新的动态(数据库中没有的)"""
     async with begin_db_session() as session:
         all_ids = [str(x.desc.dynamic_id) for x in cards]
@@ -55,7 +60,7 @@ async def _check_new_dynamic(cards: Sequence["BilibiliDynamicCard"]) -> list["Bi
     return [x for x in cards if str(x.desc.dynamic_id) in new_ids]
 
 
-async def _add_upgrade_dynamic_content(card: "BilibiliDynamicCard") -> None:
+async def _add_upgrade_dynamic_content(card: 'BilibiliDynamicCard') -> None:
     """在数据库中添加动态信息"""
     async with begin_db_session() as session:
         await SocialMediaContentDAL(session=session).upsert(
@@ -77,7 +82,7 @@ async def _add_user_new_dynamic_content(bili_user: BilibiliUser) -> None:
     await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
 
 
-async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> "SubscriptionSource":
+async def _add_upgrade_dynamic_sub_source(bili_user: BilibiliUser) -> 'SubscriptionSource':
     """在数据库中新更新动态订阅源"""
     user_data = await bili_user.query_user_data()
     if user_data.error:
@@ -123,7 +128,7 @@ async def query_all_subscribed_dynamic_sub_source() -> list[int]:
     return [int(x.sub_id) for x in source_res]
 
 
-async def query_subscribed_entity_by_bili_user(uid: int) -> list["Entity"]:
+async def query_subscribed_entity_by_bili_user(uid: int) -> list['Entity']:
     """根据 Bilibili 用户查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaBiliDynamicSubSource(session=session, uid=uid)
@@ -131,7 +136,7 @@ async def query_subscribed_entity_by_bili_user(uid: int) -> list["Entity"]:
     return subscribed_entity
 
 
-async def _format_dynamic_update_message(dynamic: "BilibiliDynamicCard") -> str | OmegaMessage:
+async def _format_dynamic_update_message(dynamic: 'BilibiliDynamicCard') -> str | OmegaMessage:
     """处理动态为消息"""
     send_message = f'【bilibili】{dynamic.output_text}\n'
 
@@ -156,7 +161,7 @@ async def _has_notice_at_all_node(entity: OmegaEntity) -> bool:
         return False
 
 
-async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
+async def _msg_sender(entity: 'Entity', message: str | OmegaMessage) -> None:
     """向 entity 发送动态消息"""
     try:
         async with begin_db_session() as session:

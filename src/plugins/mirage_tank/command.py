@@ -16,9 +16,17 @@ from nonebot.plugin import on_command
 from nonebot.typing import T_State
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from .utils import (simple_white, simple_black, simple_noise, color_noise,
-                    complex_gray, complex_color, complex_difference)
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
+from .utils import (
+    color_noise,
+    complex_color,
+    complex_difference,
+    complex_gray,
+    simple_black,
+    simple_noise,
+    simple_white,
+)
 
 
 @on_command(

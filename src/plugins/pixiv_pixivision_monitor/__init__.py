@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='Pixivision',
     description='【Pixivision 特辑助手】\n'
@@ -27,6 +26,5 @@ __plugin_meta__ = PluginMetadata(
 
 from . import command as command
 from . import monitor as monitor
-
 
 __all__ = []

@@ -12,6 +12,8 @@ from typing import Annotated
 
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
+)
+from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent as OneBotV11GroupMessageEvent,
 )
 from nonebot.log import logger
@@ -19,12 +21,13 @@ from nonebot.params import ArgStr, Depends
 from nonebot.plugin import CommandGroup
 
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from .helpers import (
     add_schedule_job,
     generate_schedule_job_data,
-    set_schedule_group_mute_job,
     remove_schedule_group_mute_job,
+    set_schedule_group_mute_job,
 )
 
 
@@ -89,7 +92,7 @@ async def handle_set_schedule_group_mute(
         await interface.finish_reply('保存定时群禁言任务失败, 请稍后再试或联系管理员处理')
 
     await interface.entity.commit_session()
-    await interface.finish_reply(f'添加定时群禁言任务成功!')
+    await interface.finish_reply('添加定时群禁言任务成功!')
 
 
 @schedule_group_mute.command(
@@ -108,7 +111,7 @@ async def handle_remove_schedule_group_mute(
         await interface.finish_reply('移除定时群禁言任务失败, 可能是还尚未配置群禁言任务, 请稍后再试或联系管理员处理')
 
     await interface.entity.commit_session()
-    await interface.finish_reply(f'移除定时群禁言任务成功!')
+    await interface.finish_reply('移除定时群禁言任务成功!')
 
 
 __all__ = []

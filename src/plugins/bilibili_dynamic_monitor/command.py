@@ -17,7 +17,8 @@ from nonebot.plugin import CommandGroup
 from src.exception import WebSourceException
 from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from src.utils.bilibili_api import BilibiliUser
 from .consts import NOTICE_AT_ALL
 from .helpers import add_dynamic_sub, delete_dynamic_sub, query_entity_subscribed_dynamic_sub_source

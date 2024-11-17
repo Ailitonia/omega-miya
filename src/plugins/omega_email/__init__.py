@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='收邮件',
     description='【OmegaEmail 邮箱插件】\n'
@@ -25,6 +24,5 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
 
 __all__ = []

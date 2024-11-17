@@ -9,9 +9,10 @@
 """
 
 import re
+from collections.abc import Sequence
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Optional
 
 import jieba
 import jieba.analyse
@@ -27,6 +28,7 @@ from .config import wordcloud_plugin_config, wordcloud_plugin_resource_config
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
     from src.database.internal.history import History
     from src.resource import TemporaryResource
 
@@ -35,17 +37,17 @@ def prepare_message(messages: Sequence[str]) -> str:
     """预处理消息文本"""
     # 过滤命令消息
     command_start = tuple(i for i in wordcloud_plugin_config.command_start if i)
-    message = " ".join(m for m in messages if not m.startswith(command_start))
+    message = ' '.join(m for m in messages if not m.startswith(command_start))
 
     # 过滤网址, ref: https://stackoverflow.com/a/17773849
     pattern = re.compile(
-        r"(https?://(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.\S{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]"
-        r"+[a-zA-Z0-9]\.\S{2,}|https?://(?:www\.|(?!www))[a-zA-Z0-9]+\.\S{2,}|www\.[a-zA-Z0-9]+\.\S{2,})"
+        r'(https?://(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.\S{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]'
+        r'+[a-zA-Z0-9]\.\S{2,}|https?://(?:www\.|(?!www))[a-zA-Z0-9]+\.\S{2,}|www\.[a-zA-Z0-9]+\.\S{2,})'
     )
-    message = pattern.sub("", message)
+    message = pattern.sub('', message)
 
     # 去除零宽空白符
-    message = re.sub(r"\u200b", "", message)
+    message = re.sub(r'\u200b', '', message)
     # 去除 emoji
     message = replace_emoji(message)
 
@@ -63,7 +65,7 @@ def analyse_message(message_text: str) -> dict[str, float]:
     return {str(word): freq for word, freq in jieba.analyse.extract_tags(message_text, topK=0, withWeight=True)}
 
 
-async def _get_random_background_artwork() -> "TemporaryResource":
+async def _get_random_background_artwork() -> 'TemporaryResource':
     """从数据库获取作品作为背景图"""
     random_artworks = await get_artwork_collection_type().query_any_origin_by_condition(
         keywords=None, origin=wordcloud_plugin_config.wordcloud_plugin_artwork_background_origin,
@@ -80,7 +82,7 @@ async def _get_random_background_artwork() -> "TemporaryResource":
     raise RuntimeError('all attempts to fetch artwork resources have failed')
 
 
-def _draw_wordcloud_mask(width: int, height: int) -> "NDArray":
+def _draw_wordcloud_mask(width: int, height: int) -> 'NDArray':
     """生成词云蒙版"""
     mask_size = (width, height)
     background: Image.Image = Image.new(mode='RGBA', size=mask_size, color=(255, 255, 255, 0))
@@ -102,7 +104,7 @@ def _draw_wordcloud_mask(width: int, height: int) -> "NDArray":
     return mask_np
 
 
-def _generate_message_history_wordcloud(messages: Sequence["History"], **wordcloud_options) -> "Image.Image":
+def _generate_message_history_wordcloud(messages: Sequence['History'], **wordcloud_options) -> 'Image.Image':
     """根据查询到的消息历史记录绘制词云"""
     # 统计历史消息词频
     prepared_message = prepare_message(messages=[m.message_text for m in messages])
@@ -110,17 +112,17 @@ def _generate_message_history_wordcloud(messages: Sequence["History"], **wordclo
 
     # 生成词云
     wordcloud = WordCloud(**wordcloud_options)
-    wordcloud_image: "Image.Image" = wordcloud.generate_from_frequencies(word_frequency).to_image()
+    wordcloud_image: Image.Image = wordcloud.generate_from_frequencies(word_frequency).to_image()
 
     return wordcloud_image
 
 
 @run_sync
 def _draw_message_history_wordcloud(
-        messages: Sequence["History"],
-        background_file: Optional["TemporaryResource"] = None,
-        profile_image_file: Optional["TemporaryResource"] = None,
-        desc_text: Optional[str] = None,
+        messages: Sequence['History'],
+        background_file: Optional['TemporaryResource'] = None,
+        profile_image_file: Optional['TemporaryResource'] = None,
+        desc_text: str | None = None,
 ) -> bytes:
     """根据查询到的消息历史记录绘制词云"""
     if background_file is not None:
@@ -188,10 +190,10 @@ def _draw_message_history_wordcloud(
 
 
 async def draw_message_history_wordcloud(
-        messages: Sequence["History"],
-        profile_image_file: Optional["TemporaryResource"] = None,
-        desc_text: Optional[str] = None,
-) -> "TemporaryResource":
+        messages: Sequence['History'],
+        profile_image_file: Optional['TemporaryResource'] = None,
+        desc_text: str | None = None,
+) -> 'TemporaryResource':
     """根据查询到的消息历史记录绘制词云"""
     background = None
     if wordcloud_plugin_config.wordcloud_plugin_enable_collected_artwork_background:

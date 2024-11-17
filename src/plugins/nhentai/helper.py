@@ -42,7 +42,7 @@ def parse_from_searching_parser(args: Namespace) -> SearchingArguments:
     return SearchingArguments.model_validate(args)
 
 
-async def format_gallery_desc_msg(gallery: "NhentaiGallery") -> OmegaMessage:
+async def format_gallery_desc_msg(gallery: 'NhentaiGallery') -> OmegaMessage:
     """获取格式化作品描述文本"""
     gallery_data = await gallery.query_gallery()
     folder_name = f'gallery_{gallery_data.id}'

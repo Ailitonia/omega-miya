@@ -10,7 +10,8 @@
 
 import random
 import re
-from typing import Literal, Optional, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 from nonebot.log import logger
 from nonebot.utils import run_sync
@@ -28,7 +29,7 @@ _TMP_PATH: TemporaryResource = TemporaryResource('what_to_eat')
 type FoodType = Literal['早', '午', '晚', '夜']
 """菜品类型"""
 
-_MENU_TMP: list["MenuFood"] = []
+_MENU_TMP: list['MenuFood'] = []
 """菜单缓存"""
 
 
@@ -68,7 +69,7 @@ async def _get_food_msg(food: MenuFood) -> OmegaMessage:
 
 
 @run_sync
-def _get_random_food(menu: Sequence[MenuFood], food_type: Optional[FoodType] = None) -> MenuFood:
+def _get_random_food(menu: Sequence[MenuFood], food_type: FoodType | None = None) -> MenuFood:
     """获取随机食谱"""
     match food_type:
         case '早':
@@ -84,7 +85,7 @@ def _get_random_food(menu: Sequence[MenuFood], food_type: Optional[FoodType] = N
     return food
 
 
-async def get_random_food_msg(food_type: Optional[FoodType] = None) -> OmegaMessage | OmegaMessageSegment:
+async def get_random_food_msg(food_type: FoodType | None = None) -> OmegaMessage | OmegaMessageSegment:
     menu = await _get_menu()
     food = await _get_random_food(menu=menu, food_type=food_type)
 

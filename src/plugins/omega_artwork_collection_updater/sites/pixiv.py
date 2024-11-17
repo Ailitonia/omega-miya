@@ -9,14 +9,14 @@
 """
 
 from asyncio import sleep as async_sleep
-from typing import Sequence
+from collections.abc import Sequence
 
 from src.service.artwork_collection import PixivArtworkCollection
 from src.utils import semaphore_gather
 from src.utils.pixiv_api import PixivArtwork
 
 
-class PixivArtworkUpdater(object):
+class PixivArtworkUpdater:
     """自动从 Pixiv 发现/推荐更新作品"""
 
     @staticmethod

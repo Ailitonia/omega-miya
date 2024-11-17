@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Optional, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
 
 from nonebot.log import logger
 from nonebot.rule import ArgumentParser, Namespace
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
     from src.service.artwork_collection.typing import CollectedArtwork
 
 
-async def _has_allow_r18_node(interface: "OmegaMatcherInterface") -> bool:
+async def _has_allow_r18_node(interface: 'OmegaMatcherInterface') -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     if interface.matcher.plugin is None:
         return False
@@ -40,7 +41,7 @@ async def _has_allow_r18_node(interface: "OmegaMatcherInterface") -> bool:
     )
 
 
-async def has_allow_r18_node(interface: "OmegaMatcherInterface") -> bool:
+async def has_allow_r18_node(interface: 'OmegaMatcherInterface') -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     try:
         allow_r18 = await _has_allow_r18_node(interface=interface)
@@ -65,11 +66,11 @@ def get_query_argument_parser() -> ArgumentParser:
 
 class QueryArguments(BaseModel):
     """查询图库命令 argument parser 的解析结果 Model"""
-    origin: Optional[ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN]
+    origin: ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN | None
     all_origin: bool
     r18: bool
     latest: bool
-    ratio: Optional[int]
+    ratio: int | None
     num: int
     keywords: list[str]
 
@@ -83,13 +84,13 @@ def parse_from_query_parser(args: Namespace) -> QueryArguments:
 
 async def query_artworks_from_database(
         keywords: Sequence[str],
-        origin: Optional[ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN] = None,
+        origin: ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN | None = None,
         all_origin: bool = False,
         allow_rating_range: tuple[int, int] = (0, 0),
         latest: bool = False,
-        ratio: Optional[int] = None,
+        ratio: int | None = None,
         num: int = 0,
-) -> list["CollectedArtwork"]:
+) -> list['CollectedArtwork']:
     """从数据库查询收藏作品, 特别的: 当参数 `origin` 值为 `none` 时代表从所有的来源随机获取"""
     if all_origin:
         query_origin = ALL_MOE_PLUGIN_ARTWORK_ORIGIN
@@ -113,7 +114,7 @@ async def query_artworks_from_database(
     return [get_artwork_collection(artwork=artwork) for artwork in random_artworks]
 
 
-async def prepare_send_image(collected_artwork: "CollectedArtwork") -> OmegaMessageSegment:
+async def prepare_send_image(collected_artwork: 'CollectedArtwork') -> OmegaMessageSegment:
     """预处理待发送图片"""
     if not isinstance(collected_artwork.artwork_proxy, ImageOpsMixin):
         raise RuntimeError(f'{collected_artwork} is not compatible with the image processing method')

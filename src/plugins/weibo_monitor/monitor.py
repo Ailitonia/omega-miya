@@ -13,7 +13,7 @@ from typing import Literal
 from nonebot.log import logger
 
 from src.exception import WebSourceException
-from src.service import scheduler, reschedule_job
+from src.service import reschedule_job, scheduler
 from src.utils import semaphore_gather
 from .helpers import query_all_subscribed_weibo_user_sub_source, weibo_user_monitor_main
 

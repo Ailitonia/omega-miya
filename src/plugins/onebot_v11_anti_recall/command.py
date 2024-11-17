@@ -10,13 +10,11 @@
 
 from typing import Annotated, Literal
 
-from nonebot.adapters.onebot.v11 import (
-    Bot as OneBotV11Bot,
-    Message as OneBotV11Message,
-    MessageSegment as OneBotV11MessageSegment,
-    GroupMessageEvent as OneBotV11GroupMessageEvent,
-    GroupRecallNoticeEvent as OneBotV11GroupRecallNoticeEvent
-)
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent as OneBotV11GroupMessageEvent
+from nonebot.adapters.onebot.v11 import GroupRecallNoticeEvent as OneBotV11GroupRecallNoticeEvent
+from nonebot.adapters.onebot.v11 import Message as OneBotV11Message
+from nonebot.adapters.onebot.v11 import MessageSegment as OneBotV11MessageSegment
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.log import logger
 from nonebot.matcher import Matcher
@@ -26,7 +24,8 @@ from nonebot.plugin import on_command, on_notice
 from nonebot.typing import T_State
 
 from src.params.rule import event_has_permission_node
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from .config import onebot_v11_anti_recall_config
 from .helpers import query_message_from_adapter, query_message_from_database
 

@@ -8,7 +8,6 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 
 from nonebot.utils import run_sync
 from onedice import RD
@@ -25,14 +24,14 @@ class DiceResult(BaseDice):
     """骰子结果"""
     origin_data_raw: str = Field(alias='originDataRaw', description='原始输入的掷骰表达式')
     origin_data: str = Field(alias='originData', description='转小写的掷骰表达式')
-    result_int: Optional[int] = Field(alias='resInt', description='掷骰结果')
-    result_min: Optional[int] = Field(alias='resIntMin', description='掷骰理论最小值')
-    result_max: Optional[int] = Field(alias='resIntMax', description='掷骰理论最大值')
-    result_detail: Optional[str] = Field(alias='resDetail', description='掷骰结果表达式')
-    result_error: Optional[int] = Field(alias='resError', description='错误代码')
-    custom_default: Optional[dict] = Field(alias='customDefault', description='自定义类型')
-    value_map: Optional[dict] = Field(alias='valueTable', description='预设参数表')
-    rule_mode: Optional[str] = Field(alias='ruleMode', description='规则模式')
+    result_int: int | None = Field(alias='resInt', description='掷骰结果')
+    result_min: int | None = Field(alias='resIntMin', description='掷骰理论最小值')
+    result_max: int | None = Field(alias='resIntMax', description='掷骰理论最大值')
+    result_detail: str | None = Field(alias='resDetail', description='掷骰结果表达式')
+    result_error: int | None = Field(alias='resError', description='错误代码')
+    custom_default: dict | None = Field(alias='customDefault', description='自定义类型')
+    value_map: dict | None = Field(alias='valueTable', description='预设参数表')
+    rule_mode: str | None = Field(alias='ruleMode', description='规则模式')
 
     @property
     def error_message(self) -> str | None:
@@ -67,9 +66,10 @@ class DiceResult(BaseDice):
                 return 'UNKNOWN_FATAL: 未知异常'
 
 
-class RandomDice(object):
+class RandomDice:
     """骰子"""
-    def __init__(self, expression: str, value_map: Optional[dict[str, int]] = None):
+
+    def __init__(self, expression: str, value_map: dict[str, int] | None = None):
         """
         :param expression: 掷骰表达式
         :param value_map: 预设属性/参数表
@@ -77,7 +77,7 @@ class RandomDice(object):
         self._expression = expression
         self._value_map = value_map
         self._dice = RD(self._expression, valueTable=self._value_map)
-        self.last_result: Optional[DiceResult] = None
+        self.last_result: DiceResult | None = None
 
     @run_sync
     def roll(self) -> DiceResult:

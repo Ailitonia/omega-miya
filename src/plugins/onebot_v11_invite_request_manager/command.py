@@ -14,9 +14,15 @@ from typing import Annotated
 
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
-    Message as OneBotV11Message,
+)
+from nonebot.adapters.onebot.v11 import (
     FriendRequestEvent as OneBotV11FriendRequestEvent,
+)
+from nonebot.adapters.onebot.v11 import (
     GroupRequestEvent as OneBotV11GroupRequestEvent,
+)
+from nonebot.adapters.onebot.v11 import (
+    Message as OneBotV11Message,
 )
 from nonebot.log import logger
 from nonebot.matcher import Matcher

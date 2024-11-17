@@ -65,9 +65,9 @@ def get_plugin_auth_node(plugin_name: str) -> list[str]:
     ) if s.auth_node is not None]
 
     # 如果有 extra_auth_node 也加入到可配置的权限节点中
-    nodes.extend((extra_node for s in (
+    nodes.extend(extra_node for s in (
         parse_processor_state(m._default_state) for m in plugin.matcher
-    ) if s.extra_auth_node for extra_node in s.extra_auth_node))
+    ) if s.extra_auth_node for extra_node in s.extra_auth_node)
 
     # 如果有冷却配置就把跳过冷却的权限加入到可配置的权限节点中
     if any(s.cooldown for s in (parse_processor_state(m._default_state) for m in plugin.matcher)):
@@ -103,7 +103,7 @@ def list_command_by_priority() -> str:
     priority_info: str = ''
 
     for priority in sorted(priority_map):
-        matcher_info = "\n".join(sorted(priority_map[priority].copy()))
+        matcher_info = '\n'.join(sorted(priority_map[priority].copy()))
         priority_info += f'[Priority - {priority}]\n{matcher_info}\n\n'
 
     return priority_info.strip()

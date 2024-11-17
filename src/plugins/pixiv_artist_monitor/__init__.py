@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='Pixiv用户作品助手',
     description='【Pixiv用户作品助手插件】\n'
@@ -32,6 +31,5 @@ __plugin_meta__ = PluginMetadata(
 
 from . import command as command
 from . import monitor as monitor
-
 
 __all__ = []

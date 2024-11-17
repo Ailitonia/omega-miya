@@ -17,9 +17,10 @@ from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
 from .helper import generate_tarot_card, get_tarot_resource_name, set_tarot_resource
-from .resources import get_tarot_resource, get_available_tarot_resource
+from .resources import get_available_tarot_resource, get_tarot_resource
 
 
 @on_command(

@@ -20,9 +20,10 @@ from nonebot.rule import to_me
 from sqlalchemy.exc import NoResultFound
 
 from src.database import EmailBoxDAL
-from src.params.handler import get_command_str_single_arg_parser_handler, get_command_str_multi_args_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from .helpers import check_mailbox, get_unseen_mail_data, encrypt_password, decrypt_password, generate_mail_snapshot
+from src.params.handler import get_command_str_multi_args_parser_handler, get_command_str_single_arg_parser_handler
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
+from .helpers import check_mailbox, decrypt_password, encrypt_password, generate_mail_snapshot, get_unseen_mail_data
 
 mailbox_manager = CommandGroup(
     'mailbox-manager',

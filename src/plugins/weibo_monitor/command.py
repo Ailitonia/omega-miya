@@ -16,7 +16,8 @@ from nonebot.plugin import CommandGroup
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from src.utils.weibo_api import Weibo
 from .helpers import add_weibo_user_sub, delete_weibo_user_sub, query_entity_subscribed_weibo_user_sub_source
 from .monitor import scheduler

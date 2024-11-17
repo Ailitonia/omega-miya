@@ -83,7 +83,7 @@ class ImapMailbox(BaseMailbox):
         if self.__address.endswith('@163.com'):
             # 添加163邮箱 IMAP ID 验证
             imaplib.Commands['ID'] = ('AUTH',)
-            args = ("name", "omega", "contact", "omega_miya@163.com", "version", "1.0.2", "vendor", "pyimaplibclient")
+            args = ('name', 'omega', 'contact', 'omega_miya@163.com', 'version', '1.0.2', 'vendor', 'pyimaplibclient')
             typ, dat = self.__mail._simple_command('ID', '("' + '" "'.join(args) + '")')
             self.__mail._untagged_response(typ, dat, 'ID')
 
@@ -131,10 +131,10 @@ class ImapMailbox(BaseMailbox):
                     content_text = str(part_content)
 
                 # 根据内容形式进一步解析处理
-                if part.get_content_type() == "text/plain":
+                if part.get_content_type() == 'text/plain':
                     content_text = content_text.replace(r'&nbsp;', '\n')
                     body_list.append(content_text)
-                elif part.get_content_type() == "text/html":
+                elif part.get_content_type() == 'text/html':
                     content_text = re.sub(re.compile(r'<br\s?/?>', re.IGNORECASE), '\n', content_text)
                     html_ = etree.HTML(content_text)
                     html_list.append(''.join(text for text in html_.itertext()))

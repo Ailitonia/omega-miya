@@ -15,8 +15,12 @@ from typing import Annotated
 
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
-    Message as OneBotV11Message,
+)
+from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent as OneBotV11GroupMessageEvent,
+)
+from nonebot.adapters.onebot.v11 import (
+    Message as OneBotV11Message,
 )
 from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.log import logger

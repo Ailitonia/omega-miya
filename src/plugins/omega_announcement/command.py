@@ -19,12 +19,9 @@ from nonebot.rule import to_me
 
 from src.database import EntityDAL
 from src.params.handler import get_command_message_arg_parser_handler
-from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
-    OmegaEntity,
-    enable_processor_state
-)
+from src.service import OmegaEntity, enable_processor_state
+from src.service import OmegaEntityInterface as OmEI
+from src.service import OmegaMatcherInterface as OmMI
 from src.utils import semaphore_gather
 
 

@@ -15,7 +15,7 @@ from .config import sign_in_config
 __plugin_meta__ = PluginMetadata(
     name='签到',
     description='【OmegaSignIn 签到插件】\n'
-                "轻量化签到插件, 好感度系统基础",
+                '轻量化签到插件, 好感度系统基础',
     usage='/签到\n'
           '/老黄历|好感度|一言\n'
           '/补签\n\n'
@@ -26,6 +26,5 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
 
 __all__ = []

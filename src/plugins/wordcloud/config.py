@@ -9,7 +9,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -32,7 +32,7 @@ class WordcloudPluginConfig(BaseModel):
     # 是否额外使用内置图库中的作品作为背景图片
     wordcloud_plugin_enable_collected_artwork_background: bool = False
     # 背景图图库来源, 可配置: pixiv, danbooru, gelbooru, konachan, yandere, local, 当配置为 `None` 时, 代表从所有的来源随机获取
-    wordcloud_plugin_artwork_background_origin: Optional[ALLOW_ARTWORK_ORIGIN] = 'pixiv'
+    wordcloud_plugin_artwork_background_origin: ALLOW_ARTWORK_ORIGIN | None = 'pixiv'
 
     # 生成词云频率的颜色映射图
     wordcloud_plugin_colormap: str = 'plasma'

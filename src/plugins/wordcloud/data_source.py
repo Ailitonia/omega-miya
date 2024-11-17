@@ -11,26 +11,30 @@
 from typing import TYPE_CHECKING, Optional
 
 from src.database import HistoryDAL, begin_db_session
-from src.service import OmegaMatcherInterface as OmMI, OmegaEntityInterface as OmEI
+from src.service import OmegaEntityInterface as OmEI
+from src.service import OmegaMatcherInterface as OmMI
 from src.utils import OmegaRequests
 from .config import wordcloud_plugin_resource_config
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from nonebot.internal.adapter import Bot as BaseBot, Event as BaseEvent
+
+    from nonebot.internal.adapter import Bot as BaseBot
+    from nonebot.internal.adapter import Event as BaseEvent
+
     from src.database.internal.history import History
     from src.resource import TemporaryResource
 
 
 async def query_entity_message_history(
-        bot: "BaseBot",
-        event: "BaseEvent",
+        bot: 'BaseBot',
+        event: 'BaseEvent',
         *,
-        start_time: Optional["datetime"] = None,
-        end_time: Optional["datetime"] = None,
+        start_time: Optional['datetime'] = None,
+        end_time: Optional['datetime'] = None,
         match_event: bool = True,
         match_user: bool = False,
-) -> list["History"]:
+) -> list['History']:
 
     async with begin_db_session() as session:
         event_entity = OmMI.get_entity(bot, event, session, acquire_type='event')
@@ -45,7 +49,7 @@ async def query_entity_message_history(
     return histories_list
 
 
-async def query_profile_image(bot: "BaseBot", event: "BaseEvent", match_user: bool = False) -> "TemporaryResource":
+async def query_profile_image(bot: 'BaseBot', event: 'BaseEvent', match_user: bool = False) -> 'TemporaryResource':
     """获取头像"""
     async with begin_db_session() as session:
         if match_user:

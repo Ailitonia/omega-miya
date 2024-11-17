@@ -7,7 +7,7 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
-from nonebot import logger, get_driver
+from nonebot import get_driver, logger
 
 from src.service import scheduler
 from src.utils.bilibili_api.future import BilibiliCredential

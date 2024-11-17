@@ -15,7 +15,8 @@ from nonebot import get_driver, logger
 from nonebot.params import Depends, RawCommand
 from nonebot.plugin import on_command
 
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from .data_source import get_random_food_msg
 
 

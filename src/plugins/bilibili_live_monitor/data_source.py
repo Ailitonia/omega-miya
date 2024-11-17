@@ -29,7 +29,7 @@ __LIVE_STATUS: dict[int, BilibiliLiveRoomStatus] = {}
 
 
 def check_and_upgrade_live_status(
-        live_room_data: "BilibiliLiveRoomDataModel",
+        live_room_data: 'BilibiliLiveRoomDataModel',
         *,
         live_user_name: str | None = None
 ) -> BilibiliLiveRoomStatusUpdate | None:

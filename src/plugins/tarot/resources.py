@@ -14,7 +14,7 @@ from .config import tarot_local_resource_config
 from .model import TarotCards, TarotPack
 
 
-class TarotResource(object):
+class TarotResource:
     """塔罗牌资源基类"""
     def __init__(self, source_name: str, pack: TarotPack, file_format: str):
         self.resource_folder: StaticResource = tarot_local_resource_config.image_resource_folder(source_name)

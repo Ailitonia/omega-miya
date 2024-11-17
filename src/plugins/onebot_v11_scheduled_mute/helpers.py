@@ -16,15 +16,13 @@ from nonebot.log import logger
 
 from src.compat import parse_json_as
 from src.database import AuthSettingDAL, begin_db_session
-from src.service import (
-    OmegaEntityInterface as OmEI,
-    OmegaEntity,
-    scheduler
-)
+from src.service import OmegaEntity, scheduler
+from src.service import OmegaEntityInterface as OmEI
 from .model import SCHEDULE_MUTE_CUSTOM_MODULE_NAME, SCHEDULE_MUTE_CUSTOM_PLUGIN_NAME, ScheduleMuteJob
 
 if TYPE_CHECKING:
     from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+
     from src.service import OmegaMatcherInterface
 
 
@@ -36,7 +34,7 @@ def add_schedule_job(job_data: ScheduleMuteJob) -> None:
         try:
             async with begin_db_session() as session:
                 entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=job_data.entity_index_id)
-                bot: "OneBotV11Bot" = await OmEI(entity=entity).get_bot()  # type: ignore
+                bot: OneBotV11Bot = await OmEI(entity=entity).get_bot()  # type: ignore
                 await bot.set_group_whole_ban(group_id=int(entity.entity_id), enable=job_data.enable_mute)
         except Exception as e:
             logger.error(f'ScheduleMuteJob | Handling group mute job({job_data.job_name}) failed, {e!r}')
@@ -80,7 +78,7 @@ async def _init_schedule_group_mute_job() -> None:
 
 
 async def generate_schedule_job_data(
-        interface: "OmegaMatcherInterface",
+        interface: 'OmegaMatcherInterface',
         crontab: str,
         enable_mute: bool,
 ) -> ScheduleMuteJob:
@@ -95,7 +93,7 @@ async def generate_schedule_job_data(
     return ScheduleMuteJob.model_validate(job_data)
 
 
-async def set_schedule_group_mute_job(interface: "OmegaMatcherInterface", job_data: ScheduleMuteJob) -> None:
+async def set_schedule_group_mute_job(interface: 'OmegaMatcherInterface', job_data: ScheduleMuteJob) -> None:
     """在数据库中新增或更新 Event 对应 Entity 的定时任务信息"""
     await interface.entity.set_auth_setting(
         module=SCHEDULE_MUTE_CUSTOM_MODULE_NAME,
@@ -106,7 +104,7 @@ async def set_schedule_group_mute_job(interface: "OmegaMatcherInterface", job_da
     )
 
 
-async def remove_schedule_group_mute_job(interface: "OmegaMatcherInterface") -> None:
+async def remove_schedule_group_mute_job(interface: 'OmegaMatcherInterface') -> None:
     """在数据库中停用 Event 对应 Entity 的定时任务信息"""
     jobs_setting = await interface.entity.query_plugin_all_auth_setting(
         module=SCHEDULE_MUTE_CUSTOM_MODULE_NAME,

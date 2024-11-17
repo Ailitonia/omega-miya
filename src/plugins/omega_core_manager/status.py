@@ -12,7 +12,7 @@ Source: https://github.com/cscs181/QQ-GitHub-Bot/blob/master/src/plugins/nonebot
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Optional
 
 import psutil
 from nonebot import get_driver
@@ -27,7 +27,7 @@ driver = get_driver()
 
 # bot status
 _nonebot_run_time: datetime
-_bot_connect_time: Dict[str, datetime] = {}
+_bot_connect_time: dict[str, datetime] = {}
 
 
 @driver.on_startup
@@ -41,7 +41,7 @@ def get_nonebot_run_time() -> datetime:
     try:
         return _nonebot_run_time
     except NameError:
-        raise RuntimeError("NoneBot not running!") from None
+        raise RuntimeError('NoneBot not running!') from None
 
 
 async def get_cpu_status() -> float:
@@ -61,14 +61,14 @@ def get_swap_status():
     return psutil.swap_memory()
 
 
-def _get_disk_usage(path: str) -> Optional["sdiskusage"]:
+def _get_disk_usage(path: str) -> Optional['sdiskusage']:
     try:
         return psutil.disk_usage(path)
     except Exception as e:
-        logger.warning(f"Could not get disk usage for {path}: {e!r}")
+        logger.warning(f'Could not get disk usage for {path}: {e!r}')
 
 
-def get_disk_usage() -> Dict[str, "sdiskusage"]:
+def get_disk_usage() -> dict[str, 'sdiskusage']:
     """Get the disk usage status."""
     disk_parts = psutil.disk_partitions()
     return {

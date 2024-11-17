@@ -18,13 +18,14 @@ from nonebot.plugin import on_shell_command
 from nonebot.rule import Namespace
 
 from src.params.handler import get_shell_command_parse_failed_handler
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from src.utils import semaphore_gather
 from .config import moe_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (
-    has_allow_r18_node,
     get_query_argument_parser,
+    has_allow_r18_node,
     parse_from_query_parser,
     prepare_send_image,
     query_artworks_from_database,

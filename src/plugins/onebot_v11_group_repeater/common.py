@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot, GroupMessageEvent as OneBotV11GroupMessageEvent
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent as OneBotV11GroupMessageEvent
 from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.exception import FinishedException
 from nonebot.matcher import Matcher

@@ -16,10 +16,11 @@ from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.typing import T_State
 
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment
 from .config import sign_in_config
 from .exception import DuplicateException, FailedException
-from .helpers import generate_signin_card, get_signin_top_image, get_hitokoto, get_profile_image
+from .helpers import generate_signin_card, get_hitokoto, get_profile_image, get_signin_top_image
 
 
 async def handle_generate_sign_in_card(

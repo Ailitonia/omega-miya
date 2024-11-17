@@ -9,7 +9,8 @@
 """
 
 import random
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from src.service.artwork_collection import (
     DanbooruArtworkCollection,
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
     from src.service.artwork_proxy.typing import ProxiedArtwork
 
 
-class BooruArtworksUpdater(object):
+class BooruArtworksUpdater:
     """自动更新较高评价的 booru 系图站作品
 
     Tips:
@@ -39,8 +40,8 @@ class BooruArtworksUpdater(object):
 
     @staticmethod
     async def _add_artwork_into_database(
-            ac_t: "ArtworkCollectionType",
-            artworks: Sequence["ProxiedArtwork"],
+            ac_t: 'ArtworkCollectionType',
+            artworks: Sequence['ProxiedArtwork'],
             semaphore_num: int = 4,
     ) -> None:
         tasks = [ac_t(x.s_aid).add_artwork_into_database_ignore_exists() for x in artworks]

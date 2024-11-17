@@ -9,19 +9,24 @@
 """
 
 import asyncio
+from collections.abc import Callable, Coroutine, Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 from nonebot.exception import ActionFailed
 from nonebot.log import logger
 
 from src.database import begin_db_session
 from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
     OmegaEntity,
     OmegaMessage,
     OmegaMessageSegment,
+)
+from src.service import (
+    OmegaEntityInterface as OmEI,
+)
+from src.service import (
+    OmegaMatcherInterface as OmMI,
 )
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
@@ -37,20 +42,20 @@ if TYPE_CHECKING:
     from src.utils.pixiv_api.model.ranking import PixivRankingModel
 
 
-async def _query_pixiv_user_sub_source(uid: int) -> "SubscriptionSource":
+async def _query_pixiv_user_sub_source(uid: int) -> 'SubscriptionSource':
     """从数据库查询 Pixiv 用户订阅源"""
     async with begin_db_session() as session:
         source_res = await OmegaPixivUserSubSource(session=session, uid=uid).query_subscription_source()
     return source_res
 
 
-async def _check_pixiv_user_new_artworks(pixiv_user: "PixivUser") -> list[str]:
+async def _check_pixiv_user_new_artworks(pixiv_user: 'PixivUser') -> list[str]:
     """检查 Pixiv 用户的新作品(数据库中没有的)"""
     user_data = await pixiv_user.query_user_data()
     return await PixivArtworkCollection.query_not_exists_aids(aids=[str(pid) for pid in user_data.manga_illusts])
 
 
-async def _add_pixiv_user_new_artworks(pixiv_user: "PixivUser") -> None:
+async def _add_pixiv_user_new_artworks(pixiv_user: 'PixivUser') -> None:
     """在数据库中新增目标用户的全部作品(仅新增不更新)"""
     user_new_pids = await _check_pixiv_user_new_artworks(pixiv_user=pixiv_user)
 
@@ -74,7 +79,7 @@ async def _add_pixiv_user_new_artworks(pixiv_user: "PixivUser") -> None:
     logger.info(f'PixivUserAdder | Adding user({pixiv_user.uid}) artworks completed, failed: {fail_count}')
 
 
-async def _add_upgrade_pixiv_user_sub_source(pixiv_user: "PixivUser") -> "SubscriptionSource":
+async def _add_upgrade_pixiv_user_sub_source(pixiv_user: 'PixivUser') -> 'SubscriptionSource':
     """在数据库中更新 Pixiv 用户订阅源"""
     user_data = await pixiv_user.query_user_data()
 
@@ -87,7 +92,7 @@ async def _add_upgrade_pixiv_user_sub_source(pixiv_user: "PixivUser") -> "Subscr
     return source_res
 
 
-async def add_pixiv_user_sub(interface: OmMI, pixiv_user: "PixivUser") -> None:
+async def add_pixiv_user_sub(interface: OmMI, pixiv_user: 'PixivUser') -> None:
     """为目标对象添加 Pixiv 用户订阅"""
     source_res = await _add_upgrade_pixiv_user_sub_source(pixiv_user=pixiv_user)
     await interface.entity.add_subscription(subscription_source=source_res,
@@ -118,7 +123,7 @@ async def query_all_subscribed_pixiv_user_sub_source() -> list[int]:
     return [int(x.sub_id) for x in source_res]
 
 
-async def query_subscribed_entity_by_pixiv_user(pixiv_user: "PixivUser") -> list["Entity"]:
+async def query_subscribed_entity_by_pixiv_user(pixiv_user: 'PixivUser') -> list['Entity']:
     """根据 Pixiv 用户查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaPixivUserSubSource(session=session, uid=pixiv_user.uid)
@@ -129,7 +134,7 @@ async def query_subscribed_entity_by_pixiv_user(pixiv_user: "PixivUser") -> list
 async def _format_pixiv_user_new_artwork_message(
         pid: str,
         *,
-        message_prefix: Optional[str] = None,
+        message_prefix: str | None = None,
         show_page_limiting: int = 10,
 ) -> OmegaMessage:
     """预处理用户作品预览消息"""
@@ -159,7 +164,7 @@ async def _format_pixiv_user_new_artwork_message(
     return send_msg
 
 
-async def _msg_sender(entity: "Entity", message: OmegaMessage) -> None:
+async def _msg_sender(entity: 'Entity', message: OmegaMessage) -> None:
     """向 entity 发送消息"""
     try:
         async with begin_db_session() as session:
@@ -172,7 +177,7 @@ async def _msg_sender(entity: "Entity", message: OmegaMessage) -> None:
         logger.error(f'PixivUserSubscriptionMonitor | Sending message to {entity} failed, {e!r}')
 
 
-async def pixiv_user_new_artworks_monitor_main(pixiv_user: "PixivUser") -> None:
+async def pixiv_user_new_artworks_monitor_main(pixiv_user: 'PixivUser') -> None:
     """向已订阅的用户或群发送 Pixiv 用户更新的作品"""
     logger.debug(f'PixivUserSubscriptionMonitor | Start checking pixiv {pixiv_user} new artworks')
     user_data = await pixiv_user.query_user_data()
@@ -210,7 +215,7 @@ async def pixiv_user_new_artworks_monitor_main(pixiv_user: "PixivUser") -> None:
 """作品预览图生成工具"""
 
 
-async def generate_artworks_preview(title: str, pids: Sequence[int], *, no_blur_rating: int = 1) -> "TemporaryResource":
+async def generate_artworks_preview(title: str, pids: Sequence[int], *, no_blur_rating: int = 1) -> 'TemporaryResource':
     """生成多个作品的预览图"""
     return await PixivArtworkProxy.generate_artworks_preview(
         preview_name=title,
@@ -221,7 +226,7 @@ async def generate_artworks_preview(title: str, pids: Sequence[int], *, no_blur_
     )
 
 
-async def _generate_ranking_preview(title: str, ranking_data: "PixivRankingModel") -> "TemporaryResource":
+async def _generate_ranking_preview(title: str, ranking_data: 'PixivRankingModel') -> 'TemporaryResource':
     """根据榜单数据生成预览图"""
     return await PixivArtworkProxy.generate_artworks_preview(
         preview_name=title,
@@ -233,10 +238,10 @@ async def _generate_ranking_preview(title: str, ranking_data: "PixivRankingModel
 
 def get_ranking_preview_factory(
         mode: Literal['daily', 'weekly', 'monthly'],
-) -> Callable[[int], Coroutine[Any, Any, "TemporaryResource"]]:
+) -> Callable[[int], Coroutine[Any, Any, 'TemporaryResource']]:
     """获取榜单预览图生成器"""
 
-    async def _factor(page: int) -> "TemporaryResource":
+    async def _factor(page: int) -> 'TemporaryResource':
         ranking_data = await PixivUser.query_ranking(mode=mode, page=page, content='illust')
 
         title = f'Pixiv {mode.title()} Ranking {datetime.now().strftime("%Y-%m-%d")}'
@@ -246,9 +251,9 @@ def get_ranking_preview_factory(
 
 
 async def handle_ranking_preview(
-        interface: "OmMI",
+        interface: 'OmMI',
         page: str,
-        ranking_preview_factory: Callable[[int], Coroutine[Any, Any, "TemporaryResource"]]
+        ranking_preview_factory: Callable[[int], Coroutine[Any, Any, 'TemporaryResource']]
 ) -> None:
     """生成并发送榜单预览图"""
     page = page.strip()

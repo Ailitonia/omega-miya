@@ -12,9 +12,10 @@ from src.service.artwork_proxy import (
     DanbooruArtworkProxy,
     GelbooruArtworkProxy,
     KonachanSafeArtworkProxy,
-    YandereArtworkProxy,
     PixivArtworkProxy,
+    YandereArtworkProxy,
 )
+
 from .handlers import ArtworkHandlerManager
 
 __ARTWORK_PROXY_LIST = [

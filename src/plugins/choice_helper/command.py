@@ -15,7 +15,8 @@ from nonebot.params import ArgStr, Depends
 from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 
 
 @on_command(
@@ -36,7 +37,7 @@ async def handle_help_choices(
         await interface.finish_reply('你什么选项都没告诉我, 怎么帮你选OwO')
 
     result = random.choice(choice_list)
-    result_text = f'''帮你从“{'”，“'.join(choice_list)}”中选择了：\n\n“{result}”'''
+    result_text = f"""帮你从“{'”，“'.join(choice_list)}”中选择了：\n\n“{result}”"""
 
     await interface.finish_reply(result_text)
 

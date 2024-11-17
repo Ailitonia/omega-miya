@@ -14,7 +14,11 @@ from typing import Annotated, Literal
 
 from nonebot.adapters.onebot.v11 import (
     Bot as OneBotV11Bot,
+)
+from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent as OneBotV11GroupMessageEvent,
+)
+from nonebot.adapters.onebot.v11 import (
     GroupUploadNoticeEvent as OneBotV11GroupUploadNoticeEvent,
 )
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
@@ -26,7 +30,8 @@ from nonebot.plugin import on_command, on_notice
 
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.rule import event_has_permission_node
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from .helpers import ZhouChecker, download_file, upload_result_file
 
 _ZHOUSHEN_HIME_CUSTOM_MODULE_NAME: Literal['Omega.ZhoushenHime'] = 'Omega.ZhoushenHime'
@@ -70,10 +75,10 @@ async def handle_zhoushen_hime_manager(
 
     try:
         await switch_coro
-        logger.success(f"ZhoushenHimeManager | {interface.entity} 设置审轴姬功能开关为 {switch} 成功")
+        logger.success(f'ZhoushenHimeManager | {interface.entity} 设置审轴姬功能开关为 {switch} 成功')
         await interface.send_reply(f'已设置审轴姬功能开关为 {switch}!')
     except Exception as e:
-        logger.error(f"ZhoushenHimeManager | {interface.entity} 设置审轴姬功能开关为 {switch} 失败, {e}")
+        logger.error(f'ZhoushenHimeManager | {interface.entity} 设置审轴姬功能开关为 {switch} 失败, {e}')
         await interface.send_reply('设置审轴姬功能开关失败, 请稍后重试或联系管理员处理')
 
 

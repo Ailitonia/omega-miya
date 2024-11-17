@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='幻影坦克',
     description='【幻影坦克图片生成工具】\n'
@@ -22,6 +21,5 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
 
 __all__ = []

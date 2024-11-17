@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='bilibiliAccountManager',
     description='【B站账户管理插件】\n'

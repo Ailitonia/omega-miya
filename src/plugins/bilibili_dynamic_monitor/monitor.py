@@ -13,11 +13,11 @@ from datetime import datetime, timedelta
 
 from nonebot.log import logger
 
-from src.exception import WebSourceException, PluginException
+from src.exception import PluginException, WebSourceException
 from src.service import scheduler
 from src.utils import semaphore_gather
-from .consts import MONITOR_JOB_ID, AVERAGE_CHECKING_PER_MINUTE, CHECKING_DELAY_UNDER_RATE_LIMITING
-from .helpers import query_all_subscribed_dynamic_sub_source, bili_dynamic_monitor_main
+from .consts import AVERAGE_CHECKING_PER_MINUTE, CHECKING_DELAY_UNDER_RATE_LIMITING, MONITOR_JOB_ID
+from .helpers import bili_dynamic_monitor_main, query_all_subscribed_dynamic_sub_source
 
 _UID_CHECKING_QUEUE: AsyncQueue[int] = AsyncQueue()
 """用于动态更新监控使用的已订阅用户 UID 队列"""
