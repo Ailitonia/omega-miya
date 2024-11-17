@@ -8,14 +8,13 @@
 @Software       : PyCharm 
 """
 
-from datetime import datetime, date
-from typing import Optional
+from datetime import date, datetime
 
 import ujson as json
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-from src.database import BotSelfDAL, SubscriptionSourceDAL, EmailBoxDAL, begin_db_session
+from src.database import BotSelfDAL, EmailBoxDAL, SubscriptionSourceDAL, begin_db_session
 from src.resource import TemporaryResource
 from src.service.omega_api import register_get_route
 from src.service.omega_base import OmegaEntity
@@ -30,9 +29,9 @@ class _BotSelf(DateBaseModel):
     self_id: str
     bot_type: str
     bot_status: int
-    bot_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    bot_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class _SubscriptionSource(DateBaseModel):
@@ -40,7 +39,7 @@ class _SubscriptionSource(DateBaseModel):
     sub_type: str
     sub_id: str
     sub_user_name: str
-    sub_info: Optional[str] = None
+    sub_info: str | None = None
 
 
 class _EmailBox(DateBaseModel):
@@ -57,8 +56,8 @@ class _EntityInfo(DateBaseModel):
     entity_type: str
     entity_id: str
     parent_id: str
-    entity_name: Optional[str] = None
-    entity_info: Optional[str] = None
+    entity_name: str | None = None
+    entity_info: str | None = None
 
 
 class _EntityFriendship(DateBaseModel):
@@ -75,19 +74,19 @@ class _EntityAuthSetting(DateBaseModel):
     plugin: str
     node: str
     available: int
-    value: Optional[str] = None
+    value: str | None = None
 
 
 class _EntityBoundMailbox(DateBaseModel):
     address: str
-    bind_info: Optional[str] = None
+    bind_info: str | None = None
 
 
 class _EntitySubscribed(DateBaseModel):
     sub_type: str
     sub_id: str
     sub_user_name: str
-    sub_info: Optional[str]
+    sub_info: str | None
 
 
 class _Entity(DateBaseModel):

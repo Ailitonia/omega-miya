@@ -11,9 +11,10 @@
 import re
 import sys
 from asyncio import sleep as async_sleep
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Literal
 
 from nonebot.log import logger
 
@@ -26,10 +27,11 @@ from .utils import get_last_follow_illust_pid, set_last_follow_illust_pid
 
 if TYPE_CHECKING:
     from pathlib import Path
+
     from src.service.artwork_proxy.models import ArtworkData
 
 
-class PixivArtworkDownloader(object):
+class PixivArtworkDownloader:
 
     def __init__(self, fast_mode: bool = False):
         self._fast_mode = fast_mode
@@ -60,7 +62,7 @@ class PixivArtworkDownloader(object):
             url=url, subdir=subdir, ignore_exist_file=ignore_exist_file
         )
 
-    async def _handle_artwork_data(self, pid: int) -> "ArtworkData":
+    async def _handle_artwork_data(self, pid: int) -> 'ArtworkData':
         """获取作品信息并写入数据库"""
         artwork = PixivArtworkCollection(artwork_id=pid)
         try:
@@ -84,7 +86,7 @@ class PixivArtworkDownloader(object):
 
     async def _handle_output_artworks_download_url(
             self,
-            artwork_data: "ArtworkData",
+            artwork_data: 'ArtworkData',
             output_all_urls: bool = False,
     ) -> None:
         """向输出文件写入作品原图下载链接"""
@@ -165,10 +167,10 @@ class PixivArtworkDownloader(object):
 
     @staticmethod
     async def _get_all_bookmark_illust(
-            uid: Optional[int] = None,
+            uid: int | None = None,
             *,
             rest: Literal['show', 'hide'] = 'show',
-            before: Optional[int] = None,
+            before: int | None = None,
             limit: int = 100,
     ) -> list[int]:
         """获取用户收藏的所有作品"""
@@ -247,15 +249,15 @@ class PixivArtworkDownloader(object):
             except Exception as e:
                 logger.error(f'Downloading user(uid={user_id}) artworks failed, error: {e}')
                 continue
-        logger.success(f'Downloaded all users artworks completed')
+        logger.success('Downloaded all users artworks completed')
 
     async def _download_bookmark_artworks(
             self,
-            download_dir: "Path",
-            uid: Optional[int] = None,
+            download_dir: 'Path',
+            uid: int | None = None,
             *,
             rest: Literal['show', 'hide'] = 'show',
-            before: Optional[int] = None,
+            before: int | None = None,
     ) -> None:
         """下载收藏的全部作品"""
         pids = await self._get_all_bookmark_illust(uid=uid, rest=rest, before=before)
@@ -283,10 +285,10 @@ class PixivArtworkDownloader(object):
 
     async def download_bookmark_main(
             self,
-            download_dir: "Path",
-            uid: Optional[int] = None,
+            download_dir: 'Path',
+            uid: int | None = None,
             *,
-            before: Optional[int] = None,
+            before: int | None = None,
     ):
         try:
             await self._download_bookmark_artworks(download_dir=download_dir, uid=uid, rest='show', before=before)

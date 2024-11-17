@@ -50,7 +50,7 @@ def catching_exception(func):
 
 
 async def read_json(file_name: str):
-    async with aiofiles.open(folder.joinpath(file_name), 'r', encoding='utf8') as af:
+    async with aiofiles.open(folder.joinpath(file_name), encoding='utf8') as af:
         content = json.loads(await af.read())
         return content
 

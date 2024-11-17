@@ -8,20 +8,15 @@
 @Software       : PyCharm 
 """
 
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum, unique
-from typing import Literal, Optional
-
-from pydantic import BaseModel, Field
+from typing import Literal
 
 from omega_miya.database.internal.entity import BaseInternalEntity
-
-from omega_miya.database.schemas import BotSelf, RelatedEntity
-from omega_miya.database.schemas import SubscriptionSource
-from omega_miya.database.schemas import EmailBox
-
-from omega_miya.service.omega_api import register_get_route
+from omega_miya.database.schemas import BotSelf, EmailBox, RelatedEntity, SubscriptionSource
 from omega_miya.local_resource import TmpResource
+from omega_miya.service.omega_api import register_get_route
+from pydantic import BaseModel, Field
 
 
 class DateBaseModel(BaseModel):
@@ -51,9 +46,9 @@ async def query_bots():
         self_id: str
         bot_type: _BotType
         bot_status: int
-        bot_info: Optional[str] = None
-        created_at: Optional[datetime] = None
-        updated_at: Optional[datetime] = None
+        bot_info: str | None = None
+        created_at: datetime | None = None
+        updated_at: datetime | None = None
 
     class _Data(DateBaseModel):
         data: list[_BotSelf]
@@ -78,7 +73,7 @@ async def query_sub_sources():
         sub_type: _SubscriptionSourceType
         sub_id: str
         sub_user_name: str
-        sub_info: Optional[str] = None
+        sub_info: str | None = None
 
     class _Data(DateBaseModel):
         data: list[_SubscriptionSource]
@@ -120,8 +115,8 @@ async def query_entities():
         entity_type: _EntityType
         entity_id: str
         parent_id: str
-        entity_name: Optional[str] = None
-        entity_info: Optional[str] = None
+        entity_name: str | None = None
+        entity_info: str | None = None
 
     class _EntityFriendship(DateBaseModel):
         status: str = 'normal'
@@ -136,17 +131,17 @@ async def query_entities():
         plugin: str
         node: str
         available: int
-        value: Optional[str] = None
+        value: str | None = None
 
     class _EntityBoundMailbox(DateBaseModel):
         address: str
-        bind_info: Optional[str] = None
+        bind_info: str | None = None
 
     class _EntitySubscribed(DateBaseModel):
         sub_type: str
         sub_id: str
         sub_user_name: str
-        sub_info: Optional[str]
+        sub_info: str | None
 
     class _Entity(DateBaseModel):
         info: _EntityInfo

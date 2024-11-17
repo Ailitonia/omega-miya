@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from tkinter import Tk, StringVar, ttk, messagebox
+from tkinter import StringVar, Tk, messagebox, ttk
 
 from .data_source import BasePixivArtworkSource
 

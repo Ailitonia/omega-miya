@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from nonebot.internal.adapter import Message as BaseMessage
     from nonebot.internal.adapter import MessageSegment as BaseMessageSegment
 
+    from ...message import Message as OmegaMessage
+
 
 class BaseMessageBuilder[SourceMessage_T: BaseMessageType[Any], TargetMessage_T: BaseMessageType[Any]](abc.ABC):
     """中间件消息构造器: 通过转化消息类构造其他平台消息"""

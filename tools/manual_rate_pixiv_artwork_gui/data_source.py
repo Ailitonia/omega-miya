@@ -13,16 +13,17 @@ import asyncio
 import inspect
 import re
 import threading
+from collections.abc import Callable, Coroutine
 from datetime import datetime
 from functools import wraps
 from tkinter import Tk, filedialog, simpledialog
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, IO, Self, Union, cast
+from typing import IO, TYPE_CHECKING, Any, Self, cast
 
 from PIL import Image, ImageTk
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-from src.compat import parse_json_as, dump_json_as
+from src.compat import dump_json_as, parse_json_as
 from src.resource import AnyResource, TemporaryResource
 from src.service.artwork_collection import PixivArtworkCollection
 from .model import CustomImportArtwork
@@ -30,12 +31,13 @@ from .model import CustomImportArtwork
 if TYPE_CHECKING:
     from os import PathLike
     from tkinter.ttk import Entry, Label
+
     from src.database.internal.artwork_collection import ArtworkCollection as DBArtworkCollection
 
-type SourceOpenFp = Union[str, bytes, PathLike[str], PathLike[str], IO[bytes]]
+type SourceOpenFp = str | bytes | PathLike[str] | PathLike[str] | IO[bytes]
 
 
-class OutputPath(object):
+class OutputPath:
     TMP_DIR = TemporaryResource('manual_rate_pixiv_artwork')
 
     def __init__(self, working_name: str):
@@ -128,9 +130,9 @@ class BasePixivArtworkSource(abc.ABC):
 
     async def _load_current(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
             *,
             rs_width: int = 1024,
             rs_height: int = 768,
@@ -159,9 +161,9 @@ class BasePixivArtworkSource(abc.ABC):
     @_run_in_async_event_loop
     async def load_current(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
             *,
             rs_width: int = 1024,
             rs_height: int = 768,
@@ -184,9 +186,9 @@ class BasePixivArtworkSource(abc.ABC):
     @_run_in_async_event_loop
     async def _select_current(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         """选择开始时的目标作品, 初始化工作目录"""
         await self._select_current_source()
@@ -195,18 +197,18 @@ class BasePixivArtworkSource(abc.ABC):
 
     def select_current(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         """选择开始时的目标作品, 初始化工作目录, 并在输出控件中显示作品位置"""
         self._select_current(image_label, show_current_entry, show_remaining_entry)
 
     async def next_image_async(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         """异步加载待处理作品列表中的下一个作品, 刷新控件显示"""
         if self._remaining_source:
@@ -215,9 +217,9 @@ class BasePixivArtworkSource(abc.ABC):
 
     def next_image(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         """加载待处理作品列表中的下一个作品, 刷新控件显示"""
         if self._remaining_source:
@@ -249,9 +251,9 @@ class BasePixivArtworkSource(abc.ABC):
     async def _set_current(
             self,
             rating: int,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
             *,
             classification: int = 3,
     ) -> None:
@@ -279,49 +281,49 @@ class BasePixivArtworkSource(abc.ABC):
 
     def set_current_general(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         self._set_current(0, image_label, show_current_entry, show_remaining_entry)
 
     def set_current_sensitive(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         self._set_current(1, image_label, show_current_entry, show_remaining_entry)
 
     def set_current_questionable(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         self._set_current(2, image_label, show_current_entry, show_remaining_entry)
 
     def set_current_explicit(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         self._set_current(3, image_label, show_current_entry, show_remaining_entry)
 
     def set_current_reset(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         self._set_current(-1, image_label, show_current_entry, show_remaining_entry, classification=0)
 
     def set_current_ignored(
             self,
-            image_label: "Label",
-            show_current_entry: "Entry",
-            show_remaining_entry: "Entry",
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
     ) -> None:
         self._set_current(-1, image_label, show_current_entry, show_remaining_entry, classification=-2)
 
@@ -398,7 +400,7 @@ class BaseDatabasePixivArtworkSource(BasePixivArtworkSource, abc.ABC):
         return 'database_pixiv_artwork'
 
     @abc.abstractmethod
-    async def query_some_artworks_from_database(self) -> list["DBArtworkCollection"]:
+    async def query_some_artworks_from_database(self) -> list['DBArtworkCollection']:
         """从数据库中获取作品的条件方法"""
         raise NotImplementedError
 
@@ -434,7 +436,7 @@ class NonRatingPixivArtworkSource(BaseDatabasePixivArtworkSource):
     def title_name(self) -> str:
         return '数据库中未分级作品'
 
-    async def query_some_artworks_from_database(self) -> list["DBArtworkCollection"]:
+    async def query_some_artworks_from_database(self) -> list['DBArtworkCollection']:
         return await PixivArtworkCollection.query_by_condition(
             keywords=None, num=200,
             allow_classification_range=(-1, 0), allow_rating_range=(-1, 3),
@@ -489,7 +491,7 @@ class RecommendPixivArtworkSource(BaseCustomPixivArtworkSource):
     async def query_some_artworks(self) -> list[int]:
         from src.utils.pixiv_api.pixiv import PixivCommon
 
-        logger.info(f'正在从 Pixiv 发现/推荐获取作品来源, 请稍候')
+        logger.info('正在从 Pixiv 发现/推荐获取作品来源, 请稍候')
         discovery_result = await PixivCommon.query_discovery_artworks()
         top_result = await PixivCommon.query_top_illust()
         aids = [str(x) for x in (discovery_result.recommend_pids + top_result.recommend_pids)]

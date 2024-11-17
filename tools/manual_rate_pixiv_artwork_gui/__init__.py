@@ -9,10 +9,10 @@
 """
 
 from .data_source import (
+    ArtworkRecommendPixivArtworkSource,
     LocalPixivArtworkSource,
     NonRatingPixivArtworkSource,
     RecommendPixivArtworkSource,
-    ArtworkRecommendPixivArtworkSource,
     SearchPopularPixivArtworkSource,
 )
 from .ui_main import ManualRatingPixivArtworkMain
