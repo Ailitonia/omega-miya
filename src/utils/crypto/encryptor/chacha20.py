@@ -11,17 +11,16 @@
 import base64
 from hashlib import shake_128
 from os import urandom
-from typing import Optional
 
 from Crypto.Cipher import ChaCha20, ChaCha20_Poly1305
 
 from ..config import encrypt_config
 
 
-class ChaCha20Encryptor(object):
+class ChaCha20Encryptor:
     """ChaCha20 加解密工具集"""
 
-    def __init__(self, key: Optional[str] = None) -> None:
+    def __init__(self, key: str | None = None) -> None:
         if key is None:
             key = encrypt_config.omega_aes_key.get_secret_value()
 

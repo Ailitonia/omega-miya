@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from lxml.etree import _Element
 
 
-class Comic18Parser(object):
+class Comic18Parser:
     """Comic18 解析工具"""
     def __init__(self, root_url: str):
         self.root_url = root_url
@@ -40,7 +40,7 @@ class Comic18Parser(object):
         script_text = html.xpath('/html/body/script').pop(0).text
         return script_text[script_text.index('"')+1:script_text.rindex('"')]
 
-    def _parse_query_albums_container(self, container: "_Element") -> AlbumsResult:
+    def _parse_query_albums_container(self, container: '_Element') -> AlbumsResult:
         relative_url = container.xpath('div[contains(@class, "thumb-overlay")]/a').pop(0).attrib.get('href')
         url = f'{self.root_url}{relative_url}'
         aid = relative_url.split('/')[2]
@@ -89,7 +89,7 @@ class Comic18Parser(object):
 
         return results
 
-    def _parse_search_photos_container(self, container: "_Element") -> AlbumsResult:
+    def _parse_search_photos_container(self, container: '_Element') -> AlbumsResult:
         relative_url = container.xpath('a').pop(0).attrib.get('href')
         url = f'{self.root_url}{relative_url}'
         aid = relative_url.split('/')[2]
@@ -244,16 +244,16 @@ class Comic18ImgOps(ImageUtils):
         elif album_id < 268850:
             split_num = 10
         elif album_id < 421926:
-            split_seed = md5(f'{album_id}{page_index_str}'.encode('utf-8')).hexdigest()
+            split_seed = md5(f'{album_id}{page_index_str}'.encode()).hexdigest()
             split_num = (ord(split_seed[-1]) % 10) * 2 + 2
         else:
-            split_seed = md5(f'{album_id}{page_index_str}'.encode('utf-8')).hexdigest()
+            split_seed = md5(f'{album_id}{page_index_str}'.encode()).hexdigest()
             split_num = (ord(split_seed[-1]) % 8) * 2 + 2
 
         return split_num
 
     @run_sync
-    def reverse_segmental_image(self, album_id: int, page_id: str) -> "Comic18ImgOps":
+    def reverse_segmental_image(self, album_id: int, page_id: str) -> 'Comic18ImgOps':
         """对被分割图片进行重新排序"""
         split_num = self.get_split_num(album_id=album_id, page_id=page_id)
         if split_num <= 1:

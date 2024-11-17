@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 from lxml import etree
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -58,7 +58,7 @@ class _UserData(WeiboBaseModel):
     profile_ext: str
     scheme: AnyUrl
     showAppTips: int
-    tabsInfo: Optional[dict] = None
+    tabsInfo: dict | None = None
     userInfo: WeiboUserBase
 
 
@@ -100,26 +100,26 @@ class _MblogPic(WeiboBaseModel):
 class _PagePic(WeiboBaseModel):
     """page_info.page_pic model"""
     url: AnyUrl
-    pid: Optional[str] = None
-    source: Optional[int] = None
-    is_self_cover: Optional[int] = None
-    type: Optional[int] = None
-    width: Optional[int | str] = None
-    height: Optional[int | str] = None
+    pid: str | None = None
+    source: int | None = None
+    is_self_cover: int | None = None
+    type: int | None = None
+    width: int | str | None = None
+    height: int | str | None = None
 
 
 class _PageInfo(WeiboBaseModel):
     """page_info model"""
     type: str
-    object_type: Optional[str] = None
+    object_type: str | None = None
     page_pic: _PagePic
-    page_url: Optional[AnyUrl] = None
-    page_title: Optional[str] = None
-    title: Optional[str] = None
-    content1: Optional[str] = None
-    content2: Optional[str] = None
-    url_ori: Optional[AnyUrl] = None
-    object_id: Optional[str] = None
+    page_url: AnyUrl | None = None
+    page_title: str | None = None
+    title: str | None = None
+    content1: str | None = None
+    content2: str | None = None
+    url_ori: AnyUrl | None = None
+    object_id: str | None = None
 
     @property
     def pic_url(self) -> AnyUrl:
@@ -133,19 +133,19 @@ class _WeiboCardMbLog(WeiboBaseModel):
     id: int
     mid: str
     can_edit: bool
-    show_additional_indication: Optional[int] = None
+    show_additional_indication: int | None = None
     text: str
-    textLength: Optional[int] = None
+    textLength: int | None = None
     source: str
     favorited: bool
     pic_ids: list[str]
-    thumbnail_pic: Optional[AnyUrl] = None
-    bmiddle_pic: Optional[AnyUrl] = None
-    original_pic: Optional[AnyUrl] = None
+    thumbnail_pic: AnyUrl | None = None
+    bmiddle_pic: AnyUrl | None = None
+    original_pic: AnyUrl | None = None
     is_paid: bool
     mblog_vip_type: int
     user: WeiboUserBase
-    retweeted_status: Optional["_WeiboCardMbLog"] = None
+    retweeted_status: Optional['_WeiboCardMbLog'] = None
     reposts_count: int
     comments_count: int
     reprint_cmt_count: int
@@ -154,21 +154,21 @@ class _WeiboCardMbLog(WeiboBaseModel):
     isLongText: bool
     mlevel: int
     show_mlevel: int
-    darwin_tags: Optional[list] = None
-    hot_page: Optional[dict] = None
-    mblogtype: Optional[int] = None
-    rid: Optional[str] = None
-    extern_safe: Optional[int] = None
-    number_display_strategy: Optional[dict] = None
-    content_auth: Optional[int] = None
-    comment_manage_info: Optional[dict] = None
+    darwin_tags: list | None = None
+    hot_page: dict | None = None
+    mblogtype: int | None = None
+    rid: str | None = None
+    extern_safe: int | None = None
+    number_display_strategy: dict | None = None
+    content_auth: int | None = None
+    comment_manage_info: dict | None = None
     pic_num: int
-    new_comment_style: Optional[int] = None
-    region_name: Optional[str] = None
-    region_opt: Optional[int] = None
-    page_info: Optional[_PageInfo] = None
-    edit_config: Optional[dict] = None
-    pics: Optional[list[_MblogPic]] = None
+    new_comment_style: int | None = None
+    region_name: str | None = None
+    region_opt: int | None = None
+    page_info: _PageInfo | None = None
+    edit_config: dict | None = None
+    pics: list[_MblogPic] | None = None
     bid: str
 
     @field_validator('text')
@@ -220,9 +220,9 @@ class WeiboCard(WeiboBaseModel):
     """单条微博内容(data.cards.card model)"""
     card_type: str
     mblog: _WeiboCardMbLog
-    itemid: Optional[str] = None
-    profile_type_id: Optional[str] = None
-    scheme: Optional[str] = None
+    itemid: str | None = None
+    profile_type_id: str | None = None
+    scheme: str | None = None
 
 
 class _CardListInfo(WeiboBaseModel):
@@ -284,53 +284,53 @@ class _HotCardlistInfo(WeiboBaseModel):
     """realtime hot data.cardlistInfo"""
     starttime: int
     can_shared: int
-    cardlist_menus: Optional[list] = None
+    cardlist_menus: list | None = None
     config: dict
     page_type: str
     cardlist_head_cards: list[dict]
-    enable_load_imge_scrolling: Optional[int] = None
+    enable_load_imge_scrolling: int | None = None
     nick: str
     page_title: str
     search_request_id: str
     v_p: str
     containerid: str
     refresh_configs: dict
-    headbg_animation: Optional[str] = None
+    headbg_animation: str | None = None
     total: int
     page_size: int
     select_id: str
     title_top: str
     show_style: int
-    page: Optional[int] = None
+    page: int | None = None
 
 
 class _HotCardGroup(WeiboBaseModel):
     """realtime hot data.cards.card_group"""
     card_type: int
-    icon: Optional[AnyUrl] = None
-    icon_height: Optional[int] = None
-    icon_width: Optional[int] = None
-    itemid: Optional[str] = None
-    pic: Optional[AnyUrl] = None
-    desc: Optional[str] = None
-    desc_extr: Optional[str] = None
-    actionlog: Optional[dict] = None
+    icon: AnyUrl | None = None
+    icon_height: int | None = None
+    icon_width: int | None = None
+    itemid: str | None = None
+    pic: AnyUrl | None = None
+    desc: str | None = None
+    desc_extr: str | None = None
+    actionlog: dict | None = None
     scheme: AnyUrl
-    display_arrow: Optional[int] = None
-    is_show_arrow: Optional[int] = None
-    left_tag_img: Optional[AnyUrl] = None
-    title: Optional[str] = None
-    title_sub: Optional[str] = None
-    sub_title: Optional[str] = None
+    display_arrow: int | None = None
+    is_show_arrow: int | None = None
+    left_tag_img: AnyUrl | None = None
+    title: str | None = None
+    title_sub: str | None = None
+    sub_title: str | None = None
 
 
 class WeiboRealtimeHotCard(WeiboBaseModel):
     """realtime hot data.cards"""
-    itemid: Optional[str] = None
+    itemid: str | None = None
     card_group: list[_HotCardGroup]
     show_type: int
     card_type: int
-    title: Optional[str] = None
+    title: str | None = None
 
 
 class _RealtimeHotData(WeiboBaseModel):

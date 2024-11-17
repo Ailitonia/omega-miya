@@ -11,7 +11,6 @@
 from .pixiv import PixivArtwork, PixivCommon, PixivUser
 from .pixivision import Pixivision
 
-
 __all__ = [
     'PixivArtwork',
     'PixivCommon',

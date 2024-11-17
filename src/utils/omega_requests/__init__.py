@@ -10,7 +10,6 @@
 
 from .requests import OmegaRequests
 
-
 __all__ = [
     'OmegaRequests',
 ]

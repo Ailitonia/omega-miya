@@ -32,7 +32,7 @@ class Iqdb(BaseImageSearcherAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         headers = cls._get_omega_requests_default_headers()
         headers.update({
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
@@ -49,7 +49,7 @@ class Iqdb(BaseImageSearcherAPI):
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     @staticmethod
@@ -69,7 +69,7 @@ class Iqdb(BaseImageSearcherAPI):
                     thumbnail = row.xpath('tr/td[@class="image"]/a/img').pop(0).attrib.get('src')
                     urls = [
                         f'https:{url}' if url.startswith('//') else url
-                        for url in (x.attrib.get("href") for x in row.xpath('tr/td//a'))
+                        for url in (x.attrib.get('href') for x in row.xpath('tr/td//a'))
                     ]
                     similarity = row.xpath('tr[last()]/td').pop(0).text
                     result.append({

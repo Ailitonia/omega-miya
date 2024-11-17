@@ -10,7 +10,7 @@
 
 import re
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from urllib.parse import quote
 
 from pydantic import ValidationError
@@ -19,22 +19,22 @@ from src.exception import WebSourceException
 from .api_base import BasePixivAPI
 from .helper import PixivParser
 from .model import (
+    PixivArtworkCompleteDataModel,
     PixivArtworkDataModel,
     PixivArtworkPageModel,
-    PixivArtworkUgoiraMeta,
-    PixivArtworkCompleteDataModel,
     PixivArtworkRecommendModel,
+    PixivArtworkUgoiraMeta,
+    PixivBookmark,
+    PixivDiscoveryModel,
+    PixivFollowLatestIllust,
+    PixivGlobalData,
     PixivRankingModel,
     PixivSearchingResultModel,
-    PixivDiscoveryModel,
     PixivTopModel,
-    PixivGlobalData,
-    PixivUserDataModel,
     PixivUserArtworkDataModel,
+    PixivUserDataModel,
     PixivUserModel,
     PixivUserSearchingModel,
-    PixivFollowLatestIllust,
-    PixivBookmark
 )
 
 
@@ -223,7 +223,7 @@ class PixivArtwork(PixivCommon):
         self.recommend_url = f'{self.data_url}/recommend/init'
 
         # 实例缓存
-        self.artwork_model: Optional[PixivArtworkCompleteDataModel] = None
+        self.artwork_model: PixivArtworkCompleteDataModel | None = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(pid={self.pid})'
@@ -365,7 +365,7 @@ class PixivUser(PixivCommon):
         self.profile_url = f'{self._get_root_url()}/ajax/user/{uid}/profile/all'
 
         # 实例缓存
-        self.user_model: Optional[PixivUserModel] = None
+        self.user_model: PixivUserModel | None = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(uid={self.uid})'

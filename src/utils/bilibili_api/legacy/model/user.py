@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
+
 from .base_model import BaseBilibiliModel
 
 
@@ -35,14 +35,14 @@ class BilibiliUserDataModel(BaseBilibiliModel):
     sign: str
     level: int
     top_photo: AnyHttpUrl
-    live_room: Optional[BilibiliUserLiveRoom] = None
+    live_room: BilibiliUserLiveRoom | None = None
     is_senior_member: int
 
 
 class BilibiliUserModel(BaseBilibiliModel):
     """Bilibili 用户 Model"""
     code: int
-    data: Optional[BilibiliUserDataModel] = None
+    data: BilibiliUserDataModel | None = None
     message: str
 
     @property

@@ -9,34 +9,34 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.compat import parse_obj_as
 from src.utils import BaseCommonAPI
 from .models.danbooru import (
     Artist,
     ArtistCommentary,
-    Note,
-    Pool,
-    Post,
-    Wiki,
-    ArtistVersion,
     ArtistCommentaryVersion,
-    NoteVersion,
-    PoolVersion,
-    PostVersion,
-    WikiPageVersion,
+    ArtistVersion,
     Comment,
     Dmail,
     ForumPost,
     ForumTopic,
+    Note,
+    NoteVersion,
+    Pool,
+    PoolVersion,
+    Post,
     PostAppeal,
     PostFlag,
+    PostVersion,
     Tag,
     TagAlias,
     TagImplication,
     Upload,
     User,
+    Wiki,
+    WikiPageVersion,
 )
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     """Danbooru API 基类, 文档见 https://danbooru.donmai.us/wiki_pages/help:api"""
 
-    def __init__(self, *, username: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, *, username: str | None = None, api_key: str | None = None):
         self.__username = username
         self.__api_key = api_key
 
@@ -66,17 +66,17 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
         return False
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     async def get_json(
             self,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: dict[str, Any] | None = None,
     ) -> Any:
         """使用 GET 方法请求 API, 返回 json 内容"""
         if isinstance(params, dict):
@@ -89,7 +89,7 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def get_resource_as_bytes(
             self,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 30,
     ) -> bytes:
@@ -98,7 +98,7 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def get_resource_as_text(
             self,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 10,
     ) -> str:
@@ -106,8 +106,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
 
     @staticmethod
     def generate_common_search_params(
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> dict[str, Any]:
         """全站通用搜索参数"""
@@ -129,8 +129,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def artists_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Artist]:
         """Show artists index"""
@@ -156,8 +156,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def artist_commentaries_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[ArtistCommentary]:
         """Show artist commentaries index"""
@@ -177,8 +177,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def notes_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Note]:
         """Show notes index"""
@@ -198,8 +198,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def pools_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Pool]:
         """Show pools index"""
@@ -219,8 +219,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def posts_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Post]:
         """Show posts index"""
@@ -277,8 +277,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def wikis_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Wiki]:
         """Show wikis index"""
@@ -298,8 +298,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def artist_versions_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[ArtistVersion]:
         """Show artist versions index"""
@@ -319,8 +319,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def artist_commentary_versions_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[ArtistCommentaryVersion]:
         """Show artist commentary versions index"""
@@ -340,8 +340,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def note_versions_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[NoteVersion]:
         """Show note versions index"""
@@ -361,8 +361,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def pool_versions_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[PoolVersion]:
         """Show pool versions index"""
@@ -376,8 +376,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def post_versions_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[PostVersion]:
         """Show post versions index"""
@@ -391,8 +391,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def wiki_page_versions_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[WikiPageVersion]:
         """Show wiki page versions index"""
@@ -406,8 +406,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def comments_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Comment]:
         """Show comments index"""
@@ -427,8 +427,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def dmails_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Dmail]:
         """Show dmails index"""
@@ -437,7 +437,7 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
         params = self.generate_common_search_params(page=page, limit=limit, **search_kwargs)
         return parse_obj_as(list[Dmail], await self.get_json(url=index_url, params=params))
 
-    async def dmail_show(self, id_: int, key: Optional[str] = None) -> Dmail:
+    async def dmail_show(self, id_: int, key: str | None = None) -> Dmail:
         """Show dmail data"""
         url = f'{self._get_root_url()}/dmails/{id_}.json'
 
@@ -449,8 +449,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def forum_posts_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[ForumPost]:
         """Show forum posts index"""
@@ -470,8 +470,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def forum_topics_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[ForumTopic]:
         """Show forum topics index"""
@@ -491,8 +491,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def post_appeals_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[PostAppeal]:
         """Show post appeals index"""
@@ -512,8 +512,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def post_flags_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[PostFlag]:
         """Show post flags index"""
@@ -533,8 +533,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def tags_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Tag]:
         """Show tags index"""
@@ -554,8 +554,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def tag_aliases_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[TagAlias]:
         """Show tag aliases index"""
@@ -575,8 +575,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def tag_implications_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[TagImplication]:
         """Show tag implications index"""
@@ -596,8 +596,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def uploads_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[Upload]:
         """Show uploads index"""
@@ -617,8 +617,8 @@ class BaseDanbooruAPI(BaseCommonAPI, abc.ABC):
     async def users_index(
             self,
             *,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
+            page: int | None = None,
+            limit: int | None = None,
             **search_kwargs
     ) -> list[User]:
         """Show users index"""

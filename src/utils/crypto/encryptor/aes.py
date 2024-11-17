@@ -11,7 +11,7 @@
 import base64
 from hashlib import shake_128
 from os import urandom
-from typing import Literal, Optional
+from typing import Literal
 
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -19,14 +19,14 @@ from Crypto.Util.Padding import pad, unpad
 from ..config import encrypt_config
 
 
-class AESEncryptor(object):
+class AESEncryptor:
     """AES 加解密工具集"""
 
     def __init__(
             self,
-            key: Optional[str] = None,
+            key: str | None = None,
             *,
-            version: Optional[Literal['AES-128', 'AES-192', 'AES-256']] = None,
+            version: Literal['AES-128', 'AES-192', 'AES-256'] | None = None,
     ) -> None:
         if key is None:
             key = encrypt_config.omega_aes_key.get_secret_value()

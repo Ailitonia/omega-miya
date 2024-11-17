@@ -19,8 +19,8 @@ from .model import (
     WeiboCards,
     WeiboCardStatus,
     WeiboExtend,
-    WeiboRealtimeHotCard,
     WeiboRealtimeHot,
+    WeiboRealtimeHotCard,
     WeiboUserBase,
     WeiboUserInfo,
 )
@@ -64,7 +64,7 @@ class Weibo(BaseCommonAPI):
             *,
             subdir: str | None = None,
             ignore_exist_file: bool = False
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         return await cls._download_resource(
             save_folder=weibo_resource_config.default_download_folder,

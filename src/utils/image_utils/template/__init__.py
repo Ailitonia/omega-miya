@@ -8,9 +8,8 @@
 @Software       : PyCharm 
 """
 
-from .model import PreviewImageThumbs, PreviewImageModel
+from .model import PreviewImageModel, PreviewImageThumbs
 from .template_preview import generate_thumbs_preview_image
-
 
 __all__ = [
     'PreviewImageThumbs',

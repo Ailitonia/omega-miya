@@ -12,7 +12,7 @@ import time
 import urllib.parse
 from functools import reduce
 from hashlib import md5
-from typing import Any, Optional
+from typing import Any
 
 from ..models import WebInterfaceNav
 
@@ -29,7 +29,7 @@ def get_mixin_key(orig: str) -> str:
     return reduce(lambda s, i: s + orig[i], __MIXIN_KEY_ENC_TAB, '')[:32]
 
 
-def enc_wbi(params: Optional[dict[str, Any]], img_key: str, sub_key: str) -> dict[str, Any]:
+def enc_wbi(params: dict[str, Any] | None, img_key: str, sub_key: str) -> dict[str, Any]:
     """为请求参数进行 wbi 签名"""
     mixin_key = get_mixin_key(img_key + sub_key)
     curr_time = round(time.time())
@@ -57,12 +57,12 @@ def extract_key_from_wbi_image(url: Any) -> str:
     return str(url).rsplit('/', 1)[-1].split('.')[0]
 
 
-def sign_wbi_params(params: Optional[dict[str, Any]], img_key: str, sub_key: str) -> dict[str, Any]:
+def sign_wbi_params(params: dict[str, Any] | None, img_key: str, sub_key: str) -> dict[str, Any]:
     """使用 img_key 与 sub_key 数据签名请求参数"""
     return enc_wbi(params=params, img_key=img_key, sub_key=sub_key)
 
 
-def sign_wbi_params_nav(nav_data: WebInterfaceNav, params: Optional[dict[str, Any]]) -> dict[str, Any]:
+def sign_wbi_params_nav(nav_data: WebInterfaceNav, params: dict[str, Any] | None) -> dict[str, Any]:
     """使用 WebInterfaceNav 原始数据签名请求参数"""
     img_key = extract_key_from_wbi_image(url=nav_data.data.wbi_img.img_url)
     sub_key = extract_key_from_wbi_image(url=nav_data.data.wbi_img.sub_url)

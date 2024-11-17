@@ -12,9 +12,9 @@ import base64
 import random
 from copy import deepcopy
 from io import BytesIO
-from typing import Literal, Optional, Self
+from typing import Literal, Self
 
-from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
@@ -22,7 +22,7 @@ from src.utils import OmegaRequests
 from .config import image_utils_config
 
 
-class ImageUtils(object):
+class ImageUtils:
     def __init__(self, image: Image.Image):
         self._image: Image.Image = image
 
@@ -104,9 +104,9 @@ class ImageUtils(object):
         # 初始化背景图层
         image_height = text_height + int(image_width * 0.25)
         if alpha:
-            background = Image.new(mode="RGBA", size=(image_width, image_height), color=(255, 255, 255, 0))
+            background = Image.new(mode='RGBA', size=(image_width, image_height), color=(255, 255, 255, 0))
         else:
-            background = Image.new(mode="RGB", size=(image_width, image_height), color=(255, 255, 255))
+            background = Image.new(mode='RGB', size=(image_width, image_height), color=(255, 255, 255))
         # 绘制文字
         ImageDraw.Draw(background).multiline_text(
             xy=(int(image_width * 0.115), int(image_width * 0.115)),
@@ -122,7 +122,7 @@ class ImageUtils(object):
             text: str,
             font: ImageFont.FreeTypeFont,
             *,
-            anchor: Optional[str] = None,
+            anchor: str | None = None,
             spacing: int = 4,
             stroke_width: int = 0,
             **kwargs
@@ -358,7 +358,7 @@ class ImageUtils(object):
         image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
 
         box = (int(width * (1 - scale) / 2)), int(height * (1 - scale) / 2)
-        background = Image.new(mode="RGBA", size=(width, height), color=edge_color)
+        background = Image.new(mode='RGBA', size=(width, height), color=edge_color)
         background.paste(image, box=box, mask=image)
 
         self._image = background
@@ -381,7 +381,7 @@ class ImageUtils(object):
 
         image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
         box = (int(abs(width * scale - rs_width) / 2), int(abs(height * scale - rs_height) / 2))
-        background = Image.new(mode="RGBA", size=size, color=background_color)
+        background = Image.new(mode='RGBA', size=size, color=background_color)
         background.paste(image, box=box, mask=image)
 
         self._image = background
@@ -404,7 +404,7 @@ class ImageUtils(object):
         image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
 
         box = (- int(abs(width * scale - rs_width) / 2), - int(abs(height * scale - rs_height) / 2))
-        background = Image.new(mode="RGBA", size=size, color=background_color)
+        background = Image.new(mode='RGBA', size=size, color=background_color)
         background.paste(image, box=box, mask=image)
 
         self._image = background

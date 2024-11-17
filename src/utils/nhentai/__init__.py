@@ -11,7 +11,6 @@
 
 from .main import NhentaiGallery
 
-
 __all__ = [
     'NhentaiGallery'
 ]

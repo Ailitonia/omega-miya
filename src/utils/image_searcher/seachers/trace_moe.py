@@ -8,11 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
+from src.compat import AnyUrlStr as AnyUrl
+from src.compat import parse_obj_as
 from src.utils import semaphore_gather
 from ..model import BaseImageSearcherAPI, ImageSearchingResult
 
@@ -47,9 +48,9 @@ class AnilistResult(BaseModel):
 
             class _Title(BaseModel):
                 native: str
-                romaji: Optional[str] = None
-                english: Optional[str] = None
-                chinese: Optional[str] = None
+                romaji: str | None = None
+                english: str | None = None
+                chinese: str | None = None
 
             id: int
             title: _Title
@@ -80,7 +81,7 @@ class TraceMoe(BaseImageSearcherAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         headers = cls._get_omega_requests_default_headers()
         headers.update({
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;'
@@ -89,7 +90,7 @@ class TraceMoe(BaseImageSearcherAPI):
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     @property
@@ -111,7 +112,7 @@ class TraceMoe(BaseImageSearcherAPI):
     def anilist_api_query(self) -> str:
         """Anilist API 请求内容"""
 
-        return r'''
+        return r"""
         query ($id: Int) { # Define which variables will be used in the query (id)
           Media (id: $id, type: ANIME) { # Insert our variables into the query arguments (id) (type: ANIME is hard-coded in the query)
             id # you must query the id field for it to search the translated database
@@ -124,7 +125,7 @@ class TraceMoe(BaseImageSearcherAPI):
             synonyms # chinese titles will always be merged into this array
           }
         }
-        '''
+        """
 
     async def _handel_anilist_result(self, data: TraceMoeResults) -> ImageSearchingResult:
         """获取 anilist 数据"""

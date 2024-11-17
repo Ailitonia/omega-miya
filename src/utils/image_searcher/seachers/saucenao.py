@@ -8,12 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-from src.compat import AnyUrlStr as AnyUrl, parse_obj_as
+from src.compat import AnyUrlStr as AnyUrl
+from src.compat import parse_obj_as
 from ..config import image_searcher_config
 from ..model import BaseImageSearcherAPI, ImageSearchingResult
 
@@ -39,18 +40,18 @@ class SaucenaoResult(BaseSaucenaoModel):
         long_remaining: int
         status: int
         results_requested: int
-        message: Optional[str] = None
+        message: str | None = None
 
     class _Result(BaseSaucenaoModel):
 
         class _Header(BaseSaucenaoModel):
             similarity: float
-            thumbnail: Optional[AnyUrl] = None
+            thumbnail: AnyUrl | None = None
             index_id: int
             index_name: str
 
         class _BaseData(BaseSaucenaoModel):
-            ext_urls: Optional[list[AnyUrl]] = None
+            ext_urls: list[AnyUrl] | None = None
 
             @property
             def data_text(self) -> str:
@@ -64,8 +65,8 @@ class SaucenaoResult(BaseSaucenaoModel):
                 return ''
 
         class _DefaultData(_BaseData):
-            author_name: Optional[str] = None
-            author_url: Optional[str] = None
+            author_name: str | None = None
+            author_url: str | None = None
             creator: str
             creator_name: str
 
@@ -161,7 +162,7 @@ class SaucenaoResult(BaseSaucenaoModel):
                _NullData)
 
     header: _GlobalStatusHeader
-    results: Optional[list[_Result]] = None
+    results: list[_Result] | None = None
 
 
 class Saucenao(BaseImageSearcherAPI):
@@ -179,11 +180,11 @@ class Saucenao(BaseImageSearcherAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     @property

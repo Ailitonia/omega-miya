@@ -12,13 +12,14 @@ import asyncio
 import inspect
 import random
 from asyncio import Future
+from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, Literal, Optional, Sequence, overload
+from typing import Any, Literal, overload
 
 from nonebot import logger
 
 
-def run_async_delay(delay_time: float = 5, *, random_sigma: Optional[float] = None):
+def run_async_delay(delay_time: float = 5, *, random_sigma: float | None = None):
     """一个用于包装 async function 使其延迟运行的装饰器
 
     :param delay_time: 延迟的时间, 单位秒

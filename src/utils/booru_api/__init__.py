@@ -13,7 +13,6 @@ from .danbooru import DanbooruAPI
 from .gelbooru import GelbooruAPI
 from .moebooru import BehoimiAPI, KonachanAPI, KonachanSafeAPI, YandereAPI
 
-
 danbooru_api = DanbooruAPI(username=booru_config.danbooru_username, api_key=booru_config.danbooru_api_key)
 gelbooru_api = GelbooruAPI(user_id=booru_config.gelbooru_user_id, api_key=booru_config.gelbooru_api_key)
 behoimi_api = BehoimiAPI(login_name=booru_config.behoimi_login_name,

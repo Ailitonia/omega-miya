@@ -10,7 +10,8 @@
 
 import random
 import string
-from typing import TYPE_CHECKING, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
 
 from src.exception import WebSourceException
 from src.utils import BaseCommonAPI, semaphore_gather
@@ -21,14 +22,15 @@ from .helper import NhentaiParser
 from .model import (
     NhentaiDownloadResult,
     NhentaiGalleryModel,
-    NhentaiPreviewRequestModel,
     NhentaiPreviewBody,
     NhentaiPreviewModel,
+    NhentaiPreviewRequestModel,
     NhentaiSearchingResult,
 )
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, HeaderTypes
+
     from src.resource import TemporaryResource
 
 
@@ -52,13 +54,13 @@ class BaseNhentai(BaseCommonAPI):
         return False
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         headers = cls._get_omega_requests_default_headers()
         headers.update({'referer': 'https://nhentai.net/'})
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return nhentai_config.nhentai_cookies
 
     @classmethod
@@ -68,7 +70,7 @@ class BaseNhentai(BaseCommonAPI):
             *,
             folder_name: str | None = None,
             ignore_exist_file: bool = False
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         return await cls._download_resource(
             save_folder=nhentai_resource_config.default_download_folder,
@@ -161,7 +163,7 @@ class BaseNhentai(BaseCommonAPI):
             hold_ratio: bool = False,
             num_of_line: int = 6,
             limit: int = 1000
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """生成多个作品的预览图
 
         :param preview: 经过预处理的生成预览的数据
@@ -210,7 +212,7 @@ class Nhentai(BaseNhentai):
             *,
             page: int = 1,
             sort: Literal['recent', 'popular-today', 'popular-week', 'popular'] = 'recent'
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """通过关键词搜索本子id和标题并生成预览图"""
         searching_result = await cls.search_gallery(keyword=keyword, page=page, sort=sort)
         name = f'Searching - {keyword} - Page {page}'
@@ -245,7 +247,7 @@ class NhentaiGallery(Nhentai):
             raise TypeError('Query gallery model failed')
         return self.gallery_model
 
-    async def query_gallery_with_preview(self) -> "TemporaryResource":
+    async def query_gallery_with_preview(self) -> 'TemporaryResource':
         gallery_data = await self.query_gallery()
         name = f'NhentaiGallery - {gallery_data.id} - {gallery_data.title.japanese}'
         preview_request = await self.emit_preview_model_from_gallery_model(gallery_name=name, model=gallery_data)
@@ -284,7 +286,7 @@ class NhentaiGallery(Nhentai):
         download_result = await semaphore_gather(tasks=download_tasks, semaphore_num=10)
         for result in download_result:
             if isinstance(result, WebSourceException):
-                raise WebSourceException(result.status_code, f'Some page(s) download failed') from result
+                raise WebSourceException(result.status_code, 'Some page(s) download failed') from result
             elif isinstance(result, Exception):
                 raise WebSourceException(404, f'Some page(s) download failed, {result}') from result
 

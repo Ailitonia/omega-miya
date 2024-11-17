@@ -15,14 +15,14 @@ import asyncio
 import binascii
 import re
 import time
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import qrcode
 from Cryptodome.Cipher import PKCS1_OAEP
 from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from lxml import etree
-from nonebot import logger, get_driver
+from nonebot import get_driver, logger
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
@@ -30,21 +30,21 @@ from src.service import scheduler
 from .api_base import BilibiliCommon
 from .config import bilibili_config, bilibili_resource_config
 from .model import (
-    BilibiliWebInterfaceNav,
+    BilibiliWebConfirmRefreshInfo,
     BilibiliWebCookieInfo,
+    BilibiliWebCookieRefreshInfo,
+    BilibiliWebInterfaceNav,
     BilibiliWebQrcodeGenerateInfo,
     BilibiliWebQrcodePollInfo,
-    BilibiliWebCookieRefreshInfo,
-    BilibiliWebConfirmRefreshInfo
 )
 
-_PUB_KEY = RSA.importKey('''\
+_PUB_KEY = RSA.importKey("""\
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg
 Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71
 nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40
 JNrRuoEUXpabUzGB8QIDAQAB
------END PUBLIC KEY-----''')
+-----END PUBLIC KEY-----""")
 
 
 class BilibiliCredential(BilibiliCommon):
@@ -201,10 +201,10 @@ class BilibiliCredential(BilibiliCommon):
         refresh_csrf = await cls.get_refresh_csrf()
         old_refresh_token = bilibili_config.bili_ac_time_value
         params = {
-            "csrf": bilibili_config.bili_jct,
-            "refresh_csrf": refresh_csrf,
-            "refresh_token": old_refresh_token,
-            "source": "main_web",
+            'csrf': bilibili_config.bili_jct,
+            'refresh_csrf': refresh_csrf,
+            'refresh_token': old_refresh_token,
+            'source': 'main_web',
         }
 
         response = await cls._request_post(url=url, params=params, cookies=bilibili_config.bili_cookies)

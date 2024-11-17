@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -146,7 +146,7 @@ class LiveRoomSearchResult(BaseBilibiliModel):
     online: int
     rank_index: int
     rank_score: int
-    attentions: Optional[int] = Field(default=None)
+    attentions: int | None = Field(default=None)
     hit_columns: list[str]
 
 
@@ -224,7 +224,7 @@ class _Res(BaseBilibiliModel):
     fav: int
     desc: str
     duration: str
-    is_pay: Optional[int] = Field(default=None)
+    is_pay: int | None = Field(default=None)
     is_union_video: int
 
 
@@ -282,18 +282,7 @@ type SearchType = Literal[
     'photo',
 ]
 
-type AllSearchResultType = Union[
-    ActivitySearchResult,
-    WebGameSearchResult,
-    VideoSearchResult,
-    MediaSearchResult,
-    LiveRoomSearchResult,
-    LiveUserSearchResult,
-    ArticleSearchResult,
-    TopicSearchResult,
-    UserSearchResult,
-    PhotoSearchResult,
-]
+type AllSearchResultType = ActivitySearchResult | WebGameSearchResult | VideoSearchResult | MediaSearchResult | LiveRoomSearchResult | LiveUserSearchResult | ArticleSearchResult | TopicSearchResult | UserSearchResult | PhotoSearchResult
 
 
 class _PageInfoCount(BaseBilibiliModel):

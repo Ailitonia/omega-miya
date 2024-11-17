@@ -18,7 +18,7 @@ from .model.pixivision import PixivisionArticle, PixivisionIllustrationList
 from .model.user import PixivGlobalData, PixivUserSearchingModel
 
 
-class PixivParser(object):
+class PixivParser:
     """Pixiv 页面解析工具集"""
 
     @staticmethod

@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from .bilibili import BilibiliUser, BilibiliDynamic, BilibiliLiveRoom
+from .bilibili import BilibiliDynamic, BilibiliLiveRoom, BilibiliUser
 from .credential_helpers import BilibiliCredential
 
 __all__ = [

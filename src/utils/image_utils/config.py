@@ -9,6 +9,7 @@
 """
 
 from dataclasses import dataclass
+
 from src.resource import StaticResource, TemporaryResource
 
 

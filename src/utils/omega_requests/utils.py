@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from nonebot import get_plugin_config, logger
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -20,12 +20,12 @@ class CloudflareClearanceModel(BaseModel):
 
 class DomainCloudflareClearanceCookies(CloudflareClearanceModel):
     cf_clearance: str
-    cf_bm: Optional[str] = Field(None, alias='__cf_bm')
-    cflb: Optional[str] = Field(None, alias='__cflb')
+    cf_bm: str | None = Field(None, alias='__cf_bm')
+    cflb: str | None = Field(None, alias='__cflb')
 
 
 class DomainCloudflareClearanceHeaders(CloudflareClearanceModel):
-    user_agent: Optional[str] = Field(None, alias='User-Agent')
+    user_agent: str | None = Field(None, alias='User-Agent')
 
 
 class DomainCloudflareClearance(CloudflareClearanceModel):
@@ -43,7 +43,7 @@ class DomainCloudflareClearance(CloudflareClearanceModel):
 
 class CloudflareClearanceConfig(CloudflareClearanceModel):
     """Cloudflare Clearance 配置"""
-    cloudflare_clearance_config: list[DomainCloudflareClearance] = []
+    cloudflare_clearance_config: list[DomainCloudflareClearance] = Field(default_factory=list)
 
     @property
     def _config_map(self) -> dict[str, DomainCloudflareClearance]:

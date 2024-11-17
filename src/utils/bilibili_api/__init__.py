@@ -10,7 +10,6 @@
 
 from .legacy import BilibiliCredential, BilibiliDynamic, BilibiliLiveRoom, BilibiliUser
 
-
 __all__ = [
     'BilibiliCredential',
     'BilibiliDynamic',

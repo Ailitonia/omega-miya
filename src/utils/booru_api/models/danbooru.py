@@ -10,7 +10,7 @@
 
 from datetime import datetime
 from enum import IntEnum, StrEnum, unique
-from typing import Any, Literal, Optional, Union, TypeVar
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, IPvAnyNetwork
 
@@ -67,7 +67,7 @@ class Pool(BaseDanbooruModel):
     post_ids: list[int]
     category: Literal['series', 'collection']
     is_deleted: bool
-    is_active: Optional[bool] = None  # unused
+    is_active: bool | None = None  # unused
     created_at: datetime
     updated_at: datetime
 
@@ -103,31 +103,24 @@ class PostVariantTypeOriginal(PostVariant):
     type: Literal['original']
 
 
-type PostVariantTypes = Union[
-    PostVariantType180,
-    PostVariantType360,
-    PostVariantType720,
-    PostVariantTypeSample,
-    PostVariantTypeFull,
-    PostVariantTypeOriginal
-]
+type PostVariantTypes = PostVariantType180 | PostVariantType360 | PostVariantType720 | PostVariantTypeSample | PostVariantTypeFull | PostVariantTypeOriginal
 
 PostVariant_T = TypeVar('PostVariant_T', bound=PostVariant)
 
 
 class PostMediaAsset(BaseDanbooruModel):
     id: int
-    md5: Optional[str] = None
-    file_key: Optional[str] = None
+    md5: str | None = None
+    file_key: str | None = None
     file_ext: str
     file_size: int
     image_width: int
     image_height: int
-    duration: Optional[Any] = None
+    duration: Any | None = None
     status: str
     is_public: bool
     pixel_hash: str
-    variants: Optional[list[PostVariantTypes]] = None
+    variants: list[PostVariantTypes] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -169,7 +162,7 @@ class PostMediaAsset(BaseDanbooruModel):
 class Post(BaseDanbooruModel):
     id: int
     uploader_id: int
-    approver_id: Optional[int]
+    approver_id: int | None
     is_banned: bool
     is_deleted: bool
     is_flagged: bool
@@ -185,8 +178,8 @@ class Post(BaseDanbooruModel):
     tag_count_copyright: int
     tag_count_character: int
     tag_count_meta: int
-    rating: Optional[Literal['g', 's', 'q', 'e']]  # includes [g, s, q, e]
-    parent_id: Optional[int]
+    rating: Literal['g', 's', 'q', 'e'] | None  # includes [g, s, q, e]
+    parent_id: int | None
     has_children: bool
     has_active_children: bool
     has_visible_children: bool
@@ -194,18 +187,18 @@ class Post(BaseDanbooruModel):
     image_width: int
     image_height: int
     source: str
-    md5: Optional[str] = None  # some image need Gold+ account
-    file_url: Optional[str] = None  # some image need Gold+ account
-    large_file_url: Optional[str] = None  # some image need Gold+ account
-    preview_file_url: Optional[str] = None  # some image need Gold+ account
+    md5: str | None = None  # some image need Gold+ account
+    file_url: str | None = None  # some image need Gold+ account
+    large_file_url: str | None = None  # some image need Gold+ account
+    preview_file_url: str | None = None  # some image need Gold+ account
     file_ext: str
     file_size: int
     score: int
     up_score: int
     down_score: int
     fav_count: int
-    last_comment_bumped_at: Optional[datetime]
-    last_noted_at: Optional[datetime]
+    last_comment_bumped_at: datetime | None
+    last_noted_at: datetime | None
     media_asset: PostMediaAsset  # not in api docs but it actually exists
     created_at: datetime
     updated_at: datetime
@@ -236,7 +229,7 @@ class ArtistVersion(BaseDanbooruModel):
     updater_id: int
     created_at: datetime
     updated_at: datetime
-    updater_addr_ip: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    updater_addr_ip: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 class ArtistCommentaryVersion(BaseDanbooruModel):
@@ -249,7 +242,7 @@ class ArtistCommentaryVersion(BaseDanbooruModel):
     updater_id: int
     created_at: datetime
     updated_at: datetime
-    updater_addr_ip: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    updater_addr_ip: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 class NoteVersion(BaseDanbooruModel):
@@ -266,7 +259,7 @@ class NoteVersion(BaseDanbooruModel):
     updater_id: int
     created_at: datetime
     updated_at: datetime
-    updater_addr_ip: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    updater_addr_ip: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 class PoolVersion(BaseDanbooruModel):
@@ -280,14 +273,14 @@ class PoolVersion(BaseDanbooruModel):
     category: Literal['collection', 'series']
     name_changed: bool
     description_changed: bool
-    is_active: Optional[bool] = None  # unused
+    is_active: bool | None = None  # unused
     is_deleted: bool
-    boolean: Optional[bool] = None  # unused
+    boolean: bool | None = None  # unused
     version: int
     updater_id: int
     created_at: datetime
     updated_at: datetime
-    updater_addr_ip: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    updater_addr_ip: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 class PostVersion(BaseDanbooruModel):
@@ -297,16 +290,16 @@ class PostVersion(BaseDanbooruModel):
     added_tags: list[str]  # tag format
     removed_tags: list[str]  # tag format
     rating: Literal['g', 's', 'q', 'e']
-    parent_id: Optional[int]
+    parent_id: int | None
     source: str
     rating_changed: bool
     parent_changed: bool
     source_changed: bool
     version: int
     updater_id: int
-    created_at: Optional[datetime] = None  # Actually not exists
+    created_at: datetime | None = None  # Actually not exists
     updated_at: datetime
-    updater_addr_ip: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    updater_addr_ip: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 class WikiPageVersion(BaseDanbooruModel):
@@ -320,7 +313,7 @@ class WikiPageVersion(BaseDanbooruModel):
     updater_id: int
     created_at: datetime
     updated_at: datetime
-    updater_addr_ip: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    updater_addr_ip: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 """Non-versioned Types"""
@@ -338,8 +331,8 @@ class Comment(BaseDanbooruModel):
     updater_id: int
     created_at: datetime
     updated_at: datetime
-    creator_ip_addr: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
-    updater_ip_addr: Optional[IPvAnyNetwork] = None  # Limited to Moderator+
+    creator_ip_addr: IPvAnyNetwork | None = None  # Limited to Moderator+
+    updater_ip_addr: IPvAnyNetwork | None = None  # Limited to Moderator+
 
 
 class Dmail(BaseDanbooruModel):
@@ -351,7 +344,7 @@ class Dmail(BaseDanbooruModel):
     body: str
     is_read: bool
     is_deleted: bool
-    is_spam: Optional[bool] = None  # obsolete
+    is_spam: bool | None = None  # obsolete
     key: bool
     created_at: datetime
     updated_at: datetime
@@ -428,7 +421,7 @@ class PostFlag(BaseDanbooruModel):
     status: PostFlagStatus
     category: PostFlagCategory  # Not in API docs but it exists
     is_resolved: bool
-    creator_id: Optional[int] = None  # limited to Moderator+ or the flag creator
+    creator_id: int | None = None  # limited to Moderator+ or the flag creator
     created_at: datetime
     updated_at: datetime
 
@@ -450,7 +443,7 @@ class Tag(BaseDanbooruModel):
     is_deprecated: bool
     created_at: datetime
     updated_at: datetime
-    words: Optional[list[str]] = None  # Not in API docs but it exists, the split words of tag
+    words: list[str] | None = None  # Not in API docs but it exists, the split words of tag
 
 
 class TagAlias(BaseDanbooruModel):
@@ -458,11 +451,11 @@ class TagAlias(BaseDanbooruModel):
     antecedent_name: str
     consequent_name: str
     status: Literal['active', 'deleted', 'retired']
-    reason: Optional[str] = None  # unused
-    forum_topic_id: Optional[int]
-    forum_post_id: Optional[int]
+    reason: str | None = None  # unused
+    forum_topic_id: int | None
+    forum_post_id: int | None
     creator_id: int
-    approver_id: Optional[int]
+    approver_id: int | None
     created_at: datetime
     updated_at: datetime
 
@@ -472,11 +465,11 @@ class TagImplication(BaseDanbooruModel):
     antecedent_name: str
     consequent_name: str
     status: Literal['active', 'deleted', 'retired']
-    reason: Optional[str] = None  # unused
-    forum_topic_id: Optional[int]
-    forum_post_id: Optional[int]
+    reason: str | None = None  # unused
+    forum_topic_id: int | None
+    forum_post_id: int | None
     creator_id: int
-    approver_id: Optional[int]
+    approver_id: int | None
     created_at: datetime
     updated_at: datetime
 
@@ -488,7 +481,7 @@ class Upload(BaseDanbooruModel):
     referer_url: str
     media_asset_count: int
     status: str
-    error: Optional[str]
+    error: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -497,67 +490,67 @@ class User(BaseDanbooruModel):
     id: int
     name: str
     level: Literal[10, 20, 30, 31, 32, 40, 50]
-    level_string: Optional[str] = None
-    inviter_id: Optional[int]
+    level_string: str | None = None
+    inviter_id: int | None
     post_update_count: int
     note_update_count: int
     post_upload_count: int
-    favorite_count: Optional[int] = None
-    unread_dmail_count: Optional[int] = None
+    favorite_count: int | None = None
+    unread_dmail_count: int | None = None
     is_banned: bool
-    is_deleted: Optional[bool] = None
-    receive_email_notifications: Optional[bool] = None
-    always_resize_images: Optional[bool] = None
-    enable_post_navigation: Optional[bool] = None
-    new_post_navigation_layout: Optional[bool] = None
-    enable_private_favorites: Optional[bool] = None
-    enable_sequential_post_navigation: Optional[bool] = None
-    hide_deleted_posts: Optional[bool] = None
-    style_usernames: Optional[bool] = None
-    enable_auto_complete: Optional[bool] = None
-    show_deleted_children: Optional[bool] = None
-    disable_categorized_saved_searches: Optional[bool] = None
-    disable_tagged_filenames: Optional[bool] = None
-    disable_cropped_thumbnails: Optional[bool] = None
-    disable_mobile_gestures: Optional[bool] = None
-    enable_safe_mode: Optional[bool] = None
-    enable_desktop_mode: Optional[bool] = None
-    disable_post_tooltips: Optional[bool] = None
-    enable_recommended_posts: Optional[bool] = None
-    requires_verification: Optional[bool] = None
-    is_verified: Optional[bool] = None
-    bit_prefs: Optional[int] = None  # Each bit stores a boolean value. See Bit fields below for more information.
-    theme: Optional[Literal['auto', 'light', 'dark']] = None
-    favorite_tags: Optional[str] = None
-    blacklisted_tags: Optional[str] = None
-    comment_threshold: Optional[int] = None
-    timezone: Optional[str] = None
-    per_page: Optional[int] = None
-    default_image_size: Optional[Literal['large', 'original']] = None
-    custom_css: Optional[str] = None
-    upload_points: Optional[str] = None
-    time_zone: Optional[str] = None
-    show_deleted_posts: Optional[bool] = None
-    statement_timeout: Optional[int] = None
-    favorite_group_limit: Optional[int] = None
-    tag_query_limit: Optional[int] = None
-    max_saved_searches: Optional[int] = None
-    wiki_page_version_count: Optional[int] = None
-    artist_version_count: Optional[int] = None
-    artist_commentary_version_count: Optional[int] = None
-    pool_version_count: Optional[int] = None
-    forum_post_count: Optional[int] = None
-    comment_count: Optional[int] = None
-    favorite_group_count: Optional[int] = None
-    appeal_count: Optional[int] = None
-    flag_count: Optional[int] = None
-    positive_feedback_count: Optional[int] = None
-    neutral_feedback_count: Optional[int] = None
-    negative_feedback_count: Optional[int] = None
-    last_forum_read_at: Optional[datetime] = None
-    last_logged_in_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    is_deleted: bool | None = None
+    receive_email_notifications: bool | None = None
+    always_resize_images: bool | None = None
+    enable_post_navigation: bool | None = None
+    new_post_navigation_layout: bool | None = None
+    enable_private_favorites: bool | None = None
+    enable_sequential_post_navigation: bool | None = None
+    hide_deleted_posts: bool | None = None
+    style_usernames: bool | None = None
+    enable_auto_complete: bool | None = None
+    show_deleted_children: bool | None = None
+    disable_categorized_saved_searches: bool | None = None
+    disable_tagged_filenames: bool | None = None
+    disable_cropped_thumbnails: bool | None = None
+    disable_mobile_gestures: bool | None = None
+    enable_safe_mode: bool | None = None
+    enable_desktop_mode: bool | None = None
+    disable_post_tooltips: bool | None = None
+    enable_recommended_posts: bool | None = None
+    requires_verification: bool | None = None
+    is_verified: bool | None = None
+    bit_prefs: int | None = None  # Each bit stores a boolean value. See Bit fields below for more information.
+    theme: Literal['auto', 'light', 'dark'] | None = None
+    favorite_tags: str | None = None
+    blacklisted_tags: str | None = None
+    comment_threshold: int | None = None
+    timezone: str | None = None
+    per_page: int | None = None
+    default_image_size: Literal['large', 'original'] | None = None
+    custom_css: str | None = None
+    upload_points: str | None = None
+    time_zone: str | None = None
+    show_deleted_posts: bool | None = None
+    statement_timeout: int | None = None
+    favorite_group_limit: int | None = None
+    tag_query_limit: int | None = None
+    max_saved_searches: int | None = None
+    wiki_page_version_count: int | None = None
+    artist_version_count: int | None = None
+    artist_commentary_version_count: int | None = None
+    pool_version_count: int | None = None
+    forum_post_count: int | None = None
+    comment_count: int | None = None
+    favorite_group_count: int | None = None
+    appeal_count: int | None = None
+    flag_count: int | None = None
+    positive_feedback_count: int | None = None
+    neutral_feedback_count: int | None = None
+    negative_feedback_count: int | None = None
+    last_forum_read_at: datetime | None = None
+    last_logged_in_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 __all__ = [

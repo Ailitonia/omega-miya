@@ -10,7 +10,6 @@
 
 from .encryptor import AESEncryptor, ChaCha20Encryptor
 
-
 __all__ = [
     'AESEncryptor',
     'ChaCha20Encryptor',

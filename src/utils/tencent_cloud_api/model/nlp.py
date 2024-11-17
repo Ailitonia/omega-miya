@@ -8,13 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
 from .base_model import (
-    BaseTencentCloudModel,
     BaseTencentCloudErrorResponse,
-    BaseTencentCloudSuccessResponse,
+    BaseTencentCloudModel,
     BaseTencentCloudResponse,
+    BaseTencentCloudSuccessResponse,
 )
 
 
@@ -38,7 +38,7 @@ class TencentCloudComposeCoupletSuccessResponse(BaseTencentCloudSuccessResponse)
     """
     TopScroll: str
     Content: list[str]
-    RandomCause: Optional[str] = None
+    RandomCause: str | None = None
 
 
 class TencentCloudComposeCoupletResponse(BaseTencentCloudResponse):
@@ -66,8 +66,8 @@ class TencentCloudEmbellishList(BaseTencentCloudModel):
     - Text: 润色后的文本, 注意: 此字段可能返回 null, 表示取不到有效值
     - EmbellishType: 润色类型, expansion: 扩写, rewriting: 改写, translation_m2a: 从现代文改写为古文, translation_a2m: 从古文改写为现代文, 注意: 此字段可能返回 null, 表示取不到有效值
     """
-    Text: Optional[str] = None
-    EmbellishType: Optional[str] = None
+    Text: str | None = None
+    EmbellishType: str | None = None
 
 
 class TencentCloudTextEmbellishSuccessResponse(BaseTencentCloudSuccessResponse):
@@ -144,11 +144,11 @@ class TencentCloudCorrectionItem(BaseTencentCloudModel):
     BeginOffset: int
     Len: int
     Word: str
-    CorrectWord: Optional[list[str]] = None
+    CorrectWord: list[str] | None = None
     CorrectionType: int
     Confidence: int
-    DescriptionZh: Optional[str] = None
-    DescriptionEn: Optional[str] = None
+    DescriptionZh: str | None = None
+    DescriptionEn: str | None = None
 
 
 class TencentCloudSentenceCorrectionSuccessResponse(BaseTencentCloudSuccessResponse):
@@ -172,10 +172,10 @@ class TencentCloudCategory(BaseTencentCloudModel):
     - Name: 分类中文名, 注意: 此字段可能返回 null, 表示取不到有效值
     - Score: 分类置信度, 注意: 此字段可能返回 null, 表示取不到有效值
     """
-    Id: Optional[int] = None
-    Label: Optional[str] = None
-    Name: Optional[str] = None
-    Score: Optional[float] = None
+    Id: int | None = None
+    Label: str | None = None
+    Name: str | None = None
+    Score: float | None = None
 
 
 class TencentCloudClassifyContentSuccessResponse(BaseTencentCloudSuccessResponse):

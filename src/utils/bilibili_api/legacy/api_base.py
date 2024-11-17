@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.utils import BaseCommonAPI
 from .config import bilibili_config, bilibili_resource_config
@@ -18,6 +18,7 @@ from .verify_utils import sign_wbi_params
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes
+
     from src.resource import TemporaryResource
 
 
@@ -46,18 +47,18 @@ class BilibiliCommon(BaseCommonAPI):
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return bilibili_config.bili_cookies
 
     @classmethod
-    async def download_resource(cls, url: str) -> "TemporaryResource":
+    async def download_resource(cls, url: str) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         return await cls._download_resource(
             save_folder=bilibili_resource_config.default_download_folder, url=url,
         )
 
     @classmethod
-    async def update_wbi_params(cls, params: Optional[dict[str, Any]] = None) -> dict:
+    async def update_wbi_params(cls, params: dict[str, Any] | None = None) -> dict:
         """为 wbi 接口请求参数进行 wbi 签名"""
         _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 

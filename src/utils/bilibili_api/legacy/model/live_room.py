@@ -9,7 +9,6 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import field_validator
 from pytz import timezone
@@ -48,7 +47,7 @@ class BilibiliLiveRoomDataModel(BaseBilibiliModel):
 class BilibiliLiveRoomModel(BaseBilibiliModel):
     """Bilibili 直播间 Model"""
     code: int
-    data: Optional[BilibiliLiveRoomDataModel] = None
+    data: BilibiliLiveRoomDataModel | None = None
     msg: str = ''
     message: str = ''
 

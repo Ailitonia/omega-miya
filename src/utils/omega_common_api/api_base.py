@@ -9,7 +9,7 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.exception import WebSourceException
 from ..omega_requests import OmegaRequests
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         QueryTypes,
         Response,
     )
+
     from src.resource import TemporaryResource
 
 
@@ -53,13 +54,13 @@ class BaseCommonAPI(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         """内部方法, 获取默认 Headers"""
         raise NotImplementedError
 
     @classmethod
     @abc.abstractmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         """内部方法, 获取默认 Cookies"""
         raise NotImplementedError
 
@@ -71,8 +72,8 @@ class BaseCommonAPI(abc.ABC):
     @classmethod
     def _init_omega_requests(
             cls,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -92,29 +93,29 @@ class BaseCommonAPI(abc.ABC):
         return OmegaRequests(headers=headers, cookies=cookies, timeout=timeout, load_cloudflare_clearance=lcc)
 
     @staticmethod
-    def _parse_content_as_bytes(response: "Response") -> bytes:
+    def _parse_content_as_bytes(response: 'Response') -> bytes:
         return OmegaRequests.parse_content_as_bytes(response)
 
     @staticmethod
-    def _parse_content_as_json(response: "Response") -> Any:
+    def _parse_content_as_json(response: 'Response') -> Any:
         return OmegaRequests.parse_content_as_json(response)
 
     @staticmethod
-    def _parse_content_as_text(response: "Response") -> str:
+    def _parse_content_as_text(response: 'Response') -> str:
         return OmegaRequests.parse_content_as_text(response)
 
     @classmethod
     async def _request_get(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
-    ) -> "Response":
+    ) -> 'Response':
         """内部方法, 使用 GET 方法请求"""
         requests = cls._init_omega_requests(
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
@@ -129,18 +130,18 @@ class BaseCommonAPI(abc.ABC):
     async def _request_post(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            content: "ContentTypes" = None,
-            data: "DataTypes" = None,
+            content: 'ContentTypes' = None,
+            data: 'DataTypes' = None,
             json: Any = None,
-            files: "FilesTypes" = None,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            files: 'FilesTypes' = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
-    ) -> "Response":
+    ) -> 'Response':
         """内部方法, 使用 POST 方法请求"""
         requests = cls._init_omega_requests(
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
@@ -155,10 +156,10 @@ class BaseCommonAPI(abc.ABC):
     async def _get_json(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -174,14 +175,14 @@ class BaseCommonAPI(abc.ABC):
     async def _post_json(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            content: "ContentTypes" = None,
-            data: "DataTypes" = None,
+            content: 'ContentTypes' = None,
+            data: 'DataTypes' = None,
             json: Any = None,
-            files: "FilesTypes" = None,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            files: 'FilesTypes' = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -197,10 +198,10 @@ class BaseCommonAPI(abc.ABC):
     async def _get_resource_as_bytes(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 30,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -216,10 +217,10 @@ class BaseCommonAPI(abc.ABC):
     async def _get_resource_as_text(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 10,
             no_headers: bool = False,
             no_cookies: bool = False,
@@ -234,20 +235,20 @@ class BaseCommonAPI(abc.ABC):
     @classmethod
     async def _download_resource(
             cls,
-            save_folder: "TemporaryResource",
+            save_folder: 'TemporaryResource',
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
-            headers: "HeaderTypes" = None,
-            cookies: "CookieTypes" = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
             timeout: int = 60,
             subdir: str | None = None,
             ignore_exist_file: bool = False,
             no_headers: bool = False,
             no_cookies: bool = False,
             hash_file_name: bool = False,
-            custom_file_name: Optional[str] = None,
-    ) -> "TemporaryResource":
+            custom_file_name: str | None = None,
+    ) -> 'TemporaryResource':
         """内部方法, 下载任意资源到本地, 保持原始文件名, 默认直接覆盖同名文件"""
         if custom_file_name is not None:
             file_name = custom_file_name

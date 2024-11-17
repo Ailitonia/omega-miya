@@ -23,7 +23,7 @@ def generate_aes_key_by_hardware() -> SecretStr:
     system = platform.system()
     node = str(uuid.getnode())
 
-    return SecretStr(sha256(f'{system}+{machine}+{processor}+{node}'.encode(encoding='utf8')).hexdigest())
+    return SecretStr(sha256(f'{system}+{machine}+{processor}+{node}'.encode()).hexdigest())
 
 
 class EncryptConfig(BaseModel):

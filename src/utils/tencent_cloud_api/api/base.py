@@ -11,14 +11,14 @@
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src.utils import OmegaRequests
 from ..config import tencent_cloud_config
 
 
-class BaseTencentCloudAPI(object):
+class BaseTencentCloudAPI:
     """腾讯云 API 基类"""
 
     __slots__ = (
@@ -63,7 +63,7 @@ class BaseTencentCloudAPI(object):
     ) -> None:
         # 初始化请求时间戳
         self._request_timestamp = int(datetime.now().timestamp())
-        self._date = datetime.fromtimestamp(self._request_timestamp, tz=timezone.utc).strftime('%Y-%m-%d')
+        self._date = datetime.fromtimestamp(self._request_timestamp, tz=UTC).strftime('%Y-%m-%d')
         self._credential_scope = f'{self._date}/{self._service}/tc3_request'
 
         # 生成签名 Headers 内容
@@ -126,7 +126,7 @@ class BaseTencentCloudAPI(object):
         def __sign(key: bytes | bytearray, msg: str) -> bytes:
             return hmac.new(key, msg.encode('utf-8'), hashlib.sha256).digest()
 
-        secret_date = __sign(f'TC3{self._secret_key}'.encode('utf-8'), self._date)
+        secret_date = __sign(f'TC3{self._secret_key}'.encode(), self._date)
         secret_service = __sign(secret_date, self._service)
         secret_signing = __sign(secret_service, 'tc3_request')
 

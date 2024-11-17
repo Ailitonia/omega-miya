@@ -9,10 +9,10 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.utils import BaseCommonAPI
-from .models.gelbooru import Post, PostsData, TagsData, UsersData, CommentsData
+from .models.gelbooru import CommentsData, Post, PostsData, TagsData, UsersData
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, HeaderTypes, QueryTypes
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
     """Gelbooru API 基类, 文档见 https://gelbooru.com/index.php?page=help&topic=dapi"""
 
-    def __init__(self, *, user_id: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, *, user_id: str | None = None, api_key: str | None = None):
         self.__user_id = user_id
         self.__api_key = api_key
 
@@ -41,17 +41,17 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
         return False
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     async def get_json(
             self,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: dict[str, Any] | None = None,
     ) -> Any:
         """使用 GET 方法请求 API, 返回 json 内容"""
         if isinstance(params, dict):
@@ -64,7 +64,7 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
     async def get_resource_as_bytes(
             self,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 30,
     ) -> bytes:
@@ -73,7 +73,7 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
     async def get_resource_as_text(
             self,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 10,
     ) -> str:
@@ -84,11 +84,11 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
     async def posts_index(
             self,
             *,
-            limit: Optional[int] = None,
-            page: Optional[int] = None,
-            tags: Optional[str] = None,
-            cid: Optional[int] = None,
-            id_: Optional[int] = None,
+            limit: int | None = None,
+            page: int | None = None,
+            tags: str | None = None,
+            cid: int | None = None,
+            id_: int | None = None,
     ) -> PostsData:
         index_url = f'{self._get_root_url()}/index.php'
         params = {'page': 'dapi', 's': 'post', 'q': 'index', 'json': '1'}
@@ -117,14 +117,14 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
 
     async def tags_index(
             self,
-            limit: Optional[int] = None,
-            id_: Optional[int] = None,
-            after_id: Optional[int] = None,
-            name: Optional[str] = None,
-            names: Optional[str] = None,
-            name_pattern: Optional[str] = None,
-            order: Optional[Literal['ASC', 'DESC']] = None,
-            orderby: Optional[Literal['date', 'count', 'name']] = None,
+            limit: int | None = None,
+            id_: int | None = None,
+            after_id: int | None = None,
+            name: str | None = None,
+            names: str | None = None,
+            name_pattern: str | None = None,
+            order: Literal['ASC', 'DESC'] | None = None,
+            orderby: Literal['date', 'count', 'name'] | None = None,
     ) -> TagsData:
         index_url = f'{self._get_root_url()}/index.php'
         params = {'page': 'dapi', 's': 'tag', 'q': 'index', 'json': '1'}
@@ -152,10 +152,10 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
 
     async def users_index(
             self,
-            limit: Optional[int] = None,
-            page: Optional[int] = None,
-            name: Optional[str] = None,
-            name_pattern: Optional[str] = None,
+            limit: int | None = None,
+            page: int | None = None,
+            name: str | None = None,
+            name_pattern: str | None = None,
     ) -> UsersData:
         index_url = f'{self._get_root_url()}/index.php'
         params = {'page': 'dapi', 's': 'user', 'q': 'index', 'json': '1'}
@@ -175,7 +175,7 @@ class BaseGelbooruAPI(BaseCommonAPI, abc.ABC):
 
     async def comments_index(
             self,
-            post_id: Optional[int] = None,
+            post_id: int | None = None,
     ) -> CommentsData:
         index_url = f'{self._get_root_url()}/index.php'
         params = {'page': 'dapi', 's': 'comment', 'q': 'index', 'json': '1'}

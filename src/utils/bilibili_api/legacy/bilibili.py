@@ -9,7 +9,8 @@
 """
 
 import warnings
-from typing import Literal, Optional, Sequence
+from collections.abc import Sequence
+from typing import Literal
 from urllib.parse import unquote
 
 from lxml import etree
@@ -18,10 +19,10 @@ from nonebot.utils import run_sync
 from src.compat import parse_json_as
 from .api_base import BilibiliCommon
 from .model import (
-    BilibiliUserModel,
-    BilibiliUserDynamicModel,
     BilibiliDynamicModel,
     BilibiliLiveRoomModel,
+    BilibiliUserDynamicModel,
+    BilibiliUserModel,
     BilibiliUsersLiveRoomModel,
 )
 from .model.search import BaseBilibiliSearchingModel, UserSearchingModel
@@ -107,8 +108,8 @@ class Bilibili(BilibiliCommon):
 
 class BilibiliUser(Bilibili):
     warnings.warn(
-        "The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
-        "future version should change to new API instead.",
+        'The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, '
+        'future version should change to new API instead.',
         PendingDeprecationWarning,
         stacklevel=2,
     )
@@ -118,7 +119,7 @@ class BilibiliUser(Bilibili):
         self.space_url = f'https://space.bilibili.com/{uid}'
 
         # 实例缓存
-        self.user_model: Optional[BilibiliUserModel] = None
+        self.user_model: BilibiliUserModel | None = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(uid={self.uid})'
@@ -205,8 +206,8 @@ class BilibiliDynamic(BilibiliCommon):
     """Bilibili 动态"""
 
     warnings.warn(
-        f"The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, "
-        "future version should change to new API instead.",
+        'The bilibili user dynamic old API seems to be deprecated and will be removed in the near future, '
+        'future version should change to new API instead.',
         PendingDeprecationWarning,
         stacklevel=2,
     )
@@ -216,7 +217,7 @@ class BilibiliDynamic(BilibiliCommon):
         self.dynamic_url = f'{self.get_dynamic_root_url()}/{dynamic_id}'
 
         # 实例缓存
-        self.dynamic_model: Optional[BilibiliDynamicModel] = None
+        self.dynamic_model: BilibiliDynamicModel | None = None
 
     @classmethod
     def get_dynamic_root_url(cls) -> str:
@@ -256,7 +257,7 @@ class BilibiliLiveRoom(BilibiliCommon):
         self.live_room_url = f'{self.get_live_root_url()}/{room_id}'
 
         # 实例缓存
-        self.live_room_model: Optional[BilibiliLiveRoomModel] = None
+        self.live_room_model: BilibiliLiveRoomModel | None = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(room_id={self.room_id})'

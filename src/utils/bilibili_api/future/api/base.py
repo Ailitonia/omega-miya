@@ -9,18 +9,18 @@
 """
 
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.utils import BaseCommonAPI
 from ..config import bilibili_api_config
 from ..misc import (
+    create_gen_web_ticket_params,
+    extract_key_from_wbi_image,
     gen_buvid_fp,
-    get_payload,
     gen_uuid_infoc,
+    get_payload,
     sign_wbi_params,
     sign_wbi_params_nav,
-    extract_key_from_wbi_image,
-    create_gen_web_ticket_params,
 )
 from ..models import (
     SearchAllResult,
@@ -33,6 +33,7 @@ from ..models import (
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, Response
+
     from src.resource import TemporaryResource
 
 
@@ -61,11 +62,11 @@ class BilibiliCommon(BaseCommonAPI):
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return bilibili_api_config.bili_cookies
 
     @classmethod
-    def _extra_set_cookies_from_response(cls, response: "Response") -> dict[str, str]:
+    def _extra_set_cookies_from_response(cls, response: 'Response') -> dict[str, str]:
         """从请求的响应头中获取 set-cookie 字段内容"""
         set_cookies: dict[str, str] = {}
         for k, v in response.headers.items():
@@ -76,14 +77,14 @@ class BilibiliCommon(BaseCommonAPI):
         return set_cookies
 
     @classmethod
-    async def download_resource(cls, url: str) -> "TemporaryResource":
+    async def download_resource(cls, url: str) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         return await cls._download_resource(
             save_folder=bilibili_api_config.download_folder, url=url,
         )
 
     @classmethod
-    async def _sign_wbi_params_nav(cls, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    async def _sign_wbi_params_nav(cls, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """立即从 nav 接口请求参数进行 wbi 签名"""
         _wbi_nav_url: str = 'https://api.bilibili.com/x/web-interface/nav'
 
@@ -91,7 +92,7 @@ class BilibiliCommon(BaseCommonAPI):
         return sign_wbi_params_nav(nav_data=WebInterfaceNav.model_validate(response), params=params)
 
     @classmethod
-    async def sign_wbi_params(cls, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    async def sign_wbi_params(cls, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """对请求参数进行 wbi 签名"""
         img_key = bilibili_api_config.get_config('img_key')
         sub_key = bilibili_api_config.get_config('sub_key')

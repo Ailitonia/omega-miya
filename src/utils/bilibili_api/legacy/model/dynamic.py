@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
-from pydantic import Json, field_validator, model_validator
+from pydantic import Field, Json, field_validator, model_validator
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BaseBilibiliModel
@@ -52,14 +52,14 @@ class BilibiliDynamicCardDesc(BaseBilibiliModel):
     orig_type: int
     pre_dy_id: int = 0
     orig_dy_id: int = 0
-    origin: Optional[BilibiliDynamicCardDescOrigin] = None
+    origin: BilibiliDynamicCardDescOrigin | None = None
 
 
 class _StdCardOutputData(BaseBilibiliModel):
     """用于外部模块使用的标准化动态 Card 导出数据"""
     content: str  # 动态主体文本内容
     text: str  # 输出文本内容
-    img_urls: list[AnyHttpUrl] = []
+    img_urls: list[AnyHttpUrl] = Field(default_factory=list)
 
 
 class _BaseCardType(BaseBilibiliModel):
@@ -95,11 +95,11 @@ class CardType2OriginalWithImage(_BaseCardType):
             img_src: AnyHttpUrl
 
         id: int
-        category: Optional[str] = None  # Deactivated
+        category: str | None = None  # Deactivated
         description: str  # 为文字内容
         pictures: list[_Picture]  # 图片内容
         pictures_count: int
-        title: Optional[str] = None  # Deactivated
+        title: str | None = None  # Deactivated
 
     verify_type: int = 2
     user: _UserInfo
@@ -132,7 +132,7 @@ class CardType4OriginalWithoutImage(_BaseCardType):
         rp_id: int
         uid: int
         content: str
-        timestamp: Optional[int] = None  # Deactivated
+        timestamp: int | None = None  # Deactivated
         ctrl: Any
         reply: Any
 
@@ -161,13 +161,13 @@ class CardType8Video(_BaseCardType):
     verify_type: int = 8
     aid: int  # 视频avid
     cid: int  # 视频cid
-    copyright: Optional[int] = None  # [Deactivated] 原创信息, 1为原创, 2为转载
+    copyright: int | None = None  # [Deactivated] 原创信息, 1为原创, 2为转载
     dynamic: str  # 动态文字内容
     title: str  # 视频标题
     tname: str  # 视频分区名称
     desc: str  # 视频简介
     owner: _Owner
-    first_frame: Optional[AnyHttpUrl | str] = None  # 视频第一帧图片
+    first_frame: AnyHttpUrl | str | None = None  # 视频第一帧图片
     pic: AnyHttpUrl  # 视频封面
     videos: int  # 视频数
 
@@ -234,16 +234,16 @@ class CardType64Article(_BaseCardType):
 
     verify_type: int = 64
     id: int
-    category: Optional[_Category] = None  # Deactivated
-    categories: Optional[list[_Category]] = None  # Deactivated
+    category: _Category | None = None  # Deactivated
+    categories: list[_Category] | None = None  # Deactivated
     title: str
     summary: str
-    banner_url: Optional[AnyHttpUrl | str] = None  # [Deactivated] 是否原创
+    banner_url: AnyHttpUrl | str | None = None  # [Deactivated] 是否原创
     author: _Author
     image_urls: list[AnyHttpUrl]
     publish_time: int
     origin_image_urls: list[AnyHttpUrl]  # 源图片地址(这里才是真·头图)
-    original: Optional[int] = None  # [Deactivated] 是否原创
+    original: int | None = None  # [Deactivated] 是否原创
 
     @property
     def user_name(self) -> str:
@@ -303,7 +303,7 @@ class CardType2048Active(_BaseCardType):
 
     class _Sketch(BaseBilibiliModel):
         title: str
-        desc_text: Optional[str] = None
+        desc_text: str | None = None
 
     class _Vest(BaseBilibiliModel):
         content: str
@@ -390,7 +390,7 @@ class CardType4308LiveRoom(_BaseCardType):
 
     verify_type: int = 4308
     live_play_info: _LivePlayInfo
-    live_record_info: Optional[str] = None
+    live_record_info: str | None = None
     style: int
     type: int
 
@@ -421,32 +421,21 @@ class CardType1Forward(_BaseCardType):
         orig_dy_id: int
         pre_dy_id: int
         orig_type: int
-        timestamp: Optional[int] = None  # Deactivated
+        timestamp: int | None = None  # Deactivated
         ctrl: Any
         reply: Any
-        miss: Optional[int] = None
-        tips: Optional[str] = None
+        miss: int | None = None
+        tips: str | None = None
 
     verify_type: int = 1
     user: _UserInfo  # 转发者用户信息
     item: _Item  # 转发相关信息
     # 被转发动态信息, 套娃, (注意多次转发后原动态一直是最开始的那个, 所以源动态类型不可能也是转发)
-    origin: Optional[
-        Json[CardType2OriginalWithImage]
-        | Json[CardType4OriginalWithoutImage]
-        | Json[CardType8Video]
-        #  | Json[CardType16ShortVideo]
-        #  | Json[CardType32Anime]
-        | Json[CardType64Article]
-        | Json[CardType256Music]
-        | Json[CardType512Anime]
-        | Json[CardType2048Active]
-        | Json[CardType4200LiveRoom]
-        | Json[CardType4300MediaListShare]
-        | Json[CardType4308LiveRoom]
-        | Literal['源动态已被作者删除', '源动态不见了', '直播结束了', '']
-        ]  # 原动态被删 origin 字段返回 message 是谁整出来的傻逼玩意儿
-    origin_user: Optional[BilibiliDynamicCardDescUserProfile] = None  # 被转发用户信息
+    origin: Json[CardType2OriginalWithImage] | Json[CardType4OriginalWithoutImage] | Json[CardType8Video] | Json[
+        CardType64Article] | Json[CardType256Music] | Json[CardType512Anime] | Json[CardType2048Active] | Json[
+                CardType4200LiveRoom] | Json[CardType4300MediaListShare] | Json[CardType4308LiveRoom] | Literal[
+                '源动态已被作者删除', '源动态不见了', '直播结束了', ''] | None  # 原动态被删 origin 字段返回 message 是谁整出来的傻逼玩意儿
+    origin_user: BilibiliDynamicCardDescUserProfile | None = None  # 被转发用户信息
 
     @property
     def user_name(self) -> str:
@@ -500,7 +489,7 @@ class BilibiliDynamicCard(BaseBilibiliModel):
 class BilibiliUserDynamicData(BaseBilibiliModel):
     """Bilibili 用户动态 Data"""
     has_more: int
-    cards: list[BilibiliDynamicCard] = []
+    cards: list[BilibiliDynamicCard] = Field(default_factory=list)
     next_offset: int
 
     @model_validator(mode='before')
@@ -528,7 +517,7 @@ class BilibiliUserDynamicData(BaseBilibiliModel):
 class BilibiliUserDynamicModel(BaseBilibiliModel):
     """Bilibili 用户动态 Model"""
     code: int
-    data: Optional[BilibiliUserDynamicData] = None
+    data: BilibiliUserDynamicData | None = None
     message: str = ''
     msg: str = ''
 
@@ -559,7 +548,7 @@ class BilibiliDynamicData(BaseBilibiliModel):
 class BilibiliDynamicModel(BaseBilibiliModel):
     """Bilibili 单个动态 Model"""
     code: int
-    data: Optional[BilibiliDynamicData] = None
+    data: BilibiliDynamicData | None = None
     message: str = ''
     msg: str = ''
 

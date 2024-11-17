@@ -12,8 +12,7 @@ from datetime import datetime
 from io import BytesIO
 from math import ceil
 
-from PIL import Image, ImageDraw, ImageFont
-from PIL import UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 from nonebot.utils import run_sync
 
 from src.resource import BaseResource, TemporaryResource
@@ -70,7 +69,7 @@ async def generate_thumbs_preview_image(
         _spacing_title = _spacing_w if _title_h <= int(_spacing_w * 0.75) else int(_title_h * 1.5)
 
         _background = Image.new(
-            mode="RGB",
+            mode='RGB',
             size=(_preview_w, (_thumb_h + _spacing_w) * ceil(len(previews) / num_of_line) + _spacing_title),
             color=(255, 255, 255))
 

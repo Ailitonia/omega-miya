@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
+
 from .base_model import BaseBilibiliModel
 
 
@@ -22,8 +22,8 @@ class WbiImg(BaseBilibiliModel):
 class BilibiliWebInterfaceNavData(BaseBilibiliModel):
     isLogin: bool
     wbi_img: WbiImg
-    uname: Optional[str] = None
-    mid: Optional[str] = None
+    uname: str | None = None
+    mid: str | None = None
 
 
 class BilibiliWebInterfaceNav(BaseBilibiliModel):

@@ -47,17 +47,17 @@ class BilibiliConfig(BaseModel):
         sessdata = (
             None
             if self.bili_sessdata is None
-            else self.bili_sessdata if self.bili_sessdata.find("%") != -1 else quote(self.bili_sessdata)
+            else self.bili_sessdata if self.bili_sessdata.find('%') != -1 else quote(self.bili_sessdata)
         )
 
         cookies = {
-            "SESSDATA": sessdata,
-            "buvid3": self.bili_buvid3,
-            "bili_jct": self.bili_jct,
-            "ac_time_value": self.bili_ac_time_value,
+            'SESSDATA': sessdata,
+            'buvid3': self.bili_buvid3,
+            'bili_jct': self.bili_jct,
+            'ac_time_value': self.bili_ac_time_value,
         }
         if self.bili_dedeuserid:
-            cookies.update({"DedeUserID": self.bili_dedeuserid})
+            cookies.update({'DedeUserID': self.bili_dedeuserid})
 
         if self._cookies_cache is not None:
             cookies.update(self._cookies_cache)
@@ -111,7 +111,7 @@ class BilibiliConfig(BaseModel):
             await self._save_config_to_db(dal=dal, setting_key='bili_dedeuserid', value=self.bili_dedeuserid)
             await self._save_config_to_db(dal=dal, setting_key='bili_ac_time_value', value=self.bili_ac_time_value)
 
-    async def load_from_database(self) -> "BilibiliConfig":
+    async def load_from_database(self) -> 'BilibiliConfig':
         async with begin_db_session() as session:
             dal = SystemSettingDAL(session=session)
             bili_sessdata = await self._load_config_from_db(dal=dal, setting_key='bili_sessdata')

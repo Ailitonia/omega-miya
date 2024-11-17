@@ -27,24 +27,24 @@ from nonebot.utils import run_sync
 from .base import BilibiliCommon
 from ..config import bilibili_api_config
 from ..models import (
-    WebInterfaceNav,
+    WebConfirmRefreshInfo,
     WebCookieInfo,
+    WebCookieRefreshInfo,
+    WebInterfaceNav,
     WebQrcodeGenerateInfo,
     WebQrcodePollInfo,
-    WebCookieRefreshInfo,
-    WebConfirmRefreshInfo,
 )
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
 
-_PUB_KEY = RSA.importKey('''\
+_PUB_KEY = RSA.importKey("""\
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg
 Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71
 nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40
 JNrRuoEUXpabUzGB8QIDAQAB
------END PUBLIC KEY-----''')
+-----END PUBLIC KEY-----""")
 
 
 class BilibiliCredential(BilibiliCommon):
@@ -68,7 +68,7 @@ class BilibiliCredential(BilibiliCommon):
 
     @staticmethod
     @run_sync
-    def _make_qrcode(content: str) -> "TemporaryResource":
+    def _make_qrcode(content: str) -> 'TemporaryResource':
         qrcode_filename = f'{SHA256.new(content.encode()).hexdigest()}.png'
         qrcode_file = bilibili_api_config.get_resource_path('login_qr', qrcode_filename)
         with qrcode_file.open('wb') as f:
@@ -83,7 +83,7 @@ class BilibiliCredential(BilibiliCommon):
         return WebQrcodeGenerateInfo.model_validate(data)
 
     @classmethod
-    async def generate_login_qrcode(cls, qrcode_info: WebQrcodeGenerateInfo) -> "TemporaryResource":
+    async def generate_login_qrcode(cls, qrcode_info: WebQrcodeGenerateInfo) -> 'TemporaryResource':
         """生成登录二维码"""
         return await cls._make_qrcode(qrcode_info.data.url)
 
@@ -208,10 +208,10 @@ class BilibiliCredential(BilibiliCommon):
         refresh_csrf = await cls.get_refresh_csrf()
         old_refresh_token = bilibili_api_config.get_config('ac_time_value')
         params = {
-            "csrf": bilibili_api_config.get_config('bili_jct'),
-            "refresh_csrf": refresh_csrf,
-            "refresh_token": old_refresh_token,
-            "source": "main_web",
+            'csrf': bilibili_api_config.get_config('bili_jct'),
+            'refresh_csrf': refresh_csrf,
+            'refresh_token': old_refresh_token,
+            'source': 'main_web',
         }
 
         response = await cls._request_post(url=url, params=params, cookies=bilibili_api_config.bili_cookies)

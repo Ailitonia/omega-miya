@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 class ComplexImageSearcher(BaseImageSearcher):
     """综合图片搜索"""
 
-    _searcher: list[type["BaseImageSearcherAPI"]] = []
+    _searcher: list[type['BaseImageSearcherAPI']] = []
 
     if image_searcher_config.image_searcher_enable_saucenao:
         _searcher.append(Saucenao)
@@ -42,7 +42,7 @@ class ComplexImageSearcher(BaseImageSearcher):
     if image_searcher_config.image_searcher_enable_yandex:
         _searcher.append(Yandex)
 
-    async def search(self) -> list["ImageSearchingResult"]:
+    async def search(self) -> list['ImageSearchingResult']:
         searching_tasks = [
             searcher(image_url=self.image_url).search()
             for searcher in self._searcher

@@ -8,8 +8,9 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Any, Generator, Optional, Self
+from typing import Any, Self
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
@@ -52,7 +53,7 @@ class BilibiliLoginCookies(BaseConfigModel):
         return (
             None if v is None
             else (
-                v if v.find("%") != -1
+                v if v.find('%') != -1
                 else quote(v)
             )
         )
@@ -89,20 +90,20 @@ class BilibiliLocalResourceConfig:
     # 默认的缓存资源保存路径
     default_folder: TemporaryResource = TemporaryResource('bilibili')
 
-    def get_path(self, *args: str) -> "TemporaryResource":
+    def get_path(self, *args: str) -> 'TemporaryResource':
         """获取缓存路径"""
         return self.default_folder(*args)
 
 
-class BilibiliAPIConfigManager(object):
+class BilibiliAPIConfigManager:
     """bilibili API 配置"""
 
     __slots__ = ('_cookies_config', '_resource_config',)
 
-    _cookies_config: "BilibiliAllCachedCookies"
-    _resource_config: "BilibiliLocalResourceConfig"
+    _cookies_config: 'BilibiliAllCachedCookies'
+    _resource_config: 'BilibiliLocalResourceConfig'
 
-    def __init__(self, cookies_config: "BilibiliAllCachedCookies") -> None:
+    def __init__(self, cookies_config: 'BilibiliAllCachedCookies') -> None:
         self._cookies_config = cookies_config
         self._resource_config = BilibiliLocalResourceConfig()
 
@@ -112,7 +113,7 @@ class BilibiliAPIConfigManager(object):
         return BilibiliCookies.model_validate(self._cookies_config.get_config_dict()).get_config_dict()
 
     @property
-    def download_folder(self) -> "TemporaryResource":
+    def download_folder(self) -> 'TemporaryResource':
         """缓存下载文件目录"""
         return self.get_resource_path('download')
 
@@ -120,11 +121,11 @@ class BilibiliAPIConfigManager(object):
         """遍历配置项"""
         return self._cookies_config.iter_config()
 
-    def get_resource_path(self, *file_name: str) -> "TemporaryResource":
+    def get_resource_path(self, *file_name: str) -> 'TemporaryResource':
         """获取缓存资源文件路径"""
         return self._resource_config.get_path(*file_name)
 
-    def get_config(self, key: str, *, alias: bool = True) -> Optional[Any]:
+    def get_config(self, key: str, *, alias: bool = True) -> Any | None:
         """根据 alias 获取配置项"""
         if alias:
             return self._cookies_config.get_config_dict().get(key, None)

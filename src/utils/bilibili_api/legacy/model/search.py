@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
+from pydantic import Field
 
 from .base_model import BaseBilibiliModel
 
@@ -17,7 +17,7 @@ class BaseBilibiliSearchingDataModel[T](BaseBilibiliModel):
     """Bilibili 搜索结果 Data 基类"""
     cost_time: dict
     egg_hit: int
-    exp_list: Optional[dict] = None
+    exp_list: dict | None = None
     numPages: int
     numResults: int
     page: int
@@ -26,13 +26,13 @@ class BaseBilibiliSearchingDataModel[T](BaseBilibiliModel):
     seid: str
     show_column: int
     suggest_keyword: str
-    result: list[T] = []
+    result: list[T] = Field(default_factory=list)
 
 
 class BaseBilibiliSearchingModel[T: BaseBilibiliSearchingDataModel](BaseBilibiliModel):
     """Bilibili 搜索结果 Model 基类"""
     code: int
-    data: Optional[T] = None
+    data: T | None = None
     message: str
 
     @property
@@ -63,12 +63,12 @@ class UserSearchingResult(BaseBilibiliModel):
 
 class UserSearchingData(BaseBilibiliSearchingDataModel[UserSearchingResult]):
     """用户搜索 Data"""
-    result: list[UserSearchingResult] = []
+    result: list[UserSearchingResult] = Field(default_factory=list)
 
 
 class UserSearchingModel(BaseBilibiliSearchingModel[UserSearchingData]):
     """用户搜索 Model"""
-    data: Optional[UserSearchingData] = None
+    data: UserSearchingData | None = None
 
 
 __all__ = [
