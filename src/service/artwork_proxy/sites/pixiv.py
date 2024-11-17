@@ -9,7 +9,6 @@
 """
 
 import random
-from typing import Optional
 
 from src.utils.pixiv_api import PixivArtwork
 from ..add_ons import ImageOpsMixin
@@ -38,7 +37,7 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         return [x for x in random.sample(artworks_data.recommend_pids, k=limit)]
 
     @classmethod
-    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+    async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         page = 1 if page is None else page
         if kwargs:
             artworks_data = await PixivArtwork.search(word=keyword, page=page, **kwargs)
@@ -118,15 +117,15 @@ class _PixivArtworkProxy(BaseArtworkProxy):
     async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
         artwork_data = await self.query()
 
-        origin = f"{artwork_data.origin.title()}: {artwork_data.aid}"
+        origin = f'{artwork_data.origin.title()}: {artwork_data.aid}'
         title = (
-            f"{artwork_data.title[:text_len_limit]}..."
+            f'{artwork_data.title[:text_len_limit]}...'
             if len(artwork_data.title) > text_len_limit
             else artwork_data.title
         )
 
-        author = f"Author: {artwork_data.uname}"
-        author = f"{author[:text_len_limit]}..." if len(author) > text_len_limit else author
+        author = f'Author: {artwork_data.uname}'
+        author = f'{author[:text_len_limit]}...' if len(author) > text_len_limit else author
 
         return f'{origin}\n{title}\n{author}'
 

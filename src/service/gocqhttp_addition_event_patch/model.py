@@ -8,21 +8,21 @@
 @Software       : PyCharm 
 """
 
-from typing import Type, TypeVar, Literal, override
+from typing import Literal, TypeVar, override
 
 from nonebot.adapters.onebot.v11.adapter import Adapter
 from nonebot.adapters.onebot.v11.event import Event, NoticeEvent
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-Event_T = TypeVar("Event_T", bound=Type[Event])
+Event_T = TypeVar('Event_T', bound=type[Event])
 
 
 def register_event(event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
     logger.opt(colors=True).trace(
-        f"Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> "
-        f"from module <g>{event.__module__!r}</g>"
+        f'Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> '
+        f'from module <g>{event.__module__!r}</g>'
     )
     return event
 
@@ -31,7 +31,7 @@ def register_event(event: Event_T) -> Event_T:
 class GroupCardNoticeEvent(NoticeEvent):
     """群成员名片更新提醒事件(此事件不保证时效性, 仅在收到消息时校验卡片)"""
 
-    notice_type: Literal["group_card"]
+    notice_type: Literal['group_card']
     group_id: int
     user_id: int
     card_new: str
@@ -47,7 +47,7 @@ class GroupCardNoticeEvent(NoticeEvent):
 
     @override
     def get_session_id(self) -> str:
-        return f"group_{self.group_id}_{self.user_id}"
+        return f'group_{self.group_id}_{self.user_id}'
 
 
 class OfflineFile(BaseModel):
@@ -55,14 +55,14 @@ class OfflineFile(BaseModel):
     size: int
     url: str
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra='allow')
 
 
 @register_event
 class OfflineFileNoticeEvent(NoticeEvent):
     """接收到离线文件提醒事件"""
 
-    notice_type: Literal["offline_file"]
+    notice_type: Literal['offline_file']
     user_id: int
     file: OfflineFile
 
@@ -76,7 +76,7 @@ class OfflineFileNoticeEvent(NoticeEvent):
 
     @override
     def get_session_id(self) -> str:
-        return f"{self.user_id}_{self.file.name}"
+        return f'{self.user_id}_{self.file.name}'
 
 
 class Device(BaseModel):
@@ -90,14 +90,14 @@ class Device(BaseModel):
     device_name: str
     device_kind: str
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra='allow')
 
 
 @register_event
 class ClientStatusNoticeEvent(NoticeEvent):
     """其他客户端在线状态变更"""
 
-    notice_type: Literal["client_status"]
+    notice_type: Literal['client_status']
     client: Device
     online: bool
 
@@ -111,15 +111,15 @@ class ClientStatusNoticeEvent(NoticeEvent):
 
     @override
     def get_session_id(self) -> str:
-        return f"{self.self_id}_{self.client.app_id}"
+        return f'{self.self_id}_{self.client.app_id}'
 
 
 @register_event
 class EssenceNoticeEvent(NoticeEvent):
     """精华消息变更"""
 
-    notice_type: Literal["essence"]
-    sub_type: Literal["add", "delete"]
+    notice_type: Literal['essence']
+    sub_type: Literal['add', 'delete']
     group_id: int
     sender_id: int
     operator_id: int
@@ -135,7 +135,7 @@ class EssenceNoticeEvent(NoticeEvent):
 
     @override
     def get_session_id(self) -> str:
-        return f"group_{self.group_id}_{self.sender_id}"
+        return f'group_{self.group_id}_{self.sender_id}'
 
 
 __all__ = [

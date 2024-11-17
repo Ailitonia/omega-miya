@@ -9,7 +9,6 @@
 """
 
 import re
-from typing import Union
 
 from nonebot import logger
 from nonebot.exception import IgnoredException
@@ -17,12 +16,12 @@ from nonebot.internal.adapter import Message
 from nonebot.matcher import Matcher
 
 CANCEL_PROMPT: str = '操作取消，已退出命令交互'
-CHINESE_CANCELLATION_WORDS = {"算", "别", "不", "停", "取消"}
-CHINESE_CANCELLATION_REGEX_1 = re.compile(r"^那?[算别不停]\w{0,3}了?吧?$")
-CHINESE_CANCELLATION_REGEX_2 = re.compile(r"^那?(?:[给帮]我)?取消了?吧?$")
+CHINESE_CANCELLATION_WORDS = {'算', '别', '不', '停', '取消'}
+CHINESE_CANCELLATION_REGEX_1 = re.compile(r'^那?[算别不停]\w{0,3}了?吧?$')
+CHINESE_CANCELLATION_REGEX_2 = re.compile(r'^那?(?:[给帮]我)?取消了?吧?$')
 
 
-def is_cancellation(message: Union[Message, str]) -> bool:
+def is_cancellation(message: Message | str) -> bool:
     """判断消息是否表示取消
 
     :param message: 消息对象或消息文本

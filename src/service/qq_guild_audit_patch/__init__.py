@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from nonebot.adapters.qq.bot import Bot as QQBot
 from nonebot.adapters.qq.event import MessageAuditPassEvent
@@ -21,9 +21,9 @@ from nonebot.log import logger
 @QQBot.on_called_api
 async def handle_api_result(
         bot: QQBot,
-        exception: Optional[Exception],
+        exception: Exception | None,
         api: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         result: Any
 ):
     """获取消息发送后审核状态并自动处理 AuditException 事件"""

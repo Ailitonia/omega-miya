@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -25,8 +25,8 @@ class EntityInitParams(BaseMiddlewareModel):
     entity_type: str
     entity_id: str
     parent_id: str
-    entity_name: Optional[str] = None
-    entity_info: Optional[str] = None
+    entity_name: str | None = None
+    entity_info: str | None = None
 
     @property
     def kwargs(self) -> dict[str, Any]:

@@ -8,8 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot.message import event_preprocessor
 from nonebot.adapters.onebot.v11 import Bot, Event, MessageEvent
+from nonebot.message import event_preprocessor
 
 from .v11_replace_ntqq_image_url import handle_replace_image_url_event_preprocessor
 

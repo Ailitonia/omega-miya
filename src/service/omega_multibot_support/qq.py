@@ -21,7 +21,7 @@ from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 if TYPE_CHECKING:
-    from nonebot.adapters.qq.models import Guild, Channel
+    from nonebot.adapters.qq.models import Channel, Guild
 
 
 @event_preprocessor
@@ -51,7 +51,7 @@ async def __qq_bot_connect(
         logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, Bot status added Success')
 
     # 更新频道相关信息
-    guilds: list["Guild"] = await bot.guilds()
+    guilds: list[Guild] = await bot.guilds()
     for guild in guilds:
         guild_query_data = {
             'bot_index_id': exist_bot.id,
@@ -74,7 +74,7 @@ async def __qq_bot_connect(
 
     # 更新子频道相关信息
     for guild in guilds:
-        channels: list["Channel"] = await bot.get_channels(guild_id=guild.id)
+        channels: list[Channel] = await bot.get_channels(guild_id=guild.id)
         for channel in channels:
             channel_query_data = {
                 'bot_index_id': exist_bot.id,

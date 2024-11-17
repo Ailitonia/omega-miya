@@ -9,8 +9,8 @@
 """
 
 import inspect
+from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import Callable, Coroutine
 
 from nonebot.log import logger
 

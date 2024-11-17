@@ -9,12 +9,12 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import NoResultFound
 
 from src.database.internal.entity import Entity, EntityDAL
-from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType, SubscriptionSourceDAL
+from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceDAL, SubscriptionSourceType
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,11 +24,11 @@ class InternalSubscriptionSource(abc.ABC):
     """封装后用于插件调用的数据库实体操作对象"""
 
     __slots__ = ('db_session', 'sub_id',)
-    db_session: "AsyncSession"
+    db_session: 'AsyncSession'
     sub_id: str
 
     @abc.abstractmethod
-    def __init__(self, session: "AsyncSession", *args, **kwargs):
+    def __init__(self, session: 'AsyncSession', *args, **kwargs):
         raise NotImplementedError
 
     @classmethod
@@ -37,7 +37,7 @@ class InternalSubscriptionSource(abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    async def query_type_all(cls, session: "AsyncSession") -> list[SubscriptionSource]:
+    async def query_type_all(cls, session: 'AsyncSession') -> list[SubscriptionSource]:
         """查询 sub_type 对应的全部订阅源"""
         return await SubscriptionSourceDAL(session=session).query_type_all(sub_type=cls.get_sub_type())
 
@@ -47,7 +47,7 @@ class InternalSubscriptionSource(abc.ABC):
             sub_type=self.get_sub_type(), sub_id=self.sub_id
         )
 
-    async def add_upgrade(self, sub_user_name: str, sub_info: Optional[str] = None) -> None:
+    async def add_upgrade(self, sub_user_name: str, sub_info: str | None = None) -> None:
         """新增订阅源, 若已存在则更新"""
         source_dal = SubscriptionSourceDAL(session=self.db_session)
         try:
@@ -63,7 +63,7 @@ class InternalSubscriptionSource(abc.ABC):
         source = await self.query_subscription_source()
         await SubscriptionSourceDAL(session=self.db_session).delete(id_=source.id)
 
-    async def query_all_entity_subscribed(self, entity_type: Optional[str] = None) -> list[Entity]:
+    async def query_all_entity_subscribed(self, entity_type: str | None = None) -> list[Entity]:
         """查询订阅了该订阅源的所有 Entity 对象"""
         source = await self.query_subscription_source()
         dal = EntityDAL(session=self.db_session)
@@ -73,7 +73,7 @@ class InternalSubscriptionSource(abc.ABC):
 class InternalBilibiliLiveSubscriptionSource(InternalSubscriptionSource):
     """Bilibili 直播订阅源"""
 
-    def __init__(self, session: "AsyncSession", live_room_id: str | int):
+    def __init__(self, session: 'AsyncSession', live_room_id: str | int):
         self.db_session = session
         self.sub_id = str(live_room_id)
 
@@ -85,7 +85,7 @@ class InternalBilibiliLiveSubscriptionSource(InternalSubscriptionSource):
 class InternalBilibiliDynamicSubscriptionSource(InternalSubscriptionSource):
     """Bilibili 动态订阅源"""
 
-    def __init__(self, session: "AsyncSession", uid: str | int):
+    def __init__(self, session: 'AsyncSession', uid: str | int):
         self.db_session = session
         self.sub_id = str(uid)
 
@@ -97,7 +97,7 @@ class InternalBilibiliDynamicSubscriptionSource(InternalSubscriptionSource):
 class InternalPixivUserSubscriptionSource(InternalSubscriptionSource):
     """Pixiv 用户订阅源"""
 
-    def __init__(self, session: "AsyncSession", uid: str | int):
+    def __init__(self, session: 'AsyncSession', uid: str | int):
         self.db_session = session
         self.sub_id = str(uid)
 
@@ -109,7 +109,7 @@ class InternalPixivUserSubscriptionSource(InternalSubscriptionSource):
 class InternalPixivisionSubscriptionSource(InternalSubscriptionSource):
     """Pixivision 特辑订阅源"""
 
-    def __init__(self, session: "AsyncSession"):
+    def __init__(self, session: 'AsyncSession'):
         self.db_session = session
         self.sub_id = 'pixivision'
 
@@ -117,14 +117,14 @@ class InternalPixivisionSubscriptionSource(InternalSubscriptionSource):
     def get_sub_type(cls) -> str:
         return SubscriptionSourceType.pixivision.value
 
-    async def add_upgrade(self, sub_user_name: str = '', sub_info: Optional[str] = None) -> None:
+    async def add_upgrade(self, sub_user_name: str = '', sub_info: str | None = None) -> None:
         return await super().add_upgrade(sub_user_name='pixivision', sub_info='Pixivision特辑订阅')
 
 
 class InternalWeiboUserSubscriptionSource(InternalSubscriptionSource):
     """微博用户订阅源"""
 
-    def __init__(self, session: "AsyncSession", uid: str | int):
+    def __init__(self, session: 'AsyncSession', uid: str | int):
         self.db_session = session
         self.sub_id = str(uid)
 

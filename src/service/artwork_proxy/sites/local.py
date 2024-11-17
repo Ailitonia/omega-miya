@@ -9,7 +9,7 @@
 """
 
 import random
-from typing import TYPE_CHECKING, Optional, Self
+from typing import TYPE_CHECKING, Self
 
 from ..add_ons import ImageOpsMixin
 from ..internal import BaseArtworkProxy
@@ -17,6 +17,7 @@ from ..models import ArtworkData
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
+
     from ..typing import ArtworkPageParamType
 
 
@@ -41,7 +42,7 @@ class _LocalCollectedArtworkProxy(BaseArtworkProxy):
         return [file.path.name for file in random.sample(path_config.artwork_path.list_all_files(), k=limit)]
 
     @classmethod
-    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+    async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         path_config = cls._generate_path_config()
         return [file.path.name for file in path_config.artwork_path.list_all_files() if keyword in file.path.name]
 
@@ -53,7 +54,7 @@ class _LocalCollectedArtworkProxy(BaseArtworkProxy):
         return [cls(file.path.name) for file in path_config.artwork_path.list_all_files()]
 
     @property
-    def self_file(self) -> "TemporaryResource":
+    def self_file(self) -> 'TemporaryResource':
         return self.path_config.artwork_path(self.s_aid)
 
     async def _query(self) -> ArtworkData:
@@ -111,8 +112,8 @@ class _LocalCollectedArtworkProxy(BaseArtworkProxy):
     async def _save_page(
             self,
             page_index: int = 0,
-            page_type: "ArtworkPageParamType" = 'regular'
-    ) -> "TemporaryResource":
+            page_type: 'ArtworkPageParamType' = 'regular'
+    ) -> 'TemporaryResource':
         return self.self_file
 
 

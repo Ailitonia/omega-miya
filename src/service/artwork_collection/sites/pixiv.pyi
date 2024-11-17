@@ -1,6 +1,6 @@
 from src.service.artwork_proxy import PixivArtworkProxy
-from ..internal import BaseArtworkCollection
 
+from ..internal import BaseArtworkCollection
 
 class PixivArtworkCollection(BaseArtworkCollection):
     @property

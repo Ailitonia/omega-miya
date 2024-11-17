@@ -19,7 +19,6 @@ from nonebot.permission import Permission
 
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
-
 __ONLINE_BOTS: dict[str, Bot] = {}
 """当前在线的 Bot"""
 lock = asyncio.Lock()

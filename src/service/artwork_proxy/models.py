@@ -9,7 +9,6 @@
 """
 
 from enum import IntEnum, unique
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -47,8 +46,8 @@ class ArtworkPageFile(BaseArtworkProxyModel):
     """作品图片详情"""
     url: AnyHttpUrl
     file_ext: str
-    width: Optional[int] = None
-    height: Optional[int] = None
+    width: int | None = None
+    height: int | None = None
 
 
 class ArtworkPage(BaseArtworkProxyModel):
@@ -70,11 +69,11 @@ class ArtworkData(BaseArtworkProxyModel):
     width: int
     height: int
     tags: list[str]
-    description: Optional[str] = None
-    like_count: Optional[int] = None  # 喜欢/点赞数量
-    bookmark_count: Optional[int] = None  # 收藏数量
-    view_count: Optional[int] = None  # 浏览次数
-    comment_count: Optional[int] = None  # 评论量
+    description: str | None = None
+    like_count: int | None = None  # 喜欢/点赞数量
+    bookmark_count: int | None = None  # 收藏数量
+    view_count: int | None = None  # 浏览次数
+    comment_count: int | None = None  # 评论量
     source: str  # 原始出处地址(指能直接获得该作品的来源), 一般来说为 url
     pages: list[ArtworkPage]
     extra_resource: list[AnyHttpUrl] = Field(default_factory=list)  # 其他额外资源链接
@@ -109,7 +108,7 @@ class ArtworkPool(BaseArtworkProxyModel):
     origin: str
     pool_id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     artwork_ids: list[str]
 
     @property

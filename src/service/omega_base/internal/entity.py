@@ -9,7 +9,7 @@
 """
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Literal, Optional, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from sqlalchemy.exc import NoResultFound
 
@@ -24,29 +24,29 @@ from src.database.internal.sign_in import SignInDAL
 from src.database.internal.subscription import SubscriptionDAL
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceDAL
 from .consts import (
+    GLOBAL_COOLDOWN_EVENT,
+    RATE_LIMITING_COOLDOWN_EVENT,
+    SKIP_COOLDOWN_PERMISSION_NODE,
     PermissionGlobal,
     PermissionLevel,
-    SKIP_COOLDOWN_PERMISSION_NODE,
-    GLOBAL_COOLDOWN_EVENT,
-    RATE_LIMITING_COOLDOWN_EVENT
 )
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class InternalEntity(object):
+class InternalEntity:
     """封装后用于插件调用的数据库实体操作对象"""
 
     def __init__(
             self,
-            session: "AsyncSession",
+            session: 'AsyncSession',
             bot_id: str,
             entity_type: str,
             entity_id: str,
             parent_id: str,
-            entity_name: Optional[str] = None,
-            entity_info: Optional[str] = None
+            entity_name: str | None = None,
+            entity_info: str | None = None
     ) -> None:
         self.db_session = session
         self.bot_id = bot_id
@@ -64,7 +64,7 @@ class InternalEntity(object):
         return f'{self.entity_type}_{self.entity_id}'
 
     @classmethod
-    async def init_from_entity_index_id(cls, session: "AsyncSession", index_id: int) -> Self:
+    async def init_from_entity_index_id(cls, session: 'AsyncSession', index_id: int) -> Self:
         entity = await EntityDAL(session=session).query_by_index_id(index_id=index_id)
         bot = await BotSelfDAL(session=session).query_by_index_id(index_id=entity.bot_index_id)
         return cls(
@@ -76,12 +76,12 @@ class InternalEntity(object):
         )
 
     @classmethod
-    async def query_all_entity_by_type(cls, session: "AsyncSession", entity_type: str) -> list[Entity]:
+    async def query_all_entity_by_type(cls, session: 'AsyncSession', entity_type: str) -> list[Entity]:
         """查询符合 entity_type 的全部结果"""
         return await EntityDAL(session=session).query_all_by_type(entity_type=entity_type)
 
     @classmethod
-    async def query_all_entity(cls, session: "AsyncSession") -> list[Entity]:
+    async def query_all_entity(cls, session: 'AsyncSession') -> list[Entity]:
         """查询符合 entity_type 的全部结果"""
         return await EntityDAL(session=session).query_all()
 
@@ -102,8 +102,8 @@ class InternalEntity(object):
 
     async def add_ignore_exists(
             self,
-            entity_name: Optional[str] = None,
-            entity_info: Optional[str] = None
+            entity_name: str | None = None,
+            entity_info: str | None = None
     ) -> None:
         """新增 Entity, 若已存在忽略"""
         bot = await self.query_bot_self()
@@ -121,8 +121,8 @@ class InternalEntity(object):
 
     async def add_upgrade(
             self,
-            entity_name: Optional[str] = None,
-            entity_info: Optional[str] = None
+            entity_name: str | None = None,
+            entity_info: str | None = None
     ) -> None:
         """新增 Entity, 若已存在则更新"""
         bot = await self.query_bot_self()
@@ -167,7 +167,7 @@ class InternalEntity(object):
     async def change_friendship(
             self,
             *,
-            status: Optional[str] = None,
+            status: str | None = None,
             mood: float = 0,
             friendship: float = 0,
             energy: float = 0,
@@ -207,8 +207,8 @@ class InternalEntity(object):
     async def sign_in(
             self,
             *,
-            date_: Optional[date | datetime] = None,
-            sign_in_info: Optional[str] = None,
+            date_: date | datetime | None = None,
+            sign_in_info: str | None = None,
     ) -> None:
         """签到
 
@@ -412,7 +412,7 @@ class InternalEntity(object):
             node: str,
             available: int,
             *,
-            value: Optional[str] = None
+            value: str | None = None
     ) -> None:
         """设置 Entity 权限节点参数值"""
         entity = await self.query_entity_self()
@@ -460,7 +460,7 @@ class InternalEntity(object):
             self,
             cooldown_event: str,
             expired_time: datetime | timedelta,
-            description: Optional[str] = None
+            description: str | None = None
     ) -> None:
         """设置冷却
 
@@ -529,7 +529,7 @@ class InternalEntity(object):
         """
         return await self.check_cooldown_expired(cooldown_event=RATE_LIMITING_COOLDOWN_EVENT)
 
-    async def bind_email_box(self, email_box: EmailBox, bind_info: Optional[str] = None) -> None:
+    async def bind_email_box(self, email_box: EmailBox, bind_info: str | None = None) -> None:
         """绑定邮箱"""
         entity = await self.query_entity_self()
         bind_dal = EmailBoxBindDAL(session=self.db_session)
@@ -556,7 +556,7 @@ class InternalEntity(object):
         entity = await self.query_entity_self()
         return await EmailBoxDAL(session=self.db_session).query_entity_bound_all(entity_index_id=entity.id)
 
-    async def add_subscription(self, subscription_source: SubscriptionSource, sub_info: Optional[str] = None) -> None:
+    async def add_subscription(self, subscription_source: SubscriptionSource, sub_info: str | None = None) -> None:
         """添加订阅"""
         entity = await self.query_entity_self()
         subscription_dal = SubscriptionDAL(session=self.db_session)
@@ -581,7 +581,7 @@ class InternalEntity(object):
         except NoResultFound:
             pass
 
-    async def query_subscribed_source(self, sub_type: Optional[str] = None) -> list[SubscriptionSource]:
+    async def query_subscribed_source(self, sub_type: str | None = None) -> list[SubscriptionSource]:
         """查询全部已订阅的订阅源
 
         :param sub_type: 可选: 根据 sub_type 筛选, 若无则为全部类型

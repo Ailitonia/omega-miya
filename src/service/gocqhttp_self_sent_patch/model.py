@@ -8,21 +8,21 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional, Type, TypeVar, Literal, override
+from typing import Literal, TypeVar, override
 
 from nonebot.adapters.onebot.utils import highlight_rich_message
 from nonebot.adapters.onebot.v11.adapter import Adapter
-from nonebot.adapters.onebot.v11.event import Event, MessageEvent, Anonymous
+from nonebot.adapters.onebot.v11.event import Anonymous, Event, MessageEvent
 from nonebot.log import logger
 
-Event_T = TypeVar("Event_T", bound=Type[Event])
+Event_T = TypeVar('Event_T', bound=type[Event])
 
 
 def register_event(event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
     logger.opt(colors=True).trace(
-        f"Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> "
-        f"from module <g>{event.__module__!r}</g>"
+        f'Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> '
+        f'from module <g>{event.__module__!r}</g>'
     )
     return event
 
@@ -31,16 +31,16 @@ def register_event(event: Event_T) -> Event_T:
 class MessageSentEvent(MessageEvent):
     """自身发送消息事件"""
 
-    post_type: Literal["message_sent"]
-    message_seq: Optional[int] = None
-    target_id: Optional[int] = None
-    group_id: Optional[int] = 0
-    anonymous: Optional[Anonymous] = None
+    post_type: Literal['message_sent']
+    message_seq: int | None = None
+    target_id: int | None = None
+    group_id: int | None = 0
+    anonymous: Anonymous | None = None
     to_me: bool = False
 
     @override
     def get_type(self) -> str:
-        return "message"
+        return 'message'
 
     @override
     def get_event_description(self) -> str:
@@ -55,7 +55,7 @@ class MessageSentEvent(MessageEvent):
 
     @override
     def get_session_id(self) -> str:
-        return f"self_sent_{self.self_id}"
+        return f'self_sent_{self.self_id}'
 
     @override
     def is_tome(self) -> bool:

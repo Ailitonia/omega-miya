@@ -9,19 +9,20 @@
 """
 
 import abc
+from collections.abc import Callable, Generator
 from copy import deepcopy
-from dataclasses import field, dataclass
-from typing import TYPE_CHECKING, Any, Callable, Generator
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from nonebot.log import logger
 
 from ..const import SupportedPlatform
 from ..exception import AdapterNotSupported
-from ..typing import BaseMessageType, BaseMessageSegType, BaseSentMessageType
+from ..typing import BaseMessageSegType, BaseMessageType, BaseSentMessageType
 
 if TYPE_CHECKING:
-    from nonebot.internal.adapter import Message as BaseMessage, MessageSegment as BaseMessageSegment
-    from ...message import Message as OmegaMessage
+    from nonebot.internal.adapter import Message as BaseMessage
+    from nonebot.internal.adapter import MessageSegment as BaseMessageSegment
 
 
 class BaseMessageBuilder[SourceMessage_T: BaseMessageType[Any], TargetMessage_T: BaseMessageType[Any]](abc.ABC):
@@ -98,10 +99,10 @@ class BaseMessageBuilder[SourceMessage_T: BaseMessageType[Any], TargetMessage_T:
             return target_message_type()
 
 
-type Builder[TargetMessage_T: BaseMessageType[Any]] = BaseMessageBuilder["OmegaMessage", TargetMessage_T]
+type Builder[TargetMessage_T: BaseMessageType[Any]] = BaseMessageBuilder['OmegaMessage', TargetMessage_T]
 """平台消息构造器, 从 Omega 中间件消息构建平台消息"""
 
-type Extractor[SourceMessage_T: BaseMessageType[Any]] = BaseMessageBuilder[SourceMessage_T, "OmegaMessage"]
+type Extractor[SourceMessage_T: BaseMessageType[Any]] = BaseMessageBuilder[SourceMessage_T, 'OmegaMessage']
 """平台消息解析器, 将平台消息转换为 Omega 中间件消息"""
 
 
@@ -146,7 +147,7 @@ class MessageBuilderRegister:
 
         return _decorator
 
-    def get_builder(self, platform_name: SupportedPlatform) -> type[Builder["BaseMessage[BaseMessageSegment]"]]:
+    def get_builder(self, platform_name: SupportedPlatform) -> type[Builder['BaseMessage[BaseMessageSegment]']]:
         """从适配器或事件中提取对应的适配器工具 target"""
         if platform_name not in SupportedPlatform.get_supported_adapter_names():
             raise AdapterNotSupported(adapter_name=platform_name)
@@ -157,7 +158,7 @@ class MessageBuilderRegister:
 
         return self._builder_map[platform_name]
 
-    def get_extractor(self, platform_name: SupportedPlatform) -> type[Extractor["BaseMessage[BaseMessageSegment]"]]:
+    def get_extractor(self, platform_name: SupportedPlatform) -> type[Extractor['BaseMessage[BaseMessageSegment]']]:
         """从适配器或事件中提取对应的适配器工具 target"""
         if platform_name not in SupportedPlatform.get_supported_adapter_names():
             raise AdapterNotSupported(adapter_name=platform_name)

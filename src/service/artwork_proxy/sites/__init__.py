@@ -20,7 +20,6 @@ from .moebooru import (
 from .none import NoneArtworkProxy
 from .pixiv import PixivArtworkProxy
 
-
 __all__ = [
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',

@@ -9,32 +9,30 @@
 """
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
+from nonebot.adapters.qq import Bot as QQBot
+from nonebot.adapters.qq import C2CMessageCreateEvent as QQC2CMessageCreateEvent
+from nonebot.adapters.qq import Event as QQEvent
+from nonebot.adapters.qq import GroupAtMessageCreateEvent as QQGroupAtMessageCreateEvent
 from nonebot.adapters.qq import (
-    Bot as QQBot,
-    Message as QQMessage,
-    MessageSegment as QQMessageSegment,
-    Event as QQEvent,
     GuildMessageEvent as QQGuildMessageEvent,  # DirectMessageCreateEvent 是 GuildMessageEvent 的子类, 直接共用相同逻辑
-    GroupAtMessageCreateEvent as QQGroupAtMessageCreateEvent,
-    C2CMessageCreateEvent as QQC2CMessageCreateEvent,
 )
-from nonebot.adapters.qq.models import MessageReference, Message
+from nonebot.adapters.qq import Message as QQMessage
+from nonebot.adapters.qq import MessageSegment as QQMessageSegment
+from nonebot.adapters.qq.models import Message, MessageReference
 from nonebot.matcher import current_event
 
 from ..const import SupportedPlatform, SupportedTarget
-from ..models import EntityInitParams, EntityTargetSendParams, EntityTargetRevokeParams
+from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams
 from ..platform_interface.entity_target import BaseEntityTarget, entity_target_register
 from ..platform_interface.event_depend import BaseEventDepend, event_depend_register
 from ..platform_interface.message_builder import BaseMessageBuilder, message_builder_register
 from ..typing import BaseSentMessageType
-from ...message import (
-    MessageSegmentType,
-    Message as OmegaMessage,
-    MessageSegment as OmegaMessageSegment
-)
+from ...message import Message as OmegaMessage
+from ...message import MessageSegment as OmegaMessageSegment
+from ...message import MessageSegmentType
 
 
 @message_builder_register.register_builder(SupportedPlatform.qq)
@@ -124,10 +122,10 @@ class QQMessageExtractor(BaseMessageBuilder[QQMessage, OmegaMessage]):
 @entity_target_register.register_target(SupportedTarget.qq_guild)
 class QQGuildEntityTarget(BaseEntityTarget):
 
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         raise NotImplementedError
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError
 
     async def call_api_get_entity_name(self) -> str:
@@ -148,7 +146,7 @@ class QQGuildEntityTarget(BaseEntityTarget):
 @entity_target_register.register_target(SupportedTarget.qq_channel)
 class QQChannelEntityTarget(BaseEntityTarget):
 
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         params = {'channel_id': self.entity.entity_id}
         if 'msg_id' in kwargs:
             params['msg_id'] = kwargs['msg_id']
@@ -168,7 +166,7 @@ class QQChannelEntityTarget(BaseEntityTarget):
             params=params
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         if not isinstance(sent_return, Message):
             raise ValueError(f'Sent message({sent_return!r}) can not be revoked')
         return EntityTargetRevokeParams(
@@ -191,10 +189,10 @@ class QQChannelEntityTarget(BaseEntityTarget):
 @entity_target_register.register_target(SupportedTarget.qq_group)
 class QQGroupEntityTarget(BaseEntityTarget):
 
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         raise NotImplementedError  # TODO send_to_group
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError  # TODO
 
     async def call_api_get_entity_name(self) -> str:
@@ -209,10 +207,10 @@ class QQGroupEntityTarget(BaseEntityTarget):
 @entity_target_register.register_target(SupportedTarget.qq_user)
 class QQUserEntityTarget(BaseEntityTarget):
 
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         raise NotImplementedError  # TODO send_to_c2c
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError  # TODO
 
     async def call_api_get_entity_name(self) -> str:
@@ -227,7 +225,7 @@ class QQUserEntityTarget(BaseEntityTarget):
 @entity_target_register.register_target(SupportedTarget.qq_guild_user)
 class QQGuildUserEntityTarget(BaseEntityTarget):
 
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         params = {'guild_id': self.entity.parent_id}
         if 'msg_id' in kwargs:
             params['msg_id'] = kwargs['msg_id']
@@ -247,7 +245,7 @@ class QQGuildUserEntityTarget(BaseEntityTarget):
             params=params
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError  # 暂不支持主动撤回 dms 私聊消息
 
     async def call_api_get_entity_name(self) -> str:
@@ -272,24 +270,24 @@ class QQGuildUserEntityTarget(BaseEntityTarget):
 @event_depend_register.register_depend(QQEvent)
 class QQEventDepend[Event_T: QQEvent](BaseEventDepend[QQBot, Event_T, QQMessage]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return self._extract_user_entity_params()
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='qq_user', entity_id=self.bot.self_id, parent_id=self.bot.self_id
         )
 
-    def get_omega_message_builder(self) -> type["BaseMessageBuilder[OmegaMessage, QQMessage]"]:
+    def get_omega_message_builder(self) -> type['BaseMessageBuilder[OmegaMessage, QQMessage]']:
         return QQMessageBuilder
 
-    def get_omega_message_extractor(self) -> type["BaseMessageBuilder[QQMessage, OmegaMessage]"]:
+    def get_omega_message_extractor(self) -> type['BaseMessageBuilder[QQMessage, OmegaMessage]']:
         return QQMessageExtractor
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         raise NotImplementedError
 
-    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         raise NotImplementedError
 
     async def revoke(self, sent_return: Any, **kwargs) -> Any:
@@ -304,32 +302,32 @@ class QQEventDepend[Event_T: QQEvent](BaseEventDepend[QQBot, Event_T, QQMessage]
     def get_reply_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
-    def get_reply_msg_plain_text(self) -> Optional[str]:
+    def get_reply_msg_plain_text(self) -> str | None:
         raise NotImplementedError
 
 
 @event_depend_register.register_depend(QQGuildMessageEvent)
 class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='qq_channel',
             entity_id=self.event.channel_id, parent_id=self.event.guild_id
         )
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='qq_guild_user',
             entity_id=self.event.author.id, parent_id=self.event.guild_id,
             entity_name=self.event.author.username, entity_info=self.event.author.avatar
         )
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.id) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
-    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
@@ -353,7 +351,7 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
         else:
             return []
 
-    def get_reply_msg_plain_text(self) -> Optional[str]:
+    def get_reply_msg_plain_text(self) -> str | None:
         if self.event.reply:
             return QQMessage.from_guild_message(self.event.reply).extract_plain_text()
         else:
@@ -363,22 +361,22 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
 @event_depend_register.register_depend(QQC2CMessageCreateEvent)
 class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return self._extract_user_entity_params()
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='qq_user',
             entity_id=self.event.author.user_openid, parent_id=self.bot.self_id,
             entity_info=f'id: {self.event.author.id}, openid: {self.event.author.user_openid}'
         )
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.user_openid) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
-    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
@@ -395,33 +393,33 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
     def get_reply_msg_image_urls(self) -> list[str]:
         raise NotImplementedError  # QQ 协议消息只有回复序列 id, 不支持获取回复消息内容
 
-    def get_reply_msg_plain_text(self) -> Optional[str]:
+    def get_reply_msg_plain_text(self) -> str | None:
         raise NotImplementedError  # QQ 协议消息只有回复序列 id, 不支持获取回复消息内容
 
 
 @event_depend_register.register_depend(QQGroupAtMessageCreateEvent)
 class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEvent]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='qq_group',
             entity_id=self.event.group_openid, parent_id=self.bot.self_id,
             entity_info=f'group_openid: {self.event.group_openid}'
         )
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='qq_user',
             entity_id=self.event.author.member_openid, parent_id=self.bot.self_id,
             entity_info=f'id: {self.event.author.id}, member_openid: {self.event.author.member_openid}'
         )
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.member_openid) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
-    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
@@ -438,7 +436,7 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
     def get_reply_msg_image_urls(self) -> list[str]:
         raise NotImplementedError  # QQ 协议消息只有回复序列 id, 不支持获取回复消息内容
 
-    def get_reply_msg_plain_text(self) -> Optional[str]:
+    def get_reply_msg_plain_text(self) -> str | None:
         raise NotImplementedError  # QQ 协议消息只有回复序列 id, 不支持获取回复消息内容
 
 

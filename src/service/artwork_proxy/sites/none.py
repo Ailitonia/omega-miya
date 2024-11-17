@@ -8,7 +8,6 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData
@@ -34,7 +33,7 @@ class NoneArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+    async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         raise NotImplementedError
 
     async def _query(self) -> ArtworkData:

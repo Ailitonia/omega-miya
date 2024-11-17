@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from .apscheduler import scheduler, reschedule_job
+from .apscheduler import reschedule_job, scheduler
 from .omega_base import (
     OmegaEntity,
     OmegaEntityInterface,
@@ -19,7 +19,6 @@ from .omega_base import (
 )
 from .omega_global_cache import OmegaGlobalCache
 from .omega_processor import enable_processor_state
-
 
 __all__ = [
     'OmegaEntity',

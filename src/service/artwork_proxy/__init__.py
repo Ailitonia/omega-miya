@@ -11,15 +11,15 @@
 from typing import Literal
 
 from .sites import (
+    BehoimiArtworkProxy,
     DanbooruArtworkProxy,
     GelbooruArtworkProxy,
-    LocalCollectedArtworkProxy,
-    BehoimiArtworkProxy,
     KonachanArtworkProxy,
     KonachanSafeArtworkProxy,
-    YandereArtworkProxy,
+    LocalCollectedArtworkProxy,
     NoneArtworkProxy,
     PixivArtworkProxy,
+    YandereArtworkProxy,
 )
 
 type ALLOW_ARTWORK_ORIGIN = Literal[

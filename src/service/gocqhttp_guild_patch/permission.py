@@ -10,31 +10,31 @@ async def _guild(event: GuildMessageEvent) -> bool:
 
 async def _guild_admin(bot: Bot, event: GuildMessageEvent):
     roles = {
-        role["role_name"]
+        role['role_name']
         for role in (
             await bot.get_guild_member_profile(
                 guild_id=event.guild_id, user_id=event.user_id
             )
-        )["roles"]
+        )['roles']
     }
-    return "管理员" in roles
+    return '管理员' in roles
 
 
 async def _guild_owner(bot: Bot, event: GuildMessageEvent):
     roles = {
-        role["role_name"]
+        role['role_name']
         for role in (
             await bot.get_guild_member_profile(
                 guild_id=event.guild_id, user_id=event.user_id
             )
-        )["roles"]
+        )['roles']
     }
-    return "频道主" in roles
+    return '频道主' in roles
 
 
 async def _guild_superuser(bot: Bot, event: GuildMessageEvent) -> bool:
     return (
-        f"{bot.adapter.get_name().lower()}:{event.get_user_id()}"
+            f'{bot.adapter.get_name().lower()}:{event.get_user_id()}'
         in bot.config.superusers
     ) or (event.get_user_id() in bot.config.superusers)
 

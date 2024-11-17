@@ -8,8 +8,9 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Literal, TypeVar, cast
+from typing import Literal, TypeVar, cast
 
 from .internal import BaseArtworkProxy
 

@@ -21,7 +21,7 @@ class NoneArtworkCollection(BaseArtworkCollection):
     """空适配"""
 
     @classmethod
-    def _get_base_artwork_proxy_type(cls) -> "ArtworkProxyType":
+    def _get_base_artwork_proxy_type(cls) -> 'ArtworkProxyType':
         return NoneArtworkProxy
 
 

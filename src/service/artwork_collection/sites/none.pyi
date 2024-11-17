@@ -1,6 +1,6 @@
 from src.service.artwork_proxy import NoneArtworkProxy
-from ..internal import BaseArtworkCollection
 
+from ..internal import BaseArtworkCollection
 
 class NoneArtworkCollection(BaseArtworkCollection):
     @property

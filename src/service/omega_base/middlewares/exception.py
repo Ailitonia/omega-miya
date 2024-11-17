@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional, final
+from typing import final
 
 from src.exception import PlatformException
 
@@ -17,7 +17,7 @@ from src.exception import PlatformException
 class AdapterNotSupported(PlatformException):
     """平台适配器不支持的方法"""
 
-    def __init__(self, adapter_name: str, reason: Optional[str] = None) -> None:
+    def __init__(self, adapter_name: str, reason: str | None = None) -> None:
         self.adapter_name = adapter_name
         self.reason = reason
 
@@ -33,7 +33,7 @@ class AdapterNotSupported(PlatformException):
 class TargetNotSupported(PlatformException):
     """平台对象不支持的方法"""
 
-    def __init__(self, target_name: str, reason: Optional[str] = None) -> None:
+    def __init__(self, target_name: str, reason: str | None = None) -> None:
         self.target_name = target_name
         self.reason = reason
 

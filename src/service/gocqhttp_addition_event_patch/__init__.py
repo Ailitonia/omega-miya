@@ -10,7 +10,7 @@
 
 from nonebot.log import logger
 
-from .model import GroupCardNoticeEvent, OfflineFileNoticeEvent, ClientStatusNoticeEvent, EssenceNoticeEvent
+from .model import ClientStatusNoticeEvent, EssenceNoticeEvent, GroupCardNoticeEvent, OfflineFileNoticeEvent
 
 logger.opt(colors=True).info('<lc>Addition event patch(go-cqhttp)</lc> loaded')
 

@@ -9,21 +9,9 @@
 """
 
 import abc
-from typing import Optional
 
-from src.utils.booru_api import (
-    behoimi_api,
-    konachan_api,
-    konachan_safe_api,
-    yandere_api
-)
-from src.utils.booru_api.moebooru import (
-    BaseMoebooruAPI,
-    BehoimiAPI,
-    KonachanAPI,
-    KonachanSafeAPI,
-    YandereAPI
-)
+from src.utils.booru_api import behoimi_api, konachan_api, konachan_safe_api, yandere_api
+from src.utils.booru_api.moebooru import BaseMoebooruAPI, BehoimiAPI, KonachanAPI, KonachanSafeAPI, YandereAPI
 from ..add_ons import ImageOpsPlusPoolMixin
 from ..internal import BaseArtworkProxy
 from ..models import ArtworkData, ArtworkPool
@@ -52,7 +40,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return [x.id for x in artworks_data]
 
     @classmethod
-    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+    async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data]
 

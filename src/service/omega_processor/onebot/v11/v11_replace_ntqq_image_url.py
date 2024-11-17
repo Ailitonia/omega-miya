@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from typing import Callable, Literal, Optional
+from collections.abc import Callable
+from typing import Literal
 
 from nonebot import get_plugin_config, logger
 from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
@@ -19,12 +20,12 @@ type SegReplacerType = Callable[[MessageSegment], MessageSegment]
 
 class OneBotV11ImageUrlReplacerConfig(BaseModel):
     """OneBot V11 图片 URL 替换处理配置"""
-    onebot_v11_image_url_replacer: Optional[Literal['http', 'domain']] = None
+    onebot_v11_image_url_replacer: Literal['http', 'domain'] | None = None
 
     model_config = ConfigDict(extra='ignore')
 
 
-def _ger_image_url_replacer(replacer: Optional[str]) -> SegReplacerType:
+def _ger_image_url_replacer(replacer: str | None) -> SegReplacerType:
     match replacer:
         case 'http':
             old_ = 'https://'

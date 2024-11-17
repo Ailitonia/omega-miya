@@ -11,7 +11,6 @@
 from . import platforms as platforms
 from .interface import OmegaEntityInterface, OmegaMatcherInterface
 
-
 __all__ = [
     'OmegaEntityInterface',
     'OmegaMatcherInterface',

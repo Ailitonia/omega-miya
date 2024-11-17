@@ -8,35 +8,30 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Optional, Sequence, cast
+from typing import Any, cast
 from urllib.parse import quote
 
-from nonebot.adapters.telegram import (
-    Bot as TelegramBot,
-    Message as TelegramMessage,
-    MessageSegment as TelegramMessageSegment,
-    Event as TelegramEvent
-)
-from nonebot.adapters.telegram.event import (
-    MessageEvent as TelegramMessageEvent,
-    GroupMessageEvent as TelegramGroupMessageEvent,
-    PrivateMessageEvent as TelegramPrivateMessageEvent,
-    ChannelPostEvent as TelegramChannelPostEvent
-)
+from nonebot.adapters.telegram import Bot as TelegramBot
+from nonebot.adapters.telegram import Event as TelegramEvent
+from nonebot.adapters.telegram import Message as TelegramMessage
+from nonebot.adapters.telegram import MessageSegment as TelegramMessageSegment
+from nonebot.adapters.telegram.event import ChannelPostEvent as TelegramChannelPostEvent
+from nonebot.adapters.telegram.event import GroupMessageEvent as TelegramGroupMessageEvent
+from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
+from nonebot.adapters.telegram.event import PrivateMessageEvent as TelegramPrivateMessageEvent
 from nonebot.adapters.telegram.message import Entity, File
 
 from ..const import SupportedPlatform, SupportedTarget
-from ..models import EntityInitParams, EntityTargetSendParams, EntityTargetRevokeParams
+from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams
 from ..platform_interface.entity_target import BaseEntityTarget, entity_target_register
 from ..platform_interface.event_depend import BaseEventDepend, event_depend_register
 from ..platform_interface.message_builder import BaseMessageBuilder, message_builder_register
 from ..typing import BaseSentMessageType
-from ...message import (
-    MessageSegmentType,
-    Message as OmegaMessage,
-    MessageSegment as OmegaMessageSegment
-)
+from ...message import Message as OmegaMessage
+from ...message import MessageSegment as OmegaMessageSegment
+from ...message import MessageSegmentType
 
 
 @message_builder_register.register_builder(SupportedPlatform.telegram)
@@ -109,7 +104,7 @@ class TelegramMessageExtractor(BaseMessageBuilder[TelegramMessage, OmegaMessage]
 
 class BaseTelegramEntityTarget(BaseEntityTarget):
 
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         return EntityTargetSendParams(
             api='send_to',
             message_param_name='message',
@@ -118,7 +113,7 @@ class BaseTelegramEntityTarget(BaseEntityTarget):
             }
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         if isinstance(sent_return, Sequence):
             chat_id = sent_return[0].chat.id
             message_ids = [x.message_id for x in sent_return]
@@ -149,7 +144,7 @@ class BaseTelegramEntityTarget(BaseEntityTarget):
             raise ValueError('chat has no photo')
 
         file = await bot.call_api('get_file', file_id=getattr(photo, 'big_file_id', ''))
-        return f"https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}"
+        return f'https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}'
 
     async def call_api_send_file(self, file_path: str, file_name: str) -> None:
         bot = cast(TelegramBot, await self.get_bot())
@@ -176,26 +171,26 @@ class TelegramChannelEntityTarget(BaseTelegramEntityTarget):
 @event_depend_register.register_depend(TelegramEvent)
 class TelegramEventDepend[Event_T: TelegramEvent](BaseEventDepend[TelegramBot, Event_T, TelegramMessage]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='telegram_user', entity_id=self.bot.self_id, parent_id=self.bot.self_id
         )
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='telegram_user', entity_id=self.bot.self_id, parent_id=self.bot.self_id
         )
 
-    def get_omega_message_builder(self) -> type["BaseMessageBuilder[OmegaMessage, TelegramMessage]"]:
+    def get_omega_message_builder(self) -> type['BaseMessageBuilder[OmegaMessage, TelegramMessage]']:
         return TelegramMessageBuilder
 
-    def get_omega_message_extractor(self) -> type["BaseMessageBuilder[TelegramMessage, OmegaMessage]"]:
+    def get_omega_message_extractor(self) -> type['BaseMessageBuilder[TelegramMessage, OmegaMessage]']:
         return TelegramMessageExtractor
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         raise NotImplementedError
 
-    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         raise NotImplementedError
 
     async def revoke(self, sent_return: Any, **kwargs) -> Any:
@@ -210,17 +205,17 @@ class TelegramEventDepend[Event_T: TelegramEvent](BaseEventDepend[TelegramBot, E
     def get_reply_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
-    def get_reply_msg_plain_text(self) -> Optional[str]:
+    def get_reply_msg_plain_text(self) -> str | None:
         raise NotImplementedError
 
 
 @event_depend_register.register_depend(TelegramMessageEvent)
 class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDepend[Event_T]):
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         return await self.send(message=message, **kwargs)
 
-    async def send_reply(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         return await self.send(message=message, reply_to_message_id=self.event.message_id, **kwargs)
 
     async def revoke(self, sent_return: Any, **kwargs) -> Any:
@@ -250,7 +245,7 @@ class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDep
         else:
             return []
 
-    def get_reply_msg_plain_text(self) -> Optional[str]:
+    def get_reply_msg_plain_text(self) -> str | None:
         if self.event.reply_to_message:
             return self.event.reply_to_message.get_plaintext()
 
@@ -258,14 +253,14 @@ class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDep
 @event_depend_register.register_depend(TelegramGroupMessageEvent)
 class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMessageEvent]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='telegram_group',
             entity_id=str(self.event.chat.id), parent_id=self.bot.self_id,
             entity_name=self.event.chat.title, entity_info=self.event.chat.type
         )
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='telegram_user',
             entity_id=str(self.event.from_.id), parent_id=self.bot.self_id,
@@ -273,7 +268,7 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
             entity_info=f'{self.event.from_.first_name}/{self.event.from_.last_name}, @{self.event.from_.username}'
         )
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = TelegramMessage()
         send_message += Entity.mention(f'@{self.event.from_.username}')
@@ -288,10 +283,10 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
 @event_depend_register.register_depend(TelegramPrivateMessageEvent)
 class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPrivateMessageEvent]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return self._extract_user_entity_params()
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='telegram_user',
             entity_id=str(self.event.from_.id), parent_id=self.bot.self_id,
@@ -299,7 +294,7 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
             entity_info=f'{self.event.from_.first_name}/{self.event.from_.last_name}, @{self.event.from_.username}'
         )
 
-    async def send_at_sender(self, message: "BaseSentMessageType[OmegaMessage]", **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
         built_message = self.build_platform_message(message=message)
         send_message = TelegramMessage()
         send_message += Entity.mention(f'@{self.event.from_.username}')
@@ -314,14 +309,14 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
 @event_depend_register.register_depend(TelegramChannelPostEvent)
 class TelegramChannelPostEventDepend(TelegramMessageEventDepend[TelegramChannelPostEvent]):
 
-    def _extract_event_entity_params(self) -> "EntityInitParams":
+    def _extract_event_entity_params(self) -> 'EntityInitParams':
         return EntityInitParams(
             bot_id=self.bot.self_id, entity_type='telegram_channel',
             entity_id=str(self.event.chat.id), parent_id=self.bot.self_id,
             entity_name=self.event.chat.title, entity_info=self.event.chat.type
         )
 
-    def _extract_user_entity_params(self) -> "EntityInitParams":
+    def _extract_user_entity_params(self) -> 'EntityInitParams':
         return self._extract_event_entity_params()
 
 

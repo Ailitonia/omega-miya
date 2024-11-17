@@ -21,7 +21,7 @@ class LocalCollectedArtworkCollection(BaseArtworkCollection):
     """本地图片收藏作品合集"""
 
     @classmethod
-    def _get_base_artwork_proxy_type(cls) -> "ArtworkProxyType":
+    def _get_base_artwork_proxy_type(cls) -> 'ArtworkProxyType':
         return LocalCollectedArtworkProxy
 
 

@@ -9,13 +9,10 @@
 """
 
 from .internal import OmegaEntity
-from .message import (
-    Message as OmegaMessage,
-    MessageSegment as OmegaMessageSegment,
-    MessageTransferUtils as OmegaMessageTransfer,
-)
+from .message import Message as OmegaMessage
+from .message import MessageSegment as OmegaMessageSegment
+from .message import MessageTransferUtils as OmegaMessageTransfer
 from .middlewares import OmegaEntityInterface, OmegaMatcherInterface
-
 
 __all__ = [
     'OmegaEntity',

@@ -1,6 +1,6 @@
 from src.service.artwork_proxy import LocalCollectedArtworkProxy
-from ..internal import BaseArtworkCollection
 
+from ..internal import BaseArtworkCollection
 
 class LocalCollectedArtworkCollection(BaseArtworkCollection):
     @property

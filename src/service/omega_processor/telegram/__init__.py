@@ -8,9 +8,9 @@
 @Software       : PyCharm 
 """
 
-from nonebot.message import event_preprocessor
 from nonebot.adapters.telegram.bot import Bot
 from nonebot.adapters.telegram.event import Event, MessageEvent
+from nonebot.message import event_preprocessor
 
 from .image_parser import handle_parse_message_image_event_preprocessor
 

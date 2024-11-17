@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from nonebot import get_driver, get_loaded_plugins, logger
 from nonebot.adapters import Event

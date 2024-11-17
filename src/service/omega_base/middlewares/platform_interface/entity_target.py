@@ -9,8 +9,9 @@
 """
 
 import abc
-from dataclasses import field, dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from nonebot.log import logger
 
@@ -20,17 +21,18 @@ from ..exception import BotNoFound, TargetNotSupported
 
 if TYPE_CHECKING:
     from nonebot.internal.adapter import Bot as BaseBot
-    from ..models import EntityTargetSendParams, EntityTargetRevokeParams
+
     from ...internal import OmegaEntity
+    from ..models import EntityTargetRevokeParams, EntityTargetSendParams
 
 
 class BaseEntityTarget(abc.ABC):
     """中间件平台 API 适配器: 平台 API 及 Entity 方法适配工具基类"""
 
-    def __init__(self, entity: "OmegaEntity") -> None:
+    def __init__(self, entity: 'OmegaEntity') -> None:
         self.entity = entity
 
-    async def get_bot(self) -> "BaseBot":
+    async def get_bot(self) -> 'BaseBot':
         """获取 Entity 对应 Bot 实例"""
         bot_self = await self.entity.query_bot_self()
         bot = get_online_bots().get(bot_self.bot_type, {}).get(bot_self.self_id)
@@ -41,12 +43,12 @@ class BaseEntityTarget(abc.ABC):
     """平台发送消息 API 调用适配"""
 
     @abc.abstractmethod
-    def get_api_to_send_msg(self, **kwargs) -> "EntityTargetSendParams":
+    def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         """获取向 Entity 发送消息调用的 API 名称及参数"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> "EntityTargetRevokeParams":
+    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
         """获取撤回已发送消息调用的 API 名称及参数"""
         raise NotImplementedError
 

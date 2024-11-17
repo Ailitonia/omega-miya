@@ -9,9 +9,9 @@
 """
 
 from .booru import (
+    BehoimiArtworkCollection,
     DanbooruArtworkCollection,
     GelbooruArtworkCollection,
-    BehoimiArtworkCollection,
     KonachanArtworkCollection,
     KonachanSafeArtworkCollection,
     YandereArtworkCollection,
@@ -19,7 +19,6 @@ from .booru import (
 from .local import LocalCollectedArtworkCollection
 from .none import NoneArtworkCollection
 from .pixiv import PixivArtworkCollection
-
 
 __all__ = [
     'DanbooruArtworkCollection',

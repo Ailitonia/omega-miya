@@ -9,9 +9,9 @@
 """
 
 import inspect
-from typing import Callable, Coroutine
+from collections.abc import Callable, Coroutine
 
-from nonebot import get_driver, get_app
+from nonebot import get_app, get_driver
 from nonebot.log import logger
 
 from .helpers import return_standard_api_result
@@ -48,8 +48,8 @@ def register_get_route(path: str, *, enabled: bool = True):
 
         host = str(driver.config.host)
         port = driver.config.port
-        if host in ["0.0.0.0", "127.0.0.1"]:
-            host = "localhost"
+        if host in ['0.0.0.0', '127.0.0.1']:
+            host = 'localhost'
         logger.opt(colors=True).info(
             f"Service <lc>{inspect.getmodule(func).__name__}</lc> running at: "
             f"<b><u>http://{host}:{port}/{path.removeprefix('/')}</u></b>"

@@ -15,7 +15,7 @@ from sqlalchemy.exc import NoResultFound
 from src.database import GlobalCacheDAL, begin_db_session
 
 
-class OmegaGlobalCache(object):
+class OmegaGlobalCache:
     """Omega 全局缓存"""
 
     def __init__(self, cache_name: str, *, ttl: int = 86400):

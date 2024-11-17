@@ -8,9 +8,10 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Iterable, Sequence
 from enum import StrEnum, unique
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence, Type, Union, override
+from typing import Any, Union, override
 
 import ujson as json
 from nonebot.adapters import Message as BaseMessage
@@ -41,12 +42,12 @@ class MessageSegmentType(StrEnum):
     other = 'other'
 
 
-class MessageSegment(BaseMessageSegment["Message"]):
+class MessageSegment(BaseMessageSegment['Message']):
     """Omega 中间件 MessageSegment 适配。具体方法参考协议消息段类型或源码。"""
 
     @classmethod
     @override
-    def get_message_class(cls) -> Type["Message"]:
+    def get_message_class(cls) -> type['Message']:
         return Message
 
     @override
@@ -66,7 +67,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return self.type == MessageSegmentType.text
 
     @staticmethod
-    def at(user_id: int | str) -> "MessageSegment":
+    def at(user_id: int | str) -> 'MessageSegment':
         """At 消息段, 表示一类提醒某用户的消息段类型
 
         - type: at
@@ -75,7 +76,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.at, data={'user_id': str(user_id)})
 
     @staticmethod
-    def at_all() -> "MessageSegment":
+    def at_all() -> 'MessageSegment':
         """AtAll 消息段, 表示一类提醒所有人的消息段类型
 
         - type: at_all
@@ -84,7 +85,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.at_all, data={'at_all': True})
 
     @staticmethod
-    def emoji(id_: str, *, name: Optional[str] = None) -> "MessageSegment":
+    def emoji(id_: str, *, name: str | None = None) -> 'MessageSegment':
         """Emoji 消息段, 表示一类表情元素消息段类型
 
         - type: emoji
@@ -93,7 +94,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.emoji, data={'id': id_, 'name': name})
 
     @staticmethod
-    def audio(url: Union[str, Path]) -> "MessageSegment":
+    def audio(url: str | Path) -> 'MessageSegment':
         """Audio 消息段, 表示一类音频消息段类型
 
         - type: audio
@@ -105,7 +106,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def file(file: Path) -> "MessageSegment":
+    def file(file: Path) -> 'MessageSegment':
         """File 消息段, 表示一类文件消息段类型
 
         - type: file
@@ -117,7 +118,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def image(url: Union[str, Path]) -> "MessageSegment":
+    def image(url: str | Path) -> 'MessageSegment':
         """Image 消息段, 表示一类图片消息段类型
 
         - type: image
@@ -129,7 +130,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def image_file(file: Path) -> "MessageSegment":
+    def image_file(file: Path) -> 'MessageSegment':
         """ImageFile 消息段, 表示一类以文件发送的图片消息段类型
 
         - type: image_file
@@ -141,7 +142,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def video(url: Union[str, Path]) -> "MessageSegment":
+    def video(url: str | Path) -> 'MessageSegment':
         """Video 消息段, 表示一类视频消息段类型
 
         - type: video
@@ -153,7 +154,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def voice(url: Union[str, Path]) -> "MessageSegment":
+    def voice(url: str | Path) -> 'MessageSegment':
         """Voice 消息段, 表示一类语音消息段类型
 
         - type: voice
@@ -165,7 +166,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def reply(id_: int | str) -> "MessageSegment":
+    def reply(id_: int | str) -> 'MessageSegment':
         """Reply 消息段, 表示一类回复消息段类型
 
         - type: reply
@@ -174,7 +175,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.reply, data={'id': str(id_)})
 
     @staticmethod
-    def ref_node(id_: int | str) -> "MessageSegment":
+    def ref_node(id_: int | str) -> 'MessageSegment':
         """ReferenceNode 消息段, 表示转发消息的引用消息段类型
 
         - type: ref_node
@@ -186,8 +187,8 @@ class MessageSegment(BaseMessageSegment["Message"]):
     def custom_node(
             user_id: int | str,
             nickname: str,
-            content: Sequence[Union[str, "MessageSegment"]],
-    ) -> "MessageSegment":
+            content: Sequence[Union[str, 'MessageSegment']],
+    ) -> 'MessageSegment':
         """CustomNode 消息段, 表示转发消息的自定义消息段类型
 
         - type: custom_node
@@ -203,7 +204,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         )
 
     @staticmethod
-    def json_hyper(raw: str) -> "MessageSegment":
+    def json_hyper(raw: str) -> 'MessageSegment':
         """JSON Hyper 消息段, 表示一类以 JSON 传输的超文本消息内容, 如卡片消息、ark消息、小程序等消息段类型
 
         - type: json_hyper
@@ -212,7 +213,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.json_hyper, data={'raw': raw})
 
     @staticmethod
-    def xml_hyper(raw: str) -> "MessageSegment":
+    def xml_hyper(raw: str) -> 'MessageSegment':
         """XML Hyper 消息段, 表示一类以 XML 传输的超文本消息内容, 如卡片消息、ark消息、小程序等消息段类型
 
         - type: xml_hyper
@@ -221,7 +222,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.xml_hyper, data={'raw': raw})
 
     @staticmethod
-    def text(text: str) -> "MessageSegment":
+    def text(text: str) -> 'MessageSegment':
         """纯文本消息段类型
 
         - type: text
@@ -230,7 +231,7 @@ class MessageSegment(BaseMessageSegment["Message"]):
         return MessageSegment(type=MessageSegmentType.text, data={'text': text})
 
     @staticmethod
-    def other(type_: str, data: dict[str, Any]) -> "MessageSegment":
+    def other(type_: str, data: dict[str, Any]) -> 'MessageSegment':
         """其他消息段类型
 
         - type: other
@@ -244,11 +245,11 @@ class Message(BaseMessage[MessageSegment]):
 
     @classmethod
     @override
-    def get_segment_class(cls) -> Type[MessageSegment]:
+    def get_segment_class(cls) -> type[MessageSegment]:
         return MessageSegment
 
     def __repr__(self) -> str:
-        return "".join(repr(seg) for seg in self)
+        return ''.join(repr(seg) for seg in self)
 
     @staticmethod
     @override
@@ -256,7 +257,7 @@ class Message(BaseMessage[MessageSegment]):
         yield MessageSegment.text(text=msg)
 
     @classmethod
-    def loads(cls, message_data: str) -> "Message":
+    def loads(cls, message_data: str) -> 'Message':
         """将导出的消息 json 字符串转化为 Message 对象"""
         message = cls(MessageSegment(**seg) for seg in json.loads(message_data))
         return message
@@ -274,7 +275,7 @@ class Message(BaseMessage[MessageSegment]):
             if (segment.type == MessageSegmentType.image) and ('url' in segment.data)
         ]
 
-    def filter(self, types: Iterable[str]) -> "Message":
+    def filter(self, types: Iterable[str]) -> 'Message':
         """过滤消息段类型"""
         return self.__class__(seg for seg in self.copy() if seg.type in types)
 
