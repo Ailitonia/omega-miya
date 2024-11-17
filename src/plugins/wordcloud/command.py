@@ -13,11 +13,13 @@ from typing import Annotated
 
 from nonebot.internal.adapter import Bot as BaseBot, Event as BaseEvent
 from nonebot.log import logger
-from nonebot.params import Depends
+from nonebot.params import ArgStr, Depends
+from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup
 
+from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from .data_source import query_entity_message_history, query_profile_image
+from .data_source import query_entity_message_history, query_profile_image, add_user_dict
 from .helpers import draw_message_history_wordcloud
 
 # 注册事件响应器
@@ -29,6 +31,25 @@ wordcloud = CommandGroup(
 )
 
 
+@wordcloud.command(
+    'add-user-dict',
+    aliases={'词云添加自定义词典', '词云添加用户词典'},
+    handlers=[get_command_str_single_arg_parser_handler('content')],
+    permission=SUPERUSER
+).handle()
+async def handle_add_user_dict(
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        content: Annotated[str, ArgStr('content')],
+) -> None:
+    content = content.strip()
+    try:
+        await add_user_dict(content=content)
+        await interface.send_reply(f'已添加自定义词典: {content}')
+    except Exception as e:
+        logger.error(f'WordCloud | 添加自定义词典失败, {e}')
+        await interface.send_reply(f'添加自定义词典失败')
+
+
 @wordcloud.command('daily', aliases={'词云', '今日词云'}).handle()
 async def handle_daily_wordcloud(
         bot: BaseBot,
@@ -36,7 +57,7 @@ async def handle_daily_wordcloud(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     start_time = datetime.now() - timedelta(days=1)
-    desc_text = f'自一天前以来的消息词云\nFrom: {start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+    desc_text = f'自一天前以来的消息词云\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
     await wordcloud_generate_handler(
         bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text
     )
@@ -49,7 +70,7 @@ async def handle_weekly_wordcloud(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     start_time = datetime.now() - timedelta(days=7)
-    desc_text = f'自一周前以来的消息词云\nFrom: {start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+    desc_text = f'自一周前以来的消息词云\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
     await wordcloud_generate_handler(
         bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text
     )
@@ -62,7 +83,7 @@ async def handle_monthly_wordcloud(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     start_time = datetime.now() - timedelta(days=30)
-    desc_text = f'自一个月前以来的消息词云\nFrom: {start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+    desc_text = f'自一个月前以来的消息词云\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
     await wordcloud_generate_handler(
         bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text
     )
@@ -75,7 +96,7 @@ async def handle_my_daily_wordcloud(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     start_time = datetime.now() - timedelta(days=1)
-    desc_text = f'【{interface.get_event_user_nickname}】的今日词云\nFrom: {start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+    desc_text = f'{interface.get_event_user_nickname()}的今日词云\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
     await wordcloud_generate_handler(
         bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text, match_user=True
     )
@@ -88,7 +109,7 @@ async def handle_my_weekly_wordcloud(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     start_time = datetime.now() - timedelta(days=7)
-    desc_text = f'【{interface.get_event_user_nickname}】的本周词云\nFrom: {start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+    desc_text = f'{interface.get_event_user_nickname()}的本周词云\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
     await wordcloud_generate_handler(
         bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text, match_user=True
     )
@@ -101,7 +122,7 @@ async def handle_my_monthly_wordcloud(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
 ) -> None:
     start_time = datetime.now() - timedelta(days=30)
-    desc_text = f'【{interface.get_event_user_nickname}】的本月词云\nFrom: {start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+    desc_text = f'{interface.get_event_user_nickname()}的本月词云\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
     await wordcloud_generate_handler(
         bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text, match_user=True
     )

@@ -59,7 +59,15 @@ async def query_profile_image(bot: "BaseBot", event: "BaseEvent", match_user: bo
     return await OmegaRequests().download(url=url, file=image_file)
 
 
+async def add_user_dict(content: str) -> None:
+    """新增用户词典内容"""
+    async with wordcloud_plugin_resource_config.user_dict_file.async_open('a', encoding='utf-8') as af:
+        await af.write(f'{content}\n')
+
+
+
 __all__ = [
     'query_entity_message_history',
     'query_profile_image',
+    'add_user_dict',
 ]

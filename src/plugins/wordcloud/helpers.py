@@ -66,8 +66,8 @@ def analyse_message(message_text: str) -> dict[str, float]:
 async def _get_random_background_artwork() -> "TemporaryResource":
     """从数据库获取作品作为背景图"""
     random_artworks = await get_artwork_collection_type().query_any_origin_by_condition(
-        keywords=None, origin=wordcloud_plugin_config.wordcloud_plugin_artwork_background_origin, num=3,
-        allow_classification_range=(2, 3), allow_rating_range=(0, 0), ratio=1
+        keywords=None, origin=wordcloud_plugin_config.wordcloud_plugin_artwork_background_origin,
+        num=3, allow_classification_range=(2, 3), allow_rating_range=(0, 0), ratio=1
     )
 
     for artwork in random_artworks:
