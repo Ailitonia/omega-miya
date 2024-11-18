@@ -127,7 +127,7 @@ def _draw_message_history_wordcloud(
     """根据查询到的消息历史记录绘制词云"""
     if background_file is not None:
         background = Image.open(background_file.resolve_path).convert('RGBA')
-        background = Image.blend(background, Image.new('RGBA', background.size, (255, 255, 255, 255)), 0.6)
+        background = Image.blend(background, Image.new('RGBA', background.size, (255, 255, 255, 255)), 0.75)
         background = background.filter(ImageFilter.GaussianBlur(radius=2))
         width, height = background.size
     else:
