@@ -23,6 +23,9 @@ class WordcloudPluginConfig(BaseModel):
     # 从全局配置读取命令头配置
     command_start: set[str]
 
+    # 排除机器人自身的消息
+    wordcloud_plugin_exclude_bot_self_message: bool = True
+
     # 生成词云图片的尺寸
     wordcloud_plugin_generate_default_width: int = 1600
     wordcloud_plugin_generate_default_height: int = 1200

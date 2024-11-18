@@ -8,13 +8,14 @@
 @Software       : PyCharm
 """
 
+from os import SEEK_END, SEEK_SET
 from typing import TYPE_CHECKING, Optional
 
 from src.database import HistoryDAL, begin_db_session
 from src.service import OmegaEntityInterface as OmEI
 from src.service import OmegaMatcherInterface as OmMI
 from src.utils import OmegaRequests
-from .config import wordcloud_plugin_resource_config
+from .config import wordcloud_plugin_config, wordcloud_plugin_resource_config
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -35,7 +36,7 @@ async def query_entity_message_history(
         match_event: bool = True,
         match_user: bool = False,
 ) -> list['History']:
-
+    """查询当前事件的消息历史记录"""
     async with begin_db_session() as session:
         event_entity = OmMI.get_entity(bot, event, session, acquire_type='event')
         user_entity = OmMI.get_entity(bot, event, session, acquire_type='user')
@@ -45,6 +46,7 @@ async def query_entity_message_history(
             user_entity_id=user_entity.entity_id if match_user else None,
             start_time=start_time,
             end_time=end_time,
+            exclude_bot_self_message=wordcloud_plugin_config.wordcloud_plugin_exclude_bot_self_message,
         )
     return histories_list
 
@@ -65,8 +67,12 @@ async def query_profile_image(bot: 'BaseBot', event: 'BaseEvent', match_user: bo
 
 async def add_user_dict(content: str) -> None:
     """新增用户词典内容"""
-    async with wordcloud_plugin_resource_config.user_dict_file.async_open('a', encoding='utf-8') as af:
-        await af.write(f'{content}\n')
+    async with wordcloud_plugin_resource_config.user_dict_file.async_open('a+', encoding='utf-8') as af:
+        await af.seek(0, SEEK_SET)
+        exists_user_dicts = set(x.strip() for x in await af.readlines())
+        if content not in exists_user_dicts:
+            await af.seek(0, SEEK_END)
+            await af.write(f'{content.strip()}\n')
 
 
 
