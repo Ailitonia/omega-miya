@@ -20,7 +20,6 @@ from .consts import DOWNLOADER_SETTING_NAME, LAST_FOLLOWING_SETTING_KEY
 async def set_last_follow_illust_pid(pid: int) -> None:
     """保存上次关注用户的最新作品"""
     async with begin_db_session() as session:
-        dal = SystemSettingDAL(session=session)
         await SystemSettingDAL(session=session).upsert(
             setting_name=DOWNLOADER_SETTING_NAME,
             setting_key=LAST_FOLLOWING_SETTING_KEY,

@@ -145,6 +145,10 @@ async def wordcloud_generate_handler(
         message_history_list = await query_entity_message_history(
             bot=bot, event=event, start_time=start_time, match_event=match_event, match_user=match_user
         )
+        if len(message_history_list) < 100 and len([x for x in message_history_list if x.message_text.strip()]) < 10:
+            await interface.send_reply('没有足够的历史消息记录用于生成词云, 请稍后再试')
+            return
+
         profile_image = await query_profile_image(bot, event, match_user=match_user)
 
         desc_text += f'\n已统计 {len(message_history_list)} 条消息\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
