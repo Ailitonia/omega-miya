@@ -58,6 +58,7 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
             *,
             start_time: datetime | None = None,
             end_time: datetime | None = None,
+            exclude_bot_self_message: bool = False,
     ) -> list[History]:
         """查询某个实体一段时间内的消息历史记录
 
@@ -66,6 +67,7 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
         :param user_entity_id: 发送对象实体ID, 为空则返回全部
         :param start_time: 起始时间, 为空则返回全部
         :param end_time: 结束时间, 为空则返回全部
+        :param exclude_bot_self_message: 是否排除机器人自身的消息
         """
         if event_entity_id is None and user_entity_id is None:
             raise ValueError('need at least one of the event_entity_id and user_entity_id parameters')
@@ -81,6 +83,8 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
             stmt = stmt.where(HistoryOrm.received_time >= int(start_time.timestamp()))
         if end_time is not None:
             stmt = stmt.where(HistoryOrm.received_time <= int(end_time.timestamp()))
+        if exclude_bot_self_message:
+            stmt = stmt.where(HistoryOrm.bot_self_id != HistoryOrm.user_entity_id)
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[History], session_result.scalars().all())
 
