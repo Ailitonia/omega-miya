@@ -23,6 +23,8 @@ class WordcloudPluginConfig(BaseModel):
     # 从全局配置读取命令头配置
     command_start: set[str]
 
+    # 插件是否需要用户交互响应
+    wordcloud_plugin_enable_echo: bool = True
     # 排除机器人自身的消息
     wordcloud_plugin_exclude_bot_self_message: bool = True
 
