@@ -108,7 +108,7 @@ class PixivCommon(BasePixivAPI):
         :return: dict, 原始返回数据
         """
         word = quote(word, encoding='utf-8')
-        params = {
+        params: dict[str, str] = {
             'word': word,
             'order': order,
             'mode': mode_,
@@ -136,9 +136,15 @@ class PixivCommon(BasePixivAPI):
 
     @classmethod
     async def search_by_default_popular_condition(cls, word: str, *, page: int = 1) -> PixivSearchingResultModel:
-        """Pixiv 搜索 (使用热度作为过滤条件筛选条件) (需要pixiv高级会员)"""
+        """Pixiv 搜索 (默认使用 illust/safe 作为过滤条件, 按热度排序) (需要pixiv高级会员)"""
         return await cls.search(
-            word=word, mode='illustrations', page=page, order='popular_d', mode_='safe', type_='illust', ai_type=1
+            word=word,
+            mode='illustrations',
+            page=page,
+            order='popular_d',
+            mode_='safe',
+            type_='illust',
+            ai_type=1,
         )
 
     @classmethod
