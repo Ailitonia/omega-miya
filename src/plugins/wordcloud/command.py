@@ -21,7 +21,6 @@ from nonebot.plugin import CommandGroup
 from src.params.handler import get_command_str_single_arg_parser_handler
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessageSegment, enable_processor_state
-from .config import wordcloud_plugin_config
 from .data_source import add_user_dict, query_entity_message_history, query_profile_image
 from .helpers import draw_message_history_wordcloud
 
@@ -30,12 +29,7 @@ wordcloud = CommandGroup(
     'wordcloud',
     priority=10,
     block=True,
-    state=enable_processor_state(
-        name='WordCloud',
-        level=10,
-        cooldown=120,
-        echo_processor_result=wordcloud_plugin_config.wordcloud_plugin_enable_echo
-    )
+    state=enable_processor_state(name='WordCloud', level=10, cooldown=45)
 )
 
 
@@ -71,7 +65,7 @@ async def handle_daily_wordcloud(
     )
 
 
-@wordcloud.command('weekly', aliases={'本周词云'}).handle()
+@wordcloud.command('weekly', aliases={'本周词云', '这周聊了啥'}).handle()
 async def handle_weekly_wordcloud(
         bot: BaseBot,
         event: BaseEvent,
@@ -110,7 +104,7 @@ async def handle_my_daily_wordcloud(
     )
 
 
-@wordcloud.command('my-weekly', aliases={'我的本周词云'}).handle()
+@wordcloud.command('my-weekly', aliases={'我的本周词云', '我这周聊了啥'}).handle()
 async def handle_my_weekly_wordcloud(
         bot: BaseBot,
         event: BaseEvent,
@@ -145,23 +139,16 @@ async def wordcloud_generate_handler(
         *,
         match_event: bool = True,
         match_user: bool = False,
-        enable_echo: bool | None = None,
 ) -> None:
     """词云处理流程 Handler"""
-    if enable_echo is None:
-        enable_echo = wordcloud_plugin_config.wordcloud_plugin_enable_echo
-
-    if enable_echo:
-        await interface.send_reply('正在处理历史消息, 请稍候')
-
+    await interface.send_reply('正在处理历史消息, 请稍候')
     try:
         message_history_list = await query_entity_message_history(
             bot=bot, event=event, start_time=start_time, match_event=match_event, match_user=match_user
         )
         if len(message_history_list) < 100 and len([x for x in message_history_list if x.message_text.strip()]) < 10:
             logger.info(f'WordCloud | {interface.entity} 没有足够的历史消息记录用于生成词云')
-            if enable_echo:
-                await interface.send_reply('没有足够的历史消息记录用于生成词云, 请稍后再试')
+            await interface.send_reply('没有足够的历史消息记录用于生成词云, 请稍后再试')
             return
 
         profile_image = await query_profile_image(bot, event, match_user=match_user)
@@ -176,8 +163,7 @@ async def wordcloud_generate_handler(
         await interface.send_reply(OmegaMessageSegment.image(wordcloud_image.path))
     except Exception as e:
         logger.error(f'WordCloud | 生成 {interface.entity} 自 {start_time} 以来的词云失败, {e!r}')
-        if enable_echo:
-            await interface.send_reply('生成词云失败, 请稍后再试或联系管理员处理')
+        await interface.send_reply('生成词云失败, 请稍后再试或联系管理员处理')
 
 
 __all__ = []

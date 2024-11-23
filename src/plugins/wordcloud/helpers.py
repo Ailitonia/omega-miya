@@ -54,15 +54,29 @@ def prepare_message(messages: Sequence[str]) -> str:
     return message
 
 
+def _analyse_tf_idf(message_text: str) -> dict[str, float]:
+    """基于 TF-IDF 算法的关键词抽取方法统计词频"""
+    return {str(word): freq for word, freq in jieba.analyse.extract_tags(message_text, topK=0, withWeight=True)}
+
+
+def _analyse_textrank(message_text: str) -> dict[str, float]:
+    """基于 TextRank 算法的关键词抽取方法统计词频"""
+    return {str(word): freq for word, freq in jieba.analyse.textrank(message_text, topK=0, withWeight=True)}
+
+
 def analyse_message(message_text: str) -> dict[str, float]:
-    """使用 jieba 分词, 使用基于 TF-IDF 算法的关键词抽取方法统计词频"""
+    """使用 jieba 分词, 并进行关键词抽取和词频统计"""
     # 设置停用词表和加载用户词典
     jieba.analyse.set_stop_words(wordcloud_plugin_resource_config.default_stop_words_file.resolve_path)
     if wordcloud_plugin_resource_config.user_dict_file.is_file:
         jieba.load_userdict(wordcloud_plugin_resource_config.user_dict_file.resolve_path)
 
     # 分词和统计词频
-    return {str(word): freq for word, freq in jieba.analyse.extract_tags(message_text, topK=0, withWeight=True)}
+    match wordcloud_plugin_config.wordcloud_plugin_message_analyse_mode:
+        case 'TextRank':
+            return _analyse_textrank(message_text)
+        case 'TF-IDF' | _:
+            return _analyse_tf_idf(message_text)
 
 
 async def _get_random_background_artwork() -> 'TemporaryResource':
