@@ -23,7 +23,6 @@ from nonebot.adapters.onebot.v11 import NotifyEvent as OneBotV11NotifyEvent
 from nonebot.adapters.onebot.v11 import PokeNotifyEvent as OneBotV11PokeNotifyEvent
 from nonebot.adapters.onebot.v11 import PrivateMessageEvent as OneBotV11PrivateMessageEvent
 
-from src.service.gocqhttp_guild_patch import GuildMessageEvent as OneBotV11GuildMessageEvent
 from ..const import SupportedPlatform, SupportedTarget
 from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams
 from ..platform_interface.entity_target import BaseEntityTarget, entity_target_register
@@ -426,28 +425,6 @@ class OneBotV11PrivateMessageEventDepend(OneBotV11MessageEventDepend[OneBotV11Pr
             entity_type='onebot_v11_user',
             entity_id=str(self.event.user_id),
             parent_id=self.bot.self_id,
-            entity_name=self.event.sender.nickname,
-            entity_info=self.event.sender.card
-        )
-
-
-@event_depend_register.register_depend(OneBotV11GuildMessageEvent)
-class OneBotV11GuildMessageEventDepend(OneBotV11MessageEventDepend[OneBotV11GuildMessageEvent]):
-
-    def _extract_event_entity_params(self) -> 'EntityInitParams':
-        return EntityInitParams(
-            bot_id=self.bot.self_id,
-            entity_type='onebot_v11_guild_channel',
-            entity_id=str(self.event.channel_id),
-            parent_id=str(self.event.guild_id)
-        )
-
-    def _extract_user_entity_params(self) -> 'EntityInitParams':
-        return EntityInitParams(
-            bot_id=self.bot.self_id,
-            entity_type='onebot_v11_guild_user',
-            entity_id=str(self.event.user_id),
-            parent_id=str(self.event.guild_id),
             entity_name=self.event.sender.nickname,
             entity_info=self.event.sender.card
         )
