@@ -123,7 +123,7 @@ class HistoryOrm(Base):
     event_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息事件实体ID')
     user_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送对象实体ID')
     received_time: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='收到消息事件的时间戳')
-    message_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='消息事件类型')
+    message_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息事件类型')
     message_raw: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始消息数据')
     message_text: Mapped[str] = mapped_column(String(4096), nullable=False, comment='经处理的消息文本内容')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
