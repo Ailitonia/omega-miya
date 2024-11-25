@@ -10,7 +10,7 @@
 
 from typing import Annotated
 
-from nonebot.adapters import Message
+from nonebot.internal.adapter import Message as BaseMessage
 from nonebot.log import logger
 from nonebot.params import Arg, ArgStr, Depends
 from nonebot.plugin import CommandGroup
@@ -50,7 +50,7 @@ async def handle_set_schedule_message(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
         job_name: Annotated[str, ArgStr('job_name')],
         crontab: Annotated[str, ArgStr('crontab')],
-        message: Annotated[Message, Arg('message')],
+        message: Annotated[BaseMessage, Arg('message')],
 ) -> None:
     job_name = job_name.strip()
     if len(job_name) > 50:

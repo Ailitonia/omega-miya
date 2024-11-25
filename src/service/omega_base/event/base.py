@@ -8,11 +8,13 @@
 @Software       : PyCharm 
 """
 
-from typing import override
+from typing import TYPE_CHECKING, override
 
-from nonebot.adapters import Event as BaseEvent
-from nonebot.adapters import Message
+from nonebot.internal.adapter import Event as BaseEvent
 from nonebot.utils import escape_tag
+
+if TYPE_CHECKING:
+    from nonebot.internal.adapter import Message as BaseMessage
 
 
 class Event(BaseEvent):
@@ -33,7 +35,7 @@ class Event(BaseEvent):
         return escape_tag(str(self.model_dump()))
 
     @override
-    def get_message(self) -> Message:
+    def get_message(self) -> 'BaseMessage':
         raise NotImplementedError
 
     @override

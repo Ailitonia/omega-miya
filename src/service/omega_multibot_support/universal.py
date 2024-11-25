@@ -11,15 +11,16 @@
 import asyncio
 
 from nonebot import get_driver, logger
-from nonebot.adapters import Bot, Event
 from nonebot.exception import IgnoredException
+from nonebot.internal.adapter import Bot as BaseBot
+from nonebot.internal.adapter import Event as BaseEvent
 from nonebot.matcher import Matcher
 from nonebot.message import handle_event, run_preprocessor
 from nonebot.permission import Permission
 
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
-__ONLINE_BOTS: dict[str, Bot] = {}
+__ONLINE_BOTS: dict[str, BaseBot] = {}
 """当前在线的 Bot"""
 lock = asyncio.Lock()
 driver = get_driver()
@@ -41,7 +42,7 @@ class __OriginalResponding:
         self.original = original
         self.perm = perm
 
-    async def __call__(self, bot: Bot, event: Event) -> bool:
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
         return bool(
             event.get_session_id() in self.sessions
             and (self.original is None or bot.self_id == self.original)
@@ -49,7 +50,7 @@ class __OriginalResponding:
         )
 
 
-async def __original_responding_permission_updater(bot: Bot, event: Event, matcher: Matcher) -> Permission:
+async def __original_responding_permission_updater(bot: BaseBot, event: BaseEvent, matcher: Matcher) -> Permission:
     """匹配当前事件是否属于由最初响应的 Bot 发起的指定会话"""
     return Permission(
         __OriginalResponding(
@@ -65,7 +66,7 @@ Matcher.permission_updater(__original_responding_permission_updater)
 
 
 @run_preprocessor
-async def __unique_bot_responding_limit(bot: Bot, event: Event):
+async def __unique_bot_responding_limit(bot: BaseBot, event: BaseEvent):
     # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
     try:
         event_user_id = event.get_user_id()
@@ -79,7 +80,7 @@ async def __unique_bot_responding_limit(bot: Bot, event: Event):
 
 
 @driver.on_bot_connect
-async def __init_bot_connect(bot: Bot):
+async def __init_bot_connect(bot: BaseBot):
     """在 Bot 连接时执行初始化操作"""
     async with lock:
         __ONLINE_BOTS.update({str(bot.self_id): bot})
@@ -87,14 +88,14 @@ async def __init_bot_connect(bot: Bot):
 
 
 @driver.on_bot_disconnect
-async def __dispose_bot_disconnect(bot: Bot):
+async def __dispose_bot_disconnect(bot: BaseBot):
     """在 Bot 断开连接时执行后续处理"""
     async with lock:
         __ONLINE_BOTS.pop(str(bot.self_id), None)
         await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.type))
 
 
-def get_online_bots() -> dict[str, dict[str, Bot]]:
+def get_online_bots() -> dict[str, dict[str, BaseBot]]:
     """获取当前在线的 bot (根据 Adapter 分类)"""
     online_bots = {}
     for self_id, bot in __ONLINE_BOTS.items():
@@ -106,5 +107,5 @@ def get_online_bots() -> dict[str, dict[str, Bot]]:
 
 
 __all__ = [
-    'get_online_bots'
+    'get_online_bots',
 ]

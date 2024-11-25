@@ -11,8 +11,8 @@
 from collections.abc import Iterable
 
 from nonebot import get_driver, get_loaded_plugins, logger
-from nonebot.adapters import Event
 from nonebot.exception import IgnoredException
+from nonebot.internal.adapter import Event as BaseEvent
 from nonebot.matcher import Matcher
 from nonebot.plugin import Plugin
 from sqlalchemy.exc import NoResultFound
@@ -56,7 +56,7 @@ async def startup_init_plugins():
     logger.opt(colors=True).success(f'{LOG_PREFIX}<lg>插件信息初始化已完成.</lg>')
 
 
-async def preprocessor_plugin_manager(matcher: Matcher, event: Event):
+async def preprocessor_plugin_manager(matcher: Matcher, event: BaseEvent):
     """运行预处理, 处理插件管理器"""
     try:
         user_id = event.get_user_id()

@@ -10,7 +10,7 @@
 
 from typing import Annotated
 
-from nonebot.adapters import Message
+from nonebot.internal.adapter import Message as BaseMessage
 from nonebot.log import logger
 from nonebot.params import Arg, Depends
 from nonebot.permission import SUPERUSER
@@ -38,7 +38,7 @@ from src.utils import semaphore_gather
 async def handle_announce(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
         entity_dal: Annotated[EntityDAL, Depends(EntityDAL.dal_dependence)],
-        announcement_content: Annotated[Message, Arg('announcement_content')]
+        announcement_content: Annotated[BaseMessage, Arg('announcement_content')]
 ) -> None:
     announce_message = interface.get_message_extractor()(message=announcement_content).message
 

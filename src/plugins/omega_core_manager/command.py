@@ -11,7 +11,7 @@
 from datetime import timedelta
 from typing import Annotated
 
-from nonebot.adapters import Bot, Event, Message
+from nonebot.internal.adapter import Bot, Event, Message
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.params import ArgStr, CommandArg, Depends

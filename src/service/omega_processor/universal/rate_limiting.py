@@ -12,8 +12,9 @@ import time
 from datetime import datetime, timedelta
 
 from nonebot import get_driver, logger
-from nonebot.adapters import Bot, Event
 from nonebot.exception import IgnoredException
+from nonebot.internal.adapter import Bot as BaseBot
+from nonebot.internal.adapter import Event as BaseEvent
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Rate Limiting</lc> | '
@@ -33,7 +34,7 @@ RATE_LIMITING_COUNT: dict[str, int] = {}
 RATE_LIMITING_USER_TEMP: dict[str, datetime] = {}
 
 
-async def preprocessor_rate_limiting(bot: Bot, event: Event):
+async def preprocessor_rate_limiting(bot: BaseBot, event: BaseEvent):
     """事件预处理, 针对用户的速率限制处理"""
     try:
         _ = event.get_message()
