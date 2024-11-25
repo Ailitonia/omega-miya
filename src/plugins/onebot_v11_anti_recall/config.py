@@ -12,7 +12,7 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 
-class OnebotV11AntiRecallConfig(BaseModel):
+class OneBotV11AntiRecallConfig(BaseModel):
     """OneBot V11 反撤回插件配置"""
 
     # 是否使用内部数据库的消息记录作为查询已撤回消息的来源
@@ -22,7 +22,7 @@ class OnebotV11AntiRecallConfig(BaseModel):
 
 
 try:
-    onebot_v11_anti_recall_config = get_plugin_config(OnebotV11AntiRecallConfig)
+    onebot_v11_anti_recall_config = get_plugin_config(OneBotV11AntiRecallConfig)
 except ValidationError as e:
     import sys
 
