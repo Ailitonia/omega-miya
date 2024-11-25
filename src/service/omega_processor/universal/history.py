@@ -48,7 +48,7 @@ async def postprocessor_history(bot: Bot, event: Event, message: Message):
                 event_entity_id=event_entity.entity_id,
                 user_entity_id=user_entity.entity_id,
                 received_time=int(datetime.now().timestamp()),
-                message_type=event.get_event_name(),
+                message_type=f'{event_entity.entity_type}.{event.get_event_name()}',
                 message_raw=message_raw,
                 message_text=message_text,
             )
