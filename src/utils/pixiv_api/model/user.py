@@ -228,6 +228,84 @@ class PixivBookmark(BasePixivModel):
         return [x.id for x in self.body.works]
 
 
+class FollowUserIllust(BasePixivModel):
+    id: str
+    title: str
+    illustType: int
+    xRestrict: int
+    restrict: int
+    sl: int
+    url: str
+    description: str
+    tags: list[str]
+    userId: str
+    userName: str
+    width: int
+    height: int
+    pageCount: int
+    isBookmarkable: bool
+    alt: str
+    createDate: str
+    updateDate: str
+    isUnlisted: bool
+    isMasked: bool
+    aiType: int
+    profileImageUrl: str
+
+
+class FollowUserNovel(BasePixivModel):
+    id: str
+    title: str
+    genre: str
+    xRestrict: int
+    restrict: int
+    url: str
+    tags: list[str]
+    userId: str
+    userName: str
+    profileImageUrl: str
+    textCount: int
+    wordCount: int
+    readingTime: int
+    useWordCount: bool
+    description: str
+    isBookmarkable: bool
+    bookmarkCount: int
+    isOriginal: bool
+    createDate: str
+    updateDate: str
+    isMasked: bool
+    aiType: int
+    isUnlisted: bool
+
+
+class FollowUserData(BasePixivModel):
+    """关注的用户信息"""
+    userId: str
+    userName: str
+    profileImageUrl: str
+    userComment: str
+    following: bool
+    followed: bool
+    isBlocking: bool
+    isMypixiv: bool
+    illusts: list[FollowUserIllust]
+    novels: list[FollowUserNovel]
+
+
+class FollowUserBody(BasePixivModel):
+    users: list[FollowUserData]
+    total: int
+    followUserTags: list[Any]
+
+
+class PixivFollowUser(BasePixivModel):
+    """关注用户"""
+    error: bool
+    message: str
+    body: FollowUserBody
+
+
 __all__ = [
     'PixivGlobalData',
     'PixivUserDataModel',
@@ -236,5 +314,6 @@ __all__ = [
     'PixivUserSearchingBody',
     'PixivUserSearchingModel',
     'PixivFollowLatestIllust',
-    'PixivBookmark'
+    'PixivBookmark',
+    'PixivFollowUser',
 ]

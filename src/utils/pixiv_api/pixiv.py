@@ -27,6 +27,7 @@ from .model import (
     PixivBookmark,
     PixivDiscoveryModel,
     PixivFollowLatestIllust,
+    PixivFollowUser,
     PixivGlobalData,
     PixivRankingModel,
     PixivSearchingResultModel,
@@ -369,6 +370,7 @@ class PixivUser(PixivCommon):
         self.user_url = f'{self._get_root_url()}/users/{uid}'
         self.data_url = f'{self._get_root_url()}/ajax/user/{uid}'
         self.profile_url = f'{self._get_root_url()}/ajax/user/{uid}/profile/all'
+        self.follow_user_url = f'https://www.pixiv.net/ajax/user/{self.uid}/following'
 
         # 实例缓存
         self.user_model: PixivUserModel | None = None
@@ -435,6 +437,30 @@ class PixivUser(PixivCommon):
     async def query_user_bookmarks(self, page: int = 1) -> PixivBookmark:
         """获取该用户的收藏, 默认每页 48 张作品"""
         return await self.query_bookmarks(uid=self.uid, offset=48 * (page - 1))
+
+    async def query_user_following_users(
+            self,
+            offset: int = 24,
+            limit: int = 24,
+            *,
+            rest: Literal['show', 'hide'] = 'show',
+            tag: str | None = None,
+            accepting_requests: int = 0,
+            lang: str = 'zh',
+    ) -> PixivFollowUser:
+        """获取用户作品信息"""
+        params = {
+            'offset': offset,
+            'limit': limit,
+            'rest': rest,
+            'acceptingRequests': accepting_requests,
+            'lang': lang,
+        }
+        if tag is not None:
+            params.update({'tag': tag})
+
+        following_user_data = await self._get_json(url=self.follow_user_url, params=params)
+        return PixivFollowUser.model_validate(following_user_data)
 
 
 __all__ = [

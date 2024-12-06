@@ -23,6 +23,7 @@ from .searching import PixivSearchingResultModel
 from .user import (
     PixivBookmark,
     PixivFollowLatestIllust,
+    PixivFollowUser,
     PixivGlobalData,
     PixivUserArtworkDataModel,
     PixivUserDataModel,
@@ -47,7 +48,8 @@ __all__ = [
     'PixivUserModel',
     'PixivUserSearchingModel',
     'PixivFollowLatestIllust',
+    'PixivFollowUser',
     'PixivisionArticle',
     'PixivisionIllustrationList',
-    'PixivBookmark'
+    'PixivBookmark',
 ]
