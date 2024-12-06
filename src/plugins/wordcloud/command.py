@@ -141,7 +141,6 @@ async def wordcloud_generate_handler(
         match_user: bool = False,
 ) -> None:
     """词云处理流程 Handler"""
-    await interface.send_reply('正在处理历史消息, 请稍候')
     try:
         message_history_list = await query_entity_message_history(
             bot=bot, event=event, start_time=start_time, match_event=match_event, match_user=match_user
