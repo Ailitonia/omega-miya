@@ -436,6 +436,7 @@ class PixivUser(PixivCommon):
 
     async def query_user_bookmarks(self, page: int = 1) -> PixivBookmark:
         """获取该用户的收藏, 默认每页 48 张作品"""
+        page = 1 if page < 1 else page
         return await self.query_bookmarks(uid=self.uid, offset=48 * (page - 1))
 
     async def query_user_following_users(
