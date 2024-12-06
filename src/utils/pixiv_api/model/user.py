@@ -26,7 +26,7 @@ class _GlobalUserData(BasePixivModel):
     premium: bool
     xRestrict: int
     adult: bool
-    safeMode: bool
+    safeMode: bool | None = None  # maybe deactivated
     illustCreator: bool
     novelCreator: bool
     hideAiWorks: bool
