@@ -9,6 +9,12 @@
 """
 
 from enum import StrEnum, unique
+from typing import Any
+
+from pydantic import Field
+
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
+from .base_model import BaseBilibiliModel
 
 
 @unique
@@ -265,3 +271,146 @@ class SceneType(StrEnum):
     general = "SCENE_GENERAL"
     space = "SCENE_SPACE"
     topic = "SCENE_TOPIC"
+
+
+class DynItemModuleAuthor(BaseBilibiliModel):
+    # avatar: dict[str, Any]
+    face: AnyHttpUrl
+    # face_nft: bool
+    following: bool
+    jump_url: str
+    label: str
+    mid: int
+    name: str
+    # official_verify: dict[str, Any]
+    # pendant: dict[str, Any]
+    # pub_action: str
+    # pub_location_text: str
+    # pub_time: str
+    # pub_ts: int
+    type: AuthorType
+    # vip: dict[str, Any]
+
+
+class BaseAdditionalItemDesc(BaseBilibiliModel):
+    style: int
+    text: str
+
+
+class AdditionalCommonItem(BaseBilibiliModel):
+    """一般类型"""
+    # button: dict[str, Any]
+    cover: str
+    desc1: str
+    desc2: str
+    head_text: str
+    id_str: str
+    jump_url: str
+    style: int
+    sub_type: str
+    title: str
+
+
+class AdditionalReserveItem(BaseBilibiliModel):
+    """预约信息"""
+    # button: dict[str, Any]
+    # desc1: BaseAdditionalItemDesc
+    desc2: BaseAdditionalItemDesc
+    # desc3: BaseAdditionalItemDesc
+    jump_url: str
+    reserve_total: int
+    rid: int
+    state: int
+    stype: int
+    title: str
+    up_mid: str
+
+
+class AdditionalGoodsItem(BaseBilibiliModel):
+    """商品内容"""
+    head_icon: str = Field('')
+    head_text: str
+    items: list[dict[str, Any]]
+    jump_url: str = Field('')
+
+
+class AdditionalVoteItem(BaseBilibiliModel):
+    """投票信息"""
+    choice_cnt: int
+    default_share: int
+    desc: str
+    end_time: int
+    join_num: int
+    status: int
+    # type: Any | None
+    uid: str
+    vote_id: str
+
+
+class AdditionalUgcItem(BaseBilibiliModel):
+    """视频信息"""
+    cover: str
+    desc_second: str
+    duration: str
+    head_text: str = Field('')
+    id_str: str
+    id_str: str
+    multi_line: bool
+    title: str
+
+
+class BaseModuleDynamicAdditional(BaseBilibiliModel):
+    type: AdditionalType
+
+
+class ModuleDynamicAdditionalCommon(BaseModuleDynamicAdditional):
+    """一般类型"""
+    common: AdditionalCommonItem
+
+
+class ModuleDynamicAdditionalReserve(BaseModuleDynamicAdditional):
+    """预约信息"""
+    reserve: AdditionalReserveItem
+
+
+class ModuleDynamicAdditionalGoods(BaseModuleDynamicAdditional):
+    """商品内容"""
+    goods: AdditionalGoodsItem
+
+
+class ModuleDynamicAdditionalVote(BaseModuleDynamicAdditional):
+    """投票信息"""
+    vote: AdditionalVoteItem
+
+
+class ModuleDynamicAdditionalUgc(BaseModuleDynamicAdditional):
+    """视频信息"""
+    ugc: AdditionalUgcItem
+
+
+type ModuleDynamicAdditional = ModuleDynamicAdditionalUgc | ModuleDynamicAdditionalVote | ModuleDynamicAdditionalGoods | ModuleDynamicAdditionalReserve | ModuleDynamicAdditionalCommon | BaseModuleDynamicAdditional
+
+
+class DescRichTextNodeEmoji(BaseBilibiliModel):
+    icon_url: str
+    size: int
+    text: str
+    type: int
+
+
+class DescRichTextNode(BaseBilibiliModel):
+    orig_text: str
+    text: str
+    type: RichTextNodeType
+    emoji: DescRichTextNodeEmoji | None = Field(None)
+    jump_url: str | None = Field(None)
+    rid: str | None = Field(None)
+
+
+class ModuleDynamicDesc(BaseBilibiliModel):
+    rich_text_nodes: list[DescRichTextNode]
+    text: str
+
+
+class DynItemModuleDynamic(BaseBilibiliModel):
+    additional: ModuleDynamicAdditional
