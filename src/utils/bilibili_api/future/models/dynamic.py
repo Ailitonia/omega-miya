@@ -11,10 +11,10 @@
 from enum import StrEnum, unique
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, Json
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-from .base_model import BaseBilibiliModel
+from .base_model import BaseBilibiliModel, BaseBilibiliResponse
 
 
 @unique
@@ -274,13 +274,14 @@ class SceneType(StrEnum):
 
 
 class DynItemModuleAuthor(BaseBilibiliModel):
+    """UP 主信息"""
     # avatar: dict[str, Any]
     face: AnyHttpUrl
     # face_nft: bool
     following: bool
     jump_url: str
     label: str
-    mid: int
+    mid: str
     name: str
     # official_verify: dict[str, Any]
     # pendant: dict[str, Any]
@@ -297,33 +298,12 @@ class BaseAdditionalItemDesc(BaseBilibiliModel):
     text: str
 
 
-class AdditionalCommonItem(BaseBilibiliModel):
-    """一般类型"""
-    # button: dict[str, Any]
-    cover: str
-    desc1: str
-    desc2: str
-    head_text: str
-    id_str: str
-    jump_url: str
-    style: int
-    sub_type: str
-    title: str
+class AdditionalNoneItem(BaseBilibiliModel):
+    """动态失效/转发动态"""
 
 
-class AdditionalReserveItem(BaseBilibiliModel):
-    """预约信息"""
-    # button: dict[str, Any]
-    # desc1: BaseAdditionalItemDesc
-    desc2: BaseAdditionalItemDesc
-    # desc3: BaseAdditionalItemDesc
-    jump_url: str
-    reserve_total: int
-    rid: int
-    state: int
-    stype: int
-    title: str
-    up_mid: str
+class AdditionalPgcItem(BaseBilibiliModel):
+    """剧集类型"""
 
 
 class AdditionalGoodsItem(BaseBilibiliModel):
@@ -347,6 +327,28 @@ class AdditionalVoteItem(BaseBilibiliModel):
     vote_id: str
 
 
+class AdditionalCommonItem(BaseBilibiliModel):
+    """一般类型"""
+    # button: dict[str, Any]
+    cover: str
+    desc1: str
+    desc2: str
+    head_text: str
+    id_str: str
+    jump_url: str
+    style: int
+    sub_type: str
+    title: str
+
+
+class AdditionalMatchItem(BaseBilibiliModel):
+    """ADDITIONAL_TYPE_MATCH"""
+
+
+class AdditionalUpRcmdItem(BaseBilibiliModel):
+    """直播状态更新"""
+
+
 class AdditionalUgcItem(BaseBilibiliModel):
     """视频信息"""
     cover: str
@@ -354,23 +356,40 @@ class AdditionalUgcItem(BaseBilibiliModel):
     duration: str
     head_text: str = Field('')
     id_str: str
-    id_str: str
+    jump_url: str
     multi_line: bool
     title: str
 
 
+class AdditionalReserveItem(BaseBilibiliModel):
+    """预约信息"""
+    # button: dict[str, Any]
+    # desc1: BaseAdditionalItemDesc
+    desc2: BaseAdditionalItemDesc
+    # desc3: BaseAdditionalItemDesc
+    jump_url: str
+    reserve_total: int
+    rid: str
+    state: int
+    stype: int
+    title: str
+    up_mid: str
+
+
+
 class BaseModuleDynamicAdditional(BaseBilibiliModel):
+    """相关内容卡片信息"""
     type: AdditionalType
 
 
-class ModuleDynamicAdditionalCommon(BaseModuleDynamicAdditional):
+class ModuleDynamicAdditionalNone(BaseModuleDynamicAdditional):
     """一般类型"""
-    common: AdditionalCommonItem
+    none: AdditionalNoneItem
 
 
-class ModuleDynamicAdditionalReserve(BaseModuleDynamicAdditional):
-    """预约信息"""
-    reserve: AdditionalReserveItem
+class ModuleDynamicAdditionalPgc(BaseModuleDynamicAdditional):
+    """一般类型"""
+    pgc: AdditionalPgcItem
 
 
 class ModuleDynamicAdditionalGoods(BaseModuleDynamicAdditional):
@@ -383,12 +402,43 @@ class ModuleDynamicAdditionalVote(BaseModuleDynamicAdditional):
     vote: AdditionalVoteItem
 
 
+class ModuleDynamicAdditionalCommon(BaseModuleDynamicAdditional):
+    """一般类型"""
+    common: AdditionalCommonItem
+
+
+class ModuleDynamicAdditionalMatch(BaseModuleDynamicAdditional):
+    """一般类型"""
+    match: AdditionalMatchItem
+
+
+class ModuleDynamicAdditionalUpRcmd(BaseModuleDynamicAdditional):
+    """一般类型"""
+    up_rcmd: AdditionalUpRcmdItem
+
+
 class ModuleDynamicAdditionalUgc(BaseModuleDynamicAdditional):
     """视频信息"""
     ugc: AdditionalUgcItem
 
 
-type ModuleDynamicAdditional = ModuleDynamicAdditionalUgc | ModuleDynamicAdditionalVote | ModuleDynamicAdditionalGoods | ModuleDynamicAdditionalReserve | ModuleDynamicAdditionalCommon | BaseModuleDynamicAdditional
+class ModuleDynamicAdditionalReserve(BaseModuleDynamicAdditional):
+    """预约信息"""
+    reserve: AdditionalReserveItem
+
+
+type ModuleDynamicAdditional = (
+        ModuleDynamicAdditionalNone
+        | ModuleDynamicAdditionalPgc
+        | ModuleDynamicAdditionalGoods
+        | ModuleDynamicAdditionalVote
+        | ModuleDynamicAdditionalCommon
+        | ModuleDynamicAdditionalMatch
+        | ModuleDynamicAdditionalUpRcmd
+        | ModuleDynamicAdditionalReserve
+        | ModuleDynamicAdditionalUgc
+        | BaseModuleDynamicAdditional
+)
 
 
 class DescRichTextNodeEmoji(BaseBilibiliModel):
@@ -408,9 +458,423 @@ class DescRichTextNode(BaseBilibiliModel):
 
 
 class ModuleDynamicDesc(BaseBilibiliModel):
+    """动态文字内容"""
     rich_text_nodes: list[DescRichTextNode]
     text: str
 
 
+class MajorNoneItem(BaseBilibiliModel):
+    """动态失效/转发动态"""
+    tips: str = Field('动态已失效或已被删除')
+
+
+class MajorOpusItem(BaseBilibiliModel):
+    """图文动态"""
+
+    class _Pic(BaseBilibiliModel):
+        height: int
+        width: int
+        size: str
+        url: str
+        live_url: str | None = Field(None)
+
+    fold_action: list[str]
+    jump_url: str
+    pics: list[_Pic]
+    summary: ModuleDynamicDesc
+    title: str | None = Field(None)
+
+
+class MajorArchiveItem(BaseBilibiliModel):
+    """视频信息"""
+    aid: str
+    # badge: dict[str, Any]
+    bvid: str
+    cover: str
+    desc: str
+    disable_preview: int
+    duration_text: str
+    jump_url: str
+    stat: dict[str, Any]
+    title: str
+    type: int
+
+
+class MajorPgcItem(BaseBilibiliModel):
+    """剧集信息"""
+    # badge: dict[str, Any]
+    cover: str
+    epid: str
+    jump_url: str
+    season_id: str
+    stat: dict[str, Any]
+    sub_type: int
+    title: str
+    type: int = Field(2)
+
+
+class MajorCoursesItem(BaseBilibiliModel):
+    """课程信息"""
+    # badge: dict[str, Any]
+    cover: str
+    desc: str
+    id: str
+    jump_url: str
+    sub_title: str
+    title: str
+
+
+class MajorDrawItem(BaseBilibiliModel):
+    """带图动态"""
+
+    class _Item(BaseBilibiliModel):
+        height: int
+        width: int
+        size: str
+        src: str
+        tags: list[str]
+
+    id: str
+    items: list[_Item]
+
+
+class MajorArticleItem(BaseBilibiliModel):
+    """专栏类型"""
+    covers: list[str]
+    desc: str
+    id: str
+    jump_url: str
+    label: str
+    title: str
+
+
+class MajorMusicItem(BaseBilibiliModel):
+    """音频信息"""
+    cover: str
+    id: str
+    jump_url: str
+    label: str
+    title: str
+
+
+class MajorCommonItem(BaseBilibiliModel):
+    """一般类型"""
+    # badge: dict[str, Any]
+    biz_type: int = Field(0)
+    cover: str
+    desc: str
+    id: str
+    jump_url: str
+    label: str = Field('')
+    sketch_id: str
+    style: int = Field(1)
+    title: str
+
+
+class MajorLiveItem(BaseBilibiliModel):
+    """直播间分享"""
+    # badge: dict[str, Any]
+    cover: str
+    desc_first: str  # 直播主分区名称
+    desc_second: str  # 观看人数
+    id: str
+    jump_url: str
+    live_state: int
+    reserve_type: int = Field(0)
+    title: str
+
+
+class MajorLiveRcmdItem(BaseBilibiliModel):
+    """直播状态"""
+
+    class _Content(BaseBilibiliModel):
+        class _LivePlayInfo(BaseBilibiliModel):
+            area_id: int
+            area_name: str
+            parent_area_id: int
+            parent_area_name: str
+            live_start_time: int
+            room_id: int
+            room_type: int
+            room_paid_type: int
+            play_type: int
+            cover: str
+            uid: int
+            online: int
+            link: str
+            live_id: str
+            live_screen_type: int
+            live_status: int
+            title: str
+
+        type: int
+        live_play_info: _LivePlayInfo
+
+    content: Json[_Content]
+    reserve_type: str
+
+
+class MajorMedialistItem(BaseBilibiliModel):
+    """合集信息"""
+
+
+class MajorAppletItem(BaseBilibiliModel):
+    """小程序信息"""
+
+
+class MajorSubscriptionItem(BaseBilibiliModel):
+    """订阅信息"""
+
+
+class MajorSubscriptionNewItem(BaseBilibiliModel):
+    """订阅信息"""
+
+
+class MajorUgcSeasonItem(BaseBilibiliModel):
+    """合集信息"""
+    aid: str
+    # badge: dict[str, Any]
+    cover: str
+    desc: str
+    disable_preview: int
+    duration_text: str
+    jump_url: str
+    stat: dict[str, Any]
+    title: str
+
+
+class BaseModuleDynamicMajor(BaseBilibiliModel):
+    """动态主体对象"""
+    type: MajorType
+
+
+class ModuleDynamicMajorNone(BaseModuleDynamicMajor):
+    """动态失效/转发动态"""
+    none: MajorNoneItem
+
+
+class ModuleDynamicMajorOpus(BaseModuleDynamicMajor):
+    """图文动态"""
+    opus: MajorOpusItem
+
+
+class ModuleDynamicMajorArchive(BaseModuleDynamicMajor):
+    """视频信息"""
+    archive: MajorArchiveItem
+
+
+class ModuleDynamicMajorPgc(BaseModuleDynamicMajor):
+    """剧集信息"""
+    pgc: MajorPgcItem
+
+
+class ModuleDynamicMajorCourses(BaseModuleDynamicMajor):
+    """课程信息"""
+    courses: MajorCoursesItem
+
+
+class ModuleDynamicMajorDraw(BaseModuleDynamicMajor):
+    """带图动态"""
+    draw: MajorDrawItem
+
+
+class ModuleDynamicMajorArticle(BaseModuleDynamicMajor):
+    """专栏类型"""
+    article: MajorArticleItem
+
+
+class ModuleDynamicMajorMusic(BaseModuleDynamicMajor):
+    """音频信息"""
+    music: MajorMusicItem
+
+
+class ModuleDynamicMajorCommon(BaseModuleDynamicMajor):
+    """一般类型"""
+    common: MajorCommonItem
+
+
+class ModuleDynamicMajorLive(BaseModuleDynamicMajor):
+    """直播间分享"""
+    live: MajorLiveItem
+
+
+class ModuleDynamicMajorLiveRcmd(BaseModuleDynamicMajor):
+    """直播状态"""
+    live_rcmd: MajorLiveRcmdItem
+
+
+class ModuleDynamicMajorMedialist(BaseModuleDynamicMajor):
+    """合集信息"""
+    medialist: MajorMedialistItem
+
+
+class ModuleDynamicMajorApplet(BaseModuleDynamicMajor):
+    """小程序信息"""
+    applet: MajorAppletItem
+
+
+class ModuleDynamicMajorSubscription(BaseModuleDynamicMajor):
+    """订阅信息"""
+    subscription: MajorSubscriptionItem
+
+
+class ModuleDynamicMajorSubscriptionNew(BaseModuleDynamicMajor):
+    """订阅信息"""
+    subscription_new: MajorSubscriptionNewItem
+
+
+class ModuleDynamicMajorUgcSeason(BaseModuleDynamicMajor):
+    """一般类型"""
+    ugc_season: MajorUgcSeasonItem
+
+
+type ModuleDynamicMajor = (
+        ModuleDynamicMajorNone
+        | ModuleDynamicMajorOpus
+        | ModuleDynamicMajorArchive
+        | ModuleDynamicMajorPgc
+        | ModuleDynamicMajorCourses
+        | ModuleDynamicMajorDraw
+        | ModuleDynamicMajorArticle
+        | ModuleDynamicMajorMusic
+        | ModuleDynamicMajorCommon
+        | ModuleDynamicMajorLive
+        | ModuleDynamicMajorLiveRcmd
+        | ModuleDynamicMajorMedialist
+        | ModuleDynamicMajorApplet
+        | ModuleDynamicMajorSubscription
+        | ModuleDynamicMajorSubscriptionNew
+        | ModuleDynamicMajorUgcSeason
+        | BaseModuleDynamicMajor
+)
+
+
+class ModuleDynamicTopic(BaseBilibiliModel):
+    """话题信息"""
+    id: str
+    jump_url: str
+    name: str
+
+
 class DynItemModuleDynamic(BaseBilibiliModel):
-    additional: ModuleDynamicAdditional
+    """动态内容信息"""
+    additional: ModuleDynamicAdditional | None = Field(None)  # 相关内容卡片信息
+    desc: ModuleDynamicDesc | None = Field(None)  # 动态文字内容
+    major: ModuleDynamicMajor | None = Field(None)  # 动态主体对象
+    topic: ModuleDynamicTopic | None = Field(None)  # 话题信息
+
+
+class DynItemModuleMore(BaseBilibiliModel):
+    """动态右上角三点菜单"""
+    three_point_items: list[dict[str, Any]]
+
+
+class DynItemModuleStat(BaseBilibiliModel):
+    """动态统计数据"""
+    comment: dict[str, Any]
+    forward: dict[str, Any]
+    like: dict[str, Any]
+
+
+class DynItemModuleInteraction(BaseBilibiliModel):
+    """热度评论"""
+    items: list[dict[str, Any]]
+
+
+class DynItemModuleFold(BaseBilibiliModel):
+    """动态折叠信息"""
+    ids: list[str]
+    statement: str
+    type: int = Field(1)
+    users: list[str] = Field(default_factory=list)
+
+
+class DynItemModuleDispute(BaseBilibiliModel):
+    """争议小黄条"""
+    desc: str
+    jump_url: str
+    title: str
+
+
+class DynItemModuleTag(BaseBilibiliModel):
+    """置顶信息"""
+    text: str
+
+
+class DynItemModules(BaseBilibiliModel):
+    """动态信息"""
+    module_author: DynItemModuleAuthor
+    module_dynamic: DynItemModuleDynamic
+    module_more: DynItemModuleMore | None = Field(None)
+    module_stat: DynItemModuleStat | None = Field(None)
+    module_interaction: DynItemModuleInteraction | None = Field(None)
+    module_fold: DynItemModuleFold | None = Field(None)
+    module_dispute: DynItemModuleDispute | None = Field(None)
+    module_tag: DynItemModuleTag | None = Field(None)
+
+
+class DynItemBasic(BaseBilibiliModel):
+    comment_id_str: str
+    comment_type: str
+    rid_str: str
+
+
+class DynCommonItem(BaseBilibiliModel):
+    basic: DynItemBasic
+    id_str: str
+    modules: DynItemModules
+    type: DynamicType
+    visible: bool
+
+
+class DynForwardItem(BaseBilibiliModel):
+    basic: DynItemBasic
+    id_str: str
+    modules: DynItemModules
+    type: DynamicType
+    visible: bool
+    orig: DynCommonItem
+
+
+type DynItem = DynForwardItem | DynCommonItem
+
+
+class DynData(BaseBilibiliModel):
+    has_more: bool
+    items: list[DynItem]
+    offset: str
+    update_baseline: str
+    update_num: int
+
+
+class Dynamics(BaseBilibiliResponse):
+    data: DynData
+
+
+__all__ = [
+    'BaseModuleDynamicMajor',
+    'Dynamics',
+    'DynData',
+    'DynamicType',
+    'DynItem',
+    'DynCommonItem',
+    'DynForwardItem',
+    'DynItemModules',
+    'ModuleDynamicMajor',
+    'ModuleDynamicMajorNone',
+    'ModuleDynamicMajorOpus',
+    'ModuleDynamicMajorArchive',
+    'ModuleDynamicMajorPgc',
+    'ModuleDynamicMajorCourses',
+    'ModuleDynamicMajorDraw',
+    'ModuleDynamicMajorArticle',
+    'ModuleDynamicMajorMusic',
+    'ModuleDynamicMajorCommon',
+    'ModuleDynamicMajorLive',
+    'ModuleDynamicMajorLiveRcmd',
+    'ModuleDynamicMajorMedialist',
+    'ModuleDynamicMajorApplet',
+    'ModuleDynamicMajorSubscription',
+    'ModuleDynamicMajorSubscriptionNew',
+    'ModuleDynamicMajorUgcSeason',
+]

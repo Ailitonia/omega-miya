@@ -8,10 +8,12 @@
 @Software       : PyCharm 
 """
 
+from .dynamic import BilibiliDynamic
 from .login import BilibiliCredential
 from .user import BilibiliUser
 
 __all__ = [
+    'BilibiliDynamic',
     'BilibiliCredential',
     'BilibiliUser',
 ]

@@ -9,11 +9,13 @@
 """
 
 from .api import (
+    BilibiliDynamic,
     BilibiliCredential,
     BilibiliUser,
 )
 
 __all__ = [
+    'BilibiliDynamic',
     'BilibiliCredential',
     'BilibiliUser',
 ]
