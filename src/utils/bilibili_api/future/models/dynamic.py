@@ -586,7 +586,6 @@ class MajorLiveItem(BaseBilibiliModel):
 
 class MajorLiveRcmdItem(BaseBilibiliModel):
     """直播状态"""
-
     class _Content(BaseBilibiliModel):
         class _LivePlayInfo(BaseBilibiliModel):
             area_id: int
@@ -848,14 +847,24 @@ class DynData(BaseBilibiliModel):
 
 
 class Dynamics(BaseBilibiliResponse):
+    """获取动态列表结果"""
     data: DynData
+
+
+class DynDetail(BaseBilibiliResponse):
+    """获取单条动态详情结果"""
+    class _Item(BaseBilibiliModel):
+        item: DynItem
+
+    data: _Item
 
 
 __all__ = [
     'BaseModuleDynamicMajor',
     'Dynamics',
-    'DynData',
     'DynamicType',
+    'DynDetail',
+    'DynData',
     'DynItem',
     'DynCommonItem',
     'DynForwardItem',

@@ -11,7 +11,7 @@
 from typing import Literal
 
 from .base import BilibiliCommon
-from ..models import Dynamics
+from ..models import Dynamics, DynDetail
 
 
 class BilibiliDynamic(BilibiliCommon):
@@ -42,6 +42,44 @@ class BilibiliDynamic(BilibiliCommon):
 
         data = await cls._get_json(url=url, params=params)
         return Dynamics.model_validate(data)
+
+    @classmethod
+    async def query_user_space_dynamics(
+            cls,
+            host_mid: int | str,
+            *,
+            offset: int | None = None,
+            timezone_offset: int | None = None,
+            features: str | None = None,
+    ) -> Dynamics:
+        """获取用户空间动态"""
+        url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
+        params: dict[str, str] = {'host_mid': str(host_mid)}
+        if offset is not None:
+            params.update({'offset': str(offset)})
+        if timezone_offset is not None:
+            params.update({'timezone_offset': str(timezone_offset)})
+        if features is not None:
+            params.update({'features': features})
+
+        data = await cls._get_json(url=url, params=params)
+        return Dynamics.model_validate(data)
+
+    @classmethod
+    async def query_dynamic_detail(
+            cls,
+            id_: int | str,
+            *,
+            timezone_offset: int | None = None,
+    ) -> DynDetail:
+        """获取动态详细信息"""
+        url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/detail'
+        params: dict[str, str] = {'id': str(id_)}
+        if timezone_offset is not None:
+            params.update({'timezone_offset': str(timezone_offset)})
+
+        data = await cls._get_json(url=url, params=params)
+        return DynDetail.model_validate(data)
 
 
 __all__ = [

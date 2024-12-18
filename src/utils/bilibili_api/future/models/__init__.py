@@ -11,6 +11,7 @@
 from .dynamic import (
     Dynamics,
     DynamicType,
+    DynDetail,
     DynData,
     DynItemModules,
 )
@@ -49,6 +50,7 @@ from .user import (
 __all__ = [
     'Dynamics',
     'DynamicType',
+    'DynDetail',
     'DynData',
     'DynItemModules',
     'Account',
