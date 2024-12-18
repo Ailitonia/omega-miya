@@ -277,7 +277,7 @@ class DynItemModuleAuthor(BaseBilibiliModel):
     """UP 主信息"""
     # avatar: dict[str, Any]
     face: AnyHttpUrl
-    # face_nft: bool
+    face_nft: bool
     following: bool
     jump_url: str
     label: str
@@ -285,10 +285,10 @@ class DynItemModuleAuthor(BaseBilibiliModel):
     name: str
     # official_verify: dict[str, Any]
     # pendant: dict[str, Any]
-    # pub_action: str
-    # pub_location_text: str
-    # pub_time: str
-    # pub_ts: int
+    pub_action: str = Field('')
+    pub_location_text: str = Field('')
+    pub_time: str = Field('')
+    pub_ts: int
     type: AuthorType
     # vip: dict[str, Any]
 
@@ -364,7 +364,7 @@ class AdditionalUgcItem(BaseBilibiliModel):
 class AdditionalReserveItem(BaseBilibiliModel):
     """预约信息"""
     # button: dict[str, Any]
-    # desc1: BaseAdditionalItemDesc
+    desc1: BaseAdditionalItemDesc
     desc2: BaseAdditionalItemDesc
     # desc3: BaseAdditionalItemDesc
     jump_url: str
@@ -646,60 +646,132 @@ class BaseModuleDynamicMajor(BaseBilibiliModel):
     """动态主体对象"""
     type: MajorType
 
+    def get_major_image_urls(self) -> list[str]:
+        """获取图片链接"""
+        return []
+
+    def get_major_text(self) -> str:
+        """获取文本内容"""
+        return ''
+
 
 class ModuleDynamicMajorNone(BaseModuleDynamicMajor):
     """动态失效/转发动态"""
     none: MajorNoneItem
+
+    def get_major_text(self) -> str:
+        return self.none.tips
+
 
 
 class ModuleDynamicMajorOpus(BaseModuleDynamicMajor):
     """图文动态"""
     opus: MajorOpusItem
 
+    def get_major_image_urls(self) -> list[str]:
+        return [x.url for x in self.opus.pics]
+
+    def get_major_text(self) -> str:
+        return self.opus.summary.text
+
 
 class ModuleDynamicMajorArchive(BaseModuleDynamicMajor):
     """视频信息"""
     archive: MajorArchiveItem
+
+    def get_major_image_urls(self) -> list[str]:
+        return [self.archive.cover]
+
+    def get_major_text(self) -> str:
+        return f'《{self.archive.title}》\n{self.archive.desc}\n{self.archive.jump_url}'
 
 
 class ModuleDynamicMajorPgc(BaseModuleDynamicMajor):
     """剧集信息"""
     pgc: MajorPgcItem
 
+    def get_major_image_urls(self) -> list[str]:
+        return [self.pgc.cover]
+
+    def get_major_text(self) -> str:
+        return self.pgc.title
+
 
 class ModuleDynamicMajorCourses(BaseModuleDynamicMajor):
     """课程信息"""
     courses: MajorCoursesItem
+
+    def get_major_image_urls(self) -> list[str]:
+        return [self.courses.cover]
+
+    def get_major_text(self) -> str:
+        return f'《{self.courses.title}》\n{self.courses.desc}\n{self.courses.jump_url}'
 
 
 class ModuleDynamicMajorDraw(BaseModuleDynamicMajor):
     """带图动态"""
     draw: MajorDrawItem
 
+    def get_major_image_urls(self) -> list[str]:
+        return [x.src for x in self.draw.items]
+
+    def get_major_text(self) -> str:
+        return ''
+
 
 class ModuleDynamicMajorArticle(BaseModuleDynamicMajor):
     """专栏类型"""
     article: MajorArticleItem
+
+    def get_major_image_urls(self) -> list[str]:
+        return self.article.covers
+
+    def get_major_text(self) -> str:
+        return f'《{self.article.title}》\n{self.article.desc}\n{self.article.jump_url}'
 
 
 class ModuleDynamicMajorMusic(BaseModuleDynamicMajor):
     """音频信息"""
     music: MajorMusicItem
 
+    def get_major_image_urls(self) -> list[str]:
+        return [self.music.cover]
+
+    def get_major_text(self) -> str:
+        return self.music.title
+
 
 class ModuleDynamicMajorCommon(BaseModuleDynamicMajor):
     """一般类型"""
     common: MajorCommonItem
+
+    def get_major_image_urls(self) -> list[str]:
+        return [self.common.cover]
+
+    def get_major_text(self) -> str:
+        return f'{self.common.title}\n{self.common.desc}'
 
 
 class ModuleDynamicMajorLive(BaseModuleDynamicMajor):
     """直播间分享"""
     live: MajorLiveItem
 
+    def get_major_image_urls(self) -> list[str]:
+        return [self.live.cover]
+
+    def get_major_text(self) -> str:
+        return self.live.title
+
 
 class ModuleDynamicMajorLiveRcmd(BaseModuleDynamicMajor):
     """直播状态"""
     live_rcmd: MajorLiveRcmdItem
+
+    def get_major_image_urls(self) -> list[str]:
+        return [self.live_rcmd.content.live_play_info.cover]
+
+    def get_major_text(self) -> str:
+        return self.live_rcmd.content.live_play_info.title
 
 
 class ModuleDynamicMajorMedialist(BaseModuleDynamicMajor):
@@ -723,8 +795,14 @@ class ModuleDynamicMajorSubscriptionNew(BaseModuleDynamicMajor):
 
 
 class ModuleDynamicMajorUgcSeason(BaseModuleDynamicMajor):
-    """一般类型"""
+    """合集信息"""
     ugc_season: MajorUgcSeasonItem
+
+    def get_major_image_urls(self) -> list[str]:
+        return [self.ugc_season.cover]
+
+    def get_major_text(self) -> str:
+        return f'{self.ugc_season.title}\n{self.ugc_season.desc}\n{self.ugc_season.jump_url}'
 
 
 type ModuleDynamicMajor = (
@@ -804,12 +882,12 @@ class DynItemModules(BaseBilibiliModel):
     """动态信息"""
     module_author: DynItemModuleAuthor
     module_dynamic: DynItemModuleDynamic
-    module_more: DynItemModuleMore | None = Field(None)
-    module_stat: DynItemModuleStat | None = Field(None)
-    module_interaction: DynItemModuleInteraction | None = Field(None)
-    module_fold: DynItemModuleFold | None = Field(None)
-    module_dispute: DynItemModuleDispute | None = Field(None)
-    module_tag: DynItemModuleTag | None = Field(None)
+    # module_more: DynItemModuleMore | None = Field(None)
+    # module_stat: DynItemModuleStat | None = Field(None)
+    # module_interaction: DynItemModuleInteraction | None = Field(None)
+    # module_fold: DynItemModuleFold | None = Field(None)
+    # module_dispute: DynItemModuleDispute | None = Field(None)
+    # module_tag: DynItemModuleTag | None = Field(None)
 
 
 class DynItemBasic(BaseBilibiliModel):
