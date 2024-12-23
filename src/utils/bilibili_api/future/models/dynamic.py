@@ -66,6 +66,7 @@ class RichTextNodeType(StrEnum):
     ogv_season = "RICH_TEXT_NODE_TYPE_OGV_SEASON"  # 剧集信息
     ogv_ep = "RICH_TEXT_NODE_TYPE_OGV_EP"
     search_word = "RICH_TEXT_NODE_TYPE_SEARCH_WORD"
+    view_picture = "RICH_TEXT_NODE_TYPE_VIEW_PICTURE"
 
 
 @unique
@@ -278,7 +279,7 @@ class DynItemModuleAuthor(BaseBilibiliModel):
     # avatar: dict[str, Any]
     face: AnyHttpUrl
     face_nft: bool
-    following: bool
+    following: bool | None = Field(False)
     jump_url: str
     label: str
     mid: str
@@ -683,7 +684,10 @@ class ModuleDynamicMajorArchive(BaseModuleDynamicMajor):
         return [self.archive.cover]
 
     def get_major_text(self) -> str:
-        return f'《{self.archive.title}》\n{self.archive.desc}\n{self.archive.jump_url}'
+        return (
+            f'《{self.archive.title}》\n{self.archive.desc}\n'
+            f'视频传送门: https://{self.archive.jump_url.removeprefix("//")}'
+        )
 
 
 class ModuleDynamicMajorPgc(BaseModuleDynamicMajor):
@@ -705,7 +709,10 @@ class ModuleDynamicMajorCourses(BaseModuleDynamicMajor):
         return [self.courses.cover]
 
     def get_major_text(self) -> str:
-        return f'《{self.courses.title}》\n{self.courses.desc}\n{self.courses.jump_url}'
+        return (
+            f'《{self.courses.title}》\n{self.courses.desc}\n'
+            f'课程传送门: https://{self.courses.jump_url.removeprefix("//")}'
+        )
 
 
 class ModuleDynamicMajorDraw(BaseModuleDynamicMajor):
@@ -727,7 +734,10 @@ class ModuleDynamicMajorArticle(BaseModuleDynamicMajor):
         return self.article.covers
 
     def get_major_text(self) -> str:
-        return f'《{self.article.title}》\n{self.article.desc}\n{self.article.jump_url}'
+        return (
+            f'《{self.article.title}》\n{self.article.desc}\n'
+            f'专栏传送门: https://{self.article.jump_url.removeprefix("//")}'
+        )
 
 
 class ModuleDynamicMajorMusic(BaseModuleDynamicMajor):
@@ -889,6 +899,42 @@ class DynItemModules(BaseBilibiliModel):
     # module_dispute: DynItemModuleDispute | None = Field(None)
     # module_tag: DynItemModuleTag | None = Field(None)
 
+    @property
+    def uname(self) -> str:
+        return self.module_author.name
+
+    @property
+    def pub_text(self) -> str:
+        """动态发布说明文本"""
+        return (
+            f'{self.uname}{f" {pub_time} " if (pub_time := self.module_author.pub_time) else ""}'
+            f'{pub_action if (pub_action := self.module_author.pub_action) else "发布了新动态"}'
+        )
+
+    @property
+    def desc_text(self) -> str:
+        """动态内容文本"""
+        return desc.text if (desc := self.module_dynamic.desc) is not None else ''
+
+    @property
+    def major_text(self) -> str:
+        """动态主体内容文本"""
+        return major.get_major_text() if (major := self.module_dynamic.major) else ''
+
+    @property
+    def dyn_text(self) -> str:
+        """格式化动态内容文本"""
+        return (
+            f'{self.pub_text}'
+            f'{f"\n\n“{self.desc_text}”" if self.desc_text else ""}'
+            f'{f"\n\n{self.major_text}" if self.major_text else ""}'
+        )
+
+    @property
+    def dyn_image_urls(self) -> list[str]:
+        """动态图片链接列表"""
+        return self.module_dynamic.major.get_major_image_urls() if self.module_dynamic.major is not None else []
+
 
 class DynItemBasic(BaseBilibiliModel):
     comment_id_str: str
@@ -903,6 +949,15 @@ class DynCommonItem(BaseBilibiliModel):
     type: DynamicType
     visible: bool
 
+    @property
+    def dyn_text(self) -> str:
+        """动态内容文本"""
+        return self.modules.dyn_text
+
+    @property
+    def dyn_image_urls(self) -> list[str]:
+        """动态图片链接列表"""
+        return self.modules.dyn_image_urls
 
 class DynForwardItem(BaseBilibiliModel):
     basic: DynItemBasic
@@ -911,6 +966,19 @@ class DynForwardItem(BaseBilibiliModel):
     type: DynamicType
     visible: bool
     orig: DynCommonItem
+
+    @property
+    def dyn_text(self) -> str:
+        """动态内容文本"""
+        return (
+            f'{self.modules.dyn_text}'
+            f'{f"\n{"=" * 8}转发动态{"=" * 8}\n{self.orig.dyn_text}" if self.orig.dyn_text else ""}'
+        )
+
+    @property
+    def dyn_image_urls(self) -> list[str]:
+        """动态图片链接列表"""
+        return self.modules.dyn_image_urls + self.orig.dyn_image_urls
 
 
 type DynItem = DynForwardItem | DynCommonItem
