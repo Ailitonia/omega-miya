@@ -18,7 +18,7 @@ class BilibiliDynamic(BilibiliCommon):
     """Bilibili 动态 API"""
 
     @classmethod
-    async def query_my_dynamics(
+    async def query_my_following_dynamics(
             cls,
             *,
             type_: Literal['all', 'video', 'pgc', 'article'] | None = None,

@@ -24,6 +24,7 @@ class DynamicType(StrEnum):
     forward = "DYNAMIC_TYPE_FORWARD"  # 动态转发
     av = "DYNAMIC_TYPE_AV"  # 投稿视频
     pgc = "DYNAMIC_TYPE_PGC"  # 剧集（番剧、电影、纪录片）
+    pgc_union = "DYNAMIC_TYPE_PGC_UNION"
     courses = "DYNAMIC_TYPE_COURSES"
     word = "DYNAMIC_TYPE_WORD"  # 纯文字动态
     draw = "DYNAMIC_TYPE_DRAW"  # 带图动态
@@ -698,7 +699,10 @@ class ModuleDynamicMajorPgc(BaseModuleDynamicMajor):
         return [self.pgc.cover]
 
     def get_major_text(self) -> str:
-        return self.pgc.title
+        return (
+            f'《{self.pgc.title}》\n'
+            f'剧集传送门: {self.pgc.jump_url.removeprefix("//")}'
+        )
 
 
 class ModuleDynamicMajorCourses(BaseModuleDynamicMajor):
@@ -748,7 +752,10 @@ class ModuleDynamicMajorMusic(BaseModuleDynamicMajor):
         return [self.music.cover]
 
     def get_major_text(self) -> str:
-        return self.music.title
+        return (
+            f'《{self.music.title}》\n'
+            f'音频传送门: https://{self.music.jump_url.removeprefix("//")}'
+        )
 
 
 class ModuleDynamicMajorCommon(BaseModuleDynamicMajor):
@@ -770,7 +777,10 @@ class ModuleDynamicMajorLive(BaseModuleDynamicMajor):
         return [self.live.cover]
 
     def get_major_text(self) -> str:
-        return self.live.title
+        return (
+            f'{self.live.title}\n'
+            f'直播间传送门: https://{self.live.jump_url.removeprefix("//")}'
+        )
 
 
 class ModuleDynamicMajorLiveRcmd(BaseModuleDynamicMajor):
@@ -812,7 +822,10 @@ class ModuleDynamicMajorUgcSeason(BaseModuleDynamicMajor):
         return [self.ugc_season.cover]
 
     def get_major_text(self) -> str:
-        return f'{self.ugc_season.title}\n{self.ugc_season.desc}\n{self.ugc_season.jump_url}'
+        return (
+            f'《{self.ugc_season.title}》\n{self.ugc_season.desc}\n'
+            f'合集传送门: https://{self.ugc_season.jump_url.removeprefix("//")}'
+        )
 
 
 type ModuleDynamicMajor = (
