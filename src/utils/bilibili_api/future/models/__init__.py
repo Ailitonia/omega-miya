@@ -15,6 +15,11 @@ from .dynamic import (
     DynData,
     DynItemModules,
 )
+from .live import (
+    RoomInfo,
+    RoomUserInfo,
+    UsersRoomInfo,
+)
 from .search import (
     AllSearchResultType,
     ArticleSearchResult,
@@ -60,6 +65,9 @@ __all__ = [
     'LiveUserSearchResult',
     'MediaSearchResult',
     'PhotoSearchResult',
+    'RoomInfo',
+    'RoomUserInfo',
+    'UsersRoomInfo',
     'SearchAllResult',
     'SearchType',
     'SearchTypeResult',

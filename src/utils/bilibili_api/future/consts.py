@@ -10,9 +10,16 @@
 
 from typing import Literal
 
+from pytz import timezone
+
 BILI_DB_SETTING_NAME: Literal['bilibili_api'] = 'bilibili_api'
 """数据库系统配置表固定字段"""
 
+DEFAULT_LOCAL_TZ = timezone('Asia/Shanghai')
+"""默认本地时区"""
+
+
 __all__ = [
     'BILI_DB_SETTING_NAME',
+    'DEFAULT_LOCAL_TZ',
 ]

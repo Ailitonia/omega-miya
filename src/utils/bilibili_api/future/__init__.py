@@ -11,11 +11,13 @@
 from .api import (
     BilibiliDynamic,
     BilibiliCredential,
+    BilibiliLive,
     BilibiliUser,
 )
 
 __all__ = [
     'BilibiliDynamic',
     'BilibiliCredential',
+    'BilibiliLive',
     'BilibiliUser',
 ]

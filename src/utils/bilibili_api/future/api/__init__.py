@@ -9,11 +9,13 @@
 """
 
 from .dynamic import BilibiliDynamic
+from .live import BilibiliLive
 from .login import BilibiliCredential
 from .user import BilibiliUser
 
 __all__ = [
     'BilibiliDynamic',
     'BilibiliCredential',
+    'BilibiliLive',
     'BilibiliUser',
 ]
