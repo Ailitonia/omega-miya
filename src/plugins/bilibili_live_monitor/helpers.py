@@ -28,7 +28,7 @@ from src.service import (
 )
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
 from src.utils import semaphore_gather
-from src.utils.bilibili_api.future import BilibiliLive
+from src.utils.bilibili_api import BilibiliLive
 from .consts import BILI_LIVE_SUB_TYPE, MODULE_NAME, NOTICE_AT_ALL, PLUGIN_NAME
 from .data_source import (
     check_and_upgrade_live_status,

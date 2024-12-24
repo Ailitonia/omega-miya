@@ -29,7 +29,7 @@ from src.service import (
 )
 from src.service.omega_base.internal import OmegaBiliDynamicSubSource
 from src.utils import run_async_delay, semaphore_gather
-from src.utils.bilibili_api.future import BilibiliDynamic, BilibiliUser
+from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from .consts import (
     BILI_DYNAMIC_SUB_TYPE,
     MODULE_NAME,

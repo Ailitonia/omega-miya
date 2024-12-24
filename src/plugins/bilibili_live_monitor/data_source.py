@@ -14,7 +14,7 @@ from nonebot import get_driver, logger
 
 from src.database import begin_db_session
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
-from src.utils.bilibili_api.future import BilibiliLive
+from src.utils.bilibili_api import BilibiliLive
 from .model import BilibiliLiveRoomStatus, BilibiliLiveRoomStatusUpdate
 
 if TYPE_CHECKING:

@@ -11,7 +11,7 @@
 from nonebot import get_driver, logger
 
 from src.service import scheduler
-from src.utils.bilibili_api.future import BilibiliCredential
+from src.utils.bilibili_api import BilibiliCredential
 
 
 async def _refresh_bilibili_login_status() -> None:

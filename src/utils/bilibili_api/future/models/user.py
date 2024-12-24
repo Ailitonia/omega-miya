@@ -70,13 +70,13 @@ class UserData(BaseBilibiliModel):
     rank: int
     level: int
     jointime: int
-    moral: int
-    silence: int
-    coins: int
-    official: UserOfficial
+    # moral: int
+    # silence: int
+    # coins: int
+    # official: UserOfficial
     is_followed: bool
     top_photo: AnyHttpUrl
-    live_room: UserLiveRoom
+    live_room: UserLiveRoom | None = Field(None)
     birthday: str
 
 
@@ -91,10 +91,6 @@ class User(BaseBilibiliResponse):
     @property
     def uname(self) -> str:
         return self.data.name
-
-    @property
-    def live_room(self) -> UserLiveRoom:
-        return self.data.live_room
 
 
 class UserSpaceRenderData(BaseBilibiliModel):

@@ -19,7 +19,7 @@ from src.params.handler import get_command_str_single_arg_parser_handler, get_se
 from src.params.permission import IS_ADMIN
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import enable_processor_state
-from src.utils.bilibili_api.future import BilibiliUser
+from src.utils.bilibili_api import BilibiliUser
 from .consts import NOTICE_AT_ALL
 from .helpers import add_dynamic_sub, delete_dynamic_sub, query_entity_subscribed_dynamic_sub_source
 from .monitor import scheduler
