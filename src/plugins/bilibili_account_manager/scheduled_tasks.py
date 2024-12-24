@@ -7,6 +7,7 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm 
 """
+
 from nonebot import get_driver, logger
 
 from src.service import scheduler

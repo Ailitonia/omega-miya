@@ -21,8 +21,7 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
-# from . import scheduled_tasks as tasks
+from . import scheduled_tasks as tasks
 
 
 __all__ = []
