@@ -932,7 +932,7 @@ class DynItemModules(BaseBilibiliModel):
     @property
     def major_text(self) -> str:
         """动态主体内容文本"""
-        return major.get_major_text() if (major := self.module_dynamic.major) else ''
+        return major.get_major_text() if (major := self.module_dynamic.major) is not None else ''
 
     @property
     def dyn_text(self) -> str:
