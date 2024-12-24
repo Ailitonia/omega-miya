@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 class BilibiliLiveRoomStatus(BaseModel):
     """Bilibili 直播间状态"""
-    live_room_id: int
+    live_room_id: str
     live_status: int
     live_title: str
     live_user_name: str
@@ -95,10 +95,20 @@ class BilibiliLiveRoomStopLivingWithPlaylist(BaseModel):
     model_config = ConfigDict(extra='ignore')
 
 
+type LiveRoomStatusUpdateType = (
+        BilibiliLiveRoomTitleChange
+        | BilibiliLiveRoomStartLiving
+        | BilibiliLiveRoomStartLivingWithUpdateTitle
+        | BilibiliLiveRoomStopLiving
+        | BilibiliLiveRoomStopLivingWithPlaylist
+        | None
+)
+
+
 class BilibiliLiveRoomStatusUpdate(BaseModel):
     """Bilibili 直播间状态更新"""
     is_update: bool
-    update: BilibiliLiveRoomTitleChange | BilibiliLiveRoomStartLiving | BilibiliLiveRoomStartLivingWithUpdateTitle | BilibiliLiveRoomStopLiving | BilibiliLiveRoomStopLivingWithPlaylist | None = None
+    update: LiveRoomStatusUpdateType = None
 
     @model_validator(mode='after')
     @classmethod

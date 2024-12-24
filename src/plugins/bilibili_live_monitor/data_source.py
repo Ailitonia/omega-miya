@@ -8,89 +8,66 @@
 @Software       : PyCharm 
 """
 
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
 from nonebot import get_driver, logger
 
 from src.database import begin_db_session
-from src.exception import WebSourceException
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
-from src.utils import semaphore_gather
-from src.utils.bilibili_api import BilibiliLiveRoom
+from src.utils.bilibili_api.future import BilibiliLive
 from .model import BilibiliLiveRoomStatus, BilibiliLiveRoomStatusUpdate
 
 if TYPE_CHECKING:
-    from src.utils.bilibili_api.legacy.model.live_room import BilibiliLiveRoomDataModel
+    from src.utils.bilibili_api.future.models.live import RoomInfoData
 
 
-__LIVE_STATUS: dict[int, BilibiliLiveRoomStatus] = {}
-"""Bilibili 直播间状态缓存, {用户UID: 直播间状态}"""
+__LIVE_ROOM_STATUS: dict[str, BilibiliLiveRoomStatus] = {}
+"""Bilibili 直播间状态缓存, {直播间房间号: 直播间状态}"""
 
 
-def check_and_upgrade_live_status(
-        live_room_data: 'BilibiliLiveRoomDataModel',
-        *,
-        live_user_name: str | None = None
-) -> BilibiliLiveRoomStatusUpdate | None:
-    """检查并更新 Bilibili 直播间状态缓存
+def _convert_room_info(room_info: 'RoomInfoData') -> BilibiliLiveRoomStatus:
+    return BilibiliLiveRoomStatus.model_validate({
+        'live_room_id': room_info.room_id,
+        'live_status': room_info.live_status,
+        'live_title': room_info.title,
+        'live_user_name': room_info.uname
+    })
+
+
+async def get_all_subscribed_live_room_ids() -> list[str]:
+    """获取所有已订阅的直播间房间号列表"""
+    async with begin_db_session() as session:
+        source_result = await OmegaBiliLiveSubSource.query_type_all(session=session)
+    return [x.sub_id for x in source_result]
+
+
+def check_and_upgrade_live_status(room_info: 'RoomInfoData') -> BilibiliLiveRoomStatusUpdate:
+    """检查并更新直播间状态缓存
 
     :return: 更新后的直播间状态(如有)
     """
-    exist_status = __LIVE_STATUS.get(live_room_data.uid, None)
+    new_status = _convert_room_info(room_info)
+    exist_status = __LIVE_ROOM_STATUS.setdefault(room_info.room_id, new_status)
 
-    if exist_status is None and live_user_name is None:
-        raise ValueError('Add new live room status must provide "live_user_name" parameter')
+    __LIVE_ROOM_STATUS.update({room_info.room_id: new_status})
+    logger.debug(f'Upgrade live room({room_info.room_id}) status: {new_status}')
 
-    if exist_status is None:  # make typing checker happy
-        new_live_user_name = live_user_name if live_user_name is not None else f'bilibili直播间{live_room_data.room_id}'
-    else:
-        new_live_user_name = exist_status.live_user_name if live_user_name is None else live_user_name
-
-    new_status = BilibiliLiveRoomStatus.model_validate({
-        'live_room_id': live_room_data.room_id,
-        'live_status': live_room_data.live_status,
-        'live_title': live_room_data.title,
-        'live_user_name': new_live_user_name
-    })
-    __LIVE_STATUS.update({live_room_data.uid: new_status})
-    logger.trace(f'Upgrade live room({live_room_data.room_id}) status: {new_status}')
-
-    if isinstance(exist_status, BilibiliLiveRoomStatus):
-        update = new_status - exist_status
-    else:
-        update = None
-    return update
+    return new_status - exist_status
 
 
-def get_all_live_room_status_uid() -> list[int]:
-    """获取缓存的直播间所有用户 uid 列表"""
-    return list(set(deepcopy(__LIVE_STATUS).keys()))
+async def query_live_room_status(room_id: int | str, *, use_cache: bool = True) -> BilibiliLiveRoomStatus:
+    """查询单个直播间状态"""
+    if use_cache and (status := __LIVE_ROOM_STATUS.get(str(room_id), None)) is not None:
+        return status
 
+    rooms_info = await BilibiliLive.query_room_info_by_room_id_list(room_id_list=[room_id])
 
-def get_live_room_status(room_id: int) -> BilibiliLiveRoomStatus | None:
-    """获取缓存的直播间信息"""
-    return {x.live_room_id: x for x in deepcopy(__LIVE_STATUS).values()}.get(room_id, None)
+    # 针对直播间短号进行处理
+    room_info = rooms_info.data.by_room_ids.get(str(room_id), None)
+    if room_info is None:
+        room_info = {x.short_id: x for x in rooms_info.data.by_room_ids.values()}[str(room_id)]
 
-
-def get_user_live_room_status(uid: int) -> BilibiliLiveRoomStatus | None:
-    """获取缓存的用户直播间信息"""
-    return deepcopy(__LIVE_STATUS).get(uid, None)
-
-
-async def query_and_upgrade_live_room_status(live_room: BilibiliLiveRoom) -> BilibiliLiveRoomStatusUpdate | None:
-    """查询并更新 Bilibili 直播间状态"""
-    logger.debug(f'BilibiliLiveRoomMonitor | Updating live room({live_room.room_id}) status')
-
-    live_room_data = await live_room.query_live_room_data()
-    if live_room_data.error or live_room_data.data is None:
-        raise WebSourceException(404, f'query {live_room} data failed, {live_room_data.message}')
-
-    live_room_user_data = await live_room.query_live_room_user_data()
-    if live_room_user_data.error or live_room_user_data.data is None:
-        raise WebSourceException(404, f'query {live_room} user data failed, {live_room_user_data.message}')
-
-    return check_and_upgrade_live_status(live_room_data.data, live_user_name=live_room_user_data.data.name)
+    return _convert_room_info(room_info)
 
 
 @get_driver().on_startup
@@ -99,13 +76,16 @@ async def _init_all_live_room_subscription_source_status() -> None:
     logger.opt(colors=True).info('<lc>BilibiliLiveRoomMonitor</lc> | Initializing live room status')
 
     try:
-        async with begin_db_session() as session:
-            source_result = await OmegaBiliLiveSubSource.query_type_all(session=session)
-            tasks = [
-                query_and_upgrade_live_room_status(live_room=BilibiliLiveRoom(room_id=int(source.sub_id)))
-                for source in source_result
-            ]
-        await semaphore_gather(tasks=tasks, semaphore_num=10)
+        room_id_list = await get_all_subscribed_live_room_ids()
+        rooms_info = await BilibiliLive.query_room_info_by_room_id_list(room_id_list=room_id_list)
+        if rooms_info.error:
+            logger.error(f'BilibiliLiveRoomMonitor | Failed to query live room status, {rooms_info}')
+            return
+
+        __LIVE_ROOM_STATUS.update({
+            room_id: _convert_room_info(room_info=room_info)
+            for room_id, room_info in rooms_info.data.by_room_ids.items()
+        })
         logger.opt(colors=True).success('<lc>BilibiliLiveRoomMonitor</lc> | Live room status initializing completed')
     except Exception as e:
         logger.error(f'BilibiliLiveRoomMonitor | Live room status initializing failed, {e!r}')
@@ -114,8 +94,6 @@ async def _init_all_live_room_subscription_source_status() -> None:
 
 __all__ = [
     'check_and_upgrade_live_status',
-    'get_all_live_room_status_uid',
-    'get_live_room_status',
-    'get_user_live_room_status',
-    'query_and_upgrade_live_room_status',
+    'get_all_subscribed_live_room_ids',
+    'query_live_room_status',
 ]
