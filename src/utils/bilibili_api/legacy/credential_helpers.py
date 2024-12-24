@@ -26,7 +26,6 @@ from nonebot import get_driver, logger
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.service import scheduler
 from .api_base import BilibiliCommon
 from .config import bilibili_config, bilibili_resource_config
 from .model import (
@@ -272,22 +271,6 @@ async def _refresh_bilibili_login_status() -> None:
 async def _load_and_refresh_bilibili_login_status() -> None:
     try:
         await BilibiliCredential.load_cookies_from_db()
-        await _refresh_bilibili_login_status()
-    except Exception as e:
-        logger.opt(colors=True).error(f'<lc>Bilibili</lc> | <r>用户 Cookies 刷新失败</r>, 请尝试重新登录, {e}')
-
-
-@scheduler.scheduled_job(
-    'cron',
-    hour='*/8',
-    minute='23',
-    second='23',
-    id='bilibili_login_status_refresh_monitor',
-    coalesce=True,
-    misfire_grace_time=120
-)
-async def _bilibili_login_status_refresh_monitor() -> None:
-    try:
         await _refresh_bilibili_login_status()
     except Exception as e:
         logger.opt(colors=True).error(f'<lc>Bilibili</lc> | <r>用户 Cookies 刷新失败</r>, 请尝试重新登录, {e}')

@@ -26,19 +26,21 @@ class LiveStatus(IntEnum):
 
 
 class RoomInfoData(BaseBilibiliModel):
-    uid: int
-    room_id: int
-    short_id: int
+    uid: str
+    room_id: str
+    short_id: str
     live_status: LiveStatus
     live_time: datetime | str = Field(default_factory=datetime.now)
+    uname: str = Field('bilibili用户')
     title: str
     description: str = Field('')
+    cover: AnyHttpUrl | str = Field('')
     user_cover: AnyHttpUrl | str = Field('')
     cover_from_user: AnyHttpUrl | str = Field('')
 
     @property
     def cover_url(self) -> str:
-        return str(self.user_cover if self.user_cover else self.cover_from_user)
+        return self.cover or self.user_cover or self.cover_from_user
 
     @field_validator('live_time', mode='after')
     @classmethod
@@ -46,6 +48,15 @@ class RoomInfoData(BaseBilibiliModel):
         if isinstance(v, datetime):
             v = v.astimezone(DEFAULT_LOCAL_TZ)
         return v
+
+
+class RoomBaseInfoData(BaseBilibiliModel):
+    # by_uids: dict[str, Any]
+    by_room_ids: dict[str, RoomInfoData]
+
+
+class RoomBaseInfo(BaseBilibiliResponse):
+    data: RoomBaseInfoData
 
 
 class RoomInfo(BaseBilibiliResponse):
@@ -75,7 +86,10 @@ class RoomUserInfo(BaseBilibiliResponse):
 
 
 __all__ = [
+    'LiveStatus',
+    'RoomBaseInfo',
     'RoomInfo',
+    'RoomInfoData',
     'RoomUserInfo',
     'UsersRoomInfo',
 ]

@@ -16,6 +16,7 @@ from .dynamic import (
     DynItemModules,
 )
 from .live import (
+    RoomBaseInfo,
     RoomInfo,
     RoomUserInfo,
     UsersRoomInfo,
@@ -65,6 +66,7 @@ __all__ = [
     'LiveUserSearchResult',
     'MediaSearchResult',
     'PhotoSearchResult',
+    'RoomBaseInfo',
     'RoomInfo',
     'RoomUserInfo',
     'UsersRoomInfo',

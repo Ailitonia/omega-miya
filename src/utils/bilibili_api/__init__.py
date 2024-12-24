@@ -7,12 +7,3 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
-
-from .legacy import BilibiliCredential, BilibiliDynamic, BilibiliLiveRoom, BilibiliUser
-
-__all__ = [
-    'BilibiliCredential',
-    'BilibiliDynamic',
-    'BilibiliLiveRoom',
-    'BilibiliUser',
-]

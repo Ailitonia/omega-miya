@@ -972,12 +972,8 @@ class DynCommonItem(BaseBilibiliModel):
         """动态图片链接列表"""
         return self.modules.dyn_image_urls
 
-class DynForwardItem(BaseBilibiliModel):
-    basic: DynItemBasic
-    id_str: str
-    modules: DynItemModules
-    type: DynamicType
-    visible: bool
+
+class DynForwardItem(DynCommonItem):
     orig: DynCommonItem
 
     @property

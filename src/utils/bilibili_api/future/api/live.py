@@ -11,7 +11,7 @@
 from typing import Sequence
 
 from .base import BilibiliCommon
-from ..models import RoomInfo, RoomUserInfo, UsersRoomInfo
+from ..models import RoomBaseInfo, RoomInfo, RoomUserInfo, UsersRoomInfo
 
 
 class BilibiliLive(BilibiliCommon):
@@ -24,6 +24,14 @@ class BilibiliLive(BilibiliCommon):
         params = {'room_id': str(room_id)}
         data = await cls._get_json(url=url, params=params)
         return RoomInfo.model_validate(data)
+
+    @classmethod
+    async def query_room_info_by_room_id_list(cls, room_id_list: Sequence[int | str]) -> RoomBaseInfo:
+        """根据直播间房间号列表获取这些直播间的信息"""
+        url = 'https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo'
+        params = (('req_biz', 'web_room_componet'), *(('room_ids', str(x)) for x in room_id_list))
+        data = await cls._get_json(url=url, params=list(params))
+        return RoomBaseInfo.model_validate(data)
 
     @classmethod
     async def query_room_info_by_uid_list(cls, uid_list: Sequence[int | str]) -> UsersRoomInfo:
