@@ -21,9 +21,9 @@ NOTICE_AT_ALL: Literal['notice_at_all'] = 'notice_at_all'
 # 计划任务相关
 MONITOR_JOB_ID: Literal['bili_dynamic_update_monitor'] = 'bili_dynamic_update_monitor'
 """动态检查的定时任务 ID"""
-AVERAGE_CHECKING_PER_MINUTE: int = 8
+AVERAGE_CHECKING_PER_MINUTE: int = 12
 """每分钟检查动态的用户数(数值大小影响风控概率, 请谨慎调整)"""
-CHECKING_DELAY_UNDER_RATE_LIMITING: int = 5
+CHECKING_DELAY_UNDER_RATE_LIMITING: int = 6
 """被风控时的延迟间隔"""
 
 # 插件相关
