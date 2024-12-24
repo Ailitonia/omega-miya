@@ -62,7 +62,7 @@ async def bili_dynamic_update_monitor() -> None:
         return
 
     # 检查新作品并发送消息
-    tasks = [bili_dynamic_monitor_main(uid=uid) for uid in subscribed_uid]
+    tasks = [bili_dynamic_monitor_main(user_id=uid) for uid in subscribed_uid]
     sent_result = await semaphore_gather(tasks=tasks, semaphore_num=AVERAGE_CHECKING_PER_MINUTE)
     if any(isinstance(e, WebSourceException) for e in sent_result):
         # 如果 API 异常则大概率被风控, 推迟下一次检查
