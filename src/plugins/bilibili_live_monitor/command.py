@@ -59,11 +59,11 @@ async def handle_add_subscription(
         try:
             await add_live_room_sub(interface=interface, room_id=room_id)
             await interface.entity.commit_session()
-            logger.success(f'{interface.entity}订阅直播间(rid={room_id})成功')
+            logger.success(f'{interface.entity}订阅直播间{room_id!r}成功')
             msg = f'订阅直播间{room_id!r}成功'
         except Exception as e:
-            logger.error(f'{interface.entity}订阅直播间(rid={room_id})失败, {e!r}')
-            msg = f'订阅直播间{room_id!r}失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
+            logger.error(f'{interface.entity}订阅直播间{room_id!r}失败, {e!r}')
+            msg = f'订阅直播间失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
         scheduler.resume()
         await interface.finish_reply(msg)
     else:
@@ -80,7 +80,7 @@ async def handle_add_subscription(
         room_status = await query_live_room_status(room_id=room_id)
         # 针对直播间短号进行处理
         if room_id != room_status.live_room_id:
-            logger.debug(f'订阅直播间短号{room_id}, 已转换为直播间房间号{room_status.live_room_id}')
+            logger.debug(f'订阅直播间短号{room_id!r}, 已转换为直播间房间号{room_status.live_room_id!r}')
             interface.matcher.state.update({'room_id': room_status.live_room_id})
     except Exception as e:
         logger.error(f'获取直播间{room_id!r}用户信息失败, {e!r}')
@@ -110,11 +110,11 @@ async def handle_del_subscription(
         try:
             await delete_live_room_sub(interface=interface, room_id=room_id)
             await interface.entity.commit_session()
-            logger.success(f'{interface.entity}取消订阅直播间(rid={room_id})成功')
+            logger.success(f'{interface.entity}取消订阅直播间{room_id!r}成功')
             msg = f'取消订阅直播间{room_id!r}成功'
         except Exception as e:
-            logger.error(f'{interface.entity}取消订阅直播间(rid={room_id})失败, {e!r}')
-            msg = f'取消订阅直播间{room_id!r}失败, 请稍后再试或联系管理员处理'
+            logger.error(f'{interface.entity}取消订阅直播间{room_id!r}失败, {e!r}')
+            msg = f'取消订阅直播间失败, 请稍后再试或联系管理员处理'
 
         await interface.finish_reply(msg)
     else:

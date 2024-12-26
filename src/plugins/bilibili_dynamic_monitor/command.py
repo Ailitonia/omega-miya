@@ -61,10 +61,10 @@ async def handle_add_subscription(
             await add_dynamic_sub(interface=interface, user_id=uid)
             await interface.entity.commit_session()
             logger.success(f'{interface.entity}订阅用户{uid!r}动态成功')
-            msg = f'订阅用户{uid}动态成功'
+            msg = f'订阅用户{uid!r}动态成功'
         except Exception as e:
             logger.error(f'{interface.entity}订阅用户{uid!r}动态失败, {e!r}')
-            msg = f'订阅用户{uid!r}动态失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
+            msg = f'订阅用户动态失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
         scheduler.resume()
         await interface.finish_reply(msg)
     else:
@@ -82,7 +82,7 @@ async def handle_add_subscription(
         if user_data.error:
             raise WebSourceException(404, f'query user({uid}) info failed, {user_data.message}')
     except Exception as e:
-        logger.error(f'获取用户{uid}信息失败, {e!r}')
+        logger.error(f'获取用户{uid!r}信息失败, {e!r}')
         await interface.finish_reply('获取用户信息失败, 可能是网络原因或没有这个用户, 请稍后再试')
 
     ensure_msg = f'即将订阅Bilibili用户【{user_data.data.name}】的动态\n\n确认吗?\n【是/否】'
@@ -109,11 +109,11 @@ async def handle_del_subscription(
         try:
             await delete_dynamic_sub(interface=interface, user_id=uid)
             await interface.entity.commit_session()
-            logger.success(f'{interface.entity}取消订阅用户(uid={uid})动态成功')
-            msg = f'取消订阅用户{uid}动态成功'
+            logger.success(f'{interface.entity}取消订阅用户{uid!r}动态成功')
+            msg = f'取消订阅用户{uid!r}动态成功'
         except Exception as e:
-            logger.error(f'{interface.entity}取消订阅用户(uid={uid})动态失败, {e!r}')
-            msg = f'取消订阅用户{uid}动态失败, 请稍后再试或联系管理员处理'
+            logger.error(f'{interface.entity}取消订阅用户{uid!r}动态失败, {e!r}')
+            msg = f'取消订阅用户动态失败, 请稍后再试或联系管理员处理'
         await interface.finish_reply(msg)
     else:
         await interface.finish_reply('已取消操作')
