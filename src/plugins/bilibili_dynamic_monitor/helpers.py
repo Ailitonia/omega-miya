@@ -32,6 +32,7 @@ from src.utils import run_async_delay, semaphore_gather
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from .consts import (
     BILI_DYNAMIC_SUB_TYPE,
+    IGNORED_DYNAMIC_TYPES,
     MODULE_NAME,
     NOTICE_AT_ALL,
     PLUGIN_NAME,
@@ -194,7 +195,11 @@ async def bili_dynamic_monitor_main(user_id: int | str) -> None:
         return
 
     # 获取动态消息内容
-    format_msg_tasks = [_format_dynamic_update_message(item=item) for item in new_dynamic_item]
+    format_msg_tasks = [
+        _format_dynamic_update_message(item=item)
+        for item in new_dynamic_item
+        if item.type not in IGNORED_DYNAMIC_TYPES
+    ]
     send_messages = await semaphore_gather(tasks=format_msg_tasks, semaphore_num=3, return_exceptions=False)
 
     # 数据库中插入新动态信息
