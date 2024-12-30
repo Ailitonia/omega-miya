@@ -14,7 +14,7 @@ import ujson as json
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-from src.database import BotSelfDAL, EmailBoxDAL, SubscriptionSourceDAL, begin_db_session
+from src.database import BotSelfDAL, SubscriptionSourceDAL, begin_db_session
 from src.resource import TemporaryResource
 from src.service.omega_api import register_get_route
 from src.service.omega_base import OmegaEntity
@@ -130,19 +130,6 @@ async def input_v092_data():
         available_subscription_source = await sub_dal.query_all()
     logger.success('subscription source data import completed')
 
-    logger.info('start import email box data')
-    async with begin_db_session() as session:
-        email_dal = EmailBoxDAL(session=session)
-        for mailbox in data.email_box:
-            await email_dal.add(address=mailbox.address, server_host=mailbox.server_host, protocol=mailbox.protocol, port=mailbox.port, password=mailbox.password)
-        await email_dal.commit_session()
-
-    async with begin_db_session() as session:
-        email_dal = EmailBoxDAL(session=session)
-        available_mailbox = await email_dal.query_all()
-        available_mailbox_map = {x.address: x for x in available_mailbox}
-    logger.success('email box data import completed')
-
     logger.info('start import entity data')
     for entity_data in data.entities:
         async with begin_db_session() as session:
@@ -168,13 +155,6 @@ async def input_v092_data():
             for auth in auth_setting:
                 await entity.set_auth_setting(
                     module=auth.module, plugin=auth.plugin, node=auth.node, available=auth.available, value=auth.value
-                )
-
-            bound_mailbox = entity_data.bound_mailbox
-            for mailbox in bound_mailbox:
-                await entity.bind_email_box(
-                    email_box=available_mailbox_map.get(mailbox.address),
-                    bind_info=f'{entity.entity_name}-{mailbox.address}'
                 )
 
             subscribed_source = entity_data.subscribed_source

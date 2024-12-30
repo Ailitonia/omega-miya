@@ -12,8 +12,6 @@ from .artwork_collection import ArtworkCollectionDAL
 from .auth_setting import AuthSettingDAL
 from .bot import BotSelfDAL
 from .cooldown import CoolDownDAL
-from .email_box import EmailBoxDAL
-from .email_box_bind import EmailBoxBindDAL
 from .entity import EntityDAL
 from .friendship import FriendshipDAL
 from .global_cache import GlobalCacheDAL
@@ -32,8 +30,6 @@ __all__ = [
     'AuthSettingDAL',
     'BotSelfDAL',
     'CoolDownDAL',
-    'EmailBoxDAL',
-    'EmailBoxBindDAL',
     'EntityDAL',
     'FriendshipDAL',
     'GlobalCacheDAL',

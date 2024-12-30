@@ -16,8 +16,6 @@ __all__ = [
     'AuthSettingDAL',
     'BotSelfDAL',
     'CoolDownDAL',
-    'EmailBoxDAL',
-    'EmailBoxBindDAL',
     'EntityDAL',
     'FriendshipDAL',
     'GlobalCacheDAL',

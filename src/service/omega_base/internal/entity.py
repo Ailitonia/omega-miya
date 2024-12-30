@@ -16,8 +16,6 @@ from sqlalchemy.exc import NoResultFound
 from src.database.internal.auth_setting import AuthSetting, AuthSettingDAL
 from src.database.internal.bot import BotSelf, BotSelfDAL
 from src.database.internal.cooldown import CoolDown, CoolDownDAL
-from src.database.internal.email_box import EmailBox, EmailBoxDAL
-from src.database.internal.email_box_bind import EmailBoxBindDAL
 from src.database.internal.entity import Entity, EntityDAL, EntityType
 from src.database.internal.friendship import Friendship, FriendshipDAL
 from src.database.internal.sign_in import SignInDAL
@@ -528,33 +526,6 @@ class InternalEntity:
         :return: 冷却是否已到期, (若仍在冷却中的)到期时间
         """
         return await self.check_cooldown_expired(cooldown_event=RATE_LIMITING_COOLDOWN_EVENT)
-
-    async def bind_email_box(self, email_box: EmailBox, bind_info: str | None = None) -> None:
-        """绑定邮箱"""
-        entity = await self.query_entity_self()
-        bind_dal = EmailBoxBindDAL(session=self.db_session)
-
-        try:
-            bind = await bind_dal.query_unique(email_box_index_id=email_box.id, entity_index_id=entity.id)
-            await bind_dal.update(id_=bind.id, bind_info=bind_info)
-        except NoResultFound:
-            await bind_dal.add(email_box_index_id=email_box.id, entity_index_id=entity.id, bind_info=bind_info)
-
-    async def unbind_email_box(self, email_box: EmailBox) -> None:
-        """解绑邮箱"""
-        entity = await self.query_entity_self()
-        bind_dal = EmailBoxBindDAL(session=self.db_session)
-
-        try:
-            bind = await bind_dal.query_unique(email_box_index_id=email_box.id, entity_index_id=entity.id)
-            await bind_dal.delete(id_=bind.id)
-        except NoResultFound:
-            pass
-
-    async def query_bound_email_box(self) -> list[EmailBox]:
-        """查询已绑定的全部邮箱"""
-        entity = await self.query_entity_self()
-        return await EmailBoxDAL(session=self.db_session).query_entity_bound_all(entity_index_id=entity.id)
 
     async def add_subscription(self, subscription_source: SubscriptionSource, sub_info: str | None = None) -> None:
         """添加订阅"""

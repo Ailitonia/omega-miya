@@ -206,10 +206,6 @@ class EntityOrm(Base):
     entity_cooldown: Mapped[list['CoolDownOrm']] = relationship(
         'CoolDownOrm', back_populates='cooldown_back_entity', cascade='all, delete-orphan', passive_deletes=True
     )
-    entity_email_box_bind: Mapped[list['EmailBoxBindOrm']] = relationship(
-        'EmailBoxBindOrm',
-        back_populates='email_box_bind_back_entity', cascade='all, delete-orphan', passive_deletes=True
-    )
     entity_subscription: Mapped[list['SubscriptionOrm']] = relationship(
         'SubscriptionOrm', back_populates='subscription_back_entity', cascade='all, delete-orphan', passive_deletes=True
     )
@@ -337,68 +333,6 @@ class CoolDownOrm(Base):
     def __repr__(self) -> str:
         return (f'CoolDownOrm(entity_index_id={self.entity_index_id!r}, event={self.event!r}, '
                 f'stop_at={self.stop_at!r}, description={self.description!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
-
-
-class EmailBoxOrm(Base):
-    """邮箱表"""
-    __tablename__ = f'{database_config.db_prefix}email_box'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    address: Mapped[str] = mapped_column(String(128), nullable=False, index=True, unique=True, comment='邮箱地址')
-    server_host: Mapped[str] = mapped_column(String(128), nullable=False, comment='IMAP/POP3服务器地址')
-    protocol: Mapped[str] = mapped_column(String(16), nullable=False, comment='协议')
-    port: Mapped[int] = mapped_column(Integer, nullable=False, comment='服务器端口')
-    password: Mapped[str] = mapped_column(String(255), nullable=False, comment='密码')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    # 设置级联和关系加载
-    email_box_email_box_bind: Mapped[list['EmailBoxBindOrm']] = relationship(
-        'EmailBoxBindOrm',
-        back_populates='email_box_bind_back_email_box', cascade='all, delete-orphan', passive_deletes=True
-    )
-
-    def __repr__(self) -> str:
-        return (f'EmailBoxOrm(address={self.address!r}, server_host={self.server_host!r}, '
-                f'protocol={self.protocol!r}, port={self.port!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
-
-
-class EmailBoxBindOrm(Base):
-    """邮箱绑定表"""
-    __tablename__ = f'{database_config.db_prefix}email_box_bind'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    email_box_index_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey(EmailBoxOrm.id, ondelete='CASCADE'), nullable=False
-    )
-    entity_index_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False
-    )
-    bind_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='邮箱绑定信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-
-    # 设置级联和关系加载
-    email_box_bind_back_email_box: Mapped[EmailBoxOrm] = relationship(
-        EmailBoxOrm, back_populates='email_box_email_box_bind', lazy='joined', innerjoin=True
-    )
-    email_box_bind_back_entity: Mapped[EntityOrm] = relationship(
-        EntityOrm, back_populates='entity_email_box_bind', lazy='joined', innerjoin=True
-    )
-
-    def __repr__(self) -> str:
-        return (f'EmailBoxBindOrm(email_box_index_id={self.email_box_index_id!r}, '
-                f'entity_index_id={self.entity_index_id!r}, bind_info={self.bind_info!r}, '
                 f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
 
 
@@ -565,8 +499,6 @@ __all__ = [
     'SignInOrm',
     'AuthSettingOrm',
     'CoolDownOrm',
-    'EmailBoxOrm',
-    'EmailBoxBindOrm',
     'SubscriptionSourceOrm',
     'SubscriptionOrm',
     'SocialMediaContentOrm',
