@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2022/04/28 20:26
-@FileName       : imap.py
+@FileName       : mailbox.py
 @Project        : nonebot2_miya
 @Description    : imap 协议处理模块
 @GitHub         : https://github.com/Ailitonia
