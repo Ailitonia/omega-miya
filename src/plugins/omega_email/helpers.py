@@ -107,7 +107,7 @@ async def unbind_entity_mailbox(interface: 'OmMI', mailbox_address: str) -> None
         plugin=DB_ENTITY_SETTING_PLUGIN_NAME,
         node=mailbox_address,
         available=0,
-        value=None,
+        value='',
     )
 
 
@@ -123,7 +123,7 @@ async def get_entity_bound_mailbox(interface: 'OmMI') -> list[MailboxAccount]:
             'server': MailboxServer.model_validate_json(x.value),
         })
         for x in bound_mailbox
-        if (x.available == 1) and (x.value is not None)
+        if (x.available == 1) and x.value
     ]
 
 

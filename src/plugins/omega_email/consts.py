@@ -20,15 +20,10 @@ DB_ENTITY_SETTING_PLUGIN_NAME: Literal['omega_email_mailbox_bind'] = 'omega_emai
 TMP_FOLDER: TemporaryResource = TemporaryResource('receive_email')
 """已收邮件图片缓存路径"""
 
-# 插件相关
-MODULE_NAME = str(__name__).rsplit('.', maxsplit=1)[0]
-PLUGIN_NAME = MODULE_NAME.rsplit('.', maxsplit=1)[-1]
 
 __all__ = [
     'DB_MAILBOX_ACCOUNT_SETTING_NAME',
     'DB_ENTITY_SETTING_MODULE_NAME',
     'DB_ENTITY_SETTING_PLUGIN_NAME',
-    'MODULE_NAME',
-    'PLUGIN_NAME',
     'TMP_FOLDER',
 ]

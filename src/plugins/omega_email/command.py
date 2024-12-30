@@ -106,6 +106,7 @@ async def handle_bind_mailbox(
 
     try:
         await bind_entity_mailbox(interface=interface, mailbox_account=available_mailbox_map[mailbox_address])
+        await interface.entity.commit_session()
         logger.success(f'EmailBoxManager | 绑定邮箱: {mailbox_address} 成功')
         await interface.send_reply(f'绑定邮箱 {mailbox_address} 成功')
     except Exception as e:
@@ -142,6 +143,7 @@ async def handle_unbind_mailbox(
 
     try:
         await unbind_entity_mailbox(interface=interface, mailbox_address=mailbox_address)
+        await interface.entity.commit_session()
         logger.success(f'EmailBoxManager | 解绑邮箱: {mailbox_address} 成功')
         await interface.send_reply(f'解绑邮箱 {mailbox_address} 成功')
     except Exception as e:
