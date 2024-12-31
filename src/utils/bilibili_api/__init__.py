@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from .future import (
+from .api import (
     BilibiliCredential,
     BilibiliDynamic,
     BilibiliLive,

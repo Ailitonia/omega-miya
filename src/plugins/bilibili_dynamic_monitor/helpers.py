@@ -41,7 +41,7 @@ from .consts import (
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
     from src.database.internal.subscription_source import SubscriptionSource
-    from src.utils.bilibili_api.future.models.dynamic import DynItem
+    from src.utils.bilibili_api.models.dynamic import DynItem
 
 
 async def _query_dynamic_sub_source(user_id: int | str) -> 'SubscriptionSource':
