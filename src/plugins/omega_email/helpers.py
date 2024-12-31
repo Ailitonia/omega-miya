@@ -19,16 +19,16 @@ from src.database import SystemSettingDAL, begin_db_session
 from src.utils.crypto import AESEncryptor
 from src.utils.image_utils import ImageUtils
 from .consts import (
-    DB_MAILBOX_ACCOUNT_SETTING_NAME,
-    DB_ENTITY_SETTING_PLUGIN_NAME,
     DB_ENTITY_SETTING_MODULE_NAME,
-    TMP_FOLDER
+    DB_ENTITY_SETTING_PLUGIN_NAME,
+    DB_MAILBOX_ACCOUNT_SETTING_NAME,
+    TMP_FOLDER,
 )
 from .mailbox import Email, ImapMailbox
 
 if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface as OmMI
     from src.resource import TemporaryResource
+    from src.service import OmegaMatcherInterface as OmMI
 
 
 class BaseMailboxModel(BaseModel):

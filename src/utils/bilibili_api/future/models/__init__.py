@@ -11,8 +11,8 @@
 from .dynamic import (
     Dynamics,
     DynamicType,
-    DynDetail,
     DynData,
+    DynDetail,
     DynItemModules,
 )
 from .live import (

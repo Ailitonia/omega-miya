@@ -9,8 +9,8 @@
 """
 
 from .future import (
-    BilibiliDynamic,
     BilibiliCredential,
+    BilibiliDynamic,
     BilibiliLive,
     BilibiliUser,
 )

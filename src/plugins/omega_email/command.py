@@ -22,16 +22,16 @@ from src.params.handler import get_command_str_multi_args_parser_handler, get_co
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessageSegment, enable_processor_state
 from .helpers import (
-    save_mailbox,
-    query_available_mailbox,
     bind_entity_mailbox,
-    unbind_entity_mailbox,
-    get_entity_bound_mailbox,
     check_mailbox,
     decrypt_password,
     encrypt_password,
     generate_mail_snapshot,
+    get_entity_bound_mailbox,
     get_unseen_mail_data,
+    query_available_mailbox,
+    save_mailbox,
+    unbind_entity_mailbox,
 )
 
 mailbox_manager = CommandGroup(

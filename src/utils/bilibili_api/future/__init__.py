@@ -9,8 +9,8 @@
 """
 
 from .api import (
-    BilibiliDynamic,
     BilibiliCredential,
+    BilibiliDynamic,
     BilibiliLive,
     BilibiliUser,
 )

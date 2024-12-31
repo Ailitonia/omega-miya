@@ -64,7 +64,7 @@ async def handle_add_subscription(
             msg = f'订阅用户{uid!r}动态成功'
         except Exception as e:
             logger.error(f'{interface.entity}订阅用户{uid!r}动态失败, {e!r}')
-            msg = f'订阅用户动态失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
+            msg = '订阅用户动态失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
         scheduler.resume()
         await interface.finish_reply(msg)
     else:
@@ -113,7 +113,7 @@ async def handle_del_subscription(
             msg = f'取消订阅用户{uid!r}动态成功'
         except Exception as e:
             logger.error(f'{interface.entity}取消订阅用户{uid!r}动态失败, {e!r}')
-            msg = f'取消订阅用户动态失败, 请稍后再试或联系管理员处理'
+            msg = '取消订阅用户动态失败, 请稍后再试或联系管理员处理'
         await interface.finish_reply(msg)
     else:
         await interface.finish_reply('已取消操作')

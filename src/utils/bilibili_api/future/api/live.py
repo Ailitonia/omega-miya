@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from .base import BilibiliCommon
 from ..models import RoomBaseInfo, RoomInfo, RoomUserInfo, UsersRoomInfo
