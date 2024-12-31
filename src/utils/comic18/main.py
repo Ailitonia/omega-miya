@@ -11,23 +11,23 @@
 import random
 import string
 from asyncio import sleep as async_sleep
-from typing import TYPE_CHECKING, Literal, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
 
 from nonebot.log import logger
 
 from src.exception import WebSourceException
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI, semaphore_gather
 from src.utils.image_utils.template import generate_thumbs_preview_image
-from src.utils.process_utils import semaphore_gather
 from src.utils.zip_utils import ZipUtils
 from .config import comic18_config, comic18_resource_config
-from .helper import Comic18Parser, Comic18ImgOps
+from .helper import Comic18ImgOps, Comic18Parser
 from .model import (
     AlbumData,
+    AlbumPackResult,
     AlbumPage,
     AlbumPageContent,
     AlbumsResult,
-    AlbumPackResult,
     Comic18PreviewBody,
     Comic18PreviewModel,
     Comic18PreviewRequestModel,
@@ -35,12 +35,13 @@ from .model import (
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, QueryTypes
+
     from src.resource import TemporaryResource
 
 
 class _BaseComic18(BaseCommonAPI):
     """18Comic 基类"""
-    __root_url: Optional[str] = None
+    __root_url: str | None = None
 
     @classmethod
     def _get_root_url(cls, *args, **kwargs) -> str:
@@ -62,7 +63,9 @@ class _BaseComic18(BaseCommonAPI):
             go_url = f'https://raw.githubusercontent.com/jmcmomic/jmcmomic.github.io/main/go/{type_}.html'
             go_response = await cls._request_get(go_url)
             if go_response.status_code != 200:
-                raise WebSourceException(f'{go_response.request}, status code {go_response.status_code}')
+                raise WebSourceException(
+                    go_response.status_code, f'{go_response.request}, status code {go_response.status_code}'
+                )
             cls.__root_url = Comic18Parser.parse_root_url(content=cls._parse_content_as_text(go_response))
 
         return cls.__root_url
@@ -76,14 +79,14 @@ class _BaseComic18(BaseCommonAPI):
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return comic18_config.cookies
 
     @classmethod
     async def request_resource_as_bytes(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 30
     ) -> bytes:
@@ -94,7 +97,10 @@ class _BaseComic18(BaseCommonAPI):
 
         try:
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
-        except WebSourceException:
+        except WebSourceException as e:
+            if e.status_code != 403:
+                raise e
+
             # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
             await async_sleep(3)
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
@@ -105,7 +111,7 @@ class _BaseComic18(BaseCommonAPI):
     async def request_resource_as_text(
             cls,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 10
     ) -> str:
@@ -116,7 +122,10 @@ class _BaseComic18(BaseCommonAPI):
 
         try:
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
-        except WebSourceException:
+        except WebSourceException as e:
+            if e.status_code != 403:
+                raise e
+
             # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
             await async_sleep(3)
             response = await cls._request_get(url, params, headers=headers, cookies=cookies, timeout=timeout)
@@ -130,20 +139,24 @@ class _BaseComic18(BaseCommonAPI):
             *,
             folder_name: str | None = None,
             ignore_exist_file: bool = False,
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         try:
             file = await cls._download_resource(
                 save_folder=comic18_resource_config.default_download_folder,
                 url=url, subdir=folder_name, ignore_exist_file=ignore_exist_file
             )
-        except WebSourceException:
+        except WebSourceException as e:
+            if e.status_code != 403:
+                raise e
+
             # 请求过快可能导致 403 被暂时流控了, 暂停一下重试一次
             await async_sleep(3)
             file = await cls._download_resource(
                 save_folder=comic18_resource_config.default_download_folder,
                 url=url, subdir=folder_name, ignore_exist_file=ignore_exist_file
             )
+
         return file
 
 
@@ -162,10 +175,10 @@ class Comic18(_BaseComic18):
     @classmethod
     async def query_albums_list(
             cls,
-            page: Optional[int] = None,
-            type_: Optional[Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single']] = None,
-            time: Optional[Literal['a', 't', 'w', 'm']] = None,
-            order: Optional[Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf']] = None,
+            page: int | None = None,
+            type_: Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single'] | None = None,
+            time: Literal['a', 't', 'w', 'm'] | None = None,
+            order: Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf'] | None = None,
     ) -> list[AlbumsResult]:
         """获取分类漫画
 
@@ -194,11 +207,11 @@ class Comic18(_BaseComic18):
     @classmethod
     async def query_albums_list_with_preview(
             cls,
-            page: Optional[int] = None,
-            type_: Optional[Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single']] = None,
-            time: Optional[Literal['a', 't', 'w', 'm']] = None,
-            order: Optional[Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf']] = None,
-    ) -> "TemporaryResource":
+            page: int | None = None,
+            type_: Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single'] | None = None,
+            time: Literal['a', 't', 'w', 'm'] | None = None,
+            order: Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf'] | None = None,
+    ) -> 'TemporaryResource':
         """获取分类漫画并生成预览图"""
         result = await cls.query_albums_list(page=page, type_=type_, time=time, order=order)
         name = f'AlbumsList - {type_} - Page {page}'
@@ -209,7 +222,7 @@ class Comic18(_BaseComic18):
     async def query_promotes(
             cls,
             type_: int = 27,
-            page: Optional[int] = None,
+            page: int | None = None,
     ) -> list[AlbumsResult]:
         """获取漫画推荐专题
 
@@ -230,8 +243,8 @@ class Comic18(_BaseComic18):
     async def query_promotes_with_preview(
             cls,
             type_: int = 27,
-            page: Optional[int] = None,
-    ) -> "TemporaryResource":
+            page: int | None = None,
+    ) -> 'TemporaryResource':
         """获取漫画推荐专题并生成预览图"""
         result = await cls.query_promotes(type_=type_, page=page)
         name = f'PromotesList - {type_} - Page {page}'
@@ -243,11 +256,11 @@ class Comic18(_BaseComic18):
             cls,
             search_query: str,
             *,
-            page: Optional[int] = None,
-            type_: Optional[Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single']] = None,
-            time: Optional[Literal['a', 't', 'w', 'm']] = None,
-            order: Optional[Literal['mr', 'mv', 'mp', 'tf']] = None,
-            main_tag: Optional[Literal['0', '1', '2', '3', '4']] = None,
+            page: int | None = None,
+            type_: Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single'] | None = None,
+            time: Literal['a', 't', 'w', 'm'] | None = None,
+            order: Literal['mr', 'mv', 'mp', 'tf'] | None = None,
+            main_tag: Literal['0', '1', '2', '3', '4'] | None = None,
     ) -> list[AlbumsResult]:
         """搜索漫画
 
@@ -282,12 +295,12 @@ class Comic18(_BaseComic18):
             cls,
             search_query: str,
             *,
-            page: Optional[int] = None,
-            type_: Optional[Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single']] = None,
-            time: Optional[Literal['a', 't', 'w', 'm']] = None,
-            order: Optional[Literal['mr', 'mv', 'mp', 'tf']] = None,
-            main_tag: Optional[Literal['0', '1', '2', '3', '4']] = None,
-    ) -> "TemporaryResource":
+            page: int | None = None,
+            type_: Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single'] | None = None,
+            time: Literal['a', 't', 'w', 'm'] | None = None,
+            order: Literal['mr', 'mv', 'mp', 'tf'] | None = None,
+            main_tag: Literal['0', '1', '2', '3', '4'] | None = None,
+    ) -> 'TemporaryResource':
         """搜索漫画并生成预览图"""
         result = await cls.search_photos(
             search_query, page=page, type_=type_, time=time, order=order, main_tag=main_tag
@@ -324,11 +337,11 @@ class Comic18(_BaseComic18):
             raise TypeError('Query album data failed')
         return self.album_data
 
-    async def query_album_with_preview(self) -> "TemporaryResource":
+    async def query_album_with_preview(self) -> 'TemporaryResource':
         """获取漫画并生成漫画内容预览图"""
         return await self._generate_album_preview_image()
 
-    async def query_pages(self, page: Optional[int] = None) -> AlbumPage:
+    async def query_pages(self, page: int | None = None) -> AlbumPage:
         """获取漫画图片"""
         root_url = await self._async_get_root_url()
         url = f'{root_url}/photo/{self.aid}'
@@ -357,15 +370,15 @@ class Comic18(_BaseComic18):
     async def _reverse_image(
             self,
             page_id: str,
-            file: "TemporaryResource",
-            save_folder: "TemporaryResource"
-    ) -> "TemporaryResource":
+            file: 'TemporaryResource',
+            save_folder: 'TemporaryResource'
+    ) -> 'TemporaryResource':
         """恢复被分割的图片"""
         image: Comic18ImgOps = await Comic18ImgOps.async_init_from_file(file=file)
         output_image = await image.reverse_segmental_image(album_id=self.aid, page_id=page_id)
         return await output_image.save(save_folder(f'{page_id}.jpg'))
 
-    async def download_album(self, *, ignore_exist_file: bool = True) -> list["TemporaryResource"]:
+    async def download_album(self, *, ignore_exist_file: bool = True) -> list['TemporaryResource']:
         """下载漫画"""
         album_pages = await self.query_all_pages()
 
@@ -459,7 +472,7 @@ class Comic18(_BaseComic18):
             hold_ratio: bool = False,
             num_of_line: int = 4,
             limit: int = 1000
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """生成多个图片内容的预览图
 
         :param preview_size: 单个小缩略图的尺寸
@@ -515,7 +528,7 @@ class Comic18(_BaseComic18):
 
         return Comic18PreviewModel(preview_name=preview_name, count=count, previews=previews)
 
-    async def _generate_album_preview_image(self) -> "TemporaryResource":
+    async def _generate_album_preview_image(self) -> 'TemporaryResource':
         """生成作品预览图"""
         preview_data = await self._emit_preview_model_from_album_data()
         return await self._generate_preview_image(preview=preview_data, hold_ratio=True)

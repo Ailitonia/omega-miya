@@ -9,7 +9,6 @@
 """
 
 from enum import StrEnum, unique
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -57,10 +56,10 @@ class Post(BaseGelbooruModel):
     preview_height: int
     sample_height: int
     sample_width: int
-    file_url: Optional[str] = None
-    jpeg_url: Optional[str] = None
-    preview_url: Optional[str] = None
-    sample_url: Optional[str] = None
+    file_url: str | None = None
+    jpeg_url: str | None = None
+    preview_url: str | None = None
+    sample_url: str | None = None
     parent_id: int
     sample: int
     has_children: bool

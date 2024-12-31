@@ -9,9 +9,10 @@
 """
 
 import abc
+from collections.abc import Sequence
 from datetime import datetime
 from io import BytesIO
-from typing import TYPE_CHECKING, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Literal, Optional
 
 import imageio.v3 as iio
 from PIL import Image
@@ -28,8 +29,8 @@ class BaseStickerRender(abc.ABC):
 
     def __init__(
             self,
-            text: Optional[str] = None,
-            external_image: Optional["TemporaryResource"] = None,
+            text: str | None = None,
+            external_image: Optional['TemporaryResource'] = None,
     ) -> None:
         """使用待生成的素材实例化生成器
 
@@ -75,21 +76,21 @@ class BaseStickerRender(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def get_default_fonts(cls) -> list["StaticResource"]:
+    def get_default_fonts(cls) -> list['StaticResource']:
         """获取获取制作表情包所需要的字体集"""
         raise NotImplementedError
 
     @classmethod
     @abc.abstractmethod
-    def get_static_images(cls) -> list["StaticResource"]:
+    def get_static_images(cls) -> list['StaticResource']:
         """获取获取制作表情包所需要的模板图片集"""
         raise NotImplementedError
 
-    def get_external_image(self) -> Optional["TemporaryResource"]:
+    def get_external_image(self) -> Optional['TemporaryResource']:
         """获取获取制作表情包所需要的, 由用户提供的图片 (默认用户仅能通过命令提供一张图片)"""
         return self.__external_image
 
-    def get_text(self) -> Optional[str]:
+    def get_text(self) -> str | None:
         """生成表情包所使用的文字"""
         return self.__text
 
@@ -98,14 +99,14 @@ class BaseStickerRender(abc.ABC):
         self.__text = text
 
     @staticmethod
-    def _resize_to_width(image: "Image.Image", width: int) -> "Image.Image":
+    def _resize_to_width(image: 'Image.Image', width: int) -> 'Image.Image':
         """等比缩放 PIL.Image.Image 为指定宽度"""
         image_resize_height = width * image.height // image.width
         make_image = image.resize((width, image_resize_height))
         return make_image
 
     @staticmethod
-    def _output_pil_image(image: "Image.Image", output_format: str = 'JPEG') -> bytes:
+    def _output_pil_image(image: 'Image.Image', output_format: str = 'JPEG') -> bytes:
         """提取 PIL.Image.Image 为 bytes"""
         match output_format.upper():
             case 'PNG':
@@ -125,28 +126,28 @@ class BaseStickerRender(abc.ABC):
     @abc.abstractmethod
     def _core_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> "Image.Image":
+    ) -> 'Image.Image':
         """模板处理核心流程, 负责使用提供的各项素材生成表情包, 返回为表情包图片的内容 (默认用户仅能通过命令提供一张图片)"""
         raise NotImplementedError
 
     @classmethod
     def _main_render(
             cls,
-            text: Optional[str],
-            static_images: Sequence["Image.Image"],
-            external_image: Optional["Image.Image"],
+            text: str | None,
+            static_images: Sequence['Image.Image'],
+            external_image: Optional['Image.Image'],
             *,
-            fonts: Sequence["StaticResource"],
+            fonts: Sequence['StaticResource'],
             output_width: int,
             output_format: str,
-    ) -> list["Image.Image"]:
+    ) -> list['Image.Image']:
         """针对用户提供的图片进行处理, 自动识别用户提供图片是否为动态图片, 返回为表情包图片的内容"""
 
         def iter_gif_frame(_image: Image.Image):
@@ -176,7 +177,7 @@ class BaseStickerRender(abc.ABC):
 
         return output_images
 
-    def _make(self) -> "TemporaryResource":
+    def _make(self) -> 'TemporaryResource':
         """默认的表情包处理流程"""
         external_image_file = self.get_external_image()
         external_image = Image.open(external_image_file.path) if external_image_file is not None else None
@@ -216,11 +217,11 @@ class BaseStickerRender(abc.ABC):
         return save_file
 
     @run_sync
-    def _async_make(self) -> "TemporaryResource":
+    def _async_make(self) -> 'TemporaryResource':
         """异步执行默认的表情包处理流程"""
         return self._make()
 
-    async def make(self) -> "TemporaryResource":
+    async def make(self) -> 'TemporaryResource':
         """表情包制作入口函数, 默认使用 self._async_make 方法制作表情包并输出, 但可被重载并自定义其他制作流程"""
         return await self._async_make()
 

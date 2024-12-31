@@ -8,8 +8,9 @@
 @Software       : PyCharm
 """
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Sequence
+from typing import TYPE_CHECKING, Annotated
 
 from nonebot import get_driver
 from nonebot.log import logger
@@ -18,12 +19,13 @@ from nonebot.plugin import on_command
 from nonebot.typing import T_State
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.resource import TemporaryResource, StaticResource
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, OmegaRequests, enable_processor_state
+from src.resource import StaticResource, TemporaryResource
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
+from src.utils import OmegaRequests, semaphore_gather
 from src.utils.image_searcher import ComplexImageSearcher, TraceMoe
 from src.utils.image_utils import ImageUtils
 from src.utils.image_utils.template import PreviewImageModel, PreviewImageThumbs, generate_thumbs_preview_image
-from src.utils.process_utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.utils.image_searcher.model import ImageSearchingResult
@@ -96,7 +98,7 @@ async def handle_search_image(
         await interface.finish_reply('获取识别结果失败了, 发生了意外的错误, 请稍后再试')
 
 
-async def _fetch_result_as_preview_body(result: "ImageSearchingResult") -> PreviewImageThumbs:
+async def _fetch_result_as_preview_body(result: 'ImageSearchingResult') -> PreviewImageThumbs:
     requests = OmegaRequests(
         timeout=15,
         headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
@@ -107,14 +109,14 @@ async def _fetch_result_as_preview_body(result: "ImageSearchingResult") -> Previ
     return PreviewImageThumbs(desc_text=desc_text, preview_thumb=requests.parse_content_as_bytes(thumbnail_response))
 
 
-async def _emit_preview_model_from_searching_result(results: Sequence["ImageSearchingResult"]) -> PreviewImageModel:
+async def _emit_preview_model_from_searching_result(results: Sequence['ImageSearchingResult']) -> PreviewImageModel:
     tasks = [_fetch_result_as_preview_body(result=result) for result in results]
     preview_data = list(await semaphore_gather(tasks=tasks, semaphore_num=6, filter_exception=True))
     count = len(preview_data)
     return PreviewImageModel(preview_name='ImageSearcherResults', count=count, previews=preview_data)
 
 
-async def _generate_result_preview_image(results: Sequence["ImageSearchingResult"]) -> TemporaryResource:
+async def _generate_result_preview_image(results: Sequence['ImageSearchingResult']) -> TemporaryResource:
     """识别图片并将结果转换为消息"""
     preview_model = await _emit_preview_model_from_searching_result(results=results)
     preview_img_file = await generate_thumbs_preview_image(
@@ -129,7 +131,7 @@ async def _generate_result_preview_image(results: Sequence["ImageSearchingResult
     return preview_img_file
 
 
-async def _generate_result_desc_image(results: Sequence["ImageSearchingResult"]) -> TemporaryResource:
+async def _generate_result_desc_image(results: Sequence['ImageSearchingResult']) -> TemporaryResource:
     preview_txt = '\n\n'.join(
         f'来源: {result.source}\n相似度: {result.similarity if result.similarity else "未知"}\n来源地址:\n{url}'
         for result in results

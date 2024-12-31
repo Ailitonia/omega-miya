@@ -8,23 +8,27 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from nonebot import logger
 from nonebot.exception import ActionFailed
-from sqlalchemy.exc import NoResultFound
 
-from src.database import WeiboDetailDAL, begin_db_session
+from src.database import SocialMediaContentDAL, begin_db_session
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
     OmegaEntity,
     OmegaMessage,
     OmegaMessageSegment,
 )
+from src.service import (
+    OmegaEntityInterface as OmEI,
+)
+from src.service import (
+    OmegaMatcherInterface as OmMI,
+)
 from src.service.omega_base.internal import OmegaWeiboUserSubSource
-from src.utils.process_utils import run_async_delay, semaphore_gather
+from src.utils import run_async_delay, semaphore_gather
 from src.utils.weibo_api import Weibo
 
 if TYPE_CHECKING:
@@ -43,15 +47,17 @@ async def _query_weibo_sub_source(uid: int) -> SubscriptionSource:
     return source_res
 
 
-async def _check_new_weibo(cards: Iterable["WeiboCard"]) -> list["WeiboCard"]:
+async def _check_new_weibo(cards: Iterable['WeiboCard']) -> list['WeiboCard']:
     """检查新的微博(数据库中没有的)"""
     async with begin_db_session() as session:
-        all_mids = [x.mblog.id for x in cards]
-        new_mids = await WeiboDetailDAL(session=session).query_not_exists_ids(mids=all_mids)
-    return [x for x in cards if x.mblog.id in new_mids]
+        all_mids = [str(x.mblog.id) for x in cards]
+        new_mids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
+            source=WEIBO_SUB_TYPE, mids=all_mids
+        )
+    return [x for x in cards if str(x.mblog.id) in new_mids]
 
 
-async def _add_upgrade_weibo_content(card: "WeiboCard") -> None:
+async def _add_upgrade_weibo_content(card: 'WeiboCard') -> None:
     """在数据库中添加微博内容"""
     retweeted_content = (
         card.mblog.retweeted_status.text
@@ -60,14 +66,15 @@ async def _add_upgrade_weibo_content(card: "WeiboCard") -> None:
     )
 
     async with begin_db_session() as session:
-        dal = WeiboDetailDAL(session=session)
-        try:
-            weibo = await dal.query_unique(mid=card.mblog.id)
-            await dal.update(id_=weibo.id, content=card.mblog.text, retweeted_content=retweeted_content)
-        except NoResultFound:
-            await dal.add(
-                mid=card.mblog.id, uid=card.mblog.user.id, content=card.mblog.text, retweeted_content=retweeted_content
-            )
+        await SocialMediaContentDAL(session=session).upsert(
+            source=WEIBO_SUB_TYPE,
+            m_id=str(card.mblog.id),
+            m_type=card.card_type,
+            m_uid=str(card.mblog.user.id),
+            title=f'{card.mblog.user.screen_name}的微博',
+            content=card.mblog.text,
+            ref_content=retweeted_content,
+        )
 
 
 async def _add_user_new_weibo_content(uid: int) -> None:
@@ -122,7 +129,7 @@ async def query_all_subscribed_weibo_user_sub_source() -> list[int]:
     return [int(x.sub_id) for x in source_res]
 
 
-async def query_subscribed_entity_by_weibo_user(uid: int) -> list["Entity"]:
+async def query_subscribed_entity_by_weibo_user(uid: int) -> list['Entity']:
     """根据微博用户查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaWeiboUserSubSource(session=session, uid=uid)
@@ -130,7 +137,7 @@ async def query_subscribed_entity_by_weibo_user(uid: int) -> list["Entity"]:
     return subscribed_entity
 
 
-async def _format_weibo_update_message(card: "WeiboCard") -> str | OmegaMessage:
+async def _format_weibo_update_message(card: 'WeiboCard') -> str | OmegaMessage:
     """处理微博内容为消息"""
     send_message = f'【微博】{card.mblog.user.screen_name}'
     img_urls = []
@@ -179,7 +186,7 @@ async def _format_weibo_update_message(card: "WeiboCard") -> str | OmegaMessage:
     return send_message
 
 
-async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
+async def _msg_sender(entity: 'Entity', message: str | OmegaMessage) -> None:
     """向 entity 发送消息"""
     try:
         async with begin_db_session() as session:

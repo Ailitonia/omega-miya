@@ -10,7 +10,6 @@
 
 from .api import TencentNLP, TencentTMT
 
-
 __all__ = [
     'TencentNLP',
     'TencentTMT'

@@ -8,7 +8,6 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
@@ -36,9 +35,9 @@ class PixivSearchingContent(BasePixivModel):
 
 class PixivSearchingResultBody(BasePixivModel):
     """Pixiv 搜索结果 body"""
-    illustManga: Optional[PixivSearchingContent] = None
-    illust: Optional[PixivSearchingContent] = None
-    manga: Optional[PixivSearchingContent] = None
+    illustManga: PixivSearchingContent | None = None
+    illust: PixivSearchingContent | None = None
+    manga: PixivSearchingContent | None = None
     popular: dict
     extraData: dict
 

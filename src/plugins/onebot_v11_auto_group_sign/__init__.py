@@ -12,7 +12,6 @@ from nonebot.plugin import PluginMetadata
 
 from .config import auto_group_sign_config
 
-
 __plugin_meta__ = PluginMetadata(
     name='自动群打卡',
     description='【QQ 自动群打卡插件】\n'
@@ -24,8 +23,6 @@ __plugin_meta__ = PluginMetadata(
     extra={'author': 'Ailitonia'},
 )
 
-
-from . import scheduler as scheduler
-
+from . import scheduled_tasks as tasks
 
 __all__ = []

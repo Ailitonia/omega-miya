@@ -10,7 +10,7 @@
 
 import pathlib
 import zipfile
-from typing import Sequence
+from collections.abc import Sequence
 
 import py7zr
 from nonebot.utils import run_sync
@@ -19,7 +19,7 @@ from src.resource import BaseResource, TemporaryResource
 from .config import zip_utils_config, zip_utils_resource_config
 
 
-class ZipUtils(object):
+class ZipUtils:
     def __init__(self, file_name: str, *, folder: TemporaryResource | None = None):
         if folder is not None and folder.is_dir:
             storage_folder: TemporaryResource = folder

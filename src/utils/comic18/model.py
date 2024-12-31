@@ -9,13 +9,12 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from src.resource import TemporaryResource
-from src.utils.image_utils.template import PreviewImageThumbs, PreviewImageModel
+from src.utils.image_utils.template import PreviewImageModel, PreviewImageThumbs
 
 
 class BaseComic18Model(BaseModel):
@@ -57,7 +56,7 @@ class AlbumPageContent(BaseComic18Model):
     page_index: int
     page_type: str
     url: AnyHttpUrl
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class AlbumPage(BaseComic18Model):

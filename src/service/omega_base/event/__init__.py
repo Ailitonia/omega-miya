@@ -11,7 +11,6 @@
 from .base import Event
 from .bot import BotActionEvent, BotConnectEvent, BotDisconnectEvent
 
-
 __all__ = [
     'Event',
     'BotActionEvent',

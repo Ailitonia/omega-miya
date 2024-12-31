@@ -8,22 +8,23 @@
 @Software       : PyCharm
 """
 
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 from .base import BaseTencentCloudAPI
 from ..model.nlp import (
+    TencentCloudAnalyzeSentimentResponse,
+    TencentCloudClassifyContentResponse,
     TencentCloudComposeCoupletResponse,
     TencentCloudComposePoetryResponse,
-    TencentCloudTextEmbellishResponse,
-    TencentCloudTextWritingResponse,
-    TencentCloudGenerateKeywordSentenceResponse,
-    TencentCloudSentenceCorrectionResponse,
-    TencentCloudClassifyContentResponse,
-    TencentCloudAnalyzeSentimentResponse,
     TencentCloudEvaluateSentenceSimilarityResponse,
     TencentCloudEvaluateWordSimilarityResponse,
+    TencentCloudGenerateKeywordSentenceResponse,
     TencentCloudParseWordsResponse,
     TencentCloudRetrieveSimilarWordsResponse,
+    TencentCloudSentenceCorrectionResponse,
+    TencentCloudTextEmbellishResponse,
+    TencentCloudTextWritingResponse,
 )
 
 

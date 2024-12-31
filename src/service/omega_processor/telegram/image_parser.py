@@ -13,11 +13,11 @@ from urllib.parse import quote
 from nonebot import get_plugin_config, logger
 from nonebot.adapters.telegram.bot import Bot
 from nonebot.adapters.telegram.event import MessageEvent
-from nonebot.adapters.telegram.message import Message, MessageSegment, File
+from nonebot.adapters.telegram.message import File, Message, MessageSegment
 from pydantic import BaseModel, ConfigDict
 
-from ...omega_requests import OmegaRequests
-from ....resource import TemporaryResource
+from src.resource import TemporaryResource
+from src.utils import OmegaRequests
 
 _TMP_IMG_PATH = TemporaryResource('telegram', 'tmp', 'images')
 
@@ -43,7 +43,7 @@ async def _parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
     if file.file_path is None:
         return seg
 
-    url = f"https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}"
+    url = f'https://api.telegram.org/file/bot{quote(bot.bot_config.token)}/{quote(file.file_path)}'
     # 该链接不能直接作为向 Telegram 平台发送图片的 url, 会返回错误: "wrong file identifier/HTTP URL specified"
 
     if not _plugin_config.telegram_processor_parse_photo_replace_as_local:

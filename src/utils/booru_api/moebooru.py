@@ -9,21 +9,21 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.compat import parse_obj_as
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 from .models.moebooru import (
+    Artist,
+    Comment,
+    Forum,
+    Note,
+    Pool,
     Post,
     SimilarPosts,
     Tag,
-    Artist,
-    Comment,
-    Wiki,
-    Note,
     User,
-    Forum,
-    Pool,
+    Wiki,
 )
 
 if TYPE_CHECKING:
@@ -44,8 +44,8 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     def __init__(
             self,
             *,
-            login_name: Optional[str] = None,
-            password_hash: Optional[str] = None,
+            login_name: str | None = None,
+            password_hash: str | None = None,
             legacy_endpoint: bool = False,
     ) -> None:
         """初始化鉴权信息
@@ -77,17 +77,17 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
         return False
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     async def get_json(
             self,
             url: str,
-            params: Optional[dict[str, Any]] = None,
+            params: dict[str, Any] | None = None,
     ) -> Any:
         """使用 GET 方法请求 API, 返回 json 内容"""
         if isinstance(params, dict):
@@ -100,7 +100,7 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def get_resource_as_bytes(
             self,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 30,
     ) -> bytes:
@@ -109,7 +109,7 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def get_resource_as_text(
             self,
             url: str,
-            params: "QueryTypes" = None,
+            params: 'QueryTypes' = None,
             *,
             timeout: int = 10,
     ) -> str:
@@ -120,9 +120,9 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def posts_index(
             self,
             *,
-            limit: Optional[int] = None,
-            page: Optional[int] = None,
-            tags: Optional[str] = None,
+            limit: int | None = None,
+            page: int | None = None,
+            tags: str | None = None,
     ) -> list[Post]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/post/index.json'
@@ -176,13 +176,13 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def tags_index(
             self,
             *,
-            limit: Optional[int] = None,
-            page: Optional[int] = None,
-            order: Optional[Literal['date', 'count', 'name']] = None,
-            id_: Optional[int] = None,
-            after_id: Optional[int] = None,
-            name: Optional[str] = None,
-            name_pattern: Optional[str] = None,
+            limit: int | None = None,
+            page: int | None = None,
+            order: Literal['date', 'count', 'name'] | None = None,
+            id_: int | None = None,
+            after_id: int | None = None,
+            name: str | None = None,
+            name_pattern: str | None = None,
     ) -> list[Tag]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/tag/index.json'
@@ -213,9 +213,9 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def artists_index(
             self,
             *,
-            name: Optional[str] = None,
-            order: Optional[Literal['date', 'name']] = None,
-            page: Optional[int] = None,
+            name: str | None = None,
+            order: Literal['date', 'name'] | None = None,
+            page: int | None = None,
     ) -> list[Artist]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/artist/index.json'
@@ -246,10 +246,10 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def wikis_index(
             self,
             *,
-            limit: Optional[int] = None,
-            page: Optional[int] = None,
-            order: Optional[Literal['title', 'date']] = None,
-            query: Optional[str] = None,
+            limit: int | None = None,
+            page: int | None = None,
+            order: Literal['title', 'date'] | None = None,
+            query: str | None = None,
     ) -> list[Wiki]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/wiki/index.json'
@@ -294,8 +294,8 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def users_index(
             self,
             *,
-            id_: Optional[int] = None,
-            name: Optional[str] = None,
+            id_: int | None = None,
+            name: str | None = None,
     ) -> list[User]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/user/index.json'
@@ -316,7 +316,7 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def forums_index(
             self,
             *,
-            parent_id: Optional[int] = None,
+            parent_id: int | None = None,
     ) -> list[Forum]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/forum/index.json'
@@ -332,8 +332,8 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
     async def pools_index(
             self,
             *,
-            query: Optional[str] = None,
-            page: Optional[int] = None,
+            query: str | None = None,
+            page: int | None = None,
     ) -> list[Pool]:
         if self.__legacy_endpoint:
             index_url = f'{self._get_root_url()}/pool/index.json'
@@ -349,7 +349,7 @@ class BaseMoebooruAPI(BaseCommonAPI, abc.ABC):
 
         return parse_obj_as(list[Pool], await self.get_json(url=index_url, params=params))
 
-    async def pool_posts_show(self, pool_id: int, *, page: Optional[int] = None) -> Pool:
+    async def pool_posts_show(self, pool_id: int, *, page: int | None = None) -> Pool:
         url = f'{self._get_root_url()}/pool/show.json'
         # alternative_url = f'{self._get_root_url()}/pool/show/{pool_id}.json'
 
@@ -364,7 +364,7 @@ class BehoimiAPI(BaseMoebooruAPI):
     """http://behoimi.org 主站 API"""
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {
             'origin': f'{cls._get_root_url()}/',
             'referer': f'{cls._get_root_url()}/',
@@ -384,7 +384,7 @@ class KonachanAPI(BaseMoebooruAPI):
         return True
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod
@@ -396,7 +396,7 @@ class KonachanSafeAPI(BaseMoebooruAPI):
     """https://konachan.net 全年龄站 API, 与主站 API 数据相同, 只是网站页面不显示 rating:E 的作品"""
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod

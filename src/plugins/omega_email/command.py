@@ -17,12 +17,22 @@ from nonebot.params import ArgStr, Depends
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup
 from nonebot.rule import to_me
-from sqlalchemy.exc import NoResultFound
 
-from src.database import EmailBoxDAL
-from src.params.handler import get_command_str_single_arg_parser_handler, get_command_str_multi_args_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from .helpers import check_mailbox, get_unseen_mail_data, encrypt_password, decrypt_password, generate_mail_snapshot
+from src.params.handler import get_command_str_multi_args_parser_handler, get_command_str_single_arg_parser_handler
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
+from .helpers import (
+    bind_entity_mailbox,
+    check_mailbox,
+    decrypt_password,
+    encrypt_password,
+    generate_mail_snapshot,
+    get_entity_bound_mailbox,
+    get_unseen_mail_data,
+    query_available_mailbox,
+    save_mailbox,
+    unbind_entity_mailbox,
+)
 
 mailbox_manager = CommandGroup(
     'mailbox-manager',
@@ -45,7 +55,6 @@ add_mail_box = mailbox_manager.command(
 @add_mail_box.got('add_mailbox_arg_2', prompt='请输入邮箱密码:')
 async def handle_add_mailbox(
         matcher: Matcher,
-        email_dal: Annotated[EmailBoxDAL, Depends(EmailBoxDAL.dal_dependence)],
         server_host: Annotated[str, ArgStr('add_mailbox_arg_0')],
         address: Annotated[str, ArgStr('add_mailbox_arg_1')],
         password: Annotated[str, ArgStr('add_mailbox_arg_2')],
@@ -60,12 +69,7 @@ async def handle_add_mailbox(
 
     try:
         password = await encrypt_password(plaintext=password)
-        try:
-            mailbox = await email_dal.query_unique(address=address)
-            await email_dal.update(id_=mailbox.id, server_host=server_host, password=password)
-        except NoResultFound:
-            await email_dal.add(address=address, server_host=server_host, password=password, protocol='imap', port=993)
-        await email_dal.commit_session()
+        await save_mailbox(address=address, server_host=server_host, password=password, protocol='imap', port=993)
         logger.success(f'EmailBoxManager | 添加邮箱: {address} 成功')
         await matcher.send(f'添加邮箱 {address} 成功')
     except Exception as e:
@@ -80,11 +84,10 @@ async def handle_add_mailbox(
 ).got('mailbox_address', prompt='请输入需要绑定的邮箱地址:')
 async def handle_bind_mailbox(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
-        email_dal: Annotated[EmailBoxDAL, Depends(EmailBoxDAL.dal_dependence)],
         mailbox_address: Annotated[str | None, ArgStr('mailbox_address')],
 ) -> None:
     try:
-        available_mailbox = await email_dal.query_all()
+        available_mailbox = await query_available_mailbox()
     except Exception as e:
         logger.error(f'EmailBoxManager | 查询可用邮箱失败, {e}')
         await interface.finish_reply('查询可用邮箱失败, 详情请查看日志')
@@ -102,10 +105,7 @@ async def handle_bind_mailbox(
         await interface.finish_reply(f'{mailbox_address} 不是可用的邮箱地址, 请确认后重试或请管理员添加该邮箱')
 
     try:
-        await interface.entity.bind_email_box(
-            email_box=available_mailbox_map.get(mailbox_address),  # type: ignore
-            bind_info=f'{interface.entity.entity_name}-{mailbox_address}'
-        )
+        await bind_entity_mailbox(interface=interface, mailbox_account=available_mailbox_map[mailbox_address])
         await interface.entity.commit_session()
         logger.success(f'EmailBoxManager | 绑定邮箱: {mailbox_address} 成功')
         await interface.send_reply(f'绑定邮箱 {mailbox_address} 成功')
@@ -124,7 +124,7 @@ async def handle_unbind_mailbox(
         mailbox_address: Annotated[str | None, ArgStr('mailbox_address')],
 ) -> None:
     try:
-        bound_mailbox = await interface.entity.query_bound_email_box()
+        bound_mailbox = await get_entity_bound_mailbox(interface=interface)
     except Exception as e:
         logger.error(f'EmailBoxManager | 查询已绑定邮箱失败, {e}')
         await interface.finish_reply('查询已绑定邮箱失败, 详情请查看日志')
@@ -142,7 +142,7 @@ async def handle_unbind_mailbox(
         await interface.finish_reply(f'{mailbox_address} 不是已绑定的邮箱地址, 请确认后重试')
 
     try:
-        await interface.entity.unbind_email_box(email_box=bound_mailbox_map.get(mailbox_address))  # type: ignore
+        await unbind_entity_mailbox(interface=interface, mailbox_address=mailbox_address)
         await interface.entity.commit_session()
         logger.success(f'EmailBoxManager | 解绑邮箱: {mailbox_address} 成功')
         await interface.send_reply(f'解绑邮箱 {mailbox_address} 成功')
@@ -160,13 +160,13 @@ async def handle_unbind_mailbox(
 ).handle()
 async def handle_receive_email(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
     try:
-        bound_mailbox = await interface.entity.query_bound_email_box()
+        bound_mailbox = await get_entity_bound_mailbox(interface=interface)
     except Exception as e:
         logger.error(f'ReceiveEmail | 查询已绑定邮箱失败, {e}')
         await interface.finish_reply('查询已绑定邮箱失败, 请稍后重试或联系管理员处理')
 
     if not bound_mailbox:
-        logger.warning('ReceiveEmail | 收邮件失败, 没有绑定的邮箱')
+        logger.warning('ReceiveEmail | 收邮件结束, 没有绑定的邮箱')
         await interface.finish_reply('没有绑定的邮箱, 请先联系管理员绑定邮箱后再收件')
 
     bound_mailbox_msg = '\n'.join(x.address for x in bound_mailbox)
@@ -175,7 +175,7 @@ async def handle_receive_email(interface: Annotated[OmMI, Depends(OmMI.depend())
     for mailbox in bound_mailbox:
         # 解密密码
         try:
-            password = await decrypt_password(ciphertext=mailbox.password)
+            password = await decrypt_password(ciphertext=mailbox.server.password)
         except Exception as e:
             logger.error(f'ReceiveEmail | 邮箱 {mailbox.address} 密码验证失败, {e}')
             await interface.send_reply(f'邮箱: {mailbox.address}\n密码验证失败, 请联系管理员处理')
@@ -184,7 +184,7 @@ async def handle_receive_email(interface: Annotated[OmMI, Depends(OmMI.depend())
         # 接收邮件内容
         try:
             unseen_mail = await get_unseen_mail_data(
-                address=mailbox.address, server_host=mailbox.server_host, password=password
+                address=mailbox.address, server_host=mailbox.server.server_host, password=password
             )
         except Exception as e:
             logger.error(f'ReceiveEmail | 邮箱 {mailbox.address} 收件失败, {e}')

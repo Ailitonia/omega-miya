@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from nonebot.adapters import Bot as BaseBot, Event as BaseEvent
+from nonebot.internal.adapter import Bot as BaseBot
+from nonebot.internal.adapter import Event as BaseEvent
 from nonebot.rule import Rule
 
 from src.database import begin_db_session

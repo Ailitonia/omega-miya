@@ -10,11 +10,10 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='好友和群组请求管理',
     description='【QQ 好友和群组请求管理插件】\n'
-                "处理加好友请求和加群、退群请求",
+                '处理加好友请求和加群、退群请求',
     usage='/好友验证码 [用户qq] \n\n'
           '说明:\n'
           '以上命令只允许管理员使用\n'
@@ -26,6 +25,5 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
 
 __all__ = []

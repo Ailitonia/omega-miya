@@ -16,7 +16,8 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup
 
 from src.database import StatisticDAL
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
 from .helpers import draw_statistics
 
 # 注册事件响应器

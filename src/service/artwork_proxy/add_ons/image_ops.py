@@ -9,18 +9,20 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
 
 from nonebot.utils import run_sync
 
+from src.utils import semaphore_gather
 from src.utils.image_utils import ImageUtils
-from src.utils.image_utils.template import generate_thumbs_preview_image, PreviewImageThumbs, PreviewImageModel
-from src.utils.process_utils import semaphore_gather
+from src.utils.image_utils.template import PreviewImageModel, PreviewImageThumbs, generate_thumbs_preview_image
 from .typing import ArtworkProxyAddonsMixin
 from ..models import ArtworkPool
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
+
     from ..models import ArtworkData
     from ..typing import ArtworkPageParamType
 
@@ -30,7 +32,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
 
     @staticmethod
     @run_sync
-    def _handle_blur(image: "TemporaryResource", origin_mark: str) -> ImageUtils:
+    def _handle_blur(image: 'TemporaryResource', origin_mark: str) -> ImageUtils:
         """模糊处理图片"""
         _image = ImageUtils.init_from_file(file=image)
         _image.gaussian_blur()
@@ -40,7 +42,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
 
     @staticmethod
     @run_sync
-    def _handle_mark(image: "TemporaryResource", origin_mark: str) -> ImageUtils:
+    def _handle_mark(image: 'TemporaryResource', origin_mark: str) -> ImageUtils:
         """标记水印"""
         _image = ImageUtils.init_from_file(file=image)
         _image.mark(text=origin_mark)
@@ -49,7 +51,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
 
     @staticmethod
     @run_sync
-    def _handle_noise(image: "TemporaryResource", origin_mark: str) -> ImageUtils:
+    def _handle_noise(image: 'TemporaryResource', origin_mark: str) -> ImageUtils:
         """噪点处理图片"""
         _image = ImageUtils.init_from_file(file=image)
         _image.gaussian_noise(sigma=16)
@@ -63,9 +65,9 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             self,
             page_index: int = 0,
             *,
-            page_type: "ArtworkPageParamType" = 'regular',
+            page_type: 'ArtworkPageParamType' = 'regular',
             process_mode: Literal['mark', 'blur', 'noise'] = 'mark',
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """处理作品图片"""
         artwork_data = await self.query()
         origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
@@ -82,16 +84,16 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
                 image = await self._handle_mark(image=page_file, origin_mark=origin_mark)
                 output_file_name = f'{page_file.path.stem}_marked.jpg'
 
-        output_file = self._get_path_config().processed_path(output_file_name)
+        output_file = self.path_config.processed_path(output_file_name)
         return await image.save(file=output_file)
 
     async def get_custom_proceed_page_file(
             self,
             page_index: int = 0,
             *,
-            page_type: "ArtworkPageParamType" = 'regular',
+            page_type: 'ArtworkPageParamType' = 'regular',
             process_mode: Literal['mark', 'blur', 'noise'] = 'mark',
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """使用自定义方法处理作品图片"""
         return await self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode=process_mode)
 
@@ -99,9 +101,9 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             self,
             page_index: int = 0,
             *,
-            page_type: "ArtworkPageParamType" = 'regular',
+            page_type: 'ArtworkPageParamType' = 'regular',
             no_blur_rating: int = 1,
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """根据作品分级处理作品图片
 
         :param page_index: 作品图片页码
@@ -131,7 +133,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def _get_preview_thumb_data(
             self,
             *,
-            page_type: "ArtworkPageParamType" = 'preview',
+            page_type: 'ArtworkPageParamType' = 'preview',
             no_blur_rating: int = 1,
     ) -> PreviewImageThumbs:
         """获取生成预览图所需要的作品数据"""
@@ -175,9 +177,9 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def _get_artworks_preview_data(
             cls,
             preview_name: str,
-            artworks: Sequence["ImageOpsMixin"],
+            artworks: Sequence['ImageOpsMixin'],
             *,
-            page_type: "ArtworkPageParamType" = 'preview',
+            page_type: 'ArtworkPageParamType' = 'preview',
             no_blur_rating: int = 1,
             limit: int = 100,
     ) -> PreviewImageModel:
@@ -202,7 +204,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
             edge_scale: float = 1 / 32,
             num_of_line: int = 6,
             limit: int = 100,
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """生成多个任意图片的预览图
 
         :param preview_name: 预览图标题
@@ -233,15 +235,15 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def generate_artworks_preview(
             cls,
             preview_name: str,
-            artworks: Sequence["ImageOpsMixin"],
+            artworks: Sequence['ImageOpsMixin'],
             *,
-            page_type: "ArtworkPageParamType" = 'preview',
+            page_type: 'ArtworkPageParamType' = 'preview',
             no_blur_rating: int = 1,
             preview_size: tuple[int, int] = (256, 256),  # 默认预览图缩略图大小
             edge_scale: float = 1 / 32,
             num_of_line: int = 6,
             limit: int = 100,
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """生成多个作品的预览图
 
         :param preview_name: 预览图标题
@@ -277,7 +279,7 @@ class ImageOpsPlusPoolMixin(ImageOpsMixin, abc.ABC):
     """作品图片处理工具插件(附加图集处理功能)"""
 
     @classmethod
-    def _get_pool_meta_file(cls, pool_id: str) -> "TemporaryResource":
+    def _get_pool_meta_file(cls, pool_id: str) -> 'TemporaryResource':
         return cls._generate_path_config().meta_path(f'pool_{pool_id}.json')
 
     @classmethod
@@ -310,7 +312,7 @@ class ImageOpsPlusPoolMixin(ImageOpsMixin, abc.ABC):
         return await cls._fast_query_pool(pool_id=pool_id, use_cache=use_cache)
 
     @classmethod
-    async def query_pool_all_artworks(cls, pool_id: str) -> list["ArtworkData"]:
+    async def query_pool_all_artworks(cls, pool_id: str) -> list['ArtworkData']:
         """获取图集中所有作品信息"""
         pool_data = await cls.query_pool(pool_id=pool_id)
 
@@ -320,7 +322,7 @@ class ImageOpsPlusPoolMixin(ImageOpsMixin, abc.ABC):
         return list(all_artwork_data)
 
     @classmethod
-    async def query_pool_all_artwork_pages(cls, pool_id: str) -> list["TemporaryResource"]:
+    async def query_pool_all_artwork_pages(cls, pool_id: str) -> list['TemporaryResource']:
         """获取图集中所有作品图片"""
         pool_data = await cls.query_pool(pool_id=pool_id)
 
@@ -330,7 +332,7 @@ class ImageOpsPlusPoolMixin(ImageOpsMixin, abc.ABC):
         return [file for artwork_pages in all_artwork_pages for file in artwork_pages]
 
     @classmethod
-    async def generate_pool_preview(cls, pool_id: str) -> "TemporaryResource":
+    async def generate_pool_preview(cls, pool_id: str) -> 'TemporaryResource':
         """生成图集的预览图"""
         pool_data = await cls.query_pool(pool_id=pool_id)
 

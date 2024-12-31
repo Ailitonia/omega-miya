@@ -15,7 +15,8 @@ from nonebot.params import ArgStr, Depends
 from nonebot.plugin import on_command
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from .data_source import query_guess
 
 

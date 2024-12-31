@@ -8,8 +8,9 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
@@ -23,9 +24,9 @@ if TYPE_CHECKING:
 
 
 async def draw_statistics(
-        statistics_data: Sequence["CountStatisticModel"],
+        statistics_data: Sequence['CountStatisticModel'],
         title: str = '插件使用情况统计',
-) -> "TemporaryResource":
+) -> 'TemporaryResource':
     """绘制插件使用统计图
 
     :param statistics_data: 统计信息
@@ -33,7 +34,7 @@ async def draw_statistics(
     """
 
     @run_sync
-    def _handle(_statistics_data: Sequence["CountStatisticModel"]) -> "TemporaryResource":
+    def _handle(_statistics_data: Sequence['CountStatisticModel']) -> 'TemporaryResource':
         y_name = [x.custom_name for x in _statistics_data]
         x_value = [x.call_count for x in _statistics_data]
 
@@ -57,7 +58,7 @@ async def draw_statistics(
         file_name = f"statistic_{title}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.jpg"
         return output_figure(fig, file_name)
 
-    return await _handle(_statistics_data=statistics_data)
+    return await _handle(_statistics_data=sorted(statistics_data, key=lambda x: x.call_count))
 
 
 __all__ = [

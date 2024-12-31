@@ -16,69 +16,65 @@ from nonebot.exception import ActionFailed
 
 from src.database import begin_db_session
 from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
     OmegaEntity,
     OmegaMessage,
     OmegaMessageSegment,
 )
+from src.service import (
+    OmegaEntityInterface as OmEI,
+)
+from src.service import (
+    OmegaMatcherInterface as OmMI,
+)
 from src.service.omega_base.internal import OmegaBiliLiveSubSource
-from src.utils.bilibili_api import BilibiliLiveRoom
-from src.utils.process_utils import semaphore_gather
-from .consts import BILI_LIVE_SUB_TYPE, NOTICE_AT_ALL, MODULE_NAME, PLUGIN_NAME
+from src.utils import semaphore_gather
+from src.utils.bilibili_api import BilibiliLive
+from .consts import BILI_LIVE_SUB_TYPE, MODULE_NAME, NOTICE_AT_ALL, PLUGIN_NAME
 from .data_source import (
     check_and_upgrade_live_status,
-    get_all_live_room_status_uid,
-    get_live_room_status,
-    get_user_live_room_status,
-    query_and_upgrade_live_room_status
+    get_all_subscribed_live_room_ids,
+    query_live_room_status,
 )
 from .model import (
-    BilibiliLiveRoomTitleChange,
     BilibiliLiveRoomStartLiving,
     BilibiliLiveRoomStartLivingWithUpdateTitle,
+    BilibiliLiveRoomStatusUpdate,
     BilibiliLiveRoomStopLiving,
     BilibiliLiveRoomStopLivingWithPlaylist,
-    BilibiliLiveRoomStatusUpdate
+    BilibiliLiveRoomTitleChange,
 )
 
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
     from src.database.internal.subscription_source import SubscriptionSource
-    from src.utils.bilibili_api.model.live_room import BilibiliLiveRoomDataModel
+    from src.utils.bilibili_api.future.models.live import RoomInfoData
 
 
-async def _query_room_sub_source(room_id: int) -> "SubscriptionSource":
+async def _query_room_sub_source(room_id: int | str) -> 'SubscriptionSource':
     """从数据库查询直播间订阅源"""
     async with begin_db_session() as session:
         source_res = await OmegaBiliLiveSubSource(session=session, live_room_id=room_id).query_subscription_source()
     return source_res
 
 
-async def _add_upgrade_room_sub_source(live_room: BilibiliLiveRoom) -> "SubscriptionSource":
+async def _add_upgrade_room_sub_source(room_id: int | str) -> 'SubscriptionSource':
     """在数据库中更新直播间订阅源"""
-    await query_and_upgrade_live_room_status(live_room=live_room)
-    live_room_status = get_live_room_status(room_id=live_room.room_id)
-    if live_room_status is None:
-        raise RuntimeError(f'Upgrade live room {live_room.room_id} status failed')
-
-    room_username = live_room_status.live_user_name
-
+    live_room_status = await query_live_room_status(room_id=room_id)
     async with begin_db_session() as session:
-        sub_source = OmegaBiliLiveSubSource(session=session, live_room_id=live_room.room_id)
-        await sub_source.add_upgrade(sub_user_name=room_username, sub_info='Bilibili直播间订阅')
+        sub_source = OmegaBiliLiveSubSource(session=session, live_room_id=room_id)
+        await sub_source.add_upgrade(sub_user_name=live_room_status.live_user_name, sub_info='Bilibili直播间订阅')
         source_res = await sub_source.query_subscription_source()
     return source_res
 
 
-async def add_live_room_sub(interface: OmMI, live_room: BilibiliLiveRoom) -> None:
+async def add_live_room_sub(interface: OmMI, room_id: int | str) -> None:
     """为目标对象添加 Bilibili 直播间订阅"""
-    source_res = await _add_upgrade_room_sub_source(live_room=live_room)
+    source_res = await _add_upgrade_room_sub_source(room_id=room_id)
     await interface.entity.add_subscription(subscription_source=source_res,
-                                            sub_info=f'Bilibili直播间订阅(rid={live_room.rid})')
+                                            sub_info=f'Bilibili直播间订阅(rid={room_id})')
 
 
-async def delete_live_room_sub(interface: OmMI, room_id: int) -> None:
+async def delete_live_room_sub(interface: OmMI, room_id: int | str) -> None:
     """为目标对象删除 Bilibili 直播间订阅"""
     source_res = await _query_room_sub_source(room_id=room_id)
     await interface.entity.delete_subscription(subscription_source=source_res)
@@ -92,7 +88,7 @@ async def query_subscribed_live_room_sub_source(interface: OmMI) -> dict[str, st
     return {x.sub_id: x.sub_user_name for x in subscribed_source}
 
 
-async def query_subscribed_entity_by_live_room(room_id: int) -> list["Entity"]:
+async def query_subscribed_entity_by_live_room(room_id: int | str) -> list['Entity']:
     """根据 Bilibili 直播间房间号查询已经订阅了这个用户的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaBiliLiveSubSource(session=session, live_room_id=room_id)
@@ -101,50 +97,45 @@ async def query_subscribed_entity_by_live_room(room_id: int) -> list["Entity"]:
 
 
 async def _format_live_room_update_message(
-        live_room_data: "BilibiliLiveRoomDataModel",
+        room_info: 'RoomInfoData',
         update_data: BilibiliLiveRoomStatusUpdate
 ) -> str | OmegaMessage | None:
     """处理直播间更新为消息"""
-    live_room_status = get_user_live_room_status(uid=live_room_data.uid)
-    if live_room_status is None:
-        return None
-
     send_message = '【bilibili直播间】\n'
-    user_name = live_room_status.live_user_name
     need_url = False
 
     if isinstance(update_data.update, (BilibiliLiveRoomStartLivingWithUpdateTitle, BilibiliLiveRoomStartLiving)):
         # 开播
-        if isinstance(live_room_data.live_time, datetime):
-            start_time = live_room_data.live_time.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(room_info.live_time, datetime):
+            start_time = room_info.live_time.strftime('%Y-%m-%d %H:%M:%S')
         else:
-            start_time = str(live_room_data.live_time)
-        send_message += f"{start_time}\n{user_name}开播啦！\n\n【{live_room_data.title}】"
+            start_time = str(room_info.live_time)
+        send_message += f'{start_time}\n{room_info.uname}开播啦！\n\n【{room_info.title}】'
         need_url = True
     elif isinstance(update_data.update, BilibiliLiveRoomStopLiving):
         # 下播
-        send_message += f'{user_name}下播了'
+        send_message += f'{room_info.uname}下播了'
     elif isinstance(update_data.update, BilibiliLiveRoomStopLivingWithPlaylist):
         # 下播转轮播
-        send_message += f'{user_name}下播了（轮播中）'
-    elif isinstance(update_data.update, BilibiliLiveRoomTitleChange) and live_room_data.live_status == 1:
+        send_message += f'{room_info.uname}下播了（轮播中）'
+    elif isinstance(update_data.update, BilibiliLiveRoomTitleChange) and room_info.live_status == 1:
         # 直播中换标题
-        send_message += f"{user_name}的直播间换标题啦！\n\n【{live_room_data.title}】"
+        send_message += f'{room_info.uname}的直播间换标题啦！\n\n【{room_info.title}】'
         need_url = True
     else:
         return None
 
     # 下载直播间封面图
-    if live_room_data.cover:
+    if room_info.cover_url:
         try:
-            cover_img = await BilibiliLiveRoom.download_resource(url=live_room_data.cover)
+            cover_img = await BilibiliLive.download_resource(url=room_info.cover_url)
             send_message += '\n'
             send_message += OmegaMessageSegment.image(url=cover_img.path)
         except Exception as e:
             logger.warning(f'BilibiliLiveRoomMonitor | Download live room cover failed, {e!r}')
 
     if need_url:
-        send_message += f'\n传送门: https://live.bilibili.com/{live_room_data.room_id}'
+        send_message += f'\n传送门: https://live.bilibili.com/{room_info.room_id}'
 
     return send_message
 
@@ -158,7 +149,7 @@ async def _has_notice_at_all_node(entity: OmegaEntity) -> bool:
         return False
 
 
-async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
+async def _msg_sender(entity: 'Entity', message: str | OmegaMessage) -> None:
     """向 entity 发送直播间通知"""
     try:
         async with begin_db_session() as session:
@@ -175,20 +166,18 @@ async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
         logger.error(f'BilibiliLiveRoomMonitor | Sending message to {entity} failed, {e!r}')
 
 
-async def _process_bili_live_room_update(live_room_data: "BilibiliLiveRoomDataModel") -> None:
-    """处理 Bilibili 直播间状态更新"""
-    logger.debug(f'BilibiliLiveRoomMonitor | Checking bilibili live room({live_room_data.room_id}) status')
+async def _process_bili_live_room_update(room_info: 'RoomInfoData') -> None:
+    """处理直播间状态更新"""
+    logger.debug(f'BilibiliLiveRoomMonitor | Checking live room({room_info.room_id}) status')
 
-    update_data = check_and_upgrade_live_status(live_room_data=live_room_data)
-    if update_data is None or not update_data.is_update:
-        logger.debug(f'BilibiliLiveRoomMonitor | Bilibili live room({live_room_data.room_id}) holding')
+    update_data = check_and_upgrade_live_status(room_info=room_info)
+    if not update_data.is_update:
+        logger.debug(f'BilibiliLiveRoomMonitor | Live room({room_info.room_id}) holding')
         return
-    else:
-        logger.info(f'BilibiliLiveRoomMonitor | Bilibili live room({live_room_data.room_id}) '
-                    f'status update, {update_data.update}')
 
-    send_msg = await _format_live_room_update_message(live_room_data=live_room_data, update_data=update_data)
-    subscribed_entity = await query_subscribed_entity_by_live_room(room_id=live_room_data.room_id)
+    logger.info(f'BilibiliLiveRoomMonitor | Live room({room_info.room_id}) status update, {update_data.update}')
+    send_msg = await _format_live_room_update_message(room_info=room_info, update_data=update_data)
+    subscribed_entity = await query_subscribed_entity_by_live_room(room_id=room_info.room_id)
 
     # 向订阅者发送直播间更新信息
     send_tasks = [
@@ -201,18 +190,21 @@ async def _process_bili_live_room_update(live_room_data: "BilibiliLiveRoomDataMo
 
 async def bili_live_room_monitor_main() -> None:
     """向已订阅的用户或群发送 Bilibili 直播间状态更新"""
-    uid_list = get_all_live_room_status_uid()
-    if not uid_list:
+    room_ids = await get_all_subscribed_live_room_ids()
+    if not room_ids:
         logger.debug('BilibiliLiveRoomMonitor | None of live room subscription, ignored')
         return
 
-    room_status_data = await BilibiliLiveRoom.query_live_room_by_uid_list(uid_list=uid_list)
-    if room_status_data.error:
-        logger.error(f'BilibiliLiveRoomMonitor | Failed to checking live room status, {room_status_data}')
+    rooms_info = await BilibiliLive.query_room_info_by_room_id_list(room_id_list=room_ids)
+    if rooms_info.error:
+        logger.error(f'BilibiliLiveRoomMonitor | Failed to checking live room status, {rooms_info}')
         return
 
     # 处理直播间状态更新并向订阅者发送直播间更新信息
-    send_tasks = [_process_bili_live_room_update(live_room_data=data) for _, data in room_status_data.data.items()]
+    send_tasks = [
+        _process_bili_live_room_update(room_info=room_info)
+        for _, room_info in rooms_info.data.by_room_ids.items()
+    ]
     await semaphore_gather(tasks=send_tasks, semaphore_num=3)
 
 

@@ -8,24 +8,16 @@
 @Software       : PyCharm 
 """
 
-from nonebot.permission import Permission, SUPERUSER
-
-from nonebot.adapters.onebot.v11.permission import (
-    GROUP_ADMIN as ONEBOT_V11_GROUP_ADMIN,
-    GROUP_OWNER as ONEBOT_V11_GROUP_OWNER,
-    PRIVATE as ONEBOT_V11_PRIVATE
-)
-from nonebot.adapters.qq.permission import (
-    GUILD_CHANNEL_ADMIN as QQ_GUILD_CHANNEL_ADMIN,
-    GUILD_ADMIN as QQ_GUILD_ADMIN,
-    GUILD_OWNER as QQ_GUILD_OWNER
-)
-from nonebot.adapters.telegram.permission import (
-    GROUP_ADMIN as TELEGRAM_GROUP_ADMIN,
-    GROUP_CREATOR as TELEGRAM_GROUP_CREATOR,
-    PRIVATE as TELEGRAM_PRIVATE
-)
-
+from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN as ONEBOT_V11_GROUP_ADMIN
+from nonebot.adapters.onebot.v11.permission import GROUP_OWNER as ONEBOT_V11_GROUP_OWNER
+from nonebot.adapters.onebot.v11.permission import PRIVATE as ONEBOT_V11_PRIVATE
+from nonebot.adapters.qq.permission import GUILD_ADMIN as QQ_GUILD_ADMIN
+from nonebot.adapters.qq.permission import GUILD_CHANNEL_ADMIN as QQ_GUILD_CHANNEL_ADMIN
+from nonebot.adapters.qq.permission import GUILD_OWNER as QQ_GUILD_OWNER
+from nonebot.adapters.telegram.permission import GROUP_ADMIN as TELEGRAM_GROUP_ADMIN
+from nonebot.adapters.telegram.permission import GROUP_CREATOR as TELEGRAM_GROUP_CREATOR
+from nonebot.adapters.telegram.permission import PRIVATE as TELEGRAM_PRIVATE
+from nonebot.permission import SUPERUSER, Permission
 
 IS_ADMIN: Permission = (
         SUPERUSER

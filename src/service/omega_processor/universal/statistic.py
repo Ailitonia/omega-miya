@@ -50,17 +50,17 @@ async def postprocessor_statistic(matcher: Matcher, bot: Bot, event: Event):
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({custom_plugin_name}) ignored with disable processor')
         return
 
-    # 跳过不需要 processor 交互的 matcher (一般来说这样的都是后台或响应式的不用展示统计信息)
-    if not processor_state.echo_processor_result:
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({custom_plugin_name}) ignored with disable echo')
-        return
+    # [Deactivated] 跳过不需要 processor 交互的 matcher (一般来说这样的都是后台或响应式的不用展示统计信息)
+    # if not processor_state.echo_processor_result:
+    #     logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({custom_plugin_name}) ignored with disable echo')
+    #     return
 
     try:
         async with begin_db_session() as session:
             entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session)
             parent_entity_id = entity.parent_id
             entity_id = entity.entity_id
-            call_info = f'{custom_plugin_name!r} called by {entity!r} in event {event}'
+            call_info = f'{custom_plugin_name!r} called by {entity!r} in Event: {event}'
 
             dal = StatisticDAL(session=session)
             await dal.add(module_name=module_name, plugin_name=custom_plugin_name,

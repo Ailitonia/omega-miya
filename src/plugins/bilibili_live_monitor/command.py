@@ -14,12 +14,12 @@ from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.plugin import CommandGroup
 
-from src.exception import WebSourceException
 from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
-from src.utils.bilibili_api import BilibiliLiveRoom
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from .consts import NOTICE_AT_ALL
+from .data_source import query_live_room_status
 from .helpers import add_live_room_sub, delete_live_room_sub, query_subscribed_live_room_sub_source
 from .monitor import scheduler
 
@@ -55,16 +55,15 @@ async def handle_add_subscription(
     elif ensure in ['是', '确认', 'Yes', 'yes', 'Y', 'y']:
         await interface.send_reply('正在更新Bilibili直播间订阅信息, 请稍候')
 
-        room = BilibiliLiveRoom(room_id=int(room_id))
         scheduler.pause()  # 暂停计划任务避免中途检查更新
         try:
-            await add_live_room_sub(interface=interface, live_room=room)
+            await add_live_room_sub(interface=interface, room_id=room_id)
             await interface.entity.commit_session()
-            logger.success(f'{interface.entity}订阅直播间{room}成功')
-            msg = f'订阅直播间{room_id}成功'
+            logger.success(f'{interface.entity}订阅直播间{room_id!r}成功')
+            msg = f'订阅直播间{room_id!r}成功'
         except Exception as e:
-            logger.error(f'{interface.entity}订阅直播间{room}失败, {e!r}')
-            msg = f'订阅直播间{room_id}失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
+            logger.error(f'{interface.entity}订阅直播间{room_id!r}失败, {e!r}')
+            msg = '订阅直播间失败, 可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
         scheduler.resume()
         await interface.finish_reply(msg)
     else:
@@ -78,25 +77,16 @@ async def handle_add_subscription(
         await interface.finish_reply('非有效的直播间房间号, 直播间房间号应当为纯数字, 已取消操作')
 
     try:
-        room = BilibiliLiveRoom(room_id=int(room_id))
-        live_room_data = await room.query_live_room_data()
-        if live_room_data.error or live_room_data.data is None:
-            raise WebSourceException(f'query {room} data failed, {live_room_data.message}')
-
-        live_room_user_data = await room.query_live_room_user_data()
-        if live_room_user_data.error or live_room_user_data.data is None:
-            raise WebSourceException(f'query {room} user data failed, {live_room_user_data.message}')
-
+        room_status = await query_live_room_status(room_id=room_id)
         # 针对直播间短号进行处理
-        if room_id == str(live_room_data.data.short_id) and room_id != str(live_room_data.data.room_id):
-            logger.debug(f'订阅直播间短号{room_id}, 已转换为直播间房间号{live_room_data.data.room_id}')
-            interface.matcher.state.update({'room_id': live_room_data.data.room_id})
-
+        if room_id != room_status.live_room_id:
+            logger.debug(f'订阅直播间短号{room_id!r}, 已转换为直播间房间号{room_status.live_room_id!r}')
+            interface.matcher.state.update({'room_id': room_status.live_room_id})
     except Exception as e:
-        logger.error(f'获取直播间{room_id}用户信息失败, {e!r}')
+        logger.error(f'获取直播间{room_id!r}用户信息失败, {e!r}')
         await interface.finish_reply('获取直播间用户信息失败, 可能是网络原因或没有这个直播间, 请稍后再试')
 
-    ensure_msg = f'即将订阅Bilibili用户【{live_room_user_data.data.name}】的直播间\n\n确认吗?\n【是/否】'
+    ensure_msg = f'即将订阅Bilibili用户【{room_status.live_user_name}】的直播间\n\n确认吗?\n【是/否】'
     await interface.reject_arg_reply('ensure', ensure_msg)
 
 
@@ -118,13 +108,13 @@ async def handle_del_subscription(
         pass
     elif ensure in ['是', '确认', 'Yes', 'yes', 'Y', 'y']:
         try:
-            await delete_live_room_sub(interface=interface, room_id=int(room_id))
+            await delete_live_room_sub(interface=interface, room_id=room_id)
             await interface.entity.commit_session()
-            logger.success(f'{interface.entity}取消订阅直播间(rid={room_id})成功')
-            msg = f'取消订阅直播间{room_id}成功'
+            logger.success(f'{interface.entity}取消订阅直播间{room_id!r}成功')
+            msg = f'取消订阅直播间{room_id!r}成功'
         except Exception as e:
-            logger.error(f'{interface.entity}取消订阅直播间(rid={room_id})失败, {e!r}')
-            msg = f'取消订阅直播间{room_id}失败, 请稍后再试或联系管理员处理'
+            logger.error(f'{interface.entity}取消订阅直播间{room_id!r}失败, {e!r}')
+            msg = '取消订阅直播间失败, 请稍后再试或联系管理员处理'
 
         await interface.finish_reply(msg)
     else:
@@ -144,7 +134,7 @@ async def handle_del_subscription(
             reject_key = 'ensure'
         else:
             exist_text = '\n'.join(f'{sub_id}: {user_nickname}' for sub_id, user_nickname in exist_sub.items())
-            ensure_msg = f'未订阅直播间{room_id}, 请确认已订阅的直播间列表:\n\n{exist_text if exist_text else "无"}'
+            ensure_msg = f'未订阅直播间{room_id!r}, 请确认已订阅的直播间列表:\n\n{exist_text if exist_text else "无"}'
             reject_key = None
     except Exception as e:
         logger.error(f'获取{interface.entity}已订阅直播间失败, {e!r}')

@@ -8,15 +8,11 @@
 @Software       : PyCharm 
 """
 
-from nonebot.adapters.onebot.v11 import (
-    Bot as OneBotV11Bot,
-    MessageEvent as OneBotV11MessageEvent
-)
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11 import MessageEvent as OneBotV11MessageEvent
 from nonebot.adapters.telegram import Bot as TelegramBot
-from nonebot.adapters.telegram.event import (
-    PrivateMessageEvent as TelegramPrivateMessageEvent,
-    GroupMessageEvent as TelegramGroupMessageEvent
-)
+from nonebot.adapters.telegram.event import GroupMessageEvent as TelegramGroupMessageEvent
+from nonebot.adapters.telegram.event import PrivateMessageEvent as TelegramPrivateMessageEvent
 from nonebot.log import logger
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command

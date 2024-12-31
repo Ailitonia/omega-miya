@@ -18,13 +18,14 @@ from nonebot.plugin import on_shell_command
 from nonebot.rule import Namespace
 
 from src.params.handler import get_shell_command_parse_failed_handler
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
-from src.utils.process_utils import semaphore_gather
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
+from src.utils import semaphore_gather
 from .config import moe_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (
-    has_allow_r18_node,
     get_query_argument_parser,
+    has_allow_r18_node,
     parse_from_query_parser,
     prepare_send_image,
     query_artworks_from_database,
@@ -76,13 +77,15 @@ async def handle_setu(
         origin=parsed_args.origin,
         all_origin=parsed_args.all_origin,
         allow_rating_range=allow_rating_range,
+        latest=parsed_args.latest,
+        ratio=parsed_args.ratio,
         num=parsed_args.num,
     )
 
     if not artworks:
         await interface.finish_reply('找不到涩图QAQ')
 
-    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
+    await interface.send_reply('稍等, 正在下载图片~')
 
     send_messages = await semaphore_gather(
         tasks=[prepare_send_image(x) for x in artworks],
@@ -142,13 +145,15 @@ async def handle_moe(
         origin=parsed_args.origin,
         all_origin=parsed_args.all_origin,
         allow_rating_range=(0, 0),
+        latest=parsed_args.latest,
+        ratio=parsed_args.ratio,
         num=parsed_args.num,
     )
 
     if not artworks:
         await interface.finish_reply('找不到萌图QAQ')
 
-    await interface.send_reply_auto_revoke('稍等, 正在下载图片~', 30)
+    await interface.send_reply('稍等, 正在下载图片~')
 
     send_messages = await semaphore_gather(
         tasks=[prepare_send_image(x) for x in artworks],

@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='微博订阅',
     description='【微博订阅插件】\n'
@@ -25,6 +24,5 @@ __plugin_meta__ = PluginMetadata(
 
 from . import command as command
 from . import monitor as monitor
-
 
 __all__ = []

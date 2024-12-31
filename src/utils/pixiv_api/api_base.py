@@ -10,7 +10,7 @@
 
 from typing import TYPE_CHECKING
 
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 from .config import pixiv_config
 
 if TYPE_CHECKING:
@@ -33,22 +33,22 @@ class BasePixivAPI(BaseCommonAPI):
         return False
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         headers = cls._get_omega_requests_default_headers()
         headers.update({'referer': 'https://www.pixiv.net/'})
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return pixiv_config.cookie_phpssid
 
     @classmethod
-    async def get_resource_as_bytes(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 30) -> bytes:
+    async def get_resource_as_bytes(cls, url: str, *, params: 'QueryTypes' = None, timeout: int = 30) -> bytes:
         """请求原始资源内容"""
         return await cls._get_resource_as_bytes(url, params, timeout=timeout)
 
     @classmethod
-    async def get_resource_as_text(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 10) -> str:
+    async def get_resource_as_text(cls, url: str, *, params: 'QueryTypes' = None, timeout: int = 10) -> str:
         """请求原始资源内容"""
         return await cls._get_resource_as_text(url, params, timeout=timeout)
 

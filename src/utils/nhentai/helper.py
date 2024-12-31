@@ -15,10 +15,10 @@ from lxml import etree
 from nonebot.utils import run_sync
 
 from .exception import NhentaiParseError
-from .model import NhentaiSearchingResult, NhentaiGalleryModel
+from .model import NhentaiGalleryModel, NhentaiSearchingResult
 
 
-class NhentaiParser(object):
+class NhentaiParser:
     """Nhentai 页面解析工具集"""
 
     @staticmethod

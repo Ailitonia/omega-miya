@@ -11,18 +11,19 @@
 from datetime import timedelta
 from typing import Annotated
 
-from nonebot.adapters import Bot, Event, Message
+from nonebot.internal.adapter import Bot, Event, Message
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.params import ArgStr, CommandArg, Depends
 from nonebot.permission import SUPERUSER
-from nonebot.plugin import CommandGroup, get_plugin, get_loaded_plugins
+from nonebot.plugin import CommandGroup, get_loaded_plugins, get_plugin
 from nonebot.typing import T_State
 
 from src.database import PluginDAL
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
-from .helpers import get_all_plugins_desc, get_plugin_desc, get_plugin_auth_node, list_command_by_priority
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
+from .helpers import get_all_plugins_desc, get_plugin_auth_node, get_plugin_desc, list_command_by_priority
 from .status import get_status
 
 DEFAULT_PERMISSION_LEVEL: int = 30
@@ -192,8 +193,12 @@ async def handle_enable_plugin(
         await matcher.finish(f'插件{plugin_name!r}未加载, 操作已取消')
 
     try:
-        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=imported_plugin.module_name)
-        await plugin_dal.update(id_=plugin.id, enabled=1, info='Enabled by OPM')
+        await plugin_dal.upsert(
+            plugin_name=plugin_name,
+            module_name=imported_plugin.module_name,
+            enabled=1,
+            info='Enabled by OPM',
+        )
         await plugin_dal.commit_session()
 
         logger.success(f'Omega 启用插件{plugin_name!r}成功')
@@ -219,8 +224,12 @@ async def handle_disable_plugin(
         await matcher.finish(f'插件{plugin_name!r}未加载, 操作已取消')
 
     try:
-        plugin = await plugin_dal.query_unique(plugin_name=plugin_name, module_name=imported_plugin.module_name)
-        await plugin_dal.update(id_=plugin.id, enabled=0, info='Disabled by OPM')
+        await plugin_dal.upsert(
+            plugin_name=plugin_name,
+            module_name=imported_plugin.module_name,
+            enabled=0,
+            info='Disabled by OPM',
+        )
         await plugin_dal.commit_session()
 
         logger.success(f'Omega 禁用插件{plugin_name!r}成功')

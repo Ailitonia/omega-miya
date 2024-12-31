@@ -8,13 +8,12 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from src.service.artwork_collection import PixivArtworkCollection
-from src.utils.common_api import BaseCommonAPI
-from src.utils.process_utils import semaphore_gather
+from src.utils import BaseCommonAPI, semaphore_gather
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes, HeaderTypes
@@ -41,7 +40,7 @@ class LoliconSetu(BaseLoliconModel):
 
 
 class LoliconAPIReturn(BaseLoliconModel):
-    error: Optional[str] = None
+    error: str | None = None
     data: list[LoliconSetu]
 
 
@@ -61,11 +60,11 @@ class LoliconAPI(BaseCommonAPI):
         return False
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     @classmethod
@@ -92,7 +91,7 @@ class LoliconAPI(BaseCommonAPI):
         """从 lolicon API 获取涩图数据并导入数据库"""
         setu_data = await cls._query_setu(r18=2, num=20)
         tasks = [cls._add_lolicon_setu_into_database(PixivArtworkCollection(artwork_id=x.pid)) for x in setu_data.data]
-        await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
+        await semaphore_gather(tasks=tasks, semaphore_num=8, return_exceptions=False)
 
 
 __all__ = [

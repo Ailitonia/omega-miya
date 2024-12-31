@@ -9,7 +9,8 @@
 """
 
 import random
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from src.service.artwork_collection import (
     DanbooruArtworkCollection,
@@ -21,34 +22,34 @@ from src.service.artwork_proxy import (
     KonachanSafeArtworkProxy,
     YandereArtworkProxy,
 )
-from src.utils.process_utils import semaphore_gather
+from src.utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.service.artwork_collection.typing import ArtworkCollectionType
     from src.service.artwork_proxy.typing import ProxiedArtwork
 
 
-class BooruArtworksUpdater(object):
+class BooruArtworksUpdater:
     """自动更新较高评价的 booru 系图站作品
 
     Tips:
         danbooru 图比较杂, 使用 score:>600 筛选还算可以的作品
-        gelbooru 平均水平惨不忍睹, 且限制搜索条件, 略
+        gelbooru 平均水平惨不忍睹, 没有通用的搜索条件, 略
         konachan 和 yandere 的图整体较好, 但请求限制相对较严
     """
 
     @staticmethod
     async def _add_artwork_into_database(
-            ac_t: "ArtworkCollectionType",
-            artworks: Sequence["ProxiedArtwork"],
-            semaphore_num: int = 10,
+            ac_t: 'ArtworkCollectionType',
+            artworks: Sequence['ProxiedArtwork'],
+            semaphore_num: int = 4,
     ) -> None:
         tasks = [ac_t(x.s_aid).add_artwork_into_database_ignore_exists() for x in artworks]
         await semaphore_gather(tasks=tasks, semaphore_num=semaphore_num, return_exceptions=False)
 
     @classmethod
     async def update_danbooru_high_score_sfw_artworks(cls) -> None:
-        random_result = await DanbooruArtworkProxy.search('status:active is:sfw score:>600 random:30 limit:20')
+        random_result = await DanbooruArtworkProxy.search('status:active is:sfw score:>600 order:random limit:20')
         top_result = await DanbooruArtworkProxy.search('status:active is:sfw score:>500 limit:20',
                                                        page=random.randint(1, 10))
         await cls._add_artwork_into_database(DanbooruArtworkCollection, random_result + top_result)

@@ -9,36 +9,31 @@
 """
 
 from datetime import datetime
-from typing import Optional
 
-from pydantic import ConfigDict, BaseModel
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import WordBankOrm
 
 
-class WordBank(BaseModel):
+class WordBank(BaseDataQueryResultModel):
     """问答语料词句 Model"""
     id: int
     key_word: str
     reply_entity: str
     result_word: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
-class WordBankDAL(BaseDataAccessLayerModel):
+class WordBankDAL(BaseDataAccessLayerModel[WordBankOrm, WordBank]):
     """问答语料词句 数据库操作对象"""
 
     async def query_unique(self, key_word: str, reply_entity: str) -> WordBank:
-        stmt = select(WordBankOrm).\
-            where(WordBankOrm.key_word == key_word).\
-            where(WordBankOrm.reply_entity == reply_entity)
+        stmt = (select(WordBankOrm)
+                .where(WordBankOrm.key_word == key_word)
+                .where(WordBankOrm.reply_entity == reply_entity))
         session_result = await self.db_session.execute(stmt)
         return WordBank.model_validate(session_result.scalar_one())
 
@@ -56,16 +51,18 @@ class WordBankDAL(BaseDataAccessLayerModel):
     async def add(self, key_word: str, reply_entity: str, result_word: str) -> None:
         new_obj = WordBankOrm(key_word=key_word, reply_entity=reply_entity,
                               result_word=result_word, created_at=datetime.now())
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,
             id_: int,
             *,
-            key_word: Optional[str] = None,
-            reply_entity: Optional[str] = None,
-            result_word: Optional[str] = None
+            key_word: str | None = None,
+            reply_entity: str | None = None,
+            result_word: str | None = None
     ) -> None:
         stmt = update(WordBankOrm).where(WordBankOrm.id == id_)
         if key_word is not None:
@@ -75,12 +72,12 @@ class WordBankDAL(BaseDataAccessLayerModel):
         if result_word is not None:
             stmt = stmt.values(result_word=result_word)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(WordBankOrm).where(WordBankOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

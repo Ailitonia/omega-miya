@@ -3,18 +3,21 @@
 @Date           : 2022/04/11 20:25
 @FileName       : bilibili.py
 @Project        : nonebot2_miya
-@Description    : Bilibili
+@Description    : bilibili API
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from .bilibili import BilibiliUser, BilibiliDynamic, BilibiliLiveRoom
-from .credential_helpers import BilibiliCredential
-
+from .future import (
+    BilibiliCredential,
+    BilibiliDynamic,
+    BilibiliLive,
+    BilibiliUser,
+)
 
 __all__ = [
-    'BilibiliUser',
     'BilibiliDynamic',
-    'BilibiliLiveRoom',
     'BilibiliCredential',
+    'BilibiliLive',
+    'BilibiliUser',
 ]

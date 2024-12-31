@@ -8,76 +8,81 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from nonebot import logger
 from nonebot.exception import ActionFailed
-from sqlalchemy.exc import NoResultFound
 
-from src.database import PixivisionArticleDAL, begin_db_session
+from src.database import SocialMediaContentDAL, begin_db_session
+from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.resource import TemporaryResource
 from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
     OmegaEntity,
     OmegaMessage,
     OmegaMessageSegment,
 )
+from src.service import (
+    OmegaEntityInterface as OmEI,
+)
+from src.service import (
+    OmegaMatcherInterface as OmMI,
+)
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
 from src.service.omega_base.internal import OmegaPixivisionSubSource
+from src.utils import semaphore_gather
 from src.utils.pixiv_api import Pixivision
-from src.utils.process_utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
-    from src.database.internal.subscription_source import SubscriptionSource
     from src.utils.pixiv_api.model.pixivision import PixivisionArticle, PixivisionIllustration
 
+_PIXIVISION_SUB_TYPE: str = SubscriptionSourceType.pixivision.value
+"""微博用户订阅类型"""
 _TMP_FOLDER: TemporaryResource = TemporaryResource('pixivision')
 """图片缓存文件夹"""
 
 
-async def _query_pixivision_sub_source() -> "SubscriptionSource":
+async def _query_pixivision_sub_source() -> 'SubscriptionSource':
     """从数据库查询 Pixivision 订阅源"""
     async with begin_db_session() as session:
         source_res = await OmegaPixivisionSubSource(session=session).query_subscription_source()
     return source_res
 
 
-async def _check_new_article(articles: Sequence["PixivisionIllustration"]) -> list["PixivisionIllustration"]:
+async def _check_new_article(articles: Sequence['PixivisionIllustration']) -> list['PixivisionIllustration']:
     """检查新的 pixivision 特辑文章(数据库中没有的)"""
     async with begin_db_session() as session:
-        new_aids = await PixivisionArticleDAL(session=session).query_not_exists_ids(aids=[x.aid for x in articles])
-    return [x for x in articles if x.aid in new_aids]
+        new_aids = await SocialMediaContentDAL(session=session).query_source_not_exists_mids(
+            source=_PIXIVISION_SUB_TYPE, mids=[str(x.aid) for x in articles]
+        )
+    return [x for x in articles if str(x.aid) in new_aids]
 
 
 async def _add_upgrade_article_content(article: Pixivision) -> None:
-    """在数据库中添加特辑文章信息(仅新增不更新)"""
+    """在数据库中添加特辑文章信息"""
     article_data = await article.query_article()
 
     async with begin_db_session() as session:
-        dal = PixivisionArticleDAL(session=session)
-        try:
-            await dal.query_unique(aid=article.aid)
-        except NoResultFound:
-            await dal.add(
-                aid=article.aid,
-                title=article_data.title_without_mark,
-                description=article_data.description,
-                tags=','.join(x.tag_name for x in article_data.tags_list),
-                artworks_id=','.join(str(x.artwork_id) for x in article_data.artwork_list),
-                url=article.url
-            )
+        await SocialMediaContentDAL(session=session).upsert(
+            source=_PIXIVISION_SUB_TYPE,
+            m_id=str(article.aid),
+            m_type='pixivision_article',
+            m_uid='-1',
+            title=article_data.title_without_mark,
+            content=f'{article_data.description}\n{",".join(x.tag_name for x in article_data.tags_list)}',
+            ref_content=','.join(str(x.artwork_id) for x in article_data.artwork_list),
+        )
 
 
-async def _add_new_pixivision_article(articles: Sequence["PixivisionIllustration"]) -> None:
+async def _add_new_pixivision_article(articles: Sequence['PixivisionIllustration']) -> None:
     """向数据库中写入 Pixivision 的特辑文章(仅新增不更新)"""
     tasks = [_add_upgrade_article_content(article=Pixivision(aid=article.aid)) for article in articles]
     await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
 
 
-async def _add_pixivision_article_artworks_into_database(article_data: "PixivisionArticle") -> None:
+async def _add_pixivision_article_artworks_into_database(article_data: 'PixivisionArticle') -> None:
     """向数据库中写入 Pixivision 特辑文章中的作品"""
     add_artwork_tasks = [
         PixivArtworkCollection(x.artwork_id).add_artwork_into_database_ignore_exists()
@@ -86,7 +91,7 @@ async def _add_pixivision_article_artworks_into_database(article_data: "Pixivisi
     await semaphore_gather(tasks=add_artwork_tasks, semaphore_num=8, return_exceptions=False)
 
 
-async def _add_pixivision_sub_source() -> "SubscriptionSource":
+async def _add_pixivision_sub_source() -> 'SubscriptionSource':
     """在数据库中新增 Pixivision 订阅源"""
     async with begin_db_session() as session:
         sub_source = OmegaPixivisionSubSource(session=session)
@@ -107,7 +112,7 @@ async def delete_pixivision_sub(interface: OmMI) -> None:
     await interface.entity.delete_subscription(subscription_source=source_res)
 
 
-async def _query_subscribed_entity() -> list["Entity"]:
+async def _query_subscribed_entity() -> list['Entity']:
     """查询已经订阅了 Pixivision 的内部 Entity 对象"""
     async with begin_db_session() as session:
         sub_source = OmegaPixivisionSubSource(session=session)
@@ -115,7 +120,7 @@ async def _query_subscribed_entity() -> list["Entity"]:
     return subscribed_entity
 
 
-async def generate_pixivision_illustration_list_preview(page: int = 1) -> "TemporaryResource":
+async def generate_pixivision_illustration_list_preview(page: int = 1) -> 'TemporaryResource':
     """根据 Pixivision Illustration 导览页面内容生成预览图"""
     illustration_result = await Pixivision.query_illustration_list(page=page)
     title = f'Pixivision Illustration - Page {page}'
@@ -132,7 +137,7 @@ async def generate_pixivision_illustration_list_preview(page: int = 1) -> "Tempo
     )
 
 
-async def _generate_pixivision_article_preview(title: str, article_data: "PixivisionArticle") -> "TemporaryResource":
+async def _generate_pixivision_article_preview(title: str, article_data: 'PixivisionArticle') -> 'TemporaryResource':
     """根据 Pixivision 特辑内容生成预览图"""
     return await PixivArtworkProxy.generate_artworks_preview(
         preview_name=title,
@@ -179,7 +184,7 @@ async def format_pixivision_article_message(article: Pixivision, msg_prefix: str
     return send_message
 
 
-async def _msg_sender(entity: "Entity", message: str | OmegaMessage) -> None:
+async def _msg_sender(entity: 'Entity', message: str | OmegaMessage) -> None:
     """向 entity 发送消息"""
     try:
         async with begin_db_session() as session:

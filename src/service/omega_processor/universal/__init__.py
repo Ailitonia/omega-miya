@@ -11,7 +11,7 @@
 from nonebot import get_driver, logger
 from nonebot.internal.adapter import Bot, Event
 from nonebot.matcher import Matcher
-from nonebot.message import event_preprocessor, run_preprocessor, run_postprocessor, event_postprocessor
+from nonebot.message import event_postprocessor, event_preprocessor, run_postprocessor, run_preprocessor
 
 from .cancellation import preprocessor_cancellation
 from .cooldown import preprocessor_global_cooldown, preprocessor_plugin_cooldown
@@ -19,7 +19,7 @@ from .cost import preprocessor_plugin_cost
 from .friendship import postprocessor_friendship
 from .history import postprocessor_history
 from .permission import preprocessor_global_permission, preprocessor_plugin_permission
-from .plugin import startup_init_plugins, preprocessor_plugin_manager
+from .plugin import preprocessor_plugin_manager, startup_init_plugins
 from .rate_limiting import preprocessor_rate_limiting
 from .statistic import postprocessor_statistic
 

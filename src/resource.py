@@ -2,31 +2,32 @@
 @Author         : Ailitonia
 @Date           : 2022/04/05 3:27
 @FileName       : resource.py
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : 本地资源文件模块
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 import abc
 import os
 import pathlib
 import sys
-from contextlib import contextmanager, asynccontextmanager
+from collections.abc import Generator
+from contextlib import asynccontextmanager, contextmanager
 from copy import deepcopy
+from datetime import datetime
 from functools import wraps
 from typing import (
+    IO,
     TYPE_CHECKING,
     Any,
     AsyncContextManager,
     ContextManager,
-    Generator,
-    NoReturn,
-    IO,
     Literal,
-    Optional,
+    NoReturn,
     Self,
-    overload
+    final,
+    overload,
 )
 
 import aiofiles
@@ -34,25 +35,50 @@ import aiofiles
 from src.exception import LocalSourceException
 
 if TYPE_CHECKING:
-    from aiofiles.threadpool.binary import AsyncFileIO
-    from aiofiles.threadpool.text import AsyncTextIOWrapper
     from io import FileIO, TextIOWrapper
 
+    from aiofiles.threadpool.binary import AsyncFileIO
+    from aiofiles.threadpool.text import AsyncTextIOWrapper
 
+
+@final
 class ResourceNotFolderError(LocalSourceException):
     """LocalResource 实例不是文件夹"""
 
+    @property
+    def message(self) -> str:
+        return f'{self.path.as_posix()!r} is not a directory, or directory {self.path.as_posix()!r} is not exists'
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
+
+
+@final
 class ResourceNotFileError(LocalSourceException):
     """LocalResource 实例不是文件"""
 
+    @property
+    def message(self) -> str:
+        return f'{self.path.as_posix()!r} is not a file, or file {self.path.as_posix()!r} is not exists'
 
-_static_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('static')
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
+
+
+_LOG_FOLDER = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('log')
+"""日志文件路径"""
+_STATIC_RESOURCE_FOLDER = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('static')
 """静态资源文件路径"""
-_temporary_resource_folder = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('.tmp')
+_TEMPORARY_RESOURCE_FOLDER = pathlib.Path(os.path.abspath(sys.path[0])).joinpath('.tmp')
 """临时文件文件路径"""
-if not _temporary_resource_folder.exists():  # 初始化临时文件路径所在文件夹
-    _temporary_resource_folder.mkdir()
+
+# 初始化日志文件路径文件夹
+if not _LOG_FOLDER.exists():
+    _LOG_FOLDER.mkdir()
+
+# 初始化临时文件路径文件夹
+if not _TEMPORARY_RESOURCE_FOLDER.exists():
+    _TEMPORARY_RESOURCE_FOLDER.mkdir()
 
 
 class BaseResource(abc.ABC):
@@ -62,10 +88,10 @@ class BaseResource(abc.ABC):
     path: pathlib.Path
 
     @abc.abstractmethod
-    def __init__(self, *args: str | pathlib.PurePath):
+    def __init__(self, *args: str):
         raise NotImplementedError
 
-    def __call__(self, *args: str | pathlib.PurePath) -> Self:
+    def __call__(self, *args: str) -> Self:
         new_obj = deepcopy(self)
         new_obj.path = self.path.joinpath(*args)
         return new_obj
@@ -91,15 +117,15 @@ class BaseResource(abc.ABC):
         """路径目标是否为文件夹且存在"""
         return self.is_exist and self.path.is_dir()
 
-    def raise_not_file(self) -> Optional[NoReturn]:
+    def raise_not_file(self) -> NoReturn | None:
         """路径目标不是文件或不存在时抛出 ResourceNotFileError 异常"""
         if not self.is_file:
-            raise ResourceNotFileError(f'"{self}" is not a file, or file "{self}" is not exists')
+            raise ResourceNotFileError(self.path)
 
-    def raise_not_dir(self) -> Optional[NoReturn]:
+    def raise_not_dir(self) -> NoReturn | None:
         """路径目标不是文件夹或不存在时抛出 ResourceNotFolderError 异常"""
         if not self.is_dir:
-            raise ResourceNotFolderError(f'"{self}" is not a directory, or directory "{self}" is not exists')
+            raise ResourceNotFolderError(self.path)
 
     @staticmethod
     def check_directory(func):
@@ -109,7 +135,7 @@ class BaseResource(abc.ABC):
             if self.path.exists() and self.path.is_dir():
                 return func(self, *args, **kwargs)
             else:
-                raise ResourceNotFolderError(f'"{self}" is not a directory, or directory "{self}" is not exists')
+                raise ResourceNotFolderError(self.path)
         return _wrapper
 
     @staticmethod
@@ -124,12 +150,12 @@ class BaseResource(abc.ABC):
                     pathlib.Path.mkdir(self.path.parent, parents=True)
                 return func(self, *args, **kwargs)
             else:
-                raise ResourceNotFileError(f'"{self}" is not a file, or file "{self}" is not exists')
+                raise ResourceNotFileError(self.path)
         return _wrapper
 
     @property
     def resolve_path(self) -> str:
-        return str(self.path.resolve())
+        return self.path.resolve().as_posix()
 
     @property
     @check_file
@@ -140,23 +166,23 @@ class BaseResource(abc.ABC):
     def open(
             self,
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> ContextManager["TextIOWrapper"]:
+    ) -> ContextManager['TextIOWrapper']:
         ...
 
     @overload
     def open(
             self,
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> ContextManager["FileIO"]:
+    ) -> ContextManager['FileIO']:
         ...
 
     @contextmanager
     @check_file
-    def open(self, mode, encoding: Optional[str] = None, **kwargs) -> Generator[IO, Any, None]:
+    def open(self, mode, encoding: str | None = None, **kwargs) -> Generator[IO, Any, None]:
         """返回文件 handle"""
         with self.path.open(mode=mode, encoding=encoding, **kwargs) as _fh:
             yield _fh
@@ -165,23 +191,23 @@ class BaseResource(abc.ABC):
     def async_open(
             self,
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> AsyncContextManager["AsyncTextIOWrapper"]:
+    ) -> AsyncContextManager['AsyncTextIOWrapper']:
         ...
 
     @overload
     def async_open(
             self,
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
-            encoding: Optional[str] = None,
+            encoding: str | None = None,
             **kwargs
-    ) -> AsyncContextManager["AsyncFileIO"]:
+    ) -> AsyncContextManager['AsyncFileIO']:
         ...
 
     @asynccontextmanager
     @check_file
-    async def async_open(self, mode, encoding: Optional[str] = None, **kwargs):
+    async def async_open(self, mode, encoding: str | None = None, **kwargs):
         """返回文件 async handle"""
         async with aiofiles.open(file=self.path, mode=mode, encoding=encoding, **kwargs) as _afh:
             yield _afh
@@ -196,12 +222,55 @@ class BaseResource(abc.ABC):
                     file_list.append(self.__class__(dir_path, file_name))
         return file_list
 
+    @check_directory
+    def list_current_files(self) -> list[Self]:
+        """遍历文件夹内所有文件并返回文件列表(不包含子目录)"""
+        file_list = []
+        for file_name in os.listdir(self.path):
+            file = self(file_name)
+            if file.is_file:
+                file_list.append(file)
+        return file_list
+
+
+class AnyResource(BaseResource):
+    """任意位置资源文件"""
+
+    def __init__(self, path: str | pathlib.PurePath, /, *args: str):
+        self.path: pathlib.Path = pathlib.Path(path)
+        if args:
+            self.path = self.path.joinpath(*args)
+
+
+class LogFileResource(BaseResource):
+    """日志文件"""
+
+    def __init__(self):
+        self.path: pathlib.Path = deepcopy(_LOG_FOLDER)
+        self.timestamp_str = datetime.now().strftime('%Y%m%d-%H%M%S')
+
+    @property
+    def debug(self) -> pathlib.Path:
+        return self(f'{self.timestamp_str}-DEBUG.log').path
+
+    @property
+    def info(self) -> pathlib.Path:
+        return self(f'{self.timestamp_str}-INFO.log').path
+
+    @property
+    def warring(self) -> pathlib.Path:
+        return self(f'{self.timestamp_str}-WARRING.log').path
+
+    @property
+    def error(self) -> pathlib.Path:
+        return self(f'{self.timestamp_str}-ERROR.log').path
+
 
 class StaticResource(BaseResource):
     """静态资源文件"""
 
-    def __init__(self, *args: str | pathlib.PurePath):
-        self.path: pathlib.Path = deepcopy(_static_resource_folder)
+    def __init__(self, *args: str):
+        self.path: pathlib.Path = deepcopy(_STATIC_RESOURCE_FOLDER)
         if args:
             self.path = self.path.joinpath(*args)
 
@@ -209,14 +278,16 @@ class StaticResource(BaseResource):
 class TemporaryResource(BaseResource):
     """临时资源文件"""
 
-    def __init__(self, *args: str | pathlib.PurePath):
-        self.path: pathlib.Path = deepcopy(_temporary_resource_folder)
+    def __init__(self, *args: str):
+        self.path: pathlib.Path = deepcopy(_TEMPORARY_RESOURCE_FOLDER)
         if args:
             self.path = self.path.joinpath(*args)
 
 
 __all__ = [
+    'AnyResource',
     'BaseResource',
+    'LogFileResource',
     'StaticResource',
     'TemporaryResource',
     'ResourceNotFolderError',

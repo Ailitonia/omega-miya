@@ -109,10 +109,10 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: Bot, event: Even
                 echo_message = '权限不足! 需要'
                 if processor_state.level <= 100:
                     echo_message += f'权限等级 Level-{processor_state.level} 或'
-                    echo_message += f'权限节点 "{processor_state.name}.{processor_state.auth_node}", '
+                    echo_message += f'权限节点 "{plugin_name}.{processor_state.auth_node}", '
                     echo_message += f'请联系管理员使用 "/SetOmegaLevel {processor_state.level}" 提升权限等级或配置插件对应权限节点'
                 else:
-                    echo_message += f'权限节点 "{processor_state.name}.{processor_state.auth_node}", '
+                    echo_message += f'权限节点 "{plugin_name}.{processor_state.auth_node}", '
                     echo_message += '请联系管理员配置插件对应权限节点'
                 await matcher.send(message=echo_message)
             except Exception as e:

@@ -15,23 +15,23 @@ from typing import TYPE_CHECKING, Literal, Optional
 
 from nonebot.log import logger
 from pydantic import ValidationError
-from rapidfuzz import process, fuzz
+from rapidfuzz import fuzz, process
 from zhconv import convert as zh_convert
 
-from src.compat import parse_json_as, dump_json_as
+from src.compat import dump_json_as, parse_json_as
 from src.resource import TemporaryResource
-from src.utils.common_api import BaseCommonAPI
-from src.utils.process_utils import semaphore_gather
+from src.utils import BaseCommonAPI, semaphore_gather
 from .config import shindan_maker_plugin_config
 from .helper import (
     parse_searching_result_page,
     parse_shindan_page_title,
     parse_shindan_page_token,
-    parse_shindan_result_page
+    parse_shindan_result_page,
 )
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import CookieTypes
+
     from .model import ShindanMakerResult, ShindanMakerSearchResult
 
 _SHINDAN_CACHE: dict[str, int] = {}
@@ -72,7 +72,7 @@ class ShindanMaker(BaseCommonAPI):
         return {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0'}
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     @classmethod
@@ -80,7 +80,7 @@ class ShindanMaker(BaseCommonAPI):
             cls,
             url: str,
             *,
-            custom_file_name: Optional[str] = None,
+            custom_file_name: str | None = None,
             subdir: str | None = None,
     ) -> TemporaryResource:
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
@@ -125,8 +125,8 @@ class ShindanMaker(BaseCommonAPI):
     @classmethod
     async def ranking_list(
             cls,
-            mode: Optional[Literal['pickup', 'latest', 'daily', 'monthly', 'favorite', 'favhot', 'overall']] = None
-    ) -> list["ShindanMakerSearchResult"]:
+            mode: Literal['pickup', 'latest', 'daily', 'monthly', 'favorite', 'favhot', 'overall'] | None = None
+    ) -> list['ShindanMakerSearchResult']:
         """列出占卜排行榜
 
         :param mode: 排序方式, 默认: 按热度, pickup: 最新热度, latest: 最新添加, daily: 每日排名, monthly: 每月排名, favorite: 收藏数, favhot: 最新收藏, overall: 综合
@@ -143,11 +143,11 @@ class ShindanMaker(BaseCommonAPI):
             keyword: str,
             *,
             mode: Literal['search', 'themes'] = 'search',
-            last_number: Optional[int] = None,
-            page: Optional[int] = None,
-            order: Optional[Literal['popular', 'favorites']] = None
+            last_number: int | None = None,
+            page: int | None = None,
+            order: Literal['popular', 'favorites'] | None = None
 
-    ) -> list["ShindanMakerSearchResult"]:
+    ) -> list['ShindanMakerSearchResult']:
         """搜索占卜
 
         :param keyword: 搜索关键词
@@ -168,7 +168,7 @@ class ShindanMaker(BaseCommonAPI):
         return await parse_searching_result_page(content=await cls._get_resource_as_text(url=search_url, params=params))
 
     @classmethod
-    async def complex_ranking(cls) -> list["ShindanMakerSearchResult"]:
+    async def complex_ranking(cls) -> list['ShindanMakerSearchResult']:
         """通过排行榜获取更多的占卜"""
         searching_tasks = [
             cls.ranking_list(),
@@ -186,7 +186,7 @@ class ShindanMaker(BaseCommonAPI):
         return result
 
     @classmethod
-    async def complex_search(cls, keyword: str) -> list["ShindanMakerSearchResult"]:
+    async def complex_search(cls, keyword: str) -> list['ShindanMakerSearchResult']:
         """搜索更多的占卜"""
         keyword_ht = zh_convert(keyword, 'zh-hant')
 
@@ -206,7 +206,7 @@ class ShindanMaker(BaseCommonAPI):
         await cls._upgrade_shindan_cache(data={item.name: item.id for item in result})
         return result
 
-    async def query_shindan_result(self, input_name: str) -> "ShindanMakerResult":
+    async def query_shindan_result(self, input_name: str) -> 'ShindanMakerResult':
         """获取占卜结果
 
         :param input_name: 占卜对象名称
@@ -246,7 +246,7 @@ class ShindanMaker(BaseCommonAPI):
         return await parse_shindan_result_page(content=self._parse_content_as_text(response=response))
 
     @classmethod
-    async def fuzzy_shindan(cls, shindan: str, input_name: str) -> Optional["ShindanMakerResult"]:
+    async def fuzzy_shindan(cls, shindan: str, input_name: str) -> Optional['ShindanMakerResult']:
         """通过模糊查找进行占卜"""
         if not _SHINDAN_CACHE:
             await cls._read_shindan_cache()

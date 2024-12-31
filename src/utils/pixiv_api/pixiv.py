@@ -10,32 +10,32 @@
 
 import re
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from urllib.parse import quote
 
 from pydantic import ValidationError
 
 from src.exception import WebSourceException
 from .api_base import BasePixivAPI
-from .exception import PixivApiError
 from .helper import PixivParser
 from .model import (
+    PixivArtworkCompleteDataModel,
     PixivArtworkDataModel,
     PixivArtworkPageModel,
-    PixivArtworkUgoiraMeta,
-    PixivArtworkCompleteDataModel,
     PixivArtworkRecommendModel,
+    PixivArtworkUgoiraMeta,
+    PixivBookmark,
+    PixivDiscoveryModel,
+    PixivFollowLatestIllust,
+    PixivFollowUser,
+    PixivGlobalData,
     PixivRankingModel,
     PixivSearchingResultModel,
-    PixivDiscoveryModel,
     PixivTopModel,
-    PixivGlobalData,
-    PixivUserDataModel,
     PixivUserArtworkDataModel,
+    PixivUserDataModel,
     PixivUserModel,
     PixivUserSearchingModel,
-    PixivFollowLatestIllust,
-    PixivBookmark
 )
 
 
@@ -109,20 +109,27 @@ class PixivCommon(BasePixivAPI):
         :return: dict, 原始返回数据
         """
         word = quote(word, encoding='utf-8')
-        params = {
-            'word': word, 'order': order, 'mode': mode_, 'p': page, 's_mode': s_mode_, 'type': type_, 'lang': lang_}
-        if ai_type:
-            params.update({'ai_type': ai_type})
-        if ratio_:
+        params: dict[str, str] = {
+            'word': word,
+            'order': order,
+            'mode': mode_,
+            'p': str(page),
+            's_mode': s_mode_,
+            'type': type_,
+            'lang': lang_,
+        }
+        if ai_type is not None:
+            params.update({'ai_type': str(ai_type)})
+        if ratio_ is not None:
             params.update({'ratio': ratio_})
-        if scd_:
+        if scd_ is not None:
             params.update({'scd': scd_.strftime('%Y-%m-%d')})
-        if ecd_:
+        if ecd_ is not None:
             params.update({'ecd': ecd_.strftime('%Y-%m-%d')})
-        if blt_:
-            params.update({'blt': blt_})
-        if bgt_:
-            params.update({'bgt': bgt_})
+        if blt_ is not None:
+            params.update({'blt': str(blt_)})
+        if bgt_ is not None:
+            params.update({'bgt': str(bgt_)})
 
         searching_url = f'{cls._get_root_url()}/ajax/search/{mode}/{word}'
         searching_data = await cls._get_json(url=searching_url, params=params)
@@ -130,9 +137,15 @@ class PixivCommon(BasePixivAPI):
 
     @classmethod
     async def search_by_default_popular_condition(cls, word: str, *, page: int = 1) -> PixivSearchingResultModel:
-        """Pixiv 搜索 (使用热度作为过滤条件筛选条件) (需要pixiv高级会员)"""
+        """Pixiv 搜索 (默认使用 illust/safe 作为过滤条件, 按热度排序) (需要pixiv高级会员)"""
         return await cls.search(
-            word=word, mode='illustrations', page=page, order='popular_d', mode_='safe', type_='illust', ai_type=1
+            word=word,
+            mode='illustrations',
+            page=page,
+            order='popular_d',
+            mode_='safe',
+            type_='illust',
+            ai_type=1,
         )
 
     @classmethod
@@ -217,7 +230,7 @@ class PixivArtwork(PixivCommon):
         self.recommend_url = f'{self.data_url}/recommend/init'
 
         # 实例缓存
-        self.artwork_model: Optional[PixivArtworkCompleteDataModel] = None
+        self.artwork_model: PixivArtworkCompleteDataModel | None = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(pid={self.pid})'
@@ -244,19 +257,23 @@ class PixivArtwork(PixivCommon):
                 artwork_data = await self._query_data()
             except ValidationError:
                 raise
+            except WebSourceException as e:
+                raise WebSourceException(e.status_code, f'Query {self!r} data failed') from e
             except Exception as e:
-                raise WebSourceException(f'Query artwork(pid={self.pid}) data failed, {e}') from e
+                raise WebSourceException(404, f'Query {self!r} data failed, {e!r}') from e
             if artwork_data.error:
-                raise PixivApiError(f'Query artwork(pid={self.pid}) data failed, {artwork_data.message}')
+                raise WebSourceException(404, f'Query {self!r} data failed, {artwork_data.message}')
 
             try:
                 page_data = await self._query_page_date()
             except ValidationError:
                 raise
+            except WebSourceException as e:
+                raise WebSourceException(e.status_code, f'Query {self!r} data failed') from e
             except Exception as e:
-                raise WebSourceException(f'Query artwork(pid={self.pid}) page failed, {e}') from e
+                raise WebSourceException(404, f'Query {self!r} page failed, {e!r}') from e
             if page_data.error:
-                raise PixivApiError(f'Query artwork(pid={self.pid}) page failed, {page_data.message}')
+                raise WebSourceException(404, f'Query {self!r} page failed, {page_data.message}')
 
             # 处理作品tag
             tags = artwork_data.body.tags.all_tags
@@ -290,12 +307,9 @@ class PixivArtwork(PixivCommon):
             # 如果是动图额外处理动图资源
             illust_type = artwork_data.body.illustType
             if illust_type == 2:
-                try:
-                    ugoira_data = await self._query_ugoira_meta()
-                    if ugoira_data.error:
-                        raise PixivApiError(f'Query artwork(pid={self.pid}) ugoira meta failed, {ugoira_data.message}')
-                except Exception as e:
-                    raise WebSourceException(f'Query artwork(pid={self.pid}) ugoira meta failed, {e}') from e
+                ugoira_data = await self._query_ugoira_meta()
+                if ugoira_data.error:
+                    raise WebSourceException(404, f'Query {self!r} ugoira meta failed, {ugoira_data.message}')
                 ugoira_meta = ugoira_data.body
             else:
                 ugoira_meta = None
@@ -356,9 +370,10 @@ class PixivUser(PixivCommon):
         self.user_url = f'{self._get_root_url()}/users/{uid}'
         self.data_url = f'{self._get_root_url()}/ajax/user/{uid}'
         self.profile_url = f'{self._get_root_url()}/ajax/user/{uid}/profile/all'
+        self.follow_user_url = f'https://www.pixiv.net/ajax/user/{self.uid}/following'
 
         # 实例缓存
-        self.user_model: Optional[PixivUserModel] = None
+        self.user_model: PixivUserModel | None = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(uid={self.uid})'
@@ -398,11 +413,11 @@ class PixivUser(PixivCommon):
         if not isinstance(self.user_model, PixivUserModel):
             _user_data = await self._query_user_data()
             if _user_data.error:
-                raise PixivApiError(f'Query user(uid={self.uid}) data failed, {_user_data.message}')
+                raise WebSourceException(404, f'Query {self!r} data failed, {_user_data.message}')
 
             _user_artwork_data = await self._query_user_artwork_data()
             if _user_artwork_data.error:
-                raise PixivApiError(f'Query user(uid={self.uid}) artwork data failed, {_user_artwork_data.message}')
+                raise WebSourceException(404, f'Query {self!r} artwork data failed, {_user_artwork_data.message}')
 
             _data = {
                 'user_id': _user_data.body.userId,
@@ -421,7 +436,32 @@ class PixivUser(PixivCommon):
 
     async def query_user_bookmarks(self, page: int = 1) -> PixivBookmark:
         """获取该用户的收藏, 默认每页 48 张作品"""
+        page = 1 if page < 1 else page
         return await self.query_bookmarks(uid=self.uid, offset=48 * (page - 1))
+
+    async def query_user_following_users(
+            self,
+            offset: int = 24,
+            limit: int = 24,
+            *,
+            rest: Literal['show', 'hide'] = 'show',
+            tag: str | None = None,
+            accepting_requests: int = 0,
+            lang: str = 'zh',
+    ) -> PixivFollowUser:
+        """获取用户作品信息"""
+        params = {
+            'offset': offset,
+            'limit': limit,
+            'rest': rest,
+            'acceptingRequests': accepting_requests,
+            'lang': lang,
+        }
+        if tag is not None:
+            params.update({'tag': tag})
+
+        following_user_data = await self._get_json(url=self.follow_user_url, params=params)
+        return PixivFollowUser.model_validate(following_user_data)
 
 
 __all__ = [

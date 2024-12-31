@@ -8,23 +8,24 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Literal, Optional, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 from src.service.artwork_proxy import ALLOW_ARTWORK_ORIGIN
 from .sites import (
+    BehoimiArtworkCollection,
     DanbooruArtworkCollection,
     GelbooruArtworkCollection,
-    BehoimiArtworkCollection,
     KonachanArtworkCollection,
     KonachanSafeArtworkCollection,
-    YandereArtworkCollection,
     LocalCollectedArtworkCollection,
     NoneArtworkCollection,
     PixivArtworkCollection,
+    YandereArtworkCollection,
 )
 
 if TYPE_CHECKING:
     from src.database.internal.artwork_collection import ArtworkCollection as DBArtworkCollection
+
     from .typing import ArtworkCollectionType, CollectedArtwork
 
 
@@ -68,7 +69,7 @@ def get_artwork_collection_type(origin: Literal['none', None] = None) -> type[No
     ...
 
 
-def get_artwork_collection_type(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -> "ArtworkCollectionType":
+def get_artwork_collection_type(origin: ALLOW_ARTWORK_ORIGIN | None = None) -> 'ArtworkCollectionType':
     """根据 origin 名称获取 ArtworkCollection 类"""
     match origin:
         case 'pixiv':
@@ -89,7 +90,7 @@ def get_artwork_collection_type(origin: Optional[ALLOW_ARTWORK_ORIGIN] = None) -
             return NoneArtworkCollection
 
 
-def get_artwork_collection(artwork: "DBArtworkCollection") -> "CollectedArtwork":
+def get_artwork_collection(artwork: 'DBArtworkCollection') -> 'CollectedArtwork':
     """根据数据库查询 ArtworkCollection 结果获取对应的 ArtworkCollection 实例"""
     artwork_collection_type = get_artwork_collection_type(origin=artwork.origin)  # type: ignore
     return artwork_collection_type(artwork_id=artwork.aid)

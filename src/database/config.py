@@ -12,7 +12,7 @@ import os
 import pathlib
 import sys
 from enum import StrEnum, unique
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
@@ -55,7 +55,7 @@ class DatabaseType(BaseModel):
         raise NotImplementedError
 
     @property
-    def table_args(self) -> Optional[dict[str, Any]]:
+    def table_args(self) -> dict[str, Any] | None:
         return None
 
 
@@ -75,9 +75,9 @@ class MysqlDatabaseConfig(DatabaseType):
             url=f'{self.database}+{self.db_driver.value}://{self.db_user}'
                 f':{quote(str(self.db_password))}@{self.db_host}:{self.db_port}/{self.db_name}',
             connect_args={
-                "pool_size": 10,
-                "max_overflow": 20,
-                'connect_args': {"use_unicode": True, "charset": "utf8mb4"}
+                'pool_size': 10,
+                'max_overflow': 20,
+                'connect_args': {'use_unicode': True, 'charset': 'utf8mb4'}
             }
         )
 
@@ -102,9 +102,9 @@ class PostgresqlDatabaseConfig(DatabaseType):
             url=f'{self.database}+{self.db_driver.value}://{self.db_user}'
                 f':{quote(str(self.db_password))}@{self.db_host}:{self.db_port}/{self.db_name}',
             connect_args={
-                "pool_size": 10,
-                "max_overflow": 20,
-                'connect_args': {"server_settings": {"jit": "off"}}
+                'pool_size': 10,
+                'max_overflow': 20,
+                'connect_args': {'server_settings': {'jit': 'off'}}
             }
         )
 

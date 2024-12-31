@@ -9,15 +9,17 @@
 """
 
 import sys
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from matplotlib import font_manager, pyplot as plt
+from matplotlib import font_manager
+from matplotlib import pyplot as plt
 
 from .consts import STATISTICS_TOOLS_RESOURCE
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
+
     from src.resource import TemporaryResource
 
 # 添加中文字体
@@ -46,11 +48,11 @@ def get_font_names() -> list[str]:
 
 def create_simple_figure(
         *,
-        num: Optional[int] = None,
-        figsize: Optional[tuple[float, float]] = None,
-        dpi: Optional[float] = None,
+        num: int | None = None,
+        figsize: tuple[float, float] | None = None,
+        dpi: float | None = None,
         **kwargs
-) -> "Figure":
+) -> 'Figure':
     """Create an empty figure with no Axes"""
     fig = plt.figure(num=num, figsize=figsize, dpi=dpi, **kwargs)
     return fig
@@ -58,23 +60,23 @@ def create_simple_figure(
 
 def create_simple_subplots_figure(
         *,
-        figsize: Optional[tuple[float, float]] = None,
-        dpi: Optional[float] = None,
-) -> tuple["Figure", "Axes"]:
+        figsize: tuple[float, float] | None = None,
+        dpi: float | None = None,
+) -> tuple['Figure', 'Axes']:
     """Create a figure with a single Axes"""
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, dpi=dpi)
     return fig, ax
 
 
 def output_figure(
-        fig: "Figure",
+        fig: 'Figure',
         output_filename: str,
         *,
         dpi: int = 300,
         format_: str = 'JPG',
         bbox_inches: str = 'tight',
         **kwargs
-) -> "TemporaryResource":
+) -> 'TemporaryResource':
     """保存并导出生成的图表"""
     output_file = STATISTICS_TOOLS_RESOURCE.default_output_folder(output_filename)
     with output_file.open('wb') as f:

@@ -8,7 +8,8 @@
 @Software       : PyCharm 
 """
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -23,7 +24,7 @@ class BaseApiReturn(BaseApiModel):
     error: bool
     body: Any
     message: str
-    exception: Optional[str] = None
+    exception: str | None = None
 
     @property
     def success(self) -> bool:

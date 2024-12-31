@@ -35,7 +35,7 @@ class Yandex(BaseImageSearcherAPI):
         return cls._get_root_url(*args, **kwargs)
 
     @classmethod
-    def _get_default_headers(cls) -> "HeaderTypes":
+    def _get_default_headers(cls) -> 'HeaderTypes':
         headers = cls._get_omega_requests_default_headers()
         headers.update({
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,'
@@ -47,7 +47,7 @@ class Yandex(BaseImageSearcherAPI):
         return headers
 
     @classmethod
-    def _get_default_cookies(cls) -> "CookieTypes":
+    def _get_default_cookies(cls) -> 'CookieTypes':
         return None
 
     @property

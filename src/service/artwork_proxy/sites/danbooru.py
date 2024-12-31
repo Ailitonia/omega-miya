@@ -40,7 +40,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
 
     @staticmethod
-    def _get_variant_page_file(variant: Optional["PostVariantTypes"]) -> ArtworkPageFile:
+    def _get_variant_page_file(variant: Optional['PostVariantTypes']) -> ArtworkPageFile:
         if variant is None:
             model_data = {
                 'url': 'https://example.com/FileNotFound',
@@ -58,11 +58,11 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return ArtworkPageFile.model_validate(model_data)
 
     @classmethod
-    def _get_preview_file(cls, media_asset: "PostMediaAsset") -> ArtworkPageFile:
+    def _get_preview_file(cls, media_asset: 'PostMediaAsset') -> ArtworkPageFile:
         return cls._get_variant_page_file(variant=media_asset.variant_type_180)
 
     @classmethod
-    def _get_regular_file(cls, media_asset: "PostMediaAsset") -> ArtworkPageFile:
+    def _get_regular_file(cls, media_asset: 'PostMediaAsset') -> ArtworkPageFile:
         if media_asset.variant_type_sample is not None:
             return cls._get_variant_page_file(variant=media_asset.variant_type_sample)
         elif media_asset.variant_type_720 is not None:
@@ -71,7 +71,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             return cls._get_variant_page_file(variant=media_asset.variant_type_360)
 
     @classmethod
-    def _get_original_file(cls, media_asset: "PostMediaAsset") -> ArtworkPageFile:
+    def _get_original_file(cls, media_asset: 'PostMediaAsset') -> ArtworkPageFile:
         if media_asset.variant_type_full is not None:
             return cls._get_variant_page_file(variant=media_asset.variant_type_full)
         else:
@@ -91,7 +91,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return [x.id for x in artworks_data]
 
     @classmethod
-    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+    async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data]
 
@@ -161,6 +161,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'height': artwork_data.image_height,
             'tags': tags_general,
             'description': description,
+            'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
                 'preview_file': self._get_preview_file(media_asset=artwork_data.media_asset),
@@ -185,8 +186,8 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
     async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
         artwork_data = await self.query()
 
-        artist = f"Artist: {artwork_data.uname}"
-        artist = f"{artist[:text_len_limit]}..." if len(artist) > text_len_limit else artist
+        artist = f'Artist: {artwork_data.uname}'
+        artist = f'{artist[:text_len_limit]}...' if len(artist) > text_len_limit else artist
 
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}\n{artist}'
 

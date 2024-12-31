@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='帮我选',
     description='【选择困难症帮助器插件】\n'
@@ -22,6 +21,5 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
 
 __all__ = []

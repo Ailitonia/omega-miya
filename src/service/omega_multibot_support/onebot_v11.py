@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11.event import Event
@@ -16,11 +16,12 @@ from nonebot.exception import AdapterException, IgnoredException
 from nonebot.log import logger
 from nonebot.message import event_preprocessor, run_preprocessor
 from nonebot.params import Depends
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.compat import AnyHttpUrlStr as AnyHttpUrl, parse_obj_as
+from src.compat import AnyHttpUrlStr as AnyHttpUrl
+from src.compat import parse_obj_as
 from src.database import BotSelfDAL, EntityDAL, get_db_session
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
@@ -67,13 +68,13 @@ class GroupInfo(BaseOneBotModel):
     group_name: str
     member_count: int
     max_member_count: int
-    group_memo: Optional[str] = ''
+    group_memo: str | None = ''
     group_create_time: int = 0
     group_level: int = 0
 
 
 class GuildServiceProfile(BaseOneBotModel):
-    """Api /get_guild_service_profile 频道系统内BOT的资料 返回值
+    """API /get_guild_service_profile 频道系统内BOT的资料 返回值
 
     - nickname: 昵称
     - tiny_id: 自身的ID
@@ -85,7 +86,7 @@ class GuildServiceProfile(BaseOneBotModel):
 
 
 class GuildInfo(BaseOneBotModel):
-    """Api /get_guild_list 频道列表
+    """API /get_guild_list 频道列表
     正常情况下响应 GuildInfo 数组, 未加入任何频道响应 null
 
     - guild_id, 频道ID
@@ -98,7 +99,7 @@ class GuildInfo(BaseOneBotModel):
 
 
 class ChannelInfo(BaseOneBotModel):
-    """Api /get_guild_channel_list 子频道信息
+    """API /get_guild_channel_list 子频道信息
 
     - owner_guild_id: 所属频道ID
     - channel_id: 子频道ID
@@ -165,17 +166,17 @@ class VersionInfo(BaseOneBotModel):
     app_name: str
     app_version: str
     protocol_version: str
-    app_full_name: Optional[str] = None
-    coolq_edition: Optional[str] = None
-    coolq_directory: Optional[str] = None
+    app_full_name: str | None = None
+    coolq_edition: str | None = None
+    coolq_directory: str | None = None
     is_go_cqhttp: bool = Field(default=False, alias='go-cqhttp')
-    protocol: Optional[int] = Field(None, alias='protocol_name')
-    plugin_version: Optional[str] = None
-    plugin_build_number: Optional[int] = None
-    plugin_build_configuration: Optional[str] = None
-    runtime_version: Optional[str] = None
-    runtime_os: Optional[str] = None
-    version: Optional[str] = None
+    protocol: int | None = Field(None, alias='protocol_name')
+    plugin_version: str | None = None
+    plugin_build_number: int | None = None
+    plugin_build_configuration: str | None = None
+    runtime_version: str | None = None
+    runtime_os: str | None = None
+    version: str | None = None
 
     model_config = ConfigDict(extra='ignore')
 
@@ -300,8 +301,16 @@ async def __obv11_bot_connect(
 
     except AdapterException as e:
         logger.warning(
-            f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, guild api not supported, {e}'
+            f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, '
+            f'the OneBot V11 client does not support the guild API, {e}'
         )
+    except ValidationError as e:
+        logger.warning(
+            f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, '
+            f'the OneBot V11 client guild API returns data out of expected, {e}'
+        )
+    except Exception as e:
+        logger.error(f'{event.bot_type}: {bot.self_id}, Upgrade guild/channel data failed, {e}')
 
     logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, All entity data upgraded Success')
 

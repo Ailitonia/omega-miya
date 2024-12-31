@@ -11,7 +11,7 @@
 from src.resource import StaticResource, TemporaryResource
 
 
-class ArtworkProxyPathConfig(object):
+class ArtworkProxyPathConfig:
     """作品本地缓存路径配置"""
     _default_text_font_name: str = 'SourceHanSansSC-Regular.otf'
     _default_theme_font_name: str = 'fzzxhk.ttf'

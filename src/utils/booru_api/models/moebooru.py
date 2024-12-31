@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -22,8 +22,8 @@ class BaseMoebooruModel(BaseModel):
 class Post(BaseMoebooruModel):
     id: int
     author: str
-    creator_id: Optional[int] = None
-    approver_id: Optional[int] = None
+    creator_id: int | None = None
+    approver_id: int | None = None
     tags: str
     rating: Literal['s', 'q', 'e']
     change: int
@@ -34,25 +34,25 @@ class Post(BaseMoebooruModel):
     height: int
     preview_width: int
     preview_height: int
-    actual_preview_width: Optional[int] = None
-    actual_preview_height: Optional[int] = None
+    actual_preview_width: int | None = None
+    actual_preview_height: int | None = None
     sample_height: int
     sample_width: int
-    sample_file_size: Optional[int] = None
-    jpeg_width: Optional[int] = None
-    jpeg_height: Optional[int] = None
-    jpeg_file_size: Optional[int] = None
-    file_ext: Optional[str] = None
+    sample_file_size: int | None = None
+    jpeg_width: int | None = None
+    jpeg_height: int | None = None
+    jpeg_file_size: int | None = None
+    file_ext: str | None = None
     file_size: int
-    file_url: Optional[str] = None
-    jpeg_url: Optional[str] = None
-    preview_url: Optional[str] = None
-    sample_url: Optional[str] = None
-    frames_pending_string: Optional[str] = None
-    frames_pending: Optional[list[Any]] = None
-    frames_string: Optional[str] = None
-    frames: Optional[list[Any]] = None
-    parent_id: Optional[int] = None
+    file_url: str | None = None
+    jpeg_url: str | None = None
+    preview_url: str | None = None
+    sample_url: str | None = None
+    frames_pending_string: str | None = None
+    frames_pending: list[Any] | None = None
+    frames_string: str | None = None
+    frames: list[Any] | None = None
+    parent_id: int | None = None
     has_children: bool
     status: str
     is_rating_locked: bool = False
@@ -60,15 +60,15 @@ class Post(BaseMoebooruModel):
     is_pending: bool = False
     is_held: bool = True
     is_note_locked: bool = False
-    last_noted_at: Optional[int] = None
-    last_commented_at: Optional[int] = None
+    last_noted_at: int | None = None
+    last_commented_at: int | None = None
     created_at: Any = None
     updated_at: Any = None
 
 
 class SimilarPosts(BaseMoebooruModel):
     posts: list[Post]
-    search_id: Optional[int] = None
+    search_id: int | None = None
     success: bool
 
 
@@ -83,8 +83,8 @@ class Tag(BaseMoebooruModel):
 class Artist(BaseMoebooruModel):
     id: int
     name: str
-    alias_id: Optional[int] = None
-    group_id: Optional[int] = None
+    alias_id: int | None = None
+    group_id: int | None = None
     urls: list[str]
 
 
@@ -92,7 +92,7 @@ class Comment(BaseMoebooruModel):
     id: int
     post_id: int
     creator: str
-    creator_id: Optional[int] = None  # Anonymous creator
+    creator_id: int | None = None  # Anonymous creator
     body: str
     created_at: Any = None
 
@@ -115,7 +115,7 @@ class Note(BaseMoebooruModel):
     width: int
     height: int
     is_active: bool
-    creator_id: Optional[int] = None  # Anonymous creator
+    creator_id: int | None = None  # Anonymous creator
     post_id: int
     body: str
     version: int
@@ -130,9 +130,9 @@ class User(BaseMoebooruModel):
 
 class Forum(BaseMoebooruModel):
     id: int
-    parent_id: Optional[int] = None
+    parent_id: int | None = None
     creator: str
-    creator_id: Optional[int] = None  # Anonymous creator
+    creator_id: int | None = None  # Anonymous creator
     title: str
     body: str
     pages: int
@@ -145,8 +145,8 @@ class Pool(BaseMoebooruModel):
     user_id: int
     is_public: bool
     post_count: int
-    description: Optional[str] = None
-    posts: Optional[list[Post]] = None
+    description: str | None = None
+    posts: list[Post] | None = None
     created_at: Any = None
     updated_at: Any = None
 

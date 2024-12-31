@@ -10,7 +10,6 @@
 
 from .image_util import ImageUtils
 
-
 __all__ = [
     'ImageUtils'
 ]

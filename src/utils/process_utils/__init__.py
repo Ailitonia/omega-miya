@@ -10,34 +10,35 @@
 
 import asyncio
 import inspect
+import random
 from asyncio import Future
+from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, Literal, ParamSpec, Sequence, TypeVar, overload
+from typing import Any, Literal, overload
 
 from nonebot import logger
 
-P = ParamSpec("P")
-T = TypeVar("T")
-R = TypeVar("R")
 
-
-def run_async_delay(delay_time: float = 5):
+def run_async_delay(delay_time: float = 5, *, random_sigma: float | None = None):
     """一个用于包装 async function 使其延迟运行的装饰器
 
     :param delay_time: 延迟的时间, 单位秒
+    :param random_sigma: 启用延迟随机分布的标准差
     """
 
-    def decorator(func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
+    def decorator[** P, R](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
         if not inspect.iscoroutinefunction(func):
             raise ValueError('The decorated function must be coroutine function')
 
         @wraps(func)
         async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            delay = abs(random.gauss(delay_time, random_sigma)) if random_sigma is not None else delay_time
             _module = inspect.getmodule(func)
             logger.opt(colors=True).debug(
                 f'<lc>Decorator RunAsyncDelay</lc> | <ly>{_module.__name__ if _module is not None else "Unknown"}.'
-                f'{func.__name__}</ly> <c>></c> will delay execution after {delay_time} second(s)')
-            await asyncio.sleep(delay=delay_time)
+                f'{func.__name__}</ly> <c>></c> will delay execution after {delay:.2f} second(s)'
+            )
+            await asyncio.sleep(delay=delay)
             return await func(*args, **kwargs)
 
         return _wrapper
@@ -46,7 +47,7 @@ def run_async_delay(delay_time: float = 5):
 
 
 @overload
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -57,7 +58,7 @@ async def semaphore_gather(
 
 
 @overload
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -68,7 +69,7 @@ async def semaphore_gather(
 
 
 @overload
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -78,7 +79,7 @@ async def semaphore_gather(
     ...
 
 
-async def semaphore_gather(
+async def semaphore_gather[T](
         tasks: Sequence[Future[T] | Coroutine[Any, Any, T] | Awaitable[T]],
         semaphore_num: int,
         *,
@@ -150,5 +151,5 @@ async def semaphore_gather(
 
 __all__ = [
     'run_async_delay',
-    'semaphore_gather'
+    'semaphore_gather',
 ]

@@ -20,6 +20,6 @@ __plugin_meta__ = PluginMetadata(
 )
 
 from . import manual_update_tools as manual_update_tools
-from . import scheduler as scheduler
+from . import scheduled_tasks as tasks
 
 __all__ = []

@@ -16,7 +16,8 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command
 from nonebot.rule import to_me
 
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
 from src.utils.bilibili_api import BilibiliCredential
 
 

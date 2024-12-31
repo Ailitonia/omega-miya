@@ -16,8 +16,9 @@ from nonebot.plugin import on_command
 from nonebot.typing import T_State
 
 from src.params.handler import get_command_str_multi_args_parser_handler, get_set_default_state_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
-from .render import get_render, get_all_render_name, download_source_image
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
+from .render import download_source_image, get_all_render_name, get_render
 
 sticker_maker = on_command(
     'sticker-maker',

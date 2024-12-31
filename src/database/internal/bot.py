@@ -11,14 +11,11 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import StrEnum, unique
-from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import BotSelfOrm
 
 
@@ -36,23 +33,21 @@ class BotType(StrEnum):
         return set(member.value for _, member in cls.__members__.items())
 
 
-class BotSelf(BaseModel):
+class BotSelf(BaseDataQueryResultModel):
     """BotSelf Model"""
     id: int
     self_id: str
     bot_type: BotType
     bot_status: int
-    bot_info: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
+    bot_info: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     def __str__(self) -> str:
         return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
 
 
-class BotSelfDAL(BaseDataAccessLayerModel):
+class BotSelfDAL(BaseDataAccessLayerModel[BotSelfOrm, BotSelf]):
     """BotSelf 数据库操作对象"""
 
     @property
@@ -79,7 +74,7 @@ class BotSelfDAL(BaseDataAccessLayerModel):
         session_result = await self.db_session.execute(stmt)
         return parse_obj_as(list[BotSelf], session_result.scalars().all())
 
-    async def add(self, self_id: str, bot_type: str, bot_status: int, bot_info: Optional[str] = None) -> None:
+    async def add(self, self_id: str, bot_type: str, bot_status: int, bot_info: str | None = None) -> None:
         new_obj = BotSelfOrm(
             self_id=self_id,
             bot_type=BotType(bot_type),
@@ -87,16 +82,18 @@ class BotSelfDAL(BaseDataAccessLayerModel):
             bot_info=bot_info,
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,
             id_: int,
             *,
-            bot_type: Optional[str] = None,
-            bot_status: Optional[int] = None,
-            bot_info: Optional[str] = None
+            bot_type: str | None = None,
+            bot_status: int | None = None,
+            bot_info: str | None = None
     ) -> None:
         stmt = update(BotSelfOrm).where(BotSelfOrm.id == id_)
         if bot_type is not None:
@@ -106,12 +103,12 @@ class BotSelfDAL(BaseDataAccessLayerModel):
         if bot_info is not None:
             stmt = stmt.values(bot_info=bot_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(BotSelfOrm).where(BotSelfOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

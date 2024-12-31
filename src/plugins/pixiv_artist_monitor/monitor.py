@@ -11,9 +11,9 @@
 from nonebot.log import logger
 
 from src.service import scheduler
+from src.utils import semaphore_gather
 from src.utils.pixiv_api import PixivUser
-from src.utils.process_utils import semaphore_gather
-from .helpers import query_all_subscribed_pixiv_user_sub_source, pixiv_user_new_artworks_monitor_main
+from .helpers import pixiv_user_new_artworks_monitor_main, query_all_subscribed_pixiv_user_sub_source
 
 
 async def pixiv_user_new_artworks_monitor() -> None:

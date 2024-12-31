@@ -11,7 +11,6 @@
 from src.database.internal.bot import BotType as SupportedPlatform
 from src.database.internal.entity import EntityType as SupportedTarget
 
-
 __all__ = [
     'SupportedPlatform',
     'SupportedTarget'

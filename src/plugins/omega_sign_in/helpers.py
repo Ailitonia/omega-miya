@@ -20,8 +20,8 @@ from nonebot.utils import run_sync
 from pydantic import BaseModel
 
 from src.compat import parse_json_as, parse_obj_as
-from src.service import OmegaRequests
 from src.service.artwork_collection import get_artwork_collection, get_artwork_collection_type
+from src.utils import OmegaRequests
 from src.utils.image_utils import ImageUtils
 from .config import sign_in_config, sign_local_resource_config
 
@@ -30,8 +30,7 @@ if TYPE_CHECKING:
     from src.service import OmegaMatcherInterface
     from src.service.artwork_collection.typing import CollectedArtwork
 
-
-__FORTUNE_EVENT: list["FortuneEvent"] = []
+__FORTUNE_EVENT: list['FortuneEvent'] = []
 """缓存求签事件"""
 
 
@@ -61,7 +60,7 @@ class FortuneEvent(BaseModel):
         return hash(self.name + self.good + self.bad)
 
 
-def _load_fortune_event(file: Union["StaticResource", "TemporaryResource"]) -> list[FortuneEvent]:
+def _load_fortune_event(file: Union['StaticResource', 'TemporaryResource']) -> list[FortuneEvent]:
     """从文件读取求签事件"""
     if file.is_file:
         logger.debug(f'loading fortune event form {file}')
@@ -100,7 +99,7 @@ def random_fortune_event(num: int = 4) -> list[FortuneEvent]:
     return random.sample(get_fortune_event(), k=num)
 
 
-def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
+def get_fortune(user_id: str, *, date: datetime | None = None) -> Fortune:
     """根据 user_id 和当天日期生成老黄历"""
     if date is None:
         date_str = str(datetime.now().date())
@@ -159,10 +158,10 @@ def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
     result = {
         'star': fortune_star,
         'text': fortune_text,
-        'good_do_st': f"{do_and_not[0].name} —— {do_and_not[0].good}",
-        'good_do_nd': f"{do_and_not[2].name} —— {do_and_not[2].good}",
-        'bad_do_st': f"{do_and_not[1].name} —— {do_and_not[1].bad}",
-        'bad_do_nd': f"{do_and_not[3].name} —— {do_and_not[3].bad}"
+        'good_do_st': f'{do_and_not[0].name} —— {do_and_not[0].good}',
+        'good_do_nd': f'{do_and_not[2].name} —— {do_and_not[2].good}',
+        'bad_do_st': f'{do_and_not[1].name} —— {do_and_not[1].bad}',
+        'bad_do_nd': f'{do_and_not[3].name} —— {do_and_not[3].bad}'
     }
 
     # 重置随机种子
@@ -171,7 +170,7 @@ def get_fortune(user_id: str, *, date: Optional[datetime] = None) -> Fortune:
     return Fortune.model_validate(result)
 
 
-async def get_signin_top_image() -> "CollectedArtwork":
+async def get_signin_top_image() -> 'CollectedArtwork':
     """从数据库获取一张生成签到卡片用的头图"""
     random_artworks = await get_artwork_collection_type().query_any_origin_by_condition(
         keywords=None, origin=sign_in_config.signin_plugin_top_image_origin, num=5,
@@ -191,7 +190,7 @@ async def get_signin_top_image() -> "CollectedArtwork":
     raise RuntimeError('all attempts to fetch artwork resources have failed')
 
 
-async def get_profile_image(interface: "OmegaMatcherInterface") -> "TemporaryResource":
+async def get_profile_image(interface: 'OmegaMatcherInterface') -> 'TemporaryResource':
     """获取用户头像"""
     url = await interface.get_entity_interface().get_entity_profile_image_url()
     image_name = OmegaRequests.hash_url_file_name('signin-head-image', url=url)
@@ -256,7 +255,7 @@ def _get_level_color(
     return level_color.get(level, default_color)
 
 
-async def get_hitokoto(*, c: Optional[str] = None) -> str:
+async def get_hitokoto(*, c: str | None = None) -> str:
     """获取一言"""
     url = 'https://v1.hitokoto.cn'
     params = {
@@ -273,7 +272,7 @@ async def get_hitokoto(*, c: Optional[str] = None) -> str:
     hitokoto_data = OmegaRequests.parse_content_as_json(response=hitokoto_response)
 
     text = f'{hitokoto_data.get("hitokoto")}\n——《{hitokoto_data.get("from")}》'
-    if hitokoto_data.get("from_who"):
+    if hitokoto_data.get('from_who'):
         text += f' {hitokoto_data.get("from_who")}'
     return text
 
@@ -282,11 +281,11 @@ async def generate_signin_card(
         user_id: str,
         user_text: str,
         friendship: float,
-        top_img: "CollectedArtwork",
+        top_img: 'CollectedArtwork',
         *,
         width: int = 1024,
         draw_fortune: bool = True,
-        head_img: Optional["TemporaryResource"] = None) -> "TemporaryResource":
+        head_img: Optional['TemporaryResource'] = None) -> 'TemporaryResource':
     """生成签到卡片
 
     :param user_id: 用户id
@@ -386,7 +385,7 @@ async def generate_signin_card(
 
         # 生成背景
         background = Image.new(
-            mode="RGB",
+            mode='RGB',
             size=(width, height),
             color=(255, 255, 255))
 

@@ -15,7 +15,6 @@ from .subscription_source import InternalPixivUserSubscriptionSource as OmegaPix
 from .subscription_source import InternalPixivisionSubscriptionSource as OmegaPixivisionSubSource
 from .subscription_source import InternalWeiboUserSubscriptionSource as OmegaWeiboUserSubSource
 
-
 __all__ = [
     'OmegaEntity',
     'OmegaBiliDynamicSubSource',

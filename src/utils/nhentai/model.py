@@ -10,11 +10,12 @@
 
 from dataclasses import dataclass
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from src.resource import TemporaryResource
-from src.utils.image_utils.template import PreviewImageThumbs, PreviewImageModel
+from src.utils.image_utils.template import PreviewImageModel, PreviewImageThumbs
 
 
 class BaseNhentaiModel(BaseModel):

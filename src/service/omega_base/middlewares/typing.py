@@ -8,9 +8,10 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Union
+from typing import Literal
 
-from nonebot.internal.adapter import Message as BaseMessage, MessageSegment as BaseMessageSegment
+from nonebot.internal.adapter import Message as BaseMessage
+from nonebot.internal.adapter import MessageSegment as BaseMessageSegment
 
 type EntityAcquireType = Literal['event', 'user']
 """从 Event 提取 Entity 对象的类型, event: 事件本身所在场景的对象(群组频道等), user: 触发事件的用户对象"""
@@ -21,7 +22,7 @@ type BaseMessageType[Seg_T: BaseMessageSegType] = BaseMessage[Seg_T]
 type BaseMessageSegType[Msg_T: BaseMessageType] = BaseMessageSegment[Msg_T]
 """Nonebot 消息段基类类型"""
 
-type BaseSentMessageType[Msg_T: BaseMessageType] = Union[str, BaseMessageSegType[Msg_T], Msg_T]
+type BaseSentMessageType[Msg_T: BaseMessageType] = str | BaseMessageSegType[Msg_T] | Msg_T
 """Nonebot 可发送消息基类类型"""
 
 __all__ = [

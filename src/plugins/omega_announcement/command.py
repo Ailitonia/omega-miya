@@ -10,7 +10,7 @@
 
 from typing import Annotated
 
-from nonebot.adapters import Message
+from nonebot.internal.adapter import Message as BaseMessage
 from nonebot.log import logger
 from nonebot.params import Arg, Depends
 from nonebot.permission import SUPERUSER
@@ -19,13 +19,10 @@ from nonebot.rule import to_me
 
 from src.database import EntityDAL
 from src.params.handler import get_command_message_arg_parser_handler
-from src.service import (
-    OmegaMatcherInterface as OmMI,
-    OmegaEntityInterface as OmEI,
-    OmegaEntity,
-    enable_processor_state
-)
-from src.utils.process_utils import semaphore_gather
+from src.service import OmegaEntity, enable_processor_state
+from src.service import OmegaEntityInterface as OmEI
+from src.service import OmegaMatcherInterface as OmMI
+from src.utils import semaphore_gather
 
 
 @on_command(
@@ -41,7 +38,7 @@ from src.utils.process_utils import semaphore_gather
 async def handle_announce(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
         entity_dal: Annotated[EntityDAL, Depends(EntityDAL.dal_dependence)],
-        announcement_content: Annotated[Message, Arg('announcement_content')]
+        announcement_content: Annotated[BaseMessage, Arg('announcement_content')]
 ) -> None:
     announce_message = interface.get_message_extractor()(message=announcement_content).message
 

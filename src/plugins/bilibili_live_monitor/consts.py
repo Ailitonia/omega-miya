@@ -12,7 +12,6 @@ from typing import Literal
 
 from src.database.internal.subscription_source import SubscriptionSourceType
 
-
 BILI_LIVE_SUB_TYPE: str = SubscriptionSourceType.bili_live.value
 """b站直播间订阅类型"""
 NOTICE_AT_ALL: Literal['notice_at_all'] = 'notice_at_all'

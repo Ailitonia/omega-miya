@@ -17,7 +17,8 @@ from nonebot.rule import ArgumentParser, Namespace
 from pydantic import BaseModel, ConfigDict
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state
 from src.utils.tencent_cloud_api import TencentTMT
 
 

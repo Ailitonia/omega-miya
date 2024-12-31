@@ -10,11 +10,11 @@
 
 import time
 from datetime import datetime, timedelta
-from typing import Union, Dict
 
 from nonebot import get_driver, logger
-from nonebot.adapters import Bot, Event
 from nonebot.exception import IgnoredException
+from nonebot.internal.adapter import Bot as BaseBot
+from nonebot.internal.adapter import Event as BaseEvent
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Rate Limiting</lc> | '
@@ -27,14 +27,14 @@ RATE_LIMITING_TIME: float = 1.0
 # 触发速率限制时为用户设置的流控冷却时间, 单位秒
 RATE_LIMITING_COOL_DOWN: int = 1800
 # 记录用户上次消息的时间戳, 作为对比依据
-USER_LAST_MSG_TIME: Dict[str, Union[int, float]] = {}
+USER_LAST_MSG_TIME: dict[str, int | float] = {}
 # 记录用户消息在速率限制时间阈值内触发的次数
-RATE_LIMITING_COUNT: Dict[str, int] = {}
+RATE_LIMITING_COUNT: dict[str, int] = {}
 # 已被限制的用户id及到期时间
-RATE_LIMITING_USER_TEMP: Dict[str, datetime] = {}
+RATE_LIMITING_USER_TEMP: dict[str, datetime] = {}
 
 
-async def preprocessor_rate_limiting(bot: Bot, event: Event):
+async def preprocessor_rate_limiting(bot: BaseBot, event: BaseEvent):
     """事件预处理, 针对用户的速率限制处理"""
     try:
         _ = event.get_message()

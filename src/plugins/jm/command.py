@@ -16,9 +16,10 @@ from nonebot.plugin import CommandGroup
 from nonebot.rule import Namespace
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
 from src.utils.comic18 import Comic18
-from .helper import get_searching_argument_parser, parse_from_searching_parser, format_album_desc_msg
+from .helper import format_album_desc_msg, get_searching_argument_parser, parse_from_searching_parser
 
 jm = CommandGroup(
     'jm',

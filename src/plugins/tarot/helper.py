@@ -21,15 +21,15 @@ from .config import tarot_local_resource_config
 from .resources import TarotResource
 
 if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface as OmMI
     from src.resource import TemporaryResource
+    from src.service import OmegaMatcherInterface as OmMI
 
 
 _TAROT_RESOURCE_NODE: Literal['tarot_resource'] = 'tarot_resource'
 """配置卡牌资源的节点"""
 
 
-async def get_tarot_resource_name(interface: "OmMI") -> str | None:
+async def get_tarot_resource_name(interface: 'OmMI') -> str | None:
     """根据当前 Event 获取对应 Entity 配置的塔罗资源名"""
     if interface.matcher.plugin is None:
         return None
@@ -49,7 +49,7 @@ async def get_tarot_resource_name(interface: "OmMI") -> str | None:
         return None
 
 
-async def set_tarot_resource(resource_name: str, interface: "OmMI") -> None:
+async def set_tarot_resource(resource_name: str, interface: 'OmMI') -> None:
     """根据当前 event 配置对应对象塔罗资源"""
     if interface.matcher.plugin is None:
         return None
@@ -71,7 +71,7 @@ async def generate_tarot_card(
         need_upright: bool = True,
         need_reversed: bool = True,
         width: int = 1024
-) -> "TemporaryResource":
+) -> 'TemporaryResource':
     """绘制塔罗卡片
 
     :param id_: 牌id
@@ -141,7 +141,7 @@ async def generate_tarot_card(
 
         # 生成背景
         background = Image.new(
-            mode="RGB",
+            mode='RGB',
             size=(width, background_height),
             color=(255, 255, 255))
 

@@ -10,7 +10,6 @@
 
 from src.resource import StaticResource, TemporaryResource
 
-
 FONT_RESOURCE: StaticResource = StaticResource('fonts')
 """默认字体文件目录"""
 

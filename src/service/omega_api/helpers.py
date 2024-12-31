@@ -9,20 +9,15 @@
 """
 
 import inspect
+from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import Callable, Coroutine, ParamSpec, TypeVar
 
 from nonebot.log import logger
 
 from .model import BaseApiReturn
 
 
-T = TypeVar("T")
-R = TypeVar("R")
-P = ParamSpec("P")
-
-
-def return_standard_api_result(
+def return_standard_api_result[** P, R](
         func: Callable[P, Coroutine[None, None, R]]
 ) -> Callable[P, Coroutine[None, None, BaseApiReturn]]:
     """装饰一个 api handler 捕获其运行时的异常并使其返回 BaseApiReturn"""
@@ -49,5 +44,5 @@ def return_standard_api_result(
 
 
 __all__ = [
-    'return_standard_api_result'
+    'return_standard_api_result',
 ]

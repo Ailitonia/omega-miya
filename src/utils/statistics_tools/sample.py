@@ -18,10 +18,11 @@ from .plots import create_simple_subplots_figure, output_figure
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
     from src.resource import TemporaryResource
 
 
-def run_figure_example() -> "TemporaryResource":
+def run_figure_example() -> 'TemporaryResource':
     x = np.linspace(0, 2, 100)  # Sample data.
 
     # Note that even in the OO-style, we use `.pyplot.figure` to create the Figure.
@@ -37,7 +38,7 @@ def run_figure_example() -> "TemporaryResource":
     return output_figure(fig, 'sample.jpg')
 
 
-def invest_test(step: int = 100, init_balance: float = 1000000.0) -> "NDArray":
+def invest_test(step: int = 100, init_balance: float = 1000000.0) -> 'NDArray':
     total_balance = init_balance
     rand_ar = np.random.rand(step)
     balance_ar = np.array(init_balance)
@@ -50,7 +51,7 @@ def invest_test(step: int = 100, init_balance: float = 1000000.0) -> "NDArray":
     return balance_ar
 
 
-def run_invest_test(step: int = 100, times: int = 10) -> "TemporaryResource":
+def run_invest_test(step: int = 100, times: int = 10) -> 'TemporaryResource':
     fig, ax = create_simple_subplots_figure(figsize=(32, 16))
     ax.set_yscale('log')
     for _ in range(times):
@@ -67,7 +68,7 @@ def run_invest_test(step: int = 100, times: int = 10) -> "TemporaryResource":
     return output_figure(fig, 'invest_test.jpg')
 
 
-def coin_test(init_balance: int = 0) -> tuple["NDArray", int]:
+def coin_test(init_balance: int = 0) -> tuple['NDArray', int]:
     total_balance = init_balance
     balance_ar = np.array(init_balance)
     step = 0
@@ -84,7 +85,7 @@ def coin_test(init_balance: int = 0) -> tuple["NDArray", int]:
     return balance_ar, step
 
 
-def run_coin_test(times: int = 10) -> "TemporaryResource":
+def run_coin_test(times: int = 10) -> 'TemporaryResource':
     fig, ax = create_simple_subplots_figure(figsize=(8, 6))
     data: list[int] = [int(coin_test()[0][-1]) for _ in range(times)]
 

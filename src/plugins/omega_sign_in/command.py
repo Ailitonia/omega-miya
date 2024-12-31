@@ -10,11 +10,9 @@
 
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11.bot import Bot as OneBotV11Bot
-from nonebot.adapters.onebot.v11.event import (
-    PokeNotifyEvent as OneBotV11PokeNotifyEvent,
-    GroupMessageEvent as OneBotV11GroupMessageEvent,
-    PrivateMessageEvent as OneBotV11PrivateMessageEvent
-)
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent as OneBotV11GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import PokeNotifyEvent as OneBotV11PokeNotifyEvent
+from nonebot.adapters.onebot.v11.event import PrivateMessageEvent as OneBotV11PrivateMessageEvent
 from nonebot.adapters.onebot.v11.message import Message as OneBotV11Message
 from nonebot.log import logger
 from nonebot.message import handle_event
@@ -25,7 +23,7 @@ from src.params.handler import get_command_str_single_arg_parser_handler
 from src.params.rule import event_has_permission_level
 from src.service import enable_processor_state
 from .config import sign_in_config
-from .handlers import handle_generate_fortune_card, handle_generate_sign_in_card, handle_fix_sign_in
+from .handlers import handle_fix_sign_in, handle_generate_fortune_card, handle_generate_sign_in_card
 
 _COMMAND_START: set[str] = get_driver().config.command_start
 _DEFAULT_COMMAND_START: str = list(_COMMAND_START)[0] if _COMMAND_START else ''
@@ -56,7 +54,7 @@ sign_in.on_command(
 # 针对 OneBot V11 的戳一戳事件进行特殊处理
 @on_notice(
     rule=to_me() & event_has_permission_level(level=20),
-    state=enable_processor_state(name='OmegaPokeSignIn', echo_processor_result=False),
+    state=enable_processor_state(name='OmegaPokeSignIn', enable_processor=False, echo_processor_result=False),
     priority=11,
     block=False
 ).handle()
@@ -71,10 +69,8 @@ async def handle_poke_sign_in(bot: OneBotV11Bot, event: OneBotV11PokeNotifyEvent
         'user_id': event.user_id,
         'nickname': sender_data.get('nickname'),
         'sex': sender_data.get('sex'),
-        'age': sender_data.get('age'),
         'card': sender_data.get('card'),
         'area': sender_data.get('area'),
-        'level': sender_data.get('level'),
         'role': sender_data.get('role'),
         'title': sender_data.get('title')
     }

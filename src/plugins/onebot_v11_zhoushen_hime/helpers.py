@@ -10,7 +10,6 @@
 
 import datetime
 from dataclasses import dataclass
-from typing import Optional
 
 from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
 from nonebot.utils import run_sync
@@ -18,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.exception import PluginException
 from src.resource import TemporaryResource
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('zhoushen_hime')
 """缓存文件夹"""
@@ -28,7 +27,7 @@ class AssScriptException(PluginException):
     """字幕处理异常"""
 
 
-class AssScriptLine(object):
+class AssScriptLine:
     """ass字幕行类"""
     # 标记属性
     __STYLE: str = 'Style'
@@ -219,8 +218,8 @@ class AssScriptLine(object):
         if end_time[0] == '0':
             end_time = end_time[1:]
 
-        return f"{self.type}: 0,{start_time},{end_time},{self.style},{self.actor}," \
-               f"{self.left_margin},{self.right_margin},{self.vertical_margin},{self.effect},{self.text}"
+        return f'{self.type}: 0,{start_time},{end_time},{self.style},{self.actor},' \
+               f'{self.left_margin},{self.right_margin},{self.vertical_margin},{self.effect},{self.text}'
 
     def check_flash(self, threshold_time: int) -> tuple[int, datetime.timedelta]:
         """判断该行单行是否是闪轴
@@ -272,7 +271,7 @@ class AssScriptLine(object):
                f'effect={self.__effect}, text={self.__text})'
 
 
-class AssScriptLineTool(object):
+class AssScriptLineTool:
     """ass字幕event行工具类"""
     # 标记属性
     __STYLE: str = 'Style'
@@ -604,15 +603,15 @@ class ZhouChecker(AssScriptLineTool):
                 # 处理叠轴
                 if overlap == 1:
                     overlap_count += 1
-                    out_log += f"第{start_line.event_line_num}行轴和第{end_line.event_line_num}行可能是叠轴, 请检查一下\n"
+                    out_log += f'第{start_line.event_line_num}行轴和第{end_line.event_line_num}行可能是叠轴, 请检查一下\n'
 
                 # 处理闪轴
                 # 是单行闪轴还和后面连轴了
                 if single_flash == 1 and continuous == 1:
                     flash_count += 1
-                    out_log += f"第{start_line.event_line_num}行轴是闪轴" \
-                               f"（{start_line.line_duration.microseconds / 1000}ms）, " \
-                               f"但是它和{end_line.event_line_num}行轴是连轴, 所以看着改吧\n"
+                    out_log += f'第{start_line.event_line_num}行轴是闪轴' \
+                               f'（{start_line.line_duration.microseconds / 1000}ms）, ' \
+                               f'但是它和{end_line.event_line_num}行轴是连轴, 所以看着改吧\n'
                     break
                 # 是单行闪轴而且补也补不够的神轴
                 elif single_flash == 1 and continuous != 1 and start_line.end_time < end_line.start_time \
@@ -622,15 +621,15 @@ class ZhouChecker(AssScriptLineTool):
                         before_duration = start_line.line_duration
                         start_line.change_end_time(delta=multi_flash_lines_duration)
                         after_change_time = start_line.end_time
-                        out_log += f"第{start_line.event_line_num}行轴（{before_duration.microseconds / 1000}ms）" \
-                                   f"要是不闪就和第{end_line.event_line_num}行轴之间是叠轴了, " \
-                                   f"不过我姑且给你连上了（{after_change_time}）\n"
+                        out_log += f'第{start_line.event_line_num}行轴（{before_duration.microseconds / 1000}ms）' \
+                                   f'要是不闪就和第{end_line.event_line_num}行轴之间是叠轴了, ' \
+                                   f'不过我姑且给你连上了（{after_change_time}）\n'
                         break
                     else:
                         flash_count += 1
-                        out_log += f"第{start_line.event_line_num}行轴（{start_line.line_duration.microseconds / 1000}ms）" \
-                                   f"要是不闪就和第{end_line.event_line_num}行轴之间是叠轴了, " \
-                                   f"这啥神轴啊, 你自己看着改吧\n"
+                        out_log += f'第{start_line.event_line_num}行轴（{start_line.line_duration.microseconds / 1000}ms）' \
+                                   f'要是不闪就和第{end_line.event_line_num}行轴之间是叠轴了, ' \
+                                   f'这啥神轴啊, 你自己看着改吧\n'
                         break
                 # 是单行闪轴而且补上后就会和后面的轴变成闪轴的神轴
                 elif single_flash == 1 and continuous != 1 and start_line.end_time < end_line.start_time \
@@ -642,15 +641,15 @@ class ZhouChecker(AssScriptLineTool):
                         before_duration = start_line.line_duration
                         start_line.change_end_time(delta=multi_flash_lines_duration)
                         after_change_time = start_line.end_time
-                        out_log += f"第{start_line.event_line_num}行轴（{before_duration.microseconds / 1000}ms）" \
-                                   f"要是不闪就和第{end_line.event_line_num}行轴之间是闪轴了, " \
-                                   f"不过我姑且给你连上了（{after_change_time}）\n"
+                        out_log += f'第{start_line.event_line_num}行轴（{before_duration.microseconds / 1000}ms）' \
+                                   f'要是不闪就和第{end_line.event_line_num}行轴之间是闪轴了, ' \
+                                   f'不过我姑且给你连上了（{after_change_time}）\n'
                         break
                     else:
                         flash_count += 1
-                        out_log += f"第{start_line.event_line_num}行轴（{start_line.line_duration.microseconds / 1000}ms）" \
-                                   f"要是不闪就和第{end_line.event_line_num}行轴之间是闪轴了, " \
-                                   f"这啥神轴啊, 你自己看着改吧\n"
+                        out_log += f'第{start_line.event_line_num}行轴（{start_line.line_duration.microseconds / 1000}ms）' \
+                                   f'要是不闪就和第{end_line.event_line_num}行轴之间是闪轴了, ' \
+                                   f'这啥神轴啊, 你自己看着改吧\n'
                         break
                 # 上面的都没有发生而且已经连轴了就跳过
                 elif continuous == 1:
@@ -662,16 +661,16 @@ class ZhouChecker(AssScriptLineTool):
                     before_change_time = start_line.end_time
                     start_line.change_end_time(delta=single_flash_lines_duration)
                     after_change_time = start_line.end_time
-                    out_log += f"第{start_line.event_line_num}行轴是闪轴（{before_duration.microseconds / 1000}ms）, " \
-                               f"但是我给你改好了, 从原来的{before_change_time}改成了{after_change_time}\n"
+                    out_log += f'第{start_line.event_line_num}行轴是闪轴（{before_duration.microseconds / 1000}ms）, ' \
+                               f'但是我给你改好了, 从原来的{before_change_time}改成了{after_change_time}\n'
                     break
                 # 处理轴间闪轴
                 elif multi_flash == 1 and continuous == 0:
                     flash_count += 1
                     start_line.change_end_time(delta=multi_flash_lines_duration)
                     after_change_time = start_line.end_time
-                    out_log += f"第{start_line.event_line_num}行轴和第{end_line.event_line_num}行轴之间是闪轴" \
-                               f"（{multi_flash_lines_duration.microseconds / 1000}ms）, 不过我给你连上了（{after_change_time}）\n"
+                    out_log += f'第{start_line.event_line_num}行轴和第{end_line.event_line_num}行轴之间是闪轴' \
+                               f'（{multi_flash_lines_duration.microseconds / 1000}ms）, 不过我给你连上了（{after_change_time}）\n'
                     break
         out_log += '--- 锤轴部分结束 ---\n\n' \
                    '--- 审轴信息 ---\n' \
@@ -699,8 +698,8 @@ class ZhouChecker(AssScriptLineTool):
 
         # 输出文件
         time_text = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        output_txt_file = _TMP_FOLDER(f"{self.__file.path.name}_{time_text}_锤.txt")
-        output_ass_file = _TMP_FOLDER(f"{self.__file.path.name}_{time_text}_改.ass")
+        output_txt_file = _TMP_FOLDER(f'{self.__file.path.name}_{time_text}_锤.txt')
+        output_ass_file = _TMP_FOLDER(f'{self.__file.path.name}_{time_text}_改.ass')
 
         async with output_txt_file.async_open('w', encoding='utf-8') as af:
             await af.write(handle_result.output_txt)
@@ -783,7 +782,7 @@ class OneBotV11GroupRootFiles(BaseOneBotV11Model):
     - folders: 文件夹列表
     """
     files: list[OneBotV11GroupFile]
-    folders: Optional[list[OneBotV11GroupFolder]] = None
+    folders: list[OneBotV11GroupFolder] | None = None
 
 
 async def download_file(url: str, file_name: str) -> TemporaryResource:

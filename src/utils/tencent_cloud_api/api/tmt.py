@@ -8,10 +8,10 @@
 @Software       : PyCharm 
 """
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from .base import BaseTencentCloudAPI
-from ..model.tmt import TencentCloudTextTranslateResponse, TencentCloudTextTranslateBatchResponse
+from ..model.tmt import TencentCloudTextTranslateBatchResponse, TencentCloudTextTranslateResponse
 
 
 class TencentTMT(BaseTencentCloudAPI):
@@ -32,7 +32,7 @@ class TencentTMT(BaseTencentCloudAPI):
             source: str = 'auto',
             target: str = 'zh',
             project_id: int = 0,
-            untranslated_text: Optional[str] = None
+            untranslated_text: str | None = None
     ) -> TencentCloudTextTranslateResponse:
         """文本翻译
 

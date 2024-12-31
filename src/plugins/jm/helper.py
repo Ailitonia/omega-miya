@@ -8,7 +8,7 @@
 @Software       : PyCharm 
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
 from nonebot.rule import ArgumentParser, Namespace
 from pydantic import BaseModel, ConfigDict
@@ -32,11 +32,11 @@ def get_searching_argument_parser() -> ArgumentParser:
 
 class SearchingArguments(BaseModel):
     """搜索命令 argument parser 的解析结果 Model"""
-    page: Optional[int]
-    type: Optional[Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single']]
-    time: Optional[Literal['a', 't', 'w', 'm']]
-    order: Optional[Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf']]
-    tag: Optional[Literal['0', '1', '2', '3', '4']]
+    page: int | None
+    type: Literal['another', 'doujin', 'hanman', 'meiman', 'short', 'single'] | None
+    time: Literal['a', 't', 'w', 'm'] | None
+    order: Literal['mr', 'mv', 'mp', 'md', 'tr', 'tf'] | None
+    tag: Literal['0', '1', '2', '3', '4'] | None
     keyword: list[str]
 
     model_config = ConfigDict(extra='ignore', from_attributes=True)

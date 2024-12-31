@@ -9,7 +9,6 @@
 """
 
 import random
-from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BasePixivModel
@@ -18,7 +17,7 @@ from .base_model import BasePixivModel
 class ThumbnailData(BasePixivModel):
     id: int
     title: str
-    alt: Optional[str] = None
+    alt: str | None = None
     userId: int
     userName: str
     aiType: int
@@ -130,7 +129,7 @@ class PixivTopUser(BasePixivModel):
     image: AnyHttpUrl
     imageBig: AnyHttpUrl
     premium: bool
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 class PixivTopBody(BasePixivModel):

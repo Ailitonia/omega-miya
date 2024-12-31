@@ -5,12 +5,12 @@
 @Project        : nonebot2_miya
 @Description    : 一些兼容和 patch 模块
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import Annotated, Any
 
-from pydantic import AnyUrl, AnyHttpUrl, BeforeValidator, TypeAdapter
+from pydantic import AnyHttpUrl, AnyUrl, BeforeValidator, TypeAdapter
 
 # Compatibility for pydantic_core._pydantic_core.Url in V2
 # See https://github.com/pydantic/pydantic/discussions/8211 and https://github.com/pydantic/pydantic/discussions/6395

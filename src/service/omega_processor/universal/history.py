@@ -13,48 +13,48 @@ from datetime import datetime
 from nonebot import logger
 from nonebot.internal.adapter import Bot, Event, Message
 
+from src.compat import dump_json_as
 from src.database import HistoryDAL, begin_db_session
 from src.service import OmegaMatcherInterface
 
-LOG_PREFIX: str = '<lc>Event History</lc> | '
+LOG_PREFIX: str = '<lc>Message History</lc> | '
 
 
 async def postprocessor_history(bot: Bot, event: Event, message: Message):
     """事件后处理, 消息历史记录"""
-    self_id = bot.self_id
-    time = round(datetime.now().timestamp())
+    if (message_id := getattr(event, 'message_id', None)) is not None:
+        message_id = str(message_id)
+    elif (message_id := getattr(event, 'id', None)) is not None:
+        message_id = str(message_id)
+    else:
+        message_id = str(hash(message))
 
-    event_type = event.get_type()
-    try:
-        event_id = f'{event.get_event_name()}_{event.get_session_id()}'
-    except (NotImplementedError, ValueError):
-        event_id = f'{event_type}_{self_id}_{time}'
-
-    raw_data = event.model_dump_json()
-    raw_data = str(raw_data) if not isinstance(raw_data, str) else raw_data
-    msg_data = str(message)
-
-    if len(raw_data) > 4096:
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}raw_data is longer than field limiting to be reduce, {raw_data!r}')
-        raw_data = raw_data[:4096]
-    if len(msg_data) > 4096:
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}msg_data is longer than field limiting to be reduce, {msg_data!r}')
-        msg_data = msg_data[:4096]
+    message_raw = dump_json_as(Message, message, encoding='utf-8')
+    message_text = message.extract_plain_text()
+    if len(message_raw) > 4096:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}message_raw reduced by exceeding field limiting, {message_raw!r}')
+        message_raw = message_raw[:4096]
+    if len(message_text) > 4096:
+        logger.opt(colors=True).debug(f'{LOG_PREFIX}message_text reduced by exceeding field limiting, {message_text!r}')
+        message_text = message_text[:4096]
 
     try:
         async with begin_db_session() as session:
-            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
-            parent_entity_id = entity.parent_id
-            entity_id = entity.entity_id
-
-            dal = HistoryDAL(session=session)
-            await dal.add(
-                time=time, bot_self_id=self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
-                event_type=event_type, event_id=event_id, raw_data=raw_data, msg_data=msg_data
+            event_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='event')
+            user_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='user')
+            await HistoryDAL(session=session).add(
+                message_id=message_id,
+                bot_self_id=bot.self_id,
+                event_entity_id=event_entity.entity_id,
+                user_entity_id=user_entity.entity_id,
+                received_time=int(datetime.now().timestamp()),
+                message_type=f'{event_entity.entity_type}.{event.get_event_name()}',
+                message_raw=message_raw,
+                message_text=message_text,
             )
-        logger.opt(colors=True).trace(f'{LOG_PREFIX}Recording event({event_id}) succeed')
+        logger.opt(colors=True).trace(f'{LOG_PREFIX}Message(id={message_id!r}, text={message_text!r}) recorded')
     except Exception as e:
-        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording failed, {e!r}, event: {event.model_dump_json()}')
+        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording message failed, {e!r}, {message_raw!r}')
 
 
 __all__ = [

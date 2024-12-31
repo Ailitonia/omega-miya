@@ -16,20 +16,21 @@ from nonebot.plugin import CommandGroup
 from nonebot.typing import T_State
 
 from src.params.handler import (
-    get_command_str_single_arg_parser_handler,
     get_command_str_multi_args_parser_handler,
+    get_command_str_single_arg_parser_handler,
     get_set_default_state_handler,
 )
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, enable_processor_state
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, enable_processor_state
 from src.utils.pixiv_api import PixivUser
 from .helpers import (
     add_pixiv_user_sub,
     delete_pixiv_user_sub,
-    query_entity_subscribed_pixiv_user_sub_source,
     generate_artworks_preview,
     get_ranking_preview_factory,
     handle_ranking_preview,
+    query_entity_subscribed_pixiv_user_sub_source,
 )
 from .monitor import scheduler
 
@@ -231,10 +232,10 @@ async def handle_add_subscription(
         try:
             await add_pixiv_user_sub(interface=interface, pixiv_user=user)
             await interface.entity.commit_session()
-            logger.success(f"PixivAddUserSubscription | {interface.entity}订阅用户(uid={user_id})成功")
+            logger.success(f'PixivAddUserSubscription | {interface.entity}订阅用户(uid={user_id})成功')
             msg = f'订阅Pixiv用户{user_id}成功'
         except Exception as e:
-            logger.error(f"PixivAddUserSubscription | {interface.entity}订阅用户(uid={user_id})失败, {e!r}")
+            logger.error(f'PixivAddUserSubscription | {interface.entity}订阅用户(uid={user_id})失败, {e!r}')
             msg = f'订阅Pixiv用户{user_id}失败, 可能是网络异常或发生了意外的错误, 请稍后重试或联系管理员处理'
         scheduler.resume()
         await interface.finish_reply(msg)

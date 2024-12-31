@@ -8,21 +8,19 @@
 @Software       : PyCharm 
 """
 
-# TODO #1 规范 api 请求及响应模型
-# TODO #2 规范 api 依赖注入
-# TODO #3 添加 api 认证
-
 import inspect
-from typing import TypeVar, ParamSpec, Callable, Coroutine
-from nonebot import get_driver, get_app
+from collections.abc import Callable, Coroutine
+
+from nonebot import get_app, get_driver
 from nonebot.log import logger
 
 from .helpers import return_standard_api_result
 from .model import BaseApiModel, BaseApiReturn
 
 
-P = ParamSpec("P")
-R = TypeVar("R")
+# TODO #1 规范 api 请求及响应模型
+# TODO #2 规范 api 依赖注入
+# TODO #3 添加 api 认证
 
 
 def register_get_route(path: str, *, enabled: bool = True):
@@ -34,7 +32,7 @@ def register_get_route(path: str, *, enabled: bool = True):
     if not path.startswith('/'):
         path = '/' + path
 
-    def decorator(func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
+    def decorator[R, ** P](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
         if not inspect.iscoroutinefunction(func):
             raise ValueError('The decorated function must be coroutine function')
 
@@ -50,8 +48,8 @@ def register_get_route(path: str, *, enabled: bool = True):
 
         host = str(driver.config.host)
         port = driver.config.port
-        if host in ["0.0.0.0", "127.0.0.1"]:
-            host = "localhost"
+        if host in ['0.0.0.0', '127.0.0.1']:
+            host = 'localhost'
         logger.opt(colors=True).info(
             f"Service <lc>{inspect.getmodule(func).__name__}</lc> running at: "
             f"<b><u>http://{host}:{port}/{path.removeprefix('/')}</u></b>"
@@ -66,5 +64,5 @@ __all__ = [
     'BaseApiModel',
     'BaseApiReturn',
     'register_get_route',
-    'return_standard_api_result'
+    'return_standard_api_result',
 ]

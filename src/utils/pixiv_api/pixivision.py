@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from .api_base import BasePixivAPI
 from .helper import PixivParser
@@ -48,12 +48,12 @@ class Pixivision(BasePixivAPI):
     async def download_resource(
             cls,
             url: str,
-            save_folder: "TemporaryResource",
-            custom_file_name: Optional[str] = None,
+            save_folder: 'TemporaryResource',
+            custom_file_name: str | None = None,
             *,
             subdir: str | None = None,
             ignore_exist_file: bool = False
-    ) -> "TemporaryResource":
+    ) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         return await cls._download_resource(
             save_folder=save_folder,

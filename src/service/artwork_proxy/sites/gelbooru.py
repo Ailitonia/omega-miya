@@ -9,7 +9,6 @@
 """
 
 import abc
-from typing import Optional
 
 from src.utils.booru_api import gelbooru_api
 from src.utils.booru_api.gelbooru import BaseGelbooruAPI, GelbooruAPI
@@ -41,7 +40,7 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return [x.id for x in artworks_data.post]
 
     @classmethod
-    async def _search(cls, keyword: str, *, page: Optional[int] = None, **kwargs) -> list[str | int]:
+    async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data.post]
 
@@ -102,6 +101,7 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'height': artwork_data.height,
             'tags': tags,
             'description': None,
+            'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
                 'preview_file': {

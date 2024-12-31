@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='bilibiliAccountManager',
     description='【B站账户管理插件】\n'
@@ -22,6 +21,6 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import command as command
-
+from . import scheduled_tasks as tasks
 
 __all__ = []

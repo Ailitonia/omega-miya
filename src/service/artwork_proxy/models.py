@@ -9,9 +9,8 @@
 """
 
 from enum import IntEnum, unique
-from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 
@@ -19,8 +18,9 @@ from src.compat import AnyHttpUrlStr as AnyHttpUrl
 @unique
 class ArtworkClassification(IntEnum):
     """作品分类级别(标记作品元数据/分级/来源等信息是否可靠, 是否是由人工审核过的)"""
-    Unknown = -1  # 无法确认分类级别, 一般为本地图片或无确切来源的图片
-    Unclassified = 0  # 未分类, 一般为无分级图站作品默认分类级别
+    Ignored = -2  # 可能是由于低质/敏感话题/广告等因素, 被人工手动审核/标记为忽略该作品, 一般情况下不应当使用分类为此等级的作品
+    Unknown = -1  # 无法确认分类级别, 一般为本地图片或无确切来源(各种不标明来源的页面, 推文, 动态, etc.)的图片
+    Unclassified = 0  # 未分类, 一般为无分级网站(pixiv, twitter, etc.)作品默认分类级别
     AIGenerated = 1  # 确认/疑似为 AI 生成作品
     Automatic = 2  # 由图站分类/图站分级/第三方接口分类, 可能由人工进行分类但不完全可信, 一般可作为应用层插件使用的最低可信级别
     Confirmed = 3  # 由人工审核/确认为 "人类生成" 的作品, 且分级可信
@@ -46,8 +46,8 @@ class ArtworkPageFile(BaseArtworkProxyModel):
     """作品图片详情"""
     url: AnyHttpUrl
     file_ext: str
-    width: Optional[int] = None
-    height: Optional[int] = None
+    width: int | None = None
+    height: int | None = None
 
 
 class ArtworkPage(BaseArtworkProxyModel):
@@ -69,9 +69,14 @@ class ArtworkData(BaseArtworkProxyModel):
     width: int
     height: int
     tags: list[str]
-    description: Optional[str] = None
+    description: str | None = None
+    like_count: int | None = None  # 喜欢/点赞数量
+    bookmark_count: int | None = None  # 收藏数量
+    view_count: int | None = None  # 浏览次数
+    comment_count: int | None = None  # 评论量
     source: str  # 原始出处地址(指能直接获得该作品的来源), 一般来说为 url
     pages: list[ArtworkPage]
+    extra_resource: list[AnyHttpUrl] = Field(default_factory=list)  # 其他额外资源链接
 
     @property
     def cover_page_url(self) -> AnyHttpUrl:
@@ -103,7 +108,7 @@ class ArtworkPool(BaseArtworkProxyModel):
     origin: str
     pool_id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     artwork_ids: list[str]
 
     @property

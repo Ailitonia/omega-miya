@@ -5,10 +5,10 @@
 @Project        : nonebot2_miya
 @Description    : 插件 processor 引入工具
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
 from nonebot.typing import T_State
 from pydantic import BaseModel, ConfigDict
@@ -52,8 +52,8 @@ def enable_processor_state(
         enable_processor: bool = True,
         *,
         level: int = 2**31-1,
-        auth_node: Optional[str] = None,
-        extra_auth_node: Optional[set[str]] = None,
+        auth_node: str | None = None,
+        extra_auth_node: set[str] | None = None,
         cooldown: int = 0,
         cooldown_type: Literal['event', 'user'] = 'event',
         cost: float = 0,

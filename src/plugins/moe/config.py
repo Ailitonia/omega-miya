@@ -11,9 +11,13 @@
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from .consts import ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN
+
 
 class MoePluginConfig(BaseModel):
     """Moe 插件配置"""
+    # 默认查询的作品来源
+    moe_plugin_default_origin: ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN = 'pixiv'
     # 默认每次查询的图片数量
     moe_plugin_query_image_num: int = 3
     # 允许用户通过参数调整的每次查询的图片数量上限

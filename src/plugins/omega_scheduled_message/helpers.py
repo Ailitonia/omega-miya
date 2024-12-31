@@ -16,12 +16,8 @@ from nonebot.log import logger
 
 from src.compat import parse_json_as
 from src.database import AuthSettingDAL, begin_db_session
-from src.service import (
-    OmegaEntityInterface as OmEI,
-    OmegaEntity,
-    OmegaMessage,
-    scheduler
-)
+from src.service import OmegaEntity, OmegaMessage, scheduler
+from src.service import OmegaEntityInterface as OmEI
 from .model import SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME, ScheduleMessageJob
 
 if TYPE_CHECKING:
@@ -80,7 +76,7 @@ async def _init_schedule_message_job() -> None:
 
 
 async def generate_schedule_job_data(
-        interface: "OmegaMatcherInterface",
+        interface: 'OmegaMatcherInterface',
         job_name: str,
         crontab: str,
         message: OmegaMessage
@@ -97,7 +93,7 @@ async def generate_schedule_job_data(
     return ScheduleMessageJob.model_validate(job_data)
 
 
-async def get_schedule_message_job_list(interface: "OmegaMatcherInterface") -> list[str]:
+async def get_schedule_message_job_list(interface: 'OmegaMatcherInterface') -> list[str]:
     """获取数据库中 Event 对应 Entity 的全部定时任务名称"""
     all_jobs = await interface.entity.query_plugin_all_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, plugin=SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME
@@ -110,7 +106,7 @@ async def get_schedule_message_job_list(interface: "OmegaMatcherInterface") -> l
     return job_list
 
 
-async def set_schedule_message_job(interface: "OmegaMatcherInterface", job_data: ScheduleMessageJob) -> None:
+async def set_schedule_message_job(interface: 'OmegaMatcherInterface', job_data: ScheduleMessageJob) -> None:
     """在数据库中新增或更新 Event 对应 Entity 的定时任务信息"""
     await interface.entity.set_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
@@ -121,7 +117,7 @@ async def set_schedule_message_job(interface: "OmegaMatcherInterface", job_data:
     )
 
 
-async def remove_schedule_message_job(interface: "OmegaMatcherInterface", job_name: str) -> None:
+async def remove_schedule_message_job(interface: 'OmegaMatcherInterface', job_name: str) -> None:
     """在数据库中停用 Event 对应 Entity 的定时任务信息"""
     job_setting = await interface.entity.query_auth_setting(
         module=SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,

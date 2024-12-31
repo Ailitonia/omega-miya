@@ -9,7 +9,8 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Literal, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy.exc import NoResultFound
 
@@ -18,10 +19,10 @@ from src.database.internal.artwork_collection import ArtworkCollectionDAL
 
 if TYPE_CHECKING:
     from src.database.internal.artwork_collection import (
-        ArtworkCollection as DBArtworkCollection,
         ArtworkClassificationStatistic as DBArtworkClassificationStatistic,
-        ArtworkRatingStatistic as DBArtworkRatingStatistic,
     )
+    from src.database.internal.artwork_collection import ArtworkCollection as DBArtworkCollection
+    from src.database.internal.artwork_collection import ArtworkRatingStatistic as DBArtworkRatingStatistic
     from src.service.artwork_proxy.internal import BaseArtworkProxy
     from src.service.artwork_proxy.typing import ArtworkProxyType
 
@@ -40,7 +41,7 @@ class BaseArtworkCollection(abc.ABC):
         return self.__ap.s_aid
 
     @property
-    def artwork_proxy(self) -> "BaseArtworkProxy":
+    def artwork_proxy(self) -> 'BaseArtworkProxy':
         """对外暴露该作品对应图库的统一接口, 便于插件调用"""
         return self.__ap
 
@@ -51,16 +52,16 @@ class BaseArtworkCollection(abc.ABC):
 
     @staticmethod
     async def query_any_origin_by_condition(
-            keywords: Optional[str | Sequence[str]],
-            origin: Optional[str | Sequence[str]] = None,
+            keywords: str | Sequence[str] | None,
+            origin: str | Sequence[str] | None = None,
             num: int = 3,
             *,
-            allow_classification_range: Optional[tuple[int, int]] = (2, 3),
-            allow_rating_range: Optional[tuple[int, int]] = (0, 0),
+            allow_classification_range: tuple[int, int] | None = (2, 3),
+            allow_rating_range: tuple[int, int] | None = (0, 0),
             acc_mode: bool = False,
-            ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
-    ) -> list["DBArtworkCollection"]:
+            ratio: int | None = None,
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
+    ) -> list['DBArtworkCollection']:
         """从所有或任意指定来源根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         if isinstance(keywords, str):
             keywords = [keywords]
@@ -82,7 +83,7 @@ class BaseArtworkCollection(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _get_base_artwork_proxy_type(cls) -> "ArtworkProxyType":
+    def _get_base_artwork_proxy_type(cls) -> 'ArtworkProxyType':
         """内部方法, 用于获取对应图站的统一接口类"""
         raise NotImplementedError
 
@@ -92,7 +93,7 @@ class BaseArtworkCollection(abc.ABC):
         return cls._get_base_artwork_proxy_type().get_base_origin_name()
 
     @classmethod
-    def _init_self_artwork_proxy(cls, artwork_id: str | int) -> "BaseArtworkProxy":
+    def _init_self_artwork_proxy(cls, artwork_id: str | int) -> 'BaseArtworkProxy':
         """内部方法, 实列化时初始化作品统一接口"""
         artwork_proxy_class = cls._get_base_artwork_proxy_type()
         return artwork_proxy_class(artwork_id=artwork_id)
@@ -100,15 +101,15 @@ class BaseArtworkCollection(abc.ABC):
     @classmethod
     async def query_by_condition(
             cls,
-            keywords: Optional[str | Sequence[str]],
+            keywords: str | Sequence[str] | None,
             num: int = 3,
             *,
-            allow_classification_range: Optional[tuple[int, int]] = (2, 3),
-            allow_rating_range: Optional[tuple[int, int]] = (0, 0),
+            allow_classification_range: tuple[int, int] | None = (2, 3),
+            allow_rating_range: tuple[int, int] | None = (0, 0),
             acc_mode: bool = False,
-            ratio: Optional[int] = None,
-            order_mode: Literal['random', 'aid', 'aid_desc', 'create_time', 'create_time_desc'] = 'random'
-    ) -> list["DBArtworkCollection"]:
+            ratio: int | None = None,
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
+    ) -> list['DBArtworkCollection']:
         """根据要求查询作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_any_origin_by_condition(
             origin=cls._get_origin_name(), keywords=keywords, num=num,
@@ -121,10 +122,10 @@ class BaseArtworkCollection(abc.ABC):
             cls,
             num: int = 3,
             *,
-            allow_classification_range: Optional[tuple[int, int]] = (2, 3),
-            allow_rating_range: Optional[tuple[int, int]] = (0, 0),
-            ratio: Optional[int] = None
-    ) -> list["DBArtworkCollection"]:
+            allow_classification_range: tuple[int, int] | None = (2, 3),
+            allow_rating_range: tuple[int, int] | None = (0, 0),
+            ratio: int | None = None
+    ) -> list['DBArtworkCollection']:
         """获取随机作品, default classification range: 2-3, default rating range: 0-0"""
         return await cls.query_by_condition(
             keywords=None, num=num, ratio=ratio,
@@ -135,8 +136,8 @@ class BaseArtworkCollection(abc.ABC):
     async def query_classification_statistic(
             cls,
             *,
-            keywords: Optional[str | list[str]] = None,
-    ) -> "DBArtworkClassificationStatistic":
+            keywords: str | list[str] | None = None,
+    ) -> 'DBArtworkClassificationStatistic':
         """按分类统计收录作品数"""
         if isinstance(keywords, str):
             keywords = [keywords]
@@ -151,8 +152,8 @@ class BaseArtworkCollection(abc.ABC):
     async def query_rating_statistic(
             cls,
             *,
-            keywords: Optional[str | list[str]] = None,
-    ) -> "DBArtworkRatingStatistic":
+            keywords: str | list[str] | None = None,
+    ) -> 'DBArtworkRatingStatistic':
         """按分级统计收录作品数"""
         if isinstance(keywords, str):
             keywords = [keywords]
@@ -166,9 +167,9 @@ class BaseArtworkCollection(abc.ABC):
     @classmethod
     async def query_user_all(
             cls,
-            uid: Optional[str] = None,
-            uname: Optional[str] = None,
-    ) -> list["DBArtworkCollection"]:
+            uid: str | None = None,
+            uname: str | None = None,
+    ) -> list['DBArtworkCollection']:
         """通过 uid 或用户名精准查找用户所有作品"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_user_all(
@@ -179,8 +180,8 @@ class BaseArtworkCollection(abc.ABC):
     @classmethod
     async def query_user_all_aids(
             cls,
-            uid: Optional[str] = None,
-            uname: Optional[str] = None,
+            uid: str | None = None,
+            uname: str | None = None,
     ) -> list[str]:
         """通过 uid 或用户名精准查找用户所有作品的 artwork_id"""
         async with begin_db_session() as session:
@@ -190,24 +191,48 @@ class BaseArtworkCollection(abc.ABC):
         return result
 
     @classmethod
-    async def query_exists_aids(cls, aids: Sequence[str]) -> list[str]:
-        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid"""
+    async def query_exists_aids(
+            cls,
+            aids: Sequence[str],
+            *,
+            filter_classification: int | None = None,
+            filter_rating: int | None = None,
+    ) -> list[str]:
+        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid
+
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param filter_classification: 筛选指定的作品分类, 只有该分类的作品都会被视为存在
+        :param filter_rating: 筛选指定的作品分级, 只有该分级的作品都会被视为存在
+        """
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_exists_aids(
-                origin=cls._get_origin_name(), aids=aids
+                origin=cls._get_origin_name(), aids=aids,
+                filter_classification=filter_classification, filter_rating=filter_rating
             )
         return result
 
     @classmethod
-    async def query_not_exists_aids(cls, aids: Sequence[str]) -> list[str]:
-        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid"""
+    async def query_not_exists_aids(
+            cls,
+            aids: Sequence[str],
+            *,
+            exclude_classification: int | None = None,
+            exclude_rating: int | None = None,
+    ) -> list[str]:
+        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid
+
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param exclude_classification: 排除指定的作品分类, 所有非该分类的作品都会被视为不存在
+        :param exclude_rating: 排除指定的作品分级, 所有非该分级的作品都会被视为不存在
+        """
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_not_exists_aids(
-                origin=cls._get_origin_name(), aids=aids
+                origin=cls._get_origin_name(), aids=aids,
+                exclude_classification=exclude_classification, exclude_rating=exclude_rating
             )
         return result
 
-    async def query_artwork(self) -> "DBArtworkCollection":
+    async def query_artwork(self) -> 'DBArtworkCollection':
         """查询数据库获取作品信息"""
         async with begin_db_session() as session:
             result = await ArtworkCollectionDAL(session=session).query_unique(
@@ -219,8 +244,8 @@ class BaseArtworkCollection(abc.ABC):
             self,
             *,
             use_cache: bool = True,
-            classification: Optional[int] = None,
-            rating: Optional[int] = None,
+            classification: int | None = None,
+            rating: int | None = None,
             force_update_mark: bool = False,
     ) -> None:
         """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在则更新
@@ -245,7 +270,7 @@ class BaseArtworkCollection(abc.ABC):
                     rating = max(artwork.rating, rating)
 
                 await artwork_dal.update(
-                    id_=artwork.id,
+                    origin=self.origin_name, aid=self.__ap.s_aid,
                     title=artwork_data.title, uid=artwork_data.uid, uname=artwork_data.uname,
                     classification=classification, rating=rating,
                     width=artwork_data.width, height=artwork_data.height,
@@ -268,8 +293,8 @@ class BaseArtworkCollection(abc.ABC):
             self,
             *,
             use_cache: bool = True,
-            classification: Optional[int] = None,
-            rating: Optional[int] = None,
+            classification: int | None = None,
+            rating: int | None = None,
     ) -> None:
         """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在忽略
 
@@ -301,9 +326,7 @@ class BaseArtworkCollection(abc.ABC):
     async def delete_artwork_from_database(self) -> None:
         """从数据库删除该作品信息"""
         async with begin_db_session() as session:
-            artwork_dal = ArtworkCollectionDAL(session=session)
-            artwork = await artwork_dal.query_unique(origin=self.origin_name, aid=self.__ap.s_aid)
-            await artwork_dal.delete(id_=artwork.id)
+            await ArtworkCollectionDAL(session=session).delete(origin=self.origin_name, aid=self.__ap.s_aid)
 
 
 __all__ = [

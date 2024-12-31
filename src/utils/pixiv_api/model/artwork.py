@@ -8,11 +8,10 @@
 @Software       : PyCharm 
 """
 
+
 from lxml import etree
-from typing import Optional
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BasePixivModel
 from .searching import PixivSearchingData
 
@@ -25,15 +24,15 @@ class PixivTagTranslation(BasePixivModel):
 class PixivTag(BasePixivModel):
     """Pixiv tag 模型"""
     tag: str
-    translation: Optional[PixivTagTranslation] = None
+    translation: PixivTagTranslation | None = None
 
 
 class PixivArtworkTags(BasePixivModel):
     """Pixiv 作品 tag 属性"""
     tags: list[PixivTag]
-    authorId: Optional[int] = None
-    isLocked: Optional[bool] = None
-    writable: Optional[bool] = None
+    authorId: int | None = None
+    isLocked: bool | None = None
+    writable: bool | None = None
 
     @property
     def all_tags(self) -> list[str]:
@@ -83,7 +82,7 @@ class PixivArtworkBody(BasePixivModel):
             return ''
 
         description_html = etree.HTML(self.description)
-        for br in description_html.xpath("*//br"):
+        for br in description_html.xpath('*//br'):
             br.tail = '\n' + br.tail if br.tail else '\n'  # replace br tag
 
         return ''.join(text for x in description_html.xpath('/html/body/*') for text in x.itertext())
@@ -190,7 +189,7 @@ class PixivArtworkCompleteDataModel(BasePixivModel):
     regular_url: AnyHttpUrl
     all_url: PixivArtworkAllPages
     all_page: dict[int, PixivArtworkPageUrl]
-    ugoira_meta: Optional[PixivArtworkUgoiraMetaBody] = None
+    ugoira_meta: PixivArtworkUgoiraMetaBody | None = None
 
 
 class PixivArtworkRecommendModel(BasePixivModel):

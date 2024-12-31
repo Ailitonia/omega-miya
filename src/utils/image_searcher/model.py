@@ -9,12 +9,12 @@
 """
 
 import abc
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
 from src.compat import AnyUrlStr as AnyUrl
-from src.utils.common_api import BaseCommonAPI
+from src.utils import BaseCommonAPI
 
 if TYPE_CHECKING:
     from nonebot.internal.driver import QueryTypes
@@ -23,9 +23,9 @@ if TYPE_CHECKING:
 class ImageSearchingResult(BaseModel):
     """识图结果"""
     source: str  # 来源说明
-    source_urls: Optional[list[AnyUrl]] = None  # 来源地址
-    similarity: Optional[str] = None  # 相似度
-    thumbnail: Optional[AnyUrl] = None  # 缩略图地址
+    source_urls: list[AnyUrl] | None = None  # 来源地址
+    similarity: str | None = None  # 相似度
+    thumbnail: AnyUrl | None = None  # 缩略图地址
 
     model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
@@ -57,12 +57,12 @@ class BaseImageSearcherAPI(BaseImageSearcher, BaseCommonAPI, abc.ABC):
         return False
 
     @classmethod
-    async def get_resource_as_bytes(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 30) -> bytes:
+    async def get_resource_as_bytes(cls, url: str, *, params: 'QueryTypes' = None, timeout: int = 30) -> bytes:
         """请求原始资源内容"""
         return await cls._get_resource_as_bytes(url, params, timeout=timeout)
 
     @classmethod
-    async def get_resource_as_text(cls, url: str, *, params: "QueryTypes" = None, timeout: int = 10) -> str:
+    async def get_resource_as_text(cls, url: str, *, params: 'QueryTypes' = None, timeout: int = 10) -> str:
         """请求原始资源内容"""
         return await cls._get_resource_as_text(url, params, timeout=timeout)
 

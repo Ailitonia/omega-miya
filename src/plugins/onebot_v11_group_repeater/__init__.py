@@ -10,7 +10,6 @@
 
 from nonebot.plugin import PluginMetadata
 
-
 __plugin_meta__ = PluginMetadata(
     name='复读姬',
     description='【QQ 群复读姬插件】\n'
@@ -22,6 +21,5 @@ __plugin_meta__ = PluginMetadata(
 
 
 from . import common as common
-
 
 __all__ = []

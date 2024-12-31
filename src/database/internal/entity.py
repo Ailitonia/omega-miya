@@ -11,14 +11,11 @@
 from copy import deepcopy
 from datetime import datetime
 from enum import StrEnum, unique
-from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import update, delete
-from sqlalchemy.future import select
+from sqlalchemy import delete, select, update
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel
+from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
 from ..schema import AuthSettingOrm, EntityOrm, SubscriptionOrm
 
 
@@ -52,7 +49,7 @@ class EntityType(StrEnum):
         return set(member.value for _, member in cls.__members__.items())
 
 
-class Entity(BaseModel):
+class Entity(BaseDataQueryResultModel):
     """实体对象 Model"""
     id: int
     bot_index_id: int  # 所属 Bot 索引 ID
@@ -60,17 +57,15 @@ class Entity(BaseModel):
     entity_type: EntityType  # 实体对象类型
     parent_id: str  # 父实体 ID
     entity_name: str  # 实体名称
-    entity_info: Optional[str] = None  # 实体描述信息
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True)
+    entity_info: str | None = None  # 实体描述信息
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     def __str__(self) -> str:
         return f'Entity.{self.entity_type.value}(id={self.id}, entity_id={self.entity_id}, name={self.entity_name})'
 
 
-class EntityDAL(BaseDataAccessLayerModel):
+class EntityDAL(BaseDataAccessLayerModel[EntityOrm, Entity]):
     """实体对象 数据库操作对象"""
 
     @property
@@ -84,11 +79,11 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_type: str,
             parent_id: str
     ) -> Entity:
-        stmt = (select(EntityOrm).
-                where(EntityOrm.bot_index_id == bot_index_id).
-                where(EntityOrm.entity_id == entity_id).
-                where(EntityOrm.entity_type == EntityType(entity_type)).
-                where(EntityOrm.parent_id == parent_id))
+        stmt = (select(EntityOrm)
+                .where(EntityOrm.bot_index_id == bot_index_id)
+                .where(EntityOrm.entity_id == entity_id)
+                .where(EntityOrm.entity_type == EntityType(entity_type))
+                .where(EntityOrm.parent_id == parent_id))
         session_result = await self.db_session.execute(stmt)
         return Entity.model_validate(session_result.scalar_one())
 
@@ -118,10 +113,11 @@ class EntityDAL(BaseDataAccessLayerModel):
             strict_match_available: bool = True
     ) -> list[Entity]:
         """根据权限节点查询具备该节点的 Entity 对象"""
-        stmt = (select(EntityOrm).join(AuthSettingOrm).
-                where(AuthSettingOrm.module == module).
-                where(AuthSettingOrm.plugin == plugin).
-                where(AuthSettingOrm.node == node))
+        stmt = (select(EntityOrm)
+                .join(AuthSettingOrm)
+                .where(AuthSettingOrm.module == module)
+                .where(AuthSettingOrm.plugin == plugin)
+                .where(AuthSettingOrm.node == node))
 
         if strict_match_available:
             stmt = stmt.where(AuthSettingOrm.available == available)
@@ -135,11 +131,12 @@ class EntityDAL(BaseDataAccessLayerModel):
     async def query_all_entity_subscribed_source(
             self,
             sub_source_index_id: int,
-            entity_type: Optional[str] = None
+            entity_type: str | None = None
     ) -> list[Entity]:
         """查询订阅了某订阅源的 Entity 对象"""
-        stmt = (select(EntityOrm).join(SubscriptionOrm).
-                where(SubscriptionOrm.sub_source_index_id == sub_source_index_id))
+        stmt = (select(EntityOrm)
+                .join(SubscriptionOrm)
+                .where(SubscriptionOrm.sub_source_index_id == sub_source_index_id))
 
         if entity_type is not None:
             stmt = stmt.where(EntityOrm.entity_type == entity_type)
@@ -155,7 +152,7 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_type: str,
             parent_id: str,
             entity_name: str,
-            entity_info: Optional[str] = None
+            entity_info: str | None = None
     ) -> None:
         new_obj = EntityOrm(
             bot_index_id=bot_index_id,
@@ -166,19 +163,21 @@ class EntityDAL(BaseDataAccessLayerModel):
             entity_info=entity_info,
             created_at=datetime.now()
         )
-        self.db_session.add(new_obj)
-        await self.db_session.flush()
+        await self._add(new_obj)
+
+    async def upsert(self, *args, **kwargs) -> None:
+        raise NotImplementedError
 
     async def update(
             self,
             id_: int,
             *,
-            bot_index_id: Optional[int] = None,
-            entity_id: Optional[str] = None,
-            entity_type: Optional[str] = None,
-            parent_id: Optional[str] = None,
-            entity_name: Optional[str] = None,
-            entity_info: Optional[str] = None
+            bot_index_id: int | None = None,
+            entity_id: str | None = None,
+            entity_type: str | None = None,
+            parent_id: str | None = None,
+            entity_name: str | None = None,
+            entity_info: str | None = None
     ) -> None:
         stmt = update(EntityOrm).where(EntityOrm.id == id_)
         if bot_index_id is not None:
@@ -194,12 +193,12 @@ class EntityDAL(BaseDataAccessLayerModel):
         if entity_info is not None:
             stmt = stmt.values(entity_info=entity_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(EntityOrm).where(EntityOrm.id == id_)
-        stmt.execution_options(synchronize_session="fetch")
+        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

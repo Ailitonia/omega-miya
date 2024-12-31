@@ -8,14 +8,14 @@
 @Software       : PyCharm 
 """
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Optional
 
-from PIL import Image, ImageEnhance, ImageOps, ImageMath
+from PIL import Image, ImageEnhance, ImageMath, ImageOps
 from nonebot.utils import run_sync
 
 from src.resource import TemporaryResource
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 from src.utils.image_utils import ImageUtils
 
 _TMP_FOLDER: TemporaryResource = TemporaryResource('mirage_tank')
@@ -39,7 +39,7 @@ async def _load_image(image_content: bytes) -> ImageUtils:
 async def generate_mirage_tank(
         factory: MIRAGE_FACTORY,
         base_image_url: str,
-        addition_image_url: Optional[str] = None
+        addition_image_url: str | None = None
 ) -> TemporaryResource:
     """生成幻影坦克图片"""
     base_image_content = await _fetch_image(image_url=base_image_url)

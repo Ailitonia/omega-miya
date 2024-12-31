@@ -8,18 +8,17 @@
 @Software       : PyCharm
 """
 
-from typing import Optional
 
 from pydantic import BaseModel
 
 from src.compat import parse_obj_as
-from src.service import OmegaRequests
+from src.utils import OmegaRequests
 
 
 class GuessResult(BaseModel):
     name: str
-    trans: Optional[list[str]] = None
-    inputting: Optional[list[str]] = None
+    trans: list[str] | None = None
+    inputting: list[str] | None = None
 
     @property
     def guess_result(self) -> list[str]:

@@ -10,8 +10,8 @@
 
 from .base_model import (
     BaseTencentCloudErrorResponse,
-    BaseTencentCloudSuccessResponse,
     BaseTencentCloudResponse,
+    BaseTencentCloudSuccessResponse,
 )
 
 

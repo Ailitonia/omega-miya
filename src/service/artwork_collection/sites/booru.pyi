@@ -1,13 +1,13 @@
 from src.service.artwork_proxy import (
+    BehoimiArtworkProxy,
     DanbooruArtworkProxy,
     GelbooruArtworkProxy,
-    BehoimiArtworkProxy,
     KonachanArtworkProxy,
     KonachanSafeArtworkProxy,
     YandereArtworkProxy,
 )
-from ..internal import BaseArtworkCollection
 
+from ..internal import BaseArtworkCollection
 
 class DanbooruArtworkCollection(BaseArtworkCollection):
     @property
