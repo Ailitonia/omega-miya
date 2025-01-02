@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 通用多平台连接处理
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 import asyncio

@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 权限检查
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from nonebot import get_driver, logger

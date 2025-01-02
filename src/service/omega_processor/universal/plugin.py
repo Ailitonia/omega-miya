@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 插件预处理器
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from collections.abc import Iterable

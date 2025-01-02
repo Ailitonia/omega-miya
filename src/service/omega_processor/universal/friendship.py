@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 用户好感度处理
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from nonebot import logger

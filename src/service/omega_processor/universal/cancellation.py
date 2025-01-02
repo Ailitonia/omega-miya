@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 用户取消处理解析器
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 import re

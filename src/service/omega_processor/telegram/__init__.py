@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : telegram processor
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from nonebot.adapters.telegram.bot import Bot

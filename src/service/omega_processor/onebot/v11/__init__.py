@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : onebot v11 processor
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from nonebot.adapters.onebot.v11 import Bot, Event, MessageEvent

@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : nonebot-console-adapter support
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import Annotated

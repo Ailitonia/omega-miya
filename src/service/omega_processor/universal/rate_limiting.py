@@ -2,10 +2,10 @@
 @Author         : Ailitonia
 @Date           : 2021/09/12 0:09
 @FileName       : rate_limiting
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : 速率限制
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 import time

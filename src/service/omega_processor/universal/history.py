@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 事件历史记录
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from datetime import datetime

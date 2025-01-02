@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 插件调用统计
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from datetime import datetime
