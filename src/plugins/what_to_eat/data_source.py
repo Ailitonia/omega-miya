@@ -11,7 +11,7 @@
 import random
 import re
 from collections.abc import Sequence
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 from nonebot.log import logger
 from pydantic import BaseModel
@@ -20,6 +20,10 @@ from src.compat import parse_json_as
 from src.resource import StaticResource, TemporaryResource
 from src.service import OmegaMessage, OmegaMessageSegment
 from src.utils import OmegaRequests, semaphore_gather
+
+if TYPE_CHECKING:
+    from src.service import OmegaMatcherInterface as OmMI
+
 
 _RESOURCE_PATH: StaticResource = StaticResource('images', 'what_to_eat')
 _TMP_PATH: TemporaryResource = TemporaryResource('what_to_eat')
@@ -107,12 +111,23 @@ async def _format_menu_msg(foods: Sequence[MenuFood]) -> OmegaMessage:
     return output_msg
 
 
-async def get_random_food_msg(food_type: FoodType | None = None) -> OmegaMessage | OmegaMessageSegment:
+async def get_random_food_msg(food_type: FoodType | None = None) -> OmegaMessage:
     """获取随机食谱并生成消息"""
     foods = await _get_menu_random_food(food_type=food_type)
     return await _format_menu_msg(foods=foods)
 
 
+async def send_random_food_msg(interface: 'OmMI', food_type: FoodType | None = None) -> None:
+    """获取随机食谱并发送消息"""
+    try:
+        msg = await get_random_food_msg(food_type=food_type)
+        await interface.send_reply(msg)
+    except Exception as e:
+        logger.error(f'WhatToEat | 获取菜单失败, {e}')
+        await interface.send_reply('获取菜单失败了, 请稍后再试')
+
+
 __all__ = [
     'get_random_food_msg',
+    'send_random_food_msg',
 ]
