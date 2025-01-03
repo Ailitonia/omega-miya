@@ -42,17 +42,17 @@ async def handle_what_to_eat(interface: Annotated[OmMI, Depends(OmMI.depend())])
     await send_random_food_msg(interface=interface, food_type=food_type)
 
 
-@what_to_eat.on_fullmatch(('早上吃啥', '早饭吃啥', '早餐吃啥')).handle()
+@what_to_eat.on_fullmatch(('今早吃啥', '早上吃啥', '早饭吃啥', '早餐吃啥')).handle()
 async def handle_what_to_eat_breakfast(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
     await send_random_food_msg(interface=interface, food_type='早')
 
 
-@what_to_eat.on_fullmatch(('中午吃啥', '午饭吃啥', '午餐吃啥')).handle()
+@what_to_eat.on_fullmatch(('今天吃啥', '中午吃啥', '午饭吃啥', '午餐吃啥')).handle()
 async def handle_what_to_eat_lunch(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
     await send_random_food_msg(interface=interface, food_type='午')
 
 
-@what_to_eat.on_fullmatch(('晚上吃啥', '晚饭吃啥', '晚餐吃啥')).handle()
+@what_to_eat.on_fullmatch(('今晚吃啥', '晚上吃啥', '晚饭吃啥', '晚餐吃啥')).handle()
 async def handle_what_to_eat_dinner(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
     await send_random_food_msg(interface=interface, food_type='晚')
 
