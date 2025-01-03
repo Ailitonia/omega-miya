@@ -232,6 +232,22 @@ class BaseResource(abc.ABC):
                 file_list.append(file)
         return file_list
 
+    @check_directory
+    def iter_all_files(self) -> Generator[Self, Any, None]:
+        """遍历文件夹内所有文件"""
+        for dir_path, _, file_names in os.walk(self.path):
+            if file_names:
+                for file_name in file_names:
+                    yield self.__class__(dir_path, file_name)
+
+    @check_directory
+    def iter_current_files(self) -> Generator[Self, Any, None]:
+        """遍历文件夹内所有文件(不包含子目录)"""
+        for file_name in os.listdir(self.path):
+            file = self(file_name)
+            if file.is_file:
+                yield file
+
 
 class AnyResource(BaseResource):
     """任意位置资源文件"""
