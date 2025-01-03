@@ -139,12 +139,24 @@ async def generate_pixivision_illustration_list_preview(page: int = 1) -> 'Tempo
 
 async def _generate_pixivision_article_preview(title: str, article_data: 'PixivisionArticle') -> 'TemporaryResource':
     """根据 Pixivision 特辑内容生成预览图"""
-    return await PixivArtworkProxy.generate_artworks_preview(
-        preview_name=title,
-        artworks=[PixivArtworkProxy(x.artwork_id) for x in article_data.artwork_list],
-        preview_size=(512, 512),
-        num_of_line=4,
-    )
+    if article_data.illustration_list:
+        return await PixivArtworkProxy.generate_any_images_preview(
+            preview_name=title,
+            image_data=[
+                (x.thumbnail, f'ArticleID: {x.aid}\n{x.split_title_without_mark}')
+                for x in article_data.illustration_list
+            ],
+            preview_size=(480, 270),
+            hold_ratio=True,
+            num_of_line=4,
+        )
+    else:
+        return await PixivArtworkProxy.generate_artworks_preview(
+            preview_name=title,
+            artworks=[PixivArtworkProxy(x.artwork_id) for x in article_data.artwork_list],
+            preview_size=(512, 512),
+            num_of_line=4,
+        )
 
 
 async def format_pixivision_article_message(article: Pixivision, msg_prefix: str | None = None) -> str | OmegaMessage:
