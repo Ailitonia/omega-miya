@@ -233,7 +233,7 @@ class PixivParser:
         ).pop(0)
         description = '\n'.join(text.strip() for text in article_description.itertext())
 
-        # 获取所有作品内容
+        # 特辑内容是作品的, 获取所有作品内容
         artwork_list = []
         artworks = article_body.xpath('div//div[@class="am__work"]')
         for artwork in artworks:
@@ -249,8 +249,44 @@ class PixivParser:
             artwork_id = cls.parse_pid_from_url(text=artwork_url, url_mode=False)
             image_url = artwork_main.xpath('a//img[contains(@class, "am__work__illust")]').pop(0).attrib.get('src')
 
-            artwork_list.append({'artwork_id': artwork_id, 'artwork_user': artwork_user_name,
-                                 'artwork_title': artwork_title, 'artwork_url': artwork_url, 'image_url': image_url})
+            artwork_list.append({
+                'artwork_id': artwork_id,
+                'artwork_user': artwork_user_name,
+                'artwork_title': artwork_title,
+                'artwork_url': artwork_url,
+                'image_url': image_url,
+            })
+
+        # 特辑内容是其他特辑合集的, 获取所有特辑内容
+        illustration_list = []
+        illustrations = article_body.xpath('div//article[@class="_article-card spotlight"]')
+        for illustration in illustrations:
+            # 解析特辑信息
+            illustration_thumbnail = illustration.xpath('div/a/div[@class="_thumbnail"]').pop(0).attrib.get('style')
+            matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', illustration_thumbnail)
+            if matched_thumbnail is None:
+                continue
+            illustration_thumbnail_url = matched_thumbnail.group(1)
+            illustration_info = illustration.xpath('div/h2[@class="arc__title"]/a').pop(0)
+            illustration_title = illustration_info.text.strip()
+            illustration_href = illustration_info.attrib.get('href')
+            illustration_url = root_url + illustration_href
+            illustration_aid = re.sub(r'^/\w{2}/a/(?=\d+)', '', illustration_href)
+            illustration_tags = [
+                {
+                    'tag_id': re.sub(r'^/\w{2}/t/(?=\d+)', '', x.attrib.get('href')),
+                    'tag_name': x.attrib.get('data-gtm-label'),
+                    'tag_url': root_url + x.attrib.get('href'),
+                }
+                for x in illustration.xpath('div/ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a')
+            ]
+            illustration_list.append({
+                'aid': illustration_aid,
+                'title': illustration_title,
+                'thumbnail': illustration_thumbnail_url,
+                'url': illustration_url,
+                'tags': illustration_tags,
+            })
 
         # 解析 tag
         tag_list = []
@@ -267,7 +303,8 @@ class PixivParser:
             'description': description,
             'eyecatch_image': eyecatch_image,
             'artwork_list': artwork_list,
-            'tags_list': tag_list
+            'illustration_list': illustration_list,
+            'tags_list': tag_list,
         }
         return PixivisionArticle.model_validate(result)
 

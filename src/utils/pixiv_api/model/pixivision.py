@@ -10,6 +10,8 @@
 
 import re
 
+from pydantic import Field
+
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BasePixivModel
 
@@ -63,7 +65,8 @@ class PixivisionArticle(BasePixivModel):
     title: str
     description: str
     eyecatch_image: AnyHttpUrl | None = None
-    artwork_list: list[PixivisionArticleArtwork]
+    artwork_list: list[PixivisionArticleArtwork] = Field(default_factory=list)
+    illustration_list: list[PixivisionIllustration] = Field(default_factory=list)
     tags_list: list[PixivisionIllustrationTag]
 
     @property
