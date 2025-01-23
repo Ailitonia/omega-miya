@@ -11,6 +11,7 @@
 from nonebot import get_driver, logger
 
 from src.service import scheduler
+from src.utils import run_async_with_time_limited
 from .sites import (
     BooruArtworksUpdater,
     LocalCollectedArtworkUpdater,
@@ -29,6 +30,7 @@ async def artwork_collection_updater_startup_task() -> None:
         logger.error(f'OmegaArtworkCollectionUpdater | Updating from LocalCollectedArtwork failed, {e!r}')
 
 
+@run_async_with_time_limited(delay_time=240)
 async def artwork_collection_updater_main() -> None:
     logger.debug('OmegaArtworkCollectionUpdater | Starting update from LoliconAPI')
     try:
@@ -82,7 +84,8 @@ scheduler.add_job(
     # timezone=None,
     id='artwork_collection_updater',
     coalesce=True,
-    misfire_grace_time=120
+    max_instances=1,
+    misfire_grace_time=120,
 )
 
 __all__ = [

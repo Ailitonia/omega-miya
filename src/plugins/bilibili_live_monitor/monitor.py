@@ -11,9 +11,11 @@
 from nonebot.log import logger
 
 from src.service import scheduler
+from src.utils import run_async_with_time_limited
 from .helpers import bili_live_room_monitor_main
 
 
+@run_async_with_time_limited(delay_time=120)
 async def bili_live_room_update_monitor() -> None:
     """Bilibili 直播间订阅 直播间更新监控"""
     logger.debug('BilibiliLiveRoomSubscriptionMonitor | Started checking bilibili live room update')
@@ -42,7 +44,8 @@ scheduler.add_job(
     # timezone=None,
     id='bili_live_room_update_monitor',
     coalesce=True,
-    misfire_grace_time=20
+    max_instances=2,
+    misfire_grace_time=60,
 )
 
 

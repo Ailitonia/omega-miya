@@ -11,11 +11,12 @@
 from nonebot.log import logger
 
 from src.service import scheduler
-from src.utils import semaphore_gather
+from src.utils import run_async_with_time_limited, semaphore_gather
 from src.utils.pixiv_api import PixivUser
 from .helpers import pixiv_user_new_artworks_monitor_main, query_all_subscribed_pixiv_user_sub_source
 
 
+@run_async_with_time_limited(delay_time=300)
 async def pixiv_user_new_artworks_monitor() -> None:
     """Pixiv 用户订阅 作品更新监控"""
     logger.debug('PixivUserSubscriptionMonitor | Started checking pixiv user artworks update')
@@ -49,7 +50,8 @@ scheduler.add_job(
     # timezone=None,
     id='pixiv_user_new_artworks_monitor',
     coalesce=True,
-    misfire_grace_time=120
+    max_instances=1,
+    misfire_grace_time=300,
 )
 
 

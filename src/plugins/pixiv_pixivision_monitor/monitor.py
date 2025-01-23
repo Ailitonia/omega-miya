@@ -11,9 +11,11 @@
 from nonebot.log import logger
 
 from src.service import scheduler
+from src.utils import run_async_with_time_limited
 from .helpers import pixivision_monitor_main
 
 
+@run_async_with_time_limited(delay_time=300)
 async def pixivision_article_monitor() -> None:
     logger.debug('PixivisionArticleMonitor | Start checking new pixivision articles')
 
@@ -42,7 +44,8 @@ scheduler.add_job(
     # timezone=None,
     id='pixivision_article_monitor',
     coalesce=True,
-    misfire_grace_time=120
+    max_instances=1,
+    misfire_grace_time=300,
 )
 
 
