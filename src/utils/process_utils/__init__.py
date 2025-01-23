@@ -16,6 +16,7 @@ from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from functools import wraps
 from typing import Any, Literal, overload
 
+from anyio import fail_after
 from nonebot import logger
 
 
@@ -26,7 +27,7 @@ def run_async_delay(delay_time: float = 5, *, random_sigma: float | None = None)
     :param random_sigma: 启用延迟随机分布的标准差
     """
 
-    def decorator[** P, R](func: Callable[P, Coroutine[None, None, R]]) -> Callable[P, Coroutine[None, None, R]]:
+    def decorator[**P, R, T1, T2](func: Callable[P, Coroutine[T1, T2, R]]) -> Callable[P, Coroutine[T1, T2, R]]:
         if not inspect.iscoroutinefunction(func):
             raise ValueError('The decorated function must be coroutine function')
 
@@ -40,6 +41,27 @@ def run_async_delay(delay_time: float = 5, *, random_sigma: float | None = None)
             )
             await asyncio.sleep(delay=delay)
             return await func(*args, **kwargs)
+
+        return _wrapper
+
+    return decorator
+
+
+def run_async_with_time_limited(delay_time: int, *, shield: bool = False):
+    """一个用于包装 async function 为其设置超时, 超时后直接抛出 TimeoutError 异常
+
+    :param delay_time: 超时的时间, 单位秒
+    :param shield: set True to shield the cancel scope from external cancellation
+    """
+
+    def decorator[**P, R, T1, T2](func: Callable[P, Coroutine[T1, T2, R]]) -> Callable[P, Coroutine[T1, T2, R]]:
+        if not inspect.iscoroutinefunction(func):
+            raise ValueError('The decorated function must be coroutine function')
+
+        @wraps(func)
+        async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            with fail_after(delay_time, shield=shield):
+                return await func(*args, **kwargs)
 
         return _wrapper
 
@@ -151,5 +173,6 @@ async def semaphore_gather[T](
 
 __all__ = [
     'run_async_delay',
+    'run_async_with_time_limited',
     'semaphore_gather',
 ]
