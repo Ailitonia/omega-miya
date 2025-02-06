@@ -9,6 +9,7 @@
 """
 
 import asyncio
+from typing import Literal
 
 from nonebot import get_driver, logger
 from nonebot.exception import IgnoredException
@@ -16,67 +17,42 @@ from nonebot.internal.adapter import Bot as BaseBot
 from nonebot.internal.adapter import Event as BaseEvent
 from nonebot.matcher import Matcher
 from nonebot.message import handle_event, run_preprocessor
-from nonebot.permission import Permission
 
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
+__ORIGINAL_RESPOND_ID_KEY: Literal['_omega_original_respond_id'] = '_omega_original_respond_id'
+"""事件处理过程常量, 最初响应的 Bot 发起的会话 id 存储 key"""
 __ONLINE_BOTS: dict[str, BaseBot] = {}
 """当前在线的 Bot"""
 lock = asyncio.Lock()
 driver = get_driver()
 
 
-class __OriginalResponding:
-    """检查当前事件是否属于由最初响应的 Bot 发起的指定会话
-
-    参数:
-        sessions: 会话 ID 元组
-        original: 最初响应的 Bot
-        perm: 需同时满足的权限
-    """
-
-    __slots__ = ('sessions', 'original', 'perm')
-
-    def __init__(self, sessions: tuple[str, ...], original: str | None = None, perm: Permission | None = None) -> None:
-        self.sessions = sessions
-        self.original = original
-        self.perm = perm
-
-    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
-        return bool(
-            event.get_session_id() in self.sessions
-            and (self.original is None or bot.self_id == self.original)
-            and (self.perm is None or await self.perm(bot, event))
-        )
-
-
-async def __original_responding_permission_updater(bot: BaseBot, event: BaseEvent, matcher: Matcher) -> Permission:
-    """匹配当前事件是否属于由最初响应的 Bot 发起的指定会话"""
-    return Permission(
-        __OriginalResponding(
-            sessions=(event.get_session_id(),),
-            original=bot.self_id,
-            perm=matcher.permission
-        )
-    )
-
-
-# 对于多协议端同时接入, 需要使用 permission_updater 限制 bot 的 self_id 避免响应混乱
-Matcher.permission_updater(__original_responding_permission_updater)
-
-
 @run_preprocessor
 async def __unique_bot_responding_limit(bot: BaseBot, event: BaseEvent):
-    # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
+    """多 Bot 响应去重预处理"""
     try:
+        # 只检查有用户交互的事件
         event_user_id = event.get_user_id()
     except (NotImplementedError, ValueError):
         logger.opt(colors=True).trace('Unique bot responding limit checker Ignored with no-user_id event')
         return
 
+    # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
     if event_user_id in [x for x in __ONLINE_BOTS.keys() if x != bot.self_id]:
         logger.debug(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}')
         raise IgnoredException(f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}')
+
+
+@run_preprocessor
+async def __first_responded_bot_limit(bot: BaseBot, event: BaseEvent, matcher: Matcher):
+    """检查当前事件是否属于由最初响应的 Bot 发起的指定会话, 避免多 Bot 在同一会话中重复响应"""
+    if (original_respond_id := matcher.state.get(__ORIGINAL_RESPOND_ID_KEY, None)) is None:
+        logger.debug(f'Bot {bot.self_id} first responded event {event.get_event_name()!r}')
+        matcher.state[__ORIGINAL_RESPOND_ID_KEY] = bot.self_id
+    elif original_respond_id != bot.self_id:
+        logger.debug(f'Bot {bot.self_id} ignored non-original responding event {event.get_event_name()!r}')
+        raise IgnoredException(f'Bot {bot.self_id} ignored non-original responding event {event.get_event_name()!r}')
 
 
 @driver.on_bot_connect
