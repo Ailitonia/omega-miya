@@ -146,7 +146,7 @@ class JichouRender(BaseStickerRender):
         _, text_h = ImageUtils.get_text_size(text=text_main_fin, font=font)
 
         # 处理图片
-        background_h = int(image.height * 1.08) + text_h
+        background_h = int(image.height * 1.08 + text_h)
         background = Image.new(mode='RGB', size=(image.width, background_h), color=(255, 255, 255))
 
         # 处理粘贴位置 顶头
@@ -217,7 +217,7 @@ class PhLogoRender(BaseStickerRender):
 
         # 生成图片定长 两部分文字之间间隔及两侧留空为固定值三个空格大小
         split_width, _ = ImageUtils.get_text_size(' ', font)
-        image_width = w_text_width + y_text_width + int(split_width * 5.5)
+        image_width = int(w_text_width + y_text_width + split_width * 5.5)
         image_height = int(text_height * 2.25)
 
         # 计算黄色圆角矩形所在位置

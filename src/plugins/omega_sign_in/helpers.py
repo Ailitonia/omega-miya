@@ -372,13 +372,13 @@ async def generate_signin_card(
 
         # 总高度
         if draw_fortune:
-            height = (top_img_height + top_text_height + user_text_height + level_text_height +
-                      fortune_text_height * 3 + fortune_star_height * 6 + bottom_text_height * 6 +
-                      int(0.41625 * width))
+            height = int(top_img_height + top_text_height + user_text_height + level_text_height
+                         + fortune_text_height * 3 + fortune_star_height * 6 + bottom_text_height * 6
+                         + 0.41625 * width)
         else:
-            height = (top_img_height + top_text_height + user_text_height + level_text_height +
-                      fortune_text_height * 1 + fortune_star_height * 2 + bottom_text_height * 6 +
-                      int(0.25125 * width))
+            height = int(top_img_height + top_text_height + user_text_height + level_text_height
+                         + fortune_text_height * 1 + fortune_star_height * 2 + bottom_text_height * 6
+                         + 0.25125 * width)
 
         if head_img is not None:
             height += int(0.03125 * width)
