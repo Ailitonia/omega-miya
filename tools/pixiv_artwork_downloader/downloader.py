@@ -23,6 +23,7 @@ from src.resource import AnyResource, BaseResource, TemporaryResource
 from src.service.artwork_collection import PixivArtworkCollection
 from src.utils.pixiv_api import PixivUser
 from src.utils.process_utils import semaphore_gather
+from .consts import DOWNLOADER_SETTING_NAME
 from .utils import get_last_follow_illust_pid, set_last_follow_illust_pid
 
 if TYPE_CHECKING:
@@ -32,14 +33,15 @@ if TYPE_CHECKING:
 
 
 class PixivArtworkDownloader:
+    __slots__ = ('__fast_mode', '__output_file',)
 
     def __init__(self, fast_mode: bool = False):
-        self._fast_mode = fast_mode
+        self.__fast_mode = fast_mode
         self.__output_file: TemporaryResource
 
     @classmethod
     def get_output_dir(cls) -> TemporaryResource:
-        return TemporaryResource('pixiv_artwork_downloader')
+        return TemporaryResource(DOWNLOADER_SETTING_NAME)
 
     def set_output_file(self, category: str, filename: str) -> None:
         self.__output_file: TemporaryResource = self.get_output_dir()(category, filename)
@@ -73,7 +75,7 @@ class PixivArtworkDownloader:
 
             # 请求过快可能暂时被流控, 暂停一下重试一次
             logger.opt(colors=True).warning(f'Query {artwork} failed and will retry again <c>></c> <r>{e!r}</r>')
-            if self._fast_mode:
+            if self.__fast_mode:
                 await async_sleep(20)
             else:
                 await async_sleep(60)
@@ -139,7 +141,7 @@ class PixivArtworkDownloader:
             if prepare_pids:
                 logger.info(
                     f'获取作品下载链接中, 剩余: {len(prepare_pids)}, 预计时间: {int(len(prepare_pids) * 1.52)} 秒')
-                if self._fast_mode:
+                if self.__fast_mode:
                     await async_sleep(int((len(prepare_pids) if len(prepare_pids) < 20 else 20) * 0.1))
                 else:
                     await async_sleep(int((len(prepare_pids) if len(prepare_pids) < 20 else 20) * 1.5))
