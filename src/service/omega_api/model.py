@@ -8,23 +8,23 @@
 @Software       : PyCharm 
 """
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict
 
 
 class BaseApiModel(BaseModel):
-    """omega API 基类"""
+    """Omega API 数据基类"""
 
-    model_config = ConfigDict(extra='ignore', frozen=True)
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, frozen=True)
 
 
-class BaseApiReturn(BaseApiModel):
-    """api 返回值基类"""
+class StandardApiReturn[T: BaseApiModel](BaseModel):
+    """Omega API 返回值基类"""
     error: bool
-    body: Any
+    body: T | None
     message: str
     exception: str | None = None
+
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True, frozen=True)
 
     @property
     def success(self) -> bool:
@@ -33,5 +33,5 @@ class BaseApiReturn(BaseApiModel):
 
 __all = [
     'BaseApiModel',
-    'BaseApiReturn'
+    'StandardApiReturn',
 ]
