@@ -24,6 +24,9 @@ from src.compat import dump_json_as
 from .config import api_config
 from .consts import TOKEN_HEADER_KEY
 
+_REGISTERED_APP: set[str] = set()
+"""缓存全局已注册 app_name"""
+
 
 class OmegaApi:
     """Omega API 应用创建与路由注册"""
@@ -70,6 +73,11 @@ class OmegaApi:
         # 检查 nonebot 驱动器类型
         if 'fastapi' not in get_driver().type:
             raise RuntimeError('fastapi driver not enabled')
+
+        # 检查 app_name 是否已被注册
+        if self._app_name in _REGISTERED_APP:
+            raise ValueError(f'OmegaApi service {self._app_name!r} already registered')
+        _REGISTERED_APP.add(self._app_name)
 
         # 创建子应用
         sub_app = FastAPI()
