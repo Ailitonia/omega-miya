@@ -24,7 +24,7 @@ __plugin_meta__ = PluginMetadata(
           '/pixiv用户订阅列表\n\n'
           '仅限私聊或群聊中群管理员使用:\n'
           '/pixiv用户订阅 <UID>\n'
-          '/pixiv取消用户订阅 <UID>',
+          '/取消pixiv用户订阅 <UID>',
     extra={'author': 'Ailitonia'},
 )
 

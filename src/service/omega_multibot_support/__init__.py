@@ -2,13 +2,13 @@
 @Author         : Ailitonia
 @Date           : 2022/12/03 20:51
 @FileName       : omega_multibot_support.py
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : Multi-Bot 多协议端接入支持
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
-from . import universal as universal  # 通用处理模块优先导入
+from . import universal as universal  # noqa: I001 通用处理模块优先导入
 
 from . import console as console
 from . import onebot_v11 as onebot_v11

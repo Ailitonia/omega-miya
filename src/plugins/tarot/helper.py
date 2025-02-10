@@ -131,13 +131,13 @@ async def generate_tarot_card(
         _, reversed_text_height = ImageUtils.get_text_size(text=reversed_text, font=text_font)
 
         # 计算高度
-        background_height = title_height + m_title_height + tarot_img_height + int(0.09375 * width)
+        background_height = int(title_height + m_title_height + tarot_img_height + 0.09375 * width)
         if need_desc:
-            background_height += desc_text_height + int(0.125 * width)
+            background_height += int(desc_text_height + 0.125 * width)
         if need_upright:
-            background_height += m_title_height + upright_text_height + int(0.125 * width)
+            background_height += int(m_title_height + upright_text_height + 0.125 * width)
         if need_reversed:
-            background_height += m_title_height + reversed_text_height + int(0.125 * width)
+            background_height += int(m_title_height + reversed_text_height + 0.125 * width)
 
         # 生成背景
         background = Image.new(
@@ -158,7 +158,7 @@ async def generate_tarot_card(
                                         fill=(0, 0, 0))  # 英文名称
 
         this_height += m_title_height + int(0.03125 * width)
-        background.paste(draw_tarot_img, box=(0, this_height), mask=draw_tarot_img)  # 卡面
+        background.paste(draw_tarot_img, box=(0, int(this_height)), mask=draw_tarot_img)  # 卡面
 
         this_height += tarot_img_height
         if need_desc:

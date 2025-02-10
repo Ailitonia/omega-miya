@@ -11,7 +11,7 @@
 from typing import Literal
 
 from src.database.internal.subscription_source import SubscriptionSourceType
-from src.utils.bilibili_api.future.models.dynamic import DynamicType
+from src.utils.bilibili_api.models.dynamic import DynamicType
 
 # 订阅相关
 BILI_DYNAMIC_SUB_TYPE: str = SubscriptionSourceType.bili_dynamic.value

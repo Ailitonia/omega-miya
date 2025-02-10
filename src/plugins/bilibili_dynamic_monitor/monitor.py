@@ -15,7 +15,7 @@ from nonebot.log import logger
 
 from src.exception import PluginException, WebSourceException
 from src.service import scheduler
-from src.utils import semaphore_gather
+from src.utils import run_async_with_time_limited, semaphore_gather
 from .consts import AVERAGE_CHECKING_PER_MINUTE, CHECKING_DELAY_UNDER_RATE_LIMITING, MONITOR_JOB_ID
 from .helpers import bili_dynamic_monitor_main, query_all_subscribed_dynamic_sub_source
 
@@ -51,6 +51,7 @@ async def _get_next_check_uid(num: int) -> list[int]:
     return [await _UID_CHECKING_QUEUE.get() for _ in range(min(num, _UID_CHECKING_QUEUE.qsize()))]
 
 
+@run_async_with_time_limited(delay_time=240)
 async def bili_dynamic_update_monitor() -> None:
     """Bilibili 用户动态订阅 动态更新监控"""
     logger.debug('BilibiliDynamicMonitor | Started checking bilibili user dynamics update from queue')
@@ -93,7 +94,8 @@ scheduler.add_job(
     # timezone=None,
     id=MONITOR_JOB_ID,
     coalesce=True,
-    misfire_grace_time=120
+    max_instances=2,
+    misfire_grace_time=120,
 )
 
 

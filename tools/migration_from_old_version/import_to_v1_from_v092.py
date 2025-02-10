@@ -16,8 +16,10 @@ from pydantic import BaseModel, ConfigDict
 
 from src.database import BotSelfDAL, SubscriptionSourceDAL, begin_db_session
 from src.resource import TemporaryResource
-from src.service.omega_api import register_get_route
+from src.service.omega_api import OmegaApi
 from src.service.omega_base import OmegaEntity
+
+api = OmegaApi(app_name='migration_from_old_version', enable_token_verify=True)
 
 
 class DateBaseModel(BaseModel):
@@ -105,8 +107,8 @@ class _OutputData(DateBaseModel):
     entities: list[_Entity]
 
 
-@register_get_route('input_v092_data')
-async def input_v092_data():
+@api.register_get_route('input_data')
+async def input_data():
     async with TemporaryResource('output_data.json').async_open('r', encoding='utf8') as af:
         data = _OutputData.model_validate(json.loads(await af.read()))
 

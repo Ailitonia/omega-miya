@@ -2,10 +2,10 @@
 @Author         : Ailitonia
 @Date           : 2022/12/03 21:45
 @FileName       : onebot_v11.py
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : OneBot V11(go-cqhttp) support
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import Annotated

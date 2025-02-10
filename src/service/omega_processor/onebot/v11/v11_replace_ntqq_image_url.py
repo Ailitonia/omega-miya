@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 替换 ntqq 图片域名解决证书验证问题
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from collections.abc import Callable

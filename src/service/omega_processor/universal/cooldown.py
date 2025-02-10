@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : 冷却检查
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from datetime import datetime, timedelta

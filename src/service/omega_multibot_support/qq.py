@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : QQ 官方协议支持
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import TYPE_CHECKING, Annotated

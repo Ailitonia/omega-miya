@@ -14,7 +14,7 @@ from nonebot.log import logger
 
 from src.exception import WebSourceException
 from src.service import reschedule_job, scheduler
-from src.utils import semaphore_gather
+from src.utils import run_async_with_time_limited, semaphore_gather
 from .helpers import query_all_subscribed_weibo_user_sub_source, weibo_user_monitor_main
 
 _MONITOR_JOB_ID: Literal['weibo_update_monitor'] = 'weibo_update_monitor'
@@ -25,6 +25,7 @@ _CHECKING_DELAY_UNDER_RATE_LIMITING: int = 20
 """被风控时的延迟间隔"""
 
 
+@run_async_with_time_limited(delay_time=240)
 async def weibo_update_monitor() -> None:
     """微博用户订阅更新监控"""
     logger.debug('WeiboMonitor | Started checking weibo update')
@@ -71,7 +72,8 @@ scheduler.add_job(
     # timezone=None,
     id=_MONITOR_JOB_ID,
     coalesce=True,
-    misfire_grace_time=120
+    max_instances=2,
+    misfire_grace_time=120,
 )
 
 

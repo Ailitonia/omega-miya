@@ -11,6 +11,7 @@
 from nonebot import get_driver, logger
 
 from src.service import scheduler
+from src.utils import run_async_with_time_limited
 from src.utils.bilibili_api import BilibiliCredential
 
 
@@ -56,8 +57,8 @@ async def _load_and_refresh_bilibili_login_status() -> None:
     second='23',
     id='bilibili_login_status_refresh_monitor',
     coalesce=True,
-    misfire_grace_time=120
 )
+@run_async_with_time_limited(delay_time=300)
 async def _bilibili_login_status_refresh_monitor() -> None:
     try:
         await _refresh_bilibili_login_status()

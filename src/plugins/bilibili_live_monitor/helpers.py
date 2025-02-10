@@ -47,7 +47,7 @@ from .model import (
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
     from src.database.internal.subscription_source import SubscriptionSource
-    from src.utils.bilibili_api.future.models.live import RoomInfoData
+    from src.utils.bilibili_api.models.live import RoomInfoData
 
 
 async def _query_room_sub_source(room_id: int | str) -> 'SubscriptionSource':

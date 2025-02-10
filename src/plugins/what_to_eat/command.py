@@ -11,37 +11,24 @@
 from datetime import datetime
 from typing import Annotated
 
-from nonebot import get_driver, logger
-from nonebot.params import Depends, RawCommand
-from nonebot.plugin import on_command
+from nonebot.params import Depends
+from nonebot.plugin import MatcherGroup
 
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import enable_processor_state
-from .data_source import get_random_food_msg
+from .data_source import send_random_food_msg
 
-
-@on_command(
-    '今天吃啥',
-    aliases={'早上吃啥', '早饭吃啥', '中午吃啥', '午饭吃啥', '晚上吃啥', '晚饭吃啥', '夜宵吃啥', '宵夜吃啥'},
+what_to_eat = MatcherGroup(
+    type='message',
     priority=10,
     block=True,
-    state=enable_processor_state(name='WhatToEat', level=10),
-).handle()
-async def handle_what_to_eat(
-        cmd: Annotated[str, RawCommand()],
-        interface: Annotated[OmMI, Depends(OmMI.depend())],
-) -> None:
-    command_text = cmd.lstrip(''.join(get_driver().config.command_start))
+    state=enable_processor_state(name='WhatToEat', level=10, echo_processor_result=False),
+)
 
-    if '早' in command_text:
-        food_type = '早'
-    elif '午' in command_text:
-        food_type = '午'
-    elif '晚' in command_text:
-        food_type = '晚'
-    elif '夜' in command_text:
-        food_type = '夜'
-    elif 4 <= datetime.now().hour < 10:
+
+@what_to_eat.on_command('今天吃啥', aliases={'吃啥'}).handle()
+async def handle_what_to_eat(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
+    if 4 <= datetime.now().hour < 10:
         food_type = '早'
     elif 10 <= datetime.now().hour < 16:
         food_type = '午'
@@ -52,12 +39,27 @@ async def handle_what_to_eat(
     else:
         food_type = None
 
-    try:
-        msg = await get_random_food_msg(food_type=food_type)
-        await interface.send_reply(msg)
-    except Exception as e:
-        logger.error(f'WhatToEat | 获取菜单失败, {e}')
-        await interface.send_reply('获取菜单失败了, 请稍后再试')
+    await send_random_food_msg(interface=interface, food_type=food_type)
+
+
+@what_to_eat.on_fullmatch(('今早吃啥', '早上吃啥', '早饭吃啥', '早餐吃啥')).handle()
+async def handle_what_to_eat_breakfast(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
+    await send_random_food_msg(interface=interface, food_type='早')
+
+
+@what_to_eat.on_fullmatch(('今天吃啥', '中午吃啥', '午饭吃啥', '午餐吃啥')).handle()
+async def handle_what_to_eat_lunch(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
+    await send_random_food_msg(interface=interface, food_type='午')
+
+
+@what_to_eat.on_fullmatch(('今晚吃啥', '晚上吃啥', '晚饭吃啥', '晚餐吃啥')).handle()
+async def handle_what_to_eat_dinner(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
+    await send_random_food_msg(interface=interface, food_type='晚')
+
+
+@what_to_eat.on_fullmatch(('夜宵吃啥', '宵夜吃啥')).handle()
+async def handle_what_to_eat_night(interface: Annotated[OmMI, Depends(OmMI.depend())]) -> None:
+    await send_random_food_msg(interface=interface, food_type='夜')
 
 
 __all__ = []

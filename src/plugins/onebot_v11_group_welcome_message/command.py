@@ -2,10 +2,10 @@
 @Author         : Ailitonia
 @Date           : 2021/08/14 19:09
 @FileName       : omega_welcome_message.py
-@Project        : nonebot2_miya 
+@Project        : nonebot2_miya
 @Description    : 群自定义欢迎消息
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import Annotated, Literal
@@ -27,6 +27,7 @@ from nonebot.log import logger
 from nonebot.params import Arg, Depends
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup, on_notice
+from sqlalchemy.exc import NoResultFound
 
 from src.params.handler import get_command_message_arg_parser_handler
 from src.params.rule import event_has_permission_level
@@ -121,14 +122,16 @@ async def handle_send_welcome_message(
         )
 
         if welcome_message_setting.value is None or welcome_message_setting.available != 1:
-            logger.info(f'{interface.entity}, 有新用户: {event.user_id} 进群, 未配置欢迎消息, 跳过发送欢迎消息流程')
+            logger.info(f'{interface.entity}, 有新用户: {event.user_id} 进群, 未启用欢迎消息, 跳过发送欢迎消息流程')
             return
 
         logger.info(f'{interface.entity}, 有新用户: {event.user_id} 进群, 发送欢迎消息')
         send_message = OmegaMessage.loads(message_data=welcome_message_setting.value)
         await interface.send_at_sender(message=send_message)
+    except NoResultFound:
+        logger.info(f'{interface.entity}, 有新用户: {event.user_id} 进群, 该群未配置欢迎消息, 跳过发送欢迎消息流程')
     except Exception as e:
-        logger.error(f'{interface.entity} 获取自定义欢迎消息配置失败, 或发送消息失败, {e!r}')
+        logger.error(f'{interface.entity} 有新用户: {event.user_id} 进群, 获取欢迎消息配置失败, 或发送消息失败, {e}')
 
 
 __all__ = []

@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : QQ 群自定义欢迎消息
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from nonebot.plugin import PluginMetadata

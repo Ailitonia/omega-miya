@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : Telegram 消息图片解析器, 将 photo 消息段中的图片 file_id 替换为真实图片 url
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from urllib.parse import quote

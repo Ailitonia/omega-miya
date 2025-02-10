@@ -5,7 +5,7 @@
 @Project        : nonebot2_miya
 @Description    : onebot processor
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from . import v11 as v11

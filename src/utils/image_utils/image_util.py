@@ -10,7 +10,6 @@
 
 import base64
 import random
-from copy import deepcopy
 from io import BytesIO
 from typing import Literal, Self
 
@@ -23,6 +22,8 @@ from .config import image_utils_config
 
 
 class ImageUtils:
+    """图片处理工具集"""
+
     def __init__(self, image: Image.Image):
         self._image: Image.Image = image
 
@@ -69,7 +70,7 @@ class ImageUtils:
             *,
             image_width: int = 512,
             font_name: str | None = None,
-            alpha: bool = False
+            alpha: bool = False,
     ) -> Self:
         """异步从文本初始化, 文本转图片并自动裁切"""
         return cls.init_from_text(text, image_width=image_width, font_name=font_name, alpha=alpha)
@@ -81,7 +82,7 @@ class ImageUtils:
             *,
             image_width: int = 512,
             font_name: str | None = None,
-            alpha: bool = False
+            alpha: bool = False,
     ) -> Self:
         """从文本初始化, 文本转图片并自动裁切
 
@@ -102,7 +103,7 @@ class ImageUtils:
         text = cls.split_multiline_text(text=text, width=int(image_width * 0.75), font=font)
         _, text_height = cls.get_text_size(text, font=font)
         # 初始化背景图层
-        image_height = text_height + int(image_width * 0.25)
+        image_height = int(text_height + image_width * 0.25)
         if alpha:
             background = Image.new(mode='RGBA', size=(image_width, image_height), color=(255, 255, 255, 0))
         else:
@@ -125,8 +126,8 @@ class ImageUtils:
             anchor: str | None = None,
             spacing: int = 4,
             stroke_width: int = 0,
-            **kwargs
-    ) -> tuple[int, int]:
+            **kwargs,
+    ) -> tuple[float, float]:
         """获取文本宽度和长度(根据图像框)"""
         left, top, right, bottom = ImageDraw.Draw(Image.new(mode='L', size=(0, 0), color=0)).textbbox(
             xy=(0, 0), text=text, font=font, anchor=anchor, spacing=spacing, stroke_width=stroke_width, **kwargs
@@ -141,7 +142,7 @@ class ImageUtils:
             mode='',
             stroke_width=0,
             anchor=None,
-            **kwargs
+            **kwargs,
     ) -> tuple[float, float]:
         """获取文本宽度和长度(根据字体)"""
         left, top, right, bottom = font.getbbox(
@@ -156,7 +157,7 @@ class ImageUtils:
             width: int,
             *,
             font: ImageFont.FreeTypeFont | str | None = None,
-            stroke_width: int = 0
+            stroke_width: int = 0,
     ) -> str:
         """按字体绘制的文本长度切分换行文本
 
@@ -186,19 +187,7 @@ class ImageUtils:
     @property
     def image(self) -> Image.Image:
         """获取 Image 对象副本"""
-        return deepcopy(self._image)
-
-    @property
-    def base64_output(self) -> str:
-        """转换为 Base64 输出"""
-        b64 = base64.b64encode(self.get_bytes())
-        b64 = str(b64, encoding='utf-8')
-        return 'base64://' + b64
-
-    @property
-    def bytes_output(self) -> bytes:
-        """转换为 bytes 输出"""
-        return self.get_bytes()
+        return self._image
 
     def set_image(self, image: Image.Image) -> Self:
         """手动更新 Image"""
@@ -206,13 +195,27 @@ class ImageUtils:
         return self
 
     @run_sync
+    def async_get_base64(self, *, format_: str = 'JPEG', use_data_uri_scheme: bool = False) -> str:
+        """获取 Image 内容, 以 Base64 输出"""
+        return self.get_base64(format_=format_, use_data_uri_scheme=use_data_uri_scheme)
+
+    @run_sync
     def async_get_bytes(self, *, format_: str = 'JPEG') -> bytes:
+        """获取 Image 内容, 以 Bytes 输出"""
         return self.get_bytes(format_=format_)
 
     @run_sync
     def async_get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
-        """返回图片并在末尾添加空白比特"""
+        """获取 Image 内容, 以 Bytes 输出并在末尾添加空白比特"""
         return self.get_bytes_add_blank(bytes_num=bytes_num, format_=format_)
+
+    def get_base64(self, *, format_: str = 'JPEG', use_data_uri_scheme: bool = False) -> str:
+        """获取 Image 内容, 以 Base64 输出"""
+        if use_data_uri_scheme:
+            prefix = f'data:image/{format_.lower()};base64,'
+        else:
+            prefix = 'base64://'
+        return f'{prefix}{base64.b64encode(self.get_bytes(format_=format_)).decode()}'
 
     def get_bytes(self, *, format_: str = 'JPEG') -> bytes:
         """获取 Image 内容, 以 Bytes 输出"""
@@ -222,14 +225,14 @@ class ImageUtils:
         return _content
 
     def get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
-        """返回图片并在末尾添加空白比特"""
+        """获取 Image 内容, 以 Bytes 输出并在末尾添加空白比特"""
         return self.get_bytes(format_=format_) + b' '*bytes_num
 
     async def save(
             self,
             file: str | TemporaryResource,
             *,
-            format_: str = 'JPEG'
+            format_: str = 'JPEG',
     ) -> TemporaryResource:
         """输出指定格式图片到文件"""
         if isinstance(file, TemporaryResource):
@@ -250,7 +253,7 @@ class ImageUtils:
             text: str,
             *,
             position: Literal['la', 'ra', 'lb', 'rb', 'c'] = 'rb',
-            fill: tuple[int, int, int] = (128, 128, 128)
+            fill: tuple[int, int, int] = (128, 128, 128),
     ) -> Self:
         """在图片上添加标注文本"""
         image = self.image
@@ -312,7 +315,8 @@ class ImageUtils:
             *,
             sigma: float = 8,
             enable_random: bool = True,
-            mask_factor: float = 0.25) -> Self:
+            mask_factor: float = 0.25,
+    ) -> Self:
         """为图片添加肉眼不可见的底噪
 
         :param sigma: 噪声sigma, 默认值8
@@ -341,7 +345,7 @@ class ImageUtils:
     def add_edge(
             self,
             edge_scale: float = 1/32,
-            edge_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
+            edge_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0),
     ) -> Self:
         """在保持原图大小的条件下, 使用透明图层为原图添加边框"""
         image = self.image
@@ -367,7 +371,7 @@ class ImageUtils:
     def resize_with_filling(
             self,
             size: tuple[int, int],
-            background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
+            background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0),
     ) -> Self:
         """在不损失原图长宽比的条件下, 使用透明图层将原图转换成指定大小"""
         image = self.image
@@ -390,7 +394,7 @@ class ImageUtils:
     def resize_fill_canvas(
             self,
             size: tuple[int, int],
-            background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0)
+            background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0),
     ) -> Self:
         """在不损失原图长宽比的条件下, 填充并平铺指定大小画布"""
         image = self.image
