@@ -291,6 +291,64 @@ class OmegaRequests:
         )
         return await self.request(setup=setup)
 
+    async def put(
+            self,
+            url: str,
+            *,
+            params: 'QueryTypes' = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
+            content: 'ContentTypes' = None,
+            data: 'DataTypes' = None,
+            json: Any = None,
+            files: 'FilesTypes' = None,
+            timeout: float | None = None,
+            use_proxy: bool = True
+    ) -> 'Response':
+        setup = Request(
+            method='PUT',
+            url=url,
+            params=params,
+            headers=self.headers if headers is None else headers,
+            cookies=self.cookies if cookies is None else cookies,
+            content=content,
+            data=data,
+            json=json,
+            files=files,
+            timeout=self.timeout if timeout is None else timeout,
+            proxy=http_proxy_config.proxy_url if use_proxy else None
+        )
+        return await self.request(setup=setup)
+
+    async def delete(
+            self,
+            url: str,
+            *,
+            params: 'QueryTypes' = None,
+            headers: 'HeaderTypes' = None,
+            cookies: 'CookieTypes' = None,
+            content: 'ContentTypes' = None,
+            data: 'DataTypes' = None,
+            json: Any = None,
+            files: 'FilesTypes' = None,
+            timeout: float | None = None,
+            use_proxy: bool = True
+    ) -> 'Response':
+        setup = Request(
+            method='DELETE',
+            url=url,
+            params=params,
+            headers=self.headers if headers is None else headers,
+            cookies=self.cookies if cookies is None else cookies,
+            content=content,
+            data=data,
+            json=json,
+            files=files,
+            timeout=self.timeout if timeout is None else timeout,
+            proxy=http_proxy_config.proxy_url if use_proxy else None
+        )
+        return await self.request(setup=setup)
+
     async def download[T: 'BaseResource'](
             self,
             url: str,
