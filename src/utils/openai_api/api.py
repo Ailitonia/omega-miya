@@ -8,11 +8,23 @@
 @Software       : PyCharm 
 """
 
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, Literal
 
 from src.compat import dump_obj_as
 from src.utils import BaseCommonAPI
-from .models import ChatCompletion, Message, MessageContent
+from .models import (
+    ChatCompletion,
+    File,
+    FileContent,
+    FileDeleted,
+    FileList,
+    Message,
+    MessageContent,
+    ModelList,
+)
+
+if TYPE_CHECKING:
+    from src.resource import BaseResource
 
 
 class BaseOpenAIClient(BaseCommonAPI):
@@ -56,6 +68,8 @@ class BaseOpenAIClient(BaseCommonAPI):
             self,
             model: str,
             message: 'Message' | Iterable['MessageContent'],
+            *,
+            timeout: int = 60,
             **kwargs,
     ) -> 'ChatCompletion':
         """Creates a model response for the given chat conversation.
@@ -66,6 +80,7 @@ class BaseOpenAIClient(BaseCommonAPI):
 
         :param model: ID of the model to use.
         :param message: A list of messages comprising the conversation so far.
+        :param timeout: Request timeout period.
         """
         url = f'{self.base_url}/chat/completions'
         data = {
@@ -78,8 +93,72 @@ class BaseOpenAIClient(BaseCommonAPI):
             ),
             **kwargs,
         }
-        response = await self._post_json(url=url, json=data, headers=self.request_headers)
+        response = await self._post_json(url=url, json=data, headers=self.request_headers, timeout=timeout)
         return ChatCompletion.model_validate(response)
+
+    async def list_models(self) -> ModelList:
+        """Lists the currently available models, and provides basic information about each one."""
+        url = f'{self.base_url}/models'
+        response = await self._get_json(url=url, headers=self.request_headers)
+        return ModelList.model_validate(response)
+
+    async def upload_file(self, file: 'BaseResource', purpose: str, *, timeout: int = 300) -> File:
+        """Upload a file that can be used across various endpoints."""
+        url = f'{self.base_url}/files'
+        headers = {'Authorization': f'Bearer {self._api_key}'}
+
+        with file.open('rb') as f:
+            files = {
+                'file': (file.path.name, f, 'application/octet-stream'),
+                'purpose': (None, purpose, 'text/plain')
+            }
+            response = await self._post_json(
+                url=url,
+                files=files,
+                headers=headers,
+                timeout=timeout,
+            )
+        return File.model_validate(response)
+
+    async def list_files(
+            self,
+            purpose: str | None = None,
+            limit: int | None = None,
+            order: Literal['created_at', 'asc', 'desc'] | None = None,
+            after: str | None = None,
+    ) -> FileList:
+        """Returns a list of files."""
+        url = f'{self.base_url}/files'
+        params = {}
+        if purpose is not None:
+            params['purpose'] = purpose
+        if limit is not None:
+            params['limit'] = limit
+        if order is not None:
+            params['order'] = order
+        if after is not None:
+            params['after'] = after
+
+        response = await self._get_json(url=url, params=params, headers=self.request_headers)
+        return FileList.model_validate(response)
+
+    async def retrieve_file(self, file_id: str) -> File:
+        """Returns information about a specific file."""
+        url = f'{self.base_url}/files/{file_id}'
+        response = await self._get_json(url=url, headers=self.request_headers)
+        return File.model_validate(response)
+
+    async def retrieve_file_content(self, file_id: str) -> FileContent:
+        """Returns the contents of the specified file."""
+        url = f'{self.base_url}/files/{file_id}/content'
+        response = await self._get_json(url=url, headers=self.request_headers)
+        return FileContent.model_validate(response)
+
+    async def delete_file(self, file_id: str) -> FileDeleted:
+        """Delete a file."""
+        url = f'{self.base_url}/files/{file_id}'
+        response = await self._request_delete(url=url, headers=self.request_headers)
+        return FileDeleted.model_validate(self._parse_content_as_json(response))
 
 
 __all__ = [

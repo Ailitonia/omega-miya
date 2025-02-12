@@ -9,11 +9,20 @@
 """
 
 from .chat import ChatCompletion
+from .file import File, FileContent, FileDeleted, FileList
 from .message import Message, MessageContent, MessageRole
+from .model import Model, ModelList
+
 
 __all__ = [
     'ChatCompletion',
+    'File',
+    'FileContent',
+    'FileDeleted',
+    'FileList',
     'Message',
     'MessageContent',
     'MessageRole',
+    'Model',
+    'ModelList',
 ]
