@@ -109,6 +109,14 @@ class MessageContent(BaseOpenAIModel):
     def function(cls, name: str | None = None) -> Self:
         return cls(role=MessageRole.function, name=name)
 
+    @property
+    def plain_text(self) -> str:
+        """提取消息内纯文本消息"""
+        if isinstance(self.content, list):
+            return '\n'.join(x.text for x in self.content if isinstance(x, TextMessageContent))
+        else:
+            return self.content
+
     def add_audio(self, data: str, format_: str) -> Self:
         if isinstance(self.content, str):
             self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
