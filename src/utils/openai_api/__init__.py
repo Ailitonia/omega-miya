@@ -10,13 +10,15 @@
 
 from .api import BaseOpenAIClient
 from .helpers import encode_local_audio, encode_local_image
-from .models import Message, MessageContent, MessageRole
+from .models import Message, MessageContent
+from .session import ChatSession
+
 
 __all__ = [
     'BaseOpenAIClient',
+    'ChatSession',
     'Message',
     'MessageContent',
-    'MessageRole',
     'encode_local_audio',
     'encode_local_image',
 ]

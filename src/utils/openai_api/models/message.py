@@ -162,15 +162,39 @@ class MessageContent(BaseOpenAIModel):
 
 class Message(BaseOpenAIModel):
     """openai 消息"""
-    messages: list[MessageContent] = Field(default_factory=list)
+    max_messages: int = Field(default=20, gt=0)
+    chat_messages: list[MessageContent] = Field(default_factory=list)
+    prefix_messages: list[MessageContent] = Field(default_factory=list)
+
+    def set_prefix_content(
+            self,
+            system_text: str,
+            *,
+            assistant_text: str | None = None,
+            use_developer: bool = False,
+    ) -> None:
+        if use_developer:
+            self.prefix_messages.append(MessageContent.developer().set_plain_text(system_text))
+        else:
+            self.prefix_messages.append(MessageContent.system().set_plain_text(system_text))
+        if assistant_text:
+            self.prefix_messages.append(MessageContent.assistant().set_plain_text(assistant_text))
 
     def add_content(self, content: MessageContent) -> Self:
-        self.messages.append(content)
+        self.chat_messages.append(content)
+        if len(self.chat_messages) > self.max_messages:
+            self.chat_messages = self.chat_messages[-self.max_messages:]
         return self
 
     def extend_content(self, contents: Iterable[MessageContent]) -> Self:
-        self.messages.extend(contents)
+        self.chat_messages.extend(contents)
+        if len(self.chat_messages) > self.max_messages:
+            self.chat_messages = self.chat_messages[-self.max_messages:]
         return self
+
+    @property
+    def messages(self) -> list[MessageContent]:
+        return self.prefix_messages + self.chat_messages
 
 
 __all__ = [

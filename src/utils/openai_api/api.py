@@ -8,10 +8,11 @@
 @Software       : PyCharm 
 """
 
-from typing import TYPE_CHECKING, Iterable, Literal
+from typing import TYPE_CHECKING, Iterable, Literal, Self
 
 from src.compat import dump_obj_as
 from src.utils import BaseCommonAPI
+from .config import openai_service_config
 from .models import (
     ChatCompletion,
     File,
@@ -33,6 +34,36 @@ class BaseOpenAIClient(BaseCommonAPI):
     def __init__(self, api_key: str, base_url: str):
         self._api_key = api_key
         self._base_url = base_url
+
+    @staticmethod
+    def get_available_services() -> list[tuple[str, str]]:
+        """获取可用的已配置服务"""
+        return [
+            (service.name, model)
+            for service in openai_service_config.openai_service_config
+            for model in service.available_models
+        ]
+
+    @classmethod
+    def init_from_config(cls, service_name: str, model_name: str) -> Self:
+        """从配置文件中初始化"""
+        if not (service_map := openai_service_config.service_map) or (service_name not in service_map):
+            raise ValueError(f'openai service {service_name!r} not config')
+
+        if model_name not in service_map[service_name].available_models:
+            raise ValueError(f'openai service {service_name!r} not provide model {model_name!r}')
+
+        return cls(
+            api_key=service_map[service_name].api_key,
+            base_url=service_map[service_name].base_url,
+        )
+
+    @classmethod
+    def init_default_from_config(cls) -> Self:
+        """从配置文件中初始化, 使用第一个可用配置项"""
+        if not (available_services := cls.get_available_services()):
+            raise RuntimeError('no openai service has been config')
+        return cls.init_from_config(*available_services[0])
 
     @property
     def base_url(self) -> str:
