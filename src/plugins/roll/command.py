@@ -105,52 +105,90 @@ async def handle_roll_dice(
 @roll.command(
     'ra',
     aliases={'rra', '检定'},
-    handlers=[get_command_str_single_arg_parser_handler('desc')],
-).got('desc', prompt='请输入需要鉴定的事件描述')
+    handlers=[get_command_str_single_arg_parser_handler('attr')],
+).got('attr', prompt='请输入需要检定的属性/技能名')
 async def handle_roll_attr(
+        interface: Annotated[OmMI, Depends(OmMI.depend('user'))],
+        attr: Annotated[str, ArgStr('attr')],
+) -> None:
+    attr = attr.strip()
+
+    try:
+        attr_node = f'{ATTR_PREFIX}{attr}'
+        user_attr = await interface.entity.query_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node)
+        if user_attr.value is None or not user_attr.value.isdigit():
+            raise ValueError('attr value must be isdigit')
+        attr_value = int(user_attr.value)
+    except Exception as e:
+        logger.warning(f'Roll | 查询 {interface.entity} 属性 {attr!r} 失败, {e}')
+        await interface.finish_reply(f'你还没有{attr!r}属性/技能, 或属性值异常, 请使用"/rrs {attr}"获取属性/技能后再试')
+
+    roll_result = await RandomDice.simple_roll(1, 100)
+    if roll_result.result_int is None or roll_result.error_message is not None:
+        logger.warning(f'Roll | 投骰异常, {roll_result.error_message}')
+        await interface.finish_reply('掷骰异常, 请稍后重试')
+
+    result_msg = '失败~'
+    if roll_result.result_int > 96:
+        result_msg = '大失败~'
+    if roll_result.result_int < attr_value:
+        result_msg = '成功！'
+    if roll_result.result_int < attr_value * 0.5:
+        result_msg = '困难成功！'
+    if roll_result.result_int < attr_value * 0.2:
+        result_msg = '极限成功！'
+    if roll_result.result_int < 4:
+        result_msg = '大成功！！'
+
+    await interface.finish_reply(
+        f'你进行了【{attr}({attr_value})】检定,\n1D100=>{roll_result.result_int}\n{result_msg}'
+    )
+
+
+@roll.command(
+    'ara',
+    aliases={'arra', '任务检定'},
+    handlers=[get_command_str_single_arg_parser_handler('desc')],
+    state=enable_processor_state(
+        name='AIRoll',
+        level=20,
+        cooldown=60,
+    ),
+).got('desc', prompt='请输入需要检定的任务描述')
+async def handle_ai_roll_attr(
         interface: Annotated[OmMI, Depends(OmMI.depend('user'))],
         desc: Annotated[str, ArgStr('desc')],
 ) -> None:
-    # 如果没有启用 AI 事件生成, 则进行属性鉴定
     if not roll_plugin_config.roll_plugin_enable_ai_generate_event:
-        try:
-            characteristics = desc.strip()
-            attr_node = f'{ATTR_PREFIX}{desc}'
-            user_attr = await interface.entity.query_auth_setting(MODULE_NAME, PLUGIN_NAME, attr_node)
-            if user_attr.value is None or not user_attr.value.isdigit():
-                raise ValueError('attr value must be isdigit')
-            attr_value = int(user_attr.value)
-            event = EventDescription.get_default_event_desc()
-        except Exception as e:
-            logger.warning(f'Roll | 查询 {interface.entity} 属性 {desc!r} 失败, {e}')
-            await interface.finish_reply(
-                f'你还没有{desc!r}属性/技能, 或属性值异常, 请使用"/rrs {desc}"获取属性/技能后再试')
-    else:
-        # 启用 AI 事件生成, 则根据用户描述生成对应事件
-        try:
-            event = await _generate_event(event_desc=desc)
-        except Exception as e:
-            logger.warning(f'Roll | 生成事件 {desc!r} 失败, {e}')
-            await interface.finish_reply(f'骰子姬还没有想好接下来会发生什么, 请稍后再试QAQ')
+        logger.warning('Roll | 未启用 AI 事件生成')
+        await interface.finish_reply('未启用 AI 事件生成, 任务检定已取消')
 
-        # 判定用户属性, 若用户无该属性则随机生成
-        characteristics = event.characteristics
-        attr_node = f'{ATTR_PREFIX}{characteristics}'
-        try:
-            user_attr = await interface.entity.query_auth_setting(MODULE_NAME, PLUGIN_NAME, attr_node)
-            if user_attr.value is None or not user_attr.value.isdigit():
-                raise ValueError('attr value must be isdigit')
-            attr_value = int(user_attr.value)
-        except (NoResultFound, ValueError):
-            attr_result = await RandomDice.simple_roll(1, 100)
-            if attr_result.result_int is None:
-                raise RuntimeError(f'掷骰异常, {attr_result.error_message}')
+    await interface.send_reply('骰子姬正编写剧本中_<, 请稍后')
 
-            await interface.entity.set_auth_setting(
-                module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node, available=1, value=str(attr_result.result_int)
-            )
-            await interface.entity.commit_session()
-            attr_value = attr_result.result_int
+    try:
+        event = await _generate_event(event_desc=desc)
+    except Exception as e:
+        logger.warning(f'Roll | 生成事件 {desc!r} 失败, {e}')
+        await interface.finish_reply(f'骰子姬还没有想好接下来会发生什么, 请稍后再试QAQ')
+
+    # 判定用户属性, 若用户无该属性则随机生成
+    characteristics = event.characteristics
+    attr_node = f'{ATTR_PREFIX}{characteristics}'
+    try:
+        user_attr = await interface.entity.query_auth_setting(MODULE_NAME, PLUGIN_NAME, attr_node)
+        if user_attr.value is None or not user_attr.value.isdigit():
+            raise ValueError('attr value must be isdigit')
+        attr_value = int(user_attr.value)
+    except (NoResultFound, ValueError):
+        attr_result = await RandomDice.simple_roll(1, 100)
+        if attr_result.result_int is None:
+            raise RuntimeError(f'掷骰异常, {attr_result.error_message}')
+
+        await interface.entity.set_auth_setting(
+            module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node, available=1, value=str(attr_result.result_int)
+        )
+        await interface.entity.commit_session()
+        attr_value = attr_result.result_int
 
     # 掷骰判定事件
     roll_result = await RandomDice.simple_roll(1, 100)
@@ -160,17 +198,17 @@ async def handle_roll_attr(
 
     if attr_value > roll_result.result_int:
         if roll_result.result_int < attr_value * 0.1 and roll_result.result_int <= event.difficulty:
-            result_msg = f'大成功！！{event.completed_success}'
+            result_msg = f'大成功！！\n{event.completed_success}'
         else:
-            result_msg = f'成功！{event.success}'
+            result_msg = f'成功！\n{event.success}'
     else:
         if roll_result.result_int > 95 and roll_result.result_int >= event.difficulty:
-            result_msg = f'大失败~{event.critical_failure}'
+            result_msg = f'大失败~\n{event.critical_failure}'
         else:
-            result_msg = f'失败~{event.failure}'
+            result_msg = f'失败~\n{event.failure}'
 
     await interface.finish_reply(
-        f'你进行了【{characteristics}({attr_value})】检定,\n1D100=>{roll_result.result_int}\n{result_msg}'
+        f'你进行了【{characteristics}({attr_value})】检定\n1D100=>{roll_result.result_int}=>{result_msg}'
     )
 
 
@@ -287,7 +325,8 @@ async def _generate_event(event_desc: str) -> EventDescription:
     return await session.chat_query_schema(
         f'检定任务: {event_desc}',
         model_type=EventDescription,
-        temperature=0.3,
+        temperature=0.7,
+        max_tokens=8192,
     )
 
 

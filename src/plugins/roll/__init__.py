@@ -17,6 +17,7 @@ __plugin_meta__ = PluginMetadata(
                 '不是跑团插件!',
     usage='简单掷骰: /roll [num]\n'
           '表达式掷骰: /roll.rd [AdB(kq)C(pb)DaE]\n'
+          'AI检定骰点: /roll.ara [任务描述]\n'
           '检定骰点: /roll.ra [属性/技能名]\n'
           '属性骰点: /roll.rs [属性/技能名]\n'
           '移除属性: /roll.rc [属性/技能名]\n'

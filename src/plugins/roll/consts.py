@@ -20,8 +20,8 @@ SYSTEM_PROMPT = """你是一个游戏主持人DM/(Dungeon Master)/KP(Keeper of A
 - 属性(characteristics): 将根据玩家的该属性与掷骰结果进行判定
 - 成功(success): 掷骰结果不小于任务难度
 - 失败(failure): 掷骰结果小于任务难度
-- 大成功(completed_success): 掷骰结果为100
-- 大失败(critical_failure): 掷骰结果为1且小于任务难度
+- 大成功(completed_success): 掷骰结果大于95且不小于任务难度
+- 大失败(critical_failure): 掷骰结果小于5且小于任务难度
 
 示例如下(这里体现一个任务的示例，你的回答不应该照抄此示例): 
 
