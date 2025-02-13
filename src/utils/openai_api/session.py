@@ -110,7 +110,10 @@ class ChatSession:
 
         reply_message = result.choices[0].message
         self.message.add_content(reply_message)
-        return model_type.model_validate_json(reply_message.plain_text)
+
+        # 处理被标注的消息格式
+        json_text = reply_message.plain_text.removeprefix('```json').removesuffix('```').strip()
+        return model_type.model_validate_json(json_text)
 
 
 __all__ = [
