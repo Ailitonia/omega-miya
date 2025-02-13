@@ -40,12 +40,16 @@ class PluginException(OmegaException):
 class WebSourceException(OmegaException):
     """网络资源异常"""
 
-    def __init__(self, status_code: int, message: str):
+    def __init__(self, status_code: int, message: str, content: str | bytes | None = None):
         self.status_code = status_code
         self.message = message
+        self.content = content
+
+    def __str__(self) -> str:
+        return f'WebSourceException: {self.status_code}, {self.message}'
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(status_code={self.status_code!r}, message={self.message})'
+        return f'{self.__class__.__name__}(status_code={self.status_code!r}, message={self.message!r})'
 
 
 __all__ = [

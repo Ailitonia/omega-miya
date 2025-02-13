@@ -122,7 +122,7 @@ class BaseCommonAPI(abc.ABC):
         )
         response = await requests.get(url=url, params=params)
         if response.status_code != 200:
-            raise WebSourceException(response.status_code, f'{response.request}, content: {response.content}')
+            raise WebSourceException(response.status_code, str(response.request), response.content)
 
         return response
 
@@ -144,7 +144,7 @@ class BaseCommonAPI(abc.ABC):
         )
         response = await requests.delete(url=url, params=params)
         if response.status_code != 200:
-            raise WebSourceException(response.status_code, f'{response.request}, content: {response.content}')
+            raise WebSourceException(response.status_code, str(response.request), response.content)
 
         return response
 
@@ -170,7 +170,7 @@ class BaseCommonAPI(abc.ABC):
         )
         response = await requests.post(url=url, params=params, content=content, data=data, json=json, files=files)
         if response.status_code != 200:
-            raise WebSourceException(response.status_code, f'{response.request}, content: {response.content}')
+            raise WebSourceException(response.status_code, str(response.request), response.content)
 
         return response
 
@@ -196,7 +196,7 @@ class BaseCommonAPI(abc.ABC):
         )
         response = await requests.put(url=url, params=params, content=content, data=data, json=json, files=files)
         if response.status_code != 200:
-            raise WebSourceException(response.status_code, f'{response.request}, content: {response.content}')
+            raise WebSourceException(response.status_code, str(response.request), response.content)
 
         return response
 
