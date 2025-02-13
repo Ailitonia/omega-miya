@@ -16,13 +16,16 @@ from typing import Annotated
 from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 from nonebot.plugin import CommandGroup
+from sqlalchemy.exc import NoResultFound
 
 from src.database import AuthSettingDAL
 from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import enable_processor_state
-from .consts import ATTR_PREFIX, MODULE_NAME, PLUGIN_NAME
-from .model import RandomDice
+from src.utils.openai_api import ChatSession
+from .config import roll_plugin_config
+from .consts import ATTR_PREFIX, MODULE_NAME, PLUGIN_NAME, SYSTEM_PROMPT
+from .model import EventDescription, RandomDice
 
 roll = CommandGroup(
     'roll',
@@ -102,43 +105,72 @@ async def handle_roll_dice(
 @roll.command(
     'ra',
     aliases={'rra', '检定'},
-    handlers=[get_command_str_single_arg_parser_handler('attr')],
-).got('attr', prompt='请输入需要鉴定的属性/技能名')
+    handlers=[get_command_str_single_arg_parser_handler('desc')],
+).got('desc', prompt='请输入需要鉴定的事件描述')
 async def handle_roll_attr(
         interface: Annotated[OmMI, Depends(OmMI.depend('user'))],
-        attr: Annotated[str, ArgStr('attr')],
+        desc: Annotated[str, ArgStr('desc')],
 ) -> None:
-    attr = attr.strip()
+    # 如果没有启用 AI 事件生成, 则进行属性鉴定
+    if not roll_plugin_config.roll_plugin_enable_ai_generate_event:
+        try:
+            characteristics = desc.strip()
+            attr_node = f'{ATTR_PREFIX}{desc}'
+            user_attr = await interface.entity.query_auth_setting(MODULE_NAME, PLUGIN_NAME, attr_node)
+            if user_attr.value is None or not user_attr.value.isdigit():
+                raise ValueError('attr value must be isdigit')
+            attr_value = int(user_attr.value)
+            event = EventDescription.get_default_event_desc()
+        except Exception as e:
+            logger.warning(f'Roll | 查询 {interface.entity} 属性 {desc!r} 失败, {e}')
+            await interface.finish_reply(
+                f'你还没有{desc!r}属性/技能, 或属性值异常, 请使用"/rrs {desc}"获取属性/技能后再试')
+    else:
+        # 启用 AI 事件生成, 则根据用户描述生成对应事件
+        try:
+            event = await _generate_event(event_desc=desc)
+        except Exception as e:
+            logger.warning(f'Roll | 生成事件 {desc!r} 失败, {e}')
+            await interface.finish_reply(f'骰子姬还没有想好接下来会发生什么, 请稍后再试QAQ')
 
-    try:
-        attr_node = f'{ATTR_PREFIX}{attr}'
-        user_attr = await interface.entity.query_auth_setting(module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node)
-        if user_attr.value is None or not user_attr.value.isdigit():
-            raise ValueError('attr value must be isdigit')
-        attr_value = int(user_attr.value)
-    except Exception as e:
-        logger.warning(f'Roll | 查询 {interface.entity} 属性 {attr!r} 失败, {e}')
-        await interface.finish_reply(f'你还没有{attr!r}属性/技能, 或属性值异常, 请使用"/rrs {attr}"获取属性/技能后再试')
+        # 判定用户属性, 若用户无该属性则随机生成
+        characteristics = event.characteristics
+        attr_node = f'{ATTR_PREFIX}{characteristics}'
+        try:
+            user_attr = await interface.entity.query_auth_setting(MODULE_NAME, PLUGIN_NAME, attr_node)
+            if user_attr.value is None or not user_attr.value.isdigit():
+                raise ValueError('attr value must be isdigit')
+            attr_value = int(user_attr.value)
+        except (NoResultFound, ValueError):
+            attr_result = await RandomDice.simple_roll(1, 100)
+            if attr_result.result_int is None:
+                raise RuntimeError(f'掷骰异常, {attr_result.error_message}')
 
+            await interface.entity.set_auth_setting(
+                module=MODULE_NAME, plugin=PLUGIN_NAME, node=attr_node, available=1, value=str(attr_result.result_int)
+            )
+            await interface.entity.commit_session()
+            attr_value = attr_result.result_int
+
+    # 掷骰判定事件
     roll_result = await RandomDice.simple_roll(1, 100)
     if roll_result.result_int is None or roll_result.error_message is not None:
         logger.warning(f'Roll | 投骰异常, {roll_result.error_message}')
         await interface.finish_reply('掷骰异常, 请稍后重试')
 
-    result_msg = '失败~'
-    if roll_result.result_int > 96:
-        result_msg = '大失败~'
-    if roll_result.result_int < attr_value:
-        result_msg = '成功！'
-    if roll_result.result_int < attr_value * 0.5:
-        result_msg = '困难成功！'
-    if roll_result.result_int < attr_value * 0.2:
-        result_msg = '极限成功！'
-    if roll_result.result_int < 4:
-        result_msg = '大成功！！'
+    if attr_value > roll_result.result_int:
+        if roll_result.result_int < attr_value * 0.1 and roll_result.result_int <= event.difficulty:
+            result_msg = f'大成功！！{event.completed_success}'
+        else:
+            result_msg = f'成功！{event.success}'
+    else:
+        if roll_result.result_int > 95 and roll_result.result_int >= event.difficulty:
+            result_msg = f'大失败~{event.critical_failure}'
+        else:
+            result_msg = f'失败~{event.failure}'
 
     await interface.finish_reply(
-        f'你进行了【{attr}({attr_value})】检定,\n1D100=>{roll_result.result_int}\n{result_msg}'
+        f'你进行了【{characteristics}({attr_value})】检定,\n1D100=>{roll_result.result_int}\n{result_msg}'
     )
 
 
@@ -240,6 +272,23 @@ async def handle_show_attr(interface: Annotated[OmMI, Depends(OmMI.depend('user'
     except Exception as e:
         logger.error(f'Roll | 查询 {interface.entity} 属性清单失败, {e}')
         await interface.send_reply('获取属性/技能清单失败了, 请稍后重试或联系管理员处理')
+
+
+async def _generate_event(event_desc: str) -> EventDescription:
+    """使用 AI 生成事件"""
+    if (
+            (service_name := roll_plugin_config.roll_plugin_enable_ai_service_name) is not None
+            and (model_name := roll_plugin_config.roll_plugin_enable_ai_model_name) is not None
+    ):
+        session = ChatSession(service_name=service_name, model_name=model_name, init_system_message=SYSTEM_PROMPT)
+    else:
+        session = ChatSession.init_default_from_config(init_system_message=SYSTEM_PROMPT)
+
+    return await session.chat_query_schema(
+        f'检定任务: {event_desc}',
+        model_type=EventDescription,
+        temperature=0.3,
+    )
 
 
 __all__ = []

@@ -8,10 +8,32 @@
 @Software       : PyCharm 
 """
 
+from typing import Self
 
 from nonebot.utils import run_sync
 from onedice import RD
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class EventDescription(BaseModel):
+    """事件描述"""
+    difficulty: int
+    characteristics: str
+    success: str
+    failure: str
+    completed_success: str
+    critical_failure: str
+
+    @classmethod
+    def get_default_event_desc(cls) -> Self:
+        return cls(
+            difficulty=50,
+            characteristics='',
+            success='',
+            failure='',
+            completed_success='',
+            critical_failure='',
+        )
 
 
 class BaseDice(BaseModel):
@@ -91,6 +113,7 @@ class RandomDice:
 
 
 __all__ = [
+    'EventDescription',
     'DiceResult',
     'RandomDice',
 ]
