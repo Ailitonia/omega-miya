@@ -78,7 +78,7 @@ class MessageContent(BaseOpenAIModel):
     """openai 消息内容"""
     role: MessageRole
     content: list[MessageContentType] | str = Field(default_factory=list)
-    reasoning_content: str = Field(default_factory=str)
+    reasoning_content: str = Field(default_factory=str, exclude=True)
     name: str | None = Field(default=None)
     refusal: str | None = Field(default=None)
     audio: Audio | None = Field(default=None)
