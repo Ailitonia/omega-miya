@@ -21,9 +21,9 @@ _REGISTERED_CACHE: set[str] = set()
 class OmegaGlobalCache:
     """Omega 全局缓存"""
 
-    def __init__(self, cache_name: str, *, ttl: int = 86400):
+    def __init__(self, cache_name: str, *, default_ttl: int = 86400):
         self._cache_name = cache_name.strip()
-        self._ttl = ttl
+        self._ttl = default_ttl
 
         # 检查 cache_name 是否已被注册
         if self._cache_name in _REGISTERED_CACHE:
@@ -35,7 +35,12 @@ class OmegaGlobalCache:
 
     @property
     def expired_at(self) -> datetime:
+        """默认过期时间"""
         return datetime.now() + timedelta(seconds=self._ttl)
+
+    def set_expired_at(self, ttl_delta: int = 0) -> datetime:
+        """手动调整过期时间"""
+        return self.expired_at + timedelta(seconds=ttl_delta)
 
     async def _query_db_unique(self, key: str) -> str:
         async with begin_db_session() as session:
@@ -51,13 +56,16 @@ class OmegaGlobalCache:
         async with begin_db_session() as session:
             await GlobalCacheDAL(session).delete_series_expired(cache_name=self._cache_name)
 
-    async def _save_db(self, key: str, value: str) -> None:
+    async def _save_db(self, key: str, value: str, *, ttl_delta: int = 0) -> None:
         if len(value) > 4096:
             raise ValueError('the length of value must less than 4096')
 
         async with begin_db_session() as session:
             await GlobalCacheDAL(session).upsert(
-                cache_name=self._cache_name, cache_key=key, cache_value=value, expired_time=self.expired_at
+                cache_name=self._cache_name,
+                cache_key=key,
+                cache_value=value,
+                expired_time=self.set_expired_at(ttl_delta=ttl_delta),
             )
 
     async def load(self, key: str) -> str | None:
@@ -72,10 +80,10 @@ class OmegaGlobalCache:
         except NoResultFound:
             return None
 
-    async def save(self, key: str, value: str) -> None:
+    async def save(self, key: str, value: str, *, ttl_delta: int = 0) -> None:
         """更新内部内存缓存及数据库缓存"""
         self._cache.update({key: value})
-        await self._save_db(key=key, value=value)
+        await self._save_db(key=key, value=value, ttl_delta=ttl_delta)
 
     def update_internal(self, key: str, value: str) -> None:
         """仅更新内部内存缓存"""

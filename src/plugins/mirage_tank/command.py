@@ -153,7 +153,8 @@ async def handle_mirage_tank(
 
     try:
         make_image = await generate_coro
-        await interface.send(OmegaMessageSegment.image_file(make_image.path))  # 使用 at/reply 可能影响显示效果
+        # 使用 at/reply 可能影响显示效果
+        await interface.send(OmegaMessageSegment.image_file(await make_image.get_hosting_path()))
     except Exception as e:
         logger.error(f'MirageTank | 制作{process_mode}幻影坦克图片失败, {e}')
         await interface.finish_reply('制作幻影坦克图片失败, 请稍后再试或联系管理员处理')

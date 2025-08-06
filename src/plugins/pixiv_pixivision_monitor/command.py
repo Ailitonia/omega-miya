@@ -14,7 +14,8 @@ from nonebot.log import logger
 from nonebot.params import ArgStr, Depends
 
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMatcherInterface as OmMI, OmegaMessageSegment, OmegaSubscriptionHandlerManager
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import OmegaMessageSegment, OmegaSubscriptionHandlerManager
 from .subscription_source import PixivisionSubscriptionManager
 
 _pixivision_handler_manager = OmegaSubscriptionHandlerManager(
@@ -47,7 +48,7 @@ async def handle_query_articles_list(
 
     try:
         page_preview = await PixivisionSubscriptionManager.generate_pixivision_illustration_list_preview(int(page))
-        await interface.send_reply(OmegaMessageSegment.image(url=page_preview.path))
+        await interface.send_reply(OmegaMessageSegment.image(await page_preview.get_hosting_path()))
     except Exception as e:
         logger.error(f'获取 Pixivision 特辑页面(page={page})失败, {e!r}')
         await interface.send_reply('获取 Pixivision 特辑列表失败, 可能是网络原因异常, 请稍后再试')

@@ -5,7 +5,7 @@
 @Project        : omega-miya
 @Description    : Bot 相关 API
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from typing import TYPE_CHECKING, Annotated
@@ -18,6 +18,7 @@ from .base import omega_webui_api
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.database.internal.bot import BotSelf
 
 

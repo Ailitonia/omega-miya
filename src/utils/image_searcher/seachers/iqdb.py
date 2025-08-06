@@ -95,7 +95,7 @@ class Iqdb(BaseImageSearcherAPI):
                 ('service[]', (None, '6', None)),
                 ('service[]', (None, '11', None)),
                 ('service[]', (None, '13', None)),
-                ('file', (image.path.name, f, 'application/octet-stream')),
+                ('file', (image.name, f, 'application/octet-stream')),
                 # ('url', (None, '', None)),
                 # ('forcegray', (None, 'on', None)),
             ]

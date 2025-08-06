@@ -13,19 +13,23 @@ from typing import TYPE_CHECKING
 
 from nonebot import get_driver, logger
 
-from src.service.apscheduler import scheduler
-from src.service.omega_global_cache import OmegaGlobalCache
 from .config import file_host_config
+from ..apscheduler import scheduler
+from ..omega_global_cache import OmegaGlobalCache
 
 if TYPE_CHECKING:
     from src.resource import BaseResource
 
-_FILE_HOST_CACHE = OmegaGlobalCache('omega_file_host', ttl=file_host_config.omega_file_host_cache_ttl)
+_FILE_HOST_CACHE = OmegaGlobalCache(
+    cache_name='omega_file_host',
+    default_ttl=file_host_config.omega_file_host_cache_ttl,
+)
+"""初始化文件路径全局缓存"""
 
 
 @scheduler.scheduled_job(
     'cron',
-    minute='*/5',
+    minute='*/15',
     second='11',
     id='omega_file_host_sync_file_host_cache',
     coalesce=True,
@@ -40,10 +44,10 @@ async def _sync_file_host_cache() -> None:
         logger.opt(colors=True).error(f'<lc>OmegaFileHost</lc> | <r>文件缓存同步失败</r>, {e}')
 
 
-async def query_file_uuid(file: 'BaseResource') -> str:
+async def query_file_uuid(file: 'BaseResource', *, ttl_delta: int = 0) -> str:
     """获取文件 UUID"""
     file_uuid = uuid.uuid5(namespace=uuid.NAMESPACE_URL, name=file.resolve_path)
-    await _FILE_HOST_CACHE.save(file_uuid.hex, file.resolve_path)
+    await _FILE_HOST_CACHE.save(file_uuid.hex, file.resolve_path, ttl_delta=ttl_delta)
     return file_uuid.hex
 
 

@@ -20,7 +20,6 @@ from .message import MessageSegment as OmegaMessageSegment
 if TYPE_CHECKING:
     from nonebot.adapters import Message as BaseMessage
 
-    from src.resource import TemporaryResource
     from src.service import OmegaMatcherInterface
 
 
@@ -28,6 +27,7 @@ class MessageTransferConfig(BaseModel):
     """消息转储缓存配置"""
 
     omega_message_transfer_default_save_folder_name: Literal['message_transfer_utils'] = 'message_transfer_utils'
+    omega_message_transfer_default_ttl_extension: int = 3153600000
 
     model_config = ConfigDict(extra='ignore')
 
@@ -39,8 +39,8 @@ class MessageTransferConfig(BaseModel):
         return self.default_save_folder(adapter_name, seg_type)
 
 
-_SAVE_PATH_CONFIG = MessageTransferConfig()
-"""媒体文件缓存路径"""
+_CONFIG = MessageTransferConfig()
+"""消息转储缓存配置实例"""
 
 
 class MessageTransferUtils[TM: 'BaseMessage']:
@@ -53,7 +53,7 @@ class MessageTransferUtils[TM: 'BaseMessage']:
 
     def _generate_resource_file(self, seg_type: str, url: str) -> 'TemporaryResource':
         """生成缓存文件路径"""
-        target_folder = _SAVE_PATH_CONFIG.get_target_folder(adapter_name=self._adapter_name, seg_type=seg_type)
+        target_folder = _CONFIG.get_target_folder(adapter_name=self._adapter_name, seg_type=seg_type)
         file_name = OmegaRequests.hash_url_file_name(url=url)
         return target_folder(file_name)
 
@@ -65,9 +65,15 @@ class MessageTransferUtils[TM: 'BaseMessage']:
     async def dump_segment_resource(self, message_segment: 'OmegaMessageSegment') -> 'OmegaMessageSegment':
         match message_segment.type:
             case 'audio' | 'image' | 'video' | 'voice':
-                if str(image_url := message_segment.data.get('url', '')).startswith(('http://', 'https://')):
-                    target_file = await self._download_resource_file(seg_type=message_segment.type, url=image_url)
-                    message_segment = OmegaMessageSegment.image(url=target_file.path)
+                if str(url := message_segment.data.get('url', '')).startswith(('http://', 'https://')):
+                    target_file = await self._download_resource_file(seg_type=message_segment.type, url=url)
+                    target_url = await target_file.get_hosting_path(
+                        ttl_delta=_CONFIG.omega_message_transfer_default_ttl_extension,
+                    )
+                    message_segment = OmegaMessageSegment(
+                        type=message_segment.type,
+                        data={'url': target_url},
+                    )
             case _:
                 pass
 

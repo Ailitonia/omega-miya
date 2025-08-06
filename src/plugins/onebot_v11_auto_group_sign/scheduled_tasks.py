@@ -11,8 +11,7 @@
 from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
 from nonebot.log import logger
 
-from src.service import scheduler
-from src.service.omega_multibot_support import get_online_bots
+from src.service import get_online_bots, scheduler
 from src.utils import semaphore_gather
 from .config import auto_group_sign_config
 

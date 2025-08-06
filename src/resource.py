@@ -9,11 +9,9 @@
 """
 
 import abc
-import os
 import sys
 from collections.abc import Callable, Generator
 from contextlib import asynccontextmanager, contextmanager
-from copy import deepcopy
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -22,6 +20,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncContextManager,
+    ClassVar,
     Concatenate,
     ContextManager,
     Literal,
@@ -66,14 +65,15 @@ class ResourceNotFileError(LocalSourceException):
         return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
 
 
-__ROOT_PATH = os.path.abspath(sys.path[0])
+__ROOT_PATH: Path = Path(sys.path[0]).absolute()
 """项目根目录"""
-_LOG_FOLDER = Path(__ROOT_PATH).joinpath('log')
+_LOG_FOLDER: Path = __ROOT_PATH.joinpath('log')
 """日志文件路径"""
-_STATIC_RESOURCE_FOLDER = Path(__ROOT_PATH).joinpath('static')
+_STATIC_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('static')
 """静态资源文件路径"""
-_TEMPORARY_RESOURCE_FOLDER = Path(__ROOT_PATH).joinpath('.tmp')
-"""临时文件文件路径"""
+_TEMPORARY_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.tmp')
+"""运行时产生的的可随时清理的缓存/临时文件路径"""
+
 
 # 初始化日志文件路径文件夹
 if not _LOG_FOLDER.exists():
@@ -84,9 +84,22 @@ if not _TEMPORARY_RESOURCE_FOLDER.exists():
     _TEMPORARY_RESOURCE_FOLDER.mkdir()
 
 
+class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
+    """文件托管协议基类"""
+
+    def __init__(self, resource: RT) -> None:
+        self._resource = resource
+
+    @abc.abstractmethod
+    async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> str:
+        """获取文件托管路径, 返回文件 URL"""
+        raise NotImplementedError
+
+
 class BaseResource(abc.ABC):
     """资源文件基类"""
 
+    _host_protocol: ClassVar[type[BaseResourceHostProtocol] | None] = None
     __slots__ = ('path',)
     path: Path
 
@@ -95,7 +108,7 @@ class BaseResource(abc.ABC):
         raise NotImplementedError
 
     def __call__(self, *args: str) -> Self:
-        new_obj = deepcopy(self)
+        new_obj = self.__class__(str(self.path))
         new_obj.path = self.path.joinpath(*args)
         return new_obj
 
@@ -104,6 +117,49 @@ class BaseResource(abc.ABC):
 
     def __str__(self) -> str:
         return self.resolve_path
+
+    @classmethod
+    def init_from_path(cls, path: Path) -> Self:
+        new_obj = cls()
+        new_obj.path = path.absolute()
+        return new_obj
+
+    @classmethod
+    def register_host_protocol(
+            cls,
+            protocol: type[BaseResourceHostProtocol],
+    ) -> None:
+        """注册文件托管协议"""
+        if cls._host_protocol is not None:
+            raise RuntimeError(f'host protocol already registered: {cls._host_protocol!r}')
+        if not issubclass(protocol, BaseResourceHostProtocol):
+            raise TypeError(f'protocol must be a subclass of BaseResourceHostProtocol, not {protocol!r}')
+        cls._host_protocol = protocol
+
+    @property
+    def name(self) -> str:
+        """一个表示最后路径组件的字符串, 排除了驱动器与根目录, 如果存在的话"""
+        return self.path.name
+
+    @property
+    def suffix(self) -> str:
+        """路径目标最终组件的文件扩展名(如果有)
+
+        'my/library/setup.py' -> '.py'
+        'my/library.tar.gz' -> .gz'
+        'my/library' -> ''
+        """
+        return self.path.suffix
+
+    @property
+    def stem(self) -> str:
+        """最后一个路径组件, 除去后缀
+
+        'my/library.tar.gz' -> 'library.tar'
+        'my/library.tar' -> 'library'
+        'my/library' -> 'library'
+        """
+        return self.path.stem
 
     @property
     def is_exist(self) -> bool:
@@ -164,13 +220,26 @@ class BaseResource(abc.ABC):
 
         return _wrapper
 
+    def ensure_parent_path(self, *, exist_ok: bool = False) -> None:
+        """检查父路径并确保其存在"""
+        if not self.path.parent.exists():
+            Path.mkdir(self.path.parent, parents=True, exist_ok=exist_ok)
+
+    @property
+    def parent(self) -> Self:
+        """返回逻辑父路径"""
+        self.ensure_parent_path()
+        return self.init_from_path(path=self.path.parent)
+
     @property
     def resolve_path(self) -> str:
+        """将路径绝对化，解析任何符号链接"""
         return self.path.resolve().as_posix()
 
     @property
     @check_file
     def file_uri(self) -> str:
+        """将路径表示为 file URI"""
         return self.path.resolve().as_uri()
 
     @overload
@@ -227,18 +296,18 @@ class BaseResource(abc.ABC):
     def list_all_files(self) -> list[Self]:
         """遍历文件夹内所有文件并返回文件列表"""
         file_list = []
-        for dir_path, _, file_names in os.walk(self.path):
+        for dir_path, _, file_names in self.path.walk():
             if file_names:
                 for file_name in file_names:
-                    file_list.append(self.__class__(dir_path, file_name))
+                    file_list.append(self.init_from_path(dir_path.joinpath(file_name)))
         return file_list
 
     @check_directory
     def list_current_files(self) -> list[Self]:
         """遍历文件夹内所有文件并返回文件列表(不包含子目录)"""
         file_list = []
-        for file_name in os.listdir(self.path):
-            file = self(file_name)
+        for file_path in self.path.iterdir():
+            file = self.init_from_path(file_path)
             if file.is_file:
                 file_list.append(file)
         return file_list
@@ -246,18 +315,31 @@ class BaseResource(abc.ABC):
     @check_directory
     def iter_all_files(self) -> Generator[Self, Any, None]:
         """遍历文件夹内所有文件"""
-        for dir_path, _, file_names in os.walk(self.path):
+        for dir_path, _, file_names in self.path.walk():
             if file_names:
                 for file_name in file_names:
-                    yield self.__class__(dir_path, file_name)
+                    yield self.init_from_path(dir_path.joinpath(file_name))
 
     @check_directory
     def iter_current_files(self) -> Generator[Self, Any, None]:
         """遍历文件夹内所有文件(不包含子目录)"""
-        for file_name in os.listdir(self.path):
-            file = self(file_name)
+        for file_path in self.path.iterdir():
+            file = self.init_from_path(file_path)
             if file.is_file:
                 yield file
+
+    @check_file
+    def remove(self, *, missing_ok=True) -> None:
+        """移除此文件或符号链接"""
+        return self.path.unlink(missing_ok=missing_ok)
+
+    @check_file
+    async def get_hosting_path(self, *, ttl_delta: int = 0) -> str:
+        """获取文件托管路径, 已注册文件托管服务时返回文件 URL, 未启用时返回文件本地路径"""
+        if self._host_protocol is None:
+            return self.resolve_path
+        else:
+            return await self._host_protocol(self).get_hosting_file_path(ttl_delta=ttl_delta)
 
 
 class AnyResource(BaseResource):
@@ -270,7 +352,7 @@ class AnyResource(BaseResource):
 class LogFileResource(BaseResource):
     """日志文件"""
 
-    def __init__(self):
+    def __init__(self, *args: str):
         self.timestamp = datetime.now()
         self.path = _LOG_FOLDER.joinpath(self.timestamp.strftime('%Y-%m'))
 
@@ -299,7 +381,7 @@ class StaticResource(BaseResource):
 
 
 class TemporaryResource(BaseResource):
-    """临时资源文件"""
+    """运行时产生的的可随时清理的缓存/临时文件"""
 
     def __init__(self, *args: str):
         self.path = _TEMPORARY_RESOURCE_FOLDER.joinpath(*args)
@@ -308,6 +390,7 @@ class TemporaryResource(BaseResource):
 __all__ = [
     'AnyResource',
     'BaseResource',
+    'BaseResourceHostProtocol',
     'LogFileResource',
     'StaticResource',
     'TemporaryResource',

@@ -115,7 +115,7 @@ class WeiboUserSubscriptionManager(BaseSubscriptionManager['SMC_T']):
             img_download_tasks = [Weibo.download_resource(url=url) for url in img_urls]
             img_download_res = await semaphore_gather(tasks=img_download_tasks, semaphore_num=9, filter_exception=True)
             for img in img_download_res:
-                send_message += OmegaMessageSegment.image(url=img.path)
+                send_message += OmegaMessageSegment.image(await img.get_hosting_path())
             send_message += '\n'
 
         send_message += f'\n微博链接: https://weibo.com/detail/{smc_item.mblog.mid}'

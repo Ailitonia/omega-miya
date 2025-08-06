@@ -5,11 +5,10 @@
 @Project        : omega-miya
 @Description    : Omega WebUI 应用
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from src.service.omega_api import OmegaAPI
-
 
 _WEBUI_APP = OmegaAPI('omega_webui')
 """Omega WebUI 应用主体"""

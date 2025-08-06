@@ -43,7 +43,7 @@ async def handle_show_tarot(
         try:
             card = card_resource.pack.get_card_by_name(name=card_name)
             card_image = await generate_tarot_card(id_=card.id, resources=card_resource)
-            await interface.send_reply(OmegaMessageSegment.image(card_image.path))
+            await interface.send_reply(OmegaMessageSegment.image(await card_image.get_hosting_path()))
         except KeyError:
             await interface.send_reply(f'没有找到塔罗牌: {card_name}, 该卡牌可能不在卡组中')
         except Exception as e:
@@ -65,7 +65,7 @@ async def handle_show_tarot(
                 need_upright=need_upright,
                 need_reversed=need_reversed
             )
-            await interface.send_reply(OmegaMessageSegment.image(card_image.path))
+            await interface.send_reply(OmegaMessageSegment.image(await card_image.get_hosting_path()))
         except Exception as e:
             logger.error(f'Tarot | 生成塔罗牌图片失败, {e}')
             await interface.send_reply('生成塔罗牌图片失败了QAQ, 请稍后再试')

@@ -8,17 +8,15 @@
 @Software       : PyCharm
 """
 
-from typing import Literal, TypeVar, override
+from typing import Literal, override
 
 from nonebot.adapters.onebot.v11.adapter import Adapter
 from nonebot.adapters.onebot.v11.event import Event, NoticeEvent
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-Event_T = TypeVar('Event_T', bound=type[Event])
 
-
-def register_event(event: Event_T) -> Event_T:
+def register_event[Event_T: type[Event]](event: Event_T) -> Event_T:
     Adapter.add_custom_model(event)
     logger.opt(colors=True).trace(
         f'Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> '

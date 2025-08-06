@@ -62,6 +62,12 @@ class CurrentSituation(BaseRoguelikeStoryEventModel):
     roll_result: str
 
 
+class FastCurrentSituation(BaseRoguelikeStoryEventModel):
+    """快速故事续写结果"""
+    background: str
+    current_situation: str
+
+
 class NextSituation(BaseRoguelikeStoryEventModel):
     """故事发展后续"""
     next_situation: str
@@ -87,6 +93,7 @@ __all__ = [
     'Character',
     'Story',
     'CurrentSituation',
+    'FastCurrentSituation',
     'NextSituation',
     'RollCondition',
     'RollResults',

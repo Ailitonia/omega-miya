@@ -32,12 +32,12 @@ async def _has_allow_r18_node(interface: 'OmegaMatcherInterface') -> bool:
         return False
 
     return (
-            await interface.entity.check_global_permission() and
-            await interface.entity.check_auth_setting(
-                module=interface.matcher.plugin.module_name,
-                plugin=interface.matcher.plugin.name,
-                node=ALLOW_R18_NODE
-            )
+        await interface.entity.check_global_permission()
+        and await interface.entity.check_auth_setting(
+            module=interface.matcher.plugin.module_name,
+            plugin=interface.matcher.plugin.name,
+            node=ALLOW_R18_NODE
+        )
     )
 
 
@@ -121,7 +121,7 @@ async def prepare_send_image(collected_artwork: 'CollectedArtwork') -> OmegaMess
 
     output_file = await collected_artwork.artwork_proxy.get_proceed_page_file(no_blur_rating=3)
 
-    return OmegaMessageSegment.image(url=output_file.path)
+    return OmegaMessageSegment.image(await output_file.get_hosting_path())
 
 
 __all__ = [

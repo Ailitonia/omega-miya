@@ -85,10 +85,39 @@ async def handle_story_remove(
 
 @roguelike_story.command(
     'action',
-    aliases={'快速行动检定', '行动检定'},
+    aliases={'行动检定'},
     handlers=[get_command_str_single_arg_parser_handler('description')],
 ).got('description', prompt='请输入需要检定的行动或任务描述')
 async def handle_action_checking(
+        interface: Annotated[OmMI, Depends(OmMI.depend('user'))],
+        description: Annotated[str, ArgStr('description')],
+) -> None:
+    try:
+        story_session = get_story_session(interface=interface)
+    except Exception as e:
+        logger.warning(f'Roguelike Story | {interface.entity}获取故事会话失败, {e}')
+        await interface.finish_reply('获取故事会话失败, 请稍后再试或联系管理员处理')
+
+    try:
+        await handle_fast_roll_action(
+            story_session=story_session,
+            interface=interface,
+            description=description,
+            fast_generate_story_continue=True,
+        )
+    except MatcherException as e:
+        raise e
+    except Exception as e:
+        logger.warning(f'Roguelike Story | 生成失败, {e}')
+        await interface.finish_reply('肉鸽姬还没有想好接下来会发生什么, 请稍后再试QAQ')
+
+
+@roguelike_story.command(
+    'fast-action',
+    aliases={'快速行动检定'},
+    handlers=[get_command_str_single_arg_parser_handler('description')],
+).got('description', prompt='请输入需要检定的行动或任务描述')
+async def handle_fast_action_checking(
         interface: Annotated[OmMI, Depends(OmMI.depend('user'))],
         description: Annotated[str, ArgStr('description')],
 ) -> None:

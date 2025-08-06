@@ -29,7 +29,7 @@ async def postprocessor_history(bot: BaseBot, event: BaseEvent, message: BaseMes
     elif (message_id := getattr(event, 'id', None)) is not None:
         message_id = str(message_id)
     else:
-        message_id = str(hash(message))
+        message_id = str(id(message))
 
     message_raw = dump_json_as(BaseMessage, message, encoding='utf-8')
     message_text = message.extract_plain_text()

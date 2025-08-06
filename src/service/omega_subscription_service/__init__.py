@@ -11,7 +11,6 @@
 from .handlers import SubscriptionHandlerManager as OmegaSubscriptionHandlerManager
 from .manager import BaseSubscriptionManager
 
-
 __all__ = [
     'BaseSubscriptionManager',
     'OmegaSubscriptionHandlerManager',

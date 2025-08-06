@@ -106,7 +106,7 @@ class MessageSegment(BaseMessageSegment['Message']):
         )
 
     @staticmethod
-    def file(file: Path) -> 'MessageSegment':
+    def file(file: str | Path) -> 'MessageSegment':
         """File 消息段, 表示一类文件消息段类型
 
         - type: file
@@ -114,7 +114,7 @@ class MessageSegment(BaseMessageSegment['Message']):
         """
         return MessageSegment(
             type=MessageSegmentType.file,
-            data={'file': file.resolve().as_posix()}
+            data={'file': file.resolve().as_posix() if isinstance(file, Path) else file}
         )
 
     @staticmethod
@@ -130,7 +130,7 @@ class MessageSegment(BaseMessageSegment['Message']):
         )
 
     @staticmethod
-    def image_file(file: Path) -> 'MessageSegment':
+    def image_file(file: str | Path) -> 'MessageSegment':
         """ImageFile 消息段, 表示一类以文件发送的图片消息段类型
 
         - type: image_file
@@ -138,7 +138,7 @@ class MessageSegment(BaseMessageSegment['Message']):
         """
         return MessageSegment(
             type=MessageSegmentType.image_file,
-            data={'file': file.resolve().as_posix()}
+            data={'file': file.resolve().as_posix() if isinstance(file, Path) else file}
         )
 
     @staticmethod

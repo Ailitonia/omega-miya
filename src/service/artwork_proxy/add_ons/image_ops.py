@@ -76,13 +76,13 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
         match process_mode:
             case 'noise':
                 image = await self._handle_noise(image=page_file, origin_mark=origin_mark)
-                output_file_name = f'{page_file.path.stem}_noise_sigma16_marked.jpg'
+                output_file_name = f'{page_file.stem}_noise_sigma16_marked.jpg'
             case 'blur':
                 image = await self._handle_blur(image=page_file, origin_mark=origin_mark)
-                output_file_name = f'{page_file.path.stem}_blur_marked.jpg'
+                output_file_name = f'{page_file.stem}_blur_marked.jpg'
             case 'mark' | _:
                 image = await self._handle_mark(image=page_file, origin_mark=origin_mark)
-                output_file_name = f'{page_file.path.stem}_marked.jpg'
+                output_file_name = f'{page_file.stem}_marked.jpg'
 
         output_file = self.path_config.processed_path(output_file_name)
         return await image.save(file=output_file)

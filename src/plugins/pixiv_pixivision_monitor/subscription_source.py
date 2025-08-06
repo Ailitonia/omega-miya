@@ -120,7 +120,7 @@ class PixivisionSubscriptionManager(BaseSubscriptionManager['SMC_T']):
                 save_folder=cls._get_tmp_folder()('eyecatch'),
                 custom_file_name=f'eyecatch_{article.aid}.jpg'
             )
-            send_message += OmegaMessageSegment.image(url=eyecatch_image.path)
+            send_message += OmegaMessageSegment.image(await eyecatch_image.get_hosting_path())
         except Exception as e:
             logger.warning(f'PixivisionArticleMonitor | Query {article} eye-catch image failed, {e!r}')
 
@@ -129,7 +129,7 @@ class PixivisionSubscriptionManager(BaseSubscriptionManager['SMC_T']):
         try:
             title = f'Pixivision - {article_data.title_without_mark}'
             preview_image = await cls._generate_pixivision_article_preview(title=title, article_data=article_data)
-            send_message += OmegaMessageSegment.image(url=preview_image.path)
+            send_message += OmegaMessageSegment.image(await preview_image.get_hosting_path())
         except Exception as e:
             logger.warning(f'PixivisionArticleMonitor | Query {article} preview image failed, {e!r}')
 

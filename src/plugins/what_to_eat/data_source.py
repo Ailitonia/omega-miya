@@ -60,9 +60,9 @@ async def _init_menu() -> None:
     async with _RESOURCE_PATH('index.json').async_open('r', encoding='utf8') as af:
         index = parse_json_as(list[MenuFood], await af.read())
         menu_data.extend(index)
-    for file in _RESOURCE_PATH.path.iterdir():
+    for file in _RESOURCE_PATH.iter_current_files():
         if re.search(re.compile(r'^index_addition_.+.json$'), file.name):
-            async with _RESOURCE_PATH(file.name).async_open('r', encoding='utf8') as af:
+            async with file.async_open('r', encoding='utf8') as af:
                 index = parse_json_as(list[MenuFood], await af.read())
                 menu_data.extend(index)
 
@@ -93,9 +93,9 @@ async def _get_food_msg(food: MenuFood) -> OmegaMessage:
     if food_img_url.startswith(('http://', 'https://')):
         filename = OmegaRequests.hash_url_file_name(food.name, url=food_img_url)
         file = await OmegaRequests().download(url=food_img_url, file=_TMP_PATH(filename), ignore_exist_file=True)
-        img_seg = OmegaMessageSegment.image(file.path)
+        img_seg = OmegaMessageSegment.image(await file.get_hosting_path())
     else:
-        img_seg = OmegaMessageSegment.image(_RESOURCE_PATH(food_img_url).path)
+        img_seg = OmegaMessageSegment.image(await _RESOURCE_PATH(food_img_url).get_hosting_path())
 
     return OmegaMessageSegment.text(f'【{food.name}】\n') + img_seg
 

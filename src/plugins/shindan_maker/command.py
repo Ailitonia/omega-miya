@@ -77,7 +77,7 @@ async def handle_shindan_make(
         image_download_tasks = [ShindanMaker.download_resource(url=x, subdir='image') for x in result.image_url]
         image_result = await semaphore_gather(tasks=image_download_tasks, semaphore_num=10, filter_exception=True)
         for img in image_result:
-            send_msg += OmegaMessageSegment.image(img.path)
+            send_msg += OmegaMessageSegment.image(await img.get_hosting_path())
 
     await interface.finish_reply(send_msg)
 

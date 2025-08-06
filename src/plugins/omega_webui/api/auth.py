@@ -5,7 +5,7 @@
 @Project        : omega-miya
 @Description    : 校验 API
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from src.service.omega_api import return_standard_api_result

@@ -50,10 +50,10 @@ async def handle_get_nhentai_gallery(
 
     try:
         send_msg = await format_gallery_desc_msg(gallery=NhentaiGallery(gallery_id=int(gid)))
-        await interface.send_auto_revoke(message=send_msg)
+        await interface.send_auto_revoke(send_msg)
     except Exception as e:
         logger.error(f'Nhentai | 获取作品(gallery_id={gid})信息失败, {e}')
-        await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+        await interface.finish_reply('获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
 
 @nhentai.command(
@@ -73,10 +73,10 @@ async def handle_preview_hentai_gallery(
 
     try:
         gallery_preview = await NhentaiGallery(gallery_id=int(gid)).query_gallery_with_preview()
-        await interface.send_auto_revoke(message=OmegaMessageSegment.image(gallery_preview.path))
+        await interface.send_auto_revoke(OmegaMessageSegment.image(await gallery_preview.get_hosting_path()))
     except Exception as e:
         logger.error(f'Nhentai | 获取作品(gallery_id={gid})预览失败, {e}')
-        await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+        await interface.finish_reply('获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
 
 @nhentai.shell_command(
@@ -98,7 +98,7 @@ async def handle_nhentai_searching(
         search_results = await NhentaiGallery.search_gallery_with_preview(
             keyword=keyword, page=searching_args.page, sort=searching_args.sort
         )
-        await interface.send_auto_revoke(OmegaMessageSegment.image(search_results.path))
+        await interface.send_auto_revoke(OmegaMessageSegment.image(await search_results.get_hosting_path()))
     except Exception as e:
         logger.error(f'NhentaiSearching | 获取搜索内容({searching_args})失败, {e}')
         await interface.finish_reply('获取搜索内容失败了QAQ, 请稍后再试')

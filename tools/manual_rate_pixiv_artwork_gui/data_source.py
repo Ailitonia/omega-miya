@@ -345,17 +345,17 @@ class LocalPixivArtworkSource(BasePixivArtworkSource):
     async def _select_current_source(self) -> None:
         current_file = AnyResource(filedialog.askopenfilename())
         self._current_source = CurrentArtwork.model_validate({
-            'pid': current_file.path.name.split('_')[0],
+            'pid': current_file.name.split('_')[0],
             'source_path': current_file.resolve_path,
         })
-        self._working_path = AnyResource(current_file.path.parent).resolve_path
+        self._working_path = current_file.parent.resolve_path
 
     async def _init_working_path(self) -> None:
         working_dir = AnyResource(self._working_path)
 
         # 文件列表缓存
         working_dir_all_files_cache = self._output_path.cache_dir(
-            f'{working_dir.path.parent.name}-{working_dir.path.name}.txt'
+            f'{working_dir.parent.name}-{working_dir.name}.txt'
         )
 
         # 加载文件列表缓存
@@ -371,11 +371,11 @@ class LocalPixivArtworkSource(BasePixivArtworkSource):
             exists_files = sorted(
                 (
                     CurrentArtwork.model_validate({
-                        'pid': x.path.name.split('_')[0],
+                        'pid': x.name.split('_')[0],
                         'source_path': x.resolve_path,
                     })
                     for x in working_dir.list_current_files()
-                    if re.match(r'^\d+?_p0\d*?\.(jpg|jpeg|png|JPG|JPEG|PNG)$', x.path.name)
+                    if re.match(r'^\d+?_p0\d*?\.(jpg|jpeg|png|JPG|JPEG|PNG)$', x.name)
                 ),
                 key=lambda x: x.pid
             )

@@ -237,7 +237,7 @@ class TraceMoe(BaseImageSearcherAPI):
     async def _search_local_image(cls, image: 'BaseResource') -> list[ImageSearchingResult]:
         with image.open('rb') as f:
             files = {
-                'file': (image.path.name, f, 'application/octet-stream'),
+                'file': (image.name, f, 'application/octet-stream'),
             }
             result = await cls._post_json(url=cls.get_api_url(), files=files)  # type: ignore
 

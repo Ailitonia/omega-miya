@@ -201,7 +201,7 @@ class BaseOpenAIClient(BaseCommonAPI):
 
         with file.open('rb') as f:
             files = {
-                'file': (file.path.name, f, 'application/octet-stream'),
+                'file': (file.name, f, 'application/octet-stream'),
                 'purpose': (None, purpose, 'text/plain')
             }
             response = await self._post_json(

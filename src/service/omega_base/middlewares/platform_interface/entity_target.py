@@ -15,15 +15,15 @@ from typing import TYPE_CHECKING, Any
 
 from nonebot.log import logger
 
-from src.service.omega_multibot_support import get_online_bots
 from ..const import SupportedTarget
 from ..exception import BotNoFound, TargetNotSupported
+from ....omega_multibot_support import get_online_bots
 
 if TYPE_CHECKING:
     from nonebot.adapters import Bot as BaseBot
 
     from ...internal import OmegaEntity
-    from ..models import EntityTargetRevokeParams, EntityTargetSendParams
+    from ..models import EntityTargetRevokeParams, EntityTargetSendParams, SentMessageResponse
 
 
 class BaseEntityTarget(abc.ABC):
@@ -43,12 +43,17 @@ class BaseEntityTarget(abc.ABC):
     """平台发送消息 API 调用适配"""
 
     @abc.abstractmethod
+    def extract_sent_message_api_response(self, response: Any) -> 'SentMessageResponse':
+        """解析调用平台发送消息 API 后的响应"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         """获取向 Entity 发送消息调用的 API 名称及参数"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
         """获取撤回已发送消息调用的 API 名称及参数"""
         raise NotImplementedError
 

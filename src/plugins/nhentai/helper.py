@@ -63,7 +63,7 @@ async def format_gallery_desc_msg(gallery: 'NhentaiGallery') -> OmegaMessage:
     title_text = f'{gallery_data.title.english}\n{gallery_data.title.japanese}'
     desc_text = f'{title_text}\n\nGID:{gallery_data.id}\nMID:{gallery_data.media_id}\n\n{tag_text}'
 
-    return OmegaMessageSegment.image(cover_image.path) + OmegaMessageSegment.text(desc_text)
+    return OmegaMessageSegment.image(await cover_image.get_hosting_path()) + OmegaMessageSegment.text(desc_text)
 
 
 __all__ = [

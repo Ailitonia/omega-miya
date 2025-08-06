@@ -18,6 +18,7 @@ from nonebot.typing import T_State
 
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessageSegment
+from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from .config import sign_in_config
 from .exception import DuplicateException, FailedException
 from .helpers import generate_signin_card, get_hitokoto, get_profile_image, get_signin_top_image
@@ -93,13 +94,19 @@ async def handle_generate_sign_in_card(
 
         try:
             sign_in_card = await generate_signin_card(
-                user_id=interface.entity.entity_id, user_text=user_text, friendship=friendship_now, top_img=top_img
+                user_id=interface.entity.entity_id,
+                user_text=user_text,
+                friendship=friendship_now,
+                top_img=top_img,
             )
         except Exception as e:
             raise FailedException(f'生成签到卡片失败, {e}') from e
 
         logger.success(f'SignIn | User({interface.entity.tid}) 签到成功')
-        await interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
+        response = await interface.send_at_sender(OmegaMessageSegment.image(await sign_in_card.get_hosting_path()))
+
+        top_img_data = await top_img.artwork_proxy.query(use_cache=True)
+        await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **top_img_data.model_dump())
     except DuplicateException:
         # 已签到, 设置一个状态指示生成卡片中添加文字
         state.update({'_checked_sign_in_text': '今天你已经签到过了哦~'})
@@ -152,14 +159,21 @@ async def handle_generate_fortune_card(
 
         try:
             sign_in_card = await generate_signin_card(
-                user_id=interface.entity.entity_id, user_text=user_text, friendship=friendship.friendship,
-                top_img=top_img, draw_fortune=False, head_img=head_img
+                user_id=interface.entity.entity_id,
+                user_text=user_text,
+                friendship=friendship.friendship,
+                top_img=top_img,
+                draw_fortune=False,
+                head_img=head_img,
             )
         except Exception as e:
             raise FailedException(f'生成运势卡片失败, {e}') from e
 
         logger.success(f'SignIn | User({interface.entity.tid}) 获取运势卡片成功')
-        await interface.send_at_sender(OmegaMessageSegment.image(sign_in_card.path))
+        response = await interface.send_at_sender(OmegaMessageSegment.image(await sign_in_card.get_hosting_path()))
+
+        top_img_data = await top_img.artwork_proxy.query(use_cache=True)
+        await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **top_img_data.model_dump())
     except Exception as e:
         logger.error(f'SignIn | User({interface.entity.tid}) 获取运势卡片失败, 发生了预期外的错误, {e}')
         await interface.send_reply('获取今日运势失败了, 请稍后再试或联系管理员处理')

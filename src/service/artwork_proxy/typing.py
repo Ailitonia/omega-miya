@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-from collections.abc import Callable
-from functools import wraps
 from typing import Literal, TypeVar, cast
 
 from .internal import BaseArtworkProxy
@@ -32,16 +30,6 @@ def mark_as_artwork_proxy_mixin(class_: type) -> ArtworkProxyType:
     return cast(ArtworkProxyType, class_)
 
 
-def mark_as_mixin(class_t: ArtworkProxyClass_T) -> Callable[[type], ArtworkProxyClass_T]:
-    """标注类为指定的类, 方便类型检查, 仅供工具插件 Mixin 类使用"""
-
-    @wraps(class_t)
-    def _decorator(class_: type) -> ArtworkProxyClass_T:
-        return cast(class_t, class_)
-
-    return _decorator
-
-
 __all__ = [
     'ArtworkPageParamType',
     'ArtworkProxy_T',
@@ -49,5 +37,4 @@ __all__ = [
     'ArtworkProxyType',
     'ProxiedArtwork',
     'mark_as_artwork_proxy_mixin',
-    'mark_as_mixin',
 ]

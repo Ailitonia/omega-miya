@@ -73,10 +73,10 @@ async def handle_preview_gallery(
 
     try:
         gallery_preview = await Comic18(album_id=int(aid)).query_album_with_preview()
-        await interface.send_auto_revoke(message=OmegaMessageSegment.image_file(gallery_preview.path))
+        await interface.send_auto_revoke(OmegaMessageSegment.image_file(await gallery_preview.get_hosting_path()))
     except Exception as e:
         logger.error(f'JM | 获取作品(album_id={aid})信息失败, {e}')
-        await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+        await interface.finish_reply('获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
 
 @jm.shell_command(
@@ -112,7 +112,7 @@ async def handle_jm_searching(
                 main_tag=searching_args.tag,
             )
 
-        await interface.send_auto_revoke(OmegaMessageSegment.image(search_results.path))
+        await interface.send_auto_revoke(OmegaMessageSegment.image_file(await search_results.get_hosting_path()))
     except Exception as e:
         logger.error(f'JM | 获取搜索内容({searching_args})失败, {e}')
         await interface.finish_reply('获取搜索内容失败了QAQ, 请稍后再试')

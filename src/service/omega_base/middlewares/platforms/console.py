@@ -17,7 +17,7 @@ from nonebot.adapters.console import MessageEvent as ConsoleMessageEvent
 from nonebot.adapters.console import MessageSegment as ConsoleMessageSegment
 
 from ..const import SupportedPlatform, SupportedTarget
-from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams
+from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams, SentMessageResponse
 from ..platform_interface.entity_target import BaseEntityTarget, entity_target_register
 from ..platform_interface.event_depend import BaseEventDepend, event_depend_register
 from ..platform_interface.message_builder import BaseMessageBuilder, message_builder_register
@@ -72,6 +72,15 @@ class ConsoleMessageExtractor(BaseMessageBuilder[ConsoleMessage, OmegaMessage]):
 @entity_target_register.register_target(SupportedTarget.console_user)
 class ConsoleEntityTarget(BaseEntityTarget):
 
+    def extract_sent_message_api_response(self, response: Any) -> 'SentMessageResponse':
+        return SentMessageResponse.model_validate({
+            'sent_message_id': '-1',
+            'bot_self_id': self.entity.bot_id,
+            'target_id': self.entity.entity_id,
+            'target_type': self.entity.entity_type,
+            'raw_response': response,
+        })
+
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         return EntityTargetSendParams(
             api='send_msg',
@@ -81,7 +90,7 @@ class ConsoleEntityTarget(BaseEntityTarget):
             }
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError
 
     async def call_api_get_entity_name(self) -> str:
@@ -113,13 +122,16 @@ class ConsoleEventDepend[Event_T: ConsoleEvent](BaseEventDepend[ConsoleBot, Even
     def get_omega_message_extractor(self) -> type['BaseMessageBuilder[ConsoleMessage, OmegaMessage]']:
         return ConsoleMessageExtractor
 
-    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    def extract_platform_sent_message_response(self, response: Any) -> 'SentMessageResponse':
         raise NotImplementedError
 
-    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         raise NotImplementedError
 
-    async def revoke(self, sent_return: Any, **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
+        raise NotImplementedError
+
+    async def revoke(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         raise NotImplementedError
 
     def get_user_nickname(self) -> str:
@@ -129,6 +141,9 @@ class ConsoleEventDepend[Event_T: ConsoleEvent](BaseEventDepend[ConsoleBot, Even
         raise NotImplementedError
 
     def get_msg_image_urls(self) -> list[str]:
+        raise NotImplementedError
+
+    def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
     def get_reply_msg_image_urls(self) -> list[str]:
@@ -141,10 +156,20 @@ class ConsoleEventDepend[Event_T: ConsoleEvent](BaseEventDepend[ConsoleBot, Even
 @event_depend_register.register_depend(ConsoleMessageEvent)
 class ConsoleMessageEventDepend(ConsoleEventDepend[ConsoleMessageEvent]):
 
-    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    def extract_platform_sent_message_response(self, response: Any) -> 'SentMessageResponse':
+        target_entity_params = self._extract_event_entity_params()
+        return SentMessageResponse.model_validate({
+            'sent_message_id': '-1',
+            'bot_self_id': target_entity_params.bot_id,
+            'target_id': target_entity_params.entity_id,
+            'target_type': target_entity_params.entity_type,
+            'raw_response': response,
+        })
+
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         return await self.send(message=message, **kwargs)
 
-    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         return await self.send(message=message, **kwargs)
 
     def get_user_nickname(self) -> str:
@@ -155,6 +180,9 @@ class ConsoleMessageEventDepend(ConsoleEventDepend[ConsoleMessageEvent]):
 
     def get_msg_image_urls(self) -> list[str]:
         return []
+
+    def get_reply_msg_id(self) -> str | None:
+        return None
 
     def get_reply_msg_image_urls(self) -> list[str]:
         return []

@@ -38,7 +38,7 @@ async def handle_httpcat(
 
     try:
         code_image = await get_http_cat(http_code=code)
-        await interface.send_reply(OmegaMessageSegment.image(code_image.path))
+        await interface.send_reply(OmegaMessageSegment.image(await code_image.get_hosting_path()))
     except Exception as e:
         logger.error(f'HttpCat | 获取状态码{code!r}对应图片失败, {e!r}')
         await interface.send_reply('获取猫猫失败QAQ')

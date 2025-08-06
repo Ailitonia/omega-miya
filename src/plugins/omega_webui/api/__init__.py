@@ -5,11 +5,10 @@
 @Project        : omega-miya
 @Description    : Omega WebUI 后端 API
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from . import auth as auth
 from . import bot as bot
-
 
 __all__ = []

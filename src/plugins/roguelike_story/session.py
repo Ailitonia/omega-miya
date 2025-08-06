@@ -14,8 +14,21 @@ from typing import TYPE_CHECKING
 
 from src.utils.openai_api import ChatSession
 from .config import roguelike_story_plugin_config
-from .consts import CONTINUE_PROMPT, SAFE_ROLL_PROMPT, STORY_CREATE_PROMPT, UNLIMITED_ROLL_PROMPT
-from .models import CurrentSituation, NextSituation, RollCondition, RollResults, Story
+from .consts import (
+    CONTINUE_PROMPT,
+    FAST_STORY_CONTINUE_PROMPT,
+    SAFE_ROLL_PROMPT,
+    STORY_CREATE_PROMPT,
+    UNLIMITED_ROLL_PROMPT,
+)
+from .models import (
+    CurrentSituation,
+    FastCurrentSituation,
+    NextSituation,
+    RollCondition,
+    RollResults,
+    Story,
+)
 
 if TYPE_CHECKING:
     from src.service import OmegaMatcherInterface as OmMI
@@ -98,6 +111,27 @@ class StorySession:
         self.current_situation = story.prologue
         self._is_inited = True
         return story
+
+    async def fast_story_continue(self, action: str) -> FastCurrentSituation:
+        """"快速故事续写, 无需前文预设"""
+        if self.is_processing:
+            raise RuntimeError('StorySession is processing')
+
+        async with self._lock:
+            continue_result = await ChatSession.create(
+                service_name=roguelike_story_plugin_config.roguelike_story_plugin_ai_service_name,
+                model_name=roguelike_story_plugin_config.roguelike_story_plugin_ai_model_name,
+                init_system_message=FAST_STORY_CONTINUE_PROMPT,
+            ).advance_chat(
+                action,
+                response_format=roguelike_story_plugin_config.roguelike_story_plugin_ai_json_output,
+                model_type=FastCurrentSituation,
+                temperature=roguelike_story_plugin_config.roguelike_story_plugin_ai_temperature,
+                max_tokens=roguelike_story_plugin_config.roguelike_story_plugin_ai_max_tokens,
+                timeout=roguelike_story_plugin_config.roguelike_story_plugin_ai_timeout,
+            )
+
+        return continue_result
 
     async def fast_roll(self, action: str, *, current_situation: str = '') -> RollResults:
         """快速掷骰, 无需前文预设"""

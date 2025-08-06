@@ -75,7 +75,7 @@ class UserData(BaseBilibiliModel):
     # coins: int
     # official: UserOfficial
     is_followed: bool
-    top_photo: AnyHttpUrl
+    top_photo: str
     live_room: UserLiveRoom | None = Field(None)
     birthday: str
 
@@ -93,9 +93,18 @@ class User(BaseBilibiliResponse):
         return self.data.name
 
 
+class UserSpaceRenderData(BaseBilibiliModel):
+    """space.bilibili.com 页面 __RENDER_DATA__ 元素内容"""
+    access_id: str
+    signature: str = Field(default_factory=str)
+    n: str = Field(default_factory=str)
+    m: str = Field(default_factory=str)
+
+
 __all__ = [
     'Account',
     'User',
     'UserLiveRoom',
+    'UserSpaceRenderData',
     'VipInfo',
 ]

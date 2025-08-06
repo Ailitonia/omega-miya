@@ -16,10 +16,12 @@ from nonebot.plugin import CommandGroup
 
 from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI, enable_processor_state, scheduler
+from src.service import OmegaMatcherInterface as OmMI
+from src.service import enable_processor_state, scheduler
 
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler
+
     from .manager import BaseSubscriptionManager
 
 

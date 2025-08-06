@@ -10,11 +10,12 @@
 
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
+from nonebot.log import logger
 
-from src.resource import AnyResource, BaseResource
-from src.service.omega_api import OmegaAPI
+from src.resource import AnyResource, BaseResource, BaseResourceHostProtocol
 from .config import file_host_config
 from .utils import query_file_path, query_file_uuid
+from ..omega_api import OmegaAPI
 
 _FILE_HOST_API = OmegaAPI(
     app_name='omega_file_host',
@@ -24,33 +25,39 @@ _FILE_HOST_API = OmegaAPI(
 """文件服务 API"""
 
 if file_host_config.omega_file_host_enable_hosting_service:
+
+    # 注册文件托管服务 API
     @_FILE_HOST_API.register_get_route('/download/{file_id}')
     async def _download_file(file_id: str) -> FileResponse:
         file_path = await query_file_path(file_id)
 
         if not file_path:
-            raise HTTPException(status_code=404, detail="File expired or deleted")
+            raise HTTPException(status_code=404, detail='File expired or deleted')
 
         file = AnyResource(file_path)
         if not file.is_file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail='File not found')
 
         return FileResponse(
             path=file.path,
-            filename=f'{file_id}{file.path.suffix}',
+            filename=f'{file_id}{file.suffix}',
             media_type='application/octet-stream',
         )
 
+    logger.opt(colors=True).success('<lc>OmegaFileHost</lc> | <lg>文件托管服务已启用</lg>')
 
-async def get_hosting_file_path(file: 'BaseResource') -> str:
-    """获取文件路径, 启用文件服务 API 时返回下载 URL, 未启用时返回文件本地路径"""
-    if file_host_config.omega_file_host_enable_hosting_service:
-        file_uuid = await query_file_uuid(file)
-        return f'{_FILE_HOST_API.root_url}/download/{file_uuid}'
-    else:
-        return file.resolve_path
+
+class OmegaFileHostProtocol(BaseResourceHostProtocol[BaseResource]):
+    """Omega 文件托管服务实现"""
+
+    async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> str:
+        if file_host_config.omega_file_host_enable_hosting_service:
+            file_uuid = await query_file_uuid(self._resource, ttl_delta=ttl_delta)
+            return f'{_FILE_HOST_API.root_url}/download/{file_uuid}'
+        else:
+            return self._resource.resolve_path
 
 
 __all__ = [
-    'get_hosting_file_path',
+    'OmegaFileHostProtocol',
 ]

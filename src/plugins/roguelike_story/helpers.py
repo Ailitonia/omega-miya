@@ -59,7 +59,11 @@ async def handle_story_continue(story_session: 'StorySession', interface: 'OmMI'
 
     # 判定用户属性, 决定骰子事件后续发展
     checking_value = randint(1, 100)
-    result_msg = get_roll_result_text(roll_result=roll_result, attr_value=attr_value, checking_value=checking_value)
+    result_msg = _format_roll_result_text(
+        roll_result=roll_result,
+        attr_value=attr_value,
+        checking_value=checking_value,
+    )
 
     # 编写下一步剧情故事
     continue_story = await story_session.continue_story(player_action=description, roll_result=result_msg)
@@ -73,14 +77,24 @@ async def handle_story_continue(story_session: 'StorySession', interface: 'OmMI'
     await interface.reject_arg_reply('description', '你的下一步行动是？')
 
 
-async def handle_fast_roll_action(story_session: 'StorySession', interface: 'OmMI', description: str) -> None:
+async def handle_fast_roll_action(
+        story_session: 'StorySession',
+        interface: 'OmMI',
+        description: str,
+        fast_generate_story_continue: bool = False,
+) -> None:
     """处理快速行动检定"""
     if story_session.is_processing:
         await interface.finish_reply('骰子姬正在努力工作中_<, 请稍后再试')
 
     await interface.send_reply('骰子姬正在编写剧本中_<, 请稍候')
 
-    roll_result = await story_session.fast_roll(action=description)
+    current_situation = ''
+    if fast_generate_story_continue:
+        story_continue = await story_session.fast_story_continue(action=description)
+        current_situation = f'{story_continue.background}\n\n{story_continue.current_situation}'
+
+    roll_result = await story_session.fast_roll(action=description, current_situation=current_situation)
 
     # 尝试获取用户属性值, 若不存在对应属性值时尝试随机获取
     attr_value = await interface.entity.query_character_attribute(
@@ -91,14 +105,21 @@ async def handle_fast_roll_action(story_session: 'StorySession', interface: 'OmM
 
     # 判定用户属性, 决定骰子事件后续发展
     checking_value = randint(1, 100)
-    result_msg = get_roll_result_text(roll_result=roll_result, attr_value=attr_value, checking_value=checking_value)
-
-    await interface.send_reply(
-        f'你进行了【{roll_result.characteristics}({attr_value})】检定\n1D100=>{checking_value}=>{result_msg}'
+    result_msg = _format_roll_result_text(
+        roll_result=roll_result,
+        attr_value=attr_value,
+        checking_value=checking_value,
     )
 
+    sent_msg = (
+        f'{current_situation}\n\n'
+        f'你进行了【{roll_result.characteristics}({attr_value})】检定\n'
+        f'1D100=>{checking_value}=>{result_msg}'
+    ).strip()
+    await interface.send_reply(sent_msg)
 
-def get_roll_result_text(roll_result: 'RollResults', attr_value: int, checking_value: int) -> str:
+
+def _format_roll_result_text(roll_result: 'RollResults', attr_value: int, checking_value: int) -> str:
     """进行掷骰判定并格式化结果文本"""
     if attr_value > checking_value:
         if checking_value < attr_value * 0.1:

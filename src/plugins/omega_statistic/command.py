@@ -44,7 +44,7 @@ async def handle_event_entity_statistic(
             statistics_data=statistic_data, title=f'{interface.entity.tid} 插件使用情况统计'
         )
         logger.success(f'OmegaStatistic 获取 {interface.entity} 统计信息成功')
-        await interface.send_reply(OmegaMessageSegment.image(statistic_image.path))
+        await interface.send_reply(OmegaMessageSegment.image(await statistic_image.get_hosting_path()))
     except Exception as e:
         logger.error(f'OmegaStatistic 获取 {interface.entity} 统计信息失败, {e!r}')
         await interface.send_reply('获取统计信息失败, 请稍后再试或联系管理员处理')
@@ -61,7 +61,7 @@ async def handle_bot_all_statistic(
             statistics_data=statistic_data, title=f'{interface.bot.type} Bot {interface.bot.self_id} 插件使用情况统计'
         )
         logger.success(f'OmegaStatistic 获取 {interface.bot} 统计信息成功')
-        await interface.send_reply(OmegaMessageSegment.image(statistic_image.path))
+        await interface.send_reply(OmegaMessageSegment.image(await statistic_image.get_hosting_path()))
     except Exception as e:
         logger.error(f'OmegaStatistic 获取 {interface.bot} 统计信息失败, {e!r}')
         await interface.send_reply('获取统计信息失败, 请稍后再试或联系管理员处理')

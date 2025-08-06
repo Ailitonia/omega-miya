@@ -396,7 +396,7 @@ class Comic18(_BaseComic18):
 
         # 执行图片恢复
         reverse_tasks = [
-            self._reverse_image(page_id=file.path.name, file=file, save_folder=download_folder)
+            self._reverse_image(page_id=file.name, file=file, save_folder=download_folder)
             for file in download_result
         ]
         reverse_result = await semaphore_gather(tasks=reverse_tasks, semaphore_num=10, return_exceptions=False)
@@ -517,7 +517,7 @@ class Comic18(_BaseComic18):
             async with file.async_open('rb') as af:
                 page_content = await af.read()
             previews.append(PreviewImageThumbs(
-                desc_text=f'Page: {index+1} / {count}',
+                desc_text=f'Page: {index + 1} / {count}',
                 preview_thumb=page_content
             ))
 

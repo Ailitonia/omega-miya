@@ -134,7 +134,7 @@ class Ascii2d(BaseImageSearcherAPI):
     async def _search_local_image(cls, image: BaseResource) -> list[ImageSearchingResult]:
         with image.open('rb') as f:
             files = {
-                'file': (image.path.name, f, 'application/octet-stream'),
+                'file': (image.name, f, 'application/octet-stream'),
             }
             color_response = await cls._request_post(url=f'{cls._get_root_url()}/search/file',
                                                      files=files)  # type: ignore

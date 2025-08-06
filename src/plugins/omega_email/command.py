@@ -202,7 +202,7 @@ async def handle_receive_email(interface: Annotated[OmMI, Depends(OmMI.depend())
                 content = re.sub(r'(\n|&nbsp;){2,}', '\n', content)
                 mail_content = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
                 mail_img = await generate_mail_snapshot(mail_content=mail_content)
-                await interface.send_reply(OmegaMessageSegment.image(mail_img.path))
+                await interface.send_reply(OmegaMessageSegment.image(await mail_img.get_hosting_path()))
             except Exception as e:
                 logger.error(f'ReceiveEmail | 转换或发送已收邮件失败, {e}')
                 continue

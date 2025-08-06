@@ -5,7 +5,7 @@
 @Project        : omega-miya
 @Description    : Omega WebUI 后端 API 基类
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from src.service.omega_api import OmegaAPI

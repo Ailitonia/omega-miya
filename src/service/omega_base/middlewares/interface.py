@@ -13,7 +13,8 @@ import inspect
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import TYPE_CHECKING, Annotated, Any, NoReturn, Self, cast
+from types import TracebackType
+from typing import TYPE_CHECKING, Annotated, Concatenate, NoReturn, Self
 
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 
     from ..internal import OmegaEntity
     from ..message import Message as OmegaMessage
+    from .models import SentMessageResponse
     from .platform_interface.entity_target import BaseEntityTarget
     from .platform_interface.event_depend import EventDepend
     from .platform_interface.message_builder import Builder, Extractor
@@ -50,28 +52,31 @@ class OmegaEntityInterface:
         self._entity = entity
 
     @staticmethod
-    def check_target_implemented[** P, R](
-            func: Callable[P, Coroutine[Any, Any, R]],
-    ) -> Callable[P, Coroutine[Any, Any, R]]:
+    def check_target_implemented[**P, R, T1, T2, ST: 'OmegaEntityInterface'](
+            func: Callable[Concatenate[ST, P], Coroutine[T1, T2, R]],
+    ) -> Callable[Concatenate[ST, P], Coroutine[T1, T2, R]]:
         """装饰一个调用平台 API 的异步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 TargetNotSupported 异常"""
         if not inspect.iscoroutinefunction(func):
             raise TypeError(f'{func.__name__} is not coroutine function')
 
         @wraps(func)
-        async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        async def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
             try:
-                return await func(*args, **kwargs)
+                return await func(self, *args, **kwargs)
             except NotImplementedError:
-                self: Self = cast(Self, args[0])
                 logger.warning(f'{self._entity} not support method {func.__name__!r}')
                 raise TargetNotSupported(self._entity.entity_type, f'method {func.__name__!r} is not implemented')
 
         return _wrapper
 
+    @staticmethod
+    def get_entity_target_type(target_name: str) -> type['BaseEntityTarget']:
+        """获取 Entity 对应的中间件平台 API 适配器类"""
+        return entity_target_register.get_target(target_name=SupportedTarget(target_name))
+
     def get_entity_target(self) -> 'BaseEntityTarget':
         """获取 Entity 的中间件平台 API 适配器"""
-        entity_target_t = entity_target_register.get_target(target_name=SupportedTarget(self._entity.entity_type))
-        return entity_target_t(entity=self._entity)
+        return self.get_entity_target_type(target_name=self._entity.entity_type)(entity=self._entity)
 
     async def get_bot(self) -> 'BaseBot':
         """获取 Entity 对应的 Bot 实例, 未在线则会抛出 BotNoFound 异常"""
@@ -90,31 +95,33 @@ class OmegaEntityInterface:
     """在 Event/Matcher 之外向目标 Entity 直接发送消息的相关方法"""
 
     @check_target_implemented
-    async def send_entity_message(self, message: 'SentOmegaMessage', **kwargs) -> Any:
+    async def send_entity_message(self, message: 'SentOmegaMessage', **kwargs) -> 'SentMessageResponse':
         """向 Entity 直接发送消息"""
         bot = await self.get_bot()
         message_builder = await self.get_message_builder()
+        entity_target = self.get_entity_target()
 
-        send_params = self.get_entity_target().get_api_to_send_msg(**kwargs)
+        send_params = entity_target.get_api_to_send_msg(**kwargs)
         send_message = message_builder(message=message).message
 
         bot_api_params = {send_params.message_param_name: send_message, **send_params.params}
-        return await getattr(bot, send_params.api)(**bot_api_params)
+        response = await getattr(bot, send_params.api)(**bot_api_params)
+        return entity_target.extract_sent_message_api_response(response)
 
     @check_target_implemented
     async def send_entity_message_auto_revoke(
             self,
             message: 'SentOmegaMessage',
             revoke_interval: int = 60,
-            **kwargs
-    ) -> Any:
+            **kwargs,
+    ) -> tuple['SentMessageResponse', asyncio.TimerHandle]:
         """向 Entity 直接发送消息并在一定时间后撤回"""
         bot = await self.get_bot()
         sent_return = await self.send_entity_message(message=message)
         revoke_params = self.get_entity_target().get_api_to_revoke_msgs(sent_return=sent_return, **kwargs)
 
         loop = asyncio.get_running_loop()
-        return loop.call_later(
+        return sent_return, loop.call_later(
             revoke_interval,
             lambda: loop.create_task(getattr(bot, revoke_params.api)(**revoke_params.params)),
         )
@@ -158,6 +165,18 @@ class OmegaMatcherInterface:
         self.matcher = matcher
         self.entity = self.get_entity(bot=bot, event=event, session=session, acquire_type=acquire_type)
 
+    async def __aenter__(self) -> Self:
+        """Enter the matcher interface context and starting new session."""
+        return self
+
+    async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+    ) -> bool | None:
+        """Exit the matcher interface context waiting for session completion."""
+
     @asynccontextmanager
     async def restart_new_session(self, acquire_type: EntityAcquireType = 'event') -> AsyncGenerator[Self, None]:
         """使用当前参数重新开始新 session"""
@@ -189,48 +208,55 @@ class OmegaMatcherInterface:
     def depend(
             cls,
             acquire_type: EntityAcquireType = 'event'
-    ) -> Callable[[BaseBot, BaseEvent, Matcher, AsyncSession], Self]:
+    ) -> Callable[[BaseBot, BaseEvent, Matcher, AsyncSession], AsyncGenerator[Self, None]]:
         """获取注入依赖, 用于 Event/Matcher 中初始化"""
 
-        def _depend(
+        async def _depend(
                 bot: BaseBot,
                 event: BaseEvent,
                 matcher: Matcher,
                 session: Annotated[AsyncSession, Depends(get_db_session)],
-        ) -> Self:
-            return cls(bot=bot, event=event, matcher=matcher, session=session, acquire_type=acquire_type)
+        ) -> AsyncGenerator[Self, None]:
+            async with cls(
+                    bot=bot,
+                    event=event,
+                    matcher=matcher,
+                    session=session,
+                    acquire_type=acquire_type,
+            ) as interface:
+                yield interface
 
         return _depend
 
     @staticmethod
-    def check_adapter_implemented[** P, R](
-            func: Callable[P, Coroutine[Any, Any, R]],
-    ) -> Callable[P, Coroutine[Any, Any, R]]:
+    def check_adapter_implemented[**P, R, T1, T2, ST: 'OmegaMatcherInterface'](
+            func: Callable[Concatenate[ST, P], Coroutine[T1, T2, R]],
+    ) -> Callable[Concatenate[ST, P], Coroutine[T1, T2, R]]:
         """装饰一个调用平台 API 的异步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
         if not inspect.iscoroutinefunction(func):
             raise TypeError(f'{func.__name__} is not coroutine function')
 
         @wraps(func)
-        async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        async def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
             try:
-                return await func(*args, **kwargs)
+                return await func(self, *args, **kwargs)
             except NotImplementedError:
-                self: Self = cast(Self, args[0])
                 logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
                 raise AdapterNotSupported(self.bot.adapter.get_name(), f'method {func.__name__!r} is not implemented')
 
         return _wrapper
 
     @staticmethod
-    def check_event_implemented[** P, R](func: Callable[P, R]) -> Callable[P, R]:
+    def check_event_implemented[**P, R, ST: 'OmegaMatcherInterface'](
+            func: Callable[Concatenate[ST, P], R],
+    ) -> Callable[Concatenate[ST, P], R]:
         """装饰一个事件依赖的同步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
 
         @wraps(func)
-        def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
             try:
-                return func(*args, **kwargs)
+                return func(self, *args, **kwargs)
             except NotImplementedError:
-                self: Self = cast(Self, args[0])
                 logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
                 raise AdapterNotSupported(self.bot.adapter.get_name(), f'method {func.__name__!r} is not implemented')
 
@@ -240,8 +266,14 @@ class OmegaMatcherInterface:
         """获取事件 Entity 的 OmegaEntityInterface 实例"""
         return OmegaEntityInterface(entity=self.entity)
 
+    @staticmethod
+    def get_event_depend_type(target_event: 'BaseEvent') -> type['EventDepend']:
+        """获取事件对应的中间件平台事件对象解析器类"""
+        return event_depend_register.get_depend(target_event=target_event)
+
     def get_event_depend(self) -> 'EventDepend':
-        return event_depend_register.get_depend(target_event=self.event)(bot=self.bot, event=self.event)
+        """获取的中间件平台事件对象解析器"""
+        return self.get_event_depend_type(target_event=self.event)(bot=self.bot, event=self.event)
 
     def get_message_builder(self) -> type['Builder']:
         """获取 Bot 对应平台的消息构造器"""
@@ -264,9 +296,19 @@ class OmegaMatcherInterface:
         return self.get_event_depend().get_user_nickname()
 
     @check_event_implemented
+    def get_event_msg_mentioned_user_ids(self) -> list[str]:
+        """获取当前事件消息中被 @ 所有用户对象 ID 列表"""
+        return self.get_event_depend().get_msg_mentioned_user_ids()
+
+    @check_event_implemented
     def get_event_msg_image_urls(self) -> list[str]:
         """获取当前事件消息中的全部图片链接"""
         return self.get_event_depend().get_msg_image_urls()
+
+    @check_event_implemented
+    def get_event_reply_msg_id(self) -> str | None:
+        """获取当前事件回复消息的消息ID"""
+        return self.get_event_depend().get_reply_msg_id()
 
     @check_event_implemented
     def get_event_reply_msg_image_urls(self) -> list[str]:
@@ -281,15 +323,15 @@ class OmegaMatcherInterface:
     """Matcher 及流程控制相关方法"""
 
     @check_adapter_implemented
-    async def send(self, message: 'SentOmegaMessage', **kwargs) -> Any:
+    async def send(self, message: 'SentOmegaMessage', **kwargs) -> 'SentMessageResponse':
         return await self.get_event_depend().send(message=message, **kwargs)
 
     @check_adapter_implemented
-    async def send_at_sender(self, message: 'SentOmegaMessage', **kwargs) -> Any:
+    async def send_at_sender(self, message: 'SentOmegaMessage', **kwargs) -> 'SentMessageResponse':
         return await self.get_event_depend().send_at_sender(message=message, **kwargs)
 
     @check_adapter_implemented
-    async def send_reply(self, message: 'SentOmegaMessage', **kwargs) -> Any:
+    async def send_reply(self, message: 'SentOmegaMessage', **kwargs) -> 'SentMessageResponse':
         return await self.get_event_depend().send_reply(message=message, **kwargs)
 
     @check_adapter_implemented
@@ -298,12 +340,12 @@ class OmegaMatcherInterface:
             message: 'SentOmegaMessage',
             revoke_interval: int = 60,
             **revoke_kwargs
-    ) -> asyncio.TimerHandle:
+    ) -> tuple['SentMessageResponse', asyncio.TimerHandle]:
         """发送消息指定时间后自动撤回"""
         sent_return = await self.send(message=message)
 
         loop = asyncio.get_running_loop()
-        return loop.call_later(
+        return sent_return, loop.call_later(
             revoke_interval,
             lambda: loop.create_task(self.get_event_depend().revoke(sent_return=sent_return, **revoke_kwargs)),
         )
@@ -314,12 +356,12 @@ class OmegaMatcherInterface:
             message: 'SentOmegaMessage',
             revoke_interval: int = 60,
             **revoke_kwargs
-    ) -> asyncio.TimerHandle:
+    ) -> tuple['SentMessageResponse', asyncio.TimerHandle]:
         """发送消息指定时间后自动撤回"""
         sent_return = await self.send_reply(message=message)
 
         loop = asyncio.get_running_loop()
-        return loop.call_later(
+        return sent_return, loop.call_later(
             revoke_interval,
             lambda: loop.create_task(self.get_event_depend().revoke(sent_return=sent_return, **revoke_kwargs)),
         )

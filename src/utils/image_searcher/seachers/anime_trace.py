@@ -74,7 +74,7 @@ class AnimeTrace(BaseImageSearcherAPI):
     async def _origin_search_local_image(cls, image: 'BaseResource') -> AnimeTraceResult:
         with image.open('rb') as f:
             files = {
-                'file': (image.path.name, f, 'application/octet-stream'),
+                'file': (image.name, f, 'application/octet-stream'),
             }
             data = {
                 'is_multi': '1' if image_searcher_config.image_searcher_anime_trace_enable_multi else '0',

@@ -21,7 +21,7 @@ from Cryptodome.Cipher import PKCS1_OAEP
 from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from lxml import etree
-from nonebot import logger
+from nonebot.log import logger
 from nonebot.utils import run_sync
 
 from .base import BilibiliCommon

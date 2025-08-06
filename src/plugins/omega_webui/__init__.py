@@ -5,7 +5,7 @@
 @Project        : omega-miya
 @Description    : Omega WebUI
 @GitHub         : https://github.com/Ailitonia
-@Software       : PyCharm 
+@Software       : PyCharm
 """
 
 from nonebot.log import logger

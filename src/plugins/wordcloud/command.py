@@ -159,7 +159,7 @@ async def wordcloud_generate_handler(
         )
 
         logger.success(f'WordCloud | 生成 {interface.entity} 自 {start_time} 以来的词云成功')
-        await interface.send_reply(OmegaMessageSegment.image(wordcloud_image.path))
+        await interface.send_reply(OmegaMessageSegment.image(await wordcloud_image.get_hosting_path()))
     except Exception as e:
         logger.error(f'WordCloud | 生成 {interface.entity} 自 {start_time} 以来的词云失败, {e!r}')
         await interface.send_reply('生成词云失败, 请稍后再试或联系管理员处理')

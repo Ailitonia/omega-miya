@@ -49,6 +49,7 @@ from .user import (
     Account,
     User,
     UserLiveRoom,
+    UserSpaceRenderData,
     VipInfo,
 )
 
@@ -84,6 +85,7 @@ __all__ = [
     'User',
     'UserLiveRoom',
     'UserSearchResult',
+    'UserSpaceRenderData',
     'VideoSearchResult',
     'VipInfo',
 ]

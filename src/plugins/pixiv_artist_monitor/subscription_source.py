@@ -19,6 +19,7 @@ from src.database.internal.subscription_source import SubscriptionSource, Subscr
 from src.service import OmegaMessage, OmegaMessageSegment
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
+from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from src.service.omega_subscription_service import BaseSubscriptionManager
 from src.utils import semaphore_gather
 from src.utils.pixiv_api import PixivUser
@@ -26,6 +27,7 @@ from src.utils.pixiv_api import PixivUser
 if TYPE_CHECKING:
     from src.database.internal.social_media_content import SocialMediaContent
     from src.resource import TemporaryResource
+    from src.service.omega_base.middlewares.models import SentMessageResponse
     from src.utils.pixiv_api.model.ranking import PixivRankingModel
 
     type SMC_T = str
@@ -134,8 +136,14 @@ class PixivUserSubscriptionManager(BaseSubscriptionManager['SMC_T']):
         ]
         proceed_pages = await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
 
+        pages_url_tasks = [
+            x.get_hosting_path()
+            for x in proceed_pages
+        ]
+        pages_hosting_urls = await semaphore_gather(tasks=pages_url_tasks, semaphore_num=10, return_exceptions=False)
+
         # 拼接待发送消息
-        send_msg = OmegaMessage(OmegaMessageSegment.image(url=x.path) for x in proceed_pages)
+        send_msg = OmegaMessage(OmegaMessageSegment.image(url) for url in pages_hosting_urls)
         if message_prefix is not None:
             send_msg = message_prefix + send_msg + f'\n{artwork_desc}'
         else:
@@ -145,6 +153,10 @@ class PixivUserSubscriptionManager(BaseSubscriptionManager['SMC_T']):
     @classmethod
     async def _format_smc_item_message(cls, smc_item: 'SMC_T') -> str | OmegaMessage:
         return await cls.format_pixiv_artwork_message(pid=smc_item, message_prefix='【Pixiv】新作品发布!\n')
+
+    async def _entity_message_send_postprocessor(self, response: 'SentMessageResponse', smc_item: 'SMC_T') -> None:
+        artwork_data = await PixivArtworkProxy(artwork_id=smc_item).query(use_cache=True)
+        await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **artwork_data.model_dump())
 
     """作品预览图生成工具"""
 

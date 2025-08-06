@@ -91,7 +91,7 @@ class BilibiliDynamicSubscriptionManager(BaseSubscriptionManager['SMC_T']):
             img_download_tasks = [BilibiliDynamic.download_resource(url=url) for url in smc_item.dyn_image_urls]
             img_download_res = await semaphore_gather(tasks=img_download_tasks, semaphore_num=9, filter_exception=True)
             for img in img_download_res:
-                send_message += OmegaMessageSegment.image(url=img.path)
+                send_message += OmegaMessageSegment.image(await img.get_hosting_path())
             send_message += '\n'
 
         send_message += f'\n动态链接: https://t.bilibili.com/{smc_item.id_str}'

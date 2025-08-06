@@ -62,7 +62,7 @@ async def format_album_desc_msg(album: Comic18) -> OmegaMessage:
     desc_text = zh_convert(desc_text, 'zh-cn')
     send_text = f'{title_text}\n\n{desc_text}'
 
-    return OmegaMessageSegment.image(cover_image.path) + OmegaMessageSegment.text(send_text)
+    return OmegaMessageSegment.image(await cover_image.get_hosting_path()) + OmegaMessageSegment.text(send_text)
 
 
 __all__ = [

@@ -8,8 +8,13 @@
 @Software       : PyCharm
 """
 
-from .api import get_hosting_file_path
+from src.resource import AnyResource, StaticResource, TemporaryResource
 
-__all__ = [
-    'get_hosting_file_path',
-]
+from .api import OmegaFileHostProtocol
+
+# 统一为本地资源注册 `OmegaFileHostProtocol`
+AnyResource.register_host_protocol(OmegaFileHostProtocol)
+StaticResource.register_host_protocol(OmegaFileHostProtocol)
+TemporaryResource.register_host_protocol(OmegaFileHostProtocol)
+
+__all__ = []

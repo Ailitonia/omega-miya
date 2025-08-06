@@ -43,7 +43,8 @@ async def handle_qrcode_login(interface: Annotated[OmMI, Depends(OmMI.depend())]
     try:
         qrcode_info = await bc.get_login_qrcode()
         qrcode_file = await bc.generate_login_qrcode(qrcode_info=qrcode_info)
-        qrcode_msg = OmegaMessageSegment.text('请扫码登录:\n') + OmegaMessageSegment.image(qrcode_file.path)
+        qrcode_msg = OmegaMessageSegment.text('请扫码登录:\n')
+        qrcode_msg += OmegaMessageSegment.image(await qrcode_file.get_hosting_path())
         await interface.send_reply(qrcode_msg)
 
         is_login = await bc.login_with_qrcode(qrcode_info=qrcode_info)

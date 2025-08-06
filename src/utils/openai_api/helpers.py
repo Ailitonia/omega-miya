@@ -39,7 +39,7 @@ async def encode_local_audio(audio: 'BaseResource') -> tuple[str, str]:
     """将本地音频文件编码成 base64 格式的 input_audio, 返回 (data, format) 的数组"""
     async with audio.async_open('rb') as af:
         content = await af.read()
-    return await _base64_encode(content), audio.path.suffix.removeprefix('.')
+    return await _base64_encode(content), audio.suffix.removeprefix('.')
 
 
 async def encode_local_file(file: 'BaseResource') -> str:
@@ -58,7 +58,7 @@ async def encode_local_image(image: 'BaseResource', *, convert_format: str | Non
         content = await _convert_image_format(content, format_=convert_format)
         format_suffix = convert_format
     else:
-        format_suffix = image.path.suffix.removeprefix('.')
+        format_suffix = image.suffix.removeprefix('.')
 
     return f'data:image/{format_suffix};base64,{await _base64_encode(content)}'
 
@@ -69,32 +69,14 @@ async def encode_bytes_image(image_content: bytes, *, convert_format: str = 'web
     return f'data:image/{convert_format};base64,{await _base64_encode(content)}'
 
 
-def _fix_broken_generated_json(json_str: str) -> str:
-    """(Deactivated)Fixes a malformed JSON string by:
-        - Removing the last comma and any trailing content.
-        - Appending a closing bracket `]` and brace `}` to properly terminate the JSON.
-
-    Reference from HippoRAG2:
-    https://github.com/OSU-NLP-Group/HippoRAG/blob/b67f86a92fe886b3aa537cc4a92b935171890228/src/hipporag/utils/llm_utils.py#L126-L143
-
-    :param json_str: The malformed JSON string to be fixed.
-    :return: The corrected JSON string.
-    """
-    last_comma_index = json_str.rfind(',')
-    if last_comma_index != -1:
-        json_str = json_str[:last_comma_index]
-
-    processed_string = json_str + ']\n}'
-    return processed_string
-
-
 def fix_broken_generated_json(json_str: str) -> str:
     """Fixes a malformed JSON string by:
         - Removing the last comma and any trailing content.
         - Iterating over the JSON string once to determine and fix unclosed braces or brackets.
         - Ensuring braces and brackets inside string literals are not considered.
 
-    If the original json_str string can be successfully loaded by json.loads(), will directly return it without any modification.
+    If the original json_str string can be successfully loaded by json.loads(),
+    will directly return it without any modification.
 
     Reference from HippoRAG2:
     https://github.com/OSU-NLP-Group/HippoRAG/blob/b67f86a92fe886b3aa537cc4a92b935171890228/src/hipporag/utils/llm_utils.py#L146C1-L215C20
@@ -103,7 +85,7 @@ def fix_broken_generated_json(json_str: str) -> str:
     :return: The corrected JSON string.
     """
 
-    def find_unclosed(inner_json_str: str):
+    def find_unclosed(inner_json_str: str) -> list[str]:
         """Identifies the unclosed braces and brackets in the JSON string.
 
         :param inner_json_str: The JSON string to analyze.
@@ -132,12 +114,45 @@ def fix_broken_generated_json(json_str: str) -> str:
 
         return unclosed
 
+    def remove_external_newlines(inner_json_str: str) -> str:
+        """移除 JSON 字符串中不在字符串字面量内部的换行符
+
+        :param inner_json_str: 可能包含不规范换行符的 JSON 字符串
+        :return: 清理后的 JSON 字符串
+        """
+        result = []
+        inside_string = False  # 标记是否在字符串内部
+        escape_next = False  # 标记下一个字符是否被转义
+
+        for char in inner_json_str:
+            if inside_string:
+                if escape_next:
+                    escape_next = False  # 当前字符被转义（包括转义的引号、转义符本身等）
+                elif char == '\\':
+                    escape_next = True  # 遇到转义符，下一个字符将被转义
+                elif char == '"':
+                    inside_string = False  # 遇到非转义的引号，字符串结束
+                result.append(char)
+            else:
+                if char == '"':
+                    inside_string = True  # 遇到引号，进入字符串
+                    result.append(char)
+                elif char == '\n':
+                    continue  # 外部换行符，跳过不添加
+                else:
+                    result.append(char)  # 其他外部字符保留
+
+        return ''.join(result)
+
     try:
         # Try to load the JSON to see if it is valid
         json.loads(json_str)
         return json_str  # Return as-is if valid
     except json.JSONDecodeError:
         pass
+
+    # Step 0: Remove external newlines.
+    json_str = remove_external_newlines(json_str)
 
     # Step 1: Remove trailing content after the last comma.
     last_comma_index = json_str.rfind(',')

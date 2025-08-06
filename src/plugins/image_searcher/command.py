@@ -64,10 +64,10 @@ async def handle_search_image(
             send_msg = '匹配到以下结果:\n'
 
             preview_img = await _generate_result_preview_image(results=searching_results)
-            send_msg += OmegaMessageSegment.image(preview_img.path)
+            send_msg += OmegaMessageSegment.image(await preview_img.get_hosting_path())
 
             desc_img = await _generate_result_desc_image(results=searching_results)
-            send_msg += OmegaMessageSegment.image(desc_img.path)
+            send_msg += OmegaMessageSegment.image(await desc_img.get_hosting_path())
 
             url_txt = '\n'.join(
                 str(url)

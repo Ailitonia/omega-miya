@@ -8,7 +8,6 @@
 @Software       : PyCharm
 """
 
-import os
 import pathlib
 import sys
 from enum import StrEnum, unique
@@ -117,9 +116,9 @@ class SQLiteDatabaseConfig(DatabaseType):
 
     @property
     def connector(self) -> DatabaseConnector:
-        database_path = pathlib.Path(os.path.abspath(sys.path[0])).joinpath(f'{self.db_name}.db').resolve()
+        database_path = pathlib.Path(sys.path[0]).absolute().joinpath(f'{self.db_name}.db').resolve()
         return DatabaseConnector(
-            url=f'{self.database}+{self.db_driver.value}:///{database_path}',
+            url=f'{self.database}+{self.db_driver.value}:///{database_path.as_posix()}',
             connect_args={}
         )
 

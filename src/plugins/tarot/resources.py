@@ -26,27 +26,27 @@ class TarotResource:
     def check_source(resource_folder: StaticResource, pack: TarotPack, file_format: str) -> None:
         for card in pack.cards:
             card_file = resource_folder(f'{card.id}.{file_format}')
-            if not card_file.path.exists() or not card_file.path.is_file():
+            if not card_file.is_file:
                 raise ValueError(f'TarotResource {card_file.resolve_path} missing')
 
     def get_file_by_id(self, id_: int) -> StaticResource:
         card = self.pack.get_card_by_id(id_=id_)
         card_file = self.resource_folder(f'{card.id}.{self.file_format}')
-        if not card_file.path.exists() or not card_file.path.is_file():
+        if not card_file.is_file:
             raise ValueError(f'TarotResource {card_file.resolve_path} missing')
         return card_file
 
     def get_file_by_index(self, index_: str) -> StaticResource:
         card = self.pack.get_card_by_index(index_=index_)
         card_file = self.resource_folder(f'{card.id}.{self.file_format}')
-        if not card_file.path.exists() or not card_file.path.is_file():
+        if not card_file.is_file:
             raise ValueError(f'TarotResource {card_file.resolve_path} missing')
         return card_file
 
     def get_file_by_name(self, name: str) -> StaticResource:
         card = self.pack.get_card_by_name(name=name)
         card_file = self.resource_folder(f'{card.id}.{self.file_format}')
-        if not card_file.path.exists() or not card_file.path.is_file():
+        if not card_file.is_file:
             raise ValueError(f'TarotResource {card_file.resolve_path} missing')
         return card_file
 

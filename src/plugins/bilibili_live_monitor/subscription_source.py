@@ -214,7 +214,7 @@ class BilibiliLiveRoomSubscriptionManager(BaseSubscriptionManager['SMC_T']):
             try:
                 cover_img = await BilibiliLive.download_resource(url=smc_item.status.live_cover_url)
                 send_message += '\n'
-                send_message += OmegaMessageSegment.image(url=cover_img.path)
+                send_message += OmegaMessageSegment.image(await cover_img.get_hosting_path())
             except Exception as e:
                 logger.warning(f'BilibiliLiveRoomMonitor | Download live room cover failed, {e!r}')
 

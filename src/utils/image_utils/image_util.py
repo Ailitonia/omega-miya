@@ -371,9 +371,9 @@ class ImageTextProcessor:
         """
         if fonts is None:
             fonts = cls.load_fonts(
-                image_utils_config.default_font.path.name,
-                image_utils_config.emoji_font.path.name,
-                image_utils_config.get_custom_name_font('msyh.ttc').path.name,
+                image_utils_config.default_font.name,
+                image_utils_config.emoji_font.name,
+                image_utils_config.get_custom_name_font('msyh.ttc').name,
             )
         return cls._draw_multiline_text_v3(
             draw,
@@ -514,7 +514,7 @@ class ImageEffectProcessor:
 
     def get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
         """获取 Image 内容, 以 Bytes 输出并在末尾添加空白比特"""
-        return self.get_bytes(format_=format_) + b' '*bytes_num
+        return self.get_bytes(format_=format_) + b' ' * bytes_num
 
     def mark(
             self,
@@ -605,7 +605,7 @@ class ImageEffectProcessor:
 
     def add_edge(
             self,
-            edge_scale: float = 1/32,
+            edge_scale: float = 1 / 32,
             edge_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0),
     ) -> Self:
         """在保持原图大小的条件下, 使用透明图层为原图添加边框"""

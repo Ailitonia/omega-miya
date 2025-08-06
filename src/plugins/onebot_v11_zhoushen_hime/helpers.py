@@ -481,10 +481,10 @@ class ZhouChecker(AssScriptLineTool):
 
         :param auto_style: 是否启用智能样式, 启用后会检查字幕文件使用样式数, 若只使用一种则自动停用style_mode
         """
-        if not self.__file.path.exists() or not self.__file.path.is_file():
+        if not self.__file.is_file:
             raise RuntimeError('FileNotExist')
 
-        if self.__file.path.suffix not in ['.ass', '.ASS']:
+        if self.__file.suffix not in ['.ass', '.ASS']:
             raise RuntimeError('NotAssFileTypeError')
 
         async with self.__file.async_open('r', encoding='utf8') as af:
@@ -673,7 +673,7 @@ class ZhouChecker(AssScriptLineTool):
                     break
         out_log += '--- 锤轴部分结束 ---\n\n' \
                    '--- 审轴信息 ---\n' \
-                   f'原始文件: {self.__file.path.name}\n' \
+                   f'原始文件: {self.__file.name}\n' \
                    f'报告生成时间: {datetime.datetime.now()}\n' \
                    f'符号及疑问文本问题: {character_count}\n' \
                    f'叠轴问题: {overlap_count}\n' \
@@ -697,8 +697,8 @@ class ZhouChecker(AssScriptLineTool):
 
         # 输出文件
         time_text = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        output_txt_file = _TMP_FOLDER(f'{self.__file.path.name}_{time_text}_锤.txt')
-        output_ass_file = _TMP_FOLDER(f'{self.__file.path.name}_{time_text}_改.ass')
+        output_txt_file = _TMP_FOLDER(f'{self.__file.name}_{time_text}_锤.txt')
+        output_ass_file = _TMP_FOLDER(f'{self.__file.name}_{time_text}_改.ass')
 
         async with output_txt_file.async_open('w', encoding='utf-8') as af:
             await af.write(handle_result.output_txt)

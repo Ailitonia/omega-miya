@@ -270,7 +270,7 @@ class OmegaAPI:
                 check_dir=check_dir,
                 follow_symlink=follow_symlink,
             ),
-            name=target_dir.path.name,
+            name=target_dir.name,
         )
         logger.opt(colors=True).info(
             f'{self.color_log_prefix} mounted <lc>{target_dir}</lc> at: <b><u>{self.root_url}{mount_path}</u></b>'

@@ -22,6 +22,10 @@ from src.params.handler import (
 )
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessageSegment, OmegaSubscriptionHandlerManager, enable_processor_state
+from src.service.omega_message_context.custom_depends import (
+    ARTIST_CONTEXT_MANAGER,
+    OPTIONAL_REPLY_ARTIST_OR_ARTWORK_ARTIST,
+)
 from src.utils.pixiv_api import PixivUser
 from .subscription_source import PixivUserSubscriptionManager
 
@@ -127,11 +131,29 @@ async def handle_searching_user(
         await interface.send_reply('搜索用户失败, 请稍后再试或联系管理员处理')
 
 
-@pixiv_artist.command(
+pixiv_artist_artworks = pixiv_artist.command(
     'user-artworks',
     aliases={'pixiv用户作品', 'Pixiv用户作品', 'pixiv画师作品', 'Pixiv画师作品'},
     handlers=[get_command_str_multi_args_parser_handler('user_id_page')],
-).got('user_id_page_0', prompt='请输入用户的UID:')
+)
+
+
+@pixiv_artist_artworks.handle()
+async def handle_preview_reply_artist_artworks(
+        artist_data: OPTIONAL_REPLY_ARTIST_OR_ARTWORK_ARTIST,
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        state: T_State,
+) -> None:
+    if artist_data is None:
+        return
+
+    if artist_data.origin.lower() != 'pixiv':
+        await interface.finish_reply('非 Pixiv 用户来源, 无法获取用户作品信息')
+
+    state['user_id_page_0'] = artist_data.uid
+
+
+@pixiv_artist_artworks.got('user_id_page_0', prompt='请输入用户的UID:')
 async def handle_preview_user_artworks(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
         user_id: Annotated[str, ArgStr('user_id_page_0')],
@@ -160,17 +182,36 @@ async def handle_preview_user_artworks(
             pids=user_data.manga_illusts[p_start:p_end],
         )
 
-        await interface.send_reply(OmegaMessageSegment.image(preview_image.path))
+        response = await interface.send_reply(OmegaMessageSegment.image(await preview_image.get_hosting_path()))
+        await ARTIST_CONTEXT_MANAGER.set_message_context(response=response, origin='pixiv', uid=uid)
     except Exception as e:
         logger.error(f'PixivUserArtworks | 获取用户(uid={user_id})作品失败, {e}')
         await interface.send_reply('获取用户作品失败了QAQ, 请稍后再试')
 
 
-@pixiv_artist.command(
+pixiv_artist_bookmark = pixiv_artist.command(
     'user-bookmark',
     aliases={'pixiv用户收藏', 'Pixiv用户收藏'},
     handlers=[get_command_str_multi_args_parser_handler('user_id_page', ensure_keys_num=2)],
-).handle()
+)
+
+
+@pixiv_artist_bookmark.handle()
+async def handle_preview_reply_user_bookmark(
+        artist_data: OPTIONAL_REPLY_ARTIST_OR_ARTWORK_ARTIST,
+        interface: Annotated[OmMI, Depends(OmMI.depend())],
+        state: T_State,
+) -> None:
+    if artist_data is None:
+        return
+
+    if artist_data.origin.lower() != 'pixiv':
+        await interface.finish_reply('非 Pixiv 用户来源, 无法获取用户作品信息')
+
+    state['user_id_page_0'] = artist_data.uid
+
+
+@pixiv_artist_bookmark.handle()
 async def handle_preview_user_bookmark(
         interface: Annotated[OmMI, Depends(OmMI.depend())],
         state: T_State,
@@ -199,7 +240,8 @@ async def handle_preview_user_bookmark(
             pids=user_bookmark_data.illust_ids,
         )
 
-        await interface.send_reply(OmegaMessageSegment.image(preview_image.path))
+        response = await interface.send_reply(OmegaMessageSegment.image(await preview_image.get_hosting_path()))
+        await ARTIST_CONTEXT_MANAGER.set_message_context(response=response, origin='pixiv', uid=user_id)
     except Exception as e:
         logger.error(f'PixivUserBookmark | 获取用户(uid={user_id})收藏失败, {e}')
         await interface.send_reply('获取用户收藏失败了QAQ, 请稍后再试')
@@ -219,7 +261,7 @@ async def handle_ranking_preview(
 
     try:
         ranking_img = await ranking_preview_factory(int(page))
-        await interface.send_reply(OmegaMessageSegment.image(ranking_img.path))
+        await interface.send_reply(OmegaMessageSegment.image(await ranking_img.get_hosting_path()))
     except Exception as e:
         logger.error(f'PixivRanking | 获取榜单内容(page={ranking_preview_factory!r})失败, {e}')
         await interface.send_reply('获取榜单内容失败了QAQ, 请稍后再试')

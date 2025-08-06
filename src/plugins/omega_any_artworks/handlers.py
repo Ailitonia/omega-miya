@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict
 from src.params.handler import get_shell_command_parse_failed_handler
 from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessage, OmegaMessageSegment, enable_processor_state
+from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from src.utils import semaphore_gather
 from .consts import ALLOW_R18_NODE
 
@@ -53,16 +54,16 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             return False
 
         return (
-                await interface.entity.check_global_permission() and
-                await interface.entity.check_auth_setting(
-                    module=interface.matcher.plugin.module_name,
-                    plugin=interface.matcher.plugin.name,
-                    node=ALLOW_R18_NODE
-                )
+            await interface.entity.check_global_permission()
+            and await interface.entity.check_auth_setting(
+                module=interface.matcher.plugin.module_name,
+                plugin=interface.matcher.plugin.name,
+                node=ALLOW_R18_NODE
+            )
         )
 
     @classmethod
-    async def _has_allow_r18_node(cls, interface: 'OmMI') -> bool:
+    async def has_allow_r18_node(cls, interface: 'OmMI') -> bool:
         """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
         try:
             allow_r18 = await cls._allow_r18_node_checker(interface=interface)
@@ -86,18 +87,22 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         """解析查询命令参数"""
         return ArtworkHandlerQueryArguments.model_validate(args)
 
-    async def _send_artwork_message(
-            self,
+    def _get_artwork_ap(self, artwork_id: str | int) -> T:
+        """获取作品对应的 ArtworkProxy 对象"""
+        return self._artwork_class(artwork_id=artwork_id)
+
+    @classmethod
+    async def send_artwork_message(
+            cls,
             interface: OmMI,
-            artwork_id: str | int,
+            artwork: T,
             *,
             no_blur_rating: int = 1,
             show_page_limiting: int = 10,
     ) -> None:
         """预处理待发送图片"""
-        artwork_ap: T = self._artwork_class(artwork_id=artwork_id)
-        artwork_data = await artwork_ap.query()
-        artwork_desc = await artwork_ap.get_std_desc()
+        artwork_data = await artwork.query()
+        artwork_desc = await artwork.get_std_desc()
         need_revoke = True if (artwork_data.rating.value >= 2 and no_blur_rating >= 2) else False
 
         # 处理作品预览
@@ -106,19 +111,27 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             artwork_desc = f'({show_page_limiting} of {len(artwork_data.pages)} pages)\n{"-" * 16}\n{artwork_desc}'
 
         tasks = [
-            artwork_ap.get_proceed_page_file(page_index=page_index, no_blur_rating=no_blur_rating)
+            artwork.get_proceed_page_file(page_index=page_index, no_blur_rating=no_blur_rating)
             for page_index in range(show_page_num)
         ]
         proceed_pages = await semaphore_gather(tasks=tasks, semaphore_num=10, return_exceptions=False)
 
+        pages_url_tasks = [
+            x.get_hosting_path()
+            for x in proceed_pages
+        ]
+        pages_hosting_urls = await semaphore_gather(tasks=pages_url_tasks, semaphore_num=10, return_exceptions=False)
+
         # 拼接待发送消息
-        send_msg = OmegaMessage(OmegaMessageSegment.image(url=x.path) for x in proceed_pages)
+        send_msg = OmegaMessage(OmegaMessageSegment.image(url) for url in pages_hosting_urls)
         send_msg = send_msg + f'\n{artwork_desc}'
 
         if need_revoke:
-            await interface.send_reply_auto_revoke(send_msg, 60)
+            response, _ = await interface.send_reply_auto_revoke(send_msg, 60)
         else:
-            await interface.send_reply(send_msg)
+            response = await interface.send_reply(send_msg)
+
+        await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **artwork_data.model_dump())
 
     async def _send_artworks_preview_message(
             self,
@@ -138,7 +151,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             preview_size=(360, 360),
             num_of_line=6,
         )
-        send_msg = OmegaMessageSegment.image(preview_image.path)
+        send_msg = OmegaMessageSegment.image(await preview_image.get_hosting_path())
 
         if need_revoke:
             await interface.send_reply_auto_revoke(send_msg, 60)
@@ -160,7 +173,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                 await interface.finish_reply('命令参数解析错误, 请确认后重试')
 
             # 检查权限确定图片处理模式
-            allow_r18 = await self._has_allow_r18_node(interface=interface)
+            allow_r18 = await self.has_allow_r18_node(interface=interface)
             no_blur_rating = 3 if allow_r18 else 1
 
             await interface.send_reply('稍等, 正在获取作品信息~')
@@ -183,9 +196,10 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                         no_blur_rating=no_blur_rating,
                     )
                 elif (artwork_id := keyword.strip()).isdigit():
-                    await self._send_artwork_message(
+                    artwork = self._get_artwork_ap(artwork_id=artwork_id)
+                    await self.send_artwork_message(
                         interface=interface,
-                        artwork_id=artwork_id,
+                        artwork=artwork,
                         no_blur_rating=no_blur_rating,
                     )
                 else:
@@ -197,7 +211,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         return _handler
 
     def register_handler(self) -> 'T_Handler':
-        """注册插件命令"""
+        """注册图库调用命令"""
         return on_shell_command(
             cmd=self._command_name,
             aliases={self._command_name.title()},

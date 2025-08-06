@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+import abc
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -24,7 +25,7 @@ from nonebot.adapters.onebot.v11 import PokeNotifyEvent as OneBotV11PokeNotifyEv
 from nonebot.adapters.onebot.v11 import PrivateMessageEvent as OneBotV11PrivateMessageEvent
 
 from ..const import SupportedPlatform, SupportedTarget
-from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams
+from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams, SentMessageResponse
 from ..platform_interface.entity_target import BaseEntityTarget, entity_target_register
 from ..platform_interface.event_depend import BaseEventDepend, event_depend_register
 from ..platform_interface.message_builder import BaseMessageBuilder, message_builder_register
@@ -114,8 +115,20 @@ class OneBotV11MessageExtractor(BaseMessageBuilder[OneBotV11Message, OmegaMessag
                 return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 
+class OneBotV11BaseEntityTarget(BaseEntityTarget, abc.ABC):
+
+    def extract_sent_message_api_response(self, response: Any) -> 'SentMessageResponse':
+        return SentMessageResponse.model_validate({
+            'sent_message_id': response['message_id'],
+            'bot_self_id': self.entity.bot_id,
+            'target_id': self.entity.entity_id,
+            'target_type': self.entity.entity_type,
+            'raw_response': response,
+        })
+
+
 @entity_target_register.register_target(SupportedTarget.onebot_v11_user)
-class OneBotV11UserEntityTarget(BaseEntityTarget):
+class OneBotV11UserEntityTarget(OneBotV11BaseEntityTarget):
 
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         return EntityTargetSendParams(
@@ -126,8 +139,8 @@ class OneBotV11UserEntityTarget(BaseEntityTarget):
             }
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
-        return EntityTargetRevokeParams(api='delete_msg', params={'message_id': sent_return['message_id']})
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
+        return EntityTargetRevokeParams(api='delete_msg', params={'message_id': sent_return.sent_message_id})
 
     async def call_api_get_entity_name(self) -> str:
         bot = await self.get_bot()
@@ -155,7 +168,7 @@ class OneBotV11UserEntityTarget(BaseEntityTarget):
 
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_group)
-class OneBotV11GroupEntityTarget(BaseEntityTarget):
+class OneBotV11GroupEntityTarget(OneBotV11BaseEntityTarget):
 
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         return EntityTargetSendParams(
@@ -166,8 +179,8 @@ class OneBotV11GroupEntityTarget(BaseEntityTarget):
             }
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
-        return EntityTargetRevokeParams(api='delete_msg', params={'message_id': sent_return['message_id']})
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
+        return EntityTargetRevokeParams(api='delete_msg', params={'message_id': sent_return.sent_message_id})
 
     async def call_api_get_entity_name(self) -> str:
         bot = await self.get_bot()
@@ -186,12 +199,12 @@ class OneBotV11GroupEntityTarget(BaseEntityTarget):
 
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_guild)
-class OneBotV11GuildEntityTarget(BaseEntityTarget):
+class OneBotV11GuildEntityTarget(OneBotV11BaseEntityTarget):
 
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
     async def call_api_get_entity_name(self) -> str:
@@ -208,7 +221,7 @@ class OneBotV11GuildEntityTarget(BaseEntityTarget):
 
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_guild_channel)
-class OneBotV11GuildChannelEntityTarget(BaseEntityTarget):
+class OneBotV11GuildChannelEntityTarget(OneBotV11BaseEntityTarget):
 
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         return EntityTargetSendParams(
@@ -220,7 +233,7 @@ class OneBotV11GuildChannelEntityTarget(BaseEntityTarget):
             }
         )
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
     async def call_api_get_entity_name(self) -> str:
@@ -234,12 +247,12 @@ class OneBotV11GuildChannelEntityTarget(BaseEntityTarget):
 
 
 @entity_target_register.register_target(SupportedTarget.onebot_v11_guild_user)
-class OneBotV11GuildUserEntityTarget(BaseEntityTarget):
+class OneBotV11GuildUserEntityTarget(OneBotV11BaseEntityTarget):
 
     def get_api_to_send_msg(self, **kwargs) -> 'EntityTargetSendParams':
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
-    def get_api_to_revoke_msgs(self, sent_return: Any, **kwargs) -> 'EntityTargetRevokeParams':
+    def get_api_to_revoke_msgs(self, sent_return: 'SentMessageResponse', **kwargs) -> 'EntityTargetRevokeParams':
         raise NotImplementedError  # 非标准 API, 协议端未实现
 
     async def call_api_get_entity_name(self) -> str:
@@ -293,13 +306,23 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
     def get_omega_message_extractor(self) -> type['BaseMessageBuilder[OneBotV11Message, OmegaMessage]']:
         return OneBotV11MessageExtractor
 
-    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    def extract_platform_sent_message_response(self, response: Any) -> 'SentMessageResponse':
+        target_entity_params = self._extract_event_entity_params()
+        return SentMessageResponse.model_validate({
+            'sent_message_id': response['message_id'],
+            'bot_self_id': target_entity_params.bot_id,
+            'target_id': target_entity_params.entity_id,
+            'target_type': target_entity_params.entity_type,
+            'raw_response': response,
+        })
+
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         raise NotImplementedError
 
-    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         raise NotImplementedError
 
-    async def revoke(self, sent_return: Any, **kwargs) -> Any:
+    async def revoke(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         raise NotImplementedError
 
     def get_user_nickname(self) -> str:
@@ -309,6 +332,9 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
         raise NotImplementedError
 
     def get_msg_image_urls(self) -> list[str]:
+        raise NotImplementedError
+
+    def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
     def get_reply_msg_image_urls(self) -> list[str]:
@@ -321,10 +347,10 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
 @event_depend_register.register_depend(OneBotV11NoticeEvent)
 class OneBotV11NoticeEventDepend[Event_T: OneBotV11NoticeEvent](OneBotV11EventDepend[Event_T]):
 
-    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         return await self.send(message=message, at_sender=True, **kwargs)
 
-    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         return await self.send(message=message, reply_message=True, **kwargs)
 
 
@@ -365,14 +391,14 @@ class OneBotV11PokeNotifyEventDepend(OneBotV11NotifyEventDepend[OneBotV11PokeNot
 @event_depend_register.register_depend(OneBotV11MessageEvent)
 class OneBotV11MessageEventDepend[Event_T: OneBotV11MessageEvent](OneBotV11EventDepend[Event_T]):
 
-    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         return await self.send(message=message, at_sender=True, **kwargs)
 
-    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> Any:
+    async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         return await self.send(message=message, reply_message=True, **kwargs)
 
-    async def revoke(self, sent_return: Any, **kwargs) -> Any:
-        return await self.bot.delete_msg(message_id=sent_return['message_id'])
+    async def revoke(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
+        return await self.bot.delete_msg(message_id=int(sent_return.sent_message_id))
 
     def get_user_nickname(self) -> str:
         nickname = self.event.sender.card if self.event.sender.card else self.event.sender.nickname
@@ -383,6 +409,12 @@ class OneBotV11MessageEventDepend[Event_T: OneBotV11MessageEvent](OneBotV11Event
 
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.message if msg_seg.type == 'image']
+
+    def get_reply_msg_id(self) -> str | None:
+        if self.event.reply:
+            return str(self.event.reply.message_id)
+        else:
+            return None
 
     def get_reply_msg_image_urls(self) -> list[str]:
         if self.event.reply:

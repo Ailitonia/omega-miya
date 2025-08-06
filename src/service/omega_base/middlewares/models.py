@@ -10,7 +10,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseMiddlewareModel(BaseModel):
@@ -25,8 +25,8 @@ class EntityInitParams(BaseMiddlewareModel):
     entity_type: str
     entity_id: str
     parent_id: str
-    entity_name: str | None = None
-    entity_info: str | None = None
+    entity_name: str | None = Field(default=None)
+    entity_info: str | None = Field(default=None)
 
     @property
     def kwargs(self) -> dict[str, Any]:
@@ -46,8 +46,20 @@ class EntityTargetRevokeParams(BaseMiddlewareModel):
     params: dict[str, Any]
 
 
+class SentMessageResponse(BaseMiddlewareModel):
+    """EventDepend 发送消息后的返回值"""
+    sent_message_id: str
+    extra_sent_message_ids: list[str] = Field(default_factory=list)
+    bot_self_id: str
+    target_id: str
+    target_type: str
+    sub_target_id: str | None = Field(default=None)
+    raw_response: Any = Field(default=None)
+
+
 __all__ = [
     'EntityInitParams',
     'EntityTargetSendParams',
     'EntityTargetRevokeParams',
+    'SentMessageResponse',
 ]
