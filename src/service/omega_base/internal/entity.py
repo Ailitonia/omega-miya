@@ -10,6 +10,7 @@
 
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
+from types import TracebackType
 from typing import TYPE_CHECKING, Literal, Self
 
 from sqlalchemy.exc import NoResultFound
@@ -63,6 +64,18 @@ class InternalEntity:
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(type={self.entity_type}, entity_id={self.entity_id}, bot_id={self.bot_id})'
+
+    async def __aenter__(self) -> Self:
+        """Enter the InternalEntity context with new session."""
+        return self
+
+    async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+    ) -> bool | None:
+        """Exit the InternalEntity context waiting for session completion."""
 
     @property
     def tid(self) -> str:
