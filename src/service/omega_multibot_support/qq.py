@@ -15,7 +15,7 @@ from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from sqlalchemy.exc import NoResultFound
 
-from src.database import BOT_SELF_DAL, DATABASE_SESSION, BotSelfDAL, EntityDAL
+from src.database import BOT_SELF_DAL, ENTITY_DAL
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 if TYPE_CHECKING:
@@ -26,15 +26,12 @@ if TYPE_CHECKING:
 async def __qq_bot_connect(
         bot: Bot,
         event: BotConnectEvent,
-        session: DATABASE_SESSION,
+        bot_dal: BOT_SELF_DAL,
+        entity_dal: ENTITY_DAL,
 ) -> None:
     """处理 QQ Bot 连接事件"""
     if not str(bot.self_id) == str(event.bot_id):
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
-
-    bot_dal = BotSelfDAL(session=session)
-    entity_dal = EntityDAL(session=session)
-    allowed_entity_type = entity_dal.entity_type
 
     # 更新 bot 状态
     bot_info = await bot.me()
@@ -47,6 +44,10 @@ async def __qq_bot_connect(
         await bot_dal.add(self_id=bot.self_id, bot_type=event.bot_type, bot_status=1, bot_info=info)
         exist_bot = await bot_dal.query_unique(self_id=bot.self_id)
         logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, Bot status added Success')
+
+    # 提交 Bot 信息更新
+    await bot_dal.commit_session()
+    allowed_entity_type = entity_dal.entity_type
 
     # 更新频道相关信息
     guilds: list[Guild] = await bot.guilds()

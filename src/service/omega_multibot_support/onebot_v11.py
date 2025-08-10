@@ -18,7 +18,7 @@ from sqlalchemy.exc import NoResultFound
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from src.compat import parse_obj_as
-from src.database import BOT_SELF_DAL, DATABASE_SESSION, BotSelfDAL, EntityDAL
+from src.database import BOT_SELF_DAL, ENTITY_DAL
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 
@@ -181,15 +181,12 @@ class VersionInfo(BaseOneBotModel):
 async def __obv11_bot_connect(
         bot: Bot,
         event: BotConnectEvent,
-        session: DATABASE_SESSION,
+        bot_dal: BOT_SELF_DAL,
+        entity_dal: ENTITY_DAL,
 ) -> None:
     """处理 OneBot V11(go-cqhttp) Bot 连接事件"""
     if not str(bot.self_id) == str(event.bot_id):
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
-
-    bot_dal = BotSelfDAL(session=session)
-    entity_dal = EntityDAL(session=session)
-    allowed_entity_type = entity_dal.entity_type
 
     # 更新 bot 状态
     bot_version_info = VersionInfo.model_validate(await bot.get_version_info())
@@ -202,6 +199,10 @@ async def __obv11_bot_connect(
         await bot_dal.add(self_id=bot.self_id, bot_type=event.bot_type, bot_status=1, bot_info=info)
         exist_bot = await bot_dal.query_unique(self_id=bot.self_id)
         logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, Bot status added Success')
+
+    # 提交 Bot 信息更新
+    await bot_dal.commit_session()
+    allowed_entity_type = entity_dal.entity_type
 
     # 更新群组相关信息
     groups = parse_obj_as(list[GroupInfo], await bot.get_group_list())
