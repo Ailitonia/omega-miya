@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
     from ..internal import OmegaEntity
     from ..message import Message as OmegaMessage
-    from .models import SentMessageResponse
+    from .models import EntityInitParams, SentMessageResponse
     from .platform_interface.entity_target import BaseEntityTarget
     from .platform_interface.event_depend import EventDepend
     from .platform_interface.message_builder import Builder, Extractor
@@ -271,6 +271,16 @@ class OmegaMatcherInterface:
         self.matcher = current_matcher.get()
 
     """平台事件信息提取相关方法"""
+
+    @check_event_implemented
+    def extract_current_event_entity_params(self) -> 'EntityInitParams':
+        """提取事件本身对应 Entity 实例化参数"""
+        return self.get_event_depend().extract_entity_params(acquire_type='event')
+
+    @check_event_implemented
+    def extract_current_user_entity_params(self) -> 'EntityInitParams':
+        """提取触发事件用户 Entity 实例化参数"""
+        return self.get_event_depend().extract_entity_params(acquire_type='user')
 
     @check_event_implemented
     def get_event_user_nickname(self) -> str:

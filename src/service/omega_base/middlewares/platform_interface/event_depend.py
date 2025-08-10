@@ -47,12 +47,8 @@ class BaseEventDepend[Bot_T: 'BaseBot', Event_T: 'BaseEvent', Message_T: 'BaseMe
         """根据 Event 提取触发事件用户 Entity 实例化参数"""
         raise NotImplementedError
 
-    def get_entity(
-            self,
-            session: 'DATABASE_SESSION',
-            acquire_type: 'EntityAcquireType' = 'event',
-    ) -> OmegaEntity:
-        """获取事件对应 Entity"""
+    def extract_entity_params(self, acquire_type: 'EntityAcquireType' = 'event') -> 'EntityInitParams':
+        """根据 Event 提取 Entity 实例化参数(对外暴露方法)"""
         match acquire_type:
             case 'event':
                 entity_params = self._extract_event_entity_params()
@@ -60,8 +56,15 @@ class BaseEventDepend[Bot_T: 'BaseBot', Event_T: 'BaseEvent', Message_T: 'BaseMe
                 entity_params = self._extract_user_entity_params()
             case _:
                 raise ValueError(f'Not supported entity acquire_type: {acquire_type!r}')
+        return entity_params
 
-        return OmegaEntity(session=session, **entity_params.kwargs)
+    def get_entity(
+            self,
+            session: 'DATABASE_SESSION',
+            acquire_type: 'EntityAcquireType' = 'event',
+    ) -> OmegaEntity:
+        """获取事件对应 Entity"""
+        return OmegaEntity(session=session, **self.extract_entity_params(acquire_type=acquire_type).kwargs)
 
     """平台事件消息交互及流程处理方法适配"""
 

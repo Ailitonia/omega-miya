@@ -1,28 +1,73 @@
 """
 @Author         : Ailitonia
-@Date           : 2025/8/8 10:13:02
-@FileName       : depends.py
+@Date           : 2025/8/10 22:18:10
+@FileName       : base.py
 @Project        : omega-miya
-@Description    : 通用子依赖
+@Description    : Omega 中间件基础子依赖
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from typing import Annotated, Any
+from collections.abc import AsyncGenerator
+from typing import Annotated
 
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
-from nonebot.adapters import Message as BaseMessage
 from nonebot.params import Depends
-from nonebot.typing import T_State
 
+from src.database import DATABASE_SESSION
+from src.service import OmegaEntity
+from src.service import OmegaEntityInterface as OmEI
 from src.service import OmegaMatcherInterface as OmMI
+from src.service.omega_base.middlewares.models import EntityInitParams
 
 type EVENT_MATCHER_INTERFACE = Annotated[OmMI, Depends(OmMI.depend(acquire_type='event'))]
 """子依赖: 事件对象的 OmegaMatcherInterface"""
 
 type USER_MATCHER_INTERFACE = Annotated[OmMI, Depends(OmMI.depend(acquire_type='user'))]
 """子依赖: 用户对象的 OmegaMatcherInterface"""
+
+
+def _extract_event_entity_params(bot: BaseBot, event: BaseEvent) -> EntityInitParams:
+    """提取事件本身对应 Entity 实例化参数"""
+    return OmMI.get_event_depend_type(target_event=event)(bot=bot, event=event).extract_entity_params('event')
+
+
+type EVENT_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_event_entity_params, use_cache=True)]
+"""子依赖: 事件本身对应 Entity 实例化参数"""
+
+
+def _extract_user_entity_params(bot: BaseBot, event: BaseEvent) -> EntityInitParams:
+    """提取触发事件用户 Entity 实例化参数"""
+    return OmMI.get_event_depend_type(target_event=event)(bot=bot, event=event).extract_entity_params('event')
+
+
+type USER_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_user_entity_params, use_cache=True)]
+"""子依赖: 触发事件用户 Entity 实例化参数"""
+
+
+async def _event_entity_interface_depend(
+        event_entity_params: EVENT_ENTITY_PARAMS,
+        session: DATABASE_SESSION,
+) -> AsyncGenerator[OmEI, None]:
+    """获取事件对象的 OmegaEntityInterface"""
+    yield OmEI(OmegaEntity(session=session, **event_entity_params.kwargs))
+
+
+type EVENT_ENTITY_INTERFACE = Annotated[OmEI, Depends(_event_entity_interface_depend)]
+"""子依赖: 事件对象的 OmegaEntityInterface"""
+
+
+async def _user_entity_interface_depend(
+        user_entity_params: USER_ENTITY_PARAMS,
+        session: DATABASE_SESSION,
+) -> AsyncGenerator[OmEI, None]:
+    """获取用户对象的 OmegaEntityInterface"""
+    yield OmEI(OmegaEntity(session=session, **user_entity_params.kwargs))
+
+
+type USER_ENTITY_INTERFACE = Annotated[OmEI, Depends(_user_entity_interface_depend)]
+"""子依赖: 用户对象的 OmegaEntityInterface"""
 
 
 def _event_user_nickname(bot: BaseBot, event: BaseEvent) -> str:
@@ -78,31 +123,9 @@ def _event_reply_msg_plain_text(bot: BaseBot, event: BaseEvent) -> str | None:
 type OPTIONAL_EVENT_REPLY_MSG_PLAIN_TEXT = Annotated[str | None, Depends(_event_reply_msg_plain_text, use_cache=True)]
 """子依赖: 获取当前事件回复消息的文本"""
 
-
-class StatePlainTextInner:
-    """State 中的纯文本值"""
-
-    def __init__(self, key: Any):
-        self.key = key
-
-    def __call__(self, state: T_State) -> str:
-        value = state.get(self.key, None)
-        if value is None:
-            raise KeyError(f'State has not key: {self.key}')
-        elif isinstance(value, str):
-            return value
-        elif isinstance(value, BaseMessage):
-            return value.extract_plain_text()
-        else:
-            return str(value)
-
-
-def state_plain_text(key: str) -> str:
-    """子依赖: 获取 State 中的纯文本值"""
-    return Depends(StatePlainTextInner(key=key), use_cache=True)
-
-
 __all__ = [
+    'EVENT_ENTITY_INTERFACE',
+    'EVENT_ENTITY_PARAMS',
     'EVENT_MSG_MENTIONED_USER_IDS',
     'EVENT_MSG_IMAGE_URLS',
     'EVENT_MATCHER_INTERFACE',
@@ -110,6 +133,7 @@ __all__ = [
     'EVENT_USER_NICKNAME',
     'OPTIONAL_EVENT_REPLY_MESSAGE_ID',
     'OPTIONAL_EVENT_REPLY_MSG_PLAIN_TEXT',
+    'USER_ENTITY_INTERFACE',
+    'USER_ENTITY_PARAMS',
     'USER_MATCHER_INTERFACE',
-    'state_plain_text',
 ]
