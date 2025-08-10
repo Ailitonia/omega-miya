@@ -11,22 +11,20 @@
 import abc
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Any
 
 from nonebot.adapters import Event as BaseEvent
 from nonebot.log import logger
-from nonebot.params import Depends
 
-from src.database import get_db_session
 from ...internal import OmegaEntity
 
 if TYPE_CHECKING:
     from nonebot.adapters import Bot as BaseBot
-    from sqlalchemy.ext.asyncio import AsyncSession
 
+    from src.database import DATABASE_SESSION
     from ...message import Message as OmegaMessage
     from ..models import EntityInitParams, SentMessageResponse
-    from ..typing import BaseMessageType, BaseSentMessageType
+    from ..typing import BaseMessageType, BaseSentMessageType, EntityAcquireType
     from .message_builder import BaseMessageBuilder
 
 
@@ -49,23 +47,21 @@ class BaseEventDepend[Bot_T: 'BaseBot', Event_T: 'BaseEvent', Message_T: 'BaseMe
         """根据 Event 提取触发事件用户 Entity 实例化参数"""
         raise NotImplementedError
 
-    @property
-    def event_entity_depend(self) -> Callable[['AsyncSession'], OmegaEntity]:
-        """获取事件本身对应 Entity 依赖"""
+    def get_entity(
+            self,
+            session: 'DATABASE_SESSION',
+            acquire_type: 'EntityAcquireType' = 'event',
+    ) -> OmegaEntity:
+        """获取事件对应 Entity"""
+        match acquire_type:
+            case 'event':
+                entity_params = self._extract_event_entity_params()
+            case 'user':
+                entity_params = self._extract_user_entity_params()
+            case _:
+                raise ValueError(f'Not supported entity acquire_type: {acquire_type!r}')
 
-        def _depend(session: Annotated['AsyncSession', Depends(get_db_session)]) -> OmegaEntity:
-            return OmegaEntity(session=session, **self._extract_event_entity_params().kwargs)
-
-        return _depend
-
-    @property
-    def user_entity_depend(self) -> Callable[['AsyncSession'], OmegaEntity]:
-        """获取触发事件用户 Entity 依赖"""
-
-        def _depend(session: Annotated['AsyncSession', Depends(get_db_session)]) -> OmegaEntity:
-            return OmegaEntity(session=session, **self._extract_user_entity_params().kwargs)
-
-        return _depend
+        return OmegaEntity(session=session, **entity_params.kwargs)
 
     """平台事件消息交互及流程处理方法适配"""
 

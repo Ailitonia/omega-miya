@@ -20,7 +20,6 @@ from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import FinishedException, PausedException, RejectedException
 from nonebot.log import logger
 from nonebot.matcher import Matcher, current_bot, current_event, current_matcher
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import DATABASE_SESSION
 from .const import SupportedPlatform, SupportedTarget
@@ -155,7 +154,7 @@ class OmegaMatcherInterface:
             bot: BaseBot,
             event: BaseEvent,
             matcher: Matcher,
-            session: AsyncSession,
+            session: DATABASE_SESSION,
             acquire_type: EntityAcquireType = 'event',
     ) -> None:
         self.bot = bot
@@ -180,25 +179,18 @@ class OmegaMatcherInterface:
             cls,
             bot: BaseBot,
             event: BaseEvent,
-            session: AsyncSession,
+            session: DATABASE_SESSION,
             acquire_type: EntityAcquireType = 'event',
     ) -> 'OmegaEntity':
         """获取事件对应的 Entity 对象"""
         event_depend = event_depend_register.get_depend(target_event=event)(bot=bot, event=event)
-        match acquire_type:
-            case 'event':
-                entity_depend = event_depend.event_entity_depend
-            case 'user':
-                entity_depend = event_depend.user_entity_depend
-            case _:
-                raise ValueError(f'Not supported entity acquire_type: {acquire_type!r}')
-        return entity_depend(session)
+        return event_depend.get_entity(session=session, acquire_type=acquire_type)
 
     @classmethod
     def depend(
             cls,
             acquire_type: EntityAcquireType = 'event'
-    ) -> Callable[[BaseBot, BaseEvent, Matcher, AsyncSession], AsyncGenerator[Self, None]]:
+    ) -> Callable[[BaseBot, BaseEvent, Matcher, DATABASE_SESSION], AsyncGenerator[Self, None]]:
         """获取注入依赖, 用于 Event/Matcher 中初始化"""
 
         async def _depend(
