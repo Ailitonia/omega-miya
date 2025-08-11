@@ -43,10 +43,10 @@ if TYPE_CHECKING:
 class OmegaEntityInterface:
     """Omega 基于对象 (Entity) 的统一接口, 用于在 Event/Matcher 之外调用平台 Bot 相关方法"""
 
-    __slots__ = ('_entity',)
+    __slots__ = ('entity',)
 
     def __init__(self, entity: 'OmegaEntity') -> None:
-        self._entity = entity
+        self.entity = entity
 
     @staticmethod
     def check_target_implemented[**P, R, T1, T2, ST: 'OmegaEntityInterface'](
@@ -61,8 +61,8 @@ class OmegaEntityInterface:
             try:
                 return await func(self, *args, **kwargs)
             except NotImplementedError:
-                logger.warning(f'{self._entity} not support method {func.__name__!r}')
-                raise TargetNotSupported(self._entity.entity_type, f'method {func.__name__!r} is not implemented')
+                logger.warning(f'{self.entity} not support method {func.__name__!r}')
+                raise TargetNotSupported(self.entity.entity_type, f'method {func.__name__!r} is not implemented')
 
         return _wrapper
 
@@ -73,7 +73,7 @@ class OmegaEntityInterface:
 
     def get_entity_target(self) -> 'BaseEntityTarget':
         """获取 Entity 的中间件平台 API 适配器"""
-        return self.get_entity_target_type(target_name=self._entity.entity_type)(entity=self._entity)
+        return self.get_entity_target_type(target_name=self.entity.entity_type)(entity=self.entity)
 
     async def get_bot(self) -> 'BaseBot':
         """获取 Entity 对应的 Bot 实例, 未在线则会抛出 BotNoFound 异常"""
