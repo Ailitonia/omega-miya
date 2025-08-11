@@ -123,6 +123,14 @@ class OmegaEntityInterface:
             lambda: loop.create_task(getattr(bot, revoke_params.api)(**revoke_params.params)),
         )
 
+    @check_target_implemented
+    async def send_entity_file(self, file: 'Path', *, file_name: str | None = None) -> None:
+        """向对象发送本地文件"""
+        if file_name is None:
+            file_name = file.name
+
+        return await self.get_entity_target().call_api_send_file(file_path=file.as_posix(), file_name=file_name)
+
     """Entity 相关信息获取方法"""
 
     @check_target_implemented
@@ -134,14 +142,6 @@ class OmegaEntityInterface:
     async def get_entity_profile_image_url(self) -> str:
         """获取对象头像/图标"""
         return await self.get_entity_target().call_api_get_entity_profile_image_url()
-
-    @check_target_implemented
-    async def send_entity_file(self, file: 'Path', *, file_name: str | None = None) -> None:
-        """向对象发送本地文件"""
-        if file_name is None:
-            file_name = file.name
-
-        return await self.get_entity_target().call_api_send_file(file_path=file.as_posix(), file_name=file_name)
 
 
 class OmegaMatcherInterface:

@@ -39,7 +39,7 @@ type EVENT_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_event_en
 
 def _extract_user_entity_params(bot: BaseBot, event: BaseEvent) -> EntityInitParams:
     """提取触发事件用户 Entity 实例化参数"""
-    return OmMI.get_event_depend_type(target_event=event)(bot=bot, event=event).extract_entity_params('event')
+    return OmMI.get_event_depend_type(target_event=event)(bot=bot, event=event).extract_entity_params('user')
 
 
 type USER_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_user_entity_params, use_cache=True)]
@@ -68,6 +68,42 @@ async def _user_entity_interface_depend(
 
 type USER_ENTITY_INTERFACE = Annotated[OmEI, Depends(_user_entity_interface_depend)]
 """子依赖: 用户对象的 OmegaEntityInterface"""
+
+
+async def _get_event_entity_name(entity_interface: EVENT_ENTITY_INTERFACE) -> str:
+    """获取事件对象的名称/昵称"""
+    return await entity_interface.get_entity_name()
+
+
+type EVENT_ENTITY_NAME = Annotated[str, Depends(_get_event_entity_name, use_cache=True)]
+"""子依赖: 事件对象的名称/昵称"""
+
+
+async def _get_user_entity_name(entity_interface: USER_ENTITY_INTERFACE) -> str:
+    """获取用户对象的名称/昵称"""
+    return await entity_interface.get_entity_name()
+
+
+type USER_ENTITY_NAME = Annotated[str, Depends(_get_user_entity_name, use_cache=True)]
+"""子依赖: 用户对象的名称/昵称"""
+
+
+async def _get_event_entity_profile_image_url(entity_interface: EVENT_ENTITY_INTERFACE) -> str:
+    """获取事件对象头像/图标"""
+    return await entity_interface.get_entity_profile_image_url()
+
+
+type EVENT_ENTITY_PROFILE_IMAGE_URL = Annotated[str, Depends(_get_event_entity_profile_image_url, use_cache=True)]
+"""子依赖: 事件对象头像/图标"""
+
+
+async def _get_user_entity_profile_image_url(entity_interface: USER_ENTITY_INTERFACE) -> str:
+    """获取用户对象头像/图标"""
+    return await entity_interface.get_entity_profile_image_url()
+
+
+type USER_ENTITY_PROFILE_IMAGE_URL = Annotated[str, Depends(_get_user_entity_profile_image_url, use_cache=True)]
+"""子依赖: 用户对象头像/图标"""
 
 
 def _event_user_nickname(bot: BaseBot, event: BaseEvent) -> str:
@@ -125,7 +161,9 @@ type OPTIONAL_EVENT_REPLY_MSG_PLAIN_TEXT = Annotated[str | None, Depends(_event_
 
 __all__ = [
     'EVENT_ENTITY_INTERFACE',
+    'EVENT_ENTITY_NAME',
     'EVENT_ENTITY_PARAMS',
+    'EVENT_ENTITY_PROFILE_IMAGE_URL',
     'EVENT_MSG_MENTIONED_USER_IDS',
     'EVENT_MSG_IMAGE_URLS',
     'EVENT_MATCHER_INTERFACE',
@@ -134,6 +172,8 @@ __all__ = [
     'OPTIONAL_EVENT_REPLY_MESSAGE_ID',
     'OPTIONAL_EVENT_REPLY_MSG_PLAIN_TEXT',
     'USER_ENTITY_INTERFACE',
+    'USER_ENTITY_NAME',
     'USER_ENTITY_PARAMS',
+    'USER_ENTITY_PROFILE_IMAGE_URL',
     'USER_MATCHER_INTERFACE',
 ]
