@@ -11,16 +11,20 @@
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from nonebot.adapters import Bot as BaseBot
-from nonebot.adapters import Event as BaseEvent
 from nonebot.log import logger
 from nonebot.params import ArgStr
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import CommandGroup
 
-from src.params.depends import EVENT_MATCHER_INTERFACE
+from src.params.depends import (
+    EVENT_ENTITY_PARAMS,
+    EVENT_ENTITY_PROFILE_IMAGE_URL,
+    EVENT_MATCHER_INTERFACE,
+    USER_ENTITY_PARAMS,
+    USER_ENTITY_PROFILE_IMAGE_URL,
+    USER_MATCHER_INTERFACE,
+)
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessageSegment, enable_processor_state
 from .data_source import add_user_dict, query_entity_message_history, query_profile_image
 from .helpers import draw_message_history_wordcloud
@@ -55,103 +59,133 @@ async def handle_add_user_dict(
 
 @wordcloud.command('daily', aliases={'词云', '今日词云', '今天聊了啥'}).handle()
 async def handle_daily_wordcloud(
-        bot: BaseBot,
-        event: BaseEvent,
         interface: EVENT_MATCHER_INTERFACE,
+        profile_image_url: EVENT_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
 ) -> None:
     start_time = datetime.now() - timedelta(days=1)
     desc_text = '自一天前以来的消息词云'
     await wordcloud_generate_handler(
-        bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text
+        interface=interface,
+        start_time=start_time,
+        desc_text=desc_text,
+        profile_image_url=profile_image_url,
+        event_entity_params=event_entity_params,
     )
 
 
 @wordcloud.command('weekly', aliases={'本周词云', '这周聊了啥'}).handle()
 async def handle_weekly_wordcloud(
-        bot: BaseBot,
-        event: BaseEvent,
         interface: EVENT_MATCHER_INTERFACE,
+        profile_image_url: EVENT_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
 ) -> None:
     start_time = datetime.now() - timedelta(days=7)
     desc_text = '自一周前以来的消息词云'
     await wordcloud_generate_handler(
-        bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text
+        interface=interface,
+        start_time=start_time,
+        desc_text=desc_text,
+        profile_image_url=profile_image_url,
+        event_entity_params=event_entity_params,
     )
 
 
 @wordcloud.command('monthly', aliases={'本月词云'}).handle()
 async def handle_monthly_wordcloud(
-        bot: BaseBot,
-        event: BaseEvent,
         interface: EVENT_MATCHER_INTERFACE,
+        profile_image_url: EVENT_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
 ) -> None:
     start_time = datetime.now() - timedelta(days=30)
     desc_text = '自一个月前以来的消息词云'
     await wordcloud_generate_handler(
-        bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text
+        interface=interface,
+        start_time=start_time,
+        desc_text=desc_text,
+        profile_image_url=profile_image_url,
+        event_entity_params=event_entity_params,
     )
 
 
 @wordcloud.command('my-daily', aliases={'我的词云', '我的今日词云', '我今天聊了啥'}).handle()
 async def handle_my_daily_wordcloud(
-        bot: BaseBot,
-        event: BaseEvent,
-        interface: EVENT_MATCHER_INTERFACE,
+        interface: USER_MATCHER_INTERFACE,
+        profile_image_url: USER_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
+        user_entity_params: USER_ENTITY_PARAMS,
 ) -> None:
     start_time = datetime.now() - timedelta(days=1)
     desc_text = f'{interface.get_event_user_nickname()}的今日词云'
     await wordcloud_generate_handler(
-        bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text, match_user=True
+        interface=interface,
+        start_time=start_time,
+        desc_text=desc_text,
+        profile_image_url=profile_image_url,
+        event_entity_params=event_entity_params,
+        user_entity_params=user_entity_params,
     )
 
 
 @wordcloud.command('my-weekly', aliases={'我的本周词云', '我这周聊了啥'}).handle()
 async def handle_my_weekly_wordcloud(
-        bot: BaseBot,
-        event: BaseEvent,
-        interface: EVENT_MATCHER_INTERFACE,
+        interface: USER_MATCHER_INTERFACE,
+        profile_image_url: USER_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
+        user_entity_params: USER_ENTITY_PARAMS,
 ) -> None:
     start_time = datetime.now() - timedelta(days=7)
     desc_text = f'{interface.get_event_user_nickname()}的本周词云'
     await wordcloud_generate_handler(
-        bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text, match_user=True
+        interface=interface,
+        start_time=start_time,
+        desc_text=desc_text,
+        profile_image_url=profile_image_url,
+        event_entity_params=event_entity_params,
+        user_entity_params=user_entity_params,
     )
 
 
 @wordcloud.command('my-monthly', aliases={'我的本月词云'}).handle()
 async def handle_my_monthly_wordcloud(
-        bot: BaseBot,
-        event: BaseEvent,
-        interface: EVENT_MATCHER_INTERFACE,
+        interface: USER_MATCHER_INTERFACE,
+        profile_image_url: USER_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
+        user_entity_params: USER_ENTITY_PARAMS,
 ) -> None:
     start_time = datetime.now() - timedelta(days=30)
     desc_text = f'{interface.get_event_user_nickname()}的本月词云'
     await wordcloud_generate_handler(
-        bot=bot, event=event, interface=interface, start_time=start_time, desc_text=desc_text, match_user=True
+        interface=interface,
+        start_time=start_time,
+        desc_text=desc_text,
+        profile_image_url=profile_image_url,
+        event_entity_params=event_entity_params,
+        user_entity_params=user_entity_params,
     )
 
 
 async def wordcloud_generate_handler(
-        bot: BaseBot,
-        event: BaseEvent,
-        interface: OmMI,
+        interface: EVENT_MATCHER_INTERFACE | USER_MATCHER_INTERFACE,
         start_time: datetime,
         desc_text: str,
-        *,
-        match_event: bool = True,
-        match_user: bool = False,
+        profile_image_url: EVENT_ENTITY_PROFILE_IMAGE_URL | USER_ENTITY_PROFILE_IMAGE_URL,
+        event_entity_params: EVENT_ENTITY_PARAMS,
+        user_entity_params: USER_ENTITY_PARAMS | None = None,
 ) -> None:
     """词云处理流程 Handler"""
     try:
         message_history_list = await query_entity_message_history(
-            bot=bot, event=event, start_time=start_time, match_event=match_event, match_user=match_user
+            event_entity_params=event_entity_params,
+            user_entity_params=user_entity_params,
+            start_time=start_time,
         )
         if len(message_history_list) < 100 and len([x for x in message_history_list if x.message_text.strip()]) < 10:
             logger.info(f'WordCloud | {interface.entity} 没有足够的历史消息记录用于生成词云')
             await interface.send_reply('没有足够的历史消息记录用于生成词云, 请稍后再试')
             return
 
-        profile_image = await query_profile_image(bot, event, match_user=match_user)
+        profile_image = await query_profile_image(profile_image_url=profile_image_url)
 
         desc_text += f'\n已统计 {len(message_history_list)} 条消息\n生成于: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
 

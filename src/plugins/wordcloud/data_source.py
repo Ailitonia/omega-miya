@@ -12,38 +12,30 @@ from os import SEEK_END, SEEK_SET
 from typing import TYPE_CHECKING, Optional
 
 from src.database import HistoryDAL, begin_db_session
-from src.service import OmegaEntityInterface as OmEI
-from src.service import OmegaMatcherInterface as OmMI
 from src.utils import OmegaRequests
 from .config import wordcloud_plugin_config
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from nonebot.adapters import Bot as BaseBot
-    from nonebot.adapters import Event as BaseEvent
-
     from src.database.internal.history import History
+    from src.params.depends import EVENT_ENTITY_PARAMS, USER_ENTITY_PARAMS
     from src.resource import TemporaryResource
 
 
 async def query_entity_message_history(
-        bot: 'BaseBot',
-        event: 'BaseEvent',
+        event_entity_params: 'EVENT_ENTITY_PARAMS',
+        user_entity_params: Optional['USER_ENTITY_PARAMS'] = None,
         *,
         start_time: Optional['datetime'] = None,
         end_time: Optional['datetime'] = None,
-        match_event: bool = True,
-        match_user: bool = False,
 ) -> list['History']:
     """查询当前事件的消息历史记录"""
     async with begin_db_session() as session:
-        event_entity = OmMI.get_entity(bot, event, session, acquire_type='event')
-        user_entity = OmMI.get_entity(bot, event, session, acquire_type='user')
         histories_list = await HistoryDAL(session).query_entity_records(
-            bot_self_id=bot.self_id,
-            event_entity_id=event_entity.entity_id if match_event else None,
-            user_entity_id=user_entity.entity_id if match_user else None,
+            bot_self_id=event_entity_params.bot_id,
+            event_entity_id=event_entity_params.entity_id,
+            user_entity_id=user_entity_params.entity_id if user_entity_params is not None else None,
             start_time=start_time,
             end_time=end_time,
             exclude_bot_self_message=wordcloud_plugin_config.wordcloud_plugin_exclude_bot_self_message,
@@ -51,18 +43,11 @@ async def query_entity_message_history(
     return histories_list
 
 
-async def query_profile_image(bot: 'BaseBot', event: 'BaseEvent', match_user: bool = False) -> 'TemporaryResource':
+async def query_profile_image(profile_image_url: str) -> 'TemporaryResource':
     """获取头像"""
-    async with begin_db_session() as session:
-        if match_user:
-            entity = OmMI.get_entity(bot, event, session, acquire_type='user')
-        else:
-            entity = OmMI.get_entity(bot, event, session, acquire_type='event')
-        url = await OmEI(entity=entity).get_entity_profile_image_url()
-
-    image_name = OmegaRequests.hash_url_file_name('wordcloud-head-image', url=url)
+    image_name = OmegaRequests.hash_url_file_name('wordcloud-head-image', url=profile_image_url)
     image_file = wordcloud_plugin_config.profile_image_folder(image_name)
-    return await OmegaRequests().download(url=url, file=image_file)
+    return await OmegaRequests().download(url=profile_image_url, file=image_file)
 
 
 async def add_user_dict(content: str) -> None:
@@ -73,7 +58,6 @@ async def add_user_dict(content: str) -> None:
         if content not in exists_user_dicts:
             await af.seek(0, SEEK_END)
             await af.write(f'{content.strip()}\n')
-
 
 
 __all__ = [
