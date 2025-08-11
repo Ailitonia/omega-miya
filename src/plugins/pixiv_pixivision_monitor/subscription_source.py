@@ -14,11 +14,11 @@ from nonebot import logger
 
 from src.database import SocialMediaContentDAL, begin_db_session
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
+from src.params.template.subscription_manager import BaseSubscriptionManager
 from src.resource import TemporaryResource
 from src.service import OmegaMessage, OmegaMessageSegment
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
-from src.service.omega_subscription_service import BaseSubscriptionManager
 from src.utils import semaphore_gather
 from src.utils.pixiv_api import Pixivision
 

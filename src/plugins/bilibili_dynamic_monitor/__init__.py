@@ -10,7 +10,7 @@
 
 from nonebot.plugin import PluginMetadata
 
-from src.service import OmegaSubscriptionHandlerManager
+from src.params.template import OmegaSubscriptionHandlerManager
 from . import monitor as monitor
 from .subscription_source import BilibiliDynamicSubscriptionManager
 

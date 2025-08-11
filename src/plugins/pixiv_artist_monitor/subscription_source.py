@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 from nonebot.log import logger
 
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
+from src.params.template.subscription_manager import BaseSubscriptionManager
 from src.service import OmegaMessage, OmegaMessageSegment
 from src.service.artwork_collection import PixivArtworkCollection
 from src.service.artwork_proxy import PixivArtworkProxy
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
-from src.service.omega_subscription_service import BaseSubscriptionManager
 from src.utils import semaphore_gather
 from src.utils.pixiv_api import PixivUser
 

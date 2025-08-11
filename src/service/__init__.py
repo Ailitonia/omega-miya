@@ -21,7 +21,6 @@ from .omega_base import (
 from .omega_global_cache import OmegaGlobalCache
 from .omega_multibot_support import get_online_bots
 from .omega_processor import enable_processor_state
-from .omega_subscription_service import OmegaSubscriptionHandlerManager
 
 __all__ = [
     'OmegaAPI',
@@ -32,7 +31,6 @@ __all__ = [
     'OmegaMessage',
     'OmegaMessageSegment',
     'OmegaMessageTransfer',
-    'OmegaSubscriptionHandlerManager',
     'enable_processor_state',
     'get_online_bots',
     'reschedule_job',

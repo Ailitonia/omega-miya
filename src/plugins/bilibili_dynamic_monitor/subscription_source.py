@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, ClassVar, Self
 from src.database.internal.social_media_content import SocialMediaContent
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.exception import WebSourceException
+from src.params.template.subscription_manager import BaseSubscriptionManager
 from src.service import OmegaMessage, OmegaMessageSegment
-from src.service.omega_subscription_service import BaseSubscriptionManager
 from src.utils import semaphore_gather
 from src.utils.bilibili_api import BilibiliDynamic, BilibiliUser
 from src.utils.bilibili_api.models.dynamic import DynamicType

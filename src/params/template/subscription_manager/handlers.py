@@ -14,10 +14,10 @@ from nonebot.log import logger
 from nonebot.params import ArgStr
 from nonebot.plugin import CommandGroup
 
-from src.params.depends import EVENT_MATCHER_INTERFACE
-from src.params.handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
-from src.params.permission import IS_ADMIN
 from src.service import enable_processor_state, scheduler
+from ...depends import EVENT_MATCHER_INTERFACE
+from ...handler import get_command_str_single_arg_parser_handler, get_set_default_state_handler
+from ...permission import IS_ADMIN
 
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler

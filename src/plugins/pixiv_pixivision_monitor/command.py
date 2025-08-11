@@ -15,7 +15,8 @@ from nonebot.params import ArgStr
 
 from src.params.depends import EVENT_MATCHER_INTERFACE
 from src.params.handler import get_command_str_single_arg_parser_handler
-from src.service import OmegaMessageSegment, OmegaSubscriptionHandlerManager
+from src.params.template import OmegaSubscriptionHandlerManager
+from src.service import OmegaMessageSegment
 from .subscription_source import PixivisionSubscriptionManager
 
 _pixivision_handler_manager = OmegaSubscriptionHandlerManager(

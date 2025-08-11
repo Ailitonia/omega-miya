@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2025/6/3 16:07:22
-@FileName       : omega_subscription_service.py
+@FileName       : subscription_manager.py
 @Project        : omega-miya
 @Description    : omega 统一订阅服务
 @GitHub         : https://github.com/Ailitonia

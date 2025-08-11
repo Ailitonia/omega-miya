@@ -18,8 +18,8 @@ from nonebot import logger
 from src.database.internal.social_media_content import SocialMediaContent
 from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceType
 from src.exception import WebSourceException
+from src.params.template.subscription_manager import BaseSubscriptionManager
 from src.service import OmegaMessage, OmegaMessageSegment
-from src.service.omega_subscription_service import BaseSubscriptionManager
 from src.utils.bilibili_api import BilibiliLive
 from .model import (
     BilibiliLiveRoomStartLiving,

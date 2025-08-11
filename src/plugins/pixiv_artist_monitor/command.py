@@ -21,8 +21,9 @@ from src.params.handler import (
     get_command_str_multi_args_parser_handler,
     get_command_str_single_arg_parser_handler,
 )
+from src.params.template import OmegaSubscriptionHandlerManager
 from src.service import OmegaMatcherInterface as OmMI
-from src.service import OmegaMessageSegment, OmegaSubscriptionHandlerManager, enable_processor_state
+from src.service import OmegaMessageSegment, enable_processor_state
 from src.service.omega_message_context.custom_depends import (
     ARTIST_CONTEXT_MANAGER,
     OPTIONAL_REPLY_ARTIST_OR_ARTWORK_ARTIST,
