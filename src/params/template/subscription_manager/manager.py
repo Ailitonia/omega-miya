@@ -19,13 +19,13 @@ from sqlalchemy.exc import NoResultFound
 from src.database import EntityDAL, SocialMediaContentDAL, SubscriptionSourceDAL, begin_db_session
 from src.service import OmegaEntity, OmegaMessage, OmegaMessageSegment
 from src.service import OmegaEntityInterface as OmEI
-from src.service import OmegaMatcherInterface as OmMI
 from src.utils import semaphore_gather
 
 if TYPE_CHECKING:
     from src.database.internal.entity import Entity
     from src.database.internal.social_media_content import SocialMediaContent
     from src.database.internal.subscription_source import SubscriptionSource
+    from src.params.depends import EVENT_MATCHER_INTERFACE
     from src.service.omega_base.middlewares.models import SentMessageResponse
 
 
@@ -208,7 +208,7 @@ class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
         # `self._query_sub_source_data()` 提供的订阅源信息索引 ID 为缺省值, 这里需要反查获取真实的索引 ID
         return await self._query_subscription_source()
 
-    async def add_entity_sub(self, interface: 'OmMI') -> None:
+    async def add_entity_sub(self, interface: 'EVENT_MATCHER_INTERFACE') -> None:
         """为目标 Entity 添加订阅源的对应订阅"""
         source_res = await self._add_upgrade_sub_source()
         await interface.entity.add_subscription(
@@ -216,13 +216,13 @@ class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
             sub_info=f'订阅类型: {source_res.sub_type}, 订阅ID: {source_res.sub_id}',
         )
 
-    async def delete_entity_sub(self, interface: 'OmMI') -> None:
+    async def delete_entity_sub(self, interface: 'EVENT_MATCHER_INTERFACE') -> None:
         """为目标 Entity 删除订阅源的对应订阅"""
         source_res = await self._query_subscription_source()
         await interface.entity.delete_subscription(subscription_source=source_res)
 
     @classmethod
-    async def query_entity_subscribed_sub_source(cls, interface: 'OmMI') -> dict[str, str]:
+    async def query_entity_subscribed_sub_source(cls, interface: 'EVENT_MATCHER_INTERFACE') -> dict[str, str]:
         """获取目标对象已订阅的订阅源
 
         :return: {sub_id: sub_user_name} 的字典"""

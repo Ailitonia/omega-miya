@@ -22,7 +22,7 @@ from src.service import OmegaMessage, OmegaMessageSegment
 from src.utils import OmegaRequests, semaphore_gather
 
 if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface as OmMI
+    from src.params.depends import EVENT_MATCHER_INTERFACE
 
 
 _RESOURCE_PATH: StaticResource = StaticResource('images', 'what_to_eat')
@@ -117,7 +117,7 @@ async def get_random_food_msg(food_type: FoodType | None = None) -> OmegaMessage
     return await _format_menu_msg(foods=foods)
 
 
-async def send_random_food_msg(interface: 'OmMI', food_type: FoodType | None = None) -> None:
+async def send_random_food_msg(interface: 'EVENT_MATCHER_INTERFACE', food_type: FoodType | None = None) -> None:
     """获取随机食谱并发送消息"""
     try:
         msg = await get_random_food_msg(food_type=food_type)

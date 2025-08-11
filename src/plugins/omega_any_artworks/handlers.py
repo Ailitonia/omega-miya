@@ -19,7 +19,6 @@ from pydantic import BaseModel, ConfigDict
 
 from src.params.depends import EVENT_MATCHER_INTERFACE
 from src.params.handler import get_shell_command_parse_failed_handler
-from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessage, OmegaMessageSegment, enable_processor_state
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from src.utils import semaphore_gather
@@ -49,7 +48,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         self._command_name = artwork_class.get_base_origin_name().lower()
 
     @staticmethod
-    async def _allow_r18_node_checker(interface: 'OmMI') -> bool:
+    async def _allow_r18_node_checker(interface: EVENT_MATCHER_INTERFACE) -> bool:
         """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
         if interface.matcher.plugin is None:
             return False
@@ -64,7 +63,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         )
 
     @classmethod
-    async def has_allow_r18_node(cls, interface: 'OmMI') -> bool:
+    async def has_allow_r18_node(cls, interface: EVENT_MATCHER_INTERFACE) -> bool:
         """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
         try:
             allow_r18 = await cls._allow_r18_node_checker(interface=interface)
@@ -95,7 +94,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
     @classmethod
     async def send_artwork_message(
             cls,
-            interface: OmMI,
+            interface: EVENT_MATCHER_INTERFACE,
             artwork: T,
             *,
             no_blur_rating: int = 1,
@@ -136,7 +135,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
 
     async def _send_artworks_preview_message(
             self,
-            interface: OmMI,
+            interface: EVENT_MATCHER_INTERFACE,
             title: str,
             artworks: Sequence[T],
             *,

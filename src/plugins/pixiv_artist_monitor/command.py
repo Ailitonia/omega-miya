@@ -22,7 +22,6 @@ from src.params.handler import (
     get_command_str_single_arg_parser_handler,
 )
 from src.params.template import OmegaSubscriptionHandlerManager
-from src.service import OmegaMatcherInterface as OmMI
 from src.service import OmegaMessageSegment, enable_processor_state
 from src.service.omega_message_context.custom_depends import (
     ARTIST_CONTEXT_MANAGER,
@@ -250,7 +249,7 @@ async def handle_preview_user_bookmark(
 
 
 async def handle_ranking_preview(
-        interface: 'OmMI',
+        interface: EVENT_MATCHER_INTERFACE,
         page: str,
         ranking_preview_factory: Callable[[int], Coroutine[Any, Any, 'TemporaryResource']]
 ) -> None:

@@ -31,7 +31,10 @@ from .models import (
 )
 
 if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface as OmMI
+    from src.params.depends import EVENT_MATCHER_INTERFACE, USER_MATCHER_INTERFACE
+
+    type MATCHER_INTERFACE = EVENT_MATCHER_INTERFACE | USER_MATCHER_INTERFACE
+
 
 _SESSIONS: dict[str, 'StorySession'] = {}
 """全局缓存的所有故事会话, KEY 为各个事件主体 Entity ID"""
@@ -210,7 +213,7 @@ class StorySession:
         del self._lock
 
 
-def get_story_session(interface: 'OmMI') -> StorySession:
+def get_story_session(interface: 'MATCHER_INTERFACE') -> StorySession:
     """获取事件主体 Entity 对应的故事会话, 如果会话不存在则新建"""
     if interface.entity.tid in _SESSIONS:
         return _SESSIONS[interface.entity.tid]
@@ -219,7 +222,7 @@ def get_story_session(interface: 'OmMI') -> StorySession:
         return _SESSIONS[interface.entity.tid]
 
 
-def remove_story_session(interface: 'OmMI') -> None:
+def remove_story_session(interface: 'MATCHER_INTERFACE') -> None:
     """移除事件主体 Entity 对应的故事会话"""
     if interface.entity.tid in _SESSIONS:
         _SESSIONS[interface.entity.tid].delete()

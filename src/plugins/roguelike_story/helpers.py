@@ -14,13 +14,19 @@ from typing import TYPE_CHECKING
 from .consts import INTRO_TEXT
 
 if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface as OmMI
+    from src.params.depends import EVENT_MATCHER_INTERFACE, USER_MATCHER_INTERFACE
 
     from .models import RollResults
     from .session import StorySession
 
+    type MATCHER_INTERFACE = EVENT_MATCHER_INTERFACE | USER_MATCHER_INTERFACE
 
-async def handle_story_init(story_session: 'StorySession', interface: 'OmMI', description: str | None) -> None:
+
+async def handle_story_init(
+        story_session: 'StorySession',
+        interface: 'MATCHER_INTERFACE',
+        description: str | None,
+) -> None:
     """处理首次交互, 初始化故事会话"""
     if story_session.is_processing:
         await interface.finish_reply('肉鸽娘正在努力工作中_<, 请稍后再试')
@@ -38,7 +44,11 @@ async def handle_story_init(story_session: 'StorySession', interface: 'OmMI', de
     await interface.reject_arg_reply('description', '你的下一步行动是？')
 
 
-async def handle_story_continue(story_session: 'StorySession', interface: 'OmMI', description: str | None) -> None:
+async def handle_story_continue(
+        story_session: 'StorySession',
+        interface: 'MATCHER_INTERFACE',
+        description: str | None,
+) -> None:
     """处理后续交互，继续后续故事"""
     if story_session.is_processing:
         await interface.finish_reply('肉鸽娘正在努力工作中_<, 请稍后再试')
@@ -79,7 +89,7 @@ async def handle_story_continue(story_session: 'StorySession', interface: 'OmMI'
 
 async def handle_fast_roll_action(
         story_session: 'StorySession',
-        interface: 'OmMI',
+        interface: 'MATCHER_INTERFACE',
         description: str,
         fast_generate_story_continue: bool = False,
 ) -> None:

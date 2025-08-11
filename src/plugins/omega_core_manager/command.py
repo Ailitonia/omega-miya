@@ -24,7 +24,6 @@ from nonebot.typing import T_State
 from src.database import PLUGIN_DAL
 from src.params.depends import EVENT_MATCHER_INTERFACE
 from src.params.permission import IS_ADMIN
-from src.service import OmegaMatcherInterface as OmMI
 from src.service import enable_processor_state
 from .helpers import get_all_plugins_desc, get_plugin_auth_node, get_plugin_desc, list_command_by_priority
 from .status import get_status
@@ -292,7 +291,7 @@ async def handle_deny_plugin_node(
 
 
 async def handle_config_plugin_node(
-        interface: OmMI,
+        interface: EVENT_MATCHER_INTERFACE,
         plugin_name: str,
         auth_node: str,
         available: int

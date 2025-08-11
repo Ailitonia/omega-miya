@@ -27,8 +27,8 @@ from .consts import (
 from .mailbox import Email, ImapMailbox
 
 if TYPE_CHECKING:
+    from src.params.depends import EVENT_MATCHER_INTERFACE
     from src.resource import TemporaryResource
-    from src.service import OmegaMatcherInterface as OmMI
 
 
 class BaseMailboxModel(BaseModel):
@@ -89,7 +89,7 @@ async def query_available_mailbox() -> list[MailboxAccount]:
     ]
 
 
-async def bind_entity_mailbox(interface: 'OmMI', mailbox_account: MailboxAccount) -> None:
+async def bind_entity_mailbox(interface: 'EVENT_MATCHER_INTERFACE', mailbox_account: MailboxAccount) -> None:
     """为实体对象绑定邮箱"""
     return await interface.entity.set_auth_setting(
         module=DB_ENTITY_SETTING_MODULE_NAME,
@@ -100,7 +100,7 @@ async def bind_entity_mailbox(interface: 'OmMI', mailbox_account: MailboxAccount
     )
 
 
-async def unbind_entity_mailbox(interface: 'OmMI', mailbox_address: str) -> None:
+async def unbind_entity_mailbox(interface: 'EVENT_MATCHER_INTERFACE', mailbox_address: str) -> None:
     """为实体对象解绑邮箱"""
     return await interface.entity.set_auth_setting(
         module=DB_ENTITY_SETTING_MODULE_NAME,
@@ -111,7 +111,7 @@ async def unbind_entity_mailbox(interface: 'OmMI', mailbox_address: str) -> None
     )
 
 
-async def get_entity_bound_mailbox(interface: 'OmMI') -> list[MailboxAccount]:
+async def get_entity_bound_mailbox(interface: 'EVENT_MATCHER_INTERFACE') -> list[MailboxAccount]:
     """为实体对象解绑邮箱"""
     bound_mailbox = await interface.entity.query_plugin_all_auth_setting(
         module=DB_ENTITY_SETTING_MODULE_NAME,
