@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from nonebot.adapters import Bot as BaseBot
 
     from src.database import DATABASE_SESSION
+
     from ...message import Message as OmegaMessage
     from ..models import EntityInitParams, SentMessageResponse
     from ..typing import BaseMessageType, BaseSentMessageType, EntityAcquireType
