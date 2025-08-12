@@ -16,8 +16,8 @@ from nonebot.adapters import Event as BaseEvent
 from nonebot.adapters import Message as BaseMessage
 
 from src.compat import dump_json_as
-from src.database import HistoryDAL, begin_db_session
-from src.service import OmegaMatcherInterface
+from src.database import HistoryDAL
+from ...omega_base.depends import extract_entity_params
 
 LOG_PREFIX: str = '<lc>Message History</lc> | '
 
@@ -41,16 +41,16 @@ async def postprocessor_history(bot: BaseBot, event: BaseEvent, message: BaseMes
         message_text = message_text[:4096]
 
     try:
-        async with begin_db_session() as session:
-            event_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='event')
-            user_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='user')
-            await HistoryDAL(session=session).add(
+        event_entity_params = extract_entity_params(bot=bot, event=event, acquire_type='event')
+        user_entity_params = extract_entity_params(bot=bot, event=event, acquire_type='user')
+        async with HistoryDAL.begin_dal_session() as dal:
+            await dal.add(
                 message_id=message_id,
                 bot_self_id=bot.self_id,
-                event_entity_id=event_entity.entity_id,
-                user_entity_id=user_entity.entity_id,
+                event_entity_id=event_entity_params.entity_id,
+                user_entity_id=user_entity_params.entity_id,
                 received_time=int(datetime.now().timestamp()),
-                message_type=f'{event_entity.entity_type}.{event.get_event_name()}',
+                message_type=f'{event_entity_params.entity_type}.{event.get_event_name()}',
                 message_raw=message_raw,
                 message_text=message_text,
             )

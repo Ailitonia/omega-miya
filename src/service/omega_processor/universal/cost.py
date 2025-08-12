@@ -14,9 +14,8 @@ from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 
-from src.database import begin_db_session
-from src.service import OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
+from ...omega_base.depends import get_entity_session
 
 SUPERUSERS = get_driver().config.superusers
 CURRENCY_ALIAS: str = '硬币'
@@ -54,10 +53,9 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: BaseBot, event: BaseEv
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Plugin({plugin_name}) ignored with non-cost')
         return
 
-    async with begin_db_session() as session:
-        entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
-        await entity.add_ignore_exists()
-        friendship = await entity.query_friendship()
+    async with get_entity_session(bot=bot, event=event, acquire_type='user') as user_entity:
+        await user_entity.add_ignore_exists()
+        friendship = await user_entity.query_friendship()
 
         if friendship.currency < processor_state.cost:
             echo_message = f'{CURRENCY_ALIAS}不足! 命令消耗: {int(processor_state.cost)}, 持有: {int(friendship.currency)}'
@@ -80,7 +78,7 @@ async def preprocessor_plugin_cost(matcher: Matcher, bot: BaseBot, event: BaseEv
             logger.opt(colors=True).warning(
                 f'{LOG_PREFIX}Plugin({plugin_name}) send cost succeed tip message failed, {e!r}'
             )
-        await entity.change_friendship(currency=-processor_state.cost)
+        await user_entity.change_friendship(currency=-processor_state.cost)
 
 
 __all__ = [

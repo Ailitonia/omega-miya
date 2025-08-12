@@ -8,15 +8,20 @@
 @Software       : PyCharm
 """
 
+from typing import TYPE_CHECKING
+
 from nonebot import get_driver, logger
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 
-from src.database import begin_db_session
-from src.service import OmegaEntity, OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
+from ...omega_base.depends import get_entity_session
+
+if TYPE_CHECKING:
+    from ...omega_base import OmegaEntity
+
 
 SUPERUSERS = get_driver().config.superusers
 LOG_PREFIX: str = '<lc>Permission Manager</lc> | '
@@ -45,8 +50,7 @@ async def preprocessor_global_permission(matcher: Matcher, bot: BaseBot, event: 
         logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
         return
 
-    async with begin_db_session() as session:
-        event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
+    async with get_entity_session(bot=bot, event=event, acquire_type='event') as event_entity:
         is_enabled_global_permission = await event_entity.check_global_permission()
 
     if not is_enabled_global_permission:
@@ -89,8 +93,7 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: BaseBot, event: 
         return
 
     # 检查事件会话对象是否具备插件要求权限
-    async with begin_db_session() as session:
-        event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
+    async with get_entity_session(bot=bot, event=event, acquire_type='event') as event_entity:
         is_permission_allowed = await _check_event_entity_permission(
             entity=event_entity, module_name=module_name, plugin_name=plugin_name,
             level=processor_state.level, auth_node=processor_state.auth_node
@@ -124,7 +127,7 @@ async def preprocessor_plugin_permission(matcher: Matcher, bot: BaseBot, event: 
 
 
 async def _check_event_entity_permission(
-        entity: OmegaEntity,
+        entity: 'OmegaEntity',
         module_name: str,
         plugin_name: str,
         level: int,

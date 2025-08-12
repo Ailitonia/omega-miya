@@ -15,9 +15,9 @@ from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.matcher import Matcher
 
-from src.database import StatisticDAL, begin_db_session
-from src.service import OmegaMatcherInterface
+from src.database import StatisticDAL
 from ..plugin_utils import parse_processor_state
+from ...omega_base.depends import extract_entity_params
 
 LOG_PREFIX: str = '<lc>Statistic</lc> | '
 
@@ -57,13 +57,12 @@ async def postprocessor_statistic(matcher: Matcher, bot: BaseBot, event: BaseEve
     #     return
 
     try:
-        async with begin_db_session() as session:
-            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session)
-            parent_entity_id = entity.parent_id
-            entity_id = entity.entity_id
-            call_info = f'{custom_plugin_name!r} called by {entity!r} in Event: {event}'
+        event_entity_params = extract_entity_params(bot=bot, event=event, acquire_type='event')
+        async with StatisticDAL.begin_dal_session() as dal:
+            parent_entity_id = event_entity_params.parent_id
+            entity_id = event_entity_params.entity_id
+            call_info = f'{custom_plugin_name!r} called by {event_entity_params!r} in Event: {event}'
 
-            dal = StatisticDAL(session=session)
             await dal.add(module_name=module_name, plugin_name=custom_plugin_name,
                           bot_self_id=bot.self_id, parent_entity_id=parent_entity_id, entity_id=entity_id,
                           call_time=datetime.now(), call_info=call_info)

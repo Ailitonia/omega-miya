@@ -9,6 +9,7 @@
 """
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from nonebot import get_driver, logger
 from nonebot.adapters import Bot as BaseBot
@@ -17,9 +18,12 @@ from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 from pydantic import BaseModel
 
-from src.database import begin_db_session
-from src.service import OmegaEntity, OmegaMatcherInterface
 from ..plugin_utils import parse_processor_state
+from ...omega_base.depends import get_entity_session
+
+if TYPE_CHECKING:
+    from ...omega_base import OmegaEntity
+
 
 SUPERUSERS = get_driver().config.superusers
 PLUGIN_CD_PREFIX: str = 'plugin_cd'
@@ -59,15 +63,13 @@ async def preprocessor_global_cooldown(matcher: Matcher, bot: BaseBot, event: Ba
     is_expired: bool = True
     expired_time: datetime = datetime.now()
 
-    async with begin_db_session() as session:
-        event_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='event')
+    async with get_entity_session(bot=bot, event=event, acquire_type='event') as event_entity:
         event_global_is_expired, event_global_expired_time = await event_entity.check_global_cooldown_expired()
     if not event_global_is_expired:
         is_expired = False
         expired_time = event_global_expired_time if event_global_expired_time > expired_time else expired_time
 
-    async with begin_db_session() as session:
-        user_entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type='user')
+    async with get_entity_session(bot=bot, event=event, acquire_type='user') as user_entity:
         user_global_is_expired, user_global_expired_time = await user_entity.check_global_cooldown_expired()
     if not user_global_is_expired:
         is_expired = False
@@ -125,8 +127,7 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: BaseBot, event: Ba
     acquire_type = processor_state.cooldown_type
 
     # 检查冷却
-    async with begin_db_session() as session:
-        entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type=acquire_type)
+    async with get_entity_session(bot=bot, event=event, acquire_type=acquire_type) as entity:
         cooldown_checking_result = await _check_entity_cooldown(
             entity=entity, cooldown_event=cooldown_event, plugin_name=plugin_name, module_name=module_name
         )
@@ -142,8 +143,7 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: BaseBot, event: Ba
         return
     elif is_expired:
         # 冷却过期后就要新增冷却
-        async with begin_db_session() as session:
-            entity = OmegaMatcherInterface.get_entity(bot=bot, event=event, session=session, acquire_type=acquire_type)
+        async with get_entity_session(bot=bot, event=event, acquire_type=acquire_type) as entity:
             await entity.set_cooldown(
                 cooldown_event=cooldown_event, expired_time=timedelta(seconds=processor_state.cooldown)
             )
@@ -169,7 +169,7 @@ async def preprocessor_plugin_cooldown(matcher: Matcher, bot: BaseBot, event: Ba
 
 
 async def _check_entity_cooldown(
-        entity: OmegaEntity,
+        entity: 'OmegaEntity',
         cooldown_event: str,
         plugin_name: str,
         module_name: str,
