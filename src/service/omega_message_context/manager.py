@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Any
 from nonebot.adapters import Bot as BaseBot
 from pydantic import BaseModel
 
-from .utils import OPTIONAL_REPLY_MESSAGE_ID, query_context_value, set_context_value
+from .utils import query_context_value, set_context_value
+from ..omega_base.depends import OPTIONAL_EVENT_REPLY_MESSAGE_ID
 
 if TYPE_CHECKING:
     from src.service.omega_base.middlewares.models import SentMessageResponse
@@ -60,7 +61,7 @@ class MessageContextManager[Data_T: BaseModel]:
     async def get_reply_context(
             self,
             bot: BaseBot,
-            reply_message_id: OPTIONAL_REPLY_MESSAGE_ID,
+            reply_message_id: OPTIONAL_EVENT_REPLY_MESSAGE_ID,
     ) -> Data_T | None:
         """子依赖, 获取回复消息的上下文数据"""
         if reply_message_id is None:
