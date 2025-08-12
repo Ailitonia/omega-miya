@@ -46,24 +46,46 @@ type USER_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_user_enti
 """子依赖: 触发事件用户 Entity 实例化参数"""
 
 
-async def _event_entity_interface_depend(
+async def _get_event_internal_entity_instance(
         event_entity_params: EVENT_ENTITY_PARAMS,
         session: DATABASE_SESSION,
-) -> AsyncGenerator[OmEI, None]:
+) -> AsyncGenerator[OmegaEntity, None]:
+    """获取事件对象的 InternalEntity 实例"""
+    async with OmegaEntity(session=session, **event_entity_params.kwargs) as entity:
+        yield entity
+
+
+type EVENT_INTERNAL_ENTITY = Annotated[OmegaEntity, Depends(_get_event_internal_entity_instance)]
+"""子依赖: 事件对象的 InternalEntity 实例"""
+
+
+async def _get_user_internal_entity_instance(
+        user_entity_params: USER_ENTITY_PARAMS,
+        session: DATABASE_SESSION,
+) -> AsyncGenerator[OmegaEntity, None]:
+    """获取事件对象的 InternalEntity 实例"""
+    async with OmegaEntity(session=session, **user_entity_params.kwargs) as entity:
+        yield entity
+
+
+type USER_INTERNAL_ENTITY = Annotated[OmegaEntity, Depends(_get_user_internal_entity_instance)]
+"""子依赖: 用户对象的 InternalEntity 实例"""
+
+
+async def _event_entity_interface_depend(entity: EVENT_INTERNAL_ENTITY) -> AsyncGenerator[OmEI, None]:
     """获取事件对象的 OmegaEntityInterface"""
-    yield OmEI(OmegaEntity(session=session, **event_entity_params.kwargs))
+    async with OmEI(entity=entity) as interface:
+        yield interface
 
 
 type EVENT_ENTITY_INTERFACE = Annotated[OmEI, Depends(_event_entity_interface_depend)]
 """子依赖: 事件对象的 OmegaEntityInterface"""
 
 
-async def _user_entity_interface_depend(
-        user_entity_params: USER_ENTITY_PARAMS,
-        session: DATABASE_SESSION,
-) -> AsyncGenerator[OmEI, None]:
+async def _user_entity_interface_depend(entity: USER_INTERNAL_ENTITY) -> AsyncGenerator[OmEI, None]:
     """获取用户对象的 OmegaEntityInterface"""
-    yield OmEI(OmegaEntity(session=session, **user_entity_params.kwargs))
+    async with OmEI(entity=entity) as interface:
+        yield interface
 
 
 type USER_ENTITY_INTERFACE = Annotated[OmEI, Depends(_user_entity_interface_depend)]
@@ -164,6 +186,7 @@ __all__ = [
     'EVENT_ENTITY_NAME',
     'EVENT_ENTITY_PARAMS',
     'EVENT_ENTITY_PROFILE_IMAGE_URL',
+    'EVENT_INTERNAL_ENTITY',
     'EVENT_MSG_MENTIONED_USER_IDS',
     'EVENT_MSG_IMAGE_URLS',
     'EVENT_MATCHER_INTERFACE',
@@ -175,5 +198,6 @@ __all__ = [
     'USER_ENTITY_NAME',
     'USER_ENTITY_PARAMS',
     'USER_ENTITY_PROFILE_IMAGE_URL',
+    'USER_INTERNAL_ENTITY',
     'USER_MATCHER_INTERFACE',
 ]

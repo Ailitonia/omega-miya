@@ -48,6 +48,18 @@ class OmegaEntityInterface:
     def __init__(self, entity: 'OmegaEntity') -> None:
         self.entity = entity
 
+    async def __aenter__(self) -> Self:
+        """Enter the entity interface context and starting new session."""
+        return self
+
+    async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+    ) -> bool | None:
+        """Exit the entity interface context waiting for session completion."""
+
     @staticmethod
     def check_target_implemented[**P, R, T1, T2, ST: 'OmegaEntityInterface'](
             func: Callable[Concatenate[ST, P], Coroutine[T1, T2, R]],
