@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from nonebot.log import logger
 from nonebot.params import ArgStr
@@ -20,9 +20,12 @@ from ...handler import get_command_str_single_arg_parser_handler, get_set_defaul
 from ...permission import IS_ADMIN
 
 if TYPE_CHECKING:
+    from nonebot.dependencies import Dependent
     from nonebot.typing import T_Handler
 
     from .manager import BaseSubscriptionManager
+
+    type OPTIONAL_HANDLERS = list[T_Handler | Dependent[Any]] | None
 
 
 class SubscriptionHandlerManager[SM_T: 'BaseSubscriptionManager']:
@@ -251,6 +254,7 @@ class SubscriptionHandlerManager[SM_T: 'BaseSubscriptionManager']:
             block: bool = True,
             permission_level: int = 20,
             handler_echo_processor_result: bool = True,
+            extra_sub_handlers: 'OPTIONAL_HANDLERS' = None,
     ) -> CommandGroup:
         """注册插件命令"""
 
@@ -276,7 +280,8 @@ class SubscriptionHandlerManager[SM_T: 'BaseSubscriptionManager']:
             },
             handlers=[
                 get_set_default_state_handler('ensure', value=None),
-                get_command_str_single_arg_parser_handler('sub_id', ensure_key=True)
+                get_command_str_single_arg_parser_handler('sub_id', ensure_key=True),
+                *(extra_sub_handlers if extra_sub_handlers else []),
             ],
         ).got('ensure')(self._generate_add_subscription_handler())
 
@@ -290,7 +295,8 @@ class SubscriptionHandlerManager[SM_T: 'BaseSubscriptionManager']:
             },
             handlers=[
                 get_set_default_state_handler('ensure', value=None),
-                get_command_str_single_arg_parser_handler('sub_id', ensure_key=True)
+                get_command_str_single_arg_parser_handler('sub_id', ensure_key=True),
+                *(extra_sub_handlers if extra_sub_handlers else []),
             ],
         ).got('ensure')(self._generate_del_subscription_handler())
 
