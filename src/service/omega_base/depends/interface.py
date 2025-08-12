@@ -15,61 +15,15 @@ from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.params import Depends
 
-from src.database import DATABASE_SESSION
-from ..internal import OmegaEntity
+from .internal import EVENT_INTERNAL_ENTITY, USER_INTERNAL_ENTITY
 from ..middlewares.interface import OmegaEntityInterface as OmEI
 from ..middlewares.interface import OmegaMatcherInterface as OmMI
-from ..middlewares.models import EntityInitParams
 
 type EVENT_MATCHER_INTERFACE = Annotated[OmMI, Depends(OmMI.depend(acquire_type='event'))]
 """子依赖: 事件对象的 OmegaMatcherInterface"""
 
 type USER_MATCHER_INTERFACE = Annotated[OmMI, Depends(OmMI.depend(acquire_type='user'))]
 """子依赖: 用户对象的 OmegaMatcherInterface"""
-
-
-def _extract_event_entity_params(bot: BaseBot, event: BaseEvent) -> EntityInitParams:
-    """提取事件本身对应 Entity 实例化参数"""
-    return OmMI.get_event_depend_type(target_event=event)(bot=bot, event=event).extract_entity_params('event')
-
-
-type EVENT_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_event_entity_params, use_cache=True)]
-"""子依赖: 事件本身对应 Entity 实例化参数"""
-
-
-def _extract_user_entity_params(bot: BaseBot, event: BaseEvent) -> EntityInitParams:
-    """提取触发事件用户 Entity 实例化参数"""
-    return OmMI.get_event_depend_type(target_event=event)(bot=bot, event=event).extract_entity_params('user')
-
-
-type USER_ENTITY_PARAMS = Annotated[EntityInitParams, Depends(_extract_user_entity_params, use_cache=True)]
-"""子依赖: 触发事件用户 Entity 实例化参数"""
-
-
-async def _get_event_internal_entity_instance(
-        event_entity_params: EVENT_ENTITY_PARAMS,
-        session: DATABASE_SESSION,
-) -> AsyncGenerator[OmegaEntity, None]:
-    """获取事件对象的 InternalEntity 实例"""
-    async with OmegaEntity(session=session, **event_entity_params.kwargs) as entity:
-        yield entity
-
-
-type EVENT_INTERNAL_ENTITY = Annotated[OmegaEntity, Depends(_get_event_internal_entity_instance)]
-"""子依赖: 事件对象的 InternalEntity 实例"""
-
-
-async def _get_user_internal_entity_instance(
-        user_entity_params: USER_ENTITY_PARAMS,
-        session: DATABASE_SESSION,
-) -> AsyncGenerator[OmegaEntity, None]:
-    """获取事件对象的 InternalEntity 实例"""
-    async with OmegaEntity(session=session, **user_entity_params.kwargs) as entity:
-        yield entity
-
-
-type USER_INTERNAL_ENTITY = Annotated[OmegaEntity, Depends(_get_user_internal_entity_instance)]
-"""子依赖: 用户对象的 InternalEntity 实例"""
 
 
 async def _event_entity_interface_depend(entity: EVENT_INTERNAL_ENTITY) -> AsyncGenerator[OmEI, None]:
@@ -184,9 +138,7 @@ type OPTIONAL_EVENT_REPLY_MSG_PLAIN_TEXT = Annotated[str | None, Depends(_event_
 __all__ = [
     'EVENT_ENTITY_INTERFACE',
     'EVENT_ENTITY_NAME',
-    'EVENT_ENTITY_PARAMS',
     'EVENT_ENTITY_PROFILE_IMAGE_URL',
-    'EVENT_INTERNAL_ENTITY',
     'EVENT_MSG_MENTIONED_USER_IDS',
     'EVENT_MSG_IMAGE_URLS',
     'EVENT_MATCHER_INTERFACE',
@@ -196,8 +148,6 @@ __all__ = [
     'OPTIONAL_EVENT_REPLY_MSG_PLAIN_TEXT',
     'USER_ENTITY_INTERFACE',
     'USER_ENTITY_NAME',
-    'USER_ENTITY_PARAMS',
     'USER_ENTITY_PROFILE_IMAGE_URL',
-    'USER_INTERNAL_ENTITY',
     'USER_MATCHER_INTERFACE',
 ]
