@@ -33,6 +33,18 @@ from .subscription_source import PixivUserSubscriptionManager
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
 
+
+async def handle_set_artist_sub_id(
+        artist_data: OPTIONAL_REPLY_ARTIST_OR_ARTWORK_ARTIST,
+        state: T_State,
+) -> None:
+    """获取回复消息中用户 ID 并在上下文中设置为订阅 ID, 仅供 SubscriptionHandlerManager 使用"""
+    if (artist_data is None) or (artist_data.origin.lower() != 'pixiv'):
+        return
+
+    state['sub_id'] = artist_data.uid
+
+
 _pixiv_artist_subscription_manager = OmegaSubscriptionHandlerManager(
     subscription_manager=PixivUserSubscriptionManager,
     command_prefix='pixiv用户',
@@ -43,7 +55,10 @@ _pixiv_artist_subscription_manager = OmegaSubscriptionHandlerManager(
     },
 )
 
-_pixiv_artist_subscription = _pixiv_artist_subscription_manager.register_handlers(permission_level=30)
+_pixiv_artist_subscription = _pixiv_artist_subscription_manager.register_handlers(
+    extra_sub_handlers=[handle_set_artist_sub_id],
+    permission_level=30,
+)
 """注册 Pixiv 用户作品订阅流程 Handlers"""
 
 
