@@ -1,20 +1,14 @@
 """
 @Author         : Ailitonia
-@Date           : 2025/8/8 10:13:02
+@Date           : 2025/8/12 09:44:06
 @FileName       : depends.py
 @Project        : omega-miya
-@Description    : 通用子依赖
+@Description    : Omega 内置子依赖
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from typing import Any
-
-from nonebot.adapters import Message as BaseMessage
-from nonebot.params import Depends
-from nonebot.typing import T_State
-
-from src.service.omega_base.depends import (
+from .interface import (
     EVENT_ENTITY_INTERFACE,
     EVENT_ENTITY_NAME,
     EVENT_ENTITY_PARAMS,
@@ -33,30 +27,6 @@ from src.service.omega_base.depends import (
     USER_MATCHER_INTERFACE,
 )
 
-
-class StatePlainTextInner:
-    """State 中的纯文本值"""
-
-    def __init__(self, key: Any):
-        self.key = key
-
-    def __call__(self, state: T_State) -> str:
-        value = state.get(self.key, None)
-        if value is None:
-            raise KeyError(f'State has not key: {self.key}')
-        elif isinstance(value, str):
-            return value
-        elif isinstance(value, BaseMessage):
-            return value.extract_plain_text()
-        else:
-            return str(value)
-
-
-def state_plain_text(key: str) -> str:
-    """子依赖: 获取 State 中的纯文本值"""
-    return Depends(StatePlainTextInner(key=key), use_cache=True)
-
-
 __all__ = [
     'EVENT_ENTITY_INTERFACE',
     'EVENT_ENTITY_NAME',
@@ -74,5 +44,4 @@ __all__ = [
     'USER_ENTITY_PARAMS',
     'USER_ENTITY_PROFILE_IMAGE_URL',
     'USER_MATCHER_INTERFACE',
-    'state_plain_text',
 ]

@@ -1,9 +1,9 @@
 """
 @Author         : Ailitonia
-@Date           : 2025/8/10 22:18:10
-@FileName       : base.py
+@Date           : 2025/8/12 09:44:58
+@FileName       : interface.py
 @Project        : omega-miya
-@Description    : Omega 中间件基础子依赖
+@Description    : Omega 中间件接口子依赖
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -16,10 +16,10 @@ from nonebot.adapters import Event as BaseEvent
 from nonebot.params import Depends
 
 from src.database import DATABASE_SESSION
-from src.service import OmegaEntity
-from src.service import OmegaEntityInterface as OmEI
-from src.service import OmegaMatcherInterface as OmMI
-from src.service.omega_base.middlewares.models import EntityInitParams
+from ..internal import OmegaEntity
+from ..middlewares.interface import OmegaEntityInterface as OmEI
+from ..middlewares.interface import OmegaMatcherInterface as OmMI
+from ..middlewares.models import EntityInitParams
 
 type EVENT_MATCHER_INTERFACE = Annotated[OmMI, Depends(OmMI.depend(acquire_type='event'))]
 """子依赖: 事件对象的 OmegaMatcherInterface"""
