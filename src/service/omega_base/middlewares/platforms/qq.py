@@ -14,14 +14,14 @@ from urllib.parse import urlparse
 
 from nonebot.adapters.qq import Bot as QQBot
 from nonebot.adapters.qq import C2CMessageCreateEvent as QQC2CMessageCreateEvent
+from nonebot.adapters.qq import DirectMessageCreateEvent as QQDirectMessageCreateEvent
 from nonebot.adapters.qq import Event as QQEvent
 from nonebot.adapters.qq import GroupAtMessageCreateEvent as QQGroupAtMessageCreateEvent
-from nonebot.adapters.qq import (
-    GuildMessageEvent as QQGuildMessageEvent,  # DirectMessageCreateEvent 是 GuildMessageEvent 的子类, 直接共用相同逻辑
-)
+from nonebot.adapters.qq import GuildMessageEvent as QQGuildMessageEvent
 from nonebot.adapters.qq import Message as QQMessage
 from nonebot.adapters.qq import MessageSegment as QQMessageSegment
-from nonebot.adapters.qq.models import Message, MessageReference
+from nonebot.adapters.qq.models import Message as QQGuildMessage
+from nonebot.adapters.qq.models import MessageReference as QQMessageReference
 from nonebot.matcher import current_event
 
 from ..const import SupportedPlatform, SupportedTarget
@@ -152,7 +152,7 @@ class QQGuildEntityTarget(BaseEntityTarget):
 class QQChannelEntityTarget(BaseEntityTarget):
 
     def extract_sent_message_api_response(self, response: Any) -> 'SentMessageResponse':
-        if not isinstance(response, Message):
+        if not isinstance(response, QQGuildMessage):
             raise ValueError(f'Sent message({response!r}) can not be revoked')
 
         return SentMessageResponse.model_validate({
@@ -250,7 +250,7 @@ class QQUserEntityTarget(BaseEntityTarget):
 class QQGuildUserEntityTarget(BaseEntityTarget):
 
     def extract_sent_message_api_response(self, response: Any) -> 'SentMessageResponse':
-        if not isinstance(response, Message):
+        if not isinstance(response, QQGuildMessage):
             raise ValueError(f'Sent message({response!r}) can not be revoked')
 
         return SentMessageResponse.model_validate({
@@ -388,7 +388,7 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
-        send_message = QQMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + built_message
+        send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
@@ -442,6 +442,11 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
             return None
 
 
+@event_depend_register.register_depend(QQDirectMessageCreateEvent)
+class QQDirectMessageCreateEventDepend(QQGuildMessageEventDepend):
+    """DirectMessageCreateEvent 是 GuildMessageEvent 的子类, 直接共用相同逻辑"""
+
+
 @event_depend_register.register_depend(QQC2CMessageCreateEvent)
 class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
 
@@ -472,7 +477,7 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
-        send_message = QQMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + built_message
+        send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
@@ -544,7 +549,7 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
-        send_message = QQMessageSegment.reference(reference=MessageReference(message_id=self.event.id)) + built_message
+        send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:

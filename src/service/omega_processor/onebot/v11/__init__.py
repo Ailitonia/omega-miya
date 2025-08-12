@@ -8,17 +8,19 @@
 @Software       : PyCharm
 """
 
-from nonebot.adapters.onebot.v11 import Bot, Event, MessageEvent
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11 import Event as OneBotV11Event
+from nonebot.adapters.onebot.v11 import MessageEvent as OneBotV11MessageEvent
 from nonebot.message import event_preprocessor
 
 from .v11_replace_ntqq_image_url import handle_replace_image_url_event_preprocessor
 
 
 @event_preprocessor
-async def handle_onebot_v11_event_preprocessor(bot: Bot, event: Event):
+async def handle_onebot_v11_event_preprocessor(bot: OneBotV11Bot, event: OneBotV11Event):
     """事件预处理"""
     # 针对消息事件的处理
-    if isinstance(event, MessageEvent):
+    if isinstance(event, OneBotV11MessageEvent):
         # 处理消息段图片域名替换
         await handle_replace_image_url_event_preprocessor(event=event)
 

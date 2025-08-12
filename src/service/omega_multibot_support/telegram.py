@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from nonebot.adapters.telegram.bot import Bot
+from nonebot.adapters.telegram import Bot as TelegramBot
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from sqlalchemy.exc import NoResultFound
@@ -19,7 +19,7 @@ from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 @event_preprocessor
 async def __telegram_bot_connect(
-        bot: Bot,
+        bot: TelegramBot,
         event: BotConnectEvent,
         bot_dal: BOT_SELF_DAL,
 ) -> None:
@@ -42,7 +42,7 @@ async def __telegram_bot_connect(
 
 @event_preprocessor
 async def __telegram_bot_disconnect(
-        bot: Bot,
+        bot: TelegramBot,
         event: BotDisconnectEvent,
         bot_dal: BOT_SELF_DAL,
 ) -> None:

@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from nonebot.adapters.console.bot import Bot
+from nonebot.adapters.console import Bot as ConsoleBot
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from sqlalchemy.exc import NoResultFound
@@ -19,7 +19,7 @@ from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 @event_preprocessor
 async def __console_bot_connect(
-        bot: Bot,
+        bot: ConsoleBot,
         event: BotConnectEvent,
         bot_dal: BOT_SELF_DAL,
 ) -> None:
@@ -38,7 +38,7 @@ async def __console_bot_connect(
 
 @event_preprocessor
 async def __console_bot_disconnect(
-        bot: Bot,
+        bot: ConsoleBot,
         event: BotDisconnectEvent,
         bot_dal: BOT_SELF_DAL,
 ) -> None:

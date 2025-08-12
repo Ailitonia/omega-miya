@@ -11,29 +11,32 @@
 from typing import Literal, override
 
 from nonebot.adapters.onebot.utils import highlight_rich_message
-from nonebot.adapters.onebot.v11.adapter import Adapter
-from nonebot.adapters.onebot.v11.event import Anonymous, Event, MessageEvent
+from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
+from nonebot.adapters.onebot.v11 import Event as OneBotV11Event
+from nonebot.adapters.onebot.v11 import MessageEvent as OneBotV11MessageEvent
+from nonebot.adapters.onebot.v11.event import Anonymous as OneBotV11EventAnonymous
 from nonebot.log import logger
 
 
-def register_event[Event_T: type[Event]](event: Event_T) -> Event_T:
-    Adapter.add_custom_model(event)
+def register_event[Event_T: type[OneBotV11Event]](event: Event_T) -> Event_T:
+    OneBotV11Adapter.add_custom_model(event)
     logger.opt(colors=True).trace(
-        f'Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> '
+        f'Custom event <e>{event.__qualname__!r}</e> '
+        f'registered to adapter <e>{OneBotV11Adapter.get_name()!r}</e> '
         f'from module <g>{event.__module__!r}</g>'
     )
     return event
 
 
 @register_event
-class MessageSentEvent(MessageEvent):
+class MessageSentEvent(OneBotV11MessageEvent):
     """自身发送消息事件"""
 
     post_type: Literal['message_sent']
     message_seq: int | None = None
     target_id: int | None = None
     group_id: int | None = 0
-    anonymous: Anonymous | None = None
+    anonymous: OneBotV11EventAnonymous | None = None
     to_me: bool = False
 
     @override

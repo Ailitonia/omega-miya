@@ -8,18 +8,19 @@
 @Software       : PyCharm
 """
 
-from nonebot.adapters.telegram.bot import Bot
-from nonebot.adapters.telegram.event import Event, MessageEvent
+from nonebot.adapters.telegram import Bot as TelegramBot
+from nonebot.adapters.telegram.event import Event as TelegramEvent
+from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
 from nonebot.message import event_preprocessor
 
 from .image_parser import handle_parse_message_image_event_preprocessor
 
 
 @event_preprocessor
-async def handle_telegram_event_preprocessor(bot: Bot, event: Event):
+async def handle_telegram_event_preprocessor(bot: TelegramBot, event: TelegramEvent):
     """事件预处理"""
     # 针对消息事件的处理
-    if isinstance(event, MessageEvent):
+    if isinstance(event, TelegramMessageEvent):
         # 处理消息段图片解析
         await handle_parse_message_image_event_preprocessor(bot=bot, event=event)
 

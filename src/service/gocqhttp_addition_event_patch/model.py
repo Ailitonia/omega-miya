@@ -10,23 +10,25 @@
 
 from typing import Literal, override
 
-from nonebot.adapters.onebot.v11.adapter import Adapter
-from nonebot.adapters.onebot.v11.event import Event, NoticeEvent
+from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
+from nonebot.adapters.onebot.v11 import Event as OneBotV11Event
+from nonebot.adapters.onebot.v11 import NoticeEvent as OneBotV11NoticeEvent
 from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
 
-def register_event[Event_T: type[Event]](event: Event_T) -> Event_T:
-    Adapter.add_custom_model(event)
+def register_event[Event_T: type[OneBotV11Event]](event: Event_T) -> Event_T:
+    OneBotV11Adapter.add_custom_model(event)
     logger.opt(colors=True).trace(
-        f'Custom event <e>{event.__qualname__!r}</e> registered to adapter <e>{Adapter.get_name()!r}</e> '
+        f'Custom event <e>{event.__qualname__!r}</e> '
+        f'registered to adapter <e>{OneBotV11Adapter.get_name()!r}</e> '
         f'from module <g>{event.__module__!r}</g>'
     )
     return event
 
 
 @register_event
-class GroupCardNoticeEvent(NoticeEvent):
+class GroupCardNoticeEvent(OneBotV11NoticeEvent):
     """群成员名片更新提醒事件(此事件不保证时效性, 仅在收到消息时校验卡片)"""
 
     notice_type: Literal['group_card']
@@ -57,7 +59,7 @@ class OfflineFile(BaseModel):
 
 
 @register_event
-class OfflineFileNoticeEvent(NoticeEvent):
+class OfflineFileNoticeEvent(OneBotV11NoticeEvent):
     """接收到离线文件提醒事件"""
 
     notice_type: Literal['offline_file']
@@ -92,7 +94,7 @@ class Device(BaseModel):
 
 
 @register_event
-class ClientStatusNoticeEvent(NoticeEvent):
+class ClientStatusNoticeEvent(OneBotV11NoticeEvent):
     """其他客户端在线状态变更"""
 
     notice_type: Literal['client_status']
@@ -113,7 +115,7 @@ class ClientStatusNoticeEvent(NoticeEvent):
 
 
 @register_event
-class EssenceNoticeEvent(NoticeEvent):
+class EssenceNoticeEvent(OneBotV11NoticeEvent):
     """精华消息变更"""
 
     notice_type: Literal['essence']

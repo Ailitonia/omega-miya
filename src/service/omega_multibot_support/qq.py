@@ -10,7 +10,7 @@
 
 from typing import TYPE_CHECKING
 
-from nonebot.adapters.qq.bot import Bot
+from nonebot.adapters.qq import Bot as QQBot
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from sqlalchemy.exc import NoResultFound
@@ -19,12 +19,13 @@ from src.database import BOT_SELF_DAL, ENTITY_DAL
 from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 if TYPE_CHECKING:
-    from nonebot.adapters.qq.models import Channel, Guild
+    from nonebot.adapters.qq.models import Channel as QQChannel
+    from nonebot.adapters.qq.models import Guild as QQGuild
 
 
 @event_preprocessor
 async def __qq_bot_connect(
-        bot: Bot,
+        bot: QQBot,
         event: BotConnectEvent,
         bot_dal: BOT_SELF_DAL,
         entity_dal: ENTITY_DAL,
@@ -50,7 +51,7 @@ async def __qq_bot_connect(
     allowed_entity_type = entity_dal.entity_type
 
     # 更新频道相关信息
-    guilds: list[Guild] = await bot.guilds()
+    guilds: list['QQGuild'] = await bot.guilds()
     for guild in guilds:
         guild_query_data = {
             'bot_index_id': exist_bot.id,
@@ -73,7 +74,7 @@ async def __qq_bot_connect(
 
     # 更新子频道相关信息
     for guild in guilds:
-        channels: list[Channel] = await bot.get_channels(guild_id=guild.id)
+        channels: list['QQChannel'] = await bot.get_channels(guild_id=guild.id)
         for channel in channels:
             channel_query_data = {
                 'bot_index_id': exist_bot.id,
@@ -97,7 +98,7 @@ async def __qq_bot_connect(
 
 @event_preprocessor
 async def __qq_bot_disconnect(
-        bot: Bot,
+        bot: QQBot,
         event: BotDisconnectEvent,
         bot_dal: BOT_SELF_DAL,
 ) -> None:

@@ -12,18 +12,10 @@ import random
 import string
 from typing import Annotated
 
-from nonebot.adapters.onebot.v11 import (
-    Bot as OneBotV11Bot,
-)
-from nonebot.adapters.onebot.v11 import (
-    FriendRequestEvent as OneBotV11FriendRequestEvent,
-)
-from nonebot.adapters.onebot.v11 import (
-    GroupRequestEvent as OneBotV11GroupRequestEvent,
-)
-from nonebot.adapters.onebot.v11 import (
-    Message as OneBotV11Message,
-)
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11 import FriendRequestEvent as OneBotV11FriendRequestEvent
+from nonebot.adapters.onebot.v11 import GroupRequestEvent as OneBotV11GroupRequestEvent
+from nonebot.adapters.onebot.v11 import Message as OneBotV11Message
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.params import ArgStr, CommandArg

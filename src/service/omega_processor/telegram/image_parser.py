@@ -11,9 +11,11 @@
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
-from nonebot.adapters.telegram.bot import Bot
-from nonebot.adapters.telegram.event import MessageEvent
-from nonebot.adapters.telegram.message import File, Message, MessageSegment
+from nonebot.adapters.telegram import Bot as TelegramBot
+from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
+from nonebot.adapters.telegram.message import File as TelegramMessageFile
+from nonebot.adapters.telegram.message import Message as TelegramMessage
+from nonebot.adapters.telegram.message import MessageSegment as TelegramMessageSegment
 from pydantic import BaseModel, ConfigDict
 
 from src.resource import TemporaryResource
@@ -34,7 +36,7 @@ class OmegaProcessorTelegramImageParserConfig(BaseModel):
 _plugin_config = get_plugin_config(OmegaProcessorTelegramImageParserConfig)
 
 
-async def _parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
+async def _parse_photo_segment(bot: TelegramBot, seg: TelegramMessageSegment) -> TelegramMessageSegment:
     """解析 photo 消息段中图片的真实 url"""
     if seg.type != 'photo':
         return seg
@@ -47,19 +49,19 @@ async def _parse_photo_segment(bot: Bot, seg: MessageSegment) -> MessageSegment:
     # 该链接不能直接作为向 Telegram 平台发送图片的 url, 会返回错误: "wrong file identifier/HTTP URL specified"
 
     if not _plugin_config.telegram_processor_parse_photo_replace_as_local:
-        return File.photo(file=url, has_spoiler=seg.data.get('has_spoiler'))
+        return TelegramMessageFile.photo(file=url, has_spoiler=seg.data.get('has_spoiler'))
 
     img_target_file = _TMP_IMG_PATH(f'{file.file_unique_id}_{OmegaRequests.hash_url_file_name("photo", url=url)}')
     await OmegaRequests().download(url=url, file=img_target_file)
 
-    parsed_seg = File.photo(file=img_target_file.resolve_path, has_spoiler=seg.data.get('has_spoiler'))
+    parsed_seg = TelegramMessageFile.photo(file=img_target_file.resolve_path, has_spoiler=seg.data.get('has_spoiler'))
     parsed_seg.data.update({'origin_url': url})
 
     return parsed_seg
 
 
-async def _parse_message(bot: Bot, message: Message) -> Message:
-    output_message = Message()
+async def _parse_message(bot: TelegramBot, message: TelegramMessage) -> TelegramMessage:
+    output_message = TelegramMessage()
     for seg in message:
         if seg.type == 'photo':
             try:
@@ -74,7 +76,7 @@ async def _parse_message(bot: Bot, message: Message) -> Message:
     return output_message
 
 
-async def handle_parse_message_image_event_preprocessor(bot: Bot, event: MessageEvent):
+async def handle_parse_message_image_event_preprocessor(bot: TelegramBot, event: TelegramMessageEvent):
     """事件预处理, 将 photo 消息段中的图片 file_id 替换为真实图片 url"""
     event.message = await _parse_message(bot=bot, message=event.message.copy())
     if event.reply_to_message:

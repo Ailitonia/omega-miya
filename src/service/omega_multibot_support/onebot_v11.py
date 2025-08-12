@@ -8,8 +8,8 @@
 @Software       : PyCharm
 """
 
-from nonebot.adapters.onebot.v11.bot import Bot
-from nonebot.adapters.onebot.v11.event import Event
+from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11 import Event as OneBotV11Event
 from nonebot.exception import AdapterException, IgnoredException
 from nonebot.log import logger
 from nonebot.message import event_preprocessor, run_preprocessor
@@ -23,7 +23,7 @@ from src.service.omega_base.event import BotConnectEvent, BotDisconnectEvent
 
 
 @run_preprocessor
-async def __obv11_unique_bot_responding_rule_updater(bot: Bot, event: Event):
+async def __obv11_unique_bot_responding_rule_updater(bot: OneBotV11Bot, event: OneBotV11Event):
     # 对于多协议端同时接入, 需匹配event.self_id与bot.self_id, 以保证会话不会被跨bot, 跨群, 跨用户触发
     event_self_id = str(event.self_id)
     if bot.self_id != event_self_id:
@@ -179,7 +179,7 @@ class VersionInfo(BaseOneBotModel):
 
 @event_preprocessor
 async def __obv11_bot_connect(
-        bot: Bot,
+        bot: OneBotV11Bot,
         event: BotConnectEvent,
         bot_dal: BOT_SELF_DAL,
         entity_dal: ENTITY_DAL,
@@ -314,7 +314,7 @@ async def __obv11_bot_connect(
 
 @event_preprocessor
 async def __obv11_bot_disconnect(
-        bot: Bot,
+        bot: OneBotV11Bot,
         event: BotDisconnectEvent,
         bot_dal: BOT_SELF_DAL,
 ) -> None:

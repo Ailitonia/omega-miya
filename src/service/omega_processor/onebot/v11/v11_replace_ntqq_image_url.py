@@ -12,10 +12,12 @@ from collections.abc import Callable
 from typing import Literal
 
 from nonebot import get_plugin_config, logger
-from nonebot.adapters.onebot.v11 import Message, MessageEvent, MessageSegment
+from nonebot.adapters.onebot.v11 import Message as OneBotV11Message
+from nonebot.adapters.onebot.v11 import MessageEvent as OneBotV11MessageEvent
+from nonebot.adapters.onebot.v11 import MessageSegment as OneBotV11MessageSegment
 from pydantic import BaseModel, ConfigDict
 
-type SegReplacerType = Callable[[MessageSegment], MessageSegment]
+type SegReplacerType = Callable[[OneBotV11MessageSegment], OneBotV11MessageSegment]
 
 
 class OneBotV11ImageUrlReplacerConfig(BaseModel):
@@ -37,7 +39,7 @@ def _ger_image_url_replacer(replacer: str | None) -> SegReplacerType:
             old_ = ''
             new_ = ''
 
-    def _image_url_replacer(seg: MessageSegment) -> MessageSegment:
+    def _image_url_replacer(seg: OneBotV11MessageSegment) -> OneBotV11MessageSegment:
         """替换 image 消息段中图片的 url"""
         if seg.type != 'image':
             return seg
@@ -69,8 +71,8 @@ def _get_confined_replacer() -> SegReplacerType:
 _REPLACER: SegReplacerType = _get_confined_replacer()
 
 
-def _replace_message_image(message: Message) -> Message:
-    output_message = Message()
+def _replace_message_image(message: OneBotV11Message) -> OneBotV11Message:
+    output_message = OneBotV11Message()
     for seg in message:
         if seg.type == 'image':
             try:
@@ -85,7 +87,7 @@ def _replace_message_image(message: Message) -> Message:
     return output_message
 
 
-async def handle_replace_image_url_event_preprocessor(event: MessageEvent):
+async def handle_replace_image_url_event_preprocessor(event: OneBotV11MessageEvent):
     """事件预处理, 替换 image 消息段中的图片 url 域名"""
     event.message = _replace_message_image(message=event.message.copy())
     if event.reply is not None:

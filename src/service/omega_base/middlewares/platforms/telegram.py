@@ -21,7 +21,8 @@ from nonebot.adapters.telegram.event import ChannelPostEvent as TelegramChannelP
 from nonebot.adapters.telegram.event import GroupMessageEvent as TelegramGroupMessageEvent
 from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
 from nonebot.adapters.telegram.event import PrivateMessageEvent as TelegramPrivateMessageEvent
-from nonebot.adapters.telegram.message import Entity, File
+from nonebot.adapters.telegram.message import Entity as TelegramMessageEntity
+from nonebot.adapters.telegram.message import File as TelegramMessageFile
 
 from ..const import SupportedPlatform, SupportedTarget
 from ..models import EntityInitParams, EntityTargetRevokeParams, EntityTargetSendParams, SentMessageResponse
@@ -49,25 +50,26 @@ class TelegramMessageBuilder(BaseMessageBuilder[OmegaMessage, TelegramMessage]):
     def _construct_platform_segment(seg_type: str, seg_data: dict[str, Any]) -> TelegramMessageSegment:
         match seg_type:
             case MessageSegmentType.at:
-                return Entity.mention(text='@' + seg_data.get('user_id', ''))
+                return TelegramMessageEntity.mention(text='@' + seg_data.get('user_id', ''))
             case MessageSegmentType.emoji:
-                return Entity.custom_emoji(text=seg_data.get('name', ''), custom_emoji_id=seg_data.get('id', ''))
+                return TelegramMessageEntity.custom_emoji(text=seg_data.get('name', ''),
+                                                          custom_emoji_id=seg_data.get('id', ''))
             case MessageSegmentType.audio:
-                return File.audio(file=seg_data.get('url', ''))
+                return TelegramMessageFile.audio(file=seg_data.get('url', ''))
             case MessageSegmentType.voice:
-                return File.voice(file=seg_data.get('url', ''))
+                return TelegramMessageFile.voice(file=seg_data.get('url', ''))
             case MessageSegmentType.video:
-                return File.video(file=seg_data.get('url', ''))
+                return TelegramMessageFile.video(file=seg_data.get('url', ''))
             case MessageSegmentType.image:
-                return File.photo(file=seg_data.get('url', ''))
+                return TelegramMessageFile.photo(file=seg_data.get('url', ''))
             case MessageSegmentType.image_file:
-                return File.document(file=seg_data.get('file', ''))
+                return TelegramMessageFile.document(file=seg_data.get('file', ''))
             case MessageSegmentType.file:
-                return File.document(file=seg_data.get('file', ''))
+                return TelegramMessageFile.document(file=seg_data.get('file', ''))
             case MessageSegmentType.text:
-                return Entity.text(text=seg_data.get('text', ''))
+                return TelegramMessageEntity.text(text=seg_data.get('text', ''))
             case _:
-                return Entity.text(text='')
+                return TelegramMessageEntity.text(text='')
 
 
 @message_builder_register.register_extractor(SupportedPlatform.telegram)
@@ -170,7 +172,7 @@ class BaseTelegramEntityTarget(BaseEntityTarget):
 
     async def call_api_send_file(self, file_path: str, file_name: str) -> None:
         bot = cast(TelegramBot, await self.get_bot())
-        file_message = File.document(file=Path(file_path).as_posix())
+        file_message = TelegramMessageFile.document(file=Path(file_path).as_posix())
 
         await bot.send_to(chat_id=self.entity.entity_id, message=file_message)
 
@@ -348,8 +350,8 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = TelegramMessage()
-        send_message += Entity.mention(f'@{self.event.from_.username}')
-        send_message += Entity.text(' ')
+        send_message += TelegramMessageEntity.mention(f'@{self.event.from_.username}')
+        send_message += TelegramMessageEntity.text(' ')
         send_message += built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
@@ -374,8 +376,8 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = TelegramMessage()
-        send_message += Entity.mention(f'@{self.event.from_.username}')
-        send_message += Entity.text(' ')
+        send_message += TelegramMessageEntity.mention(f'@{self.event.from_.username}')
+        send_message += TelegramMessageEntity.text(' ')
         send_message += built_message
         return await self.bot.send(event=self.event, message=send_message, **kwargs)
 
