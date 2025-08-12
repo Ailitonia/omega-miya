@@ -26,8 +26,8 @@ from src.utils.image_utils import ImageTextProcessor
 from .config import sign_in_config
 
 if TYPE_CHECKING:
+    from src.params.depends import USER_MATCHER_INTERFACE
     from src.resource import StaticResource, TemporaryResource
-    from src.service import OmegaMatcherInterface
     from src.service.artwork_collection.typing import CollectedArtwork
 
 __FORTUNE_EVENT: list['FortuneEvent'] = []
@@ -190,7 +190,7 @@ async def get_signin_top_image() -> 'CollectedArtwork':
     raise RuntimeError('all attempts to fetch artwork resources have failed')
 
 
-async def get_profile_image(interface: 'OmegaMatcherInterface') -> 'TemporaryResource':
+async def get_profile_image(interface: 'USER_MATCHER_INTERFACE') -> 'TemporaryResource':
     """获取用户头像"""
     url = await interface.get_entity_interface().get_entity_profile_image_url()
     image_name = OmegaRequests.hash_url_file_name('signin-head-image', url=url)

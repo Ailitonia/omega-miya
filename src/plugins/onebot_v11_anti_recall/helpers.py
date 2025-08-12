@@ -9,26 +9,24 @@
 """
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from nonebot.adapters.onebot.v11 import (
-    Bot as OneBotV11Bot,
-)
-from nonebot.adapters.onebot.v11 import (
-    Event as OneBotV11Event,
-)
-from nonebot.adapters.onebot.v11 import (
-    Message as OneBotV11Message,
-)
+from nonebot.adapters.onebot.v11 import Message as OneBotV11Message
 
 from src.compat import parse_json_as, parse_obj_as
 from src.database import HistoryDAL, begin_db_session
-from src.service import OmegaMatcherInterface
+
+if TYPE_CHECKING:
+    from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+
+    from src.params.depends import EVENT_ENTITY_PARAMS, USER_ENTITY_PARAMS
+
 
 type MessageHistory = tuple[datetime, OneBotV11Message]
 """查询到的消息记录: 消息发送时间, 消息内容"""
 
 
-async def query_message_from_adapter(bot: OneBotV11Bot, message_id: int) -> MessageHistory:
+async def query_message_from_adapter(bot: 'OneBotV11Bot', message_id: int) -> MessageHistory:
     """从协议端查询用户消息"""
     message_result = await bot.get_msg(message_id=message_id)
     message = parse_obj_as(OneBotV11Message, message_result['message']).include('image', 'text')
@@ -36,16 +34,18 @@ async def query_message_from_adapter(bot: OneBotV11Bot, message_id: int) -> Mess
     return sent_time, message
 
 
-async def query_message_from_database(bot: OneBotV11Bot, event: OneBotV11Event, message_id: int) -> MessageHistory:
+async def query_message_from_database(
+        event_entity_params: 'EVENT_ENTITY_PARAMS',
+        user_entity_params: 'USER_ENTITY_PARAMS',
+        message_id: int,
+) -> MessageHistory:
     """从数据库查询用户消息"""
     async with begin_db_session() as session:
-        event_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='event')
-        user_entity = OmegaMatcherInterface.get_entity(bot, event, session, acquire_type='user')
         message_recording = await HistoryDAL(session=session).query_unique(
             message_id=message_id,
-            bot_self_id=bot.self_id,
-            event_entity_id=event_entity.entity_id,
-            user_entity_id=user_entity.entity_id,
+            bot_self_id=event_entity_params.bot_id,
+            event_entity_id=event_entity_params.entity_id,
+            user_entity_id=user_entity_params.entity_id,
         )
     message = parse_json_as(OneBotV11Message, message_recording.message_raw).include('image', 'text')
     sent_time = datetime.fromtimestamp(message_recording.received_time)

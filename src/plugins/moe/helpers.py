@@ -22,11 +22,11 @@ from .config import moe_plugin_config
 from .consts import ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN, ALLOW_R18_NODE, ALL_MOE_PLUGIN_ARTWORK_ORIGIN
 
 if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface
+    from src.params.depends import EVENT_MATCHER_INTERFACE
     from src.service.artwork_collection.typing import CollectedArtwork
 
 
-async def _has_allow_r18_node(interface: 'OmegaMatcherInterface') -> bool:
+async def _has_allow_r18_node(interface: 'EVENT_MATCHER_INTERFACE') -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     if interface.matcher.plugin is None:
         return False
@@ -41,7 +41,7 @@ async def _has_allow_r18_node(interface: 'OmegaMatcherInterface') -> bool:
     )
 
 
-async def has_allow_r18_node(interface: 'OmegaMatcherInterface') -> bool:
+async def has_allow_r18_node(interface: 'EVENT_MATCHER_INTERFACE') -> bool:
     """判断当前 entity 主体是否具有允许预览 r18 作品的权限"""
     try:
         allow_r18 = await _has_allow_r18_node(interface=interface)

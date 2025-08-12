@@ -23,7 +23,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import on_command, on_notice
 from nonebot.typing import T_State
 
-from src.params.depends import EVENT_MATCHER_INTERFACE
+from src.params.depends import EVENT_ENTITY_PARAMS, EVENT_MATCHER_INTERFACE, USER_ENTITY_PARAMS
 from src.params.rule import event_has_permission_node
 from src.service import enable_processor_state
 from .config import onebot_v11_anti_recall_config
@@ -99,7 +99,13 @@ async def handle_set_anti_recall(
     block=False,
     state=enable_processor_state(name='AntiRecall', enable_processor=False, echo_processor_result=False),
 ).handle()
-async def check_recall_notice(bot: OneBotV11Bot, event: OneBotV11GroupRecallNoticeEvent, matcher: Matcher):
+async def check_recall_notice(
+        bot: OneBotV11Bot,
+        event: OneBotV11GroupRecallNoticeEvent,
+        event_entity_params: EVENT_ENTITY_PARAMS,
+        user_entity_params: USER_ENTITY_PARAMS,
+        matcher: Matcher,
+) -> None:
     user_id = event.user_id
     # 不响应自己撤回或由自己撤回的消息
     if user_id == event.self_id or event.operator_id == event.self_id:
@@ -107,9 +113,16 @@ async def check_recall_notice(bot: OneBotV11Bot, event: OneBotV11GroupRecallNoti
 
     try:
         if onebot_v11_anti_recall_config.onebot_v11_anti_recall_plugin_enable_internal_database:
-            sent_time, message = await query_message_from_database(bot=bot, event=event, message_id=event.message_id)
+            sent_time, message = await query_message_from_database(
+                event_entity_params=event_entity_params,
+                user_entity_params=user_entity_params,
+                message_id=event.message_id,
+            )
         else:
-            sent_time, message = await query_message_from_adapter(bot=bot, message_id=event.message_id)
+            sent_time, message = await query_message_from_adapter(
+                bot=bot,
+                message_id=event.message_id,
+            )
     except Exception as e:
         logger.error(f'AntiRecall 查询历史消息失败, message_id: {event.message_id}, {e!r}')
         return
