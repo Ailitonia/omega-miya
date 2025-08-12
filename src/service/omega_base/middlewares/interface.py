@@ -26,11 +26,11 @@ from .const import SupportedPlatform, SupportedTarget
 from .exception import AdapterNotSupported, TargetNotSupported
 from .platform_interface import entity_target_register, event_depend_register, message_builder_register
 from .typing import BaseSentMessageType, EntityAcquireType
+from ..internal import OmegaEntity
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from ..internal import OmegaEntity
     from ..message import Message as OmegaMessage
     from .models import EntityInitParams, SentMessageResponse
     from .platform_interface.entity_target import BaseEntityTarget
@@ -159,7 +159,7 @@ class OmegaEntityInterface:
 class OmegaMatcherInterface:
     """Omega 基于事件 (Event) 的统一接口, 用于在 Event/Matcher 中调用平台 Bot 相关方法和进行流程交互"""
 
-    __slots__ = ('bot', 'event', 'matcher', 'entity',)
+    __slots__ = ('bot', 'event', 'matcher', 'db_session', 'entity',)
 
     def __init__(
             self,
@@ -172,7 +172,15 @@ class OmegaMatcherInterface:
         self.bot = bot
         self.event = event
         self.matcher = matcher
-        self.entity = self.get_entity(bot=bot, event=event, session=session, acquire_type=acquire_type)
+
+        # 初始化自持 OmegaEntity 对象
+        self.db_session = session
+        self.entity = OmegaEntity(
+            session=session,
+            **event_depend_register.get_depend(target_event=event)(bot=bot, event=event).extract_entity_params(
+                acquire_type=acquire_type
+            ).kwargs
+        )
 
     async def __aenter__(self) -> Self:
         """Enter the matcher interface context and starting new session."""
@@ -185,18 +193,6 @@ class OmegaMatcherInterface:
             exc_tb: TracebackType | None,
     ) -> bool | None:
         """Exit the matcher interface context waiting for session completion."""
-
-    @classmethod
-    def get_entity(
-            cls,
-            bot: BaseBot,
-            event: BaseEvent,
-            session: DATABASE_SESSION,
-            acquire_type: EntityAcquireType = 'event',
-    ) -> 'OmegaEntity':
-        """获取事件对应的 Entity 对象"""
-        event_depend = event_depend_register.get_depend(target_event=event)(bot=bot, event=event)
-        return event_depend.get_entity(session=session, acquire_type=acquire_type)
 
     @classmethod
     def depend(

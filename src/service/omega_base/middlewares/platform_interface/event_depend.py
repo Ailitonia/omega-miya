@@ -16,12 +16,8 @@ from typing import TYPE_CHECKING, Any
 from nonebot.adapters import Event as BaseEvent
 from nonebot.log import logger
 
-from ...internal import OmegaEntity
-
 if TYPE_CHECKING:
     from nonebot.adapters import Bot as BaseBot
-
-    from src.database import DATABASE_SESSION
 
     from ...message import Message as OmegaMessage
     from ..models import EntityInitParams, SentMessageResponse
@@ -58,14 +54,6 @@ class BaseEventDepend[Bot_T: 'BaseBot', Event_T: 'BaseEvent', Message_T: 'BaseMe
             case _:
                 raise ValueError(f'Not supported entity acquire_type: {acquire_type!r}')
         return entity_params
-
-    def get_entity(
-            self,
-            session: 'DATABASE_SESSION',
-            acquire_type: 'EntityAcquireType' = 'event',
-    ) -> OmegaEntity:
-        """获取事件对应 Entity"""
-        return OmegaEntity(session=session, **self.extract_entity_params(acquire_type=acquire_type).kwargs)
 
     """平台事件消息交互及流程处理方法适配"""
 
