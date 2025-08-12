@@ -10,6 +10,7 @@
 
 import abc
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel, ConfigDict
@@ -36,10 +37,17 @@ class BaseDataAccessLayerModel[TB: 'OmegaDeclarativeBase', TR: BaseDataQueryResu
             raise RuntimeError('Session is not active')
 
     @classmethod
-    async def dal_dependence(cls) -> AsyncGenerator[Self, None]:
-        """获取 DAL 生成器依赖 (Dependence for database async session)"""
+    @asynccontextmanager
+    async def begin_dal_session(cls) -> AsyncGenerator[Self, None]:
+        """初始化 DAL 并开始会话"""
         async with begin_db_session() as session:
             yield cls(session)
+
+    @classmethod
+    async def dal_dependence(cls) -> AsyncGenerator[Self, None]:
+        """获取 DAL 生成器依赖 (Dependence for database async session)"""
+        async with cls.begin_dal_session() as dal:
+            yield dal
 
     async def _add(self, obj: TB) -> None:
         """内部方法, 向数据库插入新行"""
