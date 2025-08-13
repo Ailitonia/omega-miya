@@ -24,9 +24,18 @@ what_to_eat = MatcherGroup(
 )
 
 
-@what_to_eat.on_command('今天吃啥', aliases={'吃啥'}).handle()
 async def handle_what_to_eat(interface: EVENT_MATCHER_INTERFACE) -> None:
-    if 4 <= datetime.now().hour < 10:
+    if '早' in (plain_message := interface.get_event_message().extract_plain_text()):
+        food_type = '早'
+    elif '午' in plain_message:
+        food_type = '午'
+    elif '晚' in plain_message:
+        food_type = '晚'
+    elif '夜' in plain_message:
+        food_type = '夜'
+    elif '今天' in plain_message:
+        food_type = None
+    elif 4 <= datetime.now().hour < 10:
         food_type = '早'
     elif 10 <= datetime.now().hour < 16:
         food_type = '午'
@@ -40,29 +49,10 @@ async def handle_what_to_eat(interface: EVENT_MATCHER_INTERFACE) -> None:
     await send_random_food_msg(interface=interface, food_type=food_type)
 
 
-@what_to_eat.on_regex(r'^.{0,2}吃(啥|什么).?$').handle()
-async def handle_what_to_eat_any(interface: EVENT_MATCHER_INTERFACE) -> None:
-    await send_random_food_msg(interface=interface)
-
-
-@what_to_eat.on_fullmatch(('今早吃啥', '早上吃啥', '早饭吃啥', '早餐吃啥')).handle()
-async def handle_what_to_eat_breakfast(interface: EVENT_MATCHER_INTERFACE) -> None:
-    await send_random_food_msg(interface=interface, food_type='早')
-
-
-@what_to_eat.on_fullmatch(('今天吃啥', '中午吃啥', '午饭吃啥', '午餐吃啥')).handle()
-async def handle_what_to_eat_lunch(interface: EVENT_MATCHER_INTERFACE) -> None:
-    await send_random_food_msg(interface=interface, food_type='午')
-
-
-@what_to_eat.on_fullmatch(('今晚吃啥', '晚上吃啥', '晚饭吃啥', '晚餐吃啥')).handle()
-async def handle_what_to_eat_dinner(interface: EVENT_MATCHER_INTERFACE) -> None:
-    await send_random_food_msg(interface=interface, food_type='晚')
-
-
-@what_to_eat.on_fullmatch(('夜宵吃啥', '宵夜吃啥')).handle()
-async def handle_what_to_eat_night(interface: EVENT_MATCHER_INTERFACE) -> None:
-    await send_random_food_msg(interface=interface, food_type='夜')
+what_to_eat.on_command('今天吃啥', aliases={'吃啥'}, handlers=[handle_what_to_eat])
+"""注册命令型事件响应器"""
+what_to_eat.on_regex(r'^.{0,2}吃(啥|什么).?$', handlers=[handle_what_to_eat])
+"""注册正则型事件响应器"""
 
 
 __all__ = []
