@@ -646,7 +646,7 @@ class OmegaRequests:
         :param file: 下载目标路径
         :param params: 请求参数
         :param chunk_size: 分块大小, 默认 16 KB
-        :param ignore_exist_file: 忽略已存在文件, 会同时忽略断点续传
+        :param ignore_exist_file: 忽略已存在文件
         :return: 下载目标路径
         """
         if ignore_exist_file and file.is_file:
@@ -655,18 +655,20 @@ class OmegaRequests:
             )
             return file
 
+        # 创建临时文件路径, 准备断点续传
         clear_restart = False
-        start_byte = file.file_size if file.is_file else 0
+        temp_file = file.with_name(name=f'{file.name}.DOWNLOADING_TMP')
+        start_byte = temp_file.file_size if temp_file.is_file else 0
         headers = dict(self.headers if self.headers is not None else {})
         if start_byte > 0:
             headers.update({'Range': f'bytes={start_byte}-'})
 
         logger.opt(colors=True).debug(
-            f'<lc>Omega Requests</lc> | Starting stream download <ly>{url}</ly> to {file}'
+            f'<lc>Omega Requests</lc> | Starting stream download <ly>{url}</ly> to temp {temp_file}'
         )
 
         # 追加写入模式打开文件, 分块写入
-        async with file.async_open(mode='ab') as af:
+        async with temp_file.async_open(mode='ab') as af:
             async for response in self.stream_get(
                     url=url, params=params, headers=headers, chunk_size=chunk_size, **kwargs
             ):
@@ -674,35 +676,37 @@ class OmegaRequests:
                     pass
                 elif start_byte > 0 and response.status_code != 206:
                     logger.opt(colors=True).warning(
-                        f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to {file} failed, '
+                        f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to temp {temp_file} failed, '
                         'the server does not support breakpoint resuming, and will re-download'
                     )
                     clear_restart = True
                     break
                 elif response.status_code != 200:
                     logger.opt(colors=True).error(
-                        f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to {file} '
+                        f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to temp {temp_file} '
                         f'failed with code <lr>{response.status_code!r}</lr>'
                     )
                     raise WebSourceException(
                         response.status_code,
-                        f'Download {url} to {file} failed with code {response.status_code!r}'
+                        f'Download {url} to temp {temp_file} failed with code {response.status_code!r}'
                     )
 
                 await af.write(self.parse_content_as_bytes(response=response))
 
         # 如果需要重新下载, 清空文件并重新请求
         if clear_restart:
-            async with file.async_open(mode='wb') as _:
-                pass
+            file.remove(missing_ok=True)
+            temp_file.remove(missing_ok=True)
             return await self.stream_download(
-                url, file, params=params, chunk_size=chunk_size, ignore_exist_file=ignore_exist_file, **kwargs
+                url, file, params=params, chunk_size=chunk_size, ignore_exist_file=False, **kwargs
             )
 
+        # 替换临时文件
+        final_file = temp_file.replace(target=file.path)
         logger.opt(colors=True).success(
-            f'<lc>Omega Requests</lc> | Download <ly>{url}</ly> to {file} completed'
+            f'<lc>Omega Requests</lc> | Download <ly>{url}</ly> to {final_file} completed'
         )
-        return file
+        return final_file
 
 
 __all__ = [
