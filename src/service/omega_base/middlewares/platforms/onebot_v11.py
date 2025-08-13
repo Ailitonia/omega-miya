@@ -331,6 +331,9 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
     def get_user_nickname(self) -> str:
         raise NotImplementedError
 
+    def get_message(self) -> 'OmegaMessage':
+        raise NotImplementedError
+
     def get_msg_mentioned_user_ids(self) -> list[str]:
         raise NotImplementedError
 
@@ -409,6 +412,9 @@ class OneBotV11MessageEventDepend[Event_T: OneBotV11MessageEvent](OneBotV11Event
     def get_user_nickname(self) -> str:
         nickname = self.event.sender.card if self.event.sender.card else self.event.sender.nickname
         return nickname if nickname is not None else ''
+
+    def get_message(self) -> 'OmegaMessage':
+        return self.extract_platform_message(self.event.get_message())
 
     def get_msg_mentioned_user_ids(self) -> list[str]:
         return [str(msg_seg.data.get('qq')) for msg_seg in self.event.message if msg_seg.type == 'at']

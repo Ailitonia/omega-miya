@@ -140,6 +140,9 @@ class ConsoleEventDepend[Event_T: ConsoleEvent](BaseEventDepend[ConsoleBot, Even
     def get_user_nickname(self) -> str:
         raise NotImplementedError
 
+    def get_message(self) -> 'OmegaMessage':
+        raise NotImplementedError
+
     def get_msg_mentioned_user_ids(self) -> list[str]:
         raise NotImplementedError
 
@@ -177,6 +180,9 @@ class ConsoleMessageEventDepend(ConsoleEventDepend[ConsoleMessageEvent]):
 
     def get_user_nickname(self) -> str:
         return self.event.get_user_id()
+
+    def get_message(self) -> 'OmegaMessage':
+        return self.extract_platform_message(self.event.get_message())
 
     def get_msg_mentioned_user_ids(self) -> list[str]:
         return []

@@ -51,7 +51,7 @@ async def __qq_bot_connect(
     allowed_entity_type = entity_dal.entity_type
 
     # 更新频道相关信息
-    guilds: list['QQGuild'] = await bot.guilds()
+    guilds: list[QQGuild] = await bot.guilds()
     for guild in guilds:
         guild_query_data = {
             'bot_index_id': exist_bot.id,
@@ -74,7 +74,7 @@ async def __qq_bot_connect(
 
     # 更新子频道相关信息
     for guild in guilds:
-        channels: list['QQChannel'] = await bot.get_channels(guild_id=guild.id)
+        channels: list[QQChannel] = await bot.get_channels(guild_id=guild.id)
         for channel in channels:
             channel_query_data = {
                 'bot_index_id': exist_bot.id,

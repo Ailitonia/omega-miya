@@ -339,6 +339,9 @@ class QQEventDepend[Event_T: QQEvent](BaseEventDepend[QQBot, Event_T, QQMessage]
     def get_user_nickname(self) -> str:
         raise NotImplementedError
 
+    def get_message(self) -> 'OmegaMessage':
+        raise NotImplementedError
+
     def get_msg_mentioned_user_ids(self) -> list[str]:
         raise NotImplementedError
 
@@ -405,6 +408,9 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
 
     def get_user_nickname(self) -> str:
         return self.event.author.username if self.event.author.username else ''
+
+    def get_message(self) -> 'OmegaMessage':
+        return self.extract_platform_message(self.event.get_message())
 
     def get_msg_mentioned_user_ids(self) -> list[str]:
         return [
@@ -495,6 +501,9 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
     def get_user_nickname(self) -> str:
         raise NotImplementedError  # QQ 协议只有 openid, 不支持获取用户信息
 
+    def get_message(self) -> 'OmegaMessage':
+        return self.extract_platform_message(self.event.get_message())
+
     def get_msg_mentioned_user_ids(self) -> list[str]:
         return [
             str(msg_seg.data.get('user_id'))
@@ -566,6 +575,9 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
 
     def get_user_nickname(self) -> str:
         raise NotImplementedError  # QQ 协议只有 openid, 不支持获取用户信息
+
+    def get_message(self) -> 'OmegaMessage':
+        return self.extract_platform_message(self.event.get_message())
 
     def get_msg_mentioned_user_ids(self) -> list[str]:
         return [

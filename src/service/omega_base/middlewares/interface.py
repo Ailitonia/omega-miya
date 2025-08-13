@@ -296,6 +296,11 @@ class OmegaMatcherInterface:
         return self.get_event_depend().get_user_nickname()
 
     @check_event_implemented
+    def get_event_message(self) -> 'OmegaMessage':
+        """获取当前事件消息"""
+        return self.get_event_depend().get_message()
+
+    @check_event_implemented
     def get_event_msg_mentioned_user_ids(self) -> list[str]:
         """获取当前事件消息中被 @ 所有用户对象 ID 列表"""
         return self.get_event_depend().get_msg_mentioned_user_ids()

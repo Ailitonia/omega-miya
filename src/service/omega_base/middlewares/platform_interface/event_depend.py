@@ -119,6 +119,11 @@ class BaseEventDepend[Bot_T: 'BaseBot', Event_T: 'BaseEvent', Message_T: 'BaseMe
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_message(self) -> 'OmegaMessage':
+        """获取当前事件消息"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_msg_mentioned_user_ids(self) -> list[str]:
         """获取当前事件消息中被 @ 所有用户对象 ID 列表"""
         raise NotImplementedError

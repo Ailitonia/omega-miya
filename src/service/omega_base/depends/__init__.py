@@ -33,7 +33,6 @@ from .internal import (
     get_entity_session,
 )
 
-
 __all__ = [
     'EVENT_ENTITY_INTERFACE',
     'EVENT_ENTITY_NAME',
