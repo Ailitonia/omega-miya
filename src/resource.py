@@ -119,12 +119,6 @@ class BaseResource(abc.ABC):
         return self.resolve_path
 
     @classmethod
-    def init_from_path(cls, path: Path) -> Self:
-        new_obj = cls()
-        new_obj.path = path.absolute()
-        return new_obj
-
-    @classmethod
     def register_host_protocol(
             cls,
             protocol: type[BaseResourceHostProtocol],
@@ -135,6 +129,42 @@ class BaseResource(abc.ABC):
         if not issubclass(protocol, BaseResourceHostProtocol):
             raise TypeError(f'protocol must be a subclass of BaseResourceHostProtocol, not {protocol!r}')
         cls._host_protocol = protocol
+
+    @classmethod
+    def init_from_path(cls, path: Path) -> Self:
+        new_obj = cls(str(Path.cwd()))
+        new_obj.path = path.absolute()
+        return new_obj
+
+    def with_name(self, name: str) -> Self:
+        """返回一个新的路径并修改 name, 如果原本路径没有 name, ValueError 被抛出
+
+        Path('c:/Downloads/pathlib.tar.gz').with_name('setup.py') -> Path('c:/Downloads/setup.py')
+        """
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.with_name(name)
+        return new_obj
+
+    def with_stem(self, stem: str) -> Self:
+        """返回一个带有修改后 stem 的新路径, 如果原路径没有名称, 则会引发 ValueError
+
+        Path('c:/Downloads/draft.txt').with_stem('final') -> Path('c:/Downloads/final.txt')
+        Path('c:/Downloads/pathlib.tar.gz').with_stem('lib') -> Path('c:/Downloads/lib.gz')
+        """
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.with_stem(stem)
+        return new_obj
+
+    def with_suffix(self, suffix: str) -> Self:
+        """返回一个新的路径并修改 suffix, 如果原本的路径没有后缀, 新的 suffix 则被追加以代替, 如果 suffix 是空字符串, 则原本的后缀被移除
+
+        Path('c:/Downloads/pathlib.tar.gz').with_suffix('.bz2') -> Path('c:/Downloads/pathlib.tar.bz2')
+        Path('README').with_suffix('.txt') -> Path('README.txt')
+        Path('README.txt').with_suffix('') -> Path('README')
+        """
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.with_suffix(suffix)
+        return new_obj
 
     @property
     def name(self) -> str:
@@ -233,7 +263,7 @@ class BaseResource(abc.ABC):
 
     @property
     def resolve_path(self) -> str:
-        """将路径绝对化，解析任何符号链接"""
+        """将路径绝对化, 解析任何符号链接"""
         return self.path.resolve().as_posix()
 
     @property
@@ -333,6 +363,27 @@ class BaseResource(abc.ABC):
             file = self.init_from_path(file_path)
             if file.is_file:
                 yield file
+
+    @check_file
+    def rename(self, target: str | Path) -> Self:
+        """将此文件或目录重命名为给定的 target, 并返回一个新的指向 target 的实例
+
+        目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录
+        """
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.rename(target)
+        return new_obj
+
+    @check_file
+    def replace(self, target: str | Path) -> Self:
+        """将此文件或目录重命名为给定的 target, 并返回一个新的指向 target 的 Path 实例
+
+        如果 target 指向一个现有文件或空目录, 则它将被无条件地替换
+        目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录
+        """
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.replace(target)
+        return new_obj
 
     @check_file
     def remove(self, *, missing_ok=True) -> None:
