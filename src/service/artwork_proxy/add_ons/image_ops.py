@@ -10,7 +10,7 @@
 
 import abc
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Self
 
 from nonebot.utils import run_sync
 
@@ -176,7 +176,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def _get_artworks_preview_data(
             cls,
             preview_name: str,
-            artworks: Sequence['ImageOpsMixin'],
+            artworks: Sequence[Self],
             *,
             page_type: 'ArtworkPageParamType' = 'preview',
             no_blur_rating: int = 1,
@@ -233,7 +233,7 @@ class ImageOpsMixin(ArtworkProxyAddonsMixin, abc.ABC):
     async def generate_artworks_preview(
             cls,
             preview_name: str,
-            artworks: Sequence['ImageOpsMixin'],
+            artworks: Sequence[Self],
             *,
             page_type: 'ArtworkPageParamType' = 'preview',
             no_blur_rating: int = 1,
