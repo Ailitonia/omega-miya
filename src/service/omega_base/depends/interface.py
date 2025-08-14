@@ -9,15 +9,20 @@
 """
 
 from collections.abc import AsyncGenerator
-from typing import Annotated
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Annotated
 
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.params import Depends
 
-from .internal import EVENT_INTERNAL_ENTITY, USER_INTERNAL_ENTITY
+from .internal import EVENT_INTERNAL_ENTITY, USER_INTERNAL_ENTITY, get_entity_session, get_entity_session_from_index
 from ..middlewares.interface import OmegaEntityInterface as OmEI
 from ..middlewares.interface import OmegaMatcherInterface as OmMI
+
+if TYPE_CHECKING:
+    from ...omega_base.middlewares.typing import EntityAcquireType
+
 
 type EVENT_MATCHER_INTERFACE = Annotated[OmMI, Depends(OmMI.depend(acquire_type='event'))]
 """子依赖: 事件对象的 OmegaMatcherInterface"""
@@ -44,6 +49,27 @@ async def _user_entity_interface_depend(entity: USER_INTERNAL_ENTITY) -> AsyncGe
 
 type USER_ENTITY_INTERFACE = Annotated[OmEI, Depends(_user_entity_interface_depend)]
 """子依赖: 用户对象的 OmegaEntityInterface"""
+
+
+@asynccontextmanager
+async def get_entity_interface(
+        bot: BaseBot,
+        event: BaseEvent,
+        *,
+        acquire_type: 'EntityAcquireType' = 'event',
+) -> AsyncGenerator[OmEI, None]:
+    """获取 OmegaEntityInterface 实例并开始会话"""
+    async with get_entity_session(bot=bot, event=event, acquire_type=acquire_type) as entity:
+        async with OmEI(entity=entity) as interface:
+            yield interface
+
+
+@asynccontextmanager
+async def get_entity_interface_from_index(index_id: int) -> AsyncGenerator[OmEI, None]:
+    """根据 Entity 数据库索引 ID 获取 OmegaEntityInterface 实例并开始会话"""
+    async with get_entity_session_from_index(index_id=index_id) as entity:
+        async with OmEI(entity=entity) as interface:
+            yield interface
 
 
 async def _get_event_entity_name(entity_interface: EVENT_ENTITY_INTERFACE) -> str:
@@ -150,4 +176,6 @@ __all__ = [
     'USER_ENTITY_NAME',
     'USER_ENTITY_PROFILE_IMAGE_URL',
     'USER_MATCHER_INTERFACE',
+    'get_entity_interface',
+    'get_entity_interface_from_index',
 ]

@@ -23,6 +23,8 @@ from .interface import (
     USER_ENTITY_NAME,
     USER_ENTITY_PROFILE_IMAGE_URL,
     USER_MATCHER_INTERFACE,
+    get_entity_interface,
+    get_entity_interface_from_index,
 )
 from .internal import (
     EVENT_ENTITY_PARAMS,
@@ -31,6 +33,7 @@ from .internal import (
     USER_INTERNAL_ENTITY,
     extract_entity_params,
     get_entity_session,
+    get_entity_session_from_index,
 )
 
 __all__ = [
@@ -53,5 +56,8 @@ __all__ = [
     'USER_INTERNAL_ENTITY',
     'USER_MATCHER_INTERFACE',
     'extract_entity_params',
-    'get_entity_session'
+    'get_entity_interface',
+    'get_entity_interface_from_index',
+    'get_entity_session',
+    'get_entity_session_from_index',
 ]

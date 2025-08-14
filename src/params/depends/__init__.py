@@ -20,9 +20,9 @@ from src.service.omega_base.depends import (
     EVENT_ENTITY_PARAMS,
     EVENT_ENTITY_PROFILE_IMAGE_URL,
     EVENT_INTERNAL_ENTITY,
-    EVENT_MATCHER_INTERFACE,
-    EVENT_MSG_IMAGE_URLS,
     EVENT_MSG_MENTIONED_USER_IDS,
+    EVENT_MSG_IMAGE_URLS,
+    EVENT_MATCHER_INTERFACE,
     EVENT_REPLY_MSG_IMAGE_URLS,
     EVENT_USER_NICKNAME,
     OPTIONAL_EVENT_REPLY_MESSAGE_ID,
@@ -33,6 +33,11 @@ from src.service.omega_base.depends import (
     USER_ENTITY_PROFILE_IMAGE_URL,
     USER_INTERNAL_ENTITY,
     USER_MATCHER_INTERFACE,
+    extract_entity_params,
+    get_entity_interface,
+    get_entity_interface_from_index,
+    get_entity_session,
+    get_entity_session_from_index,
 )
 
 
@@ -78,5 +83,10 @@ __all__ = [
     'USER_ENTITY_PROFILE_IMAGE_URL',
     'USER_INTERNAL_ENTITY',
     'USER_MATCHER_INTERFACE',
+    'extract_entity_params',
+    'get_entity_interface',
+    'get_entity_interface_from_index',
+    'get_entity_session',
+    'get_entity_session_from_index',
     'state_plain_text',
 ]

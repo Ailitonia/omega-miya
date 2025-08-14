@@ -88,6 +88,14 @@ async def get_entity_session(
             yield entity
 
 
+@asynccontextmanager
+async def get_entity_session_from_index(index_id: int) -> AsyncGenerator[OmegaEntity, None]:
+    """根据 Entity 数据库索引 ID 获取 InternalEntity 实例并开始会话"""
+    async with begin_db_session() as session:
+        async with OmegaEntity.init_from_entity_index_id(session=session, index_id=index_id) as entity:
+            yield entity
+
+
 __all__ = [
     'EVENT_ENTITY_PARAMS',
     'EVENT_INTERNAL_ENTITY',
@@ -95,4 +103,5 @@ __all__ = [
     'USER_INTERNAL_ENTITY',
     'extract_entity_params',
     'get_entity_session',
+    'get_entity_session_from_index',
 ]
