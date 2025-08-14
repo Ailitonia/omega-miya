@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from types import TracebackType
 from typing import TYPE_CHECKING, Literal, Self
@@ -82,16 +83,18 @@ class InternalEntity:
         return f'{self.entity_type}_{self.entity_id}'
 
     @classmethod
-    async def init_from_entity_index_id(cls, session: 'AsyncSession', index_id: int) -> Self:
+    @asynccontextmanager
+    async def init_from_entity_index_id(cls, session: 'AsyncSession', index_id: int) -> AsyncGenerator[Self, None]:
         entity = await EntityDAL(session=session).query_by_index_id(index_id=index_id)
         bot = await BotSelfDAL(session=session).query_by_index_id(index_id=entity.bot_index_id)
-        return cls(
+        async with cls(
             session=session,
             bot_id=bot.self_id,
             entity_type=entity.entity_type,
             entity_id=entity.entity_id,
             parent_id=entity.parent_id
-        )
+        ) as entity:
+            yield entity
 
     @classmethod
     async def query_all_entity_by_type(cls, session: 'AsyncSession', entity_type: str) -> list[Entity]:

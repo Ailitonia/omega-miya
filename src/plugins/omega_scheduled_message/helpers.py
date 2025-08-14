@@ -16,8 +16,8 @@ from nonebot.log import logger
 
 from src.compat import parse_json_as
 from src.database import AuthSettingDAL, begin_db_session
-from src.service import OmegaEntity, OmegaMessage, scheduler
-from src.service import OmegaEntityInterface as OmEI
+from src.params.depends import get_entity_interface_from_index
+from src.service import OmegaMessage, scheduler
 from .model import SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME, SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME, ScheduleMessageJob
 
 if TYPE_CHECKING:
@@ -31,9 +31,8 @@ def add_schedule_job(job_data: ScheduleMessageJob) -> None:
     async def _handle_send_message():
         """执行发送消息的内部函数"""
         try:
-            async with begin_db_session() as session:
-                entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=job_data.entity_index_id)
-                await OmEI(entity=entity).send_entity_message(message=send_message)
+            async with get_entity_interface_from_index(index_id=job_data.entity_index_id) as interface:
+                await interface.send_entity_message(message=send_message)
         except Exception as e:
             logger.error(f'ScheduleMessageJob | Sending schedule message job({job_data.job_name}) failed, {e!r}')
 

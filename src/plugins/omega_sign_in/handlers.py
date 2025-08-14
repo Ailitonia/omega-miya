@@ -16,16 +16,17 @@ from nonebot.log import logger
 from nonebot.params import ArgStr
 from nonebot.typing import T_State
 
-from src.params.depends import USER_MATCHER_INTERFACE
+from src.params.depends import USER_MATCHER_INTERFACE, USER_ENTITY_PROFILE_IMAGE_URL
 from src.service import OmegaMessageSegment
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from .config import sign_in_config
 from .exception import DuplicateException, FailedException
-from .helpers import generate_signin_card, get_hitokoto, get_profile_image, get_signin_top_image
+from .helpers import download_profile_image, generate_signin_card, get_hitokoto, get_signin_top_image
 
 
 async def handle_generate_sign_in_card(
         interface: USER_MATCHER_INTERFACE,
+        profile_img_url: USER_ENTITY_PROFILE_IMAGE_URL,
         state: T_State,
 ) -> None:
     """处理用户签到, 生成签到卡片"""
@@ -90,6 +91,7 @@ async def handle_generate_sign_in_card(
                     f'当前{sign_in_config.signin_plugin_friendship_alias}: {int(friendship_now)}\n' \
                     f'当前{sign_in_config.signin_plugin_currency_alias}: {int(currency_now)}'
 
+        # 提交数据更新
         await interface.entity.commit_session()
 
         try:
@@ -111,7 +113,7 @@ async def handle_generate_sign_in_card(
         # 已签到, 设置一个状态指示生成卡片中添加文字
         state.update({'_checked_sign_in_text': '今天你已经签到过了哦~'})
         logger.info(f'SignIn | User({interface.entity.tid}) 重复签到, 生成运势卡片')
-        await handle_generate_fortune_card(interface=interface, state=state)
+        await handle_generate_fortune_card(interface=interface, profile_img_url=profile_img_url, state=state)
     except FailedException as e:
         logger.error(f'SignIn | User({interface.entity.tid}) 签到失败, {e}')
         await interface.send_reply('签到失败了, 请稍后再试或联系管理员处理')
@@ -122,6 +124,7 @@ async def handle_generate_sign_in_card(
 
 async def handle_generate_fortune_card(
         interface: USER_MATCHER_INTERFACE,
+        profile_img_url: USER_ENTITY_PROFILE_IMAGE_URL,
         state: T_State,
 ) -> None:
     """处理用户重复签到及今日运势, 生成运势卡片"""
@@ -151,8 +154,11 @@ async def handle_generate_fortune_card(
                     f'当前{sign_in_config.signin_plugin_friendship_alias}: {int(friendship.friendship)}\n' \
                     f'当前{sign_in_config.signin_plugin_currency_alias}: {int(friendship.currency)}'
 
+        # 提交数据更新
+        await interface.entity.commit_session()
+
         try:
-            head_img = await get_profile_image(interface=interface)
+            head_img = await download_profile_image(image_url=profile_img_url)
         except Exception as e:
             logger.warning(f'获取用户头像失败, 忽略头像框绘制, {e}')
             head_img = None
@@ -182,6 +188,7 @@ async def handle_generate_fortune_card(
 async def handle_fix_sign_in(
         interface: USER_MATCHER_INTERFACE,
         ensure: Annotated[str | None, ArgStr('sign_in_ensure')],
+        profile_img_url: USER_ENTITY_PROFILE_IMAGE_URL,
         state: T_State,
 ) -> None:
     """处理用户补签, 生成补签卡片"""
@@ -206,9 +213,8 @@ async def handle_fix_sign_in(
             # 设置一个状态指示生成卡片中添加文字
             state.update({'_checked_sign_in_text': f'已消耗{fix_cost_}{sign_in_config.signin_plugin_currency_alias}~\n'
                                                    f'成功补签了{fix_date_text_}的签到!'})
+            await handle_generate_fortune_card(interface=interface, profile_img_url=profile_img_url, state=state)
             logger.success(f'SignIn | User({interface.entity.tid}) 补签{fix_date_text_}成功')
-            await handle_generate_fortune_card(interface=interface, state=state)
-            await interface.entity.commit_session()
             return
         except Exception as e:
             logger.error(f'SignIn | User({interface.entity.tid}) 补签失败, 执行补签时发生了预期外的错误, {e}')

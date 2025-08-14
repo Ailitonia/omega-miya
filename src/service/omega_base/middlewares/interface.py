@@ -252,10 +252,6 @@ class OmegaMatcherInterface:
 
         return _wrapper
 
-    def get_entity_interface(self) -> OmegaEntityInterface:
-        """获取事件 Entity 的 OmegaEntityInterface 实例"""
-        return OmegaEntityInterface(entity=self.entity)
-
     @staticmethod
     def get_event_depend_type(target_event: 'BaseEvent') -> type['EventDepend']:
         """获取事件对应的中间件平台事件对象解析器类"""

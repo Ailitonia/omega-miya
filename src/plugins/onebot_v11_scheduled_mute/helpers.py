@@ -16,8 +16,8 @@ from nonebot.log import logger
 
 from src.compat import parse_json_as
 from src.database import AuthSettingDAL, begin_db_session
-from src.service import OmegaEntity, scheduler
-from src.service import OmegaEntityInterface as OmEI
+from src.params.depends import get_entity_interface_from_index
+from src.service import scheduler
 from .model import SCHEDULE_MUTE_CUSTOM_MODULE_NAME, SCHEDULE_MUTE_CUSTOM_PLUGIN_NAME, ScheduleMuteJob
 
 if TYPE_CHECKING:
@@ -32,10 +32,9 @@ def add_schedule_job(job_data: ScheduleMuteJob) -> None:
     async def _handle_group_mute():
         """执行群禁言的内部函数"""
         try:
-            async with begin_db_session() as session:
-                entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=job_data.entity_index_id)
-                bot: OneBotV11Bot = await OmEI(entity=entity).get_bot()  # type: ignore
-                await bot.set_group_whole_ban(group_id=int(entity.entity_id), enable=job_data.enable_mute)
+            async with get_entity_interface_from_index(index_id=job_data.entity_index_id) as interface:
+                bot: OneBotV11Bot = await interface.get_bot()  # type: ignore
+                await bot.set_group_whole_ban(group_id=int(interface.entity.entity_id), enable=job_data.enable_mute)
         except Exception as e:
             logger.error(f'ScheduleMuteJob | Handling group mute job({job_data.job_name}) failed, {e!r}')
 

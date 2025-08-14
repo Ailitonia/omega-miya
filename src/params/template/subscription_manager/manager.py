@@ -17,8 +17,8 @@ from nonebot.log import logger
 from sqlalchemy.exc import NoResultFound
 
 from src.database import EntityDAL, SocialMediaContentDAL, SubscriptionSourceDAL, begin_db_session
-from src.service import OmegaEntity, OmegaMessage, OmegaMessageSegment
-from src.service import OmegaEntityInterface as OmEI
+from src.params.depends import get_entity_interface_from_index
+from src.service import OmegaMessage, OmegaMessageSegment
 from src.utils import semaphore_gather
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from src.database.internal.social_media_content import SocialMediaContent
     from src.database.internal.subscription_source import SubscriptionSource
     from src.params.depends import EVENT_MATCHER_INTERFACE
+    from src.service.omega_base import OmegaEntity
     from src.service.omega_base.middlewares.models import SentMessageResponse
 
 
@@ -289,16 +290,13 @@ class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
     async def _send_entity_message(self, entity: 'Entity', message: str | OmegaMessage, smc_item: 'SMC_T') -> None:
         """向 Entity 发送消息"""
         try:
-            async with begin_db_session() as session:
-                # 根据获取到的 Entity 信息实例化对象接口
-                internal_entity = await OmegaEntity.init_from_entity_index_id(session=session, index_id=entity.id)
-
+            async with get_entity_interface_from_index(index_id=entity.id) as interface:
                 # 预处理@全息消息
-                if await self._check_entity_has_notice_at_all_node(entity=internal_entity):
+                if await self._check_entity_has_notice_at_all_node(entity=interface.entity):
                     message = OmegaMessageSegment.at_all() + message
 
                 # 向对应 Entity 发送消息
-                response = await OmEI(entity=internal_entity).send_entity_message(message=message)
+                response = await interface.send_entity_message(message=message)
 
                 # 执行消息发送后处理
                 await self._entity_message_send_postprocessor(response=response, smc_item=smc_item)
