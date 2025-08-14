@@ -9,6 +9,7 @@
 """
 
 from collections.abc import Sequence
+from random import sample
 from typing import TYPE_CHECKING, Annotated
 
 from nonebot.log import logger
@@ -34,6 +35,8 @@ class ArtworkHandlerQueryArguments(BaseModel):
     """命令的参数解析结果"""
     random: bool
     search: bool
+    view: bool
+    num: int
     page: int
     keywords: list[str]
 
@@ -68,7 +71,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         try:
             allow_r18 = await cls._allow_r18_node_checker(interface=interface)
         except Exception as e:
-            logger.warning(f'Checking {interface.entity} r18 node failed, {e!r}')
+            logger.warning(f'OmegaAnyArtwork | Checking {interface.entity} r18 node failed, {e!r}')
             allow_r18 = False
         return allow_r18
 
@@ -78,6 +81,8 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         parser = ArgumentParser(prog='作品查询命令参数解析', description='Parse artwork query arguments')
         parser.add_argument('-r', '--random', action='store_true')
         parser.add_argument('-s', '--search', action='store_true')
+        parser.add_argument('-v', '--view', action='store_true')
+        parser.add_argument('-n', '--num', type=int, default=8)
         parser.add_argument('-p', '--page', type=int, default=1)
         parser.add_argument('keywords', nargs='*')
         return parser
@@ -100,7 +105,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             no_blur_rating: int = 1,
             show_page_limiting: int = 10,
     ) -> None:
-        """预处理待发送图片"""
+        """发送作品图片消息"""
         artwork_data = await artwork.query()
         artwork_desc = await artwork.get_std_desc()
         need_revoke = True if (artwork_data.rating.value >= 2 and no_blur_rating >= 2) else False
@@ -133,6 +138,42 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
 
         await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **artwork_data.model_dump())
 
+    async def _send_artworks_messages(
+            self,
+            interface: EVENT_MATCHER_INTERFACE,
+            artworks: Sequence[T],
+            *,
+            no_blur_rating: int = 1,
+            show_page_limiting: int = 10,
+            artworks_num_limiting: int = 8,
+            random_artworks: bool = False,
+    ) -> None:
+        """发送多个作品图片消息"""
+        if len(artworks) > artworks_num_limiting:
+            if random_artworks:
+                artworks = sample(artworks, k=artworks_num_limiting)
+            else:
+                artworks = artworks[:artworks_num_limiting]
+
+        # 预载作品图片文件
+        await semaphore_gather(
+            tasks=[artwork.get_all_pages_file(page_limit=show_page_limiting) for artwork in artworks],
+            semaphore_num=artworks_num_limiting,
+            return_exceptions=False,
+        )
+
+        # 顺序发送作品图片
+        for artwork in artworks:
+            try:
+                await self.send_artwork_message(
+                    interface=interface,
+                    artwork=artwork,
+                    no_blur_rating=no_blur_rating,
+                    show_page_limiting=show_page_limiting,
+                )
+            except Exception as e:
+                logger.error(f'OmegaAnyArtwork | Send artwork {artwork} failed, {e}')
+
     async def _send_artworks_preview_message(
             self,
             interface: EVENT_MATCHER_INTERFACE,
@@ -158,8 +199,8 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         else:
             await interface.send_reply(send_msg)
 
-    def generate_shell_handler(self) -> 'T_Handler':
-        """生成插件命令流程函数以供注册"""
+    def generate_default_shell_handler(self) -> 'T_Handler':
+        """生成插件命令命令函数以供注册"""
 
         async def _handler(
                 interface: EVENT_MATCHER_INTERFACE,
@@ -179,31 +220,35 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             await interface.send_reply('稍等, 正在获取作品信息~')
 
             try:
-                if parsed_args.random:
+                if parsed_args.random and not parsed_args.search:
                     artworks = await self._artwork_class.random()
-                    await self._send_artworks_preview_message(
-                        interface=interface,
-                        title=f'{self._command_name.title()} Random Artworks',
-                        artworks=artworks,
-                        no_blur_rating=no_blur_rating,
-                    )
+                    title = f'{self._command_name.title()} Random Artworks'
                 elif parsed_args.search:
                     artworks = await self._artwork_class.search(keyword=keyword, page=parsed_args.page)
+                    title = f'{self._command_name.title()} Search: {keyword}'
+                elif (artwork_id := keyword.strip()).isdigit():
+                    artworks = [self._get_artwork_ap(artwork_id=artwork_id)]
+                    title = ''
+                    parsed_args.view = True
+                else:
+                    await interface.send_reply('作品ArtworkID应当为纯数字, 请确认后再重试吧')
+                    return
+
+                if parsed_args.view:
+                    await self._send_artworks_messages(
+                        interface=interface,
+                        artworks=artworks,
+                        no_blur_rating=no_blur_rating,
+                        artworks_num_limiting=parsed_args.num,
+                        random_artworks=parsed_args.random,
+                    )
+                else:
                     await self._send_artworks_preview_message(
                         interface=interface,
-                        title=f'{self._command_name.title()} Search: {keyword}',
+                        title=title,
                         artworks=artworks,
                         no_blur_rating=no_blur_rating,
                     )
-                elif (artwork_id := keyword.strip()).isdigit():
-                    artwork = self._get_artwork_ap(artwork_id=artwork_id)
-                    await self.send_artwork_message(
-                        interface=interface,
-                        artwork=artwork,
-                        no_blur_rating=no_blur_rating,
-                    )
-                else:
-                    await interface.send_reply('作品ArtworkID应当为纯数字, 请确认后再重试吧')
             except Exception as e:
                 logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {parsed_args}, {e}')
                 await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
@@ -226,7 +271,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                 extra_auth_node={ALLOW_R18_NODE},
                 cooldown=60,
             )
-        ).handle()(self.generate_shell_handler())
+        ).handle()(self.generate_default_shell_handler())
 
 
 __all__ = [
