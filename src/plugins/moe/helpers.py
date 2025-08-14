@@ -18,12 +18,17 @@ from pydantic import BaseModel, ConfigDict
 from src.service import OmegaMessageSegment
 from src.service.artwork_collection import get_artwork_collection, get_artwork_collection_type
 from src.service.artwork_proxy.add_ons.image_ops import ImageOpsMixin
+from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
+from src.utils import semaphore_gather
 from .config import moe_plugin_config
 from .consts import ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN, ALLOW_R18_NODE, ALL_MOE_PLUGIN_ARTWORK_ORIGIN
 
 if TYPE_CHECKING:
+    from asyncio import TimerHandle
     from src.params.depends import EVENT_MATCHER_INTERFACE
     from src.service.artwork_collection.typing import CollectedArtwork
+    from src.service.artwork_proxy.models import ArtworkData
+    from src.service.omega_base.middlewares.models import SentMessageResponse
 
 
 async def _has_allow_r18_node(interface: 'EVENT_MATCHER_INTERFACE') -> bool:
@@ -114,20 +119,63 @@ async def query_artworks_from_database(
     return [get_artwork_collection(artwork=artwork) for artwork in random_artworks]
 
 
-async def prepare_send_image(collected_artwork: 'CollectedArtwork') -> OmegaMessageSegment:
+async def _prepare_send_image(collected_artwork: 'CollectedArtwork') -> tuple['ArtworkData', OmegaMessageSegment]:
     """预处理待发送图片"""
     if not isinstance(collected_artwork.artwork_proxy, ImageOpsMixin):
         raise RuntimeError(f'{collected_artwork} is not compatible with the image processing method')
 
+    artwork_data = await collected_artwork.artwork_proxy.query()
     output_file = await collected_artwork.artwork_proxy.get_proceed_page_file(no_blur_rating=3)
 
-    return OmegaMessageSegment.image(await output_file.get_hosting_path())
+    return artwork_data, OmegaMessageSegment.image(await output_file.get_hosting_path())
+
+
+async def _send_image(
+        artwork_data: 'ArtworkData',
+        message_segment: OmegaMessageSegment,
+        interface: 'EVENT_MATCHER_INTERFACE',
+        revoke_mode: Literal['moe', 'setu'],
+) -> tuple['SentMessageResponse', 'TimerHandle']:
+    """发送图片消息并保存上下文"""
+    match revoke_mode:
+        case 'moe':
+            revoke_interval = moe_plugin_config.moe_plugin_moe_auto_recall_time
+        case 'setu':
+            revoke_interval = moe_plugin_config.moe_plugin_setu_auto_recall_time
+        case _:
+            raise ValueError(f'illegal revoke_mode: {revoke_mode}')
+
+    response, handle = await interface.send_auto_revoke(message=message_segment, revoke_interval=revoke_interval)
+    await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **artwork_data.model_dump())
+    return response, handle
+
+
+async def send_artworks_msg(
+        interface: 'EVENT_MATCHER_INTERFACE',
+        artworks: Sequence['CollectedArtwork'],
+        revoke_mode: Literal['moe', 'setu'],
+) -> None:
+    """预处理图片并发送消息, 自动撤回"""
+    send_package = await semaphore_gather(
+        tasks=[_prepare_send_image(x) for x in artworks],
+        semaphore_num=3,
+        filter_exception=True
+    )
+
+    if not send_package:
+        await interface.finish_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
+
+    for artwork_data, message_segment in send_package:
+        try:
+            await _send_image(artwork_data, message_segment, interface, revoke_mode=revoke_mode)
+        except Exception as e:
+            logger.error(f'{revoke_mode.title()} | Send artwork {artwork_data} failed, {e}')
 
 
 __all__ = [
     'has_allow_r18_node',
     'get_query_argument_parser',
     'parse_from_query_parser',
-    'prepare_send_image',
     'query_artworks_from_database',
+    'send_artworks_msg',
 ]

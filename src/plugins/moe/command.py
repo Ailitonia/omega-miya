@@ -20,15 +20,13 @@ from nonebot.rule import Namespace
 from src.params.depends import EVENT_MATCHER_INTERFACE
 from src.params.handler import get_shell_command_parse_failed_handler
 from src.service import enable_processor_state
-from src.utils import semaphore_gather
-from .config import moe_plugin_config
 from .consts import ALLOW_R18_NODE
 from .helpers import (
     get_query_argument_parser,
     has_allow_r18_node,
     parse_from_query_parser,
-    prepare_send_image,
     query_artworks_from_database,
+    send_artworks_msg,
 )
 
 
@@ -87,26 +85,7 @@ async def handle_setu(
 
     await interface.send_reply('稍等, 正在下载图片~')
 
-    send_messages = await semaphore_gather(
-        tasks=[prepare_send_image(x) for x in artworks],
-        semaphore_num=4,
-        filter_exception=True
-    )
-
-    if not send_messages:
-        await interface.finish_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
-
-    await semaphore_gather(
-        tasks=[
-            interface.send_auto_revoke(
-                message=message,
-                revoke_interval=moe_plugin_config.moe_plugin_setu_auto_recall_time
-            )
-            for message in send_messages
-        ],
-        semaphore_num=3,
-        filter_exception=True
-    )
+    await send_artworks_msg(interface=interface, artworks=artworks, revoke_mode='setu')
 
 
 @on_shell_command(
@@ -155,26 +134,7 @@ async def handle_moe(
 
     await interface.send_reply('稍等, 正在下载图片~')
 
-    send_messages = await semaphore_gather(
-        tasks=[prepare_send_image(x) for x in artworks],
-        semaphore_num=4,
-        filter_exception=True
-    )
-
-    if not send_messages:
-        await interface.finish_reply('所有图片都获取失败了QAQ, 可能是网络原因或作品被删除, 请稍后再试')
-
-    await semaphore_gather(
-        tasks=[
-            interface.send_auto_revoke(
-                message=message,
-                revoke_interval=moe_plugin_config.moe_plugin_moe_auto_recall_time
-            )
-            for message in send_messages
-        ],
-        semaphore_num=3,
-        filter_exception=True
-    )
+    await send_artworks_msg(interface=interface, artworks=artworks, revoke_mode='moe')
 
 
 __all__ = []
