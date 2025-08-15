@@ -37,6 +37,15 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         return list(random.sample(artworks_data.recommend_pids, k=limit))
 
     @classmethod
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdigit()):
+            recommend_result = await PixivArtwork(pid=int(base_aid)).query_recommend(init_limit=limit)
+            artwork_ids = [x.id for x in recommend_result.illusts]
+        else:
+            artwork_ids = (await PixivArtwork.query_top_illust()).recommend_pids
+        return artwork_ids[:limit]
+
+    @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         page = 1 if page is None else page
         if kwargs:

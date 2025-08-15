@@ -204,6 +204,10 @@ class DanbooruArtworkProxy(BaseDanbooruArtworkProxy, ImageOpsPlusPoolMixin):
         return 'danbooru'
 
     @classmethod
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        return await cls._search(f'status:active is:sfw score:>600 order:random limit:{limit}')
+
+    @classmethod
     async def _query_pool(cls, pool_id: str) -> ArtworkPool:
         pool_data = await cls._get_api().pool_show(id_=int(pool_id))
 

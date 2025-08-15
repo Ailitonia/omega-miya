@@ -103,6 +103,12 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        """内部方法, 获取推荐作品, 如未提供基准 Artwork ID, 则使用类似首页推荐机制进行获取"""
+        raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         """内部方法, 根据关键词搜索作品 ID 列表"""
         raise NotImplementedError
@@ -111,6 +117,11 @@ class BaseArtworkProxy(abc.ABC):
     async def random(cls, *, limit: int = 20) -> list[Self]:
         """随机获取作品列表"""
         return [cls(artwork_id=aid) for aid in await cls._random(limit=limit)]
+
+    @classmethod
+    async def recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[Self]:
+        """获取推荐作品, 如未提供基准 Artwork ID, 则使用类似首页推荐机制进行获取"""
+        return [cls(artwork_id=aid) for aid in await cls._recommend(base_aid=base_aid, limit=limit)]
 
     @classmethod
     async def search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[Self]:
