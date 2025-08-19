@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from src.resource import BaseResource
-    from src.utils.omega_requests.types import CookieTypes, HeaderTypes, QueryTypes
+    from src.utils.omega_requests.types import CookieTypes, HeaderTypes, QueryTypes, Timeout, TimeoutTypes
 
     type ChatMessage = Message | Iterable[MessageContent]
 
@@ -100,6 +100,14 @@ class BaseOpenAIClient(BaseCommonAPI):
         return {}
 
     @classmethod
+    def _get_default_timeout(cls) -> 'Timeout':
+        timeout = cls._get_omega_requests_default_timeout()
+        timeout.total = 300
+        timeout.connect = 10
+        timeout.read = 60
+        return timeout
+
+    @classmethod
     async def get_any_resource_as_bytes(
             cls,
             url: str,
@@ -107,7 +115,7 @@ class BaseOpenAIClient(BaseCommonAPI):
             *,
             headers: 'HeaderTypes' = None,
             cookies: 'CookieTypes' = None,
-            timeout: int = 30,
+            timeout: 'TimeoutTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
     ) -> bytes:
@@ -120,12 +128,10 @@ class BaseOpenAIClient(BaseCommonAPI):
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
 
-    async def create_chat_completion(
+    async def create_chat_completion_normal(
             self,
             model: str,
             message: 'ChatMessage',
-            *,
-            timeout: int = 60,
             **kwargs,
     ) -> 'ChatCompletion':
         """Creates a model response for the given chat conversation.
@@ -136,8 +142,8 @@ class BaseOpenAIClient(BaseCommonAPI):
 
         :param model: ID of the model to use.
         :param message: A list of messages comprising the conversation so far.
-        :param timeout: Request timeout period.
         """
+        kwargs.pop('stream', None)  # 移除流式会话参数
         url = f'{self.base_url}/chat/completions'
         data = {
             'model': model,
@@ -147,19 +153,28 @@ class BaseOpenAIClient(BaseCommonAPI):
                 mode='json',
                 exclude_none=True,
             ),
+            'stream': False,
             **kwargs,
         }
-        response = await self._post_acquire_as_json(url=url, json=data, headers=self.request_headers, timeout=timeout)
+        response = await self._post_acquire_as_json(url=url, json=data, headers=self.request_headers)
         return ChatCompletion.model_validate(response)
 
     async def create_chat_completion_using_stream(
             self,
             model: str,
             message: 'ChatMessage',
-            *,
-            timeout: int = 60,
             **kwargs,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        """Creates a model response for the given chat conversation. Using stream mode.
+
+        Parameter support can differ depending on the model used to generate the response,
+        particularly for newer reasoning models. Parameters that are only supported for
+        reasoning models are noted below.
+
+        :param model: ID of the model to use.
+        :param message: A list of messages comprising the conversation so far.
+        """
+        kwargs.pop('stream', None)  # 移除流式会话参数
         url = f'{self.base_url}/chat/completions'
         data = {
             'model': model,
@@ -176,11 +191,58 @@ class BaseOpenAIClient(BaseCommonAPI):
         line_prefix = r'data: '
         eof_target = r'[DONE]'
         async for line in self._stream_post_acquire_iter_lines(
-                url=url, json=data, headers=self.request_headers, timeout=timeout, chunk_size=64,
+                url=url, json=data, headers=self.request_headers, chunk_size=256,
         ):
             if line and line.startswith(line_prefix):
                 if (content := line.removeprefix(line_prefix).strip()) != eof_target:
                     yield ChatCompletionChunk.model_validate_json(content)
+
+    async def create_chat_completion(
+            self,
+            model: str,
+            message: 'ChatMessage',
+            stream: bool = True,
+            **kwargs,
+    ) -> list[MessageContent]:
+        """Creates a model response for the given chat conversation.
+
+        Parameter support can differ depending on the model used to generate the response,
+        particularly for newer reasoning models. Parameters that are only supported for
+        reasoning models are noted below.
+
+        :param model: ID of the model to use.
+        :param message: A list of messages comprising the conversation so far.
+        :param stream: Using stream mode.
+        """
+        if not stream:
+            chat = await self.create_chat_completion_normal(model=model, message=message, **kwargs)
+            return [x.message for x in chat.choices]
+
+        content_map: dict[int, list[MessageContent]] = {}
+        async for chunk in self.create_chat_completion_using_stream(model=model, message=message, **kwargs):
+            for choice in chunk.choices:
+                if choice.index not in content_map:
+                    content_map[choice.index] = [choice.delta]
+                else:
+                    content_map[choice.index].append(choice.delta)
+
+        return [
+            MessageContent.model_validate({
+                'role': x[0].role,
+                'content': (
+                        [i for c in x for i in c.content if isinstance(c.content, list)]
+                        or ''.join(c.content for c in x if isinstance(c.content, str))
+                ),
+                'reasoning_content': x[0].reasoning_content,
+                'name': x[0].name,
+                'refusal': x[0].refusal,
+                'audio': x[0].audio,
+                'tool_calls': x[0].tool_calls,
+                'tool_call_id': x[0].tool_call_id,
+                'function_call': x[0].function_call,
+            })
+            for x in content_map.values()
+        ]
 
     async def create_embeddings(
             self,
@@ -188,7 +250,6 @@ class BaseOpenAIClient(BaseCommonAPI):
             model: str,
             *,
             encoding_format: Literal['float', 'base64'] = 'float',
-            timeout: int = 60,
             **kwargs,
     ) -> Embeddings:
         """Creates an embedding vector representing the input text."""
@@ -199,7 +260,7 @@ class BaseOpenAIClient(BaseCommonAPI):
             'encoding_format': encoding_format,
             **kwargs,
         }
-        response = await self._post_acquire_as_json(url=url, json=data, headers=self.request_headers, timeout=timeout)
+        response = await self._post_acquire_as_json(url=url, json=data, headers=self.request_headers)
         return Embeddings.model_validate(response)
 
     async def list_models(self) -> ModelList:
@@ -213,7 +274,7 @@ class BaseOpenAIClient(BaseCommonAPI):
             file: 'BaseResource',
             purpose: str = 'user_data',
             *,
-            timeout: int = 300,
+            timeout: 'TimeoutTypes' = 300,
     ) -> File:
         """Upload a file that can be used across various endpoints.
 

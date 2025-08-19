@@ -188,9 +188,8 @@ class ChatSession:
             **kwargs,
         )
 
-        reply_message = result.choices[0].message
-        self.message.add_content(reply_message)
-        return reply_message.plain_text
+        self.message.add_content(result[0])
+        return result[0].plain_text
 
     @overload
     async def advance_chat[T: 'BaseModel'](
