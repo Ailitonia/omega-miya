@@ -40,10 +40,6 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return [x.id for x in artworks_data]
 
     @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        return await cls._random(limit=limit)
-
-    @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data]
@@ -182,10 +178,6 @@ class KonachanArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
     def get_base_origin_name(cls) -> str:
         return 'konachan'
 
-    @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        return (await cls._search('score:>150 order:random'))[:limit]
-
 
 class KonachanSafeArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
     """https://konachan.net 全年龄站图库统一接口实现, 与主站共用后端, 只是网站页面不显示 rating:E 的作品"""
@@ -198,10 +190,6 @@ class KonachanSafeArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
     def get_base_origin_name(cls) -> str:
         return 'konachan'
 
-    @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        return (await cls._search('score:>150 order:random'))[:limit]
-
 
 class YandereArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
     """https://yande.re 主站图库统一接口实现"""
@@ -213,10 +201,6 @@ class YandereArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
     @classmethod
     def get_base_origin_name(cls) -> str:
         return 'yandere'
-
-    @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        return (await cls._search('score:>50 id:>50000 order:random'))[:limit]
 
 
 __all__ = [

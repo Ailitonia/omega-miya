@@ -9,8 +9,11 @@
 """
 
 from .image_ops import ImageOpsMixin, ImageOpsPlusPoolMixin
+from .user_space import UserSpaceMixin
+
 
 __all__ = [
     'ImageOpsMixin',
     'ImageOpsPlusPoolMixin',
+    'UserSpaceMixin',
 ]

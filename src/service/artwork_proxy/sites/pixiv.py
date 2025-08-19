@@ -10,10 +10,10 @@
 
 import random
 
-from src.utils.pixiv_api import PixivArtwork
-from ..add_ons import ImageOpsMixin
+from src.utils.pixiv_api import PixivArtwork, PixivUser
+from ..add_ons import ImageOpsMixin, UserSpaceMixin
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData
+from ..models import ArtworkData, ArtistUserData
 
 
 class _PixivArtworkProxy(BaseArtworkProxy):
@@ -35,15 +35,6 @@ class _PixivArtworkProxy(BaseArtworkProxy):
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
         artworks_data = await PixivArtwork.query_discovery_artworks()
         return list(random.sample(artworks_data.recommend_pids, k=limit))
-
-    @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdigit()):
-            recommend_result = await PixivArtwork(pid=int(base_aid)).query_recommend(init_limit=limit)
-            artwork_ids = [x.id for x in recommend_result.illusts]
-        else:
-            artwork_ids = (await PixivArtwork.query_top_illust()).recommend_pids
-        return artwork_ids[:limit]
 
     @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
@@ -139,8 +130,55 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         return f'{origin}\n{title}\n{author}'
 
 
-class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin):
+class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
     """Pixiv 图库统一接口实现"""
+
+    @classmethod
+    async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
+        artwork_ids = (await PixivArtwork.query_discovery_artworks(limit=limit)).recommend_pids
+        return artwork_ids[:limit]
+
+    @classmethod
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdigit()):
+            recommend_result = await PixivArtwork(pid=int(base_aid)).query_recommend(init_limit=limit)
+            artwork_ids = [x.id for x in recommend_result.illusts]
+        else:
+            artwork_ids = (await PixivArtwork.query_top_illust()).recommend_pids
+        return artwork_ids[:limit]
+
+    @classmethod
+    async def _daily_ranking(cls, page: int) -> list[str | int]:
+        ranking_data = await PixivArtwork.query_ranking(mode='daily', page=page, content='illust')
+        return [x.illust_id for x in ranking_data.contents]
+
+    @classmethod
+    async def _weekly_ranking(cls, page: int) -> list[str | int]:
+        ranking_data = await PixivArtwork.query_ranking(mode='weekly', page=page, content='illust')
+        return [x.illust_id for x in ranking_data.contents]
+
+    @classmethod
+    async def _monthly_ranking(cls, page: int) -> list[str | int]:
+        ranking_data = await PixivArtwork.query_ranking(mode='monthly', page=page, content='illust')
+        return [x.illust_id for x in ranking_data.contents]
+
+    @classmethod
+    async def _query_user(cls, uid: str | int) -> ArtistUserData:
+        user_data = await PixivUser(uid=uid).query_user_data()
+        return ArtistUserData.model_validate({
+            'origin': cls.get_base_origin_name(),
+            'uid': user_data.user_id,
+            'name': user_data.name,
+            'profile_image': user_data.image,
+            'artwork_ids': user_data.manga_illusts
+        })
+
+    @classmethod
+    async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
+        return (await PixivUser(uid=uid).query_user_bookmarks(page=page)).illust_ids
+
+    async def _follow_latest(self, page: int) -> list[str | int]:
+        return (await PixivArtwork.query_following_user_latest_illust(page=page)).illust_ids
 
 
 __all__ = [

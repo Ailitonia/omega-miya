@@ -33,10 +33,6 @@ class NoneArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        raise NotImplementedError
-
-    @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         raise NotImplementedError
 

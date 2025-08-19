@@ -108,15 +108,25 @@ class ArtworkPool(BaseArtworkProxyModel):
     origin: str
     pool_id: str
     name: str
-    description: str | None = None
-    artwork_ids: list[str]
+    description: str | None = Field(default=None)
+    artwork_ids: list[str] = Field(default_factory=list)
 
     @property
     def artwork_count(self) -> int:
         return len(self.artwork_ids)
 
 
+class ArtistUserData(BaseModel):
+    """用户信息"""
+    origin: str
+    uid: str
+    name: str
+    profile_image: AnyHttpUrl | None = Field(default=None)
+    artwork_ids: list[str] = Field(default_factory=list)
+
+
 __all__ = [
+    'ArtistUserData',
     'ArtworkClassification',
     'ArtworkData',
     'ArtworkPage',

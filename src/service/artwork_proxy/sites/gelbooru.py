@@ -40,10 +40,6 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return [x.id for x in artworks_data.post]
 
     @classmethod
-    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        return await cls._random(limit=limit)
-
-    @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data.post]
