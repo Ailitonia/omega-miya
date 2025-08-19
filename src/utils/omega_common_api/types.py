@@ -16,6 +16,7 @@ from ..omega_requests.types import HTTPClientSession as HTTPClientSession
 from ..omega_requests.types import HeaderTypes as HeaderTypes
 from ..omega_requests.types import QueryTypes as QueryTypes
 from ..omega_requests.types import Response as Response
+from ..omega_requests.types import Timeout as Timeout
 from ..omega_requests.types import TimeoutTypes as TimeoutTypes
 from ..omega_requests.types import WebSocket as WebSocket
 
@@ -28,6 +29,7 @@ __all__ = [
     'HTTPClientSession',
     'QueryTypes',
     'Response',
+    'Timeout',
     'TimeoutTypes',
     'WebSocket',
 ]

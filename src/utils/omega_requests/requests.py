@@ -15,7 +15,7 @@ from asyncio.exceptions import TimeoutError as AsyncTimeoutError
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import unquote, urlparse
 
 import ujson
@@ -51,9 +51,9 @@ if TYPE_CHECKING:
 class OmegaRequests:
     """对 ForwardDriver 二次封装实现的 HttpClient"""
 
-    _default_retry_limit: int = 3
-    _default_timeout: Timeout = Timeout(total=30, connect=10, read=20)
-    _default_headers: dict[str, str] = {
+    _default_retry_limit: ClassVar[int] = 3
+    _default_timeout: ClassVar[Timeout] = Timeout(total=30, connect=10, read=20)
+    _default_headers: ClassVar[dict[str, str]] = {
         'accept': '*/*',
         'accept-encoding': 'gzip, deflate, br',
         'accept-language': 'zh-CN,zh;q=0.9',
@@ -198,7 +198,13 @@ class OmegaRequests:
 
     @classmethod
     def get_default_headers(cls) -> dict[str, str]:
+        """获取默认 Headers 内容"""
         return deepcopy(cls._default_headers)
+
+    @classmethod
+    def get_default_timeout(cls) -> Timeout:
+        """获取默认超时配置"""
+        return deepcopy(cls._default_timeout)
 
     def get_session(self, params: Optional['QueryTypes'] = None, use_proxy: bool = True) -> 'HTTPClientSession':
         if not isinstance(self.driver, HTTPClientMixin):

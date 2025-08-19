@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         HeaderTypes,
         QueryTypes,
         Response,
+        Timeout,
         TimeoutTypes,
     )
 
@@ -64,9 +65,19 @@ class BaseCommonAPI(abc.ABC):
         raise NotImplementedError
 
     @classmethod
+    def _get_default_timeout(cls) -> 'Timeout':
+        """内部方法, 获取默认 Timeout"""
+        return cls._get_omega_requests_default_timeout()
+
+    @classmethod
     def _get_omega_requests_default_headers(cls) -> dict[str, str]:
         """获取 OmegaRequests 默认 Headers"""
         return OmegaRequests.get_default_headers()
+
+    @classmethod
+    def _get_omega_requests_default_timeout(cls) -> 'Timeout':
+        """获取 OmegaRequests 默认 Timeout"""
+        return OmegaRequests.get_default_timeout()
 
     @classmethod
     def _load_cloudflare_clearance(cls) -> bool:
@@ -92,6 +103,9 @@ class BaseCommonAPI(abc.ABC):
             headers = {}
         elif headers is None:
             headers = cls._get_default_headers()
+
+        if timeout is None:
+            timeout = cls._get_default_timeout()
 
         # 处理加载 Cloudflare Clearance 参数
         if cls._load_cloudflare_clearance():
