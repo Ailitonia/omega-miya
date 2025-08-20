@@ -22,6 +22,9 @@ AnyHttpUrlAdapter = TypeAdapter(AnyHttpUrl)
 AnyHttpUrlStr = Annotated[str, BeforeValidator(lambda v: str(AnyHttpUrlAdapter.validate_python(v)))]
 """使用 Annotated Validator 将 AnyHttpUrl 格式转换为 str"""
 
+EmptyNoneStr = Annotated[str, BeforeValidator(lambda x: '' if x is None else x)]
+"""默认将 None 转换为空字符串类型"""
+
 
 def parse_obj_as[T](
         type_: type[T],
@@ -100,6 +103,7 @@ def dump_json_as[T](
 __all__ = [
     'AnyUrlStr',
     'AnyHttpUrlStr',
+    'EmptyNoneStr',
     'parse_obj_as',
     'parse_json_as',
     'dump_obj_as',
