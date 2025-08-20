@@ -233,7 +233,7 @@ class BaseOpenAIClient(BaseCommonAPI):
                         [i for c in x for i in c.content if isinstance(c.content, list)]
                         or ''.join(c.content for c in x if isinstance(c.content, str))
                 ),
-                'reasoning_content': x[0].reasoning_content,
+                'reasoning_content': ''.join(c.reasoning_content for c in x),
                 'name': x[0].name,
                 'refusal': x[0].refusal,
                 'audio': x[0].audio,
