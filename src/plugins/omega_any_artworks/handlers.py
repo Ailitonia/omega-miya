@@ -274,7 +274,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                 raise TypeError(f'{self._artwork_class.__name__} not support bookmark method')
 
             artworks = await self._artwork_class.query_user_bookmark_artworks(uid=uid, page=page)
-            title = f'{origin_title} User Bookmark - {uid}'
+            title = f'{origin_title} User Bookmark - UID: {uid}'
             return artworks, title
 
         async def _user_artwork_processor(uid: str, page: int) -> ProcessorReturn[T]:
@@ -283,7 +283,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
 
             user_data = await self._artwork_class.query_user(uid=uid)
             artworks = await self._artwork_class.query_user_artworks(uid=uid)
-            title = f'{origin_title} User Artwork - {user_data.name}'
+            title = f'{origin_title} User Artwork - {user_data.name}/UID: {user_data.uid}'
 
             p_start = 48 * (page - 1)
             p_end = 48 * page
