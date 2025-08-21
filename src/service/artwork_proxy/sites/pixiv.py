@@ -136,7 +136,7 @@ class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
     @classmethod
     async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
         artwork_ids = (await PixivArtwork.query_discovery_artworks(limit=limit)).recommend_pids
-        return artwork_ids[:limit]
+        return list(artwork_ids[:limit])
 
     @classmethod
     async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
@@ -145,7 +145,7 @@ class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
             artwork_ids = [x.id for x in recommend_result.illusts]
         else:
             artwork_ids = (await PixivArtwork.query_top_illust()).recommend_pids
-        return artwork_ids[:limit]
+        return list(artwork_ids[:limit])
 
     @classmethod
     async def _daily_ranking(cls, page: int) -> list[str | int]:
@@ -175,10 +175,10 @@ class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
 
     @classmethod
     async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
-        return (await PixivUser(uid=uid).query_user_bookmarks(page=page)).illust_ids
+        return list((await PixivUser(uid=uid).query_user_bookmarks(page=page)).illust_ids)
 
     async def _follow_latest(self, page: int) -> list[str | int]:
-        return (await PixivArtwork.query_following_user_latest_illust(page=page)).illust_ids
+        return list((await PixivArtwork.query_following_user_latest_illust(page=page)).illust_ids)
 
 
 __all__ = [

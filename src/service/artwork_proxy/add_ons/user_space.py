@@ -110,7 +110,7 @@ class UserSpaceMixin(ArtworkProxyAddonsMixin, abc.ABC):
     @classmethod
     async def _query_user_artworks(cls, uid: str | int) -> list[str | int]:
         """内部方法, 获取用户作品列表"""
-        return (await cls.query_user(uid=uid, use_cache=False)).artwork_ids
+        return list((await cls.query_user(uid=uid, use_cache=False)).artwork_ids)
 
     @classmethod
     async def query_user_artworks(cls, uid: str | int) -> list[Self]:
