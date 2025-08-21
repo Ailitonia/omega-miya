@@ -9,6 +9,7 @@
 """
 
 from collections.abc import Sequence
+from datetime import datetime
 from random import sample
 from typing import TYPE_CHECKING, Annotated
 
@@ -21,6 +22,7 @@ from pydantic import BaseModel, ConfigDict
 from src.params.depends import EVENT_MATCHER_INTERFACE
 from src.params.handler import get_shell_command_parse_failed_handler
 from src.service import OmegaMessage, OmegaMessageSegment, enable_processor_state
+from src.service.artwork_proxy.add_ons import ImageOpsMixin, UserSpaceMixin
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from src.utils import semaphore_gather
 from .consts import ALLOW_R18_NODE
@@ -28,14 +30,15 @@ from .consts import ALLOW_R18_NODE
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler
 
-    from src.service.artwork_proxy.add_ons.image_ops import ImageOpsMixin
-
 
 class ArtworkHandlerQueryArguments(BaseModel):
     """命令的参数解析结果"""
     random: bool
     search: bool
     view: bool
+    ranking: bool
+    bookmark: bool
+    user: bool
     num: int
     page: int
     keywords: list[str]
@@ -82,6 +85,9 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         parser.add_argument('-r', '--random', action='store_true')
         parser.add_argument('-s', '--search', action='store_true')
         parser.add_argument('-v', '--view', action='store_true')
+        parser.add_argument('-k', '--ranking', action='store_true')
+        parser.add_argument('-b', '--bookmark', action='store_true')
+        parser.add_argument('-u', '--user', action='store_true')
         parser.add_argument('-n', '--num', type=int, default=8)
         parser.add_argument('-p', '--page', type=int, default=1)
         parser.add_argument('keywords', nargs='*')
@@ -138,6 +144,36 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
 
         await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **artwork_data.model_dump())
 
+    @classmethod
+    async def send_artworks_preview_message(
+            cls,
+            interface: EVENT_MATCHER_INTERFACE,
+            title: str,
+            artworks: Sequence[T],
+            *,
+            no_blur_rating: int = 1,
+            artworks_num_limiting: int = 60,
+    ) -> None:
+        """生成并发送多个作品的预览图"""
+        need_revoke = True if no_blur_rating >= 2 else False
+        artwork_proxy: type[T] = artworks[0].__class__
+
+        preview_image = await artwork_proxy.generate_artworks_preview(
+            preview_name=title,
+            artworks=artworks,
+            no_blur_rating=no_blur_rating,
+            preview_size=(360, 360),
+            num_of_line=6,
+            limit=artworks_num_limiting,
+        )
+        send_msg = OmegaMessageSegment.image(await preview_image.get_hosting_path())
+
+        if need_revoke:
+            await interface.send_reply_auto_revoke(send_msg, 60)
+        else:
+            await interface.send_reply(send_msg)
+
+
     async def _send_artworks_messages(
             self,
             interface: EVENT_MATCHER_INTERFACE,
@@ -181,26 +217,76 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             artworks: Sequence[T],
             *,
             no_blur_rating: int = 1,
+            artworks_num_limiting: int = 60,
     ) -> None:
-        """生成多个作品的预览图"""
-        need_revoke = True if no_blur_rating >= 2 else False
+        """生成并发送多个作品的预览图"""
 
-        preview_image = await self._artwork_class.generate_artworks_preview(
-            preview_name=title,
+        # 预载作品图片文件
+        await semaphore_gather(
+            tasks=[artwork.get_page_file(page_type='preview') for artwork in artworks],
+            semaphore_num=10,
+            return_exceptions=False,
+        )
+
+        return await self.send_artworks_preview_message(
+            interface=interface,
+            title=title,
             artworks=artworks,
             no_blur_rating=no_blur_rating,
-            preview_size=(360, 360),
-            num_of_line=6,
+            artworks_num_limiting=artworks_num_limiting,
         )
-        send_msg = OmegaMessageSegment.image(await preview_image.get_hosting_path())
-
-        if need_revoke:
-            await interface.send_reply_auto_revoke(send_msg, 60)
-        else:
-            await interface.send_reply(send_msg)
 
     def generate_default_shell_handler(self) -> 'T_Handler':
         """生成插件命令命令函数以供注册"""
+
+        type ProcessorReturn = tuple[list[T], str]
+        origin_title = self._command_name.title()
+
+        async def _random_processor() -> ProcessorReturn:
+            artworks = await self._artwork_class.random()
+            title = f'{origin_title} Random Artworks'
+            return artworks, title
+
+        async def _search_processor(keyword: str, page: int) -> ProcessorReturn:
+            artworks = await self._artwork_class.search(keyword=keyword, page=page)
+            title = f'{origin_title} Search: {keyword}'
+            return artworks, title
+
+        async def _ranking_processor(mode: str, page: int) -> ProcessorReturn:
+            if not isinstance(self._artwork_class, UserSpaceMixin):
+                raise TypeError(f'{self._artwork_class.__name__} not support ranking method')
+
+            match mode:
+                case '日榜' | 'daily':
+                    artworks = await self._artwork_class.ranking(mode='daily', page=page)
+                    title = f'{origin_title} Daily Ranking {datetime.now().strftime("%Y-%m-%d")}'
+                case '周榜' | 'weekly':
+                    artworks = await self._artwork_class.ranking(mode='weekly', page=page)
+                    title = f'{origin_title} Weekly Ranking {datetime.now().strftime("%Y-%m-%d")}'
+                case '月榜' | 'monthly' | _:
+                    artworks = await self._artwork_class.ranking(mode='monthly', page=page)
+                    title = f'{origin_title} Monthly Ranking {datetime.now().strftime("%Y-%m-%d")}'
+            return artworks, title
+
+        async def _bookmark_processor(uid: str, page: int) -> ProcessorReturn:
+            if not isinstance(self._artwork_class, UserSpaceMixin):
+                raise TypeError(f'{self._artwork_class.__name__} not support bookmark method')
+
+            artworks = await self._artwork_class.query_user_bookmark_artworks(uid=uid, page=page)
+            title = f'{origin_title} User Bookmark - {uid}'
+            return artworks, title
+
+        async def _user_artwork_processor(uid: str, page: int) -> ProcessorReturn:
+            if not isinstance(self._artwork_class, UserSpaceMixin):
+                raise TypeError(f'{self._artwork_class.__name__} not support user-artwork method')
+
+            user_data = await self._artwork_class.query_user(uid=uid)
+            artworks = await self._artwork_class.query_user_artworks(uid=uid)
+            title = f'{origin_title} User Artwork - {user_data.name}'
+
+            p_start = 48 * (page - 1)
+            p_end = 48 * page
+            return artworks[p_start:p_end], title
 
         async def _handler(
                 interface: EVENT_MATCHER_INTERFACE,
@@ -209,6 +295,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             try:
                 parsed_args = self._parse_from_query_parser(args=args)
                 keyword = ' '.join(parsed_args.keywords)
+
             except Exception as e:
                 logger.warning(f'OmegaAnyArtwork | 命令参数解析错误, {e}')
                 await interface.finish_reply('命令参数解析错误, 请确认后重试')
@@ -220,18 +307,31 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             await interface.send_reply('稍等, 正在获取作品信息~')
 
             try:
+                if not isinstance(self._artwork_class, ImageOpsMixin):
+                    raise TypeError(f'{self._artwork_class.__name__} not support ImageOps method')
+
+                # 随机作品
                 if parsed_args.random and not parsed_args.search:
-                    artworks = await self._artwork_class.random()
-                    title = f'{self._command_name.title()} Random Artworks'
+                    artworks, title = await _random_processor()
+                # 搜索作品
                 elif parsed_args.search:
-                    artworks = await self._artwork_class.search(keyword=keyword, page=parsed_args.page)
-                    title = f'{self._command_name.title()} Search: {keyword}'
+                    artworks, title = await _search_processor(keyword=keyword, page=parsed_args.page)
+                # 排行榜
+                elif parsed_args.ranking:
+                    artworks, title = await _ranking_processor(mode=keyword.strip(), page=parsed_args.page)
+                # 用户收藏作品
+                elif parsed_args.bookmark and (uid := keyword.strip()).isdigit():
+                    artworks, title = await _bookmark_processor(uid=uid, page=parsed_args.page)
+                # 用户作品
+                elif parsed_args.user and (uid := keyword.strip()).isdigit():
+                    artworks, title = await _user_artwork_processor(uid=uid, page=parsed_args.page)
+                # 作品详情
                 elif (artwork_id := keyword.strip()).isdigit():
                     artworks = [self._get_artwork_ap(artwork_id=artwork_id)]
                     title = ''
                     parsed_args.view = True
                 else:
-                    await interface.send_reply('作品ArtworkID应当为纯数字, 请确认后再重试吧')
+                    await interface.send_reply('作品或用户ID应当为纯数字, 请确认后再重试吧')
                     return
 
                 if parsed_args.view:
@@ -248,7 +348,11 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                         title=title,
                         artworks=artworks,
                         no_blur_rating=no_blur_rating,
+                        artworks_num_limiting=parsed_args.num,
                     )
+            except TypeError as e:
+                logger.warning(f'OmegaAnyArtwork | 不支持的作品来源类型, {origin_title}, {parsed_args}, {e}')
+                await interface.finish_reply(message=f'{origin_title}不支持该参数类型, 请确认后再重试吧')
             except Exception as e:
                 logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {parsed_args}, {e}')
                 await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')

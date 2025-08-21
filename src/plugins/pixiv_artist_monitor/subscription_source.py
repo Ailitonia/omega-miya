@@ -9,9 +9,8 @@
 """
 
 from asyncio import sleep as async_sleep
-from collections.abc import Callable, Coroutine, Sequence
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, Self
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal, Self
 
 from nonebot.log import logger
 
@@ -26,9 +25,7 @@ from src.utils.pixiv_api import PixivUser
 
 if TYPE_CHECKING:
     from src.database.internal.social_media_content import SocialMediaContent
-    from src.resource import TemporaryResource
     from src.service.omega_base.middlewares.models import SentMessageResponse
-    from src.utils.pixiv_api.model.ranking import PixivRankingModel
 
     type SMC_T = str
 
@@ -157,54 +154,6 @@ class PixivUserSubscriptionManager(BaseSubscriptionManager['SMC_T']):
     async def _entity_message_send_postprocessor(self, response: 'SentMessageResponse', smc_item: 'SMC_T') -> None:
         artwork_data = await PixivArtworkProxy(artwork_id=smc_item).query(use_cache=True)
         await ARTWORK_CONTEXT_MANAGER.set_message_context(response=response, **artwork_data.model_dump())
-
-    """作品预览图生成工具"""
-
-    @classmethod
-    async def generate_artworks_preview(
-            cls,
-            title: str,
-            pids: Sequence[int],
-            *,
-            no_blur_rating: int = 1,
-    ) -> 'TemporaryResource':
-        """生成多个作品的预览图"""
-        return await PixivArtworkProxy.generate_artworks_preview(
-            preview_name=title,
-            artworks=[PixivArtworkProxy(pid) for pid in pids],
-            no_blur_rating=no_blur_rating,
-            preview_size=(360, 360),
-            num_of_line=6,
-        )
-
-    @classmethod
-    async def _generate_ranking_preview(
-            cls,
-            title: str,
-            ranking_data: 'PixivRankingModel',
-    ) -> 'TemporaryResource':
-        """根据榜单数据生成预览图"""
-        return await PixivArtworkProxy.generate_artworks_preview(
-            preview_name=title,
-            artworks=[PixivArtworkProxy(x.illust_id) for x in ranking_data.contents],
-            preview_size=(512, 512),
-            num_of_line=6,
-        )
-
-    @classmethod
-    def get_ranking_preview_factory(
-            cls,
-            mode: Literal['daily', 'weekly', 'monthly'],
-    ) -> Callable[[int], Coroutine[Any, Any, 'TemporaryResource']]:
-        """获取榜单预览图生成器"""
-
-        async def _factor(page: int) -> 'TemporaryResource':
-            ranking_data = await PixivUser.query_ranking(mode=mode, page=page, content='illust')
-
-            title = f'Pixiv {mode.title()} Ranking {datetime.now().strftime("%Y-%m-%d")}'
-            return await cls._generate_ranking_preview(title=title, ranking_data=ranking_data)
-
-        return _factor
 
 
 __all__ = [

@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.service import OmegaMessageSegment
 from src.service.artwork_collection import get_artwork_collection, get_artwork_collection_type
-from src.service.artwork_proxy.add_ons.image_ops import ImageOpsMixin
+from src.service.artwork_proxy.add_ons import ImageOpsMixin
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from src.utils import semaphore_gather
 from .config import moe_plugin_config
