@@ -116,7 +116,7 @@ class ArtworkPool(BaseArtworkProxyModel):
         return len(self.artwork_ids)
 
 
-class ArtistUserData(BaseModel):
+class ArtistUserData(BaseArtworkProxyModel):
     """用户信息"""
     origin: str
     uid: str

@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from nonebot.typing import T_Handler
 
 
+type ProcessorReturn[T: 'ImageOpsMixin'] = tuple[list[T], str]
+
+
 class ArtworkHandlerQueryArguments(BaseModel):
     """命令的参数解析结果"""
     random: bool
@@ -88,7 +91,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         parser.add_argument('-k', '--ranking', action='store_true')
         parser.add_argument('-b', '--bookmark', action='store_true')
         parser.add_argument('-u', '--user', action='store_true')
-        parser.add_argument('-n', '--num', type=int, default=8)
+        parser.add_argument('-n', '--num', type=int, default=6)
         parser.add_argument('-p', '--page', type=int, default=1)
         parser.add_argument('keywords', nargs='*')
         return parser
@@ -173,7 +176,6 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         else:
             await interface.send_reply(send_msg)
 
-
     async def _send_artworks_messages(
             self,
             interface: EVENT_MATCHER_INTERFACE,
@@ -195,7 +197,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         await semaphore_gather(
             tasks=[artwork.get_all_pages_file(page_limit=show_page_limiting) for artwork in artworks],
             semaphore_num=artworks_num_limiting,
-            return_exceptions=False,
+            filter_exception=True,
         )
 
         # 顺序发送作品图片
@@ -225,7 +227,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
         await semaphore_gather(
             tasks=[artwork.get_page_file(page_type='preview') for artwork in artworks],
             semaphore_num=10,
-            return_exceptions=False,
+            filter_exception=True,
         )
 
         return await self.send_artworks_preview_message(
@@ -239,45 +241,44 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
     def generate_default_shell_handler(self) -> 'T_Handler':
         """生成插件命令命令函数以供注册"""
 
-        type ProcessorReturn = tuple[list[T], str]
         origin_title = self._command_name.title()
 
-        async def _random_processor() -> ProcessorReturn:
-            artworks = await self._artwork_class.random()
+        async def _random_processor(limit: int) -> ProcessorReturn[T]:
+            artworks = await self._artwork_class.random(limit=limit)
             title = f'{origin_title} Random Artworks'
             return artworks, title
 
-        async def _search_processor(keyword: str, page: int) -> ProcessorReturn:
+        async def _search_processor(keyword: str, page: int) -> ProcessorReturn[T]:
             artworks = await self._artwork_class.search(keyword=keyword, page=page)
             title = f'{origin_title} Search: {keyword}'
             return artworks, title
 
-        async def _ranking_processor(mode: str, page: int) -> ProcessorReturn:
-            if not isinstance(self._artwork_class, UserSpaceMixin):
+        async def _ranking_processor(mode: str, page: int) -> ProcessorReturn[T]:
+            if not issubclass(self._artwork_class, UserSpaceMixin):
                 raise TypeError(f'{self._artwork_class.__name__} not support ranking method')
 
             match mode:
-                case '日榜' | 'daily':
+                case '日榜' | '每日' | '日' | 'day' | 'daily':
                     artworks = await self._artwork_class.ranking(mode='daily', page=page)
                     title = f'{origin_title} Daily Ranking {datetime.now().strftime("%Y-%m-%d")}'
-                case '周榜' | 'weekly':
+                case '周榜' | '每周' | '周' | 'week' | 'weekly':
                     artworks = await self._artwork_class.ranking(mode='weekly', page=page)
                     title = f'{origin_title} Weekly Ranking {datetime.now().strftime("%Y-%m-%d")}'
-                case '月榜' | 'monthly' | _:
+                case '月榜' | '每月' | '月' | 'month' | 'monthly' | _:
                     artworks = await self._artwork_class.ranking(mode='monthly', page=page)
                     title = f'{origin_title} Monthly Ranking {datetime.now().strftime("%Y-%m-%d")}'
             return artworks, title
 
-        async def _bookmark_processor(uid: str, page: int) -> ProcessorReturn:
-            if not isinstance(self._artwork_class, UserSpaceMixin):
+        async def _bookmark_processor(uid: str, page: int) -> ProcessorReturn[T]:
+            if not issubclass(self._artwork_class, UserSpaceMixin):
                 raise TypeError(f'{self._artwork_class.__name__} not support bookmark method')
 
             artworks = await self._artwork_class.query_user_bookmark_artworks(uid=uid, page=page)
             title = f'{origin_title} User Bookmark - {uid}'
             return artworks, title
 
-        async def _user_artwork_processor(uid: str, page: int) -> ProcessorReturn:
-            if not isinstance(self._artwork_class, UserSpaceMixin):
+        async def _user_artwork_processor(uid: str, page: int) -> ProcessorReturn[T]:
+            if not issubclass(self._artwork_class, UserSpaceMixin):
                 raise TypeError(f'{self._artwork_class.__name__} not support user-artwork method')
 
             user_data = await self._artwork_class.query_user(uid=uid)
@@ -307,26 +308,30 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
             await interface.send_reply('稍等, 正在获取作品信息~')
 
             try:
-                if not isinstance(self._artwork_class, ImageOpsMixin):
+                # 校验 ArtworkProxy 类型
+                if not issubclass(self._artwork_class, ImageOpsMixin):
                     raise TypeError(f'{self._artwork_class.__name__} not support ImageOps method')
 
-                # 随机作品
-                if parsed_args.random and not parsed_args.search:
-                    artworks, title = await _random_processor()
-                # 搜索作品
-                elif parsed_args.search:
+                # 处理互斥的选项
+                if len([
+                    x
+                    for x in (parsed_args.search, parsed_args.ranking, parsed_args.bookmark, parsed_args.user)
+                    if x
+                ]) > 1:
+                    raise TypeError('Mutually exclusive options are set')
+
+                # 处理命令分支
+                if parsed_args.search:  # 搜索作品
                     artworks, title = await _search_processor(keyword=keyword, page=parsed_args.page)
-                # 排行榜
-                elif parsed_args.ranking:
+                elif parsed_args.ranking:  # 排行榜
                     artworks, title = await _ranking_processor(mode=keyword.strip(), page=parsed_args.page)
-                # 用户收藏作品
-                elif parsed_args.bookmark and (uid := keyword.strip()).isdigit():
+                elif parsed_args.bookmark and (uid := keyword.strip()).isdigit():  # 用户收藏作品
                     artworks, title = await _bookmark_processor(uid=uid, page=parsed_args.page)
-                # 用户作品
-                elif parsed_args.user and (uid := keyword.strip()).isdigit():
+                elif parsed_args.user and (uid := keyword.strip()).isdigit():  # 用户作品
                     artworks, title = await _user_artwork_processor(uid=uid, page=parsed_args.page)
-                # 作品详情
-                elif (artwork_id := keyword.strip()).isdigit():
+                elif parsed_args.random:  # 随机作品
+                    artworks, title = await _random_processor(limit=max(parsed_args.num, 24))
+                elif (artwork_id := keyword.strip()).isdigit():  # 作品详情
                     artworks = [self._get_artwork_ap(artwork_id=artwork_id)]
                     title = ''
                     parsed_args.view = True
@@ -348,11 +353,11 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                         title=title,
                         artworks=artworks,
                         no_blur_rating=no_blur_rating,
-                        artworks_num_limiting=parsed_args.num,
+                        artworks_num_limiting=max(parsed_args.num, 60),
                     )
             except TypeError as e:
-                logger.warning(f'OmegaAnyArtwork | 不支持的作品来源类型, {origin_title}, {parsed_args}, {e}')
-                await interface.finish_reply(message=f'{origin_title}不支持该参数类型, 请确认后再重试吧')
+                logger.warning(f'OmegaAnyArtwork | 不支持的参数或作品来源类型, {origin_title}, {parsed_args}, {e}')
+                await interface.finish_reply(message=f'{origin_title}不支持该参数, 请确认后再重试吧')
             except Exception as e:
                 logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {parsed_args}, {e}')
                 await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')

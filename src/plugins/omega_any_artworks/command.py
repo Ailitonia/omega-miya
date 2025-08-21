@@ -91,7 +91,7 @@ async def handle_show_artwork(
 
 @omega_any_artworks.command(
     'recommend-artwork',
-    aliases={'推荐作品', '相关作品'},
+    aliases={'看推荐作品', '看看推荐作品', '看相关作品', '看看相关作品'},
 ).handle()
 async def handle_recommend_artwork(
         artwork_data: OPTIONAL_REPLY_ARTWORK,
@@ -103,7 +103,7 @@ async def handle_recommend_artwork(
     if (origin := artwork_data.origin.lower()) not in __ARTWORK_PROXY_MAP:
         await interface.finish_reply('回复或引用消息中的作品无可用来源')
 
-    if not isinstance((artwork_proxy := __ARTWORK_PROXY_MAP[origin]), UserSpaceMixin):
+    if not issubclass((artwork_proxy := __ARTWORK_PROXY_MAP[origin]), UserSpaceMixin):
         await interface.finish_reply(f'{artwork_proxy.get_base_origin_name().title()}不支持获取推荐作品')
 
     # 检查权限确定图片处理模式
@@ -116,7 +116,7 @@ async def handle_recommend_artwork(
         await ArtworkHandlerManager.send_artworks_preview_message(
             interface=interface,
             title=f'{artwork_data.origin.title()} | ID: {artwork_data.aid}/UID: {artwork_data.uid} 相关作品',
-            artworks=artwork_proxy.recommend(base_aid=artwork_data.aid),
+            artworks=(await artwork_proxy.recommend(base_aid=artwork_data.aid)),
             no_blur_rating=no_blur_rating,
         )
     except Exception as e:
@@ -126,7 +126,7 @@ async def handle_recommend_artwork(
 
 @omega_any_artworks.command(
     'user-artwork',
-    aliases={'用户作品', '画师作品'},
+    aliases={'看用户作品', '看看用户作品', '看画师作品', '看看画师作品'},
 ).handle()
 async def handle_user_artwork(
         user_data: OPTIONAL_REPLY_ARTIST_OR_ARTWORK_ARTIST,
@@ -138,7 +138,7 @@ async def handle_user_artwork(
     if (origin := user_data.origin.lower()) not in __ARTWORK_PROXY_MAP:
         await interface.finish_reply('回复或引用消息中的作品无可用来源')
 
-    if not isinstance((artwork_proxy := __ARTWORK_PROXY_MAP[origin]), UserSpaceMixin):
+    if not issubclass((artwork_proxy := __ARTWORK_PROXY_MAP[origin]), UserSpaceMixin):
         await interface.finish_reply(f'{artwork_proxy.get_base_origin_name().title()}不支持获取用户作品')
 
     # 检查权限确定图片处理模式
@@ -151,7 +151,7 @@ async def handle_user_artwork(
         await ArtworkHandlerManager.send_artworks_preview_message(
             interface=interface,
             title=f'{user_data.origin.title()} | UID: {user_data.uid} 用户作品',
-            artworks=artwork_proxy.query_user_artworks(base_aid=user_data.uid),
+            artworks=(await artwork_proxy.query_user_artworks(uid=user_data.uid)),
             no_blur_rating=no_blur_rating,
         )
     except Exception as e:
