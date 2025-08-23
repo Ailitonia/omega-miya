@@ -56,10 +56,10 @@ class TextMessageContent(BaseMessageContent[Literal['text']]):
 
 
 type MessageContentType = (
-        AudioMessageContent
-        | FileMessageContent
-        | ImageMessageContent
-        | TextMessageContent
+    AudioMessageContent
+    | FileMessageContent
+    | ImageMessageContent
+    | TextMessageContent
 )
 
 
@@ -137,7 +137,10 @@ class MessageContent(BaseOpenAIModel):
 
     def add_audio(self, data: str, format_: str) -> Self:
         if isinstance(self.content, str):
-            self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            if self.content:
+                self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            else:
+                self.content = []
 
         self.content.append(AudioMessageContent.model_validate({
             'type': 'input_audio',
@@ -158,7 +161,10 @@ class MessageContent(BaseOpenAIModel):
             raise ValueError('None of any "file_data", "file_id", "filename"')
 
         if isinstance(self.content, str):
-            self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            if self.content:
+                self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            else:
+                self.content = []
 
         self.content.append(FileMessageContent.model_validate({
             'type': 'file',
@@ -172,7 +178,10 @@ class MessageContent(BaseOpenAIModel):
 
     def add_image(self, image_url: str, *, detail: Literal['low', 'high', 'auto'] | None = None) -> Self:
         if isinstance(self.content, str):
-            self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            if self.content:
+                self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            else:
+                self.content = []
 
         self.content.append(ImageMessageContent.model_validate({
             'type': 'image_url',
@@ -185,7 +194,10 @@ class MessageContent(BaseOpenAIModel):
 
     def add_text(self, text: str) -> Self:
         if isinstance(self.content, str):
-            self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            if self.content:
+                self.content = [TextMessageContent.model_validate({'type': 'text', 'text': self.content})]
+            else:
+                self.content = []
 
         self.content.append(TextMessageContent.model_validate({'type': 'text', 'text': text}))
         return self
