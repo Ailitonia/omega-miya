@@ -8,8 +8,11 @@
 @Software       : PyCharm
 """
 
+from .image_description import ImageDescriptionApp
 from .translate import TranslateApp
 
+
 __all__ = [
+    'ImageDescriptionApp',
     'TranslateApp',
 ]
