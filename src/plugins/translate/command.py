@@ -19,19 +19,18 @@ from pydantic import BaseModel, ConfigDict
 from src.params.depends import EVENT_MATCHER_INTERFACE
 from src.params.handler import get_command_str_single_arg_parser_handler, get_shell_command_parse_failed_handler
 from src.service import enable_processor_state
-from src.utils.tencent_cloud_api import TencentTMT
+from src.utils.openai_api.scenario_app import TranslateApp
+from .config import translate_plugin_config
 
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(prog='Translate arguments parser', description='Parse translate arguments')
-    parser.add_argument('-s', '--source', type=str, default='auto')
-    parser.add_argument('-t', '--target', type=str, default='zh')
+    parser.add_argument('-t', '--target', type=str, default='简体中文')
     parser.add_argument('word', nargs='*')
     return parser
 
 
 class TranslateArguments(BaseModel):
-    source: str
     target: str
     word: list[str]
     model_config = ConfigDict(extra='ignore', from_attributes=True)
@@ -46,8 +45,10 @@ def parse_arguments(args: Namespace) -> TranslateArguments:
     'translate',
     aliases={'翻译', 'Translate'},
     parser=get_parser(),
-    handlers=[get_shell_command_parse_failed_handler(),
-              get_command_str_single_arg_parser_handler('word', ensure_key=True)],
+    handlers=[
+        get_shell_command_parse_failed_handler(),
+        get_command_str_single_arg_parser_handler('word', ensure_key=True),
+    ],
     priority=10,
     block=True,
     state=enable_processor_state(
@@ -71,10 +72,12 @@ async def handle_translate(
         await interface.reject_reply('请发送需要翻译的内容:')
 
     try:
-        result = await TencentTMT().text_translate(source_text=translate_word, source=args.source, target=args.target)
-        if result.error:
-            raise RuntimeError(result.Response.Error)  # type: ignore
-        await interface.send_reply(f'翻译结果:\n\n{result.Response.TargetText}')  # type: ignore
+        app = TranslateApp(
+            service_name=translate_plugin_config.translate_plugin_ai_service_name,
+            model_name=translate_plugin_config.translate_plugin_ai_model_name,
+        )
+        result = await app.translate(translate_word, target_language=args.target)
+        await interface.send_reply(f'翻译结果:\n\n{result}')
     except Exception as e:
         logger.error(f'Translate | 翻译失败, {e}')
         await interface.send_reply('翻译失败, 发生了意外的错误, 请稍后再试')

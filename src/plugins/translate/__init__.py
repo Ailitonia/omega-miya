@@ -14,7 +14,7 @@ __plugin_meta__ = PluginMetadata(
     name='翻译',
     description='【翻译插件】\n'
                 '简单的翻译插件\n'
-                '目前使用了腾讯云的翻译API',
+                '使用AI大模型进行翻译',
     usage='/翻译 [翻译内容]',
     extra={'author': 'Ailitonia'},
 )

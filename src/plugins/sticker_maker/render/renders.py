@@ -9,6 +9,7 @@
 """
 
 from collections.abc import Sequence
+from contextlib import suppress
 from datetime import date
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
@@ -17,7 +18,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 from src.utils import OmegaRequests
 from src.utils.image_utils import ImageEffectProcessor, ImageTextProcessor
-from src.utils.tencent_cloud_api import TencentTMT
+from src.utils.openai_api.scenario_app import TranslateApp
 from .consts import FONT_RESOURCE, STATIC_RESOURCE, TMP_PATH
 from .model import BaseStickerRender
 
@@ -1113,11 +1114,10 @@ class GrassJaRender(BaseStickerRender):
         text_origin = self.get_text()
         text_origin = ' ' if text_origin is None else text_origin.replace('\n', ' ')
 
-        text_trans_result = await TencentTMT().text_translate(source_text=text_origin, target='ja')
-        if text_trans_result.error:
-            text_ja = '翻訳に失敗しました！'
-        else:
-            text_ja = text_trans_result.Response.TargetText  # type: ignore
+        text_ja = '翻訳に失敗しました！'
+        with suppress(Exception):
+            text_ja = await TranslateApp().translate(text_origin, target_language='日语')
+
         text_ja = text_ja.replace('\n', ' ')
         self.set_text(f'{text_origin.strip()}\n{text_ja.strip()}')
 
