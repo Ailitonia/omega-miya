@@ -9,12 +9,14 @@
 """
 
 from .image_description import ImageDescriptionApp
+from .knowledge_extractor import KnowledgeExtractorApp
 from .translate import TranslateApp
 from .web_page_description import WebPageDescriptionApp
 
 
 __all__ = [
     'ImageDescriptionApp',
+    'KnowledgeExtractorApp',
     'TranslateApp',
     'WebPageDescriptionApp',
 ]
