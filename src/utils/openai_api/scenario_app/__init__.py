@@ -10,9 +10,11 @@
 
 from .image_description import ImageDescriptionApp
 from .translate import TranslateApp
+from .web_page_description import WebPageDescriptionApp
 
 
 __all__ = [
     'ImageDescriptionApp',
     'TranslateApp',
+    'WebPageDescriptionApp',
 ]
