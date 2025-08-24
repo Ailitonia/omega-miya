@@ -183,7 +183,7 @@ class KnowledgeExtractorApp(BaseAIScenarioApp):
         if input_keywords is None:
             input_keywords = []
 
-        query_content = QueryContent(keywords=input_keywords, user_message=user_message)
+        query_content = QueryContent.model_validate({'keywords': input_keywords, 'user_message': user_message})
 
         return await self.chat_session.advance_chat(
             query_content.model_dump_json(),

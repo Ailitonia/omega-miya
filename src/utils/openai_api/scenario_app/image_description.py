@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from typing import Literal
+from typing import Literal, Sequence
 
 from pydantic import BaseModel
 
@@ -33,6 +33,7 @@ _SYSTEM_INIT_PROMPT: str = """# Profile
 
 ## 提取与描述要求
 
+- 如果用户提供了多张图片，应该对每张图片分别进行分析和描述，并在结果中合并。
 - 提取出的实体对象应当是具体的事物，而非形容、修辞、评价等主观性内容。
 - 描述应保持客观，避免主观评价、情感色彩或主观臆断。
 - 仅基于图片中可见的内容进行分析，确保描述的准确性和完整性。
@@ -125,17 +126,19 @@ class ImageDescriptionApp(BaseAIScenarioApp):
 
     @classmethod
     def _set_max_messages(cls) -> int:
-        return 3
+        return 11
 
     async def describe_image(
             self,
-            image_url: str,
+            image_urls: Sequence[str],
             *,
             response_format: Literal['json_schema', 'json_object', None] = 'json_schema',
             temperature: float = 0.5,
     ) -> ImageDescription:
         """获取图片描述"""
-        await self.chat_session.add_chat_image(image=image_url, encoding_web_image=True)
+        for image_url in image_urls:
+            await self.chat_session.add_chat_image(image=image_url, encoding_web_image=True)
+
         return await self.chat_session.advance_chat(
             '请对提供的图片进行描述',
             response_format=response_format,

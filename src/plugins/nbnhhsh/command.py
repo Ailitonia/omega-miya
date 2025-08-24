@@ -46,7 +46,7 @@ async def handle_guess(
     try:
         if nbnhhsh_plugin_config.nbnhhsh_plugin_enable_ai_description:
             await interface.send_reply('正在尝试解析知识概念, 请稍候')
-            result_msg = await ai_guess(query_message=query_message, msg_image=msg_images[0])
+            result_msg = await ai_guess(query_message=query_message, msg_images=msg_images)
         else:
             result_msg = await simple_guess(query_message=query_message)
         await interface.send_reply(result_msg)

@@ -123,7 +123,7 @@ class WebPageDescriptionApp(BaseAIScenarioApp):
 
         # 获取和初步清理网页 html
         page_content = await self.chat_session.client.get_any_resource_as_bytes(url=page_url)
-        page_pure_text = await self.get_html_pure_text(html_content=page_content)
+        page_pure_text = await self.get_html_pure_text(html_content=page_content.decode())
 
         return await self.chat_session.advance_chat(
             page_pure_text,

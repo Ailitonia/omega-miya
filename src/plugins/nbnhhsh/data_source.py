@@ -8,6 +8,8 @@
 @Software       : PyCharm
 """
 
+from typing import TYPE_CHECKING, Sequence
+
 from nonebot.log import logger
 from pydantic import BaseModel
 
@@ -15,6 +17,9 @@ from src.compat import parse_obj_as
 from src.utils import OmegaRequests
 from src.utils.openai_api.scenario_app import ImageDescriptionApp, KnowledgeExtractorApp, WebPageDescriptionApp
 from .config import nbnhhsh_plugin_config
+
+if TYPE_CHECKING:
+    from src.utils.openai_api.scenario_app.knowledge_extractor import InputKeywords
 
 
 class AttrGuessResult(BaseModel):
@@ -60,31 +65,36 @@ async def simple_guess(query_message: str) -> str:
     return trans
 
 
-async def ai_guess(query_message: str, msg_image: str | None = None) -> str:
+async def ai_guess(query_message: str, msg_images: Sequence[str]) -> str:
     """使用 AI 进行解释"""
 
     # 只有文本内容为纯字母的时候才尝试查询缩写
     need_query_attr = query_message.isalpha() and query_message.isascii()
+    input_keywords: list['InputKeywords'] = []
 
     try:
-        if msg_image:
+        if msg_images:
             images_desc = await ImageDescriptionApp(
                 service_name=nbnhhsh_plugin_config.nbnhhsh_plugin_ai_vision_service_name,
                 model_name=nbnhhsh_plugin_config.nbnhhsh_plugin_ai_vision_model_name,
             ).describe_image(
-                image_url=msg_image,
+                image_urls=msg_images,
                 response_format=nbnhhsh_plugin_config.nbnhhsh_plugin_ai_vision_json_output,
                 temperature=nbnhhsh_plugin_config.nbnhhsh_plugin_ai_temperature,
             )
             need_query_attr = False
-            input_keywords = [x.model_dump() for x in images_desc.entity]
+            input_keywords.extend(
+                {
+                    'type': f'image_keywords_{x.type}',
+                    'content': x.content,
+                }
+                for x in images_desc.entity
+            )
             image_overview = images_desc.image_overview
         else:
-            input_keywords = []
             image_overview = ''
     except Exception as e:
-        logger.warning(f'nbnhhsh | 尝试解析图片({msg_image})失败, {e}')
-        input_keywords = []
+        logger.warning(f'nbnhhsh | 尝试解析图片({msg_images})失败, {e}')
         image_overview = ''
 
     try:
@@ -98,7 +108,10 @@ async def ai_guess(query_message: str, msg_image: str | None = None) -> str:
                 temperature=nbnhhsh_plugin_config.nbnhhsh_plugin_ai_temperature,
             )
             need_query_attr = False
-            input_keywords.append({'type': 'web_page_keywords', 'content': web_desc.keywords})
+            input_keywords.append({
+                'type': 'web_page_keywords',
+                'content': web_desc.keywords,
+            })
             web_overview = web_desc.web_overview
         else:
             web_overview = ''
@@ -108,7 +121,10 @@ async def ai_guess(query_message: str, msg_image: str | None = None) -> str:
 
     try:
         if need_query_attr and (attr_desc_result := await query_abbr_guess(guess=query_message)):
-            input_keywords.append({'type': 'abbreviation_explanation', 'content': attr_desc_result})
+            input_keywords.append({
+                'type': 'abbreviation_explanation',
+                'content': attr_desc_result
+            })
             abbr_overview = f'查询缩写{query_message!r}可能的含义:\n\n{"\n".join(attr_desc_result)}'
         else:
             abbr_overview = ''
