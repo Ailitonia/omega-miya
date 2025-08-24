@@ -960,7 +960,7 @@ class DynItemModules(BaseBilibiliModel):
         return (
             f'{self.pub_text}'
             f'{f"\n\n“{self.desc_text}”" if self.desc_text else ""}'
-            f'{f"\n\n{self.major_text}" if self.major_text else ""}'
+            f'{f"\n\n“{self.major_text}”" if self.major_text else ""}'
         )
 
     @property
