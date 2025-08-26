@@ -12,6 +12,7 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
+from src.resource import StaticResource
 
 
 class Service(BaseModel):
@@ -33,6 +34,14 @@ class OpenaiServiceConfig(BaseModel):
     @property
     def service_map(self) -> dict[str, Service]:
         return {x.name: x for x in self.openai_service_config}
+
+    @property
+    def default_static_text_resource_folder(self) -> StaticResource:
+        return StaticResource('docs', 'openai_api')
+
+    @property
+    def scenario_app_prompts_folder(self) -> StaticResource:
+        return self.default_static_text_resource_folder('scenario_app', 'prompts')
 
 
 try:
