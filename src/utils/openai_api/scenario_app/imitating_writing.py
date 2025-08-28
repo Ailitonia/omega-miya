@@ -109,6 +109,7 @@ class ProgrammingPhilosophyImitatingWritingApp(BaseImitatingWritingApp):
 
 
 __all__ = [
+    'BaseImitatingWritingApp',
     'CustomImitatingWritingApp',
     'ProgrammingPhilosophyImitatingWritingApp',
 ]
