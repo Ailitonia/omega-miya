@@ -89,7 +89,6 @@ class StorySession:
                 model_type=Story,
                 temperature=roguelike_story_plugin_config.roguelike_story_plugin_ai_temperature,
                 max_tokens=roguelike_story_plugin_config.roguelike_story_plugin_ai_max_tokens,
-                timeout=roguelike_story_plugin_config.roguelike_story_plugin_ai_timeout,
             )
 
         # 初始化续写 Session
@@ -131,7 +130,6 @@ class StorySession:
                 model_type=FastCurrentSituation,
                 temperature=roguelike_story_plugin_config.roguelike_story_plugin_ai_temperature,
                 max_tokens=roguelike_story_plugin_config.roguelike_story_plugin_ai_max_tokens,
-                timeout=roguelike_story_plugin_config.roguelike_story_plugin_ai_timeout,
             )
 
         return continue_result
@@ -157,7 +155,6 @@ class StorySession:
                 model_type=RollResults,
                 temperature=roguelike_story_plugin_config.roguelike_story_plugin_ai_temperature,
                 max_tokens=roguelike_story_plugin_config.roguelike_story_plugin_ai_max_tokens,
-                timeout=roguelike_story_plugin_config.roguelike_story_plugin_ai_timeout,
             )
 
         return roll_result
@@ -177,7 +174,6 @@ class StorySession:
                 model_type=RollResults,
                 temperature=roguelike_story_plugin_config.roguelike_story_plugin_ai_temperature,
                 max_tokens=roguelike_story_plugin_config.roguelike_story_plugin_ai_max_tokens,
-                timeout=roguelike_story_plugin_config.roguelike_story_plugin_ai_timeout,
             )
 
         return roll_result
@@ -201,7 +197,6 @@ class StorySession:
                 model_type=NextSituation,
                 temperature=roguelike_story_plugin_config.roguelike_story_plugin_ai_temperature,
                 max_tokens=roguelike_story_plugin_config.roguelike_story_plugin_ai_max_tokens,
-                timeout=roguelike_story_plugin_config.roguelike_story_plugin_ai_timeout,
             )
 
         self.current_situation = continued_result.next_situation

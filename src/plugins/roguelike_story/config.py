@@ -24,8 +24,6 @@ class RoguelikeStoryPluginConfig(BaseModel):
     roguelike_story_plugin_ai_temperature: float = Field(default=0.6, ge=0, le=2)
     # 生成时的 Max Tokens 参数值
     roguelike_story_plugin_ai_max_tokens: int = Field(default=4096)
-    # 生成时的请求超时时间
-    roguelike_story_plugin_ai_timeout: int = Field(default=120)
     # 要求返回 JSON 格式, 有助于数据解析, 若 AI 服务不支持 JSON 输出则需要设置为 `None`
     roguelike_story_plugin_ai_json_output: Literal['json_schema', 'json_object', None] = Field(default='json_object')
     # 生成掷骰事件时是否使用 SFW 内容安全提示词
