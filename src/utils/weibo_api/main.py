@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from src.exception import WebSourceException
 from src.utils import BaseCommonAPI
@@ -32,6 +32,9 @@ if TYPE_CHECKING:
 class Weibo(BaseCommonAPI):
     """微博, 使用手机端网页 api"""
 
+    _default_cookies: ClassVar[dict[str, str]] = {}
+    """缓存默认 cookies 值"""
+
     @classmethod
     def _get_root_url(cls, *args, **kwargs) -> str:
         return 'https://m.weibo.cn'
@@ -47,7 +50,15 @@ class Weibo(BaseCommonAPI):
 
     @classmethod
     def _get_default_cookies(cls) -> dict[str, str]:
-        return {}
+        return cls._default_cookies.copy()
+
+    @classmethod
+    async def update_default_cookies(cls) -> dict[str, str]:
+        """刷新默认 cookies 值"""
+        main_page_response = await cls._request_get(url=cls._get_root_url())
+        cookies = cls._extra_set_cookies_from_response(response=main_page_response)
+        cls._default_cookies.update(cookies)
+        return cookies
 
     @classmethod
     async def download_resource(

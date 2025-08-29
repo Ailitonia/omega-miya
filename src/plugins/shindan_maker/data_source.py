@@ -9,7 +9,6 @@
 """
 
 import itertools
-import re
 from copy import deepcopy
 from typing import TYPE_CHECKING, Literal, Optional
 
@@ -227,13 +226,7 @@ class ShindanMaker(BaseCommonAPI):
         params = await parse_shindan_page_token(content=page_content)
         params.update({'shindanName': input_name})
 
-        cookies = {}
-        for k, v in page_response.headers.items():
-            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
-                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
-                if len(item) == 2:
-                    cookies.update({item[0]: item[1]})
-
+        cookies = self._extra_set_cookies_from_response(response=page_response)
         response = await self._request_post(url=query_url, headers=headers, cookies=cookies, data=params)
         return await parse_shindan_result_page(content=self._parse_content_as_text(response=response))
 

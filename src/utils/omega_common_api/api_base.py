@@ -9,6 +9,7 @@
 """
 
 import abc
+import re
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
@@ -63,6 +64,17 @@ class BaseCommonAPI(abc.ABC):
     def _get_default_cookies(cls) -> 'CookieTypes':
         """内部方法, 获取默认 Cookies"""
         raise NotImplementedError
+
+    @classmethod
+    def _extra_set_cookies_from_response(cls, response: 'Response') -> dict[str, str]:
+        """从请求的响应头中获取 set-cookie 字段内容"""
+        set_cookies: dict[str, str] = {}
+        for k, v in response.headers.items():
+            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
+                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
+                if len(item) == 2:
+                    set_cookies.update({item[0]: item[1]})
+        return set_cookies
 
     @classmethod
     def _get_default_timeout(cls) -> 'Timeout':

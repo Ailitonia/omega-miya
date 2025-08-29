@@ -8,7 +8,6 @@
 @Software       : PyCharm
 """
 
-import re
 from typing import TYPE_CHECKING, Any
 
 from src.utils import BaseCommonAPI
@@ -33,7 +32,7 @@ from ..models import (
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
-    from src.utils.omega_common_api.types import CookieTypes, Response
+    from src.utils.omega_common_api.types import CookieTypes
 
 
 class BilibiliCommon(BaseCommonAPI):
@@ -55,17 +54,6 @@ class BilibiliCommon(BaseCommonAPI):
     @classmethod
     def _get_default_cookies(cls) -> 'CookieTypes':
         return bilibili_api_config.bili_cookies
-
-    @classmethod
-    def _extra_set_cookies_from_response(cls, response: 'Response') -> dict[str, str]:
-        """从请求的响应头中获取 set-cookie 字段内容"""
-        set_cookies: dict[str, str] = {}
-        for k, v in response.headers.items():
-            if re.match(re.compile('set-cookie', re.IGNORECASE), k):
-                item = v.split(';', maxsplit=1)[0].strip().split('=', maxsplit=1)
-                if len(item) == 2:
-                    set_cookies.update({item[0]: item[1]})
-        return set_cookies
 
     @classmethod
     async def download_resource(cls, url: str) -> 'TemporaryResource':
