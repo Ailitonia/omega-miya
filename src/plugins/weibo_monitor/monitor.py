@@ -49,6 +49,9 @@ async def weibo_update_monitor() -> None:
         interval_min = interval_min if interval_min > 2 else 2
         reschedule_job(job=monitor_job, trigger_mode='interval', minutes=interval_min)
 
+    # 更新 Cookies
+    await WeiboUserSubscriptionManager.update_weibo_default_cookies()
+
     # 检查新微博并发送消息
     tasks = [weibo_user_monitor_main(uid=uid) for uid in subscribed_uid]
     sent_result = await semaphore_gather(tasks=tasks, semaphore_num=5, return_exceptions=True, filter_exception=False)

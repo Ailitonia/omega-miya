@@ -121,6 +121,10 @@ class WeiboUserSubscriptionManager(BaseSubscriptionManager['SMC_T']):
         send_message += f'\n微博链接: https://weibo.com/detail/{smc_item.mblog.mid}'
         return send_message
 
+    @classmethod
+    async def update_weibo_default_cookies(cls) -> dict[str, str]:
+        return await Weibo.update_default_cookies()
+
 
 __all__ = [
     'WeiboUserSubscriptionManager',
