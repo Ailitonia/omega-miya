@@ -13,7 +13,7 @@ import random
 from src.utils.pixiv_api import PixivArtwork, PixivUser
 from ..add_ons import ImageOpsMixin, UserSpaceMixin
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData, ArtistUserData
+from ..models import ArtistUserData, ArtworkData
 
 
 class _PixivArtworkProxy(BaseArtworkProxy):

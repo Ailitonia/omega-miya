@@ -25,6 +25,7 @@ from .consts import ALLOW_MOE_PLUGIN_ARTWORK_ORIGIN, ALLOW_R18_NODE, ALL_MOE_PLU
 
 if TYPE_CHECKING:
     from asyncio import TimerHandle
+
     from src.params.depends import EVENT_MATCHER_INTERFACE
     from src.service.artwork_collection.typing import CollectedArtwork
     from src.service.artwork_proxy.models import ArtworkData

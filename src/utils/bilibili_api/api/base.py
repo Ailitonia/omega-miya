@@ -98,7 +98,6 @@ class BilibiliCommon(BaseCommonAPI):
         )
         return bilibili_api_config.bili_cookies
 
-
     @classmethod
     async def update_buvid_cookies(cls) -> dict[str, Any]:
         """为接口激活 buvid, 并更新 Cookies 缓存"""

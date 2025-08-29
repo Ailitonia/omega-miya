@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from nonebot.log import logger
 from pydantic import BaseModel
@@ -70,7 +71,7 @@ async def ai_guess(query_message: str, msg_images: Sequence[str]) -> str:
 
     # 只有文本内容为纯字母的时候才尝试查询缩写
     need_query_attr = query_message.isalpha() and query_message.isascii()
-    input_keywords: list['InputKeywords'] = []
+    input_keywords: list[InputKeywords] = []
 
     try:
         if msg_images:

@@ -16,7 +16,7 @@ from nonebot.log import logger
 from nonebot.params import ArgStr
 from nonebot.typing import T_State
 
-from src.params.depends import USER_MATCHER_INTERFACE, USER_ENTITY_PROFILE_IMAGE_URL
+from src.params.depends import USER_ENTITY_PROFILE_IMAGE_URL, USER_MATCHER_INTERFACE
 from src.service import OmegaMessageSegment
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from .config import sign_in_config

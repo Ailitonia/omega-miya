@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from typing import Literal, Sequence, TypedDict
+from collections.abc import Sequence
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
