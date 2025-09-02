@@ -86,7 +86,7 @@ async def handle_show_artwork(
         )
     except Exception as e:
         logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {artwork_data}, {e}')
-        await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+        await interface.finish_reply(message='获取作品失败了, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
 
 @omega_any_artworks.command(
@@ -121,7 +121,7 @@ async def handle_recommend_artwork(
         )
     except Exception as e:
         logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {artwork_data}, {e}')
-        await interface.finish_reply(message='获取推荐作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+        await interface.finish_reply(message='获取推荐作品失败了, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
 
 @omega_any_artworks.command(
@@ -156,7 +156,7 @@ async def handle_user_artwork(
         )
     except Exception as e:
         logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {user_data}, {e}')
-        await interface.finish_reply(message='获取用户作品失败了QAQ, 可能是网络原因或者用户不存在, 请稍后再试')
+        await interface.finish_reply(message='获取用户作品失败了, 可能是网络原因或者用户不存在, 请稍后再试')
 
 
 __all__ = []

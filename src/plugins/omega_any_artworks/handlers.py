@@ -211,6 +211,9 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                 )
             except Exception as e:
                 logger.error(f'OmegaAnyArtwork | Send artwork {artwork} failed, {e}')
+                await interface.send_reply(
+                    message=f'获取{artwork.origin_name}作品{artwork.s_aid}失败了, 可能是网络原因或者作品已经被删除, 请稍后再试',
+                )
 
     async def _send_artworks_preview_message(
             self,
@@ -360,7 +363,7 @@ class ArtworkHandlerManager[T: 'ImageOpsMixin']:
                 await interface.finish_reply(message=f'{origin_title}不支持该参数, 请确认后再重试吧')
             except Exception as e:
                 logger.error(f'OmegaAnyArtwork | 获取作品预览失败, {parsed_args}, {e}')
-                await interface.finish_reply(message='获取作品失败了QAQ, 可能是网络原因或者作品已经被删除, 请稍后再试')
+                await interface.finish_reply(message='获取作品预览失败了, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
         return _handler
 
