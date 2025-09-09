@@ -66,6 +66,8 @@ async def handle_translate(
 
     if parsed_args.word:
         translate_word = ' '.join(parsed_args.word).strip()
+    elif reply_message := interface.get_event_reply_msg_plain_text():
+        translate_word = reply_message.strip()
     elif word and word.strip():
         translate_word = word.strip()
     else:
