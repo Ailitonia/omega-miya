@@ -14,15 +14,19 @@ from pydantic import AnyHttpUrl, AnyUrl, BeforeValidator, TypeAdapter
 
 # Compatibility for pydantic_core._pydantic_core.Url in V2
 # See https://github.com/pydantic/pydantic/discussions/8211 and https://github.com/pydantic/pydantic/discussions/6395
-AnyUrlAdapter = TypeAdapter(AnyUrl)
-AnyUrlStr = Annotated[str, BeforeValidator(lambda v: str(AnyUrlAdapter.validate_python(v)))]
+
+ANY_URL_ADAPTER = TypeAdapter(AnyUrl)
+"""实例化全局 AnyUrlAdapter"""
+ANY_HTTP_URL_ADAPTER = TypeAdapter(AnyHttpUrl)
+"""实例化全局 AnyHttpUrlAdapter"""
+
+type AnyUrlStr = Annotated[str, BeforeValidator(lambda v: str(ANY_URL_ADAPTER.validate_python(v)))]
 """使用 Annotated Validator 将 AnyUrl 格式转换为 str"""
 
-AnyHttpUrlAdapter = TypeAdapter(AnyHttpUrl)
-AnyHttpUrlStr = Annotated[str, BeforeValidator(lambda v: str(AnyHttpUrlAdapter.validate_python(v)))]
+type AnyHttpUrlStr = Annotated[str, BeforeValidator(lambda v: str(ANY_HTTP_URL_ADAPTER.validate_python(v)))]
 """使用 Annotated Validator 将 AnyHttpUrl 格式转换为 str"""
 
-EmptyNoneStr = Annotated[str, BeforeValidator(lambda x: '' if x is None else x)]
+type EmptyNoneStr = Annotated[str, BeforeValidator(lambda x: '' if x is None else x)]
 """默认将 None 转换为空字符串类型"""
 
 
