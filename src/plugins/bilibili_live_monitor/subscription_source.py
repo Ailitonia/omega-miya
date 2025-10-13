@@ -126,8 +126,20 @@ class BilibiliLiveRoomSubscriptionManager(BaseSubscriptionManager['SMC_T']):
         # 针对直播间短号进行处理
         room_info = self._LATEST_LIVE_ROOM_STATUS_CACHE.get(self.sub_id, None)
         if room_info is None:
-            # 此处短号也没有的话则直播间不是已订阅的, 此处抛出 `KeyError` 由上层继续处理
-            room_info = {x.live_room_short_id: x for x in self._LATEST_LIVE_ROOM_STATUS_CACHE.values()}[self.sub_id]
+            # 尝试通过短号查找
+            room_info_by_short_id = {x.live_room_short_id: x for x in self._LATEST_LIVE_ROOM_STATUS_CACHE.values()}
+            room_info = room_info_by_short_id.get(self.sub_id, None)
+            
+            # 如果仍然找不到，说明是新的订阅请求，需要单独查询该直播间信息
+            if room_info is None:
+                logger.debug(f'{self.__class__.__name__} | Room {self.sub_id} not in cache, querying from API')
+                await self._update_internal_live_room_status(room_ids=[self.sub_id])
+                room_info = self._LATEST_LIVE_ROOM_STATUS_CACHE.get(self.sub_id, None)
+                
+                # 如果还是查不到，说明房间号无效或API出错
+                if room_info is None:
+                    raise KeyError(f'直播间 {self.sub_id} 不存在或无法获取信息，请检查房间号是否正确')
+        
         return room_info
 
     async def query_live_room_status(self) -> 'BilibiliLiveRoomStatus':
