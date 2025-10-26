@@ -56,9 +56,11 @@ class ChunkChoice(BaseOpenAIModel):
     @field_validator('delta', mode='before')
     @classmethod
     def _complement_delta_role(cls, value: Any) -> Any:
-        try:
-            value['role']
-        except KeyError:
+        if not isinstance(value, dict):
+            return value
+
+        # 如果 role 键不存在或者值为 None，则设置为 assistant
+        if 'role' not in value or value.get('role') is None:
             value['role'] = MessageRole.assistant
 
         return value
