@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
 from nonebot.log import logger
+from pathvalidate import sanitize_filename
 
 from src.exception import WebSourceException
 from src.resource import AnyResource, BaseResource, TemporaryResource
@@ -32,10 +33,11 @@ if TYPE_CHECKING:
 
 
 class PixivArtworkDownloader:
-    __slots__ = ('__fast_mode', '__output_file',)
+    __slots__ = ('__fast_mode', '__use_cache', '__output_file',)
 
-    def __init__(self, fast_mode: bool = False):
+    def __init__(self, fast_mode: bool = False, use_cache: bool = True):
         self.__fast_mode = fast_mode
+        self.__use_cache = use_cache or fast_mode  # use cache when enable fast mode
         self.__output_file: TemporaryResource
 
     @classmethod
@@ -67,7 +69,7 @@ class PixivArtworkDownloader:
         """获取作品信息并写入数据库"""
         artwork = PixivArtworkCollection(artwork_id=pid)
         try:
-            artwork_data = await artwork.artwork_proxy.query()
+            artwork_data = await artwork.artwork_proxy.query(use_cache=self.__use_cache)
         except WebSourceException as e:
             if e.status_code == 404:
                 raise e
@@ -78,7 +80,7 @@ class PixivArtworkDownloader:
                 await async_sleep(20)
             else:
                 await async_sleep(60)
-            artwork_data = await artwork.artwork_proxy.query()
+            artwork_data = await artwork.artwork_proxy.query(use_cache=self.__use_cache)
 
         # 作品信息写入数据库
         await artwork.add_artwork_into_database_ignore_exists()
@@ -208,6 +210,42 @@ class PixivArtworkDownloader:
         await set_last_follow_illust_pid(pid=now_up_pid)
         logger.success(f'Follow artwork update is all got completed, this time up pid: {now_up_pid}')
 
+    async def _download_follow_artworks(
+            self,
+            *,
+            download_dir: 'Path | None' = None,
+    ) -> None:
+        """下载已已关注用户新作品"""
+        # 获取更新作品下载链接
+        await self.output_follow_main()
+
+        logger.info(f'Querying latest following artworks data completed, start downloading...')
+
+        # 指定下载路径
+        if download_dir is not None:
+            download_folder = AnyResource(download_dir)
+        else:
+            download_folder = self.get_output_dir()('following', datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+        # 执行下载
+        async with self.output_file.async_open('r', encoding='utf-8') as af:
+            tasks = [
+                self.download_any_url(url=url, save_folder=download_folder, ignore_exist_file=True)
+                for url in await af.readlines()
+            ]
+
+        await semaphore_gather(tasks=tasks, semaphore_num=8)
+        logger.success(f'Downloading latest following artworks completed')
+
+    async def download_follow_artworks_main(
+            self,
+            download_dir: 'Path',
+    ) -> None:
+        try:
+            await self._download_follow_artworks(download_dir=download_dir)
+        except Exception as e:
+            logger.error(f'Downloading latest following artworks failed, error: {e}')
+
     async def _download_user_artworks(
             self,
             user_id: int,
@@ -225,11 +263,13 @@ class PixivArtworkDownloader:
         await async_sleep(30)
 
         output_file_name = f'user_{user_id}_artworks_{datetime.now().strftime("%Y%m%d-%H%M%S")}.txt'
-        meta_file_name = f'user_{user_id}_meta.json'
+        meta_file_name = f'user_{user_id}_meta_{datetime.now().strftime("%Y%m%d-%H%M%S")}.json'
+        user_friendly_name_file_name = sanitize_filename(f'{user_data.name}.NAME')
         self.set_output_file(category='user', filename=output_file_name)
 
         # 获取用户所有作品信息
         await self._handle_output_artworks(pids=user_data.manga_illusts, enable_filter=False)
+
         logger.info(f'Querying user(uid={user_id}, {user_data.name}) artworks data completed, start downloading...')
 
         # 指定下载路径
@@ -241,6 +281,8 @@ class PixivArtworkDownloader:
         # 保存用户 meta 信息
         async with download_folder(meta_file_name).async_open('w', encoding='utf-8') as maf:
             await maf.write(user_data.model_dump_json())
+        async with download_folder(user_friendly_name_file_name).async_open('w', encoding='utf-8') as naf:
+            await naf.write(f'{user_data.name} @ {datetime.now().strftime("%Y-%m-%d")}')
 
         # 执行下载
         async with self.output_file.async_open('r', encoding='utf-8') as af:
@@ -248,14 +290,14 @@ class PixivArtworkDownloader:
                 self.download_any_url(url=url, save_folder=download_folder, ignore_exist_file=True)
                 for url in await af.readlines()
             ]
+
         await semaphore_gather(tasks=tasks, semaphore_num=8)
         logger.success(f'Downloading user(uid={user_id}, {user_data.name}) artworks completed')
 
     async def download_users_artworks_main(
             self,
+            download_dir: 'Path',
             user_ids: Sequence[int],
-            *,
-            download_dir: 'Path | None' = None,
     ) -> None:
         for i, user_id in enumerate(user_ids):
             try:
@@ -269,9 +311,9 @@ class PixivArtworkDownloader:
 
     async def _download_bookmark_artworks(
             self,
-            download_dir: 'Path',
             uid: int | None = None,
             *,
+            download_dir: 'Path | None' = None,
             rest: Literal['show', 'hide'] = 'show',
             before: int | None = None,
     ) -> None:
@@ -287,19 +329,25 @@ class PixivArtworkDownloader:
         # 获取所有作品信息
         await self._handle_output_artworks(pids=pids, enable_filter=False)
 
-        logger.info(f'Querying user(uid={uid}) {rest} bookmark illust data completed, start downloading...')
+        logger.info(f'Querying user(uid={uid}) {rest} bookmark artworks data completed, start downloading...')
 
-        download_folder = AnyResource(download_dir)
-        async with self.output_file.async_open('r', encoding='utf8') as af:
+        # 指定下载路径
+        if download_dir is not None:
+            download_folder = AnyResource(download_dir)
+        else:
+            download_folder = self.get_output_dir()('bookmark', f'{uid if uid else "default"}')
+
+        # 执行下载
+        async with self.output_file.async_open('r', encoding='utf-8') as af:
             tasks = [
                 self.download_any_url(url=url, save_folder=download_folder, ignore_exist_file=True)
                 for url in await af.readlines()
             ]
 
         await semaphore_gather(tasks=tasks, semaphore_num=8)
-        logger.success(f'Downloading user(uid={uid}) {rest} bookmark illust completed')
+        logger.success(f'Downloading user(uid={uid}) {rest} bookmark artworks completed')
 
-    async def download_bookmark_main(
+    async def download_bookmark_artworks_main(
             self,
             download_dir: 'Path',
             uid: int | None = None,
