@@ -37,8 +37,8 @@ _plugin_config = get_plugin_config(OmegaProcessorTelegramImageParserConfig)
 
 
 async def _parse_photo_segment(bot: TelegramBot, seg: TelegramMessageSegment) -> TelegramMessageSegment:
-    """解析 photo 消息段中图片的真实 url"""
-    if seg.type != 'photo':
+    """解析图片消息段中图片的真实 url"""
+    if seg.type not in ['photo', 'sticker']:
         return seg
 
     file = await bot.get_file(file_id=seg.data.get('file', ''))
@@ -63,7 +63,7 @@ async def _parse_photo_segment(bot: TelegramBot, seg: TelegramMessageSegment) ->
 async def _parse_message(bot: TelegramBot, message: TelegramMessage) -> TelegramMessage:
     output_message = TelegramMessage()
     for seg in message:
-        if seg.type == 'photo':
+        if seg.type in ['photo', 'sticker']:
             try:
                 parsed_seg = await _parse_photo_segment(bot=bot, seg=seg)
                 output_message.append(parsed_seg)
@@ -77,7 +77,7 @@ async def _parse_message(bot: TelegramBot, message: TelegramMessage) -> Telegram
 
 
 async def handle_parse_message_image_event_preprocessor(bot: TelegramBot, event: TelegramMessageEvent):
-    """事件预处理, 将 photo 消息段中的图片 file_id 替换为真实图片 url"""
+    """事件预处理, 将图片消息段中的图片 file_id 替换为真实图片 url"""
     event.message = await _parse_message(bot=bot, message=event.message.copy())
     if event.reply_to_message:
         event.reply_to_message.message = await _parse_message(bot=bot, message=event.reply_to_message.message.copy())
