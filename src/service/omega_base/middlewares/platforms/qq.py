@@ -387,12 +387,14 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.id) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         return await self.bot.delete_message(
@@ -479,12 +481,14 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.user_openid) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         return await self.bot.delete_c2c_message(
@@ -554,12 +558,14 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.member_openid) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         return await self.bot.delete_group_message(

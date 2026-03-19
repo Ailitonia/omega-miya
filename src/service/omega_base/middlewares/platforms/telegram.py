@@ -359,7 +359,8 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
         send_message += TelegramMessageEntity.mention(f'@{self.event.from_.username}')
         send_message += TelegramMessageEntity.text(' ')
         send_message += built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     def get_user_nickname(self) -> str:
         return self.event.from_.first_name
@@ -385,7 +386,8 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
         send_message += TelegramMessageEntity.mention(f'@{self.event.from_.username}')
         send_message += TelegramMessageEntity.text(' ')
         send_message += built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     def get_user_nickname(self) -> str:
         return self.event.from_.first_name
