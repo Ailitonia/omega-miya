@@ -348,6 +348,9 @@ class QQEventDepend[Event_T: QQEvent](BaseEventDepend[QQBot, Event_T, QQMessage]
     def get_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError
+
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
@@ -423,6 +426,11 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
 
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        # `GuildMessageEvent.reply` 使用 `get_message_of_id` API 提取回复消息
+        # 故无法直接从事件中提取回复消息内容
+        raise NotImplementedError
 
     def get_reply_msg_id(self) -> str | None:
         # `GuildMessageEvent.reply` 使用 `get_message_of_id` API 提取回复消息
@@ -518,6 +526,9 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError  # NOTE: QQ API not support currently
+
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError  # NOTE: QQ API not support currently
 
@@ -594,6 +605,9 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
 
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError  # NOTE: QQ API not support currently
 
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError  # NOTE: QQ API not support currently

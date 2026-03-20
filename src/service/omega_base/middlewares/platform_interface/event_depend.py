@@ -134,6 +134,11 @@ class BaseEventDepend[Bot_T: 'BaseBot', Event_T: 'BaseEvent', Message_T: 'BaseMe
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        """获取回复消息"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_reply_msg_id(self) -> str | None:
         """获取回复消息的消息ID"""
         raise NotImplementedError

@@ -149,6 +149,9 @@ class ConsoleEventDepend[Event_T: ConsoleEvent](BaseEventDepend[ConsoleBot, Even
     def get_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError
+
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
@@ -189,6 +192,9 @@ class ConsoleMessageEventDepend(ConsoleEventDepend[ConsoleMessageEvent]):
 
     def get_msg_image_urls(self) -> list[str]:
         return []
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        return None
 
     def get_reply_msg_id(self) -> str | None:
         return None

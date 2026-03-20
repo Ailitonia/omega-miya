@@ -249,6 +249,9 @@ class TelegramEventDepend[Event_T: TelegramEvent](BaseEventDepend[TelegramBot, E
     def get_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError
+
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
@@ -317,6 +320,12 @@ class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDep
             for msg_seg in self.event.get_message()
             if msg_seg.type == 'photo'
         ]
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        if self.event.reply_to_message:
+            return self.extract_platform_message(self.event.reply_to_message.get_message())
+        else:
+            return None
 
     def get_reply_msg_id(self) -> str | None:
         if self.event.reply_to_message:
