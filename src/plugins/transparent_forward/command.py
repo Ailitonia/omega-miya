@@ -149,6 +149,10 @@ async def _handle_transparent_forward(
         user_entity_params: USER_ENTITY_PARAMS,
         origin_message: Annotated[BaseMessage, EventMessage()]
 ) -> None:
+    # 不再次转发来自 Bot 自身的消息
+    if user_entity_params.bot_id == user_entity_params.entity_id:
+        return
+
     source_entity = await interface.entity.query_entity_self()
     bound_target_entity_index_ids = query_bound_target_entity_index_ids(source_entity.id)
     if not bound_target_entity_index_ids:
