@@ -162,15 +162,20 @@ async def _handle_transparent_forward(
     source_info = (
         f'From: {event_entity_params.entity_type.split("_")[0][:3]}'
         f' | {event_entity_params.entity_name}@{user_entity_params.entity_name}\n'
-        f'{datetime.now().strftime("%Y-%m-%d %H:%M")}\n{"-" * 8}\n\n'
+        f'{datetime.now().strftime("%Y-%m-%d %H:%M")}\n{"-" * 8}\n'
     )
 
-    parsed_message = source_info + interface.get_message_extractor()(message=origin_message).message
+    parsed_message = interface.get_message_extractor()(message=origin_message).message
+
+    if (reply_message := interface.get_event_reply_message()) is not None:
+        forward_message = f'{source_info}Reply:\n' + reply_message + f'\n{"-" * 8}\n' + parsed_message
+    else:
+        forward_message = source_info + parsed_message
 
     for entity_index_id in bound_target_entity_index_ids:
         try:
             async with get_entity_interface_from_index(index_id=entity_index_id) as target_interface:
-                await target_interface.send_entity_message(message=parsed_message)
+                await target_interface.send_entity_message(message=forward_message)
         except Exception as e:
             logger.error(f'TransparentForward | {interface.entity.tid} forward to {entity_index_id} failed, {e!r}')
 
