@@ -98,9 +98,14 @@ class TelegramMessageExtractor(BaseMessageBuilder[TelegramMessage, OmegaMessage]
                 return OmegaMessageSegment.video(url=seg_data.get('file', ''))
             case 'photo':
                 return OmegaMessageSegment.image(url=seg_data.get('file', ''))
+            case 'url':
+                return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case 'text':
                 return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case _:
+                # 处理其他类 text 消息段
+                if 'text' in seg_data:
+                    return OmegaMessageSegment.text(text=seg_data.get('text', ''))
                 return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 
