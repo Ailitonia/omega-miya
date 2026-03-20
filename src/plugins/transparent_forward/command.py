@@ -142,6 +142,7 @@ async def _unbind_transparent_forward_entity(
 @transparent_forward.on_message(
     rule=event_has_forward_target_setting(),
     permission=None,
+    block=False,
 ).handle()
 async def _handle_transparent_forward(
         interface: EVENT_MATCHER_INTERFACE,
