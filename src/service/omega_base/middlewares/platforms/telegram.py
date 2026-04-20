@@ -98,9 +98,14 @@ class TelegramMessageExtractor(BaseMessageBuilder[TelegramMessage, OmegaMessage]
                 return OmegaMessageSegment.video(url=seg_data.get('file', ''))
             case 'photo':
                 return OmegaMessageSegment.image(url=seg_data.get('file', ''))
+            case 'url':
+                return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case 'text':
                 return OmegaMessageSegment.text(text=seg_data.get('text', ''))
             case _:
+                # 处理其他类 text 消息段
+                if 'text' in seg_data:
+                    return OmegaMessageSegment.text(text=seg_data.get('text', ''))
                 return OmegaMessageSegment.other(type_=seg_type, data=seg_data)
 
 
@@ -244,6 +249,9 @@ class TelegramEventDepend[Event_T: TelegramEvent](BaseEventDepend[TelegramBot, E
     def get_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError
+
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
@@ -313,6 +321,12 @@ class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDep
             if msg_seg.type == 'photo'
         ]
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        if self.event.reply_to_message:
+            return self.extract_platform_message(self.event.reply_to_message.get_message())
+        else:
+            return None
+
     def get_reply_msg_id(self) -> str | None:
         if self.event.reply_to_message:
             return str(self.event.reply_to_message.message_id)
@@ -359,7 +373,8 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
         send_message += TelegramMessageEntity.mention(f'@{self.event.from_.username}')
         send_message += TelegramMessageEntity.text(' ')
         send_message += built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     def get_user_nickname(self) -> str:
         return self.event.from_.first_name
@@ -385,7 +400,8 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
         send_message += TelegramMessageEntity.mention(f'@{self.event.from_.username}')
         send_message += TelegramMessageEntity.text(' ')
         send_message += built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     def get_user_nickname(self) -> str:
         return self.event.from_.first_name

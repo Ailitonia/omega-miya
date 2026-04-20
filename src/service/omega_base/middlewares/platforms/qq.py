@@ -348,6 +348,9 @@ class QQEventDepend[Event_T: QQEvent](BaseEventDepend[QQBot, Event_T, QQMessage]
     def get_msg_image_urls(self) -> list[str]:
         raise NotImplementedError
 
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError
+
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError
 
@@ -387,12 +390,14 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.id) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         return await self.bot.delete_message(
@@ -421,6 +426,11 @@ class QQGuildMessageEventDepend(QQEventDepend[QQGuildMessageEvent]):
 
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        # `GuildMessageEvent.reply` 使用 `get_message_of_id` API 提取回复消息
+        # 故无法直接从事件中提取回复消息内容
+        raise NotImplementedError
 
     def get_reply_msg_id(self) -> str | None:
         # `GuildMessageEvent.reply` 使用 `get_message_of_id` API 提取回复消息
@@ -479,12 +489,14 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.user_openid) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         return await self.bot.delete_c2c_message(
@@ -513,6 +525,9 @@ class QQC2CMessageCreateEventDepend(QQEventDepend[QQC2CMessageCreateEvent]):
 
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError  # NOTE: QQ API not support currently
 
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError  # NOTE: QQ API not support currently
@@ -554,12 +569,14 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
     async def send_at_sender(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.mention_user(user_id=self.event.author.member_openid) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def send_reply(self, message: 'BaseSentMessageType[OmegaMessage]', **kwargs) -> 'SentMessageResponse':
         built_message = self.build_platform_message(message=message)
         send_message = QQMessageSegment.reference(QQMessageReference(message_id=self.event.id)) + built_message
-        return await self.bot.send(event=self.event, message=send_message, **kwargs)
+        response = await self.bot.send(event=self.event, message=send_message, **kwargs)
+        return self.extract_platform_sent_message_response(response=response)
 
     async def revoke_bot_sent_msg(self, sent_return: 'SentMessageResponse', **kwargs) -> Any:
         return await self.bot.delete_group_message(
@@ -588,6 +605,9 @@ class QQGroupAtMessageCreateEventDepend(QQEventDepend[QQGroupAtMessageCreateEven
 
     def get_msg_image_urls(self) -> list[str]:
         return [str(msg_seg.data.get('url')) for msg_seg in self.event.get_message() if msg_seg.type == 'image']
+
+    def get_reply_message(self) -> 'OmegaMessage | None':
+        raise NotImplementedError  # NOTE: QQ API not support currently
 
     def get_reply_msg_id(self) -> str | None:
         raise NotImplementedError  # NOTE: QQ API not support currently

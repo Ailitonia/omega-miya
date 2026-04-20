@@ -307,6 +307,11 @@ class OmegaMatcherInterface:
         return self.get_event_depend().get_msg_image_urls()
 
     @check_event_implemented
+    def get_event_reply_message(self) -> 'OmegaMessage | None':
+        """获取当前事件回复消息"""
+        return self.get_event_depend().get_reply_message()
+
+    @check_event_implemented
     def get_event_reply_msg_id(self) -> str | None:
         """获取当前事件回复消息的消息ID"""
         return self.get_event_depend().get_reply_msg_id()

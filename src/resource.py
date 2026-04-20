@@ -166,6 +166,31 @@ class BaseResource(abc.ABC):
         new_obj.path = self.path.with_suffix(suffix)
         return new_obj
 
+    def with_month_subdir_for_dir(self) -> Self:
+        """修改为一个新的子目录路径, 根据当前年月划分子目录, 不对当前路径进行校验
+
+        Resource('c:/Downloads/').with_month_sub_dirs() -> Resource('c:/Downloads/2026-01/')
+        """
+        self.path = self.path.joinpath(datetime.now().strftime('%Y-%m'))
+        return self
+
+    def with_date_subdir_for_dir(self) -> Self:
+        """修改为一个新的子目录路径, 根据当前日期划分子目录, 不对当前路径进行校验
+
+        Resource('c:/Downloads/').with_date_sub_dirs() -> Resource('c:/Downloads/2026/01/01/')
+        """
+        self.path = self.path.joinpath(*datetime.now().strftime('%Y-%m-%d').split('-'))
+        return self
+
+    def with_suffix_subdir_for_file(self) -> Self:
+        """修改为一个新的路径, 根据当前路径 suffix 划分子目录, 不对当前路径进行校验
+
+        Resource('c:/Downloads/foo.pdf').with_suffix_sub_dirs() -> Resource('c:/Downloads/pdf/foo.pdf')
+        """
+        new_parent = self.path.parent.joinpath(self.path.suffix.removeprefix('.'))
+        self.path = new_parent.joinpath(self.path.name)
+        return self
+
     @property
     def name(self) -> str:
         """一个表示最后路径组件的字符串, 排除了驱动器与根目录, 如果存在的话"""
@@ -366,7 +391,7 @@ class BaseResource(abc.ABC):
 
     @check_file
     def rename(self, target: str | Path) -> Self:
-        """将此文件或目录重命名为给定的 target, 并返回一个新的指向 target 的实例
+        """将此文件或目录重命名为/移动到给定的 target, 并返回一个新的指向 target 的实例
 
         目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录
         """
@@ -376,7 +401,7 @@ class BaseResource(abc.ABC):
 
     @check_file
     def replace(self, target: str | Path) -> Self:
-        """将此文件或目录重命名为给定的 target, 并返回一个新的指向 target 的 Path 实例
+        """将此文件或目录重命名为/移动到给定的 target, 并返回一个新的指向 target 的实例
 
         如果 target 指向一个现有文件或空目录, 则它将被无条件地替换
         目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录

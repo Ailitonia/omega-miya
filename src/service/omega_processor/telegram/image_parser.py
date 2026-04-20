@@ -30,6 +30,8 @@ class OmegaProcessorTelegramImageParserConfig(BaseModel):
     # 启用: 所有收到的图片均会以文件形式缓存在本地, 更消耗带宽和硬盘空间
     # 禁用: 仅解析收到图片的真实 URL, 但在向 Telegram 平台直接转发图片链接时可能失败
     telegram_processor_parse_photo_replace_as_local: bool = False
+    telegram_processor_use_parsed_photo_local_cache_file: bool = True
+
     model_config = ConfigDict(extra='ignore')
 
 
@@ -37,8 +39,8 @@ _plugin_config = get_plugin_config(OmegaProcessorTelegramImageParserConfig)
 
 
 async def _parse_photo_segment(bot: TelegramBot, seg: TelegramMessageSegment) -> TelegramMessageSegment:
-    """解析 photo 消息段中图片的真实 url"""
-    if seg.type != 'photo':
+    """解析图片消息段中图片的真实 url"""
+    if seg.type not in ['photo', 'sticker']:
         return seg
 
     file = await bot.get_file(file_id=seg.data.get('file', ''))
@@ -51,8 +53,12 @@ async def _parse_photo_segment(bot: TelegramBot, seg: TelegramMessageSegment) ->
     if not _plugin_config.telegram_processor_parse_photo_replace_as_local:
         return TelegramMessageFile.photo(file=url, has_spoiler=seg.data.get('has_spoiler'))
 
-    img_target_file = _TMP_IMG_PATH(f'{file.file_unique_id}_{OmegaRequests.hash_url_file_name("photo", url=url)}')
-    await OmegaRequests().download(url=url, file=img_target_file)
+    img_target_file = _TMP_IMG_PATH(f'{file.file_unique_id}_{OmegaRequests.hash_url_file_name(seg.type, url=url)}')
+    await OmegaRequests().download(
+        url=url,
+        file=img_target_file,
+        ignore_exist_file=_plugin_config.telegram_processor_use_parsed_photo_local_cache_file,
+    )
 
     parsed_seg = TelegramMessageFile.photo(file=img_target_file.resolve_path, has_spoiler=seg.data.get('has_spoiler'))
     parsed_seg.data.update({'origin_url': url})
@@ -63,7 +69,7 @@ async def _parse_photo_segment(bot: TelegramBot, seg: TelegramMessageSegment) ->
 async def _parse_message(bot: TelegramBot, message: TelegramMessage) -> TelegramMessage:
     output_message = TelegramMessage()
     for seg in message:
-        if seg.type == 'photo':
+        if seg.type in ['photo', 'sticker']:
             try:
                 parsed_seg = await _parse_photo_segment(bot=bot, seg=seg)
                 output_message.append(parsed_seg)
@@ -77,7 +83,7 @@ async def _parse_message(bot: TelegramBot, message: TelegramMessage) -> Telegram
 
 
 async def handle_parse_message_image_event_preprocessor(bot: TelegramBot, event: TelegramMessageEvent):
-    """事件预处理, 将 photo 消息段中的图片 file_id 替换为真实图片 url"""
+    """事件预处理, 将图片消息段中的图片 file_id 替换为真实图片 url"""
     event.message = await _parse_message(bot=bot, message=event.message.copy())
     if event.reply_to_message:
         event.reply_to_message.message = await _parse_message(bot=bot, message=event.reply_to_message.message.copy())
