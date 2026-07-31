@@ -23,6 +23,7 @@ from nonebot.log import logger
 from nonebot.utils import run_sync
 
 from src.compat import dump_json_as
+
 from .config import api_config
 from .consts import APP_HEADER_KEY, TIMESTAMP_HEADER_KEY, TOKEN_HEADER_KEY
 
@@ -161,7 +162,7 @@ class OmegaAPI:
         return f'{"https" if self._use_https else "http"}://{host}:{port}/{self._app_name}'
 
     @staticmethod
-    def sign_params_hmac(key: str, app_name: str, params: Mapping[str, str]) -> str:
+    def sign_params_hmac(key: str, app_name: str, params: Mapping[str, str], body: bytes = b'') -> str:
         """对请求参数进行签名
 
         请求 Headers 中应当包括:
@@ -169,25 +170,51 @@ class OmegaAPI:
           - X-OmegaAPI-Timestamp: 发起请求时的时间戳
           - X-OmegaAPI-Token: 计算出的签名 Token
 
+        签名消息格式: {app_name}.{timestamp}.{排序后的 query 参数 JSON}.{请求体 SHA-256}
+
+        :param key: 签名密钥
+        :param app_name: 应用名称
+        :param params: 请求 query 参数
+        :param body: 请求体原始内容, 无请求体时留空
         :return: 计算出的签名 Token 内容
         """
         timestamp = int(time.time())
         sorted_params = dict(sorted(params.items(), key=lambda x: (x[1], x[0])))
-        sign_message = f'{app_name}.{timestamp}.{dump_json_as(dict[str, str], sorted_params)}'
+        body_hash = sha256(body).hexdigest()
+        sign_message = f'{app_name}.{timestamp}.{dump_json_as(dict[str, str], sorted_params)}.{body_hash}'
         hmac_obj = hmac.new(key.encode(), sign_message.encode(), sha256)
         return hmac_obj.hexdigest()
 
-    def verify_params_hmac(self, signature: str, timestamp: int | str, params: Mapping[str, str]) -> bool:
-        """对请求参数签名进行校验"""
+    def verify_params_hmac(
+        self,
+        signature: str,
+        timestamp: int | str,
+        params: Mapping[str, str],
+        body: bytes = b'',
+    ) -> bool:
+        """对请求参数签名进行校验
+
+        :param signature: 待校验的签名 Token
+        :param timestamp: 请求 Headers 中提供的时间戳
+        :param params: 请求 query 参数
+        :param body: 请求体原始内容, 无请求体时留空
+        """
         sorted_params = dict(sorted(params.items(), key=lambda x: (x[1], x[0])))
-        sign_message = f'{self._app_name}.{timestamp}.{dump_json_as(dict[str, str], sorted_params)}'
+        body_hash = sha256(body).hexdigest()
+        sign_message = f'{self._app_name}.{timestamp}.{dump_json_as(dict[str, str], sorted_params)}.{body_hash}'
         hmac_obj = hmac.new(self._api_key.encode(), sign_message.encode(), sha256)
         return hmac.compare_digest(hmac_obj.hexdigest(), signature)
 
     @run_sync
-    def async_verify_params_hmac(self, signature: str, timestamp: int | str, params: Mapping[str, Any]) -> bool:
+    def async_verify_params_hmac(
+        self,
+        signature: str,
+        timestamp: int | str,
+        params: Mapping[str, Any],
+        body: bytes = b'',
+    ) -> bool:
         """对请求参数签名进行校验"""
-        return self.verify_params_hmac(signature, timestamp, params)
+        return self.verify_params_hmac(signature, timestamp, params, body)
 
     def _init_sub_app(self) -> FastAPI:
         """初始化子应用"""
@@ -223,12 +250,13 @@ class OmegaAPI:
             if not request_timestamp.isdigit() or abs(int(time.time()) - int(request_timestamp)) > 60:
                 return JSONResponse({'error': True, 'message': 'Invalid Timestamp'}, status_code=403)
 
-            # 请求签名校验
+            # 请求签名校验(包含请求体哈希, 防止请求体被篡改或重放)
             token = request.headers.get(TOKEN_HEADER_KEY, None)
             if token is None:
                 return JSONResponse({'error': True, 'message': 'Token Not Provided'}, status_code=403)
 
-            if not await self.async_verify_params_hmac(token, request_timestamp, request.query_params):
+            body = await request.body()
+            if not await self.async_verify_params_hmac(token, request_timestamp, request.query_params, body):
                 return JSONResponse({'error': True, 'message': 'Invalid Token'}, status_code=403)
 
             return await call_next(request)

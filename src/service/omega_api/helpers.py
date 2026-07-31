@@ -37,7 +37,7 @@ def return_standard_api_result[**P, T1, T2, R: Any](
                 f'<lc>Omega API</lc> | <ly>{module.__name__ if module is not None else "Unknown"}.'
                 f'{func.__name__}</ly> <c>></c> <r>Exception {e.__class__.__name__}</r>: {e}'
             )
-            result = StandardOmegaAPIReturn(error=True, body=None, message=f'{e.__class__.__name__}, {e}')
+            result = StandardOmegaAPIReturn(error=True, body=None, message='internal error')
         return result
 
     return _wrapper

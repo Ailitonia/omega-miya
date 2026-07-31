@@ -29,7 +29,7 @@ class OmegaAPIConfig(BaseModel):
 try:
     api_config = get_plugin_config(OmegaAPIConfig)
     logger.opt(colors=True).success(
-        f'<lc>Omega API</lc> | API Key 已配置: <ly>{api_config.omega_api_key.get_secret_value()}</ly>'
+        f'<lc>Omega API</lc> | API Key 已配置: <ly>****{api_config.omega_api_key.get_secret_value()[-4:]}</ly>'
     )
 except (ValidationError, ValueError) as e:
     import sys
