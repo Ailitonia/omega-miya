@@ -46,19 +46,43 @@ _USED_SIGNATURES_TTL: float = _TIMESTAMP_EXPIRE_SECONDS * 2
 _USED_SIGNATURES_MAX_SIZE: int = api_config.omega_api_used_signatures_max_size
 """已使用签名缓存触发清理的容量阈值"""
 
+_REQUEST_BODY_MAX_SIZE: int = api_config.omega_api_request_body_max_size
+"""请求体最大允许大小(字节)"""
+
 
 def _is_replayed_signature(signature: str) -> bool:
-    """检查签名是否已被使用过, 未使用则记录该签名(防重放)"""
+    """检查签名是否已被使用过, 未使用则记录该签名(防重放)
+
+    缓存达到容量阈值时会先清理过期条目, 清理后仍超限则直接拒绝新签名, 保证缓存有界
+    """
     now = time.monotonic()
     if len(_USED_SIGNATURES) >= _USED_SIGNATURES_MAX_SIZE:
         expired = [x for x, expire_at in _USED_SIGNATURES.items() if expire_at <= now]
         for x in expired:
             del _USED_SIGNATURES[x]
+        if len(_USED_SIGNATURES) >= _USED_SIGNATURES_MAX_SIZE:
+            # 清理后仍超限: 拒绝新签名, 防止缓存被撑爆(OOM), TTL 到期后自动恢复
+            logger.opt(colors=True).warning(
+                f'<lc>Omega API</lc> | used signatures cache is full (size={len(_USED_SIGNATURES)}), '
+                f'reject new signature'
+            )
+            return True
     expire_at = _USED_SIGNATURES.get(signature)
     if expire_at is not None and expire_at > now:
         return True
     _USED_SIGNATURES[signature] = now + _USED_SIGNATURES_TTL
     return False
+
+
+def _normalize_sign_params(params: Mapping[str, str]) -> str:
+    """将 query 参数规范化为排序后的键值对列表 JSON, 多值参数(如 ?a=1&a=2)完整保留"""
+    # QueryParams/MultiDict 等多值映射使用 multi_items() 保留重复键, 普通 Mapping 使用 items()
+    if hasattr(params, 'multi_items'):
+        pairs = list(params.multi_items())
+    else:
+        pairs = list(params.items())
+    sorted_pairs = sorted(pairs, key=lambda item: (item[0], item[1]))
+    return dump_json_as(list[tuple[str, str]], sorted_pairs)
 
 
 class OmegaAPIRouter(APIRouter):
@@ -210,13 +234,13 @@ class OmegaAPI:
           - X-OmegaAPI-Timestamp: 发起请求时的时间戳
           - X-OmegaAPI-Token: 计算出的签名 Token
 
-        签名消息格式: {app_name}.{method}.{path}.{timestamp}.{排序后的 query 参数 JSON}.{请求体 SHA-256}
+        签名消息格式: {app_name}.{method}.{path}.{timestamp}.{排序后的 query 参数键值对列表 JSON}.{请求体 SHA-256}
 
         :param key: 签名主密钥(内部会按应用名称派生子密钥)
         :param app_name: 应用名称
         :param method: 请求 HTTP 方法, 大小写不敏感, 会统一转为大写
         :param path: 请求完整路径(含挂载前缀), 需与请求 URL 路径一致
-        :param params: 请求 query 参数
+        :param params: 请求 query 参数, 多值参数(如 ?a=1&a=2)请传入 QueryParams 以保留重复键
         :param body: 请求体原始内容, 无请求体时留空
         :param timestamp: 显式指定的请求时间戳, 留空时使用当前时间
         :return: (时间戳, 签名 Token), 时间戳需放入 X-OmegaAPI-Timestamp 请求头
@@ -224,8 +248,7 @@ class OmegaAPI:
         注意: 每次请求(包括重试)都应重新生成时间戳与签名, 相同的签名在时间戳有效期内再次使用会被服务端拒绝(防重放)
         """
         timestamp = int(time.time()) if timestamp is None else timestamp
-        sorted_params = dict(sorted(params.items(), key=lambda item: (item[0], item[1])))
-        params_json = dump_json_as(dict[str, str], sorted_params)
+        params_json = _normalize_sign_params(params)
         body_hash = sha256(body).hexdigest()
         sign_message = f'{app_name}.{method.upper()}.{path}.{timestamp}.{params_json}.{body_hash}'
         app_key = OmegaAPI._derive_app_key(key, app_name)
@@ -247,11 +270,10 @@ class OmegaAPI:
         :param timestamp: 请求 Headers 中提供的时间戳
         :param method: 请求 HTTP 方法, 大小写不敏感, 会统一转为大写
         :param path: 请求完整路径(含挂载前缀), 需与请求 URL 路径一致
-        :param params: 请求 query 参数
+        :param params: 请求 query 参数, 多值参数(如 ?a=1&a=2)请传入 QueryParams 以保留重复键
         :param body: 请求体原始内容, 无请求体时留空
         """
-        sorted_params = dict(sorted(params.items(), key=lambda item: (item[0], item[1])))
-        params_json = dump_json_as(dict[str, str], sorted_params)
+        params_json = _normalize_sign_params(params)
         body_hash = sha256(body).hexdigest()
         sign_message = f'{self._app_name}.{method.upper()}.{path}.{timestamp}.{params_json}.{body_hash}'
         hmac_obj = hmac.new(self._api_key.encode(), sign_message.encode(), sha256)
@@ -291,6 +313,19 @@ class OmegaAPI:
             if not self._enable_token_verify:
                 return await call_next(request)
 
+            async def _read_request_body(max_size: int) -> bytes | None:
+                """流式读取请求体并限制最大大小, 超出限制时返回 None
+
+                读取成功后缓存到 request._body(与 Request.body() 行为一致), 保证下游路由仍能正常读取请求体
+                """
+                request_body = bytearray()
+                async for chunk in request.stream():
+                    request_body.extend(chunk)
+                    if len(request_body) > max_size:
+                        return None
+                request._body = bytes(request_body)
+                return request._body
+
             def _log_rejected(reason: str) -> None:
                 """记录校验失败的审计日志"""
                 client_host = request.client.host if request.client is not None else 'unknown'
@@ -325,7 +360,19 @@ class OmegaAPI:
                 _log_rejected('Token Not Provided')
                 return JSONResponse({'error': True, 'message': 'Token Not Provided'}, status_code=403)
 
-            body = await request.body()
+            # 请求体大小限制: 先依据 Content-Length 快速拒绝, 再通过流式读取强制上限, 防止超大请求体耗尽内存
+            content_length = request.headers.get('content-length')
+            if content_length is not None and (
+                not content_length.isdigit() or int(content_length) > _REQUEST_BODY_MAX_SIZE
+            ):
+                _log_rejected('Payload Too Large')
+                return JSONResponse({'error': True, 'message': 'Payload Too Large'}, status_code=413)
+
+            body = await _read_request_body(_REQUEST_BODY_MAX_SIZE)
+            if body is None:
+                _log_rejected('Payload Too Large')
+                return JSONResponse({'error': True, 'message': 'Payload Too Large'}, status_code=413)
+
             if not await self.async_verify_params_hmac(
                 token,
                 request_timestamp,

@@ -28,6 +28,8 @@ class OmegaAPIConfig(BaseModel):
     """请求时间戳允许的最大偏差秒数"""
     omega_api_used_signatures_max_size: int = 4096
     """已使用签名缓存触发清理的容量阈值"""
+    omega_api_request_body_max_size: int = 1024 * 1024
+    """请求体最大允许大小(字节)"""
 
     model_config = ConfigDict(extra='ignore')
 
