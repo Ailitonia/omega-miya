@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable, Coroutine, Mapping
 from hashlib import sha256
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -33,6 +33,32 @@ if TYPE_CHECKING:
 
 _REGISTERED_APP: set[str] = set()
 """缓存全局已注册 app_name"""
+
+_TIMESTAMP_EXPIRE_SECONDS: int = api_config.omega_api_timestamp_expire_seconds
+"""请求时间戳允许的最大偏差秒数"""
+
+_USED_SIGNATURES: dict[str, float] = {}
+"""重放防护: 已使用签名的缓存, 值为过期时间点(time.monotonic)"""
+
+_USED_SIGNATURES_TTL: float = _TIMESTAMP_EXPIRE_SECONDS * 2
+"""已使用签名的缓存时长(秒), 需大于时间戳校验窗口"""
+
+_USED_SIGNATURES_MAX_SIZE: int = api_config.omega_api_used_signatures_max_size
+"""已使用签名缓存触发清理的容量阈值"""
+
+
+def _is_replayed_signature(signature: str) -> bool:
+    """检查签名是否已被使用过, 未使用则记录该签名(防重放)"""
+    now = time.monotonic()
+    if len(_USED_SIGNATURES) >= _USED_SIGNATURES_MAX_SIZE:
+        expired = [x for x, expire_at in _USED_SIGNATURES.items() if expire_at <= now]
+        for x in expired:
+            del _USED_SIGNATURES[x]
+    expire_at = _USED_SIGNATURES.get(signature)
+    if expire_at is not None and expire_at > now:
+        return True
+    _USED_SIGNATURES[signature] = now + _USED_SIGNATURES_TTL
+    return False
 
 
 class OmegaAPIRouter(APIRouter):
@@ -141,7 +167,7 @@ class OmegaAPI:
         self._enable_token_verify = enable_token_verify
         self._access_domain = access_domain
         self._use_https = use_https
-        self._api_key = api_config.omega_api_key.get_secret_value()
+        self._api_key = self._derive_app_key(api_config.omega_api_master_key.get_secret_value(), self._app_name)
         self._app = self._init_sub_app()
         self._root_url = self._get_root_url()
 
@@ -162,7 +188,21 @@ class OmegaAPI:
         return f'{"https" if self._use_https else "http"}://{host}:{port}/{self._app_name}'
 
     @staticmethod
-    def sign_params_hmac(key: str, app_name: str, params: Mapping[str, str], body: bytes = b'') -> str:
+    def _derive_app_key(master_key: str, app_name: str) -> str:
+        """由主密钥派生指定应用的子密钥, 避免单一密钥泄露影响全部应用"""
+        return hmac.new(master_key.encode(), app_name.encode(), sha256).hexdigest()
+
+    @staticmethod
+    def sign_params_hmac(
+        key: str,
+        app_name: str,
+        method: str,
+        path: str,
+        params: Mapping[str, str],
+        body: bytes = b'',
+        *,
+        timestamp: int | None = None,
+    ) -> tuple[int, str]:
         """对请求参数进行签名
 
         请求 Headers 中应当包括:
@@ -170,25 +210,34 @@ class OmegaAPI:
           - X-OmegaAPI-Timestamp: 发起请求时的时间戳
           - X-OmegaAPI-Token: 计算出的签名 Token
 
-        签名消息格式: {app_name}.{timestamp}.{排序后的 query 参数 JSON}.{请求体 SHA-256}
+        签名消息格式: {app_name}.{method}.{path}.{timestamp}.{排序后的 query 参数 JSON}.{请求体 SHA-256}
 
-        :param key: 签名密钥
+        :param key: 签名主密钥(内部会按应用名称派生子密钥)
         :param app_name: 应用名称
+        :param method: 请求 HTTP 方法, 大小写不敏感, 会统一转为大写
+        :param path: 请求完整路径(含挂载前缀), 需与请求 URL 路径一致
         :param params: 请求 query 参数
         :param body: 请求体原始内容, 无请求体时留空
-        :return: 计算出的签名 Token 内容
+        :param timestamp: 显式指定的请求时间戳, 留空时使用当前时间
+        :return: (时间戳, 签名 Token), 时间戳需放入 X-OmegaAPI-Timestamp 请求头
+
+        注意: 每次请求(包括重试)都应重新生成时间戳与签名, 相同的签名在时间戳有效期内再次使用会被服务端拒绝(防重放)
         """
-        timestamp = int(time.time())
-        sorted_params = dict(sorted(params.items(), key=lambda x: (x[1], x[0])))
+        timestamp = int(time.time()) if timestamp is None else timestamp
+        sorted_params = dict(sorted(params.items(), key=lambda item: (item[0], item[1])))
+        params_json = dump_json_as(dict[str, str], sorted_params)
         body_hash = sha256(body).hexdigest()
-        sign_message = f'{app_name}.{timestamp}.{dump_json_as(dict[str, str], sorted_params)}.{body_hash}'
-        hmac_obj = hmac.new(key.encode(), sign_message.encode(), sha256)
-        return hmac_obj.hexdigest()
+        sign_message = f'{app_name}.{method.upper()}.{path}.{timestamp}.{params_json}.{body_hash}'
+        app_key = OmegaAPI._derive_app_key(key, app_name)
+        hmac_obj = hmac.new(app_key.encode(), sign_message.encode(), sha256)
+        return timestamp, hmac_obj.hexdigest()
 
     def verify_params_hmac(
         self,
         signature: str,
         timestamp: int | str,
+        method: str,
+        path: str,
         params: Mapping[str, str],
         body: bytes = b'',
     ) -> bool:
@@ -196,12 +245,15 @@ class OmegaAPI:
 
         :param signature: 待校验的签名 Token
         :param timestamp: 请求 Headers 中提供的时间戳
+        :param method: 请求 HTTP 方法, 大小写不敏感, 会统一转为大写
+        :param path: 请求完整路径(含挂载前缀), 需与请求 URL 路径一致
         :param params: 请求 query 参数
         :param body: 请求体原始内容, 无请求体时留空
         """
-        sorted_params = dict(sorted(params.items(), key=lambda x: (x[1], x[0])))
+        sorted_params = dict(sorted(params.items(), key=lambda item: (item[0], item[1])))
+        params_json = dump_json_as(dict[str, str], sorted_params)
         body_hash = sha256(body).hexdigest()
-        sign_message = f'{self._app_name}.{timestamp}.{dump_json_as(dict[str, str], sorted_params)}.{body_hash}'
+        sign_message = f'{self._app_name}.{method.upper()}.{path}.{timestamp}.{params_json}.{body_hash}'
         hmac_obj = hmac.new(self._api_key.encode(), sign_message.encode(), sha256)
         return hmac.compare_digest(hmac_obj.hexdigest(), signature)
 
@@ -210,11 +262,13 @@ class OmegaAPI:
         self,
         signature: str,
         timestamp: int | str,
-        params: Mapping[str, Any],
+        method: str,
+        path: str,
+        params: Mapping[str, str],
         body: bytes = b'',
     ) -> bool:
         """对请求参数签名进行校验"""
-        return self.verify_params_hmac(signature, timestamp, params, body)
+        return self.verify_params_hmac(signature, timestamp, method, path, params, body)
 
     def _init_sub_app(self) -> FastAPI:
         """初始化子应用"""
@@ -237,27 +291,56 @@ class OmegaAPI:
             if not self._enable_token_verify:
                 return await call_next(request)
 
+            def _log_rejected(reason: str) -> None:
+                """记录校验失败的审计日志"""
+                client_host = request.client.host if request.client is not None else 'unknown'
+                logger.opt(colors=True).warning(
+                    f'{self.color_log_prefix} rejected <ly>{request.method}</ly> '
+                    f'<u>{request.url.path}</u> from <lc>{client_host}</lc>: {reason}'
+                )
+
             # 请求 App 名称校验
             request_app = request.headers.get(APP_HEADER_KEY, None)
             if request_app is None or request_app != self._app_name:
+                _log_rejected('Invalid Request App')
                 return JSONResponse({'error': True, 'message': 'Invalid Request App'}, status_code=403)
 
             # 请求时间戳校验
             request_timestamp = request.headers.get(TIMESTAMP_HEADER_KEY, None)
             if request_timestamp is None:
+                _log_rejected('Timestamp Not Provided')
                 return JSONResponse({'error': True, 'message': 'Timestamp Not Provided'}, status_code=403)
-            # 验证时间戳是否在合理范围内(±60秒)
-            if not request_timestamp.isdigit() or abs(int(time.time()) - int(request_timestamp)) > 60:
+            # 验证时间戳是否在合理范围内(±请求时间戳允许的最大偏差秒数内)
+            # 限制数字串长度以避免超长整数触发 int() 异常
+            if not request_timestamp.isdigit() or len(request_timestamp) > 16:
+                _log_rejected('Invalid Timestamp')
+                return JSONResponse({'error': True, 'message': 'Invalid Timestamp'}, status_code=403)
+            if abs(int(time.time()) - int(request_timestamp)) > _TIMESTAMP_EXPIRE_SECONDS:
+                _log_rejected('Invalid Timestamp')
                 return JSONResponse({'error': True, 'message': 'Invalid Timestamp'}, status_code=403)
 
             # 请求签名校验(包含请求体哈希, 防止请求体被篡改或重放)
             token = request.headers.get(TOKEN_HEADER_KEY, None)
             if token is None:
+                _log_rejected('Token Not Provided')
                 return JSONResponse({'error': True, 'message': 'Token Not Provided'}, status_code=403)
 
             body = await request.body()
-            if not await self.async_verify_params_hmac(token, request_timestamp, request.query_params, body):
+            if not await self.async_verify_params_hmac(
+                token,
+                request_timestamp,
+                request.method,
+                request.url.path,
+                request.query_params,
+                body,
+            ):
+                _log_rejected('Invalid Token')
                 return JSONResponse({'error': True, 'message': 'Invalid Token'}, status_code=403)
+
+            # 防重放校验, 已使用过的合法签名在缓存有效期内将被拒绝
+            if _is_replayed_signature(token):
+                _log_rejected('Replayed Token')
+                return JSONResponse({'error': True, 'message': 'Replayed Token'}, status_code=403)
 
             return await call_next(request)
 

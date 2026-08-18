@@ -13,6 +13,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import Any
 
+from fastapi.exceptions import HTTPException
 from nonebot.log import logger
 
 from .model import StandardOmegaAPIReturn
@@ -28,9 +29,13 @@ def return_standard_api_result[**P, T1, T2, R: Any](
 
     @wraps(func)
     async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> StandardOmegaAPIReturn[R]:
+        result: StandardOmegaAPIReturn[R]
         try:
             func_result = await func(*args, **kwargs)
             result = StandardOmegaAPIReturn(error=False, body=func_result, message='success')
+        except HTTPException:
+            # 放行 handler 主动抛出的 HTTPException, 保留其 HTTP 状态码语义
+            raise
         except Exception as e:
             module = inspect.getmodule(func)
             logger.opt(colors=True).error(

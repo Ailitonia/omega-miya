@@ -21,16 +21,20 @@ def generate_api_key() -> SecretStr:
 
 class OmegaAPIConfig(BaseModel):
     """Omega API 配置"""
-    omega_api_key: Annotated[SecretStr, Field(default_factory=generate_api_key)]
+
+    omega_api_master_key: Annotated[SecretStr, Field(default_factory=generate_api_key)]
+    """主密钥"""
+    omega_api_timestamp_expire_seconds: int = 30
+    """请求时间戳允许的最大偏差秒数"""
+    omega_api_used_signatures_max_size: int = 4096
+    """已使用签名缓存触发清理的容量阈值"""
 
     model_config = ConfigDict(extra='ignore')
 
 
 try:
     api_config = get_plugin_config(OmegaAPIConfig)
-    logger.opt(colors=True).success(
-        f'<lc>Omega API</lc> | API Key 已配置: <ly>****{api_config.omega_api_key.get_secret_value()[-4:]}</ly>'
-    )
+    logger.opt(colors=True).success('<lc>Omega API</lc> | API Key 已配置')
 except (ValidationError, ValueError) as e:
     import sys
 

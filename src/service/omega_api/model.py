@@ -26,6 +26,6 @@ class StandardOmegaAPIReturn[T: Any](BaseModel):
         return not self.error
 
 
-__all = [
+__all__ = [
     'StandardOmegaAPIReturn',
 ]
