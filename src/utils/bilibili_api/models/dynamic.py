@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import Field, Json
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
+
 from .base_model import BaseBilibiliModel, BaseBilibiliResponse
 
 
@@ -281,7 +282,7 @@ class DynItemModuleAuthor(BaseBilibiliModel):
     # avatar: dict[str, Any]
     face: AnyHttpUrl
     face_nft: bool
-    following: bool | None = Field(False)
+    following: bool | int | None = Field(default=False)
     jump_url: str
     label: str
     mid: str
@@ -994,20 +995,21 @@ class DynCommonItem(BaseBilibiliModel):
 
 
 class DynForwardItem(DynCommonItem):
-    orig: DynCommonItem
+    orig: DynCommonItem | None
 
     @property
     def dyn_text(self) -> str:
         """动态内容文本"""
         return (
             f'{self.modules.dyn_text}'
-            f'{f"\n{"=" * 8}转发动态{"=" * 8}\n@{self.orig.dyn_text}" if self.orig.dyn_text else ""}'
+            f'{f"\n{'=' * 8}转发动态{'=' * 8}\n@{self.orig.dyn_text}" if self.orig and self.orig.dyn_text else ""}'
         )
 
     @property
     def dyn_image_urls(self) -> list[str]:
         """动态图片链接列表"""
-        return self.modules.dyn_image_urls + self.orig.dyn_image_urls
+        orig_image_urls = [] if self.orig is None else self.orig.dyn_image_urls
+        return self.modules.dyn_image_urls + orig_image_urls
 
 
 type DynItem = DynForwardItem | DynCommonItem

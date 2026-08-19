@@ -21,6 +21,7 @@ from src.exception import WebSourceException
 from src.params.template.subscription_manager import BaseSubscriptionManager
 from src.service import OmegaMessage, OmegaMessageSegment
 from src.utils.bilibili_api import BilibiliLive
+
 from .model import (
     BilibiliLiveRoomStartLiving,
     BilibiliLiveRoomStartLivingWithUpdateTitle,
@@ -45,9 +46,9 @@ class BilibiliLiveRoomSubscriptionManager(BaseSubscriptionManager['SMC_T']):
 
     _LATEST_LIVE_ROOM_STATUS_CACHE: ClassVar[dict[str, BilibiliLiveRoomStatus]] = {}
     """类内部直播间状态缓存, 存放最新获取的直播间信息, 用于与全局直播间状态缓存进行比较"""
-    _LATEST_LIVE_ROOM_STATUS_CACHE_EXPIRED_AT: datetime = datetime.now() - timedelta(seconds=15)
+    _LATEST_LIVE_ROOM_STATUS_CACHE_EXPIRED_AT: ClassVar[datetime] = datetime.now() - timedelta(seconds=15)
     """类内部直播间状态缓存的过期时间"""
-    _LATEST_LIVE_ROOM_STATUS_UPDATE_LOCK: AsyncLock = AsyncLock()
+    _LATEST_LIVE_ROOM_STATUS_UPDATE_LOCK: ClassVar[AsyncLock] = AsyncLock()
     """类内部直播间状态缓存更新锁"""
 
     def __init__(self, room_id: str | int) -> None:
@@ -114,7 +115,7 @@ class BilibiliLiveRoomSubscriptionManager(BaseSubscriptionManager['SMC_T']):
         exist_status = _LIVE_ROOM_STATUS.setdefault(new_status.live_room_id, new_status)
 
         _LIVE_ROOM_STATUS.update({new_status.live_room_id: new_status})
-        logger.debug(f'Upgrade live room({new_status.live_room_id}) status: {new_status}')
+        logger.debug(f'{cls.__name__} | Upgrade live room({new_status.live_room_id}) status: {new_status}')
 
         return new_status - exist_status
 
@@ -123,11 +124,34 @@ class BilibiliLiveRoomSubscriptionManager(BaseSubscriptionManager['SMC_T']):
         if datetime.now() >= self._LATEST_LIVE_ROOM_STATUS_CACHE_EXPIRED_AT:
             await self._update_all_subscribed_live_room_internal_status()
 
-        # 针对直播间短号进行处理
         room_info = self._LATEST_LIVE_ROOM_STATUS_CACHE.get(self.sub_id, None)
+
+        # 针对直播间短号进行处理, 尝试通过短号查找
         if room_info is None:
-            # 此处短号也没有的话则直播间不是已订阅的, 此处抛出 `KeyError` 由上层继续处理
-            room_info = {x.live_room_short_id: x for x in self._LATEST_LIVE_ROOM_STATUS_CACHE.values()}[self.sub_id]
+            room_info_by_short_id = {x.live_room_short_id: x for x in self._LATEST_LIVE_ROOM_STATUS_CACHE.values()}
+            room_info = room_info_by_short_id.get(self.sub_id, None)
+
+        # 如果仍然找不到, 说明可能是新的订阅请求, 需要单独查询该直播间信息
+        if room_info is None:
+            logger.debug(f'{self.__class__.__name__} | Live room {self.sub_id} not in cache, querying from API')
+            async with self._LATEST_LIVE_ROOM_STATUS_UPDATE_LOCK:
+                try:
+                    await self._update_internal_live_room_status(room_ids=[self.sub_id])
+                except Exception as e:
+                    logger.error(f'{self.__class__.__name__} | Query live room {self.sub_id} status failed, {e}')
+                    raise KeyError(f'sub_id {self.sub_id!r} not found or source not available')
+            room_info = self._LATEST_LIVE_ROOM_STATUS_CACHE.get(self.sub_id, None)
+
+        # API 查询后第二次回退短号查询
+        if room_info is None:
+            room_info_by_short_id = {x.live_room_short_id: x for x in self._LATEST_LIVE_ROOM_STATUS_CACHE.values()}
+            room_info = room_info_by_short_id.get(self.sub_id, None)
+
+        # 如果还是查不到, 说明房间号无效或 API 出错
+        if room_info is None:
+            logger.error(f'{self.__class__.__name__} | Live room {self.sub_id} not found or source not available')
+            raise KeyError(f'sub_id {self.sub_id!r} not found or source not available')
+
         return room_info
 
     async def query_live_room_status(self) -> 'BilibiliLiveRoomStatus':
@@ -216,7 +240,7 @@ class BilibiliLiveRoomSubscriptionManager(BaseSubscriptionManager['SMC_T']):
                 send_message += '\n'
                 send_message += OmegaMessageSegment.image(await cover_img.get_hosting_path())
             except Exception as e:
-                logger.warning(f'BilibiliLiveRoomMonitor | Download live room cover failed, {e!r}')
+                logger.warning(f'{cls.__name__} | Download live room cover failed, {e!r}')
 
         if need_url:
             send_message += f'\n传送门: https://live.bilibili.com/{smc_item.status.live_room_id}'
