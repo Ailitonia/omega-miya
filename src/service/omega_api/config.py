@@ -15,20 +15,21 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 
-def generate_api_key() -> SecretStr:
+def _generate_random_api_key() -> SecretStr:
+    logger.opt(colors=True).warning('<lc>Omega API</lc> | 未指定 API key, 将生成并使用随机密钥配置')
     return SecretStr(token_hex())
 
 
 class OmegaAPIConfig(BaseModel):
     """Omega API 配置"""
 
-    omega_api_master_key: Annotated[SecretStr, Field(default_factory=generate_api_key)]
+    omega_api_master_key: Annotated[SecretStr, Field(default_factory=_generate_random_api_key)]
     """主密钥"""
-    omega_api_timestamp_expire_seconds: int = 30
+    omega_api_timestamp_expire_seconds: Annotated[int, Field(default=30, gt=0)]
     """请求时间戳允许的最大偏差秒数"""
-    omega_api_used_signatures_max_size: int = 4096
+    omega_api_used_signatures_max_size: Annotated[int, Field(default=4096, gt=0)]
     """已使用签名缓存触发清理的容量阈值"""
-    omega_api_request_body_max_size: int = 1024 * 1024
+    omega_api_request_body_max_size: Annotated[int, Field(default=1024 * 1024, gt=0)]
     """请求体最大允许大小(字节)"""
 
     model_config = ConfigDict(extra='ignore')
