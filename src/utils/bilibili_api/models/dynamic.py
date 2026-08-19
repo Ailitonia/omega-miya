@@ -282,7 +282,7 @@ class DynItemModuleAuthor(BaseBilibiliModel):
     # avatar: dict[str, Any]
     face: AnyHttpUrl
     face_nft: bool
-    following: bool | int | None = Field(False)
+    following: bool | int | None = Field(default=False)
     jump_url: str
     label: str
     mid: str
@@ -1002,7 +1002,7 @@ class DynForwardItem(DynCommonItem):
         """动态内容文本"""
         return (
             f'{self.modules.dyn_text}'
-            f'{f"\n{"=" * 8}转发动态{"=" * 8}\n@{self.orig.dyn_text}" if self.orig and self.orig.dyn_text else ""}'
+            f'{f"\n{'=' * 8}转发动态{'=' * 8}\n@{self.orig.dyn_text}" if self.orig and self.orig.dyn_text else ""}'
         )
 
     @property

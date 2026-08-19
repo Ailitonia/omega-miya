@@ -60,7 +60,7 @@ class ChunkChoice(BaseOpenAIModel):
             return value
 
         # 如果 role 键不存在或者值为 None，则设置为 assistant
-        if 'role' not in value or value.get('role') is None:
+        if value.get('role', None) is None:
             value['role'] = MessageRole.assistant
 
         return value
