@@ -26,6 +26,8 @@ class WordcloudPluginConfig(BaseModel):
     wordcloud_plugin_message_analyse_mode: Literal['TF-IDF', 'TextRank'] = 'TF-IDF'
     # 排除机器人自身的消息
     wordcloud_plugin_exclude_bot_self_message: bool = True
+    # 查询消息历史记录的数量上限
+    wordcloud_plugin_query_history_limit: int = 20000
 
     # 生成词云图片的尺寸
     wordcloud_plugin_generate_default_width: int = 1600

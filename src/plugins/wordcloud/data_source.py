@@ -38,6 +38,7 @@ async def query_entity_message_history(
             user_entity_id=user_entity_params.entity_id if user_entity_params is not None else None,
             start_time=start_time,
             end_time=end_time,
+            limit=wordcloud_plugin_config.wordcloud_plugin_query_history_limit,
             exclude_bot_self_message=wordcloud_plugin_config.wordcloud_plugin_exclude_bot_self_message,
         )
     return histories_list
