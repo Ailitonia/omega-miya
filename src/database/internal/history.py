@@ -58,6 +58,7 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
             *,
             start_time: datetime | None = None,
             end_time: datetime | None = None,
+            limit: int | None = None,
             message_type: str | None = None,
             exclude_bot_self_message: bool = False,
     ) -> list[History]:
@@ -68,6 +69,7 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
         :param user_entity_id: 发送对象实体ID, 为空则返回全部
         :param start_time: 起始时间, 为空则返回全部
         :param end_time: 结束时间, 为空则返回全部
+        :param limit: 返回记录数量上限, 按时间倒序取最近的记录, 为空则不限制
         :param message_type: 消息事件类型, 为空则返回全部
         :param exclude_bot_self_message: 是否排除机器人自身的消息
         """
@@ -85,6 +87,8 @@ class HistoryDAL(BaseDataAccessLayerModel[HistoryOrm, History]):
             stmt = stmt.where(HistoryOrm.received_time >= int(start_time.timestamp()))
         if end_time is not None:
             stmt = stmt.where(HistoryOrm.received_time <= int(end_time.timestamp()))
+        if limit is not None:
+            stmt = stmt.limit(limit)
         if message_type is not None:
             stmt = stmt.where(HistoryOrm.message_type == message_type)
         if exclude_bot_self_message:
