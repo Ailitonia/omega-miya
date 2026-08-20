@@ -47,7 +47,7 @@ def run_upgrade_migrations(revision: str = 'head') -> None:
 
 def run_downgrade_migrations(revision: str = 'head') -> None:
     logger.opt(colors=True).info(f'<lc>alembic</lc> | Running DB downgrading migrations to {revision!r}')
-    command.upgrade(construct_config(), revision)
+    command.downgrade(construct_config(), revision)
     logger.opt(colors=True).success(f'<lc>alembic</lc> | Migrated DB downgrading to {revision!r} completed')
 
 
