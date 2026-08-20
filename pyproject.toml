@@ -10,62 +10,64 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.15"
-nonebot2 = { version = "2.4.4", extras = ["fastapi", "aiohttp", "httpx", "websockets"] }
+nonebot2 = { version = "2.5.0", extras = ["fastapi", "aiohttp", "httpx", "websockets"] }
 pydantic = ">=2.12.0,<3.0.0"
-nonebot-adapter-console = ">=0.9.0,<1.0.0"
+nonebot-adapter-console = ">=0.10.0,<1.0.0"
 nonebot-adapter-onebot = ">=2.4.6,<2.5.0"
-nonebot-adapter-qq = ">=1.6.6,<1.7.0"
+nonebot-adapter-qq = ">=1.7.2,<2.0.0"
 nonebot-adapter-telegram = ">=0.1.0b20,<0.2.0"
-nonebot-adapter-feishu = ">=2.6.0,<2.7.0"
-nonebot-adapter-discord = ">=0.1.8,<1.0.0"
+nonebot-plugin-alconna = ">=0.62.0,<1.0.0"
 nonebot-plugin-apscheduler = ">=0.5.0,<1.0.0"
-sqlalchemy = ">=2.0.45,<2.1.0"
-asyncmy = { version = ">=0.2.10,<1.0.0", optional = true }
+sqlalchemy = { version = ">=2.0.50,<2.1.0", extras = ["asyncio"] }
+alembic = ">=1.19.0,<2.0.0"
+aiosqlite = ">=0.22.0,<1.0.0"
+asyncmy = { version = ">=0.2.12,<1.0.0", optional = true }
 aiomysql = { version = ">=0.3.0,<1.0.0", optional = true }
 asyncpg = { version = ">=0.31.0,<1.0.0", optional = true }
-aiosqlite = { version = ">=0.22.0,<1.0.0", optional = true }
 apscheduler = ">=3.11.0,<4.0.0"
 aiofiles = ">=25.1.0,<26.0.0"
-ujson = ">=5.11.0,<6.0.0"
-lxml = ">=6.0.0,<7.0.0"
+ujson = ">=5.13.0,<6.0.0"
+lxml = ">=6.1.0,<7.0.0"
 xmltodict = ">=1.0.0,<2.0.0"
 msgpack = ">=1.1.0,<2.0.0"
-numpy = ">=2.4.0,<3.0.0"
-faiss-cpu = ">=1.13.0,<2.0.0"
+numpy = ">=2.5.0,<3.0.0"
 openpyxl = ">=3.1.5,<4.0.0"
-pandas = ">=2.3.0,<3.0.0"
-matplotlib = ">=3.10.0,<4.0.0"
-pillow = ">=12.1.0,<13.0.0"
-imageio = ">=2.37.0,<3.0.0"
-fonttools = ">=4.61.0,<5.0.0"
+pandas = ">=3.0.0,<4.0.0"
+matplotlib = ">=3.11.0,<4.0.0"
+pillow = ">=12.3.0,<13.0.0"
+imageio = ">=2.37.4,<3.0.0"
+fonttools = ">=4.63.0,<5.0.0"
 psutil = ">=7.2.0,<8.0.0"
 pycryptodome = ">=3.23.0,<4.0.0"
 py7zr = ">=1.1.0,<2.0.0"
-pytz = "^2025.2"
+pytz = "^2026.3"
 zhconv = ">=1.4.3,<2.0.0"
 rapidfuzz = ">=3.14.0,<4.0.0"
 emoji = ">=2.15.0,<3.0.0"
-qrcode = { extras = ["pil"], version = ">=8.0.0,<9.0.0" }
+qrcode = { extras = ["pil"], version = ">=8.2.0,<9.0.0" }
 onedice = "1.0.7"
 jieba = ">=0.42.1,<1.0.0"
-wordcloud = ">=1.9.5,<2.0.0"
+wordcloud = ">=1.9.6,<2.0.0"
 pathvalidate = ">=3.3.0,<4.0.0"
 
 
 [tool.poetry.extras]
 mysql = ["asyncmy", "aiomysql"]
 pgsql = ["asyncpg"]
-sqlite = ["aiosqlite"]
 
 
 [tool.poetry.group.dev.dependencies]
-mypy = ">=1.19.0,<2.0.0"
+mypy = ">=2.3.0,<3.0.0"
 ruff = ">=0.14.0,<1.0.0"
 bump-pydantic = "^0.8.0"
 types-lxml = "^2026.1.1"
 lxml-stubs = "^0.5.1"
-alembic = "^1.17.0"
 memory-profiler = ">=0.61.0,<1.0.0"
+pytest = ">=9.1.1,<10.0.0"
+pytest-asyncio = ">=1.4.0,<2.0.0"
+pytest-cov = ">=7.1.0,<8.0.0"
+pytest-mock = ">=3.15.0,<4.0.0"
+nonebug = ">=0.4.4,<1.0.0"
 
 
 [[tool.poetry.source]]
