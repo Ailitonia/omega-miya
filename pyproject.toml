@@ -179,3 +179,9 @@ flake8-quotes.inline-quotes = "single"
 [tool.ruff.format]
 quote-style = "single"  # Use single quotes for strings.
 indent-style = "space"  # Indent with spaces, rather than tabs.
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+pythonpath = ["."]
