@@ -66,12 +66,10 @@ class SubscriptionDAL(BaseDataAccessLayerModel[SubscriptionOrm, Subscription]):
         if sub_info is not None:
             stmt = stmt.values(sub_info=sub_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(SubscriptionOrm).where(SubscriptionOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

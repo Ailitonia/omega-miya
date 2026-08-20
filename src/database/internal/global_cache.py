@@ -100,19 +100,16 @@ class GlobalCacheDAL(BaseDataAccessLayerModel[GlobalCacheOrm, GlobalCache]):
         stmt = (delete(GlobalCacheOrm)
                 .where(GlobalCacheOrm.cache_name == cache_name)
                 .where(GlobalCacheOrm.cache_key == cache_key))
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete_series_expired(self, cache_name: str) -> None:
         stmt = (delete(GlobalCacheOrm)
                 .where(GlobalCacheOrm.cache_name == cache_name)
                 .where(GlobalCacheOrm.expired_at <= datetime.now()))
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete_all_expired(self) -> None:
         stmt = delete(GlobalCacheOrm).where(GlobalCacheOrm.expired_at <= datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -90,12 +90,10 @@ class FriendshipDAL(BaseDataAccessLayerModel[FriendshipOrm, Friendship]):
         if response_threshold is not None:
             stmt = stmt.values(response_threshold=response_threshold)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(FriendshipOrm).where(FriendshipOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -115,12 +115,10 @@ class AuthSettingDAL(BaseDataAccessLayerModel[AuthSettingOrm, AuthSetting]):
         if value is not None:
             stmt = stmt.values(value=value)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(AuthSettingOrm).where(AuthSettingOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -76,18 +76,15 @@ class CoolDownDAL(BaseDataAccessLayerModel[CoolDownOrm, CoolDown]):
         if description is not None:
             stmt = stmt.values(description=description)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(CoolDownOrm).where(CoolDownOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def clear_expired(self) -> None:
         """清理所有已过期的冷却事件"""
         stmt = delete(CoolDownOrm).where(CoolDownOrm.stop_at <= datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

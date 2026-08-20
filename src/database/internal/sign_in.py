@@ -78,12 +78,10 @@ class SignInDAL(BaseDataAccessLayerModel[SignInOrm, SignIn]):
         if sign_in_info is not None:
             stmt = stmt.values(sign_in_info=sign_in_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(SignInOrm).where(SignInOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

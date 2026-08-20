@@ -103,12 +103,10 @@ class BotSelfDAL(BaseDataAccessLayerModel[BotSelfOrm, BotSelf]):
         if bot_info is not None:
             stmt = stmt.values(bot_info=bot_info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(BotSelfOrm).where(BotSelfOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

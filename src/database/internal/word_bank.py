@@ -72,12 +72,10 @@ class WordBankDAL(BaseDataAccessLayerModel[WordBankOrm, WordBank]):
         if result_word is not None:
             stmt = stmt.values(result_word=result_word)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, id_: int) -> None:
         stmt = delete(WordBankOrm).where(WordBankOrm.id == id_)
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

@@ -440,14 +440,12 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
         if description is not None:
             stmt = stmt.values(description=description[:4096])
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, origin: str, aid: str) -> None:
         stmt = (delete(ArtworkCollectionOrm)
                 .where(ArtworkCollectionOrm.origin == origin)
                 .where(ArtworkCollectionOrm.aid == aid))
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

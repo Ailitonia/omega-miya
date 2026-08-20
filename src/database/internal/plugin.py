@@ -95,14 +95,12 @@ class PluginDAL(BaseDataAccessLayerModel[PluginOrm, Plugin]):
         if info is not None:
             stmt = stmt.values(info=info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, plugin_name: str, module_name: str) -> None:
         stmt = (delete(PluginOrm)
                 .where(PluginOrm.plugin_name == plugin_name)
                 .where(PluginOrm.module_name == module_name))
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 

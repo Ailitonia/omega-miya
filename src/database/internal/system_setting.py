@@ -91,14 +91,12 @@ class SystemSettingDAL(BaseDataAccessLayerModel[SystemSettingOrm, SystemSetting]
         if info is not None:
             stmt = stmt.values(info=info)
         stmt = stmt.values(updated_at=datetime.now())
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
     async def delete(self, setting_name: str, setting_key: str) -> None:
         stmt = (delete(SystemSettingOrm)
                 .where(SystemSettingOrm.setting_name == setting_name)
                 .where(SystemSettingOrm.setting_key == setting_key))
-        stmt.execution_options(synchronize_session='fetch')
         await self.db_session.execute(stmt)
 
 
