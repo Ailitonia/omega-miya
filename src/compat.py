@@ -8,9 +8,14 @@
 @Software       : PyCharm
 """
 
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import AnyHttpUrl, AnyUrl, BeforeValidator, TypeAdapter
+
+if TYPE_CHECKING:
+    from pydantic.main import IncEx
+
+    type DumpIncEx = IncEx | None
 
 # Compatibility for pydantic_core._pydantic_core.Url in V2
 # See https://github.com/pydantic/pydantic/discussions/8211 and https://github.com/pydantic/pydantic/discussions/6395
@@ -64,6 +69,8 @@ def dump_obj_as[T](
         obj: Any,
         *,
         mode: Literal['json', 'python'] = 'python',
+        include: 'DumpIncEx' = None,
+        exclude: 'DumpIncEx' = None,
         by_alias: bool = False,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
@@ -75,6 +82,8 @@ def dump_obj_as[T](
     return custom_type_adapter.dump_python(
         validated_instance,
         mode=mode,
+        include=include,
+        exclude=exclude,
         by_alias=by_alias,
         exclude_unset=exclude_unset,
         exclude_defaults=exclude_defaults,
@@ -87,6 +96,10 @@ def dump_json_as[T](
         obj: Any,
         *,
         encoding: str = 'utf-8',
+        indent: int | None = None,
+        ensure_ascii: bool = False,
+        include: 'DumpIncEx' = None,
+        exclude: 'DumpIncEx' = None,
         by_alias: bool = False,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
@@ -97,6 +110,10 @@ def dump_json_as[T](
     validated_instance = custom_type_adapter.validate_python(obj)
     return custom_type_adapter.dump_json(
         validated_instance,
+        indent=indent,
+        ensure_ascii=ensure_ascii,
+        include=include,
+        exclude=exclude,
         by_alias=by_alias,
         exclude_unset=exclude_unset,
         exclude_defaults=exclude_defaults,
