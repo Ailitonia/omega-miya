@@ -19,23 +19,16 @@ from nonebot.params import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session
 
 from .connector import async_session_factory, engine
-from .schema_base import OmegaDeclarativeBase
 
 
 @get_driver().on_startup
-async def __database_init_models():
-    """初始化数据库表结构"""
+async def __database_init():
+    """初始化数据库, 执行表结构检查及迁移"""
+    from .migrate import async_migrate_to_head
 
     logger.opt(colors=True).info('<lc>Database</lc> | <ly>正在初始化数据库</ly>')
     try:
-        # conn is an instance of AsyncConnection
-        async with engine.begin() as conn:
-            # to support SQLAlchemy DDL methods as well as legacy functions, the
-            # AsyncConnection.run_sync() awaitable method will pass a "sync"
-            # version of the AsyncConnection object to any synchronous method,
-            # where synchronous IO calls will be transparently translated for
-            # await.
-            await conn.run_sync(OmegaDeclarativeBase.metadata.create_all)
+        await async_migrate_to_head()
         logger.opt(colors=True).success('<lc>Database</lc> | <lg>数据库初始化已完成</lg>')
     except Exception as _e:
         import sys
@@ -46,7 +39,6 @@ async def __database_init_models():
 @get_driver().on_shutdown
 async def __database_dispose():
     """断开数据库链接 (for AsyncEngine created in function scope, close and clean-up pooled connections)"""
-
     await engine.dispose()
     logger.opt(colors=True).info('<lc>Database</lc> | <ly>已断开数据库连接</ly>')
 
@@ -86,7 +78,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 type DATABASE_SESSION = Annotated[AsyncSession, Depends(get_db_session)]
 """子依赖: 获取数据库 session 并开始事务"""
-
 
 __all__ = [
     'DATABASE_SESSION',

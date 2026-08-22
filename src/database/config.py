@@ -11,11 +11,11 @@
 import pathlib
 import sys
 from enum import StrEnum, unique
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
 from nonebot import get_plugin_config, logger
-from pydantic import BaseModel, ConfigDict, IPvAnyAddress, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress, ValidationError
 
 
 @unique
@@ -45,7 +45,8 @@ class DatabaseConnector(BaseModel):
 
 class DatabaseType(BaseModel):
     """数据库类型"""
-    database: Literal['mysql', 'postgresql', 'sqlite']  # 数据库类型
+    database: Annotated[Literal['mysql', 'postgresql', 'sqlite'], Field(default='sqlite')]
+    db_prefix: Annotated[Literal['omega_miya_'], Field(default='omega_miya_')]  # 兼容配置, 为 alembic 锁定数据表名
 
     model_config = ConfigDict(extra='ignore')
 
@@ -60,13 +61,12 @@ class DatabaseType(BaseModel):
 
 class MysqlDatabaseConfig(DatabaseType):
     """mysql 数据库链接配置"""
-    db_driver: MysqlDriver  # 数据库驱动
+    db_driver: Annotated[MysqlDriver, Field(default=MysqlDriver.aiomysql)]  # 数据库驱动
     db_host: IPvAnyAddress  # 数据库 IP 地址
     db_port: int = 3306  # 数据库端口
     db_user: str  # 数据库用户名
     db_password: str  # 数据库密码
     db_name: str  # 数据库名称
-    db_prefix: str  # 数据表前缀
 
     @property
     def connector(self) -> DatabaseConnector:
@@ -87,13 +87,12 @@ class MysqlDatabaseConfig(DatabaseType):
 
 class PostgresqlDatabaseConfig(DatabaseType):
     """PostgreSQL 数据库链接配置"""
-    db_driver: PostgresqlDriver
+    db_driver: Annotated[PostgresqlDriver, Field(default=PostgresqlDriver.asyncpg)]
     db_host: IPvAnyAddress
     db_port: int = 5432
     db_user: str
     db_password: str
     db_name: str
-    db_prefix: str
 
     @property
     def connector(self) -> DatabaseConnector:
@@ -110,9 +109,8 @@ class PostgresqlDatabaseConfig(DatabaseType):
 
 class SQLiteDatabaseConfig(DatabaseType):
     """SQLite 数据库链接配置"""
-    db_driver: SQLiteDriver
-    db_name: str
-    db_prefix: str
+    db_driver: Annotated[SQLiteDriver, Field(default=SQLiteDriver.aiosqlite)]
+    db_name: Annotated[str, Field(default='omega_miya')]
 
     @property
     def connector(self) -> DatabaseConnector:
