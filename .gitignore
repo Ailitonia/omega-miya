@@ -122,6 +122,24 @@ venv.bak/
 # IDE Config
 .idea/
 .vscode/
+.trae/
+
+# AI Agent Config
+.agents/
+.claude/
+.claude-plugin/
+.codebuddy/
+.codex/
+.codex-plugin/
+.cursor/
+.gemini/
+.hermes/
+.kimi/
+.kiro/
+.openclaw/
+.opencode/
+.qwen/
+.mcp.json
 
 # Spyder project settings
 .spyderproject
@@ -145,15 +163,11 @@ dmypy.json
 .pytype/
 
 # tmp folders
-omega_miya/tmp/
 tmp/
 .tmp/
 
 # sqlite database file
 *.db
-
-# alembic versions
-alembic_scripts/versions/
 
 # Ignore private plugins and scripts
 **/private_*/
