@@ -22,18 +22,45 @@ from .connector import async_session_factory, engine
 
 
 @get_driver().on_startup
-async def __database_init():
+async def _database_init():
     """初始化数据库, 执行表结构检查及迁移"""
-    from .migrate import async_migrate_to_head
+    import sys
+    from .migrate import MigrationStatus, async_migrate_to_head, check_migration_state
 
     logger.opt(colors=True).info('<lc>Database</lc> | <ly>正在初始化数据库</ly>')
     try:
+        # 迁移前置检查: 校验数据库版本状态, 确认可以安全执行自动迁移
+        check_result = await check_migration_state()
+        if not check_result.is_safe:
+            logger.opt(colors=True).critical(
+                f'<lc>Database</lc> | <r>数据库版本校验未通过, 已中止启动</r>\n{check_result.message}'
+            )
+            sys.exit(f'数据库版本校验未通过, {check_result.message}')
+
+        if check_result.status is MigrationStatus.UP_TO_DATE:
+            logger.opt(colors=True).success('<lc>Database</lc> | <lg>数据库已是最新版本, 无需迁移</lg>')
+            return
+
+        if check_result.status is MigrationStatus.UPGRADABLE:
+            logger.opt(colors=True).info(f'<lc>Database</lc> | <ly>{check_result.message}</ly>')
+
+        # 执行自动迁移
         await async_migrate_to_head()
+
+        # 迁移后校验: 确认数据库已升级到最新版本
+        verify_result = await check_migration_state()
+        if verify_result.status is not MigrationStatus.UP_TO_DATE:
+            logger.opt(colors=True).critical(
+                f'<lc>Database</lc> | <r>数据库迁移后校验未通过</r>, 当前状态: {verify_result.status}'
+            )
+            sys.exit(f'数据库迁移后校验未通过, {verify_result.message}')
+
         logger.opt(colors=True).success('<lc>Database</lc> | <lg>数据库初始化已完成</lg>')
-    except Exception as _e:
-        import sys
-        logger.opt(colors=True).critical(f'<lc>Database</lc> | <r>数据库初始化失败</r>, 错误信息: {_e}')
-        sys.exit(f'数据库初始化失败, {_e}')
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.opt(colors=True).critical(f'<lc>Database</lc> | <r>数据库初始化失败</r>, 错误信息: {e}')
+        sys.exit(f'数据库初始化失败, {e}')
 
 
 @get_driver().on_shutdown
