@@ -115,7 +115,7 @@ def _inspect_database(connection: 'Connection') -> DatabaseRevisionsStatus:
 
 async def check_migration_state() -> MigrationCheckResult:
     """检查数据库迁移状态, 用于启动时自动迁移的前置安全校验"""
-    from .connector import engine
+    from .connector import get_engine
 
     script_revisions_status = _get_script_revisions()
 
@@ -132,7 +132,7 @@ async def check_migration_state() -> MigrationCheckResult:
         )
     head = script_revisions_status.heads[0]
 
-    async with engine.connect() as connection:
+    async with get_engine().connect() as connection:
         database_revisions_status = await connection.run_sync(_inspect_database)
 
     # 数据库中没有版本记录

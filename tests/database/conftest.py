@@ -39,9 +39,9 @@ class _TestDatabaseHelper:
 
     def __init__(self) -> None:
         from src.database.config import database_config
-        from src.database.connector import engine
+        from src.database.connector import get_engine
 
-        self._engine = engine
+        self._engine = get_engine()
         self._db_prefix = database_config.db_prefix
         self._version_table_existed: bool = False
         self._original_versions: list[str] = []

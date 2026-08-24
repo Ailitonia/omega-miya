@@ -67,10 +67,10 @@ class TestInspectDatabase:
 
     @staticmethod
     async def _run_inspect():
-        from src.database.connector import engine
+        from src.database.connector import get_engine
         from src.database.migrate import _inspect_database
 
-        async with engine.connect() as connection:
+        async with get_engine().connect() as connection:
             return await connection.run_sync(_inspect_database)
 
     async def test_no_version_table(self, test_database_helper) -> None:

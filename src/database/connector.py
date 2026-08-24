@@ -8,44 +8,117 @@
 @Software       : PyCharm
 """
 
+from asyncio import current_task
+
 from nonebot.log import logger
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from nonebot.matcher import current_event, current_matcher
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    async_scoped_session,
+    create_async_engine,
+)
 
 from .config import database_config
 
-engine: AsyncEngine
-async_session_factory: async_sessionmaker[AsyncSession]
+_engine: AsyncEngine
+_async_session_factory: async_sessionmaker[AsyncSession]
+_scoped_session_factory: async_scoped_session[AsyncSession]
+
+
+def _get_current_scoped_id() -> int | tuple[int, int]:
+    """获取 scoped_session 对应 id"""
+    try:
+        return id(current_event.get(None)), id(current_matcher.get(None))
+    except LookupError:
+        return id(current_task())
 
 
 def _init_database() -> None:
-    """创建数据库连接并初始化数据库"""
-    global engine, async_session_factory
+    """创建数据库连接并初始化数据库引擎"""
+    global _engine
 
     try:
         # 创建数据库连接
-        engine = create_async_engine(
-            database_config.connector.url,
+        _engine = create_async_engine(
+            url=database_config.connector.url,
+            echo=False,
             future=True,  # 使用 2.0 API，向后兼容
-            pool_pre_ping=True, pool_recycle=3600, echo=False,  # 连接池配置
-            **database_config.connector.connect_args  # 数据库连接参数
+            pool_pre_ping=True,
+            pool_recycle=1800,
+            pool_timeout=30,
+            **database_config.connector.connect_args,  # 数据库连接参数
         )
         logger.opt(colors=True).info(f'<lc>Database</lc> | 已配置 <lg>{database_config.database}</lg> 数据库连接')
-
-        # expire_on_commit=False will prevent attributes from being expired after commit.
-        async_session_factory = async_sessionmaker(
-            engine, class_=AsyncSession, autoflush=True, expire_on_commit=False
-        )
     except Exception as e:
         import sys
-        logger.opt(colors=True).critical(f'<r>创建数据库连接失败</r>, 错误信息: {e}')
+        logger.opt(colors=True).critical(f'<lc>Database</lc> | <r>创建数据库连接失败</r>, 错误信息: {e}')
         sys.exit(f'创建数据库连接失败, {e}')
+
+
+def _init_session_factory() -> None:
+    """初始化会话工厂"""
+    global _async_session_factory, _scoped_session_factory
+
+    try:
+        # autobegin=True 默认值, 在操作请求数据库访问时, 自动启动事务处理, 即相当于调用 Session.begin()
+        # autobegin=False 可以防止在构建完成后, 或者调用 Session.rollback()/commit()/close() 等方法后, 事务被隐式地开始
+        # autoflush=False 关闭查询前自动 flush 的隐式行为, 何时把变更刷入数据库完全由代码显式控制
+        # expire_on_commit=False will prevent attributes from being expired after commit.
+        _async_session_factory = async_sessionmaker(
+            bind=get_engine(),
+            class_=AsyncSession,
+            autobegin=True,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+
+        _scoped_session_factory = async_scoped_session(
+            session_factory=_async_session_factory,
+            scopefunc=_get_current_scoped_id,
+        )
+        logger.opt(colors=True).info('<lc>Database</lc> | 已初始化数据库会话')
+    except Exception as e:
+        import sys
+        logger.opt(colors=True).critical(f'<lc>Database</lc> | <r>创建数据库会话工厂失败</r>, 错误信息: {e}')
+        sys.exit(f'创建数据库会话工厂失败, {e}')
+
+
+def get_engine() -> AsyncEngine:
+    """获取数据库全局 engine"""
+    try:
+        return _engine
+    except NameError:
+        _init_database()
+    return _engine
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """获取数据库全局会话工厂"""
+    try:
+        return _async_session_factory
+    except NameError:
+        _init_session_factory()
+    return _async_session_factory
+
+
+def get_scoped_session_factory() -> async_scoped_session[AsyncSession]:
+    """获取数据库全局 scoped 会话工厂"""
+    try:
+        return _scoped_session_factory
+    except NameError:
+        _init_session_factory()
+    return _scoped_session_factory
 
 
 # init database when import
 _init_database()
+_init_session_factory()
 
 
 __all__ = [
-    'async_session_factory',
-    'engine',
+    'get_engine',
+    'get_session_factory',
+    'get_scoped_session_factory',
 ]
