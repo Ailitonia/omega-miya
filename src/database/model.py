@@ -9,6 +9,7 @@
 """
 
 import abc
+import warnings
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Self
@@ -33,8 +34,6 @@ class BaseDataAccessLayerModel[TB: 'OmegaDeclarativeBase', TR: BaseDataQueryResu
 
     def __init__(self, session: AsyncSession):
         self.db_session = session
-        if not self.db_session.is_active:
-            raise RuntimeError('Session is not active')
 
     @classmethod
     @asynccontextmanager
@@ -91,6 +90,11 @@ class BaseDataAccessLayerModel[TB: 'OmegaDeclarativeBase', TR: BaseDataQueryResu
 
     async def commit_session(self) -> None:
         """强制提交所有数据库更改并结束 session"""
+        warnings.warn(
+            'commit_session() 已弃用, 数据库子依赖已使用上下文管理器控制事务流程, 无需手动关闭会话',
+            DeprecationWarning,
+            stacklevel=2
+        )
         await self.db_session.commit()
         await self.db_session.close()
 

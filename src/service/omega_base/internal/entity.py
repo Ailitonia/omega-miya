@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+import warnings
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
@@ -108,6 +109,11 @@ class InternalEntity:
 
     async def commit_session(self) -> None:
         """强制提交所有数据库更改并结束 session"""
+        warnings.warn(
+            'commit_session() 已弃用, 数据库子依赖已使用上下文管理器控制事务流程, 无需手动关闭会话',
+            DeprecationWarning,
+            stacklevel=2
+        )
         await self.db_session.commit()
         await self.db_session.close()
 
