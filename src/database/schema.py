@@ -9,499 +9,690 @@
 """
 
 from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import ForeignKey, Sequence
+from sqlalchemy import ForeignKey, Identity, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, String
+from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, SmallInteger, String
 
 from .config import database_config
 from .schema_base import OmegaDeclarativeBase as Base
-from .types import IndexInt
+from .types import IndexInt, CommonLongText, CommonJSON
 
 
 class GlobalCacheOrm(Base):
     """全局缓存表, 存放各种需要持久化的缓存数据"""
     __tablename__ = f'{database_config.db_prefix}global_cache'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        database_config.table_args,
+    )
 
-    # 表结构
-    cache_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
-    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
+    cache_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)
     cache_value: Mapped[str] = mapped_column(String(4096), nullable=False)
-    expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='缓存到期时间')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'GlobalCacheOrm(cache_name={self.cache_name!r}, cache_key={self.cache_key!r}, '
-                f'cache_value={self.cache_value!r}, expired_at={self.expired_at!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'GlobalCacheOrm(cache_name={self.cache_name}, cache_key={self.cache_key}, '
+                f'cache_value={self.cache_value}, expired_at={self.expired_at}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class SystemSettingOrm(Base):
     """系统参数表, 存放运行时配置"""
     __tablename__ = f'{database_config.db_prefix}system_setting'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        database_config.table_args,
+    )
 
-    # 表结构
-    setting_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
-    setting_key: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True)
-    setting_value: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='参数值')
-    info: Mapped[str] = mapped_column(String(64), nullable=True, comment='参数说明')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    setting_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    setting_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    setting_value: Mapped[str] = mapped_column(String(4096), nullable=False)
+    info: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'SystemSettingOrm(setting_name={self.setting_name!r}, setting_key={self.setting_key!r}, '
-                f'setting_value={self.setting_value!r}, info={self.info!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'SystemSettingOrm(setting_name={self.setting_name}, setting_key={self.setting_key}, '
+                f'setting_value={self.setting_value}, info={self.info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class PluginOrm(Base):
     """插件表, 存放插件信息"""
     __tablename__ = f'{database_config.db_prefix}plugin'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    plugin_name: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, unique=True)
-    module_name: Mapped[str] = mapped_column(String(128), primary_key=True, nullable=False, index=True, unique=True)
-    enabled: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True, comment='启用状态, 1: 启用, 0: 禁用, -1: 失效或未安装'
+    __table_args__ = (
+        database_config.table_args,
     )
-    info: Mapped[str] = mapped_column(String(255), nullable=True, comment='插件信息及附加说明')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    plugin_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    module_name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    enabled: Mapped[int] = mapped_column(SmallInteger, nullable=False, index=True)
+    info: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'PluginOrm(plugin_name={self.plugin_name!r}, module_name={self.module_name!r}, '
-                f'enabled={self.enabled!r}, info={self.info!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'PluginOrm(plugin_name={self.plugin_name}, module_name={self.module_name}, '
+                f'enabled={self.enabled}, info={self.info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
-class StatisticOrm(Base):
-    """统计信息表, 存放插件运行统计"""
-    __tablename__ = f'{database_config.db_prefix}statistic'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+class StatisticsOrm(Base):
+    """统计信息表"""
+    __tablename__ = f'{database_config.db_prefix}statistics'
+    __table_args__ = (
+        Index(None, 'call_timestamp', 'plugin_name', 'module_name'),
+        database_config.table_args,
     )
-    module_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='插件模块名称')
-    plugin_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件显示名称')
-    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应的Bot')
-    parent_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应调用用户父实体信息')
-    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='对应调用用户实体信息')
-    call_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='调用时间')
-    call_info: Mapped[str] = mapped_column(String(4096), nullable=True, index=False, comment='调用信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    plugin_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    module_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    call_timestamp: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    call_entity_meta: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
+    call_data: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'StatisticOrm(module_name={self.module_name!r}, plugin_name={self.plugin_name!r}, '
-                f'bot_self_id={self.bot_self_id!r}, parent_entity_id={self.parent_entity_id!r}, '
-                f'entity_id={self.entity_id!r}, call_time={self.call_time!r}, call_info={self.call_info!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'StatisticsOrm(plugin_name={self.plugin_name}, module_name={self.module_name}, '
+                f'call_timestamp={self.call_timestamp}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class HistoryOrm(Base):
-    """原始消息记录表"""
-    __tablename__ = f'{database_config.db_prefix}message_history'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    """消息历史记录表"""
+    __tablename__ = f'{database_config.db_prefix}history'
+    __table_args__ = (
+        Index(None, 'received_timestamp', 'bot_self_id', 'event_entity_id', 'user_entity_id', 'message_type'),
+        database_config.table_args,
     )
-    message_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息ID')
-    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='收到消息的机器人ID')
-    event_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息事件实体ID')
-    user_entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='发送对象实体ID')
-    received_time: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True, comment='收到消息事件的时间戳')
-    message_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='消息事件类型')
-    message_raw: Mapped[str] = mapped_column(String(4096), nullable=False, comment='原始消息数据')
-    message_text: Mapped[str] = mapped_column(String(4096), nullable=False, comment='经处理的消息文本内容')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    received_timestamp: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    bot_self_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_entity_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_entity_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_plain_text: Mapped[str] = mapped_column(CommonLongText, nullable=False)
+    message_raw: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'HistoryOrm(message_id={self.message_id!r}, bot_self_id={self.bot_self_id!r}, '
-                f'event_entity_id={self.event_entity_id!r}, user_entity_id={self.user_entity_id!r}, '
-                f'received_time={self.received_time!r}, message_type={self.message_type!r}, '
-                f'message_raw={self.message_raw!r}, message_text={self.message_text!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'HistoryOrm(received_timestamp={self.received_timestamp}, message_id={self.message_id}, '
+                f'bot_self_id={self.bot_self_id}, event_entity_id={self.event_entity_id}, '
+                f'user_entity_id={self.user_entity_id}, message_type={self.message_type}, '
+                f'message_plain_text={self.message_plain_text}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class BotSelfOrm(Base):
     """Bot表 对应不同机器人协议端"""
     __tablename__ = f'{database_config.db_prefix}bots'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        UniqueConstraint('bot_type', 'self_id'),
+        database_config.table_args,
+    )
 
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
-    self_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True, unique=True, comment='bot身份id, 用于识别bot, qq号等'
-    )
-    bot_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='Bot类型, 具体使用的协议')
-    bot_status: Mapped[int] = mapped_column(Integer, nullable=False, comment='Bot在线状态')
-    bot_info: Mapped[str] = mapped_column(String(512), nullable=True, comment='Bot描述信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    bot_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='Bot协议类型')
+    # nonebot2 在 Driver 中使用 bot.self_id 作为唯一 key, 此处将 self_id 设置为 unique=True 用以适配
+    self_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    bot_status: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    bot_info: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    bots_entity: Mapped[list['EntityOrm']] = relationship(
-        'EntityOrm', back_populates='entity_back_bots', cascade='all, delete-orphan', passive_deletes=True
+    entities_belonged_to_bot: Mapped[list['EntityOrm']] = relationship(
+        'EntityOrm',
+        back_populates='entity_parent_bot',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='joined',
+        innerjoin=True,
     )
 
     def __repr__(self) -> str:
-        return (f'BotSelfOrm(self_id={self.self_id!r}, bot_type={self.bot_type!r}, bot_status={self.bot_status!r}, '
-                f'bot_info={self.bot_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'BotSelfOrm(bot_type={self.bot_type}, self_id={self.self_id}, '
+                f'bot_status={self.bot_status}, bot_info={self.bot_info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class EntityOrm(Base):
     """实体表, 存放用户/群组/频道等所有需要交互的对象, 所有属性/好感度/权限/订阅等操作实例对象均以此为基准"""
     __tablename__ = f'{database_config.db_prefix}entity'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        UniqueConstraint('bot_index_id', 'entity_type', 'entity_id'),
+        Index(None, 'entity_type', 'entity_id'),
+        database_config.table_args,
+    )
 
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
     bot_index_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey(BotSelfOrm.id, ondelete='CASCADE'), nullable=False, comment='所属bot'
+        IndexInt,
+        ForeignKey(BotSelfOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
     )
-    entity_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True, comment='实体身份id, 不同类型实体可能相同, qq号/群号等'
-    )
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='实体类型')
-    parent_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='父实体id, qq号/群号等')
-    entity_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='实体名称')
-    entity_info: Mapped[str] = mapped_column(String(512), nullable=True, comment='实体描述信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体类型')
+    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体平台ID')
+    entity_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体名称')
+    entity_info: Mapped[str | None] = mapped_column(String(512), nullable=True, comment='实体描述信息')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    entity_back_bots: Mapped[BotSelfOrm] = relationship(
-        BotSelfOrm, back_populates='bots_entity', lazy='joined', innerjoin=True
+    entity_parent_bot: Mapped[BotSelfOrm] = relationship(
+        BotSelfOrm,
+        back_populates='entities_belonged_to_bot',
+        lazy='joined',
+        innerjoin=True,
     )
-
-    entity_friendship: Mapped[list['FriendshipOrm']] = relationship(
-        'FriendshipOrm', back_populates='friendship_back_entity', cascade='all, delete-orphan', passive_deletes=True
+    friendship_belonged_to_entity: Mapped[list['FriendshipOrm']] = relationship(
+        'FriendshipOrm',
+        back_populates='friendship_parent_entity',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
     )
-    entity_signin: Mapped[list['SignInOrm']] = relationship(
-        'SignInOrm', back_populates='signin_back_entity', cascade='all, delete-orphan', passive_deletes=True
+    sign_in_belonged_to_entity: Mapped[list['SignInOrm']] = relationship(
+        'SignInOrm',
+        back_populates='sign_in_parent_entity',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
     )
-    entity_auth: Mapped[list['AuthSettingOrm']] = relationship(
-        'AuthSettingOrm', back_populates='auth_back_entity', cascade='all, delete-orphan', passive_deletes=True
+    auth_belonged_to_entity: Mapped[list['AuthSettingOrm']] = relationship(
+        'AuthSettingOrm',
+        back_populates='auth_parent_entity',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
     )
-    entity_cooldown: Mapped[list['CoolDownOrm']] = relationship(
-        'CoolDownOrm', back_populates='cooldown_back_entity', cascade='all, delete-orphan', passive_deletes=True
+    cooldown_belonged_to_entity: Mapped[list['CooldownOrm']] = relationship(
+        'CooldownOrm',
+        back_populates='cooldown_parent_entity',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
     )
-    entity_subscription: Mapped[list['SubscriptionOrm']] = relationship(
-        'SubscriptionOrm', back_populates='subscription_back_entity', cascade='all, delete-orphan', passive_deletes=True
+    subscription_belonged_to_entity: Mapped[list['SubscriptionOrm']] = relationship(
+        'SubscriptionOrm',
+        back_populates='subscription_parent_entity',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
+    )
+    subscription_sources_entity_had: Mapped[list['SubscriptionSourceOrm']] = relationship(
+        'SubscriptionSourceOrm',
+        secondary=f'{database_config.db_prefix}subscription',
+        back_populates='entities_subscription_source_had',
+        lazy='raise',
     )
 
     def __repr__(self) -> str:
-        return (f'EntityOrm(bot_index_id={self.bot_index_id!r}, entity_id={self.entity_id!r}, '
-                f'entity_type={self.entity_type!r}, parent_id={self.parent_id!r}, '
-                f'entity_name={self.entity_name!r}, entity_info={self.entity_info!r} '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'EntityOrm(bot_index_id={self.bot_index_id}, entity_type={self.entity_type}, '
+                f'entity_id={self.entity_id}, entity_name={self.entity_name}, '
+                f'entity_info={self.entity_info or "null"} '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class FriendshipOrm(Base):
     """好感度及状态表, 养成系统基础表单"""
     __tablename__ = f'{database_config.db_prefix}friendship'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        database_config.table_args,
+    )
 
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
-    )
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
     entity_index_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False, unique=True
+        IndexInt,
+        ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+        unique=True,
     )
-    status: Mapped[str] = mapped_column(String(64), nullable=False, comment='当前状态')
-    mood: Mapped[float] = mapped_column(Float, nullable=False, comment='情绪值, 大于0: 好心情, 小于零: 坏心情')
-    friendship: Mapped[float] = mapped_column(Float, nullable=False, comment='好感度/亲密度, 大于0: 友好, 小于0: 厌恶')
-    energy: Mapped[float] = mapped_column(Float, nullable=False, comment='能量值')
-    currency: Mapped[float] = mapped_column(Float, nullable=False, comment='持有货币')
-    response_threshold: Mapped[float] = mapped_column(
-        Float, nullable=False, comment='响应阈值, 控制对交互做出响应的概率或频率, 根据具体插件使用数值'
-    )
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default='normal', comment='当前状态')
+    mood: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='情绪值')
+    friendship: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='好感度/亲密度')
+    energy: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='能量值')
+    currency: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='持有货币')
+    response_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='响应阈值')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    friendship_back_entity: Mapped[EntityOrm] = relationship(
-        EntityOrm, back_populates='entity_friendship', lazy='joined', innerjoin=True
+    friendship_parent_entity: Mapped[EntityOrm] = relationship(
+        EntityOrm,
+        back_populates='friendship_belonged_to_entity',
+        lazy='joined',
+        innerjoin=True,
     )
 
     def __repr__(self) -> str:
-        return (f'FriendshipOrm(entity_index_id={self.entity_index_id!r}, status={self.status!r}, '
-                f'mood={self.mood!r}, friendship={self.friendship!r}, energy={self.energy!r}, '
-                f'currency={self.currency!r}, response_threshold={self.response_threshold!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'FriendshipOrm(entity_index_id={self.entity_index_id}, status={self.status}, '
+                f'mood={self.mood}, friendship={self.friendship}, energy={self.energy}, '
+                f'currency={self.currency}, response_threshold={self.response_threshold}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class SignInOrm(Base):
     """签到表, 养成系统基础表单"""
     __tablename__ = f'{database_config.db_prefix}sign_in'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    id: Mapped[int] = mapped_column(
-        IndexInt, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    __table_args__ = (
+        UniqueConstraint('entity_index_id', 'sign_in_date'),
+        Index(None, 'sign_in_date', 'entity_index_id'),
+        database_config.table_args,
     )
-    entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
-    sign_in_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment='签到日期')
-    sign_in_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='签到信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    entity_index_id: Mapped[int] = mapped_column(
+        IndexInt,
+        ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    sign_in_date: Mapped[date] = mapped_column(Date, nullable=False, comment='签到日期')
+    sign_in_info: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='签到信息')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    signin_back_entity: Mapped[EntityOrm] = relationship(
-        EntityOrm, back_populates='entity_signin', lazy='joined', innerjoin=True
+    sign_in_parent_entity: Mapped[EntityOrm] = relationship(
+        EntityOrm,
+        back_populates='sign_in_belonged_to_entity',
+        lazy='joined',
+        innerjoin=True,
     )
 
     def __repr__(self) -> str:
-        return (f'SignInOrm(entity_index_id={self.entity_index_id!r}, sign_in_date={self.sign_in_date!r}, '
-                f'sign_in_info={self.sign_in_info!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'SignInOrm(entity_index_id={self.entity_index_id}, sign_in_date={self.sign_in_date}, '
+                f'sign_in_info={self.sign_in_info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class AuthSettingOrm(Base):
     """授权配置表, 主要用于权限管理, 同时兼用于存放使用插件时需要持久化的配置"""
     __tablename__ = f'{database_config.db_prefix}auth_setting'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        UniqueConstraint('entity_index_id', 'module', 'plugin', 'node'),
+        Index(None, 'module', 'plugin', 'node', 'available'),
+        database_config.table_args,
+    )
 
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    entity_index_id: Mapped[int] = mapped_column(
+        IndexInt,
+        ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
     )
-    entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
-    module: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='模块名')
-    plugin: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='插件名')
-    node: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='权限节点/配置名')
-    available: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True, comment='需求值, 0=deny/disable, 1=allow/enable, 1<=level'
-    )
-    value: Mapped[str] = mapped_column(String(4096), nullable=True, comment='若为插件配置项且对象具有的配置信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    module: Mapped[str] = mapped_column(String(128), nullable=False, comment='配置模块名称')
+    plugin: Mapped[str] = mapped_column(String(64), nullable=False, comment='配置插件名称')
+    node: Mapped[str] = mapped_column(String(64), nullable=False, comment='权限节点/配置名')
+    available: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    value: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    auth_back_entity: Mapped[EntityOrm] = relationship(
-        EntityOrm, back_populates='entity_auth', lazy='joined', innerjoin=True
+    auth_parent_entity: Mapped[EntityOrm] = relationship(
+        EntityOrm,
+        back_populates='auth_belonged_to_entity',
+        lazy='joined',
+        innerjoin=True,
     )
 
     def __repr__(self) -> str:
-        return (f'AuthSettingOrm(entity_index_id={self.entity_index_id!r}, module={self.module!r}, '
-                f'plugin={self.plugin!r}, node={self.node!r}, available={self.available!r}, value={self.value!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'AuthSettingOrm(entity_index_id={self.entity_index_id}, module={self.module}, '
+                f'plugin={self.plugin}, node={self.node}, available={self.available}, value={self.value}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
-class CoolDownOrm(Base):
+class CooldownOrm(Base):
     """冷却事件表"""
     __tablename__ = f'{database_config.db_prefix}cooldown'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    __table_args__ = (
+        UniqueConstraint('entity_index_id', 'event'),
+        Index(None, 'event', 'stop_at'),
+        Index(None, 'stop_at', 'event'),
+        database_config.table_args,
     )
-    entity_index_id: Mapped[int] = mapped_column(Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False)
-    event: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='冷却事件, 用于唯一标识某个/类冷却')
-    stop_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True, comment='冷却结束时间')
-    description: Mapped[str] = mapped_column(String(128), nullable=True, comment='事件描述')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    entity_index_id: Mapped[int] = mapped_column(
+        IndexInt,
+        ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    event: Mapped[str] = mapped_column(String(64), nullable=False, comment='冷却事件, 用于唯一标识某个/类冷却')
+    stop_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment='冷却结束时间')
+    description: Mapped[str | None] = mapped_column(String(128), nullable=True, comment='事件描述')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    cooldown_back_entity: Mapped[EntityOrm] = relationship(
-        EntityOrm, back_populates='entity_cooldown', lazy='joined', innerjoin=True
+    cooldown_parent_entity: Mapped[EntityOrm] = relationship(
+        EntityOrm,
+        back_populates='cooldown_belonged_to_entity',
+        lazy='joined',
+        innerjoin=True,
     )
 
     def __repr__(self) -> str:
-        return (f'CoolDownOrm(entity_index_id={self.entity_index_id!r}, event={self.event!r}, '
-                f'stop_at={self.stop_at!r}, description={self.description!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'CooldownOrm(entity_index_id={self.entity_index_id}, event={self.event}, '
+                f'stop_at={self.stop_at}, description={self.description or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class SubscriptionSourceOrm(Base):
     """订阅源表"""
     __tablename__ = f'{database_config.db_prefix}subscription_source'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    __table_args__ = (
+        UniqueConstraint('sub_type', 'sub_id'),
+        database_config.table_args,
     )
-    sub_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='订阅类型')
-    sub_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='订阅id，直播间房间号/用户uid等')
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    sub_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅类型')
+    sub_id: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅id，直播间房间号/用户uid等')
     sub_user_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅用户的名称')
-    sub_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='订阅源信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    sub_info: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='订阅源信息')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    subscription_source_subscription: Mapped[list['SubscriptionOrm']] = relationship(
+    subscription_belonged_to_source: Mapped[list['SubscriptionOrm']] = relationship(
         'SubscriptionOrm',
-        back_populates='subscription_back_subscription_source', cascade='all, delete-orphan', passive_deletes=True
+        back_populates='subscription_parent_source',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
+    )
+    entities_subscription_source_had: Mapped[list[EntityOrm]] = relationship(
+        EntityOrm,
+        secondary=f'{database_config.db_prefix}subscription',
+        back_populates='subscription_sources_entity_had',
+        lazy='raise',
     )
 
     def __repr__(self) -> str:
-        return (f'SubscriptionSourceOrm(sub_type={self.sub_type!r}, sub_id={self.sub_id!r}, '
-                f'sub_user_name={self.sub_user_name!r}, sub_info={self.sub_info!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'SubscriptionSourceOrm(sub_type={self.sub_type}, sub_id={self.sub_id}, '
+                f'sub_user_name={self.sub_user_name}, sub_info={self.sub_info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class SubscriptionOrm(Base):
     """订阅表"""
     __tablename__ = f'{database_config.db_prefix}subscription'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+    __table_args__ = (
+        Index(None, 'entity_index_id', 'sub_source_index_id'),
+        database_config.table_args,
     )
+
     sub_source_index_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey(SubscriptionSourceOrm.id, ondelete='CASCADE'), nullable=False
+        IndexInt,
+        ForeignKey(SubscriptionSourceOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        primary_key=True,
     )
     entity_index_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey(EntityOrm.id, ondelete='CASCADE'), nullable=False
+        IndexInt,
+        ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        primary_key=True,
     )
-    sub_info: Mapped[str] = mapped_column(String(64), nullable=True, comment='订阅信息')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    sub_info: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='订阅信息')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     # 设置级联和关系加载
-    subscription_back_subscription_source: Mapped[SubscriptionSourceOrm] = relationship(
-        SubscriptionSourceOrm, back_populates='subscription_source_subscription', lazy='joined', innerjoin=True
+    subscription_parent_source: Mapped[SubscriptionSourceOrm] = relationship(
+        SubscriptionSourceOrm,
+        back_populates='subscription_belonged_to_source',
+        lazy='joined',
+        innerjoin=True,
     )
-    subscription_back_entity: Mapped[EntityOrm] = relationship(
-        EntityOrm, back_populates='entity_subscription', lazy='joined', innerjoin=True
+    subscription_parent_entity: Mapped[EntityOrm] = relationship(
+        EntityOrm,
+        back_populates='subscription_belonged_to_entity',
+        lazy='joined',
+        innerjoin=True,
     )
 
     def __repr__(self) -> str:
-        return (f'SubscriptionOrm(sub_source_index_id={self.sub_source_index_id!r}, '
-                f'entity_index_id={self.entity_index_id!r}, sub_info={self.sub_info!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'SubscriptionOrm(sub_source_index_id={self.sub_source_index_id}, '
+                f'entity_index_id={self.entity_index_id}, sub_info={self.sub_info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class SocialMediaContentOrm(Base):
     """社交媒体平台内容表"""
     __tablename__ = f'{database_config.db_prefix}social_media_content'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        UniqueConstraint('source', 'm_type', 'm_id'),
+        Index('ix_social_media_content_uid_search', 'source', 'm_type', 'm_uid'),
+        database_config.table_args,
+    )
 
-    # 表结构
-    source: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='出处平台')
-    m_id: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False, index=True, comment='内容原始ID')
-    m_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容原始类型')
-    m_uid: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment='内容发布者ID')
-    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='内容标题')
-    content: Mapped[str] = mapped_column(String(4096), nullable=False, comment='内容文本')
-    ref_content: Mapped[str] = mapped_column(String(4096), nullable=True, comment='引用/转发内容文本')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, comment='出处平台')
+    m_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='内容原始类型')
+    m_id: Mapped[str] = mapped_column(String(64), nullable=False, comment='内容原始ID')
+    m_uid: Mapped[str] = mapped_column(String(64), nullable=False, comment='内容发布者ID')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment='内容标题')
+    raw_data: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
+    content: Mapped[str | None] = mapped_column(CommonLongText, nullable=True, comment='内容文本')
+    ref_content: Mapped[str | None] = mapped_column(CommonLongText, nullable=True, comment='引用/转发内容文本')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'SocialMediaContentOrm(source={self.source!r}, m_id={self.m_id!r}, '
-                f'm_type={self.m_type!r}, m_uid={self.m_uid!r}, '
-                f'title={self.title!r}, content={self.content!r}, ref_content={self.ref_content!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'SocialMediaContentOrm(source={self.source}, m_type={self.m_type}, m_id={self.m_id}, '
+                f'm_uid={self.m_uid}, title={self.title}, raw_data={self.raw_data}, '
+                f'content={self.content or "null"}, ref_content={self.ref_content or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class ArtworkCollectionOrm(Base):
     """图库作品表"""
     __tablename__ = f'{database_config.db_prefix}artwork_collection'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
+    __table_args__ = (
+        UniqueConstraint('origin', 'aid'),
+        Index(None, 'origin', 'uid'),
+        Index('ix_artwork_common_search', 'origin', 'classification', 'rating', 'orientation'),
+        Index('ix_artwork_classification_rating', 'classification', 'rating'),
+        database_config.table_args,
+    )
 
-    # 表结构
-    origin: Mapped[str] = mapped_column(
-        String(64), primary_key=True, nullable=False, index=True, comment='作品来源/收录该作品的站点'
-    )
-    aid: Mapped[str] = mapped_column(
-        String(64), primary_key=True, nullable=False, index=True, comment='作品原始ID/收录该作品的站点索引ID'
-    )
-    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作品标题title')
-    uid: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者uid')
-    uname: Mapped[str] = mapped_column(String(255), nullable=False, index=True, comment='作者名')
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    origin: Mapped[str] = mapped_column(String(64), nullable=False, comment='作品来源/收录站点')
+    aid: Mapped[str] = mapped_column(String(64), nullable=False, comment='作品原始ID/收录站点ID')
+    uid: Mapped[str] = mapped_column(String(64), nullable=False, comment='作者ID')
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    uname: Mapped[str] = mapped_column(String(255), nullable=False)
     # 分类分级信息
     classification: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True, comment='标记标签, -2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
+        SmallInteger, nullable=False, comment='-2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
     )
     rating: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True, comment='分级标签, -1=Unknown, 0=G, 1=S, 2=Q, 3=E'
+        SmallInteger, nullable=False, comment='-1=Unknown, 0=G, 1=S, 2=Q, 3=E'
     )
     # 作品图片信息
-    width: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片宽度')
-    height: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment='原始图片高度')
-    tags: Mapped[str] = mapped_column(String(4096), nullable=False, comment='作品标签')
-    description: Mapped[str] = mapped_column(String(4096), nullable=True, comment='作品描述')
-    source: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品原始出处地址')
-    cover_page: Mapped[str] = mapped_column(String(1024), nullable=False, comment='作品首页/封面原图链接')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    width: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片宽度')
+    height: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片高度')
+    orientation: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='宽高方位, 1=横图 0=方图 -1=竖图')
+    url: Mapped[str] = mapped_column(String(4096), nullable=False, comment='作品在该来源/收录站点的访问地址')
+    source: Mapped[str | None] = mapped_column(String(4096), nullable=True, comment='作品原始出处地址')
+    cover_page: Mapped[str | None] = mapped_column(String(4096), nullable=True, comment='作品首页/封面图片链接')
+    raw_tags: Mapped[str | None] = mapped_column(CommonLongText, nullable=True)
+    description: Mapped[str | None] = mapped_column(CommonLongText, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+
+    # 设置级联和关系加载
+    review_records_belonged_to_artwork: Mapped[list['ArtworkReviewRecordsOrm']] = relationship(
+        'ArtworkReviewRecordsOrm',
+        back_populates='review_record_parent_artwork',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
+    )
+    tags_belonged_to_artwork: Mapped[list['ArtworkWithTagsOrm']] = relationship(
+        'ArtworkWithTagsOrm',
+        back_populates='tag_parent_artwork',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
+    )
+    tags_name_artwork_had: Mapped[list['ArtworkTagOrm']] = relationship(
+        'ArtworkTagOrm',
+        secondary=f'{database_config.db_prefix}artwork_with_tags',
+        back_populates='artworks_tag_name_had',
+        lazy='joined',
+        innerjoin=True,
+    )
 
     def __repr__(self) -> str:
-        return (f'ArtworkCollectionOrm(origin={self.origin!r}, aid={self.aid!r}, title={self.title!r}, '
-                f'uid={self.uid!r}, uname={self.uname!r}, '
-                f'classification={self.classification!r}, rating={self.rating!r}, '
-                f'width={self.width!r}, height={self.height!r}, tags={self.tags!r}, '
-                f'description={self.description!r}, source={self.source!r}, cover_page={self.cover_page!r}, '
-                f'created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'ArtworkCollectionOrm(origin={self.origin}, aid={self.aid}, title={self.title}, '
+                f'uid={self.uid}, uname={self.uname}, classification={self.classification}, rating={self.rating}, '
+                f'width={self.width}, height={self.height}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
-class WordBankOrm(Base):
-    """问答语料词句表"""
-    __tablename__ = f'{database_config.db_prefix}word_bank'
-    if database_config.table_args is not None:
-        __table_args__ = database_config.table_args
-
-    # 表结构
-    id: Mapped[int] = mapped_column(
-        Integer, Sequence(f'{__tablename__}_id_seq'), primary_key=True, nullable=False, index=True, unique=True
+class ArtworkReviewRecordsOrm(Base):
+    """图库作品评审记录表"""
+    __tablename__ = f'{database_config.db_prefix}artwork_review_records'
+    __table_args__ = (
+        Index(None, 'artwork_index_id', 'review_timestamp'),
+        database_config.table_args,
     )
-    key_word: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment='匹配目标')
-    reply_entity: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True, comment='响应对象, 可为群号/用户qq/频道id等标识'
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    artwork_index_id: Mapped[int] = mapped_column(
+        IndexInt,
+        ForeignKey(ArtworkCollectionOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        nullable=False,
     )
-    result_word: Mapped[str] = mapped_column(String(4096), nullable=False, comment='结果文本')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    review_timestamp: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    review_classification: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    review_rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    review_from: Mapped[str] = mapped_column(String(255), nullable=False)
+    review_info: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+
+    # 设置级联和关系加载
+    review_record_parent_artwork: Mapped[ArtworkCollectionOrm] = relationship(
+        ArtworkCollectionOrm,
+        back_populates='review_records_belonged_to_artwork',
+        lazy='joined',
+        innerjoin=True,
+    )
 
     def __repr__(self) -> str:
-        return (f'WordBankOrm(key_word={self.key_word!r}, reply_entity={self.reply_entity!r}, '
-                f'result_word={self.result_word!r}, created_at={self.created_at!r}, updated_at={self.updated_at!r})')
+        return (f'ArtworkReviewRecordsOrm(artwork_index_id={self.artwork_index_id}, '
+                f'review_timestamp={self.review_timestamp}, review_classification={self.review_classification}, '
+                f'review_rating={self.review_rating}, review_from={self.review_from}, '
+                f'review_info={self.review_info or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
+
+
+class ArtworkTagOrm(Base):
+    """图库作品标签表"""
+    __tablename__ = f'{database_config.db_prefix}artwork_tag'
+    __table_args__ = (
+        database_config.table_args,
+    )
+
+    id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
+    tag_name: Mapped[str] = mapped_column(String(255, collation='utf8mb4_bin'), nullable=False, unique=True)
+    tag_alt_name: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='Tag的别名或翻译名')
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+
+    # 设置级联和关系加载
+    artwork_tags_belonged_to_tag_name: Mapped[list['ArtworkWithTagsOrm']] = relationship(
+        'ArtworkWithTagsOrm',
+        back_populates='artwork_tag_parent_tag_name',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='raise',
+    )
+    artworks_tag_name_had: Mapped[list[ArtworkCollectionOrm]] = relationship(
+        ArtworkCollectionOrm,
+        secondary=f'{database_config.db_prefix}artwork_with_tags',
+        back_populates='tags_name_artwork_had',
+        lazy='raise',
+    )
+
+    def __repr__(self) -> str:
+        return (f'ArtworkTagOrm(tag_name={self.tag_name}, tag_alt_name={self.tag_alt_name or "null"}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
+
+
+class ArtworkWithTagsOrm(Base):
+    """图库作品标签关联表"""
+    __tablename__ = f'{database_config.db_prefix}artwork_with_tags'
+    __table_args__ = (
+        Index(None, 'tag_index_id', 'artwork_index_id'),
+        database_config.table_args,
+    )
+
+    artwork_index_id: Mapped[int] = mapped_column(
+        IndexInt,
+        ForeignKey(ArtworkCollectionOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        primary_key=True,
+    )
+    tag_index_id: Mapped[int] = mapped_column(
+        IndexInt,
+        ForeignKey(ArtworkTagOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
+        primary_key=True,
+    )
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+
+    # 设置级联和关系加载
+    tag_parent_artwork: Mapped[ArtworkCollectionOrm] = relationship(
+        ArtworkCollectionOrm,
+        back_populates='tags_belonged_to_artwork',
+        lazy='joined',
+        innerjoin=True,
+    )
+    artwork_tag_parent_tag_name: Mapped[ArtworkTagOrm] = relationship(
+        ArtworkTagOrm,
+        back_populates='artwork_tags_belonged_to_tag_name',
+        lazy='joined',
+        innerjoin=True,
+    )
+
+    def __repr__(self) -> str:
+        return (f'ArtworkWithTagsOrm(artwork_index_id={self.artwork_index_id}, tag_index_id={self.tag_index_id}, '
+                f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 __all__ = [
-    'Base',
     'GlobalCacheOrm',
     'SystemSettingOrm',
     'PluginOrm',
-    'StatisticOrm',
+    'StatisticsOrm',
     'HistoryOrm',
     'BotSelfOrm',
     'EntityOrm',
     'FriendshipOrm',
     'SignInOrm',
     'AuthSettingOrm',
-    'CoolDownOrm',
+    'CooldownOrm',
     'SubscriptionSourceOrm',
     'SubscriptionOrm',
     'SocialMediaContentOrm',
     'ArtworkCollectionOrm',
-    'WordBankOrm',
+    'ArtworkTagOrm',
+    'ArtworkWithTagsOrm',
 ]

@@ -55,8 +55,8 @@ class DatabaseType(BaseModel):
         raise NotImplementedError
 
     @property
-    def table_args(self) -> dict[str, Any] | None:
-        return None
+    def table_args(self) -> dict[str, Any]:
+        return {}
 
 
 class MysqlDatabaseConfig(DatabaseType):
