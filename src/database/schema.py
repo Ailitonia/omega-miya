@@ -9,15 +9,16 @@
 """
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import ForeignKey, Identity, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import BigInteger, Date, DateTime, Float, Integer, SmallInteger, String
+from sqlalchemy.types import BigInteger, Date, DateTime, Integer, Numeric, SmallInteger, String
 
 from .config import database_config
 from .schema_base import OmegaDeclarativeBase as Base
-from .types import IndexInt, CommonLongText, CommonJSON
+from .types import CommonJSON, CommonLongText, IndexInt
 
 
 class GlobalCacheOrm(Base):
@@ -29,14 +30,14 @@ class GlobalCacheOrm(Base):
 
     cache_name: Mapped[str] = mapped_column(String(64), primary_key=True)
     cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)
-    cache_value: Mapped[str] = mapped_column(String(4096), nullable=False)
+    cache_value: Mapped[str] = mapped_column(CommonLongText, nullable=False)
     expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'GlobalCacheOrm(cache_name={self.cache_name}, cache_key={self.cache_key}, '
-                f'cache_value={self.cache_value}, expired_at={self.expired_at}, '
+        return (f'GlobalCacheOrm(cache_name={self.cache_name}, '
+                f'cache_key={self.cache_key}, expired_at={self.expired_at}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
@@ -49,7 +50,7 @@ class SystemSettingOrm(Base):
 
     setting_name: Mapped[str] = mapped_column(String(64), primary_key=True)
     setting_key: Mapped[str] = mapped_column(String(64), primary_key=True)
-    setting_value: Mapped[str] = mapped_column(String(4096), nullable=False)
+    setting_value: Mapped[str] = mapped_column(CommonLongText, nullable=False)
     info: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
@@ -67,8 +68,8 @@ class PluginOrm(Base):
         database_config.table_args,
     )
 
-    plugin_name: Mapped[str] = mapped_column(String(64), primary_key=True)
-    module_name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    plugin_name: Mapped[str] = mapped_column(String(255), primary_key=True)
+    module_name: Mapped[str] = mapped_column(String(255), primary_key=True)
     enabled: Mapped[int] = mapped_column(SmallInteger, nullable=False, index=True)
     info: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
@@ -80,17 +81,18 @@ class PluginOrm(Base):
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
-class StatisticsOrm(Base):
+class StatisticOrm(Base):
     """统计信息表"""
-    __tablename__ = f'{database_config.db_prefix}statistics'
+    __tablename__ = f'{database_config.db_prefix}statistic'
     __table_args__ = (
         Index(None, 'call_timestamp', 'plugin_name', 'module_name'),
+        Index(None, 'plugin_name', 'module_name', 'call_timestamp'),
         database_config.table_args,
     )
 
     id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
-    plugin_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    module_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    plugin_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    module_name: Mapped[str] = mapped_column(String(255), nullable=False)
     call_timestamp: Mapped[int] = mapped_column(BigInteger, nullable=False)
     call_entity_meta: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
     call_data: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
@@ -107,7 +109,9 @@ class HistoryOrm(Base):
     """消息历史记录表"""
     __tablename__ = f'{database_config.db_prefix}history'
     __table_args__ = (
-        Index(None, 'received_timestamp', 'bot_self_id', 'event_entity_id', 'user_entity_id', 'message_type'),
+        UniqueConstraint('bot_self_id', 'message_id'),
+        UniqueConstraint('message_id', 'bot_self_id', 'event_entity_id', 'user_entity_id'),
+        Index(None, 'bot_self_id', 'event_entity_id', 'user_entity_id', 'message_type', 'received_timestamp'),
         database_config.table_args,
     )
 
@@ -127,22 +131,20 @@ class HistoryOrm(Base):
         return (f'HistoryOrm(received_timestamp={self.received_timestamp}, message_id={self.message_id}, '
                 f'bot_self_id={self.bot_self_id}, event_entity_id={self.event_entity_id}, '
                 f'user_entity_id={self.user_entity_id}, message_type={self.message_type}, '
-                f'message_plain_text={self.message_plain_text}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
 class BotSelfOrm(Base):
     """Bot表 对应不同机器人协议端"""
-    __tablename__ = f'{database_config.db_prefix}bots'
+    __tablename__ = f'{database_config.db_prefix}bot'
     __table_args__ = (
         UniqueConstraint('bot_type', 'self_id'),
         database_config.table_args,
     )
 
     id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
-    bot_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='Bot协议类型')
-    # nonebot2 在 Driver 中使用 bot.self_id 作为唯一 key, 此处将 self_id 设置为 unique=True 用以适配
-    self_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    bot_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    self_id: Mapped[str] = mapped_column(String(64), nullable=False)
     bot_status: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     bot_info: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
@@ -154,8 +156,7 @@ class BotSelfOrm(Base):
         back_populates='entity_parent_bot',
         cascade='all, delete-orphan',
         passive_deletes=True,
-        lazy='joined',
-        innerjoin=True,
+        lazy='raise',
     )
 
     def __repr__(self) -> str:
@@ -178,12 +179,11 @@ class EntityOrm(Base):
         IndexInt,
         ForeignKey(BotSelfOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         nullable=False,
-        index=True,
     )
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体类型')
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体平台ID')
     entity_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体名称')
-    entity_info: Mapped[str | None] = mapped_column(String(512), nullable=True, comment='实体描述信息')
+    entity_info: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='实体描述信息')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -234,6 +234,7 @@ class EntityOrm(Base):
         secondary=f'{database_config.db_prefix}subscription',
         back_populates='entities_subscription_source_had',
         lazy='raise',
+        viewonly=True,
     )
 
     def __repr__(self) -> str:
@@ -255,15 +256,14 @@ class FriendshipOrm(Base):
         IndexInt,
         ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         nullable=False,
-        index=True,
         unique=True,
     )
     status: Mapped[str] = mapped_column(String(64), nullable=False, default='normal', comment='当前状态')
-    mood: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='情绪值')
-    friendship: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='好感度/亲密度')
-    energy: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='能量值')
-    currency: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='持有货币')
-    response_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0, comment='响应阈值')
+    mood: Mapped[Decimal] = mapped_column(Numeric(6, 2, asdecimal=True), nullable=False, comment='情绪值')
+    friendship: Mapped[Decimal] = mapped_column(Numeric(18, 4, asdecimal=True), nullable=False, comment='好感度')
+    energy: Mapped[Decimal] = mapped_column(Numeric(18, 4, asdecimal=True), nullable=False, comment='能量值')
+    currency: Mapped[Decimal] = mapped_column(Numeric(18, 4, asdecimal=True), nullable=False, comment='持有货币')
+    rsp_threshold: Mapped[Decimal] = mapped_column(Numeric(6, 2, asdecimal=True), nullable=False, comment='响应阈值')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -278,7 +278,7 @@ class FriendshipOrm(Base):
     def __repr__(self) -> str:
         return (f'FriendshipOrm(entity_index_id={self.entity_index_id}, status={self.status}, '
                 f'mood={self.mood}, friendship={self.friendship}, energy={self.energy}, '
-                f'currency={self.currency}, response_threshold={self.response_threshold}, '
+                f'currency={self.currency}, rsp_threshold={self.rsp_threshold}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
@@ -296,7 +296,6 @@ class SignInOrm(Base):
         IndexInt,
         ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         nullable=False,
-        index=True,
     )
     sign_in_date: Mapped[date] = mapped_column(Date, nullable=False, comment='签到日期')
     sign_in_info: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='签到信息')
@@ -331,10 +330,9 @@ class AuthSettingOrm(Base):
         IndexInt,
         ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         nullable=False,
-        index=True,
     )
-    module: Mapped[str] = mapped_column(String(128), nullable=False, comment='配置模块名称')
-    plugin: Mapped[str] = mapped_column(String(64), nullable=False, comment='配置插件名称')
+    module: Mapped[str] = mapped_column(String(255), nullable=False, comment='配置模块名称')
+    plugin: Mapped[str] = mapped_column(String(255), nullable=False, comment='配置插件名称')
     node: Mapped[str] = mapped_column(String(64), nullable=False, comment='权限节点/配置名')
     available: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     value: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
@@ -351,7 +349,7 @@ class AuthSettingOrm(Base):
 
     def __repr__(self) -> str:
         return (f'AuthSettingOrm(entity_index_id={self.entity_index_id}, module={self.module}, '
-                f'plugin={self.plugin}, node={self.node}, available={self.available}, value={self.value}, '
+                f'plugin={self.plugin}, node={self.node}, available={self.available}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
@@ -370,11 +368,10 @@ class CooldownOrm(Base):
         IndexInt,
         ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         nullable=False,
-        index=True,
     )
     event: Mapped[str] = mapped_column(String(64), nullable=False, comment='冷却事件, 用于唯一标识某个/类冷却')
     stop_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment='冷却结束时间')
-    description: Mapped[str | None] = mapped_column(String(128), nullable=True, comment='事件描述')
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='事件描述')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -404,7 +401,7 @@ class SubscriptionSourceOrm(Base):
     sub_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅类型')
     sub_id: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅id，直播间房间号/用户uid等')
     sub_user_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='订阅用户的名称')
-    sub_info: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='订阅源信息')
+    sub_info: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='订阅源信息')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -421,6 +418,7 @@ class SubscriptionSourceOrm(Base):
         secondary=f'{database_config.db_prefix}subscription',
         back_populates='subscription_sources_entity_had',
         lazy='raise',
+        viewonly=True,
     )
 
     def __repr__(self) -> str:
@@ -447,7 +445,7 @@ class SubscriptionOrm(Base):
         ForeignKey(EntityOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         primary_key=True,
     )
-    sub_info: Mapped[str | None] = mapped_column(String(64), nullable=True, comment='订阅信息')
+    sub_info: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='订阅信息')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -489,13 +487,13 @@ class SocialMediaContentOrm(Base):
     raw_data: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
     content: Mapped[str | None] = mapped_column(CommonLongText, nullable=True, comment='内容文本')
     ref_content: Mapped[str | None] = mapped_column(CommonLongText, nullable=True, comment='引用/转发内容文本')
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'SocialMediaContentOrm(source={self.source}, m_type={self.m_type}, m_id={self.m_id}, '
-                f'm_uid={self.m_uid}, title={self.title}, raw_data={self.raw_data}, '
-                f'content={self.content or "null"}, ref_content={self.ref_content or "null"}, '
+        return (f'SocialMediaContentOrm(source={self.source}, m_type={self.m_type}, '
+                f'm_id={self.m_id}, m_uid={self.m_uid}, title={self.title}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
@@ -527,12 +525,12 @@ class ArtworkCollectionOrm(Base):
     width: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片宽度')
     height: Mapped[int] = mapped_column(Integer, nullable=False, comment='原始图片高度')
     orientation: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='宽高方位, 1=横图 0=方图 -1=竖图')
-    url: Mapped[str] = mapped_column(String(4096), nullable=False, comment='作品在该来源/收录站点的访问地址')
-    source: Mapped[str | None] = mapped_column(String(4096), nullable=True, comment='作品原始出处地址')
-    cover_page: Mapped[str | None] = mapped_column(String(4096), nullable=True, comment='作品首页/封面图片链接')
+    url: Mapped[str] = mapped_column(CommonLongText, nullable=False, comment='作品在该来源/收录站点的访问地址')
+    source: Mapped[str | None] = mapped_column(CommonLongText, nullable=True, comment='作品原始出处地址')
+    cover_page: Mapped[str | None] = mapped_column(CommonLongText, nullable=True, comment='作品首页/封面图片链接')
     raw_tags: Mapped[str | None] = mapped_column(CommonLongText, nullable=True)
     description: Mapped[str | None] = mapped_column(CommonLongText, nullable=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -555,8 +553,8 @@ class ArtworkCollectionOrm(Base):
         'ArtworkTagOrm',
         secondary=f'{database_config.db_prefix}artwork_with_tags',
         back_populates='artworks_tag_name_had',
-        lazy='joined',
-        innerjoin=True,
+        lazy='raise',
+        viewonly=True,
     )
 
     def __repr__(self) -> str:
@@ -580,11 +578,11 @@ class ArtworkReviewRecordsOrm(Base):
         ForeignKey(ArtworkCollectionOrm.id, onupdate='CASCADE', ondelete='CASCADE'),
         nullable=False,
     )
-    review_timestamp: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    review_classification: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    review_rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    review_from: Mapped[str] = mapped_column(String(255), nullable=False)
-    review_info: Mapped[str] = mapped_column(String(255), nullable=False)
+    review_timestamp: Mapped[int] = mapped_column(BigInteger, nullable=False, comment='评审时间戳')
+    review_classification: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='评审分类结果')
+    review_rating: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='评审分级结果')
+    review_from: Mapped[str] = mapped_column(String(255), nullable=False, comment='评审来源')
+    review_info: Mapped[str] = mapped_column(String(255), nullable=False, comment='评审附加信息')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -612,7 +610,7 @@ class ArtworkTagOrm(Base):
     )
 
     id: Mapped[int] = mapped_column(IndexInt, Identity(), primary_key=True)
-    tag_name: Mapped[str] = mapped_column(String(255, collation='utf8mb4_bin'), nullable=False, unique=True)
+    tag_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     tag_alt_name: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='Tag的别名或翻译名')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
@@ -630,6 +628,7 @@ class ArtworkTagOrm(Base):
         secondary=f'{database_config.db_prefix}artwork_with_tags',
         back_populates='tags_name_artwork_had',
         lazy='raise',
+        viewonly=True,
     )
 
     def __repr__(self) -> str:
@@ -681,7 +680,7 @@ __all__ = [
     'GlobalCacheOrm',
     'SystemSettingOrm',
     'PluginOrm',
-    'StatisticsOrm',
+    'StatisticOrm',
     'HistoryOrm',
     'BotSelfOrm',
     'EntityOrm',
@@ -693,6 +692,7 @@ __all__ = [
     'SubscriptionOrm',
     'SocialMediaContentOrm',
     'ArtworkCollectionOrm',
+    'ArtworkReviewRecordsOrm',
     'ArtworkTagOrm',
     'ArtworkWithTagsOrm',
 ]
