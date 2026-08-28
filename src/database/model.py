@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Self
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .helpers import begin_db_session
+from .helpers import database_session
 
 if TYPE_CHECKING:
     from .schema_base import OmegaDeclarativeBase
@@ -39,7 +39,7 @@ class BaseDataAccessLayerModel[TB: 'OmegaDeclarativeBase', TR: BaseDataQueryResu
     @asynccontextmanager
     async def begin_dal_session(cls) -> AsyncGenerator[Self, None]:
         """初始化 DAL 并开始会话"""
-        async with begin_db_session() as session:
+        async with database_session() as session:
             yield cls(session)
 
     @classmethod

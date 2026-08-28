@@ -10,10 +10,8 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Annotated
 
 from nonebot import get_driver, logger
-from nonebot.params import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .connector import get_engine, get_scoped_session_factory
@@ -69,33 +67,28 @@ async def __database_dispose():
 
 
 @asynccontextmanager
-async def begin_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """获取数据库 AsyncSession"""
+async def database_session() -> AsyncGenerator[AsyncSession, None]:
+    """创建并进入数据库 AsyncSession 上下文, 自动处理 commit/rollback"""
     scoped_session_factory = get_scoped_session_factory()
     try:
         async with scoped_session_factory() as session:
             try:
                 yield session
                 await session.commit()
-            except:
+            except:  # noqa: E722
                 await session.rollback()
                 raise
     finally:
         await scoped_session_factory.remove()
 
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """获取数据库 AsyncSession 生成器依赖 (Dependence for database AsyncSession)"""
-    async with begin_db_session() as session:
+async def database_session_depend() -> AsyncGenerator[AsyncSession, None]:
+    """获取数据库 AsyncSession 上下文生成器依赖 (Dependence for database AsyncSession)"""
+    async with database_session() as session:
         yield session
 
 
-type DATABASE_SESSION = Annotated[AsyncSession, Depends(get_db_session)]
-"""子依赖: 获取数据库 AsyncSession"""
-
-
 __all__ = [
-    'DATABASE_SESSION',
-    'begin_db_session',
-    'get_db_session',
+    'database_session',
+    'database_session_depend',
 ]

@@ -203,11 +203,11 @@ async def check_migration_state() -> MigrationCheckResult:
 
 def run_check_current() -> None:
     """执行数据库检查"""
-    logger.opt(colors=True).debug(f'<lc>Alembic</lc> | Current database info')
+    logger.opt(colors=True).debug('<lc>Alembic</lc> | Current database info')
     command.current(config=_ALEMBIC_CFG, verbose=True)
-    logger.opt(colors=True).debug(f'<lc>Alembic</lc> | Head database version')
+    logger.opt(colors=True).debug('<lc>Alembic</lc> | Head database version')
     command.heads(config=_ALEMBIC_CFG, verbose=True)
-    logger.opt(colors=True).debug(f'<lc>Alembic</lc> | Checking database new upgrade version')
+    logger.opt(colors=True).debug('<lc>Alembic</lc> | Checking database new upgrade version')
     command.check(config=_ALEMBIC_CFG)
 
 
