@@ -6,6 +6,9 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Explicitly import the database model, without relying on the side effects
+# of the `nonebot.load_plugins` or `src.database` package import chain to load the model.
+import src.database.schema  # noqa: F401
 from src.database.config import database_config
 from src.database.schema_base import OmegaDeclarativeBase
 
@@ -55,6 +58,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={'paramstyle': 'named'},
         compare_type=True,
+        render_as_batch=True,  # 为 SQLite 运行“批处理”迁移
     )
 
     with context.begin_transaction():
@@ -66,6 +70,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        render_as_batch=True,  # 为 SQLite 运行“批处理”迁移
     )
 
     with context.begin_transaction():
