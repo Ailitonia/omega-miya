@@ -35,6 +35,23 @@ def _get_current_scoped_id() -> int | tuple[int, int]:
         return id(current_task())
 
 
+def _patch_sqlite_foreign_keys_pragma(async_engine: AsyncEngine) -> None:
+    """为 SQLite 启用外键
+
+    针对 SQLite 外键默认不开启问题, 通过事件监听每次建立数据库连接时, 自动执行 PRAGMA foreign_keys=ON 命令
+    Note: PRAGMA 是 SQLite 特有的扩展指令, 用于查询和设置数据库的运行参数或修改内部环境变量, 无法直接在其他数据库引擎中运行
+    """
+    from sqlalchemy import event
+
+    @event.listens_for(async_engine.sync_engine, 'connect')
+    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA foreign_keys=ON')
+        cursor.close()
+
+    logger.opt(colors=True).info(f'<lc>Database</lc> | 已为 <lg>{database_config.database}</lg> 启用外键约束')
+
+
 def _init_database() -> None:
     """创建数据库连接并初始化数据库引擎"""
     global _engine
@@ -51,6 +68,11 @@ def _init_database() -> None:
             **database_config.connector.connect_args,  # 数据库连接参数
         )
         logger.opt(colors=True).info(f'<lc>Database</lc> | 已配置 <lg>{database_config.database}</lg> 数据库连接')
+
+        # 为 sqlite 启用外键约束
+        if database_config.database == 'sqlite':
+            _patch_sqlite_foreign_keys_pragma(async_engine=_engine)
+
     except Exception as e:
         import sys
         logger.opt(colors=True).critical(f'<lc>Database</lc> | <r>创建数据库连接失败</r>, 错误信息: {e}')
@@ -91,7 +113,7 @@ def get_engine() -> AsyncEngine:
         return _engine
     except NameError:
         _init_database()
-    return _engine
+    return _engine  # noqa: F821
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
@@ -100,7 +122,7 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
         return _async_session_factory
     except NameError:
         _init_session_factory()
-    return _async_session_factory
+    return _async_session_factory  # noqa: F821
 
 
 def get_scoped_session_factory() -> async_scoped_session[AsyncSession]:
@@ -109,7 +131,7 @@ def get_scoped_session_factory() -> async_scoped_session[AsyncSession]:
         return _scoped_session_factory
     except NameError:
         _init_session_factory()
-    return _scoped_session_factory
+    return _scoped_session_factory  # noqa: F821
 
 
 # init database when import
