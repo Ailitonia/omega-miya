@@ -10,7 +10,7 @@
 @Software       : PyCharm
 """
 
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Awaitable
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -22,12 +22,15 @@ def _make_check_result(status_value: str, message: str = ''):
     from src.database.migrate import MigrationCheckResult, MigrationStatus
 
     return MigrationCheckResult(
-        status=MigrationStatus(status_value), current_revisions=(), head='head_rev', message=message
+        status=MigrationStatus(status_value),
+        current_revisions=(),
+        head='head_rev',
+        message=message,
     )
 
 
 @pytest.fixture
-def database_init() -> Callable[[], Coroutine[Any, Any, None]]:
+def database_init() -> Callable[[], Awaitable[Any]]:
     """获取 _database_init 钩子函数"""
     from src.database.helpers import _database_init
 
@@ -51,7 +54,7 @@ class TestDatabaseInit:
 
     async def test_abort_on_unsafe_check(
             self,
-            database_init: Callable[[], Coroutine[Any, Any, None]],
+            database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
@@ -66,7 +69,7 @@ class TestDatabaseInit:
 
     async def test_skip_migration_when_up_to_date(
             self,
-            database_init: Callable[[], Coroutine[Any, Any, None]],
+            database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
@@ -79,7 +82,7 @@ class TestDatabaseInit:
 
     async def test_migrate_when_upgradable(
             self,
-            database_init: Callable[[], Coroutine[Any, Any, None]],
+            database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
@@ -92,7 +95,7 @@ class TestDatabaseInit:
 
     async def test_migrate_when_fresh(
             self,
-            database_init: Callable[[], Coroutine[Any, Any, None]],
+            database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
@@ -105,7 +108,7 @@ class TestDatabaseInit:
 
     async def test_abort_when_post_verify_failed(
             self,
-            database_init: Callable[[], Coroutine[Any, Any, None]],
+            database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
@@ -120,7 +123,7 @@ class TestDatabaseInit:
 
     async def test_abort_when_migration_raised(
             self,
-            database_init: Callable[[], Coroutine[Any, Any, None]],
+            database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
