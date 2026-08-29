@@ -56,6 +56,9 @@ def run_bot(_: 'CliQueryArguments') -> None:
         from nonebot.adapters.console import Adapter as ConsoleAdapter
         driver.register_adapter(ConsoleAdapter)
 
+    # 优先加载数据库模块
+    import src.database  # noqa: F401
+
     # 加载插件
     nonebot.load_plugins('src/service')
     nonebot.load_plugins('src/plugins')
