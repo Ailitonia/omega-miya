@@ -9,8 +9,7 @@
 - 测试模块在 pytest 收集阶段导入时 NoneBot 尚未初始化 (nonebug 在 session fixture 中才执行 nonebot.init()),
   此时顶层导入 src.* 会触发 src/database/config.py 的 get_plugin_config 失败并 sys.exit,
   因此所有 src.* 的导入一律放在 fixture/测试函数体内
-- 本目录测试直接复用 src.database 的数据库连接, 操作 .env.test 配置的测试数据库
-  (创建/删除 alembic_version 表及测试哨兵表), 禁止将测试环境指向生产数据库运行
+- 本目录测试直接复用 src.database 的数据库连接, 操作 .env.test 配置的测试数据库, 禁止将测试环境指向生产数据库运行
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -20,7 +19,7 @@ from typing import ClassVar
 
 import pytest
 from nonebot.utils import run_sync
-from sqlalchemy import Column, MetaData, String, Table, inspect, select
+from sqlalchemy import Column, Integer, MetaData, String, Table, inspect, select
 from sqlalchemy.engine import Connection
 
 
@@ -43,20 +42,23 @@ class _TestDatabaseMigrationHelper:
 
         self._engine = get_engine()
         self._db_prefix = database_config.db_prefix
-        self._version_table_existed: bool = False
-        self._original_versions: list[str] = []
+
+    @property
+    def _test_business_table(self) -> Table:
+        """测试用业务表 (仅用于测试中构造业务表存在场景)"""
+        return Table(
+            f'{self._db_prefix}test_already_business_table',
+            MetaData(),
+            Column('id', Integer, nullable=False),
+        )
 
     @classmethod
-    def _check_need_snapshot_version_table(cls, connection: Connection) -> tuple[bool, list[str]]:
-        """检查是否需要备份 alembic_version 表当前状态
-
-        :return: tuple[version_table_existed, original_versions]
-        """
-        table_names = inspect(connection).get_table_names()
-        if cls._alembic_version_table.name not in table_names:
-            return False, []
-        versions = [x for x in connection.execute(select(cls._alembic_version_table)).scalars().all()]
-        return True, versions
+    def _drop_all_tables(cls, connection: Connection) -> None:
+        # 创建一个空 MetaData 并反射当前数据库中的所有表, 之后按依赖顺序删除
+        metadata = MetaData()
+        metadata.reflect(bind=connection)
+        for table in reversed(metadata.sorted_tables):
+            table.drop(connection, checkfirst=True)
 
     @classmethod
     def _drop_version_table(cls, connection: Connection) -> None:
@@ -68,21 +70,27 @@ class _TestDatabaseMigrationHelper:
         if versions:
             connection.execute(cls._alembic_version_table.insert(), [{'version_num': v} for v in versions])
 
-    async def snapshot_version_table(self) -> None:
-        """快照 alembic_version 表当前状态 (表是否存在及全部版本记录), 供测试结束后恢复"""
+    @classmethod
+    def _query_all_versions(cls, connection: Connection) -> list[str]:
+        table_names = inspect(connection).get_table_names()
+        if cls._alembic_version_table.name not in table_names:
+            return []
+        versions = [x for x in connection.execute(select(cls._alembic_version_table)).scalars().all()]
+        return versions
+
+    def _drop_test_business_table(self, connection: Connection) -> None:
+        self._test_business_table.drop(connection, checkfirst=True)
+
+    def _create_test_business_table(self, connection: Connection) -> None:
+        self._test_business_table.create(connection, checkfirst=True)
+
+    async def drop_all_tables(self) -> None:
+        """删除数据库所有表
+
+        敏感操作: 直接删除测试数据库中所有表
+        """
         async with self._engine.connect() as connection:
-            self._version_table_existed, self._original_versions = await connection.run_sync(
-                self._check_need_snapshot_version_table
-            )
-
-    async def restore_version_table(self) -> None:
-        """恢复 alembic_version 表到快照状态"""
-        async with self._engine.begin() as connection:
-            await connection.run_sync(self._drop_version_table)
-
-        if self._version_table_existed:
-            async with self._engine.begin() as connection:
-                await connection.run_sync(self._create_version_table, self._original_versions)
+            await connection.run_sync(self._drop_all_tables)
 
     async def rebuild_versions(self, versions: list[str] | None) -> None:
         """重建 alembic_version 表到指定的版本记录
@@ -98,13 +106,33 @@ class _TestDatabaseMigrationHelper:
             async with self._engine.begin() as connection:
                 await connection.run_sync(self._create_version_table, versions)
 
+    async def query_all_versions(self) -> list[str]:
+        """查询 alembic_version 表中所有 version 记录"""
+        async with self._engine.begin() as connection:
+            versions = await connection.run_sync(self._query_all_versions)
+        return versions
+
+    async def delete_test_business_table(self) -> None:
+        """删除测试用业务表"""
+        async with self._engine.begin() as connection:
+            await connection.run_sync(self._drop_test_business_table)
+
+    async def create_test_business_table(self) -> None:
+        """创建测试用业务表"""
+        async with self._engine.begin() as connection:
+            await connection.run_sync(self._create_test_business_table)
+
     def _get_already_tables(self, connection: Connection) -> list[str]:
         return [name for name in inspect(connection).get_table_names() if name.startswith(self._db_prefix)]
 
     async def count_already_tables(self) -> int:
-        """检查测试数据库中是否已存在数据表"""
+        """计数测试数据库中已存在的数据表"""
         async with self._engine.connect() as connection:
             return len(await connection.run_sync(self._get_already_tables))
+
+    async def has_already_tables(self) -> bool:
+        """检查测试数据库中是否已存在数据表"""
+        return (await self.count_already_tables()) > 0
 
     @staticmethod
     async def upgrade_to(revision: str = 'head') -> None:
@@ -127,15 +155,16 @@ class _TestDatabaseMigrationHelper:
         await _downgrade_to()
 
 
-@pytest.fixture
+@pytest.fixture(scope='class')
 async def test_database_helper() -> AsyncGenerator[_TestDatabaseMigrationHelper, None]:
     """测试数据库操作辅助 fixture
 
-    setup 阶段快照 alembic_version 表状态, teardown 阶段恢复原状并清理测试哨兵表
+    setup 阶段清空所有数据表, teardown 阶段恢复数据库到 HEAD 版本, 以便后续插件测试使用
     """
     helper = _TestDatabaseMigrationHelper()
-    await helper.snapshot_version_table()
+    await helper.drop_all_tables()
     try:
         yield helper
     finally:
-        await helper.restore_version_table()
+        await helper.drop_all_tables()
+        await helper.upgrade_to('head')

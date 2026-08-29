@@ -45,6 +45,7 @@ async def after_nonebot_init(after_nonebot_init: None):
 
     通常不需要自行初始化 NoneBot, NoneBug 已经运行了 nonebot.init()
     """
+    import src.database  # noqa: F401
     # from nonebot.adapters.console import Adapter as ConsoleAdapter
 
     # 加载适配器
