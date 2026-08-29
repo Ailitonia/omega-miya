@@ -9,101 +9,150 @@
 """
 
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import delete, desc, func, select
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
+from ..model import BaseDataAccessLayer, BaseDataOutModel
 from ..schema import StatisticOrm
 
 
-class Statistic(BaseDataQueryResultModel):
-    """统计信息 Model"""
+class Statistic(BaseDataOutModel):
+    """统计信息数据"""
     id: int
-    module_name: str
     plugin_name: str
-    bot_self_id: str
-    parent_entity_id: str
-    entity_id: str
-    call_time: datetime
-    call_info: str | None = None
+    module_name: str
+    call_timestamp: int
+    call_entity_meta: dict[str, Any]
+    call_data: dict[str, Any]
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
-class CountStatisticModel(BaseDataQueryResultModel):
-    """查询统计信息结果 Model"""
-    custom_name: str
-    call_count: int
+class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
+    """统计信息"""
 
+    async def _count_all(self) -> int:
+        """查询全表行数"""
+        stmt = select(func.count()).select_from(StatisticOrm)
+        return (await self.db_session.execute(stmt)).scalar_one()
 
-class StatisticDAL(BaseDataAccessLayerModel[StatisticOrm, Statistic]):
-    """统计信息 数据库操作对象"""
+    async def _clear_all(self) -> None:
+        """清空全表, 敏感操作, 方法内不执行 commit, 可由外层事务 rollback"""
+        await self.db_session.execute(delete(StatisticOrm))
+        self.db_session.expunge_all()
+
+    async def _select_unique(self, *args, **kwargs) -> StatisticOrm:
+        raise NotImplementedError
 
     async def query_unique(self, *args, **kwargs) -> Statistic:
         raise NotImplementedError
 
+    async def query_by_condition(
+            self,
+            *,
+            start_timestamp: datetime | int | None = None,
+            plugin_name: str | None = None,
+            module_name: str | None = None,
+    ) -> list[Statistic]:
+        """按条件查询统计信息
+
+        :param start_timestamp: 统计起始时间, 为空则返回全部
+        :param plugin_name: 插件名, 为空则返回全部
+        :param module_name: 插件模块名, 为空则返回全部
+        """
+        stmt = select(StatisticOrm).order_by(desc(StatisticOrm.call_timestamp))
+
+        if start_timestamp is not None:
+            if isinstance(start_timestamp, datetime):
+                stmt = stmt.where(StatisticOrm.call_timestamp >= int(start_timestamp.timestamp()))
+            else:
+                stmt = stmt.where(StatisticOrm.call_timestamp >= start_timestamp)
+
+        if plugin_name is not None:
+            stmt = stmt.where(StatisticOrm.plugin_name == plugin_name)
+
+        if module_name is not None:
+            stmt = stmt.where(StatisticOrm.module_name == module_name)
+
+        return parse_obj_as(list[Statistic], (await self.db_session.execute(stmt)).scalars().all())
+
     async def count_by_condition(
             self,
             *,
-            bot_self_id: str | None = None,
-            parent_entity_id: str | None = None,
-            entity_id: str | None = None,
-            start_time: datetime | None = None,
-    ) -> list[CountStatisticModel]:
-        """按条件查询统计信息
+            start_timestamp: datetime | int | None = None,
+            plugin_name: str | None = None,
+            module_name: str | None = None,
+    ) -> int:
+        """按条件查询统计信息条数
 
-        :param bot_self_id: bot id, 为空则返回全部
-        :param parent_entity_id: 父对象 id, 为空则返回全部
-        :param entity_id: 调用对象 id, 为空则返回全部
-        :param start_time: 统计起始时间, 为空则返回全部
+        :param plugin_name: 插件名, 为空则返回全部
+        :param module_name: 插件模块名, 为空则返回全部
+        :param start_timestamp: 统计起始时间, 为空则返回全部
         """
-        stmt = select(func.count(StatisticOrm.plugin_name), StatisticOrm.plugin_name)
-        if bot_self_id is not None:
-            stmt = stmt.where(StatisticOrm.bot_self_id == bot_self_id)
-        if parent_entity_id is not None:
-            stmt = stmt.where(StatisticOrm.parent_entity_id == parent_entity_id)
-        if entity_id is not None:
-            stmt = stmt.where(StatisticOrm.entity_id == entity_id)
-        if start_time is not None:
-            stmt = stmt.where(StatisticOrm.call_time >= start_time)
-        stmt = stmt.group_by(StatisticOrm.plugin_name)
-        session_result = await self.db_session.execute(stmt)
-        data = [{'custom_name': plugin_name, 'call_count': count} for count, plugin_name in session_result.all()]
-        return parse_obj_as(list[CountStatisticModel], data)
+        stmt = select(func.count()).select_from(StatisticOrm)
 
-    async def query_all(self) -> list[Statistic]:
-        stmt = select(StatisticOrm).order_by(desc(StatisticOrm.call_time))
-        session_result = await self.db_session.execute(stmt)
-        return parse_obj_as(list[Statistic], session_result.scalars().all())
+        if start_timestamp is not None:
+            if isinstance(start_timestamp, datetime):
+                stmt = stmt.where(StatisticOrm.call_timestamp >= int(start_timestamp.timestamp()))
+            else:
+                stmt = stmt.where(StatisticOrm.call_timestamp >= start_timestamp)
+
+        if plugin_name is not None:
+            stmt = stmt.where(StatisticOrm.plugin_name == plugin_name)
+
+        if module_name is not None:
+            stmt = stmt.where(StatisticOrm.module_name == module_name)
+
+        return (await self.db_session.execute(stmt)).scalar_one()
 
     async def add(
             self,
-            module_name: str,
             plugin_name: str,
-            bot_self_id: str,
-            parent_entity_id: str,
-            entity_id: str,
-            call_time: datetime,
-            call_info: str | None = None,
+            module_name: str,
+            call_timestamp: int,
+            call_entity_meta: dict[str, Any],
+            call_data: dict[str, Any],
+    ) -> Statistic:
+        """向数据库插入新行, 不校验唯一性
+
+        尽量保证插入的是新数据时才使用, 冲突直接抛出异常
+        """
+        call_entity_meta = parse_obj_as(dict[str, Any], call_entity_meta)
+        call_data = parse_obj_as(dict[str, Any], call_data)
+
+        new_obj = StatisticOrm(
+            plugin_name=plugin_name,
+            module_name=module_name,
+            call_timestamp=call_timestamp,
+            call_entity_meta=call_entity_meta,
+            call_data=call_data,
+        )
+        self.db_session.add(new_obj)
+        await self.db_session.flush()
+        await self.db_session.refresh(new_obj)
+        return Statistic.model_validate(new_obj)
+
+    async def delete_period_older(
+            self,
+            before_timestamp: int,
+            *,
+            plugin_name: str | None = None,
+            module_name: str | None = None,
     ) -> None:
-        new_obj = StatisticOrm(module_name=module_name, plugin_name=plugin_name, bot_self_id=bot_self_id,
-                               parent_entity_id=parent_entity_id, entity_id=entity_id,
-                               call_time=call_time, call_info=call_info, created_at=datetime.now())
-        await self._add(new_obj)
+        stmt = (delete(StatisticOrm).where(StatisticOrm.call_timestamp <= before_timestamp))
 
-    async def upsert(self, *args, **kwargs) -> None:
-        raise NotImplementedError
+        if plugin_name is not None:
+            stmt = stmt.where(StatisticOrm.plugin_name == plugin_name)
 
-    async def update(self, *args, **kwargs) -> None:
-        raise NotImplementedError
+        if module_name is not None:
+            stmt = stmt.where(StatisticOrm.module_name == module_name)
 
-    async def delete(self, *args, **kwargs) -> None:
-        raise NotImplementedError
+        await self.db_session.execute(stmt)
 
 
 __all__ = [
-    'CountStatisticModel',
     'Statistic',
     'StatisticDAL',
 ]
