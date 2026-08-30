@@ -84,6 +84,20 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
         async with self.db_session.begin_nested():
             yield self.db_session
 
+    @classmethod
+    def _escape_like(cls, keyword: str) -> str:
+        """转义 LIKE 特殊字符：\\ % _
+
+        防注入, 用户输入里的 % / _ 会变成通配符
+        转义后配合 `.like(pattern, escape='\\')` 生成 ... ESCAPE '\\'。
+        """
+        return (
+            keyword
+            .replace('\\', '\\\\')
+            .replace('%', '\\%')
+            .replace('_', '\\_')
+        )
+
     @abc.abstractmethod
     async def _select_unique(self, *args, **kwargs) -> ORM_T:
         """内部方法, 根据非索引的条件查询唯一行, 使用 scalar_one() 获取实例对象, 若查询结果为空或不唯一则抛出异常"""

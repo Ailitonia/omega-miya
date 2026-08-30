@@ -10,75 +10,147 @@
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Callable, Literal
 
-from sqlalchemy import and_, delete, desc, func, or_, select, update
+from pydantic import Field
+from sqlalchemy import and_, delete, desc, func, or_, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.compat import parse_obj_as
-from ..model import BaseDataAccessLayerModel, BaseDataQueryResultModel
-from ..schema import ArtworkCollectionOrm
+from ..model import BaseDataAccessLayer, BaseDataOutModel
+from ..schema import ArtworkCollectionOrm, ArtworkReviewRecordsOrm, ArtworkTagOrm, ArtworkWithTagsOrm
 
 
-class ArtworkCollection(BaseDataQueryResultModel):
-    """图库作品 Model"""
+class Artwork(BaseDataOutModel):
+    """图库作品数据"""
+    id: int
     origin: str
     aid: str
-    title: str
     uid: str
+    title: str
     uname: str
     classification: int
     rating: int
     width: int
     height: int
-    tags: str
-    description: str | None = None
-    source: str
-    cover_page: str
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    orientation: int
+    url: str
+    source: str | None
+    cover_page: str | None
+    raw_tags: str | None
+    description: str | None
+    published_at: datetime | None
+    created_at: datetime | None
+    updated_at: datetime | None
+    tags_name_artwork_had: Annotated[list['ArtworkTag'], Field(default_factory=list)]
 
 
-class ArtworkClassificationStatistic(BaseDataQueryResultModel):
-    """分类统计信息查询结果"""
-    unused: int = 0
-    unclassified: int = 0
-    ai_generated: int = 0
-    automatic: int = 0
-    confirmed: int = 0
+class ArtworkReviewRecord(BaseDataOutModel):
+    """图库作品评审记录数据"""
+    id: int
+    artwork_index_id: int
+    review_timestamp: int
+    review_classification: int
+    review_rating: int
+    review_from: str
+    review_info: str
+    created_at: datetime | None
+    updated_at: datetime | None
+    review_record_parent_artwork: Artwork
+
+
+class ArtworkTag(BaseDataOutModel):
+    """图库作品标签数据"""
+    id: int
+    tag_name: str
+    tag_alt_name: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class ArtworkClassificationStatistic(BaseDataOutModel):
+    """图库作品分类统计信息查询结果"""
+    unused: Annotated[int, Field(default=0)]
+    unclassified: Annotated[int, Field(default=0)]
+    ai_generated: Annotated[int, Field(default=0)]
+    automatic: Annotated[int, Field(default=0)]
+    confirmed: Annotated[int, Field(default=0)]
 
     @property
     def total(self) -> int:
         return self.unused + self.unclassified + self.ai_generated + self.automatic + self.confirmed
 
 
-class ArtworkRatingStatistic(BaseDataQueryResultModel):
-    """分级统计信息查询结果"""
-    unknown: int = 0
-    general: int = 0
-    sensitive: int = 0
-    questionable: int = 0
-    explicit: int = 0
+class ArtworkRatingStatistic(BaseDataOutModel):
+    """图库作品分级统计信息查询结果"""
+    unknown: Annotated[int, Field(default=0)]
+    general: Annotated[int, Field(default=0)]
+    sensitive: Annotated[int, Field(default=0)]
+    questionable: Annotated[int, Field(default=0)]
+    explicit: Annotated[int, Field(default=0)]
 
     @property
     def total(self) -> int:
         return self.unknown + self.general + self.sensitive + self.questionable + self.explicit
 
 
-class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, ArtworkCollection]):
+class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
     """图库作品 数据库操作对象"""
 
-    async def query_unique(self, origin: str, aid: str) -> ArtworkCollection:
+    async def _count_all(self) -> int:
+        """查询全表行数"""
+        stmt = select(func.count()).select_from(ArtworkCollectionOrm)
+        return (await self.db_session.execute(stmt)).scalar_one()
+
+    async def _clear_all(self) -> None:
+        """清空全表, 敏感操作, 方法内不执行 commit, 可由外层事务 rollback"""
+        await self.db_session.execute(delete(ArtworkCollectionOrm))
+        self.db_session.expunge_all()
+
+    async def _select_unique(
+            self,
+            origin: str,
+            aid: str,
+            *,
+            populate_existing: bool = False,
+            with_for_update: bool = False,
+            nowait_for_update: bool = False,
+    ) -> ArtworkCollectionOrm:
         stmt = (select(ArtworkCollectionOrm)
+                .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
                 .where(ArtworkCollectionOrm.origin == origin)
                 .where(ArtworkCollectionOrm.aid == aid))
-        session_result = await self.db_session.execute(stmt)
-        return ArtworkCollection.model_validate(session_result.scalar_one())
+
+        if populate_existing:
+            stmt = stmt.execution_options(populate_existing=True)
+
+        if with_for_update:
+            stmt = stmt.with_for_update(nowait=nowait_for_update)
+
+        return (await self.db_session.execute(stmt)).scalar_one()
+
+    async def query_unique(
+            self,
+            origin: str,
+            aid: str,
+            *,
+            populate_existing: bool = False,
+    ) -> Artwork:
+        item = await self._select_unique(
+            origin,
+            aid,
+            populate_existing=populate_existing,
+        )
+        return Artwork.model_validate(item)
 
     async def query_by_condition(
             self,
             origin: str | Sequence[str] | None,
             keywords: Sequence[str] | None,
-            num: int = 3,
+            page: int = 1,
+            size: int = 3,
             *,
             classification_min: int = 2,
             classification_max: int = 3,
@@ -87,25 +159,44 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
             acc_mode: bool = False,
             ratio: int | None = None,
             order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
-    ) -> list[ArtworkCollection]:
+    ) -> list[Artwork]:
         """按条件搜索图库收录作品
 
         :param origin: 作品来源
         :param keywords: 关键词列表
-        :param num: 数量
+        :param page: 分页
+        :param size: 每页数量
         :param classification_min: 分类标签最小值
         :param classification_max: 分类标签最大值
         :param rating_min: 分级标签最小值
         :param rating_max: 分级标签最大值
         :param acc_mode: 是否启用精确搜索模式
-        :param ratio: 图片长宽, 1: 横图, -1: 纵图, 0: 正方形图
+        :param ratio: 图片长宽, 1: 横图, 0: 方图, -1: 竖图
         :param order_mode: 排序模式
         """
         if classification_min > classification_max:
-            raise ValueError('param: classification_min must be less than classification_max')
+            raise ValueError('classification_min must be less than classification_max')
 
         if rating_min > rating_max:
-            raise ValueError('param: rating_min must be less than rating_max')
+            raise ValueError('rating_min must be less than rating_max')
+
+        conditions = []
+        # 根据 acc_mode 构造关键词查询语句
+        if (keywords is None) or (not keywords):
+            # 无关键词则随机
+            pass
+        elif acc_mode:
+            # 精确搜索标题, 用户, tag
+            for keyword in keywords:
+                conditions.append(func.find_in_set(keyword, ArtworkCollectionOrm.title))
+                conditions.append(func.find_in_set(keyword, ArtworkCollectionOrm.uname))
+                conditions.append(func.find_in_set(keyword, ArtworkTagOrm.tag_name))
+        else:
+            # 模糊搜索标题, 用户, tag
+            for keyword in keywords:
+                conditions.append(ArtworkCollectionOrm.title.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+                conditions.append(ArtworkCollectionOrm.uname.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+                conditions.append(ArtworkTagOrm.tag_name.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
 
         stmt = select(ArtworkCollectionOrm)
 
@@ -116,46 +207,26 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
             # 匹配单一来源
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
         else:
-            # 匹配任意来源
+            # 匹配多个来源
             stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
 
         # classification 条件
-        stmt = stmt.where(and_(ArtworkCollectionOrm.classification >= classification_min,
-                               ArtworkCollectionOrm.classification <= classification_max))
+        stmt = stmt.where(and_(
+            ArtworkCollectionOrm.classification >= classification_min,
+            ArtworkCollectionOrm.classification <= classification_max
+        ))
         # rating 条件
-        stmt = stmt.where(and_(ArtworkCollectionOrm.rating >= rating_min,
-                               ArtworkCollectionOrm.rating <= rating_max))
-
-        # 根据 acc_mode 构造关键词查询语句
-        if (keywords is None) or (not keywords):
-            # 无关键词则随机
-            pass
-        elif acc_mode:
-            # 精确搜索标题, 用户, tag
-            for keyword in keywords:
-                stmt = stmt.where(or_(
-                    func.find_in_set(keyword, ArtworkCollectionOrm.title),
-                    func.find_in_set(keyword, ArtworkCollectionOrm.uname),
-                    func.find_in_set(keyword, ArtworkCollectionOrm.tags)
-                ))
-        else:
-            # 模糊搜索标题, 用户, tag
-            for keyword in keywords:
-                stmt = stmt.where(or_(
-                    ArtworkCollectionOrm.title.ilike(f'%{keyword}%'),
-                    ArtworkCollectionOrm.uname.ilike(f'%{keyword}%'),
-                    ArtworkCollectionOrm.tags.ilike(f'%{keyword}%')
-                ))
+        stmt = stmt.where(and_(
+            ArtworkCollectionOrm.rating >= rating_min,
+            ArtworkCollectionOrm.rating <= rating_max
+        ))
 
         # 根据 ratio 构造图片长宽类型查询语句
-        if ratio is None:
-            pass
-        elif ratio < 0:
-            stmt = stmt.where(ArtworkCollectionOrm.width <= ArtworkCollectionOrm.height)
-        elif ratio > 0:
-            stmt = stmt.where(ArtworkCollectionOrm.width >= ArtworkCollectionOrm.height)
-        else:
-            stmt = stmt.where(ArtworkCollectionOrm.width == ArtworkCollectionOrm.height)
+        if ratio is not None:
+            stmt = stmt.where(ArtworkCollectionOrm.orientation == ratio)
+
+        # 添加搜索条件并加载级联
+        stmt = stmt.where(or_(*conditions)).options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
 
         # 根据 order_mode 构造排序语句
         match order_mode:
@@ -169,115 +240,153 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
                 stmt = stmt.order_by(func.random())
 
         # 结果数量限制
-        if num is None:
-            pass
-        else:
-            stmt = stmt.limit(num)
+        stmt = stmt.limit(size).offset((page - 1) * size)
 
-        session_result = await self.db_session.execute(stmt)
-        return parse_obj_as(list[ArtworkCollection], session_result.scalars().all())
+        return parse_obj_as(list[Artwork], (await self.db_session.execute(stmt)).scalars().all())
 
     async def query_classification_statistic(
             self,
-            origin: str | None = None,
-            keywords: Sequence[str] | None = None
+            origin: str | Sequence[str] | None,
+            keywords: Sequence[str] | None = None,
     ) -> ArtworkClassificationStatistic:
         """按分类统计收录作品数"""
+
+        conditions = []
+        if (keywords is None) or (not keywords):
+            pass
+        else:
+            # 模糊搜索标题, 用户, tag
+            for keyword in keywords:
+                conditions.append(ArtworkCollectionOrm.title.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+                conditions.append(ArtworkCollectionOrm.uname.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+                conditions.append(ArtworkTagOrm.tag_name.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+
         stmt = select(ArtworkCollectionOrm.classification, func.count(ArtworkCollectionOrm.aid))
 
-        if origin is not None:
+        if origin is None:
+            # 匹配所有来源
+            pass
+        elif isinstance(origin, str):
+            # 匹配单一来源
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        else:
+            # 匹配多个来源
+            stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
 
-        if keywords:
-            for keyword in keywords:
-                stmt = stmt.where(or_(
-                    ArtworkCollectionOrm.tags.ilike(f'%{keyword}%'),
-                    ArtworkCollectionOrm.uname.ilike(f'%{keyword}%'),
-                    ArtworkCollectionOrm.title.ilike(f'%{keyword}%')
-                ))
+        # 添加搜索条件并加载级联
+        stmt = (stmt
+                .where(or_(*conditions))
+                .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
+                .group_by(ArtworkCollectionOrm.classification))
 
-        stmt = stmt.group_by(ArtworkCollectionOrm.classification)
         session_result = await self.db_session.execute(stmt)
 
         result = {}
-        for k, v in session_result.all():
-            match k:
+        for classification, count_num in session_result.all():
+            match classification:
                 case 0:
-                    result.update({'unclassified': v})
+                    result['unclassified'] = count_num
                 case 1:
-                    result.update({'ai_generated': v})
+                    result['ai_generated'] = count_num
                 case 2:
-                    result.update({'automatic': v})
+                    result['automatic'] = count_num
                 case 3:
-                    result.update({'confirmed': v})
+                    result['confirmed'] = count_num
                 case _:
-                    result.update({'unused': v})
+                    result['unused'] = count_num
 
         return ArtworkClassificationStatistic.model_validate(result)
 
     async def query_rating_statistic(
             self,
-            origin: str | None = None,
-            keywords: Sequence[str] | None = None
+            origin: str | Sequence[str] | None,
+            keywords: Sequence[str] | None = None,
     ) -> ArtworkRatingStatistic:
         """按分级统计收录作品数"""
+
+        conditions = []
+        if (keywords is None) or (not keywords):
+            pass
+        else:
+            # 模糊搜索标题, 用户, tag
+            for keyword in keywords:
+                conditions.append(ArtworkCollectionOrm.title.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+                conditions.append(ArtworkCollectionOrm.uname.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+                conditions.append(ArtworkTagOrm.tag_name.ilike(f'%{self._escape_like(keyword)}%', escape="\\"))
+
         stmt = select(ArtworkCollectionOrm.rating, func.count(ArtworkCollectionOrm.aid))
 
-        if origin is not None:
+        if origin is None:
+            # 匹配所有来源
+            pass
+        elif isinstance(origin, str):
+            # 匹配单一来源
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        else:
+            # 匹配多个来源
+            stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
 
-        if keywords:
-            for keyword in keywords:
-                stmt = stmt.where(or_(
-                    ArtworkCollectionOrm.tags.ilike(f'%{keyword}%'),
-                    ArtworkCollectionOrm.uname.ilike(f'%{keyword}%'),
-                    ArtworkCollectionOrm.title.ilike(f'%{keyword}%')
-                ))
+        # 添加搜索条件并加载级联
+        stmt = (stmt
+                .where(or_(*conditions))
+                .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
+                .group_by(ArtworkCollectionOrm.rating))
 
-        stmt = stmt.group_by(ArtworkCollectionOrm.rating)
         session_result = await self.db_session.execute(stmt)
 
         result = {}
-        for k, v in session_result.all():
-            match k:
+        for rating, count_num in session_result.all():
+            match rating:
                 case 0:
-                    result.update({'general': v})
+                    result['general'] = count_num
                 case 1:
-                    result.update({'sensitive': v})
+                    result['sensitive'] = count_num
                 case 2:
-                    result.update({'questionable': v})
+                    result['questionable'] = count_num
                 case 3:
-                    result.update({'explicit': v})
+                    result['explicit'] = count_num
                 case _:
-                    result.update({'unknown': v})
+                    result['unknown'] = count_num
 
         return ArtworkRatingStatistic.model_validate(result)
 
-    async def query_user_all(
+    async def query_user_all_artworks(
             self,
-            origin: str | None = None,
+            origin: str | Sequence[str] | None,
             uid: str | None = None,
-            uname: str | None = None
-    ) -> list[ArtworkCollection]:
+            uname: str | None = None,
+    ) -> list[Artwork]:
         """通过 uid 或用户名精准查找用户所有作品"""
         if uid is None and uname is None:
             raise ValueError('need at least one of the uid and uname parameters')
 
         stmt = select(ArtworkCollectionOrm)
-        if origin is not None:
+
+        if origin is None:
+            # 匹配所有来源
+            pass
+        elif isinstance(origin, str):
+            # 匹配单一来源
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        else:
+            # 匹配多个来源
+            stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
+
         if uid:
             stmt = stmt.where(ArtworkCollectionOrm.uid == uid)
         if uname:
             stmt = stmt.where(ArtworkCollectionOrm.uname == uname)
-        stmt = stmt.order_by(desc(ArtworkCollectionOrm.aid))
 
-        session_result = await self.db_session.execute(stmt)
-        return parse_obj_as(list[ArtworkCollection], session_result.scalars().all())
+        # 添加搜索条件并加载级联
+        stmt = (stmt
+                .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
+                .order_by(desc(ArtworkCollectionOrm.aid)))
+
+        return parse_obj_as(list[Artwork], (await self.db_session.execute(stmt)).scalars().all())
 
     async def query_user_all_aids(
             self,
-            origin: str | None = None,
+            origin: str | Sequence[str] | None,
             uid: str | None = None,
             uname: str | None = None
     ) -> list[str]:
@@ -286,26 +395,35 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
             raise ValueError('need at least one of the uid and uname parameters')
 
         stmt = select(ArtworkCollectionOrm.aid)
-        if origin is not None:
+
+        if origin is None:
+            # 匹配所有来源
+            pass
+        elif isinstance(origin, str):
+            # 匹配单一来源
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        else:
+            # 匹配多个来源
+            stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
+
         if uid:
             stmt = stmt.where(ArtworkCollectionOrm.uid == uid)
         if uname:
             stmt = stmt.where(ArtworkCollectionOrm.uname == uname)
+
         stmt = stmt.order_by(desc(ArtworkCollectionOrm.aid))
 
-        session_result = await self.db_session.execute(stmt)
-        return parse_obj_as(list[str], session_result.scalars().all())
+        return parse_obj_as(list[str], (await self.db_session.execute(stmt)).scalars().all())
 
     async def query_exists_aids(
             self,
-            origin: str | None,
+            origin: str | Sequence[str] | None,
             aids: Sequence[str],
             *,
             filter_classification: int | None = None,
             filter_rating: int | None = None,
     ) -> list[str]:
-        """根据提供的 aids 列表查询数据库中已存在的列表中的 aid
+        """根据提供的 artwork_id 列表查询数据库中已存在的列表中的 artwork_id
 
         :param origin: 指定作品源
         :param aids: 待匹配的作品 artwork_id 清单
@@ -314,26 +432,35 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
         :return: 数据库中已存在的, 匹配提供的作品清单的 artwork_id 列表
         """
         stmt = select(ArtworkCollectionOrm.aid)
-        if origin is not None:
+
+        if origin is None:
+            # 匹配所有来源
+            pass
+        elif isinstance(origin, str):
+            # 匹配单一来源
             stmt = stmt.where(ArtworkCollectionOrm.origin == origin)
+        else:
+            # 匹配多个来源
+            stmt = stmt.where(or_(*(ArtworkCollectionOrm.origin == x for x in origin)))
+
         if filter_classification is not None:
             stmt = stmt.where(ArtworkCollectionOrm.classification == filter_classification)
         if filter_rating is not None:
             stmt = stmt.where(ArtworkCollectionOrm.rating == filter_rating)
+
         stmt = stmt.where(ArtworkCollectionOrm.aid.in_(aids)).order_by(desc(ArtworkCollectionOrm.aid))
 
-        session_result = await self.db_session.execute(stmt)
-        return parse_obj_as(list[str], session_result.scalars().all())
+        return parse_obj_as(list[str], (await self.db_session.execute(stmt)).scalars().all())
 
     async def query_not_exists_aids(
             self,
-            origin: str | None,
+            origin: str | Sequence[str] | None,
             aids: Sequence[str],
             *,
             exclude_classification: int | None = None,
             exclude_rating: int | None = None,
     ) -> list[str]:
-        """根据提供的 aids 列表查询数据库中不存在的列表中的 aid
+        """根据提供的 artwork_id 列表查询数据库中不存在的列表中的 artwork_id
 
         :param origin: 指定作品源
         :param aids: 待匹配的作品 artwork_id 清单
@@ -346,101 +473,347 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
         )
         return sorted(set(aids) - set(exists_aids), reverse=True)
 
-    async def query_all(self) -> list[ArtworkCollection]:
-        raise NotImplementedError
-
-    async def add(
-            self,
+    @staticmethod
+    async def _add_artwork(
+            session: AsyncSession,
             origin: str,
             aid: str,
-            title: str,
             uid: str,
+            title: str,
             uname: str,
             classification: int,
             rating: int,
             width: int,
             height: int,
-            tags: str,
-            source: str,
-            cover_page: str,
+            url: str,
+            source: str | None = None,
+            cover_page: str | None = None,
+            raw_tags: str | None = None,
             description: str | None = None,
-    ) -> None:
-        new_obj = ArtworkCollectionOrm(origin=origin, aid=aid, title=title, uid=uid, uname=uname,
-                                       classification=classification, rating=rating,
-                                       width=width, height=height,
-                                       tags=tags[:4096], source=source, cover_page=cover_page,
-                                       description=description if description is None else description[:4096],
-                                       created_at=datetime.now())
-        await self._add(new_obj)
+            published_at: datetime | None = None,
+    ) -> ArtworkCollectionOrm:
+        """内部方法, 向数据库插入新行, 不校验唯一性
 
-    async def upsert(
-            self,
-            origin: str,
-            aid: str,
-            title: str,
-            uid: str,
-            uname: str,
-            classification: int,
-            rating: int,
-            width: int,
-            height: int,
-            tags: str,
-            source: str,
-            cover_page: str,
-            description: str | None = None,
-    ) -> None:
-        new_obj = ArtworkCollectionOrm(origin=origin, aid=aid, title=title, uid=uid, uname=uname,
-                                       classification=classification, rating=rating,
-                                       width=width, height=height,
-                                       tags=tags[:4096], source=source, cover_page=cover_page,
-                                       description=description if description is None else description[:4096],
-                                       updated_at=datetime.now())
-        await self._merge(new_obj)
+        尽量保证插入的是新数据时才使用, 冲突直接抛出异常
+        """
+        if width > height:
+            orientation = 1
+        elif width < height:
+            orientation = -1
+        else:
+            orientation = 0
 
-    async def update(
-            self,
+        new_obj = ArtworkCollectionOrm(
+            origin=origin,
+            aid=aid,
+            uid=uid,
+            title=title,
+            uname=uname,
+            classification=classification,
+            rating=rating,
+            width=width,
+            height=height,
+            orientation=orientation,
+            url=url,
+            source=source,
+            cover_page=cover_page,
+            raw_tags=raw_tags,
+            description=description,
+            published_at=published_at,
+        )
+        session.add(new_obj)
+        await session.flush()
+        await session.refresh(new_obj)
+        return new_obj
+
+    @staticmethod
+    async def _add_artwork_tag_update_exist_nested(
+            session: AsyncSession,
+            tag_name: str,
+            tag_alt_name: str | None = None,
+    ) -> ArtworkTagOrm:
+        """内部方法, 开启嵌套事务, 向数据库插入新行, 存在则忽略"""
+        new_obj = ArtworkTagOrm(tag_name=tag_name, tag_alt_name=tag_alt_name)
+        try:
+            async with session.begin_nested():
+                session.add(new_obj)
+                await session.flush()
+            await session.refresh(new_obj)
+            return new_obj
+        except IntegrityError:
+            # 把插入失败的对象移出会话, 避免意外影响
+            if new_obj in session:
+                session.expunge(new_obj)
+            async with session.begin_nested():
+                stmt = select(ArtworkTagOrm).where(ArtworkTagOrm.tag_name == tag_name)
+                exist_obj = (await session.execute(stmt)).scalar_one()
+                if tag_alt_name is not None:
+                    exist_obj.tag_alt_name = tag_alt_name
+                    await session.flush()
+                    await session.refresh(exist_obj)
+            return exist_obj
+
+    @staticmethod
+    async def _add_artwork_with_tag(
+            session: AsyncSession,
+            artwork_index_id: int,
+            tag_index_id: int,
+    ) -> ArtworkWithTagsOrm:
+        new_obj = ArtworkWithTagsOrm(
+            artwork_index_id=artwork_index_id,
+            tag_index_id=tag_index_id,
+        )
+        await session.flush()
+        await session.refresh(new_obj)
+        return new_obj
+
+    @staticmethod
+    async def _select_artwork_unique_nested(
+            session: AsyncSession,
             origin: str,
             aid: str,
             *,
-            title: str | None = None,
-            uid: str | None = None,
-            uname: str | None = None,
-            classification: int | None = None,
-            rating: int | None = None,
-            width: int | None = None,
-            height: int | None = None,
-            tags: str | None = None,
-            source: str | None = None,
-            cover_page: str | None = None,
-            description: str | None = None,
-    ) -> None:
-        stmt = (update(ArtworkCollectionOrm)
+            populate_existing: bool = False,
+            with_for_update: bool = False,
+            nowait_for_update: bool = False,
+    ) -> ArtworkCollectionOrm:
+        """内部方法, 在嵌套事务中使用, 查询作品行, 不存在直接抛出异常"""
+        stmt = (select(ArtworkCollectionOrm)
+                .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
                 .where(ArtworkCollectionOrm.origin == origin)
                 .where(ArtworkCollectionOrm.aid == aid))
-        if title is not None:
-            stmt = stmt.values(title=title)
-        if uid is not None:
-            stmt = stmt.values(uid=uid)
-        if uname is not None:
-            stmt = stmt.values(uname=uname)
-        if classification is not None:
-            stmt = stmt.values(classification=classification)
-        if rating is not None:
-            stmt = stmt.values(rating=rating)
-        if width is not None:
-            stmt = stmt.values(width=width)
-        if height is not None:
-            stmt = stmt.values(height=height)
-        if tags is not None:
-            stmt = stmt.values(tags=tags[:4096])
-        if source is not None:
-            stmt = stmt.values(source=source)
-        if cover_page is not None:
-            stmt = stmt.values(cover_page=cover_page)
-        if description is not None:
-            stmt = stmt.values(description=description[:4096])
-        stmt = stmt.values(updated_at=datetime.now())
-        await self.db_session.execute(stmt)
+
+        if populate_existing:
+            stmt = stmt.execution_options(populate_existing=True)
+
+        if with_for_update:
+            stmt = stmt.with_for_update(nowait=nowait_for_update)
+
+        return (await session.execute(stmt)).scalar_one()
+
+    async def add_artwork_update_exist(
+            self,
+            origin: str,
+            aid: str,
+            uid: str,
+            title: str,
+            uname: str,
+            classification: int,
+            rating: int,
+            width: int,
+            height: int,
+            url: str,
+            source: str | None = None,
+            cover_page: str | None = None,
+            raw_tags: str | None = None,
+            tag_handler: Callable[[str], list[tuple[str, str | None]]] | None = None,
+            description: str | None = None,
+            published_at: datetime | None = None,
+    ) -> Artwork:
+        """向数据库新增该作品信息, 若已存在则更新
+
+        同一事务中处理 tag 表及 tag 关联表插入, 确保并发与原子性
+        """
+
+        # 处理标签
+        if raw_tags is None:
+            tag_list: list[tuple[str, str | None]] = []
+        elif tag_handler is not None:
+            tag_list = tag_handler(raw_tags)
+        else:
+            tag_list = [(tag.strip().lower(), None) for tag in raw_tags.strip().split(',')]
+
+        # 单事务处理作品表及标签表插入
+        async with self.safe_begin_transaction() as session:
+            # 先处理标签插入
+            tags_item: list[ArtworkTagOrm] = []
+            for tag_name, tag_alt_name in tag_list:
+                tags_item.append(await self._add_artwork_tag_update_exist_nested(session, tag_name, tag_alt_name))
+
+            try:
+                # 处理作品插入
+                async with self.must_begin_nested_in_transaction() as artwork_session:
+                    artwork_item = await self._add_artwork(
+                        session=artwork_session,
+                        origin=origin,
+                        aid=aid,
+                        uid=uid,
+                        title=title,
+                        uname=uname,
+                        classification=classification,
+                        rating=rating,
+                        width=width,
+                        height=height,
+                        url=url,
+                        source=source,
+                        cover_page=cover_page,
+                        raw_tags=raw_tags,
+                        description=description,
+                        published_at=published_at,
+                    )
+                    # 这里插入成功说明是新条目, 继续插入关联表
+                    for tag_item in tags_item:
+                        await self._add_artwork_with_tag(artwork_session, artwork_item.id, tag_item.id)
+            except IntegrityError:
+                # 插入失败说明是已存在的条目, 更新信息
+                artwork_item = await self._select_artwork_unique_nested(
+                    session=session,
+                    origin=origin,
+                    aid=aid,
+                )
+                artwork_item.uid = uid
+                artwork_item.title = title
+                artwork_item.uname = uname
+                artwork_item.classification = classification
+                artwork_item.rating = rating
+                artwork_item.width = width
+                artwork_item.height = height
+                if width > height:
+                    artwork_item.orientation = 1
+                elif width < height:
+                    artwork_item.orientation = -1
+                else:
+                    artwork_item.orientation = 0
+                if source is not None:
+                    artwork_item.source = source
+                if cover_page is not None:
+                    artwork_item.cover_page = cover_page
+                if raw_tags is not None:
+                    artwork_item.raw_tags = raw_tags
+                if description is not None:
+                    artwork_item.description = description
+                if published_at is not None:
+                    artwork_item.published_at = published_at
+                await session.flush()
+        await self.db_session.refresh(artwork_item)
+        return Artwork.model_validate(artwork_item)
+
+    async def add_artwork_ignore_exist(
+            self,
+            origin: str,
+            aid: str,
+            uid: str,
+            title: str,
+            uname: str,
+            classification: int,
+            rating: int,
+            width: int,
+            height: int,
+            url: str,
+            source: str | None = None,
+            cover_page: str | None = None,
+            raw_tags: str | None = None,
+            tag_handler: Callable[[str], list[tuple[str, str | None]]] | None = None,
+            description: str | None = None,
+            published_at: datetime | None = None,
+    ) -> Artwork:
+        """向数据库新增该作品信息, 若已存在则忽略
+
+        同一事务中处理 tag 表及 tag 关联表插入, 确保并发与原子性
+        """
+
+        # 处理标签
+        if raw_tags is None:
+            tag_list: list[tuple[str, str | None]] = []
+        elif tag_handler is not None:
+            tag_list = tag_handler(raw_tags)
+        else:
+            tag_list = [(tag.strip().lower(), None) for tag in raw_tags.strip().split(',')]
+
+        # 单事务处理作品表及标签表插入
+        async with self.safe_begin_transaction() as session:
+            # 先处理标签插入
+            tags_item: list[ArtworkTagOrm] = []
+            for tag_name, tag_alt_name in tag_list:
+                tags_item.append(await self._add_artwork_tag_update_exist_nested(session, tag_name, tag_alt_name))
+
+            try:
+                # 处理作品插入
+                async with self.must_begin_nested_in_transaction() as artwork_session:
+                    artwork_item = await self._add_artwork(
+                        session=artwork_session,
+                        origin=origin,
+                        aid=aid,
+                        uid=uid,
+                        title=title,
+                        uname=uname,
+                        classification=classification,
+                        rating=rating,
+                        width=width,
+                        height=height,
+                        url=url,
+                        source=source,
+                        cover_page=cover_page,
+                        raw_tags=raw_tags,
+                        description=description,
+                        published_at=published_at,
+                    )
+                    # 这里插入成功说明是新条目, 继续插入关联表
+                    for tag_item in tags_item:
+                        await self._add_artwork_with_tag(artwork_session, artwork_item.id, tag_item.id)
+            except IntegrityError:
+                # 插入失败说明是已存在的条目, 获取已有条目信息
+                artwork_item = await self._select_artwork_unique_nested(
+                    session=session,
+                    origin=origin,
+                    aid=aid,
+                )
+        await self.db_session.refresh(artwork_item)
+        return Artwork.model_validate(artwork_item)
+
+    @staticmethod
+    async def _add_artwork_review_record(
+            session: AsyncSession,
+            artwork_index_id: int,
+            review_timestamp: int,
+            review_classification: int,
+            review_rating: int,
+            review_from: str,
+            review_info: str,
+    ) -> ArtworkReviewRecordsOrm:
+        """内部方法, 向数据库插入新行, 不校验唯一性
+
+        尽量保证插入的是新数据时才使用, 冲突直接抛出异常
+        """
+        new_obj = ArtworkReviewRecordsOrm(
+            artwork_index_id=artwork_index_id,
+            review_timestamp=review_timestamp,
+            review_classification=review_classification,
+            review_rating=review_rating,
+            review_from=review_from,
+            review_info=review_info,
+        )
+        await session.flush()
+        await session.refresh(new_obj)
+        return new_obj
+
+    async def add_artwork_review_record(
+            self,
+            origin: str,
+            aid: str,
+            review_timestamp: int,
+            review_classification: int,
+            review_rating: int,
+            review_from: str,
+            review_info: str,
+    ) -> ArtworkReviewRecord:
+        """向数据库插入新行, 不校验唯一性
+
+        如果作品不存在直接抛出异常
+        """
+        artwork_item = await self._select_unique(origin, aid)
+        new_obj = ArtworkReviewRecordsOrm(
+            artwork_index_id=artwork_item.id,
+            review_timestamp=review_timestamp,
+            review_classification=review_classification,
+            review_rating=review_rating,
+            review_from=review_from,
+            review_info=review_info,
+        )
+        self.db_session.add(new_obj)
+        await self.db_session.flush()
+        await self.db_session.refresh(new_obj)
+        return ArtworkReviewRecord.model_validate(new_obj)
 
     async def delete(self, origin: str, aid: str) -> None:
         stmt = (delete(ArtworkCollectionOrm)
@@ -450,8 +823,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayerModel[ArtworkCollectionOrm, Artwor
 
 
 __all__ = [
-    'ArtworkCollection',
+    'Artwork',
     'ArtworkCollectionDAL',
     'ArtworkClassificationStatistic',
     'ArtworkRatingStatistic',
+    'ArtworkReviewRecord',
+    'ArtworkTag',
 ]
