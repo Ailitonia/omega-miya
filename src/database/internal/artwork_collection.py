@@ -131,9 +131,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             *,
             acc_mode: bool = False,
     ) -> list[ColumnElement[bool]]:
-        """构造关键词搜索条件, 每个关键词匹配标题/用户名/作品已关联的标签 (任一关键词命中任一字段即视为匹配)
+        """构造关键词搜索条件, 每个关键词匹配标题/用户名/作品已关联的标签
 
-        单个关键词内为 OR 语义 (命中标题/用户名/标签任一即可), 多个关键词之间为 AND 语义
+        单个关键词内为 OR 语义 (命中标题/用户名/标签任一字段即视为匹配), 多个关键词之间为 AND 语义
         tag 条件使用 EXISTS 相关子查询, 仅匹配作品自身已关联的标签, 避免引入未关联的 tag 表导致笛卡尔积
         """
         conditions: list[ColumnElement[bool]] = []
@@ -246,7 +246,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         :param rating_max: 分级标签最大值
         :param acc_mode: 是否启用精确搜索模式 (精确匹配标题/用户名/标签名)
         :param ratio: 图片长宽, 1: 横图, 0: 方图, -1: 竖图
-        :param order_mode: 排序模式 (aid/aid_desc 为数值感知排序), random 模式下每次查询独立随机, 与分页组合时不同页可能重复或遗漏
+        :param order_mode: 排序模式 (aid/aid_desc 为数值感知排序),
+            random 模式下每次查询独立随机, 与分页组合时不同页可能重复或遗漏
         """
         if classification_min > classification_max:
             raise ValueError('classification_min must be less than classification_max')
