@@ -72,11 +72,11 @@ class ArtworkTag(BaseDataOutModel):
 
 class ArtworkClassificationStatistic(BaseDataOutModel):
     """图库作品分类统计信息查询结果"""
-    unused: Annotated[int, Field(default=0)]
-    unclassified: Annotated[int, Field(default=0)]
-    ai_generated: Annotated[int, Field(default=0)]
-    automatic: Annotated[int, Field(default=0)]
-    confirmed: Annotated[int, Field(default=0)]
+    unused: Annotated[int, Field(default=0, description='其他所有的分类值')]
+    unclassified: Annotated[int, Field(default=0, description='0: 未分类')]
+    ai_generated: Annotated[int, Field(default=0, description='1: AI 生成')]
+    automatic: Annotated[int, Field(default=0, description='2: 外部来源')]
+    confirmed: Annotated[int, Field(default=0, description='3:人工分类')]
 
     @property
     def total(self) -> int:
@@ -85,11 +85,11 @@ class ArtworkClassificationStatistic(BaseDataOutModel):
 
 class ArtworkRatingStatistic(BaseDataOutModel):
     """图库作品分级统计信息查询结果"""
-    unknown: Annotated[int, Field(default=0)]
-    general: Annotated[int, Field(default=0)]
-    sensitive: Annotated[int, Field(default=0)]
-    questionable: Annotated[int, Field(default=0)]
-    explicit: Annotated[int, Field(default=0)]
+    unknown: Annotated[int, Field(default=0, description='-1: Unknown')]
+    general: Annotated[int, Field(default=0, description='0: General')]
+    sensitive: Annotated[int, Field(default=0, description='1: Sensitive')]
+    questionable: Annotated[int, Field(default=0, description='2: Questionable')]
+    explicit: Annotated[int, Field(default=0, description='3: Explicit')]
 
     @property
     def total(self) -> int:
@@ -105,8 +105,14 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         return (await self.db_session.execute(stmt)).scalar_one()
 
     async def _clear_all(self) -> None:
-        """清空全表, 敏感操作, 方法内不执行 commit, 可由外层事务 rollback"""
+        """清空全表 (含标签关联表/评审记录表/标签表), 敏感操作, 方法内不执行 commit, 可由外层事务 rollback
+
+        按子表到父表的顺序删除, 不依赖数据库外键级联
+        """
+        await self.db_session.execute(delete(ArtworkWithTagsOrm))
+        await self.db_session.execute(delete(ArtworkReviewRecordsOrm))
         await self.db_session.execute(delete(ArtworkCollectionOrm))
+        await self.db_session.execute(delete(ArtworkTagOrm))
         self.db_session.expunge_all()
 
     @staticmethod
@@ -127,6 +133,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
     ) -> list[ColumnElement[bool]]:
         """构造关键词搜索条件, 每个关键词匹配标题/用户名/作品已关联的标签 (任一关键词命中任一字段即视为匹配)
 
+        单个关键词内为 OR 语义 (命中标题/用户名/标签任一即可), 多个关键词之间为 AND 语义
         tag 条件使用 EXISTS 相关子查询, 仅匹配作品自身已关联的标签, 避免引入未关联的 tag 表导致笛卡尔积
         """
         conditions: list[ColumnElement[bool]] = []
@@ -136,18 +143,45 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         for keyword in keywords:
             if acc_mode:
                 # 精确匹配标题, 用户, tag
-                conditions.append(ArtworkCollectionOrm.title == keyword)
-                conditions.append(ArtworkCollectionOrm.uname == keyword)
-                conditions.append(ArtworkCollectionOrm.tags_name_artwork_had.any(ArtworkTagOrm.tag_name == keyword))
+                conditions.append(or_(
+                    ArtworkCollectionOrm.title == keyword,
+                    ArtworkCollectionOrm.uname == keyword,
+                    ArtworkCollectionOrm.tags_name_artwork_had.any(ArtworkTagOrm.tag_name == keyword),
+                ))
             else:
                 # 模糊匹配标题, 用户, tag
                 escaped_keyword = cls._escape_like(keyword)
-                conditions.append(ArtworkCollectionOrm.title.ilike(f'%{escaped_keyword}%', escape="\\"))
-                conditions.append(ArtworkCollectionOrm.uname.ilike(f'%{escaped_keyword}%', escape="\\"))
-                conditions.append(ArtworkCollectionOrm.tags_name_artwork_had.any(
-                    ArtworkTagOrm.tag_name.ilike(f'%{escaped_keyword}%', escape="\\")
+                conditions.append(or_(
+                    ArtworkCollectionOrm.title.ilike(f'%{escaped_keyword}%', escape='\\'),
+                    ArtworkCollectionOrm.uname.ilike(f'%{escaped_keyword}%', escape='\\'),
+                    ArtworkCollectionOrm.tags_name_artwork_had.any(
+                        ArtworkTagOrm.tag_name.ilike(f'%{escaped_keyword}%', escape='\\')
+                    ),
                 ))
         return conditions
+
+    @staticmethod
+    def _parse_raw_tags(
+            raw_tags: str | None,
+            tag_handler: Callable[[str], list[tuple[str, str | None]]] | None = None,
+    ) -> list[tuple[str, str | None]]:
+        """解析原始标签串, 过滤空标签并按 tag_name 去重, 避免插入空标签行或关联表主键冲突
+
+        默认解析按逗号切分并 lower, 使用 tag_handler 时保留其原始大小写, 同名标签仅保留首个别名
+        """
+        if raw_tags is None:
+            return []
+        if tag_handler is not None:
+            parsed = tag_handler(raw_tags)
+        else:
+            parsed = [(tag.strip().lower(), None) for tag in raw_tags.split(',')]
+
+        dedup: dict[str, str | None] = {}
+        for tag_name, tag_alt_name in parsed:
+            tag_name = tag_name.strip()
+            if tag_name:
+                dedup.setdefault(tag_name, tag_alt_name)
+        return list(dedup.items())
 
     async def _select_unique(
             self,
@@ -203,7 +237,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         """按条件搜索图库收录作品
 
         :param origin: 作品来源
-        :param keywords: 关键词列表, 多个关键词之间为 AND 语义
+        :param keywords: 关键词列表, 多个关键词之间为 AND 语义 (任一关键词命中标题/用户名/标签名即视为匹配)
         :param page: 分页
         :param size: 每页数量
         :param classification_min: 分类标签最小值
@@ -212,7 +246,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         :param rating_max: 分级标签最大值
         :param acc_mode: 是否启用精确搜索模式 (精确匹配标题/用户名/标签名)
         :param ratio: 图片长宽, 1: 横图, 0: 方图, -1: 竖图
-        :param order_mode: 排序模式
+        :param order_mode: 排序模式 (aid/aid_desc 为数值感知排序), random 模式下每次查询独立随机, 与分页组合时不同页可能重复或遗漏
         """
         if classification_min > classification_max:
             raise ValueError('classification_min must be less than classification_max')
@@ -256,17 +290,18 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         if ratio is not None:
             stmt = stmt.where(ArtworkCollectionOrm.orientation == ratio)
 
-        # 添加搜索条件并加载级联
-        if conditions:
-            stmt = stmt.where(or_(*conditions))
+        # 添加搜索条件并加载级联, 多个关键词之间为 AND 语义
+        for keyword_condition in conditions:
+            stmt = stmt.where(keyword_condition)
         stmt = stmt.options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
 
         # 根据 order_mode 构造排序语句
+        # aid 为字符串列, 按 (长度, 字典序) 做数值感知排序, 避免纯数字 ID 字典序下出现 '10' < '2' 的错乱
         match order_mode:
             case 'aid':
-                stmt = stmt.order_by(ArtworkCollectionOrm.aid)
+                stmt = stmt.order_by(func.length(ArtworkCollectionOrm.aid), ArtworkCollectionOrm.aid)
             case 'aid_desc':
-                stmt = stmt.order_by(desc(ArtworkCollectionOrm.aid))
+                stmt = stmt.order_by(desc(func.length(ArtworkCollectionOrm.aid)), desc(ArtworkCollectionOrm.aid))
             case 'latest':
                 stmt = stmt.order_by(desc(ArtworkCollectionOrm.created_at))
             case 'random' | _:
@@ -299,9 +334,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             # 匹配多个来源
             stmt = stmt.where(ArtworkCollectionOrm.origin.in_(origin))
 
-        # 添加搜索条件
-        if conditions:
-            stmt = stmt.where(or_(*conditions))
+        # 添加搜索条件, 多个关键词之间为 AND 语义
+        for keyword_condition in conditions:
+            stmt = stmt.where(keyword_condition)
         stmt = stmt.group_by(ArtworkCollectionOrm.classification)
 
         session_result = await self.db_session.execute(stmt)
@@ -344,9 +379,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             # 匹配多个来源
             stmt = stmt.where(ArtworkCollectionOrm.origin.in_(origin))
 
-        # 添加搜索条件
-        if conditions:
-            stmt = stmt.where(or_(*conditions))
+        # 添加搜索条件, 多个关键词之间为 AND 语义
+        for keyword_condition in conditions:
+            stmt = stmt.where(keyword_condition)
         stmt = stmt.group_by(ArtworkCollectionOrm.rating)
 
         session_result = await self.db_session.execute(stmt)
@@ -394,10 +429,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         if uname is not None:
             stmt = stmt.where(ArtworkCollectionOrm.uname == uname)
 
-        # 加载级联
+        # 加载级联, 按 aid 数值感知排序
         stmt = (stmt
                 .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
-                .order_by(desc(ArtworkCollectionOrm.aid)))
+                .order_by(desc(func.length(ArtworkCollectionOrm.aid)), desc(ArtworkCollectionOrm.aid)))
 
         return parse_obj_as(list[Artwork], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -428,7 +463,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         if uname is not None:
             stmt = stmt.where(ArtworkCollectionOrm.uname == uname)
 
-        stmt = stmt.order_by(desc(ArtworkCollectionOrm.aid))
+        # 按 aid 数值感知排序
+        stmt = stmt.order_by(desc(func.length(ArtworkCollectionOrm.aid)), desc(ArtworkCollectionOrm.aid))
 
         return parse_obj_as(list[str], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -465,7 +501,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         if filter_rating is not None:
             stmt = stmt.where(ArtworkCollectionOrm.rating == filter_rating)
 
-        stmt = stmt.where(ArtworkCollectionOrm.aid.in_(aids)).order_by(desc(ArtworkCollectionOrm.aid))
+        # 按 aid 数值感知排序
+        stmt = (stmt
+                .where(ArtworkCollectionOrm.aid.in_(aids))
+                .order_by(desc(func.length(ArtworkCollectionOrm.aid)), desc(ArtworkCollectionOrm.aid)))
 
         return parse_obj_as(list[str], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -488,7 +527,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         exists_aids = await self.query_exists_aids(
             origin=origin, aids=aids, filter_classification=exclude_classification, filter_rating=exclude_rating
         )
-        return sorted(set(aids) - set(exists_aids), reverse=True)
+        # 按 (长度, 字典序) 的数值感知顺序倒序排列, 与查询方法的 aid 排序口径一致
+        return sorted(set(aids) - set(exists_aids), key=lambda x: (len(x), x), reverse=True)
 
     @classmethod
     async def _add_artwork(
@@ -638,16 +678,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         """
 
         # 处理标签, 过滤空标签并去重, 避免插入空标签行或关联表主键冲突
-        if raw_tags is None:
-            tag_list: list[tuple[str, str | None]] = []
-        elif tag_handler is not None:
-            tag_list = list(dict.fromkeys(tag_handler(raw_tags)))
-        else:
-            tag_list = [
-                (tag_name, None)
-                for tag_name in dict.fromkeys(tag.strip().lower() for tag in raw_tags.split(','))
-                if tag_name
-            ]
+        tag_list: list[tuple[str, str | None]] = self._parse_raw_tags(raw_tags=raw_tags, tag_handler=tag_handler)
 
         # 单事务处理作品表及标签表插入
         async with self.safe_begin_transaction() as session:
@@ -753,16 +784,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         """
 
         # 处理标签, 过滤空标签并去重, 避免插入空标签行或关联表主键冲突
-        if raw_tags is None:
-            tag_list: list[tuple[str, str | None]] = []
-        elif tag_handler is not None:
-            tag_list = list(dict.fromkeys(tag_handler(raw_tags)))
-        else:
-            tag_list = [
-                (tag_name, None)
-                for tag_name in dict.fromkeys(tag.strip().lower() for tag in raw_tags.split(','))
-                if tag_name
-            ]
+        tag_list: list[tuple[str, str | None]] = self._parse_raw_tags(raw_tags=raw_tags, tag_handler=tag_handler)
 
         # 单事务处理作品表及标签表插入
         async with self.safe_begin_transaction() as session:
@@ -820,8 +842,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             review_from: str,
             review_info: str,
     ) -> ArtworkReviewRecord:
-        """向数据库插入新行, 不校验唯一性
+        """向数据库插入新行, 不校验唯一性, 方法内不执行 commit
 
+        作品信息经 _select_unique 预加载了标签关系, 返回模型的父作品校验依赖同一会话 identity map 中的该实例
         如果作品不存在直接抛出异常
         """
         artwork_item = await self._select_unique(origin, aid)
@@ -839,6 +862,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         return ArtworkReviewRecord.model_validate(new_obj)
 
     async def delete(self, origin: str, aid: str) -> None:
+        """删除指定作品, 删除不存在的数据时静默成功, 方法内不执行 commit
+
+        关联的标签关联表/评审记录表数据由数据库外键级联删除
+        """
         stmt = (delete(ArtworkCollectionOrm)
                 .where(ArtworkCollectionOrm.origin == origin)
                 .where(ArtworkCollectionOrm.aid == aid))
