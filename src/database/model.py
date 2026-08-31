@@ -112,6 +112,10 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
         """提交所有数据库更改"""
         await self.db_session.commit()
 
+    async def rollback_session(self) -> None:
+        """回滚所有数据库更改"""
+        await self.db_session.rollback()
+
 
 __all__ = [
     'BaseDataAccessLayer',

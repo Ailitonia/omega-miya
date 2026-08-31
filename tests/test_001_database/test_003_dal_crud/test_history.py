@@ -124,7 +124,7 @@ class TestHistoryDAL:
         await history_dal._clear_all()
         assert await history_dal._count_all() == 0
 
-        await history_dal.db_session.rollback()
+        await history_dal.rollback_session()
         assert await history_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
@@ -262,7 +262,7 @@ class TestHistoryDAL:
             await history_dal.commit_session()
 
         # 回滚到正常状态
-        await history_dal.db_session.rollback()
+        await history_dal.rollback_session()
 
         queried = await history_dal.query_unique(
             test_history_message_id,
@@ -315,7 +315,7 @@ class TestHistoryDAL:
             await history_dal.commit_session()
 
         # 回滚到正常状态
-        await history_dal.db_session.rollback()
+        await history_dal.rollback_session()
 
         queried = await history_dal.query_unique(
             test_history_message_id,

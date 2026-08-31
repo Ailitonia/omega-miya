@@ -133,7 +133,7 @@ class TestArtworkCollectionDAL:
         await artwork_dal._clear_all()
         assert await artwork_dal._count_artwork_all() == 0
 
-        await artwork_dal.db_session.rollback()
+        await artwork_dal.rollback_session()
         assert await artwork_dal._count_artwork_all() == 1
     # ------------------------------------------------------------------ #
     # add_artwork_update_exist

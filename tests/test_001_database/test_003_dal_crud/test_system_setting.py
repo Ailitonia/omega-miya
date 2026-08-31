@@ -76,7 +76,7 @@ class TestSystemSettingDAL:
         await system_setting_dal._clear_all()
         assert await system_setting_dal._count_all() == 0
 
-        await system_setting_dal.db_session.rollback()
+        await system_setting_dal.rollback_session()
         assert await system_setting_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
@@ -161,7 +161,7 @@ class TestSystemSettingDAL:
             await system_setting_dal.commit_session()
 
         # 回滚到正常状态
-        await system_setting_dal.db_session.rollback()
+        await system_setting_dal.rollback_session()
 
         queried = await system_setting_dal.query_unique(test_system_setting_name, test_system_setting_key)
         assert queried.setting_value == test_system_setting_value

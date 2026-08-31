@@ -77,7 +77,7 @@ class TestGlobalCacheDAL:
         await global_cache_dal._clear_all()
         assert await global_cache_dal._count_all() == 0
 
-        await global_cache_dal.db_session.rollback()
+        await global_cache_dal.rollback_session()
         assert await global_cache_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
@@ -180,7 +180,7 @@ class TestGlobalCacheDAL:
             )
 
         # 回滚到正常状态
-        await global_cache_dal.db_session.rollback()
+        await global_cache_dal.rollback_session()
 
         queried = await global_cache_dal.query_unique(test_global_cache_name, test_global_cache_key)
         assert queried.cache_value == test_global_cache_value

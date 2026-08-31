@@ -70,7 +70,7 @@ class TestPluginDAL:
         await plugin_dal._clear_all()
         assert await plugin_dal._count_all() == 0
 
-        await plugin_dal.db_session.rollback()
+        await plugin_dal.rollback_session()
         assert await plugin_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
@@ -180,7 +180,7 @@ class TestPluginDAL:
             await plugin_dal.commit_session()
 
         # 回滚到正常状态
-        await plugin_dal.db_session.rollback()
+        await plugin_dal.rollback_session()
 
         queried = await plugin_dal.query_unique(test_plugin_name, test_plugin_module)
         assert queried.enabled == -1

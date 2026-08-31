@@ -96,7 +96,7 @@ class TestStatisticDAL:
         await statistic_dal._clear_all()
         assert await statistic_dal._count_all() == 0
 
-        await statistic_dal.db_session.rollback()
+        await statistic_dal.rollback_session()
         assert await statistic_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
