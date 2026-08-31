@@ -99,13 +99,28 @@ class ArtworkRatingStatistic(BaseDataOutModel):
 class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
     """图库作品 数据库操作对象"""
 
-    async def _count_all(self) -> int:
-        """查询全表行数"""
+    async def _count_artwork_all(self) -> int:
+        """查询 ArtworkCollection 全表行数"""
         stmt = select(func.count()).select_from(ArtworkCollectionOrm)
         return (await self.db_session.execute(stmt)).scalar_one()
 
+    async def _count_artwork_review_record_all(self) -> int:
+        """查询 ArtworkReviewRecords 全表行数"""
+        stmt = select(func.count()).select_from(ArtworkReviewRecordsOrm)
+        return (await self.db_session.execute(stmt)).scalar_one()
+
+    async def _count_artwork_tag_all(self) -> int:
+        """查询 ArtworkTag 全表行数"""
+        stmt = select(func.count()).select_from(ArtworkTagOrm)
+        return (await self.db_session.execute(stmt)).scalar_one()
+
+    async def _count_artwork_with_tags_all(self) -> int:
+        """查询 ArtworkWithTags 全表行数"""
+        stmt = select(func.count()).select_from(ArtworkWithTagsOrm)
+        return (await self.db_session.execute(stmt)).scalar_one()
+
     async def _clear_all(self) -> None:
-        """清空全表 (含标签关联表/评审记录表/标签表), 敏感操作, 方法内不执行 commit, 可由外层事务 rollback
+        """内部方法, 清空全表 (含标签关联表/评审记录表/标签表), 敏感操作, 方法内不执行 commit, 可由外层事务 rollback
 
         按子表到父表的顺序删除, 不依赖数据库外键级联
         """
@@ -304,7 +319,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             case 'aid_desc':
                 stmt = stmt.order_by(desc(func.length(ArtworkCollectionOrm.aid)), desc(ArtworkCollectionOrm.aid))
             case 'latest':
-                stmt = stmt.order_by(desc(ArtworkCollectionOrm.created_at))
+                stmt = stmt.order_by(desc(ArtworkCollectionOrm.published_at))
             case 'random' | _:
                 stmt = stmt.order_by(func.random())
 
@@ -848,7 +863,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         作品信息经 _select_unique 预加载了标签关系, 返回模型的父作品校验依赖同一会话 identity map 中的该实例
         如果作品不存在直接抛出异常
         """
-        artwork_item = await self._select_unique(origin, aid)
+        artwork_item = await self._select_unique(origin, aid, populate_existing=True)
         new_obj = ArtworkReviewRecordsOrm(
             artwork_index_id=artwork_item.id,
             review_timestamp=review_timestamp,
@@ -861,6 +876,26 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         await self.db_session.flush()
         await self.db_session.refresh(new_obj)
         return ArtworkReviewRecord.model_validate(new_obj)
+
+    async def query_artwork_review_records(
+            self,
+            origin: str,
+            aid: str,
+            *,
+            start_timestamp: int | None = None,
+            populate_existing: bool = False,
+    ) -> list[ArtworkReviewRecord]:
+        """查询作品的评审记录, 如果作品不存在直接抛出异常"""
+        artwork_item = await self._select_unique(origin, aid, populate_existing=True)
+        stmt = select(ArtworkReviewRecordsOrm).where(ArtworkReviewRecordsOrm.artwork_index_id == artwork_item.id)
+
+        if start_timestamp is not None and start_timestamp > 0:
+            stmt = stmt.where(ArtworkReviewRecordsOrm.review_timestamp >= start_timestamp)
+
+        if populate_existing:
+            stmt = stmt.execution_options(populate_existing=True)
+
+        return parse_obj_as(list[ArtworkReviewRecord], (await self.db_session.execute(stmt)).scalars().all())
 
     async def delete(self, origin: str, aid: str) -> None:
         """删除指定作品, 删除不存在的数据时静默成功, 方法内不执行 commit
