@@ -26,8 +26,8 @@ class Statistic(BaseDataOutModel):
     call_timestamp: int
     call_entity_meta: dict[str, Any]
     call_data: dict[str, Any]
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):

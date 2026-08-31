@@ -44,6 +44,8 @@ class Artwork(BaseDataOutModel):
     published_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
+
+    # 级联数据
     tags_name_artwork_had: Annotated[list['ArtworkTag'], Field(default_factory=list)]
 
 
@@ -58,6 +60,8 @@ class ArtworkReviewRecord(BaseDataOutModel):
     review_info: str
     created_at: datetime | None
     updated_at: datetime | None
+
+    # 级联数据
     review_record_parent_artwork: Artwork
 
 
@@ -97,7 +101,7 @@ class ArtworkRatingStatistic(BaseDataOutModel):
 
 
 class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
-    """图库作品 数据库操作对象"""
+    """图库作品和标签等相关记录"""
 
     async def _count_artwork_all(self) -> int:
         """查询 ArtworkCollection 全表行数"""
