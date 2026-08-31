@@ -214,7 +214,6 @@ class TestArtworkCollectionDAL:
 
         artwork_kwargs = test_full_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-
         artwork_kwargs.update({
             'uid': 'update_uid_v2',
             'uname': 'update_uname_v2',
@@ -276,6 +275,23 @@ class TestArtworkCollectionDAL:
         result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
         assert [tag.tag_name for tag in result.tags_name_artwork_had] == ['dup_tag']
+
+    async def test_orientation_square(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """width == height 时 orientation == 0 (方图)"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['width'] = 512
+        artwork_kwargs['height'] = 512
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        result = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert result.orientation == 0
 
     # ------------------------------------------------------------------ #
     # add_artwork_ignore_exist
@@ -354,6 +370,37 @@ class TestArtworkCollectionDAL:
 
         with pytest.raises(NoResultFound):
             await artwork_dal.query_unique('nonexistent_origin', 'nonexistent_aid')
+
+    async def test_query_unique_normal(
+            self,
+            artwork_dal,
+            test_full_artwork_kwargs_generator,
+    ) -> None:
+        """插入带标签作品后 query_unique 查回, 验证 Artwork model 所有字段"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_full_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        result = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert result.origin == artwork_kwargs['origin']
+        assert result.aid == artwork_kwargs['aid']
+        assert result.uid == artwork_kwargs['uid']
+        assert result.uname == artwork_kwargs['uname']
+        assert result.title == artwork_kwargs['title']
+        assert result.classification == artwork_kwargs['classification']
+        assert result.rating == artwork_kwargs['rating']
+        assert result.width == artwork_kwargs['width']
+        assert result.height == artwork_kwargs['height']
+        assert result.orientation == 1  # 1920 > 1080 横图
+        assert result.url == artwork_kwargs['url']
+        assert result.source == artwork_kwargs['source']
+        assert result.cover_page == artwork_kwargs['cover_page']
+        assert result.raw_tags == artwork_kwargs['raw_tags']
+        assert result.description == artwork_kwargs['description']
+        assert result.published_at == artwork_kwargs['published_at']
+        assert len(result.tags_name_artwork_had) == 8  # 默认生成 8 个标签
 
     # ------------------------------------------------------------------ #
     # query_by_condition
@@ -525,6 +572,80 @@ class TestArtworkCollectionDAL:
         result = await artwork_dal.query_by_condition('test_origin', None, size=10, ratio=0)
         assert [item.aid for item in result] == ['1003']
 
+    async def test_query_by_condition_pagination(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """插入多条记录, 验证 page+size 分页正确"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        aids = []
+        for i in range(5):
+            kwargs = test_basic_artwork_kwargs_generator()
+            kwargs['aid'] = str(1001 + i)
+            await artwork_dal.add_artwork_update_exist(**kwargs)
+            aids.append(kwargs['aid'])
+
+        # 用 aid 排序确保顺序确定
+        page1 = await artwork_dal.query_by_condition('test_origin', None, page=1, size=2, order_mode='aid')
+        assert len(page1) == 2
+        assert [item.aid for item in page1] == ['1001', '1002']
+
+        page2 = await artwork_dal.query_by_condition('test_origin', None, page=2, size=2, order_mode='aid')
+        assert len(page2) == 2
+        assert [item.aid for item in page2] == ['1003', '1004']
+
+        page3 = await artwork_dal.query_by_condition('test_origin', None, page=3, size=2, order_mode='aid')
+        assert len(page3) == 1
+        assert [item.aid for item in page3] == ['1005']
+
+    async def test_query_by_condition_latest_order(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """order_mode='latest' 按 created_at DESC 排序"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        for i in range(3):
+            kwargs = test_basic_artwork_kwargs_generator()
+            kwargs['aid'] = str(1001 + i)
+            kwargs['published_at'] = datetime(2020, 2, 12, 1, 0, i)
+            await artwork_dal.add_artwork_update_exist(**kwargs)
+
+        result = await artwork_dal.query_by_condition('test_origin', None, size=10, order_mode='latest')
+        assert len(result) == 3
+        # 最晚插入的应排第一
+        assert [item.aid for item in result] == ['1003', '1002', '1001']
+
+    async def test_query_by_condition_multi_origin(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """origin 参数传列表, 匹配列表内所有 origin"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['origin'] = 'origin_a'
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['origin'] = 'origin_b'
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['origin'] = 'origin_c'
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        result = await artwork_dal.query_by_condition(['origin_a', 'origin_b'], None, size=10, order_mode='aid')
+        assert {item.origin for item in result} == {'origin_a', 'origin_b'}
+        assert len(result) == 2
+
     async def test_query_by_condition_invalid_params(self, artwork_dal) -> None:
         """非法参数校验"""
         with pytest.raises(ValueError, match='classification_min must be less than classification_max'):
@@ -669,7 +790,7 @@ class TestArtworkCollectionDAL:
     # query_exists_aids / query_not_exists_aids
     # ------------------------------------------------------------------ #
 
-    async def test_query_exists_and_not_exists_aids(
+    async def test_query_exists_and_not_exists_aids_filter_classification(
             self,
             artwork_dal,
             test_basic_artwork_kwargs_generator,
@@ -694,13 +815,55 @@ class TestArtworkCollectionDAL:
         exists = await artwork_dal.query_exists_aids('test_origin', ['1001', '1002'], filter_classification=2)
         assert exists == ['1001']
 
+        exists = await artwork_dal.query_exists_aids('test_origin', ['1001', '1002'], filter_classification=3)
+        assert exists == ['1002']
+
         not_exists = await artwork_dal.query_not_exists_aids('test_origin', ['1001', '1999'])
         assert not_exists == ['1999']
 
+        # exclude_classification=2 的视为已存在, 其余视为不存在
         not_exists = await artwork_dal.query_not_exists_aids(
-            'test_origin', ['1001', '1002'], exclude_classification=2,
+            'test_origin', ['1001', '1002', '1999'], exclude_classification=2,
         )
-        assert not_exists == ['1002']
+        assert '1999' in not_exists
+        assert '1002' in not_exists
+        assert '1001' not in not_exists
+
+    async def test_query_exists_and_not_exists_aids_filter_rating(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """filter_rating 只返回该分级的 aid"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['aid'] = '1001'
+        a1_kwargs['rating'] = 0
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['aid'] = '1002'
+        a2_kwargs['rating'] = 1
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        exists_all = await artwork_dal.query_exists_aids('test_origin', ['1001', '1002'])
+        assert sorted(exists_all) == ['1001', '1002']
+
+        exists_rating0 = await artwork_dal.query_exists_aids('test_origin', ['1001', '1002'], filter_rating=0)
+        assert exists_rating0 == ['1001']
+
+        exists_rating1 = await artwork_dal.query_exists_aids('test_origin', ['1001', '1002'], filter_rating=1)
+        assert exists_rating1 == ['1002']
+
+        # rating=0 的视为已存在, 其余视为不存在
+        not_exists = await artwork_dal.query_not_exists_aids(
+            'test_origin', ['1001', '1002', '1999'], exclude_rating=0,
+        )
+        assert '1999' in not_exists
+        assert '1002' in not_exists
+        assert '1001' not in not_exists
 
     # ------------------------------------------------------------------ #
     # query_user_all_artworks / query_user_all_aids
@@ -748,6 +911,14 @@ class TestArtworkCollectionDAL:
         with pytest.raises(ValueError, match='need at least one of the uid and uname parameters'):
             await artwork_dal.query_user_all_artworks('test_origin')
 
+    async def test_query_user_all_aids_no_params_raises(self, artwork_dal) -> None:
+        """uid 和 uname 都为 None, 预期 ValueError"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='need at least one of the uid and uname parameters'):
+            await artwork_dal.query_user_all_aids('test_origin')
+
     # ------------------------------------------------------------------ #
     # add_artwork_review_record
     # ------------------------------------------------------------------ #
@@ -773,7 +944,6 @@ class TestArtworkCollectionDAL:
             review_from='test_reviewer',
             review_info='test review info',
         )
-        await artwork_dal.commit_session()
 
         assert result.review_timestamp == 1000000000
         assert result.review_classification == 3
@@ -797,6 +967,86 @@ class TestArtworkCollectionDAL:
                 review_from='test_reviewer',
                 review_info='test review info',
             )
+
+    # ------------------------------------------------------------------ #
+    # query_artwork_review_records
+    # ------------------------------------------------------------------ #
+
+    async def test_query_artwork_review_records_basic(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """插入作品 + 多条评审记录, 查询验证全部返回"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        for i in range(3):
+            await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs['origin'],
+                aid=artwork_kwargs['aid'],
+                review_timestamp=1000000000 + i,
+                review_classification=2 + i,
+                review_rating=i,
+                review_from=f'test_reviewer_{i}',
+                review_info=f'test review info {i}',
+            )
+
+        records = await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert len(records) == 3
+        # 评审记录无排序保证, 按时间戳集合验证
+        assert {r.review_timestamp for r in records} == {1000000000, 1000000001, 1000000002}
+
+    async def test_query_artwork_review_records_start_timestamp(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """带 start_timestamp 过滤, 只返回 >= start_timestamp 的记录"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000,
+            review_classification=2,
+            review_rating=0,
+            review_from='test_reviewer_1',
+            review_info='test review info 1',
+        )
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=2000,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer_2',
+            review_info='test review info 2',
+        )
+
+        all_records = await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert len(all_records) == 2
+
+        filtered = await artwork_dal.query_artwork_review_records(
+            artwork_kwargs['origin'], artwork_kwargs['aid'], start_timestamp=1500,
+        )
+        assert len(filtered) == 1
+        assert filtered[0].review_timestamp == 2000
+
+    async def test_query_artwork_review_records_not_found(self, artwork_dal) -> None:
+        """查询不存在作品的评审记录, 预期 NoResultFound"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(NoResultFound):
+            await artwork_dal.query_artwork_review_records('nonexistent_origin', 'nonexistent_aid')
 
     # ------------------------------------------------------------------ #
     # delete
@@ -825,6 +1075,37 @@ class TestArtworkCollectionDAL:
         assert await artwork_dal._count_artwork_all() == 0
         with pytest.raises(NoResultFound):
             await artwork_dal.query_unique('test_origin', artwork_kwargs['aid'])
+
+    async def test_delete_cascade(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """删除作品后评审记录和标签关联均被级联删除"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['raw_tags'] = 'neko,nekomimi'
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000, review_classification=3, review_rating=1,
+            review_from='reviewer', review_info='test',
+        )
+        await artwork_dal.commit_session()
+
+        assert await artwork_dal._count_artwork_all() == 1
+        assert await artwork_dal._count_artwork_with_tags_all() == 2
+        assert await artwork_dal._count_artwork_review_record_all() == 1
+
+        await artwork_dal.delete(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        await artwork_dal.commit_session()
+
+        assert await artwork_dal._count_artwork_all() == 0
+        assert await artwork_dal._count_artwork_with_tags_all() == 0
+        assert await artwork_dal._count_artwork_review_record_all() == 0
 
     # ------------------------------------------------------------------ #
     # aid 数值感知排序
