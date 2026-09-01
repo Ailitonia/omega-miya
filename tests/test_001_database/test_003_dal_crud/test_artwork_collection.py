@@ -425,6 +425,136 @@ class TestArtworkCollectionDAL:
         assert await artwork_dal._count_artwork_with_tags_all() == 8  # tag 关联未被清空
 
     # ------------------------------------------------------------------ #
+    # 嵌套事务 (SAVEPOINT) 路径
+    # ------------------------------------------------------------------ #
+
+    async def test_add_artwork_update_exist_in_nested_transaction_insert(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """外层已有活动事务时插入走 SAVEPOINT, 外层 rollback 后作品/标签/关联应全部撤销
+
+        注意: SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
+        外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
+        外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
+        """
+        from src.database.config import database_config
+        if database_config.database == 'sqlite':
+            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['raw_tags'] = 'neko, moe'
+
+        await artwork_dal.db_session.begin()
+        result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        assert result.aid == artwork_kwargs['aid']
+        assert sorted(tag.tag_name for tag in result.tags_name_artwork_had) == ['moe', 'neko']
+
+        # 外层事务内可见插入
+        assert await artwork_dal._count_artwork_all() == 1
+        assert await artwork_dal._count_artwork_tag_all() == 2
+        assert await artwork_dal._count_artwork_with_tags_all() == 2
+
+        await artwork_dal.rollback_session()
+
+        # 外层 rollback 后作品/标签/关联全部撤销
+        assert await artwork_dal._count_artwork_all() == 0
+        assert await artwork_dal._count_artwork_tag_all() == 0
+        assert await artwork_dal._count_artwork_with_tags_all() == 0
+
+    async def test_add_artwork_update_exist_in_nested_transaction_update(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """外层已有活动事务时更新走 SAVEPOINT (含复用已存在标签的冲突回退路径), 外层 rollback 后应全部恢复
+
+        注意: SQLite 后端下同受驱动 legacy 事务控制限制 (标签先行插入会被提前物理提交), 本平台跳过该用例
+        """
+        from src.database.config import database_config
+        if database_config.database == 'sqlite':
+            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套事务语义不完整, 跳过')
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        # 预提交作品 (tags: neko, moe)
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['raw_tags'] = 'neko, moe'
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        update_kwargs = artwork_kwargs.copy()
+        # moe 复用已存在标签 (走标签冲突 SAVEPOINT 回退路径), kawaii 为新插入标签
+        update_kwargs.update({'title': 'nested updated title', 'raw_tags': 'moe, kawaii'})
+
+        await artwork_dal.db_session.begin()
+        result = await artwork_dal.add_artwork_update_exist(**update_kwargs)
+        assert result.title == 'nested updated title'
+        assert sorted(tag.tag_name for tag in result.tags_name_artwork_had) == ['kawaii', 'moe']
+
+        # 外层事务内关联已重建
+        assert await artwork_dal._count_artwork_with_tags_all() == 2
+        assert await artwork_dal._count_artwork_tag_all() == 3
+
+        await artwork_dal.rollback_session()
+
+        # 外层 rollback 后恢复原字段与原关联, 新标签 kawaii 不残留
+        queried = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert queried.title == artwork_kwargs['title']
+        assert sorted(tag.tag_name for tag in queried.tags_name_artwork_had) == ['moe', 'neko']
+        assert await artwork_dal._count_artwork_tag_all() == 2
+        assert await artwork_dal._count_artwork_with_tags_all() == 2
+
+    async def test_add_artwork_ignore_exist_in_nested_transaction(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """外层已有活动事务时 ignore_exist 插入走 SAVEPOINT, 外层 rollback 后全部撤销; 对已存在作品应保持忽略语义
+
+        注意: SQLite 后端下同受驱动 legacy 事务控制限制 (插入会被提前物理提交), 本平台跳过该用例
+        """
+        from src.database.config import database_config
+        if database_config.database == 'sqlite':
+            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        # 外层事务内插入新作品, rollback 后全部撤销
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['raw_tags'] = 'neko'
+
+        await artwork_dal.db_session.begin()
+        await artwork_dal.add_artwork_ignore_exist(**artwork_kwargs)
+        assert await artwork_dal._count_artwork_all() == 1
+        assert await artwork_dal._count_artwork_tag_all() == 1
+        await artwork_dal.rollback_session()
+
+        assert await artwork_dal._count_artwork_all() == 0
+        assert await artwork_dal._count_artwork_tag_all() == 0
+
+        # 预提交作品后, 外层事务内对已存在作品调用 ignore_exist 应保持忽略语义
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        changed_kwargs = artwork_kwargs.copy()
+        changed_kwargs['title'] = 'should be ignored'
+
+        await artwork_dal.db_session.begin()
+        result = await artwork_dal.add_artwork_ignore_exist(**changed_kwargs)
+        assert result.title == artwork_kwargs['title']
+        await artwork_dal.rollback_session()
+
+        queried = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert queried.title == artwork_kwargs['title']
+
+    # ------------------------------------------------------------------ #
     # query_unique
     # ------------------------------------------------------------------ #
 

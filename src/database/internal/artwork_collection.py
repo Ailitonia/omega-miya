@@ -16,7 +16,6 @@ from typing import Annotated, Literal
 from pydantic import Field
 from sqlalchemy import ColumnElement, and_, delete, desc, func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.compat import parse_obj_as
@@ -241,6 +240,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             with_for_update: bool = False,
             nowait_for_update: bool = False,
     ) -> ArtworkCollectionOrm:
+        """内部方法, 查询作品行, 不存在直接抛出异常
+
+        建议使用 with_for_update 锁定读, 以读到最新已提交数据并避免并发写入
+        """
         stmt = (select(ArtworkCollectionOrm)
                 .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
                 .where(ArtworkCollectionOrm.origin == origin)
@@ -580,10 +583,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         # 按 (长度, 字典序) 的数值感知顺序倒序排列, 与查询方法的 aid 排序口径一致
         return sorted(set(aids) - set(exists_aids), key=lambda x: (len(x), x), reverse=True)
 
-    @classmethod
     async def _add_artwork(
-            cls,
-            session: AsyncSession,
+            self,
             origin: str,
             aid: str,
             uid: str,
@@ -614,7 +615,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             rating=ArtworkRating(rating),
             width=width,
             height=height,
-            orientation=cls._calc_orientation(width, height),
+            orientation=self._calc_orientation(width, height),
             url=url,
             source=source,
             cover_page=cover_page,
@@ -622,30 +623,29 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             description=description,
             published_at=published_at,
         )
-        session.add(new_obj)
-        await session.flush()
-        await session.refresh(new_obj)
+        self.db_session.add(new_obj)
+        await self.db_session.flush()
+        await self.db_session.refresh(new_obj)
         return new_obj
 
-    @staticmethod
     async def _add_artwork_tag_update_exist_nested(
-            session: AsyncSession,
+            self,
             tag_name: str,
             tag_alt_name: str | None = None,
     ) -> ArtworkTagOrm:
         """内部方法, 开启嵌套事务, 向数据库插入标签新行, 存在则忽略"""
         new_obj = ArtworkTagOrm(tag_name=tag_name, tag_alt_name=tag_alt_name)
         try:
-            async with session.begin_nested():
+            async with self.must_begin_nested_in_transaction() as session:
                 session.add(new_obj)
                 await session.flush()
             await session.refresh(new_obj)
             return new_obj
         except IntegrityError:
             # 把插入失败的对象移出会话, 避免意外影响
-            if new_obj in session:
-                session.expunge(new_obj)
-            async with session.begin_nested():
+            if new_obj in self.db_session:
+                self.db_session.expunge(new_obj)
+            async with self.must_begin_nested_in_transaction() as session:
                 # 锁定读可以读到最新已提交数据, 避免 REPEATABLE READ 一致性快照取不到并发插入的行
                 stmt = (select(ArtworkTagOrm)
                         .where(ArtworkTagOrm.tag_name == tag_name)
@@ -657,9 +657,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                     await session.refresh(exist_obj)
             return exist_obj
 
-    @staticmethod
     async def _add_artwork_with_tag(
-            session: AsyncSession,
+            self,
             artwork_index_id: int,
             tag_index_id: int,
     ) -> ArtworkWithTagsOrm:
@@ -671,37 +670,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             artwork_index_id=artwork_index_id,
             tag_index_id=tag_index_id,
         )
-        session.add(new_obj)
-        await session.flush()
-        await session.refresh(new_obj)
+        self.db_session.add(new_obj)
+        await self.db_session.flush()
+        await self.db_session.refresh(new_obj)
         return new_obj
-
-    @staticmethod
-    async def _select_artwork_unique_nested(
-            session: AsyncSession,
-            origin: str,
-            aid: str,
-            *,
-            populate_existing: bool = False,
-            with_for_update: bool = False,
-            nowait_for_update: bool = False,
-    ) -> ArtworkCollectionOrm:
-        """内部方法, 在嵌套事务中使用, 查询作品行, 不存在直接抛出异常
-
-        建议使用 with_for_update 锁定读, 以读到最新已提交数据并避免并发写入
-        """
-        stmt = (select(ArtworkCollectionOrm)
-                .options(selectinload(ArtworkCollectionOrm.tags_name_artwork_had))
-                .where(ArtworkCollectionOrm.origin == origin)
-                .where(ArtworkCollectionOrm.aid == aid))
-
-        if populate_existing:
-            stmt = stmt.execution_options(populate_existing=True)
-
-        if with_for_update:
-            stmt = stmt.with_for_update(nowait=nowait_for_update)
-
-        return (await session.execute(stmt)).scalar_one()
 
     async def add_artwork_update_exist(
             self,
@@ -725,6 +697,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         """向数据库新增该作品信息, 若已存在则更新 (更新时同步重建 tag 关联)
 
         同一事务中处理 tag 表及 tag 关联表插入, 确保并发与原子性
+
+        Note: SQLite 后端在嵌套事务 (SAVEPOINT) 场景下, 插入分支可能因驱动 legacy 事务控制
+        (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
+        外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
         """
 
         # 处理标签, 过滤空标签并去重, 避免插入空标签行或关联表主键冲突
@@ -735,13 +711,12 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             # 先处理标签插入
             tags_item: list[ArtworkTagOrm] = []
             for tag_name, tag_alt_name in tag_list:
-                tags_item.append(await self._add_artwork_tag_update_exist_nested(session, tag_name, tag_alt_name))
+                tags_item.append(await self._add_artwork_tag_update_exist_nested(tag_name, tag_alt_name))
 
             try:
                 # 处理作品插入
-                async with self.must_begin_nested_in_transaction() as artwork_session:
+                async with self.must_begin_nested_in_transaction():
                     artwork_item = await self._add_artwork(
-                        session=artwork_session,
                         origin=origin,
                         aid=aid,
                         uid=uid,
@@ -760,8 +735,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                     )
             except IntegrityError:
                 # 插入失败说明是已存在的条目, 锁定查询并更新信息
-                artwork_item = await self._select_artwork_unique_nested(
-                    session=session,
+                artwork_item = await self._select_unique(
                     origin=origin,
                     aid=aid,
                     with_for_update=True,
@@ -793,15 +767,14 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                     .where(ArtworkWithTagsOrm.artwork_index_id == artwork_item.id)
                 )
                 for tag_item in tags_item:
-                    await self._add_artwork_with_tag(session, artwork_item.id, tag_item.id)
+                    await self._add_artwork_with_tag(artwork_item.id, tag_item.id)
             else:
                 # 插入成功说明是新条目, 继续插入关联表
                 for tag_item in tags_item:
-                    await self._add_artwork_with_tag(session, artwork_item.id, tag_item.id)
+                    await self._add_artwork_with_tag(artwork_item.id, tag_item.id)
 
             # 重新加载作品及其标签, 确保返回数据模型时关系属性已加载
-            artwork_item = await self._select_artwork_unique_nested(
-                session=session,
+            artwork_item = await self._select_unique(
                 origin=origin,
                 aid=aid,
                 populate_existing=True,
@@ -831,23 +804,26 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         """向数据库新增该作品信息, 若已存在则忽略
 
         同一事务中处理 tag 表及 tag 关联表插入, 确保并发与原子性
+
+        Note: SQLite 后端在嵌套事务 (SAVEPOINT) 场景下, 插入分支可能因驱动 legacy 事务控制
+        (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
+        外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
         """
 
         # 处理标签, 过滤空标签并去重, 避免插入空标签行或关联表主键冲突
         tag_list: list[tuple[str, str | None]] = self._parse_raw_tags(raw_tags=raw_tags, tag_handler=tag_handler)
 
         # 单事务处理作品表及标签表插入
-        async with self.safe_begin_transaction() as session:
+        async with self.safe_begin_transaction():
             # 先处理标签插入
             tags_item: list[ArtworkTagOrm] = []
             for tag_name, tag_alt_name in tag_list:
-                tags_item.append(await self._add_artwork_tag_update_exist_nested(session, tag_name, tag_alt_name))
+                tags_item.append(await self._add_artwork_tag_update_exist_nested(tag_name, tag_alt_name))
 
             try:
                 # 处理作品插入
-                async with self.must_begin_nested_in_transaction() as artwork_session:
+                async with self.must_begin_nested_in_transaction():
                     artwork_item = await self._add_artwork(
-                        session=artwork_session,
                         origin=origin,
                         aid=aid,
                         uid=uid,
@@ -870,11 +846,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             else:
                 # 插入成功说明是新条目, 继续插入关联表
                 for tag_item in tags_item:
-                    await self._add_artwork_with_tag(session, artwork_item.id, tag_item.id)
+                    await self._add_artwork_with_tag(artwork_item.id, tag_item.id)
 
             # 获取已有条目信息 (重新加载, 确保返回数据模型时关系属性已加载)
-            artwork_item = await self._select_artwork_unique_nested(
-                session=session,
+            artwork_item = await self._select_unique(
                 origin=origin,
                 aid=aid,
                 populate_existing=True,
