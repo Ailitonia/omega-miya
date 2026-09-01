@@ -9,6 +9,7 @@
 """
 
 from datetime import datetime
+from enum import IntEnum, unique
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -18,11 +19,19 @@ from ..model import BaseDataAccessLayer, BaseDataOutModel
 from ..schema import PluginOrm
 
 
+@unique
+class PluginEnabledStatus(IntEnum):
+    """插件启用状态"""
+    IGNORED = -1
+    DISABLED = 0
+    ENABLED = 1
+
+
 class Plugin(BaseDataOutModel):
     """插件数据"""
     plugin_name: str
     module_name: str
-    enabled: int
+    enabled: PluginEnabledStatus
     info: str | None
     created_at: datetime | None
     updated_at: datetime | None
@@ -115,7 +124,7 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
         new_obj = PluginOrm(
             plugin_name=plugin_name,
             module_name=module_name,
-            enabled=enabled,
+            enabled=PluginEnabledStatus(enabled),
             info=info,
         )
         self.db_session.add(new_obj)
@@ -137,7 +146,7 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
         new_obj = PluginOrm(
             plugin_name=plugin_name,
             module_name=module_name,
-            enabled=enabled,
+            enabled=PluginEnabledStatus(enabled),
             info=info,
         )
 
@@ -157,7 +166,7 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
                     populate_existing=True,
                     with_for_update=True,
                 )
-                exist_obj.enabled = enabled
+                exist_obj.enabled = PluginEnabledStatus(enabled)
                 exist_obj.info = info
                 await session.flush()
             await session.refresh(exist_obj)
@@ -177,4 +186,5 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
 __all__ = [
     'Plugin',
     'PluginDAL',
+    'PluginEnabledStatus',
 ]

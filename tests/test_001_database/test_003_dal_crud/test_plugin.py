@@ -134,25 +134,31 @@ class TestPluginDAL:
             test_plugin_name,
             test_plugin_module,
     ) -> None:
-        """分别用 enabled=0 和 enabled=-1 插入, 验证 enabled 字段正确"""
+        """分别插入全部 PluginEnabledStatus 枚举成员, 验证返回字段为枚举成员且取值正确"""
+        from src.database.internal.plugin import PluginEnabledStatus
+
         await plugin_dal._clear_all()
         await plugin_dal.commit_session()
 
-        r0 = await plugin_dal.add(
-            plugin_name=f'{test_plugin_name}_disabled',
-            module_name=f'{test_plugin_module}_disabled',
-            enabled=0,
-        )
-        await plugin_dal.commit_session()
-        assert r0.enabled == 0
+        test_cases = [
+            ('enabled', 1, PluginEnabledStatus.ENABLED),
+            ('disabled', 0, PluginEnabledStatus.DISABLED),
+            ('ignored', -1, PluginEnabledStatus.IGNORED),
+        ]
+        for suffix, status_value, status_member in test_cases:
+            result = await plugin_dal.add(
+                plugin_name=f'{test_plugin_name}_{suffix}',
+                module_name=f'{test_plugin_module}_{suffix}',
+                enabled=status_value,
+            )
+            await plugin_dal.commit_session()
+            assert result.enabled == status_value
+            assert result.enabled is status_member
 
-        r1 = await plugin_dal.add(
-            plugin_name=f'{test_plugin_name}_invalid',
-            module_name=f'{test_plugin_module}_invalid',
-            enabled=-1,
-        )
-        await plugin_dal.commit_session()
-        assert r1.enabled == -1
+            queried = await plugin_dal.query_unique(
+                f'{test_plugin_name}_{suffix}', f'{test_plugin_module}_{suffix}',
+            )
+            assert queried.enabled is status_member
 
     async def test_add_duplicate_raises(
             self,
@@ -177,13 +183,77 @@ class TestPluginDAL:
                 module_name=test_plugin_module,
                 enabled=0,
             )
-            await plugin_dal.commit_session()
 
         # 回滚到正常状态
         await plugin_dal.rollback_session()
 
         queried = await plugin_dal.query_unique(test_plugin_name, test_plugin_module)
         assert queried.enabled == -1
+
+    # ------------------------------------------------------------------ #
+    # 枚举校验 (PluginEnabledStatus)
+    # ------------------------------------------------------------------ #
+
+    async def test_add_with_enabled_enum_member(
+            self,
+            plugin_dal,
+            test_plugin_name,
+            test_plugin_module,
+    ) -> None:
+        """enabled 直接传 PluginEnabledStatus 枚举成员 (IntEnum 兼容 int 签名), 查回验证为对应成员"""
+        from src.database.internal.plugin import PluginEnabledStatus
+
+        await plugin_dal._clear_all()
+        await plugin_dal.commit_session()
+
+        result = await plugin_dal.add(
+            plugin_name=test_plugin_name,
+            module_name=test_plugin_module,
+            enabled=PluginEnabledStatus.ENABLED,
+        )
+        await plugin_dal.commit_session()
+        assert result.enabled is PluginEnabledStatus.ENABLED
+
+        queried = await plugin_dal.query_unique(test_plugin_name, test_plugin_module)
+        assert queried.enabled is PluginEnabledStatus.ENABLED
+
+    async def test_add_invalid_enabled_raises(
+            self,
+            plugin_dal,
+            test_plugin_name,
+            test_plugin_module,
+    ) -> None:
+        """enabled 传未定义的枚举值插入, 预期 ValueError (PluginEnabledStatus 枚举校验) 且不产生写入"""
+        await plugin_dal._clear_all()
+        await plugin_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid PluginEnabledStatus'):
+            await plugin_dal.add(
+                plugin_name=test_plugin_name,
+                module_name=test_plugin_module,
+                enabled=2,
+            )
+
+        assert await plugin_dal._count_all() == 0
+
+    async def test_add_update_exist_invalid_enabled_raises(
+            self,
+            plugin_dal,
+            test_plugin_name,
+            test_plugin_module,
+    ) -> None:
+        """enabled 传未定义的枚举值调用 add_update_exist, 预期 ValueError 且不产生写入"""
+        await plugin_dal._clear_all()
+        await plugin_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid PluginEnabledStatus'):
+            await plugin_dal.add_update_exist(
+                plugin_name=test_plugin_name,
+                module_name=test_plugin_module,
+                enabled=2,
+            )
+
+        assert await plugin_dal._count_all() == 0
 
     # ------------------------------------------------------------------ #
     # query_unique
@@ -227,6 +297,8 @@ class TestPluginDAL:
 
     async def test_query_by_enable_status_filtered(self, plugin_dal) -> None:
         """插入多条不同 enabled 状态的记录, 查询 enabled=1 只返回启用项"""
+        from src.database.internal.plugin import PluginEnabledStatus
+
         await plugin_dal._clear_all()
         await plugin_dal.commit_session()
 
@@ -240,7 +312,7 @@ class TestPluginDAL:
         assert len(enabled) == 2
         assert {item.plugin_name for item in enabled} == {'plugin_a', 'plugin_c'}
         for item in enabled:
-            assert item.enabled == 1
+            assert item.enabled is PluginEnabledStatus.ENABLED
 
     async def test_query_by_enable_status_default(self, plugin_dal) -> None:
         """默认参数 enabled=1 只返回启用项"""
