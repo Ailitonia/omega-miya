@@ -172,8 +172,11 @@ ignore = [
     "C901", # complex-structure
     "PT023", # pytest-incorrect-mark-parentheses-style
 ]
-isort.case-sensitive = true
 flake8-quotes.inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+no-lines-before = ["local-folder"]  # 项目内绝对导入(first-party)和相对导入(local-folder)间不留空行
 
 
 [tool.ruff.format]
