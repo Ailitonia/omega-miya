@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from enum import StrEnum, unique
+from enum import IntEnum, StrEnum, unique
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -20,13 +20,21 @@ from ..schema import BotSelfOrm
 
 
 @unique
+class BotStatus(IntEnum):
+    """Bot 状态"""
+    IGNORED = -1
+    DISABLED = 0
+    ENABLED = 1
+
+
+@unique
 class BotType(StrEnum):
     """Bot 类型"""
-    console = 'Console'
-    onebot_v11 = 'OneBot V11'
-    onebot_v12 = 'OneBot V12'
-    qq = 'QQ'
-    telegram = 'Telegram'
+    CONSOLE = 'Console'
+    ONEBOT_V11 = 'OneBot V11'
+    ONEBOT_V12 = 'OneBot V12'
+    QQ = 'QQ'
+    TELEGRAM = 'Telegram'
 
     @classmethod
     def get_supported_adapter_names(cls) -> set[str]:
@@ -38,7 +46,7 @@ class BotSelf(BaseDataOutModel):
     id: int
     bot_type: BotType
     self_id: str
-    bot_status: int
+    bot_status: BotStatus
     bot_info: str | None
     created_at: datetime | None
     updated_at: datetime | None
@@ -140,7 +148,7 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
             *,
             populate_existing: bool = False,
     ) -> list[BotSelf]:
-        stmt = select(BotSelfOrm).where(BotSelfOrm.bot_status == 1).order_by(BotSelfOrm.self_id)
+        stmt = select(BotSelfOrm).where(BotSelfOrm.bot_status == BotStatus.ENABLED).order_by(BotSelfOrm.self_id)
 
         if bot_type is not None:
             stmt = stmt.where(BotSelfOrm.bot_type == bot_type)
@@ -164,7 +172,7 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
         new_obj = BotSelfOrm(
             bot_type=BotType(bot_type),
             self_id=self_id,
-            bot_status=bot_status,
+            bot_status=BotStatus(bot_status),
             bot_info=bot_info,
         )
         self.db_session.add(new_obj)
@@ -190,7 +198,7 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
         new_obj = BotSelfOrm(
             bot_type=BotType(bot_type),
             self_id=self_id,
-            bot_status=bot_status,
+            bot_status=BotStatus(bot_status),
             bot_info=bot_info,
         )
 
@@ -210,7 +218,7 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
                     populate_existing=True,
                     with_for_update=True,
                 )
-                exist_obj.bot_status = bot_status
+                exist_obj.bot_status = BotStatus(bot_status)
                 exist_obj.bot_info = bot_info
                 await session.flush()
             await session.refresh(exist_obj)
@@ -224,5 +232,6 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
 __all__ = [
     'BotSelf',
     'BotSelfDAL',
+    'BotStatus',
     'BotType',
 ]

@@ -193,17 +193,49 @@ class TestBotSelfDAL:
         assert queried.bot_info == test_bot_info
 
     async def test_add_bot_status_values(self, bot_dal, test_bot_type) -> None:
-        """用 bot_status=0 (离线) 和 bot_status=1 (在线) 分别插入, 验证字段"""
+        """分别插入全部 BotStatus 枚举成员, 验证返回字段为 BotStatus 且取值正确"""
+        from src.database.internal.bot import BotStatus
+
         await bot_dal._clear_all()
         await bot_dal.commit_session()
 
-        r0 = await bot_dal.add(bot_type=test_bot_type, self_id='bot_offline', bot_status=0)
-        await bot_dal.commit_session()
-        assert r0.bot_status == 0
+        test_cases = [
+            ('bot_enabled', 1, BotStatus.ENABLED),
+            ('bot_disabled', 0, BotStatus.DISABLED),
+            ('bot_ignored', -1, BotStatus.IGNORED),
+        ]
+        for self_id, status_value, status_member in test_cases:
+            result = await bot_dal.add(bot_type=test_bot_type, self_id=self_id, bot_status=status_value)
+            await bot_dal.commit_session()
+            assert result.bot_status == status_value
+            assert result.bot_status is status_member
 
-        r1 = await bot_dal.add(bot_type=test_bot_type, self_id='bot_online', bot_status=1)
+            queried = await bot_dal.query_unique(test_bot_type, self_id, None)
+            assert queried.bot_status is status_member
+
+    async def test_add_with_bot_status_enum_member(self, bot_dal, test_bot_type) -> None:
+        """bot_status 直接传 BotStatus 枚举成员 (IntEnum 兼容 int 签名), 插入后查回验证字段"""
+        from src.database.internal.bot import BotStatus
+
+        await bot_dal._clear_all()
         await bot_dal.commit_session()
-        assert r1.bot_status == 1
+
+        result = await bot_dal.add(bot_type=test_bot_type, self_id='bot_enum', bot_status=BotStatus.ENABLED)
+        await bot_dal.commit_session()
+        assert result.bot_status is BotStatus.ENABLED
+
+        queried = await bot_dal.query_unique(test_bot_type, 'bot_enum', None)
+        assert queried.bot_status is BotStatus.ENABLED
+
+    async def test_add_invalid_bot_status_raises(self, bot_dal, test_bot_type) -> None:
+        """bot_status 传未定义的枚举值插入, 预期 ValueError (BotStatus 枚举校验) 且不产生写入"""
+        await bot_dal._clear_all()
+        await bot_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid BotStatus'):
+            await bot_dal.add(bot_type=test_bot_type, self_id='bot_invalid_status', bot_status=2)
+
+        assert await bot_dal._count_all() == 0
 
     # ------------------------------------------------------------------ #
     # query_unique — 多策略全覆盖
@@ -363,20 +395,23 @@ class TestBotSelfDAL:
     # ------------------------------------------------------------------ #
 
     async def test_query_all_online_filtered(self, bot_dal) -> None:
-        """插入多条 (部分 online=1, 部分 offline=0), 验证只返回 online 记录"""
+        """插入多条 (enabled/disabled/ignored), 验证只返回 enabled 记录"""
+        from src.database.internal.bot import BotStatus
+
         await bot_dal._clear_all()
         await bot_dal.commit_session()
 
         await bot_dal.add(bot_type='Console', self_id='bot_a', bot_status=1)
         await bot_dal.add(bot_type='Console', self_id='bot_b', bot_status=0)
         await bot_dal.add(bot_type='Console', self_id='bot_c', bot_status=1)
+        await bot_dal.add(bot_type='Console', self_id='bot_d', bot_status=-1)
         await bot_dal.commit_session()
 
         result = await bot_dal.query_all_online()
         assert len(result) == 2
         assert [item.self_id for item in result] == ['bot_a', 'bot_c']
         for item in result:
-            assert item.bot_status == 1
+            assert item.bot_status is BotStatus.ENABLED
 
     async def test_query_all_online_ordering(self, bot_dal) -> None:
         """验证结果按 self_id 排序"""
@@ -517,6 +552,25 @@ class TestBotSelfDAL:
 
         queried = await bot_dal.query_unique(test_bot_type, test_bot_self_id, None)
         assert queried.bot_info is None
+
+    async def test_add_update_exist_invalid_bot_status_raises(
+            self,
+            bot_dal,
+            test_bot_type,
+            test_bot_self_id,
+    ) -> None:
+        """bot_status 传未定义的枚举值调用 add_update_exist, 预期 ValueError 且不产生写入"""
+        await bot_dal._clear_all()
+        await bot_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid BotStatus'):
+            await bot_dal.add_update_exist(
+                bot_type=test_bot_type,
+                self_id=test_bot_self_id,
+                bot_status=2,
+            )
+
+        assert await bot_dal._count_all() == 0
 
     # ------------------------------------------------------------------ #
     # add_update_exist — 嵌套事务 (SAVEPOINT) 路径
