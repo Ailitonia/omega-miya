@@ -37,7 +37,7 @@ class BotType(StrEnum):
     TELEGRAM = 'Telegram'
 
     @classmethod
-    def get_supported_adapter_names(cls) -> set[str]:
+    def get_supported_platform_names(cls) -> set[str]:
         return {member.value for _, member in cls.__members__.items()}
 
 
@@ -52,7 +52,7 @@ class BotSelf(BaseDataOutModel):
     updated_at: datetime | None
 
     def __str__(self) -> str:
-        return f'{self.bot_type.value} Bot(id={self.id}, self_id={self.self_id}, status={self.bot_status})'
+        return f'{self.bot_type.value} Bot(self_id={self.self_id}, status={self.bot_status})'
 
 
 class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
@@ -109,15 +109,13 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
 
     async def query_unique(
             self,
-            bot_type: str | None,
-            self_id: str | None,
-            index_id: int | None,
+            bot_type: str | None = None,
+            self_id: str | None = None,
+            index_id: int | None = None,
             *,
             populate_existing: bool = False,
     ) -> BotSelf:
-        if (bot_type is None) and (self_id is None) and (index_id is None):
-            raise ValueError('bot_type self_id and index_id parameters can not all be None')
-        elif index_id is not None:
+        if index_id is not None:
             item = await self._select_from_index_id(index_id, populate_existing=populate_existing)
         elif (bot_type is not None) and (self_id is not None):
             item = await self._select_unique(bot_type, self_id, populate_existing=populate_existing)

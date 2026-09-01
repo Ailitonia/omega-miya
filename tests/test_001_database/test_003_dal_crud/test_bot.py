@@ -321,11 +321,11 @@ class TestBotSelfDAL:
             await bot_dal.query_unique(None, None, 999999)
 
     async def test_query_unique_all_none_raises(self, bot_dal) -> None:
-        """(None, None, None) 抛 ValueError"""
+        """(None, None, None) 抛 ValueError (与部分缺省统一走 index_id 缺省错误消息)"""
         await bot_dal._clear_all()
         await bot_dal.commit_session()
 
-        with pytest.raises(ValueError, match='can not all be None'):
+        with pytest.raises(ValueError, match='must both be provided'):
             await bot_dal.query_unique(None, None, None)
 
     async def test_query_unique_only_bot_type_raises(self, bot_dal, test_bot_type) -> None:
