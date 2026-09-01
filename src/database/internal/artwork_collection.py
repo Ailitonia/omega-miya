@@ -10,6 +10,7 @@
 
 from collections.abc import Callable, Sequence
 from datetime import datetime
+from enum import IntEnum, unique
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -23,6 +24,35 @@ from ..model import BaseDataAccessLayer, BaseDataOutModel
 from ..schema import ArtworkCollectionOrm, ArtworkReviewRecordsOrm, ArtworkTagOrm, ArtworkWithTagsOrm
 
 
+@unique
+class ArtworkClassification(IntEnum):
+    """图库作品分类"""
+    IGNORED = -2  # 忽略
+    UNKNOWN = -1  # 未知
+    UNCATEGORIZED = 0  # 未分类
+    AI_GENERATED = 1  # AI 生成 (确认为 AI 生成作品)
+    EXTERNAL_CONFIRMED = 2  # 外部来源确认 (来源于资源站点或 API 的数据)
+    HUMAN_CONFIRMED = 3  # 人工审核确认
+
+
+@unique
+class ArtworkRating(IntEnum):
+    """图库作品分级"""
+    UNKNOWN = -1
+    GENERAL = 0
+    SENSITIVE = 1
+    QUESTIONABLE = 2
+    EXPLICIT = 3
+
+
+@unique
+class ArtworkOrientation(IntEnum):
+    """图库作品方向/宽高比"""
+    PORTRAIT = -1  # 竖图（高 > 宽）
+    SQUARE = 0  # 方图（高 = 宽）
+    LANDSCAPE = 1  # 横图（宽 > 高）
+
+
 class Artwork(BaseDataOutModel):
     """图库作品数据"""
     id: int
@@ -31,11 +61,11 @@ class Artwork(BaseDataOutModel):
     uid: str
     title: str
     uname: str
-    classification: int
-    rating: int
+    classification: ArtworkClassification
+    rating: ArtworkRating
     width: int
     height: int
-    orientation: int
+    orientation: ArtworkOrientation
     url: str
     source: str | None
     cover_page: str | None
@@ -54,8 +84,8 @@ class ArtworkReviewRecord(BaseDataOutModel):
     id: int
     artwork_index_id: int
     review_timestamp: int
-    review_classification: int
-    review_rating: int
+    review_classification: ArtworkClassification
+    review_rating: ArtworkRating
     review_from: str
     review_info: str
     created_at: datetime | None
@@ -77,14 +107,14 @@ class ArtworkTag(BaseDataOutModel):
 class ArtworkClassificationStatistic(BaseDataOutModel):
     """图库作品分类统计信息查询结果"""
     unused: Annotated[int, Field(default=0, description='其他所有的分类值')]
-    unclassified: Annotated[int, Field(default=0, description='0: 未分类')]
+    uncategorized: Annotated[int, Field(default=0, description='0: 未分类')]
     ai_generated: Annotated[int, Field(default=0, description='1: AI 生成')]
-    automatic: Annotated[int, Field(default=0, description='2: 外部来源')]
-    confirmed: Annotated[int, Field(default=0, description='3:人工分类')]
+    external_confirmed: Annotated[int, Field(default=0, description='2: 外部来源确认')]
+    human_confirmed: Annotated[int, Field(default=0, description='3: 人工审核确认')]
 
     @property
     def total(self) -> int:
-        return self.unused + self.unclassified + self.ai_generated + self.automatic + self.confirmed
+        return self.unused + self.uncategorized + self.ai_generated + self.external_confirmed + self.human_confirmed
 
 
 class ArtworkRatingStatistic(BaseDataOutModel):
@@ -135,13 +165,13 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         self.db_session.expunge_all()
 
     @staticmethod
-    def _calc_orientation(width: int, height: int) -> int:
+    def _calc_orientation(width: int, height: int) -> ArtworkOrientation:
         """计算图片宽高方位, 1=横图 0=方图 -1=竖图"""
         if width > height:
-            return 1
+            return ArtworkOrientation.LANDSCAPE
         if width < height:
-            return -1
-        return 0
+            return ArtworkOrientation.PORTRAIT
+        return ArtworkOrientation.SQUARE
 
     @classmethod
     def _build_keyword_conditions(
@@ -364,14 +394,14 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         result = {}
         for classification, count_num in session_result.all():
             match classification:
-                case 0:
-                    result['unclassified'] = count_num
-                case 1:
+                case ArtworkClassification.UNCATEGORIZED:
+                    result['uncategorized'] = count_num
+                case ArtworkClassification.AI_GENERATED:
                     result['ai_generated'] = count_num
-                case 2:
-                    result['automatic'] = count_num
-                case 3:
-                    result['confirmed'] = count_num
+                case ArtworkClassification.EXTERNAL_CONFIRMED:
+                    result['external_confirmed'] = count_num
+                case ArtworkClassification.HUMAN_CONFIRMED:
+                    result['human_confirmed'] = count_num
                 case _:
                     result['unused'] = count_num
 
@@ -409,13 +439,13 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         result = {}
         for rating, count_num in session_result.all():
             match rating:
-                case 0:
+                case ArtworkRating.GENERAL:
                     result['general'] = count_num
-                case 1:
+                case ArtworkRating.SENSITIVE:
                     result['sensitive'] = count_num
-                case 2:
+                case ArtworkRating.QUESTIONABLE:
                     result['questionable'] = count_num
-                case 3:
+                case ArtworkRating.EXPLICIT:
                     result['explicit'] = count_num
                 case _:
                     result['unknown'] = count_num
@@ -580,8 +610,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             uid=uid,
             title=title,
             uname=uname,
-            classification=classification,
-            rating=rating,
+            classification=ArtworkClassification(classification),
+            rating=ArtworkRating(rating),
             width=width,
             height=height,
             orientation=cls._calc_orientation(width, height),
@@ -717,8 +747,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                         uid=uid,
                         title=title,
                         uname=uname,
-                        classification=classification,
-                        rating=rating,
+                        classification=ArtworkClassification(classification),
+                        rating=ArtworkRating(rating),
                         width=width,
                         height=height,
                         url=url,
@@ -739,8 +769,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 artwork_item.uid = uid
                 artwork_item.title = title
                 artwork_item.uname = uname
-                artwork_item.classification = classification
-                artwork_item.rating = rating
+                artwork_item.classification = ArtworkClassification(classification)
+                artwork_item.rating = ArtworkRating(rating)
                 artwork_item.width = width
                 artwork_item.height = height
                 artwork_item.orientation = self._calc_orientation(width, height)
@@ -823,8 +853,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                         uid=uid,
                         title=title,
                         uname=uname,
-                        classification=classification,
-                        rating=rating,
+                        classification=ArtworkClassification(classification),
+                        rating=ArtworkRating(rating),
                         width=width,
                         height=height,
                         url=url,
@@ -871,8 +901,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         new_obj = ArtworkReviewRecordsOrm(
             artwork_index_id=artwork_item.id,
             review_timestamp=review_timestamp,
-            review_classification=review_classification,
-            review_rating=review_rating,
+            review_classification=ArtworkClassification(review_classification),
+            review_rating=ArtworkRating(review_rating),
             review_from=review_from,
             review_info=review_info,
         )
@@ -915,7 +945,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
 __all__ = [
     'Artwork',
     'ArtworkCollectionDAL',
+    'ArtworkClassification',
     'ArtworkClassificationStatistic',
+    'ArtworkOrientation',
+    'ArtworkRating',
     'ArtworkRatingStatistic',
     'ArtworkReviewRecord',
     'ArtworkTag',

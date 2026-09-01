@@ -50,7 +50,7 @@ async def test_basic_artwork_kwargs_generator(test_random_id_generator) -> Calla
 
     def _generate_basic_artwork_kwargs() -> dict[str, Any]:
         return {
-            'origin': f'test_origin',
+            'origin': 'test_origin',
             'aid': f'test_aid_{test_random_id_generator()}',
             'uid': f'test_uid_{test_random_id_generator()}',
             'uname': f'test_uname_{test_random_id_generator()}',
@@ -292,6 +292,71 @@ class TestArtworkCollectionDAL:
 
         result = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
         assert result.orientation == 0
+
+    async def test_calc_orientation_enum(self, artwork_dal) -> None:
+        """_calc_orientation 三态返回 ArtworkOrientation 枚举成员"""
+        from src.database.internal.artwork_collection import ArtworkOrientation
+
+        assert artwork_dal._calc_orientation(1920, 1080) is ArtworkOrientation.LANDSCAPE
+        assert artwork_dal._calc_orientation(1080, 1920) is ArtworkOrientation.PORTRAIT
+        assert artwork_dal._calc_orientation(512, 512) is ArtworkOrientation.SQUARE
+
+    # ------------------------------------------------------------------ #
+    # 枚举校验 (ArtworkClassification / ArtworkRating)
+    # ------------------------------------------------------------------ #
+
+    async def test_add_artwork_with_enum_members(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """classification/rating 直接传枚举成员 (IntEnum 兼容 int 签名), 查回验证为对应枚举成员"""
+        from src.database.internal.artwork_collection import ArtworkClassification, ArtworkRating
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['classification'] = ArtworkClassification.EXTERNAL_CONFIRMED
+        artwork_kwargs['rating'] = ArtworkRating.GENERAL
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert result.classification is ArtworkClassification.EXTERNAL_CONFIRMED
+        assert result.rating is ArtworkRating.GENERAL
+
+    async def test_add_artwork_invalid_classification_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """classification 传未定义的枚举值, 预期 ValueError 且不产生写入"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['classification'] = 4
+        with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
+            await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        assert await artwork_dal._count_artwork_all() == 0
+
+    async def test_add_artwork_invalid_rating_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """rating 传未定义的枚举值, 预期 ValueError 且不产生写入"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['rating'] = 4
+        with pytest.raises(ValueError, match='is not a valid ArtworkRating'):
+            await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        assert await artwork_dal._count_artwork_all() == 0
 
     # ------------------------------------------------------------------ #
     # add_artwork_ignore_exist
@@ -702,28 +767,29 @@ class TestArtworkCollectionDAL:
 
         a6_kwargs = test_basic_artwork_kwargs_generator()
         a6_kwargs['aid'] = '1006'
-        a6_kwargs['classification'] = -10086
+        # 已定义但未分桶的枚举成员, 走 case _ 兜底计入 unused
+        a6_kwargs['classification'] = -2
         await artwork_dal.add_artwork_update_exist(**a6_kwargs)
 
         result = await artwork_dal.query_classification_statistic('test_origin')
 
         assert result.unused == 1
-        assert result.unclassified == 1
+        assert result.uncategorized == 1
         assert result.ai_generated == 1
-        assert result.automatic == 2
-        assert result.confirmed == 1
+        assert result.external_confirmed == 2
+        assert result.human_confirmed == 1
         assert result.total == 6
 
         # 关键词仅命中标签作品
         statistic = await artwork_dal.query_classification_statistic('test_origin', keywords=['neko'])
         assert statistic.total == 2
-        assert statistic.unclassified == 1
-        assert statistic.confirmed == 1
+        assert statistic.uncategorized == 1
+        assert statistic.human_confirmed == 1
 
         statistic = await artwork_dal.query_classification_statistic('test_origin', keywords=['nekomimi'])
         assert statistic.total == 1
-        assert statistic.unclassified == 0
-        assert statistic.confirmed == 1
+        assert statistic.uncategorized == 0
+        assert statistic.human_confirmed == 1
 
     async def test_query_rating_statistic(
             self,
@@ -968,6 +1034,32 @@ class TestArtworkCollectionDAL:
                 review_info='test review info',
             )
 
+    async def test_add_artwork_review_record_invalid_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """评审记录传未定义的枚举值, 预期 ValueError 且不产生写入"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
+            await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs['origin'],
+                aid=artwork_kwargs['aid'],
+                review_timestamp=1000000000,
+                review_classification=4,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+            )
+
+        assert await artwork_dal._count_artwork_review_record_all() == 0
+
     # ------------------------------------------------------------------ #
     # query_artwork_review_records
     # ------------------------------------------------------------------ #
@@ -989,7 +1081,7 @@ class TestArtworkCollectionDAL:
                 origin=artwork_kwargs['origin'],
                 aid=artwork_kwargs['aid'],
                 review_timestamp=1000000000 + i,
-                review_classification=2 + i,
+                review_classification=i,
                 review_rating=i,
                 review_from=f'test_reviewer_{i}',
                 review_info=f'test review info {i}',
