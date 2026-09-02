@@ -307,8 +307,8 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_id: str | None,
             index_id: int | None,
             *,
-            load_all_rel: Literal[False],
-            populate_existing: bool,
+            load_all_rel: Literal[False] = False,
+            populate_existing: bool = False,
     ) -> Entity:
         ...
 
@@ -322,7 +322,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             index_id: int | None,
             *,
             load_all_rel: Literal[True],
-            populate_existing: bool,
+            populate_existing: bool = False,
     ) -> EntityWithFullRel:
         ...
 
@@ -472,7 +472,12 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_name: str,
             entity_info: str | None = None
     ) -> Entity:
-        """向数据库插入新行, 若已存在则忽略"""
+        """向数据库插入新行, 若已存在则忽略
+
+        Note: SQLite 后端在嵌套事务 (SAVEPOINT) 场景下, 插入分支可能因驱动 legacy 事务控制
+        (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
+        外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
+        """
         select_bot_stmt = (select(BotSelfOrm)
                            .where(BotSelfOrm.bot_type == bot_type)
                            .where(BotSelfOrm.self_id == bot_self_id)
@@ -665,21 +670,25 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             date_: date | datetime | None = None,
             sign_in_info: str | None = None,
     ) -> SignIn:
-        """为实体添加签到信息, 若不指定签到日期则为当天"""
+        """为实体添加签到信息, 若不指定签到日期则为当天
+
+        重复签到 (同一实体同一日期已存在记录) 时: 显式指定 sign_in_info 则覆盖为指定值,
+        未指定则标记为 'Duplicate Sign In'
+        """
         if isinstance(date_, datetime):
             sign_in_date = date_.date()
-            sign_in_info = 'Fixed Sign In' if sign_in_info is None else sign_in_info
+            default_info = 'Fixed Sign In'
         elif isinstance(date_, date):
             sign_in_date = date_
-            sign_in_info = 'Fixed Sign In' if sign_in_info is None else sign_in_info
+            default_info = 'Fixed Sign In'
         else:
             sign_in_date = datetime.now().date()
-            sign_in_info = 'Normal Sign In' if sign_in_info is None else sign_in_info
+            default_info = 'Normal Sign In'
 
         new_obj = SignInOrm(
             entity_index_id=entity_index_id,
             sign_in_date=sign_in_date,
-            sign_in_info=sign_in_info,
+            sign_in_info=default_info if sign_in_info is None else sign_in_info,
         )
 
         try:
@@ -853,16 +862,18 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             plugin: str,
             node: str,
             available: int,
-            value: dict[str, Any] | None = None,
+            value: dict[str, Any],
     ) -> AuthSetting:
         """设置 Entity 权限或配置节点参数值"""
+        value = parse_obj_as(dict[str, Any], value)
+
         new_obj = AuthSettingOrm(
             entity_index_id=entity_index_id,
             module=module,
             plugin=plugin,
             node=node,
             available=available,
-            value=value if value is not None else {},
+            value=value,
         )
 
         try:
@@ -882,8 +893,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                     with_for_update=True,
                 )
                 exist_obj.available = available
-                if value is not None:
-                    exist_obj.value = value
+                exist_obj.value = value
                 await session.flush()
 
         # 重新加载确保返回数据模型时关系属性已加载
@@ -974,7 +984,13 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             expired_time: datetime | timedelta,
             description: str | None = None,
     ) -> Cooldown:
-        """设置冷却, expired_time 为 datetime 类型时指定为冷却过期时间, 类型为 timedelta 时指定以现在时间为准新增的冷却时间"""
+        """设置冷却
+
+        :param entity_index_id: Entity 索引 ID
+        :param event: 冷却事件名
+        :param expired_time: datetime 类型时指定为冷却过期时间, timedelta 类型时指定为以现在时间为准新增的冷却时长
+        :param description: 冷却事件名描述
+        """
         if isinstance(expired_time, datetime):
             stop_at = expired_time
         elif isinstance(expired_time, timedelta):
