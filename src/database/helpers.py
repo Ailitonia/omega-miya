@@ -21,6 +21,7 @@ from .connector import get_engine, get_scoped_session_factory
 async def _database_init():
     """初始化数据库, 执行表结构检查及迁移"""
     import sys
+
     from .migrate import MigrationStatus, async_migrate_to_head, check_migration_state
 
     logger.opt(colors=True).info('<lc>Database</lc> | <ly>正在初始化数据库</ly>')

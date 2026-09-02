@@ -9,8 +9,7 @@
 """
 
 from sqlalchemy.dialects import mysql, postgresql, sqlite
-from sqlalchemy.types import BigInteger, Boolean, LargeBinary, JSON, Text
-
+from sqlalchemy.types import JSON, BigInteger, Boolean, LargeBinary, Text
 
 # BigInt 在 sqlite 中不能作为自增主键
 # SQLAlchemy does not map BigInt to Int by default on the sqlite dialect.

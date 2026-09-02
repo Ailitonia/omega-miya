@@ -97,6 +97,7 @@ def _get_script_revisions() -> ScriptRevisionsStatus:
 def _inspect_database(connection: 'Connection') -> DatabaseRevisionsStatus:
     """检查数据库版本记录及业务数据表 (同步函数, 由 AsyncConnection.run_sync 调用)"""
     from sqlalchemy import column, inspect, select, table
+
     from .config import database_config
 
     table_names = inspect(connection).get_table_names()
@@ -105,7 +106,7 @@ def _inspect_database(connection: 'Connection') -> DatabaseRevisionsStatus:
     current_revisions = []
     if _ALEMBIC_VERSION_TABLE_NAME in table_names:
         version_query = select(table(_ALEMBIC_VERSION_TABLE_NAME, column(_ALEMBIC_VERSION_COLUMN_NAME)))
-        current_revisions = [x for x in connection.execute(version_query).scalars().all()]
+        current_revisions = list(connection.execute(version_query).scalars().all())
 
     return DatabaseRevisionsStatus.model_validate({
         'current_revisions': current_revisions,

@@ -15,8 +15,8 @@ from nonebot.matcher import current_event, current_matcher
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
-    async_sessionmaker,
     async_scoped_session,
+    async_sessionmaker,
     create_async_engine,
 )
 
@@ -39,7 +39,7 @@ def _patch_sqlite_foreign_keys_pragma(async_engine: AsyncEngine) -> None:
     """为 SQLite 启用外键
 
     针对 SQLite 外键默认不开启问题, 通过事件监听每次建立数据库连接时, 自动执行 PRAGMA foreign_keys=ON 命令
-    Note: PRAGMA 是 SQLite 特有的扩展指令, 用于查询和设置数据库的运行参数或修改内部环境变量, 无法直接在其他数据库引擎中运行
+    Note: PRAGMA 是 SQLite 特有的扩展指令, 用于查询和设置运行参数或修改内部环境变量, 无法直接在其他数据库引擎中运行
     """
     from sqlalchemy import event
 
