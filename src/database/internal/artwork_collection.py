@@ -52,8 +52,17 @@ class ArtworkOrientation(IntEnum):
     LANDSCAPE = 1  # 横图（宽 > 高）
 
 
-class Artwork(BaseDataOutModel):
-    """图库作品数据"""
+class ArtworkTag(BaseDataOutModel):
+    """图库作品标签数据"""
+    id: int
+    tag_name: str
+    tag_alt_name: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class _BaseArtwork(BaseDataOutModel):
+    """图库作品数据 (只包括基本数据供关联表使用, 避免递归加载)"""
     id: int
     origin: str
     aid: str
@@ -66,6 +75,10 @@ class Artwork(BaseDataOutModel):
     height: int
     orientation: ArtworkOrientation
     url: str
+
+
+class Artwork(_BaseArtwork):
+    """图库作品数据"""
     source: str | None
     cover_page: str | None
     raw_tags: str | None
@@ -75,7 +88,7 @@ class Artwork(BaseDataOutModel):
     updated_at: datetime | None
 
     # 级联数据
-    tags_name_artwork_had: Annotated[list['ArtworkTag'], Field(default_factory=list)]
+    tags_name_artwork_had: Annotated[list[ArtworkTag], Field(default_factory=list)]
 
 
 class ArtworkReviewRecord(BaseDataOutModel):
@@ -91,16 +104,7 @@ class ArtworkReviewRecord(BaseDataOutModel):
     updated_at: datetime | None
 
     # 级联数据
-    review_record_parent_artwork: Artwork
-
-
-class ArtworkTag(BaseDataOutModel):
-    """图库作品标签数据"""
-    id: int
-    tag_name: str
-    tag_alt_name: str | None
-    created_at: datetime | None
-    updated_at: datetime | None
+    review_record_parent_artwork: _BaseArtwork
 
 
 class ArtworkClassificationStatistic(BaseDataOutModel):
