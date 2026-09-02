@@ -3,7 +3,7 @@
 @Date           : 2026/8/31 20:47
 @FileName       : test_bot
 @Project        : omega-miya
-@Description    : bot.py  数据库 CRUD 单元测试
+@Description    : bot.py 数据库 CRUD 单元测试
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """

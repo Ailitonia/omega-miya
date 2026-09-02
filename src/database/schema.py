@@ -135,7 +135,7 @@ class HistoryOrm(Base):
 
 
 class BotSelfOrm(Base):
-    """Bot表 对应不同机器人协议端"""
+    """Bot表, 对应不同机器人协议端"""
     __tablename__ = f'{database_config.db_prefix}bot'
     __table_args__ = (
         UniqueConstraint('bot_type', 'self_id'),
