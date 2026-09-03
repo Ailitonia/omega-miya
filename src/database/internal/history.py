@@ -117,7 +117,7 @@ class HistoryDAL(BaseDataAccessLayer[HistoryOrm, History]):
 
         stmt = (select(HistoryOrm)
                 .where(HistoryOrm.bot_self_id == bot_self_id)
-                .order_by(desc(HistoryOrm.received_timestamp)))
+                .order_by(desc(HistoryOrm.received_timestamp), desc(HistoryOrm.id)))
 
         if event_entity_id is not None:
             stmt = stmt.where(HistoryOrm.event_entity_id == event_entity_id)
@@ -197,6 +197,7 @@ class HistoryDAL(BaseDataAccessLayer[HistoryOrm, History]):
         """向数据库插入新行, 不校验唯一性
 
         尽量保证插入的是新数据时才使用, 冲突直接抛出异常
+        原则上此表保存历史消息内容原始副本, 不进行更新
         """
         message_raw = parse_obj_as(dict[str, Any], message_raw)
 
@@ -212,7 +213,6 @@ class HistoryDAL(BaseDataAccessLayer[HistoryOrm, History]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return History.model_validate(new_obj)
 
     async def delete_period_older(

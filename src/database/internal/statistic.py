@@ -44,9 +44,11 @@ class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
         self.db_session.expunge_all()
 
     async def _select_unique(self, *args, **kwargs) -> StatisticOrm:
+        """查询单条统计记录无意义, 不予实现"""
         raise NotImplementedError
 
     async def query_unique(self, *args, **kwargs) -> Statistic:
+        """查询单条统计记录无意义, 不予实现"""
         raise NotImplementedError
 
     async def query_by_condition(
@@ -55,12 +57,16 @@ class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
             start_timestamp: datetime | int | None = None,
             plugin_name: str | None = None,
             module_name: str | None = None,
+            page: int = 1,
+            size: int = 500,
     ) -> list[Statistic]:
         """按条件查询统计信息
 
         :param start_timestamp: 统计起始时间, 为空则返回全部
         :param plugin_name: 插件名, 为空则返回全部
         :param module_name: 插件模块名, 为空则返回全部
+        :param page: 分页
+        :param size: 每页数量
         """
         stmt = select(StatisticOrm).order_by(desc(StatisticOrm.call_timestamp))
 
@@ -75,6 +81,9 @@ class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
 
         if module_name is not None:
             stmt = stmt.where(StatisticOrm.module_name == module_name)
+
+        # 结果数量限制
+        stmt = stmt.limit(size).offset((page - 1) * size)
 
         return parse_obj_as(list[Statistic], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -131,7 +140,6 @@ class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return Statistic.model_validate(new_obj)
 
     async def delete_period_older(

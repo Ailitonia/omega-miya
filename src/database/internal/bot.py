@@ -175,7 +175,6 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return BotSelf.model_validate(new_obj)
 
     async def add_update_exist(
@@ -204,7 +203,6 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
             async with self.safe_begin_transaction() as session:
                 session.add(new_obj)
                 await session.flush()
-            await session.refresh(new_obj)
             return BotSelf.model_validate(new_obj)
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
@@ -222,7 +220,6 @@ class BotSelfDAL(BaseDataAccessLayer[BotSelfOrm, BotSelf]):
                 exist_obj.bot_status = BotStatus(bot_status)
                 exist_obj.bot_info = bot_info
                 await session.flush()
-            await session.refresh(exist_obj)
             return BotSelf.model_validate(exist_obj)
 
     async def delete(self, bot_type: str, self_id: str) -> None:

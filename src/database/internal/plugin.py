@@ -129,7 +129,6 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return Plugin.model_validate(new_obj)
 
     async def add_update_exist(
@@ -154,7 +153,6 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
             async with self.safe_begin_transaction() as session:
                 session.add(new_obj)
                 await session.flush()
-            await session.refresh(new_obj)
             return Plugin.model_validate(new_obj)
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
@@ -172,7 +170,6 @@ class PluginDAL(BaseDataAccessLayer[PluginOrm, Plugin]):
                 exist_obj.enabled = PluginEnabledStatus(enabled)
                 exist_obj.info = info
                 await session.flush()
-            await session.refresh(exist_obj)
             return Plugin.model_validate(exist_obj)
 
     async def delete(

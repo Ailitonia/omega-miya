@@ -106,7 +106,9 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
 
         if populate_existing:
             stmt = stmt.execution_options(populate_existing=True)
-        stmt = stmt.order_by(desc(SocialMediaContentOrm.m_id))
+
+        # 按 m_id 数值感知排序
+        stmt = stmt.order_by(desc(func.length(SocialMediaContentOrm.m_id)), desc(SocialMediaContentOrm.m_id))
 
         return parse_obj_as(list[SocialMediaContent], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -129,7 +131,9 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
 
         if populate_existing:
             stmt = stmt.execution_options(populate_existing=True)
-        stmt = stmt.order_by(desc(SocialMediaContentOrm.m_id))
+
+        # 按 m_id 数值感知排序
+        stmt = stmt.order_by(desc(func.length(SocialMediaContentOrm.m_id)), desc(SocialMediaContentOrm.m_id))
 
         return parse_obj_as(list[str], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -173,7 +177,9 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
             # 匹配多个用户
             stmt = stmt.where(SocialMediaContentOrm.m_uid.in_(m_uid))
 
-        stmt = stmt.where(SocialMediaContentOrm.m_id.in_(m_ids)).order_by(desc(SocialMediaContentOrm.m_id))
+        stmt = (stmt
+                .where(SocialMediaContentOrm.m_id.in_(m_ids))
+                .order_by(desc(func.length(SocialMediaContentOrm.m_id)), desc(SocialMediaContentOrm.m_id)))
 
         return parse_obj_as(list[str], (await self.db_session.execute(stmt)).scalars().all())
 
@@ -203,6 +209,7 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
         """向数据库插入新行, 不校验唯一性
 
         尽量保证插入的是新数据时才使用, 冲突直接抛出异常
+        原则上此表保存社交媒体内容原始副本, 不进行更新
         """
         raw_data = parse_obj_as(dict[str, Any], raw_data)
 
@@ -219,7 +226,6 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return SocialMediaContent.model_validate(new_obj)
 
 

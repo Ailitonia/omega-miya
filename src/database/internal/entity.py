@@ -545,22 +545,22 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             self,
             entity_index_id: int,
             *,
-            status: str = 'normal',
-            mood: Decimal = Decimal('0'),
-            friendship: Decimal = Decimal('0'),
-            energy: Decimal = Decimal('0'),
-            currency: Decimal = Decimal('0'),
-            rsp_threshold: Decimal = Decimal('0'),
+            status: str | None = None,
+            mood: Decimal | None = None,
+            friendship: Decimal | None = None,
+            energy: Decimal | None = None,
+            currency: Decimal | None = None,
+            rsp_threshold: Decimal | None = None,
     ) -> Friendship:
         """设置或更新好感度"""
         new_obj = FriendshipOrm(
             entity_index_id=entity_index_id,
-            status=status,
-            mood=mood,
-            friendship=friendship,
-            energy=energy,
-            currency=currency,
-            rsp_threshold=rsp_threshold,
+            status=status or 'normal',
+            mood=mood or Decimal('0'),
+            friendship=friendship or Decimal('0'),
+            energy=energy or Decimal('0'),
+            currency=currency or Decimal('0'),
+            rsp_threshold=rsp_threshold or Decimal('0'),
         )
 
         try:
@@ -579,12 +579,18 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                     populate_existing=True,
                     with_for_update=True,
                 )
-                exist_obj.status = status
-                exist_obj.mood = mood
-                exist_obj.friendship = friendship
-                exist_obj.energy = energy
-                exist_obj.currency = currency
-                exist_obj.rsp_threshold = rsp_threshold
+                if status is not None:
+                    exist_obj.status = status
+                if mood is not None:
+                    exist_obj.mood = mood
+                if friendship is not None:
+                    exist_obj.friendship = friendship
+                if energy is not None:
+                    exist_obj.energy = energy
+                if currency is not None:
+                    exist_obj.currency = currency
+                if rsp_threshold is not None:
+                    exist_obj.rsp_threshold = rsp_threshold
                 await session.flush()
 
         # 重新加载确保返回数据模型时关系属性已加载

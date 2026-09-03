@@ -360,7 +360,11 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             case 'aid_desc':
                 stmt = stmt.order_by(desc(func.length(ArtworkCollectionOrm.aid)), desc(ArtworkCollectionOrm.aid))
             case 'latest':
-                stmt = stmt.order_by(desc(ArtworkCollectionOrm.published_at))
+                stmt = stmt.order_by(
+                    ArtworkCollectionOrm.published_at.is_(None),
+                    desc(ArtworkCollectionOrm.published_at),
+                    desc(ArtworkCollectionOrm.id),
+                )
             case 'random' | _:
                 stmt = stmt.order_by(func.random())
 
@@ -631,7 +635,6 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return new_obj
 
     async def _add_artwork_tag_update_exist_nested(
@@ -645,7 +648,6 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             async with self.must_begin_nested_in_transaction() as session:
                 session.add(new_obj)
                 await session.flush()
-            await session.refresh(new_obj)
             return new_obj
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则复用"分支, 其他完整性冲突(外键/非空等)原样抛出
@@ -663,7 +665,6 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 if tag_alt_name is not None:
                     exist_obj.tag_alt_name = tag_alt_name
                     await session.flush()
-                    await session.refresh(exist_obj)
             return exist_obj
 
     async def _add_artwork_with_tag(
@@ -681,7 +682,6 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return new_obj
 
     async def add_artwork_update_exist(
@@ -791,7 +791,6 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 aid=aid,
                 populate_existing=True,
             )
-        await self.db_session.refresh(artwork_item)
         return Artwork.model_validate(artwork_item)
 
     async def add_artwork_ignore_exist(
@@ -871,7 +870,25 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 populate_existing=True,
                 with_for_update=True,
             )
-        await self.db_session.refresh(artwork_item)
+        return Artwork.model_validate(artwork_item)
+
+    async def update_artwork_review_classification_rating(
+            self,
+            origin: str,
+            aid: str,
+            classification: int,
+            rating: int,
+    ) -> Artwork:
+        """更新图库作品评审分级分类
+
+        如果作品不存在直接抛出异常
+        """
+        artwork_item = await self._select_unique(origin, aid, populate_existing=True, with_for_update=True)
+
+        artwork_item.classification = ArtworkClassification(classification)
+        artwork_item.rating = ArtworkRating(rating)
+
+        await self.db_session.flush()
         return Artwork.model_validate(artwork_item)
 
     async def add_artwork_review_record(
@@ -900,7 +917,6 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
-        await self.db_session.refresh(new_obj)
         return ArtworkReviewRecord.model_validate(new_obj)
 
     async def query_artwork_review_records(
