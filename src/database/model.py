@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .helpers import database_session
@@ -83,6 +84,38 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
 
         async with self.db_session.begin_nested():
             yield self.db_session
+
+    @staticmethod
+    def _is_unique_conflict_error(exc: IntegrityError) -> bool:
+        """内部方法, 用于判断 IntegrityError 是否由唯一约束冲突引起 (跨方言甄别)
+
+        用于 upsert 场景的冲突兜底: 只有确认是唯一约束冲突时才应进入"已存在则更新/忽略"分支,
+        其他类型的完整性冲突 (外键/非空/CHECK 等) 必须原样抛出, 避免掩盖真实错误。
+
+        - PostgreSQL (asyncpg/psycopg): sqlstate 23505 (unique_violation)
+        - MySQL (aiomysql/asyncmy): errno 1062 (ER_DUP_ENTRY)
+        - SQLite (aiosqlite/sqlite3): extended error code 1555 (CONSTRAINT_PRIMARYKEY) / 2067 (CONSTRAINT_UNIQUE)
+        """
+        orig = exc.orig
+        if orig is None:
+            return False
+
+        # MySQL (aiomysql/asyncmy): errno 1062 (ER_DUP_ENTRY)
+        # 注意必须最先检查: MySQL 所有完整性冲突的 SQLSTATE 均为 23000, 不具备区分度
+        if orig.args and orig.args[0] == 1062:
+            return True
+
+        # PostgreSQL (asyncpg/psycopg): sqlstate/pgcode 23505 (unique_violation)
+        sqlstate = getattr(orig, 'sqlstate', None) or getattr(orig, 'pgcode', None)
+        if sqlstate is not None:
+            return sqlstate == '23505'
+
+        # SQLite (aiosqlite/sqlite3): extended error code 1555 (CONSTRAINT_PRIMARYKEY) / 2067 (CONSTRAINT_UNIQUE)
+        sqlite_errorcode = getattr(orig, 'sqlite_errorcode', None)
+        if sqlite_errorcode is not None:
+            return sqlite_errorcode in (1555, 2067)
+
+        return False
 
     @classmethod
     def _escape_like(cls, keyword: str) -> str:

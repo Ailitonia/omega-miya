@@ -410,7 +410,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 case ArtworkClassification.HUMAN_CONFIRMED:
                     result['human_confirmed'] = count_num
                 case _:
-                    result['unused'] = count_num
+                    # IGNORED(-2)/UNKNOWN(-1) 等多个枚举值均落入此分支, 需累加而非覆盖
+                    result['unused'] = result.get('unused', 0) + count_num
 
         return ArtworkClassificationStatistic.model_validate(result)
 
@@ -455,7 +456,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 case ArtworkRating.EXPLICIT:
                     result['explicit'] = count_num
                 case _:
-                    result['unknown'] = count_num
+                    # 存在 UNKNOWN(-1) 及枚举外取值的可能, 需累加而非覆盖
+                    result['unknown'] = result.get('unknown', 0) + count_num
 
         return ArtworkRatingStatistic.model_validate(result)
 
@@ -645,7 +647,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 await session.flush()
             await session.refresh(new_obj)
             return new_obj
-        except IntegrityError:
+        except IntegrityError as e:
+            # 只有唯一约束冲突才进入"已存在则复用"分支, 其他完整性冲突(外键/非空等)原样抛出
+            if not self._is_unique_conflict_error(e):
+                raise
             # 把插入失败的对象移出会话, 避免意外影响
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -737,7 +742,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                         description=description,
                         published_at=published_at,
                     )
-            except IntegrityError:
+            except IntegrityError as e:
+                # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
+                if not self._is_unique_conflict_error(e):
+                    raise
                 # 插入失败说明是已存在的条目, 锁定查询并更新信息
                 artwork_item = await self._select_unique(
                     origin=origin,
@@ -844,19 +852,24 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                         description=description,
                         published_at=published_at,
                     )
-            except IntegrityError:
+            except IntegrityError as e:
+                # 只有唯一约束冲突才忽略, 其他完整性冲突(外键/非空等)原样抛出
+                if not self._is_unique_conflict_error(e):
+                    raise
                 # 插入失败说明是已存在的条目, 忽略本次提交的作品信息
-                pass
             else:
                 # 插入成功说明是新条目, 继续插入关联表
                 for tag_item in tags_item:
                     await self._add_artwork_with_tag(artwork_item.id, tag_item.id)
 
             # 获取已有条目信息 (重新加载, 确保返回数据模型时关系属性已加载)
+            # 锁定读以读到最新已提交数据: 插入冲突说明目标行由并发事务提交, 本事务若已建立
+            # REPEATABLE READ 一致性快照, 普通一致性读可能读不到该行而误报 NoResultFound
             artwork_item = await self._select_unique(
                 origin=origin,
                 aid=aid,
                 populate_existing=True,
+                with_for_update=True,
             )
         await self.db_session.refresh(artwork_item)
         return Artwork.model_validate(artwork_item)

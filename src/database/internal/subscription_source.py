@@ -150,7 +150,10 @@ class SubscriptionSourceDAL(BaseDataAccessLayer[SubscriptionSourceOrm, Subscript
             async with self.safe_begin_transaction() as session:
                 session.add(new_obj)
                 await session.flush()
-        except IntegrityError:
+        except IntegrityError as e:
+            # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
+            if not self._is_unique_conflict_error(e):
+                raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
             async with self.safe_begin_transaction() as session:
