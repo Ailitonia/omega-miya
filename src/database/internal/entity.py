@@ -556,11 +556,11 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
         new_obj = FriendshipOrm(
             entity_index_id=entity_index_id,
             status=status or 'normal',
-            mood=mood or Decimal('0'),
-            friendship=friendship or Decimal('0'),
-            energy=energy or Decimal('0'),
-            currency=currency or Decimal('0'),
-            rsp_threshold=rsp_threshold or Decimal('0'),
+            mood=mood if mood is not None else Decimal('0'),
+            friendship=friendship if friendship is not None else Decimal('0'),
+            energy=energy if energy is not None else Decimal('0'),
+            currency=currency if currency is not None else Decimal('0'),
+            rsp_threshold=rsp_threshold if rsp_threshold is not None else Decimal('0'),
         )
 
         try:

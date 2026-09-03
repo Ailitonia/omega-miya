@@ -75,7 +75,7 @@ class _TestDatabaseMigrationHelper:
         table_names = inspect(connection).get_table_names()
         if cls._alembic_version_table.name not in table_names:
             return []
-        versions = [x for x in connection.execute(select(cls._alembic_version_table)).scalars().all()]
+        versions = list(connection.execute(select(cls._alembic_version_table)).scalars().all())
         return versions
 
     def _drop_test_business_table(self, connection: Connection) -> None:

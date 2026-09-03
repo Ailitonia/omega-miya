@@ -65,9 +65,15 @@ class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
         :param start_timestamp: 统计起始时间, 为空则返回全部
         :param plugin_name: 插件名, 为空则返回全部
         :param module_name: 插件模块名, 为空则返回全部
-        :param page: 分页
+        :param page: 分页, 起始页为 1
         :param size: 每页数量
         """
+        if page < 1:
+            raise ValueError('page must be a positive integer')
+
+        if size < 1:
+            raise ValueError('size must be a positive integer')
+
         stmt = select(StatisticOrm).order_by(desc(StatisticOrm.call_timestamp))
 
         if start_timestamp is not None:

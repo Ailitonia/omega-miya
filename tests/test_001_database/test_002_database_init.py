@@ -10,7 +10,7 @@
 @Software       : PyCharm
 """
 
-from collections.abc import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from typing import Any
 from unittest.mock import AsyncMock
 

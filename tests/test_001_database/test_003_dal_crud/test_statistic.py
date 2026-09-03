@@ -34,20 +34,20 @@ async def test_statistic_plugin_module() -> str:
 async def test_statistic_call_entity_meta() -> dict[str, Any]:
     return {
         'id': random.randint(100000, 999999),
-        'name': "".join(random.sample(string.ascii_letters + string.digits, k=8)),
-        'message': "".join(random.sample(string.ascii_letters + string.digits, k=16)),
+        'name': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
+        'message': ''.join(random.sample(string.ascii_letters + string.digits, k=16)),
     }
 
 
 @pytest.fixture(scope='class')
 async def test_statistic_call_data() -> dict[str, Any]:
     return {
-        'command': "".join(random.sample(string.ascii_letters + string.digits, k=8)),
+        'command': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
         'data': {
-            'target': "".join(random.sample(string.ascii_letters + string.digits, k=8)),
-            'payload': "".join(random.sample(string.ascii_letters + string.digits, k=8)),
+            'target': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
+            'payload': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
         },
-        'token': "".join(random.sample(string.ascii_letters + string.digits, k=8)),
+        'token': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
     }
 
 
@@ -354,6 +354,47 @@ class TestStatisticDAL:
 
         result = await statistic_dal.query_by_condition(plugin_name='nonexistent_plugin')
         assert result == []
+
+    async def test_query_pagination(self, statistic_dal) -> None:
+        """分页参数 page/size 正确限制结果数量与偏移"""
+        await statistic_dal._clear_all()
+        await statistic_dal.commit_session()
+
+        base_ts = 1000000000
+        for i in range(1, 6):
+            await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts + i,
+                                    call_entity_meta={}, call_data={})
+        await statistic_dal.commit_session()
+
+        # 第一页 (按 call_timestamp DESC 取前 2 条)
+        page_1 = await statistic_dal.query_by_condition(page=1, size=2)
+        assert [item.call_timestamp for item in page_1] == [base_ts + 5, base_ts + 4]
+
+        # 第二页 (向后偏移 2 条)
+        page_2 = await statistic_dal.query_by_condition(page=2, size=2)
+        assert [item.call_timestamp for item in page_2] == [base_ts + 3, base_ts + 2]
+
+        # 第三页 (不足一页)
+        page_3 = await statistic_dal.query_by_condition(page=3, size=2)
+        assert [item.call_timestamp for item in page_3] == [base_ts + 1]
+
+        # 超出范围的页返回空列表
+        page_4 = await statistic_dal.query_by_condition(page=4, size=2)
+        assert page_4 == []
+
+    async def test_query_pagination_invalid_params(self, statistic_dal) -> None:
+        """非法分页参数应抛出 ValueError"""
+        with pytest.raises(ValueError, match='page must be a positive integer'):
+            await statistic_dal.query_by_condition(page=0)
+
+        with pytest.raises(ValueError, match='page must be a positive integer'):
+            await statistic_dal.query_by_condition(page=-1)
+
+        with pytest.raises(ValueError, match='size must be a positive integer'):
+            await statistic_dal.query_by_condition(size=0)
+
+        with pytest.raises(ValueError, match='size must be a positive integer'):
+            await statistic_dal.query_by_condition(size=-1)
 
     # ------------------------------------------------------------------ #
     # count_by_condition

@@ -801,7 +801,7 @@ class TestArtworkCollectionDAL:
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
-        """order_mode='latest' 按 created_at DESC 排序"""
+        """order_mode='latest' 按 published_at DESC 排序"""
         await artwork_dal._clear_all()
         await artwork_dal.commit_session()
 
@@ -1423,3 +1423,130 @@ class TestArtworkCollectionDAL:
         # 普通关键词模糊命中不受转义影响, a1/a2 标题均含 'perfect'
         result = await artwork_dal.query_by_condition('test_origin', keywords=['perfect'], size=10)
         assert {item.aid for item in result} == {a1_kwargs['aid'], a2_kwargs['aid']}
+
+    # ------------------------------------------------------------------ #
+    # update_artwork_review_classification_rating
+    # ------------------------------------------------------------------ #
+
+    async def test_update_artwork_review_classification_rating(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """更新评审分类分级, 验证字段更新且标签关联保留"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs['raw_tags'] = 'neko, nekomimi'
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.update_artwork_review_classification_rating(
+            artwork_kwargs['origin'],
+            artwork_kwargs['aid'],
+            classification=3,
+            rating=2,
+        )
+        await artwork_dal.commit_session()
+
+        assert result.classification == 3
+        assert result.rating == 2
+        # 更新分类分级不应影响其他字段与标签关联
+        assert result.title == artwork_kwargs['title']
+        assert {tag.tag_name for tag in result.tags_name_artwork_had} == {'neko', 'nekomimi'}
+
+        # 查回验证已持久化
+        artwork = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert artwork.classification == 3
+        assert artwork.rating == 2
+
+    async def test_update_artwork_review_classification_rating_not_exists(self, artwork_dal) -> None:
+        """作品不存在时应抛出 NoResultFound"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(NoResultFound):
+            await artwork_dal.update_artwork_review_classification_rating('test_origin', 'not_exists_aid', 3, 2)
+
+    async def test_update_artwork_review_classification_rating_invalid_enum(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """非法枚举值应抛出 ValueError 且不产生写入"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
+            await artwork_dal.update_artwork_review_classification_rating(
+                artwork_kwargs['origin'], artwork_kwargs['aid'], 99, 2
+            )
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkRating'):
+            await artwork_dal.update_artwork_review_classification_rating(
+                artwork_kwargs['origin'], artwork_kwargs['aid'], 3, 99
+            )
+
+        # 验证字段未被修改
+        artwork = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert artwork.classification == 2
+        assert artwork.rating == 0
+
+    async def test_query_by_condition_latest_order_null_published_at(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """latest 排序: published_at 为空的行排在最后, 同发布时间按 id DESC 稳定排序 (跨方言一致)"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['published_at'] = datetime(2020, 2, 12, 1, 0, 0)
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['published_at'] = None
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['published_at'] = datetime(2020, 2, 13, 1, 0, 0)
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        # 与 a1 发布时间相同, 后插入 (id 更大), 应排在 a1 之前
+        a4_kwargs = test_basic_artwork_kwargs_generator()
+        a4_kwargs['published_at'] = datetime(2020, 2, 12, 1, 0, 0)
+        await artwork_dal.add_artwork_update_exist(**a4_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.query_by_condition('test_origin', None, size=10, order_mode='latest')
+        assert [item.aid for item in result] == [
+            a3_kwargs['aid'], a4_kwargs['aid'], a1_kwargs['aid'], a2_kwargs['aid'],
+        ]
+
+    async def test_query_classification_statistic_unused_accumulates(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """分类统计回归: IGNORED(-2) 与 UNKNOWN(-1) 均落入 unused 桶, 计数应累加而非覆盖"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['classification'] = -2
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['classification'] = -1
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.query_classification_statistic('test_origin')
+        assert result.unused == 2
+        assert result.total == 2

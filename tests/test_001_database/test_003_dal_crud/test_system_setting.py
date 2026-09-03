@@ -158,7 +158,6 @@ class TestSystemSettingDAL:
                 setting_key=test_system_setting_key,
                 setting_value='another_value',
             )
-            await system_setting_dal.commit_session()
 
         # 回滚到正常状态
         await system_setting_dal.rollback_session()

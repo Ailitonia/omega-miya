@@ -695,12 +695,31 @@ class TestSocialMediaContentDAL:
         )
         assert result == ['mid_02', 'mid_01']
 
-    async def test_query_not_exists_m_ids_lexicographic_order(self, smc_dal) -> None:
-        """m_id 为字符串列, 排序为字典序倒序 ('mid_9' 排在 'mid_10' 之前)"""
+    async def test_query_not_exists_m_ids_natural_order(self, smc_dal) -> None:
+        """m_id 按数值感知倒序 ('mid_10' 排在 'mid_9' 之前), 与 exists 查询的 SQL 排序语义一致"""
         await smc_dal._clear_all()
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_not_exists_m_ids(
             None, None, None, ['mid_9', 'mid_10', 'mid_2'],
         )
-        assert result == ['mid_9', 'mid_2', 'mid_10']
+        assert result == ['mid_10', 'mid_9', 'mid_2']
+
+    async def test_query_exists_m_ids_natural_order(self, smc_dal) -> None:
+        """exists 查询按 m_id 数值感知倒序, not_exists 在部分已存在时保持相同排序语义"""
+        await smc_dal._clear_all()
+        await smc_dal.commit_session()
+
+        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_9', m_uid='uid_a', title='t1', raw_data={})
+        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_10', m_uid='uid_a', title='t2', raw_data={})
+        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_2', m_uid='uid_a', title='t3', raw_data={})
+        await smc_dal.commit_session()
+
+        result = await smc_dal.query_source_exists_m_ids('src_a', None, None, ['mid_9', 'mid_10', 'mid_2'])
+        assert result == ['mid_10', 'mid_9', 'mid_2']
+
+        # 剩余不存在条目的排序语义与 exists 一致 ('mid_100' 数值感知上大于 'mid_20')
+        result = await smc_dal.query_source_not_exists_m_ids(
+            'src_a', None, None, ['mid_9', 'mid_10', 'mid_2', 'mid_100', 'mid_20'],
+        )
+        assert result == ['mid_100', 'mid_20']

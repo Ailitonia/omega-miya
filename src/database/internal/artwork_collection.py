@@ -883,10 +883,14 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
 
         如果作品不存在直接抛出异常
         """
+        # 先完成枚举校验再变更 ORM 对象, 避免校验失败时将部分赋值的脏对象遗留在会话中
+        classification_ = ArtworkClassification(classification)
+        rating_ = ArtworkRating(rating)
+
         artwork_item = await self._select_unique(origin, aid, populate_existing=True, with_for_update=True)
 
-        artwork_item.classification = ArtworkClassification(classification)
-        artwork_item.rating = ArtworkRating(rating)
+        artwork_item.classification = classification_
+        artwork_item.rating = rating_
 
         await self.db_session.flush()
         return Artwork.model_validate(artwork_item)

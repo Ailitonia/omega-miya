@@ -16,7 +16,7 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.exc import DBAPIError, IntegrityError, NoResultFound
 
 
 def _random_string(k: int = 8) -> str:
@@ -240,3 +240,38 @@ class TestWriteTransactionContract:
 
             with pytest.raises(NoResultFound):
                 await dal.query_unique(cache_name, cache_key)
+
+
+class TestCheckConstraint:
+    """CheckConstraint 数据库层生效验证 (约束冲突不得被误判为唯一冲突)
+
+    注意: MySQL < 8.0.16 的 CHECK 约束解析但不强制, 该环境下本测试将失败并暴露约束不生效的事实
+    """
+
+    async def test_check_constraint_violation_raises_and_not_unique_conflict(self) -> None:
+        """绕过 DAL 枚举校验直接写入越界 enabled 值, 应触发 CHECK 约束冲突, 且不被误判为唯一冲突
+
+        方言差异: MySQL 将 CHECK 违例 (errno 3819) 映射为 OperationalError, PostgreSQL (23514) 与
+        SQLite (CONSTRAINT_CHECK 275) 映射为 IntegrityError, 此处以公共基类 DBAPIError 断言
+        """
+        from src.database.helpers import database_session
+        from src.database.model import BaseDataAccessLayer
+        from src.database.schema import PluginOrm
+
+        plugin_name = f'TEST_CK_{_random_string()}'
+        module_name = f'TEST_CK_{_random_string()}'
+
+        async with database_session() as session:
+            session.add(PluginOrm(plugin_name=plugin_name, module_name=module_name, enabled=99))
+            with pytest.raises(DBAPIError) as exc_info:
+                await session.flush()
+
+            # 确认触发的是目标 CHECK 约束而非其他错误
+            assert 'ck_omega_miya_plugin_enabled' in str(exc_info.value)
+
+            # CHECK 冲突不得被误判为唯一约束冲突 (否则 upsert 场景会掩盖真实错误)
+            if isinstance(exc_info.value, IntegrityError):
+                assert not BaseDataAccessLayer._is_unique_conflict_error(exc_info.value)
+
+            # 清理失败的事务状态, 避免上下文退出时提交失败事务
+            await session.rollback()

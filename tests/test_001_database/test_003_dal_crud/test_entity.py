@@ -939,6 +939,79 @@ class TestEntityDAL:
         assert result.currency == Decimal('0')
         assert result.rsp_threshold == Decimal('0')
 
+    async def test_set_friendship_partial_update_preserves_others(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """部分更新语义: 仅传入的字段被更新, 未传入的字段 (None) 保持原值"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        entity = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+        )
+        await entity_dal.commit_session()
+
+        await entity_dal.set_entity_friendship(
+            entity.id,
+            status='happy',
+            mood=Decimal('5'),
+            friendship=Decimal('100'),
+            energy=Decimal('50'),
+            currency=Decimal('25'),
+            rsp_threshold=Decimal('3'),
+        )
+        await entity_dal.commit_session()
+
+        # 仅更新 currency, 其余字段应保持不变
+        result = await entity_dal.set_entity_friendship(entity.id, currency=Decimal('999'))
+        await entity_dal.commit_session()
+
+        assert result.currency == Decimal('999')
+        assert result.status == 'happy'
+        assert result.mood == Decimal('5')
+        assert result.friendship == Decimal('100')
+        assert result.energy == Decimal('50')
+        assert result.rsp_threshold == Decimal('3')
+
+    async def test_set_friendship_all_none_no_change(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """全部参数缺省时 (仅提供 entity_index_id), 已有记录的字段不应被修改"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        entity = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+        )
+        await entity_dal.commit_session()
+
+        await entity_dal.set_entity_friendship(entity.id, status='happy', friendship=Decimal('42'))
+        await entity_dal.commit_session()
+
+        result = await entity_dal.set_entity_friendship(entity.id)
+        await entity_dal.commit_session()
+
+        assert result.status == 'happy'
+        assert result.friendship == Decimal('42')
+
     async def test_change_friendship_increment(
             self,
             entity_dal,

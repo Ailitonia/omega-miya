@@ -69,7 +69,7 @@ async def test_history_message_raw(
             'type': test_history_message_type,
             'content': test_history_message_plain_text,
         },
-        'mid': "".join(random.sample(string.ascii_letters + string.digits, k=8)),
+        'mid': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
     }
 
 
@@ -259,7 +259,6 @@ class TestHistoryDAL:
                 message_plain_text='other text',
                 message_raw={},
             )
-            await history_dal.commit_session()
 
         # 回滚到正常状态
         await history_dal.rollback_session()
@@ -284,7 +283,7 @@ class TestHistoryDAL:
             test_history_message_plain_text,
             test_history_message_raw,
     ) -> None:
-        """相同四元组插入两次 (message_id, bot_self_id, event_entity_id, user_entity_id), 预期 IntegrityError (唯一约束 2)"""
+        """相同四元组 (message_id, bot_self_id, event_entity_id, user_entity_id) 重复插入, 预期 IntegrityError"""
         await history_dal._clear_all()
         await history_dal.commit_session()
 
@@ -312,7 +311,6 @@ class TestHistoryDAL:
                 message_plain_text='other text',
                 message_raw={},
             )
-            await history_dal.commit_session()
 
         # 回滚到正常状态
         await history_dal.rollback_session()
@@ -601,7 +599,7 @@ class TestHistoryDAL:
         await history_dal._clear_all()
         await history_dal.commit_session()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='need at least one of the event_entity_id and user_entity_id parameters'):
             await history_dal.query_records_by_condition(bot_self_id='bot1')
 
     # ------------------------------------------------------------------ #
@@ -740,7 +738,7 @@ class TestHistoryDAL:
         await history_dal._clear_all()
         await history_dal.commit_session()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='need at least one of the event_entity_id and user_entity_id parameters'):
             await history_dal.count_records_by_condition(bot_self_id='bot1')
 
     # ------------------------------------------------------------------ #

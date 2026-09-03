@@ -192,7 +192,8 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
     ) -> list[str]:
         """根据提供的来源类型及 m_id 清单查询其中不存在于数据库记录中的条目"""
         exists_m_ids = await self.query_source_exists_m_ids(source=source, m_type=m_type, m_uid=m_uid, m_ids=m_ids)
-        return sorted(set(m_ids) - set(exists_m_ids), reverse=True)
+        # 与 query_source_exists_m_ids 的 SQL 数值感知排序 (长度优先, 同长度字典序) 保持一致
+        return sorted(set(m_ids) - set(exists_m_ids), key=lambda x: (len(x), x), reverse=True)
 
     async def add(
             self,
