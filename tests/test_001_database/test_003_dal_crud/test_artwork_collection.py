@@ -1373,3 +1373,53 @@ class TestArtworkCollectionDAL:
 
         not_exists = await artwork_dal.query_not_exists_aids('test_origin', ['8', '9', '10', '11', '101'])
         assert not_exists == ['101', '11']
+
+    async def test_query_by_condition_keyword_like_wildcards_escaped(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """模糊搜索关键词中的 LIKE 通配符 (% _ \\) 必须被转义为字面量, 不产生通配命中"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        # 标题含字面 % 和 _ 的作品 (注意 uname/raw_tags 均不得含 %/_, 避免经其他字段命中干扰断言)
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['title'] = '100%_perfect'
+        a1_kwargs['uname'] = 'percentuser'
+        a1_kwargs['raw_tags'] = 'plainone'
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        # 标题与 a1 相似但不含通配符的作品 (若 %/_ 未转义将被误命中)
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['title'] = '1000xperfect'
+        a2_kwargs['uname'] = 'plainuser'
+        a2_kwargs['raw_tags'] = 'plaintwo'
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        # 标题含字面反斜杠的作品
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['title'] = 'back\\slash'
+        a3_kwargs['uname'] = 'slashuser'
+        a3_kwargs['raw_tags'] = 'plainthree'
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        # '%' 未转义时作为通配符将命中全部, 转义后仅命中含字面 % 的 a1
+        result = await artwork_dal.query_by_condition('test_origin', keywords=['%'], size=10)
+        assert [item.aid for item in result] == [a1_kwargs['aid']]
+
+        # '_' 未转义时作为通配符将命中全部, 转义后仅命中含字面 _ 的 a1
+        result = await artwork_dal.query_by_condition('test_origin', keywords=['_'], size=10)
+        assert [item.aid for item in result] == [a1_kwargs['aid']]
+
+        # 转义后 '100%_' 为字面量子串, 仅命中 a1
+        result = await artwork_dal.query_by_condition('test_origin', keywords=['100%_'], size=10)
+        assert [item.aid for item in result] == [a1_kwargs['aid']]
+
+        # '\\' 转义后为字面量反斜杠, 仅命中 a3
+        result = await artwork_dal.query_by_condition('test_origin', keywords=['\\'], size=10)
+        assert [item.aid for item in result] == [a3_kwargs['aid']]
+
+        # 普通关键词模糊命中不受转义影响, a1/a2 标题均含 'perfect'
+        result = await artwork_dal.query_by_condition('test_origin', keywords=['perfect'], size=10)
+        assert {item.aid for item in result} == {a1_kwargs['aid'], a2_kwargs['aid']}

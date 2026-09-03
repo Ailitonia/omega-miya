@@ -58,7 +58,10 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
     async def safe_begin_transaction(self) -> AsyncGenerator[AsyncSession, None]:
         """安全开启一个事务或嵌套事务
 
-        若当前 session 已有事务则开 SAVEPOINT, 无事务则开顶层事务
+        若当前 session 已有事务则开 SAVEPOINT 嵌套事务;
+        无事务则显式开启顶层事务, 但本方法不执行提交:
+        顶层事务的提交统一交由会话边界 (database_session) 或显式 commit_session 处理,
+        以保证多个 DAL 方法组合调用时的整体原子性 (避免纯写方法在 fresh session 上自行 commit)
         """
         if not self.db_session.is_active:
             raise RuntimeError('Current session is not active')
@@ -67,8 +70,16 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
             async with self.db_session.begin_nested():
                 yield self.db_session
         else:
-            async with self.db_session.begin():
+            # 显式开启顶层事务但不在此处提交: 一方面保证后续 must_begin_nested_in_transaction 可用
+            # (SAVEPOINT 需要已存在的外层事务, autobegin 在首个 SQL 前不会自动开启事务);
+            # 另一方面提交统一交由会话边界 (database_session) 或显式 commit_session 处理,
+            # 以保证多个 DAL 方法组合调用时的整体原子性 (避免纯写方法在 fresh session 上自行 commit)
+            await self.db_session.begin().start()
+            try:
                 yield self.db_session
+            except BaseException:
+                await self.db_session.rollback()
+                raise
 
     @asynccontextmanager
     async def must_begin_nested_in_transaction(self) -> AsyncGenerator[AsyncSession, None]:
