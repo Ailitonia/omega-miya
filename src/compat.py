@@ -95,7 +95,6 @@ def dump_json_as[T](
         type_: type[T],
         obj: Any,
         *,
-        encoding: str = 'utf-8',
         indent: int | None = None,
         ensure_ascii: bool = False,
         include: 'DumpIncEx' = None,
@@ -105,7 +104,10 @@ def dump_json_as[T](
         exclude_defaults: bool = False,
         exclude_none: bool = False,
 ) -> str:
-    """Validate and serialize an instance of the adapted type to JSON."""
+    """Validate and serialize an instance of the adapted type to JSON.
+
+    pydantic-core 的 dump_json 永远输出 UTF-8 字节, 传非 UTF-8 编码处理内容会直接 UnicodeDecodeError
+    """
     custom_type_adapter = TypeAdapter(type_)
     validated_instance = custom_type_adapter.validate_python(obj)
     return custom_type_adapter.dump_json(
@@ -118,7 +120,7 @@ def dump_json_as[T](
         exclude_unset=exclude_unset,
         exclude_defaults=exclude_defaults,
         exclude_none=exclude_none,
-    ).decode(encoding=encoding)
+    ).decode(encoding='utf-8')
 
 
 __all__ = [
