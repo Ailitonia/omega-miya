@@ -12,7 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ForeignKey, Identity, Index, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import BigInteger, Date, DateTime, Integer, Numeric, SmallInteger, String
 
@@ -65,12 +65,13 @@ class PluginOrm(Base):
     """插件表, 存放插件信息"""
     __tablename__ = f'{database_config.db_prefix}plugin'
     __table_args__ = (
+        CheckConstraint('enabled BETWEEN -1 AND 1', name='enabled'),
         database_config.table_args,
     )
 
     plugin_name: Mapped[str] = mapped_column(String(255), primary_key=True)
     module_name: Mapped[str] = mapped_column(String(255), primary_key=True)
-    enabled: Mapped[int] = mapped_column(SmallInteger, nullable=False, index=True)
+    enabled: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     info: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
@@ -100,7 +101,7 @@ class StatisticOrm(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
     def __repr__(self) -> str:
-        return (f'StatisticsOrm(plugin_name={self.plugin_name}, module_name={self.module_name}, '
+        return (f'StatisticOrm(plugin_name={self.plugin_name}, module_name={self.module_name}, '
                 f'call_timestamp={self.call_timestamp}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
@@ -110,7 +111,6 @@ class HistoryOrm(Base):
     __tablename__ = f'{database_config.db_prefix}history'
     __table_args__ = (
         UniqueConstraint('bot_self_id', 'message_id'),
-        UniqueConstraint('message_id', 'bot_self_id', 'event_entity_id', 'user_entity_id'),
         Index(None, 'bot_self_id', 'event_entity_id', 'user_entity_id', 'message_type', 'received_timestamp'),
         database_config.table_args,
     )
@@ -139,6 +139,7 @@ class BotSelfOrm(Base):
     __tablename__ = f'{database_config.db_prefix}bot'
     __table_args__ = (
         UniqueConstraint('bot_type', 'self_id'),
+        CheckConstraint('bot_status BETWEEN -1 AND 1', name='bot_status'),
         database_config.table_args,
     )
 
@@ -505,6 +506,8 @@ class ArtworkCollectionOrm(Base):
         Index(None, 'origin', 'uid'),
         Index('ix_artwork_common_search', 'origin', 'classification', 'rating', 'orientation'),
         Index('ix_artwork_classification_rating', 'classification', 'rating'),
+        CheckConstraint('classification BETWEEN -2 AND 3', name='classification'),
+        CheckConstraint('rating BETWEEN -1 AND 3', name='rating'),
         database_config.table_args,
     )
 
@@ -569,6 +572,8 @@ class ArtworkReviewRecordsOrm(Base):
     __tablename__ = f'{database_config.db_prefix}artwork_review_records'
     __table_args__ = (
         Index(None, 'artwork_index_id', 'review_timestamp'),
+        CheckConstraint('review_classification BETWEEN -2 AND 3', name='review_classification'),
+        CheckConstraint('review_rating BETWEEN -1 AND 3', name='review_rating'),
         database_config.table_args,
     )
 
