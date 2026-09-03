@@ -22,6 +22,8 @@ def build_cli_parser() -> argparse.ArgumentParser:
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--run', action='store_true', help='启动Omega Miya')
+    group.add_argument('--tool-execute', type=str, metavar='MODULE[:FUNC]',
+                       help='执行 tools/ 下的工具模块入口函数, 例如 --tool-execute some_tool:main')
     group.add_argument('--database-check', action='store_true', help='检查数据库版本')
     group.add_argument('--database-upgrade-to-head', action='store_true', help='升级数据库到最新')
     group.add_argument('--database-upgrade', type=str, help='升级数据库到指定版本')
@@ -34,6 +36,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
 class CliQueryArguments(BaseModel):
     """CLI 命令的解析结果 Model"""
     run: bool
+    tool_execute: str | None
     database_check: bool
     database_upgrade_to_head: bool
     database_upgrade: str | None

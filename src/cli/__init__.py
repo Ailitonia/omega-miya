@@ -15,11 +15,12 @@ from .command import build_cli_parser, parse_cli_args
 from .hanlder import (
     run_bot,
     run_database_check,
-    run_database_upgrade,
-    run_database_upgrade_to_head,
     run_database_downgrade,
     run_database_revision,
     run_database_stamp,
+    run_database_upgrade,
+    run_database_upgrade_to_head,
+    run_tool_execute,
 )
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
 
 DISPATCH_HANDERS: dict[str, 'CliHandler'] = {
     'run': run_bot,
+    'tool_execute': run_tool_execute,
     'database_check': run_database_check,
     'database_upgrade': run_database_upgrade,
     'database_upgrade_to_head': run_database_upgrade_to_head,
