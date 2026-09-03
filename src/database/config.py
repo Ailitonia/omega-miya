@@ -114,7 +114,8 @@ class SQLiteDatabaseConfig(DatabaseType):
 
     @property
     def connector(self) -> DatabaseConnector:
-        database_path = pathlib.Path(sys.path[0]).absolute().joinpath(f'{self.db_name}.db').resolve()
+        root_path = pathlib.Path(__file__).resolve().parent.parent.parent
+        database_path = root_path.joinpath(f'{self.db_name}.db').resolve()
         return DatabaseConnector(
             url=f'{self.database}+{self.db_driver.value}:///{database_path.as_posix()}',
             connect_args={}

@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING, final
 
 if TYPE_CHECKING:
@@ -24,8 +25,8 @@ class OmegaException(Exception):
 class LocalSourceException(OmegaException):
     """本地资源异常"""
 
-    def __init__(self, path: 'PurePath'):
-        self.path = path
+    def __init__(self, path: 'PurePath | str'):
+        self.path = Path(path) if isinstance(path, str) else path
 
 
 class PlatformException(OmegaException):

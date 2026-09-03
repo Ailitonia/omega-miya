@@ -9,9 +9,8 @@
 """
 
 import abc
-import sys
 from collections.abc import Callable, Generator
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -19,10 +18,8 @@ from typing import (
     IO,
     TYPE_CHECKING,
     Any,
-    AsyncContextManager,
     ClassVar,
     Concatenate,
-    ContextManager,
     Literal,
     NoReturn,
     Self,
@@ -65,7 +62,7 @@ class ResourceNotFileError(LocalSourceException):
         return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
 
 
-__ROOT_PATH: Path = Path(sys.path[0]).absolute()
+__ROOT_PATH: Path = Path(__file__).resolve().parent.parent
 """项目根目录"""
 _LOG_FOLDER: Path = __ROOT_PATH.joinpath('log')
 """日志文件路径"""
@@ -73,15 +70,6 @@ _STATIC_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('static')
 """静态资源文件路径"""
 _TEMPORARY_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.tmp')
 """运行时产生的的可随时清理的缓存/临时文件路径"""
-
-
-# 初始化日志文件路径文件夹
-if not _LOG_FOLDER.exists():
-    _LOG_FOLDER.mkdir()
-
-# 初始化临时文件路径文件夹
-if not _TEMPORARY_RESOURCE_FOLDER.exists():
-    _TEMPORARY_RESOURCE_FOLDER.mkdir()
 
 
 class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
@@ -99,7 +87,7 @@ class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
 class BaseResource(abc.ABC):
     """资源文件基类"""
 
-    _host_protocol: ClassVar[type[BaseResourceHostProtocol] | None] = None
+    _host_protocol: ClassVar[type[BaseResourceHostProtocol[Self]] | None] = None
     __slots__ = ('path',)
     path: Path
 
@@ -121,7 +109,7 @@ class BaseResource(abc.ABC):
     @classmethod
     def register_host_protocol(
             cls,
-            protocol: type[BaseResourceHostProtocol],
+            protocol: type[BaseResourceHostProtocol[Self]],
     ) -> None:
         """注册文件托管协议"""
         if cls._host_protocol is not None:
@@ -131,9 +119,14 @@ class BaseResource(abc.ABC):
         cls._host_protocol = protocol
 
     @classmethod
+    def unregister_host_protocol(cls) -> None:
+        """注销已注册的文件托管协议, 未注册时为空操作"""
+        cls._host_protocol = None
+
+    @classmethod
     def init_from_path(cls, path: Path) -> Self:
         new_obj = cls(str(Path.cwd()))
-        new_obj.path = path.absolute()
+        new_obj.path = path.resolve()
         return new_obj
 
     def with_name(self, name: str) -> Self:
@@ -156,7 +149,8 @@ class BaseResource(abc.ABC):
         return new_obj
 
     def with_suffix(self, suffix: str) -> Self:
-        """返回一个新的路径并修改 suffix, 如果原本的路径没有后缀, 新的 suffix 则被追加以代替, 如果 suffix 是空字符串, 则原本的后缀被移除
+        """返回一个新的路径并修改 suffix, 如果原本的路径没有后缀, 新的 suffix 则被追加以代替,
+        如果 suffix 是空字符串, 则原本的后缀被移除
 
         Path('c:/Downloads/pathlib.tar.gz').with_suffix('.bz2') -> Path('c:/Downloads/pathlib.tar.bz2')
         Path('README').with_suffix('.txt') -> Path('README.txt')
@@ -167,29 +161,32 @@ class BaseResource(abc.ABC):
         return new_obj
 
     def with_month_subdir_for_dir(self) -> Self:
-        """修改为一个新的子目录路径, 根据当前年月划分子目录, 不对当前路径进行校验
+        """返回一个新的子目录路径, 根据当前年月划分子目录, 不对当前路径进行校验
 
-        Resource('c:/Downloads/').with_month_sub_dirs() -> Resource('c:/Downloads/2026-01/')
+        Resource('c:/Downloads/').with_month_subdir_for_dir() -> Resource('c:/Downloads/2026-01/')
         """
-        self.path = self.path.joinpath(datetime.now().strftime('%Y-%m'))
-        return self
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.joinpath(datetime.now().strftime('%Y-%m'))
+        return new_obj
 
     def with_date_subdir_for_dir(self) -> Self:
-        """修改为一个新的子目录路径, 根据当前日期划分子目录, 不对当前路径进行校验
+        """返回一个新的子目录路径, 根据当前日期划分子目录, 不对当前路径进行校验
 
-        Resource('c:/Downloads/').with_date_sub_dirs() -> Resource('c:/Downloads/2026/01/01/')
+        Resource('c:/Downloads/').with_date_subdir_for_dir() -> Resource('c:/Downloads/2026/01/01/')
         """
-        self.path = self.path.joinpath(*datetime.now().strftime('%Y-%m-%d').split('-'))
-        return self
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = self.path.joinpath(*datetime.now().strftime('%Y-%m-%d').split('-'))
+        return new_obj
 
     def with_suffix_subdir_for_file(self) -> Self:
-        """修改为一个新的路径, 根据当前路径 suffix 划分子目录, 不对当前路径进行校验
+        """返回一个新的路径, 根据当前路径 suffix 划分子目录, 不对当前路径进行校验
 
-        Resource('c:/Downloads/foo.pdf').with_suffix_sub_dirs() -> Resource('c:/Downloads/pdf/foo.pdf')
+        Resource('c:/Downloads/foo.pdf').with_suffix_subdir_for_file() -> Resource('c:/Downloads/pdf/foo.pdf')
         """
+        new_obj = self.__class__(str(self.path))
         new_parent = self.path.parent.joinpath(self.path.suffix.removeprefix('.'))
-        self.path = new_parent.joinpath(self.path.name)
-        return self
+        new_obj.path = new_parent.joinpath(self.path.name)
+        return new_obj
 
     @property
     def name(self) -> str:
@@ -260,13 +257,35 @@ class BaseResource(abc.ABC):
     def check_file[**P, R, ST: 'BaseResource'](
             func: Callable[Concatenate[ST, P], R],
     ) -> Callable[Concatenate[ST, P], R]:
-        """装饰一个方法, 需要实例 path 为文件时才能运行"""
+        """装饰一个方法, 需要实例 path 为已存在的文件时才能运行"""
+
+        @wraps(func)
+        def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
+            if self.path.exists() and self.path.is_file():
+                return func(self, *args, **kwargs)
+            else:
+                raise ResourceNotFileError(self.path)
+
+        return _wrapper
+
+    @staticmethod
+    def check_file_or_create[**P, R, ST: 'BaseResource'](
+            func: Callable[Concatenate[ST, P], R],
+    ) -> Callable[Concatenate[ST, P], R]:
+        """装饰一个打开文件的方法, 需要实例 path 为已存在的文件或为可创建的文件时才能运行
+
+        文件不存在时按打开模式区分行为: 读模式('r' 开头)抛出 ResourceNotFileError 异常,
+        写模式('w'/'x'/'a' 开头)则自动创建缺失的父目录后执行
+        """
 
         @wraps(func)
         def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
             if self.path.exists() and self.path.is_file():
                 return func(self, *args, **kwargs)
             elif not self.path.exists():
+                mode = args[0] if args else kwargs.get('mode', 'r')
+                if str(mode).startswith('r'):
+                    raise ResourceNotFileError(self.path)
                 if not self.path.parent.exists():
                     Path.mkdir(self.path.parent, parents=True)
                 return func(self, *args, **kwargs)
@@ -283,7 +302,6 @@ class BaseResource(abc.ABC):
     @property
     def parent(self) -> Self:
         """返回逻辑父路径"""
-        self.ensure_parent_path()
         return self.init_from_path(path=self.path.parent)
 
     @property
@@ -309,7 +327,7 @@ class BaseResource(abc.ABC):
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
             encoding: str | None = None,
             **kwargs
-    ) -> ContextManager['TextIOWrapper']:
+    ) -> AbstractContextManager['TextIOWrapper']:
         ...
 
     @overload
@@ -318,11 +336,11 @@ class BaseResource(abc.ABC):
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
             encoding: str | None = None,
             **kwargs
-    ) -> ContextManager['FileIO']:
+    ) -> AbstractContextManager['FileIO']:
         ...
 
     @contextmanager
-    @check_file
+    @check_file_or_create
     def open(self, mode, encoding: str | None = None, **kwargs) -> Generator[IO, Any, None]:
         """返回文件 handle"""
         with self.path.open(mode=mode, encoding=encoding, **kwargs) as _fh:
@@ -334,7 +352,7 @@ class BaseResource(abc.ABC):
             mode: Literal['r', 'w', 'x', 'a', 'r+', 'w+', 'x+', 'a+'],
             encoding: str | None = None,
             **kwargs
-    ) -> AsyncContextManager['AsyncTextIOWrapper']:
+    ) -> AbstractAsyncContextManager['AsyncTextIOWrapper']:
         ...
 
     @overload
@@ -343,11 +361,11 @@ class BaseResource(abc.ABC):
             mode: Literal['rb', 'wb', 'xb', 'ab', 'rb+', 'wb+', 'xb+', 'ab+'],
             encoding: str | None = None,
             **kwargs
-    ) -> AsyncContextManager['AsyncFileIO']:
+    ) -> AbstractAsyncContextManager['AsyncFileIO']:
         ...
 
     @asynccontextmanager
-    @check_file
+    @check_file_or_create
     async def async_open(self, mode, encoding: str | None = None, **kwargs):
         """返回文件 async handle"""
         async with aiofiles.open(file=self.path, mode=mode, encoding=encoding, **kwargs) as _afh:
@@ -410,9 +428,13 @@ class BaseResource(abc.ABC):
         new_obj.path = self.path.replace(target)
         return new_obj
 
-    @check_file
     def remove(self, *, missing_ok=True) -> None:
-        """移除此文件或符号链接"""
+        """移除此文件或符号链接
+
+        路径存在但不是文件时抛出 ResourceNotFileError 异常, 路径不存在时按 missing_ok 语义处理
+        """
+        if self.path.exists() and not self.path.is_file():
+            raise ResourceNotFileError(self.path)
         return self.path.unlink(missing_ok=missing_ok)
 
     @check_file
@@ -447,12 +469,12 @@ class LogFileResource(BaseResource):
         return self(f'{self.timestamp.strftime('%Y%m%d-%H%M%S')}-INFO.log').path
 
     @property
-    def warring(self) -> Path:
-        return self(f'{self.timestamp.strftime('%Y%m%d-%H%M%S')}-WARRING.log').path
+    def warning(self) -> Path:
+        return self(f'{self.timestamp.strftime('%Y%m%d-%H%M%S')}-WARNING.log').path
 
     @property
     def error(self) -> Path:
-        return self(f'{datetime.now().strftime('%Y%m%d-%H%M%S')}-ERROR.log').path
+        return self(f'{self.timestamp.strftime('%Y%m%d-%H%M%S')}-ERROR.log').path
 
 
 class StaticResource(BaseResource):

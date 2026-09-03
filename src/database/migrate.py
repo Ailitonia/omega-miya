@@ -9,7 +9,6 @@
 """
 
 import pathlib
-import sys
 from enum import StrEnum, unique
 from typing import TYPE_CHECKING, Annotated, Literal
 
@@ -23,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
-_ROOT_PATH = pathlib.Path(sys.path[0]).absolute()
+_ROOT_PATH = pathlib.Path(__file__).resolve().parent.parent.parent
 """项目根目录"""
 _ALEMBIC_INI = _ROOT_PATH.joinpath('alembic.ini')
 """Alembic 配置文件"""
