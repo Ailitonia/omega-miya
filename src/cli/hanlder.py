@@ -14,10 +14,27 @@ if TYPE_CHECKING:
     from .command import CliQueryArguments
 
 
+def _parse_tool_target(target: str) -> tuple[str, str]:
+    """解析工具执行目标, 格式为 ``module[:func]``, 模块名支持点分层级, 函数名省略时默认为 ``main``
+
+    返回限定在 tools 包命名空间内的完整模块路径与入口函数名
+    """
+    module_part, sep, func_name = target.rpartition(':')
+    if not sep:
+        module_part, func_name = target, 'main'
+
+    if not module_part or any(not segment.isidentifier() for segment in module_part.split('.')):
+        raise ValueError(f'invalid tool target module name: {target!r}')
+    if not func_name.isidentifier():
+        raise ValueError(f'invalid tool target function name: {target!r}')
+
+    return f'tools.{module_part}', func_name
+
+
 def run_bot(_: 'CliQueryArguments') -> None:
     """启动入口"""
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -64,10 +81,60 @@ def run_bot(_: 'CliQueryArguments') -> None:
     nonebot.run()
 
 
+def run_tool_execute(args: 'CliQueryArguments') -> None:
+    """执行 tools/ 下的工具模块入口函数"""
+    if not args.tool_execute:
+        raise ValueError('not provide tool target argument')
+
+    module_path, func_name = _parse_tool_target(args.tool_execute)
+
+    import asyncio
+    import importlib
+    import inspect
+
+    import nonebot
+    from nonebot.log import default_format, logger
+    from nonebot.utils import run_sync
+
+    from src.resource import LogFileResource
+
+    log_path = LogFileResource()
+    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
+
+    # Initialize nonebot
+    nonebot.init()
+
+    # 导入目标工具模块, 仅当目标模块本身缺失时转换为友好的错误提示, 工具内部的依赖缺失则原样抛出
+    try:
+        module = importlib.import_module(module_path)
+    except ModuleNotFoundError as e:
+        if e.name is not None and (e.name == module_path or module_path.startswith(f'{e.name}.')):
+            raise ValueError(f'tool module not found: {module_path}') from e
+        raise
+
+    func = getattr(module, func_name, None)
+    if func is None:
+        raise ValueError(f'tool function not found: {module_path}:{func_name}')
+    if not inspect.isfunction(func):
+        raise TypeError(f'tool target is not function: {module_path}:{func_name}')
+
+    logger.info(f'Executing tool: {module_path}:{func_name}')
+
+    # 执行入口函数, 兼容同步与异步入口
+    if inspect.iscoroutinefunction(func):
+        asyncio.run(func())
+    else:
+        @run_sync
+        def _wrapped_func():
+            func()
+
+        asyncio.run(_wrapped_func())
+
+
 def run_database_check(_: 'CliQueryArguments') -> None:
     """执行检查数据库版本"""
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -85,7 +152,7 @@ def run_database_check(_: 'CliQueryArguments') -> None:
 def run_database_upgrade_to_head(_: 'CliQueryArguments') -> None:
     """执行升级数据库到最新"""
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -106,7 +173,7 @@ def run_database_upgrade(args: 'CliQueryArguments') -> None:
         raise ValueError('not provide upgrade target version argument')
 
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -127,7 +194,7 @@ def run_database_downgrade(args: 'CliQueryArguments') -> None:
         raise ValueError('not provide downgrade target version argument')
 
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -148,7 +215,7 @@ def run_database_revision(args: 'CliQueryArguments') -> None:
         raise ValueError('not provide version message')
 
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -169,7 +236,7 @@ def run_database_stamp(args: 'CliQueryArguments') -> None:
         raise ValueError('not provide revision_id')
 
     import nonebot
-    from nonebot.log import logger, default_format
+    from nonebot.log import default_format, logger
 
     from src.resource import LogFileResource
 
@@ -192,4 +259,5 @@ __all__ = [
     'run_database_stamp',
     'run_database_upgrade',
     'run_database_upgrade_to_head',
+    'run_tool_execute',
 ]
