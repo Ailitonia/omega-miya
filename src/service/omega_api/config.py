@@ -14,8 +14,13 @@ from typing import Annotated
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
+_USING_RANDOM_KEY: bool = False
+"""主密钥是否为未显式配置时随机生成(重启后所有客户端签名将失效)"""
+
 
 def _generate_random_api_key() -> SecretStr:
+    global _USING_RANDOM_KEY
+    _USING_RANDOM_KEY = True
     logger.opt(colors=True).warning('<lc>Omega API</lc> | 未指定 API key, 将生成并使用随机密钥配置')
     return SecretStr(token_hex())
 
@@ -37,7 +42,10 @@ class OmegaAPIConfig(BaseModel):
 
 try:
     api_config = get_plugin_config(OmegaAPIConfig)
-    logger.opt(colors=True).success('<lc>Omega API</lc> | API Key 已配置')
+    if _USING_RANDOM_KEY:
+        logger.opt(colors=True).warning('<lc>Omega API</lc> | 正在使用随机生成的 API Key, 服务重启后客户端签名将失效')
+    else:
+        logger.opt(colors=True).success('<lc>Omega API</lc> | API Key 已配置')
 except (ValidationError, ValueError) as e:
     import sys
 

@@ -24,7 +24,6 @@ from nonebot.log import logger
 from nonebot.utils import run_sync
 
 from src.compat import dump_json_as
-
 from .config import api_config
 from .consts import APP_HEADER_KEY, TIMESTAMP_HEADER_KEY, TOKEN_HEADER_KEY, MethodLogColor
 
@@ -71,7 +70,7 @@ class _RouteRegisterMixin(abc.ABC):
     def _normalize_mount_str(path: str) -> str:
         """将 path/prefix/app_name 等挂载路径规范化为去除前后缀仅保留 ASCII 可打印字符的字符串"""
         normalize_path = ''.join(c for c in path.strip() if c.isascii() and c.isprintable())
-        return f'{normalize_path.strip().removeprefix("/").removesuffix("/").strip()}'
+        return normalize_path.strip(' /')
 
     def _register_route(self, method: str, path: str):
         """包装 async function 并注册为指定请求方法的路由
@@ -158,6 +157,10 @@ class OmegaAPI(_RouteRegisterMixin):
         :param use_https: 返回访问 URL 是是否使用 https
         """
         self._app_name = self._normalize_mount_str(app_name)
+        if not self._app_name:
+            # 归一化后为空(如纯非 ASCII 名称)时挂载路径会是根路径 '/', 将遮蔽整个主应用路由面, 必须拒绝
+            raise ValueError(f'Invalid app_name: {app_name!r}')
+
         self._enable_token_verify = enable_token_verify
         self._access_domain = access_domain
         self._use_https = use_https
@@ -178,11 +181,15 @@ class OmegaAPI(_RouteRegisterMixin):
 
     def _get_root_url(self) -> str:
         nonebot_config = get_driver().config
-        host = self._access_domain if self._access_domain is not None else str(nonebot_config.host)
-        port = nonebot_config.port
+        scheme = 'https' if self._use_https else 'http'
+        if self._access_domain is not None:
+            # 反代场景下访问域名由外部代理决定, 不拼接本地监听端口
+            return f'{scheme}://{self._access_domain}/{self._app_name}'
+        host = str(nonebot_config.host)
+        # 实际部署不涉及 IPv6 监听地址, 此处不处理 '::' 等 IPv6 host 的 URL 方括号拼接
         if host in ['0.0.0.0', '127.0.0.1']:
             host = 'localhost'
-        return f'{"https" if self._use_https else "http"}://{host}:{port}/{self._app_name}'
+        return f'{scheme}://{host}:{nonebot_config.port}/{self._app_name}'
 
     @staticmethod
     def _derive_app_key(master_key: str, app_name: str) -> str:
@@ -281,6 +288,10 @@ class OmegaAPI(_RouteRegisterMixin):
         :param params: 请求 query 参数, 多值参数(如 ?a=1&a=2)请传入 QueryParams 以保留重复键
         :param body: 请求体原始内容, 无请求体时留空
         """
+        if not signature.isascii():
+            # compare_digest 不接受非 ASCII 字符串, 非 ASCII 签名直接判定为非法
+            return False
+
         params_json = self._normalize_sign_params(params)
         body_hash = sha256(body).hexdigest()
         sign_message = f'{self._app_name}.{method.upper()}.{path}.{timestamp}.{params_json}.{body_hash}'
