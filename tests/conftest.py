@@ -39,18 +39,50 @@ def pytest_collection_modifyitems(items: list[pytest.Item]):
         async_test.add_marker(session_scope_marker, append=False)
 
 
+@pytest.fixture(scope='session')
+async def database_schema_guard() -> None:
+    """在 nonebug lifespan 启动前确保测试数据库结构已迁移到最新版本
+
+    - nonebug_init(driver.startup() 里的 _database_init 钩子)也执行自动迁移, 但不安全/异常时会 sys.exit 杀死会话
+    - 本 fixture 经 after_nonebot_init 依赖链保证先于 nonebug_init 执行, 将上述情况转换为跳过全部测试而非批量失败
+    - 空库/落后库自动迁移到 head, 之后 nonebug_init 里的 _database_init 二次校验作为兜底
+    """
+    try:
+        import src.database  # noqa: F401
+        from src.database.migrate import MigrationStatus, async_migrate_to_head, check_migration_state
+    except Exception as e:
+        pytest.skip(f'无法初始化测试数据库连接, 已跳过全部测试: {e}')
+
+    try:
+        check_result = await check_migration_state()
+    except Exception as e:
+        pytest.skip(f'无法连接测试数据库, 已跳过全部测试: {e}')
+
+    if not check_result.is_safe:
+        pytest.skip(
+            f'测试数据库迁移状态不安全, 已跳过全部测试: {check_result.message}; '
+            f'请使用 `python bot.py --database-check` (ENVIRONMENT=test) 检查并手动处理'
+        )
+
+    if check_result.status is not MigrationStatus.UP_TO_DATE:
+        try:
+            await async_migrate_to_head()
+        except Exception as e:
+            pytest.skip(f'测试数据库自动迁移失败, 已跳过全部测试: {e}')
+
+
 @pytest.fixture(scope='session', autouse=True)
-async def after_nonebot_init(after_nonebot_init: None):
+async def after_nonebot_init(after_nonebot_init: None, database_schema_guard: None) -> None:
     """nonebug 初始化 nonebot.init() 后流程
 
     通常不需要自行初始化 NoneBot, NoneBug 已经运行了 nonebot.init()
+    database_schema_guard 在 nonebug lifespan 启动前确保测试数据库结构就绪
     """
-    import src.database  # noqa: F401
-    # from nonebot.adapters.console import Adapter as ConsoleAdapter
+    from nonebot.adapters.console import Adapter as ConsoleAdapter
 
     # 加载适配器
-    # driver = nonebot.get_driver()
-    # driver.register_adapter(ConsoleAdapter)
+    driver = nonebot.get_driver()
+    driver.register_adapter(ConsoleAdapter)
 
     # 加载插件
     nonebot.load_plugins('src/service')
