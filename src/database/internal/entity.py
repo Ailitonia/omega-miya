@@ -301,11 +301,11 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
     @overload
     async def query_unique(
             self,
-            bot_type: str | None,
-            bot_self_id: str | None,
-            entity_type: str | None,
-            entity_id: str | None,
-            index_id: int | None,
+            bot_type: str | None = None,
+            bot_self_id: str | None = None,
+            entity_type: str | None = None,
+            entity_id: str | None = None,
+            index_id: int | None = None,
             *,
             load_all_rel: Literal[False] = False,
             populate_existing: bool = False,
@@ -315,11 +315,11 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
     @overload
     async def query_unique(
             self,
-            bot_type: str | None,
-            bot_self_id: str | None,
-            entity_type: str | None,
-            entity_id: str | None,
-            index_id: int | None,
+            bot_type: str | None = None,
+            bot_self_id: str | None = None,
+            entity_type: str | None = None,
+            entity_id: str | None = None,
+            index_id: int | None = None,
             *,
             load_all_rel: Literal[True],
             populate_existing: bool = False,
@@ -597,7 +597,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
         friendship_item = await self._select_entity_friendship(entity_index_id, populate_existing=True)
         return Friendship.model_validate(friendship_item)
 
-    async def change_entity_friendship(
+    async def alter_entity_friendship(
             self,
             entity_index_id: int,
             *,
@@ -731,7 +731,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
         sign_in_item = await self._select_entity_sign_in(entity_index_id, sign_in_date, populate_existing=True)
         return SignIn.model_validate(sign_in_item)
 
-    async def check_entity_today_is_sign_in(
+    async def check_entity_date_is_sign_in(
             self,
             entity_index_id: int,
             *,

@@ -1012,7 +1012,7 @@ class TestEntityDAL:
         assert result.status == 'happy'
         assert result.friendship == Decimal('42')
 
-    async def test_change_friendship_increment(
+    async def test_alter_friendship_increment(
             self,
             entity_dal,
             test_bot,
@@ -1020,7 +1020,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
     ) -> None:
-        """先 set 再 change, 验证增量累加"""
+        """先 set 再 alter, 验证增量累加"""
         await entity_dal._clear_all()
         await entity_dal.commit_session()
 
@@ -1041,7 +1041,7 @@ class TestEntityDAL:
         )
         await entity_dal.commit_session()
 
-        result = await entity_dal.change_entity_friendship(
+        result = await entity_dal.alter_entity_friendship(
             entity.id,
             mood=Decimal('5'),
             friendship=Decimal('20'),
@@ -1053,7 +1053,7 @@ class TestEntityDAL:
         assert result.friendship == Decimal('120')
         assert result.energy == Decimal('40')
 
-    async def test_change_friendship_insert_new(
+    async def test_alter_friendship_insert_new(
             self,
             entity_dal,
             test_bot,
@@ -1061,7 +1061,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
     ) -> None:
-        """无好感度记录时直接 change, 应插入新行且 delta 即为初始值"""
+        """无好感度记录时直接 alter, 应插入新行且 delta 即为初始值"""
         await entity_dal._clear_all()
         await entity_dal.commit_session()
 
@@ -1074,7 +1074,7 @@ class TestEntityDAL:
         )
         await entity_dal.commit_session()
 
-        result = await entity_dal.change_entity_friendship(
+        result = await entity_dal.alter_entity_friendship(
             entity.id,
             mood=Decimal('5'),
             friendship=Decimal('20'),
@@ -1283,7 +1283,7 @@ class TestEntityDAL:
         await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1))
         await entity_dal.commit_session()
 
-        assert await entity_dal.check_entity_today_is_sign_in(entity.id, date_=date(2026, 1, 1)) is True
+        assert await entity_dal.check_entity_date_is_sign_in(entity.id, date_=date(2026, 1, 1)) is True
 
     async def test_check_sign_in_false(
             self,
@@ -1304,7 +1304,7 @@ class TestEntityDAL:
         )
         await entity_dal.commit_session()
 
-        assert await entity_dal.check_entity_today_is_sign_in(entity.id, date_=date(2026, 1, 1)) is False
+        assert await entity_dal.check_entity_date_is_sign_in(entity.id, date_=date(2026, 1, 1)) is False
 
     async def test_query_sign_in_days(
             self,
