@@ -3,7 +3,7 @@
 @Date           : 2023/3/18 3:16
 @FileName       : model
 @Project        : nonebot2_miya
-@Description    : Go-cqhttp addition event model
+@Description    : go-cqhttp addition event model
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
