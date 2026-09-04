@@ -42,17 +42,17 @@ class CharacterProfile(BaseInternalNode):
     plugin: Literal['OmegaInternalCharacterProfile'] = 'OmegaInternalCharacterProfile'
 
 
-SKIP_COOLDOWN_PERMISSION_NODE: Literal['skip_cooldown'] = 'skip_cooldown'
+SKIP_COOLDOWN_PERMISSION_NODE: Literal['OmegaAllowSkipCooldown'] = 'OmegaAllowSkipCooldown'
 """允许跳过冷却权限节点"""
 
 GLOBAL_COOLDOWN_EVENT: Literal['OmegaGlobalCooldown'] = 'OmegaGlobalCooldown'
 """全局冷却 event 名称"""
 
 CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX: Literal['OmegaICAttrSetter'] = 'OmegaICAttrSetter'
-"""对象角色属性设置冷却 event 名称"""
+"""对象角色属性设置冷却 event 名称, OmegaInternalCharacterAttributeSetter"""
 
 CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX: Literal['OmegaICProfileSetter'] = 'OmegaICProfileSetter'
-"""对象角色档案设置冷却 event 名称"""
+"""对象角色档案设置冷却 event 名称, OmegaInternalCharacterProfileSetter"""
 
 
 __all__ = [

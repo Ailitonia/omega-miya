@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from .entity import InternalEntity as OmegaEntity
+from .entity import OmegaEntity
+
 
 __all__ = [
     'OmegaEntity',
