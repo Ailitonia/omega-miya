@@ -8,9 +8,10 @@
 @Software       : PyCharm
 """
 
-from .api import query_short_link_url, query_url_short_link_uuid
+from .api import query_short_link_real_url, query_short_link_uuid
+
 
 __all__ = [
-    'query_short_link_url',
-    'query_url_short_link_uuid',
+    'query_short_link_real_url',
+    'query_short_link_uuid',
 ]
