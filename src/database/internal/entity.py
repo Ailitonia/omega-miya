@@ -57,10 +57,6 @@ class EntityType(StrEnum):
     TELEGRAM_GROUP = 'telegram_group'  # Telegram 群组
     TELEGRAM_CHANNEL = 'telegram_channel'  # Telegram 频道
 
-    @classmethod
-    def get_supported_target_names(cls) -> set[str]:
-        return {member.value for _, member in cls.__members__.items()}
-
 
 class _BaseEntity(BaseDataOutModel):
     """实体对象数据 (只包括基本数据供关联表使用, 避免递归加载)"""
@@ -140,7 +136,7 @@ class Cooldown(BaseDataOutModel):
     cooldown_parent_entity: _BaseEntity
 
 
-class _SubscribedSource(BaseDataOutModel):
+class SubscribedSource(BaseDataOutModel):
     """已定义的订阅源数据  (只包括基本数据供关联表使用, 避免递归加载)"""
     id: int
     sub_type: str
@@ -156,7 +152,7 @@ class _Subscription(BaseDataOutModel):
     sub_info: str | None
 
     # 级联数据
-    subscription_parent_source: _SubscribedSource
+    subscription_parent_source: SubscribedSource
     subscription_parent_entity: _BaseEntity
 
 
@@ -179,7 +175,7 @@ class EntityWithFullRel(Entity):
     sign_in_belonged_to_entity: Annotated[list[SignIn], Field(default_factory=list)]
     auth_belonged_to_entity: Annotated[list[AuthSetting], Field(default_factory=list)]
     cooldown_belonged_to_entity: Annotated[list[Cooldown], Field(default_factory=list)]
-    subscription_sources_entity_had: Annotated[list[_SubscribedSource], Field(default_factory=list)]
+    subscription_sources_entity_had: Annotated[list[SubscribedSource], Field(default_factory=list)]
 
 
 class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
@@ -1102,7 +1098,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             sub_type: str | None = None,
             *,
             populate_existing: bool = False,
-    ) -> list[_SubscribedSource]:
+    ) -> list[SubscribedSource]:
         stmt = (
             select(SubscriptionSourceOrm)
             .where(SubscriptionSourceOrm.entities_subscription_source_had.any(EntityOrm.id == entity_index_id))
@@ -1114,7 +1110,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
         if populate_existing:
             stmt = stmt.execution_options(populate_existing=True)
 
-        return parse_obj_as(list[_SubscribedSource], (await self.db_session.execute(stmt)).scalars().all())
+        return parse_obj_as(list[SubscribedSource], (await self.db_session.execute(stmt)).scalars().all())
 
     async def set_entity_subscription(
             self,
@@ -1178,4 +1174,5 @@ __all__ = [
     'EntityWithFullRel',
     'Friendship',
     'SignIn',
+    'SubscribedSource',
 ]

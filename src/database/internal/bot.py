@@ -36,10 +36,6 @@ class BotType(StrEnum):
     QQ = 'QQ'
     TELEGRAM = 'Telegram'
 
-    @classmethod
-    def get_supported_platform_names(cls) -> set[str]:
-        return {member.value for _, member in cls.__members__.items()}
-
 
 class BotSelf(BaseDataOutModel):
     """Bot 自身数据"""

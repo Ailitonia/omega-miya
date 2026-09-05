@@ -17,7 +17,16 @@ from sqlalchemy.exc import NoResultFound
 
 from src.compat import parse_obj_as
 from src.database.internal.bot import BotSelf, BotSelfDAL
-from src.database.internal.entity import AuthSetting, Cooldown, Entity, EntityDAL, EntityType, Friendship, SignIn
+from src.database.internal.entity import (
+    AuthSetting,
+    Cooldown,
+    Entity,
+    EntityDAL,
+    EntityType,
+    Friendship,
+    SignIn,
+    SubscribedSource,
+)
 from .consts import (
     CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX,
     CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX,
@@ -734,14 +743,19 @@ class OmegaEntity:
     # Subscription 订阅相关方法
     # ------------------------------------------------------------------ #
 
-    async def add_subscription(self, subscription_source: 'SubscriptionSource', sub_info: str | None = None):
+    async def add_subscription(
+            self,
+            subscription_source: 'SubscriptionSource',
+            sub_info: str | None = None,
+    ) -> SubscribedSource:
         """添加订阅"""
         entity = await self.query_entity_self()
-        return await EntityDAL(session=self._db_session).set_entity_subscription(
+        result = await EntityDAL(session=self._db_session).set_entity_subscription(
             entity_index_id=entity.id,
             sub_source_index_id=subscription_source.id,
             sub_info=sub_info,
         )
+        return result.subscription_parent_source
 
     async def delete_subscription(self, subscription_source: 'SubscriptionSource') -> None:
         """删除订阅"""
@@ -751,7 +765,7 @@ class OmegaEntity:
             sub_source_index_id=subscription_source.id,
         )
 
-    async def query_subscribed_source(self, sub_type: str | None = None):
+    async def query_subscribed_source(self, sub_type: str | None = None) -> list[SubscribedSource]:
         """查询全部已订阅的订阅源
 
         :param sub_type: 可选: 根据 sub_type 筛选, 若无则为全部类型
