@@ -9,8 +9,13 @@
 """
 
 from .entity import OmegaEntity
+from .event import BotActionEvent, BotConnectEvent, BotDisconnectEvent, OmegaBaseEvent
 
 
 __all__ = [
+    'BotActionEvent',
+    'BotConnectEvent',
+    'BotDisconnectEvent',
+    'OmegaBaseEvent',
     'OmegaEntity',
 ]

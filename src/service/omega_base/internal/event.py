@@ -1,22 +1,57 @@
 """
 @Author         : Ailitonia
-@Date           : 2022/12/03 17:58
-@FileName       : bot.py
-@Project        : nonebot2_miya
-@Description    : Bot Action Event
+@Date           : 2026/9/5 19:04
+@FileName       : event
+@Project        : omega-miya
+@Description    : Omega 内部事件
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
 from typing import TYPE_CHECKING, Literal, override
 
-from .base import Event as OmegaEvent
+from nonebot.adapters import Event as BaseEvent
+from nonebot.utils import escape_tag
 
 if TYPE_CHECKING:
     from nonebot.adapters import Message as BaseMessage
 
 
-class BotActionEvent(OmegaEvent):
+class OmegaBaseEvent(BaseEvent):
+    """Omega 内部事件基类"""
+
+    event_type: str
+
+    @override
+    def get_type(self) -> str:
+        return self.event_type
+
+    @override
+    def get_event_name(self) -> str:
+        return self.event_type
+
+    @override
+    def get_event_description(self) -> str:
+        return escape_tag(str(self.model_dump()))
+
+    @override
+    def get_message(self) -> 'BaseMessage':
+        raise NotImplementedError
+
+    @override
+    def get_user_id(self) -> str:
+        raise NotImplementedError
+
+    @override
+    def get_session_id(self) -> str:
+        raise NotImplementedError
+
+    @override
+    def is_tome(self) -> bool:
+        raise NotImplementedError
+
+
+class BotActionEvent(OmegaBaseEvent):
     """Bot 动作事件"""
 
     event_type: Literal['bot_action'] = 'bot_action'
@@ -58,5 +93,6 @@ class BotDisconnectEvent(BotActionEvent):
 __all__ = [
     'BotActionEvent',
     'BotConnectEvent',
-    'BotDisconnectEvent'
+    'BotDisconnectEvent',
+    'OmegaBaseEvent',
 ]
