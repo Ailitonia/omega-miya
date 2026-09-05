@@ -136,6 +136,10 @@ class TestModuleContract:
         assert isinstance(OmegaGlobalCache.expired_at, property)
         assert callable(OmegaGlobalCache.set_expired_at)
 
+        assert inspect.signature(OmegaGlobalCache.load).return_annotation == str | None
+        assert inspect.signature(OmegaGlobalCache.save).return_annotation is str
+        assert inspect.signature(OmegaGlobalCache.sync_internal).return_annotation is None
+
     def test_init_signature(self) -> None:
         import inspect
 
@@ -450,8 +454,9 @@ class TestSave:
     async def test_save_persists_to_db(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=3600)
 
-        await cache.save('key1', 'value1')
+        result = await cache.save('key1', 'value1')
 
+        assert result == 'value1'
         row = await _query_row_or_none(cache._cache_name, 'key1')
         assert row is not None
         assert row.cache_value == 'value1'
@@ -459,11 +464,11 @@ class TestSave:
         assert cache._cache['key1'] == 'value1'
 
     async def test_save_upsert_updates_single_row(self, cache_factory) -> None:
-        """重复保存同一 key 为更新(upsert)而非插入, 数据库仍只有一行"""
+        """重复保存同一 key 为更新(upsert)而非插入, 数据库仍只有一行, 且返回更新后的新值"""
         cache = cache_factory()
 
-        await cache.save('key1', 'value1')
-        await cache.save('key1', 'value2')
+        assert await cache.save('key1', 'value1') == 'value1'
+        assert await cache.save('key1', 'value2') == 'value2'
 
         rows = await _query_all_rows(cache._cache_name)
         assert len(rows) == 1
@@ -473,8 +478,9 @@ class TestSave:
     async def test_save_with_positive_ttl_delta(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=3600)
 
-        await cache.save('key1', 'value1', ttl_delta=600)
+        result = await cache.save('key1', 'value1', ttl_delta=600)
 
+        assert result == 'value1'
         row = await _query_row_or_none(cache._cache_name, 'key1')
         assert row is not None
         _assert_close_to_now(row.expired_at, timedelta(seconds=4200))
@@ -483,8 +489,9 @@ class TestSave:
         """ttl_delta 大负偏移使行立即过期: 内存仍持有值, 数据库默认查询已查不到(内存/库语义分歧边界)"""
         cache = cache_factory(default_ttl=60)
 
-        await cache.save('key1', 'value1', ttl_delta=-3600)
+        result = await cache.save('key1', 'value1', ttl_delta=-3600)
 
+        assert result == 'value1'
         assert cache._cache['key1'] == 'value1'
         assert await _query_row_or_none(cache._cache_name, 'key1', include_expired=False) is None
 
@@ -495,8 +502,10 @@ class TestSave:
     async def test_save_empty_string_value(self, cache_factory) -> None:
         cache = cache_factory()
 
-        await cache.save('key1', '')
+        result = await cache.save('key1', '')
 
+        assert result == ''
+        assert isinstance(result, str)
         row = await _query_row_or_none(cache._cache_name, 'key1')
         assert row is not None
         assert row.cache_value == ''
@@ -505,8 +514,9 @@ class TestSave:
     async def test_save_unicode_key_value(self, cache_factory) -> None:
         cache = cache_factory()
 
-        await cache.save('测试键', '测试值 ✓')
+        result = await cache.save('测试键', '测试值 ✓')
 
+        assert result == '测试值 ✓'
         row = await _query_row_or_none(cache._cache_name, '测试键')
         assert row is not None
         assert row.cache_value == '测试值 ✓'
@@ -516,8 +526,9 @@ class TestSave:
         cache = cache_factory()
         value = 'v' * 10000
 
-        await cache.save('key1', value)
+        result = await cache.save('key1', value)
 
+        assert result == value
         row = await _query_row_or_none(cache._cache_name, 'key1')
         assert row is not None
         assert row.cache_value == value
@@ -543,10 +554,19 @@ class TestSave:
 
         assert '' not in cache._cache
 
-    async def test_save_returns_none(self, cache_factory) -> None:
+    async def test_save_returns_value(self, cache_factory) -> None:
+        """save 返回实际写入的值(str), 与内存缓存及数据库行一致"""
         cache = cache_factory()
 
-        assert await cache.save('key1', 'value1') is None
+        result = await cache.save('key1', 'value1')
+
+        assert isinstance(result, str)
+        assert result == 'value1'
+        assert cache._cache['key1'] == result
+
+        row = await _query_row_or_none(cache._cache_name, 'key1')
+        assert row is not None
+        assert row.cache_value == result
 
     async def test_save_failure_not_pollute_memory(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
         """写库失败时异常向上传播, 且内存缓存不被污染"""

@@ -106,11 +106,12 @@ class OmegaGlobalCache:
         except NoResultFound:
             return None
 
-    async def save(self, key: str, value: str, *, ttl_delta: int = 0) -> None:
+    async def save(self, key: str, value: str, *, ttl_delta: int = 0) -> str:
         """写入缓存值"""
         self._validate_cache_key(key)
         value = await self._upsert_key_value(key=key, value=value, ttl_delta=ttl_delta)
         self._cache[key] = value
+        return value
 
     async def sync_internal(self) -> None:
         """同步内部内存缓存与数据库缓存一致"""
