@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Self
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import NoResultFound
 
 from src.compat import parse_obj_as
@@ -42,8 +43,27 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from src.database.internal.subscription_source import SubscriptionSource
 
+type EntityAcquireType = Literal['event', 'user']
+"""Entity 对象的类型, event: 事件本身所在场景的对象(群组频道等), user: 触发事件的用户对象"""
+
 type DefaultIntValueFactory = Callable[[], int]
 type DefaultDictFactory = Callable[[], dict[str, Any]]
+
+
+class EntityInitParams(BaseModel):
+    """构造 OmegaEntity 的参数"""
+    bot_type: str
+    bot_id: str
+    entity_type: str
+    entity_id: str
+    entity_name: str | None = Field(default=None)
+    entity_info: str | None = Field(default=None)
+
+    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
+
+    @property
+    def kwargs(self) -> dict[str, Any]:
+        return self.model_dump()
 
 
 class OmegaEntity:
@@ -76,6 +96,17 @@ class OmegaEntity:
     @property
     def tid(self) -> str:
         return f'{self.entity_type}_{self.entity_id}'
+
+    @property
+    def init_params(self) -> EntityInitParams:
+        return EntityInitParams(
+            bot_type=self.bot_type,
+            bot_id=self.bot_id,
+            entity_type=self.entity_type,
+            entity_id=self.entity_id,
+            entity_name=self.entity_name,
+            entity_info=self.entity_info,
+        )
 
     # ------------------------------------------------------------------ #
     # Entity 自身及初始化相关方法
@@ -786,5 +817,7 @@ class OmegaEntity:
 
 
 __all__ = [
+    'EntityAcquireType',
+    'EntityInitParams',
     'OmegaEntity',
 ]

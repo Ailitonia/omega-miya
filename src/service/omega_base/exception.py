@@ -3,7 +3,7 @@
 @Date           : 2023/6/9 19:11
 @FileName       : exception
 @Project        : nonebot2_miya
-@Description    : Omega 平台中间件异常
+@Description    : Omega 平台及中间件异常
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """

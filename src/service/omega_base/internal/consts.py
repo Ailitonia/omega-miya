@@ -56,12 +56,12 @@ CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX: Literal['OmegaICProfileSetter'] 
 
 
 __all__ = [
-    'PermissionGlobal',
-    'PermissionLevel',
-    'CharacterAttribute',
-    'CharacterProfile',
-    'SKIP_COOLDOWN_PERMISSION_NODE',
-    'GLOBAL_COOLDOWN_EVENT',
     'CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX',
     'CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX',
+    'GLOBAL_COOLDOWN_EVENT',
+    'SKIP_COOLDOWN_PERMISSION_NODE',
+    'CharacterAttribute',
+    'CharacterProfile',
+    'PermissionGlobal',
+    'PermissionLevel',
 ]
