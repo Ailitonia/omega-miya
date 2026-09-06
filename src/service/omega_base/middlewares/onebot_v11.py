@@ -120,7 +120,7 @@ async def __obv11_unique_bot_responding_rule_updater(bot: OneBotV11Bot, event: O
 
 @event_preprocessor
 async def __obv11_bot_connect(bot: OneBotV11Bot, event: BotConnectEvent) -> None:
-    """处理 OneBot V11(go-cqhttp) Bot 连接事件"""
+    """处理 OneBot V11 Bot 连接事件"""
     if str(bot.self_id) != str(event.bot_id):
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
@@ -175,7 +175,7 @@ async def __obv11_bot_connect(bot: OneBotV11Bot, event: BotConnectEvent) -> None
 
 @event_preprocessor
 async def __obv11_bot_disconnect(bot: OneBotV11Bot, event: BotDisconnectEvent) -> None:
-    """处理 OneBot V11(go-cqhttp) Bot 断开连接事件"""
+    """处理 OneBot V11 Bot 断开连接事件"""
     if str(bot.self_id) != str(event.bot_id):
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
