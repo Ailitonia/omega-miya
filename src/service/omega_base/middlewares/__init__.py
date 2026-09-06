@@ -8,10 +8,9 @@
 @Software       : PyCharm
 """
 
-from . import platforms as platforms
-from .interface import OmegaEntityInterface, OmegaMatcherInterface
+from . import console as console  # noqa: F401
+from . import onebot_v11 as onebot_v11  # noqa: F401
+from . import qq as qq  # noqa: F401
+from . import telegram as telegram  # noqa: F401
 
-__all__ = [
-    'OmegaEntityInterface',
-    'OmegaMatcherInterface',
-]
+__all__ = []

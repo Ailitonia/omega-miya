@@ -14,17 +14,17 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence
 
 from nonebot import get_bot, logger
+from nonebot.adapters import Bot as BaseBot, Event as BaseEvent
 from nonebot_plugin_alconna.uniseg import At, Image, Target, Receipt, Reply, Segment, UniMessage, get_target
 
 from src.database.internal.entity import EntityType
 from ..exception import BotNoFound, TargetNotSupported
 
 if TYPE_CHECKING:
-    from nonebot.adapters import Bot as BaseBot, Event as BaseEvent
     from .entity import EntityAcquireType, EntityInitParams
 
 
-class BaseEntityTarget(abc.ABC):
+class BaseEntityTarget[BT: 'BaseBot'](abc.ABC):
     """平台 API 适配器, 统一实现平台特有 API 及 Entity 方法适配工具基类"""
 
     def __init__(self, entity_params: 'EntityInitParams') -> None:
@@ -35,9 +35,9 @@ class BaseEntityTarget(abc.ABC):
         """构造 Entity 的 Target 对象"""
         raise NotImplementedError
 
-    def get_bot(self) -> 'BaseBot':
+    def get_bot(self) -> BT:
         try:
-            return get_bot(self.entity_params.bot_id)
+            return get_bot(self.entity_params.bot_id)  # type: ignore
         except Exception as e:
             raise BotNoFound(bot_self_id=self.entity_params.bot_id) from e
 
@@ -87,10 +87,10 @@ class BaseEntityTarget(abc.ABC):
         raise NotImplementedError
 
 
-class BaseEventDepend(abc.ABC):
+class BaseEventDepend[BT: 'BaseBot', ET: 'BaseEvent'](abc.ABC):
     """事件对象解析器, 解析平台事件及对象依赖适配基类"""
 
-    def __init__(self, bot: 'BaseBot', event: 'BaseEvent') -> None:
+    def __init__(self, bot: BT, event: ET) -> None:
         self.bot = bot
         self.event = event
 
@@ -211,7 +211,10 @@ class _EntityTargetRegister:
 
     _map: dict[EntityType, type[BaseEntityTarget]] = field(default_factory=dict)
 
-    def register_target[T: type[BaseEntityTarget]](self, target_name: EntityType) -> Callable[[T], T]:
+    def register_target[T: type[BaseEntityTarget]](
+            self,
+            target_name: EntityType,
+    ) -> Callable[[T], T]:
         """注册中间件平台 API 适配器"""
 
         def _decorator(target_type: T) -> T:
@@ -246,13 +249,13 @@ class _EventDependRegister:
 
     _map: dict[type['BaseEvent'], type[BaseEventDepend]] = field(default_factory=dict)
 
-    def register_depend[Depend_T: type[BaseEventDepend]](
+    def register_depend[T: type[BaseEventDepend]](
             self,
             target_event_type: type['BaseEvent'],
-    ) -> Callable[[Depend_T], Depend_T]:
+    ) -> Callable[[T], T]:
         """注册对应事件的事件对象解析器"""
 
-        def _decorator(depend: Depend_T) -> Depend_T:
+        def _decorator(depend: T) -> T:
             if target_event_type in self._map.keys():
                 logger.error(f'Duplicate event {target_event_type.__name__!r} has been registered')
                 raise ValueError(f'Duplicate event {target_event_type.__name__!r}')
@@ -288,6 +291,7 @@ EVENT_DEPEND_REGISTER: _EventDependRegister = _EventDependRegister()
 
 __all__ = [
     'BaseEntityTarget',
+    'BaseEventDepend',
     'ENTITY_TARGET_REGISTER',
     'EVENT_DEPEND_REGISTER',
 ]

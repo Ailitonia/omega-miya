@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import NoResultFound
 
 from src.compat import parse_obj_as
-from src.database.internal.bot import BotSelf, BotSelfDAL
+from src.database.internal.bot import BotSelf, BotSelfDAL, BotType
 from src.database.internal.entity import (
     AuthSetting,
     Cooldown,
@@ -52,9 +52,9 @@ type DefaultDictFactory = Callable[[], dict[str, Any]]
 
 class EntityInitParams(BaseModel):
     """构造 OmegaEntity 的参数"""
-    bot_type: str
+    bot_type: BotType
     bot_id: str
-    entity_type: str
+    entity_type: EntityType
     entity_id: str
     entity_name: str | None = Field(default=None)
     entity_info: str | None = Field(default=None)
@@ -79,7 +79,7 @@ class OmegaEntity:
             entity_name: str | None = None,
             entity_info: str | None = None
     ) -> None:
-        self.bot_type = bot_type
+        self.bot_type = BotType(bot_type)
         self.bot_id = bot_id
         self.entity_type = EntityType(entity_type)
         self.entity_id = entity_id

@@ -8,18 +8,22 @@
 @Software       : PyCharm
 """
 
-from .adapter import ENTITY_TARGET_REGISTER, EVENT_DEPEND_REGISTER
+from .adapter import ENTITY_TARGET_REGISTER, EVENT_DEPEND_REGISTER, BaseEntityTarget, BaseEventDepend
 from .bots import get_online_bots
-from .entity import OmegaEntity
+from .entity import EntityAcquireType, EntityInitParams, OmegaEntity
 from .event import BotActionEvent, BotConnectEvent, BotDisconnectEvent, OmegaBaseEvent
 
 
 __all__ = [
     'ENTITY_TARGET_REGISTER',
     'EVENT_DEPEND_REGISTER',
+    'BaseEntityTarget',
+    'BaseEventDepend',
     'BotActionEvent',
     'BotConnectEvent',
     'BotDisconnectEvent',
+    'EntityAcquireType',
+    'EntityInitParams',
     'OmegaBaseEvent',
     'OmegaEntity',
     'get_online_bots',

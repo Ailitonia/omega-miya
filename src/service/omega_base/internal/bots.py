@@ -75,7 +75,7 @@ async def __init_bot_connect(bot: BaseBot) -> None:
     """在 Bot 连接时执行初始化操作"""
     async with __BOT_LOCK:
         __ONLINE_BOTS.update({str(bot.self_id): bot})
-        await handle_event(bot=bot, event=BotConnectEvent(bot_id=bot.self_id, bot_type=bot.type))
+        await handle_event(bot=bot, event=BotConnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()))
 
 
 @_DRIVER.on_bot_disconnect
@@ -83,7 +83,7 @@ async def __dispose_bot_disconnect(bot: BaseBot) -> None:
     """在 Bot 断开连接时执行后续处理"""
     async with __BOT_LOCK:
         __ONLINE_BOTS.pop(str(bot.self_id), None)
-        await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.type))
+        await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()))
 
 
 def get_online_bots() -> dict[str, dict[str, BaseBot]]:

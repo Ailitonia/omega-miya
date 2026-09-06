@@ -35,17 +35,11 @@ from ..schema import (
 @unique
 class EntityType(StrEnum):
     """实体对象类型"""
-    CONSOLE_USER = 'console_user'  # nonebot-console 用户
+    CONSOLE_USER = 'console_user'  # nonechat 用户
+    CONSOLE_CHANNEL = 'console_channel'  # nonechat 频道
 
     ONEBOT_V11_USER = 'onebot_v11_user'  # QQ 用户 (OneBot 协议)
     ONEBOT_V11_GROUP = 'onebot_v11_group'  # QQ 群组 (OneBot 协议)
-    ONEBOT_V11_GUILD = 'onebot_v11_guild'  # QQ 频道 (OneBot 协议)
-    ONEBOT_V11_GUILD_USER = 'onebot_v11_guild_user'  # QQ 频道系统内用户 (OneBot 协议)
-    ONEBOT_V11_GUILD_CHANNEL = 'onebot_v11_guild_channel'  # QQ 频道子频道 (OneBot 协议)
-
-    QQGUILD_GUILD = 'qqguild_guild'  # [Deactivate] QQ 频道子频道 (QQGuild 协议)
-    QQGUILD_USER = 'qqguild_user'  # [Deactivate] QQ 频道系统内用户 (QQGuild 协议)
-    QQGUILD_CHANNEL = 'qqguild_channel'  # [Deactivate] QQ 频道子频道 (QQGuild 协议)
 
     QQ_GUILD = 'qq_guild'  # QQ 频道频道 (QQ 官方协议)
     QQ_CHANNEL = 'qq_channel'  # QQ 频道子频道 (QQ 官方协议)
