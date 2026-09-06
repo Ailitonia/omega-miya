@@ -41,7 +41,9 @@ from .consts import (
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.database.internal.subscription_source import SubscriptionSource
+
 
 type EntityAcquireType = Literal['event', 'user']
 """Entity 对象的类型, event: 事件本身所在场景的对象(群组频道等), user: 触发事件的用户对象"""
@@ -132,6 +134,7 @@ class OmegaEntity:
             entity_type=entity.entity_type,
             entity_id=entity.entity_id,
             entity_name=entity.entity_name,
+            entity_extra=entity.entity_extra,
             entity_info=entity.entity_info,
         )
         new_obj._bot = bot
@@ -139,7 +142,10 @@ class OmegaEntity:
         return new_obj
 
     async def init_self(self) -> None:
-        """初始化自身, 从数据库中查询(或插入)并填充自身及所属 bot 数据"""
+        """初始化自身, 从数据库中查询(或插入)并填充自身及所属 bot 数据
+
+        Entity 不存在时插入新行; 所属 bot 不会自动创建, 不存在时抛出 NoResultFound
+        """
         bot = await BotSelfDAL(self._db_session).query_unique(
             bot_type=self.bot_type,
             self_id=self.bot_id,
@@ -206,9 +212,13 @@ class OmegaEntity:
         await self.init_self()
 
     async def delete(self) -> None:
-        """删除 Entity"""
+        """删除 Entity
+
+        删除后实例缓存的 Entity 数据失效 (`not_init` 转为 True), 后续访问将按需重新初始化 (重建) Entity
+        """
         entity = await self.query_entity_self()
         await EntityDAL(session=self._db_session).delete_from_index(index_id=entity.id)
+        self._entity = None
 
     # ------------------------------------------------------------------ #
     # Friendship 好感度及状态相关方法
@@ -298,19 +308,23 @@ class OmegaEntity:
 
     @staticmethod
     async def _parse_continuous_sign_in_day(date_list: list[date]) -> tuple[int, int]:
-        """解析到现在为止最长连续签到日数及上一次断签的日期
+        """解析截至今日的当前连续签到日数及上一次断签的日期
 
-        :return: (最长连续签到的日数, 上一次断签日期的 ordinal datetime)
+        仅统计截至今日连续未间断的签到日数, 今日未签到则连续日数为 0;
+        晚于今日的签到记录 (未来日期) 不参与计算
+        :return: (当前连续签到的日数, 上一次断签日期的 ordinal datetime)
         """
         date_now_ordinal = datetime.now().date().toordinal()
 
-        # 还没有签到过, 对应断签日期就是今天
-        if not date_list:
-            return 0, date_now_ordinal
+        # 先将签到记录中的日期转化为整数便于比较, 忽略未来日期, 去重后由大到小排序
+        all_sign_in_list = sorted(
+            {x.toordinal() for x in date_list if x.toordinal() <= date_now_ordinal},
+            reverse=True,
+        )
 
-        # 有签到记录则处理签到记录
-        # 先将签到记录中的日期转化为整数便于比较, 去重后由大到小排序
-        all_sign_in_list = sorted({x.toordinal() for x in date_list}, reverse=True)
+        # 还没有签到过, 对应断签日期就是今天
+        if not all_sign_in_list:
+            return 0, date_now_ordinal
 
         # 如果今日日期不等于已签到日期最大值, 说明今日没有签到, 则连签日数为0, 断签日为今日
         if date_now_ordinal != all_sign_in_list[0]:
@@ -390,13 +404,14 @@ class OmegaEntity:
             available: int = 1,
             strict_match_available: bool = True,
     ) -> Literal[-1, 0, 1]:
-        """检查 Entity 对应权限节点是否启用/符合需求值, 与 check_auth_setting 方法不同, 这个方法会返回状态码表示权限验证的结果
+        """检查 Entity 对应权限节点是否启用/符合需求值, 这个方法会返回状态码表示权限验证的结果
 
         :param module: 权限节点对应模块
         :param plugin: 权限节点对应插件
         :param node: 权限节点
         :param available: 启用/需求值
-        :param strict_match_available: True: 查询 available 必须等于传入参数的结果, False: 查询 available 需大于等于传入参数的结果
+        :param strict_match_available: True: 查询 available 必须等于传入参数的结果,
+            False: 查询 available 需大于等于传入参数的结果
         :return: 结果状态码
             -1: 已查找到条目, 该权限节点不符合需求/被拒绝
             0: 条目不存在, Entity 没有配置该权限节点
@@ -468,7 +483,7 @@ class OmegaEntity:
             available=1,
             strict_match_available=True,
         )
-        return True if verified == 1 else False
+        return verified == 1
 
     async def enable_global_permission(self) -> AuthSetting:
         """打开 Entity 全局功能开关"""
@@ -507,7 +522,7 @@ class OmegaEntity:
             available=level,
             strict_match_available=False,
         )
-        return True if verified == 1 else False
+        return verified == 1
 
     async def set_permission_level(self, level: int) -> AuthSetting:
         """设置 Entity 权限等级"""
@@ -528,7 +543,7 @@ class OmegaEntity:
             available=1,
             strict_match_available=True,
         )
-        return True if verified == 1 else False
+        return verified == 1
 
     async def enable_plugin_skip_cooldown_permission(self, module: str, plugin: str) -> AuthSetting:
         """启用 Entity 某插件跳过冷却权限"""
@@ -627,7 +642,7 @@ class OmegaEntity:
         )
 
     async def set_character_profile(self, profile_name: str, profile_value: dict[str, Any]) -> AuthSetting:
-        """设置 Entity 对象的角色档案, 档案内容应当为 str 类型"""
+        """设置 Entity 对象的角色档案, 档案内容应当为 dict 类型"""
         value = parse_obj_as(dict[str, dict[str, Any]], {profile_name: profile_value})
         return await self.set_auth_setting(
             module=CharacterProfile.module,
@@ -711,13 +726,10 @@ class OmegaEntity:
             if profile.available != 1:
                 raise ValueError('CharacterProfile is not available')
 
-            if profile.value is None:
-                raise ValueError('CharacterProfile can not be None')
-
             profile_value = profile.value[profile_name]
-        except (NoResultFound, ValueError) as e:
+        except (NoResultFound, ValueError, KeyError):
             if default_factory is None:
-                raise e
+                raise
 
             profile_value = default_factory()
             await self.set_character_profile(profile_name=profile_name, profile_value=profile_value)
@@ -805,6 +817,7 @@ class OmegaEntity:
     async def query_subscribed_source(self, sub_type: str | None = None) -> list[SubscribedSource]:
         """查询全部已订阅的订阅源
 
+        Entity 不存在时返回空列表 (与其他查询方法不同, 本方法不会自动初始化 Entity)
         :param sub_type: 可选: 根据 sub_type 筛选, 若无则为全部类型
         """
         try:
@@ -813,13 +826,13 @@ class OmegaEntity:
                 bot_self_id=self.bot_id,
                 entity_type=self.entity_type,
                 entity_id=self.entity_id,
-                load_all_rel=True,
             )
-            if sub_type is not None:
-                return [x for x in entity.subscription_sources_entity_had if x.sub_type == sub_type]
-            return entity.subscription_sources_entity_had
         except NoResultFound:
             return []
+        return await EntityDAL(self._db_session).query_entity_subscribed_source(
+            entity_index_id=entity.id,
+            sub_type=sub_type,
+        )
 
 
 __all__ = [
