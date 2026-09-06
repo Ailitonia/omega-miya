@@ -10,7 +10,6 @@
 
 from . import console as console  # noqa: F401
 from . import onebot_v11 as onebot_v11  # noqa: F401
-from . import qq as qq  # noqa: F401
 from . import telegram as telegram  # noqa: F401
 
 __all__ = []

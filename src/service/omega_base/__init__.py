@@ -8,17 +8,14 @@
 @Software       : PyCharm
 """
 
-from .internal import OmegaEntity
-from .message import Message as OmegaMessage
-from .message import MessageSegment as OmegaMessageSegment
-from .message import MessageTransferUtils as OmegaMessageTransfer
-from .middlewares import OmegaEntityInterface, OmegaMatcherInterface
+from . import middlewares as middlewares  # noqa: F401
+from .interface import OmegaEntityInterface, OmegaMatcherInterface
+from .internal import OmegaEntity, get_online_bots
+
 
 __all__ = [
     'OmegaEntity',
     'OmegaEntityInterface',
     'OmegaMatcherInterface',
-    'OmegaMessage',
-    'OmegaMessageSegment',
-    'OmegaMessageTransfer',
+    'get_online_bots',
 ]

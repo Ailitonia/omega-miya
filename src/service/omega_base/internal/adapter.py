@@ -146,14 +146,6 @@ class BaseEventDepend[BT: 'BaseBot', ET: 'BaseEvent'](abc.ABC):
             **kwargs,
         )
 
-    async def send_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> Receipt:
-        """发送消息并 at 事件消息发送者"""
-        return await self.send(message=message, at_sender=True)
-
-    async def send_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> Receipt:
-        """发送消息作为原消息的回复"""
-        return await self.send(message=message, reply_to=True)
-
     @staticmethod
     async def revoke_bot_sent_msg(receipt: Receipt, *, revoke_delay: int = 0) -> None:
         """撤回/删除一条由 Bot 发送的消息"""
