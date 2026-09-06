@@ -58,11 +58,6 @@ def run_bot(_: 'CliQueryArguments') -> None:
         from nonebot.adapters.onebot.v11.adapter import Adapter as OneBotAdapter
         driver.register_adapter(OneBotAdapter)
 
-    # 按需注册 QQ Adapter
-    if driver.config.model_dump().get('qq_bots'):
-        from nonebot.adapters.qq.adapter import Adapter as QQAdapter
-        driver.register_adapter(QQAdapter)
-
     # 按需注册 Telegram Adapter
     if driver.config.model_dump().get('telegram_bots'):
         from nonebot.adapters.telegram.adapter import Adapter as TelegramAdapter

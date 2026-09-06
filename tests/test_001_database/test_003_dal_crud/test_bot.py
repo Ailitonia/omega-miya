@@ -136,7 +136,7 @@ class TestBotSelfDAL:
 
         test_cases = [
             ('Console', 'console_bot'),
-            ('QQ', 'qq_bot'),
+            ('OneBot V11', 'qq_bot'),
             ('Telegram', 'tg_bot'),
         ]
         for bot_type, self_id in test_cases:

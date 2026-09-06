@@ -41,12 +41,6 @@ class EntityType(StrEnum):
     ONEBOT_V11_USER = 'onebot_v11_user'  # QQ 用户 (OneBot 协议)
     ONEBOT_V11_GROUP = 'onebot_v11_group'  # QQ 群组 (OneBot 协议)
 
-    QQ_GUILD = 'qq_guild'  # QQ 频道频道 (QQ 官方协议)
-    QQ_CHANNEL = 'qq_channel'  # QQ 频道子频道 (QQ 官方协议)
-    QQ_GROUP = 'qq_group'  # QQ 群 (预留非频道场景) (QQ 官方协议)
-    QQ_USER = 'qq_user'  # QQ 用户 (预留非频道用户) (QQ 官方协议)
-    QQ_GUILD_USER = 'qq_guild_user'  # QQ 频道系统内用户 (QQ 官方协议)
-
     TELEGRAM_USER = 'telegram_user'  # Telegram 用户
     TELEGRAM_GROUP = 'telegram_group'  # Telegram 群组
     TELEGRAM_CHANNEL = 'telegram_channel'  # Telegram 频道

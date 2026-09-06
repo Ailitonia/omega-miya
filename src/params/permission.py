@@ -11,9 +11,6 @@
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN as ONEBOT_V11_GROUP_ADMIN
 from nonebot.adapters.onebot.v11.permission import GROUP_OWNER as ONEBOT_V11_GROUP_OWNER
 from nonebot.adapters.onebot.v11.permission import PRIVATE as ONEBOT_V11_PRIVATE
-from nonebot.adapters.qq.permission import GUILD_ADMIN as QQ_GUILD_ADMIN
-from nonebot.adapters.qq.permission import GUILD_CHANNEL_ADMIN as QQ_GUILD_CHANNEL_ADMIN
-from nonebot.adapters.qq.permission import GUILD_OWNER as QQ_GUILD_OWNER
 from nonebot.adapters.telegram.permission import GROUP_ADMIN as TELEGRAM_GROUP_ADMIN
 from nonebot.adapters.telegram.permission import GROUP_CREATOR as TELEGRAM_GROUP_CREATOR
 from nonebot.adapters.telegram.permission import PRIVATE as TELEGRAM_PRIVATE
@@ -24,9 +21,6 @@ IS_ADMIN: Permission = (
         | ONEBOT_V11_GROUP_ADMIN
         | ONEBOT_V11_GROUP_OWNER
         | ONEBOT_V11_PRIVATE
-        | QQ_GUILD_CHANNEL_ADMIN
-        | QQ_GUILD_ADMIN
-        | QQ_GUILD_OWNER
         | TELEGRAM_GROUP_ADMIN
         | TELEGRAM_GROUP_CREATOR
         | TELEGRAM_PRIVATE
