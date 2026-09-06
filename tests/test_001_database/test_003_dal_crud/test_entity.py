@@ -16,7 +16,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy.exc import NoResultFound
+from pydantic import ValidationError
+from sqlalchemy.exc import NoResultFound, StatementError
 
 if TYPE_CHECKING:
     from src.database.internal.bot import BotSelf, BotSelfDAL
@@ -47,6 +48,11 @@ async def test_entity_id() -> str:
 @pytest.fixture(scope='class')
 async def test_entity_name() -> str:
     return f'TEST_ENTITY_NAME_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+
+
+@pytest.fixture(scope='class')
+async def test_entity_extra() -> dict:
+    return {'platform': 'test', 'tags': ['a', 'b'], 'meta': {'level': 1}, 'enabled': True, 'note': None, '昵称': '米娅'}
 
 
 @pytest.fixture(scope='class')
@@ -146,6 +152,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """_clear_all 不执行 commit, 外层事务 rollback 后主表与全部子表数据应恢复"""
         await entity_dal._clear_all()
@@ -157,6 +164,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.set_entity_friendship(entity.id, friendship=Decimal('10'))
         await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1))
@@ -192,6 +200,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """首次插入验证字段 + entity_parent_bot 加载"""
         await entity_dal._clear_all()
@@ -203,6 +212,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
             entity_info='test info',
         )
         await entity_dal.commit_session()
@@ -210,6 +220,7 @@ class TestEntityDAL:
         assert result.entity_type == test_entity_type
         assert result.entity_id == test_entity_id
         assert result.entity_name == test_entity_name
+        assert result.entity_extra == test_entity_extra
         assert result.entity_info == 'test info'
         assert result.bot_index_id == test_bot.id
         assert result.entity_parent_bot.self_id == test_bot.self_id
@@ -221,6 +232,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """entity_info=None 插入"""
         await entity_dal._clear_all()
@@ -232,9 +244,11 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
+        assert result.entity_extra == test_entity_extra
         assert result.entity_info is None
 
     async def test_add_update_exist_update(
@@ -244,8 +258,9 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
-        """同 (bot, entity_type, entity_id) 再次调用更新 name/info"""
+        """同 (bot, entity_type, entity_id) 再次调用更新 name/info, entity_extra 浅合并"""
         await entity_dal._clear_all()
         await entity_dal.commit_session()
 
@@ -255,6 +270,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
             entity_info='original',
         )
         await entity_dal.commit_session()
@@ -265,23 +281,26 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name='updated_name',
+            entity_extra={'updated': True},
             entity_info='updated_info',
         )
         await entity_dal.commit_session()
 
         assert result.entity_name == 'updated_name'
+        assert result.entity_extra == {**test_entity_extra, 'updated': True}
         assert result.entity_info == 'updated_info'
         assert await entity_dal._count_entity_all() == 1
 
-    async def test_add_update_exist_update_with_none_info(
+    async def test_add_update_exist_update_with_none_info_preserves(
             self,
             entity_dal,
             test_bot,
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
-        """先带 info 插入, 再更新 info=None"""
+        """先带 info 插入, 再更新 info=None: entity_info 传 None 时保留原值, entity_extra 与原内容浅合并"""
         await entity_dal._clear_all()
         await entity_dal.commit_session()
 
@@ -291,6 +310,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
             entity_info='original',
         )
         await entity_dal.commit_session()
@@ -301,11 +321,14 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra={'updated_extra': True},
             entity_info=None,
         )
         await entity_dal.commit_session()
 
-        assert result.entity_info is None
+        # 两字段更新语义: entity_info 传 None 保留原值, entity_extra 与原内容浅合并 (新增键并入)
+        assert result.entity_info == 'original'
+        assert result.entity_extra == {**test_entity_extra, 'updated_extra': True}
 
     # ------------------------------------------------------------------ #
     # Entity 自身 — add_update_exist 嵌套事务 (SAVEPOINT) 路径
@@ -318,6 +341,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销
 
@@ -339,6 +363,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         assert result.entity_id == test_entity_id
         assert await entity_dal._count_entity_all() == 1
@@ -353,6 +378,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """外层已有活动事务时更新分支走 SAVEPOINT, 外层 rollback 后更新应被撤销"""
         await entity_dal._clear_all()
@@ -364,6 +390,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -374,6 +401,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=f'{test_entity_name}_nested',
+            entity_extra=test_entity_extra,
             entity_info='nested info',
         )
         assert result.entity_name == f'{test_entity_name}_nested'
@@ -399,6 +427,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """首次插入"""
         await entity_dal._clear_all()
@@ -410,12 +439,14 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
             entity_info='info',
         )
         await entity_dal.commit_session()
 
         assert result.entity_id == test_entity_id
         assert result.entity_name == test_entity_name
+        assert result.entity_extra == test_entity_extra
         assert result.entity_info == 'info'
 
     async def test_add_ignore_exist_ignored(
@@ -425,6 +456,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """已存在时忽略, 返回原数据不变"""
         await entity_dal._clear_all()
@@ -436,6 +468,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
             entity_info='original',
         )
         await entity_dal.commit_session()
@@ -446,11 +479,13 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name='ignored_name',
+            entity_extra={'ignored': True},
             entity_info='ignored_info',
         )
         await entity_dal.commit_session()
 
         assert result.entity_name == test_entity_name
+        assert result.entity_extra == test_entity_extra
         assert result.entity_info == 'original'
 
     async def test_add_update_exist_bot_not_found(
@@ -459,6 +494,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """所属 Bot 不存在时调用 add_update_exist, 预期 NoResultFound"""
         await entity_dal._clear_all()
@@ -471,6 +507,7 @@ class TestEntityDAL:
                 entity_type=test_entity_type,
                 entity_id=test_entity_id,
                 entity_name=test_entity_name,
+                entity_extra=test_entity_extra,
             )
 
     async def test_add_ignore_exist_bot_not_found(
@@ -479,6 +516,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """所属 Bot 不存在时调用 add_ignore_exist, 预期 NoResultFound"""
         await entity_dal._clear_all()
@@ -491,7 +529,281 @@ class TestEntityDAL:
                 entity_type=test_entity_type,
                 entity_id=test_entity_id,
                 entity_name=test_entity_name,
+                entity_extra=test_entity_extra,
             )
+
+    # ------------------------------------------------------------------ #
+    # Entity 自身 — entity_extra 字段边界条件
+    # ------------------------------------------------------------------ #
+
+    async def test_add_update_exist_insert_empty_extra(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra={} 空字典插入"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        result = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra={},
+        )
+        await entity_dal.commit_session()
+
+        assert result.entity_extra == {}
+
+    async def test_add_update_exist_insert_complex_extra(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra 嵌套结构/Unicode/各 JSON 标量类型写入与读回一致"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        complex_extra = {
+            'str': 'value',
+            'int': 42,
+            'float': 3.14,
+            'bool': False,
+            'null': None,
+            'list': [1, 'two', 3.0, None],
+            'nested': {'a': {'b': {'c': [1, 2, 3]}}},
+            '中文键': '中文值',
+            'emoji': '🐱',
+        }
+        inserted = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra=complex_extra,
+        )
+        await entity_dal.commit_session()
+        assert inserted.entity_extra == complex_extra
+
+        # 重新查询验证数据库 round-trip 一致性
+        queried = await entity_dal.query_unique(
+            test_bot.bot_type, test_bot.self_id, test_entity_type, test_entity_id, None,
+        )
+        assert queried.entity_extra == complex_extra
+
+    async def test_add_update_exist_update_merges_extra(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra 更新语义为浅合并: 新键并入, 同顶层键覆盖, 未涉及的键保留"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra={'a': 1, 'b': {'x': 2}},
+        )
+        await entity_dal.commit_session()
+
+        result = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra={'a': 9, 'c': 3},
+        )
+        await entity_dal.commit_session()
+
+        assert result.entity_extra == {'a': 9, 'b': {'x': 2}, 'c': 3}
+
+    async def test_add_update_exist_update_merge_extra_shallow(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra 为浅合并且不做深合并: 同顶层键的嵌套 dict 被整体替换"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra={'a': 1, 'b': {'x': 2}},
+        )
+        await entity_dal.commit_session()
+
+        result = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra={'b': {'y': 3}},
+        )
+        await entity_dal.commit_session()
+
+        assert result.entity_extra == {'a': 1, 'b': {'y': 3}}
+
+    async def test_add_update_exist_update_extra_empty_keeps(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+            test_entity_extra,
+    ) -> None:
+        """entity_extra 更新时传 {} 为无操作合并, 原有内容保留"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
+        )
+        await entity_dal.commit_session()
+
+        result = await entity_dal.add_update_exist(
+            bot_type=test_bot.bot_type,
+            bot_self_id=test_bot.self_id,
+            entity_type=test_entity_type,
+            entity_id=test_entity_id,
+            entity_name=test_entity_name,
+            entity_extra={},
+        )
+        await entity_dal.commit_session()
+
+        assert result.entity_extra == test_entity_extra
+
+    async def test_add_update_exist_extra_none_raises(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra=None 不符合 dict 类型约束, 预期 ValidationError 且不写入任何数据"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        with pytest.raises(ValidationError):
+            await entity_dal.add_update_exist(
+                bot_type=test_bot.bot_type,
+                bot_self_id=test_bot.self_id,
+                entity_type=test_entity_type,
+                entity_id=test_entity_id,
+                entity_name=test_entity_name,
+                entity_extra=None,
+            )
+
+        assert await entity_dal._count_entity_all() == 0
+
+    async def test_add_ignore_exist_extra_none_raises(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """add_ignore_exist 同样在入口处校验 entity_extra, 预期 ValidationError"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        with pytest.raises(ValidationError):
+            await entity_dal.add_ignore_exist(
+                bot_type=test_bot.bot_type,
+                bot_self_id=test_bot.self_id,
+                entity_type=test_entity_type,
+                entity_id=test_entity_id,
+                entity_name=test_entity_name,
+                entity_extra=None,
+            )
+
+        assert await entity_dal._count_entity_all() == 0
+
+    async def test_add_update_exist_extra_not_dict_raises(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra 为非 dict 类型 (如 str) 时预期 ValidationError"""
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        with pytest.raises(ValidationError):
+            await entity_dal.add_update_exist(
+                bot_type=test_bot.bot_type,
+                bot_self_id=test_bot.self_id,
+                entity_type=test_entity_type,
+                entity_id=test_entity_id,
+                entity_name=test_entity_name,
+                entity_extra='not_a_dict',
+            )
+
+        assert await entity_dal._count_entity_all() == 0
+
+    async def test_add_update_exist_extra_not_json_serializable(
+            self,
+            entity_dal,
+            test_bot,
+            test_entity_type,
+            test_entity_id,
+            test_entity_name,
+    ) -> None:
+        """entity_extra 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败
+
+        entity_extra 类型为 dict[str, Any], 入口 pydantic 校验不限制 value 类型,
+        不可序列化值 (如 bytes) 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异
+        (SQLite 下为 StatementError 包装 TypeError), 此处固定当前的失败行为,
+        若后续 DAL 层增加前置序列化校验, 本用例需同步调整
+        """
+        await entity_dal._clear_all()
+        await entity_dal.commit_session()
+
+        with pytest.raises((TypeError, StatementError)):
+            await entity_dal.add_update_exist(
+                bot_type=test_bot.bot_type,
+                bot_self_id=test_bot.self_id,
+                entity_type=test_entity_type,
+                entity_id=test_entity_id,
+                entity_name=test_entity_name,
+                entity_extra={'key': b'bytes'},
+            )
+
+        assert await entity_dal._count_entity_all() == 0
 
     # ------------------------------------------------------------------ #
     # Entity 自身 — query_unique
@@ -504,6 +816,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """按 (bot_type, bot_self_id, entity_type, entity_id) 查"""
         await entity_dal._clear_all()
@@ -515,6 +828,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -527,6 +841,7 @@ class TestEntityDAL:
         )
         assert result.entity_id == test_entity_id
         assert result.entity_name == test_entity_name
+        assert result.entity_extra == test_entity_extra
 
     async def test_query_unique_by_index_id(
             self,
@@ -535,6 +850,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """按 index_id 查"""
         await entity_dal._clear_all()
@@ -546,6 +862,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -559,6 +876,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """同时提供时 index_id 优先"""
         await entity_dal._clear_all()
@@ -570,6 +888,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         a2 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -577,6 +896,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_b',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -613,6 +933,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """load_all_rel=True 返回 EntityWithFullRel 带级联属性"""
         await entity_dal._clear_all()
@@ -624,6 +945,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -649,6 +971,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """load_all_rel=True 且存在关联数据时, 应正确带出全部级联属性"""
         await entity_dal._clear_all()
@@ -660,6 +983,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.set_entity_friendship(entity.id, friendship=Decimal('100'))
         await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1), sign_in_info='rel test')
@@ -680,6 +1004,7 @@ class TestEntityDAL:
         assert len(result.friendship_belonged_to_entity) == 1
         assert result.friendship_belonged_to_entity[0].friendship == Decimal('100')
         assert result.friendship_belonged_to_entity[0].friendship_parent_entity.id == entity.id
+        assert result.friendship_belonged_to_entity[0].friendship_parent_entity.entity_extra == test_entity_extra
 
         assert len(result.sign_in_belonged_to_entity) == 1
         assert result.sign_in_belonged_to_entity[0].sign_in_date == date(2026, 1, 1)
@@ -706,6 +1031,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """多条 + 排序"""
         await entity_dal._clear_all()
@@ -717,6 +1043,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_c',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -724,6 +1051,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -731,6 +1059,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_b',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -751,6 +1080,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """按 bot+type 过滤"""
         await entity_dal._clear_all()
@@ -762,6 +1092,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -769,6 +1100,7 @@ class TestEntityDAL:
             entity_type='onebot_v11_group',
             entity_id='gid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -796,6 +1128,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """删除后查不到"""
         await entity_dal._clear_all()
@@ -807,6 +1140,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -835,6 +1169,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """首次设置验证字段 (Decimal)"""
         await entity_dal._clear_all()
@@ -846,6 +1181,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -875,6 +1211,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """再次设置更新值"""
         await entity_dal._clear_all()
@@ -886,6 +1223,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -915,6 +1253,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """默认值全为 0 / status='normal'"""
         await entity_dal._clear_all()
@@ -926,6 +1265,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -946,6 +1286,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """部分更新语义: 仅传入的字段被更新, 未传入的字段 (None) 保持原值"""
         await entity_dal._clear_all()
@@ -957,6 +1298,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -989,6 +1331,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """全部参数缺省时 (仅提供 entity_index_id), 已有记录的字段不应被修改"""
         await entity_dal._clear_all()
@@ -1000,6 +1343,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1019,6 +1363,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """先 set 再 alter, 验证增量累加"""
         await entity_dal._clear_all()
@@ -1030,6 +1375,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1060,6 +1406,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """无好感度记录时直接 alter, 应插入新行且 delta 即为初始值"""
         await entity_dal._clear_all()
@@ -1071,6 +1418,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1095,6 +1443,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """已有 friendship 直接返回"""
         await entity_dal._clear_all()
@@ -1106,6 +1455,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1122,6 +1472,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """没有 friendship 时自动初始化默认值"""
         await entity_dal._clear_all()
@@ -1133,6 +1484,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1151,6 +1503,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """指定 date 对象, info 默认 'Fixed Sign In'"""
         await entity_dal._clear_all()
@@ -1162,6 +1515,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1178,6 +1532,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """指定 datetime 对象, 自动取 .date()"""
         await entity_dal._clear_all()
@@ -1189,6 +1544,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1209,6 +1565,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """date_=None 用今天, info 默认 'Normal Sign In'"""
         await entity_dal._clear_all()
@@ -1220,6 +1577,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1236,6 +1594,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """同日重复签到且未指定 sign_in_info 时, 签到信息应标记为 'Duplicate Sign In'"""
         await entity_dal._clear_all()
@@ -1247,6 +1606,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1266,6 +1626,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """已签到返回 True"""
         await entity_dal._clear_all()
@@ -1277,6 +1638,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1292,6 +1654,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """未签到返回 False"""
         await entity_dal._clear_all()
@@ -1301,6 +1664,7 @@ class TestEntityDAL:
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1313,6 +1677,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """多天签到返回日期列表"""
         await entity_dal._clear_all()
@@ -1324,6 +1689,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1346,6 +1712,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """首次设置验证字段 + JSON value"""
         await entity_dal._clear_all()
@@ -1357,6 +1724,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1383,6 +1751,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """更新 available 和 value"""
         await entity_dal._clear_all()
@@ -1394,6 +1763,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1427,6 +1797,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """value 为空 {}"""
         await entity_dal._clear_all()
@@ -1438,6 +1809,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1460,6 +1832,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """查回验证"""
         await entity_dal._clear_all()
@@ -1471,6 +1844,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1500,6 +1874,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """NoResultFound"""
         await entity_dal._clear_all()
@@ -1511,6 +1886,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1524,6 +1900,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """查全部 auth"""
         await entity_dal._clear_all()
@@ -1535,6 +1912,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1552,6 +1930,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """按 module 过滤"""
         await entity_dal._clear_all()
@@ -1561,6 +1940,7 @@ class TestEntityDAL:
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1580,6 +1960,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """按 module+plugin 过滤"""
         await entity_dal._clear_all()
@@ -1589,6 +1970,7 @@ class TestEntityDAL:
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1607,6 +1989,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """无配置返回空"""
         await entity_dal._clear_all()
@@ -1618,6 +2001,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1630,6 +2014,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """跨实体查询某 module+plugin 的所有配置"""
         await entity_dal._clear_all()
@@ -1641,6 +2026,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         e2 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -1648,6 +2034,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_b',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1664,6 +2051,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """查有特定权限节点的实体"""
         await entity_dal._clear_all()
@@ -1675,6 +2063,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -1682,6 +2071,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_b',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1698,6 +2088,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """strict_match=True 只匹配 available==1"""
         await entity_dal._clear_all()
@@ -1709,6 +2100,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         e2 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -1716,6 +2108,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_b',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1739,6 +2132,7 @@ class TestEntityDAL:
             test_bot,
             test_entity_type,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """strict_match=False 匹配 available>=1"""
         await entity_dal._clear_all()
@@ -1750,6 +2144,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_a',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         e2 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
@@ -1757,6 +2152,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id='eid_b',
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1780,6 +2176,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """删除后查不到"""
         await entity_dal._clear_all()
@@ -1791,6 +2188,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1810,6 +2208,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """不存在不抛异常"""
         await entity_dal._clear_all()
@@ -1821,6 +2220,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1838,6 +2238,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """expired_time 为 datetime"""
         await entity_dal._clear_all()
@@ -1849,6 +2250,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1867,6 +2269,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """expired_time 为 timedelta"""
         await entity_dal._clear_all()
@@ -1878,6 +2281,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1896,6 +2300,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """非 datetime/timedelta 抛 TypeError"""
         await entity_dal._clear_all()
@@ -1905,6 +2310,7 @@ class TestEntityDAL:
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1918,6 +2324,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """同 event 再次设置更新 stop_at"""
         await entity_dal._clear_all()
@@ -1929,6 +2336,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1947,6 +2355,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """查回验证"""
         await entity_dal._clear_all()
@@ -1958,6 +2367,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1975,6 +2385,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """NoResultFound"""
         await entity_dal._clear_all()
@@ -1986,6 +2397,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -1999,6 +2411,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """stop_at 已过返回 (True, stop_at)"""
         await entity_dal._clear_all()
@@ -2010,6 +2423,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2028,6 +2442,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """stop_at 未过返回 (False, stop_at)"""
         await entity_dal._clear_all()
@@ -2039,6 +2454,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2057,6 +2473,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """不存在返回 (True, now)"""
         await entity_dal._clear_all()
@@ -2068,6 +2485,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2083,6 +2501,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """删除后查不到"""
         await entity_dal._clear_all()
@@ -2094,6 +2513,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2113,6 +2533,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """只删过期的, 未过期保留"""
         await entity_dal._clear_all()
@@ -2124,6 +2545,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2150,6 +2572,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """首次设置验证"""
         await entity_dal._clear_all()
@@ -2161,6 +2584,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2183,6 +2607,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """再次设置更新 sub_info"""
         await entity_dal._clear_all()
@@ -2194,6 +2619,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2213,6 +2639,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """sub_info=None 不更新已有值"""
         await entity_dal._clear_all()
@@ -2224,6 +2651,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2243,6 +2671,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """查全部订阅源"""
         await entity_dal._clear_all()
@@ -2254,6 +2683,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2273,6 +2703,7 @@ class TestEntityDAL:
             test_entity_name,
             test_subscription_source,
             test_sub_type,
+            test_entity_extra,
     ) -> None:
         """按 sub_type 过滤"""
         await entity_dal._clear_all()
@@ -2284,6 +2715,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2303,6 +2735,7 @@ class TestEntityDAL:
             test_entity_type,
             test_entity_id,
             test_entity_name,
+            test_entity_extra,
     ) -> None:
         """无订阅返回空"""
         await entity_dal._clear_all()
@@ -2314,6 +2747,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2328,6 +2762,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """删除后查不到"""
         await entity_dal._clear_all()
@@ -2339,6 +2774,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 
@@ -2363,6 +2799,7 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
             test_subscription_source,
+            test_entity_extra,
     ) -> None:
         """删除 entity 后 friendship/sign_in/auth/cooldown/subscription 均被级联删除"""
         await entity_dal._clear_all()
@@ -2374,6 +2811,7 @@ class TestEntityDAL:
             entity_type=test_entity_type,
             entity_id=test_entity_id,
             entity_name=test_entity_name,
+            entity_extra=test_entity_extra,
         )
         await entity_dal.commit_session()
 

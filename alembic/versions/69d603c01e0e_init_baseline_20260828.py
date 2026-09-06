@@ -225,6 +225,7 @@ def upgrade() -> None:
     sa.Column('entity_type', sa.String(length=64), nullable=False, comment='实体类型'),
     sa.Column('entity_id', sa.String(length=64), nullable=False, comment='实体平台ID'),
     sa.Column('entity_name', sa.String(length=64), nullable=False, comment='实体名称'),
+    sa.Column('entity_extra', sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), 'postgresql'), nullable=False, comment='附加数据'),
     sa.Column('entity_info', sa.String(length=255), nullable=True, comment='实体描述信息'),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),

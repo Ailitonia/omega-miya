@@ -56,6 +56,7 @@ class EntityInitParams(BaseModel):
     bot_id: str
     entity_type: EntityType
     entity_id: str
+    entity_extra: dict[str, Any]
     entity_name: str | None = Field(default=None)
     entity_info: str | None = Field(default=None)
 
@@ -77,13 +78,15 @@ class OmegaEntity:
             entity_type: str,
             entity_id: str,
             entity_name: str | None = None,
+            entity_extra: dict[str, Any] | None = None,
             entity_info: str | None = None
     ) -> None:
         self.bot_type = BotType(bot_type)
         self.bot_id = bot_id
         self.entity_type = EntityType(entity_type)
         self.entity_id = entity_id
-        self.entity_name = f'{entity_type}_{entity_id}' if entity_name is None else entity_name
+        self.entity_name: str = f'{entity_type}_{entity_id}' if entity_name is None else entity_name
+        self.entity_extra: dict[str, Any] = entity_extra if entity_extra is not None else {}
         self.entity_info = entity_info
 
         self._db_session = session
@@ -105,6 +108,7 @@ class OmegaEntity:
             entity_type=self.entity_type,
             entity_id=self.entity_id,
             entity_name=self.entity_name,
+            entity_extra=self.entity_extra,
             entity_info=self.entity_info,
         )
 
@@ -154,6 +158,7 @@ class OmegaEntity:
                 entity_type=self.entity_type,
                 entity_id=self.entity_id,
                 entity_name=self.entity_name,
+                entity_extra=self.entity_extra,
                 entity_info=self.entity_info,
             )
         self._bot = bot
@@ -195,6 +200,7 @@ class OmegaEntity:
             entity_type=self.entity_type,
             entity_id=self.entity_id,
             entity_name=entity_name,
+            entity_extra=self.entity_extra,
             entity_info=entity_info,
         )
         await self.init_self()

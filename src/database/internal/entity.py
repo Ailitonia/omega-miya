@@ -59,6 +59,7 @@ class _BaseEntity(BaseDataOutModel):
     entity_type: EntityType
     entity_id: str
     entity_name: str
+    entity_extra: dict[str, Any]
 
 
 class _Bot(BaseDataOutModel):
@@ -398,16 +399,22 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_type: str,
             entity_id: str,
             entity_name: str,
+            entity_extra: dict[str, Any],
             entity_info: str | None = None
     ) -> Entity:
         """向数据库插入新行, 存在则更新
 
         通过捕获异常实现, 性能较差, 且并发时仍可能出现死锁或需要重试
 
+        entity_info 仅在显式传入非 None 值时更新, 传 None 则保留原值;
+        entity_extra 更新时与原内容浅合并 (dict.update): 新键并入, 同顶层键覆盖, 传 {} 保留原内容;
+        entity_extra 的值必须 JSON 可序列化, 否则由数据库驱动在写入时抛出异常
         Note: SQLite 后端在嵌套事务 (SAVEPOINT) 场景下, 插入分支可能因驱动 legacy 事务控制
         (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
         外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
         """
+        entity_extra = parse_obj_as(dict[str, Any], entity_extra)
+
         select_bot_stmt = (select(BotSelfOrm)
                            .where(BotSelfOrm.bot_type == bot_type)
                            .where(BotSelfOrm.self_id == bot_self_id)
@@ -419,6 +426,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_type=EntityType(entity_type),
             entity_id=entity_id,
             entity_name=entity_name,
+            entity_extra=entity_extra,
             entity_info=entity_info,
         )
 
@@ -442,7 +450,9 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                     with_for_update=True,
                 )
                 exist_obj.entity_name = entity_name
-                exist_obj.entity_info = entity_info
+                exist_obj.entity_extra = {**exist_obj.entity_extra, **entity_extra}
+                if entity_info is not None:
+                    exist_obj.entity_info = entity_info
                 await session.flush()
 
         # 重新加载实体及其所属 bot, 确保返回数据模型时关系属性已加载
@@ -463,14 +473,18 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_type: str,
             entity_id: str,
             entity_name: str,
+            entity_extra: dict[str, Any],
             entity_info: str | None = None
     ) -> Entity:
         """向数据库插入新行, 若已存在则忽略
 
+        已存在时忽略本次提交的全部字段; entity_extra 的值必须 JSON 可序列化, 否则由数据库驱动在写入时抛出异常
         Note: SQLite 后端在嵌套事务 (SAVEPOINT) 场景下, 插入分支可能因驱动 legacy 事务控制
         (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
         外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
         """
+        entity_extra = parse_obj_as(dict[str, Any], entity_extra)
+
         select_bot_stmt = (select(BotSelfOrm)
                            .where(BotSelfOrm.bot_type == bot_type)
                            .where(BotSelfOrm.self_id == bot_self_id)
@@ -482,6 +496,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_type=EntityType(entity_type),
             entity_id=entity_id,
             entity_name=entity_name,
+            entity_extra=entity_extra,
             entity_info=entity_info,
         )
 

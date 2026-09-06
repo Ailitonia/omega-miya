@@ -100,6 +100,7 @@ class ConsoleEventDepend(BaseEventDepend[ConsoleBot, ConsoleEvent]):
             'entity_type': EntityType.CONSOLE_CHANNEL,
             'entity_id': self.event.channel.id,
             'entity_name': self.event.channel.name,
+            'entity_extra': {},
             'entity_info': self.event.channel.description,
         })
 
@@ -112,6 +113,7 @@ class ConsoleEventDepend(BaseEventDepend[ConsoleBot, ConsoleEvent]):
                 'entity_type': EntityType.CONSOLE_USER,
                 'entity_id': self.event.user.id,
                 'entity_name': self.event.user.nickname,
+                'entity_extra': {},
                 'entity_info': self.event.user.avatar,
             })
         else:
@@ -121,6 +123,7 @@ class ConsoleEventDepend(BaseEventDepend[ConsoleBot, ConsoleEvent]):
                 'entity_type': EntityType.CONSOLE_CHANNEL,
                 'entity_id': self.event.channel.id,
                 'entity_name': self.event.channel.name,
+                'entity_extra': {},
                 'entity_info': self.event.channel.description,
             })
 

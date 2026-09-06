@@ -184,6 +184,7 @@ class EntityOrm(Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体类型')
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体平台ID')
     entity_name: Mapped[str] = mapped_column(String(64), nullable=False, comment='实体名称')
+    entity_extra: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict, comment='附加数据')
     entity_info: Mapped[str | None] = mapped_column(String(255), nullable=True, comment='实体描述信息')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
@@ -241,7 +242,6 @@ class EntityOrm(Base):
     def __repr__(self) -> str:
         return (f'EntityOrm(bot_index_id={self.bot_index_id}, entity_type={self.entity_type}, '
                 f'entity_id={self.entity_id}, entity_name={self.entity_name}, '
-                f'entity_info={self.entity_info or "null"} '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 
