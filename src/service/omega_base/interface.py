@@ -18,7 +18,7 @@ from nonebot.exception import FinishedException, PausedException, RejectedExcept
 from nonebot.matcher import Matcher
 from nonebot_plugin_alconna.uniseg import Receipt, Segment, UniMessage
 
-from src.database import database_session
+from src.database import DATABASE_SESSION, database_session
 from src.database.internal.entity import EntityType
 from .internal import (
     EVENT_DEPEND_REGISTER,
@@ -170,14 +170,15 @@ class OmegaMatcherInterface:
         entity_params = self.extract_current_entity_params()
         return OmegaEntityInterface(entity_params=entity_params)
 
+    def get_current_entity(self, db_session: DATABASE_SESSION) -> OmegaEntity:
+        """使用已有数据库会话创建 OmegaEntity 实例"""
+        return OmegaEntity(session=db_session, **self.extract_current_entity_params().model_dump())
+
     @asynccontextmanager
     async def create_current_entity_session(self) -> AsyncGenerator[OmegaEntity, None]:
-        """开始数据库事务并创建 OmegaEntity 实例"""
+        """创建 OmegaEntity 实例并开始新的数据库会话"""
         async with database_session() as session:
-            yield OmegaEntity(
-                session=session,
-                **self.extract_current_entity_params().model_dump(),
-            )
+            yield self.get_current_entity(db_session=session)
 
     # ------------------------------------------------------------------ #
     # Matcher 及流程控制相关方法

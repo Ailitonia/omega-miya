@@ -11,6 +11,11 @@
 此处导入不可删除, 否则将影响启动时初始化
 """
 
+from typing import Annotated
+
+from nonebot.params import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .helpers import database_session, database_session_depend
 from .internal import (
     ArtworkCollectionDAL,
@@ -25,7 +30,12 @@ from .internal import (
     SystemSettingDAL,
 )
 
+type DATABASE_SESSION = Annotated[AsyncSession, Depends(database_session_depend)]
+"""子依赖: 获取数据库 session 并开始事务"""
+
+
 __all__ = [
+    'DATABASE_SESSION',
     'ArtworkCollectionDAL',
     'BotSelfDAL',
     'EntityDAL',

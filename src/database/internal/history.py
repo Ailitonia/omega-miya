@@ -28,7 +28,7 @@ class History(BaseDataOutModel):
     user_entity_id: str
     message_type: str
     message_plain_text: str
-    message_raw: dict[str, Any]
+    message_raw: list[dict[str, Any]]
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -192,14 +192,17 @@ class HistoryDAL(BaseDataAccessLayer[HistoryOrm, History]):
             user_entity_id: str,
             message_type: str,
             message_plain_text: str,
-            message_raw: dict[str, Any],
+            message_raw: list[dict[str, Any]],
     ) -> History:
         """向数据库插入新行, 不校验唯一性
 
         尽量保证插入的是新数据时才使用, 冲突直接抛出异常
         原则上此表保存历史消息内容原始副本, 不进行更新
+
+        Note: message_raw 应为消息段列表 (list[dict[str, Any]], 如 UniMessage.dump() 的输出),
+        其中的值必须 JSON 可序列化, 否则由数据库驱动在写入时抛出异常
         """
-        message_raw = parse_obj_as(dict[str, Any], message_raw)
+        message_raw = parse_obj_as(list[dict[str, Any]], message_raw)
 
         new_obj = HistoryOrm(
             received_timestamp=received_timestamp,

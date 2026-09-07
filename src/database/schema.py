@@ -123,7 +123,7 @@ class HistoryOrm(Base):
     user_entity_id: Mapped[str] = mapped_column(String(64), nullable=False)
     message_type: Mapped[str] = mapped_column(String(64), nullable=False)
     message_plain_text: Mapped[str] = mapped_column(CommonLongText, nullable=False)
-    message_raw: Mapped[dict[str, Any]] = mapped_column(CommonJSON, nullable=False, default=dict)
+    message_raw: Mapped[list[dict[str, Any]]] = mapped_column(CommonJSON, nullable=False, default=list)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 

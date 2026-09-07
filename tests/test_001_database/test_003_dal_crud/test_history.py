@@ -15,7 +15,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
 
 if TYPE_CHECKING:
     from src.database.internal.history import HistoryDAL
@@ -53,24 +54,13 @@ async def test_history_message_plain_text() -> str:
 
 @pytest.fixture(scope='class')
 async def test_history_message_raw(
-        test_history_message_id,
-        test_history_bot_self_id,
-        test_history_event_entity_id,
-        test_history_user_entity_id,
         test_history_message_type,
         test_history_message_plain_text,
-) -> dict[str, Any]:
-    return {
-        'id': test_history_message_id,
-        'bot_id': test_history_bot_self_id,
-        'event_id': test_history_event_entity_id,
-        'user_id': test_history_user_entity_id,
-        'message': {
-            'type': test_history_message_type,
-            'content': test_history_message_plain_text,
-        },
-        'mid': ''.join(random.sample(string.ascii_letters + string.digits, k=8)),
-    }
+) -> list[dict[str, Any]]:
+    return [
+        {'type': 'text', 'data': {'text': test_history_message_plain_text}},
+        {'type': test_history_message_type, 'data': {'meta': 'test'}},
+    ]
 
 
 @pytest.fixture(scope='class')
@@ -173,11 +163,15 @@ class TestHistoryDAL:
             history_dal,
             test_history_bot_self_id,
     ) -> None:
-        """插入含嵌套 dict 的 message_raw, 查回验证嵌套结构完整"""
+        """插入含嵌套结构的多段消息列表, 查回验证嵌套结构与元素顺序完整"""
         await history_dal._clear_all()
         await history_dal.commit_session()
 
-        nested_raw = {'msg': {'segments': [{'type': 'text', 'data': {'text': 'hello'}}]}, 'meta': {'count': 3}}
+        nested_raw = [
+            {'type': 'text', 'data': {'text': 'hello'}},
+            {'type': 'image', 'data': {'url': 'https://example.com/img.png', 'meta': {'width': 640, 'height': 480}}},
+            {'type': 'reply', 'data': {'id': '12345', 'extra': {'tags': ['a', 'b'], 'flag': True, 'note': None}}},
+        ]
         now_timestamp = int(datetime.now().timestamp())
         await history_dal.add(
             received_timestamp=now_timestamp,
@@ -211,7 +205,7 @@ class TestHistoryDAL:
                 user_entity_id=f'user_{i}',
                 message_type='group',
                 message_plain_text=f'text_{i}',
-                message_raw={},
+                message_raw=[],
             )
             ids.append(result.id)
             assert await history_dal._count_all() == i + 1
@@ -257,7 +251,7 @@ class TestHistoryDAL:
                 user_entity_id='different_user',
                 message_type=test_history_message_type,
                 message_plain_text='other text',
-                message_raw={},
+                message_raw=[],
             )
 
         # 回滚到正常状态
@@ -283,7 +277,7 @@ class TestHistoryDAL:
             test_history_message_plain_text,
             test_history_message_raw,
     ) -> None:
-        """相同四元组 (message_id, bot_self_id, event_entity_id, user_entity_id) 重复插入, 预期 IntegrityError"""
+        """四元组完全相同的记录重复插入, 实际命中 (bot_self_id, message_id) 唯一约束, 预期 IntegrityError"""
         await history_dal._clear_all()
         await history_dal.commit_session()
 
@@ -309,7 +303,7 @@ class TestHistoryDAL:
                 user_entity_id=test_history_user_entity_id,
                 message_type=test_history_message_type,
                 message_plain_text='other text',
-                message_raw={},
+                message_raw=[],
             )
 
         # 回滚到正常状态
@@ -323,6 +317,121 @@ class TestHistoryDAL:
         )
         assert queried.message_plain_text == test_history_message_plain_text
         assert queried.message_raw == test_history_message_raw
+
+    # ------------------------------------------------------------------ #
+    # add — message_raw 边界条件
+    # ------------------------------------------------------------------ #
+
+    async def test_add_message_raw_empty_list(self, history_dal, test_history_bot_self_id) -> None:
+        """message_raw=[] 空列表插入, 查回验证为空列表"""
+        await history_dal._clear_all()
+        await history_dal.commit_session()
+
+        now_timestamp = int(datetime.now().timestamp())
+        await history_dal.add(
+            received_timestamp=now_timestamp,
+            message_id='msg_empty_raw',
+            bot_self_id=test_history_bot_self_id,
+            event_entity_id='event_empty_raw',
+            user_entity_id='user_empty_raw',
+            message_type='group',
+            message_plain_text='',
+            message_raw=[],
+        )
+        await history_dal.commit_session()
+
+        queried = await history_dal.query_unique(
+            'msg_empty_raw', test_history_bot_self_id, 'event_empty_raw', 'user_empty_raw',
+        )
+        assert queried.message_raw == []
+
+    async def test_add_message_raw_dict_rejected(self, history_dal, test_history_bot_self_id) -> None:
+        """message_raw 传旧形态 dict (含空 dict 与嵌套 dict), 预期 ValidationError 且不写入数据"""
+        await history_dal._clear_all()
+        await history_dal.commit_session()
+
+        now_timestamp = int(datetime.now().timestamp())
+        for legacy_raw in ({}, {'segments': [{'type': 'text', 'data': {'text': 'hello'}}]}):
+            with pytest.raises(ValidationError):
+                await history_dal.add(
+                    received_timestamp=now_timestamp,
+                    message_id='msg_legacy_dict',
+                    bot_self_id=test_history_bot_self_id,
+                    event_entity_id='event_legacy',
+                    user_entity_id='user_legacy',
+                    message_type='group',
+                    message_plain_text='',
+                    message_raw=legacy_raw,
+                )
+
+        assert await history_dal._count_all() == 0
+
+    async def test_add_message_raw_none_rejected(self, history_dal, test_history_bot_self_id) -> None:
+        """message_raw=None, 预期 ValidationError 且不写入数据"""
+        await history_dal._clear_all()
+        await history_dal.commit_session()
+
+        with pytest.raises(ValidationError):
+            await history_dal.add(
+                received_timestamp=int(datetime.now().timestamp()),
+                message_id='msg_none_raw',
+                bot_self_id=test_history_bot_self_id,
+                event_entity_id='event_none',
+                user_entity_id='user_none',
+                message_type='group',
+                message_plain_text='',
+                message_raw=None,
+            )
+
+        assert await history_dal._count_all() == 0
+
+    async def test_add_message_raw_invalid_element_rejected(self, history_dal, test_history_bot_self_id) -> None:
+        """message_raw 元素非 dict 时 (纯元素/混合元素), 预期 ValidationError 且不写入数据"""
+        await history_dal._clear_all()
+        await history_dal.commit_session()
+
+        now_timestamp = int(datetime.now().timestamp())
+        for invalid_raw in (['not_a_dict'], [{'type': 'text'}, 'mixed']):
+            with pytest.raises(ValidationError):
+                await history_dal.add(
+                    received_timestamp=now_timestamp,
+                    message_id='msg_invalid_element',
+                    bot_self_id=test_history_bot_self_id,
+                    event_entity_id='event_invalid',
+                    user_entity_id='user_invalid',
+                    message_type='group',
+                    message_plain_text='',
+                    message_raw=invalid_raw,
+                )
+
+        assert await history_dal._count_all() == 0
+
+    async def test_add_message_raw_not_json_serializable(self, history_dal, test_history_bot_self_id) -> None:
+        """message_raw 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败
+
+        message_raw 类型为 list[dict[str, Any]], 入口 pydantic 校验不限制元素内部的值类型,
+        不可序列化值 (如 bytes) 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异
+        (如 StatementError 包装 TypeError), 此处固定当前的失败行为,
+        若后续 DAL 层增加前置序列化校验, 本用例需同步调整
+        """
+        await history_dal._clear_all()
+        await history_dal.commit_session()
+
+        with pytest.raises((TypeError, StatementError)):
+            await history_dal.add(
+                received_timestamp=int(datetime.now().timestamp()),
+                message_id='msg_not_serializable',
+                bot_self_id=test_history_bot_self_id,
+                event_entity_id='event_not_serializable',
+                user_entity_id='user_not_serializable',
+                message_type='group',
+                message_plain_text='',
+                message_raw=[{'type': 'text', 'data': {'raw': b'bytes'}}],
+            )
+
+        # add() 不经嵌套事务包装, flush 失败后需回滚恢复会话状态
+        await history_dal.rollback_session()
+        assert await history_dal._count_all() == 0
 
     # ------------------------------------------------------------------ #
     # query_unique
@@ -396,13 +505,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_a')
@@ -417,13 +526,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_y', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_c', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', user_entity_id='user_x')
@@ -438,13 +547,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_shared', user_entity_id='user_shared', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_shared', user_entity_id='user_other', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_other', user_entity_id='user_shared', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_shared',
@@ -461,13 +570,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_b', message_type='private',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_a',
@@ -484,13 +593,13 @@ class TestHistoryDAL:
         base_ts = int(base_dt.timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(
@@ -512,11 +621,11 @@ class TestHistoryDAL:
         # bot_self_id == user_entity_id (bot 自身消息)
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='bot1', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         # bot_self_id != user_entity_id (普通用户消息)
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(
@@ -542,7 +651,7 @@ class TestHistoryDAL:
                 user_entity_id='user_a',
                 message_type='group',
                 message_plain_text=f't{i}',
-                message_raw={},
+                message_raw=[],
             )
         await history_dal.commit_session()
 
@@ -566,7 +675,7 @@ class TestHistoryDAL:
             await history_dal.add(
                 received_timestamp=ts, message_id=f'm{i}', bot_self_id='bot1',
                 event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                message_plain_text=f't{i}', message_raw={},
+                message_plain_text=f't{i}', message_raw=[],
             )
         await history_dal.commit_session()
 
@@ -587,7 +696,7 @@ class TestHistoryDAL:
             user_entity_id='user_a',
             message_type='group',
             message_plain_text='t1',
-            message_raw={},
+            message_raw=[],
         )
         await history_dal.commit_session()
 
@@ -614,13 +723,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='event_a') == 2
@@ -634,13 +743,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_y', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_c', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', user_entity_id='user_x') == 2
@@ -653,13 +762,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_b', message_type='private',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='event_a',
@@ -676,13 +785,13 @@ class TestHistoryDAL:
         base_ts = int(base_dt.timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(
@@ -698,13 +807,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='bot1', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='bot1', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         total = await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='event_a')
@@ -727,7 +836,7 @@ class TestHistoryDAL:
             user_entity_id='user_a',
             message_type='group',
             message_plain_text='t1',
-            message_raw={},
+            message_raw=[],
         )
         await history_dal.commit_session()
 
@@ -753,13 +862,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_c', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts + 100)
@@ -778,13 +887,13 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts, message_id='m2', bot_self_id='bot2',
                               event_entity_id='event_a', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw={})
+                              message_plain_text='t3', message_raw=[])
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts, bot_self_id='bot1')
@@ -807,10 +916,10 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts - 1)
@@ -826,10 +935,10 @@ class TestHistoryDAL:
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw={})
+                              message_plain_text='t1', message_raw=[])
         await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
                               event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw={})
+                              message_plain_text='t2', message_raw=[])
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts + 200)
