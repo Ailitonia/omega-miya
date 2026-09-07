@@ -171,10 +171,13 @@ class BaseEventDepend[BT: 'BaseBot', ET: 'BaseEvent'](abc.ABC):
         message = self.get_uni_message()
         return [x.target for x in message[At]]
 
+    def get_msg_images(self) -> list[Image]:
+        """获取当前事件消息中的全部图片消息段"""
+        return self.get_uni_message().select(Image)
+
     def get_msg_image_urls(self) -> list[str]:
         """获取当前事件消息中的全部图片链接"""
-        message = self.get_uni_message()
-        return [x.url for x in message.select(Image) if x.url is not None]
+        return [x.url for x in self.get_msg_images() if x.url is not None]
 
     def get_reply_message(self) -> Reply | None:
         """获取回复消息"""
