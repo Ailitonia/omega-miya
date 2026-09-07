@@ -29,10 +29,6 @@ class LocalSourceException(OmegaException):
         self.path = Path(path) if isinstance(path, str) else path
 
 
-class PlatformException(OmegaException):
-    """平台中间件异常"""
-
-
 class PluginException(OmegaException):
     """由插件自定义的异常"""
 
@@ -56,7 +52,6 @@ class WebSourceException(OmegaException):
 __all__ = [
     'OmegaException',
     'LocalSourceException',
-    'PlatformException',
     'PluginException',
     'WebSourceException',
 ]

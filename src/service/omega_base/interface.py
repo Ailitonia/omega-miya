@@ -8,22 +8,18 @@
 @Software       : PyCharm
 """
 
-import inspect
-from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
+from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import asynccontextmanager
-from functools import wraps
-from typing import Concatenate, NoReturn, Self
+from typing import NoReturn, Self
 
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import FinishedException, PausedException, RejectedException
-from nonebot.log import logger
-from nonebot.matcher import Matcher, current_bot, current_event, current_matcher
+from nonebot.matcher import Matcher
 from nonebot_plugin_alconna.uniseg import Receipt, Segment, UniMessage
 
 from src.database import database_session
 from src.database.internal.entity import EntityType
-from .exception import AdapterNotSupported, TargetNotSupported
 from .internal import (
     EVENT_DEPEND_REGISTER,
     ENTITY_TARGET_REGISTER,
@@ -47,24 +43,6 @@ class OmegaEntityInterface:
     def type(self) -> 'EntityType':
         return self.entity_params.entity_type
 
-    @staticmethod
-    def check_target_implemented[**P, R, T1, T2, ST: 'OmegaEntityInterface'](
-            func: Callable[Concatenate[ST, P], Coroutine[T1, T2, R]],
-    ) -> Callable[Concatenate[ST, P], Coroutine[T1, T2, R]]:
-        """装饰一个调用平台 API 的异步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 TargetNotSupported 异常"""
-        if not inspect.iscoroutinefunction(func):
-            raise TypeError(f'{func.__name__} is not coroutine function')
-
-        @wraps(func)
-        async def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
-            try:
-                return await func(self, *args, **kwargs)
-            except NotImplementedError:
-                logger.warning(f'{self.type} not support method {func.__name__!r}')
-                raise TargetNotSupported(self.type, f'method {func.__name__!r} not implemented')
-
-        return _wrapper
-
     def get_entity_target(self) -> 'BaseEntityTarget':
         """获取 Entity 的中间件平台 API 适配器"""
         entity_target_cls = ENTITY_TARGET_REGISTER.get_target(target_name=self.type)
@@ -78,7 +56,6 @@ class OmegaEntityInterface:
     # 发送消息相关方法, 在 Event/Matcher 之外向目标 Entity 直接发送消息
     # ------------------------------------------------------------------ #
 
-    @check_target_implemented
     async def send_entity_message(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
@@ -95,7 +72,6 @@ class OmegaEntityInterface:
             **kwargs,
         )
 
-    @check_target_implemented
     async def send_entity_message_auto_revoke(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
@@ -118,12 +94,10 @@ class OmegaEntityInterface:
     # 对象通用方法
     # ------------------------------------------------------------------ #
 
-    @check_target_implemented
     async def get_entity_name(self) -> str:
         """获取对象名称/昵称"""
         return await self.get_entity_target().call_api_get_entity_name()
 
-    @check_target_implemented
     async def get_entity_profile_image_url(self) -> str:
         """获取对象头像/图标"""
         return await self.get_entity_target().call_api_get_entity_profile_image_url()
@@ -158,81 +132,57 @@ class OmegaMatcherInterface:
 
         return _depend
 
-    @staticmethod
-    def check_adapter_implemented[**P, R, T1, T2, ST: 'OmegaMatcherInterface'](
-            func: Callable[Concatenate[ST, P], Coroutine[T1, T2, R]],
-    ) -> Callable[Concatenate[ST, P], Coroutine[T1, T2, R]]:
-        """装饰一个调用平台 API 的异步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
-        if not inspect.iscoroutinefunction(func):
-            raise TypeError(f'{func.__name__} is not coroutine function')
-
-        @wraps(func)
-        async def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
-            try:
-                return await func(self, *args, **kwargs)
-            except NotImplementedError:
-                logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
-                raise AdapterNotSupported(self.bot.adapter.get_name(), f'method {func.__name__!r} not implemented')
-
-        return _wrapper
+    # ------------------------------------------------------------------ #
+    # 平台事件及对象接口及导出方法
+    # ------------------------------------------------------------------ #
 
     @staticmethod
-    def check_event_implemented[**P, R, ST: 'OmegaMatcherInterface'](
-            func: Callable[Concatenate[ST, P], R],
-    ) -> Callable[Concatenate[ST, P], R]:
-        """装饰一个事件依赖的同步方法, 检查该方法调用的函数/方法是否实现, 如未实现则统一抛出 AdapterNotSupported 异常"""
+    def get_event_depend_cls(target_event: 'BaseEvent') -> type['BaseEventDepend']:
+        """获取事件对应的对象解析器"""
+        return EVENT_DEPEND_REGISTER.get_depend(target_event=target_event)
 
-        @wraps(func)
-        def _wrapper(self: ST, *args: P.args, **kwargs: P.kwargs) -> R:
-            try:
-                return func(self, *args, **kwargs)
-            except NotImplementedError:
-                logger.warning(f'{self.bot}/{self.event} not support method {func.__name__!r}')
-                raise AdapterNotSupported(self.bot.adapter.get_name(), f'method {func.__name__!r} not implemented')
-
-        return _wrapper
+    @classmethod
+    def get_target_entity(
+            cls,
+            bot: 'BaseBot',
+            event: 'BaseEvent',
+            db_session: DATABASE_SESSION,
+            *,
+            acquire_type: EntityAcquireType = 'event',
+    ) -> OmegaEntity:
+        """使用已有数据库会话创建对应事件的 OmegaEntity 实例"""
+        event_depend_cls = cls.get_event_depend_cls(target_event=event)
+        event_depend = event_depend_cls(bot=bot, event=event)
+        entity_params = event_depend.extract_entity_params(acquire_type=acquire_type)
+        return OmegaEntity(session=db_session, **entity_params.model_dump())
 
     def get_event_depend(self) -> 'BaseEventDepend':
         """获取的中间件平台事件对象解析器"""
-        event_depend_cls = EVENT_DEPEND_REGISTER.get_depend(target_event=self.event)
+        event_depend_cls = self.get_event_depend_cls(target_event=self.event)
         return event_depend_cls(bot=self.bot, event=self.event)
 
-    def refresh_interface_state(self) -> None:
-        self.bot = current_bot.get()
-        self.event = current_event.get()
-        self.matcher = current_matcher.get()
-
-    # ------------------------------------------------------------------ #
-    # 平台事件信息提取相关方法
-    # ------------------------------------------------------------------ #
-
-    @check_event_implemented
     def extract_current_entity_params(self) -> 'EntityInitParams':
         """提取触发事件用户 Entity 实例化参数"""
         return self.get_event_depend().extract_entity_params(acquire_type=self.acquire_type)
 
     def get_current_entity_interface(self) -> 'OmegaEntityInterface':
+        """获取对应的 OmegaEntityInterface 实例"""
         entity_params = self.extract_current_entity_params()
         return OmegaEntityInterface(entity_params=entity_params)
 
     @asynccontextmanager
     async def create_current_entity_session(self) -> AsyncGenerator[OmegaEntity, None]:
+        """开始数据库事务并创建 OmegaEntity 实例"""
         async with database_session() as session:
             yield OmegaEntity(
                 session=session,
                 **self.extract_current_entity_params().model_dump(),
             )
 
-    @check_event_implemented
-    def get_event_user_nickname(self) -> str:
-        """获取当前事件用户昵称"""
-        return self.get_event_depend().get_user_nickname()
-
     # ------------------------------------------------------------------ #
     # Matcher 及流程控制相关方法
     # ------------------------------------------------------------------ #
 
-    @check_adapter_implemented
     async def send(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
@@ -248,25 +198,21 @@ class OmegaMatcherInterface:
             **kwargs,
         )
 
-    @check_adapter_implemented
     async def send_at_sender(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
     ) -> 'Receipt':
         return await self.send(message=message, at_sender=True)
 
-    @check_adapter_implemented
     async def send_reply(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
     ) -> 'Receipt':
         return await self.send(message=message, reply_to=True)
 
-    @check_adapter_implemented
     async def revoke_bot_sent_msg(self, receipt: 'Receipt', *, revoke_delay: int = 0) -> None:
         return await self.get_event_depend().revoke_bot_sent_msg(receipt=receipt, revoke_delay=revoke_delay)
 
-    @check_adapter_implemented
     async def send_auto_revoke(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
@@ -279,52 +225,42 @@ class OmegaMatcherInterface:
         receipt = await self.send(message=message, at_sender=at_sender, reply_to=reply_to)
         return await self.revoke_bot_sent_msg(receipt=receipt, revoke_delay=revoke_delay)
 
-    @check_adapter_implemented
     async def finish(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send(message=message)
         raise FinishedException
 
-    @check_adapter_implemented
     async def finish_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send_at_sender(message=message)
         raise FinishedException
 
-    @check_adapter_implemented
     async def finish_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send_reply(message=message)
         raise FinishedException
 
-    @check_adapter_implemented
     async def pause(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send(message=message)
         raise PausedException
 
-    @check_adapter_implemented
     async def pause_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send_at_sender(message=message)
         raise PausedException
 
-    @check_adapter_implemented
     async def pause_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send_reply(message=message)
         raise PausedException
 
-    @check_adapter_implemented
     async def reject(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send(message=message)
         raise RejectedException
 
-    @check_adapter_implemented
     async def reject_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send_at_sender(message=message)
         raise RejectedException
 
-    @check_adapter_implemented
     async def reject_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send_reply(message=message)
         raise RejectedException
 
-    @check_adapter_implemented
     async def reject_arg(
             self,
             key: str,
@@ -333,7 +269,6 @@ class OmegaMatcherInterface:
         await self.send(message=message)
         await self.matcher.reject_arg(key)
 
-    @check_adapter_implemented
     async def reject_arg_at_sender(
             self,
             key: str,
@@ -342,7 +277,6 @@ class OmegaMatcherInterface:
         await self.send_at_sender(message=message)
         await self.matcher.reject_arg(key)
 
-    @check_adapter_implemented
     async def reject_arg_reply(
             self,
             key: str,
@@ -351,7 +285,6 @@ class OmegaMatcherInterface:
         await self.send_reply(message=message)
         await self.matcher.reject_arg(key)
 
-    @check_adapter_implemented
     async def reject_receive(
             self,
             key: str, message: str | Segment | Sequence[Segment] | UniMessage,
@@ -359,7 +292,6 @@ class OmegaMatcherInterface:
         await self.send(message=message)
         await self.matcher.reject_receive(key)
 
-    @check_adapter_implemented
     async def reject_receive_at_sender(
             self,
             key: str,
@@ -368,7 +300,6 @@ class OmegaMatcherInterface:
         await self.send_at_sender(message=message)
         await self.matcher.reject_receive(key)
 
-    @check_adapter_implemented
     async def reject_receive_reply(
             self,
             key: str, message: str | Segment | Sequence[Segment] | UniMessage,

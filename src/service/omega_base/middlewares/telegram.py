@@ -18,7 +18,7 @@ from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
 from nonebot.adapters.telegram.event import PrivateMessageEvent as TelegramPrivateMessageEvent
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
-from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target, UniMessage
+from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target
 
 from src.database.internal.bot import BotSelfDAL
 from src.database.internal.entity import EntityType
@@ -128,8 +128,7 @@ class TelegramEventDepend[Event_T: TelegramEvent](BaseEventDepend[TelegramBot, E
         # 基类事件, 不予实现
         raise NotImplementedError
 
-    @staticmethod
-    def get_reply_msg_image_urls(message: UniMessage) -> list[str]:
+    def get_reply_msg_image_urls(self) -> list[str]:
         # 基类事件, 不予实现
         raise NotImplementedError
 
@@ -140,9 +139,8 @@ class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDep
     def get_user_nickname(self) -> str:
         return self.event.chat.username if self.event.chat.username else ''
 
-    @staticmethod
-    def get_reply_msg_image_urls(message: UniMessage) -> list[str]:
-        reply_messages = message[Reply]
+    def get_reply_msg_image_urls(self) -> list[str]:
+        reply_messages = self.get_uni_message()[Reply]
         image_urls = [
             msg_seg.data.get('origin_url', None) or msg_seg.data.get('file', None)
             for msg_seg in reply_messages

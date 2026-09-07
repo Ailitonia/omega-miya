@@ -20,7 +20,7 @@ from nonebot.adapters.onebot.v11 import PrivateMessageEvent as OneBotV11PrivateM
 from nonebot.exception import IgnoredException
 from nonebot.log import logger
 from nonebot.message import event_preprocessor, run_preprocessor
-from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target, UniMessage
+from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.compat import parse_obj_as
@@ -280,8 +280,7 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
         # 基类事件, 不予实现
         raise NotImplementedError
 
-    @staticmethod
-    def get_reply_msg_image_urls(message: UniMessage) -> list[str]:
+    def get_reply_msg_image_urls(self) -> list[str]:
         # 基类事件, 不予实现
         raise NotImplementedError
 
@@ -336,9 +335,8 @@ class OneBotV11MessageEventDepend[Event_T: OneBotV11MessageEvent](OneBotV11Event
         nickname = self.event.sender.card if self.event.sender.card else self.event.sender.nickname
         return nickname if nickname is not None else ''
 
-    @staticmethod
-    def get_reply_msg_image_urls(message: UniMessage) -> list[str]:
-        reply_messages = message[Reply]
+    def get_reply_msg_image_urls(self) -> list[str]:
+        reply_messages = self.get_uni_message()[Reply]
         image_urls = [msg_seg.data.get('url', None) for msg_seg in reply_messages if msg_seg.type == 'image']
 
         if image_urls:

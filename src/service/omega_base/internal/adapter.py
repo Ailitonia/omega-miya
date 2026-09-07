@@ -14,11 +14,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence
 
 from nonebot import get_bot, logger
-from nonebot.adapters import Bot as BaseBot, Event as BaseEvent
+from nonebot.adapters import Bot as BaseBot, Event as BaseEvent, Message as BaseMessage
 from nonebot_plugin_alconna.uniseg import At, Image, Target, Receipt, Reply, Segment, UniMessage, get_target
 
 from src.database.internal.entity import EntityType
-from ..exception import BotNoFound, TargetNotSupported
 
 if TYPE_CHECKING:
     from .entity import EntityAcquireType, EntityInitParams
@@ -36,10 +35,7 @@ class BaseEntityTarget[BT: 'BaseBot'](abc.ABC):
         raise NotImplementedError
 
     def get_bot(self) -> BT:
-        try:
-            return get_bot(self.entity_params.bot_id)  # type: ignore
-        except Exception as e:
-            raise BotNoFound(bot_self_id=self.entity_params.bot_id) from e
+        return get_bot(self.entity_params.bot_id)  # type: ignore
 
     # ------------------------------------------------------------------ #
     # 发送消息相关方法, 使用 nonebot-plugin-alconn 的 uniseg 通用消息组件实现
@@ -160,32 +156,39 @@ class BaseEventDepend[BT: 'BaseBot', ET: 'BaseEvent'](abc.ABC):
         """获取事件用户昵称"""
         raise NotImplementedError
 
-    @staticmethod
-    def get_msg_mentioned_user_ids(message: UniMessage) -> list[str]:
+    def get_uni_message(self, *, origin: bool = False) -> UniMessage:
+        """从事件中提取消息"""
+        try:
+            msg: BaseMessage = self.event.get_message()
+            if origin:
+                msg: BaseMessage = getattr(self.event, 'original_message', msg)  # type: ignore
+        except (NotImplementedError, ValueError) as e:
+            raise NotImplementedError from e
+        return UniMessage.of(msg, bot=self.bot)
+
+    def get_msg_mentioned_user_ids(self) -> list[str]:
         """获取消息中被 @ 所有用户对象 ID 列表"""
+        message = self.get_uni_message()
         return [x.target for x in message[At]]
 
-    @staticmethod
-    def get_msg_image_urls(message: UniMessage) -> list[str]:
+    def get_msg_image_urls(self) -> list[str]:
         """获取当前事件消息中的全部图片链接"""
+        message = self.get_uni_message()
         return [x.url for x in message.select(Image) if x.url is not None]
 
-    @staticmethod
-    def get_reply_message(message: UniMessage) -> Reply | None:
+    def get_reply_message(self) -> Reply | None:
         """获取回复消息"""
-        reply_messages = message[Reply]
+        reply_messages = self.get_uni_message()[Reply]
         return reply_messages[0] if reply_messages else None
 
-    @staticmethod
     @abc.abstractmethod
-    def get_reply_msg_image_urls(message: UniMessage) -> list[str]:
+    def get_reply_msg_image_urls(self) -> list[str]:
         """获取回复消息中的全部图片链接"""
         raise NotImplementedError
 
-    @staticmethod
-    def get_reply_msg_plain_text(message: UniMessage) -> str | None:
+    def get_reply_msg_plain_text(self) -> str | None:
         """获取回复消息的文本"""
-        reply_messages = message[Reply]
+        reply_messages = self.get_uni_message()[Reply]
         if not reply_messages:
             return None
 
@@ -211,7 +214,7 @@ class _EntityTargetRegister:
 
         def _decorator(target_type: T) -> T:
             if target_name not in EntityType:
-                raise TargetNotSupported(target_name=target_name)
+                raise ValueError(f'Target {target_name!r} not supported')
 
             if target_name in self._map.keys():
                 logger.error(f'Duplicate entity {target_name!r} for {target_type.__name__!r} has been registered')
@@ -226,7 +229,7 @@ class _EntityTargetRegister:
     def get_target(self, target_name: EntityType) -> type[BaseEntityTarget]:
         """提取 Entity 对应的中间件平台 API 适配器"""
         if target_name not in EntityType:
-            raise TargetNotSupported(target_name=target_name)
+            raise ValueError(f'Target {target_name!r} not supported')
 
         if target_name not in self._map.keys():
             logger.error(f'Entity {target_name!r} has no registered EntityTarget')

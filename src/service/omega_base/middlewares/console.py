@@ -12,7 +12,7 @@ from nonebot.adapters.console import Bot as ConsoleBot
 from nonebot.adapters.console import Event as ConsoleEvent
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
-from nonebot_plugin_alconna.uniseg import SupportScope, Target, UniMessage
+from nonebot_plugin_alconna.uniseg import SupportScope, Target
 from nonechat.model import DIRECT
 
 from src.database.internal.bot import BotSelfDAL
@@ -130,8 +130,7 @@ class ConsoleEventDepend(BaseEventDepend[ConsoleBot, ConsoleEvent]):
     def get_user_nickname(self) -> str:
         return self.event.user.nickname
 
-    @staticmethod
-    def get_reply_msg_image_urls(message: UniMessage) -> list[str]:
+    def get_reply_msg_image_urls(self) -> list[str]:
         return []
 
 
