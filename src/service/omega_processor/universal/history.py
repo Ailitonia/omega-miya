@@ -8,55 +8,52 @@
 @Software       : PyCharm
 """
 
-from datetime import datetime
+import time
 
 from nonebot import logger
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.adapters import Message as BaseMessage
+from nonebot_plugin_alconna.uniseg import get_message_id
 
-from src.compat import dump_json_as
-from src.database import HistoryDAL
-from ...omega_base.depends import extract_entity_params
+from src.database import DATABASE_SESSION, HistoryDAL
+from ...omega_base import OmegaMatcherInterface
 
-LOG_PREFIX: str = '<lc>Message History</lc> | '
+_LOG_PREFIX: str = '<lc>Message History</lc> | '
+"""日志前缀"""
 
 
-async def postprocessor_history(bot: BaseBot, event: BaseEvent, message: BaseMessage):
+async def postprocessor_history(
+        bot: BaseBot,
+        event: BaseEvent,
+        message: BaseMessage,
+        db_session: DATABASE_SESSION,
+) -> None:
     """事件后处理, 消息历史记录"""
-    if (message_id := getattr(event, 'message_id', None)) is not None:
-        message_id = str(message_id)
-    elif (message_id := getattr(event, 'id', None)) is not None:
-        message_id = str(message_id)
-    else:
-        message_id = str(id(message))
+    event_depend = OmegaMatcherInterface.get_event_depend_cls(target_event=event)(bot=bot, event=event)
 
-    message_raw = dump_json_as(BaseMessage, message, encoding='utf-8')
+    message_id: str = get_message_id(event=event, bot=bot)
+    uni_message = event_depend.get_uni_message()
+    message_raw = uni_message.dump(media_save_dir=False)
     message_text = message.extract_plain_text()
-    if len(message_raw) > 4096:
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}message_raw reduced by exceeding field limiting, {message_raw!r}')
-        message_raw = message_raw[:4096]
-    if len(message_text) > 4096:
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}message_text reduced by exceeding field limiting, {message_text!r}')
-        message_text = message_text[:4096]
+
+    event_entity_params = event_depend.extract_entity_params(acquire_type='event')
+    user_entity_params = event_depend.extract_entity_params(acquire_type='user')
 
     try:
-        event_entity_params = extract_entity_params(bot=bot, event=event, acquire_type='event')
-        user_entity_params = extract_entity_params(bot=bot, event=event, acquire_type='user')
-        async with HistoryDAL.begin_dal_session() as dal:
-            await dal.add(
-                message_id=message_id,
-                bot_self_id=bot.self_id,
-                event_entity_id=event_entity_params.entity_id,
-                user_entity_id=user_entity_params.entity_id,
-                received_time=int(datetime.now().timestamp()),
-                message_type=f'{event_entity_params.entity_type}.{event.get_event_name()}',
-                message_raw=message_raw,
-                message_text=message_text,
-            )
-        logger.opt(colors=True).trace(f'{LOG_PREFIX}Message(id={message_id!r}, text={message_text!r}) recorded')
+        await HistoryDAL(session=db_session).add(
+            received_timestamp=int(time.time()),
+            message_id=message_id,
+            bot_self_id=bot.self_id,
+            event_entity_id=event_entity_params.entity_id,
+            user_entity_id=user_entity_params.entity_id,
+            message_type=f'{event_entity_params.entity_type}.{event.get_event_name()}',
+            message_plain_text=message_text,
+            message_raw=message_raw,
+        )
+        logger.opt(colors=True).debug(f'{_LOG_PREFIX}Message(id={message_id}) recorded')
     except Exception as e:
-        logger.opt(colors=True).error(f'{LOG_PREFIX}Recording message failed, {e!r}, {message_raw!r}')
+        logger.opt(colors=True).error(f'{_LOG_PREFIX}Record message(id={message_id}) failed, {e}')
 
 
 __all__ = [

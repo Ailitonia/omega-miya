@@ -8,28 +8,41 @@
 @Software       : PyCharm
 """
 
+from decimal import Decimal
+
 from nonebot import logger
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 
-from ...omega_base.depends import get_entity_session
+from src.database import DATABASE_SESSION
+from ...omega_base import OmegaMatcherInterface
 
-LOG_PREFIX: str = '<lc>Friendship</lc> | '
-ENERGY_INCREMENTAL = 0.5
-CURRENCY_INCREMENTAL = 0.125
+_ENERGY_INCREMENTAL: float = 0.5
+"""每条消息的能量增长值"""
+_CURRENCY_INCREMENTAL: float = 0.125
+"""每条消息的货币增长值"""
+_LOG_PREFIX: str = '<lc>Friendship</lc> | '
+"""日志前缀"""
 
 
-async def postprocessor_friendship(bot: BaseBot, event: BaseEvent):
-    """事件后处理， 用户好感度处理"""
-    user_id = event.get_user_id()
+async def postprocessor_friendship(
+        bot: BaseBot,
+        event: BaseEvent,
+        db_session: DATABASE_SESSION,
+) -> None:
+    """事件后处理, 用户好感度处理"""
+    user_entity = OmegaMatcherInterface.get_target_entity(
+        bot=bot,
+        event=event,
+        db_session=db_session,
+        acquire_type='user',
+    )
 
-    try:
-        async with get_entity_session(bot=bot, event=event, acquire_type='user') as user_entity:
-            await user_entity.add_ignore_exists()
-            await user_entity.change_friendship(energy=ENERGY_INCREMENTAL, currency=CURRENCY_INCREMENTAL)
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}Increased User({user_id}) friendship succeed')
-    except Exception as e:
-        logger.opt(colors=True).error(f'{LOG_PREFIX}Increased User({user_id}) friendship failed, {e}')
+    energy_incremental = Decimal.from_float(_ENERGY_INCREMENTAL).quantize(Decimal('0.0001'))
+    currency_incremental = Decimal.from_float(_CURRENCY_INCREMENTAL).quantize(Decimal('0.0001'))
+
+    friendship = await user_entity.alter_friendship(energy=energy_incremental, currency=currency_incremental)
+    logger.opt(colors=True).debug(f'{_LOG_PREFIX}Increased {user_entity.tid} energy/currency, {friendship}')
 
 
 __all__ = [

@@ -9,102 +9,97 @@
 """
 
 import time
-from datetime import datetime, timedelta
 
-from nonebot import get_driver, logger
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import IgnoredException
+from nonebot.log import logger
+from nonebot.permission import SUPERUSER
 
-SUPERUSERS = get_driver().config.superusers
-LOG_PREFIX: str = '<lc>Rate Limiting</lc> | '
+_LOG_PREFIX: str = '<lc>Rate Limiting</lc> | '
+"""日志前缀"""
+_RATE_LIMITING_THRESHOLD: int = 10
+"""速率限制次数阈值, 触发超过该次数后启用限制"""
+_RATE_LIMITING_TIME: float = 2.0
+"""速率限制时间阈值, 判断连续消息触发的时间间隔小于该值, 单位为秒, 判断依据时间戳为标准"""
+_RATE_LIMITING_COOL_DOWN: int = 1800
+"""触发速率限制时为用户设置的流控冷却时间, 单位秒"""
+_USER_LAST_MSG_TIME: dict[str, int] = {}
+"""记录用户上次消息的时间戳, 作为对比依据"""
+_RATE_LIMITING_COUNT: dict[str, int] = {}
+"""记录用户消息在速率限制时间阈值内触发的次数"""
+_RATE_LIMITING_USER_TEMP: dict[str, int] = {}
+"""已被限制的用户标识符及到期时间"""
 
 
-# 速率限制次数阈值, 触发超过该次数后启用限制
-RATE_LIMITING_THRESHOLD: int = 10
-# 速率限制时间阈值, 判断连续消息触发的时间间隔小于该值, 单位为秒, 判断依据时间戳为标准
-RATE_LIMITING_TIME: float = 1.0
-# 触发速率限制时为用户设置的流控冷却时间, 单位秒
-RATE_LIMITING_COOL_DOWN: int = 1800
-# 记录用户上次消息的时间戳, 作为对比依据
-USER_LAST_MSG_TIME: dict[str, int | float] = {}
-# 记录用户消息在速率限制时间阈值内触发的次数
-RATE_LIMITING_COUNT: dict[str, int] = {}
-# 已被限制的用户id及到期时间
-RATE_LIMITING_USER_TEMP: dict[str, datetime] = {}
-
-
-async def preprocessor_rate_limiting(bot: BaseBot, event: BaseEvent):
+async def preprocessor_rate_limiting(bot: BaseBot, event: BaseEvent) -> None:
     """事件预处理, 针对用户的速率限制处理"""
     try:
         _ = event.get_message()
         user_id = event.get_user_id()
     except (NotImplementedError, ValueError):
-        logger.opt(colors=True).trace(f'{LOG_PREFIX}Ignored with no-message event')
-        return
-    except Exception as e:
-        logger.opt(colors=True).error(f'{LOG_PREFIX}Detecting event type failed, {e}')
+        logger.opt(colors=True).debug(f'{_LOG_PREFIX}Non-message event, ignore')
         return
 
-    # 忽略 Bot 本身
-    if bot.self_id == event.get_user_id():
-        logger.opt(colors=True).trace(f'{LOG_PREFIX}Ignored with <ly>BotSelf({user_id})</ly>')
+    # 跳过 Bot 本身
+    if bot.self_id == user_id:
+        logger.opt(colors=True).debug(f'{_LOG_PREFIX}Ignored by <ly>BotSelf({user_id})</ly>')
         return
 
-    # 忽略超级用户
-    if user_id in SUPERUSERS:
-        logger.opt(colors=True).debug(f'{LOG_PREFIX}Ignored with <ly>SUPERUSER({user_id})</ly>')
+    # 跳过超级用户
+    if await SUPERUSER(bot=bot, event=event):
+        logger.opt(colors=True).debug(f'{_LOG_PREFIX}Ignored by <ly>SUPERUSER({user_id})</ly>')
         return
 
     # 用户标识符根据 bot 生成
     user_flag = f'{bot.type}_{bot.self_id}_{user_id}'
 
+    # 获取当前时间戳
+    timestamp_now = int(time.time())
+
     # 检测该用户是否已经被速率限制
-    if RATE_LIMITING_USER_TEMP.get(user_flag, datetime.now()) > datetime.now():
+    if (expired_ts := _RATE_LIMITING_USER_TEMP.get(user_flag, timestamp_now)) > timestamp_now:
         logger.opt(colors=True).info(
-            f'{LOG_PREFIX}User({user_flag}) 仍在速率限制中, 到期时间 {RATE_LIMITING_USER_TEMP.get(user_flag)}'
+            f'{_LOG_PREFIX}User({user_flag}) 仍在速率限制中, 剩余 {expired_ts - timestamp_now} 秒'
         )
         raise IgnoredException('速率限制中')
 
     # 获取上条消息的时间戳
-    last_msg_timestamp = USER_LAST_MSG_TIME.get(user_flag, None)
-    # 获取当前时间戳
-    this_msg_timestamp = time.time()
+    last_msg_ts = _USER_LAST_MSG_TIME.get(user_flag, None)
+
     # 更新上次消息时间戳为本次消息时间戳
-    if last_msg_timestamp is None:
-        USER_LAST_MSG_TIME.update({user_flag: this_msg_timestamp})
-        # 上次消息时间戳为空则这是第一条消息
+    _USER_LAST_MSG_TIME.update({user_flag: timestamp_now})
+    # 上次消息时间戳为空则这是第一条消息, 直接返回
+    if last_msg_ts is None:
         return
-    else:
-        USER_LAST_MSG_TIME.update({user_flag: this_msg_timestamp})
 
     # 获取速录限制触发计数
-    over_limiting_count = RATE_LIMITING_COUNT.get(user_flag, 0)
+    over_limiting_count = _RATE_LIMITING_COUNT.get(user_flag, 0)
 
     # 进行速率判断
-    if this_msg_timestamp - last_msg_timestamp <= RATE_LIMITING_TIME:
+    if timestamp_now - last_msg_ts <= _RATE_LIMITING_TIME:
         # 小于等于时间阈值则计数 +1
         over_limiting_count += 1
         logger.opt(colors=True).debug(
-            f'{LOG_PREFIX}User({user_flag}) over rate limiting, count {over_limiting_count}/{RATE_LIMITING_THRESHOLD}'
+            f'{_LOG_PREFIX}User({user_flag}) over limiting, {over_limiting_count}/{_RATE_LIMITING_THRESHOLD}'
         )
     else:
         # 否则重置计数
         over_limiting_count = 0
-        logger.opt(colors=True).trace(
-            f'{LOG_PREFIX}User({user_flag}) under rate limiting, last: {last_msg_timestamp}, now: {this_msg_timestamp}'
+        logger.opt(colors=True).debug(
+            f'{_LOG_PREFIX}User({user_flag}) under limiting, last: {last_msg_ts}, now: {timestamp_now}'
         )
 
     # 更新计数
-    RATE_LIMITING_COUNT.update({user_flag: over_limiting_count})
+    _RATE_LIMITING_COUNT.update({user_flag: over_limiting_count})
 
     # 判断计数大于阈值则触发限制, 为用户设置限流冷却并重置计数
-    if over_limiting_count > RATE_LIMITING_THRESHOLD:
-        RATE_LIMITING_USER_TEMP.update({user_flag: datetime.now() + timedelta(seconds=RATE_LIMITING_COOL_DOWN)})
+    if over_limiting_count > _RATE_LIMITING_THRESHOLD:
+        _RATE_LIMITING_USER_TEMP.update({user_flag: timestamp_now + _RATE_LIMITING_COOL_DOWN})
         logger.opt(colors=True).info(
-            f'{LOG_PREFIX}User({user_flag}) 触发速率限制, 已设置用户限制 {RATE_LIMITING_COOL_DOWN} 秒'
+            f'{_LOG_PREFIX}User({user_flag}) 触发速率限制, 已限制用户 {_RATE_LIMITING_COOL_DOWN} 秒'
         )
-        RATE_LIMITING_COUNT.update({user_flag: 0})
+        _RATE_LIMITING_COUNT.update({user_flag: 0})
         raise IgnoredException('触发速率限制')
 
 

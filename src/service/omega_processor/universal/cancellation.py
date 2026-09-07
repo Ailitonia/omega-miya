@@ -48,7 +48,7 @@ async def preprocessor_cancellation(matcher: Matcher, message: BaseMessage):
                 await matcher.send(message=CANCEL_PROMPT)
             except Exception as e:
                 logger.opt(colors=True).warning(
-                    f'<lc>Cancellation Parser</lc> | Sending cancellation tip message failed, {e!r}'
+                    f'<lc>Cancellation Parser</lc> | Sending cancellation tip message failed, {e}'
                 )
             raise IgnoredException('用户取消操作')
 
