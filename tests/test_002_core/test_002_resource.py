@@ -748,27 +748,31 @@ class TestRenameReplaceRemove:
 
 
 class TestHostProtocol:
-    """文件托管协议测试(使用本地子类隔离注册状态, 不污染全局类)"""
+    """文件托管协议测试(使用继承 BaseResource 的本地子类隔离注册状态, 不污染全局类)"""
 
     @staticmethod
     def _make_hostable_resource():
-        from src.resource import AnyResource, BaseResourceHostProtocol
+        from src.resource import BaseResource, BaseResourceHostProtocol
 
         class _FakeProtocol(BaseResourceHostProtocol):
             async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> str:
                 return f'https://fake.host/{self._resource.name}?ttl={ttl_delta}'
 
-        class _HostableResource(AnyResource):
-            pass
+        class _HostableResource(BaseResource):
+            """隔离测试用资源类: 直接继承 BaseResource, 不受 omega_file_host 全局注册状态影响"""
+
+            def __init__(self, path: str | Path) -> None:
+                self.path = Path(path)
 
         return _HostableResource, _FakeProtocol
 
-    async def test_no_protocol_returns_resolve_path(self, tmp_path: Path):
-        from src.resource import AnyResource
+    async def test_unregistered_class_returns_resolve_path(self, tmp_path: Path):
+        """未注册协议的类, get_hosting_path 回退为本地路径"""
+        hostable_resource, _ = self._make_hostable_resource()
 
         file = tmp_path / 'f.txt'
         file.write_text('x', encoding='utf-8')
-        assert await AnyResource(file).get_hosting_path() == AnyResource(file).resolve_path
+        assert await hostable_resource(file).get_hosting_path() == hostable_resource(file).resolve_path
 
     async def test_get_hosting_path_on_missing_file_raises(self, tmp_path: Path):
         from src.resource import AnyResource, ResourceNotFileError
@@ -796,12 +800,17 @@ class TestHostProtocol:
             hostable_resource.register_host_protocol(object)
 
     def test_register_on_subclass_does_not_pollute_base(self):
+        """子类注册协议不影响基类及其他类的注册状态"""
         from src.resource import AnyResource, BaseResource
+
+        before_any = AnyResource._host_protocol  # 快照, 与 omega_file_host 是否已导入无关
 
         hostable_resource, protocol = self._make_hostable_resource()
         hostable_resource.register_host_protocol(protocol)
+
+        assert hostable_resource._host_protocol is protocol
         assert BaseResource._host_protocol is None
-        assert AnyResource._host_protocol is None
+        assert AnyResource._host_protocol is before_any
 
     async def test_unregister_restores_resolve_path_fallback(self, tmp_path: Path):
         hostable_resource, protocol = self._make_hostable_resource()
@@ -828,6 +837,73 @@ class TestHostProtocol:
 
         with pytest.raises(NotImplementedError):
             await _Protocol(AnyResource('.')).get_hosting_file_path()
+
+
+class TestGlobalHostProtocolRegistration:
+    """omega_file_host 全局注册契约测试 (重构后: 本地资源统一注册 OmegaFileHostProtocol)"""
+
+    def test_global_registration_state(self):
+        import src.service.omega_file_host  # noqa: F401 (显式导入保证注册, sys.modules 幂等)
+        from src.resource import (
+            AnyResource,
+            BaseResourceHostProtocol,
+            LogFileResource,
+            StaticResource,
+            TemporaryResource,
+        )
+        from src.service.omega_file_host import OmegaFileHostProtocol
+
+        for resource_class in (AnyResource, StaticResource, TemporaryResource):
+            assert resource_class._host_protocol is OmegaFileHostProtocol
+            assert issubclass(resource_class._host_protocol, BaseResourceHostProtocol)
+
+        assert LogFileResource._host_protocol is None
+
+    def test_registered_class_rejects_second_registration(self):
+        """已全局注册的类拒绝再次注册, 异常先于赋值抛出, 状态不被修改"""
+        import src.service.omega_file_host  # noqa: F401
+        from src.resource import AnyResource
+        from src.service.omega_file_host import OmegaFileHostProtocol
+
+        with pytest.raises(RuntimeError, match='already registered'):
+            AnyResource.register_host_protocol(OmegaFileHostProtocol)
+
+        assert AnyResource._host_protocol is OmegaFileHostProtocol
+
+    def test_subclass_inherits_global_registration(self):
+        """子类沿 MRO 继承全局注册的协议, 且不可覆写注册"""
+        import src.service.omega_file_host  # noqa: F401
+        from src.resource import AnyResource
+        from src.service.omega_file_host import OmegaFileHostProtocol
+
+        class _SubResource(AnyResource):
+            pass
+
+        assert _SubResource._host_protocol is OmegaFileHostProtocol
+        with pytest.raises(RuntimeError, match='already registered'):
+            _SubResource.register_host_protocol(OmegaFileHostProtocol)
+
+    async def test_hosting_disabled_falls_back_to_resolve_path(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """托管服务配置禁用时, 已注册协议的 get_hosting_path 回退为本地路径 (不发起 HTTP 请求)"""
+        from src.resource import AnyResource
+        from src.service.omega_file_host.config import file_host_config
+
+        monkeypatch.setattr(file_host_config, 'omega_file_host_enable_hosting_service', False)
+
+        file = tmp_path / 'f.txt'
+        file.write_text('x', encoding='utf-8')
+        resource = AnyResource(file)
+        assert await resource.get_hosting_path() == resource.resolve_path
+
+    async def test_file_check_precedes_protocol_call(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """即使启用托管服务, 缺失文件仍在 @check_file 处抛出 ResourceNotFileError, 不会发出托管请求"""
+        from src.resource import AnyResource, ResourceNotFileError
+        from src.service.omega_file_host.config import file_host_config
+
+        monkeypatch.setattr(file_host_config, 'omega_file_host_enable_hosting_service', True)
+
+        with pytest.raises(ResourceNotFileError):
+            await AnyResource(tmp_path / 'missing.txt').get_hosting_path()
 
 
 class TestInitFromPath:
