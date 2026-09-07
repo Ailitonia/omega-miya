@@ -10,16 +10,8 @@
 
 from .apscheduler import reschedule_job, scheduler
 from .omega_api import OmegaAPI
-from .omega_base import (
-    OmegaEntity,
-    OmegaEntityInterface,
-    OmegaMatcherInterface,
-    OmegaMessage,
-    OmegaMessageSegment,
-    OmegaMessageTransfer,
-)
+from .omega_base import OmegaEntity, OmegaEntityInterface, OmegaMatcherInterface, get_online_bots
 from .omega_global_cache import OmegaGlobalCache
-from .omega_multibot_support import get_online_bots
 from .omega_processor import enable_processor_state
 
 __all__ = [
@@ -28,9 +20,6 @@ __all__ = [
     'OmegaEntityInterface',
     'OmegaGlobalCache',
     'OmegaMatcherInterface',
-    'OmegaMessage',
-    'OmegaMessageSegment',
-    'OmegaMessageTransfer',
     'enable_processor_state',
     'get_online_bots',
     'reschedule_job',
