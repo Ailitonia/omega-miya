@@ -9,13 +9,15 @@
 """
 
 import abc
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 from nonebot import get_bot, logger
-from nonebot.adapters import Bot as BaseBot, Event as BaseEvent, Message as BaseMessage
-from nonebot_plugin_alconna.uniseg import At, Image, Target, Receipt, Reply, Segment, UniMessage, get_target
+from nonebot.adapters import Bot as BaseBot
+from nonebot.adapters import Event as BaseEvent
+from nonebot.adapters import Message as BaseMessage
+from nonebot_plugin_alconna.uniseg import At, Image, Receipt, Reply, Segment, Target, UniMessage, get_target
 
 from src.database.internal.entity import EntityType
 
@@ -236,7 +238,7 @@ class _EntityTargetRegister:
 
         if target_name not in self._map.keys():
             logger.error(f'Entity {target_name!r} has no registered EntityTarget')
-            raise ValueError('EntityTarget not registered')
+            raise ValueError(f'EntityTarget not registered for {target_name!r}')
 
         return self._map[target_name]
 
@@ -267,12 +269,9 @@ class _EventDependRegister:
     def get_depend(self, target_event: 'BaseEvent') -> type[BaseEventDepend]:
         """从事件中提取对应的事件对象解析器"""
         for event_type in target_event.__class__.mro():
-            if event_type in self._map.keys():
-                if issubclass(event_type, BaseEvent):
-                    target_event_type = event_type
-                    break
-                else:
-                    continue
+            if event_type in self._map.keys() and issubclass(event_type, BaseEvent):
+                target_event_type = event_type
+                break
         else:
             logger.error(f'Event {target_event.__class__.__name__!r} has no registered EventDepend')
             raise ValueError('Event not supported')

@@ -22,10 +22,10 @@ from .event import BotConnectEvent, BotDisconnectEvent
 
 __ORIGINAL_RESPOND_ID_KEY: Literal['_omega_original_respond_id'] = '_omega_original_respond_id'
 """事件处理过程常量, 最初响应的 Bot 发起的会话 id 存储 key"""
-__ONLINE_BOTS: dict[str, BaseBot] = {}
-"""当前在线的 Bot"""
+__ONLINE_BOTS: dict[tuple[str, str], BaseBot] = {}
+"""当前在线的 Bot, 键为 (适配器名, Bot self_id), 支持同一账号跨适配器多实例同时在线"""
 __BOT_LOCK = asyncio.Lock()
-"""Bot 事件处理时的锁, 避免多平台同时处理产生的数据冲突"""
+"""读写在线 Bot 字典时的锁 (仅保护 __ONLINE_BOTS, 严禁持锁期间进行事件分发)"""
 _DRIVER = get_driver()
 """获取全局 Driver 用于注册钩子函数"""
 
@@ -43,7 +43,9 @@ async def __unique_bot_responding_limit(bot: BaseBot, event: BaseEvent) -> None:
         return
 
     # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
-    if event_user_id in [x for x in __ONLINE_BOTS.keys() if x != bot.self_id]:
+    # 快照读取在线 Bot 列表, 避免与连接/断开钩子并发读写冲突
+    online_self_ids = {x.self_id for x in list(__ONLINE_BOTS.values()) if x.self_id != bot.self_id}
+    if event_user_id in online_self_ids:
         logger.debug(
             f'Bot {bot.self_id} ignored responding self-relation event with Bot {event_user_id}'
         )
@@ -74,26 +76,26 @@ async def __first_responded_bot_limit(bot: BaseBot, event: BaseEvent, matcher: M
 async def __init_bot_connect(bot: BaseBot) -> None:
     """在 Bot 连接时执行初始化操作"""
     async with __BOT_LOCK:
-        __ONLINE_BOTS.update({str(bot.self_id): bot})
-        await handle_event(bot=bot, event=BotConnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()))
+        __ONLINE_BOTS[(bot.adapter.get_name(), str(bot.self_id))] = bot
+    await handle_event(bot=bot, event=BotConnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()))
 
 
 @_DRIVER.on_bot_disconnect
 async def __dispose_bot_disconnect(bot: BaseBot) -> None:
     """在 Bot 断开连接时执行后续处理"""
     async with __BOT_LOCK:
-        __ONLINE_BOTS.pop(str(bot.self_id), None)
-        await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()))
+        __ONLINE_BOTS.pop((bot.adapter.get_name(), str(bot.self_id)), None)
+    await handle_event(bot=bot, event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()))
 
 
 def get_online_bots() -> dict[str, dict[str, BaseBot]]:
     """获取当前在线的 bot (根据 Adapter 分类)"""
     online_bots = {}
-    for self_id, bot in __ONLINE_BOTS.items():
+    for bot in list(__ONLINE_BOTS.values()):
         adapter_name = bot.adapter.get_name()
         if adapter_name not in online_bots.keys():
             online_bots[adapter_name] = {}
-        online_bots[adapter_name].update({self_id: bot})
+        online_bots[adapter_name].update({str(bot.self_id): bot})
     return online_bots
 
 

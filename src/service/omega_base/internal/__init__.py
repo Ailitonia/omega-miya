@@ -13,7 +13,6 @@ from .bots import get_online_bots
 from .entity import EntityAcquireType, EntityInitParams, OmegaEntity
 from .event import BotActionEvent, BotConnectEvent, BotDisconnectEvent, OmegaBaseEvent
 
-
 __all__ = [
     'ENTITY_TARGET_REGISTER',
     'EVENT_DEPEND_REGISTER',
