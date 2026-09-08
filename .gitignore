@@ -135,10 +135,13 @@ venv.bak/
 .gemini/
 .hermes/
 .kimi/
+.kimi-code/
 .kiro/
 .openclaw/
 .opencode/
+.pi/
 .qwen/
+.zcode/
 .mcp.json
 
 # Spyder project settings
