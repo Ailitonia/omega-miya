@@ -15,7 +15,7 @@ from nonebot.message import event_preprocessor
 from nonebot_plugin_alconna.uniseg import SupportScope, Target
 from nonechat.model import DIRECT
 
-from src.database.internal.bot import BotSelfDAL
+from src.database.internal.bot import BotSelfDAL, BotStatus
 from src.database.internal.entity import EntityType
 from ..internal import (
     ENTITY_TARGET_REGISTER,
@@ -35,7 +35,7 @@ async def __console_bot_connect(bot: ConsoleBot, event: BotConnectEvent) -> None
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     async with BotSelfDAL.create() as bot_dal:
-        await bot_dal.add_update_exist(event.bot_type, bot.self_id, bot_status=1, bot_info='Bot Online')
+        await bot_dal.add_update_exist(event.bot_type, bot.self_id, BotStatus.ENABLED, bot_info='Bot Online')
 
     logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, Bot 状态已更新')
 
@@ -47,7 +47,7 @@ async def __console_bot_disconnect(bot: ConsoleBot, event: BotDisconnectEvent) -
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     async with BotSelfDAL.create() as bot_dal:
-        await bot_dal.add_update_exist(event.bot_type, bot.self_id, bot_status=0, bot_info='Bot Offline')
+        await bot_dal.add_update_exist(event.bot_type, bot.self_id, BotStatus.DISABLED, bot_info='Bot Offline')
 
     logger.opt(colors=True).warning(f'{event.bot_type}: <ly>{bot.self_id} 已离线</ly>, Bot 状态已更新')
 

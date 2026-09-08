@@ -24,7 +24,7 @@ from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.compat import parse_obj_as
-from src.database.internal.bot import BotSelfDAL
+from src.database.internal.bot import BotSelfDAL, BotStatus
 from src.database.internal.entity import EntityDAL, EntityType
 from ..internal import (
     ENTITY_TARGET_REGISTER,
@@ -128,7 +128,7 @@ async def __obv11_bot_connect(bot: OneBotV11Bot, event: BotConnectEvent) -> None
     version_info = VersionInfo.model_validate(await bot.get_version_info())
     info = f'{version_info.app_name}-{version_info.app_version}-{version_info.protocol_version}'
     async with BotSelfDAL.create() as bot_dal:
-        await bot_dal.add_update_exist(event.bot_type, bot.self_id, bot_status=1, bot_info=info)
+        await bot_dal.add_update_exist(event.bot_type, bot.self_id, BotStatus.ENABLED, bot_info=info)
 
     # 更新群组相关信息
     groups = parse_obj_as(list[GroupInfo], await bot.get_group_list())
@@ -180,7 +180,7 @@ async def __obv11_bot_disconnect(bot: OneBotV11Bot, event: BotDisconnectEvent) -
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     async with BotSelfDAL.create() as bot_dal:
-        await bot_dal.add_update_exist(event.bot_type, bot.self_id, bot_status=1, bot_info='Bot Offline')
+        await bot_dal.add_update_exist(event.bot_type, bot.self_id, BotStatus.DISABLED, bot_info='Bot Offline')
 
     logger.opt(colors=True).warning(f'{event.bot_type}: <ly>{bot.self_id} 已离线</ly>, Bot 状态已更新')
 

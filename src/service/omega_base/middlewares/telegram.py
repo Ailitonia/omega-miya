@@ -20,7 +20,7 @@ from nonebot.log import logger
 from nonebot.message import event_preprocessor
 from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target
 
-from src.database.internal.bot import BotSelfDAL
+from src.database.internal.bot import BotSelfDAL, BotStatus
 from src.database.internal.entity import EntityType
 from ..internal import (
     ENTITY_TARGET_REGISTER,
@@ -43,7 +43,7 @@ async def __telegram_bot_connect(bot: TelegramBot, event: BotConnectEvent) -> No
     bot_info = await bot.get_me()
     info = f'{bot_info.id}-{bot_info.first_name}@{bot_info.username}'
     async with BotSelfDAL.create() as bot_dal:
-        await bot_dal.add_update_exist(event.bot_type, bot.self_id, bot_status=1, bot_info=info)
+        await bot_dal.add_update_exist(event.bot_type, bot.self_id, BotStatus.ENABLED, bot_info=info)
 
     logger.opt(colors=True).success(f'{event.bot_type}: <lg>{bot.self_id} 已连接</lg>, Bot 状态已更新')
 
@@ -55,7 +55,7 @@ async def __telegram_bot_disconnect(bot: TelegramBot, event: BotDisconnectEvent)
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     async with BotSelfDAL.create() as bot_dal:
-        await bot_dal.add_update_exist(event.bot_type, bot.self_id, bot_status=1, bot_info='Bot Offline')
+        await bot_dal.add_update_exist(event.bot_type, bot.self_id, BotStatus.DISABLED, bot_info='Bot Offline')
 
     logger.opt(colors=True).warning(f'{event.bot_type}: <ly>{bot.self_id} 已离线</ly>, Bot 状态已更新')
 
