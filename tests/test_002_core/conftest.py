@@ -28,9 +28,9 @@ class _TestDataFactory:
     """
 
     def __init__(self) -> None:
-        self._bots: dict[tuple[str, str], 'BotSelf'] = {}
-        self._entities: dict[tuple[str, str], 'Entity'] = {}
-        self._subscription_sources: dict[tuple[str, str], 'SubscriptionSource'] = {}
+        self._bots: dict[tuple[str, str], BotSelf] = {}
+        self._entities: dict[tuple[str, str], Entity] = {}
+        self._subscription_sources: dict[tuple[str, str], SubscriptionSource] = {}
 
     @property
     def has_test_bot(self) -> bool:
@@ -48,14 +48,22 @@ class _TestDataFactory:
     async def clear_all(self) -> None:
         from src.database.internal.bot import BotSelfDAL
         from src.database.internal.entity import EntityDAL
+        from src.database.internal.subscription_source import SubscriptionSourceDAL
 
+        # entity 表保留全表清空: entity_factory 测试内自动创建/显式提交的行未被 factory 跟踪, 无法精确删除, 作为兜底
         async with EntityDAL.create() as dal:
             await dal._clear_all()
+        # bot/subscription_source 仅删除 factory 创建的行, 避免误删其他途径播种的行 (如运行时连接钩子写入的行)
         async with BotSelfDAL.create() as dal:
-            await dal._clear_all()
+            for bot_type, self_id in self._bots:
+                await dal.delete(bot_type, self_id)
+        async with SubscriptionSourceDAL.create() as dal:
+            for sub_type, sub_id in self._subscription_sources:
+                await dal.delete(sub_type, sub_id)
 
         self._bots.clear()
         self._entities.clear()
+        self._subscription_sources.clear()
 
     async def create_test_bot(self, bot_type: str, *, bot_self_id: str | None = None) -> 'BotSelf':
         from src.database.internal.bot import BotSelfDAL, BotStatus
@@ -74,22 +82,18 @@ class _TestDataFactory:
         async with BotSelfDAL.create() as dal:
             await dal.delete(bot.bot_type, bot.self_id)
 
-        del self._bots[(bot.bot_type, bot.self_id)]
+        self._bots.pop((bot.bot_type, bot.self_id), None)
 
     def get_test_bot(self, bot_type: str | None = None, bot_self_id: str | None = None) -> 'BotSelf':
         """获取一个已生成的随机或指定 Bot"""
-        if bot_type is None:
-            bots = {x.self_id: x for x in self._bots.values()}
-        else:
-            bots = {x.self_id: x for x in self._bots.values() if x.bot_type == bot_type}
-
-        if bot_self_id is not None:
-            return bots[bot_self_id]
-
-        for bot in bots.values():
-            return bot
-
-        raise ValueError('There are no bots to get')
+        candidates = [
+            x
+            for x in self._bots.values()
+            if (bot_type is None or x.bot_type == bot_type) and (bot_self_id is None or x.self_id == bot_self_id)
+        ]
+        if not candidates:
+            raise ValueError(f'There are no test bots to get, bot_type={bot_type!r}, bot_self_id={bot_self_id!r}')
+        return candidates[0]
 
     async def create_test_entity(self, bot_type: str, entity_type: str, *, entity_id: str | None = None) -> 'Entity':
         from src.database.internal.entity import EntityDAL
@@ -116,22 +120,18 @@ class _TestDataFactory:
         async with EntityDAL.create() as dal:
             await dal.delete_from_index(entity.id)
 
-        del self._entities[(entity.entity_type, entity.entity_id)]
+        self._entities.pop((entity.entity_type, entity.entity_id), None)
 
     def get_test_entity(self, entity_type: str | None = None, entity_id: str | None = None) -> 'Entity':
         """获取一个已生成的随机或指定 Entity"""
-        if entity_type is None:
-            entities = {x.entity_id: x for x in self._entities.values()}
-        else:
-            entities = {x.entity_id: x for x in self._entities.values() if x.entity_type == entity_type}
-
-        if entity_id is not None:
-            return entities[entity_id]
-
-        for entity in entities.values():
-            return entity
-
-        raise ValueError('There are no entities to get')
+        candidates = [
+            x
+            for x in self._entities.values()
+            if (entity_type is None or x.entity_type == entity_type) and (entity_id is None or x.entity_id == entity_id)
+        ]
+        if not candidates:
+            raise ValueError(f'There are no test entities to get, entity_type={entity_type!r}, entity_id={entity_id!r}')
+        return candidates[0]
 
     async def create_test_subscription_source(self, sub_type: str) -> 'SubscriptionSource':
         from src.database.internal.subscription_source import SubscriptionSourceDAL
@@ -151,7 +151,7 @@ class _TestDataFactory:
         async with SubscriptionSourceDAL.create() as dal:
             await dal.delete(subscription_sources.sub_type, subscription_sources.sub_id)
 
-        del self._subscription_sources[(subscription_sources.sub_type, subscription_sources.sub_id)]
+        self._subscription_sources.pop((subscription_sources.sub_type, subscription_sources.sub_id), None)
 
     def get_test_subscription_source(
             self,
@@ -159,29 +159,28 @@ class _TestDataFactory:
             sub_id: str | None = None,
     ) -> 'SubscriptionSource':
         """获取一个已生成的随机或指定订阅源"""
-        if sub_type is None:
-            sources = {x.sub_id: x for x in self._subscription_sources.values()}
-        else:
-            sources = {x.sub_id: x for x in self._subscription_sources.values() if x.sub_type == sub_type}
-
-        if sub_id is not None:
-            return sources[sub_id]
-
-        for source in sources.values():
-            return source
-
-        raise ValueError('There are no subscription_sources to get')
+        candidates = [
+            x
+            for x in self._subscription_sources.values()
+            if (sub_type is None or x.sub_type == sub_type) and (sub_id is None or x.sub_id == sub_id)
+        ]
+        if not candidates:
+            raise ValueError(f'There are no test subscription sources to get, sub_type={sub_type!r}, sub_id={sub_id!r}')
+        return candidates[0]
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture
 def test_nonexist_id() -> str:
-    """随机生成一个不存在的ID"""
+    """随机生成一个不存在的 ID"""
     return f'TEST_NONEXIST_{uuid4().hex}'
 
 
 @pytest.fixture(scope='class')
 async def test_db_data_factory() -> AsyncGenerator[_TestDataFactory, None]:
-    """测试数据对象及数据库会话工厂, 测试结束后自动清理"""
+    """测试数据对象及数据库会话工厂, 测试结束后自动清理
+
+    收尾清理为破坏性操作: entity 表全表清空, 并删除 factory 创建的 bot/订阅源行
+    """
     factory = _TestDataFactory()
     try:
         yield factory
@@ -202,7 +201,7 @@ async def test_onebot_v11_bot(test_db_data_factory) -> AsyncGenerator['BotSelf',
         await test_db_data_factory.delete_test_bot(bot=bot)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture
 async def test_onebot_v11_entity_factory(test_onebot_v11_bot) -> AsyncGenerator[Callable[..., 'OmegaEntity'], None]:
     """OmegaEntity 实例工厂, 绑定独立数据库会话, Bot/Entity 默认 OneBot V11 平台随机生成
 
@@ -231,7 +230,7 @@ async def test_onebot_v11_entity_factory(test_onebot_v11_bot) -> AsyncGenerator[
 
 
 @pytest.fixture(scope='class')
-async def test_onebot_v11_user(test_db_data_factory) -> AsyncGenerator['Entity', None]:
+async def test_onebot_v11_user(test_db_data_factory, test_onebot_v11_bot) -> AsyncGenerator['Entity', None]:
     """测试用 OneBot V11 用户 Entity, 测试类结束后清理"""
     from src.database.internal.bot import BotType
     from src.database.internal.entity import EntityType
@@ -248,7 +247,7 @@ async def test_onebot_v11_user(test_db_data_factory) -> AsyncGenerator['Entity',
 
 
 @pytest.fixture(scope='class')
-async def test_onebot_v11_group(test_db_data_factory) -> AsyncGenerator['Entity', None]:
+async def test_onebot_v11_group(test_db_data_factory, test_onebot_v11_bot) -> AsyncGenerator['Entity', None]:
     """测试用 OneBot V11 群组 Entity, 测试类结束后清理"""
     from src.database.internal.bot import BotType
     from src.database.internal.entity import EntityType

@@ -39,15 +39,16 @@ async def _query_entity_or_none(
         entity_type: str,
         entity_id: str,
         *,
-        bot_type: str = 'OneBot V11',
+        bot_type: str | None = None,
 ) -> Any | None:
     """以独立会话查询 Entity, 不存在返回 None"""
+    from src.database.internal.bot import BotType
     from src.database.internal.entity import EntityDAL
 
     async with EntityDAL.create() as dal:
         try:
             return await dal.query_unique(
-                bot_type=bot_type,
+                bot_type=bot_type or BotType.ONEBOT_V11,
                 bot_self_id=bot_self_id,
                 entity_type=entity_type,
                 entity_id=entity_id,
