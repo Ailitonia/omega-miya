@@ -1,0 +1,295 @@
+"""
+@Author         : Ailitonia
+@Date           : 2026/9/9 13:50
+@FileName       : conftest
+@Project        : omega-miya
+@Description    : omega core 单元测试 fixtures
+@GitHub         : https://github.com/Ailitonia
+@Software       : PyCharm
+"""
+
+from collections.abc import AsyncGenerator, Callable
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+import pytest
+
+if TYPE_CHECKING:
+    from src.database.internal.bot import BotSelf
+    from src.database.internal.entity import Entity
+    from src.database.internal.subscription_source import SubscriptionSource
+    from src.service.omega_base import OmegaEntity
+
+
+class _TestDataFactory:
+    """测试数据及数据库会话工厂
+
+    敏感操作警告: 本类方法会直接修改 .env.test 配置的测试数据库, 禁止将测试环境指向生产数据库
+    """
+
+    def __init__(self) -> None:
+        self._bots: dict[tuple[str, str], 'BotSelf'] = {}
+        self._entities: dict[tuple[str, str], 'Entity'] = {}
+        self._subscription_sources: dict[tuple[str, str], 'SubscriptionSource'] = {}
+
+    @property
+    def has_test_bot(self) -> bool:
+        return bool(self._bots)
+
+    @property
+    def has_test_entity(self) -> bool:
+        return bool(self._entities)
+
+    @staticmethod
+    def unique_id(prefix: str) -> str:
+        """生成带唯一后缀的测试 ID"""
+        return f'{prefix}_{uuid4().hex[:8]}'
+
+    async def clear_all(self) -> None:
+        from src.database.internal.bot import BotSelfDAL
+        from src.database.internal.entity import EntityDAL
+
+        async with EntityDAL.create() as dal:
+            await dal._clear_all()
+        async with BotSelfDAL.create() as dal:
+            await dal._clear_all()
+
+        self._bots.clear()
+        self._entities.clear()
+
+    async def create_test_bot(self, bot_type: str, *, bot_self_id: str | None = None) -> 'BotSelf':
+        from src.database.internal.bot import BotSelfDAL, BotStatus
+
+        self_id = bot_self_id or self.unique_id('TEST_BOT')
+        async with BotSelfDAL.create() as dal:
+            bot = await dal.add_update_exist(bot_type, self_id, BotStatus.ENABLED)
+
+        self._bots[(bot_type, self_id)] = bot
+        return bot
+
+    async def delete_test_bot(self, bot: 'BotSelf') -> None:
+        from src.database.internal.bot import BotSelfDAL
+
+        # 子表会被级联删除
+        async with BotSelfDAL.create() as dal:
+            await dal.delete(bot.bot_type, bot.self_id)
+
+        del self._bots[(bot.bot_type, bot.self_id)]
+
+    def get_test_bot(self, bot_type: str | None = None, bot_self_id: str | None = None) -> 'BotSelf':
+        """获取一个已生成的随机或指定 Bot"""
+        if bot_type is None:
+            bots = {x.self_id: x for x in self._bots.values()}
+        else:
+            bots = {x.self_id: x for x in self._bots.values() if x.bot_type == bot_type}
+
+        if bot_self_id is not None:
+            return bots[bot_self_id]
+
+        for bot in bots.values():
+            return bot
+
+        raise ValueError('There are no bots to get')
+
+    async def create_test_entity(self, bot_type: str, entity_type: str, *, entity_id: str | None = None) -> 'Entity':
+        from src.database.internal.entity import EntityDAL
+
+        bot = self.get_test_bot(bot_type=bot_type)
+        entity_id = entity_id or self.unique_id('TEST_ENTITY')
+        async with EntityDAL.create() as dal:
+            entity = await dal.add_update_exist(
+                bot_type=bot.bot_type,
+                bot_self_id=bot.self_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_name=self.unique_id('TEST_ENTITY_NAME'),
+                entity_extra={},
+            )
+
+        self._entities[(entity_type, entity_id)] = entity
+        return entity
+
+    async def delete_test_entity(self, entity: 'Entity') -> None:
+        from src.database.internal.entity import EntityDAL
+
+        # 子表会被级联删除
+        async with EntityDAL.create() as dal:
+            await dal.delete_from_index(entity.id)
+
+        del self._entities[(entity.entity_type, entity.entity_id)]
+
+    def get_test_entity(self, entity_type: str | None = None, entity_id: str | None = None) -> 'Entity':
+        """获取一个已生成的随机或指定 Entity"""
+        if entity_type is None:
+            entities = {x.entity_id: x for x in self._entities.values()}
+        else:
+            entities = {x.entity_id: x for x in self._entities.values() if x.entity_type == entity_type}
+
+        if entity_id is not None:
+            return entities[entity_id]
+
+        for entity in entities.values():
+            return entity
+
+        raise ValueError('There are no entities to get')
+
+    async def create_test_subscription_source(self, sub_type: str) -> 'SubscriptionSource':
+        from src.database.internal.subscription_source import SubscriptionSourceDAL
+
+        sub_id = self.unique_id('TEST_SUBSCRIPTION_SOURCES')
+        sub_user_name = self.unique_id('TEST_SUBSCRIPTION_SOURCES_USER')
+        async with SubscriptionSourceDAL.create() as dal:
+            subscription_source = await dal.add_update_exist(sub_type, sub_id, sub_user_name, 'test_sub')
+
+        self._subscription_sources[(sub_type, sub_id)] = subscription_source
+        return subscription_source
+
+    async def delete_test_subscription_source(self, subscription_sources: 'SubscriptionSource') -> None:
+        from src.database.internal.subscription_source import SubscriptionSourceDAL
+
+        # 子表会被级联删除
+        async with SubscriptionSourceDAL.create() as dal:
+            await dal.delete(subscription_sources.sub_type, subscription_sources.sub_id)
+
+        del self._subscription_sources[(subscription_sources.sub_type, subscription_sources.sub_id)]
+
+    def get_test_subscription_source(
+            self,
+            sub_type: str | None = None,
+            sub_id: str | None = None,
+    ) -> 'SubscriptionSource':
+        """获取一个已生成的随机或指定订阅源"""
+        if sub_type is None:
+            sources = {x.sub_id: x for x in self._subscription_sources.values()}
+        else:
+            sources = {x.sub_id: x for x in self._subscription_sources.values() if x.sub_type == sub_type}
+
+        if sub_id is not None:
+            return sources[sub_id]
+
+        for source in sources.values():
+            return source
+
+        raise ValueError('There are no subscription_sources to get')
+
+
+@pytest.fixture(scope='function')
+def test_nonexist_id() -> str:
+    """随机生成一个不存在的ID"""
+    return f'TEST_NONEXIST_{uuid4().hex}'
+
+
+@pytest.fixture(scope='class')
+async def test_db_data_factory() -> AsyncGenerator[_TestDataFactory, None]:
+    """测试数据对象及数据库会话工厂, 测试结束后自动清理"""
+    factory = _TestDataFactory()
+    try:
+        yield factory
+    finally:
+        await factory.clear_all()
+
+
+@pytest.fixture(scope='class')
+async def test_onebot_v11_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
+    """测试用 OneBot V11 Bot, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+
+    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.ONEBOT_V11)
+
+    try:
+        yield bot
+    finally:
+        await test_db_data_factory.delete_test_bot(bot=bot)
+
+
+@pytest.fixture(scope='function')
+async def test_onebot_v11_entity_factory(test_onebot_v11_bot) -> AsyncGenerator[Callable[..., 'OmegaEntity'], None]:
+    """OmegaEntity 实例工厂, 绑定独立数据库会话, Bot/Entity 默认 OneBot V11 平台随机生成
+
+    会话生命周期与单个测试一致: 测试内的写操作默认在测试结束(夹具收尾)时统一提交,
+    需要跨会话验证的用例应当显式 await entity.commit_session()
+    """
+    from src.database.helpers import database_session
+    from src.database.internal.entity import EntityType
+    from src.service.omega_base.internal.entity import OmegaEntity
+
+    async with database_session() as session:
+        def _factory(**overrides: Any) -> 'OmegaEntity':
+            params: dict[str, Any] = {
+                'session': session,
+                'bot_type': test_onebot_v11_bot.bot_type,
+                'bot_id': test_onebot_v11_bot.self_id,
+                'entity_type': EntityType.ONEBOT_V11_USER,
+                'entity_id': _TestDataFactory.unique_id('TEST_ENTITY'),
+                'entity_name': _TestDataFactory.unique_id('TEST_ENTITY_NAME'),
+                'entity_extra': {},
+            }
+            params.update(overrides)
+            return OmegaEntity(**params)
+
+        yield _factory
+
+
+@pytest.fixture(scope='class')
+async def test_onebot_v11_user(test_db_data_factory) -> AsyncGenerator['Entity', None]:
+    """测试用 OneBot V11 用户 Entity, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+    from src.database.internal.entity import EntityType
+
+    entity = await test_db_data_factory.create_test_entity(
+        bot_type=BotType.ONEBOT_V11,
+        entity_type=EntityType.ONEBOT_V11_USER,
+    )
+
+    try:
+        yield entity
+    finally:
+        await test_db_data_factory.delete_test_entity(entity=entity)
+
+
+@pytest.fixture(scope='class')
+async def test_onebot_v11_group(test_db_data_factory) -> AsyncGenerator['Entity', None]:
+    """测试用 OneBot V11 群组 Entity, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+    from src.database.internal.entity import EntityType
+
+    entity = await test_db_data_factory.create_test_entity(
+        bot_type=BotType.ONEBOT_V11,
+        entity_type=EntityType.ONEBOT_V11_GROUP,
+    )
+
+    try:
+        yield entity
+    finally:
+        await test_db_data_factory.delete_test_entity(entity=entity)
+
+
+@pytest.fixture(scope='class')
+async def test_subscription_source(test_db_data_factory) -> AsyncGenerator['SubscriptionSource', None]:
+    """测试用订阅源, 测试类结束后清理"""
+
+    sub_type = test_db_data_factory.unique_id('TEST_SUBTYPE')
+    source = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type)
+
+    try:
+        yield source
+    finally:
+        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source)
+
+
+@pytest.fixture(scope='class')
+async def test_subscription_sources(
+        test_db_data_factory,
+) -> AsyncGenerator[tuple['SubscriptionSource', 'SubscriptionSource'], None]:
+    """两个不同 sub_type 的订阅源, 测试类结束后清理"""
+
+    sub_type_a = test_db_data_factory.unique_id('TEST_SUBTYPE_A')
+    sub_type_b = test_db_data_factory.unique_id('TEST_SUBTYPE_B')
+    source_a = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type_a)
+    source_b = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type_b)
+
+    try:
+        yield source_a, source_b
+    finally:
+        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_a)
+        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_b)
