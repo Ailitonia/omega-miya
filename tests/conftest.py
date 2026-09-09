@@ -22,7 +22,11 @@ os.environ['ENVIRONMENT'] = 'test'
 def pytest_configure(config: pytest.Config):
     """通过 pytest_configure 钩子函数自定义 NoneBot 初始化的参数"""
     config.stash[NONEBOT_INIT_KWARGS] = {
-        'LOG_LEVEL': os.getenv('LOG_LEVEL'),
+        'log_level': 'DEBUG',
+        'console_headless_mode': True,  # 测试环境注册 Console 适配器但不启动交互式前端
+        'apscheduler_autostart': False,  # 测试环境不自动启动定时任务
+        'omega_file_host_enable_hosting_service': True,  # 被测组件, 测试环境须启用文件托管服务
+        'omega_short_link_enable_http_forward_service': True,  # 被测组件, 测试环境须启用短链接服务
     }
 
 
@@ -79,10 +83,14 @@ async def after_nonebot_init(after_nonebot_init: None, database_schema_guard: No
     database_schema_guard 在 nonebug lifespan 启动前确保测试数据库结构就绪
     """
     from nonebot.adapters.console import Adapter as ConsoleAdapter
+    from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
+    from nonebot.adapters.telegram import Adapter as TelegramAdapter
 
     # 加载适配器
     driver = nonebot.get_driver()
     driver.register_adapter(ConsoleAdapter)
+    driver.register_adapter(OneBotV11Adapter)
+    driver.register_adapter(TelegramAdapter)
 
     # 加载插件
     nonebot.load_plugins('src/service')

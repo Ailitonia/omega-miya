@@ -201,6 +201,32 @@ async def test_onebot_v11_bot(test_db_data_factory) -> AsyncGenerator['BotSelf',
         await test_db_data_factory.delete_test_bot(bot=bot)
 
 
+@pytest.fixture(scope='class')
+async def test_console_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
+    """测试用 Console Bot, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+
+    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.CONSOLE)
+
+    try:
+        yield bot
+    finally:
+        await test_db_data_factory.delete_test_bot(bot=bot)
+
+
+@pytest.fixture(scope='class')
+async def test_telegram_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
+    """测试用 Telegram Bot, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+
+    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.TELEGRAM)
+
+    try:
+        yield bot
+    finally:
+        await test_db_data_factory.delete_test_bot(bot=bot)
+
+
 @pytest.fixture
 async def test_onebot_v11_entity_factory(test_onebot_v11_bot) -> AsyncGenerator[Callable[..., 'OmegaEntity'], None]:
     """OmegaEntity 实例工厂, 绑定独立数据库会话, Bot/Entity 默认 OneBot V11 平台随机生成
