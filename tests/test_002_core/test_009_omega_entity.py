@@ -680,7 +680,7 @@ class TestSignIn:
         assert friendship_result.currency == Decimal('2')
 
     async def test_sign_in_with_alter_friendship_repeated_same_day(self, test_onebot_v11_entity_factory) -> None:
-        """同日重复调用: 签到标记为重复, 好感度仍按量变更 (固化现状语义)"""
+        """同日重复调用: 签到标记为重复, 好感度不再变更 (防重复发放)"""
         entity = test_onebot_v11_entity_factory()
         await entity.check_and_execute_sign_in_with_alter_friendship(alter_friendship=Decimal('5'))
 
@@ -689,7 +689,69 @@ class TestSignIn:
         )
 
         assert sign_in_result.sign_in_info == 'Duplicate Sign In'
-        assert friendship_result.friendship == Decimal('10')
+        assert friendship_result.friendship == Decimal('5')
+
+    async def test_first_call_rewards(self, test_onebot_v11_entity_factory) -> None:
+        entity = test_onebot_v11_entity_factory()
+
+        sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
+            alter_friendship=Decimal('5'),
+            alter_energy=Decimal('2'),
+            alter_currency=Decimal('3'),
+        )
+
+        assert sign_in_result.sign_in_info == 'Normal Sign In'
+        assert friendship_result.friendship == Decimal('5')
+        assert friendship_result.energy == Decimal('2')
+        assert friendship_result.currency == Decimal('3')
+
+    async def test_repeated_same_day_no_double_reward(self, test_onebot_v11_entity_factory) -> None:
+        entity = test_onebot_v11_entity_factory()
+        await entity.check_and_execute_sign_in_with_alter_friendship(alter_friendship=Decimal('5'))
+
+        sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
+            alter_friendship=Decimal('5'),
+            alter_energy=Decimal('2'),
+            alter_currency=Decimal('3'),
+        )
+
+        assert sign_in_result.sign_in_info == 'Duplicate Sign In'
+        assert friendship_result.friendship == Decimal('5')
+        assert friendship_result.energy == Decimal('0')
+        assert friendship_result.currency == Decimal('0')
+
+    async def test_repeated_explicit_date_no_double_reward(self, test_onebot_v11_entity_factory) -> None:
+        entity = test_onebot_v11_entity_factory()
+        past_date = date(2020, 1, 1)
+
+        await entity.check_and_execute_sign_in_with_alter_friendship(date_=past_date, alter_friendship=Decimal('7'))
+
+        sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
+            date_=past_date,
+            alter_friendship=Decimal('7'),
+        )
+
+        assert sign_in_result.sign_in_info == 'Duplicate Sign In'
+        assert friendship_result.friendship == Decimal('7')
+
+        # 补签历史日期不影响今日正常签到发放
+        today_sign_in, today_friendship = await entity.check_and_execute_sign_in_with_alter_friendship(
+            alter_friendship=Decimal('1'),
+        )
+        assert today_sign_in.sign_in_info == 'Normal Sign In'
+        assert today_friendship.friendship == Decimal('8')
+
+    async def test_repeated_with_explicit_info_overrides_without_reward(self, test_onebot_v11_entity_factory) -> None:
+        entity = test_onebot_v11_entity_factory()
+        await entity.check_and_execute_sign_in_with_alter_friendship(alter_friendship=Decimal('5'))
+
+        sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
+            alter_friendship=Decimal('5'),
+            sign_in_info='Manual re-check',
+        )
+
+        assert sign_in_result.sign_in_info == 'Manual re-check'
+        assert friendship_result.friendship == Decimal('5')
 
 
 class TestAuthSetting:
@@ -1116,6 +1178,61 @@ class TestCharacterAttributeAndProfile:
         profiles = await entity.query_all_character_profile()
         assert len(profiles) == 1
         assert profiles[0].node == 'appearance'
+
+    async def test_attribute_none_value_with_factory_regenerates(self, test_onebot_v11_entity_factory) -> None:
+        from src.service.omega_base.internal.consts import CharacterAttribute
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.set_auth_setting(
+            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=1, value={'luck': None},
+        )
+
+        assert await entity.query_character_attribute('luck', default_factory=lambda: 42) == 42
+
+        auth_setting = await entity.query_auth_setting(
+            CharacterAttribute.module, CharacterAttribute.plugin, 'luck',
+        )
+        assert auth_setting.available == 1
+        assert auth_setting.value == {'luck': 42}
+
+    async def test_attribute_none_value_without_factory_raises_type_error(
+            self, test_onebot_v11_entity_factory,
+    ) -> None:
+        from src.service.omega_base.internal.consts import CharacterAttribute
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.set_auth_setting(
+            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=1, value={'luck': None},
+        )
+
+        with pytest.raises(TypeError):
+            await entity.query_character_attribute('luck')
+
+    async def test_unavailable_attribute_error_message_distinguished(
+            self, test_onebot_v11_entity_factory,
+    ) -> None:
+        from src.service.omega_base.internal.consts import CharacterAttribute
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.set_auth_setting(
+            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=0, value={'luck': 99},
+        )
+
+        with pytest.raises(ValueError, match="CharacterAttribute 'luck' is not available"):
+            await entity.query_character_attribute('luck')
+
+    async def test_unavailable_profile_error_message_distinguished(
+            self, test_onebot_v11_entity_factory,
+    ) -> None:
+        from src.service.omega_base.internal.consts import CharacterProfile
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.set_auth_setting(
+            CharacterProfile.module, CharacterProfile.plugin, 'pf', available=0, value={'pf': {'k': 'v'}},
+        )
+
+        with pytest.raises(ValueError, match="CharacterProfile 'pf' is not available"):
+            await entity.query_character_profile('pf')
 
 
 class TestSubscription:
