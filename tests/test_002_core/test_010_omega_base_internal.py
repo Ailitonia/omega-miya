@@ -10,7 +10,6 @@
 
 import random
 import time
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -104,15 +103,17 @@ def event_depend_register_sandbox(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def online_bots_sandbox(monkeypatch: pytest.MonkeyPatch):
-    """bots 模块全局在线表测试沙箱
+    """bots 模块全局状态测试沙箱
 
-    快照并清空全局 __ONLINE_BOTS (测试后恢复), 同时将模块内引用的 handle_event 替换为
-    AsyncMock, 避免连接/断开钩子触发真实事件管线及数据库副作用
+    快照并清空全局 __ONLINE_BOTS 与 __FIRST_RESPOND_REGISTRY (测试后恢复), 同时将模块内引用的
+    handle_event 替换为 AsyncMock, 避免连接/断开钩子触发真实事件管线及数据库副作用
     """
     import src.service.omega_base.internal.bots as bots_module
 
     online_bots_snapshot: dict[tuple[str, str], Any] = dict(getattr(bots_module, '__ONLINE_BOTS'))
     getattr(bots_module, '__ONLINE_BOTS').clear()
+    registry_snapshot: dict[str, tuple[str, float]] = dict(getattr(bots_module, '__FIRST_RESPOND_REGISTRY'))
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
     handle_event_mock = AsyncMock()
     monkeypatch.setattr(bots_module, 'handle_event', handle_event_mock)
 
@@ -120,6 +121,8 @@ def online_bots_sandbox(monkeypatch: pytest.MonkeyPatch):
 
     getattr(bots_module, '__ONLINE_BOTS').clear()
     getattr(bots_module, '__ONLINE_BOTS').update(online_bots_snapshot)
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').update(registry_snapshot)
 
 
 def _make_entity_init_params(**overrides: Any) -> 'EntityInitParams':
@@ -404,6 +407,16 @@ class TestEntityTargetRegister:
 
         assert entity_target_register_sandbox.get_target(EntityType.CONSOLE_USER) is dummy_cls
 
+    async def test_register_decorator_returns_class_identity(self, entity_target_register_sandbox) -> None:
+        """注册装饰器应原样返回被装饰的类"""
+        from src.database.internal.entity import EntityType
+
+        dummy_cls = _define_dummy_target_cls()
+
+        returned = entity_target_register_sandbox.register_target(EntityType.CONSOLE_USER)(dummy_cls)
+
+        assert returned is dummy_cls
+
     async def test_duplicate_registration_rejected(self, entity_target_register_sandbox) -> None:
         from src.database.internal.entity import EntityType
 
@@ -480,6 +493,47 @@ class TestEntityTargetRegister:
         receipt.recall.assert_awaited_once_with(delay=5)
 
 
+class TestBaseEntityTarget:
+    """BaseEntityTarget 平台 API 适配器基类方法测试"""
+
+    async def test_send_message_constructs_target_and_passthrough(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """send_message 应使用 _construct_target 构造的 Target 与 get_bot 的 Bot, 并透传 flags/kwargs"""
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        dummy_cls = _define_dummy_target_cls()
+        target_adapter = dummy_cls(entity_params=_make_entity_init_params())
+
+        fake_bot = MagicMock()
+        target_adapter.get_bot = lambda: fake_bot  # type: ignore[method-assign]
+
+        send_mock = AsyncMock(return_value=MagicMock())
+        monkeypatch.setattr(UniMessage, 'send', send_mock)
+
+        result = await target_adapter.send_message('hello', at_sender=True, reply_to=True, extra_kwarg=1)
+
+        assert result is send_mock.return_value
+        call_kwargs = send_mock.await_args.kwargs
+        assert call_kwargs['target'].id == 'TEST_DUMMY_ENTITY'
+        assert call_kwargs['bot'] is fake_bot
+        assert call_kwargs['at_sender'] is True
+        assert call_kwargs['reply_to'] is True
+        assert call_kwargs['extra_kwarg'] == 1
+
+    async def test_send_message_auto_revoke_default_delay(self) -> None:
+        """send_message_auto_revoke 缺省撤回延迟应为 60 秒"""
+        dummy_cls = _define_dummy_target_cls()
+        target = dummy_cls(entity_params=_make_entity_init_params())
+
+        receipt = MagicMock()
+        receipt.recall = AsyncMock()
+        target.send_message = AsyncMock(return_value=receipt)
+
+        await target.send_message_auto_revoke('hello')
+
+        target.send_message.assert_awaited_once()
+        receipt.recall.assert_awaited_once_with(delay=60)
+
+
 class TestEventDependRegister:
     """EventDepend 事件对象解析器注册表测试"""
 
@@ -524,6 +578,17 @@ class TestEventDependRegister:
         with pytest.raises(ValueError, match='Event not supported'):
             event_depend_register_sandbox.get_depend(OmegaBaseEvent(event_type='x'))
 
+    def test_get_depend_falls_back_to_registered_root(self, event_depend_register_sandbox) -> None:
+        """注册 BaseEvent 根本身时, 任意事件均沿 MRO 解析到该兜底解析器"""
+        from nonebot.adapters import Event as BaseEvent
+
+        root_depend = _define_dummy_depend_cls()
+        event_depend_register_sandbox.register_depend(BaseEvent)(root_depend)
+
+        event_cls = _define_plain_event_cls('any_event')
+
+        assert event_depend_register_sandbox.get_depend(event_cls()) is root_depend
+
 
 class TestBaseEventDepend:
     """BaseEventDepend 事件解析及消息提取方法测试"""
@@ -542,6 +607,39 @@ class TestBaseEventDepend:
 
         with pytest.raises(ValueError, match='Not supported entity acquire_type'):
             depend.extract_entity_params('invalid')
+
+    async def test_send_passthrough(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """send 应使用事件 Target 与构造时的 Bot, 并透传 flags/kwargs"""
+        from nonebot_plugin_alconna.uniseg import Target, UniMessage
+
+        bot = MagicMock()
+        depend = _define_dummy_depend_cls()(bot=bot, event=MagicMock())
+        depend.get_target = lambda: Target(id='TARGET_1', private=True)
+
+        send_mock = AsyncMock(return_value=MagicMock())
+        monkeypatch.setattr(UniMessage, 'send', send_mock)
+
+        result = await depend.send('hello', at_sender=True, reply_to=True, custom_kwarg='x')
+
+        assert result is send_mock.return_value
+        call_kwargs = send_mock.await_args.kwargs
+        assert call_kwargs['target'].id == 'TARGET_1'
+        assert call_kwargs['target'].private is True
+        assert call_kwargs['bot'] is bot
+        assert call_kwargs['at_sender'] is True
+        assert call_kwargs['reply_to'] is True
+        assert call_kwargs['custom_kwarg'] == 'x'
+
+    async def test_revoke_bot_sent_msg_delay_passthrough(self) -> None:
+        """revoke_bot_sent_msg 应将 delay 原样透传至 receipt.recall"""
+        from src.service.omega_base.internal import BaseEventDepend
+
+        receipt = MagicMock()
+        receipt.recall = AsyncMock()
+
+        await BaseEventDepend.revoke_bot_sent_msg(receipt, revoke_delay=30)
+
+        receipt.recall.assert_awaited_once_with(delay=30)
 
     async def test_get_uni_message_converts_platform_message(self, app: App) -> None:
         from nonebot.adapters.onebot.v11 import Adapter, Bot, Message, MessageSegment
@@ -837,16 +935,108 @@ class TestBotsOnlineRegistry:
 
         limiter = getattr(bots_module, '__first_responded_bot_limit')
         event = MagicMock()
+        event.get_session_id.return_value = 'SESSION_1'
         event.get_event_name.return_value = 'test_event'
-        matcher = SimpleNamespace(state={})
 
-        await limiter(bot=self._make_mock_bot('BOT_A'), event=event, matcher=matcher)
-        assert matcher.state['_omega_original_respond_id'] == 'BOT_A'
+        # 首次响应的 Bot 登记会话归属
+        await limiter(bot=self._make_mock_bot('BOT_A'), event=event)
+        registry = getattr(bots_module, '__FIRST_RESPOND_REGISTRY')
+        assert registry['SESSION_1'][0] == 'BOT_A'
+        first_expire_at = registry['SESSION_1'][1]
 
-        await limiter(bot=self._make_mock_bot('BOT_A'), event=event, matcher=matcher)
+        # 同一会话内同一 Bot 放行并刷新有效期
+        await limiter(bot=self._make_mock_bot('BOT_A'), event=event)
+        assert registry['SESSION_1'][1] >= first_expire_at
+
+        # 同一会话内其他 Bot 被忽略
+        with pytest.raises(IgnoredException):
+            await limiter(bot=self._make_mock_bot('BOT_B'), event=event)
+
+    async def test_first_responded_bot_limit_expired_allows_takeover(self, online_bots_sandbox) -> None:
+        """会话归属过期后, 其他 Bot 可接管该会话"""
+        bots_module, _ = online_bots_sandbox
+
+        # 直接构造已过期的会话归属记录
+        registry = getattr(bots_module, '__FIRST_RESPOND_REGISTRY')
+        registry['SESSION_EXPIRED'] = ('BOT_A', time.monotonic() - 1)
+
+        limiter = getattr(bots_module, '__first_responded_bot_limit')
+        event = MagicMock()
+        event.get_session_id.return_value = 'SESSION_EXPIRED'
+        event.get_event_name.return_value = 'test_event'
+
+        await limiter(bot=self._make_mock_bot('BOT_B'), event=event)
+        assert registry['SESSION_EXPIRED'][0] == 'BOT_B'
+
+    async def test_first_responded_bot_limit_no_session_id_skips(self, online_bots_sandbox) -> None:
+        """无法提取 session_id 的事件不参与检查, 直接放行且不登记"""
+        bots_module, _ = online_bots_sandbox
+
+        limiter = getattr(bots_module, '__first_responded_bot_limit')
+        event = MagicMock()
+
+        event.get_session_id.side_effect = NotImplementedError
+        await limiter(bot=self._make_mock_bot('BOT_A'), event=event)
+
+        event.get_session_id.side_effect = ValueError('no session id')
+        await limiter(bot=self._make_mock_bot('BOT_A'), event=event)
+
+        assert getattr(bots_module, '__FIRST_RESPOND_REGISTRY') == {}
+
+    async def test_get_online_bots_multi_adapter_grouping(self, online_bots_sandbox) -> None:
+        """get_online_bots 应按适配器分组, 同适配器下按 self_id 区分多实例"""
+        bots_module, _ = online_bots_sandbox
+
+        bot_ob_a = self._make_mock_bot('BOT_OB_A', 'OneBot V11')
+        bot_ob_b = self._make_mock_bot('BOT_OB_B', 'OneBot V11')
+        bot_tg = self._make_mock_bot('BOT_TG', 'Telegram')
+        for bot in (bot_ob_a, bot_ob_b, bot_tg):
+            await getattr(bots_module, '__init_bot_connect')(bot)
+
+        online_bots = bots_module.get_online_bots()
+        assert set(online_bots.keys()) == {'OneBot V11', 'Telegram'}
+        assert set(online_bots['OneBot V11'].keys()) == {'BOT_OB_A', 'BOT_OB_B'}
+        assert online_bots['OneBot V11']['BOT_OB_A'] is bot_ob_a
+        assert online_bots['Telegram']['BOT_TG'] is bot_tg
+
+    async def test_connect_hook_overwrites_same_bot(self, online_bots_sandbox) -> None:
+        """同一 Bot 重复连接时覆盖登记, 每次连接均派发 BotConnectEvent"""
+        bots_module, handle_event_mock = online_bots_sandbox
+
+        bot_first = self._make_mock_bot('BOT_DUP')
+        bot_reconnect = self._make_mock_bot('BOT_DUP')
+        await getattr(bots_module, '__init_bot_connect')(bot_first)
+        await getattr(bots_module, '__init_bot_connect')(bot_reconnect)
+
+        online_bots = bots_module.get_online_bots()
+        assert online_bots['OneBot V11']['BOT_DUP'] is bot_reconnect
+        assert handle_event_mock.await_count == 2
+
+    async def test_unique_bot_limit_empty_online_list(self, online_bots_sandbox) -> None:
+        """无其他在线 Bot 时, 任何用户事件均放行"""
+        bots_module, _ = online_bots_sandbox
+
+        checker = getattr(bots_module, '__unique_bot_responding_limit')
+        event = MagicMock()
+        event.get_user_id.return_value = 'NORMAL_USER_1'
+
+        await checker(bot=self._make_mock_bot('ME_BOT'), event=event)
+
+    async def test_unique_bot_limit_cross_adapter_same_self_id(self, online_bots_sandbox) -> None:
+        """跨适配器数值 ID 恰好碰撞时的误忽略为已声明的设计取舍, 固化该行为"""
+        from nonebot.exception import IgnoredException
+
+        bots_module, _ = online_bots_sandbox
+
+        # 另一适配器上存在 self_id 相同的在线 Bot
+        getattr(bots_module, '__ONLINE_BOTS')[('Telegram', '10001')] = self._make_mock_bot('10001', 'Telegram')
+
+        checker = getattr(bots_module, '__unique_bot_responding_limit')
+        event = MagicMock()
+        event.get_user_id.return_value = '10001'
 
         with pytest.raises(IgnoredException):
-            await limiter(bot=self._make_mock_bot('BOT_B'), event=event, matcher=matcher)
+            await checker(bot=self._make_mock_bot('ME_BOT', 'OneBot V11'), event=event)
 
 
 class TestBotActions:

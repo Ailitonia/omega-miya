@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+import asyncio
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -752,6 +753,218 @@ class TestSignIn:
 
         assert sign_in_result.sign_in_info == 'Manual re-check'
         assert friendship_result.friendship == Decimal('5')
+
+
+class TestSignInWithFriendshipConcurrency:
+    """签到与好感度组合方法的并发安全与日期归一化测试"""
+
+    async def test_sign_in_lock_acquired_before_check(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            test_onebot_v11_entity_factory,
+    ) -> None:
+        """事务内应先以 FOR UPDATE 锁定 Entity 行, 再执行重复签到检查"""
+        from src.database.internal.entity import EntityDAL
+
+        entity = test_onebot_v11_entity_factory()
+
+        call_order: list[str] = []
+
+        origin_query_unique = EntityDAL.query_unique
+        origin_check = EntityDAL.check_entity_date_is_sign_in
+
+        async def _spy_query_unique(self_dal: Any, *args: Any, **kwargs: Any) -> Any:
+            if kwargs.get('with_for_update'):
+                call_order.append('lock')
+            return await origin_query_unique(self_dal, *args, **kwargs)
+
+        async def _spy_check(self_dal: Any, *args: Any, **kwargs: Any) -> Any:
+            call_order.append('check')
+            return await origin_check(self_dal, *args, **kwargs)
+
+        monkeypatch.setattr(EntityDAL, 'query_unique', _spy_query_unique)
+        monkeypatch.setattr(EntityDAL, 'check_entity_date_is_sign_in', _spy_check)
+
+        await entity.check_and_execute_sign_in_with_alter_friendship(alter_friendship=Decimal('1'))
+
+        assert call_order == ['lock', 'check']
+
+    async def test_sign_in_date_normalized_consistently(self, test_onebot_v11_entity_factory) -> None:
+        """签到日期应在方法内归一化: 显式 datetime 落在其 date; 缺省当天保持 Normal Sign In 语义"""
+        entity = test_onebot_v11_entity_factory()
+
+        past = datetime.now() - timedelta(days=3)
+        sign_in_result, _ = await entity.check_and_execute_sign_in_with_alter_friendship(
+            date_=past,
+            alter_friendship=Decimal('1'),
+        )
+
+        assert sign_in_result.sign_in_date == past.date()
+        assert sign_in_result.sign_in_info == 'Fixed Sign In'
+
+        sign_in_today, _ = await entity.check_and_execute_sign_in_with_alter_friendship(
+            alter_friendship=Decimal('1'),
+        )
+        assert sign_in_today.sign_in_date == datetime.now().date()
+        assert sign_in_today.sign_in_info == 'Normal Sign In'
+
+    async def test_concurrent_sign_in_single_reward(
+            self,
+            test_onebot_v11_bot,
+            test_onebot_v11_entity_factory,
+    ) -> None:
+        """两个独立会话并发签到同一 Entity, 好感度奖励只应发放一次
+
+        后到事务要么 NOWAIT 快速失败抛出 RuntimeError (由业务层处理),
+        要么在锁空闲后到达并经锁定读判重为重复签到, 两种交错下奖励均不重复发放;
+        行锁/NOWAIT 依赖 MySQL/PostgreSQL 后端, SQLite 为空操作故跳过;
+        注意须使用非 scoped 的独立会话 (scoped session 在非事件上下文中共享同一作用域键, 无法并发)
+        """
+        from src.database.connector import get_engine, get_session_factory
+        from src.service.omega_base.internal.entity import OmegaEntity
+
+        if get_engine().dialect.name == 'sqlite':
+            pytest.skip('行锁/NOWAIT 对 SQLite 为空操作, 并发竞态仅 MySQL/PostgreSQL 后端可复现')
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.query_entity_self()
+        await entity.commit_session()
+
+        init_kwargs: dict[str, Any] = {
+            'bot_type': entity.bot_type,
+            'bot_id': entity.bot_id,
+            'entity_type': entity.entity_type,
+            'entity_id': entity.entity_id,
+        }
+
+        async def _sign_in() -> tuple[Any, Any]:
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                try:
+                    omega_entity = OmegaEntity(session=session, **init_kwargs)
+                    result = await omega_entity.check_and_execute_sign_in_with_alter_friendship(
+                        alter_friendship=Decimal('1'),
+                    )
+                    await session.commit()
+                    return result
+                except:  # noqa: E722
+                    await session.rollback()
+                    raise
+
+        results = await asyncio.gather(_sign_in(), _sign_in(), return_exceptions=True)
+
+        succeeded = [x for x in results if not isinstance(x, BaseException)]
+        failed = [x for x in results if isinstance(x, BaseException)]
+
+        # 不变量: 好感度奖励只发放一次; 成功方恰为首个签到者, 失败方只能是 RuntimeError 快速失败
+        assert len(succeeded) >= 1
+        for sign_in, friendship in succeeded:
+            assert friendship.friendship == Decimal('1')
+        assert sorted(x[0].sign_in_info or '' for x in succeeded) in (
+            ['Normal Sign In'],
+            ['Duplicate Sign In', 'Normal Sign In'],
+        )
+        for exc in failed:
+            assert isinstance(exc, RuntimeError)
+
+    async def test_sign_in_lock_held_raises_runtime_error(
+            self,
+            test_onebot_v11_bot,
+            test_onebot_v11_entity_factory,
+    ) -> None:
+        """Entity 行锁被其他事务持有时, 组合方法应 NOWAIT 快速失败抛出 RuntimeError
+
+        行锁/NOWAIT 依赖 MySQL/PostgreSQL 后端, SQLite 为空操作故跳过
+        """
+        from src.database.connector import get_engine, get_session_factory
+        from src.database.internal.entity import EntityDAL
+
+        if get_engine().dialect.name == 'sqlite':
+            pytest.skip('行锁/NOWAIT 对 SQLite 为空操作')
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.query_entity_self()
+        await entity.commit_session()
+
+        session_factory = get_session_factory()
+        async with session_factory() as lock_holder_session:
+            try:
+                # 会话1: 持有实体行锁不提交
+                await EntityDAL(lock_holder_session).query_unique(
+                    bot_type=entity.bot_type,
+                    bot_self_id=entity.bot_id,
+                    entity_type=entity.entity_type,
+                    entity_id=entity.entity_id,
+                    with_for_update=True,
+                )
+
+                # 会话2: 同一对象并发签到应立即失败
+                async with session_factory() as session:
+                    from src.service.omega_base.internal.entity import OmegaEntity
+
+                    omega_entity = OmegaEntity(
+                        session=session,
+                        bot_type=entity.bot_type,
+                        bot_id=entity.bot_id,
+                        entity_type=entity.entity_type,
+                        entity_id=entity.entity_id,
+                    )
+                    with pytest.raises(RuntimeError, match='并发签到处理中'):
+                        await omega_entity.check_and_execute_sign_in_with_alter_friendship(
+                            alter_friendship=Decimal('1'),
+                        )
+                    await session.rollback()
+            finally:
+                await lock_holder_session.rollback()
+
+    async def test_stale_snapshot_raises_runtime_error(
+            self,
+            test_onebot_v11_bot,
+            test_onebot_v11_entity_factory,
+    ) -> None:
+        """事务快照过期 (锁空闲但快照确立后有并发提交) 时, 普通读不一致应抛出 RuntimeError
+
+        REPEATABLE READ 下旧快照看不到并发事务已提交的好感度行, 触发兜底转换;
+        依赖 MySQL/PostgreSQL 后端, SQLite 跳过
+        """
+        from src.database.connector import get_engine, get_session_factory
+        from src.service.omega_base.internal.entity import OmegaEntity
+
+        if get_engine().dialect.name == 'sqlite':
+            pytest.skip('快照可见性语义依赖 MySQL/PostgreSQL 后端的 REPEATABLE READ')
+
+        entity = test_onebot_v11_entity_factory()
+        await entity.query_entity_self()
+        await entity.commit_session()
+
+        init_kwargs: dict[str, Any] = {
+            'bot_type': entity.bot_type,
+            'bot_id': entity.bot_id,
+            'entity_type': entity.entity_type,
+            'entity_id': entity.entity_id,
+        }
+
+        session_factory = get_session_factory()
+
+        # 会话S: 先执行一次普通读, 确立本事务的一致性读快照
+        async with session_factory() as stale_session:
+            stale_entity = OmegaEntity(session=stale_session, **init_kwargs)
+            await stale_entity.query_entity_self()
+
+            # 独立会话: 完成一次签到并提交 (好感度行在此提交中创建)
+            async with session_factory() as session:
+                omega_entity = OmegaEntity(session=session, **init_kwargs)
+                await omega_entity.check_and_execute_sign_in_with_alter_friendship(
+                    alter_friendship=Decimal('1'),
+                )
+                await session.commit()
+
+            # 会话S: 锁空闲可获取, 但快照过期, 重复签到路径的好感度行在旧快照中不可见
+            with pytest.raises(RuntimeError, match='读视图不一致'):
+                await stale_entity.check_and_execute_sign_in_with_alter_friendship(
+                    alter_friendship=Decimal('1'),
+                )
+            await stale_session.rollback()
 
 
 class TestAuthSetting:
