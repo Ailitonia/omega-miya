@@ -572,6 +572,7 @@ class ArtworkReviewRecordsOrm(Base):
     __tablename__ = f'{database_config.db_prefix}artwork_review_records'
     __table_args__ = (
         Index(None, 'artwork_index_id', 'review_timestamp'),
+        Index(None, 'record_tag', 'artwork_index_id'),
         CheckConstraint('review_classification BETWEEN -2 AND 3', name='review_classification'),
         CheckConstraint('review_rating BETWEEN -1 AND 3', name='review_rating'),
         database_config.table_args,
@@ -588,6 +589,7 @@ class ArtworkReviewRecordsOrm(Base):
     review_rating: Mapped[int] = mapped_column(SmallInteger, nullable=False, comment='评审分级结果')
     review_from: Mapped[str] = mapped_column(String(255), nullable=False, comment='评审来源')
     review_info: Mapped[str] = mapped_column(String(255), nullable=False, comment='评审附加信息')
+    record_tag: Mapped[str] = mapped_column(String(255), nullable=False, comment='应用层打标筛选标签')
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
 
@@ -603,7 +605,7 @@ class ArtworkReviewRecordsOrm(Base):
         return (f'ArtworkReviewRecordsOrm(artwork_index_id={self.artwork_index_id}, '
                 f'review_timestamp={self.review_timestamp}, review_classification={self.review_classification}, '
                 f'review_rating={self.review_rating}, review_from={self.review_from}, '
-                f'review_info={self.review_info or "null"}, '
+                f'review_info={self.review_info}, record_tag={self.record_tag}, '
                 f'created_at={self.created_at or "unknown"}, updated_at={self.updated_at or "unknown"})')
 
 

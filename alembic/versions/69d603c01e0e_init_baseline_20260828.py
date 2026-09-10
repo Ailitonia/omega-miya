@@ -195,6 +195,7 @@ def upgrade() -> None:
     sa.Column('review_rating', sa.SmallInteger(), nullable=False, comment='评审分级结果'),
     sa.Column('review_from', sa.String(length=255), nullable=False, comment='评审来源'),
     sa.Column('review_info', sa.String(length=255), nullable=False, comment='评审附加信息'),
+    sa.Column('record_tag', sa.String(length=255), nullable=False, comment='应用层打标筛选标签'),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['artwork_index_id'], ['omega_miya_artwork_collection.id'], name=op.f('fk_omega_miya_artwork_review_records_artwork_index_id_omega_miya_artwork_collection'), onupdate='CASCADE', ondelete='CASCADE'),
@@ -204,6 +205,7 @@ def upgrade() -> None:
     )
     with op.batch_alter_table('omega_miya_artwork_review_records', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_omega_miya_artwork_review_records_artwork_index_id'), ['artwork_index_id', 'review_timestamp'], unique=False)
+        batch_op.create_index(batch_op.f('ix_omega_miya_artwork_review_records_record_tag'), ['record_tag', 'artwork_index_id'], unique=False)
 
     op.create_table('omega_miya_artwork_with_tags',
     sa.Column('artwork_index_id', sa.BigInteger().with_variant(sa.INTEGER(), 'sqlite'), nullable=False),
@@ -361,6 +363,7 @@ def downgrade() -> None:
     op.drop_table('omega_miya_artwork_with_tags')
     with op.batch_alter_table('omega_miya_artwork_review_records', schema=None) as batch_op:
         batch_op.drop_constraint(batch_op.f('fk_omega_miya_artwork_review_records_artwork_index_id_omega_miya_artwork_collection'), type_='foreignkey')
+        batch_op.drop_index(batch_op.f('ix_omega_miya_artwork_review_records_record_tag'))
         batch_op.drop_index(batch_op.f('ix_omega_miya_artwork_review_records_artwork_index_id'))
 
     op.drop_table('omega_miya_artwork_review_records')

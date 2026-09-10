@@ -1125,6 +1125,8 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """为已存在作品插入评审记录, 验证字段及关联作品"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
         await artwork_dal._clear_all()
         await artwork_dal.commit_session()
 
@@ -1146,6 +1148,8 @@ class TestArtworkCollectionDAL:
         assert result.review_rating == 1
         assert result.review_from == 'test_reviewer'
         assert result.review_info == 'test review info'
+        # 未显式传入 record_tag 时默认为 PENDING
+        assert result.record_tag == ArtworkReviewTag.PENDING
         assert result.review_record_parent_artwork.aid == artwork_kwargs['aid']
 
     async def test_add_artwork_review_record_not_found(self, artwork_dal) -> None:
@@ -1189,6 +1193,131 @@ class TestArtworkCollectionDAL:
             )
 
         assert await artwork_dal._count_artwork_review_record_all() == 0
+
+    async def test_add_artwork_review_record_explicit_tag(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """显式传入合法 record_tag (字符串与枚举实例), 验证返回值及持久化"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        result_str = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='approved',
+        )
+        result_enum = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000001,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag=ArtworkReviewTag.REJECTED,
+        )
+        await artwork_dal.commit_session()
+
+        assert result_str.record_tag == ArtworkReviewTag.APPROVED
+        assert result_enum.record_tag == ArtworkReviewTag.REJECTED
+
+        records = await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert {r.record_tag for r in records} == {ArtworkReviewTag.APPROVED, ArtworkReviewTag.REJECTED}
+
+    async def test_add_artwork_review_record_invalid_tag_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """评审记录传未定义的 record_tag, 预期 ValueError 且不产生写入"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
+            await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs['origin'],
+                aid=artwork_kwargs['aid'],
+                review_timestamp=1000000000,
+                review_classification=3,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+                record_tag='invalid_tag',
+            )
+
+        assert await artwork_dal._count_artwork_review_record_all() == 0
+
+    async def test_add_artwork_review_record_tag_case_sensitive_and_empty_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """record_tag 为空串或大小写不匹配 (枚举值大小写敏感), 预期 ValueError 且不产生写入"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        for invalid_tag in ('', 'APPROVED', 'Pending'):
+            with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
+                await artwork_dal.add_artwork_review_record(
+                    origin=artwork_kwargs['origin'],
+                    aid=artwork_kwargs['aid'],
+                    review_timestamp=1000000000,
+                    review_classification=3,
+                    review_rating=1,
+                    review_from='test_reviewer',
+                    review_info='test review info',
+                    record_tag=invalid_tag,
+                )
+
+        assert await artwork_dal._count_artwork_review_record_all() == 0
+
+    async def test_add_artwork_review_record_boundary_enum_values(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """边界枚举值 classification=-2 (IGNORED) / rating=-1 (UNKNOWN) 合法写入"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        result = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=-2,
+            review_rating=-1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+
+        assert result.review_classification == -2
+        assert result.review_rating == -1
+        assert result.record_tag == ArtworkReviewTag.PENDING
 
     # ------------------------------------------------------------------ #
     # query_artwork_review_records
@@ -1269,6 +1398,540 @@ class TestArtworkCollectionDAL:
 
         with pytest.raises(NoResultFound):
             await artwork_dal.query_artwork_review_records('nonexistent_origin', 'nonexistent_aid')
+
+    # ------------------------------------------------------------------ #
+    # query_artwork_review_records_with_tag
+    # ------------------------------------------------------------------ #
+
+    async def test_query_artwork_review_records_with_tag_basic(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """插入不同标签的评审记录, 按标签筛选查询验证结果与空结果"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        for tag in ('pending', 'approved', 'rejected'):
+            await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs['origin'],
+                aid=artwork_kwargs['aid'],
+                review_timestamp=1000000000,
+                review_classification=3,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+                record_tag=tag,
+            )
+
+        approved = await artwork_dal.query_artwork_review_records_with_tag('approved')
+        assert len(approved) == 1
+        assert approved[0].record_tag == ArtworkReviewTag.APPROVED
+        assert approved[0].review_record_parent_artwork.aid == artwork_kwargs['aid']
+
+        # 查询无记录的标签返回空列表
+        withdrawn = await artwork_dal.query_artwork_review_records_with_tag('withdrawn')
+        assert withdrawn == []
+
+    async def test_query_artwork_review_records_with_tag_artwork_filter(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """相同标签的评审记录按 artwork_index_id 过滤, 只返回指定作品的记录"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs_a = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs_a)
+        artwork_kwargs_b = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs_b)
+
+        record_a = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs_a['origin'],
+            aid=artwork_kwargs_a['aid'],
+            review_timestamp=1000000000,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='approved',
+        )
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs_b['origin'],
+            aid=artwork_kwargs_b['aid'],
+            review_timestamp=1000000001,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='approved',
+        )
+
+        filtered = await artwork_dal.query_artwork_review_records_with_tag(
+            'approved', artwork_index_id=record_a.artwork_index_id,
+        )
+        assert len(filtered) == 1
+        assert filtered[0].review_record_parent_artwork.aid == artwork_kwargs_a['aid']
+
+        # 不带作品过滤时返回两件作品的全部记录
+        all_records = await artwork_dal.query_artwork_review_records_with_tag('approved')
+        assert len(all_records) == 2
+
+    async def test_query_artwork_review_records_with_tag_pagination(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """分页参数 page/size 正确限制结果数量与偏移, 结果按记录 id 倒序"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        base_ts = 1000000000
+        for i in range(5):
+            await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs['origin'],
+                aid=artwork_kwargs['aid'],
+                review_timestamp=base_ts + i,
+                review_classification=3,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+                record_tag='pending',
+            )
+        await artwork_dal.commit_session()
+
+        # id 自增, 倒序分页 (后插入的记录在前)
+        page_1 = await artwork_dal.query_artwork_review_records_with_tag('pending', page=1, size=2)
+        assert [r.review_timestamp for r in page_1] == [base_ts + 4, base_ts + 3]
+
+        page_2 = await artwork_dal.query_artwork_review_records_with_tag('pending', page=2, size=2)
+        assert [r.review_timestamp for r in page_2] == [base_ts + 2, base_ts + 1]
+
+        page_3 = await artwork_dal.query_artwork_review_records_with_tag('pending', page=3, size=2)
+        assert [r.review_timestamp for r in page_3] == [base_ts]
+
+        # 超出范围的页返回空列表
+        page_4 = await artwork_dal.query_artwork_review_records_with_tag('pending', page=4, size=2)
+        assert page_4 == []
+
+    async def test_query_artwork_review_records_with_tag_invalid_params(self, artwork_dal) -> None:
+        """非法标签与分页参数应抛出 ValueError"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
+            await artwork_dal.query_artwork_review_records_with_tag('invalid_tag')
+
+        with pytest.raises(ValueError, match='page must be a positive integer'):
+            await artwork_dal.query_artwork_review_records_with_tag('pending', page=0)
+
+        with pytest.raises(ValueError, match='page must be a positive integer'):
+            await artwork_dal.query_artwork_review_records_with_tag('pending', page=-1)
+
+        with pytest.raises(ValueError, match='size must be a positive integer'):
+            await artwork_dal.query_artwork_review_records_with_tag('pending', size=0)
+
+        with pytest.raises(ValueError, match='size must be a positive integer'):
+            await artwork_dal.query_artwork_review_records_with_tag('pending', size=-1)
+
+    async def test_query_artwork_review_records_with_tag_artwork_filter_pagination(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """artwork_index_id 过滤与分页组合, 指定作品内按记录 id 倒序分页, 不混入其他作品记录"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs_a = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs_a)
+        artwork_kwargs_b = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs_b)
+
+        base_ts = 1000000000
+        records_a = []
+        for i in range(4):
+            records_a.append(await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs_a['origin'],
+                aid=artwork_kwargs_a['aid'],
+                review_timestamp=base_ts + i,
+                review_classification=3,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+                record_tag='pending',
+            ))
+        # 干扰数据: 另一作品相同标签的记录, id 更大, 不应混入过滤结果
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs_b['origin'],
+            aid=artwork_kwargs_b['aid'],
+            review_timestamp=base_ts + 100,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='pending',
+        )
+        await artwork_dal.commit_session()
+
+        page_1 = await artwork_dal.query_artwork_review_records_with_tag(
+            'pending', page=1, size=2, artwork_index_id=records_a[0].artwork_index_id,
+        )
+        assert [r.review_timestamp for r in page_1] == [base_ts + 3, base_ts + 2]
+
+        page_2 = await artwork_dal.query_artwork_review_records_with_tag(
+            'pending', page=2, size=2, artwork_index_id=records_a[0].artwork_index_id,
+        )
+        assert [r.review_timestamp for r in page_2] == [base_ts + 1, base_ts]
+
+    async def test_query_artwork_review_records_with_tag_size_exceeds_total(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """size 大于匹配记录总数时返回全部记录"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        for i in range(3):
+            await artwork_dal.add_artwork_review_record(
+                origin=artwork_kwargs['origin'],
+                aid=artwork_kwargs['aid'],
+                review_timestamp=1000000000 + i,
+                review_classification=3,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+                record_tag='pending',
+            )
+        await artwork_dal.commit_session()
+
+        records = await artwork_dal.query_artwork_review_records_with_tag('pending', page=1, size=100)
+        assert len(records) == 3
+        assert [r.review_timestamp for r in records] == [1000000002, 1000000001, 1000000000]
+
+    async def test_query_artwork_review_records_with_tag_nonexistent_artwork_filter(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """artwork_index_id 指向不存在作品时返回空列表, 而非抛出 NoResultFound"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='pending',
+        )
+        await artwork_dal.commit_session()
+
+        records = await artwork_dal.query_artwork_review_records_with_tag('pending', artwork_index_id=999999999)
+        assert records == []
+
+    async def test_query_artwork_review_records_with_tag_enum_param(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """record_tag 传枚举实例与传字符串等效"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='approved',
+        )
+        await artwork_dal.commit_session()
+
+        records = await artwork_dal.query_artwork_review_records_with_tag(ArtworkReviewTag.APPROVED)
+        assert len(records) == 1
+        assert records[0].record_tag == ArtworkReviewTag.APPROVED
+
+    async def test_query_artwork_review_records_dirty_tag_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """数据库中存在未定义标签的脏数据时, 查询抛出 ValidationError (应用层校验 fail-fast)"""
+        from pydantic import ValidationError
+
+        from src.database.schema import ArtworkReviewRecordsOrm
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        # 绕过 DAL 校验直接写入未定义标签的脏数据
+        artwork_dal.db_session.add(ArtworkReviewRecordsOrm(
+            artwork_index_id=artwork.id,
+            review_timestamp=1000000000,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+            record_tag='unknown_tag',
+        ))
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValidationError):
+            await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+
+    # ------------------------------------------------------------------ #
+    # alter_review_record
+    # ------------------------------------------------------------------ #
+
+    async def test_alter_review_record_update_all_fields(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """修改评审记录全部可变字段, 验证返回值及提交后持久化"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        record = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=0,
+            review_rating=0,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+
+        altered = await artwork_dal.alter_review_record(
+            record.id,
+            review_classification=3,
+            review_rating=2,
+            review_from='updated_reviewer',
+            review_info='updated review info',
+            record_tag='approved',
+        )
+        await artwork_dal.commit_session()
+
+        assert altered.id == record.id
+        assert altered.review_timestamp == 1000000000
+        assert altered.review_classification == 3
+        assert altered.review_rating == 2
+        assert altered.review_from == 'updated_reviewer'
+        assert altered.review_info == 'updated review info'
+        assert altered.record_tag == ArtworkReviewTag.APPROVED
+
+        persisted = await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert len(persisted) == 1
+        assert persisted[0].record_tag == ArtworkReviewTag.APPROVED
+        assert persisted[0].review_from == 'updated_reviewer'
+
+    async def test_alter_review_record_partial_update(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """仅修改 record_tag, 其余字段保持不变"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        record = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=2,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+
+        altered = await artwork_dal.alter_review_record(record.id, record_tag='under_review')
+
+        assert altered.record_tag == ArtworkReviewTag.UNDER_REVIEW
+        assert altered.review_timestamp == record.review_timestamp
+        assert altered.review_classification == record.review_classification
+        assert altered.review_rating == record.review_rating
+        assert altered.review_from == record.review_from
+        assert altered.review_info == record.review_info
+
+    async def test_alter_review_record_noop(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """不传任何可变字段时返回原记录, 不产生变更"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        record = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=2,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+
+        altered = await artwork_dal.alter_review_record(record.id)
+
+        assert altered.id == record.id
+        assert altered.review_timestamp == record.review_timestamp
+        assert altered.review_classification == record.review_classification
+        assert altered.review_rating == record.review_rating
+        assert altered.review_from == record.review_from
+        assert altered.review_info == record.review_info
+        assert altered.record_tag == record.record_tag
+
+    async def test_alter_review_record_not_found(self, artwork_dal) -> None:
+        """修改不存在的评审记录, 预期 NoResultFound"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(NoResultFound):
+            await artwork_dal.alter_review_record(999999999, record_tag='approved')
+
+    async def test_alter_review_record_invalid_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """修改时传未定义的枚举值, 预期 ValueError 且原记录未被污染"""
+        from src.database.internal.artwork_collection import ArtworkReviewTag
+
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        record = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=2,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
+            await artwork_dal.alter_review_record(record.id, record_tag='invalid_tag')
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
+            await artwork_dal.alter_review_record(record.id, review_classification=99)
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkRating'):
+            await artwork_dal.alter_review_record(record.id, review_rating=99)
+
+        persisted = await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert len(persisted) == 1
+        assert persisted[0].record_tag == ArtworkReviewTag.PENDING
+        assert persisted[0].review_classification == 2
+        assert persisted[0].review_rating == 1
+
+    async def test_alter_review_record_empty_string_applied(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """review_from/review_info 传空串 (非 None) 时实际更新为空串"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        record = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=2,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+
+        altered = await artwork_dal.alter_review_record(record.id, review_from='', review_info='')
+        await artwork_dal.commit_session()
+
+        assert altered.review_from == ''
+        assert altered.review_info == ''
+
+        persisted = await artwork_dal.query_artwork_review_records(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted[0].review_from == ''
+        assert persisted[0].review_info == ''
+
+    async def test_alter_review_record_invalid_param_precedence(self, artwork_dal) -> None:
+        """非法枚举值与不存在的记录 id 同时成立时, 参数校验先于查询抛出 ValueError"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
+            await artwork_dal.alter_review_record(999999999, record_tag='invalid_tag')
+
+    async def test_alter_review_record_updated_at_refreshed(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """新建记录 updated_at 为空, 修改后 updated_at 被填充 (onupdate 生效)"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        record = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000000,
+            review_classification=2,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+        await artwork_dal.commit_session()
+        assert record.updated_at is None
+
+        altered = await artwork_dal.alter_review_record(record.id, record_tag='approved')
+        assert altered.updated_at is not None
 
     # ------------------------------------------------------------------ #
     # delete

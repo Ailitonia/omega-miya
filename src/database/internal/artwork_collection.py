@@ -10,7 +10,7 @@
 
 from collections.abc import Callable, Sequence
 from datetime import datetime
-from enum import IntEnum, unique
+from enum import IntEnum, StrEnum, unique
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -50,6 +50,17 @@ class ArtworkOrientation(IntEnum):
     PORTRAIT = -1  # 竖图（高 > 宽）
     SQUARE = 0  # 方图（高 = 宽）
     LANDSCAPE = 1  # 横图（宽 > 高）
+
+
+@unique
+class ArtworkReviewTag(StrEnum):
+    """图库作品审核状态标签"""
+    PENDING = 'pending'  # 待审核
+    UNDER_REVIEW = 'under_review'  # 审核中
+    APPROVED = 'approved'  # 审核通过
+    REJECTED = 'rejected'  # 审核不通过
+    NEEDS_REVISION = 'needs_revision'  # 需修改
+    WITHDRAWN = 'withdrawn'  # 已撤回
 
 
 class ArtworkTag(BaseDataOutModel):
@@ -100,6 +111,7 @@ class ArtworkReviewRecord(BaseDataOutModel):
     review_rating: ArtworkRating
     review_from: str
     review_info: str
+    record_tag: ArtworkReviewTag
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -872,6 +884,20 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             )
         return Artwork.model_validate(artwork_item)
 
+    async def delete(self, origin: str, aid: str) -> None:
+        """删除指定作品, 删除不存在的数据时静默成功, 方法内不执行 commit
+
+        关联的标签关联表/评审记录表数据由数据库外键级联删除
+        """
+        stmt = (delete(ArtworkCollectionOrm)
+                .where(ArtworkCollectionOrm.origin == origin)
+                .where(ArtworkCollectionOrm.aid == aid))
+        await self.db_session.execute(stmt)
+
+    # ------------------------------------------------------------------ #
+    # 作品审核相关方法
+    # ------------------------------------------------------------------ #
+
     async def update_artwork_review_classification_rating(
             self,
             origin: str,
@@ -904,12 +930,19 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             review_rating: int,
             review_from: str,
             review_info: str,
+            record_tag: str | None = None,
     ) -> ArtworkReviewRecord:
         """向数据库插入新行, 不校验唯一性, 方法内不执行 commit
 
+        评审记录标签 record_tag 应当为 ArtworkReviewTag 枚举值, 为空则默认为 PENDING
         作品信息经 _select_unique 预加载了标签关系, 返回模型的父作品校验依赖同一会话 identity map 中的该实例
         如果作品不存在直接抛出异常
         """
+        if record_tag is None:
+            record_tag = ArtworkReviewTag.PENDING
+        else:
+            record_tag = ArtworkReviewTag(record_tag)
+
         artwork_item = await self._select_unique(origin, aid, populate_existing=True)
         new_obj = ArtworkReviewRecordsOrm(
             artwork_index_id=artwork_item.id,
@@ -918,6 +951,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             review_rating=ArtworkRating(review_rating),
             review_from=review_from,
             review_info=review_info,
+            record_tag=record_tag,
         )
         self.db_session.add(new_obj)
         await self.db_session.flush()
@@ -943,15 +977,84 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
 
         return parse_obj_as(list[ArtworkReviewRecord], (await self.db_session.execute(stmt)).scalars().all())
 
-    async def delete(self, origin: str, aid: str) -> None:
-        """删除指定作品, 删除不存在的数据时静默成功, 方法内不执行 commit
+    async def query_artwork_review_records_with_tag(
+            self,
+            record_tag: str,
+            *,
+            page: int = 1,
+            size: int = 50,
+            artwork_index_id: int | None = None,
+            populate_existing: bool = False,
+    ) -> list[ArtworkReviewRecord]:
+        """根据评审记录标签筛选查询评审记录, 按记录 id 倒序分页返回
 
-        关联的标签关联表/评审记录表数据由数据库外键级联删除
+        :param record_tag: 评审记录标签, 应当是 ArtworkReviewTag 枚举值
+        :param page: 分页
+        :param size: 每页数量
+        :param artwork_index_id: 指定作品的索引 ID
+        :param populate_existing: 是否填充已有对象
+        :raises ValueError: record_tag 不是合法标签或 page/size 不是正整数时抛出
         """
-        stmt = (delete(ArtworkCollectionOrm)
-                .where(ArtworkCollectionOrm.origin == origin)
-                .where(ArtworkCollectionOrm.aid == aid))
-        await self.db_session.execute(stmt)
+        record_tag_ = ArtworkReviewTag(record_tag)
+
+        if page < 1:
+            raise ValueError('page must be a positive integer')
+
+        if size < 1:
+            raise ValueError('size must be a positive integer')
+
+        stmt = select(ArtworkReviewRecordsOrm).where(ArtworkReviewRecordsOrm.record_tag == record_tag_)
+
+        if artwork_index_id is not None:
+            stmt = stmt.where(ArtworkReviewRecordsOrm.artwork_index_id == artwork_index_id)
+
+        if populate_existing:
+            stmt = stmt.execution_options(populate_existing=True)
+
+        # 按记录 id 倒序分页, 结果数量限制
+        stmt = stmt.order_by(desc(ArtworkReviewRecordsOrm.id)).limit(size).offset((page - 1) * size)
+
+        return parse_obj_as(list[ArtworkReviewRecord], (await self.db_session.execute(stmt)).scalars().all())
+
+    async def alter_review_record(
+            self,
+            record_index_id: int,
+            *,
+            review_classification: int | None = None,
+            review_rating: int | None = None,
+            review_from: str | None = None,
+            review_info: str | None = None,
+            record_tag: str | None = None,
+    ) -> ArtworkReviewRecord:
+        """修改审核记录, 仅更新显式传入的非 None 字段, 方法内不执行 commit
+
+        记录不存在时抛出 NoResultFound, 枚举字段传未定义值时抛出 ValueError
+        """
+        # 先完成枚举校验再变更 ORM 对象, 避免校验失败时将部分赋值的脏对象遗留在会话中
+        classification_ = ArtworkClassification(review_classification) if review_classification is not None else None
+        rating_ = ArtworkRating(review_rating) if review_rating is not None else None
+        record_tag_ = ArtworkReviewTag(record_tag) if record_tag is not None else None
+
+        select_stmt = (select(ArtworkReviewRecordsOrm)
+                       .where(ArtworkReviewRecordsOrm.id == record_index_id)
+                       .execution_options(populate_existing=True)
+                       .with_for_update())
+
+        record_item = (await self.db_session.execute(select_stmt)).scalar_one()
+
+        if classification_ is not None:
+            record_item.review_classification = classification_
+        if rating_ is not None:
+            record_item.review_rating = rating_
+        if review_from is not None:
+            record_item.review_from = review_from
+        if review_info is not None:
+            record_item.review_info = review_info
+        if record_tag_ is not None:
+            record_item.record_tag = record_tag_
+
+        await self.db_session.flush()
+        return ArtworkReviewRecord.model_validate(record_item)
 
 
 __all__ = [
@@ -963,5 +1066,6 @@ __all__ = [
     'ArtworkRating',
     'ArtworkRatingStatistic',
     'ArtworkReviewRecord',
+    'ArtworkReviewTag',
     'ArtworkTag',
 ]
