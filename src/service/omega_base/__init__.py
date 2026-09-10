@@ -12,7 +12,6 @@ from . import middlewares as middlewares  # noqa: F401
 from .interface import OmegaEntityInterface, OmegaMatcherInterface
 from .internal import OmegaEntity, get_online_bots
 
-
 __all__ = [
     'OmegaEntity',
     'OmegaEntityInterface',

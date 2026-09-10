@@ -18,7 +18,7 @@ from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
 from nonebot.adapters.telegram.event import PrivateMessageEvent as TelegramPrivateMessageEvent
 from nonebot.log import logger
 from nonebot.message import event_preprocessor
-from nonebot_plugin_alconna.uniseg import Reply, SupportScope, Target
+from nonebot_plugin_alconna.uniseg import SupportScope, Target
 
 from src.database.internal.bot import BotSelfDAL, BotStatus
 from src.database.internal.entity import EntityType
@@ -51,7 +51,7 @@ async def __telegram_bot_connect(bot: TelegramBot, event: BotConnectEvent) -> No
 @event_preprocessor
 async def __telegram_bot_disconnect(bot: TelegramBot, event: BotDisconnectEvent) -> None:
     """处理 Telegram Bot 断开连接事件"""
-    if not str(bot.self_id) == str(event.bot_id):
+    if str(bot.self_id) != str(event.bot_id):
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     async with BotSelfDAL.create() as bot_dal:
@@ -63,9 +63,13 @@ async def __telegram_bot_disconnect(bot: TelegramBot, event: BotDisconnectEvent)
 class BaseTelegramEntityTarget(BaseEntityTarget[TelegramBot]):
 
     def _construct_target(self) -> Target:
+        # is_private 缺省时按 entity_type 推断, 避免手工构造的参数或旧数据缺键导致 KeyError
+        is_private = self.entity_params.entity_extra.get(
+            'is_private', self.entity_params.entity_type is EntityType.TELEGRAM_USER,
+        )
         return Target(
             self.entity_params.entity_id,
-            private=self.entity_params.entity_extra['is_private'],
+            private=is_private,
             adapter=self.entity_params.bot_type,
             self_id=self.entity_params.bot_id,
             scope=SupportScope.telegram,
@@ -140,17 +144,20 @@ class TelegramMessageEventDepend[Event_T: TelegramMessageEvent](TelegramEventDep
         return self.event.chat.username if self.event.chat.username else ''
 
     def get_reply_msg_image_urls(self) -> list[str]:
-        reply_messages = self.get_uni_message()[Reply]
-        image_urls = [
-            msg_seg.data.get('origin_url', None) or msg_seg.data.get('file', None)
-            for msg_seg in reply_messages
-            if msg_seg.type == 'photo'
-        ]
+        """获取回复消息中的全部图片
 
-        if image_urls:
-            return [str(url) for url in image_urls if url is not None]
-        else:
+        Telegram 事件自带被回复消息 (event.reply_to_message), 直接从中提取 photo 消息段;
+        Telegram 平台无直接图片 URL, 若无钩子处理则直接返回 file_id
+        """
+        if self.event.reply_to_message is None:
             return []
+
+        image_urls = [
+            seg.data.get('origin_url', None) or seg.data.get('file', None)
+            for seg in self.event.reply_to_message.original_message
+            if seg.type == 'photo'
+        ]
+        return [str(url) for url in image_urls if url is not None]
 
 
 @EVENT_DEPEND_REGISTER.register_depend(TelegramGroupMessageEvent)
@@ -171,6 +178,11 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
         })
 
     def _extract_user_entity_params(self) -> 'EntityInitParams':
+        # username 为 None 时不拼接, 避免产生 'Name@None' 形式的信息
+        user_info = (
+            f'{self.event.from_.first_name}@{self.event.from_.username}'
+            if self.event.from_.username is not None else self.event.from_.first_name
+        )
         return EntityInitParams.model_validate({
             'bot_type': self.bot.adapter.get_name(),
             'bot_id': self.bot.self_id,
@@ -181,7 +193,7 @@ class TelegramGroupMessageEventDepend(TelegramMessageEventDepend[TelegramGroupMe
                 'is_private': self.event.chat.type == 'private',
                 'message_thread_id': getattr(self.event, 'message_thread_id', None),
             },
-            'entity_info': f'{self.event.from_.first_name}@{self.event.from_.username}',
+            'entity_info': user_info,
         })
 
     def get_user_nickname(self) -> str:
@@ -195,6 +207,11 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
         return self._extract_user_entity_params()
 
     def _extract_user_entity_params(self) -> 'EntityInitParams':
+        # username 为 None 时不拼接, 避免产生 'Name@None' 形式的信息
+        user_info = (
+            f'{self.event.from_.first_name}@{self.event.from_.username}'
+            if self.event.from_.username is not None else self.event.from_.first_name
+        )
         return EntityInitParams.model_validate({
             'bot_type': self.bot.adapter.get_name(),
             'bot_id': self.bot.self_id,
@@ -205,7 +222,7 @@ class TelegramPrivateMessageEventDepend(TelegramMessageEventDepend[TelegramPriva
                 'is_private': self.event.chat.type == 'private',
                 'message_thread_id': getattr(self.event, 'message_thread_id', None),
             },
-            'entity_info': f'{self.event.from_.first_name}@{self.event.from_.username}',
+            'entity_info': user_info,
         })
 
     def get_user_nickname(self) -> str:

@@ -21,8 +21,8 @@ from nonebot_plugin_alconna.uniseg import Receipt, Segment, UniMessage
 from src.database import DATABASE_SESSION, database_session
 from src.database.internal.entity import EntityType
 from .internal import (
-    EVENT_DEPEND_REGISTER,
     ENTITY_TARGET_REGISTER,
+    EVENT_DEPEND_REGISTER,
     BaseEntityTarget,
     BaseEventDepend,
     EntityAcquireType,
@@ -162,7 +162,7 @@ class OmegaMatcherInterface:
         return event_depend_cls(bot=self.bot, event=self.event)
 
     def extract_current_entity_params(self) -> 'EntityInitParams':
-        """提取触发事件用户 Entity 实例化参数"""
+        """提取当前事件对应 Entity 实例化参数, 提取对象由 acquire_type 决定 (默认 event 即事件所在场景对象)"""
         return self.get_event_depend().extract_entity_params(acquire_type=self.acquire_type)
 
     def get_current_entity_interface(self) -> 'OmegaEntityInterface':

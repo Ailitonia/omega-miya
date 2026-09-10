@@ -43,7 +43,7 @@ async def __console_bot_connect(bot: ConsoleBot, event: BotConnectEvent) -> None
 @event_preprocessor
 async def __console_bot_disconnect(bot: ConsoleBot, event: BotDisconnectEvent) -> None:
     """处理 nonebot-console Bot 断开连接事件"""
-    if not str(bot.self_id) == str(event.bot_id):
+    if str(bot.self_id) != str(event.bot_id):
         raise ValueError('Bot self_id not match BotActionEvent bot_id')
 
     async with BotSelfDAL.create() as bot_dal:
@@ -105,7 +105,7 @@ class ConsoleEventDepend(BaseEventDepend[ConsoleBot, ConsoleEvent]):
         })
 
     def _extract_user_entity_params(self) -> 'EntityInitParams':
-        if self.event.channel.id == DIRECT.id or self.event.channel.id.startswith("private:"):
+        if self.event.channel.id == DIRECT.id or self.event.channel.id.startswith('private:'):
             # If the event is a direct message, we can use the user ID as the target ID
             return EntityInitParams.model_validate({
                 'bot_type': self.bot.adapter.get_name(),
