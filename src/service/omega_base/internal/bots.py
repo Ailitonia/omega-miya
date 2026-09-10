@@ -9,23 +9,24 @@
 """
 
 import asyncio
-from typing import Literal
+import time
 
 from nonebot import get_driver, logger
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import IgnoredException
-from nonebot.matcher import Matcher
 from nonebot.message import handle_event, run_preprocessor
 
 from .event import BotConnectEvent, BotDisconnectEvent
 
-__ORIGINAL_RESPOND_ID_KEY: Literal['_omega_original_respond_id'] = '_omega_original_respond_id'
-"""事件处理过程常量, 最初响应的 Bot 发起的会话 id 存储 key"""
+__FIRST_RESPOND_TTL: float = 300.0
+"""首响应 Bot 会话归属的有效期 (秒)"""
+__FIRST_RESPOND_REGISTRY: dict[str, tuple[str, float]] = {}
+"""首响应 Bot 会话归属注册表, 键为事件 session_id, 值为 (Bot self_id, 过期时间戳)"""
 __ONLINE_BOTS: dict[tuple[str, str], BaseBot] = {}
 """当前在线的 Bot, 键为 (适配器名, Bot self_id), 支持同一账号跨适配器多实例同时在线"""
 __BOT_LOCK = asyncio.Lock()
-"""读写在线 Bot 字典时的锁 (仅保护 __ONLINE_BOTS, 严禁持锁期间进行事件分发)"""
+"""读写进程级 Bot 状态时的锁 (仅保护 __ONLINE_BOTS/__FIRST_RESPOND_REGISTRY, 严禁持锁期间进行事件分发)"""
 _DRIVER = get_driver()
 """获取全局 Driver 用于注册钩子函数"""
 
@@ -57,17 +58,41 @@ async def __unique_bot_responding_limit(bot: BaseBot, event: BaseEvent) -> None:
 
 
 @run_preprocessor
-async def __first_responded_bot_limit(bot: BaseBot, event: BaseEvent, matcher: Matcher) -> None:
-    """检查当前事件是否属于由最初响应的 Bot 发起的指定会话, 避免多 Bot 在同一会话中重复响应"""
+async def __first_responded_bot_limit(bot: BaseBot, event: BaseEvent) -> None:
+    """检查当前事件所属会话是否已由最初响应的 Bot 接管, 避免多 Bot 在同一会话中重复响应
+
+    会话归属以事件 session_id 粒度登记在进程级注册表中 (TTL 内有效, 同一 Bot 的后续事件刷新有效期);
+    无法提取 session_id 的事件不参与检查
+    """
+    try:
+        # 只检查可提取会话 id 的事件
+        session_id = event.get_session_id()
+    except (NotImplementedError, ValueError):
+        logger.opt(colors=True).trace(
+            'First responded bot limit checker Ignored with no-session_id event'
+        )
+        return
+
+    now = time.monotonic()
     async with __BOT_LOCK:
-        if (original_respond_id := matcher.state.get(__ORIGINAL_RESPOND_ID_KEY, None)) is None:
-            matcher.state[__ORIGINAL_RESPOND_ID_KEY] = bot.self_id
+        # 惰性清理过期会话归属
+        expired_keys = [k for k, (_, expire_at) in __FIRST_RESPOND_REGISTRY.items() if expire_at <= now]
+        for key in expired_keys:
+            __FIRST_RESPOND_REGISTRY.pop(key, None)
+
+        record = __FIRST_RESPOND_REGISTRY.get(session_id)
+        if record is None:
+            __FIRST_RESPOND_REGISTRY[session_id] = (bot.self_id, now + __FIRST_RESPOND_TTL)
             logger.debug(
-                f'Bot {bot.self_id} first responded event {event.get_event_name()!r}'
+                f'Bot {bot.self_id} first responded event {event.get_event_name()!r} in session {session_id!r}'
             )
-        elif original_respond_id != bot.self_id:
+        elif record[0] == bot.self_id:
+            # 同一会话内同一 Bot 的后续事件, 刷新会话归属有效期
+            __FIRST_RESPOND_REGISTRY[session_id] = (bot.self_id, now + __FIRST_RESPOND_TTL)
+        else:
             logger.debug(
-                f'Bot {bot.self_id} ignored non-original responding event {event.get_event_name()!r}'
+                f'Bot {bot.self_id} ignored non-original responding event {event.get_event_name()!r} '
+                f'in session {session_id!r}'
             )
             raise IgnoredException(
                 f'Bot {bot.self_id} ignored non-original responding event {event.get_event_name()!r}'

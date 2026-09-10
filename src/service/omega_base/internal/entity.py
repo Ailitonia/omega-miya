@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import DatabaseError, NoResultFound
 
 from src.compat import parse_obj_as
 from src.database.internal.bot import BotSelf, BotSelfDAL, BotType
@@ -316,7 +316,7 @@ class OmegaEntity:
 
         仅统计截至今日连续未间断的签到日数, 今日未签到则连续日数为 0;
         晚于今日的签到记录 (未来日期) 不参与计算
-        :return: (当前连续签到的日数, 上一次断签日期的 ordinal datetime)
+        :return: (当前连续签到的日数, 上一次断签日期的 ordinal)
         """
         date_now_ordinal = datetime.now().date().toordinal()
 
@@ -354,29 +354,67 @@ class OmegaEntity:
     ) -> tuple[SignIn, Friendship]:
         """执行签到和好感度等变化
 
-        同一事务中处理签到表和好感度表更新, 确保并发与原子性;
+        同一事务中处理签到表和好感度表更新; 同一对象存在并发签到处理中时立即抛出 RuntimeError 不阻塞等待;
+        重复签到判定使用锁定读, 确保好感度奖励不重复发放; 关键区内普通读若与已提交状态不一致同样抛出 RuntimeError;
+        SQLite 后端行锁/NOWAIT 为空操作, 由写入序列化兜底正确性;
         指定日期已签到时不再变更好感度 (防止重复发放), 仅按重复签到规则更新签到记录,
         可通过返回的 SignIn.sign_in_info 是否为 'Duplicate Sign In' 区分本次是否为重复签到
         :return: (SignIn: 本次签到信息, Friendship: 签到完成后好感度信息)
         """
         entity = await self.query_entity_self()
-        async with EntityDAL(self._db_session).safe_begin_transaction():
-            already_signed = await EntityDAL(self._db_session).check_entity_date_is_sign_in(
-                entity_index_id=entity.id,
-                date_=date_,
-            )
-            sign_in_result = await self.sign_in(
-                date_=date_,
-                sign_in_info=sign_in_info,
-            )
-            if already_signed:
-                friendship_result = await self.query_friendship()
-            else:
-                friendship_result = await self.alter_friendship(
-                    friendship=alter_friendship,
-                    energy=alter_energy,
-                    currency=alter_currency,
+        try:
+            async with EntityDAL(self._db_session).safe_begin_transaction():
+                # 行锁须在重复签到检查之前获取; NOWAIT 快速失败, 由业务层处理并发冲突
+                try:
+                    await EntityDAL(self._db_session).query_unique(
+                        bot_type=self.bot_type,
+                        bot_self_id=self.bot_id,
+                        entity_type=self.entity_type,
+                        entity_id=self.entity_id,
+                        populate_existing=True,
+                        with_for_update=True,
+                        nowait_for_update=True,
+                    )
+                except DatabaseError as e:
+                    if EntityDAL.is_lock_nowait_error(e):
+                        raise RuntimeError(
+                            f'Entity {self.tid} 正在并发签到处理中, 请稍后重试'
+                        ) from e
+                    raise
+
+                # 仅取一次当前日期, 避免 check 与 insert 分别取 now 在跨午夜时不一致
+                # (sign_in_info 原样透传, DAL 按日期值区分 Normal/Fixed Sign In 默认信息)
+                if date_ is None:
+                    sign_in_date = datetime.now().date()
+                elif isinstance(date_, datetime):
+                    sign_in_date = date_.date()
+                else:
+                    sign_in_date = date_
+
+                # 锁定读判定: 当前读不受事务一致性快照影响, 覆盖快照确立后锁获取前的并发提交窗口
+                already_signed = await EntityDAL(self._db_session).check_entity_date_is_sign_in(
+                    entity_index_id=entity.id,
+                    date_=sign_in_date,
+                    with_for_update=True,
                 )
+                sign_in_result = await self.sign_in(
+                    date_=sign_in_date,
+                    sign_in_info=sign_in_info,
+                )
+                if already_signed:
+                    friendship_result = await self.query_friendship()
+                else:
+                    friendship_result = await self.alter_friendship(
+                        friendship=alter_friendship,
+                        energy=alter_energy,
+                        currency=alter_currency,
+                    )
+        except NoResultFound as e:
+            # 持锁后普通读仍读不到已提交数据, 说明本事务一致性快照已过期 (REPEATABLE READ),
+            # 继续执行将基于错误数据, 抛出由业务层处理
+            raise RuntimeError(
+                f'Entity {self.tid} 数据被并发修改, 事务读视图不一致, 请重试'
+            ) from e
         return sign_in_result, friendship_result
 
     # ------------------------------------------------------------------ #
@@ -600,7 +638,7 @@ class OmegaEntity:
         """设置冷却
 
         :param cooldown_event: 设置的冷却事件
-        :param expired_time: datetime: 冷却过期事件; timedelta: 以现在时间为准新增的冷却时间
+        :param expired_time: datetime: 冷却过期时间; timedelta: 以现在时间为准新增的冷却时间
         :param description: 冷却描述信息
         """
         entity = await self.query_entity_self()
@@ -614,7 +652,7 @@ class OmegaEntity:
     async def check_cooldown_expired(self, cooldown_event: str) -> tuple[bool, datetime]:
         """查询冷却是否到期
 
-        :return: (True=已到期或不存在改冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
+        :return: (True=已到期或不存在该冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
         """
         entity = await self.query_entity_self()
         return await EntityDAL(session=self._db_session).check_entity_cooldown_is_expired(
@@ -636,7 +674,7 @@ class OmegaEntity:
     async def check_global_cooldown_expired(self) -> tuple[bool, datetime]:
         """查询全局冷却是否到期
 
-        :return: (True=已到期或不存在改冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
+        :return: (True=已到期或不存在该冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
         """
         return await self.check_cooldown_expired(cooldown_event=GLOBAL_COOLDOWN_EVENT)
 
@@ -768,7 +806,7 @@ class OmegaEntity:
         """设置更新 Entity 对象角色属性时的冷却
 
         :param attr_name: 角色属性名称
-        :param expired_time: datetime: 冷却过期事件; timedelta: 以现在时间为准新增的冷却时间
+        :param expired_time: datetime: 冷却过期时间; timedelta: 以现在时间为准新增的冷却时间
         """
         return await self.set_cooldown(
             cooldown_event=f'{CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX}_{attr_name}',
@@ -784,7 +822,7 @@ class OmegaEntity:
         """设置更新 Entity 对象角色档案时的冷却
 
         :param profile_name: 角色档案名称
-        :param expired_time: datetime: 冷却过期事件; timedelta: 以现在时间为准新增的冷却时间
+        :param expired_time: datetime: 冷却过期时间; timedelta: 以现在时间为准新增的冷却时间
         """
         return await self.set_cooldown(
             cooldown_event=f'{CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX}_{profile_name}',
@@ -796,7 +834,7 @@ class OmegaEntity:
         """查询更新 Entity 对象角色属性时的冷却是否到期
 
         :param attr_name: 角色属性名称
-        :return: (True=已到期或不存在改冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
+        :return: (True=已到期或不存在该冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
         """
         return await self.check_cooldown_expired(
             cooldown_event=f'{CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX}_{attr_name}'
@@ -806,7 +844,7 @@ class OmegaEntity:
         """查询更新 Entity 对象角色档案时的冷却是否到期
 
         :param profile_name: 角色档案名称
-        :return: (True=已到期或不存在改冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
+        :return: (True=已到期或不存在该冷却事件, 到期时间), (False=未到期且仍在冷却中, 到期时间)
         """
         return await self.check_cooldown_expired(
             cooldown_event=f'{CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX}_{profile_name}'
