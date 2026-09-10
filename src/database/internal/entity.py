@@ -294,6 +294,8 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             *,
             load_all_rel: Literal[False] = False,
             populate_existing: bool = False,
+            with_for_update: bool = False,
+            nowait_for_update: bool = False,
     ) -> Entity:
         ...
 
@@ -308,6 +310,8 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             *,
             load_all_rel: Literal[True],
             populate_existing: bool = False,
+            with_for_update: bool = False,
+            nowait_for_update: bool = False,
     ) -> EntityWithFullRel:
         ...
 
@@ -321,12 +325,16 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             *,
             load_all_rel: bool = False,
             populate_existing: bool = False,
+            with_for_update: bool = False,
+            nowait_for_update: bool = False,
     ) -> Entity | EntityWithFullRel:
         if index_id is not None:
             item = await self._select_from_index_id(
                 index_id,
                 load_all_rel=load_all_rel,
                 populate_existing=populate_existing,
+                with_for_update=with_for_update,
+                nowait_for_update=nowait_for_update,
             )
         elif (bot_type is not None
               and bot_self_id is not None
@@ -339,6 +347,8 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 entity_id,
                 load_all_rel=load_all_rel,
                 populate_existing=populate_existing,
+                with_for_update=with_for_update,
+                nowait_for_update=nowait_for_update,
             )
         else:
             raise ValueError('bot_type/bot_self_id/entity_type/entity_id must both be provided when index_id is None')
@@ -430,7 +440,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -500,7 +510,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 插入失败说明是已存在的条目, 忽略本次提交的实体信息; 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
 
         # 重新加载实体及其所属 bot, 确保返回数据模型时关系属性已加载
@@ -568,7 +578,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -623,7 +633,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -687,18 +697,18 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
     ) -> SignIn:
         """为实体添加签到信息, 若不指定签到日期则为当天
 
+        默认签到信息按日期值区分: 当天为 'Normal Sign In', 其余日期 (补签/历史日期) 为 'Fixed Sign In';
         重复签到 (同一实体同一日期已存在记录) 时: 显式指定 sign_in_info 则覆盖为指定值,
         未指定则标记为 'Duplicate Sign In'
         """
+        today = datetime.now().date()
         if isinstance(date_, datetime):
             sign_in_date = date_.date()
-            default_info = 'Fixed Sign In'
         elif isinstance(date_, date):
             sign_in_date = date_
-            default_info = 'Fixed Sign In'
         else:
-            sign_in_date = datetime.now().date()
-            default_info = 'Normal Sign In'
+            sign_in_date = today
+        default_info = 'Normal Sign In' if sign_in_date == today else 'Fixed Sign In'
 
         new_obj = SignInOrm(
             entity_index_id=entity_index_id,
@@ -712,7 +722,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -735,6 +745,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_index_id: int,
             *,
             date_: date | datetime | None = None,
+            with_for_update: bool = False,
     ) -> bool:
         """检查日期是否已经签到"""
         if isinstance(date_, datetime):
@@ -745,7 +756,12 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             sign_in_date = datetime.now().date()
 
         try:
-            await self._select_entity_sign_in(entity_index_id, sign_in_date, populate_existing=True)
+            await self._select_entity_sign_in(
+                entity_index_id,
+                sign_in_date,
+                populate_existing=True,
+                with_for_update=with_for_update,
+            )
             return True
         except NoResultFound:
             return False
@@ -900,7 +916,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -1032,7 +1048,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
@@ -1134,7 +1150,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)

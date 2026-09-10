@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .helpers import database_session
@@ -97,8 +97,30 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
             yield self.db_session
 
     @staticmethod
-    def _is_unique_conflict_error(exc: IntegrityError) -> bool:
-        """内部方法, 用于判断 IntegrityError 是否由唯一约束冲突引起 (跨方言甄别)
+    def is_lock_nowait_error(exc: DatabaseError) -> bool:
+        """判断数据库错误是否由 NOWAIT 锁定读未获取到锁引起 (跨方言甄别)
+
+        - MySQL/MariaDB (aiomysql/asyncmy): errno 3572 (ER_LOCK_NOWAIT)
+        - PostgreSQL (asyncpg/psycopg): sqlstate 55P03 (lock_not_available)
+        """
+        if not isinstance(exc, DatabaseError):
+            return False
+
+        orig = exc.orig
+        if orig is None:
+            return False
+
+        # MySQL/MariaDB: errno 3572 (ER_LOCK_NOWAIT)
+        if orig.args and orig.args[0] == 3572:
+            return True
+
+        # PostgreSQL: sqlstate 55P03 (lock_not_available)
+        sqlstate = getattr(orig, 'sqlstate', None) or getattr(orig, 'pgcode', None)
+        return sqlstate is not None and sqlstate == '55P03'
+
+    @staticmethod
+    def is_unique_conflict_error(exc: IntegrityError) -> bool:
+        """判断 IntegrityError 是否由唯一约束冲突引起 (跨方言甄别)
 
         用于 upsert 场景的冲突兜底: 只有确认是唯一约束冲突时才应进入"已存在则更新/忽略"分支,
         其他类型的完整性冲突 (外键/非空/CHECK 等) 必须原样抛出, 避免掩盖真实错误。
@@ -107,6 +129,9 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
         - MySQL (aiomysql/asyncmy): errno 1062 (ER_DUP_ENTRY)
         - SQLite (aiosqlite/sqlite3): extended error code 1555 (CONSTRAINT_PRIMARYKEY) / 2067 (CONSTRAINT_UNIQUE)
         """
+        if not isinstance(exc, IntegrityError):
+            return False
+
         orig = exc.orig
         if orig is None:
             return False
@@ -128,8 +153,8 @@ class BaseDataAccessLayer[ORM_T: 'Base', DATA_T: BaseDataOutModel](abc.ABC):
 
         return False
 
-    @classmethod
-    def _escape_like(cls, keyword: str) -> str:
+    @staticmethod
+    def _escape_like(keyword: str) -> str:
         """转义 LIKE 特殊字符：\\ % _
 
         防注入, 用户输入里的 % / _ 会变成通配符

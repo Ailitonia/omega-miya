@@ -86,7 +86,7 @@ class TestIsUniqueConflictError:
     def test_is_unique_conflict_error(self, orig: BaseException | None, expected: bool) -> None:
         from src.database.model import BaseDataAccessLayer
 
-        assert BaseDataAccessLayer._is_unique_conflict_error(_make_integrity_error(orig)) is expected
+        assert BaseDataAccessLayer.is_unique_conflict_error(_make_integrity_error(orig)) is expected
 
 
 class TestDatabaseSession:
@@ -271,7 +271,7 @@ class TestCheckConstraint:
 
             # CHECK 冲突不得被误判为唯一约束冲突 (否则 upsert 场景会掩盖真实错误)
             if isinstance(exc_info.value, IntegrityError):
-                assert not BaseDataAccessLayer._is_unique_conflict_error(exc_info.value)
+                assert not BaseDataAccessLayer.is_unique_conflict_error(exc_info.value)
 
             # 清理失败的事务状态, 避免上下文退出时提交失败事务
             await session.rollback()

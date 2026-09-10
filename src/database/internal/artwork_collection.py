@@ -663,7 +663,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             return new_obj
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则复用"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             # 把插入失败的对象移出会话, 避免意外影响
             if new_obj in self.db_session:
@@ -756,7 +756,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                     )
             except IntegrityError as e:
                 # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-                if not self._is_unique_conflict_error(e):
+                if not self.is_unique_conflict_error(e):
                     raise
                 # 插入失败说明是已存在的条目, 锁定查询并更新信息
                 artwork_item = await self._select_unique(
@@ -865,7 +865,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                     )
             except IntegrityError as e:
                 # 只有唯一约束冲突才忽略, 其他完整性冲突(外键/非空等)原样抛出
-                if not self._is_unique_conflict_error(e):
+                if not self.is_unique_conflict_error(e):
                     raise
                 # 插入失败说明是已存在的条目, 忽略本次提交的作品信息
             else:

@@ -152,7 +152,7 @@ class SubscriptionSourceDAL(BaseDataAccessLayer[SubscriptionSourceOrm, Subscript
                 await session.flush()
         except IntegrityError as e:
             # 只有唯一约束冲突才进入"已存在则更新"分支, 其他完整性冲突(外键/非空等)原样抛出
-            if not self._is_unique_conflict_error(e):
+            if not self.is_unique_conflict_error(e):
                 raise
             if new_obj in self.db_session:
                 self.db_session.expunge(new_obj)
