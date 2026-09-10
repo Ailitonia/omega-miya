@@ -49,7 +49,7 @@ class OmegaEntityInterface:
         return entity_target_cls(entity_params=self.entity_params)
 
     def get_bot(self) -> 'BaseBot':
-        """获取 Entity 对应的 Bot 实例, 未在线则会抛出 BotNoFound 异常"""
+        """获取 Entity 对应的 Bot 实例, 对应 self_id 的 Bot 不在线时抛出 KeyError"""
         return self.get_entity_target().get_bot()
 
     # ------------------------------------------------------------------ #

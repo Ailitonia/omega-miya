@@ -44,6 +44,8 @@ async def __unique_bot_responding_limit(bot: BaseBot, event: BaseEvent) -> None:
 
     # 对于多协议端同时接入, 各个bot之间不能相互响应, 避免形成死循环
     # 快照读取在线 Bot 列表, 避免与连接/断开钩子并发读写冲突
+    # 注意: 按 self_id 跨适配器比对是有意设计 (同一账号经不同协议端接入时防死循环),
+    # 代价是不同平台数值 ID 恰好碰撞的极端场景下会误忽略该用户的消息
     online_self_ids = {x.self_id for x in list(__ONLINE_BOTS.values()) if x.self_id != bot.self_id}
     if event_user_id in online_self_ids:
         logger.debug(

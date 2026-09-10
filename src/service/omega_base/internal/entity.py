@@ -124,7 +124,10 @@ class OmegaEntity:
 
     @classmethod
     async def init_from_entity_index_id(cls, session: 'AsyncSession', index_id: int) -> Self:
-        """从 Entity 的索引 ID 初始化, 从数据库中查询(或插入)并填充自身及所属 bot 数据, 只有确认 Entity 存在时才使用"""
+        """从 Entity 的索引 ID 初始化, 从数据库中查询(不插入)并填充自身及所属 bot 数据
+
+        只有确认 Entity 存在时才使用, Entity 或所属 bot 不存在时抛出 NoResultFound
+        """
         entity = await EntityDAL(session).query_unique(index_id=index_id)
         bot = await BotSelfDAL(session).query_unique(index_id=entity.bot_index_id)
         new_obj = cls(
@@ -219,6 +222,7 @@ class OmegaEntity:
         entity = await self.query_entity_self()
         await EntityDAL(session=self._db_session).delete_from_index(index_id=entity.id)
         self._entity = None
+        self._bot = None
 
     # ------------------------------------------------------------------ #
     # Friendship 好感度及状态相关方法
@@ -350,19 +354,29 @@ class OmegaEntity:
     ) -> tuple[SignIn, Friendship]:
         """执行签到和好感度等变化
 
-        同一事务中处理签到表和好感度表更新, 确保并发与原子性
+        同一事务中处理签到表和好感度表更新, 确保并发与原子性;
+        指定日期已签到时不再变更好感度 (防止重复发放), 仅按重复签到规则更新签到记录,
+        可通过返回的 SignIn.sign_in_info 是否为 'Duplicate Sign In' 区分本次是否为重复签到
         :return: (SignIn: 本次签到信息, Friendship: 签到完成后好感度信息)
         """
+        entity = await self.query_entity_self()
         async with EntityDAL(self._db_session).safe_begin_transaction():
+            already_signed = await EntityDAL(self._db_session).check_entity_date_is_sign_in(
+                entity_index_id=entity.id,
+                date_=date_,
+            )
             sign_in_result = await self.sign_in(
                 date_=date_,
                 sign_in_info=sign_in_info,
             )
-            friendship_result = await self.alter_friendship(
-                friendship=alter_friendship,
-                energy=alter_energy,
-                currency=alter_currency,
-            )
+            if already_signed:
+                friendship_result = await self.query_friendship()
+            else:
+                friendship_result = await self.alter_friendship(
+                    friendship=alter_friendship,
+                    energy=alter_energy,
+                    currency=alter_currency,
+                )
         return sign_in_result, friendship_result
 
     # ------------------------------------------------------------------ #
@@ -688,7 +702,12 @@ class OmegaEntity:
             *,
             default_factory: DefaultIntValueFactory | None = None,
     ) -> int:
-        """查询 Entity 对象的角色属性, 提供 `default_factory` 时若无角色属性则动态生成"""
+        """查询 Entity 对象的角色属性, 提供 `default_factory` 时若无角色属性则动态生成
+
+        以下情形视为属性不可用: 属性未配置 (NoResultFound)、属性被禁用 (available != 1)、
+        属性值缺失 (KeyError) 或属性值无法转换为 int (TypeError/ValueError);
+        提供 `default_factory` 时重新生成并落库 (重置 available 为 1), 否则抛出对应异常
+        """
         try:
             attribute = await self.query_auth_setting(
                 module=CharacterAttribute.module,
@@ -697,10 +716,10 @@ class OmegaEntity:
             )
 
             if attribute.available != 1:
-                raise ValueError('CharacterAttribute is not available')
+                raise ValueError(f'CharacterAttribute {attr_name!r} is not available (available != 1)')
 
             attribute_value = int(attribute.value[attr_name])
-        except (NoResultFound, ValueError, KeyError):
+        except (NoResultFound, ValueError, KeyError, TypeError):
             if default_factory is None:
                 raise
 
@@ -715,7 +734,12 @@ class OmegaEntity:
             *,
             default_factory: DefaultDictFactory | None = None,
     ) -> dict[str, Any]:
-        """查询 Entity 对象的角色档案, 提供 `default_factory` 时若无角色档案则动态生成"""
+        """查询 Entity 对象的角色档案, 提供 `default_factory` 时若无角色档案则动态生成
+
+        以下情形视为档案不可用: 档案未配置 (NoResultFound)、档案被禁用 (available != 1)、
+        档案值缺失 (KeyError) 或档案值不可索引 (TypeError);
+        提供 `default_factory` 时重新生成并落库 (重置 available 为 1), 否则抛出对应异常
+        """
         try:
             profile = await self.query_auth_setting(
                 module=CharacterProfile.module,
@@ -724,10 +748,10 @@ class OmegaEntity:
             )
 
             if profile.available != 1:
-                raise ValueError('CharacterProfile is not available')
+                raise ValueError(f'CharacterProfile {profile_name!r} is not available (available != 1)')
 
             profile_value = profile.value[profile_name]
-        except (NoResultFound, ValueError, KeyError):
+        except (NoResultFound, ValueError, KeyError, TypeError):
             if default_factory is None:
                 raise
 

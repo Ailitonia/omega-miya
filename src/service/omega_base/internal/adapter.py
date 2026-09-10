@@ -17,6 +17,7 @@ from nonebot import get_bot, logger
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.adapters import Message as BaseMessage
+from nonebot.utils import escape_tag
 from nonebot_plugin_alconna.uniseg import At, Image, Receipt, Reply, Segment, Target, UniMessage, get_target
 
 from src.database.internal.entity import EntityType
@@ -37,7 +38,11 @@ class BaseEntityTarget[BT: 'BaseBot'](abc.ABC):
         raise NotImplementedError
 
     def get_bot(self) -> BT:
-        return get_bot(self.entity_params.bot_id)  # type: ignore
+        """获取 Entity 对应平台在线的 Bot 实例
+
+        基于 nonebot.get_bot 实现, 对应 self_id 的 Bot 不在线时抛出 KeyError
+        """
+        return get_bot(self.entity_params.bot_id)
 
     # ------------------------------------------------------------------ #
     # 发送消息相关方法, 使用 nonebot-plugin-alconn 的 uniseg 通用消息组件实现
@@ -226,7 +231,10 @@ class _EntityTargetRegister:
                 raise ValueError(f'Duplicate entity {target_name!r}')
 
             self._map[target_name] = target_type
-            logger.opt(colors=True).debug(f'<e>{target_type.__name__!r}</e> is registered to {target_name!r}')
+            # 彩色标记日志中的动态内容须经 escape_tag 转义, 避免被 loguru 解析为标记 (如 repr 中的 <locals>)
+            logger.opt(colors=True).debug(
+                f'<e>{target_type.__name__!r}</e> is registered to {escape_tag(repr(target_name))}'
+            )
             return target_type
 
         return _decorator
@@ -261,7 +269,10 @@ class _EventDependRegister:
                 raise ValueError(f'Duplicate event {target_event_type.__name__!r}')
 
             self._map[target_event_type] = depend
-            logger.opt(colors=True).debug(f'<e>{depend.__name__!r}</e> is registered to {target_event_type!r}')
+            # 彩色标记日志中的动态内容须经 escape_tag 转义, 避免被 loguru 解析为标记 (如 repr 中的 <locals>)
+            logger.opt(colors=True).debug(
+                f'<e>{depend.__name__!r}</e> is registered to {escape_tag(repr(target_event_type))}'
+            )
             return depend
 
         return _decorator
