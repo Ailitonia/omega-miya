@@ -24,12 +24,29 @@ _RATE_LIMITING_TIME: float = 2.0
 """速率限制时间阈值, 判断连续消息触发的时间间隔小于该值, 单位为秒, 判断依据时间戳为标准"""
 _RATE_LIMITING_COOL_DOWN: int = 1800
 """触发速率限制时为用户设置的流控冷却时间, 单位秒"""
+_RATE_LIMITING_PRUNE_THRESHOLD: int = 1024
+"""跟踪字典规模清理阈值, 超过该规模时清理长时间未活跃的用户条目, 避免无界增长"""
 _USER_LAST_MSG_TIME: dict[str, int] = {}
 """记录用户上次消息的时间戳, 作为对比依据"""
 _RATE_LIMITING_COUNT: dict[str, int] = {}
 """记录用户消息在速率限制时间阈值内触发的次数"""
 _RATE_LIMITING_USER_TEMP: dict[str, int] = {}
 """已被限制的用户标识符及到期时间"""
+
+
+def _prune_stale_entries(timestamp_now: int) -> None:
+    """清理超过流控冷却时长未活跃的用户跟踪条目 (先收集键再删除, 避免迭代中变异字典)"""
+    if len(_USER_LAST_MSG_TIME) <= _RATE_LIMITING_PRUNE_THRESHOLD:
+        return
+
+    stale_flags = [
+        flag for flag, ts in _USER_LAST_MSG_TIME.items()
+        if timestamp_now - ts > _RATE_LIMITING_COOL_DOWN
+    ]
+    for flag in stale_flags:
+        _USER_LAST_MSG_TIME.pop(flag, None)
+        _RATE_LIMITING_COUNT.pop(flag, None)
+        _RATE_LIMITING_USER_TEMP.pop(flag, None)
 
 
 async def preprocessor_rate_limiting(bot: BaseBot, event: BaseEvent) -> None:
@@ -56,6 +73,9 @@ async def preprocessor_rate_limiting(bot: BaseBot, event: BaseEvent) -> None:
 
     # 获取当前时间戳
     timestamp_now = int(time.time())
+
+    # 规模超限时清理长期未活跃的用户条目
+    _prune_stale_entries(timestamp_now=timestamp_now)
 
     # 检测该用户是否已经被速率限制
     if (expired_ts := _RATE_LIMITING_USER_TEMP.get(user_flag, timestamp_now)) > timestamp_now:

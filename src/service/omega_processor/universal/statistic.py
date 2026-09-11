@@ -10,17 +10,31 @@
 
 import time
 
+try:
+    import ujson as json
+except ImportError:
+    import json
+
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 
 from src.database import DATABASE_SESSION, StatisticDAL
-from .processor_utils import parse_processor_state
 from ...omega_base import OmegaMatcherInterface
+from .processor_utils import parse_processor_state
 
 _LOG_PREFIX: str = '<lc>Statistic</lc> | '
 """日志前缀"""
+
+
+def _jsonable(value: object) -> object:
+    """将 matcher.state 运行时值转换为 JSON 可序列化对象, 无法序列化的以 repr 兜底"""
+    try:
+        json.dumps(value)
+        return value
+    except (TypeError, ValueError):
+        return repr(value)
 
 
 async def postprocessor_statistic(
@@ -61,16 +75,18 @@ async def postprocessor_statistic(
     user_entity_params = event_depend.extract_entity_params(acquire_type='user')
 
     try:
-        await StatisticDAL(session=db_session).add(
-            plugin_name=custom_plugin_name,
-            module_name=module_name,
-            call_timestamp=int(time.time()),
-            call_entity_meta={
-                'event': event_entity_params.model_dump(),
-                'user': user_entity_params.model_dump(),
-            },
-            call_data={str(k): v for k, v in matcher.state.items()},
-        )
+        # SAVEPOINT 隔离写入: 失败仅回滚自身, 避免共享会话被污染导致管线级联失败
+        async with StatisticDAL(session=db_session).safe_begin_transaction():
+            await StatisticDAL(session=db_session).add(
+                plugin_name=custom_plugin_name,
+                module_name=module_name,
+                call_timestamp=int(time.time()),
+                call_entity_meta={
+                    'event': event_entity_params.model_dump(mode='json'),
+                    'user': user_entity_params.model_dump(mode='json'),
+                },
+                call_data={str(k): _jsonable(v) for k, v in matcher.state.items()},
+            )
         logger.opt(colors=True).debug(f'{_LOG_PREFIX}Add Plugin({custom_plugin_name}) statistic succeed')
     except Exception as e:
         logger.opt(colors=True).error(f'{_LOG_PREFIX}Add Plugin({custom_plugin_name}) statistic failed, {e}')

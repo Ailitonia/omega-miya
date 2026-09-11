@@ -25,17 +25,23 @@ _LOG_PREFIX: str = '<lc>Plugin Manager</lc> | '
 
 @_DRIVER.on_startup
 async def _startup_init_plugins():
-    """初始化已加载的插件到数据库"""
+    """初始化已加载的插件到数据库
+
+    仅插入缺失的插件行, 已存在的行保持不变, 避免重启时将已禁用的插件重置为启用
+    """
     try:
         async with database_session() as session:
             dal = PluginDAL(session=session)
             for plugin in get_loaded_plugins():
-                await dal.add_update_exist(
-                    plugin_name=plugin.name,
-                    module_name=plugin.module_name,
-                    enabled=1,
-                    info=plugin.metadata.name if plugin.metadata else None,
-                )
+                try:
+                    await dal.query_unique(plugin_name=plugin.name, module_name=plugin.module_name)
+                except NoResultFound:
+                    await dal.add_update_exist(
+                        plugin_name=plugin.name,
+                        module_name=plugin.module_name,
+                        enabled=1,
+                        info=plugin.metadata.name if plugin.metadata else None,
+                    )
     except Exception as e:
         import sys
         logger.opt(colors=True).critical(f'{_LOG_PREFIX}<r>初始化插件信息失败</r>, {e}')

@@ -18,8 +18,8 @@ from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
 from src.database import DATABASE_SESSION
-from .processor_utils import parse_processor_state
 from ...omega_base import OmegaMatcherInterface
+from .processor_utils import parse_processor_state
 
 _CURRENCY_ALIAS: str = '硬币'
 """货币的显示别名"""
@@ -86,6 +86,8 @@ async def preprocessor_plugin_cost(
             )
         raise IgnoredException(f'{_CURRENCY_ALIAS}不足')
 
+    await user_entity.alter_friendship(currency=-cost)
+
     echo_message = f'已消耗 {cost} {_CURRENCY_ALIAS}来使用命令{processor_state.name!r}'
     logger.opt(colors=True).info(
         f'{_LOG_PREFIX}{user_entity.tid} cost <ly>{cost}</ly> for {processor_state.name!r}'
@@ -96,7 +98,6 @@ async def preprocessor_plugin_cost(
         logger.opt(colors=True).warning(
             f'{_LOG_PREFIX}{plugin_name} send cost not enough message failed, {e}'
         )
-    await user_entity.alter_friendship(currency=-cost)
 
 
 __all__ = [

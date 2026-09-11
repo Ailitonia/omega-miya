@@ -19,8 +19,8 @@ from nonebot.permission import SUPERUSER
 from pydantic import BaseModel, ConfigDict
 
 from src.database import DATABASE_SESSION
-from .processor_utils import parse_processor_state
 from ...omega_base import OmegaEntity, OmegaMatcherInterface
+from .processor_utils import parse_processor_state
 
 _PLUGIN_CD_EVENT_PREFIX: str = 'plugin_cd_'
 """插件冷却事件前缀"""
@@ -173,8 +173,7 @@ async def preprocessor_cooldown(
                     matcher=matcher,
                     acquire_type='event',
                 ).get_current_entity(db_session=db_session)
-                await event_entity.set_cooldown(
-                    cooldown_event=cooldown_event,
+                await event_entity.set_global_cooldown(
                     expired_time=timedelta(seconds=processor_state.cooldown),
                 )
 
@@ -184,8 +183,7 @@ async def preprocessor_cooldown(
                     matcher=matcher,
                     acquire_type='user',
                 ).get_current_entity(db_session=db_session)
-                cooldown = await user_entity.set_cooldown(
-                    cooldown_event=cooldown_event,
+                cooldown = await user_entity.set_global_cooldown(
                     expired_time=timedelta(seconds=processor_state.cooldown),
                 )
             case 'event':

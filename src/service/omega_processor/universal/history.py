@@ -41,16 +41,18 @@ async def postprocessor_history(
     user_entity_params = event_depend.extract_entity_params(acquire_type='user')
 
     try:
-        await HistoryDAL(session=db_session).add(
-            received_timestamp=int(time.time()),
-            message_id=message_id,
-            bot_self_id=bot.self_id,
-            event_entity_id=event_entity_params.entity_id,
-            user_entity_id=user_entity_params.entity_id,
-            message_type=f'{event_entity_params.entity_type}.{event.get_event_name()}',
-            message_plain_text=message_text,
-            message_raw=message_raw,
-        )
+        # SAVEPOINT 隔离写入: 失败仅回滚自身, 避免共享会话被污染导致管线级联失败
+        async with HistoryDAL(session=db_session).safe_begin_transaction():
+            await HistoryDAL(session=db_session).add(
+                received_timestamp=int(time.time()),
+                message_id=message_id,
+                bot_self_id=bot.self_id,
+                event_entity_id=event_entity_params.entity_id,
+                user_entity_id=user_entity_params.entity_id,
+                message_type=f'{event_entity_params.entity_type}.{event.get_event_name()}',
+                message_plain_text=message_text,
+                message_raw=message_raw,
+            )
         logger.opt(colors=True).debug(f'{_LOG_PREFIX}Message(id={message_id}) recorded')
     except Exception as e:
         logger.opt(colors=True).error(f'{_LOG_PREFIX}Record message(id={message_id}) failed, {e}')

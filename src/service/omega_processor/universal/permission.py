@@ -16,8 +16,8 @@ from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
 from src.database import DATABASE_SESSION
-from .processor_utils import parse_processor_state
 from ...omega_base import OmegaEntity, OmegaMatcherInterface
+from .processor_utils import parse_processor_state
 
 _LOG_PREFIX: str = '<lc>Permission Manager</lc> | '
 """日志前缀"""
@@ -128,7 +128,7 @@ async def preprocessor_permission(
 
     if not permission_checked:
         logger.opt(colors=True).info(
-            f'{_LOG_PREFIX}{plugin_name} <r>Denied</r> <ly{event_entity.tid}/{user_entity.tid}</ly> request'
+            f'{_LOG_PREFIX}{plugin_name} <r>Denied</r> <ly>{event_entity.tid}/{user_entity.tid}</ly> request'
         )
         if processor_state.echo_processor_result:
             try:
@@ -148,7 +148,7 @@ async def preprocessor_permission(
         raise IgnoredException('权限不足')
 
     logger.opt(colors=True).debug(
-        f'{_LOG_PREFIX}{plugin_name} <g>Allowed</g> <ly{event_entity.tid}/{user_entity.tid}</ly> request'
+        f'{_LOG_PREFIX}{plugin_name} <g>Allowed</g> <ly>{event_entity.tid}/{user_entity.tid}</ly> request'
     )
 
 

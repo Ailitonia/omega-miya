@@ -11,7 +11,8 @@
 from urllib.parse import quote
 
 from nonebot.adapters.telegram import Bot as TelegramBot
-from nonebot.adapters.telegram.event import Event as TelegramEvent, MessageEvent as TelegramMessageEvent
+from nonebot.adapters.telegram.event import Event as TelegramEvent
+from nonebot.adapters.telegram.event import MessageEvent as TelegramMessageEvent
 from nonebot.adapters.telegram.message import Message as TelegramMessage
 from nonebot.adapters.telegram.message import MessageSegment as TelegramMessageSegment
 from nonebot.log import logger

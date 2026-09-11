@@ -59,7 +59,7 @@ async def handle_universal_run_preprocessor(
         await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=db_session)
         # 处理消耗
         await preprocessor_plugin_cost(bot=bot, event=event, matcher=matcher, db_session=db_session)
-    except ValueError as e:
+    except (NotImplementedError, ValueError) as e:
         logger.debug(f'UniversalRunPreprocessor ignored {event} without message, {e}')
     except Exception as e:
         logger.error(f'UniversalRunPreprocessor handle {event} message failed, {e}')
@@ -92,7 +92,7 @@ async def handle_universal_event_postprocessor(
         await postprocessor_friendship(bot=bot, event=event, db_session=db_session)
         # 处理历史记录
         await postprocessor_history(bot=bot, event=event, message=message, db_session=db_session)
-    except ValueError as e:
+    except (NotImplementedError, ValueError) as e:
         logger.debug(f'UniversalEventPostprocessor ignored {event} without message, {e}')
     except Exception as e:
         logger.error(f'UniversalEventPostprocessor handle {event} message failed, {e}')

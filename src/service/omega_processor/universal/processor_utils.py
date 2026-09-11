@@ -31,7 +31,8 @@ class OmegaProcessorState(OmegaServiceBaseModel):
     - enable_processor: 是否启用 processor 处理流程
     - level: matcher 需要的权限等级
     - auth_node: matcher 需要的权限节点
-    - extra_auth_node: matcher 在运行中可能需要的权限节点, 供授权管理插件配置, 一般作为运行时判断, 不在 processor 阶段进行处理
+    - extra_auth_node: matcher 在运行中可能需要的权限节点, 供授权管理插件配置,
+      一般作为运行时判断, 不在 processor 阶段进行处理
     - cooldown: matcher 冷却时间配置, 单位秒
     - cooldown_type: matcher 冷却类型, global: 全局共享冷却, event: 事件独立冷却, user: 用户独立冷却
     - cost: 使用 matcher 所需消耗的费用
@@ -66,7 +67,8 @@ def enable_processor_state(
     :param enable_processor: matcher 是否启用 processor 处理流程
     :param level: matcher 需要的权限等级
     :param auth_node: matcher 需要的权限节点名称
-    :param extra_auth_node: matcher 在运行中可能需要的权限节点, 供授权管理插件配置, 一般作为运行时判断, 不在 processor 阶段进行处理
+    :param extra_auth_node: matcher 在运行中可能需要的权限节点, 供授权管理插件配置,
+        一般作为运行时判断, 不在 processor 阶段进行处理
     :param cooldown: matcher 冷却时间配置, 单位秒
     :param cooldown_type: matcher 冷却类型, global: 全局共享冷却, event: 事件独立冷却, user: 用户独立冷却
     :param cost: 使用 matcher 所需消耗的费用
@@ -83,7 +85,9 @@ def enable_processor_state(
         cost=0 if cost < 0 else cost,
         echo_processor_result=echo_processor_result
     )
-    return {__OMEGA_STATE_KEY: state_model.model_dump()}
+    # mode='json': state 将常驻 matcher.state 并可能被统计等后处理器写入 JSON 列,
+    # python 模式下 extra_auth_node 保持为 set 会导致 JSON 序列化失败
+    return {__OMEGA_STATE_KEY: state_model.model_dump(mode='json')}
 
 
 def parse_processor_state(state: T_State) -> OmegaProcessorState:
