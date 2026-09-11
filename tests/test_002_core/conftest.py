@@ -8,11 +8,17 @@
 @Software       : PyCharm
 """
 
+import random
 from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from async_asgi_testclient import TestClient
+from nonebug import App
+
+from tests.test_002_core.helpers import delete_global_cache_rows
 
 if TYPE_CHECKING:
     from src.database.internal.bot import BotSelf
@@ -318,3 +324,100 @@ async def test_subscription_sources(
     finally:
         await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_a)
         await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_b)
+
+
+@pytest.fixture
+async def mounted_app_client(app: App) -> AsyncGenerator[TestClient, None]:
+    """经主应用挂载访问子应用的 HTTP 客户端(复用 nonebug 全局 lifespan 客户端)"""
+    async with app.test_server() as ctx:
+        yield ctx.get_client()
+
+
+@pytest.fixture
+async def global_cache_row_tracker_factory() -> AsyncGenerator[Callable[[str], list[str]], None]:
+    """全局缓存行跟踪器工厂
+
+    make_tracker(cache_name) 返回一个跟踪列表, 测试将产生的 cache_key 追加进去,
+    测试结束后按 cache_name 定点清理被跟踪的数据库行(适用于测试 import 期注册单例的模块, 不注销注册表)
+    """
+    trackers: list[tuple[str, list[str]]] = []
+
+    def _make_tracker(cache_name: str) -> list[str]:
+        tracker: list[str] = []
+        trackers.append((cache_name, tracker))
+        return tracker
+
+    yield _make_tracker
+
+    for cache_name, tracker in trackers:
+        await delete_global_cache_rows(cache_name, tracker)
+
+
+# ------------------------------------------------------------------ #
+# omega_base / 事件族 fixture (自 test_010 / test_012 上移, 保持测试方法体零改动)
+# ------------------------------------------------------------------ #
+
+@pytest.fixture
+def entity_target_register_sandbox(monkeypatch: pytest.MonkeyPatch):
+    """EntityTarget 注册表测试沙箱
+
+    以空表替换内部注册表 (monkeypatch 在测试后恢复原表), 测试内的注册操作不影响全局
+    """
+    from src.service.omega_base.internal import ENTITY_TARGET_REGISTER
+
+    monkeypatch.setattr(ENTITY_TARGET_REGISTER, '_map', {})
+    return ENTITY_TARGET_REGISTER
+
+
+@pytest.fixture
+def event_depend_register_sandbox(monkeypatch: pytest.MonkeyPatch):
+    """EventDepend 注册表测试沙箱
+
+    以空表替换内部注册表 (monkeypatch 在测试后恢复原表), 测试内的注册操作不影响全局
+    """
+    from src.service.omega_base.internal import EVENT_DEPEND_REGISTER
+
+    monkeypatch.setattr(EVENT_DEPEND_REGISTER, '_map', {})
+    return EVENT_DEPEND_REGISTER
+
+
+@pytest.fixture
+def online_bots_sandbox(monkeypatch: pytest.MonkeyPatch):
+    """bots 模块全局状态测试沙箱
+
+    快照并清空全局 __ONLINE_BOTS 与 __FIRST_RESPOND_REGISTRY (测试后恢复), 同时将模块内引用的
+    handle_event 替换为 AsyncMock, 避免连接/断开钩子触发真实事件管线及数据库副作用
+    """
+    import src.service.omega_base.internal.bots as bots_module
+
+    online_bots_snapshot: dict[tuple[str, str], Any] = dict(getattr(bots_module, '__ONLINE_BOTS'))
+    getattr(bots_module, '__ONLINE_BOTS').clear()
+    registry_snapshot: dict[str, tuple[str, float]] = dict(getattr(bots_module, '__FIRST_RESPOND_REGISTRY'))
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
+    handle_event_mock = AsyncMock()
+    monkeypatch.setattr(bots_module, 'handle_event', handle_event_mock)
+
+    yield bots_module, handle_event_mock
+
+    getattr(bots_module, '__ONLINE_BOTS').clear()
+    getattr(bots_module, '__ONLINE_BOTS').update(online_bots_snapshot)
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').update(registry_snapshot)
+
+
+@pytest.fixture(scope='class')
+async def test_onebot_v11_numeric_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
+    """管线测试用 Bot: 数字 self_id (OneBot V11 事件模型要求 int) 且已落库
+
+    omega_base 中间件的 self_id 校验预处理器要求 event.self_id == bot.self_id,
+    且好感度/历史后处理器会经实体初始化要求 bot 行存在, 故 bot 身份须全程一致
+    """
+    from src.database.internal.bot import BotType
+
+    self_id = str(random.randint(10_000_000, 99_999_999))
+    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.ONEBOT_V11, bot_self_id=self_id)
+
+    try:
+        yield bot
+    finally:
+        await test_db_data_factory.delete_test_bot(bot=bot)

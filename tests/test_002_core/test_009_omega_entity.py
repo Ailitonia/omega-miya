@@ -18,21 +18,15 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.exc import NoResultFound
 
+from tests.test_002_core.helpers import assert_datetime_close
+
 if TYPE_CHECKING:
     from src.service.omega_base.internal.entity import OmegaEntity
-
-_ASSERT_TIME_TOLERANCE: float = 2.0
-"""时间断言容差(秒), 数据库 DateTime 可能截断到秒"""
 
 
 def _days_ago(n: int) -> date:
     """相对于今日的日期 (n 天前, 负数为未来日期)"""
     return datetime.now().date() - timedelta(days=n)
-
-
-def _assert_close_to(target: datetime, expected: datetime) -> None:
-    """断言目标时间与期望时间的偏差在容差内"""
-    assert abs((target - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
 
 
 async def _query_entity_or_none(
@@ -278,75 +272,49 @@ class TestOmegaEntityInit:
 class TestParseContinuousSignInDay:
     """连续签到日数解析测试 (纯计算, 日期均相对今日动态构造)"""
 
-    async def test_empty_list(self) -> None:
+    @pytest.mark.parametrize(
+        ('days_ago_offsets', 'expected_streak'),
+        [
+            ([], 0),
+            ([0], 1),
+            ([0, 1, 2], 3),
+            ([2, 0, 1], 3),
+            ([0, 0, 1], 2),
+            ([0, 1, 3], 2),
+            ([1, 2, 3], 0),
+            ([5], 0),
+            ([0, 10], 1),
+            ([-1], 0),
+            ([-3, 0, 1], 2),
+        ],
+        ids=[
+            'empty_list',
+            'only_today',
+            'continuous_days',
+            'unsorted_input',
+            'duplicate_dates_deduplicated',
+            'gap_breaks_streak',
+            'today_missing_returns_zero',
+            'single_old_date_returns_zero',
+            'far_gap',
+            'future_date_only',
+            'future_dates_ignored',
+        ],
+    )
+    async def test_parse_continuous_sign_in_day(
+            self,
+            days_ago_offsets: list[int],
+            expected_streak: int,
+    ) -> None:
+        """输入以相对今日天数偏移构造的签到日期列表, 期望返回 (连续签到日数, 连续段起始日前一日的序数)
+
+        覆盖: 空列表/仅今日/连续多日/乱序输入/重复日期去重/断签截断/缺今日/单个旧日期/远端断签/仅未来日期/未来日期忽略
+        """
         from src.service.omega_base.internal.entity import OmegaEntity
 
-        assert await OmegaEntity._parse_continuous_sign_in_day([]) == (0, _days_ago(0).toordinal())
+        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(n) for n in days_ago_offsets])
 
-    async def test_only_today(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        assert await OmegaEntity._parse_continuous_sign_in_day([_days_ago(0)]) == (1, _days_ago(1).toordinal())
-
-    async def test_continuous_days(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(0), _days_ago(1), _days_ago(2)])
-
-        assert result == (3, _days_ago(3).toordinal())
-
-    async def test_unsorted_input(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(2), _days_ago(0), _days_ago(1)])
-
-        assert result == (3, _days_ago(3).toordinal())
-
-    async def test_duplicate_dates_deduplicated(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(0), _days_ago(0), _days_ago(1)])
-
-        assert result == (2, _days_ago(2).toordinal())
-
-    async def test_gap_breaks_streak(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(0), _days_ago(1), _days_ago(3)])
-
-        assert result == (2, _days_ago(2).toordinal())
-
-    async def test_today_missing_returns_zero(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(1), _days_ago(2), _days_ago(3)])
-
-        assert result == (0, _days_ago(0).toordinal())
-
-    async def test_single_old_date_returns_zero(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        assert await OmegaEntity._parse_continuous_sign_in_day([_days_ago(5)]) == (0, _days_ago(0).toordinal())
-
-    async def test_far_gap(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(0), _days_ago(10)])
-
-        assert result == (1, _days_ago(1).toordinal())
-
-    async def test_future_date_only(self) -> None:
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        assert await OmegaEntity._parse_continuous_sign_in_day([_days_ago(-1)]) == (0, _days_ago(0).toordinal())
-
-    async def test_future_dates_ignored(self) -> None:
-        """未来日期不参与连签计算, 今日已签时应正确统计当前连续日数"""
-        from src.service.omega_base.internal.entity import OmegaEntity
-
-        result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(-3), _days_ago(0), _days_ago(1)])
-
-        assert result == (2, _days_ago(2).toordinal())
+        assert result == (expected_streak, _days_ago(expected_streak).toordinal())
 
 
 class TestInitSelfAndQuery:
@@ -666,7 +634,8 @@ class TestSignIn:
 
         assert set(days) == {date(2020, 1, 1), date(2020, 1, 2), date(2020, 1, 4)}
 
-    async def test_sign_in_with_alter_friendship(self, test_onebot_v11_entity_factory) -> None:
+    async def test_first_sign_in_rewards_full_amounts(self, test_onebot_v11_entity_factory) -> None:
+        """首次签到: 记录今日签到日期与 Normal Sign In 信息, 好感度/能量/货币按给定数值全额发放"""
         entity = test_onebot_v11_entity_factory()
 
         sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
@@ -676,37 +645,13 @@ class TestSignIn:
         )
 
         assert sign_in_result.sign_in_date == datetime.now().date()
+        assert sign_in_result.sign_in_info == 'Normal Sign In'
         assert friendship_result.friendship == Decimal('5')
         assert friendship_result.energy == Decimal('1')
         assert friendship_result.currency == Decimal('2')
 
-    async def test_sign_in_with_alter_friendship_repeated_same_day(self, test_onebot_v11_entity_factory) -> None:
-        """同日重复调用: 签到标记为重复, 好感度不再变更 (防重复发放)"""
-        entity = test_onebot_v11_entity_factory()
-        await entity.check_and_execute_sign_in_with_alter_friendship(alter_friendship=Decimal('5'))
-
-        sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
-            alter_friendship=Decimal('5')
-        )
-
-        assert sign_in_result.sign_in_info == 'Duplicate Sign In'
-        assert friendship_result.friendship == Decimal('5')
-
-    async def test_first_call_rewards(self, test_onebot_v11_entity_factory) -> None:
-        entity = test_onebot_v11_entity_factory()
-
-        sign_in_result, friendship_result = await entity.check_and_execute_sign_in_with_alter_friendship(
-            alter_friendship=Decimal('5'),
-            alter_energy=Decimal('2'),
-            alter_currency=Decimal('3'),
-        )
-
-        assert sign_in_result.sign_in_info == 'Normal Sign In'
-        assert friendship_result.friendship == Decimal('5')
-        assert friendship_result.energy == Decimal('2')
-        assert friendship_result.currency == Decimal('3')
-
-    async def test_repeated_same_day_no_double_reward(self, test_onebot_v11_entity_factory) -> None:
+    async def test_repeated_sign_in_same_day_no_double_reward(self, test_onebot_v11_entity_factory) -> None:
+        """同日重复签到: 签到标记为 Duplicate Sign In, 好感度保持首签数值, 能量/货币不重复发放"""
         entity = test_onebot_v11_entity_factory()
         await entity.check_and_execute_sign_in_with_alter_friendship(alter_friendship=Decimal('5'))
 
@@ -1121,7 +1066,7 @@ class TestCooldown:
         cooldown = await entity.set_cooldown('TEST_EVENT', timedelta(seconds=60))
 
         assert cooldown.event == 'TEST_EVENT'
-        _assert_close_to(cooldown.stop_at, datetime.now() + timedelta(seconds=60))
+        assert_datetime_close(cooldown.stop_at, datetime.now() + timedelta(seconds=60))
 
         expired, stop_at = await entity.check_cooldown_expired('TEST_EVENT')
         assert expired is False
@@ -1135,7 +1080,7 @@ class TestCooldown:
 
         expired, stop_at = await entity.check_cooldown_expired('TEST_EVENT')
         assert expired is True
-        _assert_close_to(stop_at, past)
+        assert_datetime_close(stop_at, past)
 
     async def test_check_missing_cooldown_expired(self, test_onebot_v11_entity_factory) -> None:
         entity = test_onebot_v11_entity_factory()
@@ -1143,7 +1088,7 @@ class TestCooldown:
         expired, stop_at = await entity.check_cooldown_expired('NO_SUCH_EVENT')
 
         assert expired is True
-        _assert_close_to(stop_at, datetime.now())
+        assert_datetime_close(stop_at, datetime.now())
 
     async def test_set_cooldown_invalid_type_raises(self, test_onebot_v11_entity_factory) -> None:
         entity = test_onebot_v11_entity_factory()
@@ -1157,7 +1102,7 @@ class TestCooldown:
 
         cooldown = await entity.set_cooldown('TEST_EVENT', timedelta(seconds=3600), description='second')
 
-        _assert_close_to(cooldown.stop_at, datetime.now() + timedelta(seconds=3600))
+        assert_datetime_close(cooldown.stop_at, datetime.now() + timedelta(seconds=3600))
         assert cooldown.description == 'second'
 
     async def test_query_cooldown_missing_raises(self, test_onebot_v11_entity_factory) -> None:
@@ -1185,7 +1130,7 @@ class TestCooldown:
         expired, stop_at = await entity.check_global_cooldown_expired()
 
         assert expired is True
-        _assert_close_to(stop_at, datetime.now())
+        assert_datetime_close(stop_at, datetime.now())
 
     async def test_character_attribute_setter_cooldown(self, test_onebot_v11_entity_factory) -> None:
         entity = test_onebot_v11_entity_factory()

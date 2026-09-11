@@ -20,6 +20,15 @@ import nonebot
 import pytest
 from nonebug import App
 
+from tests.test_002_core.helpers import (
+    make_fake_message_event,
+    make_mock_bot,
+    make_non_plugin_matcher,
+    make_obv11_group_message_event,
+    make_obv11_private_message_event,
+    unique_test_id,
+)
+
 if TYPE_CHECKING:
     from nonebot.adapters import Event as BaseEvent
     from nonebot.matcher import Matcher
@@ -28,10 +37,6 @@ if TYPE_CHECKING:
 # ------------------------------------------------------------------ #
 # 通用工具
 # ------------------------------------------------------------------ #
-
-def _unique_id(prefix: str) -> str:
-    return f'{prefix}_{uuid4().hex[:8]}'
-
 
 def _get_omega_processor_plugin_id() -> str:
     """获取已加载的 omega_processor 插件 id, 使动态 matcher 的 plugin 属性生效"""
@@ -64,9 +69,9 @@ def _make_plugin_matcher(
 
     from src.service.omega_processor import enable_processor_state
 
-    processor_state = enable_processor_state(name=_unique_id('matcher'), **state_kwargs)
+    processor_state = enable_processor_state(name=unique_test_id('matcher'), **state_kwargs)
     matcher_cls = type(
-        _unique_id('TestMatcher').upper(),
+        unique_test_id('TestMatcher').upper(),
         (Matcher,),
         {
             '_source': MatcherSource(
@@ -78,100 +83,6 @@ def _make_plugin_matcher(
         },
     )
     return matcher_cls()
-
-
-def _make_obv11_private_event(
-        *,
-        user_id: int = 10001,
-        text: str = '/test',
-        self_id: int = 10086,
-        message_id: int = 1,
-) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11 import Message
-    from nonebot.adapters.onebot.v11.event import PrivateMessageEvent, Sender
-
-    return PrivateMessageEvent(
-        time=1,
-        self_id=self_id,
-        post_type='message',
-        message_type='private',
-        sub_type='friend',
-        message_id=message_id,
-        user_id=user_id,
-        message=Message(text),
-        original_message=Message(text),
-        raw_message=text,
-        font=0,
-        sender=Sender(user_id=user_id, nickname='tester'),
-    )
-
-
-def _make_obv11_group_event(
-        *,
-        group_id: int = 10000,
-        user_id: int = 10001,
-        self_id: int = 10086,
-        message_id: int = 1,
-) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11 import Message
-    from nonebot.adapters.onebot.v11.event import GroupMessageEvent, Sender
-
-    return GroupMessageEvent(
-        time=1,
-        self_id=self_id,
-        post_type='message',
-        sub_type='normal',
-        message_id=message_id,
-        user_id=user_id,
-        message_type='group',
-        group_id=group_id,
-        message=Message('/test'),
-        original_message=Message('/test'),
-        raw_message='/test',
-        font=0,
-        sender=Sender(user_id=user_id, nickname='tester'),
-    )
-
-
-def _make_fake_message_event(*, user_id: str = '10001') -> 'BaseEvent':
-    """构造带文本消息的轻量自定义事件 (用于超级用户等不依赖具体适配器的场景)"""
-    from nonebot.adapters.onebot.v11 import Message
-
-    from src.service.omega_base.internal import OmegaBaseEvent
-
-    class _FakeMessageEvent(OmegaBaseEvent):
-        event_type: str = 'fake_message'
-        message: Message
-        user_id: str
-
-        def get_message(self) -> Message:
-            return self.message
-
-        def get_user_id(self) -> str:
-            return self.user_id
-
-        def get_session_id(self) -> str:
-            return f'fake_session_{self.user_id}'
-
-        def is_tome(self) -> bool:
-            return True
-
-    return _FakeMessageEvent(message=Message('/test'), user_id=user_id)
-
-
-def _make_mock_bot(*, self_id: str = '10086') -> MagicMock:
-    """构造轻量 mock Bot
-
-    注意: 仅在不需要经 NoneBot 依赖注入 (如 SUPERUSER) 的场景使用;
-    涉及实体落库的调用必须将 self_id 设置为数据库中已存在的 Bot (如 test_onebot_v11_bot.self_id)
-    """
-    bot = MagicMock()
-    bot.self_id = self_id
-    bot.type = 'fake_adapter'
-    bot.adapter.get_name.return_value = 'OneBot V11'
-    # SUPERUSER 等依赖读取 bot.config, 提供真实 Driver 配置
-    bot.config = nonebot.get_driver().config
-    return bot
 
 
 def _make_real_bot(ctx: Any, self_id: str) -> Any:
@@ -311,8 +222,6 @@ class TestProcessorUtils:
 
     def test_enable_processor_state_json_safe(self) -> None:
         """processor state 应可直接 JSON 序列化 (含 extra_auth_node 集合), 且回读等价 (F1 回归)"""
-        import json
-
         from src.service.omega_processor import enable_processor_state
         from src.service.omega_processor.universal.processor_utils import parse_processor_state
 
@@ -440,14 +349,14 @@ class TestRateLimiting:
 
     async def test_first_message_passes(self, rate_limiting_sandbox) -> None:
         await rate_limiting_sandbox.preprocessor_rate_limiting(
-            bot=_make_mock_bot(), event=_make_fake_message_event(user_id='50001'),
+            bot=make_mock_bot(), event=make_fake_message_event(user_id='50001'),
         )
 
     async def test_threshold_triggers_limiting(self, rate_limiting_sandbox) -> None:
         from nonebot.exception import IgnoredException
 
-        bot = _make_mock_bot()
-        event = _make_fake_message_event(user_id='50002')
+        bot = make_mock_bot()
+        event = make_fake_message_event(user_id='50002')
 
         # 第 1 条建立基线, 第 2~11 条窗口内计数 1..10 (未超阈值), 第 12 条计数 11 触发限制
         for _ in range(11):
@@ -463,8 +372,8 @@ class TestRateLimiting:
     async def test_limited_user_blocked(self, rate_limiting_sandbox) -> None:
         from nonebot.exception import IgnoredException
 
-        bot = _make_mock_bot()
-        event = _make_fake_message_event(user_id='50003')
+        bot = make_mock_bot()
+        event = make_fake_message_event(user_id='50003')
         user_flag = f'{bot.type}_{bot.self_id}_50003'
         rate_limiting_sandbox._RATE_LIMITING_USER_TEMP[user_flag] = int(time.time()) + 100
 
@@ -473,8 +382,8 @@ class TestRateLimiting:
 
     async def test_expired_limit_allows_message(self, rate_limiting_sandbox) -> None:
         """已过期的限制条目应放行并刷新消息时间戳 (过期条目惰性保留, 由规模剪枝统一清理)"""
-        bot = _make_mock_bot()
-        event = _make_fake_message_event(user_id='50004')
+        bot = make_mock_bot()
+        event = make_fake_message_event(user_id='50004')
         user_flag = f'{bot.type}_{bot.self_id}_50004'
         rate_limiting_sandbox._RATE_LIMITING_USER_TEMP[user_flag] = int(time.time()) - 1
 
@@ -486,22 +395,22 @@ class TestRateLimiting:
         from src.service.omega_base.internal import OmegaBaseEvent
 
         await rate_limiting_sandbox.preprocessor_rate_limiting(
-            bot=_make_mock_bot(), event=OmegaBaseEvent(event_type='meta'),
+            bot=make_mock_bot(), event=OmegaBaseEvent(event_type='meta'),
         )
 
     async def test_bot_self_ignored(self, rate_limiting_sandbox) -> None:
         await rate_limiting_sandbox.preprocessor_rate_limiting(
-            bot=_make_mock_bot(self_id='50005'), event=_make_fake_message_event(user_id='50005'),
+            bot=make_mock_bot(self_id='50005'), event=make_fake_message_event(user_id='50005'),
         )
 
     async def test_superuser_ignored(self, app: App, rate_limiting_sandbox) -> None:
         """超级用户消息不进入限流跟踪 (SUPERUSER 经 NoneBot 依赖注入, 须使用真实 Bot)"""
         async with app.test_api() as ctx:
-            bot = _make_real_bot(ctx, _unique_id('TEST_RL_SU_BOT'))
+            bot = _make_real_bot(ctx, unique_test_id('TEST_RL_SU_BOT'))
 
             # 测试配置中 superusers 为 {'User'}
             await rate_limiting_sandbox.preprocessor_rate_limiting(
-                bot=bot, event=_make_fake_message_event(user_id='User'),
+                bot=bot, event=make_fake_message_event(user_id='User'),
             )
 
         # 断言真实跳过证据: 未产生限流跟踪条目
@@ -509,8 +418,8 @@ class TestRateLimiting:
         assert user_flag not in rate_limiting_sandbox._USER_LAST_MSG_TIME
 
     async def test_gap_over_window_resets_count(self, rate_limiting_sandbox) -> None:
-        bot = _make_mock_bot()
-        event = _make_fake_message_event(user_id='50006')
+        bot = make_mock_bot()
+        event = make_fake_message_event(user_id='50006')
         user_flag = f'{bot.type}_{bot.self_id}_50006'
 
         await rate_limiting_sandbox.preprocessor_rate_limiting(bot=bot, event=event)
@@ -535,7 +444,7 @@ class TestRateLimiting:
         rate_limiting_sandbox._RATE_LIMITING_USER_TEMP[stale_flag] = now - 99999
 
         await rate_limiting_sandbox.preprocessor_rate_limiting(
-            bot=_make_mock_bot(), event=_make_fake_message_event(user_id='50007'),
+            bot=make_mock_bot(), event=make_fake_message_event(user_id='50007'),
         )
 
         assert stale_flag not in rate_limiting_sandbox._USER_LAST_MSG_TIME
@@ -549,17 +458,20 @@ class TestRateLimiting:
 class TestPermission:
     """权限预处理器测试 (直接调用, 真实数据库)"""
 
-    async def test_non_plugin_matcher_ignored(self) -> None:
-        from nonebot.matcher import Matcher
+    @pytest.fixture
+    def bound_mock_bot(self, test_onebot_v11_bot) -> MagicMock:
+        """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
+        return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
 
+    async def test_non_plugin_matcher_ignored(self) -> None:
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.permission import preprocessor_permission
 
-        matcher = type('NonPluginMatcher', (Matcher,), {'plugin_id': None, 'temp': False})()
+        matcher = make_non_plugin_matcher()
 
         async with database_session() as session:
             await preprocessor_permission(
-                bot=_make_mock_bot(), event=_make_obv11_private_event(), matcher=matcher, db_session=session,
+                bot=make_mock_bot(), event=make_obv11_private_message_event(), matcher=matcher, db_session=session,
             )
 
     async def test_super_user_ignored(self, app: App, test_onebot_v11_bot) -> None:
@@ -581,16 +493,19 @@ class TestPermission:
             async with database_session() as session:
                 # 超级用户跳过全部权限检查
                 await preprocessor_permission(
-                    bot=bot, event=_make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
+                    bot=bot, event=make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
                 )
 
                 # 对照: 普通用户无任何授权, 全局功能未开启即被阻断
                 with pytest.raises(IgnoredException, match='权限不足'):
                     await preprocessor_permission(
-                        bot=bot, event=_make_obv11_private_event(user_id=51901), matcher=matcher, db_session=session,
+                        bot=bot,
+                        event=make_obv11_private_message_event(user_id=51901),
+                        matcher=matcher,
+                        db_session=session,
                     )
 
-    async def test_disabled_processor_ignored(self, test_onebot_v11_bot) -> None:
+    async def test_disabled_processor_ignored(self, bound_mock_bot) -> None:
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.permission import preprocessor_permission
 
@@ -598,13 +513,13 @@ class TestPermission:
 
         async with database_session() as session:
             await preprocessor_permission(
-                bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                event=_make_obv11_private_event(user_id=51001),
+                bot=bound_mock_bot,
+                event=make_obv11_private_message_event(user_id=51001),
                 matcher=matcher,
                 db_session=session,
             )
 
-    async def test_global_permission_denied_raises_ignored(self, test_onebot_v11_bot) -> None:
+    async def test_global_permission_denied_raises_ignored(self, bound_mock_bot) -> None:
         """全局功能未启用应抛出 IgnoredException 而非日志解析异常"""
         from nonebot.exception import IgnoredException
 
@@ -616,12 +531,12 @@ class TestPermission:
         async with database_session() as session:
             with pytest.raises(IgnoredException, match='权限不足'):
                 await preprocessor_permission(
-                    bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                    event=_make_obv11_private_event(user_id=51002),
+                    bot=bound_mock_bot,
+                    event=make_obv11_private_message_event(user_id=51002),
                     matcher=matcher, db_session=session,
                 )
 
-    async def test_insufficient_level_denied(self, test_onebot_v11_bot) -> None:
+    async def test_insufficient_level_denied(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         from nonebot.exception import IgnoredException
 
         from src.database.helpers import database_session
@@ -636,12 +551,12 @@ class TestPermission:
         async with database_session() as session:
             with pytest.raises(IgnoredException, match='权限不足'):
                 await preprocessor_permission(
-                    bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                    event=_make_obv11_private_event(user_id=user_id),
+                    bot=bound_mock_bot,
+                    event=make_obv11_private_message_event(user_id=user_id),
                     matcher=matcher, db_session=session,
                 )
 
-    async def test_level_grant_allows(self, test_onebot_v11_bot) -> None:
+    async def test_level_grant_allows(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.permission import preprocessor_permission
 
@@ -653,12 +568,12 @@ class TestPermission:
 
         async with database_session() as session:
             await preprocessor_permission(
-                bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                event=_make_obv11_private_event(user_id=user_id),
+                bot=bound_mock_bot,
+                event=make_obv11_private_message_event(user_id=user_id),
                 matcher=matcher, db_session=session,
             )
 
-    async def test_auth_node_grant_allows(self, test_onebot_v11_bot) -> None:
+    async def test_auth_node_grant_allows(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         from src.database.helpers import database_session
         from src.service.omega_base import OmegaEntity
         from src.service.omega_processor.universal.permission import preprocessor_permission
@@ -685,14 +600,19 @@ class TestPermission:
 
             # node 验证通过时无视 level 不足
             await preprocessor_permission(
-                bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                event=_make_obv11_private_event(user_id=user_id),
+                bot=bound_mock_bot,
+                event=make_obv11_private_message_event(user_id=user_id),
                 matcher=matcher, db_session=session,
             )
 
 
 class TestCooldown:
     """冷却预处理器测试 (直接调用, 真实数据库)"""
+
+    @pytest.fixture
+    def bound_mock_bot(self, test_onebot_v11_bot) -> MagicMock:
+        """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
+        return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
 
     async def test_zero_cooldown_ignored(self) -> None:
         from src.database.helpers import database_session
@@ -702,7 +622,7 @@ class TestCooldown:
 
         async with database_session() as session:
             await preprocessor_cooldown(
-                bot=_make_mock_bot(), event=_make_obv11_private_event(user_id=52001),
+                bot=make_mock_bot(), event=make_obv11_private_message_event(user_id=52001),
                 matcher=matcher, db_session=session,
             )
 
@@ -714,7 +634,7 @@ class TestCooldown:
 
         async with database_session() as session:
             await preprocessor_cooldown(
-                bot=_make_mock_bot(), event=_make_obv11_private_event(user_id=52002),
+                bot=make_mock_bot(), event=make_obv11_private_message_event(user_id=52002),
                 matcher=matcher, db_session=session,
             )
 
@@ -730,42 +650,34 @@ class TestCooldown:
 
             async with database_session() as session:
                 await preprocessor_cooldown(
-                    bot=bot, event=_make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
+                    bot=bot, event=make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
                 )
 
-    async def test_user_cooldown_second_call_blocked(self, test_onebot_v11_bot) -> None:
+    @pytest.mark.parametrize(('cooldown_type', 'is_group_event'), [
+        ('user', False),
+        ('event', True),
+    ])
+    async def test_cooldown_second_call_blocked(
+            self, bound_mock_bot, cooldown_type: str, is_group_event: bool,
+    ) -> None:
         from nonebot.exception import IgnoredException
 
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.cooldown import preprocessor_cooldown
 
-        matcher = _make_plugin_matcher(cooldown=60, cooldown_type='user', echo_processor_result=False)
-        bot = _make_mock_bot(self_id=test_onebot_v11_bot.self_id)
-        event = _make_obv11_private_event(user_id=52003)
+        matcher = _make_plugin_matcher(cooldown=60, cooldown_type=cooldown_type, echo_processor_result=False)
+        if is_group_event:
+            event = make_obv11_group_message_event(group_id=52004, user_id=52004)
+        else:
+            event = make_obv11_private_message_event(user_id=52003)
 
         async with database_session() as session:
-            await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
+            await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
             with pytest.raises(IgnoredException, match='冷却中'):
-                await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
+                await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
-    async def test_event_cooldown_second_call_blocked(self, test_onebot_v11_bot) -> None:
-        from nonebot.exception import IgnoredException
-
-        from src.database.helpers import database_session
-        from src.service.omega_processor.universal.cooldown import preprocessor_cooldown
-
-        matcher = _make_plugin_matcher(cooldown=60, cooldown_type='event', echo_processor_result=False)
-        bot = _make_mock_bot(self_id=test_onebot_v11_bot.self_id)
-        event = _make_obv11_group_event(group_id=52004, user_id=52004)
-
-        async with database_session() as session:
-            await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
-
-            with pytest.raises(IgnoredException, match='冷却中'):
-                await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
-
-    async def test_skip_cooldown_permission_allows(self, test_onebot_v11_bot) -> None:
+    async def test_skip_cooldown_permission_allows(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         from src.database.helpers import database_session
         from src.service.omega_base import OmegaEntity
         from src.service.omega_processor.universal.cooldown import preprocessor_cooldown
@@ -784,18 +696,16 @@ class TestCooldown:
             await entity.enable_plugin_skip_cooldown_permission(
                 module='src.service.omega_processor', plugin='omega_processor',
             )
-            event = _make_obv11_private_event(user_id=user_id)
+            event = make_obv11_private_message_event(user_id=user_id)
 
             await preprocessor_cooldown(
-                bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                event=event, matcher=matcher, db_session=session,
+                bot=bound_mock_bot, event=event, matcher=matcher, db_session=session,
             )
             await preprocessor_cooldown(
-                bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                event=event, matcher=matcher, db_session=session,
+                bot=bound_mock_bot, event=event, matcher=matcher, db_session=session,
             )
 
-    async def test_global_cooldown_shared_key_enforced(self, test_onebot_v11_bot) -> None:
+    async def test_global_cooldown_shared_key_enforced(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         """global 类型冷却经实体全局冷却键生效: 首次放行后二次阻断, 且写入全局键而非插件键"""
         from datetime import datetime
 
@@ -810,13 +720,12 @@ class TestCooldown:
 
         user_id = 52006
         matcher = _make_plugin_matcher(cooldown=60, cooldown_type='global', echo_processor_result=False)
-        bot = _make_mock_bot(self_id=test_onebot_v11_bot.self_id)
-        event = _make_obv11_private_event(user_id=user_id)
+        event = make_obv11_private_message_event(user_id=user_id)
 
         plugin_cd_event = f'plugin_cd_{matcher.plugin.name}_{parse_processor_state(matcher.state).name}'
 
         async with database_session() as session:
-            await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
+            await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
             # 首次放行后: 全局冷却键已设置, 插件冷却键未设置
             entity = OmegaEntity(
@@ -832,9 +741,9 @@ class TestCooldown:
                 await entity.query_cooldown(plugin_cd_event)
 
             with pytest.raises(IgnoredException, match='冷却中'):
-                await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
+                await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
-    async def test_global_cooldown_admin_global_key_blocks(self, test_onebot_v11_bot) -> None:
+    async def test_global_cooldown_admin_global_key_blocks(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         """管理端设置的全局冷却应阻断 global 类型调用"""
         from datetime import timedelta
 
@@ -859,12 +768,12 @@ class TestCooldown:
 
             with pytest.raises(IgnoredException, match='冷却中'):
                 await preprocessor_cooldown(
-                    bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                    event=_make_obv11_private_event(user_id=user_id),
+                    bot=bound_mock_bot,
+                    event=make_obv11_private_message_event(user_id=user_id),
                     matcher=matcher, db_session=session,
                 )
 
-    async def test_global_cooldown_shared_across_matchers(self, test_onebot_v11_bot) -> None:
+    async def test_global_cooldown_shared_across_matchers(self, bound_mock_bot) -> None:
         """同一实体的不同 global 类型 matcher 共享同一全局冷却 (matcher A 调用后 matcher B 被阻断)"""
         from nonebot.exception import IgnoredException
 
@@ -877,16 +786,15 @@ class TestCooldown:
         matcher_b = _make_plugin_matcher(cooldown=60, cooldown_type='global', echo_processor_result=False)
         assert parse_processor_state(matcher_a.state).name != parse_processor_state(matcher_b.state).name
 
-        bot = _make_mock_bot(self_id=test_onebot_v11_bot.self_id)
-        event = _make_obv11_private_event(user_id=user_id)
+        event = make_obv11_private_message_event(user_id=user_id)
 
         async with database_session() as session:
-            await preprocessor_cooldown(bot=bot, event=event, matcher=matcher_a, db_session=session)
+            await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher_a, db_session=session)
 
             with pytest.raises(IgnoredException, match='冷却中'):
-                await preprocessor_cooldown(bot=bot, event=event, matcher=matcher_b, db_session=session)
+                await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher_b, db_session=session)
 
-    async def test_global_cooldown_not_skippable_by_skip_permission(self, test_onebot_v11_bot) -> None:
+    async def test_global_cooldown_not_skippable_by_skip_permission(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         """全局冷却不受跳过冷却权限影响: 持有 skip 权限的用户二次调用仍被阻断"""
         from nonebot.exception import IgnoredException
 
@@ -896,8 +804,7 @@ class TestCooldown:
 
         user_id = 52009
         matcher = _make_plugin_matcher(cooldown=60, cooldown_type='global', echo_processor_result=False)
-        bot = _make_mock_bot(self_id=test_onebot_v11_bot.self_id)
-        event = _make_obv11_private_event(user_id=user_id)
+        event = make_obv11_private_message_event(user_id=user_id)
 
         async with database_session() as session:
             entity = OmegaEntity(
@@ -912,15 +819,20 @@ class TestCooldown:
             )
 
             # 首次放行 (全局冷却未设置), 并写入全局冷却
-            await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
+            await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
             # skip 权限不能绕过全局冷却
             with pytest.raises(IgnoredException, match='冷却中'):
-                await preprocessor_cooldown(bot=bot, event=event, matcher=matcher, db_session=session)
+                await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
 
 class TestCost:
     """命令消耗预处理器测试 (直接调用, 真实数据库)"""
+
+    @pytest.fixture
+    def bound_mock_bot(self, test_onebot_v11_bot) -> MagicMock:
+        """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
+        return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
 
     async def test_zero_cost_ignored(self) -> None:
         from src.database.helpers import database_session
@@ -930,11 +842,11 @@ class TestCost:
 
         async with database_session() as session:
             await preprocessor_plugin_cost(
-                bot=_make_mock_bot(), event=_make_obv11_private_event(user_id=53001),
+                bot=make_mock_bot(), event=make_obv11_private_message_event(user_id=53001),
                 matcher=matcher, db_session=session,
             )
 
-    async def test_insufficient_currency_blocked(self, test_onebot_v11_bot) -> None:
+    async def test_insufficient_currency_blocked(self, bound_mock_bot) -> None:
         from nonebot.exception import IgnoredException
 
         from src.database.helpers import database_session
@@ -945,12 +857,12 @@ class TestCost:
         async with database_session() as session:
             with pytest.raises(IgnoredException, match='硬币不足'):
                 await preprocessor_plugin_cost(
-                    bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                    event=_make_obv11_private_event(user_id=53002),
+                    bot=bound_mock_bot,
+                    event=make_obv11_private_message_event(user_id=53002),
                     matcher=matcher, db_session=session,
                 )
 
-    async def test_sufficient_currency_charged_even_if_send_fails(self, test_onebot_v11_bot) -> None:
+    async def test_sufficient_currency_charged_even_if_send_fails(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         """余额充足时先扣费, 即使提示消息发送失败 (matcher.send 在管线外抛 LookupError) 也完成扣费"""
 
         from src.database.helpers import database_session
@@ -971,8 +883,8 @@ class TestCost:
             await entity.set_friendship(currency=Decimal('10'))
 
             await preprocessor_plugin_cost(
-                bot=_make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-                event=_make_obv11_private_event(user_id=user_id),
+                bot=bound_mock_bot,
+                event=make_obv11_private_message_event(user_id=user_id),
                 matcher=matcher, db_session=session,
             )
 
@@ -993,7 +905,7 @@ class TestFriendship:
 
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, test_onebot_v11_bot.self_id)
-            event = _make_obv11_private_event(user_id=user_id)
+            event = make_obv11_private_message_event(user_id=user_id)
 
             async with database_session() as session:
                 await postprocessor_friendship(bot=bot, event=event, db_session=session)
@@ -1025,7 +937,7 @@ class TestHistory:
 
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, test_onebot_v11_bot.self_id)
-            event = _make_obv11_private_event(
+            event = make_obv11_private_message_event(
                 user_id=user_id, message_id=message_id, text='/test history',
             )
 
@@ -1055,9 +967,9 @@ class TestHistory:
 
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, test_onebot_v11_bot.self_id)
-            event_1 = _make_obv11_private_event(user_id=user_id, message_id=duplicated_id)
-            event_2 = _make_obv11_private_event(user_id=user_id, message_id=duplicated_id)
-            event_3 = _make_obv11_private_event(user_id=user_id, message_id=another_id)
+            event_1 = make_obv11_private_message_event(user_id=user_id, message_id=duplicated_id)
+            event_2 = make_obv11_private_message_event(user_id=user_id, message_id=duplicated_id)
+            event_3 = make_obv11_private_message_event(user_id=user_id, message_id=another_id)
 
             async with database_session() as session:
                 # 第一次写入成功; 第二次同 (bot, message_id) 触发唯一键冲突;
@@ -1091,7 +1003,7 @@ class TestStatistic:
 
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, test_onebot_v11_bot.self_id)
-            event = _make_obv11_private_event(user_id=user_id)
+            event = make_obv11_private_message_event(user_id=user_id)
 
             async with database_session() as session:
                 await postprocessor_statistic(bot=bot, event=event, matcher=matcher, db_session=session)
@@ -1118,7 +1030,7 @@ class TestStatistic:
 
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, test_onebot_v11_bot.self_id)
-            event = _make_obv11_private_event(user_id=user_id)
+            event = make_obv11_private_message_event(user_id=user_id)
 
             async with database_session() as session:
                 await postprocessor_statistic(bot=bot, event=event, matcher=matcher, db_session=session)
@@ -1141,7 +1053,7 @@ class TestStatistic:
 
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, test_onebot_v11_bot.self_id)
-            event = _make_obv11_private_event(user_id=53901)
+            event = make_obv11_private_message_event(user_id=53901)
 
             async with database_session() as session:
                 before = await StatisticDAL(session=session).count_by_condition(module_name=module_name)
@@ -1205,10 +1117,12 @@ class TestPluginManager:
 
         async with database_session() as session:
             await preprocessor_plugin_manager(
-                bot=_make_mock_bot(), event=_make_obv11_private_event(), matcher=matcher, db_session=session,
+                bot=make_mock_bot(), event=make_obv11_private_message_event(), matcher=matcher, db_session=session,
             )
 
-    async def test_disabled_plugin_blocked(self, plugin_enabled_guard) -> None:
+    @pytest.mark.parametrize('setup_mode', ['disable', 'unregister'])
+    async def test_not_enabled_plugin_blocked(self, plugin_enabled_guard, setup_mode: str) -> None:
+        """插件已禁用或未注册(行缺失)时均被阻断"""
         from nonebot.exception import IgnoredException
 
         from src.database import PluginDAL
@@ -1216,52 +1130,36 @@ class TestPluginManager:
         from src.service.omega_processor.universal.plugin import preprocessor_plugin_manager
 
         async with database_session() as session:
-            await PluginDAL(session=session).add_update_exist(
-                plugin_name='omega_processor',
-                module_name='src.service.omega_processor',
-                enabled=0,
-                info='Disabled for test',
-            )
-
-        matcher = _make_plugin_matcher()
-
-        async with database_session() as session:
-            with pytest.raises(IgnoredException, match='插件未启用'):
-                await preprocessor_plugin_manager(
-                    bot=_make_mock_bot(), event=_make_obv11_private_event(), matcher=matcher, db_session=session,
+            dal = PluginDAL(session=session)
+            if setup_mode == 'disable':
+                await dal.add_update_exist(
+                    plugin_name='omega_processor',
+                    module_name='src.service.omega_processor',
+                    enabled=0,
+                    info='Disabled for test',
+                )
+            else:
+                await dal.delete(
+                    plugin_name='omega_processor', module_name='src.service.omega_processor',
                 )
 
-    async def test_unregistered_plugin_blocked(self, plugin_enabled_guard) -> None:
-        from nonebot.exception import IgnoredException
-
-        from src.database import PluginDAL
-        from src.database.helpers import database_session
-        from src.service.omega_processor.universal.plugin import preprocessor_plugin_manager
-
-        async with database_session() as session:
-            await PluginDAL(session=session).delete(
-                plugin_name='omega_processor', module_name='src.service.omega_processor',
-            )
-
         matcher = _make_plugin_matcher()
 
         async with database_session() as session:
             with pytest.raises(IgnoredException, match='插件未启用'):
                 await preprocessor_plugin_manager(
-                    bot=_make_mock_bot(), event=_make_obv11_private_event(), matcher=matcher, db_session=session,
+                    bot=make_mock_bot(), event=make_obv11_private_message_event(), matcher=matcher, db_session=session,
                 )
 
     async def test_non_plugin_matcher_ignored(self) -> None:
-        from nonebot.matcher import Matcher
-
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.plugin import preprocessor_plugin_manager
 
-        matcher = type('NonPluginMatcher', (Matcher,), {'plugin_id': None, 'temp': False})()
+        matcher = make_non_plugin_matcher()
 
         async with database_session() as session:
             await preprocessor_plugin_manager(
-                bot=_make_mock_bot(), event=_make_obv11_private_event(), matcher=matcher, db_session=session,
+                bot=make_mock_bot(), event=make_obv11_private_message_event(), matcher=matcher, db_session=session,
             )
 
     async def test_super_user_ignored(self, app: App, plugin_enabled_guard) -> None:
@@ -1283,33 +1181,45 @@ class TestPluginManager:
         matcher = _make_plugin_matcher()
 
         async with app.test_api() as ctx:
-            bot = _make_real_bot(ctx, _unique_id('TEST_PM_SU_BOT'))
+            bot = _make_real_bot(ctx, unique_test_id('TEST_PM_SU_BOT'))
 
             async with database_session() as session:
                 # 超级用户在插件已禁用时仍跳过检查
                 await preprocessor_plugin_manager(
-                    bot=bot, event=_make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
+                    bot=bot, event=make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
                 )
 
                 # 对照: 普通用户在插件禁用时被阻断
                 with pytest.raises(IgnoredException, match='插件未启用'):
                     await preprocessor_plugin_manager(
-                        bot=bot, event=_make_fake_message_event(user_id='10001'), matcher=matcher, db_session=session,
+                        bot=bot, event=make_fake_message_event(user_id='10001'), matcher=matcher, db_session=session,
                     )
 
-    async def test_startup_init_preserves_disabled_plugin(self, plugin_enabled_guard) -> None:
-        """启动初始化不应重置已禁用插件的启用状态"""
+    @pytest.mark.parametrize(('setup_mode', 'expected_enabled', 'expected_info'), [
+        ('disable', 0, 'Disabled by OPM'),
+        ('delete', 1, None),
+    ])
+    async def test_startup_init_plugins(
+            self, plugin_enabled_guard, setup_mode: str, expected_enabled: int, expected_info: str | None,
+    ) -> None:
+        """启动初始化仅补插缺失的插件行: 已禁用插件保持原有状态, 缺失插件以启用状态补插"""
         from src.database import PluginDAL
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.plugin import _startup_init_plugins
 
         async with database_session() as session:
-            await PluginDAL(session=session).add_update_exist(
-                plugin_name='omega_processor',
-                module_name='src.service.omega_processor',
-                enabled=0,
-                info='Disabled by OPM',
-            )
+            dal = PluginDAL(session=session)
+            if setup_mode == 'disable':
+                await dal.add_update_exist(
+                    plugin_name='omega_processor',
+                    module_name='src.service.omega_processor',
+                    enabled=0,
+                    info='Disabled by OPM',
+                )
+            else:
+                await dal.delete(
+                    plugin_name='omega_processor', module_name='src.service.omega_processor',
+                )
 
         await _startup_init_plugins()
 
@@ -1317,45 +1227,9 @@ class TestPluginManager:
             plugin = await PluginDAL(session=session).query_unique(
                 plugin_name='omega_processor', module_name='src.service.omega_processor',
             )
-        assert plugin.enabled == 0
-        assert plugin.info == 'Disabled by OPM'
-
-    async def test_startup_init_inserts_missing_plugin(self, plugin_enabled_guard) -> None:
-        """启动初始化应以启用状态补插缺失的插件行"""
-        from src.database import PluginDAL
-        from src.database.helpers import database_session
-        from src.service.omega_processor.universal.plugin import _startup_init_plugins
-
-        async with database_session() as session:
-            await PluginDAL(session=session).delete(
-                plugin_name='omega_processor', module_name='src.service.omega_processor',
-            )
-
-        await _startup_init_plugins()
-
-        async with database_session() as session:
-            plugin = await PluginDAL(session=session).query_unique(
-                plugin_name='omega_processor', module_name='src.service.omega_processor',
-            )
-        assert plugin.enabled == 1
-
-
-@pytest.fixture(scope='class')
-async def test_pipeline_bot(test_db_data_factory):
-    """管线测试用 Bot: 数字 self_id (OneBot V11 事件模型要求 int) 且已落库
-
-    omega_base 中间件的 self_id 校验预处理器要求 event.self_id == bot.self_id,
-    且好感度/历史后处理器会经实体初始化要求 bot 行存在, 故 bot 身份须全程一致
-    """
-    from src.database.internal.bot import BotType
-
-    self_id = str(random.randint(10_000_000, 99_999_999))
-    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.ONEBOT_V11, bot_self_id=self_id)
-
-    try:
-        yield bot
-    finally:
-        await test_db_data_factory.delete_test_bot(bot=bot)
+        assert plugin.enabled == expected_enabled
+        if expected_info is not None:
+            assert plugin.info == expected_info
 
 
 class TestFullPipeline:
@@ -1387,22 +1261,28 @@ class TestFullPipeline:
     @staticmethod
     def _make_pipeline_event(bot_self_id: str, user_id: int, text: str) -> 'BaseEvent':
         """构造与 bot 身份一致且 message_id 唯一的管线事件 (history 唯一键约束要求)"""
-        return _make_obv11_private_event(
+        return make_obv11_private_message_event(
             user_id=user_id,
             text=text,
             self_id=int(bot_self_id),
             message_id=random.randint(1_000_000, 2_000_000_000),
         )
 
-    async def test_authorized_command_runs_handler(self, app: App, test_pipeline_bot, plugin_enabled_guard) -> None:
+    async def test_authorized_command_runs_handler(
+            self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
+    ) -> None:
         """授权链路: 预配置实体权限后命令经全部预处理器正常执行"""
 
-        cmd = _unique_id('pipe_ok')
+        cmd = unique_test_id('pipe_ok')
         matcher = self._make_pipeline_matcher(cmd, level=1)
         user_id = random.randint(10_000_000, 99_999_999)
 
         await _grant_entity_permissions(
-            test_pipeline_bot.bot_type, test_pipeline_bot.self_id, 'onebot_v11_user', str(user_id), level=1,
+            test_onebot_v11_numeric_bot.bot_type,
+            test_onebot_v11_numeric_bot.self_id,
+            'onebot_v11_user',
+            str(user_id),
+            level=1,
         )
 
         @matcher.handle()
@@ -1410,8 +1290,8 @@ class TestFullPipeline:
             await matcher.finish('done')
 
         async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_pipeline_bot.self_id)
-            event = self._make_pipeline_event(test_pipeline_bot.self_id, user_id, f'/{cmd}')
+            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+            event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
 
             ctx.receive_event(bot, event)
             ctx.should_pass_rule(matcher=matcher)
@@ -1420,16 +1300,16 @@ class TestFullPipeline:
             ctx.should_finished(matcher=matcher)
 
     async def test_global_permission_denied_blocks_handler(
-            self, app: App, test_pipeline_bot, plugin_enabled_guard,
+            self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
     ) -> None:
         """全局权限拒绝链路: 发送初始化提示后命令被忽略, handler 不执行"""
-        cmd = _unique_id('pipe_deny')
+        cmd = unique_test_id('pipe_deny')
         matcher = self._make_pipeline_matcher(cmd, level=1)
         user_id = random.randint(10_000_000, 99_999_999)
 
         async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_pipeline_bot.self_id)
-            event = self._make_pipeline_event(test_pipeline_bot.self_id, user_id, f'/{cmd}')
+            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+            event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
 
             ctx.receive_event(bot, event)
             ctx.should_pass_rule(matcher=matcher)
@@ -1439,16 +1319,22 @@ class TestFullPipeline:
                 event, 'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理', 'result', bot=bot,
             )
 
-    async def test_cooldown_blocks_second_invocation(self, app: App, test_pipeline_bot, plugin_enabled_guard) -> None:
+    async def test_cooldown_blocks_second_invocation(
+            self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
+    ) -> None:
         """冷却链路: 同一用户两轮事件, 第二轮在冷却期内被忽略"""
-        cmd = _unique_id('pipe_cd')
+        cmd = unique_test_id('pipe_cd')
         matcher = self._make_pipeline_matcher(
             cmd, level=1, cooldown=60, cooldown_type='user', echo_processor_result=False,
         )
         user_id = random.randint(10_000_000, 99_999_999)
 
         await _grant_entity_permissions(
-            test_pipeline_bot.bot_type, test_pipeline_bot.self_id, 'onebot_v11_user', str(user_id), level=1,
+            test_onebot_v11_numeric_bot.bot_type,
+            test_onebot_v11_numeric_bot.self_id,
+            'onebot_v11_user',
+            str(user_id),
+            level=1,
         )
 
         @matcher.handle()
@@ -1456,10 +1342,10 @@ class TestFullPipeline:
             await matcher.finish('done')
 
         async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_pipeline_bot.self_id)
+            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
 
             # 第一轮: 通过全部检查并执行 handler
-            event_1 = self._make_pipeline_event(test_pipeline_bot.self_id, user_id, f'/{cmd}')
+            event_1 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
             ctx.receive_event(bot, event_1)
             ctx.should_pass_rule(matcher=matcher)
             ctx.should_pass_permission(matcher=matcher)
@@ -1467,18 +1353,18 @@ class TestFullPipeline:
             ctx.should_finished(matcher=matcher)
 
             # 第二轮: 冷却期内被忽略 (echo 已关闭, 无任何发送), handler 不执行
-            event_2 = self._make_pipeline_event(test_pipeline_bot.self_id, user_id, f'/{cmd}')
+            event_2 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
             ctx.receive_event(bot, event_2)
             ctx.should_pass_rule(matcher=matcher)
             ctx.should_pass_permission(matcher=matcher)
 
     async def test_non_plugin_matcher_bypasses_processors(
-            self, app: App, test_pipeline_bot, plugin_enabled_guard,
+            self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
     ) -> None:
         """非插件 matcher: 全部预处理器跳过, handler 直接执行"""
         from nonebot import on_command
 
-        cmd = _unique_id('pipe_bare')
+        cmd = unique_test_id('pipe_bare')
         matcher = on_command(cmd)
 
         @matcher.handle()
@@ -1486,8 +1372,8 @@ class TestFullPipeline:
             await matcher.finish('bare done')
 
         async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_pipeline_bot.self_id)
-            event = self._make_pipeline_event(test_pipeline_bot.self_id, 54001, f'/{cmd}')
+            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+            event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, 54001, f'/{cmd}')
 
             ctx.receive_event(bot, event)
             ctx.should_pass_rule(matcher=matcher)
@@ -1669,4 +1555,4 @@ class TestTelegramImageParser:
         """事件级预处理器对非 Telegram 消息事件不做处理"""
         from src.service.omega_processor.message.telegram_image_parser import handle_telegram_event_preprocessor
 
-        await handle_telegram_event_preprocessor(bot=_make_mock_bot(), event=_make_obv11_private_event())
+        await handle_telegram_event_preprocessor(bot=make_mock_bot(), event=make_obv11_private_message_event())

@@ -9,19 +9,21 @@
 """
 
 import uuid
-from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
 from async_asgi_testclient import TestClient
-from nonebug import App
-from sqlalchemy import delete
-from sqlalchemy.exc import NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.global_cache import GlobalCache
+from tests.test_002_core.helpers import (
+    TEST_DATETIME_PAST,
+    assert_close_to_now,
+    assert_datetime_close,
+    make_uuid5,
+    query_all_global_cache_rows,
+    query_global_cache_row_or_none,
+    seed_global_cache_row,
+)
 
 _FILE_HOST_CACHE_NAME = 'omega_file_host'
 """被测模块使用的全局缓存名称"""
@@ -29,73 +31,12 @@ _FILE_HOST_CACHE_NAME = 'omega_file_host'
 _DOWNLOAD_PATH_PREFIX = '/omega_file_host'
 """文件托管子应用在主应用上的挂载前缀"""
 
-_TEST_DATETIME_PAST = datetime(1990, 1, 1)
-"""测试用已过期时间点"""
-
-_ASSERT_TIME_TOLERANCE = 2.0
-"""时间断言容差(秒), 数据库 DateTime 可能截断到秒"""
-
-
-def _make_uuid(path_str: str) -> str:
-    """按模块实现计算指定路径字符串对应的文件 UUID"""
-    return uuid.uuid5(namespace=uuid.NAMESPACE_URL, name=path_str).hex
-
 
 def _make_test_file(tmp_path: Path, name: str = 'test_file.txt', content: bytes = b'test file content') -> Path:
     """在临时目录创建已知内容的测试文件"""
     file = tmp_path / name
     file.write_bytes(content)
     return file
-
-
-async def _seed_row_direct(cache_key: str, cache_value: str, expired_time: datetime | timedelta | None = None) -> None:
-    """经 DAL 直接写入缓存行并提交(不经过被测模块的内存缓存)"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        await dal.add_update_exist(
-            cache_name=_FILE_HOST_CACHE_NAME,
-            cache_key=cache_key,
-            cache_value=cache_value,
-            expired_time=expired_time,
-        )
-        await dal.commit_session()
-
-
-async def _query_row_or_none(cache_key: str, *, include_expired: bool = True) -> 'GlobalCache | None':
-    """以独立会话查询文件托管缓存行, 不存在返回 None"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        try:
-            return await dal.query_unique(_FILE_HOST_CACHE_NAME, cache_key, include_expired=include_expired)
-        except NoResultFound:
-            return None
-
-
-async def _query_all_keys() -> set[str]:
-    """以独立会话查询文件托管缓存全部键(含已过期)"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        rows = await dal.query_series(_FILE_HOST_CACHE_NAME, include_expired=True)
-    return {row.cache_key for row in rows}
-
-
-async def _delete_file_host_rows(cache_keys: list[str]) -> None:
-    """物理删除指定的文件托管缓存行"""
-    if not cache_keys:
-        return
-
-    from src.database.helpers import database_session
-    from src.database.schema import GlobalCacheOrm
-
-    async with database_session() as session:
-        await session.execute(
-            delete(GlobalCacheOrm)
-            .where(GlobalCacheOrm.cache_name == _FILE_HOST_CACHE_NAME)
-            .where(GlobalCacheOrm.cache_key.in_(cache_keys))
-        )
 
 
 def _get_cache_ttl() -> int:
@@ -106,20 +47,9 @@ def _get_cache_ttl() -> int:
 
 
 @pytest.fixture
-async def file_host_row_tracker() -> AsyncGenerator[list[str], None]:
+def file_host_row_tracker(global_cache_row_tracker_factory) -> list[str]:
     """跟踪测试产生的文件托管缓存键, 测试后定点清理数据库行(模块单例不注销)"""
-    created: list[str] = []
-
-    yield created
-
-    await _delete_file_host_rows(created)
-
-
-@pytest.fixture
-async def download_client(app: App) -> AsyncGenerator[TestClient, None]:
-    """经主应用挂载访问文件托管子应用的 HTTP 客户端(复用 nonebug 全局 lifespan 客户端, 免 token 校验)"""
-    async with app.test_server() as ctx:
-        yield ctx.get_client()
+    return global_cache_row_tracker_factory(_FILE_HOST_CACHE_NAME)
 
 
 class TestModuleContract:
@@ -206,22 +136,9 @@ class TestQueryFileUuid:
         result = await omega_file_host.query_file_uuid(resource)
         file_host_row_tracker.append(result)
 
-        assert result == _make_uuid(resource.resolve_path)
+        assert result == make_uuid5(resource.resolve_path)
         assert len(result) == 32
         assert all(c in '0123456789abcdef' for c in result)
-
-    async def test_deterministic(self, tmp_path: Path, file_host_row_tracker) -> None:
-        """相同文件多次调用返回相同 UUID"""
-        from src.resource import AnyResource
-        from src.service import omega_file_host
-
-        resource = AnyResource(str(_make_test_file(tmp_path)))
-
-        first = await omega_file_host.query_file_uuid(resource)
-        file_host_row_tracker.append(first)
-        second = await omega_file_host.query_file_uuid(resource)
-
-        assert first == second
 
     async def test_distinct_files_distinct_uuids(self, tmp_path: Path, file_host_row_tracker) -> None:
         from src.resource import AnyResource
@@ -243,12 +160,11 @@ class TestQueryFileUuid:
         result = await omega_file_host.query_file_uuid(resource)
         file_host_row_tracker.append(result)
 
-        row = await _query_row_or_none(result)
+        row = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, result)
         assert row is not None
         assert row.cache_key == result
         assert row.cache_value == resource.resolve_path
-        expected = datetime.now() + timedelta(seconds=_get_cache_ttl())
-        assert abs((row.expired_at - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_close_to_now(row.expired_at, timedelta(seconds=_get_cache_ttl()))
 
     async def test_ttl_delta_applied(self, tmp_path: Path, file_host_row_tracker) -> None:
         from src.resource import AnyResource
@@ -259,10 +175,9 @@ class TestQueryFileUuid:
         result = await omega_file_host.query_file_uuid(resource, ttl_delta=-1000)
         file_host_row_tracker.append(result)
 
-        row = await _query_row_or_none(result)
+        row = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, result)
         assert row is not None
-        expected = datetime.now() + timedelta(seconds=_get_cache_ttl() - 1000)
-        assert abs((row.expired_at - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_close_to_now(row.expired_at, timedelta(seconds=_get_cache_ttl() - 1000))
 
     async def test_same_file_upsert_single_row(self, tmp_path: Path, file_host_row_tracker) -> None:
         """相同文件重复注册为更新而非插入"""
@@ -276,24 +191,19 @@ class TestQueryFileUuid:
         second = await omega_file_host.query_file_uuid(resource)
 
         assert first == second
-        all_keys = await _query_all_keys()
+        all_keys = {row.cache_key for row in await query_all_global_cache_rows(_FILE_HOST_CACHE_NAME)}
         assert sum(1 for key in all_keys if key == first) == 1
 
-    async def test_missing_file_raises(self, tmp_path: Path) -> None:
-        """不存在的路径主动抛出 ValueError"""
+    @pytest.mark.parametrize('path_kind', ['missing', 'directory'])
+    async def test_invalid_path_raises(self, tmp_path: Path, path_kind: str) -> None:
+        """不存在的路径或目录路径主动抛出 ValueError"""
         from src.resource import AnyResource
         from src.service import omega_file_host
 
-        with pytest.raises(ValueError, match='Invalid file'):
-            await omega_file_host.query_file_uuid(AnyResource(str(tmp_path / 'missing.txt')))
-
-    async def test_directory_raises(self, tmp_path: Path) -> None:
-        """目录路径主动抛出 ValueError"""
-        from src.resource import AnyResource
-        from src.service import omega_file_host
+        path = tmp_path / 'missing.txt' if path_kind == 'missing' else tmp_path
 
         with pytest.raises(ValueError, match='Invalid file'):
-            await omega_file_host.query_file_uuid(AnyResource(str(tmp_path)))
+            await omega_file_host.query_file_uuid(AnyResource(str(path)))
 
     async def test_symlink_registers_target_path(self, tmp_path: Path, file_host_row_tracker) -> None:
         """符号链接经 resolve_path 解析, 实际登记其目标路径"""
@@ -311,8 +221,8 @@ class TestQueryFileUuid:
         file_host_row_tracker.append(result)
 
         target_resource = AnyResource(str(target))
-        assert result == _make_uuid(target_resource.resolve_path)
-        row = await _query_row_or_none(result)
+        assert result == make_uuid5(target_resource.resolve_path)
+        row = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, result)
         assert row is not None
         assert row.cache_value == target_resource.resolve_path
 
@@ -324,8 +234,8 @@ class TestQueryFileRealPath:
         from src.service import omega_file_host
 
         path_str = str(tmp_path / 'file.txt')
-        key = _make_uuid(path_str)
-        await _seed_row_direct(key, path_str)
+        key = make_uuid5(path_str)
+        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, key, path_str)
         file_host_row_tracker.append(key)
 
         assert await omega_file_host.query_file_real_path(key) == path_str
@@ -340,16 +250,18 @@ class TestQueryFileRealPath:
         from src.service import omega_file_host
 
         path_str = str(tmp_path / 'file.txt')
-        key = _make_uuid(path_str)
-        await _seed_row_direct(key, path_str, expired_time=timedelta(seconds=_get_cache_ttl() - 1000))
+        key = make_uuid5(path_str)
+        await seed_global_cache_row(
+            _FILE_HOST_CACHE_NAME, key, path_str, expired_time=timedelta(seconds=_get_cache_ttl() - 1000)
+        )
         file_host_row_tracker.append(key)
-        row_before = await _query_row_or_none(key)
+        row_before = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row_before is not None
 
         result = await omega_file_host.query_file_real_path(key)
 
         assert result == path_str
-        row_after = await _query_row_or_none(key)
+        row_after = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row_after is not None
         assert row_after.expired_at - row_before.expired_at >= timedelta(seconds=900)
 
@@ -358,33 +270,35 @@ class TestQueryFileRealPath:
         from src.service import omega_file_host
 
         path_str = str(tmp_path / 'file.txt')
-        key = _make_uuid(path_str)
-        await _seed_row_direct(key, path_str, expired_time=timedelta(seconds=_get_cache_ttl() - 1000))
+        key = make_uuid5(path_str)
+        await seed_global_cache_row(
+            _FILE_HOST_CACHE_NAME, key, path_str, expired_time=timedelta(seconds=_get_cache_ttl() - 1000)
+        )
         file_host_row_tracker.append(key)
-        row_before = await _query_row_or_none(key)
+        row_before = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row_before is not None
 
         result = await omega_file_host.query_file_real_path(key, auto_refresh=False)
 
         assert result == path_str
-        row_after = await _query_row_or_none(key)
+        row_after = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row_after is not None
-        assert abs((row_after.expired_at - row_before.expired_at).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_datetime_close(row_after.expired_at, row_before.expired_at)
 
     async def test_expired_row_returns_none(self, tmp_path: Path, file_host_row_tracker) -> None:
         """已过期行返回 None, 且不触发续期"""
         from src.service import omega_file_host
 
         path_str = str(tmp_path / 'file.txt')
-        key = _make_uuid(path_str)
-        await _seed_row_direct(key, path_str, expired_time=_TEST_DATETIME_PAST)
+        key = make_uuid5(path_str)
+        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, key, path_str, expired_time=TEST_DATETIME_PAST)
         file_host_row_tracker.append(key)
 
         assert await omega_file_host.query_file_real_path(key) is None
 
-        row = await _query_row_or_none(key)
+        row = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row is not None
-        assert row.expired_at == _TEST_DATETIME_PAST
+        assert row.expired_at == TEST_DATETIME_PAST
 
     async def test_empty_uuid_raises(self) -> None:
         """空 UUID 经由全局缓存键校验抛出 ValueError"""
@@ -401,7 +315,7 @@ class TestQueryFileRealPath:
         file_host_row_tracker.append(key)
 
         assert await omega_file_host.query_file_real_path(key) is None
-        assert await _query_row_or_none(key) is None
+        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key) is None
 
 
 class TestSyncJob:
@@ -420,8 +334,8 @@ class TestSyncJob:
 
         key1 = uuid.uuid4().hex
         key2 = uuid.uuid4().hex
-        await _seed_row_direct(key1, 'C:/path/one.txt')
-        await _seed_row_direct(key2, 'C:/path/two.txt')
+        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, key1, 'C:/path/one.txt')
+        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, key2, 'C:/path/two.txt')
         file_host_row_tracker.extend([key1, key2])
 
         assert await file_host_api._sync_file_host_cache() is None
@@ -435,14 +349,16 @@ class TestSyncJob:
 
         expired_key = uuid.uuid4().hex
         alive_key = uuid.uuid4().hex
-        await _seed_row_direct(expired_key, 'C:/path/expired.txt', expired_time=_TEST_DATETIME_PAST)
-        await _seed_row_direct(alive_key, 'C:/path/alive.txt')
+        await seed_global_cache_row(
+            _FILE_HOST_CACHE_NAME, expired_key, 'C:/path/expired.txt', expired_time=TEST_DATETIME_PAST
+        )
+        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, alive_key, 'C:/path/alive.txt')
         file_host_row_tracker.extend([expired_key, alive_key])
 
         await file_host_api._sync_file_host_cache()
 
-        assert await _query_row_or_none(expired_key) is None
-        assert await _query_row_or_none(alive_key) is not None
+        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expired_key) is None
+        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, alive_key) is not None
         assert expired_key not in file_host_api._FILE_HOST_CACHE._cache
 
     async def test_sync_failure_swallowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -471,7 +387,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """命中时 200 返回文件内容(无需任何鉴权 Headers), Content-Type 与 Content-Disposition 正确"""
         from src.resource import AnyResource
@@ -482,7 +398,7 @@ class TestDownloadEndpoint:
         file_uuid = await omega_file_host.query_file_uuid(resource)
         file_host_row_tracker.append(file_uuid)
 
-        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
+        response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
 
         assert response.status_code == 200
         assert response.content == content
@@ -491,8 +407,8 @@ class TestDownloadEndpoint:
         assert 'attachment' in content_disposition
         assert f'filename="{file_uuid}.txt"' in content_disposition
 
-    async def test_download_missing_returns_404(self, download_client: TestClient) -> None:
-        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{uuid.uuid4().hex}')
+    async def test_download_missing_returns_404(self, mounted_app_client: TestClient) -> None:
+        response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{uuid.uuid4().hex}')
 
         assert response.status_code == 404
         assert response.json()['detail'] == 'File expired or deleted'
@@ -501,7 +417,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """缓存命中但文件已被删除时返回第二阶段 404"""
         from src.resource import AnyResource
@@ -513,7 +429,7 @@ class TestDownloadEndpoint:
         file_host_row_tracker.append(file_uuid)
         file.unlink()
 
-        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
+        response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
 
         assert response.status_code == 404
         assert response.json()['detail'] == 'File not found'
@@ -521,14 +437,14 @@ class TestDownloadEndpoint:
     async def test_download_empty_value_returns_404(
             self,
             file_host_row_tracker,
-            download_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """缓存值为空串时按不存在处理(404)"""
         key = uuid.uuid4().hex
-        await _seed_row_direct(key, '')
+        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, key, '')
         file_host_row_tracker.append(key)
 
-        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{key}')
+        response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{key}')
 
         assert response.status_code == 404
 
@@ -536,21 +452,23 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """访问下载端点触发滑动续期"""
         file = _make_test_file(tmp_path)
         path_str = str(file.resolve().as_posix())
-        key = _make_uuid(path_str)
-        await _seed_row_direct(key, path_str, expired_time=timedelta(seconds=_get_cache_ttl() - 1000))
+        key = make_uuid5(path_str)
+        await seed_global_cache_row(
+            _FILE_HOST_CACHE_NAME, key, path_str, expired_time=timedelta(seconds=_get_cache_ttl() - 1000)
+        )
         file_host_row_tracker.append(key)
-        row_before = await _query_row_or_none(key)
+        row_before = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row_before is not None
 
-        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{key}')
+        response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{key}')
 
         assert response.status_code == 200
-        row_after = await _query_row_or_none(key)
+        row_after = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key)
         assert row_after is not None
         assert row_after.expired_at - row_before.expired_at >= timedelta(seconds=900)
 
@@ -558,7 +476,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         from src.resource import AnyResource
         from src.service import omega_file_host
@@ -567,17 +485,17 @@ class TestDownloadEndpoint:
         file_uuid = await omega_file_host.query_file_uuid(resource)
         file_host_row_tracker.append(file_uuid)
 
-        response = await download_client.post(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
+        response = await mounted_app_client.post(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
 
         assert response.status_code == 405
 
-    async def test_download_encoded_slash_no_traversal(self, download_client: TestClient) -> None:
+    async def test_download_encoded_slash_no_traversal(self, mounted_app_client: TestClient) -> None:
         """路径段含编码斜杠时不存在路径穿越
 
         测试客户端不对 scope path 做百分号解码, `..%2F..%2Fsecret` 作为单一路径段命中
         `/download/{file_id}` 路由, 但该值不是已登记的文件 UUID, 缓存未命中返回 404
         """
-        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/..%2F..%2Fsecret')
+        response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/..%2F..%2Fsecret')
 
         assert response.status_code == 404
 
@@ -602,10 +520,10 @@ class TestProtocol:
 
         result = await resource.get_hosting_path()
 
-        expected_uuid = _make_uuid(resource.resolve_path)
+        expected_uuid = make_uuid5(resource.resolve_path)
         file_host_row_tracker.append(expected_uuid)
         assert result == f'{file_host_api._FILE_HOST_API.root_url}/download/{expected_uuid}'
-        assert await _query_row_or_none(expected_uuid) is not None
+        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expected_uuid) is not None
 
     async def test_get_hosting_path_disabled(
             self,
@@ -623,10 +541,10 @@ class TestProtocol:
 
         result = await resource.get_hosting_path()
 
-        expected_uuid = _make_uuid(resource.resolve_path)
+        expected_uuid = make_uuid5(resource.resolve_path)
         file_host_row_tracker.append(expected_uuid)
         assert result == resource.resolve_path
-        assert await _query_row_or_none(expected_uuid) is None
+        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expected_uuid) is None
 
     async def test_get_hosting_path_missing_file_raises(self, tmp_path: Path) -> None:
         """文件不存在时经 check_file 前置校验抛出 ResourceNotFileError"""
@@ -651,18 +569,18 @@ class TestProtocol:
 
         await resource.get_hosting_path(ttl_delta=-1000)
 
-        expected_uuid = _make_uuid(resource.resolve_path)
+        expected_uuid = make_uuid5(resource.resolve_path)
         file_host_row_tracker.append(expected_uuid)
-        row = await _query_row_or_none(expected_uuid)
+        row = await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expected_uuid)
         assert row is not None
-        expected = datetime.now() + timedelta(seconds=_get_cache_ttl() - 1000)
-        assert abs((row.expired_at - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_close_to_now(row.expired_at, timedelta(seconds=_get_cache_ttl() - 1000))
 
 
 class TestGetFileDownloadUrl:
     """get_file_download_url 测试"""
 
     def test_url_format(self) -> None:
+        """URL 由子应用 root_url(含 app_name 前缀)与 /download/{file_uuid} 路径拼接而成"""
         from src.service import omega_file_host
         from src.service.omega_file_host import api as file_host_api
 
@@ -670,12 +588,5 @@ class TestGetFileDownloadUrl:
 
         result = omega_file_host.get_file_download_url(file_uuid)
 
+        assert f'/omega_file_host/download/{file_uuid}' in result
         assert result == f'{file_host_api._FILE_HOST_API.root_url}/download/{file_uuid}'
-
-    def test_url_contains_app_name(self) -> None:
-        from src.service import omega_file_host
-
-        result = omega_file_host.get_file_download_url('abc123')
-
-        assert result.startswith('http')
-        assert '/omega_file_host/download/abc123' in result

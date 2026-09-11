@@ -8,10 +8,23 @@
 @Software       : PyCharm
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 import pytest
+
+_SampleFileFactory = Callable[[str, bytes | str], Path]
+"""sample_file fixture 返回的造文件工厂签名"""
+
+_SYNC_TEXT_CONTENT = 'hello'
+"""同步文本往返写入内容"""
+_ASYNC_TEXT_CONTENT = 'async hello'
+"""异步文本往返写入内容"""
+_BINARY_CONTENT = b'\x00\x01'
+"""二进制往返写入内容"""
+_NESTED_FILE_CONTENT = 'x'
+"""深层路径写入内容"""
 
 
 @pytest.fixture
@@ -39,33 +52,43 @@ def sample_tree(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture
+def sample_file(tmp_path: Path) -> _SampleFileFactory:
+    """造文件工厂: 在 tmp_path 下创建指定名称/内容的文件并返回其路径"""
+
+    def _make_file(name: str, content: bytes | str) -> Path:
+        file = tmp_path / name
+        if isinstance(content, bytes):
+            file.write_bytes(content)
+        else:
+            file.write_text(content, encoding='utf-8')
+        return file
+
+    return _make_file
+
+
 class TestExceptions:
     """资源异常类测试"""
 
-    def test_not_file_error(self, tmp_path: Path):
+    @pytest.mark.parametrize(
+        ('exc_class_name', 'sub_path', 'message_fragment'),
+        [
+            ('ResourceNotFileError', 'f.txt', 'is not a file'),
+            ('ResourceNotFolderError', 'd', 'is not a directory'),
+        ],
+    )
+    def test_not_file_or_folder_error(self, tmp_path: Path, exc_class_name: str, sub_path: str, message_fragment: str):
+        import src.resource
         from src.exception import LocalSourceException, OmegaException
-        from src.resource import ResourceNotFileError
 
-        exc = ResourceNotFileError(tmp_path / 'f.txt')
+        exc_class = getattr(src.resource, exc_class_name)
+        exc = exc_class(tmp_path / sub_path)
         assert isinstance(exc, LocalSourceException)
         assert isinstance(exc, OmegaException)
-        assert exc.path == tmp_path / 'f.txt'
+        assert exc.path == tmp_path / sub_path
         assert exc.path.as_posix() in exc.message
-        assert 'is not a file' in exc.message
-        assert 'ResourceNotFileError' in repr(exc)
-        assert str(exc) == repr(exc)
-
-    def test_not_folder_error(self, tmp_path: Path):
-        from src.exception import LocalSourceException, OmegaException
-        from src.resource import ResourceNotFolderError
-
-        exc = ResourceNotFolderError(tmp_path / 'd')
-        assert isinstance(exc, LocalSourceException)
-        assert isinstance(exc, OmegaException)
-        assert exc.path == tmp_path / 'd'
-        assert exc.path.as_posix() in exc.message
-        assert 'is not a directory' in exc.message
-        assert 'ResourceNotFolderError' in repr(exc)
+        assert message_fragment in exc.message
+        assert exc_class_name in repr(exc)
         assert str(exc) == repr(exc)
 
     def test_exception_with_str_path(self):
@@ -186,33 +209,22 @@ class TestConstructors:
 class TestLogFileResource:
     """LogFileResource 日志文件属性测试(固定时间)"""
 
-    def test_debug(self, fixed_datetime: datetime):
+    @pytest.mark.parametrize(
+        ('attr', 'level'),
+        [
+            ('debug', 'DEBUG'),
+            ('info', 'INFO'),
+            ('warning', 'WARNING'),
+            ('error', 'ERROR'),
+        ],
+    )
+    def test_level_log_file(self, fixed_datetime: datetime, attr: str, level: str):
         import src.resource
         from src.resource import LogFileResource
 
-        path = LogFileResource().debug
+        path = getattr(LogFileResource(), attr)
         assert isinstance(path, Path)
-        assert path == src.resource._LOG_FOLDER.joinpath('2026-02', '20260203-040506-DEBUG.log')
-
-    def test_info(self, fixed_datetime: datetime):
-        import src.resource
-        from src.resource import LogFileResource
-
-        assert LogFileResource().info == src.resource._LOG_FOLDER.joinpath('2026-02', '20260203-040506-INFO.log')
-
-    def test_warning(self, fixed_datetime: datetime):
-        import src.resource
-        from src.resource import LogFileResource
-
-        assert LogFileResource().warning == src.resource._LOG_FOLDER.joinpath('2026-02', '20260203-040506-WARNING.log')
-
-    def test_error(self, fixed_datetime: datetime):
-        import src.resource
-        from src.resource import LogFileResource
-
-        path = LogFileResource().error
-        assert isinstance(path, Path)
-        assert path == src.resource._LOG_FOLDER.joinpath('2026-02', '20260203-040506-ERROR.log')
+        assert path == src.resource._LOG_FOLDER.joinpath('2026-02', f'20260203-040506-{level}.log')
 
     def test_error_uses_instance_timestamp(self, monkeypatch: pytest.MonkeyPatch):
         """error 属性应与其他属性一致使用实例构造时的时间戳, 而非访问时的实时时间"""
@@ -367,11 +379,10 @@ class TestPathProperties:
         assert resource.suffix == ''
         assert resource.stem == 'library'
 
-    def test_existence_properties_on_file(self, tmp_path: Path):
+    def test_existence_properties_on_file(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         resource = AnyResource(file)
         assert resource.is_exist
         assert resource.is_file
@@ -400,11 +411,10 @@ class TestPathProperties:
         assert resource.resolve_path == (tmp_path / 'f.txt').resolve().as_posix()
         assert Path(resource.resolve_path).is_absolute()
 
-    def test_parent_property(self, tmp_path: Path):
+    def test_parent_property(self, tmp_path: Path, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         parent = AnyResource(file).parent
         assert isinstance(parent, AnyResource)
         assert parent.path == tmp_path.absolute()
@@ -433,11 +443,10 @@ class TestPathProperties:
 class TestRaiseHelpers:
     """raise_not_file/raise_not_dir 测试"""
 
-    def test_raise_not_file_on_file(self, tmp_path: Path):
+    def test_raise_not_file_on_file(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         assert AnyResource(file).raise_not_file() is None
 
     def test_raise_not_file_on_dir(self, tmp_path: Path):
@@ -458,11 +467,10 @@ class TestRaiseHelpers:
 
         assert AnyResource(tmp_path).raise_not_dir() is None
 
-    def test_raise_not_dir_on_file(self, tmp_path: Path):
+    def test_raise_not_dir_on_file(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource, ResourceNotFolderError
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         with pytest.raises(ResourceNotFolderError) as exc_info:
             AnyResource(file).raise_not_dir()
         assert exc_info.value.path == file
@@ -482,25 +490,25 @@ class TestOpenSync:
 
         resource = AnyResource(tmp_path / 'a.txt')
         with resource.open('w', encoding='utf-8') as f:
-            f.write('hello')
+            f.write(_SYNC_TEXT_CONTENT)
         with resource.open('r', encoding='utf-8') as f:
-            assert f.read() == 'hello'
+            assert f.read() == _SYNC_TEXT_CONTENT
 
     def test_write_read_binary_roundtrip(self, tmp_path: Path):
         from src.resource import AnyResource
 
         resource = AnyResource(tmp_path / 'a.bin')
         with resource.open('wb') as f:
-            f.write(b'\x00\x01')
+            f.write(_BINARY_CONTENT)
         with resource.open('rb') as f:
-            assert f.read() == b'\x00\x01'
+            assert f.read() == _BINARY_CONTENT
 
     def test_open_write_creates_missing_parent_dirs(self, tmp_path: Path):
         from src.resource import AnyResource
 
         resource = AnyResource(tmp_path / 'deep' / 'nested' / 'a.txt')
         with resource.open('w', encoding='utf-8') as f:
-            f.write('x')
+            f.write(_NESTED_FILE_CONTENT)
         assert tmp_path.joinpath('deep', 'nested', 'a.txt').is_file()
 
     def test_open_with_keyword_mode(self, tmp_path: Path):
@@ -542,25 +550,25 @@ class TestOpenAsync:
 
         resource = AnyResource(tmp_path / 'a.txt')
         async with resource.async_open('w', encoding='utf-8') as af:
-            await af.write('async hello')
+            await af.write(_ASYNC_TEXT_CONTENT)
         async with resource.async_open('r', encoding='utf-8') as af:
-            assert await af.read() == 'async hello'
+            assert await af.read() == _ASYNC_TEXT_CONTENT
 
     async def test_async_write_read_binary_roundtrip(self, tmp_path: Path):
         from src.resource import AnyResource
 
         resource = AnyResource(tmp_path / 'a.bin')
         async with resource.async_open('wb') as af:
-            await af.write(b'\x00\x01')
+            await af.write(_BINARY_CONTENT)
         async with resource.async_open('rb') as af:
-            assert await af.read() == b'\x00\x01'
+            assert await af.read() == _BINARY_CONTENT
 
     async def test_async_open_write_creates_missing_parent_dirs(self, tmp_path: Path):
         from src.resource import AnyResource
 
         resource = AnyResource(tmp_path / 'deep' / 'nested' / 'a.txt')
         async with resource.async_open('w', encoding='utf-8') as af:
-            await af.write('x')
+            await af.write(_NESTED_FILE_CONTENT)
         assert tmp_path.joinpath('deep', 'nested', 'a.txt').is_file()
 
     async def test_async_open_read_missing_raises(self, tmp_path: Path):
@@ -580,11 +588,10 @@ class TestOpenAsync:
 class TestFileUriAndSize:
     """file_uri/file_size 属性测试"""
 
-    def test_file_uri(self, tmp_path: Path):
+    def test_file_uri(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         assert AnyResource(file).file_uri.startswith('file:///')
 
     def test_file_uri_missing_file_raises(self, tmp_path: Path):
@@ -599,11 +606,10 @@ class TestFileUriAndSize:
         with pytest.raises(ResourceNotFileError):
             AnyResource(tmp_path).file_uri  # noqa: B018
 
-    def test_file_size(self, tmp_path: Path):
+    def test_file_size(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        file = tmp_path / 'f.txt'
-        file.write_bytes(b'12345')
+        file = sample_file('f.txt', b'12345')
         assert AnyResource(file).file_size == 5
 
     def test_file_size_missing_raises(self, tmp_path: Path):
@@ -719,11 +725,10 @@ class TestRenameReplaceRemove:
         with pytest.raises(ResourceNotFileError):
             AnyResource(tmp_path).replace(tmp_path / 'new')
 
-    def test_remove_existing_file(self, tmp_path: Path):
+    def test_remove_existing_file(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         AnyResource(file).remove()
         assert not file.exists()
 
@@ -766,12 +771,11 @@ class TestHostProtocol:
 
         return _HostableResource, _FakeProtocol
 
-    async def test_unregistered_class_returns_resolve_path(self, tmp_path: Path):
+    async def test_unregistered_class_returns_resolve_path(self, sample_file: _SampleFileFactory):
         """未注册协议的类, get_hosting_path 回退为本地路径"""
         hostable_resource, _ = self._make_hostable_resource()
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         assert await hostable_resource(file).get_hosting_path() == hostable_resource(file).resolve_path
 
     async def test_get_hosting_path_on_missing_file_raises(self, tmp_path: Path):
@@ -780,12 +784,11 @@ class TestHostProtocol:
         with pytest.raises(ResourceNotFileError):
             await AnyResource(tmp_path / 'missing.txt').get_hosting_path()
 
-    async def test_registered_protocol_returns_url(self, tmp_path: Path):
+    async def test_registered_protocol_returns_url(self, sample_file: _SampleFileFactory):
         hostable_resource, protocol = self._make_hostable_resource()
         hostable_resource.register_host_protocol(protocol)
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         assert await hostable_resource(file).get_hosting_path(ttl_delta=60) == 'https://fake.host/f.txt?ttl=60'
 
     def test_register_twice_raises(self):
@@ -812,12 +815,11 @@ class TestHostProtocol:
         assert BaseResource._host_protocol is None
         assert AnyResource._host_protocol is before_any
 
-    async def test_unregister_restores_resolve_path_fallback(self, tmp_path: Path):
+    async def test_unregister_restores_resolve_path_fallback(self, sample_file: _SampleFileFactory):
         hostable_resource, protocol = self._make_hostable_resource()
         hostable_resource.register_host_protocol(protocol)
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         assert await hostable_resource(file).get_hosting_path() == 'https://fake.host/f.txt?ttl=0'
 
         hostable_resource.unregister_host_protocol()
@@ -883,15 +885,16 @@ class TestGlobalHostProtocolRegistration:
         with pytest.raises(RuntimeError, match='already registered'):
             _SubResource.register_host_protocol(OmegaFileHostProtocol)
 
-    async def test_hosting_disabled_falls_back_to_resolve_path(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    async def test_hosting_disabled_falls_back_to_resolve_path(
+            self, monkeypatch: pytest.MonkeyPatch, sample_file: _SampleFileFactory,
+    ):
         """托管服务配置禁用时, 已注册协议的 get_hosting_path 回退为本地路径 (不发起 HTTP 请求)"""
         from src.resource import AnyResource
         from src.service.omega_file_host.config import file_host_config
 
         monkeypatch.setattr(file_host_config, 'omega_file_host_enable_hosting_service', False)
 
-        file = tmp_path / 'f.txt'
-        file.write_text('x', encoding='utf-8')
+        file = sample_file('f.txt', 'x')
         resource = AnyResource(file)
         assert await resource.get_hosting_path() == resource.resolve_path
 

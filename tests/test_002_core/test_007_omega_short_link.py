@@ -9,18 +9,20 @@
 """
 
 import uuid
-from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from datetime import timedelta
 
 import pytest
 from async_asgi_testclient import TestClient
-from nonebug import App
-from sqlalchemy import delete
-from sqlalchemy.exc import NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.global_cache import GlobalCache
+from tests.test_002_core.helpers import (
+    TEST_DATETIME_PAST,
+    assert_close_to_now,
+    assert_datetime_close,
+    make_uuid5,
+    query_all_global_cache_rows,
+    query_global_cache_row_or_none,
+    seed_global_cache_row,
+)
 
 _SHORT_LINK_CACHE_NAME = 'omega_short_link'
 """被测模块使用的全局缓存名称"""
@@ -28,88 +30,16 @@ _SHORT_LINK_CACHE_NAME = 'omega_short_link'
 _FORWARD_PATH_PREFIX = '/omega_short_link'
 """短链接子应用在主应用上的挂载前缀"""
 
-_TEST_DATETIME_PAST = datetime(1990, 1, 1)
-"""测试用已过期时间点"""
-
-_ASSERT_TIME_TOLERANCE = 2.0
-"""时间断言容差(秒), 数据库 DateTime 可能截断到秒"""
-
-
-def _make_uuid(url: str) -> str:
-    """按模块实现计算指定 URL 对应的短链接 UUID"""
-    return uuid.uuid5(namespace=uuid.NAMESPACE_URL, name=url).hex
-
 
 def _make_unique_url() -> str:
     """生成测试用唯一 URL(保证缓存键唯一, 避免用例间干扰)"""
     return f'https://example.com/t/{uuid.uuid4().hex}'
 
 
-async def _seed_row_direct(cache_key: str, cache_value: str, expired_time: datetime | timedelta | None = None) -> None:
-    """经 DAL 直接写入缓存行并提交(不经过被测模块的内存缓存)"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        await dal.add_update_exist(
-            cache_name=_SHORT_LINK_CACHE_NAME,
-            cache_key=cache_key,
-            cache_value=cache_value,
-            expired_time=expired_time,
-        )
-        await dal.commit_session()
-
-
-async def _query_row_or_none(cache_key: str, *, include_expired: bool = True) -> 'GlobalCache | None':
-    """以独立会话查询短链接缓存行, 不存在返回 None"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        try:
-            return await dal.query_unique(_SHORT_LINK_CACHE_NAME, cache_key, include_expired=include_expired)
-        except NoResultFound:
-            return None
-
-
-async def _query_all_keys() -> set[str]:
-    """以独立会话查询短链接缓存全部键(含已过期)"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        rows = await dal.query_series(_SHORT_LINK_CACHE_NAME, include_expired=True)
-    return {row.cache_key for row in rows}
-
-
-async def _delete_short_link_rows(cache_keys: list[str]) -> None:
-    """物理删除指定的短链接缓存行"""
-    if not cache_keys:
-        return
-
-    from src.database.helpers import database_session
-    from src.database.schema import GlobalCacheOrm
-
-    async with database_session() as session:
-        await session.execute(
-            delete(GlobalCacheOrm)
-            .where(GlobalCacheOrm.cache_name == _SHORT_LINK_CACHE_NAME)
-            .where(GlobalCacheOrm.cache_key.in_(cache_keys))
-        )
-
-
 @pytest.fixture
-async def short_link_row_tracker() -> AsyncGenerator[list[str], None]:
+def short_link_row_tracker(global_cache_row_tracker_factory) -> list[str]:
     """跟踪测试产生的短链接缓存键, 测试后定点清理数据库行(模块单例不注销)"""
-    created: list[str] = []
-
-    yield created
-
-    await _delete_short_link_rows(created)
-
-
-@pytest.fixture
-async def forward_client(app: App) -> AsyncGenerator[TestClient, None]:
-    """经主应用挂载访问短链接子应用的 HTTP 客户端(复用 nonebug 全局 lifespan 客户端, 免 token 校验)"""
-    async with app.test_server() as ctx:
-        yield ctx.get_client()
+    return global_cache_row_tracker_factory(_SHORT_LINK_CACHE_NAME)
 
 
 class TestModuleContract:
@@ -176,22 +106,10 @@ class TestQueryShortLinkUuid:
         result = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(result)
 
-        assert result == _make_uuid(url)
+        assert result == make_uuid5(url)
         assert result != url
         assert len(result) == 32
         assert all(c in '0123456789abcdef' for c in result)
-
-    async def test_deterministic(self, short_link_row_tracker) -> None:
-        """相同 URL 多次调用返回相同 UUID"""
-        from src.service import omega_short_link
-
-        url = _make_unique_url()
-
-        first = await omega_short_link.query_short_link_uuid(url)
-        short_link_row_tracker.append(first)
-        second = await omega_short_link.query_short_link_uuid(url)
-
-        assert first == second
 
     async def test_distinct_urls_distinct_uuids(self, short_link_row_tracker) -> None:
         from src.service import omega_short_link
@@ -212,12 +130,11 @@ class TestQueryShortLinkUuid:
         result = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(result)
 
-        row = await _query_row_or_none(result)
+        row = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, result)
         assert row is not None
         assert row.cache_key == result
         assert row.cache_value == url
-        expected = datetime.now() + timedelta(seconds=short_link_config.omega_short_link_cache_ttl)
-        assert abs((row.expired_at - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_close_to_now(row.expired_at, timedelta(seconds=short_link_config.omega_short_link_cache_ttl))
 
     async def test_ttl_delta_applied(self, short_link_row_tracker) -> None:
         from src.service import omega_short_link
@@ -228,10 +145,9 @@ class TestQueryShortLinkUuid:
         result = await omega_short_link.query_short_link_uuid(url, ttl_delta=-1000)
         short_link_row_tracker.append(result)
 
-        row = await _query_row_or_none(result)
+        row = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, result)
         assert row is not None
-        expected = datetime.now() + timedelta(seconds=short_link_config.omega_short_link_cache_ttl - 1000)
-        assert abs((row.expired_at - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_close_to_now(row.expired_at, timedelta(seconds=short_link_config.omega_short_link_cache_ttl - 1000))
 
     async def test_same_url_upsert_single_row(self, short_link_row_tracker) -> None:
         """相同 URL 重复调用为更新而非插入"""
@@ -244,25 +160,19 @@ class TestQueryShortLinkUuid:
         second = await omega_short_link.query_short_link_uuid(url)
 
         assert first == second
-        all_keys = await _query_all_keys()
+        all_keys = {row.cache_key for row in await query_all_global_cache_rows(_SHORT_LINK_CACHE_NAME)}
         assert sum(1 for key in all_keys if key == first) == 1
 
-    async def test_empty_url_raises(self, short_link_row_tracker) -> None:
-        """空 URL 主动抛出 ValueError, 且不产生缓存行"""
+    @pytest.mark.parametrize('url', ['', '   '])
+    async def test_invalid_url_raises(self, url: str, short_link_row_tracker) -> None:
+        """空或纯空白 URL 主动抛出 ValueError, 且不产生缓存行"""
         from src.service import omega_short_link
 
         with pytest.raises(ValueError, match='Invalid url'):
-            await omega_short_link.query_short_link_uuid('')
+            await omega_short_link.query_short_link_uuid(url)
 
-        short_link_row_tracker.append(_make_uuid(''))
-        assert await _query_row_or_none(_make_uuid('')) is None
-
-    async def test_blank_url_raises(self) -> None:
-        """纯空白 URL 主动抛出 ValueError"""
-        from src.service import omega_short_link
-
-        with pytest.raises(ValueError, match='Invalid url'):
-            await omega_short_link.query_short_link_uuid('   ')
+        short_link_row_tracker.append(make_uuid5(url))
+        assert await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, make_uuid5(url)) is None
 
     async def test_unicode_url(self, short_link_row_tracker) -> None:
         from src.service import omega_short_link
@@ -272,8 +182,8 @@ class TestQueryShortLinkUuid:
         result = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(result)
 
-        assert result == _make_uuid(url)
-        row = await _query_row_or_none(result)
+        assert result == make_uuid5(url)
+        row = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, result)
         assert row is not None
         assert row.cache_value == url
 
@@ -285,8 +195,8 @@ class TestQueryShortLinkRealUrl:
         from src.service import omega_short_link
 
         url = _make_unique_url()
-        key = _make_uuid(url)
-        await _seed_row_direct(key, url)
+        key = make_uuid5(url)
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, url)
         short_link_row_tracker.append(key)
 
         assert await omega_short_link.query_short_link_real_url(key) == url
@@ -294,23 +204,23 @@ class TestQueryShortLinkRealUrl:
     async def test_load_missing_returns_none(self) -> None:
         from src.service import omega_short_link
 
-        assert await omega_short_link.query_short_link_real_url(_make_uuid(_make_unique_url())) is None
+        assert await omega_short_link.query_short_link_real_url(make_uuid5(_make_unique_url())) is None
 
     async def test_auto_refresh_extends_expiry(self, short_link_row_tracker) -> None:
         """auto_refresh=True(默认)命中时滑动续期, expired_at 延后"""
         from src.service import omega_short_link
 
         url = _make_unique_url()
-        key = _make_uuid(url)
-        await _seed_row_direct(key, url, expired_time=timedelta(seconds=2592000 - 1000))
+        key = make_uuid5(url)
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, url, expired_time=timedelta(seconds=2592000 - 1000))
         short_link_row_tracker.append(key)
-        row_before = await _query_row_or_none(key)
+        row_before = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row_before is not None
 
         result = await omega_short_link.query_short_link_real_url(key)
 
         assert result == url
-        row_after = await _query_row_or_none(key)
+        row_after = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row_after is not None
         assert row_after.expired_at - row_before.expired_at >= timedelta(seconds=900)
 
@@ -319,43 +229,43 @@ class TestQueryShortLinkRealUrl:
         from src.service import omega_short_link
 
         url = _make_unique_url()
-        key = _make_uuid(url)
-        await _seed_row_direct(key, url, expired_time=timedelta(seconds=2592000 - 1000))
+        key = make_uuid5(url)
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, url, expired_time=timedelta(seconds=2592000 - 1000))
         short_link_row_tracker.append(key)
-        row_before = await _query_row_or_none(key)
+        row_before = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row_before is not None
 
         result = await omega_short_link.query_short_link_real_url(key, auto_refresh=False)
 
         assert result == url
-        row_after = await _query_row_or_none(key)
+        row_after = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row_after is not None
-        assert abs((row_after.expired_at - row_before.expired_at).total_seconds()) <= _ASSERT_TIME_TOLERANCE
+        assert_datetime_close(row_after.expired_at, row_before.expired_at)
 
     async def test_refresh_missing_creates_no_row(self, short_link_row_tracker) -> None:
         """auto_refresh 对不存在的键不产生任何缓存行"""
         from src.service import omega_short_link
 
-        key = _make_uuid(_make_unique_url())
+        key = make_uuid5(_make_unique_url())
         short_link_row_tracker.append(key)
 
         assert await omega_short_link.query_short_link_real_url(key) is None
-        assert await _query_row_or_none(key) is None
+        assert await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key) is None
 
     async def test_expired_row_returns_none(self, short_link_row_tracker) -> None:
         """已过期行返回 None, 且不触发续期"""
         from src.service import omega_short_link
 
         url = _make_unique_url()
-        key = _make_uuid(url)
-        await _seed_row_direct(key, url, expired_time=_TEST_DATETIME_PAST)
+        key = make_uuid5(url)
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, url, expired_time=TEST_DATETIME_PAST)
         short_link_row_tracker.append(key)
 
         assert await omega_short_link.query_short_link_real_url(key) is None
 
-        row = await _query_row_or_none(key)
+        row = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row is not None
-        assert row.expired_at == _TEST_DATETIME_PAST
+        assert row.expired_at == TEST_DATETIME_PAST
 
     async def test_empty_uuid_raises(self) -> None:
         """空 UUID 经由全局缓存键校验抛出 ValueError"""
@@ -369,8 +279,8 @@ class TestQueryShortLinkRealUrl:
         from src.service import omega_short_link
 
         url = _make_unique_url()
-        key = _make_uuid(url)
-        await _seed_row_direct(key, url)
+        key = make_uuid5(url)
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, url)
         short_link_row_tracker.append(key)
 
         first = await omega_short_link.query_short_link_real_url(key)
@@ -387,10 +297,10 @@ class TestSyncJob:
         """同步后内存缓存与数据库一致"""
         from src.service.omega_short_link import api as short_link_api
 
-        key1 = _make_uuid(_make_unique_url())
-        key2 = _make_uuid(_make_unique_url())
-        await _seed_row_direct(key1, 'value1')
-        await _seed_row_direct(key2, 'value2')
+        key1 = make_uuid5(_make_unique_url())
+        key2 = make_uuid5(_make_unique_url())
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key1, 'value1')
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key2, 'value2')
         short_link_row_tracker.extend([key1, key2])
 
         assert await short_link_api._sync_short_link_cache() is None
@@ -402,16 +312,18 @@ class TestSyncJob:
         """同步时物理删除已过期的行"""
         from src.service.omega_short_link import api as short_link_api
 
-        expired_key = _make_uuid(_make_unique_url())
-        alive_key = _make_uuid(_make_unique_url())
-        await _seed_row_direct(expired_key, 'expired_value', expired_time=_TEST_DATETIME_PAST)
-        await _seed_row_direct(alive_key, 'alive_value')
+        expired_key = make_uuid5(_make_unique_url())
+        alive_key = make_uuid5(_make_unique_url())
+        await seed_global_cache_row(
+            _SHORT_LINK_CACHE_NAME, expired_key, 'expired_value', expired_time=TEST_DATETIME_PAST
+        )
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, alive_key, 'alive_value')
         short_link_row_tracker.extend([expired_key, alive_key])
 
         await short_link_api._sync_short_link_cache()
 
-        assert await _query_row_or_none(expired_key) is None
-        assert await _query_row_or_none(alive_key) is not None
+        assert await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, expired_key) is None
+        assert await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, alive_key) is not None
         assert expired_key not in short_link_api._SHORT_LINK_CACHE._cache
 
     async def test_sync_failure_swallowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -439,7 +351,7 @@ class TestForwardEndpoint:
     async def test_redirect_hit(
             self,
             short_link_row_tracker,
-            forward_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """命中时 307 重定向且 Location 为真实 URL(无需任何鉴权 Headers)"""
         from src.service import omega_short_link
@@ -448,14 +360,14 @@ class TestForwardEndpoint:
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
-        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
+        response = await mounted_app_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
 
         assert response.status_code == 307
         assert response.headers['location'] == url
 
-    async def test_redirect_missing_returns_404(self, forward_client: TestClient) -> None:
-        response = await forward_client.get(
-            f'{_FORWARD_PATH_PREFIX}/go/{_make_uuid(_make_unique_url())}', allow_redirects=False
+    async def test_redirect_missing_returns_404(self, mounted_app_client: TestClient) -> None:
+        response = await mounted_app_client.get(
+            f'{_FORWARD_PATH_PREFIX}/go/{make_uuid5(_make_unique_url())}', allow_redirects=False
         )
 
         assert response.status_code == 404
@@ -464,7 +376,7 @@ class TestForwardEndpoint:
     async def test_redirect_preserves_complex_url(
             self,
             short_link_row_tracker,
-            forward_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """Location 原样保留带 query 参数与特殊字符的 URL"""
         from src.service import omega_short_link
@@ -473,7 +385,7 @@ class TestForwardEndpoint:
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
-        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
+        response = await mounted_app_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
 
         assert response.status_code == 307
         assert response.headers['location'] == url
@@ -481,41 +393,41 @@ class TestForwardEndpoint:
     async def test_redirect_triggers_refresh(
             self,
             short_link_row_tracker,
-            forward_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """访问跳转端点触发滑动续期"""
         url = _make_unique_url()
-        key = _make_uuid(url)
-        await _seed_row_direct(key, url, expired_time=timedelta(seconds=2592000 - 1000))
+        key = make_uuid5(url)
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, url, expired_time=timedelta(seconds=2592000 - 1000))
         short_link_row_tracker.append(key)
-        row_before = await _query_row_or_none(key)
+        row_before = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row_before is not None
 
-        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{key}', allow_redirects=False)
+        response = await mounted_app_client.get(f'{_FORWARD_PATH_PREFIX}/go/{key}', allow_redirects=False)
 
         assert response.status_code == 307
-        row_after = await _query_row_or_none(key)
+        row_after = await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, key)
         assert row_after is not None
         assert row_after.expired_at - row_before.expired_at >= timedelta(seconds=900)
 
     async def test_redirect_empty_value_returns_404(
             self,
             short_link_row_tracker,
-            forward_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         """缓存值为空串时处理器按不存在处理(404)"""
-        key = _make_uuid(_make_unique_url())
-        await _seed_row_direct(key, '')
+        key = make_uuid5(_make_unique_url())
+        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, key, '')
         short_link_row_tracker.append(key)
 
-        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{key}', allow_redirects=False)
+        response = await mounted_app_client.get(f'{_FORWARD_PATH_PREFIX}/go/{key}', allow_redirects=False)
 
         assert response.status_code == 404
 
     async def test_redirect_post_not_allowed(
             self,
             short_link_row_tracker,
-            forward_client: TestClient,
+            mounted_app_client: TestClient,
     ) -> None:
         from src.service import omega_short_link
 
@@ -523,6 +435,6 @@ class TestForwardEndpoint:
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
-        response = await forward_client.post(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}')
+        response = await mounted_app_client.post(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}')
 
         assert response.status_code == 405

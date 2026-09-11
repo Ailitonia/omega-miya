@@ -17,47 +17,10 @@ import pytest
 from nonebot.exception import FinishedException, PausedException, RejectedException
 from nonebug import App
 
+from tests.test_002_core.helpers import make_entity_init_params, make_mock_bot, registered_online_bot
+
 if TYPE_CHECKING:
     from nonebot.adapters import Event as BaseEvent
-
-    from src.service.omega_base.internal.entity import EntityInitParams
-
-
-@pytest.fixture
-def entity_target_register_sandbox(monkeypatch: pytest.MonkeyPatch):
-    """EntityTarget 注册表测试沙箱
-
-    以空表替换内部注册表 (monkeypatch 在测试后恢复原表), 测试内的注册操作不影响全局
-    """
-    from src.service.omega_base.internal import ENTITY_TARGET_REGISTER
-
-    monkeypatch.setattr(ENTITY_TARGET_REGISTER, '_map', {})
-    return ENTITY_TARGET_REGISTER
-
-
-def _make_entity_init_params(**overrides: Any) -> 'EntityInitParams':
-    """构造测试用 EntityInitParams (内部导入避免收集期初始化)"""
-    from src.database.internal.bot import BotType
-    from src.database.internal.entity import EntityType
-    from src.service.omega_base.internal.entity import EntityInitParams
-
-    params: dict[str, Any] = {
-        'bot_type': BotType.CONSOLE,
-        'bot_id': 'TEST_DUMMY_BOT',
-        'entity_type': EntityType.CONSOLE_USER,
-        'entity_id': 'TEST_DUMMY_ENTITY',
-        'entity_extra': {},
-    }
-    params.update(overrides)
-    return EntityInitParams(**params)
-
-
-def _make_mock_bot(adapter_name: str = 'OneBot V11') -> MagicMock:
-    """构造提供 adapter.get_name 与 self_id 的 mock Bot (用于不触发真实 API 的依赖提取)"""
-    bot = MagicMock()
-    bot.self_id = '10086'
-    bot.adapter.get_name.return_value = adapter_name
-    return bot
 
 
 # ------------------------------------------------------------------ #
@@ -259,7 +222,7 @@ class TestOmegaEntityInterface:
     def test_type_property(self) -> None:
         from src.service.omega_base import OmegaEntityInterface
 
-        params = _make_entity_init_params()
+        params = make_entity_init_params()
         interface = OmegaEntityInterface(entity_params=params)
 
         assert interface.type == params.entity_type
@@ -271,14 +234,14 @@ class TestOmegaEntityInterface:
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11GroupEntityTarget, OneBotV11UserEntityTarget
         from src.service.omega_base.middlewares.telegram import TelegramUserEntityTarget
 
-        console_params = _make_entity_init_params()
-        obv11_user_params = _make_entity_init_params(
+        console_params = make_entity_init_params()
+        obv11_user_params = make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_user', bot_id='10086', entity_id='10001',
         )
-        obv11_group_params = _make_entity_init_params(
+        obv11_group_params = make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_group', bot_id='10086', entity_id='10000',
         )
-        telegram_params = _make_entity_init_params(
+        telegram_params = make_entity_init_params(
             bot_type='Telegram', entity_type='telegram_user', bot_id='TG_BOT', entity_id='TG_USER',
         )
 
@@ -293,7 +256,7 @@ class TestOmegaEntityInterface:
     async def test_get_entity_target_unregistered_rejected(self, entity_target_register_sandbox) -> None:
         from src.service.omega_base import OmegaEntityInterface
 
-        interface = OmegaEntityInterface(entity_params=_make_entity_init_params())
+        interface = OmegaEntityInterface(entity_params=make_entity_init_params())
 
         with pytest.raises(ValueError, match='not registered'):
             interface.get_entity_target()
@@ -301,7 +264,7 @@ class TestOmegaEntityInterface:
     async def test_get_bot_offline_raises_key_error(self) -> None:
         from src.service.omega_base import OmegaEntityInterface
 
-        interface = OmegaEntityInterface(entity_params=_make_entity_init_params(bot_id='TEST_OFFLINE_BOT_456'))
+        interface = OmegaEntityInterface(entity_params=make_entity_init_params(bot_id='TEST_OFFLINE_BOT_456'))
 
         with pytest.raises(KeyError):
             interface.get_bot()
@@ -313,18 +276,17 @@ class TestOmegaEntityInterface:
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(self_id='TEST_ONLINE_BOT_456', base=Bot, adapter=adapter, auto_connect=False)
+            async with registered_online_bot(
+                    ctx, self_id='TEST_ONLINE_BOT_456', base=Bot, adapter=adapter,
+            ) as bot:
+                interface = OmegaEntityInterface(entity_params=make_entity_init_params(
+                    bot_type='OneBot V11',
+                    bot_id='TEST_ONLINE_BOT_456',
+                    entity_type='onebot_v11_user',
+                    entity_id='10001',
+                ))
 
-            interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
-                bot_type='OneBot V11', bot_id='TEST_ONLINE_BOT_456', entity_type='onebot_v11_user', entity_id='10001',
-            ))
-
-            driver_bots = nonebot.get_driver().bots
-            driver_bots['TEST_ONLINE_BOT_456'] = bot
-            try:
                 assert interface.get_bot() is bot
-            finally:
-                driver_bots.pop('TEST_ONLINE_BOT_456', None)
 
     async def test_send_entity_message_wires_target_and_bot(self, app: App, monkeypatch: pytest.MonkeyPatch) -> None:
         from nonebot.adapters.onebot.v11 import Adapter, Bot
@@ -337,12 +299,10 @@ class TestOmegaEntityInterface:
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(self_id='TEST_SEND_BOT_1', base=Bot, adapter=adapter, auto_connect=False)
-
-            driver_bots = nonebot.get_driver().bots
-            driver_bots['TEST_SEND_BOT_1'] = bot
-            try:
-                interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
+            async with registered_online_bot(
+                    ctx, self_id='TEST_SEND_BOT_1', base=Bot, adapter=adapter,
+            ) as bot:
+                interface = OmegaEntityInterface(entity_params=make_entity_init_params(
                     bot_type='OneBot V11', bot_id='TEST_SEND_BOT_1', entity_type='onebot_v11_group', entity_id='10000',
                 ))
 
@@ -354,8 +314,6 @@ class TestOmegaEntityInterface:
                 assert kwargs['at_sender'] is True
                 assert kwargs['target'].id == '10000'
                 assert kwargs['target'].private is False
-            finally:
-                driver_bots.pop('TEST_SEND_BOT_1', None)
 
     async def test_send_entity_message_auto_revoke_recalls(self, app: App, monkeypatch: pytest.MonkeyPatch) -> None:
         from nonebot.adapters.console import Adapter
@@ -378,7 +336,7 @@ class TestOmegaEntityInterface:
             driver_bots = nonebot.get_driver().bots
             driver_bots['TEST_SEND_BOT_2'] = bot
             try:
-                interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
+                interface = OmegaEntityInterface(entity_params=make_entity_init_params(
                     bot_id='TEST_SEND_BOT_2',
                 ))
 
@@ -392,8 +350,8 @@ class TestOmegaEntityInterface:
     async def test_console_get_entity_name_and_profile(self) -> None:
         from src.service.omega_base import OmegaEntityInterface
 
-        named = OmegaEntityInterface(entity_params=_make_entity_init_params(entity_name='tester'))
-        unnamed = OmegaEntityInterface(entity_params=_make_entity_init_params(entity_name=None))
+        named = OmegaEntityInterface(entity_params=make_entity_init_params(entity_name='tester'))
+        unnamed = OmegaEntityInterface(entity_params=make_entity_init_params(entity_name=None))
 
         assert await named.get_entity_name() == 'tester'
         assert await unnamed.get_entity_name() == 'ConsoleUser'
@@ -411,7 +369,7 @@ class TestOmegaEntityInterface:
         monkeypatch.setattr(OneBotV11UserEntityTarget, 'call_api_get_entity_name', name_mock)
         monkeypatch.setattr(OneBotV11UserEntityTarget, 'call_api_get_entity_profile_image_url', profile_mock)
 
-        interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
+        interface = OmegaEntityInterface(entity_params=make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_user', bot_id='10086', entity_id='10001',
         ))
 
@@ -429,7 +387,7 @@ class TestMiddlewareEntityTargets:
 
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11UserEntityTarget
 
-        target = OneBotV11UserEntityTarget(entity_params=_make_entity_init_params(
+        target = OneBotV11UserEntityTarget(entity_params=make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_user', bot_id='10086', entity_id='10001',
         ))
 
@@ -443,7 +401,7 @@ class TestMiddlewareEntityTargets:
     async def test_obv11_group_target_construction(self) -> None:
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11GroupEntityTarget
 
-        target = OneBotV11GroupEntityTarget(entity_params=_make_entity_init_params(
+        target = OneBotV11GroupEntityTarget(entity_params=make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_group', bot_id='10086', entity_id='10000',
         ))
 
@@ -456,10 +414,10 @@ class TestMiddlewareEntityTargets:
         """entity_extra 缺少 is_private 键时应按 entity_type 推断而非抛出 KeyError"""
         from src.service.omega_base.middlewares.telegram import TelegramGroupEntityTarget, TelegramUserEntityTarget
 
-        user_params = _make_entity_init_params(
+        user_params = make_entity_init_params(
             bot_type='Telegram', entity_type='telegram_user', bot_id='TG_BOT', entity_id='TG_USER', entity_extra={},
         )
-        group_params = _make_entity_init_params(
+        group_params = make_entity_init_params(
             bot_type='Telegram', entity_type='telegram_group', bot_id='TG_BOT', entity_id='TG_GROUP', entity_extra={},
         )
 
@@ -472,7 +430,7 @@ class TestMiddlewareEntityTargets:
     async def test_telegram_target_honors_explicit_extra(self) -> None:
         from src.service.omega_base.middlewares.telegram import TelegramGroupEntityTarget
 
-        params = _make_entity_init_params(
+        params = make_entity_init_params(
             bot_type='Telegram',
             entity_type='telegram_group',
             bot_id='TG_BOT',
@@ -488,9 +446,9 @@ class TestMiddlewareEntityTargets:
     async def test_console_targets_construction(self) -> None:
         from src.service.omega_base.middlewares.console import ConsoleChannelEntityTarget, ConsoleUserEntityTarget
 
-        user_target = ConsoleUserEntityTarget(entity_params=_make_entity_init_params())._construct_target()
+        user_target = ConsoleUserEntityTarget(entity_params=make_entity_init_params())._construct_target()
         channel_target = ConsoleChannelEntityTarget(
-            entity_params=_make_entity_init_params(entity_type='console_channel'),
+            entity_params=make_entity_init_params(entity_type='console_channel'),
         )._construct_target()
 
         assert user_target.private is True
@@ -499,7 +457,7 @@ class TestMiddlewareEntityTargets:
     async def test_obv11_user_profile_image_url_versions(self) -> None:
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11UserEntityTarget
 
-        target = OneBotV11UserEntityTarget(entity_params=_make_entity_init_params(
+        target = OneBotV11UserEntityTarget(entity_params=make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_user', entity_id='10001',
         ))
 
@@ -516,7 +474,7 @@ class TestMiddlewareEntityTargets:
     async def test_obv11_group_profile_image_url(self) -> None:
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11GroupEntityTarget
 
-        target = OneBotV11GroupEntityTarget(entity_params=_make_entity_init_params(
+        target = OneBotV11GroupEntityTarget(entity_params=make_entity_init_params(
             bot_type='OneBot V11', entity_type='onebot_v11_group', entity_id='10000',
         ))
 
@@ -531,14 +489,12 @@ class TestMiddlewareEntityTargets:
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(self_id='TEST_NAME_BOT_1', base=Bot, adapter=adapter, auto_connect=False)
-
-            driver_bots = nonebot.get_driver().bots
-            driver_bots['TEST_NAME_BOT_1'] = bot
-            try:
+            async with registered_online_bot(
+                    ctx, self_id='TEST_NAME_BOT_1', base=Bot, adapter=adapter,
+            ):
                 ctx.should_call_api('get_stranger_info', {'user_id': '10001'}, {'nickname': '测试用户'})
 
-                interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
+                interface = OmegaEntityInterface(entity_params=make_entity_init_params(
                     bot_type='OneBot V11',
                     bot_id='TEST_NAME_BOT_1',
                     entity_type='onebot_v11_user',
@@ -546,8 +502,6 @@ class TestMiddlewareEntityTargets:
                 ))
 
                 assert await interface.get_entity_name() == '测试用户'
-            finally:
-                driver_bots.pop('TEST_NAME_BOT_1', None)
 
     async def test_telegram_get_entity_name_via_api(self, app: App) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
@@ -557,17 +511,13 @@ class TestMiddlewareEntityTargets:
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(
-                self_id='TEST_NAME_BOT_2',
-                base=Bot,
-                adapter=adapter,
-                auto_connect=False,
-                config=TelegramBotConfig(token='123456:TEST_TOKEN'),
-            )
-
-            driver_bots = nonebot.get_driver().bots
-            driver_bots['TEST_NAME_BOT_2'] = bot
-            try:
+            async with registered_online_bot(
+                    ctx,
+                    self_id='TEST_NAME_BOT_2',
+                    base=Bot,
+                    adapter=adapter,
+                    config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+            ):
                 ctx.should_call_api(
                     'get_chat',
                     {'chat_id': '-1001234567'},
@@ -580,7 +530,7 @@ class TestMiddlewareEntityTargets:
                     },
                 )
 
-                interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
+                interface = OmegaEntityInterface(entity_params=make_entity_init_params(
                     bot_type='Telegram',
                     bot_id='TEST_NAME_BOT_2',
                     entity_type='telegram_group',
@@ -588,8 +538,6 @@ class TestMiddlewareEntityTargets:
                 ))
 
                 assert await interface.get_entity_name() == '群标题'
-            finally:
-                driver_bots.pop('TEST_NAME_BOT_2', None)
 
     async def test_telegram_get_entity_name_falls_back_to_first_name(self, app: App) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
@@ -599,17 +547,13 @@ class TestMiddlewareEntityTargets:
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(
-                self_id='TEST_NAME_BOT_3',
-                base=Bot,
-                adapter=adapter,
-                auto_connect=False,
-                config=TelegramBotConfig(token='123456:TEST_TOKEN'),
-            )
-
-            driver_bots = nonebot.get_driver().bots
-            driver_bots['TEST_NAME_BOT_3'] = bot
-            try:
+            async with registered_online_bot(
+                    ctx,
+                    self_id='TEST_NAME_BOT_3',
+                    base=Bot,
+                    adapter=adapter,
+                    config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+            ):
                 ctx.should_call_api(
                     'get_chat',
                     {'chat_id': '10001'},
@@ -622,13 +566,11 @@ class TestMiddlewareEntityTargets:
                     },
                 )
 
-                target = TelegramUserEntityTarget(entity_params=_make_entity_init_params(
+                target = TelegramUserEntityTarget(entity_params=make_entity_init_params(
                     bot_type='Telegram', bot_id='TEST_NAME_BOT_3', entity_type='telegram_user', entity_id='10001',
                 ))
 
                 assert await target.call_api_get_entity_name() == '名字'
-            finally:
-                driver_bots.pop('TEST_NAME_BOT_3', None)
 
     async def test_telegram_profile_image_url_without_photo_raises(self, app: App) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
@@ -638,17 +580,13 @@ class TestMiddlewareEntityTargets:
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(
-                self_id='TEST_NAME_BOT_4',
-                base=Bot,
-                adapter=adapter,
-                auto_connect=False,
-                config=TelegramBotConfig(token='123456:TEST_TOKEN'),
-            )
-
-            driver_bots = nonebot.get_driver().bots
-            driver_bots['TEST_NAME_BOT_4'] = bot
-            try:
+            async with registered_online_bot(
+                    ctx,
+                    self_id='TEST_NAME_BOT_4',
+                    base=Bot,
+                    adapter=adapter,
+                    config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+            ):
                 ctx.should_call_api(
                     'get_chat',
                     {'chat_id': '10001'},
@@ -661,23 +599,22 @@ class TestMiddlewareEntityTargets:
                     },
                 )
 
-                target = TelegramUserEntityTarget(entity_params=_make_entity_init_params(
+                target = TelegramUserEntityTarget(entity_params=make_entity_init_params(
                     bot_type='Telegram', bot_id='TEST_NAME_BOT_4', entity_type='telegram_user', entity_id='10001',
                 ))
 
                 with pytest.raises(ValueError, match='no photo'):
                     await target.call_api_get_entity_profile_image_url()
-            finally:
-                driver_bots.pop('TEST_NAME_BOT_4', None)
 
 
 class TestOmegaMatcherInterface:
     """OmegaMatcherInterface 事件接口测试"""
 
-    def test_constructor_defaults(self) -> None:
+    def test_constructor_and_depend_factory(self) -> None:
+        """直接构造默认 acquire_type='event'; depend 工厂按给定 acquire_type 构造接口实例"""
         from src.service.omega_base import OmegaMatcherInterface
 
-        bot, event, matcher = _make_mock_bot(), _make_obv11_group_message_event(), MagicMock()
+        bot, event, matcher = make_mock_bot(), _make_obv11_group_message_event(), MagicMock()
 
         interface = OmegaMatcherInterface(bot=bot, event=event, matcher=matcher)
 
@@ -686,19 +623,14 @@ class TestOmegaMatcherInterface:
         assert interface.matcher is matcher
         assert interface.acquire_type == 'event'
 
-    def test_depend_factory(self) -> None:
-        from src.service.omega_base import OmegaMatcherInterface
-
-        bot, event, matcher = _make_mock_bot(), _make_obv11_group_message_event(), MagicMock()
-
         depend_callable = OmegaMatcherInterface.depend(acquire_type='user')
-        interface = depend_callable(bot, event, matcher)
+        depend_interface = depend_callable(bot, event, matcher)
 
-        assert isinstance(interface, OmegaMatcherInterface)
-        assert interface.bot is bot
-        assert interface.event is event
-        assert interface.matcher is matcher
-        assert interface.acquire_type == 'user'
+        assert isinstance(depend_interface, OmegaMatcherInterface)
+        assert depend_interface.bot is bot
+        assert depend_interface.event is event
+        assert depend_interface.matcher is matcher
+        assert depend_interface.acquire_type == 'user'
 
     def test_get_event_depend_cls_resolves(self) -> None:
         from src.service.omega_base import OmegaMatcherInterface
@@ -734,7 +666,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base import OmegaMatcherInterface
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11GroupMessageEventDepend
 
-        bot = _make_mock_bot()
+        bot = make_mock_bot()
         event = _make_obv11_group_message_event()
         interface = OmegaMatcherInterface(bot=bot, event=event, matcher=MagicMock())
 
@@ -751,10 +683,10 @@ class TestOmegaMatcherInterface:
         event = _make_obv11_group_message_event(group_id=20000, user_id=30001, nickname='nick')
 
         event_params = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=event, matcher=MagicMock(),
+            bot=make_mock_bot(), event=event, matcher=MagicMock(),
         ).extract_current_entity_params()
         user_params = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=event, matcher=MagicMock(), acquire_type='user',
+            bot=make_mock_bot(), event=event, matcher=MagicMock(), acquire_type='user',
         ).extract_current_entity_params()
 
         assert event_params.entity_type is EntityType.ONEBOT_V11_GROUP
@@ -767,7 +699,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base import OmegaEntityInterface, OmegaMatcherInterface
 
         interface = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=_make_obv11_group_message_event(group_id=20000), matcher=MagicMock(),
+            bot=make_mock_bot(), event=_make_obv11_group_message_event(group_id=20000), matcher=MagicMock(),
         )
 
         entity_interface = interface.get_current_entity_interface()
@@ -782,7 +714,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base.internal import OmegaEntity
 
         interface = OmegaMatcherInterface(
-            bot=_make_mock_bot(),
+            bot=make_mock_bot(),
             event=_make_obv11_group_message_event(group_id=20000, user_id=30001),
             matcher=MagicMock(),
         )
@@ -874,7 +806,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base import OmegaMatcherInterface
 
         interface = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=_make_obv11_group_message_event(), matcher=MagicMock(),
+            bot=make_mock_bot(), event=_make_obv11_group_message_event(), matcher=MagicMock(),
         )
         mock_depend = MagicMock()
         mock_depend.send = AsyncMock(return_value=MagicMock())
@@ -907,76 +839,6 @@ class TestOmegaMatcherInterface:
         mock_depend.revoke_bot_sent_msg.assert_awaited_once()
         assert mock_depend.revoke_bot_sent_msg.await_args.kwargs['revoke_delay'] == 7
 
-    async def test_finish_raises_after_send(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from nonebot.exception import FinishedException
-
-        interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
-
-        with pytest.raises(FinishedException):
-            await interface.finish('done')
-
-        mock_depend.send.assert_awaited_once()
-
-    async def test_pause_raises_after_send(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from nonebot.exception import PausedException
-
-        interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
-
-        with pytest.raises(PausedException):
-            await interface.pause_at_sender('wait')
-
-        mock_depend.send.assert_awaited_once()
-
-    async def test_reject_raises_after_send(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from nonebot.exception import RejectedException
-
-        interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
-
-        with pytest.raises(RejectedException):
-            await interface.reject_reply('retry')
-
-        mock_depend.send.assert_awaited_once()
-
-    async def test_reject_arg_delegates_to_matcher(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from nonebot.exception import RejectedException
-
-        from src.service.omega_base import OmegaMatcherInterface
-
-        matcher = MagicMock()
-        matcher.reject_arg = AsyncMock(side_effect=RejectedException)
-        interface = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=_make_obv11_group_message_event(), matcher=matcher,
-        )
-        mock_depend = MagicMock()
-        mock_depend.send = AsyncMock(return_value=MagicMock())
-        monkeypatch.setattr(OmegaMatcherInterface, 'get_event_depend', lambda self: mock_depend)
-
-        with pytest.raises(RejectedException):
-            await interface.reject_arg('key', 'retry')
-
-        mock_depend.send.assert_awaited_once()
-        matcher.reject_arg.assert_awaited_once_with('key')
-
-    async def test_reject_receive_delegates_to_matcher(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from nonebot.exception import RejectedException
-
-        from src.service.omega_base import OmegaMatcherInterface
-
-        matcher = MagicMock()
-        matcher.reject_receive = AsyncMock(side_effect=RejectedException)
-        interface = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=_make_obv11_group_message_event(), matcher=matcher,
-        )
-        mock_depend = MagicMock()
-        mock_depend.send = AsyncMock(return_value=MagicMock())
-        monkeypatch.setattr(OmegaMatcherInterface, 'get_event_depend', lambda self: mock_depend)
-
-        with pytest.raises(RejectedException):
-            await interface.reject_receive('key', 'retry')
-
-        mock_depend.send.assert_awaited_once()
-        matcher.reject_receive.assert_awaited_once_with('key')
-
     async def test_get_target_entity_classmethod(self) -> None:
         """get_target_entity 类方法应经事件解析参数并以给定会话构造 OmegaEntity"""
         from src.database.internal.entity import EntityType
@@ -984,7 +846,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base.internal import OmegaEntity
 
         entity = OmegaMatcherInterface.get_target_entity(
-            bot=_make_mock_bot(),
+            bot=make_mock_bot(),
             event=_make_obv11_group_message_event(group_id=20000, user_id=30001),
             db_session=MagicMock(),
             acquire_type='user',
@@ -1061,7 +923,7 @@ class TestOmegaMatcherInterface:
         matcher.reject_arg = AsyncMock(side_effect=RejectedException)
         matcher.reject_receive = AsyncMock(side_effect=RejectedException)
         interface = OmegaMatcherInterface(
-            bot=_make_mock_bot(), event=_make_obv11_group_message_event(), matcher=matcher,
+            bot=make_mock_bot(), event=_make_obv11_group_message_event(), matcher=matcher,
         )
         mock_depend = MagicMock()
         mock_depend.send = AsyncMock(return_value=MagicMock())
@@ -1085,7 +947,7 @@ class TestOneBotV11EventDepends:
         from src.service.omega_base import OmegaMatcherInterface
 
         depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
-        return depend_cls(bot=_make_mock_bot('OneBot V11'), event=event)
+        return depend_cls(bot=make_mock_bot(adapter_name='OneBot V11'), event=event)
 
     async def test_group_message_event_params(self) -> None:
         from src.database.internal.entity import EntityType
@@ -1137,7 +999,7 @@ class TestOneBotV11EventDepends:
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11NotifyEventDepend
 
         event = _make_obv11_poke_notify_event(group_id=None, user_id=30001)
-        depend = OneBotV11NotifyEventDepend(bot=_make_mock_bot('OneBot V11'), event=event)
+        depend = OneBotV11NotifyEventDepend(bot=make_mock_bot(adapter_name='OneBot V11'), event=event)
 
         event_params = depend.extract_entity_params('event')
 
@@ -1240,7 +1102,7 @@ class TestTelegramEventDepends:
         from src.service.omega_base import OmegaMatcherInterface
 
         depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
-        return depend_cls(bot=_make_mock_bot('Telegram'), event=event)
+        return depend_cls(bot=make_mock_bot(adapter_name='Telegram'), event=event)
 
     async def test_group_message_event_params(self) -> None:
         from src.database.internal.entity import EntityType
@@ -1305,7 +1167,7 @@ class TestTelegramEventDepends:
         from src.database.internal.entity import EntityType
         from src.service.omega_base.middlewares.telegram import TelegramEventDepend
 
-        bot = _make_mock_bot('Telegram')
+        bot = make_mock_bot(adapter_name='Telegram')
         bot.self_id = 'TG_BOT_SELF'
         depend = TelegramEventDepend(bot=bot, event=_make_telegram_message_event('group'))
 
@@ -1322,8 +1184,10 @@ class TestTelegramEventDepends:
         chat_with_username = _make_telegram_message_event('group', chat_username='tester')
         chat_without_username = _make_telegram_message_event('group', chat_username=None)
 
-        depend_with = TelegramMessageEventDepend(bot=_make_mock_bot('Telegram'), event=chat_with_username)
-        depend_without = TelegramMessageEventDepend(bot=_make_mock_bot('Telegram'), event=chat_without_username)
+        depend_with = TelegramMessageEventDepend(bot=make_mock_bot(adapter_name='Telegram'), event=chat_with_username)
+        depend_without = TelegramMessageEventDepend(
+            bot=make_mock_bot(adapter_name='Telegram'), event=chat_without_username,
+        )
 
         assert depend_with.get_user_nickname() == 'tester'
         assert depend_without.get_user_nickname() == ''
@@ -1367,7 +1231,7 @@ class TestConsoleEventDepends:
         from src.service.omega_base import OmegaMatcherInterface
 
         depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
-        return depend_cls(bot=_make_mock_bot('Console'), event=event)
+        return depend_cls(bot=make_mock_bot(adapter_name='Console'), event=event)
 
     async def test_event_params(self) -> None:
         from src.database.internal.entity import EntityType

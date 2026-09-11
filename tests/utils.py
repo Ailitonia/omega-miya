@@ -9,16 +9,15 @@
 """
 
 from collections.abc import Iterable, Mapping
-from typing import Optional, Union
 
 from nonebot.adapters import Event, Message, MessageSegment
 from pydantic import create_model
 
 
 def escape_text(s: str, *, escape_comma: bool = True) -> str:
-    s = s.replace("&", "&amp;").replace("[", "&#91;").replace("]", "&#93;")
+    s = s.replace('&', '&amp;').replace('[', '&#91;').replace(']', '&#93;')
     if escape_comma:
-        s = s.replace(",", "&#44;")
+        s = s.replace(',', '&#44;')
     return s
 
 
@@ -29,22 +28,22 @@ def make_fake_message():
             return FakeMessage
 
         def __str__(self) -> str:
-            return self.data["text"] if self.type == "text" else f"[fake:{self.type}]"
+            return self.data['text'] if self.type == 'text' else f'[fake:{self.type}]'
 
         @classmethod
         def text(cls, text: str):
-            return cls("text", {"text": text})
+            return cls('text', {'text': text})
 
         @staticmethod
         def image(url: str):
-            return FakeMessageSegment("image", {"url": url})
+            return FakeMessageSegment('image', {'url': url})
 
         @staticmethod
-        def nested(content: "FakeMessage"):
-            return FakeMessageSegment("node", {"content": content})
+        def nested(content: 'FakeMessage'):
+            return FakeMessageSegment('node', {'content': content})
 
         def is_text(self) -> bool:
-            return self.type == "text"
+            return self.type == 'text'
 
     class FakeMessage(Message):
         @classmethod
@@ -52,7 +51,7 @@ def make_fake_message():
             return FakeMessageSegment
 
         @staticmethod
-        def _construct(msg: Union[str, Iterable[Mapping]]):
+        def _construct(msg: str | Iterable[Mapping]):
             if isinstance(msg, str):
                 yield FakeMessageSegment.text(msg)
             else:
@@ -68,20 +67,20 @@ def make_fake_message():
 
 
 def make_fake_event(
-        _base: Optional[type[Event]] = None,
-        _type: str = "message",
-        _name: str = "test",
-        _description: str = "test",
-        _user_id: Optional[str] = "test",
-        _session_id: Optional[str] = "test",
-        _message: Optional[Message] = None,
+        _base: type[Event] | None = None,
+        _type: str = 'message',
+        _name: str = 'test',
+        _description: str = 'test',
+        _user_id: str | None = 'test',
+        _session_id: str | None = 'test',
+        _message: Message | None = None,
         _to_me: bool = True,
         **fields,
 ) -> type[Event]:
-    _Fake = create_model("_Fake", __base__=_base or Event, **fields)
+    _Fake = create_model('_Fake', __base__=_base or Event, **fields)
 
     class FakeEvent(_Fake):
-        model_config = {"extra": "forbid"}  # noqa: RUF012
+        model_config = {'extra': 'forbid'}  # noqa: RUF012
 
         def get_type(self) -> str:
             return _type
@@ -102,7 +101,7 @@ def make_fake_event(
                 return _session_id
             raise NotImplementedError
 
-        def get_message(self) -> "Message":
+        def get_message(self) -> 'Message':
             if _message is not None:
                 return _message
             raise NotImplementedError

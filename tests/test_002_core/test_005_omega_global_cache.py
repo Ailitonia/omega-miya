@@ -14,15 +14,19 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete
 from sqlalchemy.exc import NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.global_cache import GlobalCache
-    from src.service.omega_global_cache import OmegaGlobalCache
+from tests.test_002_core.helpers import (
+    TEST_DATETIME_PAST,
+    assert_close_to_now,
+    delete_global_cache_rows,
+    query_all_global_cache_rows,
+    query_global_cache_row_or_none,
+    seed_global_cache_row,
+)
 
-_TEST_DATETIME_PAST = datetime(1990, 1, 1)
-"""测试用已过期时间点"""
+if TYPE_CHECKING:
+    from src.service.omega_global_cache import OmegaGlobalCache
 
 _NAME_MAX_LENGTH = 64
 """数据库表 cache_name 字段长度上限 (String(64))"""
@@ -30,66 +34,10 @@ _NAME_MAX_LENGTH = 64
 _KEY_MAX_LENGTH = 64
 """数据库表 cache_key 字段长度上限 (String(64))"""
 
-_ASSERT_TIME_TOLERANCE = 2.0
-"""时间断言容差(秒), 数据库 DateTime 可能截断到秒"""
-
 
 async def _unexpected_query(*args: Any, **kwargs: Any) -> str:
     """打桩用: 不应被调用的数据库查询"""
     raise AssertionError('不应访问数据库')
-
-
-async def _seed_row(
-        cache_name: str,
-        cache_key: str,
-        cache_value: str,
-        expired_time: datetime | timedelta | None = None,
-) -> None:
-    """以独立会话直接向数据库写入(或更新)缓存行并提交, 模拟外部写入"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        await dal.add_update_exist(
-            cache_name=cache_name,
-            cache_key=cache_key,
-            cache_value=cache_value,
-            expired_time=expired_time,
-        )
-        await dal.commit_session()
-
-
-async def _query_row_or_none(cache_name: str, cache_key: str, *, include_expired: bool = True) -> 'GlobalCache | None':
-    """以独立会话查询缓存行, 不存在返回 None"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        try:
-            return await dal.query_unique(cache_name, cache_key, include_expired=include_expired)
-        except NoResultFound:
-            return None
-
-
-async def _query_all_rows(cache_name: str, *, include_expired: bool = True) -> list['GlobalCache']:
-    """以独立会话查询指定 cache_name 的全部缓存行"""
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        return await dal.query_series(cache_name, include_expired=include_expired)
-
-
-async def _delete_cache_rows(cache_name: str) -> None:
-    """物理删除指定 cache_name 的全部数据库行(含未过期)"""
-    from src.database.helpers import database_session
-    from src.database.schema import GlobalCacheOrm
-
-    async with database_session() as session:
-        await session.execute(delete(GlobalCacheOrm).where(GlobalCacheOrm.cache_name == cache_name))
-
-
-def _assert_close_to_now(target: datetime, expected_delta: timedelta) -> None:
-    """断言目标时间与 当前时间+expected_delta 的偏差在容差内"""
-    expected = datetime.now() + expected_delta
-    assert abs((target - expected).total_seconds()) <= _ASSERT_TIME_TOLERANCE
 
 
 @pytest.fixture
@@ -108,7 +56,7 @@ async def cache_factory() -> AsyncGenerator[Callable[..., 'OmegaGlobalCache'], N
 
     for cache in created:
         cache_module._REGISTERED_CACHE.discard(cache._cache_name)
-        await _delete_cache_rows(cache._cache_name)
+        await delete_global_cache_rows(cache._cache_name)
 
 
 class TestModuleContract:
@@ -186,22 +134,16 @@ class TestInitAndRegistry:
         assert cache._cache_name == name
         assert name in cache_module._REGISTERED_CACHE
 
-    async def test_register_duplicate_raises(self, cache_factory) -> None:
+    @pytest.mark.parametrize('wrap_whitespace', [False, True])
+    async def test_register_duplicate_raises(self, cache_factory, wrap_whitespace: bool) -> None:
+        """同名重复注册抛出 ValueError; 名称经 strip 归一化后判重, 带空白包装的同名同样被拒绝"""
         from src.service.omega_global_cache import OmegaGlobalCache
 
         cache = cache_factory()
+        duplicate_name = f'  {cache._cache_name}  ' if wrap_whitespace else cache._cache_name
 
         with pytest.raises(ValueError, match='already registered'):
-            OmegaGlobalCache(cache._cache_name)
-
-    async def test_register_duplicate_after_strip_raises(self, cache_factory) -> None:
-        """名称经 strip 归一化后判重, 带空白包装的同名也应被拒绝"""
-        from src.service.omega_global_cache import OmegaGlobalCache
-
-        cache = cache_factory()
-
-        with pytest.raises(ValueError, match='already registered'):
-            OmegaGlobalCache(f'  {cache._cache_name}  ')
+            OmegaGlobalCache(duplicate_name)
 
     async def test_register_failure_not_pollute_registry(self, cache_factory) -> None:
         """重复注册失败后, 注册表内容不应发生变化"""
@@ -216,18 +158,13 @@ class TestInitAndRegistry:
 
         assert cache_module._REGISTERED_CACHE == snapshot
 
-    async def test_register_empty_name_raises(self) -> None:
+    @pytest.mark.parametrize('cache_name', ['', '   '])
+    async def test_register_invalid_name_raises(self, cache_name: str) -> None:
+        """空名称或纯空白名称(经 strip 后为空)主动抛出 ValueError"""
         from src.service.omega_global_cache import OmegaGlobalCache
 
         with pytest.raises(ValueError, match='Invalid cache_name'):
-            OmegaGlobalCache('')
-
-    async def test_register_blank_name_raises(self) -> None:
-        """纯空白名称经 strip 后为空, 同样应被拒绝"""
-        from src.service.omega_global_cache import OmegaGlobalCache
-
-        with pytest.raises(ValueError, match='Invalid cache_name'):
-            OmegaGlobalCache('   ')
+            OmegaGlobalCache(cache_name)
 
     async def test_register_invalid_name_not_pollute_registry(self) -> None:
         """非法名称注册失败后, 空名称不应残留于注册表"""
@@ -294,12 +231,12 @@ class TestExpiryCalculation:
         expired_at = cache.expired_at
 
         assert isinstance(expired_at, datetime)
-        _assert_close_to_now(expired_at, timedelta(seconds=86400))
+        assert_close_to_now(expired_at, timedelta(seconds=86400))
 
     async def test_expired_at_custom_ttl(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=60)
 
-        _assert_close_to_now(cache.expired_at, timedelta(seconds=60))
+        assert_close_to_now(cache.expired_at, timedelta(seconds=60))
 
     async def test_expired_at_refresh_each_access(self, cache_factory) -> None:
         """expired_at 每次访问重新基于当前时间计算, 结果单调不减"""
@@ -313,23 +250,23 @@ class TestExpiryCalculation:
     async def test_set_expired_at_zero_delta(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=3600)
 
-        _assert_close_to_now(cache.set_expired_at(), timedelta(seconds=3600))
-        _assert_close_to_now(cache.set_expired_at(ttl_delta=0), timedelta(seconds=3600))
+        assert_close_to_now(cache.set_expired_at(), timedelta(seconds=3600))
+        assert_close_to_now(cache.set_expired_at(ttl_delta=0), timedelta(seconds=3600))
 
     async def test_set_expired_at_positive_delta(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=3600)
 
-        _assert_close_to_now(cache.set_expired_at(ttl_delta=600), timedelta(seconds=4200))
+        assert_close_to_now(cache.set_expired_at(ttl_delta=600), timedelta(seconds=4200))
 
     async def test_set_expired_at_negative_delta(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=60)
 
-        _assert_close_to_now(cache.set_expired_at(ttl_delta=-30), timedelta(seconds=30))
+        assert_close_to_now(cache.set_expired_at(ttl_delta=-30), timedelta(seconds=30))
 
     async def test_expired_at_zero_ttl(self, cache_factory) -> None:
         cache = cache_factory(default_ttl=0)
 
-        _assert_close_to_now(cache.expired_at, timedelta(seconds=0))
+        assert_close_to_now(cache.expired_at, timedelta(seconds=0))
 
 
 class TestLoad:
@@ -343,7 +280,7 @@ class TestLoad:
     async def test_load_from_db_and_backfill_memory(self, cache_factory) -> None:
         """内存未命中时从数据库加载, 并回填内存缓存"""
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'key1', 'value1')
+        await seed_global_cache_row(cache._cache_name, 'key1', 'value1')
 
         value = await cache.load('key1')
 
@@ -368,7 +305,7 @@ class TestLoad:
 
     async def test_load_expired_row_returns_none(self, cache_factory) -> None:
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'key1', 'value1', expired_time=_TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'key1', 'value1', expired_time=TEST_DATETIME_PAST)
 
         assert await cache.load('key1') is None
 
@@ -376,7 +313,7 @@ class TestLoad:
         """内存级缓存对象存续期间不失效: 外部更新数据库后, load 仍返回内存中的旧值"""
         cache = cache_factory()
         await cache.save('key1', 'old_value')
-        await _seed_row(cache._cache_name, 'key1', 'new_value')
+        await seed_global_cache_row(cache._cache_name, 'key1', 'new_value')
 
         assert await cache.load('key1') == 'old_value'
 
@@ -452,16 +389,19 @@ class TestSave:
     """save 写入行为测试(真实数据库)"""
 
     async def test_save_persists_to_db(self, cache_factory) -> None:
+        """save 返回实际写入的值(str), 与内存缓存及数据库行一致, 行过期时间基于 ttl 计算"""
         cache = cache_factory(default_ttl=3600)
 
         result = await cache.save('key1', 'value1')
 
+        assert isinstance(result, str)
         assert result == 'value1'
-        row = await _query_row_or_none(cache._cache_name, 'key1')
+        assert cache._cache['key1'] == result
+
+        row = await query_global_cache_row_or_none(cache._cache_name, 'key1')
         assert row is not None
-        assert row.cache_value == 'value1'
-        _assert_close_to_now(row.expired_at, timedelta(seconds=3600))
-        assert cache._cache['key1'] == 'value1'
+        assert row.cache_value == result
+        assert_close_to_now(row.expired_at, timedelta(seconds=3600))
 
     async def test_save_upsert_updates_single_row(self, cache_factory) -> None:
         """重复保存同一 key 为更新(upsert)而非插入, 数据库仍只有一行, 且返回更新后的新值"""
@@ -470,7 +410,7 @@ class TestSave:
         assert await cache.save('key1', 'value1') == 'value1'
         assert await cache.save('key1', 'value2') == 'value2'
 
-        rows = await _query_all_rows(cache._cache_name)
+        rows = await query_all_global_cache_rows(cache._cache_name)
         assert len(rows) == 1
         assert rows[0].cache_value == 'value2'
         assert cache._cache['key1'] == 'value2'
@@ -481,9 +421,9 @@ class TestSave:
         result = await cache.save('key1', 'value1', ttl_delta=600)
 
         assert result == 'value1'
-        row = await _query_row_or_none(cache._cache_name, 'key1')
+        row = await query_global_cache_row_or_none(cache._cache_name, 'key1')
         assert row is not None
-        _assert_close_to_now(row.expired_at, timedelta(seconds=4200))
+        assert_close_to_now(row.expired_at, timedelta(seconds=4200))
 
     async def test_save_immediately_expired(self, cache_factory) -> None:
         """ttl_delta 大负偏移使行立即过期: 内存仍持有值, 数据库默认查询已查不到(内存/库语义分歧边界)"""
@@ -493,9 +433,9 @@ class TestSave:
 
         assert result == 'value1'
         assert cache._cache['key1'] == 'value1'
-        assert await _query_row_or_none(cache._cache_name, 'key1', include_expired=False) is None
+        assert await query_global_cache_row_or_none(cache._cache_name, 'key1', include_expired=False) is None
 
-        row = await _query_row_or_none(cache._cache_name, 'key1', include_expired=True)
+        row = await query_global_cache_row_or_none(cache._cache_name, 'key1', include_expired=True)
         assert row is not None
         assert row.cache_value == 'value1'
 
@@ -506,7 +446,7 @@ class TestSave:
 
         assert result == ''
         assert isinstance(result, str)
-        row = await _query_row_or_none(cache._cache_name, 'key1')
+        row = await query_global_cache_row_or_none(cache._cache_name, 'key1')
         assert row is not None
         assert row.cache_value == ''
         assert cache._cache['key1'] == ''
@@ -517,7 +457,7 @@ class TestSave:
         result = await cache.save('测试键', '测试值 ✓')
 
         assert result == '测试值 ✓'
-        row = await _query_row_or_none(cache._cache_name, '测试键')
+        row = await query_global_cache_row_or_none(cache._cache_name, '测试键')
         assert row is not None
         assert row.cache_value == '测试值 ✓'
         assert cache._cache['测试键'] == '测试值 ✓'
@@ -529,7 +469,7 @@ class TestSave:
         result = await cache.save('key1', value)
 
         assert result == value
-        row = await _query_row_or_none(cache._cache_name, 'key1')
+        row = await query_global_cache_row_or_none(cache._cache_name, 'key1')
         assert row is not None
         assert row.cache_value == value
 
@@ -553,20 +493,6 @@ class TestSave:
             await cache.save('', 'value1')
 
         assert '' not in cache._cache
-
-    async def test_save_returns_value(self, cache_factory) -> None:
-        """save 返回实际写入的值(str), 与内存缓存及数据库行一致"""
-        cache = cache_factory()
-
-        result = await cache.save('key1', 'value1')
-
-        assert isinstance(result, str)
-        assert result == 'value1'
-        assert cache._cache['key1'] == result
-
-        row = await _query_row_or_none(cache._cache_name, 'key1')
-        assert row is not None
-        assert row.cache_value == result
 
     async def test_save_failure_not_pollute_memory(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
         """写库失败时异常向上传播, 且内存缓存不被污染"""
@@ -603,7 +529,7 @@ class TestSyncInternal:
     async def test_sync_backfills_from_db(self, cache_factory) -> None:
         """数据库中独有的项在同步后回填内存"""
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'db_key', 'db_value')
+        await seed_global_cache_row(cache._cache_name, 'db_key', 'db_value')
         assert 'db_key' not in cache._cache
 
         await cache.sync_internal()
@@ -613,34 +539,34 @@ class TestSyncInternal:
     async def test_sync_deletes_expired_rows(self, cache_factory) -> None:
         """同步时物理删除本 cache_name 下已过期的行, 保留未过期行"""
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'expired_key', 'v1', expired_time=_TEST_DATETIME_PAST)
-        await _seed_row(cache._cache_name, 'alive_key', 'v2')
+        await seed_global_cache_row(cache._cache_name, 'expired_key', 'v1', expired_time=TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'alive_key', 'v2')
 
         await cache.sync_internal()
 
-        rows = await _query_all_rows(cache._cache_name, include_expired=True)
+        rows = await query_all_global_cache_rows(cache._cache_name, include_expired=True)
         assert [row.cache_key for row in rows] == ['alive_key']
 
     async def test_sync_does_not_affect_other_cache(self, cache_factory) -> None:
         """过期行清理仅作用于本 cache_name, 不影响其他 cache_name 的行"""
         cache = cache_factory()
         other = cache_factory()
-        await _seed_row(cache._cache_name, 'expired_key', 'v1', expired_time=_TEST_DATETIME_PAST)
-        await _seed_row(other._cache_name, 'expired_key', 'v2', expired_time=_TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'expired_key', 'v1', expired_time=TEST_DATETIME_PAST)
+        await seed_global_cache_row(other._cache_name, 'expired_key', 'v2', expired_time=TEST_DATETIME_PAST)
 
         await cache.sync_internal()
 
-        assert await _query_all_rows(cache._cache_name, include_expired=True) == []
+        assert await query_all_global_cache_rows(cache._cache_name, include_expired=True) == []
 
-        other_rows = await _query_all_rows(other._cache_name, include_expired=True)
+        other_rows = await query_all_global_cache_rows(other._cache_name, include_expired=True)
         assert len(other_rows) == 1
         assert other_rows[0].cache_key == 'expired_key'
 
     async def test_sync_memory_matches_db(self, cache_factory) -> None:
         """同步后内存缓存与数据库未过期行完全一致"""
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'k1', 'v1')
-        await _seed_row(cache._cache_name, 'k2', 'v2', expired_time=_TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'k1', 'v1')
+        await seed_global_cache_row(cache._cache_name, 'k2', 'v2', expired_time=TEST_DATETIME_PAST)
         cache._cache['stale'] = 'x'
 
         await cache.sync_internal()
@@ -661,7 +587,7 @@ class TestPrivateDalIntegration:
 
     async def test_query_key_value(self, cache_factory) -> None:
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'key1', 'value1')
+        await seed_global_cache_row(cache._cache_name, 'key1', 'value1')
 
         assert await cache._query_key_value('key1') == 'value1'
 
@@ -673,7 +599,7 @@ class TestPrivateDalIntegration:
 
     async def test_query_key_value_include_expired(self, cache_factory) -> None:
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'key1', 'value1', expired_time=_TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'key1', 'value1', expired_time=TEST_DATETIME_PAST)
 
         with pytest.raises(NoResultFound):
             await cache._query_key_value('key1')
@@ -682,8 +608,8 @@ class TestPrivateDalIntegration:
 
     async def test_query_all_values(self, cache_factory) -> None:
         cache = cache_factory()
-        await _seed_row(cache._cache_name, 'k1', 'v1')
-        await _seed_row(cache._cache_name, 'k2', 'v2', expired_time=_TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'k1', 'v1')
+        await seed_global_cache_row(cache._cache_name, 'k2', 'v2', expired_time=TEST_DATETIME_PAST)
 
         assert await cache._query_all_values() == {'k1': 'v1'}
         assert await cache._query_all_values(include_expired=True) == {'k1': 'v1', 'k2': 'v2'}
@@ -697,15 +623,15 @@ class TestPrivateDalIntegration:
         """_clean_db_expired 仅清理本 cache_name 的过期行"""
         cache = cache_factory()
         other = cache_factory()
-        await _seed_row(cache._cache_name, 'expired_key', 'v1', expired_time=_TEST_DATETIME_PAST)
-        await _seed_row(cache._cache_name, 'alive_key', 'v2')
-        await _seed_row(other._cache_name, 'expired_key', 'v3', expired_time=_TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'expired_key', 'v1', expired_time=TEST_DATETIME_PAST)
+        await seed_global_cache_row(cache._cache_name, 'alive_key', 'v2')
+        await seed_global_cache_row(other._cache_name, 'expired_key', 'v3', expired_time=TEST_DATETIME_PAST)
 
         await cache._clean_db_expired()
 
-        own_rows = await _query_all_rows(cache._cache_name, include_expired=True)
+        own_rows = await query_all_global_cache_rows(cache._cache_name, include_expired=True)
         assert [row.cache_key for row in own_rows] == ['alive_key']
-        assert len(await _query_all_rows(other._cache_name, include_expired=True)) == 1
+        assert len(await query_all_global_cache_rows(other._cache_name, include_expired=True)) == 1
 
     async def test_upsert_key_value_insert_and_update(self, cache_factory) -> None:
         cache = cache_factory()
@@ -713,7 +639,7 @@ class TestPrivateDalIntegration:
         assert await cache._upsert_key_value('key1', 'v1') == 'v1'
         assert await cache._upsert_key_value('key1', 'v2') == 'v2'
 
-        rows = await _query_all_rows(cache._cache_name)
+        rows = await query_all_global_cache_rows(cache._cache_name)
         assert len(rows) == 1
         assert rows[0].cache_value == 'v2'
 
