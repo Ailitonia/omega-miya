@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pytest
+from async_asgi_testclient import TestClient
 from fastapi import HTTPException, Request
-from httpx import ASGITransport, AsyncClient
+from nonebug import App
 from pydantic import SecretStr, ValidationError
 from starlette.datastructures import QueryParams
 from starlette.routing import Mount
@@ -110,10 +111,10 @@ def secured_api(omega_api_factory: Callable[..., 'OmegaAPI']) -> 'OmegaAPI':
 
 
 @pytest.fixture
-async def secured_client(secured_api: 'OmegaAPI') -> AsyncGenerator[AsyncClient, None]:
-    """直打子应用的 HTTP 客户端(不经过主应用挂载层)"""
-    async with AsyncClient(transport=ASGITransport(app=secured_api._app), base_url='http://testserver') as client:
-        yield client
+async def secured_client(app: App, secured_api: 'OmegaAPI') -> AsyncGenerator[TestClient, None]:
+    """直打子应用的 HTTP 客户端(不经过主应用挂载层), 基于 nonebug test_server"""
+    async with app.test_server(asgi=secured_api._app) as ctx:
+        yield ctx.get_client()
 
 
 class TestModuleContract:
@@ -737,20 +738,20 @@ class TestRouteRegistration:
 class TestTokenVerifyMiddleware:
     """Token 校验中间件测试(直打子应用, 签名 path 不含挂载前缀)"""
 
-    async def test_disabled_verify_allows_plain_request(self, open_api: 'OmegaAPI'):
-        async with AsyncClient(transport=ASGITransport(app=open_api._app), base_url='http://testserver') as client:
-            resp = await client.get('/test')
+    async def test_disabled_verify_allows_plain_request(self, app: App, open_api: 'OmegaAPI'):
+        async with app.test_server(asgi=open_api._app) as ctx:
+            resp = await ctx.get_client().get('/test')
 
         assert resp.status_code == 200
         assert resp.json() == {'ok': True}
 
-    async def test_missing_app_header_rejected(self, secured_client: AsyncClient):
+    async def test_missing_app_header_rejected(self, secured_client: TestClient):
         resp = await secured_client.get('/test')
 
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Request App'}
 
-    async def test_wrong_app_header_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_wrong_app_header_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         from src.service.omega_api.consts import APP_HEADER_KEY
 
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
@@ -760,7 +761,7 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Request App'}
 
-    async def test_missing_timestamp_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_missing_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         from src.service.omega_api.consts import APP_HEADER_KEY
 
         resp = await secured_client.get('/test', headers={APP_HEADER_KEY: secured_api._app_name})
@@ -768,7 +769,7 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Timestamp Not Provided'}
 
-    async def test_non_decimal_timestamp_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_non_decimal_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
         headers['X-OmegaAPI-Timestamp'] = 'not-a-number'
         resp = await secured_client.get('/test', headers=headers)
@@ -776,7 +777,7 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
 
-    async def test_overlong_timestamp_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_overlong_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         """超长时间戳数字串直接拒绝(防 int() 异常/超大整数)"""
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
         headers['X-OmegaAPI-Timestamp'] = '1' * 17
@@ -785,7 +786,7 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
 
-    async def test_expired_timestamp_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_expired_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         expired_timestamp = int(time.time()) - 3600
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test', timestamp=expired_timestamp)
         resp = await secured_client.get('/test', headers=headers)
@@ -794,7 +795,7 @@ class TestTokenVerifyMiddleware:
         assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
 
     async def test_timestamp_at_window_edge_allowed(
-            self, secured_client: AsyncClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
+            self, secured_client: TestClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
     ):
         """偏差恰好处于窗口内的时间戳应放行(放大窗口避免竞态)"""
         import src.service.omega_api.api as api_module
@@ -806,7 +807,7 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 200
 
     async def test_timestamp_beyond_window_rejected(
-            self, secured_client: AsyncClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
+            self, secured_client: TestClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
     ):
         import src.service.omega_api.api as api_module
 
@@ -817,14 +818,14 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
 
-    async def test_future_timestamp_within_window_allowed(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_future_timestamp_within_window_allowed(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         """未来时间戳在窗口内允许(容忍客户端时钟偏差)"""
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test', timestamp=int(time.time()) + 20)
         resp = await secured_client.get('/test', headers=headers)
 
         assert resp.status_code == 200
 
-    async def test_missing_token_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_missing_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         from src.service.omega_api.consts import APP_HEADER_KEY, TIMESTAMP_HEADER_KEY
 
         headers = {APP_HEADER_KEY: secured_api._app_name, TIMESTAMP_HEADER_KEY: str(int(time.time()))}
@@ -833,7 +834,7 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Token Not Provided'}
 
-    async def test_wrong_token_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_wrong_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
         headers['X-OmegaAPI-Token'] = '0' * 64
         resp = await secured_client.get('/test', headers=headers)
@@ -841,23 +842,20 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
-    async def test_non_ascii_token_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_non_ascii_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         """非 ASCII Token 应正常返回 403 而非触发 500
 
-        httpx 默认以 ASCII 编码 header 值, 需用 bytes 形式(latin-1)构造非 ASCII Token 头,
-        模拟真实客户端可送达服务端的非 ASCII header
+        测试客户端以 UTF-8 编码发送非 ASCII header 值, 中间件收到的 Token 含非 ASCII 字符,
+        compare_digest 对非 ASCII 输入的限制应被妥善处理为非法签名而非未捕获异常
         """
-        signed = _make_signed_headers(secured_api._app_name, 'GET', '/test')
-        byte_headers = [
-            (key.encode(), b'\xe9' * 64 if key == 'X-OmegaAPI-Token' else value.encode())
-            for key, value in signed.items()
-        ]
-        resp = await secured_client.get('/test', headers=byte_headers)
+        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
+        headers['X-OmegaAPI-Token'] = 'é' * 64
+        resp = await secured_client.get('/test', headers=headers)
 
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
-    async def test_valid_get_request(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_valid_get_request(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
         resp = await secured_client.get('/test', headers=headers)
 
@@ -865,52 +863,52 @@ class TestTokenVerifyMiddleware:
         assert resp.json() == {'ok': True}
 
     async def test_valid_post_with_body_and_downstream_body_readable(
-            self, secured_client: AsyncClient, secured_api: 'OmegaAPI',
+            self, secured_client: TestClient, secured_api: 'OmegaAPI',
     ):
         """合法签名 POST 请求应放行, 且中间件读取后下游 handler 仍能读取请求体"""
         body = '请求体 content'.encode()
         headers = _make_signed_headers(secured_api._app_name, 'POST', '/echo', body=body)
-        resp = await secured_client.post('/echo', headers=headers, content=body)
+        resp = await secured_client.post('/echo', headers=headers, data=body)
 
         assert resp.status_code == 200
         assert resp.json() == {'echo': '请求体 content'}
 
-    async def test_tampered_body_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_tampered_body_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'POST', '/echo', body=b'original')
-        resp = await secured_client.post('/echo', headers=headers, content=b'tampered')
+        resp = await secured_client.post('/echo', headers=headers, data=b'tampered')
 
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
-    async def test_tampered_query_params_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_tampered_query_params_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test', params={'a': '1'})
-        resp = await secured_client.get('/test', params={'a': '2'}, headers=headers)
+        resp = await secured_client.get('/test', query_string={'a': '2'}, headers=headers)
 
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
-    async def test_wrong_path_signature_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_wrong_path_signature_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/other')
         resp = await secured_client.get('/test', headers=headers)
 
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
-    async def test_wrong_method_signature_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_wrong_method_signature_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         headers = _make_signed_headers(secured_api._app_name, 'POST', '/test')
         resp = await secured_client.get('/test', headers=headers)
 
         assert resp.status_code == 403
         assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
-    async def test_multi_value_query_params_signed(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_multi_value_query_params_signed(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         """多值 query 参数(?a=1&a=2)完整参与签名"""
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test', params=QueryParams('a=1&a=2'))
-        resp = await secured_client.get('/test', params=[('a', '1'), ('a', '2')], headers=headers)
+        resp = await secured_client.get('/test', query_string={'a': ['1', '2']}, headers=headers)
 
         assert resp.status_code == 200
 
-    async def test_replayed_token_rejected(self, secured_client: AsyncClient, secured_api: 'OmegaAPI'):
+    async def test_replayed_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         """相同签名在时间戳有效期内二次使用应被拒绝(防重放)"""
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
 
@@ -922,20 +920,20 @@ class TestTokenVerifyMiddleware:
         assert second.json() == {'error': True, 'message': 'Replayed Token'}
 
     async def test_oversized_content_length_rejected(
-            self, secured_client: AsyncClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
+            self, secured_client: TestClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
     ):
         import src.service.omega_api.api as api_module
 
         monkeypatch.setattr(api_module, '_REQUEST_BODY_MAX_SIZE', 8)
         body = b'x' * 16
         headers = _make_signed_headers(secured_api._app_name, 'POST', '/echo', body=body)
-        resp = await secured_client.post('/echo', headers=headers, content=body)
+        resp = await secured_client.post('/echo', headers=headers, data=body)
 
         assert resp.status_code == 413
         assert resp.json() == {'error': True, 'message': 'Payload Too Large'}
 
     async def test_body_at_limit_allowed(
-            self, secured_client: AsyncClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
+            self, secured_client: TestClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
     ):
         """恰好等于上限的请求体应放行(仅超出才拒绝)"""
         import src.service.omega_api.api as api_module
@@ -943,12 +941,12 @@ class TestTokenVerifyMiddleware:
         monkeypatch.setattr(api_module, '_REQUEST_BODY_MAX_SIZE', 16)
         body = b'x' * 16
         headers = _make_signed_headers(secured_api._app_name, 'POST', '/echo', body=body)
-        resp = await secured_client.post('/echo', headers=headers, content=body)
+        resp = await secured_client.post('/echo', headers=headers, data=body)
 
         assert resp.status_code == 200
 
     async def test_oversized_streamed_body_rejected(
-            self, secured_client: AsyncClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
+            self, secured_client: TestClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
     ):
         """无 Content-Length 的流式请求体超限时由流式读取强制拒绝"""
         import src.service.omega_api.api as api_module
@@ -960,15 +958,13 @@ class TestTokenVerifyMiddleware:
         async def _body_stream() -> AsyncGenerator[bytes, None]:
             yield body
 
-        resp = await secured_client.post('/echo', headers=headers, content=_body_stream())
+        resp = await secured_client.post('/echo', headers=headers, data=_body_stream())
 
         assert resp.status_code == 413
         assert resp.json() == {'error': True, 'message': 'Payload Too Large'}
 
-    async def test_end_to_end_through_mounted_app(self, omega_api_factory: Callable[..., 'OmegaAPI']):
+    async def test_end_to_end_through_mounted_app(self, app: App, omega_api_factory: Callable[..., 'OmegaAPI']):
         """经主应用挂载的完整链路: 中间件看到的 path 含 /{app_name} 前缀, 签名需使用完整路径"""
-        from nonebot import get_app
-
         api = omega_api_factory(enable_token_verify=True)
 
         @api.register_get_route('/test')
@@ -979,7 +975,8 @@ class TestTokenVerifyMiddleware:
         async def _post_handler(request: Request) -> dict[str, str]:
             return {'echo': (await request.body()).decode(), 'query': str(request.url.query)}
 
-        async with AsyncClient(transport=ASGITransport(app=get_app()), base_url='http://testserver') as client:
+        async with app.test_server() as ctx:
+            client = ctx.get_client()
             get_path = f'/{api._app_name}/test'
             get_headers = _make_signed_headers(api._app_name, 'GET', get_path)
             get_resp = await client.get(get_path, headers=get_headers)
@@ -988,25 +985,23 @@ class TestTokenVerifyMiddleware:
             post_params = {'a': '1', 'b': '2'}
             post_body = b'{"foo": "bar"}'
             post_headers = _make_signed_headers(api._app_name, 'POST', post_path, post_params, post_body)
-            post_resp = await client.post(post_path, params=post_params, headers=post_headers, content=post_body)
+            post_resp = await client.post(post_path, query_string=post_params, headers=post_headers, data=post_body)
 
         assert get_resp.status_code == 200
         assert get_resp.json() == {'ok': True}
         assert post_resp.status_code == 200
         assert post_resp.json() == {'echo': '{"foo": "bar"}', 'query': 'a=1&b=2'}
 
-    async def test_open_app_through_mounted_app(self, omega_api_factory: Callable[..., 'OmegaAPI']):
+    async def test_open_app_through_mounted_app(self, app: App, omega_api_factory: Callable[..., 'OmegaAPI']):
         """未启用签名校验的 app 经主应用挂载后无头请求直接放行"""
-        from nonebot import get_app
-
         api = omega_api_factory()
 
         @api.register_get_route('/ping')
         async def _handler() -> dict[str, bool]:
             return {'pong': True}
 
-        async with AsyncClient(transport=ASGITransport(app=get_app()), base_url='http://testserver') as client:
-            resp = await client.get(f'/{api._app_name}/ping')
+        async with app.test_server() as ctx:
+            resp = await ctx.get_client().get(f'/{api._app_name}/ping')
 
         assert resp.status_code == 200
         assert resp.json() == {'pong': True}
@@ -1076,7 +1071,7 @@ class TestMountRouter:
 
         assert api.mount_router(router, prefix='/api') is router
 
-    async def test_mounted_router_accessible(self, omega_api_factory: Callable[..., 'OmegaAPI']):
+    async def test_mounted_router_accessible(self, app: App, omega_api_factory: Callable[..., 'OmegaAPI']):
         from src.service.omega_api import OmegaAPIRouter
 
         api = omega_api_factory()
@@ -1088,15 +1083,15 @@ class TestMountRouter:
 
         api.mount_router(router, prefix='/api')
 
-        async with AsyncClient(transport=ASGITransport(app=api._app), base_url='http://testserver') as client:
-            resp = await client.get('/api/v1/info')
+        async with app.test_server(asgi=api._app) as ctx:
+            resp = await ctx.get_client().get('/api/v1/info')
 
         assert resp.status_code == 200
         assert resp.json() == {'ok': True}
 
     @pytest.mark.parametrize('method', ['GET', 'POST', 'PUT', 'DELETE'])
     async def test_mounted_router_all_methods_accessible(
-            self, omega_api_factory: Callable[..., 'OmegaAPI'], method: str,
+            self, app: App, omega_api_factory: Callable[..., 'OmegaAPI'], method: str,
     ):
         """mount_router 挂载后四种方法注册的路由均可访问"""
         from src.service.omega_api import OmegaAPIRouter
@@ -1122,8 +1117,8 @@ class TestMountRouter:
 
         api.mount_router(router)
 
-        async with AsyncClient(transport=ASGITransport(app=api._app), base_url='http://testserver') as client:
-            resp = await client.request(method, '/r/x')
+        async with app.test_server(asgi=api._app) as ctx:
+            resp = await ctx.get_client().open('/r/x', method=method)
 
         assert resp.status_code == 200
         assert resp.json() == {'m': method}
@@ -1132,28 +1127,28 @@ class TestMountRouter:
 class TestMountStaticPath:
     """mount_static_path 静态文件挂载测试"""
 
-    async def test_static_file_served(self, omega_api_factory: Callable[..., 'OmegaAPI'], tmp_path):
+    async def test_static_file_served(self, app: App, omega_api_factory: Callable[..., 'OmegaAPI'], tmp_path):
         from src.resource import AnyResource
 
         tmp_path.joinpath('hello.txt').write_text('static-content', encoding='utf-8')
         api = omega_api_factory()
         api.mount_static_path(AnyResource(tmp_path), path='static')
 
-        async with AsyncClient(transport=ASGITransport(app=api._app), base_url='http://testserver') as client:
-            resp = await client.get('/static/hello.txt')
+        async with app.test_server(asgi=api._app) as ctx:
+            resp = await ctx.get_client().get('/static/hello.txt')
 
         assert resp.status_code == 200
         assert resp.text == 'static-content'
 
-    async def test_prefix_and_path_normalized(self, omega_api_factory: Callable[..., 'OmegaAPI'], tmp_path):
+    async def test_prefix_and_path_normalized(self, app: App, omega_api_factory: Callable[..., 'OmegaAPI'], tmp_path):
         from src.resource import AnyResource
 
         tmp_path.joinpath('hello.txt').write_text('static-content', encoding='utf-8')
         api = omega_api_factory()
         api.mount_static_path(AnyResource(tmp_path), path='/sub/', prefix='/pfx/')
 
-        async with AsyncClient(transport=ASGITransport(app=api._app), base_url='http://testserver') as client:
-            resp = await client.get('/pfx/sub/hello.txt')
+        async with app.test_server(asgi=api._app) as ctx:
+            resp = await ctx.get_client().get('/pfx/sub/hello.txt')
 
         assert resp.status_code == 200
         assert resp.text == 'static-content'

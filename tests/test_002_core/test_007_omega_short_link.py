@@ -14,7 +14,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from async_asgi_testclient import TestClient
+from nonebug import App
 from sqlalchemy import delete
 from sqlalchemy.exc import NoResultFound
 
@@ -23,6 +24,9 @@ if TYPE_CHECKING:
 
 _SHORT_LINK_CACHE_NAME = 'omega_short_link'
 """被测模块使用的全局缓存名称"""
+
+_FORWARD_PATH_PREFIX = '/omega_short_link'
+"""短链接子应用在主应用上的挂载前缀"""
 
 _TEST_DATETIME_PAST = datetime(1990, 1, 1)
 """测试用已过期时间点"""
@@ -102,15 +106,10 @@ async def short_link_row_tracker() -> AsyncGenerator[list[str], None]:
 
 
 @pytest.fixture
-async def forward_client() -> AsyncGenerator[AsyncClient, None]:
-    """直打短链接子应用的 HTTP 客户端(免 token 校验)"""
-    from src.service.omega_short_link import api as short_link_api
-
-    async with AsyncClient(
-            transport=ASGITransport(app=short_link_api._SHORT_LINK_API._app),
-            base_url='http://testserver',
-    ) as client:
-        yield client
+async def forward_client(app: App) -> AsyncGenerator[TestClient, None]:
+    """经主应用挂载访问短链接子应用的 HTTP 客户端(复用 nonebug 全局 lifespan 客户端, 免 token 校验)"""
+    async with app.test_server() as ctx:
+        yield ctx.get_client()
 
 
 class TestModuleContract:
@@ -440,7 +439,7 @@ class TestForwardEndpoint:
     async def test_redirect_hit(
             self,
             short_link_row_tracker,
-            forward_client: AsyncClient,
+            forward_client: TestClient,
     ) -> None:
         """命中时 307 重定向且 Location 为真实 URL(无需任何鉴权 Headers)"""
         from src.service import omega_short_link
@@ -449,13 +448,15 @@ class TestForwardEndpoint:
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
-        response = await forward_client.get(f'/go/{link_uuid}', follow_redirects=False)
+        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
 
         assert response.status_code == 307
         assert response.headers['location'] == url
 
-    async def test_redirect_missing_returns_404(self, forward_client: AsyncClient) -> None:
-        response = await forward_client.get(f'/go/{_make_uuid(_make_unique_url())}', follow_redirects=False)
+    async def test_redirect_missing_returns_404(self, forward_client: TestClient) -> None:
+        response = await forward_client.get(
+            f'{_FORWARD_PATH_PREFIX}/go/{_make_uuid(_make_unique_url())}', allow_redirects=False
+        )
 
         assert response.status_code == 404
         assert response.json()['detail'] == 'Short link expired or deleted'
@@ -463,7 +464,7 @@ class TestForwardEndpoint:
     async def test_redirect_preserves_complex_url(
             self,
             short_link_row_tracker,
-            forward_client: AsyncClient,
+            forward_client: TestClient,
     ) -> None:
         """Location 原样保留带 query 参数与特殊字符的 URL"""
         from src.service import omega_short_link
@@ -472,7 +473,7 @@ class TestForwardEndpoint:
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
-        response = await forward_client.get(f'/go/{link_uuid}', follow_redirects=False)
+        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
 
         assert response.status_code == 307
         assert response.headers['location'] == url
@@ -480,7 +481,7 @@ class TestForwardEndpoint:
     async def test_redirect_triggers_refresh(
             self,
             short_link_row_tracker,
-            forward_client: AsyncClient,
+            forward_client: TestClient,
     ) -> None:
         """访问跳转端点触发滑动续期"""
         url = _make_unique_url()
@@ -490,7 +491,7 @@ class TestForwardEndpoint:
         row_before = await _query_row_or_none(key)
         assert row_before is not None
 
-        response = await forward_client.get(f'/go/{key}', follow_redirects=False)
+        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{key}', allow_redirects=False)
 
         assert response.status_code == 307
         row_after = await _query_row_or_none(key)
@@ -500,21 +501,21 @@ class TestForwardEndpoint:
     async def test_redirect_empty_value_returns_404(
             self,
             short_link_row_tracker,
-            forward_client: AsyncClient,
+            forward_client: TestClient,
     ) -> None:
         """缓存值为空串时处理器按不存在处理(404)"""
         key = _make_uuid(_make_unique_url())
         await _seed_row_direct(key, '')
         short_link_row_tracker.append(key)
 
-        response = await forward_client.get(f'/go/{key}', follow_redirects=False)
+        response = await forward_client.get(f'{_FORWARD_PATH_PREFIX}/go/{key}', allow_redirects=False)
 
         assert response.status_code == 404
 
     async def test_redirect_post_not_allowed(
             self,
             short_link_row_tracker,
-            forward_client: AsyncClient,
+            forward_client: TestClient,
     ) -> None:
         from src.service import omega_short_link
 
@@ -522,6 +523,6 @@ class TestForwardEndpoint:
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
-        response = await forward_client.post(f'/go/{link_uuid}')
+        response = await forward_client.post(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}')
 
         assert response.status_code == 405

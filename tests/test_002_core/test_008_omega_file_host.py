@@ -15,7 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from async_asgi_testclient import TestClient
+from nonebug import App
 from sqlalchemy import delete
 from sqlalchemy.exc import NoResultFound
 
@@ -24,6 +25,9 @@ if TYPE_CHECKING:
 
 _FILE_HOST_CACHE_NAME = 'omega_file_host'
 """被测模块使用的全局缓存名称"""
+
+_DOWNLOAD_PATH_PREFIX = '/omega_file_host'
+"""文件托管子应用在主应用上的挂载前缀"""
 
 _TEST_DATETIME_PAST = datetime(1990, 1, 1)
 """测试用已过期时间点"""
@@ -112,15 +116,10 @@ async def file_host_row_tracker() -> AsyncGenerator[list[str], None]:
 
 
 @pytest.fixture
-async def download_client() -> AsyncGenerator[AsyncClient, None]:
-    """直打文件托管子应用的 HTTP 客户端(免 token 校验)"""
-    from src.service.omega_file_host import api as file_host_api
-
-    async with AsyncClient(
-            transport=ASGITransport(app=file_host_api._FILE_HOST_API._app),
-            base_url='http://testserver',
-    ) as client:
-        yield client
+async def download_client(app: App) -> AsyncGenerator[TestClient, None]:
+    """经主应用挂载访问文件托管子应用的 HTTP 客户端(复用 nonebug 全局 lifespan 客户端, 免 token 校验)"""
+    async with app.test_server() as ctx:
+        yield ctx.get_client()
 
 
 class TestModuleContract:
@@ -472,7 +471,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: AsyncClient,
+            download_client: TestClient,
     ) -> None:
         """命中时 200 返回文件内容(无需任何鉴权 Headers), Content-Type 与 Content-Disposition 正确"""
         from src.resource import AnyResource
@@ -483,7 +482,7 @@ class TestDownloadEndpoint:
         file_uuid = await omega_file_host.query_file_uuid(resource)
         file_host_row_tracker.append(file_uuid)
 
-        response = await download_client.get(f'/download/{file_uuid}')
+        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
 
         assert response.status_code == 200
         assert response.content == content
@@ -492,8 +491,8 @@ class TestDownloadEndpoint:
         assert 'attachment' in content_disposition
         assert f'filename="{file_uuid}.txt"' in content_disposition
 
-    async def test_download_missing_returns_404(self, download_client: AsyncClient) -> None:
-        response = await download_client.get(f'/download/{uuid.uuid4().hex}')
+    async def test_download_missing_returns_404(self, download_client: TestClient) -> None:
+        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{uuid.uuid4().hex}')
 
         assert response.status_code == 404
         assert response.json()['detail'] == 'File expired or deleted'
@@ -502,7 +501,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: AsyncClient,
+            download_client: TestClient,
     ) -> None:
         """缓存命中但文件已被删除时返回第二阶段 404"""
         from src.resource import AnyResource
@@ -514,7 +513,7 @@ class TestDownloadEndpoint:
         file_host_row_tracker.append(file_uuid)
         file.unlink()
 
-        response = await download_client.get(f'/download/{file_uuid}')
+        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
 
         assert response.status_code == 404
         assert response.json()['detail'] == 'File not found'
@@ -522,14 +521,14 @@ class TestDownloadEndpoint:
     async def test_download_empty_value_returns_404(
             self,
             file_host_row_tracker,
-            download_client: AsyncClient,
+            download_client: TestClient,
     ) -> None:
         """缓存值为空串时按不存在处理(404)"""
         key = uuid.uuid4().hex
         await _seed_row_direct(key, '')
         file_host_row_tracker.append(key)
 
-        response = await download_client.get(f'/download/{key}')
+        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{key}')
 
         assert response.status_code == 404
 
@@ -537,7 +536,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: AsyncClient,
+            download_client: TestClient,
     ) -> None:
         """访问下载端点触发滑动续期"""
         file = _make_test_file(tmp_path)
@@ -548,7 +547,7 @@ class TestDownloadEndpoint:
         row_before = await _query_row_or_none(key)
         assert row_before is not None
 
-        response = await download_client.get(f'/download/{key}')
+        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/{key}')
 
         assert response.status_code == 200
         row_after = await _query_row_or_none(key)
@@ -559,7 +558,7 @@ class TestDownloadEndpoint:
             self,
             tmp_path: Path,
             file_host_row_tracker,
-            download_client: AsyncClient,
+            download_client: TestClient,
     ) -> None:
         from src.resource import AnyResource
         from src.service import omega_file_host
@@ -568,13 +567,17 @@ class TestDownloadEndpoint:
         file_uuid = await omega_file_host.query_file_uuid(resource)
         file_host_row_tracker.append(file_uuid)
 
-        response = await download_client.post(f'/download/{file_uuid}')
+        response = await download_client.post(f'{_DOWNLOAD_PATH_PREFIX}/download/{file_uuid}')
 
         assert response.status_code == 405
 
-    async def test_download_encoded_slash_no_traversal(self, download_client: AsyncClient) -> None:
-        """路径段含编码斜杠时无法匹配路由, 不存在路径穿越"""
-        response = await download_client.get('/download/..%2F..%2Fsecret')
+    async def test_download_encoded_slash_no_traversal(self, download_client: TestClient) -> None:
+        """路径段含编码斜杠时不存在路径穿越
+
+        测试客户端不对 scope path 做百分号解码, `..%2F..%2Fsecret` 作为单一路径段命中
+        `/download/{file_id}` 路由, 但该值不是已登记的文件 UUID, 缓存未命中返回 404
+        """
+        response = await download_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/..%2F..%2Fsecret')
 
         assert response.status_code == 404
 
