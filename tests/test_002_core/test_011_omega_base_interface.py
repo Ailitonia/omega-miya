@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import nonebot
 import pytest
+from nonebot.exception import FinishedException, PausedException, RejectedException
 from nonebug import App
 
 if TYPE_CHECKING:
@@ -397,6 +398,27 @@ class TestOmegaEntityInterface:
         assert await named.get_entity_name() == 'tester'
         assert await unnamed.get_entity_name() == 'ConsoleUser'
         assert await named.get_entity_profile_image_url() == ''
+
+    async def test_entity_name_and_profile_delegate_to_registered_target(
+            self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """get_entity_name/get_entity_profile_image_url 应经注册表解析的目标类委派平台 API"""
+        from src.service.omega_base import OmegaEntityInterface
+        from src.service.omega_base.middlewares.onebot_v11 import OneBotV11UserEntityTarget
+
+        name_mock = AsyncMock(return_value='mocked_name')
+        profile_mock = AsyncMock(return_value='https://example.com/p.png')
+        monkeypatch.setattr(OneBotV11UserEntityTarget, 'call_api_get_entity_name', name_mock)
+        monkeypatch.setattr(OneBotV11UserEntityTarget, 'call_api_get_entity_profile_image_url', profile_mock)
+
+        interface = OmegaEntityInterface(entity_params=_make_entity_init_params(
+            bot_type='OneBot V11', entity_type='onebot_v11_user', bot_id='10086', entity_id='10001',
+        ))
+
+        assert await interface.get_entity_name() == 'mocked_name'
+        assert await interface.get_entity_profile_image_url() == 'https://example.com/p.png'
+        name_mock.assert_awaited_once()
+        profile_mock.assert_awaited_once()
 
 
 class TestMiddlewareEntityTargets:
@@ -955,6 +977,105 @@ class TestOmegaMatcherInterface:
         mock_depend.send.assert_awaited_once()
         matcher.reject_receive.assert_awaited_once_with('key')
 
+    async def test_get_target_entity_classmethod(self) -> None:
+        """get_target_entity 类方法应经事件解析参数并以给定会话构造 OmegaEntity"""
+        from src.database.internal.entity import EntityType
+        from src.service.omega_base import OmegaMatcherInterface
+        from src.service.omega_base.internal import OmegaEntity
+
+        entity = OmegaMatcherInterface.get_target_entity(
+            bot=_make_mock_bot(),
+            event=_make_obv11_group_message_event(group_id=20000, user_id=30001),
+            db_session=MagicMock(),
+            acquire_type='user',
+        )
+
+        assert isinstance(entity, OmegaEntity)
+        assert entity.entity_type is EntityType.ONEBOT_V11_USER
+        assert entity.entity_id == '30001'
+        assert entity.not_init is True
+
+    async def test_send_auto_revoke_default_delay(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """send_auto_revoke 默认撤回延迟应与基类适配器一致 (60 秒)"""
+        interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
+        mock_depend.revoke_bot_sent_msg = AsyncMock()
+
+        await interface.send_auto_revoke('msg')
+
+        assert mock_depend.revoke_bot_sent_msg.await_args.kwargs['revoke_delay'] == 60
+
+    @pytest.mark.parametrize(
+        ('method_name', 'expected_exception', 'expected_flags'),
+        [
+            ('finish', FinishedException, {'at_sender': False, 'reply_to': False}),
+            ('finish_at_sender', FinishedException, {'at_sender': True, 'reply_to': False}),
+            ('finish_reply', FinishedException, {'at_sender': False, 'reply_to': True}),
+            ('pause', PausedException, {'at_sender': False, 'reply_to': False}),
+            ('pause_at_sender', PausedException, {'at_sender': True, 'reply_to': False}),
+            ('pause_reply', PausedException, {'at_sender': False, 'reply_to': True}),
+            ('reject', RejectedException, {'at_sender': False, 'reply_to': False}),
+            ('reject_at_sender', RejectedException, {'at_sender': True, 'reply_to': False}),
+            ('reject_reply', RejectedException, {'at_sender': False, 'reply_to': True}),
+        ],
+    )
+    async def test_flow_control_variants(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            method_name: str,
+            expected_exception: type[Exception],
+            expected_flags: dict[str, bool],
+    ) -> None:
+        """finish/pause/reject 各变体均应先发送消息 (flags 正确), 再抛出对应流程控制异常"""
+        interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
+
+        with pytest.raises(expected_exception):
+            await getattr(interface, method_name)('msg')
+
+        mock_depend.send.assert_awaited_once()
+        call_kwargs = mock_depend.send.await_args.kwargs
+        assert call_kwargs['at_sender'] is expected_flags['at_sender']
+        assert call_kwargs['reply_to'] is expected_flags['reply_to']
+
+    @pytest.mark.parametrize(
+        ('method_name', 'matcher_method', 'expected_flags'),
+        [
+            ('reject_arg', 'reject_arg', {'at_sender': False, 'reply_to': False}),
+            ('reject_arg_at_sender', 'reject_arg', {'at_sender': True, 'reply_to': False}),
+            ('reject_arg_reply', 'reject_arg', {'at_sender': False, 'reply_to': True}),
+            ('reject_receive', 'reject_receive', {'at_sender': False, 'reply_to': False}),
+            ('reject_receive_at_sender', 'reject_receive', {'at_sender': True, 'reply_to': False}),
+            ('reject_receive_reply', 'reject_receive', {'at_sender': False, 'reply_to': True}),
+        ],
+    )
+    async def test_reject_key_variants(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            method_name: str,
+            matcher_method: str,
+            expected_flags: dict[str, bool],
+    ) -> None:
+        """reject_arg/reject_receive 各变体均应先发送消息 (flags 正确), 再以相同 key 委托 matcher"""
+        from src.service.omega_base import OmegaMatcherInterface
+
+        matcher = MagicMock()
+        matcher.reject_arg = AsyncMock(side_effect=RejectedException)
+        matcher.reject_receive = AsyncMock(side_effect=RejectedException)
+        interface = OmegaMatcherInterface(
+            bot=_make_mock_bot(), event=_make_obv11_group_message_event(), matcher=matcher,
+        )
+        mock_depend = MagicMock()
+        mock_depend.send = AsyncMock(return_value=MagicMock())
+        monkeypatch.setattr(OmegaMatcherInterface, 'get_event_depend', lambda self: mock_depend)
+
+        with pytest.raises(RejectedException):
+            await getattr(interface, method_name)('key', 'msg')
+
+        mock_depend.send.assert_awaited_once()
+        call_kwargs = mock_depend.send.await_args.kwargs
+        assert call_kwargs['at_sender'] is expected_flags['at_sender']
+        assert call_kwargs['reply_to'] is expected_flags['reply_to']
+        getattr(matcher, matcher_method).assert_awaited_once_with('key')
+
 
 class TestOneBotV11EventDepends:
     """OneBot V11 中间件 EventDepend 提取逻辑测试"""
@@ -1006,6 +1127,22 @@ class TestOneBotV11EventDepends:
         assert event_params.entity_id == '20000'
         assert user_params.entity_type is EntityType.ONEBOT_V11_USER
         assert user_params.entity_id == '30001'
+
+    async def test_notify_event_without_group_falls_back_to_user(self) -> None:
+        """group_id 为空的 notify 事件应回退到用户对象, 不产生 entity_id='None' 的污染数据
+
+        PokeNotifyEvent 经注册表解析到专属 Depend, 此处直接实例化基类 Depend 验证其空值防御
+        """
+        from src.database.internal.entity import EntityType
+        from src.service.omega_base.middlewares.onebot_v11 import OneBotV11NotifyEventDepend
+
+        event = _make_obv11_poke_notify_event(group_id=None, user_id=30001)
+        depend = OneBotV11NotifyEventDepend(bot=_make_mock_bot('OneBot V11'), event=event)
+
+        event_params = depend.extract_entity_params('event')
+
+        assert event_params.entity_type is EntityType.ONEBOT_V11_USER
+        assert event_params.entity_id == '30001'
 
     async def test_private_poke_event_params_fallback_to_user(self) -> None:
         from src.database.internal.entity import EntityType

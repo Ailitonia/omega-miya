@@ -289,6 +289,9 @@ class OneBotV11EventDepend[Event_T: OneBotV11Event](BaseEventDepend[OneBotV11Bot
 class OneBotV11NotifyEventDepend[Event_T: OneBotV11NotifyEvent](OneBotV11EventDepend[Event_T]):
 
     def _extract_event_entity_params(self) -> 'EntityInitParams':
+        if self.event.group_id is None:
+            return self._extract_user_entity_params()
+
         return EntityInitParams.model_validate({
             'bot_type': self.bot.adapter.get_name(),
             'bot_id': self.bot.self_id,

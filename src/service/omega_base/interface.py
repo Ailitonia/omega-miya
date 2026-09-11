@@ -99,7 +99,10 @@ class OmegaEntityInterface:
         return await self.get_entity_target().call_api_get_entity_name()
 
     async def get_entity_profile_image_url(self) -> str:
-        """获取对象头像/图标"""
+        """获取对象头像/图标
+
+        目标对象没有头像/图标时可能抛出 ValueError
+        """
         return await self.get_entity_target().call_api_get_entity_profile_image_url()
 
 
@@ -220,9 +223,12 @@ class OmegaMatcherInterface:
             *,
             at_sender: bool = False,
             reply_to: bool = False,
-            revoke_delay: int = 0,
+            revoke_delay: int = 60,
     ) -> None:
-        """发送消息指定时间后自动撤回"""
+        """发送消息指定时间后自动撤回
+
+        revoke_delay 默认值与 BaseEntityTarget.send_message_auto_revoke 保持一致
+        """
         receipt = await self.send(message=message, at_sender=at_sender, reply_to=reply_to)
         return await self.revoke_bot_sent_msg(receipt=receipt, revoke_delay=revoke_delay)
 
