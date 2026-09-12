@@ -15,6 +15,7 @@ from nonebot.internal.driver import FilesTypes as FilesTypes
 from nonebot.internal.driver import HTTPClientSession as HTTPClientSession
 from nonebot.internal.driver import HeaderTypes as HeaderTypes
 from nonebot.internal.driver import QueryTypes as QueryTypes
+from nonebot.internal.driver import Request as Request
 from nonebot.internal.driver import Response as Response
 from nonebot.internal.driver import Timeout as Timeout
 from nonebot.internal.driver import TimeoutTypes as TimeoutTypes
@@ -28,6 +29,7 @@ __all__ = [
     'HeaderTypes',
     'HTTPClientSession',
     'QueryTypes',
+    'Request',
     'Response',
     'Timeout',
     'TimeoutTypes',

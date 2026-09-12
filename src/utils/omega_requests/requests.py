@@ -14,8 +14,7 @@ import re
 from asyncio.exceptions import TimeoutError as AsyncTimeoutError
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from copy import deepcopy
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import unquote, urlparse
 
 import ujson
@@ -24,16 +23,14 @@ from nonebot.drivers import (
     ForwardDriver,
     HTTPClientMixin,
     Request,
-    Timeout,
     WebSocketClientMixin,
 )
 
 from src.exception import WebSourceException
-from .config import http_proxy_config
+from .config import omega_requests_config
 
 if TYPE_CHECKING:
     from src.resource import BaseResource
-
     from .types import (
         ContentTypes,
         CookieTypes,
@@ -47,25 +44,12 @@ if TYPE_CHECKING:
         WebSocket,
     )
 
+_URL_TRAILING_PUNCTUATION = ".,;:!?)]}>'\"`，。、；：？！）】》「」『』"
+"""从文本提取 URL 时需剥离的尾随标点(中英文句读、成对符号右半部分等几乎不可能属于 URL 的字符)"""
+
 
 class OmegaRequests:
     """对 ForwardDriver 二次封装实现的 HttpClient"""
-
-    _default_retry_limit: ClassVar[int] = 3
-    _default_timeout: ClassVar[Timeout] = Timeout(total=30, connect=10, read=20)
-    _default_headers: ClassVar[dict[str, str]] = {
-        'accept': '*/*',
-        'accept-encoding': 'gzip, deflate, br',
-        'accept-language': 'zh-CN,zh;q=0.9',
-        'dnt': '1',
-        'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-gpc': '1',
-        'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/138.0.0.0 Safari/537.36'
-    }
 
     def __init__(
             self,
@@ -79,15 +63,26 @@ class OmegaRequests:
         if not isinstance(self.driver, ForwardDriver):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward connections! "
-                "OmegaRequests need a ForwardDriver to work."
+                'OmegaRequests need a ForwardDriver to work.'
             )
 
+        self.timeout = omega_requests_config.default_timeout if timeout is None else timeout
+        self.headers = omega_requests_config.default_headers if headers is None else headers
+        self.headers = None if not self.headers else self.headers  # 处理空值 headers
+        self.cookies = None if not cookies else cookies
+        self.retry_limit = omega_requests_config.default_retry_limit if retry is None else retry
+        if self.retry_limit < 1:
+            # retry_limit 语义为最大总尝试次数, 小于 1 时不会发起任何请求, 属于配置错误, 立即失败
+            raise ValueError(f'retry must be a positive integer, got {self.retry_limit}')
+
+    def set_timeout(self, timeout: 'TimeoutTypes') -> None:
+        self.timeout = timeout
+
+    def set_headers(self, headers: 'HeaderTypes') -> None:
+        self.headers = headers
+
+    def set_cookies(self, cookies: 'CookieTypes') -> None:
         self.cookies = cookies
-        self.cookies = None if not self.cookies else self.cookies
-        self.headers = self._default_headers if headers is None else headers
-        self.headers = None if not self.headers else self.headers
-        self.retry_limit = self._default_retry_limit if retry is None else retry
-        self.timeout = self._default_timeout if timeout is None else timeout
 
     @staticmethod
     def parse_content_as_bytes(response: 'Response', encoding: str = 'utf-8') -> bytes:
@@ -152,7 +147,6 @@ class OmegaRequests:
             if buffer:
                 # Include any existing buffer in the first portion of the splitlines result.
                 lines[0] = buffer + lines[0]
-                lines = lines[:]
                 buffer = b''
 
             if not trailing_newline:
@@ -163,9 +157,7 @@ class OmegaRequests:
             for line in lines:
                 yield line.decode(encoding=encoding)
 
-        if trailing_cr:
-            buffer += b'\r'
-
+        # 流末尾孤立的 \r 是最后一行的终止符, 不属于行内容, 丢弃且不产出额外空行
         if buffer:
             yield buffer.decode(encoding=encoding)
 
@@ -189,8 +181,17 @@ class OmegaRequests:
     @classmethod
     def get_url_in_text(cls, text: str) -> list[str]:
         """匹配并提取字符串中的合法 URL"""
-        pattern = re.compile(r'https?://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^/\s]*)*')
-        parsed_urls = [urlparse(str(x)) for x in re.findall(pattern, text)]
+        pattern = re.compile(
+            r'https?://'  # 协议
+            r'(?:'
+            r'(?:[a-zA-Z0-9-]+\.)+(?:xn--[a-zA-Z0-9-]{2,}|[a-zA-Z]{2,})'  # 域名(punycode 或字母后缀)
+            r'|(?:\d{1,3}\.){3}\d{1,3}'  # 或 IPv4 地址
+            r')'
+            r'(?::\d{1,5})?'  # 可选端口
+            r'(?:/[\x21-\x7e]*)?'  # 可选路径(仅可打印 ASCII, 避免吞入紧随 URL 的中文等非 URL 文本)
+        )
+        matched_urls = [x.rstrip(_URL_TRAILING_PUNCTUATION) for x in re.findall(pattern, text)]
+        parsed_urls = [urlparse(str(x)) for x in matched_urls]
         return [
             x.geturl() for x in parsed_urls
             if all((x.scheme in ['http', 'https'], x.netloc))
@@ -199,41 +200,34 @@ class OmegaRequests:
     @classmethod
     def get_default_headers(cls) -> dict[str, str]:
         """获取默认 Headers 内容"""
-        return deepcopy(cls._default_headers)
+        return omega_requests_config.default_headers
 
     @classmethod
-    def get_default_timeout(cls) -> Timeout:
+    def get_default_timeout(cls) -> 'TimeoutTypes':
         """获取默认超时配置"""
-        return deepcopy(cls._default_timeout)
+        return omega_requests_config.default_timeout
 
     def get_session(self, params: Optional['QueryTypes'] = None, use_proxy: bool = True) -> 'HTTPClientSession':
+        """获取一个 HTTP 会话"""
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward http connections! "
-                "OmegaRequests need a HTTPClient Driver to work."
+                'OmegaRequests need a HTTPClient Driver to work.'
             )
         return self.driver.get_session(
             params=params,
             headers=self.headers,
             cookies=self.cookies,
             timeout=self.timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
-
-    def set_timeout(
-            self,
-            total: float | None,
-            connect: float | None,
-            read: float | None,
-    ) -> None:
-        self.timeout = Timeout(total=total, connect=connect, read=read)
 
     async def request(self, setup: Request) -> 'Response':
         """发送一个 HTTP 请求, 自动重试"""
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward http connections! "
-                "OmegaRequests need a HTTPClient Driver to work."
+                'OmegaRequests need a HTTPClient Driver to work.'
             )
 
         # 处理自动重试
@@ -241,17 +235,17 @@ class OmegaRequests:
         final_exception = None
         while attempts_num < self.retry_limit:
             try:
-                logger.opt(colors=True).trace(f'<lc>Omega Requests</lc> | Starting request <ly>{setup!r}</ly>')
+                logger.opt(colors=True).trace(f'<lc>Omega Requests</lc> | Beginning <ly>{setup}</ly>')
                 return await self.driver.request(setup=setup)
             except AsyncTimeoutError as e:
                 logger.opt(colors=True).debug(
-                    f'<lc>Omega Requests</lc> | <ly>{setup!r} failed on the {attempts_num + 1} attempt</ly> <c>></c> '
+                    f'<lc>Omega Requests</lc> | <ly>{setup} failed {attempts_num + 1} times</ly> <c>></c> '
                     '<r>TimeoutError</r>'
                 )
                 final_exception = e
             except Exception as e:
                 logger.opt(colors=True).warning(
-                    f'<lc>Omega Requests</lc> | <ly>{setup!r} failed on the {attempts_num + 1} attempt</ly> <c>></c> '
+                    f'<lc>Omega Requests</lc> | <ly>{setup} failed {attempts_num + 1} times</ly> <c>></c> '
                     f'<r>Exception {e.__class__.__name__}</r>: {e}'
                 )
                 final_exception = e
@@ -259,7 +253,7 @@ class OmegaRequests:
                 attempts_num += 1
 
         logger.opt(colors=True).error(
-            f'<lc>Omega Requests</lc> | <ly>{setup!r} failed with {attempts_num} times attempts</ly> <c>></c> '
+            f'<lc>Omega Requests</lc> | <ly>{setup} failed {attempts_num} times</ly> <c>></c> '
             '<r>ExceededAttemptLimited</r>: The number of attempts exceeds limit with final exception: '
             f'<r>{final_exception.__class__.__name__}</r>: {final_exception}'
         )
@@ -275,21 +269,22 @@ class OmegaRequests:
         if not isinstance(self.driver, HTTPClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward http connections! "
-                "OmegaRequests need a HTTPClient Driver to work."
+                'OmegaRequests need a HTTPClient Driver to work.'
             )
 
         try:
-            logger.opt(colors=True).trace(f'<lc>Omega Requests</lc> | Starting request <ly>{setup!r}</ly>')
+            logger.opt(colors=True).trace(f'<lc>Omega Requests</lc> | Beginning <ly>{setup}</ly>')
             async for response in self.driver.stream_request(setup, chunk_size=chunk_size):
                 yield response
         except AsyncTimeoutError as e:
             logger.opt(colors=True).debug(
-                f'<lc>Omega Requests</lc> | <ly>{setup!r} failed</ly> with <r>TimeoutError</r>'
+                f'<lc>Omega Requests</lc> | <ly>{setup} failed</ly> <c>></c> <r>TimeoutError</r>'
             )
             raise WebSourceException(504, 'Timeout') from e
         except Exception as e:
             logger.opt(colors=True).warning(
-                f'<lc>Omega Requests</lc> | <ly>{setup!r} failed</ly>, <r>Exception {e.__class__.__name__}</r>: {e}'
+                f'<lc>Omega Requests</lc> | <ly>{setup} failed</ly> <c>></c> '
+                f'<r>Exception {e.__class__.__name__}</r>: {e}'
             )
             raise WebSourceException(500, f'{e.__class__.__name__}, {e}') from e
 
@@ -313,7 +308,7 @@ class OmegaRequests:
         if not isinstance(self.driver, WebSocketClientMixin):
             raise RuntimeError(
                 f"Current driver {self.driver.type} doesn't support forward webSocket connections! "
-                "OmegaRequests need a WebSocketClient Driver to work."
+                'OmegaRequests need a WebSocketClient Driver to work.'
             )
 
         setup = Request(
@@ -327,7 +322,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
 
         async with self.driver.websocket(setup=setup) as ws:
@@ -359,7 +354,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
 
@@ -389,7 +384,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
 
@@ -419,7 +414,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
 
@@ -449,7 +444,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         return await self.request(setup=setup)
 
@@ -480,7 +475,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         async for response in self.stream_request(setup, chunk_size=chunk_size):
             yield response
@@ -513,7 +508,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         async for line in self.iter_content_as_lines(
                 stream_requester=self.stream_request(setup, chunk_size=chunk_size),
@@ -548,7 +543,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         async for response in self.stream_request(setup, chunk_size=chunk_size):
             yield response
@@ -581,7 +576,7 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=http_proxy_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None
         )
         async for line in self.iter_content_as_lines(
                 stream_requester=self.stream_request(setup, chunk_size=chunk_size),
@@ -613,7 +608,7 @@ class OmegaRequests:
             return file
 
         logger.opt(colors=True).debug(
-            f'<lc>Omega Requests</lc> | Starting download <ly>{url}</ly> to {file}'
+            f'<lc>Omega Requests</lc> | Start downloading <ly>{url}</ly> to {file}'
         )
 
         response = await self.get(url=url, params=params, **kwargs)
@@ -621,11 +616,11 @@ class OmegaRequests:
         if response.status_code != 200:
             logger.opt(colors=True).error(
                 f'<lc>Omega Requests</lc> | Download <ly>{url}</ly> to {file} '
-                f'failed with code <lr>{response.status_code!r}</lr>'
+                f'failed with code <lr>{response.status_code}</lr>'
             )
             raise WebSourceException(
                 response.status_code,
-                f'Download {url} to {file} failed with code {response.status_code!r}'
+                f'Download {url} to {file} failed with code {response.status_code}'
             )
 
         async with file.async_open(mode='wb') as af:
@@ -665,7 +660,12 @@ class OmegaRequests:
         clear_restart = False
         temp_file = file.with_name(name=f'{file.name}.DOWNLOADING_TMP')
         start_byte = temp_file.file_size if temp_file.is_file else 0
+
+        # 合并请求头: 实例默认 < 调用方传入 < 断点续传 Range(内部控制头优先)
+        extra_headers = kwargs.pop('headers', None)
         headers = dict(self.headers if self.headers is not None else {})
+        if extra_headers:
+            headers.update(dict(extra_headers))
         if start_byte > 0:
             headers.update({'Range': f'bytes={start_byte}-'})
 
@@ -674,10 +674,12 @@ class OmegaRequests:
         )
 
         # 追加写入模式打开文件, 分块写入
+        received_any = False
         async with temp_file.async_open(mode='ab') as af:
             async for response in self.stream_get(
                     url=url, params=params, headers=headers, chunk_size=chunk_size, **kwargs
             ):
+                received_any = True
                 if start_byte > 0 and response.status_code == 206:
                     pass
                 elif start_byte > 0 and response.status_code != 206:
@@ -690,21 +692,45 @@ class OmegaRequests:
                 elif response.status_code != 200:
                     logger.opt(colors=True).error(
                         f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to temp {temp_file} '
-                        f'failed with code <lr>{response.status_code!r}</lr>'
+                        f'failed with code <lr>{response.status_code}</lr>'
                     )
                     raise WebSourceException(
                         response.status_code,
-                        f'Download {url} to temp {temp_file} failed with code {response.status_code!r}'
+                        f'Download {url} to temp {temp_file} failed with code {response.status_code}'
                     )
 
                 await af.write(self.parse_content_as_bytes(response=response))
+
+        # 空响应体的响应在流式请求中不产生任何分块, 状态码无从获知, 需以相同请求(含 Range 头)额外核验
+        if not clear_restart and not received_any:
+            verify_response = await self.get(url=url, params=params, headers=headers, **kwargs)
+            if start_byte > 0 and verify_response.status_code == 206:
+                pass  # 续传余量为零, 临时文件已是完整内容
+            elif start_byte > 0 and verify_response.status_code in (200, 416):
+                # 服务端忽略 Range 或临时文件已超界, 清空后重新下载
+                logger.opt(colors=True).warning(
+                    f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to temp {temp_file} failed, '
+                    'the server does not support breakpoint resuming, and will re-download'
+                )
+                clear_restart = True
+            elif verify_response.status_code != 200:
+                logger.opt(colors=True).error(
+                    f'<lc>Omega Requests</lc> | Stream download <ly>{url}</ly> to temp {temp_file} '
+                    f'failed with code <lr>{verify_response.status_code}</lr>'
+                )
+                raise WebSourceException(
+                    verify_response.status_code,
+                    f'Download {url} to temp {temp_file} failed with code {verify_response.status_code}'
+                )
 
         # 如果需要重新下载, 清空文件并重新请求
         if clear_restart:
             file.remove(missing_ok=True)
             temp_file.remove(missing_ok=True)
+            # 移除本次续传的 Range 头, 避免全新下载时误用旧的断点位置
+            headers.pop('Range', None)
             return await self.stream_download(
-                url, file, params=params, chunk_size=chunk_size, ignore_exist_file=False, **kwargs
+                url, file, params=params, chunk_size=chunk_size, ignore_exist_file=False, headers=headers, **kwargs,
             )
 
         # 替换临时文件
