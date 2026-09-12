@@ -52,7 +52,7 @@ async def _parse_message(bot: TelegramBot, message: TelegramMessage) -> Telegram
 
 
 async def handle_parse_message_image_event_preprocessor(bot: TelegramBot, event: TelegramMessageEvent):
-    """事件预处理, 将图片消息段中的图片 file_id 替换为真实图片 url"""
+    """事件预处理, 将图片消息段中的图片 file_id 解析为真实图片 url"""
     event.message = await _parse_message(bot=bot, message=event.message.copy())
     if event.reply_to_message:
         event.reply_to_message.message = await _parse_message(bot=bot, message=event.reply_to_message.message.copy())
@@ -60,7 +60,7 @@ async def handle_parse_message_image_event_preprocessor(bot: TelegramBot, event:
 
 @event_preprocessor
 async def handle_telegram_event_preprocessor(bot: TelegramBot, event: TelegramEvent):
-    """事件预处理"""
+    """事件预处理, 将图片消息段中的图片 file_id 解析为真实图片 url"""
     # 针对消息事件的处理
     if isinstance(event, TelegramMessageEvent):
         # 处理消息段图片解析

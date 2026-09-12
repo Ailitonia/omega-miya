@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from . import universal as universal  # noqa: I001 通用处理模块优先导入
+from . import universal as universal  # noqa: I001, 通用处理模块优先导入
 from . import message as message  # noqa: F401
 
 enable_processor_state = universal.enable_processor_state

@@ -153,6 +153,15 @@ class TestModuleContract:
         assert rate_limiting.__all__ == ['preprocessor_rate_limiting']
         assert statistic.__all__ == ['postprocessor_statistic']
 
+    def test_message_submodule_all(self) -> None:
+        from src.service.omega_processor.message import (
+            onebot_v11_ntqq_image_url_replacer,
+            telegram_image_parser,
+        )
+
+        assert onebot_v11_ntqq_image_url_replacer.__all__ == []
+        assert telegram_image_parser.__all__ == []
+
 
 class TestProcessorUtils:
     """processor state 工具测试"""
@@ -1382,6 +1391,11 @@ class TestFullPipeline:
             ctx.should_finished(matcher=matcher)
 
 
+# ------------------------------------------------------------------ #
+# Telegram 图片解析预处理器测试测试辅助
+# ------------------------------------------------------------------ #
+
+
 def _make_telegram_photo_event(*, with_reply: bool = False) -> 'BaseEvent':
     """构造携带 photo 消息段的 Telegram 私聊消息事件"""
     from nonebot.adapters.telegram.event import PrivateMessageEvent
@@ -1407,7 +1421,7 @@ def _make_telegram_photo_event(*, with_reply: bool = False) -> 'BaseEvent':
 
 
 class TestTelegramImageParser:
-    """Telegram 图片解析预处理器测试 (nonebug test_api)"""
+    """Telegram 图片解析预处理器测试"""
 
     @staticmethod
     def _make_telegram_bot(ctx):
@@ -1556,3 +1570,276 @@ class TestTelegramImageParser:
         from src.service.omega_processor.message.telegram_image_parser import handle_telegram_event_preprocessor
 
         await handle_telegram_event_preprocessor(bot=make_mock_bot(), event=make_obv11_private_message_event())
+
+
+# ------------------------------------------------------------------ #
+# OneBot V11 NTQQ 图片 url 替换预处理器测试辅助
+# ------------------------------------------------------------------ #
+
+_NTQQ_ORIGIN_DOMAIN = 'https://multimedia.nt.qq.com.cn'
+_NTQQ_REPLACED_DOMAIN = 'https://gchat.qpic.cn'
+
+
+def _make_image_message_segment(data: dict[str, Any]) -> Any:
+    """构造 OneBot V11 image 消息段"""
+    from nonebot.adapters.onebot.v11 import MessageSegment
+
+    return MessageSegment(type='image', data=data)
+
+
+def _make_obv11_image_message_event(*, reply_message_data: dict[str, Any] | None = None) -> Any:
+    """构造携带 NTQQ 域名 image 消息段的 OneBot V11 私聊消息事件, 可附带 reply 消息"""
+    from nonebot.adapters.onebot.v11 import Message
+    from nonebot.adapters.onebot.v11.event import PrivateMessageEvent, Reply, Sender
+
+    message = Message([_make_image_message_segment({
+        'file': f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=file_ntqq&spec=0',
+        'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0',
+    })])
+
+    reply = None
+    if reply_message_data is not None:
+        reply = Reply(
+            time=1,
+            message_type='private',
+            message_id=2,
+            real_id=2,
+            sender=Sender(user_id=10002, nickname='replied'),
+            message=Message([_make_image_message_segment(reply_message_data)]),
+        )
+
+    return PrivateMessageEvent(
+        time=1,
+        self_id=10086,
+        post_type='message',
+        message_type='private',
+        sub_type='friend',
+        message_id=1,
+        user_id=10001,
+        message=message,
+        original_message=message.copy(),
+        raw_message='[CQ:image,file=file_ntqq]',
+        font=0,
+        sender=Sender(user_id=10001, nickname='tester'),
+        reply=reply,
+    )
+
+
+class TestOnebotV11NtqqImageUrlReplacer:
+    """OneBot V11 NTQQ 图片 url 域名替换预处理器测试"""
+
+    def test_segment_file_and_url_replaced(self) -> None:
+        """image 段的 file 与 url 均为 NTQQ 域名时均被替换且记录原值"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        seg = _make_image_message_segment({
+            'file': f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=file_1',
+            'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_1',
+        })
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data['file'] == f'{_NTQQ_REPLACED_DOMAIN}/download?fileid=file_1'
+        assert replaced.data['url'] == f'{_NTQQ_REPLACED_DOMAIN}/download?fileid=url_1'
+        assert replaced.data['_original_file'] == f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=file_1'
+        assert replaced.data['_original_url'] == f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_1'
+
+    def test_segment_only_ntqq_url_replaced(self) -> None:
+        """仅 url 为 NTQQ 域名时仅替换 url, 非 NTQQ 的 https file 不处理"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        seg = _make_image_message_segment({
+            'file': 'https://third-party.example.com/image.jpg',
+            'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_2',
+        })
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data['file'] == 'https://third-party.example.com/image.jpg'
+        assert '_original_file' not in replaced.data
+        assert replaced.data['url'] == f'{_NTQQ_REPLACED_DOMAIN}/download?fileid=url_2'
+        assert replaced.data['_original_url'] == f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_2'
+
+    def test_segment_non_ntqq_https_untouched(self) -> None:
+        """非 NTQQ 域名的 https url 不替换且不写入 _original_*"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        url = 'https://i.pixiv.cat/img-original/img/2024/01/01/00/00/00/1_p0.jpg'
+        seg = _make_image_message_segment({'file': url, 'url': url})
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data['file'] == url
+        assert replaced.data['url'] == url
+        assert '_original_file' not in replaced.data
+        assert '_original_url' not in replaced.data
+
+    def test_segment_http_scheme_untouched(self) -> None:
+        """http 协议的 NTQQ 域名 url 不替换"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        url = 'http://multimedia.nt.qq.com.cn/download?fileid=url_http'
+        seg = _make_image_message_segment({'url': url})
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data['url'] == url
+        assert '_original_url' not in replaced.data
+
+    def test_segment_domain_in_non_prefix_position_untouched(self) -> None:
+        """NTQQ 域名出现在 url 非前缀位置 (如 query 参数) 时不替换"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        url = f'https://proxy.example.com/redirect?next={_NTQQ_ORIGIN_DOMAIN}/a.jpg'
+        seg = _make_image_message_segment({'url': url})
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data['url'] == url
+        assert '_original_url' not in replaced.data
+
+    def test_segment_missing_file_and_url_keys(self) -> None:
+        """缺少 file/url 键的 image 段原样返回"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        seg = _make_image_message_segment({'summary': '[图片]'})
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data == {'summary': '[图片]'}
+
+    def test_segment_non_image_untouched(self) -> None:
+        """非 image 消息段原样返回"""
+        from nonebot.adapters.onebot.v11 import MessageSegment
+
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        seg = MessageSegment(type='text', data={'text': 'plain text'})
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced is seg
+        assert replaced.data == {'text': 'plain text'}
+
+    def test_segment_non_string_file_untouched(self) -> None:
+        """file 为非字符串时不替换且不写入 _original_file"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_image_segment
+
+        seg = _make_image_message_segment({'file': 12345})
+
+        replaced = _replace_image_segment(seg)
+
+        assert replaced.data['file'] == 12345
+        assert '_original_file' not in replaced.data
+
+    def test_message_mixed_segments(self) -> None:
+        """混合消息仅替换 NTQQ 域名 image 段, 段顺序与数量不变且返回新消息对象"""
+        from nonebot.adapters.onebot.v11 import Message, MessageSegment
+
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_message_image
+
+        message = Message([
+            MessageSegment(type='text', data={'text': 'hello'}),
+            _make_image_message_segment({'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_m1'}),
+            _make_image_message_segment({'url': 'https://i.pixiv.cat/1_p0.jpg'}),
+        ])
+
+        output = _replace_message_image(make_mock_bot(), message)
+
+        assert output is not message
+        assert len(output) == 3
+        assert output[0].type == 'text'
+        assert output[0].data == {'text': 'hello'}
+        assert output[1].data['url'] == f'{_NTQQ_REPLACED_DOMAIN}/download?fileid=url_m1'
+        assert output[2].data['url'] == 'https://i.pixiv.cat/1_p0.jpg'
+        assert '_original_url' not in output[2].data
+
+    def test_message_segment_failure_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """单段替换异常时该段保留原样, 其余段正常处理, 不向上抛异常"""
+        from nonebot.adapters.onebot.v11 import Message
+
+        from src.service.omega_processor.message import onebot_v11_ntqq_image_url_replacer as replacer
+
+        original_impl = replacer._replace_image_segment
+        calls = {'count': 0}
+
+        def _flaky_replace(seg: Any) -> Any:
+            calls['count'] += 1
+            if calls['count'] == 1:
+                raise RuntimeError('replace failed')
+            return original_impl(seg)
+
+        monkeypatch.setattr(replacer, '_replace_image_segment', _flaky_replace)
+
+        message = Message([
+            _make_image_message_segment({'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_f1'}),
+            _make_image_message_segment({'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_f2'}),
+        ])
+
+        output = replacer._replace_message_image(make_mock_bot(), message)
+
+        assert len(output) == 2
+        assert output[0].data['url'] == f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_f1'
+        assert '_original_url' not in output[0].data
+        assert output[1].data['url'] == f'{_NTQQ_REPLACED_DOMAIN}/download?fileid=url_f2'
+
+    def test_message_empty(self) -> None:
+        """空消息返回空消息"""
+        from nonebot.adapters.onebot.v11 import Message
+
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import _replace_message_image
+
+        output = _replace_message_image(make_mock_bot(), Message())
+
+        assert len(output) == 0
+
+    async def test_event_message_replaced_and_original_isolated(self) -> None:
+        """事件主消息被替换且调用前的原消息对象不被污染 (深拷贝隔离)"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import (
+            handle_replace_image_url_event_preprocessor,
+        )
+
+        ntqq_url = f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0'
+        replaced_url = f'{_NTQQ_REPLACED_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0'
+        event = _make_obv11_image_message_event()
+        original_message = event.message
+
+        await handle_replace_image_url_event_preprocessor(bot=make_mock_bot(), event=event)
+
+        assert event.message is not original_message
+        assert event.message[0].data['url'] == replaced_url
+        assert event.message[0].data['_original_url'] == ntqq_url
+        assert original_message[0].data['url'] == ntqq_url
+        assert '_original_url' not in original_message[0].data
+
+    async def test_event_reply_message_also_replaced(self) -> None:
+        """事件携带 reply 时主消息与 reply 消息均被替换, 原 reply 消息对象不被污染"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import (
+            handle_replace_image_url_event_preprocessor,
+        )
+
+        ntqq_reply_url = f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_reply'
+        event = _make_obv11_image_message_event(reply_message_data={'url': ntqq_reply_url})
+        original_reply_message = event.reply.message
+
+        await handle_replace_image_url_event_preprocessor(bot=make_mock_bot(), event=event)
+
+        assert event.reply is not None
+        assert event.message[0].data['url'].startswith(_NTQQ_REPLACED_DOMAIN)
+        assert event.reply.message is not original_reply_message
+        assert event.reply.message[0].data['url'] == f'{_NTQQ_REPLACED_DOMAIN}/download?fileid=url_reply'
+        assert original_reply_message[0].data['url'] == ntqq_reply_url
+
+    async def test_event_without_reply(self) -> None:
+        """事件不携带 reply 时正常完成"""
+        from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import (
+            handle_replace_image_url_event_preprocessor,
+        )
+
+        event = _make_obv11_image_message_event()
+        assert event.reply is None
+
+        await handle_replace_image_url_event_preprocessor(bot=make_mock_bot(), event=event)
+
+        assert event.message[0].data['url'].startswith(_NTQQ_REPLACED_DOMAIN)
+        assert event.reply is None
