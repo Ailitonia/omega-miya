@@ -317,7 +317,7 @@ class TestUrlFileName:
 
 
 class TestGetUrlInText:
-    """文本 URL 提取测试(审计 L2 改进后行为: 支持端口/IP/punycode, 剥离尾随标点, 路径仅可打印 ASCII)"""
+    """文本 URL 提取测试: 支持端口/IP/punycode, 剥离尾随标点, 路径仅可打印 ASCII"""
 
     def test_single_url(self):
         from src.utils.omega_requests import OmegaRequests
@@ -429,7 +429,7 @@ class TestIterContentAsLines:
             ([b'lin', b'e1\nli', b'ne2\n'], ['line1', 'line2']),
             ([b'line1\r', b'\nline2\r\n'], ['line1', 'line2']),
             ([b'line1\rline2\r'], ['line1', 'line2']),
-            ([b'line\r'], ['line']),  # 流末尾孤立 \r 是行终止符, 不进入行内容(审计 M1)
+            ([b'line\r'], ['line']),  # 流末尾孤立 \r 是行终止符, 不进入行内容
             ([b'a\r\r\n'], ['a', '']),
             ([b'a\r', b'\n'], ['a']),
             ([b''], []),
@@ -846,7 +846,7 @@ class TestDownload:
         assert not file.is_file
 
     async def test_stream_download_empty_error_rejected(self, test_server: SimpleNamespace, tmp_path: Path):
-        """审计 H1 回归: 空响应体的错误响应不得静默成功(零分块时核验状态并抛错, 不产出文件)"""
+        """空响应体的错误响应不得静默成功(零分块时核验状态并抛错, 不产出文件)"""
         from src.exception import WebSourceException
         from src.utils.omega_requests import OmegaRequests
 
@@ -910,7 +910,7 @@ class TestDownload:
         ]
 
     async def test_stream_download_custom_headers(self, test_server: SimpleNamespace, tmp_path: Path):
-        """审计 M2 回归: 调用方 headers 可正常传入并与断点续传 Range 头共存"""
+        """调用方 headers 可正常传入并与断点续传 Range 头共存"""
         from src.utils.omega_requests import OmegaRequests
 
         token = new_request_token()

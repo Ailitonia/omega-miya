@@ -2197,7 +2197,7 @@ class TestArtworkCollectionDAL:
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
-        """分类统计回归: IGNORED(-2) 与 UNKNOWN(-1) 均落入 unused 桶, 计数应累加而非覆盖"""
+        """IGNORED(-2) 与 UNKNOWN(-1) 均落入 unused 桶, 计数应累加而非覆盖"""
         await artwork_dal._clear_all()
         await artwork_dal.commit_session()
 

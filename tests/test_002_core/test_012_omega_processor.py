@@ -230,7 +230,7 @@ class TestProcessorUtils:
         assert first.name != second.name
 
     def test_enable_processor_state_json_safe(self) -> None:
-        """processor state 应可直接 JSON 序列化 (含 extra_auth_node 集合), 且回读等价 (F1 回归)"""
+        """processor state 应可直接 JSON 序列化 (含 extra_auth_node 集合), 且回读等价"""
         from src.service.omega_processor import enable_processor_state
         from src.service.omega_processor.universal.processor_utils import parse_processor_state
 
@@ -965,7 +965,7 @@ class TestHistory:
         assert matched[0].message_plain_text == '/test history'
 
     async def test_history_failure_contained_by_savepoint(self, app: App, test_onebot_v11_bot) -> None:
-        """重复 message_id 触发唯一键冲突时应被 SAVEPOINT 容纳, 共享会话保持可用 (F2 回归)"""
+        """重复 message_id 触发唯一键冲突时应被 SAVEPOINT 容纳, 共享会话保持可用"""
         from src.database import HistoryDAL
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.history import postprocessor_history
@@ -1001,7 +1001,7 @@ class TestStatistic:
     """插件调用统计后处理器测试 (直接调用, 真实数据库)"""
 
     async def test_statistic_recorded_with_processor_state(self, app: App, test_onebot_v11_bot) -> None:
-        """携带 processor state (含集合类型字段) 的 matcher 调用应正常统计落库 (F1 回归)"""
+        """携带 processor state (含集合类型字段) 的 matcher 调用应正常统计落库"""
         from src.database import StatisticDAL
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.statistic import postprocessor_statistic

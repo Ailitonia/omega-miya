@@ -222,7 +222,7 @@ class TestWriteTransactionContract:
     async def test_pure_write_method_not_self_commit(self) -> None:
         """纯写方法在 fresh session 上不得自行 commit, 外层 rollback 必须能撤销其写入
 
-        回归测试: safe_begin_transaction 顶层分支若自行提交, rollback 将无法撤销, query_unique 会查到数据
+        safe_begin_transaction 顶层分支若自行提交, rollback 将无法撤销, query_unique 会查到数据
         """
         from src.database.internal.global_cache import GlobalCacheDAL
 

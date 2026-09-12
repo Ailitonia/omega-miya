@@ -158,7 +158,6 @@ class TestExtraSetCookiesFromResponse:
         assert api_impl._extra_set_cookies_from_response(response) == {'a': ''}
 
     def test_similar_header_not_matched(self, api_impl: 'type[BaseCommonAPI]'):
-        """审计 L1 回归: set-cookie2 等相似字段不应被误匹配(前缀匹配已修复为精确匹配)"""
         headers = CIMultiDict([('set-cookie', 'a=1; Path=/'), ('set-cookie2', 'b=2; Path=/')])
 
         assert api_impl._extra_set_cookies_from_response(_make_response(headers=headers)) == {'a': '1'}
@@ -279,7 +278,7 @@ class TestRequestMethods:
         assert f'{test_server.base_url}/status/404' in exc_info.value.message
 
     async def test_other_2xx_status_accepted(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        """201/206 等其他 2xx 状态码同样视为成功(审计 L3 改进后行为)"""
+        """201/206 等其他 2xx 状态码同样视为成功"""
         response_201 = await api_impl._request_get(url=f'{test_server.base_url}/status/201')
         assert response_201.status_code == 201
 
@@ -427,7 +426,7 @@ class TestStreamMethods:
         assert exc_info.value.status_code == 500
 
     async def test_stream_other_2xx_accepted(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        """流式请求同样接受 200 以外的 2xx 状态码(审计 L3 改进后行为)"""
+        """流式请求同样接受 200 以外的 2xx 状态码"""
         responses = [x async for x in api_impl._stream_request_get(url=f'{test_server.base_url}/status/206')]
 
         assert responses
@@ -437,7 +436,7 @@ class TestStreamMethods:
     async def test_stream_empty_error_yields_nothing(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
-        """空响应体的错误响应在流式请求中不产生分块, 状态码校验无从执行(审计 M3, 文档化行为)"""
+        """空响应体的错误响应在流式请求中不产生分块, 状态码校验无从执行"""
         responses = [x async for x in api_impl._stream_request_get(url=f'{test_server.base_url}/status_empty/404')]
 
         assert responses == []
@@ -492,7 +491,7 @@ class TestDownloadResource:
     async def test_download_hash_file_name(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
     ):
-        """审计 M1 回归: 哈希文件名前缀应为 API 类名而非元类名 ABCMeta"""
+        """哈希文件名前缀应为 API 类名而非元类名 ABCMeta"""
         from src.utils.omega_requests import OmegaRequests
 
         url = f'{test_server.base_url}/download_file/pic.jpg'
@@ -507,7 +506,7 @@ class TestDownloadResource:
     async def test_download_empty_file_name_fallback_hash(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
     ):
-        """审计 M2 回归: URL 无文件名(空路径)时回退哈希文件名, 不再因写入目录而崩溃"""
+        """URL 无文件名(空路径)时回退哈希文件名, 不再因写入目录而崩溃"""
         from src.utils.omega_requests import OmegaRequests
 
         url = f'{test_server.base_url}/'
@@ -521,7 +520,7 @@ class TestDownloadResource:
     async def test_download_custom_file_name_traversal_stripped(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
     ):
-        """审计 M2 回归: 自定义文件名剥离路径层级, 防止逃逸下载目录"""
+        """自定义文件名剥离路径层级, 防止逃逸下载目录"""
         file = await api_impl._download_resource(
             self._save_folder(tmp_path),
             f'{test_server.base_url}/download_file/pic.jpg',
@@ -534,7 +533,7 @@ class TestDownloadResource:
     async def test_download_invalid_chars_sanitized(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
     ):
-        """审计 M2/L4: Windows 非法字符替换为下划线"""
+        """Windows 非法字符替换为下划线"""
         file = await api_impl._download_resource(
             self._save_folder(tmp_path),
             f'{test_server.base_url}/download_file/pic.jpg',

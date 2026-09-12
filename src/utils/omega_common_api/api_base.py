@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING, Any
 from multidict import CIMultiDict
 
 from src.exception import WebSourceException
-from .types import Cookies, Timeout
 from ..omega_requests import OmegaRequests
+from .types import Cookies, Timeout
 
 if TYPE_CHECKING:
     from src.resource import BaseResource
