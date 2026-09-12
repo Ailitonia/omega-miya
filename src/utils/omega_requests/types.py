@@ -10,6 +10,7 @@
 
 from nonebot.internal.driver import ContentTypes as ContentTypes
 from nonebot.internal.driver import CookieTypes as CookieTypes
+from nonebot.internal.driver import Cookies as Cookies
 from nonebot.internal.driver import DataTypes as DataTypes
 from nonebot.internal.driver import FilesTypes as FilesTypes
 from nonebot.internal.driver import HTTPClientSession as HTTPClientSession
@@ -23,6 +24,7 @@ from nonebot.internal.driver import WebSocket as WebSocket
 
 __all__ = [
     'ContentTypes',
+    'Cookies',
     'CookieTypes',
     'DataTypes',
     'FilesTypes',
