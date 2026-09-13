@@ -58,9 +58,9 @@ pgsql = ["asyncpg"]
 [tool.poetry.group.dev.dependencies]
 mypy = ">=2.3.0,<3.0.0"
 ruff = ">=0.14.0,<1.0.0"
-bump-pydantic = "^0.8.0"
 types-lxml = "^2026.1.1"
-lxml-stubs = "^0.5.1"
+lxml-stubs = ">=0.5.1,<1.0.0"
+pandas-stubs = ">=3.0.0,<4.0.0"
 memory-profiler = ">=0.61.0,<1.0.0"
 pytest = ">=9.1.1,<10.0.0"
 pytest-asyncio = ">=1.4.0,<2.0.0"
