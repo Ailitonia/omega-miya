@@ -176,6 +176,7 @@ flake8-quotes.inline-quotes = "single"
 [tool.ruff.lint.isort]
 case-sensitive = true
 no-lines-before = ["local-folder"]  # 项目内绝对导入(first-party)和相对导入(local-folder)间不留空行
+relative-imports-order = "closest-to-furthest"  # 统一相对导入顺序, 包内依赖在前, 更上层的依赖在后
 
 
 [tool.ruff.format]
