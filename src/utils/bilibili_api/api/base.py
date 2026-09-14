@@ -12,6 +12,7 @@ import time
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from lxml import etree
+from nonebot.log import logger
 
 from src.utils import BaseCommonAPI
 from ..config import bilibili_api_config
@@ -46,15 +47,17 @@ class BilibiliCommon(BaseCommonAPI):
     """发起请求时附带的 UUID"""
     _api_spm_prefix: ClassVar[str]
     """发起请求时附带的参数"""
+    _api_spm_prefix_is_init: ClassVar[bool] = False
+    """标志位, spm_prefix 是否已初始化"""
 
     @classmethod
-    def get_uuid(cls) -> str:
+    def _get_uuid(cls) -> str:
         if getattr(cls, '_api_uuid', None) is None:
             cls._api_uuid = gen_uuid_infoc()
         return cls._api_uuid
 
     @classmethod
-    def get_spm_prefix(cls) -> str:
+    def _get_spm_prefix(cls) -> str:
         if getattr(cls, '_api_spm_prefix', None) is None:
             cls._api_spm_prefix = '333.1387'
         return cls._api_spm_prefix
@@ -86,6 +89,13 @@ class BilibiliCommon(BaseCommonAPI):
 
     @classmethod
     async def _init_spm_prefix(cls) -> str:
+        """初始化 spm_prefix, 若已初始化则直接返回当前值
+
+        spm_prefix 数值在在一定时间内应该不会频繁变动, 因此在单次运行周期内不考虑更新, 只需一次初始化即可
+        """
+        if cls._api_spm_prefix_is_init:
+            return cls._get_spm_prefix()
+
         content = await cls._get_resource_as_text(url=cls._get_root_url())
 
         try:
@@ -98,6 +108,7 @@ class BilibiliCommon(BaseCommonAPI):
             raise RuntimeError('parsing API spm_prefix failed')
 
         cls._api_spm_prefix = spm_prefix
+        cls._api_spm_prefix_is_init = True
         return cls._api_spm_prefix
 
     @classmethod
@@ -170,10 +181,17 @@ class BilibiliCommon(BaseCommonAPI):
         spi_data = WebInterfaceSpi.model_validate(spi_json_response)
 
         # active buvid
-        _uuid = cls.get_uuid()
+        _uuid = cls._get_uuid()
+
+        try:
+            _spm_prefix = await cls._init_spm_prefix()
+        except Exception as e:
+            logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | 刷新 spm_prefix 失败, 将使用回退值, {e}')
+            _spm_prefix = cls._get_spm_prefix()
+
         payload = gen_payload(
             post_url=cls._get_root_url(),
-            spm_prefix=cls.get_spm_prefix(),
+            spm_prefix=_spm_prefix,
             uuid=_uuid,
             user_agent=headers.get('user-agent', ''),
         )

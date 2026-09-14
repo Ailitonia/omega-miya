@@ -6,12 +6,30 @@
 @Description    : bilibili 动态相关 API
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
+
+部分动态相关接口请求存在 features 参数, 主要用于控制返回结果中的 modules 中的内容, 主要参数含义如下:
+- htmlNewStyle      是否显示专栏正文, 对于纯动态类型接口无效
+- itemOpusStyle     是否以图文风格显示动态, 部分动态强制需要, 对于图文类型接口无效
+- listOnlyfans
+- opusBigCover      是否在返回结果中区分大封面与九宫格, 对于图文接口似乎无效, 前置条件 itemOpusStyle
+- onlyfansVote      是否在投票信息中增加参与按钮等
+- onlyfansAssetsV2
+- forwardListHidden
+- ugcDelete
+- onlyfansQaCard    是否展示更详细的展示充电专属问答
+- commentsNewVersion
+- decorationCard    是否以卡片形式显示装扮
+- editable          是否在右上角三点菜单中显示编辑, 必须是自己发送的动态才有效果
+- opusPrivateVisible
+- tribeeEdit
+- avatarAutoTheme   头像颜色使用 CSS 变量, 对于纯动态类型接口无效
+- avatarTypeOpus
 """
 
 from typing import Literal
 
 from .base import BilibiliCommon
-from ..models import DynDetail, Dynamics
+from ..models import DynamicDetail, DynamicOpusDetail, Dynamics
 
 
 class BilibiliDynamic(BilibiliCommon):
@@ -28,11 +46,13 @@ class BilibiliDynamic(BilibiliCommon):
     ) -> Dynamics:
         """获取我关注的动态列表更新"""
         url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
+
+        _spm_prefix = await cls._init_spm_prefix()
         params: dict[str, str] = {
             'platform': 'web',
-            'web_location': '333.1365',
             'features': 'itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,'
                         'decorationCard,onlyfansAssetsV2,ugcDelete',
+            'web_location': _spm_prefix,
         }
         if type_ is not None:
             params.update({'type': type_})
@@ -56,6 +76,8 @@ class BilibiliDynamic(BilibiliCommon):
     ) -> Dynamics:
         """获取用户空间动态"""
         url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
+        # alternative_url: `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/space`
+
         params: dict[str, str] = {
             'host_mid': str(host_mid),
             'features': 'itemOpusStyle',
@@ -73,10 +95,13 @@ class BilibiliDynamic(BilibiliCommon):
             cls,
             id_: int | str,
             *,
-            timezone_offset: int = -480,
-    ) -> DynDetail:
+            timezone_offset: int | None = None,
+    ) -> DynamicDetail:
         """获取动态详细信息"""
         url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/detail'
+        # alternative_url: `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/detail`
+
+        _spm_prefix = await cls._init_spm_prefix()
         params: dict[str, str] = {
             'id': str(id_),
             'platform': 'web',
@@ -84,8 +109,9 @@ class BilibiliDynamic(BilibiliCommon):
             'features': 'itemOpusStyle,opusBigCover,onlyfansVote,endFooterHidden,decorationCard,'
                         'onlyfansAssetsV2,ugcDelete,onlyfansQaCard,editable,opusPrivateVisible,'
                         'avatarAutoTheme,commentsNewVersion',
-            'x-bili-device-req-json': '{"platform":"web","device":"pc"}',
-            'x-bili-web-req-json': '{"spm_id":"333.1368"}',
+            'web_location': _spm_prefix,
+            # 'x-bili-device-req-json': '{"platform":"web","device":"pc"}',
+            # 'x-bili-web-req-json': '{"spm_id":"333.1368"}',
         }
         if timezone_offset is not None:
             params.update({'timezone_offset': str(timezone_offset)})
@@ -94,7 +120,28 @@ class BilibiliDynamic(BilibiliCommon):
         # params = await cls.sign_wbi_params(params=params)
 
         data = await cls._get_resource_as_json(url=url, params=params)
-        return DynDetail.model_validate(data)
+        return DynamicDetail.model_validate(data)
+
+    @classmethod
+    async def query_dynamic_opus_detail(
+            cls,
+            id_: int | str,
+            *,
+            timezone_offset: int | None = None,
+    ) -> DynamicOpusDetail:
+        """获取图文详细信息"""
+        url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/opus/detail'
+
+        params: dict[str, str] = {
+            'id': str(id_),
+            'features': 'onlyfansVote,onlyfansAssetsV2,decorationCard,htmlNewStyle,ugcDelete,'
+                        'editable,opusPrivateVisible,tribeeEdit,avatarAutoTheme,avatarTypeOpus',
+        }
+        if timezone_offset is not None:
+            params.update({'timezone_offset': str(timezone_offset)})
+
+        data = await cls._get_resource_as_json(url=url, params=params)
+        return DynamicOpusDetail.model_validate(data)
 
 
 __all__ = [

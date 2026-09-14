@@ -9,9 +9,8 @@
 """
 
 from .dynamic import (
-    DynData,
-    DynDetail,
-    DynItemModules,
+    DynamicDetail,
+    DynamicOpusDetail,
     DynamicType,
     Dynamics,
 )
@@ -56,9 +55,8 @@ from .user import (
 __all__ = [
     'Dynamics',
     'DynamicType',
-    'DynDetail',
-    'DynData',
-    'DynItemModules',
+    'DynamicDetail',
+    'DynamicOpusDetail',
     'Account',
     'AllSearchResultType',
     'ArticleSearchResult',

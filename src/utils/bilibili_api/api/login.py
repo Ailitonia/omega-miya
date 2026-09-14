@@ -109,7 +109,7 @@ class BilibiliCredential(BilibiliCommon):
             if login_info.data.code == 0:
                 logger.opt(colors=True).success('<lc>Bilibili</lc> | 扫码登录: 成功')
                 break
-            elif attempt >= 10:
+            elif attempt >= 15:
                 logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 扫码登录: {login_info.data.message}, 等待超时')
                 raise RuntimeError('等待超时')
             elif login_info.data.code == 86101:
@@ -143,6 +143,10 @@ class BilibiliCredential(BilibiliCommon):
         params = {'csrf': bili_jct}
 
         data = await cls._get_resource_as_json(url=url, params=params)
+        if not isinstance(data, dict) or data.get('code') != 0:
+            logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 检查 Cookies 失败, 登录状态异常, {data!r}')
+            return False
+
         return WebCookieInfo.model_validate(data).data.refresh
 
     @classmethod
