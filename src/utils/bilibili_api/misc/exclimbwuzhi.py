@@ -16,20 +16,24 @@ https://github.com/SocialSisterYi/bilibili-API-collect/issues/868
 
 Reference: https://github.com/Nemo2011/bilibili-api/commit/f7de473bc42d60604372f80d06244e45a08bdbb4
 From: https://github.com/Nemo2011/bilibili-api/blob/f7de473bc42d60604372f80d06244e45a08bdbb4/bilibili_api/utils/exclimbwuzhi.py
+Reference: https://github.com/SomeACG/SomeACG-Bot/blob/8027673f6fd90a408d81e4885b5007cb71d852b6/src/platforms/bilibili-api/utils.ts#L21
 """
 
+import base64
 import io
+import os
 import random
 import struct
 import time
+from urllib.parse import quote
 
-import ujson as json
+import ujson
 
 MOD = 1 << 64
 
 
 def get_time_milli() -> int:
-    return int(time.time() * 1000)
+    return time.time_ns() // 1_000_000
 
 
 def rotate_left(x: int, k: int) -> int:
@@ -142,36 +146,63 @@ def fmix64(k: int) -> int:
     return tmp
 
 
-def get_payload() -> str:
+def _random_canvas() -> str:
+    rand_png = os.urandom(2) + bytes(
+        [0x00, 0x00, 0x00, 0x00, 73, 69, 78, 68, 0x00, 0xA0, 0x00, 0x00]
+    )
+    return base64.b64encode(rand_png).decode('ascii')
+
+
+def _random_audio() -> float:
+    min_ = 124.04347
+    max_ = 124.04348
+    return random.random() * (max_ - min_) + min_
+
+
+def _random_png_end() -> str:
+    rand_png = (
+            os.urandom(32)
+            + bytes([0x00, 0x00, 0x00, 0x00, 73, 69, 78, 68])
+            + os.urandom(4)
+    )
+    return base64.b64encode(rand_png).decode('ascii')[-50:]
+
+
+def gen_payload(
+        post_url: str,
+        spm_prefix: str,
+        uuid: str,
+        user_agent: str,
+) -> str:
     content = {
         '3064': 1,
         '5062': get_time_milli(),
-        '03bf': 'https%3A%2F%2Fwww.bilibili.com%2F',
-        '39c8': '333.788.fp.risk',
+        '03bf': quote(post_url, safe="!*'()"),
+        '39c8': f'{spm_prefix}.fp.risk',
         '34f1': '',
         'd402': '',
         '654a': '',
-        '6e7c': '839x959',
+        '6e7c': '1599x1073',
         '3c43': {
             '2673': 0,
             '5766': 24,
             '6527': 0,
             '7003': 1,
             '807e': 1,
-            'b8ce': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15',
+            'b8ce': user_agent,
             '641c': 0,
-            '07a4': 'en-US',
-            '1c57': 'not available',
-            '0bd0': 8,
-            '748e': [900, 1440],
-            'd61f': [875, 1440],
+            '07a4': 'zh-CN',
+            '1c57': 32,
+            '0bd0': 28,
+            '748e': [2561, 1441],
+            'd61f': [2561, 1393],
             'fc9d': -480,
             '6aa9': 'Asia/Shanghai',
             '75b8': 1,
             '3b21': 1,
             '8a1c': 0,
             'd52f': 'not available',
-            'adca': 'MacIntel',
+            'adca': 'Win32',
             '80c9': [
                 [
                     'PDF Viewer',
@@ -199,12 +230,12 @@ def get_payload() -> str:
                     [['application/pdf', 'pdf'], ['text/pdf', 'pdf']],
                 ],
             ],
-            '13ab': '0dAAAAAASUVORK5CYII=',
-            'bfe9': 'QgAAEIQAACEIAABCCQN4FXANGq7S8KTZayAAAAAElFTkSuQmCC',
+            '13ab': 'mW9qAAAAAElFTkSuQmCC',  # Alternative generator `_random_canvas()`
+            'bfe9': '//TgNIfAAAAAZJREFUAwBde+3wgcxEHQAAAABJRU5ErkJggg==',  # Alternative generator `_random_png_end()`
             'a3c1': [
-                'extensions:ANGLE_instanced_arrays;EXT_blend_minmax;EXT_color_buffer_half_float;EXT_float_blend;EXT_frag_depth;EXT_shader_texture_lod;EXT_texture_compression_bptc;EXT_texture_compression_rgtc;EXT_texture_filter_anisotropic;EXT_sRGB;KHR_parallel_shader_compile;OES_element_index_uint;OES_fbo_render_mipmap;OES_standard_derivatives;OES_texture_float;OES_texture_float_linear;OES_texture_half_float;OES_texture_half_float_linear;OES_vertex_array_object;WEBGL_color_buffer_float;WEBGL_compressed_texture_astc;WEBGL_compressed_texture_etc;WEBGL_compressed_texture_etc1;WEBGL_compressed_texture_pvrtc;WEBKIT_WEBGL_compressed_texture_pvrtc;WEBGL_compressed_texture_s3tc;WEBGL_compressed_texture_s3tc_srgb;WEBGL_debug_renderer_info;WEBGL_debug_shaders;WEBGL_depth_texture;WEBGL_draw_buffers;WEBGL_lose_context;WEBGL_multi_draw',
+                'extensions:ANGLE_instanced_arrays;EXT_blend_minmax;EXT_clip_control;EXT_color_buffer_half_float;EXT_depth_clamp;EXT_disjoint_timer_query;EXT_float_blend;EXT_frag_depth;EXT_polygon_offset_clamp;EXT_shader_texture_lod;EXT_texture_compression_bptc;EXT_texture_compression_rgtc;EXT_texture_filter_anisotropic;EXT_texture_mirror_clamp_to_edge;EXT_sRGB;KHR_parallel_shader_compile;OES_element_index_uint;OES_fbo_render_mipmap;OES_standard_derivatives;OES_texture_float;OES_texture_float_linear;OES_texture_half_float;OES_texture_half_float_linear;OES_vertex_array_object;WEBGL_blend_func_extended;WEBGL_color_buffer_float;WEBGL_compressed_texture_s3tc;WEBGL_compressed_texture_s3tc_srgb;WEBGL_debug_renderer_info;WEBGL_debug_shaders;WEBGL_depth_texture;WEBGL_draw_buffers;WEBGL_lose_context;WEBGL_multi_draw;WEBGL_polygon_mode',
                 'webgl aliased line width range:[1, 1]',
-                'webgl aliased point size range:[1, 511]',
+                'webgl aliased point size range:[1, 1024]',
                 'webgl alpha bits:8',
                 'webgl antialiasing:yes',
                 'webgl blue bits:8',
@@ -220,16 +251,17 @@ def get_payload() -> str:
                 'webgl max varying vectors:30',
                 'webgl max vertex attribs:16',
                 'webgl max vertex texture image units:16',
-                'webgl max vertex uniform vectors:1024',
-                'webgl max viewport dims:[16384, 16384]',
+                'webgl max vertex uniform vectors:4095',
+                'webgl max viewport dims:[32767, 32767]',
                 'webgl red bits:8',
                 'webgl renderer:WebKit WebGL',
-                'webgl shading language version:WebGL GLSL ES 1.0 (1.0)',
+                'webgl shading language version:WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)',
                 'webgl stencil bits:0',
                 'webgl vendor:WebKit',
-                'webgl version:WebGL 1.0',
-                'webgl unmasked vendor:Apple Inc.',
-                'webgl unmasked renderer:Apple GPU',
+                'webgl version:WebGL 1.0 (OpenGL ES 2.0 Chromium)',
+                'webgl unmasked vendor:Google Inc. (NVIDIA)',
+                'webgl unmasked renderer:ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 '
+                'vs_5_0 ps_5_0, D3D11)',
                 'webgl vertex shader high float precision:23',
                 'webgl vertex shader high float precision rangeMin:127',
                 'webgl vertex shader high float precision rangeMax:127',
@@ -265,33 +297,57 @@ def get_payload() -> str:
                 'webgl fragment shader medium int precision rangeMax:30',
                 'webgl fragment shader low int precision:0',
                 'webgl fragment shader low int precision rangeMin:31',
-                'webgl fragment shader low int precision rangeMax:30',
+                'webgl fragment shader low int precision rangeMax:30'
             ],
-            '6bc5': 'Apple Inc.~Apple GPU',
+            '6bc5': (
+                'Google Inc. (NVIDIA)~ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 '
+                'vs_5_0 ps_5_0, D3D11)'
+            ),
             'ed31': 0,
             '72bd': 0,
             '097b': 0,
             '52cd': [0, 0, 0],
             'a658': [
-                'Andale Mono',
                 'Arial',
                 'Arial Black',
-                'Arial Hebrew',
                 'Arial Narrow',
-                'Arial Rounded MT Bold',
-                'Arial Unicode MS',
+                'Book Antiqua',
+                'Bookman Old Style',
+                'Calibri',
+                'Cambria',
+                'Cambria Math',
+                'Century',
+                'Century Gothic',
+                'Century Schoolbook',
                 'Comic Sans MS',
+                'Consolas',
                 'Courier',
                 'Courier New',
-                'Geneva',
                 'Georgia',
                 'Helvetica',
-                'Helvetica Neue',
                 'Impact',
-                'LUCIDA GRANDE',
+                'Lucida Bright',
+                'Lucida Calligraphy',
+                'Lucida Console',
+                'Lucida Fax',
+                'Lucida Handwriting',
+                'Lucida Sans',
+                'Lucida Sans Typewriter',
+                'Lucida Sans Unicode',
                 'Microsoft Sans Serif',
-                'Monaco',
-                'Palatino',
+                'Monotype Corsiva',
+                'MS Gothic',
+                'MS PGothic',
+                'MS Reference Sans Serif',
+                'MS Sans Serif',
+                'MS Serif',
+                'Palatino Linotype',
+                'Segoe Print',
+                'Segoe Script',
+                'Segoe UI',
+                'Segoe UI Light',
+                'Segoe UI Semibold',
+                'Segoe UI Symbol',
                 'Tahoma',
                 'Times',
                 'Times New Roman',
@@ -301,23 +357,34 @@ def get_payload() -> str:
                 'Wingdings 2',
                 'Wingdings 3',
             ],
-            'd02f': '124.04345259929687',
+            'd02f': '124.04347776696522',  # Alternative generator `_random_audio()`
         },
-        '54ef': '{"in_new_ab":true,"ab_version":{"remove_back_version":"REMOVE","login_dialog_version":"V_PLAYER_PLAY_TOAST","open_recommend_blank":"SELF","storage_back_btn":"HIDE","call_pc_app":"FORBID","clean_version_old":"GO_NEW","optimize_fmp_version":"LOADED_METADATA","for_ai_home_version":"V_OTHER","bmg_fallback_version":"DEFAULT","ai_summary_version":"SHOW","weixin_popup_block":"ENABLE","rcmd_tab_version":"DISABLE","in_new_ab":true},"ab_split_num":{"remove_back_version":11,"login_dialog_version":43,"open_recommend_blank":90,"storage_back_btn":87,"call_pc_app":47,"clean_version_old":46,"optimize_fmp_version":28,"for_ai_home_version":38,"bmg_fallback_version":86,"ai_summary_version":466,"weixin_popup_block":45,"rcmd_tab_version":90,"in_new_ab":0},"pageVersion":"new_video","videoGoOldVersion":-1}',
-        '8b94': 'https%3A%2F%2Fwww.bilibili.com%2F',
-        'df35': '2D9BA3CF-B1ED-1674-2492-CF103D9EFACFE46196infoc',
-        '07a4': 'en-US',
+        '54ef': (
+            '{"b_ut":"","home_version":"V8","in_new_ab":true,'
+            '"ab_version":{"for_ai_home_version":"V8","in_theme_version":"OPEN","enable_web_push":"DISABLE",'
+            '"enable_ai_floor_api":"ENABLE","enable_shortcut_key":"DISABLE","rcmd_timeout_config":"550",'
+            '"home_performance_opt":"ssr_fetch_opt","infra_projection":"OFF"},'
+            '"ab_split_num":{"for_ai_home_version":54,"in_theme_version":30,"enable_web_push":10,'
+            '"enable_ai_floor_api":137,"enable_shortcut_key":54,"rcmd_timeout_config":49,'
+            '"home_performance_opt":49,"infra_projection":49},'
+            '"uniq_page_id":"1671272756362","is_modern":true}'
+        ),
+        '8b94': '',
+        'df35': uuid,
+        '07a4': 'zh-CN',
         '5f45': None,
         'db46': 0,
     }
-    return json.dumps(
-        {'payload': json.dumps(content, separators=(',', ':'))},
+    return ujson.dumps(
+        {'payload': ujson.dumps(content, separators=(',', ':'), escape_forward_slashes=False)},
         separators=(',', ':'),
+        escape_forward_slashes=False,
     )
 
 
 __all__ = [
+    'gen_b_lsid',
     'gen_buvid_fp',
-    'get_payload',
+    'gen_payload',
     'gen_uuid_infoc',
 ]

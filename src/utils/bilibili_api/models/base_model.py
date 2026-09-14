@@ -28,7 +28,7 @@ class BaseBilibiliResponse(BaseBilibiliModel):
         return self.code != 0
 
 
-__all = [
+__all__ = [
     'BaseBilibiliModel',
     'BaseBilibiliResponse',
 ]

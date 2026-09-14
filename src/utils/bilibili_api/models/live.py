@@ -34,7 +34,7 @@ class RoomInfoData(BaseBilibiliModel):
     parent_area_id: int = Field(default=-1)
     parent_area_name: str = Field(default='直播')
     live_status: LiveStatus
-    live_time: datetime | str = Field(default_factory=datetime.now)
+    live_time: datetime | str = Field(default_factory=datetime.now, union_mode='left_to_right')
     uname: str = Field(default='bilibili用户')
     title: str
     description: str = Field(default='', exclude=True)
@@ -54,7 +54,12 @@ class RoomInfoData(BaseBilibiliModel):
     @classmethod
     def time_zone_conversion(cls, v):
         if isinstance(v, datetime):
-            v = v.astimezone(DEFAULT_LOCAL_TZ)
+            if v.tzinfo is None:
+                # bilibili 返回的开播时间为东八区本地时间, naive datetime 应直接按本地时区解释,
+                # 而非 astimezone 默认的服务器系统时区 (pytz 时区须用 localize 附加, 不能用 replace)
+                v = DEFAULT_LOCAL_TZ.localize(v)
+            else:
+                v = v.astimezone(DEFAULT_LOCAL_TZ)
         return v
 
 

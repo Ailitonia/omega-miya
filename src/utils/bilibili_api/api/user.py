@@ -47,7 +47,16 @@ class BilibiliUser(BilibiliCommon):
     def _parse_user_space_w_webid(content: str) -> UserSpaceRenderData:
         """解析用户页面 __RENDER_DATA__ 内容"""
         html = etree.HTML(content)
-        render_data = html.xpath('/html/head/script[@id="__RENDER_DATA__"]').pop(0).text
+
+        try:
+            render_data_item = html.xpath('/html/head/script[@id="__RENDER_DATA__"]').pop(0)
+            render_data = render_data_item.text
+        except Exception as e:
+            raise RuntimeError(f'parsing user render_data not found, {e}') from e
+        # 解析失败或未解析到都抛出 RuntimeError
+        if not render_data:
+            raise RuntimeError('parsing user render_data failed')
+
         return parse_json_as(UserSpaceRenderData, unquote(render_data))
 
     @classmethod

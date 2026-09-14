@@ -23,8 +23,8 @@ class BilibiliDynamic(BilibiliCommon):
             *,
             type_: Literal['all', 'video', 'pgc', 'article'] | None = None,
             host_mid: str | None = None,
-            offset: int | None = None,
-            update_baseline: int | None = None,
+            offset: int | str | None = None,
+            update_baseline: int | str | None = None,
     ) -> Dynamics:
         """获取我关注的动态列表更新"""
         url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
@@ -41,7 +41,7 @@ class BilibiliDynamic(BilibiliCommon):
         if offset is not None:
             params.update({'offset': str(offset)})
         if update_baseline is not None:
-            params.update({'type': str(update_baseline)})
+            params.update({'update_baseline': str(update_baseline)})
 
         data = await cls._get_resource_as_json(url=url, params=params)
         return Dynamics.model_validate(data)
@@ -51,7 +51,7 @@ class BilibiliDynamic(BilibiliCommon):
             cls,
             host_mid: int | str,
             *,
-            offset: int | None = None,
+            offset: int | str | None = None,
             timezone_offset: int | None = None,
     ) -> Dynamics:
         """获取用户空间动态"""

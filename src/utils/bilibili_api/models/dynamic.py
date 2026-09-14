@@ -14,7 +14,6 @@ from typing import Any
 from pydantic import Field, Json
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BaseBilibiliModel, BaseBilibiliResponse
 
 

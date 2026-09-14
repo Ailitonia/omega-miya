@@ -10,7 +10,6 @@
 
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-
 from .base_model import BaseBilibiliModel, BaseBilibiliResponse
 
 
@@ -23,7 +22,7 @@ class TicketData(BaseBilibiliModel):
     ticket: str
     created_at: int
     ttl: int
-    context: dict | None
+    context: dict | None = None
     nav: TicketNav
 
 

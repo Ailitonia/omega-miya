@@ -282,7 +282,18 @@ type SearchType = Literal[
     'photo',
 ]
 
-type AllSearchResultType = ActivitySearchResult | WebGameSearchResult | VideoSearchResult | MediaSearchResult | LiveRoomSearchResult | LiveUserSearchResult | ArticleSearchResult | TopicSearchResult | UserSearchResult | PhotoSearchResult
+type AllSearchResultType = (
+        ActivitySearchResult
+        | WebGameSearchResult
+        | VideoSearchResult
+        | MediaSearchResult
+        | LiveRoomSearchResult
+        | LiveUserSearchResult
+        | ArticleSearchResult
+        | TopicSearchResult
+        | UserSearchResult
+        | PhotoSearchResult
+)
 
 
 class _PageInfoCount(BaseBilibiliModel):

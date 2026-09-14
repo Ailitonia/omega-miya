@@ -33,7 +33,7 @@ def enc_wbi(params: dict[str, Any] | None, img_key: str, sub_key: str) -> dict[s
     """为请求参数进行 wbi 签名"""
     mixin_key = get_mixin_key(img_key + sub_key)
     curr_time = round(time.time())
-    _params: dict[str, Any] = {} if params is None else params
+    _params: dict[str, Any] = {} if params is None else params.copy()
     # 添加 wts 字段
     _params.update({'wts': curr_time})
     # 按照 key 重排参数
