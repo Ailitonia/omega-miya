@@ -12,16 +12,13 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 
-class BooruConfig(BaseModel):
+class BooruAPIConfig(BaseModel):
     """Booru API 配置"""
     danbooru_username: str | None = None
     danbooru_api_key: str | None = None
 
     gelbooru_user_id: str | None = None
     gelbooru_api_key: str | None = None
-
-    behoimi_login_name: str | None = None
-    behoimi_password_hash: str | None = None
 
     yandere_login_name: str | None = None
     yandere_password_hash: str | None = None
@@ -36,7 +33,7 @@ class BooruConfig(BaseModel):
 
 
 try:
-    booru_config = get_plugin_config(BooruConfig)
+    booru_api_config = get_plugin_config(BooruAPIConfig)
 except ValidationError as e:
     import sys
 
@@ -44,5 +41,5 @@ except ValidationError as e:
     sys.exit(f'Booru API 配置格式验证失败, {e}')
 
 __all__ = [
-    'booru_config',
+    'booru_api_config',
 ]

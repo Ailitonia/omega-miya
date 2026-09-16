@@ -33,20 +33,29 @@ from .danbooru import Upload as DanbooruUpload
 from .danbooru import User as DanbooruUser
 from .danbooru import Wiki as DanbooruWiki
 from .danbooru import WikiPageVersion as DanbooruWikiPageVersion
+from .gelbooru import Comment as GelbooruComment
 from .gelbooru import CommentsData as GelbooruCommentsData
+from .gelbooru import Post as GelbooruPost
+from .gelbooru import PostRating as GelbooruPostRating
 from .gelbooru import PostsData as GelbooruPostsData
+from .gelbooru import Tag as GelbooruTag
 from .gelbooru import TagsData as GelbooruTagsData
+from .gelbooru import User as GelbooruUser
 from .gelbooru import UsersData as GelbooruUsersData
 from .moebooru import Artist as MoebooruArtist
 from .moebooru import Comment as MoebooruComment
+from .moebooru import FavoritedUsers as MoebooruFavoritedUsers
 from .moebooru import Forum as MoebooruForum
 from .moebooru import Note as MoebooruNote
+from .moebooru import NoteHistory as MoebooruNoteHistory
 from .moebooru import Pool as MoebooruPool
 from .moebooru import Post as MoebooruPost
 from .moebooru import SimilarPosts as MoebooruSimilarPosts
 from .moebooru import Tag as MoebooruTag
+from .moebooru import TagsRelated as MoebooruTagsRelated
 from .moebooru import User as MoebooruUser
 from .moebooru import Wiki as MoebooruWiki
+
 
 __all__ = [
     'DanbooruArtist',
@@ -74,6 +83,11 @@ __all__ = [
     'DanbooruTagImplication',
     'DanbooruUpload',
     'DanbooruUser',
+    'GelbooruPost',
+    'GelbooruPostRating',
+    'GelbooruTag',
+    'GelbooruUser',
+    'GelbooruComment',
     'GelbooruPostsData',
     'GelbooruTagsData',
     'GelbooruUsersData',
@@ -81,11 +95,14 @@ __all__ = [
     'MoebooruPost',
     'MoebooruSimilarPosts',
     'MoebooruTag',
+    'MoebooruTagsRelated',
     'MoebooruArtist',
     'MoebooruComment',
     'MoebooruWiki',
     'MoebooruNote',
+    'MoebooruNoteHistory',
     'MoebooruUser',
     'MoebooruForum',
     'MoebooruPool',
+    'MoebooruFavoritedUsers',
 ]

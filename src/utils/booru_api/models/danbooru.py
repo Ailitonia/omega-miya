@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import IntEnum, StrEnum, unique
 from typing import Any, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, IPvAnyNetwork
+from pydantic import BaseModel, ConfigDict, Field, IPvAnyNetwork, field_validator
 
 
 class BaseDanbooruModel(BaseModel):
@@ -103,7 +103,14 @@ class PostVariantTypeOriginal(PostVariant):
     type: Literal['original']
 
 
-type PostVariantTypes = PostVariantType180 | PostVariantType360 | PostVariantType720 | PostVariantTypeSample | PostVariantTypeFull | PostVariantTypeOriginal
+type PostVariantTypes = (
+        PostVariantType180
+        | PostVariantType360
+        | PostVariantType720
+        | PostVariantTypeSample
+        | PostVariantTypeFull
+        | PostVariantTypeOriginal
+)
 
 PostVariant_T = TypeVar('PostVariant_T', bound=PostVariant)
 
@@ -197,6 +204,7 @@ class Post(BaseDanbooruModel):
     up_score: int
     down_score: int
     fav_count: int
+    last_commented_at: datetime | None = None
     last_comment_bumped_at: datetime | None
     last_noted_at: datetime | None
     media_asset: PostMediaAsset  # not in api docs but it actually exists
@@ -345,7 +353,7 @@ class Dmail(BaseDanbooruModel):
     is_read: bool
     is_deleted: bool
     is_spam: bool | None = None  # obsolete
-    key: bool
+    key: str
     created_at: datetime
     updated_at: datetime
 
@@ -373,7 +381,8 @@ class ForumTopic(BaseDanbooruModel):
     title: str
     category_id: ForumTopicCategoryID
     response_count: int
-    min_level: int  # Corresponds to the level of user (API:Users)
+    # 实际响应中该字段可能为字符串 "None", 经前置校验归一为 None
+    min_level: int | None = None  # Corresponds to the level of user (API:Users)
     is_deleted: bool
     is_sticky: bool
     is_locked: bool
@@ -381,6 +390,11 @@ class ForumTopic(BaseDanbooruModel):
     updater_id: int
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('min_level', mode='before')
+    @classmethod
+    def _normalize_min_level(cls, value: object) -> object:
+        return None if value == 'None' else value
 
 
 @unique
@@ -487,9 +501,10 @@ class Upload(BaseDanbooruModel):
 
 
 class User(BaseDanbooruModel):
-    id: int
+    id: int | None  # 匿名访问 /profile.json 时返回幽灵用户, id 为 None
     name: str
-    level: Literal[10, 20, 30, 31, 32, 40, 50]
+    # 匿名访问 /profile.json 时 level 为 0 (幽灵用户), 其余等级取值见 API:Users 文档
+    level: Literal[0, 10, 20, 30, 31, 32, 35, 37, 40, 50, 60]
     level_string: str | None = None
     inviter_id: int | None
     post_update_count: int

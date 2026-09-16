@@ -10,7 +10,7 @@
 
 from enum import StrEnum, unique
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class BaseGelbooruModel(BaseModel):
@@ -19,14 +19,14 @@ class BaseGelbooruModel(BaseModel):
     model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
 
-class PostAttributes(BaseGelbooruModel):
+class IndexAttributes(BaseGelbooruModel):
     limit: int
     offset: int
     count: int
 
 
 class BaseIndexData(BaseGelbooruModel):
-    attributes: PostAttributes = Field(alias='@attributes')
+    attributes: IndexAttributes = Field(alias='@attributes')
 
 
 @unique
@@ -40,7 +40,8 @@ class PostRating(StrEnum):
 class Post(BaseGelbooruModel):
     id: int
     owner: str
-    creator_id: int
+    # dapi 部分实现对无可值字段返回空串, 归一为 None; 0 为上游真实的"无"标记, 保留为 0
+    creator_id: int | None = None
     title: str
     tags: str
     rating: PostRating
@@ -48,7 +49,8 @@ class Post(BaseGelbooruModel):
     change: int
     directory: str
     image: str
-    md5: str
+    # dapi 文档未记载响应字段, 不同实现中该字段存在 md5/hash 两种命名, 兼容解析
+    md5: str | None = Field(default=None, validation_alias=AliasChoices('md5', 'hash'))
     source: str
     width: int
     height: int
@@ -60,7 +62,7 @@ class Post(BaseGelbooruModel):
     jpeg_url: str | None = None
     preview_url: str | None = None
     sample_url: str | None = None
-    parent_id: int
+    parent_id: int | None = None
     sample: int
     has_children: bool
     has_comments: bool
@@ -69,9 +71,16 @@ class Post(BaseGelbooruModel):
     post_locked: int
     created_at: str
 
+    @field_validator('creator_id', 'parent_id', mode='before')
+    @classmethod
+    def _normalize_empty_to_none(cls, value: object) -> object:
+        # 空串归一为 None, 避免单条坏记录导致整页解析失败
+        return None if value == '' else value
+
 
 class PostsData(BaseIndexData):
-    post: list[Post]
+    # 空结果时 dapi 可能省略数组键, 默认空列表
+    post: list[Post] = Field(default_factory=list)
 
     @property
     def post_ids(self) -> list[int]:
@@ -87,17 +96,18 @@ class Tag(BaseGelbooruModel):
 
 
 class TagsData(BaseIndexData):
-    tag: list[Tag]
+    tag: list[Tag] = Field(default_factory=list)
 
 
 class User(BaseGelbooruModel):
     id: int
-    username: str
+    # dapi 文档未记载响应字段, 不同实现中该字段存在 username/name 两种命名, 兼容解析
+    username: str = Field(validation_alias=AliasChoices('username', 'name'))
     active: int
 
 
 class UsersData(BaseIndexData):
-    user: list[User]
+    user: list[User] = Field(default_factory=list)
 
 
 class Comment(BaseGelbooruModel):
@@ -109,13 +119,17 @@ class Comment(BaseGelbooruModel):
 
 
 class CommentsData(BaseIndexData):
-    comment: list[Comment]
+    comment: list[Comment] = Field(default_factory=list)
 
 
 __all__ = [
+    'Comment',
     'Post',
     'PostsData',
+    'PostRating',
+    'Tag',
     'TagsData',
+    'User',
     'UsersData',
     'CommentsData',
 ]
