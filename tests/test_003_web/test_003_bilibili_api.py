@@ -1963,12 +1963,12 @@ class TestLoginWithQrcode:
             monkeypatch: pytest.MonkeyPatch,
             credential_manager_sandbox: '_BilibiliCredentialManager',
     ) -> None:
-        """持续未扫码超过尝试上限应抛出等待超时异常"""
+        """持续未扫码超过尝试上限 (attempt >= 15) 应抛出等待超时异常, 共发起 16 次轮询"""
         from src.utils.bilibili_api import BilibiliCredential
         from src.utils.bilibili_api.models import WebQrcodeGenerateInfo, WebQrcodePollInfo
 
         pending_info = WebQrcodePollInfo.model_validate(_QRCODE_POLL_PENDING_PAYLOAD)
-        check_mock = self._mock_login_pipeline(monkeypatch, [(pending_info, {})] * 11)
+        check_mock = self._mock_login_pipeline(monkeypatch, [(pending_info, {})] * 16)
 
         credential_manager_sandbox.clear_cookies()
 
@@ -1976,7 +1976,7 @@ class TestLoginWithQrcode:
         with pytest.raises(RuntimeError, match='等待超时'):
             await BilibiliCredential.login_with_qrcode(qrcode_info=qrcode_info)
 
-        assert check_mock.await_count == 11
+        assert check_mock.await_count == 16
 
 
 class TestMakeQrcode:
