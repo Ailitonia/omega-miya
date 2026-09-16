@@ -66,7 +66,13 @@ async def test_server(nonebug_init: None) -> AsyncGenerator[SimpleNamespace, Non
     )
     register_test_routes(api, state)
 
-    config = uvicorn.Config(app=api._app, host='127.0.0.1', port=0, log_level='warning')
+    config = uvicorn.Config(
+        app=api._app,
+        host='127.0.0.1',
+        port=0,
+        log_level='warning',
+        timeout_graceful_shutdown=3,
+    )
     server = uvicorn.Server(config)
     serve_task = asyncio.create_task(server.serve())
     for _ in range(200):
@@ -83,7 +89,8 @@ async def test_server(nonebug_init: None) -> AsyncGenerator[SimpleNamespace, Non
     finally:
         omega_requests_config.omega_requests_enable_proxy = saved_enable_proxy
 
-        server.force_exit = True
+        # should_exit=False 使 uvicorn 走完 lifespan shutdown 流程,
+        # 避免孤儿 lifespan 任务在 event loop 关闭时被取消而打出 CancelledError traceback
         server.should_exit = True
         try:
             await asyncio.wait_for(serve_task, timeout=10)
