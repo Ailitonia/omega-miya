@@ -9,9 +9,12 @@
 """
 
 from .aes import AESEncryptor
+from .base import BaseEncryptor, derive_key
 from .chacha20 import ChaCha20Encryptor
 
 __all__ = [
     'AESEncryptor',
+    'BaseEncryptor',
     'ChaCha20Encryptor',
+    'derive_key',
 ]

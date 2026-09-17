@@ -14,7 +14,7 @@ from hashlib import sha256
 from typing import Annotated
 
 from nonebot import get_plugin_config, logger
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 
 def generate_aes_key_by_hardware() -> SecretStr:
@@ -32,6 +32,16 @@ class EncryptConfig(BaseModel):
     omega_aes_key: Annotated[SecretStr, Field(default_factory=generate_aes_key_by_hardware)]
 
     model_config = ConfigDict(extra='ignore')
+
+    @field_validator('omega_aes_key', mode='after')
+    @classmethod
+    def _reject_empty_key(cls, value: SecretStr) -> SecretStr:
+        secret = value.get_secret_value()
+        if not secret.strip():
+            raise ValueError('omega_aes_key 不能为空, 请配置非空的随机密钥或移除该项以使用硬件派生密钥')
+        if len(secret) < 32:
+            logger.warning('omega_aes_key 长度不足 32 字符, 建议配置更长的随机密钥')
+        return value
 
 
 try:
