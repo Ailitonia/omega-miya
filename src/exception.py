@@ -41,6 +41,7 @@ class WebSourceException(OmegaException):
         self.status_code = status_code
         self.message = message
         self.content = content
+        super().__init__(self.message)
 
     def __str__(self) -> str:
         return f'WebSourceException: {self.status_code}, {self.message}'
