@@ -9,16 +9,19 @@
 """
 
 from collections.abc import Generator, Iterable, Sequence
-from typing import TYPE_CHECKING, Any, Literal, Self, final, overload
+from io import SEEK_END
+from pathlib import Path
+from typing import Any, BinaryIO, Literal, Self, final, overload
 
 import pandas as pd
 from nonebot.utils import run_sync
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 
 from src.exception import OmegaException
+from src.resource import BaseResource
 
-if TYPE_CHECKING:
-    from src.resource import BaseResource
+type ExcelFileTarget = BaseResource | BinaryIO
+"""Excel 读写目标, 本地资源文件或二进制内存缓冲区"""
 
 
 @final
@@ -31,6 +34,36 @@ class ExcelToolsException(OmegaException):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(message={self.message!r})'
+
+
+def _prepare_read_target(excel_file: ExcelFileTarget) -> Path | BinaryIO:
+    """资源文件校验存在性后返回路径, 内存缓冲区重置读指针后原样返回"""
+    if isinstance(excel_file, BaseResource):
+        excel_file.raise_not_file()
+        return excel_file.path
+    excel_file.seek(0)
+    return excel_file
+
+
+def _prepare_overwrite_target(excel_file: ExcelFileTarget) -> Path | BinaryIO:
+    """资源文件确保父目录存在后返回路径, 内存缓冲区清空重置后原样返回(等价 'wb' 覆写语义)"""
+    if isinstance(excel_file, BaseResource):
+        excel_file.ensure_parent_path()
+        return excel_file.path
+    excel_file.seek(0)
+    excel_file.truncate()
+    return excel_file
+
+
+def _prepare_append_target(excel_file: ExcelFileTarget) -> Path | BinaryIO:
+    """资源文件确保父目录存在后返回路径, 非空内存缓冲区重置读指针后原样返回, 空缓冲区视为不存在的文件"""
+    if isinstance(excel_file, BaseResource):
+        excel_file.ensure_parent_path()
+        return excel_file.path
+    if excel_file.seek(0, SEEK_END) == 0:
+        raise ExcelToolsException('无法向空缓冲区追加数据, 目标缓冲区未包含有效的 Excel 内容')
+    excel_file.seek(0)
+    return excel_file
 
 
 class ExcelTools[DataModel_T: BaseModel]:
@@ -47,7 +80,9 @@ class ExcelTools[DataModel_T: BaseModel]:
     - sheet_name=None 时读取全部 sheet, 返回以 sheet 名为键的结果字典, 各 sheet 独立建模;
     - append_excel 向已存在的文件追加/替换 sheet, 不提供分块(同一写入会话内同名 sheet 只能写一次);
     - dump_excel 的 in_chunks 用于逐行惰性写出大数据量, 输入迭代器惰性消费, 避免一次性物化全部数据,
-      注意 in_chunks 配合 index=True 时写出的索引列值均为 0(单行 DataFrame 固有行为).
+      注意 in_chunks 配合 index=True 时写出的索引列值均为 0(单行 DataFrame 固有行为);
+    - 读写目标支持 BinaryIO 内存缓冲区: 读取前重置读指针, 覆写前清空缓冲区(等价 'wb' 语义),
+      向空缓冲区追加等同向不存在的文件追加, 抛出 ExcelToolsException, 缓冲区目标跳过路径存在性检查与父目录创建.
     """
 
     def __init__(self, data_model: type[DataModel_T]):
@@ -75,7 +110,7 @@ class ExcelTools[DataModel_T: BaseModel]:
 
     @staticmethod
     def _read_excel(
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: str | int | None = 0,
             header: int | Sequence[int] | None = 0,
@@ -83,10 +118,10 @@ class ExcelTools[DataModel_T: BaseModel]:
             nrows: int | None = None,
     ) -> 'pd.DataFrame | dict[str, pd.DataFrame]':
         """读取 Excel 数据, sheet_name 为 None 时返回全部 sheet 组成的字典"""
-        excel_file.raise_not_file()
+        read_target = _prepare_read_target(excel_file)
         try:
             return pd.read_excel(
-                excel_file.path,
+                read_target,
                 sheet_name=sheet_name,
                 header=header,
                 skiprows=skiprows,
@@ -98,22 +133,22 @@ class ExcelTools[DataModel_T: BaseModel]:
     @staticmethod
     def _write_excel(
             data: 'pd.DataFrame',
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool = False,
             sheet_name: str = 'Default',
     ) -> None:
         """导出 Excel 数据"""
-        excel_file.ensure_parent_path()
+        write_target = _prepare_overwrite_target(excel_file)
         try:
-            data.to_excel(excel_file.path, index=index, sheet_name=sheet_name)
+            data.to_excel(write_target, index=index, sheet_name=sheet_name)
         except Exception as e:
             raise ExcelToolsException(f'写入 Excel 文件失败: {e}') from e
 
     @staticmethod
     def _write_excel_in_chunks(
             data_iter: Iterable['pd.DataFrame'],
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool,
             sheet_name: str,
@@ -122,9 +157,9 @@ class ExcelTools[DataModel_T: BaseModel]:
         iterator = iter(data_iter)
         first_chunk = next(iterator, None)
 
-        excel_file.ensure_parent_path()
+        write_target = _prepare_overwrite_target(excel_file)
         try:
-            with pd.ExcelWriter(excel_file.path) as writer:
+            with pd.ExcelWriter(write_target) as writer:
                 if first_chunk is not None:
                     first_chunk.to_excel(writer, index=index, header=True, sheet_name=sheet_name)
                 for chunk in iterator:
@@ -143,16 +178,16 @@ class ExcelTools[DataModel_T: BaseModel]:
     @staticmethod
     def _append_write_excel(
             data: 'pd.DataFrame',
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool = False,
             sheet_name: str = 'Default',
             if_sheet_exists: Literal['error', 'replace'] = 'error',
     ) -> None:
         """向已存在的 Excel 文件追加或替换 sheet"""
-        excel_file.ensure_parent_path()
+        append_target = _prepare_append_target(excel_file)
         try:
-            with pd.ExcelWriter(excel_file.path, mode='a', if_sheet_exists=if_sheet_exists) as writer:
+            with pd.ExcelWriter(append_target, mode='a', if_sheet_exists=if_sheet_exists) as writer:
                 data.to_excel(writer, index=index, sheet_name=sheet_name)
         except Exception as e:
             raise ExcelToolsException(f'写入 Excel 文件失败: {e}') from e
@@ -200,7 +235,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     def _dump_excel(
             self,
             data: Iterable[DataModel_T | dict[str, Any]],
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool = False,
             sheet_name: str = 'Default',
@@ -212,7 +247,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     def _dump_excel_in_chunks(
             self,
             data: Iterable[DataModel_T | dict[str, Any]],
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool,
             sheet_name: str,
@@ -224,14 +259,15 @@ class ExcelTools[DataModel_T: BaseModel]:
     def _append_excel(
             self,
             data: Iterable[DataModel_T | dict[str, Any]],
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool = False,
             sheet_name: str = 'Default',
             if_sheet_exists: Literal['error', 'replace'] = 'error',
     ) -> None:
         """向已存在的 Excel 文件追加或替换 sheet"""
-        excel_file.raise_not_file()
+        if isinstance(excel_file, BaseResource):
+            excel_file.raise_not_file()
         self._append_write_excel(
             self._dump_excel_data(data),
             excel_file,
@@ -244,7 +280,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @run_sync
     def _load_excel(
             cls,  # noqa: ARG003
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             data_model: 'type[DataModel_T]',
             *,
             sheet_name: str | int | None = 0,
@@ -269,7 +305,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @run_sync
     def _auto_load_excel(
             cls,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: str | int | None = 0,
             header: int | Sequence[int] | None = 0,
@@ -291,7 +327,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     async def dump_excel(
             self,
             data: Iterable[DataModel_T | dict[str, Any]],
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool = False,
             sheet_name: str | None = None,
@@ -310,7 +346,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     async def append_excel(
             self,
             data: Iterable[DataModel_T | dict[str, Any]],
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             index: bool = False,
             sheet_name: str | None = None,
@@ -330,7 +366,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @overload
     async def load_excel(
             self,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: str | int = ...,
             header: int | Sequence[int] | None = ...,
@@ -342,7 +378,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @overload
     async def load_excel(
             self,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: None = ...,
             header: int | Sequence[int] | None = ...,
@@ -353,7 +389,7 @@ class ExcelTools[DataModel_T: BaseModel]:
 
     async def load_excel(
             self,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: str | int | None = 0,
             header: int | Sequence[int] | None = 0,
@@ -374,7 +410,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @classmethod
     async def auto_load_excel(
             cls,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: str | int = ...,
             header: int | Sequence[int] | None = ...,
@@ -387,7 +423,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @classmethod
     async def auto_load_excel(
             cls,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: None = ...,
             header: int | Sequence[int] | None = ...,
@@ -399,7 +435,7 @@ class ExcelTools[DataModel_T: BaseModel]:
     @classmethod
     async def auto_load_excel(
             cls,
-            excel_file: 'BaseResource',
+            excel_file: ExcelFileTarget,
             *,
             sheet_name: str | int | None = 0,
             header: int | Sequence[int] | None = 0,
@@ -417,6 +453,7 @@ class ExcelTools[DataModel_T: BaseModel]:
 
 
 __all__ = [
+    'ExcelFileTarget',
     'ExcelTools',
     'ExcelToolsException',
 ]
