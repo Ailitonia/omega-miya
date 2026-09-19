@@ -13,10 +13,14 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from src.compat import dump_obj_as
 from src.utils import BaseCommonAPI
+from src.utils.omega_requests.types import Timeout
 from .config import openai_service_config
 from .models import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionDeleted,
+    ChatCompletionList,
+    ChatCompletionMessageList,
     Embeddings,
     File,
     FileContent,
@@ -25,19 +29,20 @@ from .models import (
     Message,
     MessageContent,
     ModelList,
+    ToolCalls,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from src.resource import BaseResource
-    from src.utils.omega_requests.types import CookieTypes, HeaderTypes, QueryTypes, Timeout, TimeoutTypes
+    from src.utils.omega_requests.types import CookieTypes, HeaderTypes, QueryTypes, TimeoutTypes
 
     type ChatMessage = Message | Iterable[MessageContent]
 
 
-class BaseOpenAIClient(BaseCommonAPI):
-    """openai API 客户端基类"""
+class OpenAIClient(BaseCommonAPI):
+    """openai API 客户端"""
 
     def __init__(self, api_key: str, base_url: str):
         self._api_key = api_key
@@ -75,7 +80,8 @@ class BaseOpenAIClient(BaseCommonAPI):
 
     @property
     def base_url(self) -> str:
-        return self._base_url
+        # 剥离尾部斜杠, 避免 URL 拼接产生双斜杠路径 (部分提供商网关无法路由)
+        return self._base_url.rstrip('/')
 
     @property
     def request_headers(self) -> dict[str, str]:
@@ -101,11 +107,7 @@ class BaseOpenAIClient(BaseCommonAPI):
 
     @classmethod
     def _get_default_timeout(cls) -> 'Timeout':
-        timeout = cls._get_omega_requests_default_timeout()
-        timeout.total = 300
-        timeout.connect = 10
-        timeout.read = 60
-        return timeout
+        return Timeout(total=300, connect=10, read=60)
 
     @classmethod
     async def get_any_resource_as_bytes(
@@ -128,6 +130,15 @@ class BaseOpenAIClient(BaseCommonAPI):
             headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
         )
 
+    @staticmethod
+    def _parse_chat_message(message: 'ChatMessage') -> list[MessageContent]:
+        """将 message 参数统一解析为 MessageContent 列表"""
+        if isinstance(message, Message):
+            return message.messages
+        if isinstance(message, MessageContent):
+            return [message]
+        return list(message)
+
     async def create_chat_completion_normal(
             self,
             model: str,
@@ -149,7 +160,7 @@ class BaseOpenAIClient(BaseCommonAPI):
             'model': model,
             'messages': dump_obj_as(
                 list[MessageContent],
-                message.messages if isinstance(message, Message) else message,
+                self._parse_chat_message(message),
                 mode='json',
                 exclude_none=True,
             ),
@@ -180,7 +191,7 @@ class BaseOpenAIClient(BaseCommonAPI):
             'model': model,
             'messages': dump_obj_as(
                 list[MessageContent],
-                message.messages if isinstance(message, Message) else message,
+                self._parse_chat_message(message),
                 mode='json',
                 exclude_none=True,
             ),
@@ -226,23 +237,165 @@ class BaseOpenAIClient(BaseCommonAPI):
                 else:
                     content_map[choice.index].append(choice.delta)
 
-        return [
-            MessageContent.model_validate({
-                'role': x[0].role,
+        contents: list[MessageContent] = []
+        for deltas in content_map.values():
+            annotations = next((c.annotations for c in reversed(deltas) if c.annotations is not None), None)
+            audio = next((c.audio for c in reversed(deltas) if c.audio is not None), None)
+            contents.append(MessageContent.model_validate({
+                'role': deltas[0].role,
                 'content': (
-                        [i for c in x for i in c.content if isinstance(c.content, list)]
-                        or ''.join(c.content for c in x if isinstance(c.content, str))
+                        [i for c in deltas for i in c.content if isinstance(c.content, list)]
+                        or ''.join(c.content for c in deltas if isinstance(c.content, str))
                 ),
-                'reasoning_content': ''.join(c.reasoning_content for c in x),
-                'name': x[0].name,
-                'refusal': x[0].refusal,
-                'audio': x[0].audio,
-                'tool_calls': x[0].tool_calls,
-                'tool_call_id': x[0].tool_call_id,
-                'function_call': x[0].function_call,
-            })
-            for x in content_map.values()
-        ]
+                'reasoning_content': ''.join(c.reasoning_content for c in deltas),
+                'name': deltas[0].name,
+                'refusal': ''.join(c.refusal for c in deltas if c.refusal) or None,
+                'annotations': annotations,
+                'audio': audio,
+                'tool_calls': self._merge_tool_calls_chunks(deltas),
+                'tool_call_id': deltas[0].tool_call_id,
+                'function_call': deltas[0].function_call,
+            }))
+
+        return contents
+
+    @staticmethod
+    def _merge_tool_calls_chunks(deltas: list[MessageContent]) -> list[ToolCalls] | None:
+        """按 index 合并流式响应中的 tool_calls 分片
+
+        流式响应中每个 tool call 的 `id` 与 `function.name` 仅在首个分片出现,
+        `function.arguments` 按分片增量传输, 需要跨分片拼接还原完整调用
+        """
+        merged_calls: dict[int, ToolCalls] = {}
+        for delta in deltas:
+            for tool_call in (delta.tool_calls or []):
+                if tool_call.index is not None:
+                    index = tool_call.index
+                else:
+                    # 部分第三方服务分片不带 index, 并入最后一个已合并的调用
+                    index = max(merged_calls) if merged_calls else 0
+
+                if index not in merged_calls:
+                    merged_calls[index] = tool_call.model_copy(deep=True)
+                    continue
+
+                merged = merged_calls[index]
+                if tool_call.id is not None:
+                    merged.id = tool_call.id
+                if tool_call.function is not None:
+                    if merged.function is None:
+                        merged.function = tool_call.function.model_copy(deep=True)
+                    else:
+                        if tool_call.function.name is not None:
+                            merged.function.name = tool_call.function.name
+                        if tool_call.function.arguments is not None:
+                            merged.function.arguments = (merged.function.arguments or '') + tool_call.function.arguments
+
+        return list(merged_calls.values()) or None
+
+    async def get_chat_completion(self, completion_id: str) -> ChatCompletion:
+        """Get a stored chat completion.
+
+        Only Chat Completions that have been created with the `store` parameter set to `true` will be returned.
+
+        :param completion_id: The ID of the chat completion.
+        """
+        url = f'{self.base_url}/chat/completions/{completion_id}'
+        response = await self._get_resource_as_json(url=url, headers=self.request_headers)
+        return ChatCompletion.model_validate(response)
+
+    async def update_chat_completion(
+            self,
+            completion_id: str,
+            metadata: dict[str, str] | None = None,
+    ) -> ChatCompletion:
+        """Modify a stored chat completion.
+
+        Only Chat Completions that have been created with the `store` parameter set to `true` can be modified.
+        Currently, the only supported modification is to update the `metadata` field.
+
+        :param completion_id: The ID of the chat completion.
+        :param metadata: Set of 16 key-value pairs that can be attached to an object.
+        """
+        url = f'{self.base_url}/chat/completions/{completion_id}'
+        data = {'metadata': metadata}
+        response = await self._post_acquire_as_json(url=url, json=data, headers=self.request_headers)
+        return ChatCompletion.model_validate(response)
+
+    async def delete_chat_completion(self, completion_id: str) -> ChatCompletionDeleted:
+        """Delete a stored chat completion.
+
+        Only Chat Completions that have been created with the `store` parameter set to `true` can be deleted.
+
+        :param completion_id: The ID of the chat completion to delete.
+        """
+        url = f'{self.base_url}/chat/completions/{completion_id}'
+        response = await self._request_delete(url=url, headers=self.request_headers)
+        return ChatCompletionDeleted.model_validate(self._parse_content_as_json(response))
+
+    async def list_chat_completions(
+            self,
+            *,
+            after: str | None = None,
+            limit: int | None = None,
+            metadata: dict[str, str] | None = None,
+            model: str | None = None,
+            order: Literal['asc', 'desc'] | None = None,
+    ) -> ChatCompletionList:
+        """List stored Chat Completions.
+
+        Only Chat Completions that have been stored with the `store` parameter set to `true` will be returned.
+
+        :param after: Identifier for the last chat completion from the previous pagination request.
+        :param limit: Number of Chat Completions to retrieve.
+        :param metadata: A list of metadata keys to filter the Chat Completions by.
+        :param model: The model used to generate the Chat Completions.
+        :param order: Sort order for Chat Completions by timestamp. Defaults to `asc`.
+        """
+        url = f'{self.base_url}/chat/completions'
+        params = {}
+        if after is not None:
+            params['after'] = after
+        if limit is not None:
+            params['limit'] = limit
+        if metadata is not None:
+            params.update({f'metadata[{key}]': value for key, value in metadata.items()})
+        if model is not None:
+            params['model'] = model
+        if order is not None:
+            params['order'] = order
+
+        response = await self._get_resource_as_json(url=url, params=params, headers=self.request_headers)
+        return ChatCompletionList.model_validate(response)
+
+    async def get_chat_completion_messages(
+            self,
+            completion_id: str,
+            *,
+            after: str | None = None,
+            limit: int | None = None,
+            order: Literal['asc', 'desc'] | None = None,
+    ) -> ChatCompletionMessageList:
+        """Get the messages in a stored chat completion.
+
+        Only Chat Completions that have been created with the `store` parameter set to `true` will be returned.
+
+        :param completion_id: The ID of the chat completion.
+        :param after: Identifier for the last message from the previous pagination request.
+        :param limit: Number of messages to retrieve.
+        :param order: Sort order for messages by timestamp. Defaults to `asc`.
+        """
+        url = f'{self.base_url}/chat/completions/{completion_id}/messages'
+        params = {}
+        if after is not None:
+            params['after'] = after
+        if limit is not None:
+            params['limit'] = limit
+        if order is not None:
+            params['order'] = order
+
+        response = await self._get_resource_as_json(url=url, params=params, headers=self.request_headers)
+        return ChatCompletionMessageList.model_validate(response)
 
     async def create_embeddings(
             self,
@@ -347,5 +500,5 @@ class BaseOpenAIClient(BaseCommonAPI):
 
 
 __all__ = [
-    'BaseOpenAIClient',
+    'OpenAIClient',
 ]

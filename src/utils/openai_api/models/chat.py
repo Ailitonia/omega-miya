@@ -13,12 +13,28 @@ from typing import Any, Literal
 from pydantic import Field, field_validator
 
 from .base import BaseOpenAIModel
-from .message import MessageContent, MessageRole
+from .message import MessageContent, MessageContentType, MessageRole
+
+
+class TopLogprob(BaseOpenAIModel):
+    token: str
+    bytes: list[int] | None = None
+    logprob: float
+
+
+class TokenLogprob(TopLogprob):
+    top_logprobs: list[TopLogprob] = Field(default_factory=list)
+
+
+class ChoiceLogprobs(BaseOpenAIModel):
+    content: list[TokenLogprob] | None = None
+    refusal: list[TokenLogprob] | None = None
 
 
 class Choice(BaseOpenAIModel):
     index: int
     message: MessageContent
+    logprobs: ChoiceLogprobs | None = None
     finish_reason: Literal[
         'stop',
         'eos',
@@ -42,6 +58,7 @@ class Choice(BaseOpenAIModel):
 class ChunkChoice(BaseOpenAIModel):
     index: int
     delta: MessageContent
+    logprobs: ChoiceLogprobs | None = None
     finish_reason: Literal[
         'stop',
         'eos',
@@ -75,19 +92,28 @@ class ChunkChoice(BaseOpenAIModel):
 
 
 class PromptTokensDetails(BaseOpenAIModel):
-    cached_tokens: int
+    cached_tokens: int = -1
+    audio_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    image_tokens: int | None = None
+    text_tokens: int | None = None
 
 
 class CompletionTokensDetails(BaseOpenAIModel):
     reasoning_tokens: int = -1
     accepted_prediction_tokens: int = -1
     rejected_prediction_tokens: int = -1
+    audio_tokens: int | None = None
+    text_tokens: int | None = None
 
 
 class Usage(BaseOpenAIModel):
     prompt_tokens: int = -1
     completion_tokens: int = -1
     total_tokens: int = -1
+    cached_tokens: int | None = None
+    prompt_cache_hit_tokens: int | None = None
+    prompt_cache_miss_tokens: int | None = None
     prompt_tokens_details: PromptTokensDetails | None = None
     completion_tokens_details: CompletionTokensDetails | None = None
 
@@ -98,9 +124,10 @@ class ChatCompletion(BaseOpenAIModel):
     created: int
     model: str
     choices: list[Choice]
-    usage: Usage
+    usage: Usage | None = None
     service_tier: str | None = None
     system_fingerprint: str | None = None
+    metadata: dict[str, str] | None = None
 
 
 class ChatCompletionChunk(BaseOpenAIModel):
@@ -114,7 +141,38 @@ class ChatCompletionChunk(BaseOpenAIModel):
     system_fingerprint: str | None = None
 
 
+class ChatCompletionDeleted(BaseOpenAIModel):
+    id: str
+    object: Literal['chat.completion.deleted']
+    deleted: bool
+
+
+class ChatCompletionStoreMessage(MessageContent):
+    id: str
+    content_parts: list[MessageContentType] | None = Field(default=None)
+
+
+class ChatCompletionList(BaseOpenAIModel):
+    object: Literal['list']
+    data: list[ChatCompletion]
+    first_id: str | None = None
+    last_id: str | None = None
+    has_more: bool = False
+
+
+class ChatCompletionMessageList(BaseOpenAIModel):
+    object: Literal['list']
+    data: list[ChatCompletionStoreMessage]
+    first_id: str | None = None
+    last_id: str | None = None
+    has_more: bool = False
+
+
 __all__ = [
     'ChatCompletion',
     'ChatCompletionChunk',
+    'ChatCompletionDeleted',
+    'ChatCompletionList',
+    'ChatCompletionMessageList',
+    'ChatCompletionStoreMessage',
 ]

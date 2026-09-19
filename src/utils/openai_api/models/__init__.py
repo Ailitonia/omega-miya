@@ -8,15 +8,24 @@
 @Software       : PyCharm
 """
 
-from .chat import ChatCompletion, ChatCompletionChunk
+from .chat import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionDeleted,
+    ChatCompletionList,
+    ChatCompletionMessageList,
+)
 from .embeddings import Embeddings
 from .file import File, FileContent, FileDeleted, FileList
-from .message import Message, MessageContent, MessageRole
+from .message import Message, MessageContent, MessageRole, ToolCalls
 from .model import Model, ModelList
 
 __all__ = [
     'ChatCompletion',
     'ChatCompletionChunk',
+    'ChatCompletionDeleted',
+    'ChatCompletionList',
+    'ChatCompletionMessageList',
     'Embeddings',
     'File',
     'FileContent',
@@ -27,4 +36,5 @@ __all__ = [
     'MessageRole',
     'Model',
     'ModelList',
+    'ToolCalls',
 ]

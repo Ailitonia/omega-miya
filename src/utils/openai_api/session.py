@@ -14,7 +14,7 @@ import ujson as json
 from pydantic import BaseModel
 
 from src.compat import parse_json_as
-from .api import BaseOpenAIClient
+from .api import OpenAIClient
 from .helpers import (
     encode_bytes_image,
     encode_local_audio,
@@ -42,7 +42,7 @@ class ChatSession:
             use_developer_message: bool = False,
             max_messages: int = 20,
     ) -> None:
-        self.client = BaseOpenAIClient.init_from_config(service_name=service_name, model_name=model_name)
+        self.client = OpenAIClient.init_from_config(service_name=service_name, model_name=model_name)
         self.default_user_name = default_user_name
         self.model = model_name
         self.message = Message(max_messages=max_messages)
@@ -96,7 +96,7 @@ class ChatSession:
             max_messages: int = 20,
     ) -> Self:
         """从配置文件中初始化, 使用第一个可用配置项"""
-        if not (available_services := BaseOpenAIClient.get_available_services()):
+        if not (available_services := OpenAIClient.get_available_services()):
             raise RuntimeError('no openai service has been config')
         return cls(
             *available_services[0],
@@ -137,14 +137,14 @@ class ChatSession:
         if file is not None:
             if upload_file_with_purpose is None:
                 file_data = await encode_local_file(file)
-                message_content = MessageContent.system(name=user_name).add_file(file_data=file_data)
+                message_content = MessageContent.user(name=user_name).add_file(file_data=file_data)
             else:
                 uploaded_file = await self.client.upload_file(file=file, purpose=upload_file_with_purpose)
-                message_content = MessageContent.system(name=user_name).add_file(
+                message_content = MessageContent.user(name=user_name).add_file(
                     file_id=uploaded_file.id, filename=uploaded_file.filename
                 )
         else:
-            message_content = MessageContent.system(name=user_name).add_file(file_id=file_id, filename=filename)
+            message_content = MessageContent.user(name=user_name).add_file(file_id=file_id, filename=filename)
 
         self.message.add_content(message_content)
 
@@ -187,6 +187,9 @@ class ChatSession:
             message=self.message,
             **kwargs,
         )
+
+        if not result:
+            raise RuntimeError('chat completion response has no choices')
 
         self.message.add_content(result[0])
         return result[0].plain_text

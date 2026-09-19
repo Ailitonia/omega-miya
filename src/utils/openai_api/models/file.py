@@ -22,9 +22,9 @@ class File(BaseOpenAIModel):
 
 class FileContent(BaseOpenAIModel):
     content: str
-    file_type: str
+    file_type: str | None = None
     filename: str
-    title: str
+    title: str | None = None
     type: str
 
 

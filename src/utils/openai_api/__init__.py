@@ -8,13 +8,13 @@
 @Software       : PyCharm
 """
 
-from .api import BaseOpenAIClient
+from .api import OpenAIClient
 from .helpers import encode_bytes_image, encode_local_audio, encode_local_file, encode_local_image
 from .models import Message, MessageContent
 from .session import ChatSession
 
 __all__ = [
-    'BaseOpenAIClient',
+    'OpenAIClient',
     'ChatSession',
     'Message',
     'MessageContent',

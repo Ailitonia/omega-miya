@@ -74,14 +74,33 @@ class MessageRole(StrEnum):
 
 
 class Function(BaseOpenAIModel):
+    name: str | None = Field(default=None)
+    arguments: str | None = Field(default=None)
+
+
+class CustomTool(BaseOpenAIModel):
     name: str
-    arguments: str
+    input: str
 
 
 class ToolCalls(BaseOpenAIModel):
-    id: str
-    type: Literal['function']
-    function: Function
+    index: int | None = Field(default=None)
+    id: str | None = Field(default=None)
+    type: Literal['function', 'custom'] = Field(default='function')
+    function: Function | None = Field(default=None)
+    custom: CustomTool | None = Field(default=None)
+
+
+class UrlCitation(BaseOpenAIModel):
+    end_index: int
+    start_index: int
+    title: str
+    url: str
+
+
+class Annotation(BaseOpenAIModel):
+    type: Literal['url_citation']
+    url_citation: UrlCitation
 
 
 class Audio(BaseOpenAIModel):
@@ -98,8 +117,9 @@ class MessageContent(BaseOpenAIModel):
     reasoning_content: EmptyNoneStr = Field(default_factory=str, exclude=True)
     name: str | None = Field(default=None)
     refusal: str | None = Field(default=None)
+    annotations: list[Annotation] | None = Field(default=None)
     audio: Audio | None = Field(default=None)
-    tool_calls: ToolCalls | None = Field(default=None)
+    tool_calls: list[ToolCalls] | None = Field(default=None)
     tool_call_id: str | None = Field(default=None)
     function_call: Function | None = Field(default=None)
 
@@ -258,4 +278,5 @@ __all__ = [
     'Message',
     'MessageContent',
     'MessageRole',
+    'ToolCalls',
 ]

@@ -71,12 +71,16 @@ async def encode_bytes_image(image_content: bytes, *, convert_format: str = 'web
 
 def fix_broken_generated_json(json_str: str) -> str:
     """Fixes a malformed JSON string by:
-        - Removing the last comma and any trailing content.
-        - Iterating over the JSON string once to determine and fix unclosed braces or brackets.
-        - Ensuring braces and brackets inside string literals are not considered.
+        - Removing external newlines that are not inside string literals.
+        - First trying to only append the missing closing braces or brackets.
+        - If that fails, removing the trailing content after the last comma
+          (e.g. an incomplete trailing value) and appending the closers.
 
-    If the original json_str string can be successfully loaded by json.loads(),
-    will directly return it without any modification.
+    Braces and brackets inside string literals are never considered when
+    locating unclosed elements. If the original json_str string can be
+    successfully loaded by json.loads(), it is returned without any
+    modification. If neither strategy produces valid JSON, the closers-only
+    result is returned as the best effort.
 
     Reference from HippoRAG2:
     https://github.com/OSU-NLP-Group/HippoRAG/blob/b67f86a92fe886b3aa537cc4a92b935171890228/src/hipporag/utils/llm_utils.py#L146C1-L215C20
@@ -144,6 +148,13 @@ def fix_broken_generated_json(json_str: str) -> str:
 
         return ''.join(result)
 
+    def close_unclosed(inner_json_str: str) -> str:
+        """Append the necessary closing elements in reverse order of opening"""
+        closing_map = {'{': '}', '[': ']'}
+        for open_char in reversed(find_unclosed(inner_json_str)):
+            inner_json_str += closing_map[open_char]
+        return inner_json_str
+
     try:
         # Try to load the JSON to see if it is valid
         json.loads(json_str)
@@ -154,20 +165,25 @@ def fix_broken_generated_json(json_str: str) -> str:
     # Step 0: Remove external newlines.
     json_str = remove_external_newlines(json_str)
 
-    # Step 1: Remove trailing content after the last comma.
+    # Step 1: Try to fix by only appending the missing closers, keeping all trailing fields intact.
+    closed = close_unclosed(json_str)
+    try:
+        json.loads(closed)
+        return closed
+    except json.JSONDecodeError:
+        pass
+
+    # Step 2: The tail contains an incomplete value: drop the content after the last comma, then close.
     last_comma_index = json_str.rfind(',')
     if last_comma_index != -1:
-        json_str = json_str[:last_comma_index]
+        truncated = close_unclosed(json_str[:last_comma_index])
+        try:
+            json.loads(truncated)
+            return truncated
+        except json.JSONDecodeError:
+            pass
 
-    # Step 2: Identify unclosed braces and brackets.
-    unclosed_elements = find_unclosed(json_str)
-
-    # Step 3: Append the necessary closing elements in reverse order of opening.
-    closing_map = {'{': '}', '[': ']'}
-    for open_char in reversed(unclosed_elements):
-        json_str += closing_map[open_char]
-
-    return json_str
+    return closed
 
 
 __all__ = [
