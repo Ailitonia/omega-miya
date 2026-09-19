@@ -506,7 +506,7 @@ class ArtworkCollectionOrm(Base):
         Index(None, 'origin', 'uid'),
         Index('ix_artwork_common_search', 'origin', 'classification', 'rating', 'orientation'),
         Index('ix_artwork_classification_rating', 'classification', 'rating'),
-        CheckConstraint('classification BETWEEN -2 AND 3', name='classification'),
+        CheckConstraint('classification BETWEEN -2 AND 4', name='classification'),
         CheckConstraint('rating BETWEEN -1 AND 3', name='rating'),
         database_config.table_args,
     )
@@ -519,7 +519,7 @@ class ArtworkCollectionOrm(Base):
     uname: Mapped[str] = mapped_column(String(255), nullable=False)
     # 分类分级信息
     classification: Mapped[int] = mapped_column(
-        SmallInteger, nullable=False, comment='-2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'
+        SmallInteger, nullable=False, comment='-2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类, 4=精选'
     )
     rating: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, comment='-1=Unknown, 0=G, 1=S, 2=Q, 3=E'
@@ -573,7 +573,7 @@ class ArtworkReviewRecordsOrm(Base):
     __table_args__ = (
         Index(None, 'artwork_index_id', 'review_timestamp'),
         Index(None, 'record_tag', 'artwork_index_id'),
-        CheckConstraint('review_classification BETWEEN -2 AND 3', name='review_classification'),
+        CheckConstraint('review_classification BETWEEN -2 AND 4', name='review_classification'),
         CheckConstraint('review_rating BETWEEN -1 AND 3', name='review_rating'),
         database_config.table_args,
     )

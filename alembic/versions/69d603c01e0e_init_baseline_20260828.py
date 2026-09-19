@@ -29,7 +29,7 @@ def upgrade() -> None:
     sa.Column('uid', sa.String(length=64), nullable=False, comment='作者ID'),
     sa.Column('title', sa.String(length=255), nullable=False),
     sa.Column('uname', sa.String(length=255), nullable=False),
-    sa.Column('classification', sa.SmallInteger(), nullable=False, comment='-2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类'),
+    sa.Column('classification', sa.SmallInteger(), nullable=False, comment='-2=忽略, -1=未知, 0=未分类, 1=AI生成, 2=外部来源, 3=人工分类, 4=精选'),
     sa.Column('rating', sa.SmallInteger(), nullable=False, comment='-1=Unknown, 0=G, 1=S, 2=Q, 3=E'),
     sa.Column('width', sa.Integer(), nullable=False, comment='原始图片宽度'),
     sa.Column('height', sa.Integer(), nullable=False, comment='原始图片高度'),

@@ -46,7 +46,7 @@ async def test_random_tags_generator() -> TagsGeneratorProtocol:
 
 @pytest.fixture(scope='class')
 async def test_basic_artwork_kwargs_generator(test_random_id_generator) -> Callable[[], dict[str, Any]]:
-    """测试用作品参数生成器, 默认满足 query_by_condition 的默认过滤条件 (classification=2, rating=0)"""
+    """测试用作品参数生成器, 默认满足 query_by_condition 的默认过滤条件 (classification=3, rating=0)"""
 
     def _generate_basic_artwork_kwargs() -> dict[str, Any]:
         return {
@@ -55,7 +55,7 @@ async def test_basic_artwork_kwargs_generator(test_random_id_generator) -> Calla
             'uid': f'test_uid_{test_random_id_generator()}',
             'uname': f'test_uname_{test_random_id_generator()}',
             'title': f'test_title_{test_random_id_generator()}',
-            'classification': 2,
+            'classification': 3,
             'rating': 0,
             'width': 1920,
             'height': 1080,
@@ -71,7 +71,7 @@ async def test_full_artwork_kwargs_generator(
         test_random_tags_generator,
         test_basic_artwork_kwargs_generator,
 ) -> Callable[[], dict[str, Any]]:
-    """测试用作品参数生成器, 补全可选参数, 默认满足 query_by_condition 的默认过滤条件 (classification=2, rating=0)"""
+    """测试用作品参数生成器, 补全可选参数, 默认满足 query_by_condition 的默认过滤条件 (classification=3, rating=0)"""
 
     def _generate_full_artwork_kwargs() -> dict[str, Any]:
         kwargs = test_basic_artwork_kwargs_generator()
@@ -326,6 +326,23 @@ class TestArtworkCollectionDAL:
         assert result.classification is ArtworkClassification.EXTERNAL_CONFIRMED
         assert result.rating is ArtworkRating.GENERAL
 
+        # FEATURED(4) 新增枚举成员, int 与枚举成员入参均可写入并还原为对应枚举成员
+        featured_kwargs = test_basic_artwork_kwargs_generator()
+        featured_kwargs['classification'] = ArtworkClassification.FEATURED
+        await artwork_dal.add_artwork_update_exist(**featured_kwargs)
+        await artwork_dal.commit_session()
+
+        featured_int_kwargs = test_basic_artwork_kwargs_generator()
+        featured_int_kwargs['classification'] = 4
+        await artwork_dal.add_artwork_update_exist(**featured_int_kwargs)
+        await artwork_dal.commit_session()
+
+        featured_queried = await artwork_dal.query_unique(featured_kwargs['origin'], featured_kwargs['aid'])
+        assert featured_queried.classification is ArtworkClassification.FEATURED
+
+        featured_int_queried = await artwork_dal.query_unique(featured_int_kwargs['origin'], featured_int_kwargs['aid'])
+        assert featured_int_queried.classification is ArtworkClassification.FEATURED
+
     async def test_add_artwork_invalid_classification_raises(
             self,
             artwork_dal,
@@ -336,7 +353,7 @@ class TestArtworkCollectionDAL:
         await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
-        artwork_kwargs['classification'] = 4
+        artwork_kwargs['classification'] = 5
         with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
             await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -700,6 +717,33 @@ class TestArtworkCollectionDAL:
         result = await artwork_dal.query_by_condition(None, keywords=None, size=10)
         assert {item.aid for item in result} == {a1_kwargs['aid'], a2_kwargs['aid'], a3_kwargs['aid']}
 
+    async def test_query_by_condition_default_classification_range(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """默认分类过滤范围为 3-4: 人工审核确认与精选可见, 外部来源确认 (2) 不可见"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        external_kwargs = test_basic_artwork_kwargs_generator()
+        external_kwargs['aid'] = '1001'
+        external_kwargs['classification'] = 2
+        await artwork_dal.add_artwork_update_exist(**external_kwargs)
+
+        human_kwargs = test_basic_artwork_kwargs_generator()
+        human_kwargs['aid'] = '1002'
+        human_kwargs['classification'] = 3
+        await artwork_dal.add_artwork_update_exist(**human_kwargs)
+
+        featured_kwargs = test_basic_artwork_kwargs_generator()
+        featured_kwargs['aid'] = '1003'
+        featured_kwargs['classification'] = 4
+        await artwork_dal.add_artwork_update_exist(**featured_kwargs)
+
+        result = await artwork_dal.query_by_condition('test_origin', None, size=10, order_mode='aid')
+        assert [item.aid for item in result] == ['1002', '1003']
+
     async def test_query_by_condition_acc_mode(
             self,
             artwork_dal,
@@ -901,6 +945,12 @@ class TestArtworkCollectionDAL:
         a6_kwargs['classification'] = -2
         await artwork_dal.add_artwork_update_exist(**a6_kwargs)
 
+        a7_kwargs = test_basic_artwork_kwargs_generator()
+        a7_kwargs['aid'] = '1007'
+        a7_kwargs['classification'] = 4
+        a7_kwargs['raw_tags'] = 'neko'
+        await artwork_dal.add_artwork_update_exist(**a7_kwargs)
+
         result = await artwork_dal.query_classification_statistic('test_origin')
 
         assert result.unused == 1
@@ -908,13 +958,15 @@ class TestArtworkCollectionDAL:
         assert result.ai_generated == 1
         assert result.external_confirmed == 2
         assert result.human_confirmed == 1
-        assert result.total == 6
+        assert result.featured == 1
+        assert result.total == 7
 
         # 关键词仅命中标签作品
         statistic = await artwork_dal.query_classification_statistic('test_origin', keywords=['neko'])
-        assert statistic.total == 2
+        assert statistic.total == 3
         assert statistic.uncategorized == 1
         assert statistic.human_confirmed == 1
+        assert statistic.featured == 1
 
         statistic = await artwork_dal.query_classification_statistic('test_origin', keywords=['nekomimi'])
         assert statistic.total == 1
@@ -1186,7 +1238,7 @@ class TestArtworkCollectionDAL:
                 origin=artwork_kwargs['origin'],
                 aid=artwork_kwargs['aid'],
                 review_timestamp=1000000000,
-                review_classification=4,
+                review_classification=5,
                 review_rating=1,
                 review_from='test_reviewer',
                 review_info='test review info',
@@ -1296,7 +1348,7 @@ class TestArtworkCollectionDAL:
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
-        """边界枚举值 classification=-2 (IGNORED) / rating=-1 (UNKNOWN) 合法写入"""
+        """边界枚举值 classification=-2/4 (IGNORED/FEATURED), rating=-1/3 (UNKNOWN/EXPLICIT) 均合法写入"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
 
         await artwork_dal._clear_all()
@@ -1318,6 +1370,20 @@ class TestArtworkCollectionDAL:
         assert result.review_classification == -2
         assert result.review_rating == -1
         assert result.record_tag == ArtworkReviewTag.PENDING
+
+        # 上边界: FEATURED(4) 与 EXPLICIT(3) 同样合法 (CHECK 约束 BETWEEN -2 AND 4)
+        upper_result = await artwork_dal.add_artwork_review_record(
+            origin=artwork_kwargs['origin'],
+            aid=artwork_kwargs['aid'],
+            review_timestamp=1000000001,
+            review_classification=4,
+            review_rating=3,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+
+        assert upper_result.review_classification == 4
+        assert upper_result.review_rating == 3
 
     # ------------------------------------------------------------------ #
     # query_artwork_review_records
@@ -2157,7 +2223,7 @@ class TestArtworkCollectionDAL:
 
         # 验证字段未被修改
         artwork = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
-        assert artwork.classification == 2
+        assert artwork.classification == 3
         assert artwork.rating == 0
 
     async def test_query_by_condition_latest_order_null_published_at(

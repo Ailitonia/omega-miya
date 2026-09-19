@@ -32,6 +32,7 @@ class ArtworkClassification(IntEnum):
     AI_GENERATED = 1  # AI 生成 (确认为 AI 生成作品)
     EXTERNAL_CONFIRMED = 2  # 外部来源确认 (来源于资源站点或 API 的数据)
     HUMAN_CONFIRMED = 3  # 人工审核确认
+    FEATURED = 4  # 精选
 
 
 @unique
@@ -126,10 +127,18 @@ class ArtworkClassificationStatistic(BaseDataOutModel):
     ai_generated: Annotated[int, Field(default=0, description='1: AI 生成')]
     external_confirmed: Annotated[int, Field(default=0, description='2: 外部来源确认')]
     human_confirmed: Annotated[int, Field(default=0, description='3: 人工审核确认')]
+    featured: Annotated[int, Field(default=0, description='4: 精选')]
 
     @property
     def total(self) -> int:
-        return self.unused + self.uncategorized + self.ai_generated + self.external_confirmed + self.human_confirmed
+        return (
+                self.unused
+                + self.uncategorized
+                + self.ai_generated
+                + self.external_confirmed
+                + self.human_confirmed
+                + self.featured
+        )
 
 
 class ArtworkRatingStatistic(BaseDataOutModel):
@@ -294,8 +303,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             page: int = 1,
             size: int = 3,
             *,
-            classification_min: int = 2,
-            classification_max: int = 3,
+            classification_min: int = 3,
+            classification_max: int = 4,
             rating_min: int = 0,
             rating_max: int = 0,
             acc_mode: bool = False,
@@ -425,6 +434,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                     result['external_confirmed'] = count_num
                 case ArtworkClassification.HUMAN_CONFIRMED:
                     result['human_confirmed'] = count_num
+                case ArtworkClassification.FEATURED:
+                    result['featured'] = count_num
                 case _:
                     # IGNORED(-2)/UNKNOWN(-1) 等多个枚举值均落入此分支, 需累加而非覆盖
                     result['unused'] = result.get('unused', 0) + count_num
