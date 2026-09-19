@@ -24,6 +24,8 @@ class ImageUtilsConfig(BaseModel):
     image_utils_preview_font_name: str = 'SourceHanSerif-Regular.ttc'
     image_utils_emoji_font_name: str = 'NotoEmoji-Regular.ttf'
 
+    # 图片加载最大像素数限制, 防止解压炸弹, 默认值与 Pillow 的 Image.MAX_IMAGE_PIXELS 一致
+    image_utils_max_image_pixels: int = 178_956_970
     # 默认缓存资源保存路径
     image_utils_tmp_folder_name: Literal['image_utils'] = 'image_utils'
 
@@ -32,6 +34,10 @@ class ImageUtilsConfig(BaseModel):
     @property
     def default_font_size(self) -> int:
         return self.image_utils_default_font_size
+
+    @property
+    def max_image_pixels(self) -> int:
+        return self.image_utils_max_image_pixels
 
     @staticmethod
     def get_custom_name_font(font_name: str) -> StaticResource:

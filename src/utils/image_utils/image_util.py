@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from fontTools.ttLib import TTFont
+from nonebot.log import logger
 from nonebot.utils import run_sync
 
-from src.utils import BaseCommonAPI, OmegaRequests
 from .config import image_utils_config
 
 if TYPE_CHECKING:
@@ -28,18 +28,30 @@ class ImageLoader:
     """图片加载工具"""
 
     @staticmethod
-    def init_from_bytes(image: bytes) -> 'Image.Image':
-        """从 Bytes 中初始化"""
+    def _check_image_pixels(image: 'Image.Image') -> None:
+        """校验图片像素尺寸, 防止解压炸弹
+
+        Image.open 为惰性加载, 尺寸信息可直接从文件头读取, 在 load() 前校验可避免解码超大图片
+        """
+        max_pixels = image_utils_config.max_image_pixels
+        if image.width * image.height > max_pixels:
+            raise ValueError(f'image size {image.width}x{image.height} exceeds max pixels limit {max_pixels}')
+
+    @classmethod
+    def init_from_bytes(cls, image: bytes) -> 'Image.Image':
+        """从 Bytes 中初始化, 像素尺寸超出限制时抛出 ValueError"""
         with BytesIO(image) as bf:
             _image = Image.open(bf)
+            cls._check_image_pixels(_image)
             _image.load()
         return _image
 
-    @staticmethod
-    def init_from_file(file: 'BaseResource') -> 'Image.Image':
-        """从文件初始化"""
+    @classmethod
+    def init_from_file(cls, file: 'BaseResource') -> 'Image.Image':
+        """从文件初始化, 像素尺寸超出限制时抛出 ValueError"""
         with file.open('rb') as f:
             image = Image.open(f)
+            cls._check_image_pixels(image)
             image.load()
         return image
 
@@ -107,26 +119,9 @@ class ImageLoader:
         """异步从文本初始化, 文本转图片并自动裁切"""
         return cls.init_from_text(text, image_width=image_width, font_name=font_name, alpha=alpha)
 
-    @classmethod
-    async def async_init_from_url(
-            cls,
-            image_url: str,
-            *,
-            backend: BaseCommonAPI | OmegaRequests | None = None
-    ) -> 'Image.Image':
-        """从 URL 初始化"""
-        if isinstance(backend, BaseCommonAPI):
-            image_content = await backend._get_resource_as_bytes(url=image_url)
-        elif isinstance(backend, OmegaRequests):
-            image_content = backend.parse_content_as_bytes(response=await backend.get(url=image_url))
-        else:
-            requests = OmegaRequests(timeout=30)
-            image_content = requests.parse_content_as_bytes(response=await requests.get(url=image_url))
-        return await cls.async_init_from_bytes(image=image_content)
-
 
 class ImageTextProcessor:
-    """图片文字处理工具工具
+    """图片文字处理工具
 
     python-pillow/Pillow Issue #4808 Backup font for missing characters when drawing text
     https://github.com/python-pillow/Pillow/issues/4808#issuecomment-2067558946
@@ -137,7 +132,7 @@ class ImageTextProcessor:
 
     @staticmethod
     def load_fonts(*font_names: str) -> FontMap:
-        """Loads font files specified by paths into memory and returns a dictionary of font objects."""
+        """从本地字体资源加载指定名称的字体文件, 返回以文件路径为键的字体对象字典"""
         fonts = {}
         for name in font_names:
             font_path = image_utils_config.get_custom_name_font(name).resolve_path
@@ -147,7 +142,7 @@ class ImageTextProcessor:
 
     @staticmethod
     def has_glyph(font: TTFont, glyph: str) -> bool:
-        """Checks if the given font contains a glyph for the specified character."""
+        """检查指定字体是否包含给定字符的字形"""
         for table in font['cmap'].tables:  # type: ignore
             if table.cmap.get(ord(glyph)):
                 return True
@@ -155,14 +150,24 @@ class ImageTextProcessor:
 
     @classmethod
     def merge_chunks(cls, text: str, fonts: FontMap) -> list[list[str]]:
-        """Merges consecutive characters with the same font into clusters, optimizing font lookup."""
+        """将连续的使用同一字体的字符合并为一个簇, 优化绘制时的字体查找
+
+        字符在所有字体中均无字形时, 回退使用第一个字体绘制并记录警告日志
+        """
+        if not fonts:
+            raise ValueError('merge_chunks requires at least one font')
+
         chunks: list[list[str]] = []
+        fallback_font_path = next(iter(fonts))
 
         for char in text:
             for font_path, font in fonts.items():
                 if cls.has_glyph(font, char):
                     chunks.append([char, font_path])
                     break
+            else:
+                logger.warning(f'ImageTextProcessor missing glyph in all fonts, drawing with fallback font: {char!r}')
+                chunks.append([char, fallback_font_path])
 
         cluster = chunks[:1]
 
@@ -172,89 +177,6 @@ class ImageTextProcessor:
             else:
                 cluster.append([char, font_path])
         return cluster
-
-    @classmethod
-    def _draw_text_v2(
-            cls,
-            draw: 'ImageDraw.ImageDraw',
-            xy: tuple[int | float, int | float],
-            text: str,
-            color: tuple[int, int, int],
-            fonts: FontMap,
-            size: int,
-            anchor: str | None = None,
-            align: Literal['left', 'center', 'right'] = 'left',
-    ) -> tuple[float, float]:
-        """Draws text on an image at given coordinates, using specified size, color, and fonts.
-
-        :return: the text box size: (float, float)
-        """
-        height = 0.0
-        x_offset = 0
-        sentence = cls.merge_chunks(text, fonts)
-
-        for words in sentence:
-            xy_ = (xy[0] + x_offset, xy[1])
-
-            font = ImageFont.truetype(words[1], size)
-            draw.text(
-                xy=xy_,
-                text=words[0],
-                fill=color,
-                font=font,
-                anchor=anchor,
-                align=align,
-                embedded_color=True,
-            )
-
-            box = font.getbbox(words[0])
-            x_offset += box[2] - box[0]
-            height = max(height, box[3])
-
-        return x_offset, height
-
-    @classmethod
-    def _draw_multiline_text_v2(
-            cls,
-            draw: 'ImageDraw.ImageDraw',
-            xy: tuple[int | float, int | float],
-            text: str,
-            color: tuple[int, int, int],
-            fonts: FontMap,
-            size: int,
-            spacing: int = 4,
-            anchor: str | None = None,
-            align: Literal['left', 'center', 'right'] = 'left',
-    ) -> tuple[float, float]:
-        """Draws multiple lines of text on an image, handling newline characters and adjusting spacing between lines.
-
-        :return: the text box size: (float, float)
-        """
-        weight = 0.0
-        height = 0.0
-        y_offset = 0.0
-        lines = text.split('\n')
-
-        for line in lines:
-            if not line:
-                continue
-
-            mod_cord = (xy[0], xy[1] + y_offset)
-            box = cls._draw_text_v2(
-                draw,
-                xy=mod_cord,
-                text=line,
-                color=color,
-                fonts=fonts,
-                size=size,
-                anchor=anchor,
-                align=align,
-            )
-            weight = max(weight, box[0])
-            height = max(height, box[1] + y_offset)
-            y_offset += box[1] + spacing
-
-        return weight, height
 
     @classmethod
     def _draw_text_v3(
@@ -268,12 +190,12 @@ class ImageTextProcessor:
             anchor: str | None = None,
             align: Literal['left', 'center', 'right'] = 'left',
     ) -> tuple[float, float]:
-        """Draws text on an image at given coordinates, using specified size, color, and fonts.
+        """在图像指定坐标绘制文本, 使用指定的字号, 颜色和字体集
 
-        Better support for anchor. (But it's not perfect.)
+        相比旧版对 anchor 有更好的支持. (但并不完美)
         Provided by @bradenhilton in: https://github.com/TrueMyst/PillowFontFallback/issues/1
 
-        :return: the text box size: (float, float)
+        :return: 文本框尺寸: (float, float)
         """
 
         sentence = cls.merge_chunks(text, fonts)
@@ -287,7 +209,10 @@ class ImageTextProcessor:
                 'bbox': font.getbbox(text_chunk, anchor=anchor)
             })
 
-        x_offset = sum(chunk['bbox'][0] for chunk in chunk_data)
+        if not chunk_data:
+            return 0.0, 0.0
+
+        x_offset = chunk_data[0]['bbox'][0]
         min_top = min(chunk['bbox'][1] for chunk in chunk_data)
         max_bottom = max(chunk['bbox'][3] for chunk in chunk_data)
 
@@ -303,7 +228,7 @@ class ImageTextProcessor:
             )
             x_offset += chunk['bbox'][2] - chunk['bbox'][0]
 
-        return x_offset, max(max_bottom, max_bottom - min_top)
+        return x_offset, max_bottom - min_top
 
     @classmethod
     def _draw_multiline_text_v3(
@@ -318,14 +243,14 @@ class ImageTextProcessor:
             anchor: str | None = None,
             align: Literal['left', 'center', 'right'] = 'left',
     ) -> tuple[float, float]:
-        """Draws multiple lines of text on an image, handling newline characters and adjusting spacing between lines.
+        """在图像上绘制多行文本, 处理换行符并调整行间距
 
-        Better support for anchor. (But it's not perfect.)
+        相比旧版对 anchor 有更好的支持. (但并不完美)
         Provided by @bradenhilton in: https://github.com/TrueMyst/PillowFontFallback/issues/1
 
-        :return: the text box size: (float, float)
+        :return: 文本框尺寸: (float, float)
         """
-        weight = 0.0
+        width = 0.0
         height = 0.0
         y_offset = 0.0
         lines = text.split('\n')
@@ -345,11 +270,11 @@ class ImageTextProcessor:
                 anchor=anchor,
                 align=align,
             )
-            weight = max(weight, box[0])
+            width = max(width, box[0])
             height = max(height, box[1] + y_offset)
             y_offset += box[1] + spacing
 
-        return weight, height
+        return width, height
 
     @classmethod
     def draw_multiline_text(
@@ -363,11 +288,11 @@ class ImageTextProcessor:
             color: tuple[int, int, int] = (0, 0, 0),
             spacing: int = 4,
     ) -> tuple[float, float]:
-        """Draws multiple lines of text on an image, handling newline characters and adjusting spacing between lines.
+        """在图像上绘制多行文本, 处理换行符并调整行间距
 
-        To ensure compatibility, the anchor parameter is not allowed, the align parameter is only allowed to be 'left'.
+        为保证兼容性, 不允许使用 anchor 参数, align 参数仅允许为 'left'.
 
-        :return: the text box size: (float, float)
+        :return: 文本框尺寸: (float, float)
         """
         if fonts is None:
             fonts = cls.load_fonts(
@@ -430,6 +355,9 @@ class ImageTextProcessor:
     ) -> str:
         """按字体绘制的文本长度切分换行文本
 
+        逐字符增量测量文本宽度, 在行宽将超出限制处的前一个字符断行,
+        单个字符本身超宽时单独成行, 保证切分结果中每一行均不超过宽度限制
+
         :param text: 待切分的文本
         :param width: 宽度限制, 像素
         :param font: 绘制使用的字体, 传入 str 为本地字体资源文件名
@@ -444,15 +372,21 @@ class ImageTextProcessor:
                 image_utils_config.get_custom_name_font(font).resolve_path, image_utils_config.default_font_size
             )
 
-        spl_num = 0
         spl_list = []
-        for num in range(len(text)):
-            text_width, _ = cls.get_text_size(text[spl_num:num], font=font, stroke_width=stroke_width)
-            if text_width > width:
-                spl_list.append(text[spl_num:num])
-                spl_num = num
-        spl_list.append(text[spl_num:])
+        line = ''
+        line_width = 0.0
 
+        for char in text:
+            char_width = font.getlength(char) + 2 * stroke_width
+            if line and line_width + char_width > width:
+                spl_list.append(line)
+                line = char
+                line_width = char_width
+            else:
+                line += char
+                line_width += char_width
+
+        spl_list.append(line)
         return '\n'.join(spl_list)
 
 
@@ -465,6 +399,14 @@ class ImageEffectProcessor:
     def convert(self, mode: str) -> Self:
         self.image = self.image.convert(mode=mode)
         return self
+
+    def _auto_convert_mode_for_save(self, *, format_: str) -> None:
+        """目标编码格式不支持当前色彩模式时, 自动转换色彩模式
+
+        JPEG 等不带透明通道的格式无法编码 RGBA/P/LA 等模式, 直接编码会抛出 OSError
+        """
+        if format_.upper() in {'JPEG', 'JPG'} and self.image.mode not in {'L', 'RGB', 'CMYK'}:
+            self.image = self.image.convert(mode='RGB')
 
     async def save(
             self,
@@ -479,7 +421,7 @@ class ImageEffectProcessor:
             save_file = file
 
         async with save_file.async_open('wb') as af:
-            await af.write(self.get_bytes(format_=format_))
+            await af.write(await self.async_get_bytes(format_=format_))
         return save_file
 
     @run_sync
@@ -492,11 +434,6 @@ class ImageEffectProcessor:
         """获取 Image 内容, 以 Bytes 输出"""
         return self.get_bytes(format_=format_)
 
-    @run_sync
-    def async_get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
-        """获取 Image 内容, 以 Bytes 输出并在末尾添加空白比特"""
-        return self.get_bytes_add_blank(bytes_num=bytes_num, format_=format_)
-
     def get_base64(self, *, format_: str = 'JPEG', use_data_uri_scheme: bool = False) -> str:
         """获取 Image 内容, 以 Base64 输出"""
         if use_data_uri_scheme:
@@ -506,15 +443,12 @@ class ImageEffectProcessor:
         return f'{prefix}{base64.b64encode(self.get_bytes(format_=format_)).decode()}'
 
     def get_bytes(self, *, format_: str = 'JPEG') -> bytes:
-        """获取 Image 内容, 以 Bytes 输出"""
+        """获取 Image 内容, 以 Bytes 输出, 目标编码格式不支持当前色彩模式时自动转换色彩模式"""
+        self._auto_convert_mode_for_save(format_=format_)
         with BytesIO() as _bf:
             self.image.save(_bf, format=format_)
             content = _bf.getvalue()
         return content
-
-    def get_bytes_add_blank(self, bytes_num: int = 16, *, format_: str = 'JPEG') -> bytes:
-        """获取 Image 内容, 以 Bytes 输出并在末尾添加空白比特"""
-        return self.get_bytes(format_=format_) + b' ' * bytes_num
 
     def mark(
             self,
@@ -531,7 +465,8 @@ class ImageEffectProcessor:
         edge_w = width // 32 if width // 32 <= 10 else 10
         edge_h = height // 32 if height // 32 <= 10 else 10
 
-        font = ImageFont.truetype(image_utils_config.default_font.resolve_path, width // 32)
+        font_size = max(1, width // 32)
+        font = ImageFont.truetype(image_utils_config.default_font.resolve_path, font_size)
         text_kwargs = {
             'text': text,
             'font': font,
@@ -557,10 +492,12 @@ class ImageEffectProcessor:
                 ImageDraw.Draw(self.image).text(
                     xy=(0, height - edge_h), align='left', anchor='lb', **text_kwargs
                 )
-            case 'rb' | _:
+            case 'rb':
                 ImageDraw.Draw(self.image).text(
                     xy=(width - edge_w, height - edge_h), align='right', anchor='rb', **text_kwargs
                 )
+            case _:
+                raise ValueError(f'invalid mark position, expected la/ra/lb/rb/c but got {position!r}')
 
         return self
 
@@ -585,7 +522,6 @@ class ImageEffectProcessor:
         :param sigma: 噪声sigma, 默认值8
         :param enable_random: 为噪声sigma添加随机扰动, 默认值True
         :param mask_factor: 噪声蒙版透明度修正, 默认值0.25
-        :return:
         """
         # 处理图片
         width, height = self.image.size
@@ -616,12 +552,12 @@ class ImageEffectProcessor:
         width, height = self.image.size
 
         edge_scale = 0 if edge_scale < 0 else 1 if edge_scale > 1 else edge_scale
-        scaled_size = int(width * (1 - edge_scale)), int(height * (1 - edge_scale))
+        scaled_size = max(1, int(width * (1 - edge_scale))), max(1, int(height * (1 - edge_scale)))
 
         scale = min(scaled_size[0] / width, scaled_size[1] / height)
         image = self.image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
 
-        box = (int(width * (1 - scale) / 2)), int(height * (1 - scale) / 2)
+        box = (int(width * (1 - scale) / 2), int(height * (1 - scale) / 2))
         background = Image.new(mode='RGBA', size=(width, height), color=edge_color)
         background.paste(image, box=box, mask=image)
 
@@ -655,7 +591,7 @@ class ImageEffectProcessor:
             size: tuple[int, int],
             background_color: tuple[int, int, int] | tuple[int, int, int, int] = (255, 255, 255, 0),
     ) -> Self:
-        """在不损失原图长宽比的条件下, 填充并平铺指定大小画布"""
+        """在不损失原图长宽比的条件下, 按比例放大裁切并平铺填充指定大小画布"""
         if self.image.mode != 'RGBA':
             self.convert(mode='RGBA')
 
