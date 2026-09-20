@@ -9,7 +9,6 @@
 """
 
 import asyncio
-import time
 
 import pytest
 
@@ -45,16 +44,22 @@ class TestRunAsyncDelay:
         assert _named.__name__ == '_named'
         assert _named.__wrapped__ is not None
 
-    async def test_delay_applied(self):
+    async def test_delay_applied(self, monkeypatch: pytest.MonkeyPatch):
         from src.utils.process_utils import run_async_delay
+
+        _recorded: list[float | None] = []
+
+        async def _fake_sleep(*, delay: float | None = None) -> None:
+            _recorded.append(delay)
+
+        monkeypatch.setattr('src.utils.process_utils.asyncio.sleep', _fake_sleep)
 
         @run_async_delay(delay_time=0.2)
         async def _func() -> str:
             return 'ok'
 
-        _start = time.perf_counter()
         assert await _func() == 'ok'
-        assert time.perf_counter() - _start >= 0.2
+        assert _recorded == [0.2]
 
     async def test_random_sigma_uses_absolute_delay(self, monkeypatch: pytest.MonkeyPatch):
         from src.utils.process_utils import run_async_delay
