@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-from typing import Literal
-
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -21,7 +19,7 @@ class StatisticsToolsConfig(BaseModel):
     statistics_tools_default_font_name: str = 'msyh.ttc'
     statistics_tools_alternative_font_name: str = 'fzzxhk.ttf'
     # 默认缓存资源保存路径
-    statistics_tools_default_output_folder_name: Literal['statistics_tools'] = 'statistics_tools'
+    statistics_tools_default_output_folder_name: str = 'statistics_tools'
 
     model_config = ConfigDict(extra='ignore')
 

@@ -8,10 +8,18 @@
 @Software       : PyCharm
 """
 
-from .plots import create_simple_figure, create_simple_subplots_figure, output_figure
+from .plots import (
+    create_dict_data_figure,
+    create_simple_figure,
+    create_simple_subplots_figure,
+    draw_dict_data,
+    output_figure,
+)
 
 __all__ = [
+    'create_dict_data_figure',
     'create_simple_figure',
     'create_simple_subplots_figure',
+    'draw_dict_data',
     'output_figure',
 ]

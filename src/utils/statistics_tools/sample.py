@@ -38,28 +38,25 @@ def run_figure_example() -> 'TemporaryResource':
     return output_figure(fig, 'sample.jpg')
 
 
-def invest_test(step: int = 100, init_balance: float = 1000000.0) -> 'NDArray':
-    total_balance = init_balance
-    rand_ar = np.random.rand(step)
-    balance_ar = np.array(init_balance)
-    for i in range(step):
-        if rand_ar[i] >= 0.5:
-            total_balance = total_balance * 0.5 + total_balance * 0.5 * 2.6
-        else:
-            total_balance = total_balance * 0.5
-        balance_ar = np.append(balance_ar, total_balance)
+def invest_test(step: int = 100, init_balance: float = 1000000.0, seed: int | None = None) -> 'NDArray':
+    rng = np.random.default_rng(seed)
+    rand_ar = rng.random(step)
+    # 单步胜率乘数 0.5 + 0.5 * 2.6 = 1.8, 败率乘数 0.5, 余额为初始余额乘逐项乘累积积
+    multipliers = np.where(rand_ar >= 0.5, 1.8, 0.5)
+    balance_ar = np.concatenate(([init_balance], init_balance * np.cumprod(multipliers)))
     return balance_ar
 
 
-def run_invest_test(step: int = 100, times: int = 10) -> 'TemporaryResource':
+def run_invest_test(step: int = 100, times: int = 10, seed: int | None = None) -> 'TemporaryResource':
     fig, ax = create_simple_subplots_figure(figsize=(32, 16))
     ax.set_yscale('log')
-    for _ in range(times):
-        ax.plot(np.arange(step + 1), invest_test(step=step))
+    for i in range(times):
+        ax.plot(np.arange(step + 1), invest_test(step=step, seed=None if seed is None else seed + i))
 
-    ax.plot(np.arange(step + 1), np.linspace(1e6, 1e6, step + 1), color='green', linestyle=':')
-    ax.plot(np.arange(step + 1), np.linspace(1e5, 1e5, step + 1), color='orange', linestyle=':')
-    ax.plot(np.arange(step + 1), np.linspace(1, 1, step + 1), color='red', linestyle=':')
+    x_axis = np.arange(step + 1)
+    ax.plot(x_axis, np.full(step + 1, 1e6), color='green', linestyle=':')
+    ax.plot(x_axis, np.full(step + 1, 1e5), color='orange', linestyle=':')
+    ax.plot(x_axis, np.full(step + 1, 1), color='red', linestyle=':')
 
     ax.set_xlabel('投资次数')
     ax.set_ylabel('金额')
@@ -68,26 +65,27 @@ def run_invest_test(step: int = 100, times: int = 10) -> 'TemporaryResource':
     return output_figure(fig, 'invest_test.jpg')
 
 
-def coin_test(init_balance: int = 0) -> tuple['NDArray', int]:
+def coin_test(init_balance: int = 0, seed: int | None = None) -> tuple['NDArray', int]:
+    rng = random.Random(seed)
     total_balance = init_balance
-    balance_ar = np.array(init_balance)
+    balance_list: list[float] = [init_balance]
     step = 0
     while True:
         step += 1
         total_balance -= 20
-        if random.random() >= 0.5:
+        if rng.random() >= 0.5:
             total_balance += 2 ** step
-            balance_ar = np.append(balance_ar, total_balance)
+            balance_list.append(total_balance)
             break
         else:
-            balance_ar = np.append(balance_ar, total_balance)
+            balance_list.append(total_balance)
 
-    return balance_ar, step
+    return np.array(balance_list), step
 
 
-def run_coin_test(times: int = 10) -> 'TemporaryResource':
+def run_coin_test(times: int = 10, seed: int | None = None) -> 'TemporaryResource':
     fig, ax = create_simple_subplots_figure(figsize=(8, 6))
-    data: list[int] = [int(coin_test()[0][-1]) for _ in range(times)]
+    data: list[int] = [int(coin_test(seed=None if seed is None else seed + i)[0][-1]) for i in range(times)]
 
     count = dict(sorted(Counter(data).items(), key=lambda x: x[0]))
     bar = ax.bar([str(x) for x in count.keys()], [int(y) for y in count.values()])
