@@ -1610,10 +1610,13 @@ class TestGetRefreshCsrf:
     """refresh_csrf 页面解析测试"""
 
     def _mock_correspond(self, monkeypatch: pytest.MonkeyPatch, html: str) -> None:
+        import src.utils.bilibili_api.api.login as login_module
         from src.utils.bilibili_api import BilibiliCredential
 
-        # get_refresh_csrf 内含固定的 asyncio.sleep 等待, 测试中跳过
-        monkeypatch.setattr(asyncio, 'sleep', AsyncMock())
+        # get_refresh_csrf 内含固定的 asyncio.sleep 等待, 测试中跳过;
+        # 仅重绑定 login 模块内的 asyncio 名字, 不得全局 patch asyncio.sleep,
+        # 否则会与 session 事件循环上常驻的 uvicorn Server.main_loop (asyncio.sleep 轮询) 竞态导致卡死
+        monkeypatch.setattr(login_module, 'asyncio', SimpleNamespace(sleep=AsyncMock()))
         monkeypatch.setattr(BilibiliCredential, '_get_resource_as_text', AsyncMock(return_value=html))
 
     async def test_parse_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1871,13 +1874,15 @@ class TestLoginWithQrcode:
             monkeypatch: pytest.MonkeyPatch,
             poll_results: list,
     ) -> AsyncMock:
+        import src.utils.bilibili_api.api.login as login_module
         from src.utils.bilibili_api import BilibiliCredential
         from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
 
         check_mock = AsyncMock(side_effect=poll_results)
         monkeypatch.setattr(BilibiliCredential, 'check_qrcode_login', check_mock)
-        # 轮询间隔固定 asyncio.sleep(6), 测试中跳过
-        monkeypatch.setattr(asyncio, 'sleep', AsyncMock())
+        # 轮询间隔固定 asyncio.sleep(6), 测试中跳过;
+        # 仅重绑定 login 模块内的 asyncio 名字, 避免全局 patch 与 uvicorn Server.main_loop 竞态卡死
+        monkeypatch.setattr(login_module, 'asyncio', SimpleNamespace(sleep=AsyncMock()))
         monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', AsyncMock())
         monkeypatch.setattr(BilibiliCredential, 'check_valid', AsyncMock(return_value=True))
         return check_mock
