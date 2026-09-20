@@ -9,7 +9,6 @@
 """
 
 import zipfile
-from typing import Literal
 
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -22,7 +21,7 @@ class ZipUtilsConfig(BaseModel):
     zip_utils_default_zip_compression: int = zipfile.ZIP_STORED
 
     # 默认缓存资源保存路径
-    zip_utils_default_output_folder_name: Literal['zip_utils'] = 'zip_utils'
+    zip_utils_default_output_folder_name: str = 'zip_utils'
 
     model_config = ConfigDict(extra='ignore')
 

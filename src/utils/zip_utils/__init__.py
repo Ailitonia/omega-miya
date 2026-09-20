@@ -26,13 +26,43 @@ class ZipUtils:
             folder: TemporaryResource | None = None,
             overwrite: bool = True,
     ) -> None:
-        if folder is not None and folder.is_dir:
+        if folder is not None:
+            folder.raise_not_dir()
             storage_folder: TemporaryResource = folder
         else:
-            storage_folder: TemporaryResource = zip_utils_config.default_output_folder
+            storage_folder = zip_utils_config.default_output_folder
 
         self.file: TemporaryResource = storage_folder(file_name)
         self.overwrite = overwrite
+
+    def _prepare_target(
+            self,
+            files: Sequence[BaseResource],
+            *,
+            expected_suffix: str,
+    ) -> None:
+        """压缩前校验并准备目标文件: 全部校验通过后才允许替换既有目标文件
+
+        :param files: 被压缩的文件列表
+        :param expected_suffix: 目标文件后缀
+        """
+        if self.file.suffix != expected_suffix:
+            raise ValueError(f'File suffix must be "{expected_suffix}"')
+
+        _missing = [
+            file.resolve_path
+            for file in files
+            if file.resolve_path != self.file.resolve_path and not file.is_file
+        ]
+        if _missing:
+            raise ValueError(f'Files not found or not a file: {_missing}')
+
+        if self.file.is_file:
+            if not self.overwrite:
+                raise RuntimeError(f'File {self.file} already exists')
+            self.file.remove()
+
+        self.file.ensure_parent_path()
 
     @run_sync
     def _create_zip(
@@ -44,26 +74,22 @@ class ZipUtils:
         """创建 zip 压缩文件
 
         :param files: 被压缩的文件列表
-        :param compression: 压缩级别参数
+        :param compression: 压缩方法常量, zipfile.ZIP_STORED/ZIP_DEFLATED/ZIP_LZMA/ZIP_BZIP2 之一, 缺省用配置默认值
         """
-        if self.file.is_file and not self.overwrite:
-            raise RuntimeError(f'File {self.file} already exists')
-        elif self.file.is_file and self.overwrite:
-            self.file.remove()
-
         compression = zip_utils_config.zip_utils_default_zip_compression if compression is None else compression
 
-        if self.file.suffix != '.zip':
-            raise ValueError('File suffix must be ".zip"')
+        _allowed_compression = (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_LZMA, zipfile.ZIP_BZIP2)
+        if compression not in _allowed_compression:
+            raise ValueError(f'compression must be one of {_allowed_compression}, got {compression!r}')
 
-        self.file.ensure_parent_path()
+        self._prepare_target(files, expected_suffix='.zip')
+
         with zipfile.ZipFile(self.file.resolve_path, mode='w', compression=compression) as zipf:
             for file in files:
                 if file.resolve_path == self.file.resolve_path:
                     # 跳过如存在的压缩文档自身避免无限递归
                     continue
-                if file.is_file:
-                    zipf.write(file.resolve_path, arcname=file.name)
+                zipf.write(file.resolve_path, arcname=file.name)
 
     async def create_zip(
             self,
@@ -74,7 +100,7 @@ class ZipUtils:
         """创建 zip 压缩文件, 异步方法
 
         :param files: 被压缩的文件列表
-        :param compression: 压缩级别参数
+        :param compression: 压缩方法常量, zipfile.ZIP_STORED/ZIP_DEFLATED/ZIP_LZMA/ZIP_BZIP2 之一, 缺省用配置默认值
         """
         await self._create_zip(files=files, compression=compression)
         return self.file
@@ -91,15 +117,8 @@ class ZipUtils:
         :param files: 被压缩的文件列表
         :param password: 文件密码
         """
-        if self.file.is_file and not self.overwrite:
-            raise RuntimeError(f'File {self.file} already exists')
-        elif self.file.is_file and self.overwrite:
-            self.file.remove()
+        self._prepare_target(files, expected_suffix='.7z')
 
-        if self.file.suffix != '.7z':
-            raise ValueError('File suffix must be ".7z"')
-
-        self.file.ensure_parent_path()
         with py7zr.SevenZipFile(self.file.resolve_path, mode='w', password=password) as zf:
             if password:
                 zf.set_encrypted_header(True)
@@ -107,8 +126,7 @@ class ZipUtils:
                 if file.resolve_path == self.file.resolve_path:
                     # 跳过如存在的压缩文档自身避免无限递归
                     continue
-                if file.is_file:
-                    zf.write(file.resolve_path, arcname=file.name)
+                zf.write(file.resolve_path, arcname=file.name)
 
     async def create_7z(
             self,
