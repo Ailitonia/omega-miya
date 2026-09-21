@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 TEST_KEY = 'unit-test-key-0123456789abcdef'
 OTHER_KEY = 'another-unit-test-key-9876543210'
 TEST_SALT = 'unit-test-salt'
+TEST_PURPOSE = 'unit-test'
 
 AES_VERSIONS = [('AES-128', 16), ('AES-192', 24), ('AES-256', 32)]
 
@@ -184,7 +185,7 @@ class TestModuleContract:
         from src.utils.crypto.encryptor import BaseEncryptor
 
         with pytest.raises(TypeError, match="Can't instantiate abstract class BaseEncryptor"):
-            BaseEncryptor(key=TEST_KEY, key_length=16, salt=TEST_SALT)
+            BaseEncryptor(key=TEST_KEY, key_length=16, salt=TEST_SALT, purpose=TEST_PURPOSE)
 
     def test_encryptor_key_is_not_readable_from_repr(self, aes128):
         assert TEST_KEY not in repr(aes128)
@@ -198,7 +199,7 @@ class TestKeyDerivation:
     def test_derive_key_returns_requested_length(self, key_length: int):
         from src.utils.crypto.encryptor import derive_key
 
-        key, _salt = derive_key(TEST_KEY, key_length, salt=TEST_SALT)
+        key, _salt = derive_key(TEST_KEY, key_length, purpose=TEST_PURPOSE, salt=TEST_SALT)
 
         assert len(key) == key_length
 
@@ -207,60 +208,83 @@ class TestKeyDerivation:
         from src.utils.crypto.encryptor import derive_key
 
         with pytest.raises(ValueError, match=_MSG_KEY_ALGORITHM):
-            derive_key(TEST_KEY, key_length, salt=TEST_SALT)
+            derive_key(TEST_KEY, key_length, purpose=TEST_PURPOSE, salt=TEST_SALT)
 
     def test_derive_key_is_deterministic(self):
         from src.utils.crypto.encryptor import derive_key
 
-        assert derive_key(TEST_KEY, 32, salt=TEST_SALT) == derive_key(TEST_KEY, 32, salt=TEST_SALT)
+        first = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)
+        second = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)
+        assert first == second
 
     def test_derive_key_varies_with_secret(self):
         from src.utils.crypto.encryptor import derive_key
 
-        assert derive_key(TEST_KEY, 32, salt=TEST_SALT)[0] != derive_key(OTHER_KEY, 32, salt=TEST_SALT)[0]
+        key_a = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]
+        key_b = derive_key(OTHER_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]
+        assert key_a != key_b
 
     def test_derive_key_varies_with_length(self):
         from src.utils.crypto.encryptor import derive_key
 
-        keys = {derive_key(TEST_KEY, length, salt=TEST_SALT)[0] for length in (16, 24, 32)}
-        assert len(keys) == 3
+        keys = {
+            length: derive_key(TEST_KEY, length, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]
+            for length in (16, 24, 32)
+        }
+
+        assert len(set(keys.values())) == 3
+        # 审计 L1: key_length 混入 KDF 盐值, 短密钥不再是长密钥的前缀
+        assert keys[16] != keys[32][:16]
+        assert keys[16] != keys[24][:16]
 
     def test_str_and_bytes_salt_are_equivalent(self):
         from src.utils.crypto.encryptor import derive_key
 
-        assert derive_key(TEST_KEY, 32, salt='unit-test-salt') == derive_key(TEST_KEY, 32, salt=b'unit-test-salt')
+        assert derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='unit-test-salt') == derive_key(
+            TEST_KEY, 32, purpose=TEST_PURPOSE, salt=b'unit-test-salt'
+        )
 
-    def test_short_salt_is_padded_to_16_bytes(self):
+    def test_short_salt_is_used_as_is(self):
+        # 审计 L3: 短盐不再 null 填充, 原样参与派生
         from src.utils.crypto.encryptor import derive_key
 
-        _key, salt = derive_key(TEST_KEY, 32, salt='abc')
+        _key, salt = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc')
 
-        assert salt == b'abc' + b'\x00' * 13
+        assert salt == b'abc'
 
     def test_exact_16_byte_salt_is_unchanged(self):
         from src.utils.crypto.encryptor import derive_key
 
-        _key, salt = derive_key(TEST_KEY, 32, salt=b'A' * 16)
+        _key, salt = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=b'A' * 16)
 
         assert salt == b'A' * 16
 
     def test_long_salt_is_not_truncated(self):
         from src.utils.crypto.encryptor import derive_key
 
-        _key, salt = derive_key(TEST_KEY, 32, salt=b'A' * 40)
+        _key, salt = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=b'A' * 40)
 
         assert salt == b'A' * 40
+
+    @pytest.mark.parametrize('empty_salt', ['', ' ', '   ', b''])
+    def test_empty_salt_is_rejected(self, empty_salt: Any):
+        from src.utils.crypto.encryptor import derive_key
+
+        with pytest.raises(ValueError, match='salt 不能为空'):
+            derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=empty_salt)
 
     def test_salt_influences_derived_key(self):
         from src.utils.crypto.encryptor import derive_key
 
-        assert derive_key(TEST_KEY, 32, salt='salt-a')[0] != derive_key(TEST_KEY, 32, salt='salt-b')[0]
+        key_a = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='salt-a')[0]
+        key_b = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='salt-b')[0]
+        assert key_a != key_b
 
     def test_omitted_salt_is_random_per_call(self):
         from src.utils.crypto.encryptor import derive_key
 
-        first_key, first_salt = derive_key(TEST_KEY, 32)
-        second_key, second_salt = derive_key(TEST_KEY, 32)
+        first_key, first_salt = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE)
+        second_key, second_salt = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE)
 
         assert first_salt != second_salt
         assert len(first_salt) == 16
@@ -269,21 +293,28 @@ class TestKeyDerivation:
     def test_key_derivation_uses_full_entropy_bytes(self):
         from src.utils.crypto.encryptor import derive_key
 
-        assert not set(derive_key(TEST_KEY, 32, salt=TEST_SALT)[0]) <= set(b'0123456789abcdef')
+        assert not set(derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]) <= set(b'0123456789abcdef')
 
     @pytest.mark.parametrize('invalid_secret', [b'bytes-secret', 123, 12.5, None, ['secret']])
     def test_non_str_secret_is_rejected(self, invalid_secret: Any):
         from src.utils.crypto.encryptor import derive_key
 
         with pytest.raises(TypeError, match=_MSG_SECRET_TYPE):
-            derive_key(invalid_secret, 32, salt=TEST_SALT)
+            derive_key(invalid_secret, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)
+
+    @pytest.mark.parametrize('empty_secret', ['', ' ', '   ', '\t', '\n', ' \t\n '])
+    def test_empty_secret_is_rejected(self, empty_secret: str):
+        from src.utils.crypto.encryptor import derive_key
+
+        with pytest.raises(ValueError, match=_MSG_EMPTY_KEY):
+            derive_key(empty_secret, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)
 
     @pytest.mark.parametrize('invalid_length', ['16', 16.0, True, False, None, [16]])
     def test_non_int_key_length_is_rejected(self, invalid_length: Any):
         from src.utils.crypto.encryptor import derive_key
 
         with pytest.raises(TypeError, match=_MSG_KEY_LENGTH_TYPE):
-            derive_key(TEST_KEY, invalid_length, salt=TEST_SALT)
+            derive_key(TEST_KEY, invalid_length, purpose=TEST_PURPOSE, salt=TEST_SALT)
 
     @pytest.mark.parametrize(
         ('invalid_salt', 'type_name'),
@@ -293,19 +324,48 @@ class TestKeyDerivation:
         from src.utils.crypto.encryptor import derive_key
 
         with pytest.raises(TypeError, match=f'{_MSG_SALT_TYPE}, 而不是 {type_name} 类型'):
-            derive_key(TEST_KEY, 32, salt=invalid_salt)
+            derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=invalid_salt)
+
+    def test_purpose_is_required(self):
+        from src.utils.crypto.encryptor import derive_key
+
+        with pytest.raises(TypeError, match='purpose'):
+            derive_key(TEST_KEY, 32, salt=TEST_SALT)
+
+    @pytest.mark.parametrize('invalid_purpose', [b'AES-256', 123, 12.5, None, ['AES-256']])
+    def test_non_str_purpose_is_rejected(self, invalid_purpose: Any):
+        from src.utils.crypto.encryptor import derive_key
+
+        with pytest.raises(TypeError, match='purpose 必须为 str 类型'):
+            derive_key(TEST_KEY, 32, purpose=invalid_purpose, salt=TEST_SALT)
+
+    @pytest.mark.parametrize('invalid_purpose', ['', 'has space', '中文', 'with:colon', 'with|pipe', 'under_score'])
+    def test_purpose_with_invalid_charset_is_rejected(self, invalid_purpose: str):
+        from src.utils.crypto.encryptor import derive_key
+
+        with pytest.raises(ValueError, match='purpose 仅允许'):
+            derive_key(TEST_KEY, 32, purpose=invalid_purpose, salt=TEST_SALT)
+
+    def test_purpose_separates_derived_keys(self):
+        # 审计 L1: 同密钥同盐同长度下, 不同用途派生出完全独立的密钥
+        from src.utils.crypto.encryptor import derive_key
+
+        aes_key = derive_key(TEST_KEY, 32, purpose='AES-256', salt=TEST_SALT)[0]
+        chacha_key = derive_key(TEST_KEY, 32, purpose='ChaCha20', salt=TEST_SALT)[0]
+
+        assert aes_key != chacha_key
 
     def test_instance_keys_match_derive_key(self, aes128, aes192, aes256, chacha20):
         from src.utils.crypto.encryptor import derive_key
 
-        assert aes128._key == derive_key(TEST_KEY, 16, salt=TEST_SALT)[0]
-        assert aes192._key == derive_key(TEST_KEY, 24, salt=TEST_SALT)[0]
-        assert aes256._key == derive_key(TEST_KEY, 32, salt=TEST_SALT)[0]
-        assert chacha20._key == derive_key(TEST_KEY, 32, salt=TEST_SALT)[0]
+        assert aes128._key == derive_key(TEST_KEY, 16, purpose='AES-128', salt=TEST_SALT)[0]
+        assert aes192._key == derive_key(TEST_KEY, 24, purpose='AES-192', salt=TEST_SALT)[0]
+        assert aes256._key == derive_key(TEST_KEY, 32, purpose='AES-256', salt=TEST_SALT)[0]
+        assert chacha20._key == derive_key(TEST_KEY, 32, purpose='ChaCha20', salt=TEST_SALT)[0]
 
     def test_instance_salt_is_normalized(self, aes128, chacha20):
-        assert aes128._salt == TEST_SALT.encode(encoding='utf-8').ljust(16, b'\x00')
-        assert chacha20._salt == TEST_SALT.encode(encoding='utf-8').ljust(16, b'\x00')
+        assert aes128._salt == TEST_SALT.encode(encoding='utf-8')
+        assert chacha20._salt == TEST_SALT.encode(encoding='utf-8')
 
     def test_default_version_is_aes_128(self, aes_default):
         assert aes_default.version == 'AES-128'
@@ -349,6 +409,17 @@ class TestKeyDerivation:
         with pytest.raises(TypeError, match=_MSG_KEY_TYPE):
             ChaCha20Encryptor(key=invalid_key, salt=TEST_SALT)
 
+    @pytest.mark.parametrize('empty_key', ['', ' ', '   ', '\t', '\n'])
+    def test_empty_key_is_rejected_by_encryptors(self, empty_key: str):
+        # 审计 M2: 空密钥曾在 API 层被接受, 仅配置层拒绝, 直接传 key='' 可绕过 H3 防护
+        from src.utils.crypto import AESEncryptor, ChaCha20Encryptor
+
+        with pytest.raises(ValueError, match=_MSG_EMPTY_KEY):
+            AESEncryptor(key=empty_key, salt=TEST_SALT)
+
+        with pytest.raises(ValueError, match=_MSG_EMPTY_KEY):
+            ChaCha20Encryptor(key=empty_key, salt=TEST_SALT)
+
     def test_none_key_falls_back_to_global_config(self):
         from src.utils.crypto import AESEncryptor
         from src.utils.crypto.config import encrypt_config
@@ -356,7 +427,7 @@ class TestKeyDerivation:
 
         config_key = encrypt_config.omega_aes_key.get_secret_value()
 
-        assert AESEncryptor(salt=TEST_SALT)._key == derive_key(config_key, 16, salt=TEST_SALT)[0]
+        assert AESEncryptor(salt=TEST_SALT)._key == derive_key(config_key, 16, purpose='AES-128', salt=TEST_SALT)[0]
 
 
 class TestEncryptConfig:
@@ -419,8 +490,10 @@ class TestEncryptConfig:
 
         monkeypatch.setattr(encrypt_config, 'omega_aes_key', SecretStr('monkeypatched-secret'))
 
-        assert AESEncryptor(salt=TEST_SALT)._key == derive_key('monkeypatched-secret', 16, salt=TEST_SALT)[0]
-        assert ChaCha20Encryptor(salt=TEST_SALT)._key == derive_key('monkeypatched-secret', 32, salt=TEST_SALT)[0]
+        aes_key = derive_key('monkeypatched-secret', 16, purpose='AES-128', salt=TEST_SALT)[0]
+        chacha_key = derive_key('monkeypatched-secret', 32, purpose='ChaCha20', salt=TEST_SALT)[0]
+        assert AESEncryptor(salt=TEST_SALT)._key == aes_key
+        assert ChaCha20Encryptor(salt=TEST_SALT)._key == chacha_key
 
 
 class TestBase64Codec:
@@ -713,7 +786,8 @@ class TestAESAuthenticatedModes:
 
     def test_nonce_and_tag_sizes(self, aes128, mode: str):
         _ciphertext, nonce, tag = self._encrypt(aes128, mode, 'secret')
-        assert len(base64.b64decode(nonce)) == BLOCK_SIZE
+        # GCM 使用 NIST 推荐的 96-bit nonce, EAX 使用块长 nonce
+        assert len(base64.b64decode(nonce)) == (12 if mode == 'gcm' else BLOCK_SIZE)
         assert len(base64.b64decode(tag)) == BLOCK_SIZE
 
     def test_nonce_is_unique(self, aes128, mode: str):
@@ -746,18 +820,21 @@ class TestAESAuthenticatedModes:
 
     def test_nonce_with_wrong_length_is_rejected(self, aes128, mode: str):
         ciphertext, _nonce, tag = self._encrypt(aes128, mode, 'secret')
+        # GCM 合法 nonce 为 12 字节, EAX 为 16 字节, 交叉互喂即为非法长度
+        wrong_nonce_length = BLOCK_SIZE if mode == 'gcm' else 12
 
         with pytest.raises(ValueError, match=_MSG_KEY_LENGTH):
-            getattr(aes128, f'{mode}_decrypt')(ciphertext, base64.b64encode(b'A' * 12).decode(), tag)
+            getattr(aes128, f'{mode}_decrypt')(ciphertext, base64.b64encode(b'A' * wrong_nonce_length).decode(), tag)
 
 
 class TestEnvelopeEncryption:
     """认证加密信封 (`encrypt` / `decrypt`) 测试"""
 
-    @pytest.fixture(params=['aes', 'chacha20'], scope='module')
-    def encryptor(self, request: pytest.FixtureRequest, aes128, chacha20) -> Any:
-        """加密实例, 分别覆盖 AES-GCM 与 ChaCha20-Poly1305"""
-        return aes128 if request.param == 'aes' else chacha20
+    @pytest.fixture(params=['aes128', 'aes192', 'aes256', 'chacha20'], scope='module')
+    def encryptor(self, request: pytest.FixtureRequest, aes128, aes192, aes256, chacha20) -> Any:
+        """加密实例, 覆盖 AES 各版本的 GCM 与 ChaCha20-Poly1305"""
+        encryptors = {'aes128': aes128, 'aes192': aes192, 'aes256': aes256, 'chacha20': chacha20}
+        return encryptors[request.param]
 
     @pytest.mark.parametrize('plaintext', PLAINTEXTS, ids=PLAINTEXT_IDS)
     def test_roundtrip(self, encryptor: Any, plaintext: str):
@@ -768,22 +845,21 @@ class TestEnvelopeEncryption:
 
         segments = encryptor.encrypt('secret').split(':')
         assert len(segments) == 6
-        assert segments[0] == 'v1'
-        assert segments[1] == ('AES-128-GCM' if isinstance(encryptor, AESEncryptor) else 'ChaCha20-Poly1305')
+        assert segments[0] == 'v2'
+        expected_cipher = f'{encryptor.version}-GCM' if isinstance(encryptor, AESEncryptor) else 'ChaCha20-Poly1305'
+        assert segments[1] == expected_cipher
         # 密文段长度与明文一致 (认证加密不填充), 且必须是合法 base64
         assert len(base64.b64decode(segments[5], validate=True)) == len('secret')
 
-    def test_salt_segment_encodes_normalized_salt(self, encryptor: Any):
+    def test_salt_segment_encodes_instance_salt(self, encryptor: Any):
         segments = encryptor.encrypt('secret').split(':')
         assert base64.b64decode(segments[2]) == encryptor._salt
-        assert encryptor._salt == TEST_SALT.encode(encoding='utf-8').ljust(16, b'\x00')
+        assert encryptor._salt == TEST_SALT.encode(encoding='utf-8')
 
     def test_envelope_nonce_and_tag_length(self, encryptor: Any):
-        from src.utils.crypto import AESEncryptor
-
         segments = encryptor.encrypt('secret').split(':')
-        expected_nonce_length = BLOCK_SIZE if isinstance(encryptor, AESEncryptor) else 12
-        assert len(base64.b64decode(segments[3])) == expected_nonce_length
+        # GCM 与 Poly1305 均使用 96-bit nonce, tag 均为 16 字节
+        assert len(base64.b64decode(segments[3])) == 12
         assert len(base64.b64decode(segments[4])) == BLOCK_SIZE
 
     def test_same_plaintext_produces_different_envelope(self, encryptor: Any):
@@ -815,7 +891,10 @@ class TestEnvelopeEncryption:
 
     @pytest.mark.parametrize(
         'envelope',
-        ['', 'v1', 'v1:a', 'v1:a:b', 'v1:a:b:c', 'v1:a:b:c:d', 'v1:a:b:c:d:e:f', 'plain-text', 'V1:a:b:c:d:e'],
+        [
+            '', 'v2', 'v2:a', 'v2:a:b', 'v2:a:b:c', 'v2:a:b:c:d', 'v2:a:b:c:d:e:f', 'plain-text', 'V2:a:b:c:d:e',
+            'v1:a:b:c:d:e',
+        ],
     )
     def test_malformed_envelope_is_rejected(self, encryptor: Any, envelope: str):
         with pytest.raises(ValueError, match=_MSG_ENVELOPE):
@@ -823,17 +902,21 @@ class TestEnvelopeEncryption:
 
     def test_invalid_base64_segment_is_rejected(self, encryptor: Any):
         with pytest.raises(ValueError, match=_MSG_B64):
-            encryptor.decrypt('v1:AES-128-GCM:!!!!:QUJD:QUJD:QUJD')
+            encryptor.decrypt('v2:AES-128-GCM:!!!!:QUJD:QUJD:QUJD')
 
     def test_unknown_cipher_identifier_is_rejected(self, encryptor: Any):
         with pytest.raises(ValueError, match=_MSG_ENVELOPE_CONTENT):
-            encryptor.decrypt('v1:DES-CBC:QUJD:QUJD:QUJD:QUJD')
+            encryptor.decrypt('v2:DES-CBC:QUJD:QUJD:QUJD:QUJD')
 
     def test_wrong_key_is_rejected(self, encryptor: Any, aes_other, chacha_other):
         from src.utils.crypto import AESEncryptor
 
         envelope = encryptor.encrypt('secret')
-        other = aes_other if isinstance(encryptor, AESEncryptor) else chacha_other
+        if isinstance(encryptor, AESEncryptor) and encryptor.version != aes_other.version:
+            # 异版本实例会先因算法标识不一致被拒, 需构造同版本异密钥实例以触达标签校验
+            other = AESEncryptor(key=OTHER_KEY, salt=TEST_SALT, version=encryptor.version)
+        else:
+            other = aes_other if isinstance(encryptor, AESEncryptor) else chacha_other
 
         with pytest.raises(ValueError, match=_MSG_TAG):
             other.decrypt(envelope)
@@ -976,7 +1059,10 @@ class TestCrossKeyIsolation:
     def test_derived_keys_differ_across_versions(self):
         from src.utils.crypto.encryptor import derive_key
 
-        keys = {derive_key(TEST_KEY, key_length, salt=TEST_SALT)[0] for key_length in (16, 24, 32)}
+        keys = {
+            derive_key(TEST_KEY, key_length, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]
+            for key_length in (16, 24, 32)
+        }
         assert len(keys) == 3
 
     def test_envelope_cross_version_is_rejected(self, aes128, aes256):
@@ -1084,14 +1170,14 @@ class TestAuditRegression:
         # 审计 M1: 旧实现的密钥是十六进制文本, 每字节只有 4 bit 熵
         from src.utils.crypto.encryptor import derive_key
 
-        assert not set(derive_key(TEST_KEY, 32, salt=TEST_SALT)[0]) <= set(b'0123456789abcdef')
+        assert not set(derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]) <= set(b'0123456789abcdef')
 
     def test_authenticated_envelope_is_available(self, aes128):
         # 审计 H2: 存量密文使用无认证的 ECB, 现提供自带完整性且自描述的默认接口
         envelope = aes128.encrypt('mailbox-password')
         segments = envelope.split(':')
 
-        assert segments[0] == 'v1'
+        assert segments[0] == 'v2'
         assert segments[1] == 'AES-128-GCM'
 
         segments[5] = _flip_b64_byte(segments[5], 0)
@@ -1104,10 +1190,38 @@ class TestAuditRegression:
         from src.utils.crypto.encryptor import derive_key
 
         with pytest.raises(TypeError, match=f'{_MSG_SALT_TYPE}, 而不是 int 类型'):
-            derive_key(TEST_KEY, 32, salt=123)
+            derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=123)
 
         with pytest.raises(TypeError, match=f'{_MSG_SALT_TYPE}, 而不是 list 类型'):
-            derive_key(TEST_KEY, 32, salt=['x'])
+            derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=['x'])
+
+    def test_derived_keys_have_no_cross_purpose_relation(self):
+        # 审计 L1: PBKDF2 前缀性质曾使短密钥成为长密钥前缀, 且 AES-256 与 ChaCha20 复用同一密钥
+        from src.utils.crypto.encryptor import derive_key
+
+        k128 = derive_key(TEST_KEY, 16, purpose='AES-128', salt=TEST_SALT)[0]
+        k256 = derive_key(TEST_KEY, 32, purpose='AES-256', salt=TEST_SALT)[0]
+        k_chacha = derive_key(TEST_KEY, 32, purpose='ChaCha20', salt=TEST_SALT)[0]
+
+        assert k128 != k256[:16]
+        assert k256 != k_chacha
+
+    def test_gcm_nonce_is_96_bit(self, aes128):
+        # 审计 L2: GCM nonce 现为 NIST SP 800-38D 推荐的 96-bit
+        _ciphertext, nonce, _tag = aes128.gcm_encrypt('secret')
+
+        assert len(base64.b64decode(nonce)) == 12
+
+    def test_salt_padding_aliasing_is_eliminated(self):
+        # 审计 L3: 盐不再 null 填充, 'abc' 与 'abc\0\0\0' 不再等价
+        from src.utils.crypto.encryptor import derive_key
+
+        key_a, salt_a = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc')
+        key_b, salt_b = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc\x00\x00\x00')
+
+        assert salt_a == b'abc'
+        assert salt_b == b'abc\x00\x00\x00'
+        assert key_a != key_b
 
     def test_config_failure_fails_fast_in_subprocess(self):
         # 空密钥配置使宿主进程在模块导入期快速失败 (fail-fast 约定), 只能在子进程中复现

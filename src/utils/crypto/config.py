@@ -23,6 +23,11 @@ def generate_aes_key_by_hardware() -> SecretStr:
     system = platform.system()
     node = str(uuid.getnode())
 
+    logger.opt(colors=True).warning(
+        '<lc>EncryptUtils</lc> | <ly>未配置 omega_aes_key, 正在使用硬件派生兜底密钥</ly>, '
+        '该密钥由平台与硬件信息生成, 熵低且可预测, 且更换平台或硬件会导致既有密文无法解密, '
+        '建议配置足够长的随机密钥'
+    )
     return SecretStr(sha256(f'{system}+{machine}+{processor}+{node}'.encode()).hexdigest())
 
 

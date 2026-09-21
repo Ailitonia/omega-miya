@@ -32,6 +32,9 @@ _ECB_REMOVED_MESSAGE = (
 class AESEncryptor(BaseEncryptor):
     """AES 加解密工具集"""
 
+    _GCM_NONCE_SIZE: int = 12
+    """AES/GCM 96-bit nonce 长度 (NIST SP 800-38D 推荐)"""
+
     def __init__(
             self,
             key: str | None = None,
@@ -49,6 +52,7 @@ class AESEncryptor(BaseEncryptor):
             key,
             key_length=_AES_VERSION_KEY_LENGTHS[version],
             salt=salt,
+            purpose=version,
         )
         self.version = version
 
@@ -162,7 +166,7 @@ class AESEncryptor(BaseEncryptor):
 
         :return: ciphertext, nonce, tag
         """
-        nonce = urandom(AES.block_size)
+        nonce = urandom(self._GCM_NONCE_SIZE)
 
         cipher = AES.new(self._key, AES.MODE_GCM, nonce=nonce)
         ciphertext_bytes, tag = cipher.encrypt_and_digest(self._encode_utf8(plaintext))
@@ -170,7 +174,7 @@ class AESEncryptor(BaseEncryptor):
         return self._b64_encode(ciphertext_bytes), self._b64_encode(nonce), self._b64_encode(tag)
 
     def _gcm_decrypt_bytes(self, ciphertext_bytes: bytes, nonce: bytes, tag: bytes) -> bytes:
-        self._require_exact_length('nonce', nonce, AES.block_size)
+        self._require_exact_length('nonce', nonce, self._GCM_NONCE_SIZE)
         self._require_exact_length('tag', tag, AES.block_size)
 
         cipher = AES.new(self._key, AES.MODE_GCM, nonce=nonce)
@@ -217,14 +221,14 @@ class AESEncryptor(BaseEncryptor):
         return self._decode_utf8(plaintext_bytes)
 
     def encrypt(self, plaintext: str) -> str:
-        """默认使用 AES-GCM 认证加密, 输出自描述信封 v1:{cipher}:{salt}:{nonce}:{tag}:{ciphertext}"""
+        """默认使用 AES-GCM 认证加密, 输出自描述信封 v2:{cipher}:{salt}:{nonce}:{tag}:{ciphertext}"""
         ciphertext, nonce, tag = self.gcm_encrypt(plaintext)
         salt = self._b64_encode(self._salt)
 
         return f'{self._ENVELOPE_VERSION}:{self.version}-GCM:{salt}:{nonce}:{tag}:{ciphertext}'
 
     def decrypt(self, envelope: str) -> str:
-        """默认使用 AES-GCM 解密并校验 v1 认证加密信封"""
+        """默认使用 AES-GCM 解密并校验 v2 认证加密信封"""
         cipher, salt, nonce, tag, ciphertext = self._unpack_envelope(envelope)
 
         if cipher != f'{self.version}-GCM':

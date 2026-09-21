@@ -32,6 +32,7 @@ class ChaCha20Encryptor(BaseEncryptor):
             key,
             key_length=ChaCha20.key_size,
             salt=salt,
+            purpose='ChaCha20',
         )
         self.version = 'ChaCha20'
 
@@ -92,14 +93,14 @@ class ChaCha20Encryptor(BaseEncryptor):
         return self._decode_utf8(self._chacha20_poly1305_decrypt_bytes(ciphertext_bytes, nonce, tag))
 
     def encrypt(self, plaintext: str) -> str:
-        """默认使用 ChaCha20-Poly1305 认证加密, 输出自描述信封  v1:{cipher}:{salt}:{nonce}:{tag}:{ciphertext}"""
+        """默认使用 ChaCha20-Poly1305 认证加密, 输出自描述信封  v2:{cipher}:{salt}:{nonce}:{tag}:{ciphertext}"""
         ciphertext, nonce, tag = self.chacha20_poly1305_encrypt(plaintext)
         salt = self._b64_encode(self._salt)
 
         return f'{self._ENVELOPE_VERSION}:{self.version}-Poly1305:{salt}:{nonce}:{tag}:{ciphertext}'
 
     def decrypt(self, envelope: str) -> str:
-        """默认使用 ChaCha20-Poly1305 解密并校验 v1 认证加密信封"""
+        """默认使用 ChaCha20-Poly1305 解密并校验 v2 认证加密信封"""
         cipher, salt, nonce, tag, ciphertext = self._unpack_envelope(envelope)
 
         if cipher != f'{self.version}-Poly1305':
