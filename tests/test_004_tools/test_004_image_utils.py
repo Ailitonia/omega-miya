@@ -743,3 +743,233 @@ class TestConfigContract:
         assert isinstance(folder, TemporaryResource)
         assert 'output' in folder.resolve_path
         assert folder.resolve_path.endswith('a.jpg')
+
+
+class TestSplitMultilineTextEmbeddedNewlines:
+    """split_multiline_text 内嵌换行符处理"""
+
+    def test_wrap_after_embedded_newline_no_extra_blank_lines(self):
+        """内嵌换行后触发换行时, 不得产生额外空行"""
+        from src.utils.image_utils import ImageTextProcessor
+        font = _get_default_font()
+        text = 'AB\nCDEFGHIJ'
+        result = ImageTextProcessor.split_multiline_text(text=text, width=50, font=font)
+        lines = result.split('\n')
+        assert lines[0] == 'AB'
+        assert '' not in lines
+        assert _normalized(result) == _normalized(text)
+        for line in lines:
+            assert font.getlength(line) <= 50 or len(line) == 1
+
+    def test_embedded_blank_lines_preserved(self):
+        """原文中的空行应原样保留"""
+        from src.utils.image_utils import ImageTextProcessor
+        result = ImageTextProcessor.split_multiline_text(text='AB\n\nCD', width=500, font=_get_default_font())
+        assert result == 'AB\n\nCD'
+
+    def test_existing_newlines_roundtrip_after_wrap(self):
+        """各原有行独立切分, 换行触发后 roundtrip 保真且不引入空行"""
+        from src.utils.image_utils import ImageTextProcessor
+        font = _get_default_font()
+        text = TEXT_CJK + '\n' + TEXT_MIXED
+        result = ImageTextProcessor.split_multiline_text(text=text, width=100, font=font)
+        assert _normalized(result) == _normalized(text)
+        assert '\n\n' not in result
+
+
+class TestDrawMultilineTextEmptyLines:
+    """draw_multiline_text 空行占位语义"""
+
+    def test_empty_line_occupies_height(self):
+        from src.utils.image_utils import ImageTextProcessor
+        draw = ImageDraw.Draw(_new_image())
+        _, single_height = ImageTextProcessor.draw_multiline_text(draw, xy=(4, 4), text='中\n中', size=20)
+        _, with_empty_height = ImageTextProcessor.draw_multiline_text(draw, xy=(4, 4), text='中\n\n中', size=20)
+        assert with_empty_height > single_height
+
+    def test_trailing_newline_adds_height(self):
+        from src.utils.image_utils import ImageTextProcessor
+        draw = ImageDraw.Draw(_new_image())
+        _, base_height = ImageTextProcessor.draw_multiline_text(draw, xy=(4, 4), text='中', size=20)
+        _, trailing_height = ImageTextProcessor.draw_multiline_text(draw, xy=(4, 4), text='中\n', size=20)
+        assert trailing_height > base_height
+
+    def test_empty_fonts_raises(self):
+        from src.utils.image_utils import ImageTextProcessor
+        with pytest.raises(ValueError, match='at least one font'):
+            ImageTextProcessor.draw_multiline_text(ImageDraw.Draw(_new_image()), xy=(0, 0), text='x', size=20, fonts={})
+
+
+class TestMarkColorModes:
+    """mark 色彩模式处理"""
+
+    def test_mark_la_mode_converts_to_rgb(self):
+        processor = _make_processor(_new_image(mode='LA', color=(128, 255)))
+        processor.mark(text='mark')
+        assert processor.image.mode == 'RGB'
+
+    def test_mark_p_mode_converts_to_rgb(self):
+        processor = _make_processor(_new_image(mode='P', color=1))
+        processor.mark(text='mark')
+        assert processor.image.mode == 'RGB'
+
+    def test_mark_cmyk_mode_converts_to_rgb(self):
+        processor = _make_processor(_new_image(mode='CMYK', color=(0, 0, 0, 0)))
+        processor.mark(text='mark')
+        assert processor.image.mode == 'RGB'
+
+
+class TestParameterValidation:
+    """非法参数校验"""
+
+    def test_init_from_text_width_too_small_raises(self):
+        from src.utils.image_utils import ImageLoader
+        with pytest.raises(ValueError, match='image_width'):
+            ImageLoader.init_from_text(text='hi', image_width=0)
+
+    def test_init_from_text_negative_width_raises(self):
+        from src.utils.image_utils import ImageLoader
+        with pytest.raises(ValueError, match='image_width'):
+            ImageLoader.init_from_text(text='hi', image_width=-5)
+
+    def test_init_from_text_boundary_width_25(self):
+        from src.utils.image_utils import ImageLoader
+        image = ImageLoader.init_from_text(text='hi', image_width=25)
+        assert image.width == 25
+
+    def test_resize_with_filling_zero_size_raises(self):
+        with pytest.raises(ValueError, match='size must be positive'):
+            _make_processor().resize_with_filling(size=(0, 0))
+
+    def test_resize_with_filling_negative_size_raises(self):
+        with pytest.raises(ValueError, match='size must be positive'):
+            _make_processor().resize_with_filling(size=(-1, 100))
+
+    def test_resize_fill_canvas_zero_size_raises(self):
+        with pytest.raises(ValueError, match='size must be positive'):
+            _make_processor().resize_fill_canvas(size=(0, 100))
+
+    def test_resize_fill_canvas_negative_size_raises(self):
+        with pytest.raises(ValueError, match='size must be positive'):
+            _make_processor().resize_fill_canvas(size=(-1, 100))
+
+    def test_gaussian_blur_negative_radius_raises(self):
+        with pytest.raises(ValueError, match='radius'):
+            _make_processor().gaussian_blur(radius=-1)
+
+    def test_gaussian_noise_negative_sigma_raises(self):
+        with pytest.raises(ValueError, match='sigma'):
+            _make_processor().gaussian_noise(sigma=-1, enable_random=False)
+
+    def test_gaussian_noise_mask_factor_out_of_range_raises(self):
+        with pytest.raises(ValueError, match='mask_factor'):
+            _make_processor().gaussian_noise(mask_factor=1.5, enable_random=False)
+
+    def test_has_glyph_multi_char_raises(self):
+        from src.utils.image_utils import ImageTextProcessor
+        fonts = ImageTextProcessor.load_fonts('SourceHanSansSC-Regular.otf')
+        font = next(iter(fonts.values()))
+        with pytest.raises(ValueError, match='single character'):
+            ImageTextProcessor.has_glyph(font, 'ab')
+
+
+class TestSaveFormatNormalization:
+    """编码格式名称规范化"""
+
+    def test_get_bytes_unknown_format_raises(self):
+        with pytest.raises(ValueError, match='unsupported image format'):
+            _make_processor().get_bytes(format_='FOO')
+
+    def test_get_base64_unknown_format_raises(self):
+        with pytest.raises(ValueError, match='unsupported image format'):
+            _make_processor().get_base64(format_='FOO')
+
+    def test_get_bytes_jpg_alias_normalized(self):
+        content = _make_processor().get_bytes(format_='JPG')
+        assert content.startswith(JPEG_MAGIC)
+
+    def test_get_base64_jpg_data_uri_uses_jpeg_mime(self):
+        content = _make_processor().get_base64(format_='JPG', use_data_uri_scheme=True)
+        assert content.startswith('data:image/jpeg;base64,')
+
+
+class TestPathTraversalGuard:
+    """路径穿越防护在模块入口的集成断言(仅路径解析与拦截分支, 不落盘)"""
+
+    def test_font_name_parent_traversal_blocked(self):
+        from src.resource import ResourcePathOutOfRootError
+        from src.utils.image_utils.config import image_utils_config
+        with pytest.raises(ResourcePathOutOfRootError):
+            image_utils_config.get_custom_name_font('../../pyproject.toml')
+
+    def test_font_name_absolute_path_blocked(self):
+        from src.resource import ResourcePathOutOfRootError
+        from src.utils.image_utils.config import image_utils_config
+        with pytest.raises(ResourcePathOutOfRootError):
+            image_utils_config.get_custom_name_font('/etc/passwd')
+
+    def test_font_name_stay_inside_root_allowed(self):
+        from src.utils.image_utils.config import image_utils_config
+        font = image_utils_config.get_custom_name_font('../../static/fonts/msyh.ttc')
+        assert Path(font.resolve_path).is_file()
+
+    async def test_save_filename_escape_tmp_root_blocked(self):
+        from src.resource import ResourcePathOutOfRootError
+        with pytest.raises(ResourcePathOutOfRootError):
+            await _make_processor().save(file='../../../evil.jpg')
+
+    async def test_save_filename_escape_output_folder_blocked(self):
+        with pytest.raises(ValueError, match='outside of the default output folder'):
+            await _make_processor().save(file='../../evil.jpg')
+
+    def test_save_filename_normal_resolves_inside_output(self):
+        from src.utils.image_utils.config import image_utils_config
+        folder = image_utils_config.default_output_folder
+        target = folder('normal.jpg')
+        assert Path(target.resolve_path).is_relative_to(Path(folder.resolve_path))
+        assert target.resolve_path.endswith('normal.jpg')
+
+
+class TestFontCache:
+    """字体加载缓存(L8)"""
+
+    def test_load_fonts_returns_cached_ttfont(self):
+        """同名字体重复加载返回缓存的同一 TTFont 对象"""
+        from src.utils.image_utils import ImageTextProcessor
+        first = ImageTextProcessor.load_fonts('SourceHanSansSC-Regular.otf')
+        second = ImageTextProcessor.load_fonts('SourceHanSansSC-Regular.otf')
+        assert next(iter(first.values())) is next(iter(second.values()))
+
+    def test_truetype_font_cached_by_path_and_size(self):
+        """相同路径与字号返回缓存的同一 FreeTypeFont 对象"""
+        from src.utils.image_utils.config import image_utils_config
+        from src.utils.image_utils.image_util import _load_truetype_font_cached
+        path = image_utils_config.default_font.resolve_path
+        assert _load_truetype_font_cached(path, 20) is _load_truetype_font_cached(path, 20)
+
+    def test_cached_font_rendering_unchanged(self):
+        """缓存复用不改变绘制结果"""
+        from src.utils.image_utils import ImageTextProcessor
+
+        def _draw_once() -> bytes:
+            image = _new_image(size=(160, 160))
+            ImageTextProcessor.draw_multiline_text(ImageDraw.Draw(image), xy=(4, 4), text=TEXT_MULTILINE, size=20)
+            return image.tobytes()
+
+        assert _draw_once() == _draw_once()
+
+    def test_concurrent_draw_deterministic_output(self):
+        """跨线程共享缓存字体时绘制结果仍确定(Pillow 字体操作以临界区保护)"""
+        from concurrent.futures import ThreadPoolExecutor
+
+        from src.utils.image_utils import ImageTextProcessor
+
+        def _draw_once() -> bytes:
+            image = _new_image(size=(160, 160))
+            ImageTextProcessor.draw_multiline_text(ImageDraw.Draw(image), xy=(4, 4), text=TEXT_MULTILINE, size=20)
+            return image.tobytes()
+
+        expected = _draw_once()
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(lambda _: _draw_once(), range(8)))
+        assert all(result == expected for result in results)
