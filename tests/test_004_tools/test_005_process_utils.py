@@ -97,6 +97,47 @@ class TestRunAsyncDelay:
         with pytest.raises(ValueError, match='random_sigma'):
             run_async_delay(delay_time=5, random_sigma=-0.1)
 
+    async def test_default_delay_time(self, monkeypatch: pytest.MonkeyPatch):
+        from src.utils.process_utils import run_async_delay
+
+        _recorded: list[float | None] = []
+
+        async def _fake_sleep(*, delay: float | None = None) -> None:
+            _recorded.append(delay)
+
+        monkeypatch.setattr('src.utils.process_utils.asyncio.sleep', _fake_sleep)
+
+        @run_async_delay()
+        async def _func() -> str:
+            return 'ok'
+
+        assert await _func() == 'ok'
+        assert _recorded == [5]
+
+    def test_nan_delay_time_raises(self):
+        from src.utils.process_utils import run_async_delay
+
+        with pytest.raises(ValueError, match='delay_time'):
+            run_async_delay(delay_time=float('nan'))
+
+    def test_inf_delay_time_raises(self):
+        from src.utils.process_utils import run_async_delay
+
+        with pytest.raises(ValueError, match='delay_time'):
+            run_async_delay(delay_time=float('inf'))
+
+    def test_nan_random_sigma_raises(self):
+        from src.utils.process_utils import run_async_delay
+
+        with pytest.raises(ValueError, match='random_sigma'):
+            run_async_delay(delay_time=5, random_sigma=float('nan'))
+
+    def test_inf_random_sigma_raises(self):
+        from src.utils.process_utils import run_async_delay
+
+        with pytest.raises(ValueError, match='random_sigma'):
+            run_async_delay(delay_time=5, random_sigma=float('inf'))
+
 
 class TestRunAsyncWithTimeLimited:
     """run_async_with_time_limited 装饰器"""
@@ -166,6 +207,29 @@ class TestRunAsyncWithTimeLimited:
 
         with pytest.raises(ValueError, match='delay_time'):
             run_async_with_time_limited(delay_time=-1)
+
+    async def test_zero_delay_time_times_out_immediately(self):
+        from src.utils.process_utils import run_async_with_time_limited
+
+        @run_async_with_time_limited(delay_time=0)
+        async def _func() -> str:
+            await asyncio.sleep(0.01)
+            return 'ok'
+
+        with pytest.raises(TimeoutError):
+            await _func()
+
+    def test_nan_delay_time_raises(self):
+        from src.utils.process_utils import run_async_with_time_limited
+
+        with pytest.raises(ValueError, match='delay_time'):
+            run_async_with_time_limited(delay_time=float('nan'))
+
+    def test_inf_delay_time_raises(self):
+        from src.utils.process_utils import run_async_with_time_limited
+
+        with pytest.raises(ValueError, match='delay_time'):
+            run_async_with_time_limited(delay_time=float('inf'))
 
 
 class TestSemaphoreGather:
@@ -322,6 +386,18 @@ class TestSemaphoreGather:
 
         with pytest.raises(ValueError, match='semaphore_num'):
             await semaphore_gather(tasks=[], semaphore_num='2')
+
+    async def test_semaphore_num_bool_raises_value_error(self):
+        from src.utils.process_utils import semaphore_gather
+
+        with pytest.raises(ValueError, match='semaphore_num'):
+            await semaphore_gather(tasks=[], semaphore_num=True)
+
+    async def test_semaphore_num_float_raises_value_error(self):
+        from src.utils.process_utils import semaphore_gather
+
+        with pytest.raises(ValueError, match='semaphore_num'):
+            await semaphore_gather(tasks=[], semaphore_num=2.0)
 
 
 class TestModuleExports:
