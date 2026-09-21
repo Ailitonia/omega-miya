@@ -62,23 +62,33 @@ class _FakePipe:
 
 
 class _FakePopen:
-    """模拟 ffmpeg 子进程: stderr 分块读尽后进程退出, 可指定退出码"""
+    """模拟 ffmpeg 子进程: stderr 分块读尽后进程退出, 可指定退出码与退出时机"""
 
     def __init__(
             self,
             stderr_chunks: list[bytes],
             stdout_chunks: list[bytes] | None = None,
             exit_code: int = 0,
+            exit_immediately: bool = False,
     ) -> None:
         self.stdin: Any = _FakeStdin()
         self.stdout: Any | None = _FakePipe(stdout_chunks) if stdout_chunks is not None else None
         self.stderr: Any = _FakePipe(stderr_chunks)
         self.returncode: int | None = None
         self._exit_code = exit_code
+        self._exit_immediately = exit_immediately
         self.killed = False
+        self.wait_called = False
 
     def poll(self) -> int | None:
-        if self.returncode is None and not self.stderr.has_data:
+        # exit_immediately 模式模拟 "进程已退出但管道内仍有未读数据" 的真实场景 (审计 H-1)
+        if self.returncode is None and (self._exit_immediately or not self.stderr.has_data):
+            self.returncode = self._exit_code
+        return self.returncode
+
+    def wait(self, timeout: Any = None) -> int:
+        self.wait_called = True
+        if self.returncode is None:
             self.returncode = self._exit_code
         return self.returncode
 
@@ -94,11 +104,17 @@ def _make_ffmpeg_with_fake_process(
         stdout_chunks: list[bytes] | None = None,
         exit_code: int = 0,
         wait_stdin_close: bool = False,
+        exit_immediately: bool = False,
 ) -> tuple[Any, _FakePopen]:
     """构造使用假子进程的 FFmpeg 实例, monkeypatch 掉 Popen 与 os.read, 不调用真实 ffmpeg"""
     from src.utils import ffmpy_patched
 
-    fake_process = _FakePopen(stderr_chunks=stderr_chunks, stdout_chunks=stdout_chunks, exit_code=exit_code)
+    fake_process = _FakePopen(
+        stderr_chunks=stderr_chunks,
+        stdout_chunks=stdout_chunks,
+        exit_code=exit_code,
+        exit_immediately=exit_immediately,
+    )
     monkeypatch.setattr(ffmpy_patched.subprocess, 'Popen', lambda *args, **kwargs: fake_process)
 
     def _fake_os_read(_fileno: int, _size: int) -> bytes:
@@ -323,6 +339,30 @@ class TestFFStateConsume:
         assert repr(state) == 'FFState(frame=1, fps=2.0, size=3000, time=4.0)'
         assert str(state) == 'frame: 1, fps: 2.0, size: 3000, time: 4.0'
 
+    def test_progress_line_with_iec_size_unit(self):
+        # FFmpeg 5.x+ 进度行 size 使用 KiB 单位 (审计 M-2)
+        from src.utils.ffmpy_patched import FFState
+
+        state = FFState()
+        assert state.consume(b'frame= 100 fps= 30 size=     128KiB time=00:00:10.00') is True
+        assert state.frame == 100
+        assert state.size == 131072
+        assert state.time == 10.0
+
+    def test_snapshot(self):
+        # 快照是独立副本, 原状态后续更新不影响已保存的快照 (审计 M-4)
+        from src.utils.ffmpy_patched import FFState
+
+        state = FFState()
+        state.consume(b'frame= 1 fps= 2.0 size= 3kB time=00:00:04.00')
+        snap = state.snapshot()
+        state.consume(b'frame= 99')
+        assert snap.frame == 1
+        assert snap.fps == 2.0
+        assert snap.size == 3000
+        assert snap.time == 4.0
+        assert state.frame == 99
+
 
 class TestFFStateUpdateUnits:
     """FFState 各 update_* 方法的取值边界"""
@@ -406,6 +446,19 @@ class TestFFStateUpdateUnits:
         assert state.size is None
 
     @pytest.mark.parametrize(
+        ('raw_size', 'expected'),
+        [('128KiB', 131072), ('1MiB', 1048576), ('2GiB', 2147483648), ('1MB', 1000000)],
+        ids=['kib', 'mib', 'gib', 'mb'],
+    )
+    def test_update_size_iec_units(self, raw_size: str, expected: int):
+        # FFmpeg 5.x+ 进度行使用 KiB/MiB/GiB 单位 (审计 M-2)
+        from src.utils.ffmpy_patched import FFState
+
+        state = FFState()
+        assert state.update_size(raw_size) is True
+        assert state.size == expected
+
+    @pytest.mark.parametrize(
         ('raw_time', 'expected'),
         [('00:00:00.00', 0.0), ('00:00:10.5', 10.5), ('01:02:03.04', 3723.04), ('100:00:00.00', 360000.0)],
         ids=['zero', 'one-segment', 'hms', 'multi-digit-hours'],
@@ -423,6 +476,19 @@ class TestFFStateUpdateUnits:
         ids=['no-fraction-seconds', 'missing-segment', 'na', 'empty'],
     )
     def test_update_time_no_match(self, raw_time: str):
+        from src.utils.ffmpy_patched import FFState
+
+        state = FFState()
+        assert state.update_time(raw_time) is False
+        assert state.time is None
+
+    @pytest.mark.parametrize(
+        'raw_time',
+        ['00:00:1x00', '00:00:10.', 'ab:cd:ef.gh'],
+        ids=['bad-separator', 'trailing-dot', 'garbage'],
+    )
+    def test_update_time_malformed_no_raise(self, raw_time: str):
+        # 非法时间值不应抛出 ValueError (审计 M-1: 正则点号转义 + float 防护)
         from src.utils.ffmpy_patched import FFState
 
         state = FFState()
@@ -470,6 +536,22 @@ class TestExceptions:
         with pytest.raises(OSError, match='Permission denied') as excinfo:
             ffmpy_patched.FFmpeg().start()
         assert not isinstance(excinfo.value, ffmpy_patched.FFExecutableNotFoundError)
+
+    def test_ffruntime_error_with_stdout(self):
+        # FFRuntimeError 携带 stdout 属性且 args 非空 (审计 L-1)
+        from src.utils.ffmpy_patched import FFRuntimeError
+
+        error = FFRuntimeError('ffmpeg -y', 1, 'some error', stdout=b'partial output')
+        assert error.cmd == 'ffmpeg -y'
+        assert error.exit_code == 1
+        assert error.stdout == b'partial output'
+        assert error.stderr == 'some error'
+        assert error.args
+
+    def test_ffruntime_error_default_stdout_none(self):
+        from src.utils.ffmpy_patched import FFRuntimeError
+
+        assert FFRuntimeError('ffmpeg -y', 1, 'err').stdout is None
 
 
 class TestRunMocked:
@@ -559,6 +641,7 @@ class TestRunMocked:
             ffmpeg.run(on_progress=_boom)
 
         assert fake_process.killed is True
+        assert fake_process.wait_called  # kill 后回收子进程 (审计 M-3)
         assert fake_process.stderr.closed
         assert fake_process.stdin.closed
 
@@ -603,3 +686,79 @@ class TestRunMocked:
 
         assert stdout is None
         assert 'frame= 100' in stderr
+
+    def test_run_reads_stderr_until_eof_after_process_exit(self, monkeypatch: pytest.MonkeyPatch):
+        # 进程已退出但管道内仍有未读数据: 必须读尽管道再判定退出码 (审计 H-1)
+        from src.utils.ffmpy_patched import FFRuntimeError
+
+        ffmpeg, fake_process = _make_ffmpeg_with_fake_process(
+            monkeypatch,
+            stderr_chunks=[b'Error: first part\n', b'Error: trailing part\n'],
+            exit_code=1,
+            exit_immediately=True,
+        )
+
+        with pytest.raises(FFRuntimeError) as excinfo:
+            ffmpeg.run()
+
+        assert 'first part' in excinfo.value.stderr
+        assert 'trailing part' in excinfo.value.stderr
+        assert fake_process.wait_called
+
+    def test_run_success_trailing_output_after_process_exit(self, monkeypatch: pytest.MonkeyPatch):
+        # 成功路径同样读尽管道尾部: 末尾进度汇总完整进入 stderr 返回 (审计 H-1)
+        ffmpeg, _fake_process = _make_ffmpeg_with_fake_process(
+            monkeypatch,
+            stderr_chunks=[_PROGRESS_LINE.encode(), b'Lsize=     512kB\n'],
+            exit_code=0,
+            exit_immediately=True,
+        )
+
+        _stdout, stderr = ffmpeg.run()
+
+        assert 'frame= 100' in stderr
+        assert 'Lsize=     512kB' in stderr
+
+    def test_run_malformed_time_value_does_not_kill_process(self, monkeypatch: pytest.MonkeyPatch):
+        # stderr 中出现格式异常的 time 值时不应抛出异常并杀死进程 (审计 M-1)
+        ffmpeg, fake_process = _make_ffmpeg_with_fake_process(
+            monkeypatch,
+            stderr_chunks=[b'frame= 1 time=00:00:1x00 ', b'frame= 2 '],
+            exit_code=0,
+        )
+
+        progresses: list[Any] = []
+        _stdout, _stderr = ffmpeg.run(on_progress=progresses.append)
+
+        assert fake_process.killed is False
+        # 第一个分块 time 解析失败但 frame 有效, 仍触发回调
+        assert [state.frame for state in progresses] == [1, 2]
+
+    def test_on_progress_receives_independent_snapshots(self, monkeypatch: pytest.MonkeyPatch):
+        # 每次回调收到独立快照, 先保存的进度不被后续更新覆盖 (审计 M-4)
+        ffmpeg, _fake_process = _make_ffmpeg_with_fake_process(
+            monkeypatch,
+            stderr_chunks=[b'frame= 1 ', b'frame= 2 '],
+            exit_code=0,
+        )
+
+        progresses: list[Any] = []
+        ffmpeg.run(on_progress=progresses.append)
+
+        assert [state.frame for state in progresses] == [1, 2]
+
+    def test_run_nonzero_exit_error_carries_stdout(self, monkeypatch: pytest.MonkeyPatch):
+        # 失败时 FFRuntimeError 携带已排空的 stdout (审计 L-1)
+        from src.utils.ffmpy_patched import FFRuntimeError
+
+        ffmpeg, _fake_process = _make_ffmpeg_with_fake_process(
+            monkeypatch,
+            stderr_chunks=[b'Error: boom\n'],
+            stdout_chunks=[b'partial stdout'],
+            exit_code=1,
+        )
+
+        with pytest.raises(FFRuntimeError) as excinfo:
+            ffmpeg.run(stdout=subprocess.PIPE)
+
+        assert excinfo.value.stdout == b'partial stdout'

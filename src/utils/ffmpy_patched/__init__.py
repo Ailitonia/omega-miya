@@ -168,7 +168,8 @@ class FFmpeg(FFTool):
             the result of reading a file in binary mode)
         :param stdin: replace FFmpeg ``stdin`` (default is `None` which means `subprocess.PIPE`)
         :param stdout: redirect FFmpeg ``stdout`` there (default is `None` which means no redirection)
-        :param on_progress: a callable handle function to process running status.
+        :param on_progress: a callable handle function to process running status; it receives an
+            independent snapshot of the progress state on each update, safe to store or compare
         :return: a 2-tuple containing ``stdout`` and ``stderr`` of the process
         :rtype: tuple
         :raise: `FFRuntimeError` in case FFmpeg command exits with a non-zero code;
@@ -215,23 +216,29 @@ class FFmpeg(FFTool):
             stdout_reader.start()
 
         try:
-            is_running = True
             stderr_fileno = self.process.stderr.fileno()
-            while is_running:
+            # EOF 驱动读尽 stderr: 进程退出会关闭管道写端, 读到 b'' 才代表管道已排空;
+            # 若以 poll() 作为退出条件, 进程先退出时管道中尚未读取的尾部数据会被丢弃
+            while True:
                 latest_update = os.read(stderr_fileno, self.update_size)
+                if not latest_update:
+                    break
                 latest_text = decoder.decode(latest_update)
                 if ff_state.consume(latest_text) and on_progress is not None:
-                    on_progress(ff_state)
+                    on_progress(ff_state.snapshot())
                 stderr_ring.append(latest_text)
                 if len(stderr_ring) > stderr_ring_size:
                     del stderr_ring[0]
-                is_running = self.process.poll() is None
             decoder_tail = decoder.decode(b'', final=True)
             if decoder_tail:
                 stderr_ring.append(decoder_tail)
+            # 回收子进程并取得退出码
+            self.process.wait()
         except BaseException:
             # 进度回调或解析异常时终止进程, 避免遗留孤儿进程和泄漏的管道
             self.process.kill()
+            # kill 后回收子进程, 避免僵尸进程/句柄泄漏
+            self.process.wait()
             raise
         finally:
             if self.process.stdin is not None and not self.process.stdin.closed:
@@ -246,12 +253,23 @@ class FFmpeg(FFTool):
                 self.process.stdout.close()
 
         stderr_out = str.join('', stderr_ring)
+        stdout_out = b''.join(stdout_chunks) if self.process.stdout is not None else None
 
         if self.process.returncode != 0:
-            raise FFRuntimeError(self.cmd, self.process.returncode, stderr_out)
+            raise FFRuntimeError(self.cmd, self.process.returncode, stderr_out, stdout=stdout_out)
 
-        stdout_out = b''.join(stdout_chunks) if self.process.stdout is not None else None
         return stdout_out, stderr_out
+
+
+# FFmpeg 进度输出中 size 字段的单位换算表 (FFmpeg 5.x 起由 kB 改为 KiB/MiB/GiB 等 IEC 单位)
+_SIZE_UNIT_SCALE: dict[str, int] = {
+    'kB': 1000,
+    'MB': 1000 ** 2,
+    'GB': 1000 ** 3,
+    'KiB': 1024,
+    'MiB': 1024 ** 2,
+    'GiB': 1024 ** 3,
+}
 
 
 class FFState:
@@ -267,6 +285,15 @@ class FFState:
     def __repr__(self) -> str:
         return (f'{self.__class__.__name__}(frame={self.frame!r}, '
                 f'fps={self.fps!r}, size={self.size!r}, time={self.time!r})')
+
+    def snapshot(self) -> 'FFState':
+        """返回当前状态的独立副本, 供进度回调保存历史状态而不被后续更新覆盖."""
+        state = FFState()
+        state.frame = self.frame
+        state.fps = self.fps
+        state.size = self.size
+        state.time = self.time
+        return state
 
     def consume(self, update: bytes | str) -> bool:
         if isinstance(update, bytes):
@@ -301,20 +328,24 @@ class FFState:
         return True
 
     def update_size(self, raw_size: str) -> bool:
-        digits_match = re.match(r'(?P<size_in_kb>\d+)kB', raw_size)
-        if digits_match is not None:
-            self.size = int(digits_match.group('size_in_kb')) * 1000
-            return True
-        return False
+        # 大小写敏感匹配, 兼容旧版 kB/MB/GB 与 FFmpeg 5.x+ 的 KiB/MiB/GiB
+        digits_match = re.match(r'(?P<size>\d+)(?P<unit>kB|MB|GB|KiB|MiB|GiB)', raw_size)
+        if digits_match is None:
+            return False
+        self.size = int(digits_match.group('size')) * _SIZE_UNIT_SCALE[digits_match.group('unit')]
+        return True
 
     def update_time(self, raw_time: str) -> bool:
-        time_units_match = re.match(r'(?P<hours>\d+):(?P<minutes>\d+):(?P<seconds>\d+.\d+)', raw_time)
-        if time_units_match is not None:
+        time_units_match = re.match(r'(?P<hours>\d+):(?P<minutes>\d+):(?P<seconds>\d+\.\d+)', raw_time)
+        if time_units_match is None:
+            return False
+        try:
             self.time = (int(time_units_match.group('hours')) * 3600
                          + int(time_units_match.group('minutes')) * 60
                          + float(time_units_match.group('seconds')))
-            return True
-        return False
+        except ValueError:
+            return False
+        return True
 
 
 class FFExecutableNotFoundError(Exception):
@@ -328,11 +359,13 @@ class FFRuntimeError(Exception):
     ``cmd``, ``exit_code``, ``stdout``, ``stderr``.
     """
 
-    def __init__(self, cmd: str, exit_code: int, stderr: str | bytes) -> None:
+    def __init__(self, cmd: str, exit_code: int, stderr: str | bytes, stdout: bytes | None = None) -> None:
         self.cmd = cmd
         self.exit_code = exit_code
+        self.stdout = stdout
         self.stderr = stderr
         self.message = f'{self.cmd!r} exited with status {exit_code!r}\n\n\nSTDERR:\n{stderr or ""}'
+        super().__init__(self.message)
 
     def __str__(self) -> str:
         return f'FFRuntimeError: {self.message}'
