@@ -25,6 +25,7 @@ aiomysql = { version = ">=0.3.0,<1.0.0", optional = true }
 asyncpg = { version = ">=0.31.0,<1.0.0", optional = true }
 apscheduler = ">=3.11.0,<4.0.0"
 aiofiles = ">=25.1.0,<26.0.0"
+anyio = ">=4.0.0,<5.0.0"
 ujson = ">=5.13.0,<6.0.0"
 lxml = ">=6.1.0,<7.0.0"
 xmltodict = ">=1.0.0,<2.0.0"
