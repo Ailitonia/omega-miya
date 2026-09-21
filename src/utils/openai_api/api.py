@@ -11,6 +11,8 @@
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Literal, Self
 
+from pydantic import ValidationError
+
 from src.compat import dump_obj_as
 from src.utils import BaseCommonAPI
 from src.utils.omega_requests.types import Timeout
@@ -199,14 +201,20 @@ class OpenAIClient(BaseCommonAPI):
             **kwargs,
         }
 
-        line_prefix = r'data: '
-        eof_target = r'[DONE]'
+        line_prefix = 'data:'
+        eof_target = '[DONE]'
         async for line in self._stream_post_acquire_iter_lines(
                 url=url, json=data, headers=self.request_headers, chunk_size=256,
         ):
-            if line and line.startswith(line_prefix):
-                if (content := line.removeprefix(line_prefix).strip()) != eof_target:
-                    yield ChatCompletionChunk.model_validate_json(content)
+            if not line or not line.startswith(line_prefix):
+                continue
+            if not (content := line.removeprefix(line_prefix).strip()) or content == eof_target:
+                continue
+            try:
+                yield ChatCompletionChunk.model_validate_json(content)
+            except ValidationError as e:
+                # 流中无法解析的 data 行通常是供应商返回的错误信息, 附带原文便于排障
+                raise RuntimeError(f'failed to parse chat completion stream line: {content[:200]!r}') from e
 
     async def create_chat_completion(
             self,
@@ -230,12 +238,18 @@ class OpenAIClient(BaseCommonAPI):
             return [x.message for x in chat.choices]
 
         content_map: dict[int, list[MessageContent]] = {}
+        received_any_chunk = False
         async for chunk in self.create_chat_completion_using_stream(model=model, message=message, **kwargs):
+            received_any_chunk = True
             for choice in chunk.choices:
                 if choice.index not in content_map:
                     content_map[choice.index] = [choice.delta]
                 else:
                     content_map[choice.index].append(choice.delta)
+
+        if not received_any_chunk:
+            # 空响应体的错误响应在流式请求中不产生任何分块, 此处显式抛出异常而非静默返回空列表
+            raise RuntimeError('chat completion stream returned no chunks, possibly an empty-body error response')
 
         contents: list[MessageContent] = []
         for deltas in content_map.values():
@@ -263,8 +277,8 @@ class OpenAIClient(BaseCommonAPI):
     def _merge_tool_calls_chunks(deltas: list[MessageContent]) -> list[ToolCalls] | None:
         """按 index 合并流式响应中的 tool_calls 分片
 
-        流式响应中每个 tool call 的 `id` 与 `function.name` 仅在首个分片出现,
-        `function.arguments` 按分片增量传输, 需要跨分片拼接还原完整调用
+        流式响应中每个 tool call 的 `id` 与 `function.name` / `custom.name` 仅在首个分片出现,
+        `function.arguments` / `custom.input` 按分片增量传输, 需要跨分片拼接还原完整调用
         """
         merged_calls: dict[int, ToolCalls] = {}
         for delta in deltas:
@@ -290,6 +304,14 @@ class OpenAIClient(BaseCommonAPI):
                             merged.function.name = tool_call.function.name
                         if tool_call.function.arguments is not None:
                             merged.function.arguments = (merged.function.arguments or '') + tool_call.function.arguments
+                if tool_call.custom is not None:
+                    if merged.custom is None:
+                        merged.custom = tool_call.custom.model_copy(deep=True)
+                    else:
+                        if tool_call.custom.name is not None:
+                            merged.custom.name = tool_call.custom.name
+                        if tool_call.custom.input is not None:
+                            merged.custom.input = (merged.custom.input or '') + tool_call.custom.input
 
         return list(merged_calls.values()) or None
 

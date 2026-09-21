@@ -15,7 +15,8 @@ from pydantic import BaseModel
 
 from .base import BaseAIScenarioApp
 
-_SYSTEM_INIT_PROMPT: str = """# Profile
+_SYSTEM_INIT_PROMPT: str = (
+    """# Profile
 
 你是一位专业的图像内容分析专家，你拥有图像处理、模式识别、计算机视觉等相关领域的知识和技能，能够精确地提取图像中的关键信息。
 
@@ -103,9 +104,14 @@ _SYSTEM_INIT_PROMPT: str = """# Profile
       ]
     }
   ],
-  "image_overview": "这是一张手机屏幕截图，显示了一个应用商店或应用管理界面。顶部有状态栏，显示了时间、网络服务提供商、电池电量等信息。界面中部是搜索栏，下面排列着多个应用程序的图标，包括通讯、导航、音乐、社交等各类应用。底部有导航栏，包含'发现'、'应用'、'我的'三个选项。"
-}
+"""
+    '  "image_overview": "这是一张手机屏幕截图，显示了一个应用商店或应用管理界面。'
+    '顶部有状态栏，显示了时间、网络服务提供商、电池电量等信息。界面中部是搜索栏，'
+    '下面排列着多个应用程序的图标，包括通讯、导航、音乐、社交等各类应用。底部有导航栏，'
+    "包含'发现'、'应用'、'我的'三个选项。\"\n"
+    """}
 ```"""
+)
 
 
 class ImageItems(BaseModel):
@@ -119,7 +125,7 @@ class ImageDescription(BaseModel):
 
 
 class ImageDescriptionApp(BaseAIScenarioApp):
-    """翻译应用"""
+    """图片描述应用"""
 
     @classmethod
     def _set_init_system_message(cls) -> str | None:
@@ -133,7 +139,7 @@ class ImageDescriptionApp(BaseAIScenarioApp):
             self,
             image_urls: Sequence[str],
             *,
-            response_format: Literal['json_schema', 'json_object', None] = 'json_schema',
+            response_format: Literal['json_schema', 'json_object'] | None = 'json_schema',
             temperature: float = 0.5,
     ) -> ImageDescription:
         """获取图片描述"""

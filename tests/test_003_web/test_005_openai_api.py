@@ -269,6 +269,27 @@ class TestCreateChatCompletion:
         assert chunks[2].choices[0].finish_reason == 'stop'
         assert chunks[0].object == 'chat.completion.chunk'
 
+    async def test_stream_sse_data_prefix_without_space(self, client: 'OpenAIClient', stream_lines_factory):
+        # 兼容不带空格前缀的 data: 行(部分第三方兼容服务), data:[DONE] 同样不带空格
+        lines = ['data:' + json.dumps(_chunk({'content': 'x'}), ensure_ascii=False), 'data:[DONE]']
+        stream_lines_factory(lines)
+
+        chunks = [chunk async for chunk in client.create_chat_completion_using_stream(
+            model='test-model', message=[{'role': 'user', 'content': 'hi'}]
+        )]
+        assert len(chunks) == 1
+        assert chunks[0].choices[0].delta.content == 'x'
+
+    async def test_stream_malformed_data_line_raises(self, client: 'OpenAIClient', stream_lines_factory):
+        # 流中无法解析的 data 行(如供应商返回的错误体)应抛出带原文上下文的 RuntimeError
+        stream_lines_factory(['data: {"error": {"message": "bad request"}}'])
+
+        with pytest.raises(RuntimeError, match='failed to parse chat completion stream line'):
+            async for _ in client.create_chat_completion_using_stream(
+                    model='test-model', message=[{'role': 'user', 'content': 'hi'}]
+            ):
+                pass
+
     async def test_stream_with_usage_only_tail_chunk(self, client: 'OpenAIClient', stream_lines_factory):
         # stream_options.include_usage 的末片 choices 为空数组
         lines = _sse_lines([_chunk({'content': 'x'})])[:-1]
@@ -389,6 +410,26 @@ class TestCreateChatCompletion:
         assert tool_calls[0].id == 'cx'
         assert json.loads(tool_calls[0].function.arguments or '') == {'a': 1}
 
+    async def test_aggregate_custom_tool_calls_fragments(self, client: 'OpenAIClient', stream_lines_factory):
+        # custom 类型 tool call 的 custom.input 分片同样需要跨分片拼接
+        stream_lines_factory(_sse_lines([
+            _chunk({'role': 'assistant', 'content': ''}),
+            _chunk({'tool_calls': [{'index': 0, 'id': 'call_c1', 'type': 'custom',
+                                    'custom': {'name': 'run_sql', 'input': 'SELECT'}}]}),
+            _chunk({'tool_calls': [{'index': 0, 'custom': {'input': ' * FROM t'}}]}, finish_reason='tool_calls'),
+        ]))
+
+        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+
+        tool_calls = result[0].tool_calls
+        assert tool_calls is not None
+        assert len(tool_calls) == 1
+        assert tool_calls[0].id == 'call_c1'
+        assert tool_calls[0].type == 'custom'
+        assert tool_calls[0].custom is not None
+        assert tool_calls[0].custom.name == 'run_sql'
+        assert tool_calls[0].custom.input == 'SELECT * FROM t'
+
     async def test_aggregate_multiple_choices(self, client: 'OpenAIClient', stream_lines_factory):
         stream_lines_factory(_sse_lines([
             _chunk({'role': 'assistant', 'content': 'first'}, index=0),
@@ -403,11 +444,11 @@ class TestCreateChatCompletion:
         assert result[0].content == 'first /more'
         assert result[1].content == 'second'
 
-    async def test_aggregate_empty_stream_returns_empty(self, client: 'OpenAIClient', stream_lines_factory):
-        # 空响应体的错误响应在流式请求中不产生任何分块
+    async def test_aggregate_empty_stream_raises(self, client: 'OpenAIClient', stream_lines_factory):
+        # 空响应体的错误响应在流式请求中不产生任何分块, 聚合层应抛出带上下文的异常而非静默返回空列表
         stream_lines_factory([])
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
-        assert result == []
+        with pytest.raises(RuntimeError, match='no chunks'):
+            await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
 
     async def test_non_stream_returns_choice_messages(self, client: 'OpenAIClient', capture_post: dict[str, Any]):
         result = await client.create_chat_completion(
@@ -1096,6 +1137,8 @@ class TestChatSession:
         assert ChatSession.fix_md_json('```json\n{"a": 1}\n```') == '{"a": 1}'
         assert ChatSession.fix_md_json('  {"a": 1}  ') == '{"a": 1}'
         assert ChatSession.fix_md_json('```json\n{"text": "```nested```"}\n```') == '{"text": "```nested```"}'
+        # 裸代码围栏(无 json 标注)
+        assert ChatSession.fix_md_json('```\n{"a": 1}\n```') == '{"a": 1}'
 
 
 # ---------- 真实 API 验证 ----------

@@ -16,7 +16,8 @@ from pydantic import BaseModel
 
 from .base import BaseAIScenarioApp
 
-_SYSTEM_INIT_PROMPT: str = """# Profile
+_SYSTEM_INIT_PROMPT: str = (
+    """# Profile
 
 你是一位精通网页内容分析的专家，对HTML代码结构有着深刻的理解，能够运用先进的文本处理技术，从复杂的网页代码中提取有价值的信息。你具备HTML解析能力、自然语言处理技术、关键词提取算法以及文本摘要生成能力，能够高效地处理和分析网页内容。
 
@@ -69,9 +70,16 @@ HTML内容为一篇中国政府关于对新一代人工智能发展规划的政�
     "智能基础设施",
     "伦理规范"
   ],
-  "web_overview": "本文是国务院印发的《新一代人工智能发展规划》，旨在推动我国人工智能的快速发展，抢占国际竞争的战略制高点。规划强调人工智能对经济、社会和国防的重大影响，提出到2030年使我国人工智能理论、技术与应用达到世界领先水平。规划明确了构建开放协同的科技创新体系、培育高端智能经济、建设安全便捷的智能社会等重点任务，同时提出加强资源配置和保障措施，包括建立财政引导机制、优化创新基地布局、完善法律法规和伦理规范等，以确保人工智能健康有序发展。"
-}
+"""
+    '  "web_overview": "本文是国务院印发的《新一代人工智能发展规划》，旨在推动我国人工智能的快速发展，'
+    '抢占国际竞争的战略制高点。规划强调人工智能对经济、社会和国防的重大影响，'
+    '提出到2030年使我国人工智能理论、技术与应用达到世界领先水平。'
+    '规划明确了构建开放协同的科技创新体系、培育高端智能经济、建设安全便捷的智能社会等重点任务，'
+    '同时提出加强资源配置和保障措施，包括建立财政引导机制、优化创新基地布局、完善法律法规和伦理规范等，'
+    '以确保人工智能健康有序发展。"\n'
+    """}
 ```"""
+)
 
 
 class WebPageDescription(BaseModel):
@@ -116,7 +124,7 @@ class WebPageDescriptionApp(BaseAIScenarioApp):
             self,
             page_url: str,
             *,
-            response_format: Literal['json_schema', 'json_object', None] = 'json_schema',
+            response_format: Literal['json_schema', 'json_object'] | None = 'json_schema',
             temperature: float = 0.5,
     ) -> WebPageDescription:
         """获取网页内容总结"""

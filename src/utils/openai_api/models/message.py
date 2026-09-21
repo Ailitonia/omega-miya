@@ -79,8 +79,8 @@ class Function(BaseOpenAIModel):
 
 
 class CustomTool(BaseOpenAIModel):
-    name: str
-    input: str
+    name: str | None = Field(default=None)
+    input: str | None = Field(default=None)
 
 
 class ToolCalls(BaseOpenAIModel):

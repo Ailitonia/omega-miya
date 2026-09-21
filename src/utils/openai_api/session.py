@@ -361,7 +361,10 @@ class ChatSession:
     @staticmethod
     def fix_md_json(text: str) -> str:
         """修复生成的 Markdown 文本 JSON 内容"""
-        return fix_broken_generated_json(text.strip().removeprefix('```json').removesuffix('```').strip())
+        text = text.strip()
+        if text.startswith('```'):
+            text = text.removeprefix('```json').removeprefix('```')
+        return fix_broken_generated_json(text.removesuffix('```').strip())
 
 
 __all__ = [
