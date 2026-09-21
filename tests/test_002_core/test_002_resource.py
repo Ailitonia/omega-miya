@@ -121,6 +121,7 @@ class TestModuleContract:
             'TemporaryResource',
             'ResourceNotFolderError',
             'ResourceNotFileError',
+            'ResourcePathOutOfRootError',
         ]
 
     def test_root_path_derived_from_module_file(self):
@@ -910,18 +911,113 @@ class TestGlobalHostProtocolRegistration:
 
 
 class TestInitFromPath:
-    """init_from_path 测试"""
+    """_init_from_path 测试"""
 
     def test_init_from_path_absolute(self):
         from src.resource import AnyResource
 
-        resource = AnyResource.init_from_path(Path('some_relative/file.txt'))
+        resource = AnyResource._init_from_path(Path('some_relative/file.txt'))
         assert resource.path.is_absolute()
         assert resource.path == Path('some_relative/file.txt').absolute()
 
     def test_init_from_path_preserves_class(self, tmp_path: Path):
         from src.resource import StaticResource
 
-        resource = StaticResource.init_from_path(tmp_path / 'f.txt')
+        resource = StaticResource._init_from_path(tmp_path / 'f.txt')
         assert isinstance(resource, StaticResource)
         assert resource.path == (tmp_path / 'f.txt').absolute()
+
+
+class TestPathConfinement:
+    """路径穿越防护(confinement)测试"""
+
+    def test_out_of_root_error_contract(self, tmp_path: Path):
+        from src.exception import LocalSourceException, OmegaException
+        from src.resource import ResourcePathOutOfRootError
+
+        exc = ResourcePathOutOfRootError(tmp_path / 'escape.txt', tmp_path)
+        assert isinstance(exc, LocalSourceException)
+        assert isinstance(exc, OmegaException)
+        assert exc.path == tmp_path / 'escape.txt'
+        assert exc.root == tmp_path
+        assert exc.path.as_posix() in exc.message
+        assert exc.root.as_posix() in exc.message
+        assert 'outside of the resource root' in exc.message
+        assert 'ResourcePathOutOfRootError' in repr(exc)
+        assert str(exc) == repr(exc)
+
+    def test_static_resource_parent_escape_raises(self):
+        from src.resource import ResourcePathOutOfRootError, StaticResource
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            StaticResource('..')
+        with pytest.raises(ResourcePathOutOfRootError):
+            StaticResource('fonts', '..', '..')
+
+    def test_temporary_resource_parent_escape_raises(self):
+        from src.resource import ResourcePathOutOfRootError, TemporaryResource
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            TemporaryResource('..', '..', 'etc')
+
+    def test_absolute_path_arg_raises(self, tmp_path: Path):
+        """绝对路径参数会整体替换 base 根目录, 必须拦截"""
+        from src.resource import ResourcePathOutOfRootError, StaticResource, TemporaryResource
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            StaticResource(str(tmp_path))
+        with pytest.raises(ResourcePathOutOfRootError):
+            TemporaryResource(str(tmp_path))
+
+    def test_normal_args_not_affected(self):
+        import src.resource
+        from src.resource import StaticResource, TemporaryResource
+
+        static_resource = StaticResource('fonts', 'a.ttf')
+        assert static_resource.path == src.resource._STATIC_RESOURCE_FOLDER.joinpath('fonts', 'a.ttf')
+        temporary_resource = TemporaryResource('a', 'b.txt')
+        assert temporary_resource.path == src.resource._TEMPORARY_RESOURCE_FOLDER.joinpath('a', 'b.txt')
+
+    def test_no_args_boundary_allowed(self):
+        """无参构造路径与根目录边界相等, 合法"""
+        import src.resource
+        from src.resource import StaticResource, TemporaryResource
+
+        assert StaticResource().path == src.resource._STATIC_RESOURCE_FOLDER
+        assert TemporaryResource().path == src.resource._TEMPORARY_RESOURCE_FOLDER
+
+    def test_dotdot_staying_inside_root_allowed(self):
+        """'..' 拼接但最终落在根内时放行, 且保持原始(未归一化)路径语义"""
+        import src.resource
+        from src.resource import StaticResource
+
+        resource = StaticResource('fonts', '..', 'docs', 'x.txt')
+        assert resource.path == src.resource._STATIC_RESOURCE_FOLDER.joinpath('fonts', '..', 'docs', 'x.txt')
+        expected = src.resource._STATIC_RESOURCE_FOLDER.joinpath('docs', 'x.txt').resolve().as_posix()
+        assert resource.resolve_path == expected
+
+    def test_call_parent_escape_raises(self):
+        from src.resource import ResourcePathOutOfRootError, TemporaryResource
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            TemporaryResource('sub')('..', '..')
+
+    def test_call_within_root_allowed(self):
+        import src.resource
+        from src.resource import TemporaryResource
+
+        resource = TemporaryResource('sub')('nested', 'f.txt')
+        assert resource.path == src.resource._TEMPORARY_RESOURCE_FOLDER.joinpath('sub', 'nested', 'f.txt')
+
+    def test_log_resource_call_escape_raises(self):
+        from src.resource import LogFileResource, ResourcePathOutOfRootError
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            LogFileResource()('..', '..')
+
+    def test_any_resource_not_confined(self, tmp_path: Path):
+        """AnyResource 设计意图为任意位置资源, 不做 confinement 限制"""
+        from src.resource import AnyResource
+
+        assert AnyResource(tmp_path, '..').path == tmp_path / '..'
+        assert AnyResource(tmp_path)('..').path == tmp_path / '..'

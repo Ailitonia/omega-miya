@@ -62,6 +62,25 @@ class ResourceNotFileError(LocalSourceException):
         return f'{self.__class__.__name__}(path={self.path.as_posix()!r}, message={self.message})'
 
 
+@final
+class ResourcePathOutOfRootError(LocalSourceException):
+    """拼接后的路径超出资源根目录限制(路径穿越)"""
+
+    def __init__(self, path: Path | str, root: Path | str):
+        super().__init__(path)
+        self.root = Path(root) if isinstance(root, str) else root
+
+    @property
+    def message(self) -> str:
+        return f'{self.path.as_posix()!r} is outside of the resource root {self.root.as_posix()!r}'
+
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}(path={self.path.as_posix()!r}, '
+            f'root={self.root.as_posix()!r}, message={self.message})'
+        )
+
+
 __ROOT_PATH: Path = Path(__file__).resolve().parent.parent
 """项目根目录"""
 _LOG_FOLDER: Path = __ROOT_PATH.joinpath('log')
@@ -87,7 +106,11 @@ class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
 class BaseResource(abc.ABC):
     """资源文件基类"""
 
+    _CONFINEMENT_ROOT: ClassVar[Path | None] = None
+    """非 None 时, 构造与拼接得到的路径必须位于该目录内(含边界)"""
     _host_protocol: ClassVar[type[BaseResourceHostProtocol[Self]] | None] = None
+    """已注册的注册文件托管协议"""
+
     __slots__ = ('path',)
     path: Path
 
@@ -97,7 +120,7 @@ class BaseResource(abc.ABC):
 
     def __call__(self, *args: str) -> Self:
         new_obj = self.__class__(str(self.path))
-        new_obj.path = self.path.joinpath(*args)
+        new_obj.path = self._check_confinement(self.path.joinpath(*args))
         return new_obj
 
     def __repr__(self) -> str:
@@ -124,8 +147,22 @@ class BaseResource(abc.ABC):
         cls._host_protocol = None
 
     @classmethod
-    def init_from_path(cls, path: Path) -> Self:
-        new_obj = cls(str(Path.cwd()))
+    def _check_confinement(cls, path: Path) -> Path:
+        """校验路径未逃出类级 confinement root, 通过时原样返回(不做归一化改写)
+
+        校验在 resolve()(归一化 '..' 并解析符号链接)后的路径上进行,
+        可拦截 '..' 向上逃逸与绝对路径参数整体替换 base 两类路径穿越
+        """
+        root = cls._CONFINEMENT_ROOT
+        if root is not None and not path.resolve().is_relative_to(root):
+            raise ResourcePathOutOfRootError(path, root)
+        return path
+
+    @classmethod
+    def _init_from_path(cls, path: Path) -> Self:
+        # 占位构造参数需落在 confinement root 内(如有), path 随后会被整体覆写;
+        # 本方法作为内部可信入口, 不对最终 path 做 confinement 校验
+        new_obj = cls(str(cls._CONFINEMENT_ROOT or Path.cwd()))
         new_obj.path = path.resolve()
         return new_obj
 
@@ -302,7 +339,7 @@ class BaseResource(abc.ABC):
     @property
     def parent(self) -> Self:
         """返回逻辑父路径"""
-        return self.init_from_path(path=self.path.parent)
+        return self._init_from_path(path=self.path.parent)
 
     @property
     def resolve_path(self) -> str:
@@ -378,7 +415,7 @@ class BaseResource(abc.ABC):
         for dir_path, _, file_names in self.path.walk():
             if file_names:
                 for file_name in file_names:
-                    file_list.append(self.init_from_path(dir_path.joinpath(file_name)))
+                    file_list.append(self._init_from_path(dir_path.joinpath(file_name)))
         return file_list
 
     @check_directory
@@ -386,7 +423,7 @@ class BaseResource(abc.ABC):
         """遍历文件夹内所有文件并返回文件列表(不包含子目录)"""
         file_list = []
         for file_path in self.path.iterdir():
-            file = self.init_from_path(file_path)
+            file = self._init_from_path(file_path)
             if file.is_file:
                 file_list.append(file)
         return file_list
@@ -397,13 +434,13 @@ class BaseResource(abc.ABC):
         for dir_path, _, file_names in self.path.walk():
             if file_names:
                 for file_name in file_names:
-                    yield self.init_from_path(dir_path.joinpath(file_name))
+                    yield self._init_from_path(dir_path.joinpath(file_name))
 
     @check_directory
     def iter_current_files(self) -> Generator[Self, Any, None]:
         """遍历文件夹内所有文件(不包含子目录)"""
         for file_path in self.path.iterdir():
-            file = self.init_from_path(file_path)
+            file = self._init_from_path(file_path)
             if file.is_file:
                 yield file
 
@@ -456,6 +493,8 @@ class AnyResource(BaseResource):
 class LogFileResource(BaseResource):
     """日志文件"""
 
+    _CONFINEMENT_ROOT: ClassVar[Path | None] = _LOG_FOLDER.resolve()
+
     def __init__(self, *args: str):
         self.timestamp = datetime.now()
         self.path = _LOG_FOLDER.joinpath(self.timestamp.strftime('%Y-%m'))
@@ -480,15 +519,19 @@ class LogFileResource(BaseResource):
 class StaticResource(BaseResource):
     """静态资源文件"""
 
+    _CONFINEMENT_ROOT: ClassVar[Path | None] = _STATIC_RESOURCE_FOLDER.resolve()
+
     def __init__(self, *args: str):
-        self.path = _STATIC_RESOURCE_FOLDER.joinpath(*args)
+        self.path = self._check_confinement(_STATIC_RESOURCE_FOLDER.joinpath(*args))
 
 
 class TemporaryResource(BaseResource):
     """运行时产生的的可随时清理的缓存/临时文件"""
 
+    _CONFINEMENT_ROOT: ClassVar[Path | None] = _TEMPORARY_RESOURCE_FOLDER.resolve()
+
     def __init__(self, *args: str):
-        self.path = _TEMPORARY_RESOURCE_FOLDER.joinpath(*args)
+        self.path = self._check_confinement(_TEMPORARY_RESOURCE_FOLDER.joinpath(*args))
 
 
 __all__ = [
@@ -500,4 +543,5 @@ __all__ = [
     'TemporaryResource',
     'ResourceNotFolderError',
     'ResourceNotFileError',
+    'ResourcePathOutOfRootError',
 ]
