@@ -20,12 +20,14 @@ if TYPE_CHECKING:
 
 
 class _StubOutputResource:
-    """导出资源桩, open 返回 BytesIO, 不落盘"""
+    """导出资源桩, open 返回 BytesIO, 不落盘
 
-    last_saved: 'bytes | None' = None
+    saved 为实例属性, 避免跨用例共享可变状态导致的 stale 数据
+    """
 
     def __init__(self, name: str) -> None:
         self.name = name
+        self.saved: bytes | None = None
 
     @property
     def resolve_path(self) -> str:
@@ -36,7 +38,7 @@ class _StubOutputResource:
         def _ctx() -> 'Iterator[io.BytesIO]':
             buf = io.BytesIO()
             yield buf
-            _StubOutputResource.last_saved = buf.getvalue()
+            self.saved = buf.getvalue()
 
         return _ctx()
 
@@ -76,13 +78,23 @@ def _close_test_figure(fig) -> None:
     plt.close(fig)
 
 
-def _assert_valid_jpeg() -> None:
-    """断言桩最近一次导出内容为有效 JPEG"""
-    saved = _StubOutputResource.last_saved
+def _assert_valid_image(resource: '_StubOutputResource', magic: bytes, expected_format: str) -> None:
+    """断言桩资源导出的内容为指定格式的有效图片"""
+    saved = resource.saved
     assert saved is not None, 'nothing saved to stub output'
-    assert saved.startswith(b'\xff\xd8'), 'JPEG magic bytes missing'
+    assert saved.startswith(magic), f'{expected_format} magic bytes missing'
     image = PILImage.open(io.BytesIO(saved))
-    assert image.format == 'JPEG', image.format
+    assert image.format == expected_format, image.format
+
+
+def _assert_valid_jpeg(resource: '_StubOutputResource') -> None:
+    """断言桩资源导出的内容为有效 JPEG"""
+    _assert_valid_image(resource, b'\xff\xd8', 'JPEG')
+
+
+def _assert_valid_png(resource: '_StubOutputResource') -> None:
+    """断言桩资源导出的内容为有效 PNG"""
+    _assert_valid_image(resource, b'\x89PNG\r\n\x1a\n', 'PNG')
 
 
 @pytest.fixture(autouse=True)
@@ -127,6 +139,19 @@ class TestFontNames:
         assert 'Microsoft YaHei' in names
         assert 'FZZhengHei-EL-GBK' in names
 
+    def test_font_family_names_derived_from_files(self):
+        """rcParams 中的 family name 必须从配置的字体文件派生, 与配置项联动"""
+        from matplotlib import font_manager
+        from matplotlib import pyplot as plt
+
+        from src.utils.statistics_tools.config import statistics_tools_config
+
+        expected = [
+            font_manager.FontProperties(fname=statistics_tools_config.default_font.path).get_name(),
+            font_manager.FontProperties(fname=statistics_tools_config.alternative_font.path).get_name(),
+        ]
+        assert plt.rcParams['font.sans-serif'][:2] == expected
+
 
 class TestCreateFigure:
 
@@ -168,7 +193,7 @@ class TestOutputFigure:
         resource = output_figure(fig, 'test_output.jpg')
 
         assert resource is stub.last_resource
-        _assert_valid_jpeg()
+        _assert_valid_jpeg(resource)
         assert not plt.fignum_exists(figure_number), 'figure not closed after output_figure'
 
     def test_savefig_failure_closes_figure(self, monkeypatch: pytest.MonkeyPatch):
@@ -195,7 +220,7 @@ class TestOutputFigure:
         stub = _install_output_stub(monkeypatch)
         fig, _ = _create_test_figure()
         try:
-            for bad_name in ('../evil.jpg', 'C:/evil.jpg', 'sub/evil.jpg', ''):
+            for bad_name in ('../evil.jpg', 'C:/evil.jpg', 'sub/evil.jpg', '', '.', '..'):
                 with pytest.raises(ValueError, match='invalid output filename'):
                     output_figure(fig, bad_name)
             # 校验失败时不接管 Figure 实例
@@ -226,8 +251,24 @@ class TestOutputFigure:
         _install_output_stub(monkeypatch)
         fig, _ = _create_test_figure()
 
-        output_figure(fig, 'test_lowercase.jpg', format_='jpg')
-        _assert_valid_jpeg()
+        resource = output_figure(fig, 'test_lowercase.jpg', format_='jpg')
+        _assert_valid_jpeg(resource)
+
+    def test_format_inferred_from_suffix(self, monkeypatch: pytest.MonkeyPatch):
+        """format_ 缺省时按文件后缀推断导出格式, 无后缀时回退为 JPG"""
+        from src.utils.statistics_tools import output_figure
+
+        stub = _install_output_stub(monkeypatch)
+
+        fig, _ = _create_test_figure()
+        resource = output_figure(fig, 'test_infer.png')
+        assert resource is stub.last_resource
+        _assert_valid_png(resource)
+
+        fig, _ = _create_test_figure()
+        resource = output_figure(fig, 'test_infer_no_suffix')
+        assert resource is stub.last_resource
+        _assert_valid_jpeg(resource)
 
 
 class TestCreateDictDataFigure:
@@ -285,9 +326,75 @@ class TestCreateDictDataFigure:
     def test_invalid_data_rejected(self):
         from src.utils.statistics_tools import create_dict_data_figure
 
-        for bad_data in ({}, {'a': float('nan')}, {'a': float('inf')}, {'a': 'x'}):
+        for bad_data in ({}, {'a': float('nan')}, {'a': float('inf')}, {'a': 'x'}, {'a': True}):
             with pytest.raises(ValueError, match='data '):
                 create_dict_data_figure(bad_data)
+
+    def test_huge_int_rejected(self):
+        """超出 float 表示范围的巨型整数按非有限值拒绝"""
+        from src.utils.statistics_tools import create_dict_data_figure
+
+        with pytest.raises(ValueError, match='data values must be finite'):
+            create_dict_data_figure({'a': 10 ** 400})
+
+    def test_too_many_items_rejected(self):
+        """条目数超过上限时在建图前拒绝, 不泄漏 Figure"""
+        from matplotlib import pyplot as plt
+
+        from src.utils.statistics_tools import create_dict_data_figure
+
+        figures_before = set(plt.get_fignums())
+        data = {f'item_{i}': float(i) for i in range(501)}
+        with pytest.raises(ValueError, match='too many items'):
+            create_dict_data_figure(data)
+        assert set(plt.get_fignums()) == figures_before, 'figure leaked on too many items'
+
+    def test_invalid_sort_rejected(self):
+        """非法 sort 参数显式拒绝而非静默回退"""
+        from matplotlib import pyplot as plt
+
+        from src.utils.statistics_tools import create_dict_data_figure
+
+        figures_before = set(plt.get_fignums())
+        with pytest.raises(ValueError, match='invalid sort'):
+            create_dict_data_figure({'a': 1}, sort='bad')
+        assert set(plt.get_fignums()) == figures_before, 'figure leaked on invalid sort'
+
+    def test_invalid_cmap_name_rejected(self):
+        """非法 cmap_name 抛 ValueError 且发生在建图之前, 不泄漏 Figure"""
+        from matplotlib import pyplot as plt
+
+        from src.utils.statistics_tools import create_dict_data_figure
+
+        figures_before = set(plt.get_fignums())
+        with pytest.raises(ValueError, match='unknown cmap_name'):
+            create_dict_data_figure({'a': 1, 'b': 2}, cmap_name='not_a_cmap')
+        assert set(plt.get_fignums()) == figures_before, 'figure leaked on invalid cmap_name'
+
+    def test_numpy_values_accepted(self):
+        """numpy 整型与浮点型数值均可作为数据值"""
+        import numpy as np
+
+        from src.utils.statistics_tools import create_dict_data_figure
+
+        fig, ax = create_dict_data_figure({'np_int': np.int64(3), 'np_float': np.float64(1.5)})
+        try:
+            fig.canvas.draw()
+            assert len(ax.patches) == 2
+        finally:
+            _close_test_figure(fig)
+
+    def test_bar_label_boundary_values(self):
+        """微小非零值标签不得显示为 0, 超大值不得输出超长整数串"""
+        from src.utils.statistics_tools import create_dict_data_figure
+
+        fig, ax = create_dict_data_figure({'tiny': 0.00001, 'huge': 1e20})
+        try:
+            # 'desc' 排序下按值升序排布, 标签顺序与数值升序一致
+            label_texts = [t.get_text() for t in ax.texts]
+            assert label_texts == ['1e-05', '1e+20']
+        finally:
+            _close_test_figure(fig)
 
     def test_equal_and_negative_values_render(self):
         from src.utils.statistics_tools import create_dict_data_figure
@@ -314,8 +421,21 @@ class TestDrawDictData:
         resource = draw_dict_data({'插件A': 30, '插件B': 120.5, '插件C': 7}, 'test_dict.jpg', title='统计')
 
         assert resource is stub.last_resource
-        _assert_valid_jpeg()
+        _assert_valid_jpeg(resource)
         assert set(plt.get_fignums()) == figures_before, 'figure leaked in draw_dict_data'
+
+    def test_invalid_filename_no_leak(self, monkeypatch: pytest.MonkeyPatch):
+        """非法文件名在建图前拒绝, 不泄漏 Figure 也不触碰导出资源"""
+        from matplotlib import pyplot as plt
+
+        from src.utils.statistics_tools import draw_dict_data
+
+        stub = _install_output_stub(monkeypatch)
+        figures_before = set(plt.get_fignums())
+        with pytest.raises(ValueError, match='invalid output filename'):
+            draw_dict_data({'a': 1, 'b': 2}, '../evil.jpg')
+        assert set(plt.get_fignums()) == figures_before, 'figure leaked in draw_dict_data'
+        assert stub.last_resource is None
 
 
 class TestSample:
@@ -349,7 +469,7 @@ class TestSample:
         _install_output_stub(monkeypatch)
         resource = run_figure_example()
         assert resource.name == 'sample.jpg'
-        _assert_valid_jpeg()
+        _assert_valid_jpeg(resource)
 
     def test_run_invest_test(self, monkeypatch: pytest.MonkeyPatch):
         from src.utils.statistics_tools.sample import run_invest_test
@@ -357,7 +477,7 @@ class TestSample:
         stub = _install_output_stub(monkeypatch)
         resource = run_invest_test(step=20, times=3, seed=1)
         assert resource is stub.last_resource
-        _assert_valid_jpeg()
+        _assert_valid_jpeg(resource)
 
     def test_run_coin_test(self, monkeypatch: pytest.MonkeyPatch):
         from src.utils.statistics_tools.sample import run_coin_test
@@ -365,4 +485,4 @@ class TestSample:
         stub = _install_output_stub(monkeypatch)
         resource = run_coin_test(times=5, seed=1)
         assert resource is stub.last_resource
-        _assert_valid_jpeg()
+        _assert_valid_jpeg(resource)
