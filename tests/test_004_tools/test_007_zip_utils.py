@@ -4,11 +4,12 @@
 @FileName       : test_007_zip_utils
 @Project        : omega-miya
 @Description    : 压缩文件创建工具单元测试
-@GitHub         : https://github.com/Ailitria
+@GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
 import io
+import re
 import zipfile
 from pathlib import PurePosixPath
 from typing import Any, ClassVar, NoReturn, Self
@@ -42,11 +43,20 @@ class _MemoryInputResource:
 class _MemoryTargetResource:
     """鸭子类型的目标压缩文件替身, 记录操作, 全内存"""
 
+    replace_error: ClassVar[OSError | None] = None
+    """类级注入: 非 None 时 replace 抛出该异常, 模拟 Path.replace 的 OSError 失败"""
+
     def __init__(self, name: str, *, exists: bool = False) -> None:
         self._path = PurePosixPath('/memory').joinpath(name)
         self._exists = exists
-        self.removed = False
         self.parent_ensured = False
+        self.children: list[_MemoryTargetResource] = []
+        self.replaced_to: list[Any] = []
+        self.removed_calls: list[bool] = []
+
+    @property
+    def path(self) -> PurePosixPath:
+        return self._path
 
     @property
     def name(self) -> str:
@@ -64,11 +74,24 @@ class _MemoryTargetResource:
     def resolve_path(self) -> str:
         return self._path.as_posix()
 
+    def with_suffix(self, suffix: str) -> Self:
+        """模拟 BaseResource.with_suffix 的同目录派生语义, 并记录派生出的子替身"""
+        child = _MemoryTargetResource(self._path.with_suffix(suffix).name)
+        self.children.append(child)
+        return child
+
     def ensure_parent_path(self, **kwargs: Any) -> None:
         self.parent_ensured = True
 
-    def remove(self, **kwargs: Any) -> None:
-        self.removed = True
+    def replace(self, target: Any) -> Self:
+        """记录替换调用; 不模拟 @check_file(真实流程中 ZipFile 打开即创建临时文件, 校验必然通过)"""
+        if type(self).replace_error is not None:
+            raise type(self).replace_error
+        self.replaced_to.append(target)
+        return self
+
+    def remove(self, *, missing_ok: bool = True) -> None:
+        self.removed_calls.append(missing_ok)
         self._exists = False
 
 
@@ -119,6 +142,13 @@ class _BytesIOZipFile:
         return False
 
 
+class _BytesIOZipFileRaising(_BytesIOZipFile):
+    """write 时抛异常的 ZipFile 替身, 模拟写入中途失败"""
+
+    def write(self, filename: Any, arcname: str | None = None, **kwargs: Any) -> NoReturn:
+        raise OSError('disk full')
+
+
 class _FakeSevenZipFile:
     """替换 py7zr.SevenZipFile: 记录调用"""
 
@@ -145,13 +175,22 @@ class _FakeSevenZipFile:
         return False
 
 
+class _FakeSevenZipFileRaising(_FakeSevenZipFile):
+    """write 时抛异常的 SevenZipFile 替身, 模拟写入中途失败"""
+
+    def write(self, path: Any, arcname: str | None = None, **kwargs: Any) -> NoReturn:
+        raise OSError('disk full')
+
+
 @pytest.fixture
 def reset_fakes() -> Any:
     _BytesIOZipFile.created.clear()
     _FakeSevenZipFile.created.clear()
+    _MemoryTargetResource.replace_error = None
     yield
     _BytesIOZipFile.created.clear()
     _FakeSevenZipFile.created.clear()
+    _MemoryTargetResource.replace_error = None
 
 
 def _make_zip_utils(file_name: str, *, overwrite: bool = True, target_exists: bool = False):
@@ -174,6 +213,7 @@ class TestCreateZipBaseline:
         ])
         assert result is zu.file
         assert _BytesIOZipFile.created[-1].written == ['a.txt', 'b.txt']
+        assert zu.file.children[-1].replaced_to == [zu.file.path]
 
     async def test_produces_valid_in_memory_zip_readable_via_bytesio(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
@@ -202,23 +242,30 @@ class TestCreateZipBaseline:
         with pytest.raises(ValueError, match='suffix'):
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
         assert not _BytesIOZipFile.created
+        assert not zu.file.children
 
     async def test_overwrite_false_existing_target_raises(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
         zu = _make_zip_utils('test.zip', overwrite=False, target_exists=True)
         with pytest.raises(RuntimeError, match='already exists'):
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
-        assert not zu.file.removed
+        assert not _BytesIOZipFile.created
+        assert not zu.file.children
 
-    async def test_overwrite_true_removes_existing_then_writes(
+    async def test_overwrite_true_replaces_existing_atomically(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
     ):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
         zu = _make_zip_utils('test.zip', overwrite=True, target_exists=True)
         await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
-        assert zu.file.removed
         assert zu.file.parent_ensured
         assert _BytesIOZipFile.created[-1].written == ['a.txt']
+        assert len(zu.file.children) == 1
+        _tmp = zu.file.children[-1]
+        assert _tmp.replaced_to == [zu.file.path]
+        assert not _tmp.removed_calls
+        _stem = PurePosixPath(zu.file.name).stem
+        assert re.fullmatch(rf'{_stem}\.[0-9a-f]{{32}}\.tmp', _tmp.name)
 
     async def test_compression_passthrough(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
@@ -247,6 +294,7 @@ class TestCreate7zBaseline:
         assert _inst.written == ['a.txt']
         assert _inst.password == 'secret'
         assert _inst.encrypted_header is True
+        assert zu.file.children[-1].replaced_to == [zu.file.path]
 
     async def test_no_password_no_encrypted_header(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(py7zr, 'SevenZipFile', _FakeSevenZipFile)
@@ -261,10 +309,11 @@ class TestCreate7zBaseline:
         with pytest.raises(ValueError, match='suffix'):
             await zu.create_7z([_MemoryInputResource('/mem/a.txt')])
         assert not _FakeSevenZipFile.created
+        assert not zu.file.children
 
 
-class TestFixValidationBeforeDelete:
-    """H1: 任何校验失败时不得删除既有目标文件"""
+class TestFixValidationBeforeWrite:
+    """H1: 校验阶段为纯校验, 校验失败时不创建归档且不替换既有目标文件"""
 
     async def test_wrong_suffix_7z_call_preserves_existing_zip(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
@@ -273,7 +322,8 @@ class TestFixValidationBeforeDelete:
         zu = _make_zip_utils('test.zip', target_exists=True)
         with pytest.raises(ValueError, match='suffix'):
             await zu.create_7z([_MemoryInputResource('/mem/a.txt')])
-        assert zu.file.removed is False
+        assert zu.file.is_file
+        assert not zu.file.children
 
     async def test_wrong_suffix_zip_call_preserves_existing_7z(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
@@ -282,14 +332,123 @@ class TestFixValidationBeforeDelete:
         zu = _make_zip_utils('test.7z', target_exists=True)
         with pytest.raises(ValueError, match='suffix'):
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
-        assert zu.file.removed is False
+        assert zu.file.is_file
+        assert not zu.file.children
 
-    async def test_no_remove_when_target_missing(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+    async def test_fresh_target_written_via_replace(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
         zu = _make_zip_utils('test.zip', target_exists=False)
         await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
-        assert zu.file.removed is False
         assert zu.file.parent_ensured
+        assert len(zu.file.children) == 1
+        assert zu.file.children[-1].replaced_to == [zu.file.path]
+
+
+class TestFixAtomicWrite:
+    """M-A/L-D: 原子写入, 写入失败清理临时文件且不影响既有目标文件"""
+
+    async def test_write_failure_cleans_tmp_and_skips_replace(
+            self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
+    ):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFileRaising)
+        zu = _make_zip_utils('test.zip', target_exists=True)
+        with pytest.raises(OSError, match='disk full'):
+            await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
+        _tmp = zu.file.children[-1]
+        assert not _tmp.replaced_to
+        assert _tmp.removed_calls == [True]
+        assert zu.file.is_file
+
+    async def test_7z_write_failure_cleans_tmp_and_skips_replace(
+            self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
+    ):
+        monkeypatch.setattr(py7zr, 'SevenZipFile', _FakeSevenZipFileRaising)
+        zu = _make_zip_utils('test.7z', target_exists=True)
+        with pytest.raises(OSError, match='disk full'):
+            await zu.create_7z([_MemoryInputResource('/mem/a.txt')])
+        _tmp = zu.file.children[-1]
+        assert not _tmp.replaced_to
+        assert _tmp.removed_calls == [True]
+        assert zu.file.is_file
+
+    async def test_replace_failure_cleans_tmp(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        _MemoryTargetResource.replace_error = OSError('target locked')
+        zu = _make_zip_utils('test.zip', target_exists=True)
+        with pytest.raises(RuntimeError, match='写入压缩文件失败') as exc_info:
+            await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
+        assert isinstance(exc_info.value.__cause__, OSError)
+        assert str(exc_info.value.__cause__) == 'target locked'
+        _tmp = zu.file.children[-1]
+        assert not _tmp.replaced_to
+        assert _tmp.removed_calls == [True]
+        assert zu.file.is_file
+
+    async def test_tmp_file_in_target_directory(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        zu = _make_zip_utils('test.zip')
+        await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
+        _tmp = _BytesIOZipFile.created[-1].file_arg
+        assert PurePosixPath(_tmp).parent == PurePosixPath(zu.file.resolve_path).parent
+
+
+class TestFixDuplicateArcnames:
+    """M-B: 待压缩文件重名(arcname 冲突)时报错而非写入重复条目"""
+
+    async def test_duplicate_names_zip_raises(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        zu = _make_zip_utils('test.zip')
+        with pytest.raises(ValueError, match='Duplicate'):
+            await zu.create_zip([
+                _MemoryInputResource('/mem/x/a.txt'),
+                _MemoryInputResource('/mem/y/a.txt'),
+            ])
+        assert not _BytesIOZipFile.created
+        assert not zu.file.children
+
+    async def test_duplicate_names_7z_raises(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(py7zr, 'SevenZipFile', _FakeSevenZipFile)
+        zu = _make_zip_utils('test.7z')
+        with pytest.raises(ValueError, match='Duplicate'):
+            await zu.create_7z([
+                _MemoryInputResource('/mem/x/a.txt'),
+                _MemoryInputResource('/mem/y/a.txt'),
+            ])
+        assert not _FakeSevenZipFile.created
+        assert not zu.file.children
+
+    async def test_duplicate_failure_preserves_existing_target(
+            self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
+    ):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        zu = _make_zip_utils('test.zip', target_exists=True)
+        with pytest.raises(ValueError, match='Duplicate'):
+            await zu.create_zip([
+                _MemoryInputResource('/mem/x/a.txt'),
+                _MemoryInputResource('/mem/y/a.txt'),
+            ])
+        assert zu.file.is_file
+        assert not zu.file.children
+
+
+class TestFixEmptyFiles:
+    """L-C: 有效待压缩文件为空时报错而非生成空压缩包"""
+
+    async def test_empty_files_raises(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        zu = _make_zip_utils('test.zip')
+        with pytest.raises(ValueError, match='No files'):
+            await zu.create_zip([])
+        assert not _BytesIOZipFile.created
+        assert not zu.file.children
+
+    async def test_self_only_files_raises(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        zu = _make_zip_utils('test.zip')
+        with pytest.raises(ValueError, match='No files'):
+            await zu.create_zip([_MemoryInputResource(zu.file.resolve_path)])
+        assert not _BytesIOZipFile.created
+        assert not zu.file.children
 
 
 class TestFixMissingInputRaises:
@@ -304,12 +463,14 @@ class TestFixMissingInputRaises:
                 _MemoryInputResource('/mem/missing.txt', is_file=False),
             ])
         assert not _BytesIOZipFile.created
+        assert not zu.file.children
 
     async def test_missing_input_7z_raises_value_error(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(py7zr, 'SevenZipFile', _FakeSevenZipFile)
         zu = _make_zip_utils('test.7z')
         with pytest.raises(ValueError, match='not found'):
             await zu.create_7z([_MemoryInputResource('/mem/missing.src', is_file=False)])
+        assert not zu.file.children
 
     async def test_missing_input_failure_preserves_existing_target(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
@@ -318,7 +479,8 @@ class TestFixMissingInputRaises:
         zu = _make_zip_utils('test.zip', target_exists=True)
         with pytest.raises(ValueError, match='not found'):
             await zu.create_zip([_MemoryInputResource('/mem/missing.txt', is_file=False)])
-        assert zu.file.removed is False
+        assert zu.file.is_file
+        assert not zu.file.children
 
     async def test_self_reference_not_treated_as_missing(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
@@ -351,13 +513,15 @@ class TestFixInitValidation:
 
 
 class TestLowFixes:
-    """L1: compression 参数语义与校验"""
+    """L1: compression 参数语义与校验; L-A: 后缀大小写; L-B: 空字符串密码"""
 
     async def test_invalid_compression_raises_value_error(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
         zu = _make_zip_utils('test.zip')
         with pytest.raises(ValueError, match='compression'):
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')], compression=999)
+        assert not _BytesIOZipFile.created
+        assert not zu.file.children
 
     async def test_invalid_compression_failure_preserves_existing_target(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
@@ -366,9 +530,10 @@ class TestLowFixes:
         zu = _make_zip_utils('test.zip', target_exists=True)
         with pytest.raises(ValueError, match='compression'):
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')], compression=999)
-        assert zu.file.removed is False
+        assert zu.file.is_file
+        assert not zu.file.children
 
-    async def test_invalid_config_default_compression_raises_before_delete(
+    async def test_invalid_config_default_compression_raises_before_write(
             self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None,
     ):
         from src.utils.zip_utils.config import zip_utils_config
@@ -378,7 +543,8 @@ class TestLowFixes:
         zu = _make_zip_utils('test.zip', target_exists=True)
         with pytest.raises(ValueError, match='compression'):
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
-        assert zu.file.removed is False
+        assert zu.file.is_file
+        assert not zu.file.children
 
     async def test_valid_compression_methods_accepted(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
@@ -387,6 +553,25 @@ class TestLowFixes:
             _BytesIOZipFile.created.clear()
             await zu.create_zip([_MemoryInputResource('/mem/a.txt')], compression=_method)
             assert _BytesIOZipFile.created[-1].compression == _method
+
+    async def test_uppercase_suffix_accepted_zip(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(zipfile, 'ZipFile', _BytesIOZipFile)
+        zu = _make_zip_utils('TEST.ZIP')
+        await zu.create_zip([_MemoryInputResource('/mem/a.txt')])
+        assert _BytesIOZipFile.created[-1].written == ['a.txt']
+
+    async def test_uppercase_suffix_accepted_7z(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(py7zr, 'SevenZipFile', _FakeSevenZipFile)
+        zu = _make_zip_utils('TEST.7Z')
+        await zu.create_7z([_MemoryInputResource('/mem/a.txt')])
+        assert _FakeSevenZipFile.created[-1].written == ['a.txt']
+
+    async def test_empty_password_treated_as_none(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
+        monkeypatch.setattr(py7zr, 'SevenZipFile', _FakeSevenZipFile)
+        zu = _make_zip_utils('test.7z')
+        await zu.create_7z([_MemoryInputResource('/mem/a.txt')], password='')
+        assert _FakeSevenZipFile.created[-1].password is None
+        assert _FakeSevenZipFile.created[-1].encrypted_header is None
 
 
 class TestZipUtilsConfig:
