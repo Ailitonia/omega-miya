@@ -8,7 +8,6 @@
 @Software       : PyCharm
 """
 
-import os
 from collections.abc import Callable, Generator, Iterable, Sequence
 from io import SEEK_END, BytesIO
 from pathlib import Path
@@ -209,16 +208,16 @@ class ExcelTools[DataModel_T: BaseModel]:
         """在临时目标上执行写入, 全部成功后原子替换目标, 失败时目标保持写入前内容且不残留临时文件"""
         if isinstance(excel_file, BaseResource):
             excel_file.ensure_parent_path()
-            temp_path = excel_file.path.with_name(f'.{excel_file.path.name}.{uuid4().hex}.tmp')
+            _tmp_file = excel_file.with_suffix(f'.{uuid4().hex}.tmp')
             try:
-                write(temp_path)
+                write(_tmp_file.path)
             except Exception:
-                temp_path.unlink(missing_ok=True)
+                _tmp_file.remove(missing_ok=True)
                 raise
             try:
-                os.replace(temp_path, excel_file.path)
+                _tmp_file.replace(excel_file.path)
             except OSError as e:
-                temp_path.unlink(missing_ok=True)
+                _tmp_file.remove(missing_ok=True)
                 raise ExcelToolsException(f'写入 Excel 文件失败: {e}') from e
         else:
             temp_buffer = BytesIO()

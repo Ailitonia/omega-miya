@@ -210,6 +210,7 @@ class TestDumpExcel:
             await sample_tools.dump_excel(SAMPLE_MODELS, file)
 
             assert file.is_file
+            assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
         finally:
             _cleanup_path_test_folder()
 
@@ -673,6 +674,26 @@ class TestRoundTrip:
         assert excel_file.getvalue() == original_content
         assert await sample_tools.load_excel(excel_file) == SAMPLE_MODELS
 
+    async def test_dump_failure_leaves_file_untouched(self, sample_tools):
+        """非分块写出中途失败时文件目标保持写入前内容, 且不残留临时文件"""
+        from src.resource import TemporaryResource
+        from src.utils.excel_tools import ExcelToolsException
+
+        file = TemporaryResource('excel_tools_test', 'atomic_dump.xlsx')
+        try:
+            await sample_tools.dump_excel(SAMPLE_MODELS, file)
+
+            bad_data = [SampleModel(
+                name='tz', count=1, score=1.0, enabled=True, created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            )]
+            with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
+                await sample_tools.dump_excel(bad_data, file)
+
+            assert await sample_tools.load_excel(file) == SAMPLE_MODELS
+            assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
+        finally:
+            _cleanup_path_test_folder()
+
 
 class TestAppendExcel:
     async def test_append_new_sheet_preserves_existing(self, sample_tools, excel_file):
@@ -955,6 +976,8 @@ class TestExceptionWrapping:
         try:
             with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
                 await sample_tools.dump_excel(SAMPLE_MODELS, target)
+
+            assert [p for p in target.path.parent.iterdir() if p.name != target.path.name] == []
         finally:
             _cleanup_path_test_folder()
 
