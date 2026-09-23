@@ -10,6 +10,7 @@
 
 import asyncio
 import json
+import os
 import re
 from collections import Counter
 from contextlib import asynccontextmanager
@@ -24,6 +25,15 @@ from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
+
+_REAL_TEST_ENABLED = os.getenv('BILIBILI_API_REAL_TEST', '').lower() in ('1', 'true', 'yes', 'on')
+"""是否启用真实请求验证: 需用户手动设置 BILIBILI_API_REAL_TEST 环境变量 (如 BILIBILI_API_REAL_TEST=1)"""
+
+require_real_test = pytest.mark.skipif(
+    not _REAL_TEST_ENABLED,
+    reason='真实请求验证, 需手动设置 BILIBILI_API_REAL_TEST=1 环境变量后运行',
+)
+"""真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置环境变量后发起"""
 
 # ------------------------------------------------------------------ #
 # wbi 签名已知答案向量 (本地按参考算法预计算, 不依赖网络)
@@ -1050,6 +1060,37 @@ class TestGlobalSearch:
         assert len(result.all_results) == 2
 
 
+class TestSearchModels:
+    """搜索数据模型边界测试"""
+
+    @staticmethod
+    def _make_live_room_item(**overrides) -> dict:
+        item = {
+            'type': 'live_room', 'rank_offset': 1, 'uid': 2165572, 'roomid': 1234567,
+            'short_id': 0, 'tags': '', 'live_time': '', 'cate_name': '网游', 'live_status': 1,
+            'uname': 'test_anchor', 'uface': '', 'user_cover': '', 'area': 4, 'title': 'test room',
+            'cover': '', 'online': 100, 'rank_index': 1, 'hit_columns': [],
+        }
+        item.update(overrides)
+        return item
+
+    def test_live_room_result_without_rank_score(self) -> None:
+        """live_room 搜索结果已实测不再下发 rank_score 字段, 缺失时应以 None 兜底"""
+        from src.utils.bilibili_api.models.search import LiveRoomSearchResult
+
+        result = LiveRoomSearchResult.model_validate(self._make_live_room_item())
+
+        assert result.rank_score is None
+
+    def test_live_room_result_with_rank_score(self) -> None:
+        """兼容旧版响应: rank_score 存在时正常解析"""
+        from src.utils.bilibili_api.models.search import LiveRoomSearchResult
+
+        result = LiveRoomSearchResult.model_validate(self._make_live_room_item(rank_score=19455239))
+
+        assert result.rank_score == 19455239
+
+
 # ------------------------------------------------------------------ #
 # api/dynamic.py 测试
 # ------------------------------------------------------------------ #
@@ -2034,10 +2075,11 @@ async def live_dynamic_state() -> SimpleNamespace:
     return SimpleNamespace(feed=None, harvested=[])
 
 
+@require_real_test
 class TestBilibiliDynamicLive:
     """BilibiliDynamic 真实请求验证 (需数据库中已登录 Cookies)
 
-    本类用例发起真实 bilibili API 请求, 仅应以
+    本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliDynamicLive -v -s` 单独运行
     """
 
@@ -2235,10 +2277,11 @@ async def live_room_state() -> SimpleNamespace:
     return SimpleNamespace(rooms=unique_rooms)
 
 
+@require_real_test
 class TestBilibiliLiveLive:
     """BilibiliLive 真实请求验证 (直播端点匿名可用, 凭据仅用于降低风控概率)
 
-    本类用例发起真实 bilibili API 请求, 仅应以
+    本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliLiveLive -v -s` 单独运行
     """
 
@@ -2360,10 +2403,11 @@ async def live_user_state() -> SimpleNamespace:
     return SimpleNamespace(own_mid=int(dedeuserid), author=author)
 
 
+@require_real_test
 class TestBilibiliUserLive:
     """BilibiliUser 真实请求验证 (强制依赖登录态)
 
-    本类用例发起真实 bilibili API 请求, 仅应以
+    本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliUserLive -v -s` 单独运行
     """
 

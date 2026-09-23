@@ -77,7 +77,7 @@ class VideoSearchResult(BaseBilibiliModel):
     senddate: int
     duration: str
     is_union_video: int
-    rank_score: int
+    rank_score: int | None = Field(default=None)
     hit_columns: list[str]
 
 
@@ -145,7 +145,7 @@ class LiveRoomSearchResult(BaseBilibiliModel):
     cover: str
     online: int
     rank_index: int
-    rank_score: int
+    rank_score: int | None = Field(default=None)
     attentions: int | None = Field(default=None)
     hit_columns: list[str]
 
@@ -164,8 +164,8 @@ class LiveUserSearchResult(BaseBilibiliModel):
     uname: str
     uface: str
     rank_index: int
-    rank_score: int
-    attentions: int
+    rank_score: int | None = Field(default=None)
+    attentions: int | None = Field(default=None)
     hit_columns: list[str]
 
 
@@ -186,7 +186,7 @@ class ArticleSearchResult(BaseBilibiliModel):
     reply: int
     rank_offset: int
     rank_index: int
-    rank_score: int
+    rank_score: int | None = Field(default=None)
 
 
 class TopicSearchResult(BaseBilibiliModel):
@@ -207,7 +207,7 @@ class TopicSearchResult(BaseBilibiliModel):
     tp_type: int
     rank_offset: int
     rank_index: int
-    rank_score: int
+    rank_score: int | None = Field(default=None)
     hit_columns: list[str]
 
 
@@ -264,8 +264,8 @@ class PhotoSearchResult(BaseBilibiliModel):
     like: int
     view: int
     rank_index: int
-    rank_score: int
-    rank_offset: int
+    rank_score: int | None = Field(default=None)
+    rank_offset: int | None = Field(default=None)
     hit_columns: list[str]
 
 
