@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from .api_base import BasePixivAPI
 from .helper import PixivParser
-from .model import PixivisionArticle, PixivisionIllustrationList
+from .model import PixivisionArticle, PixivisionIllustrations
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 class Pixivision(BasePixivAPI):
     """Pixivision 接口集成"""
 
-    def __init__(self, aid: int):
-        self.aid = aid
+    def __init__(self, aid: int | str):
+        self.aid = str(aid)
         self.url = f'{self._get_articles_url()}/{aid}'
 
     def __repr__(self) -> str:
@@ -45,33 +45,30 @@ class Pixivision(BasePixivAPI):
         return f'{cls._get_root_url()}/zh/t'
 
     @classmethod
-    async def download_resource(
+    async def download_article_eyecatch_image[T: 'TemporaryResource'](
             cls,
-            url: str,
-            save_folder: 'TemporaryResource',
-            custom_file_name: str | None = None,
-            *,
-            subdir: str | None = None,
-            ignore_exist_file: bool = False
-    ) -> 'TemporaryResource':
-        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+            article_data: PixivisionArticle,
+            save_folder: T,
+    ) -> T:
+        """下载特辑主视图到本地"""
+        if article_data.eyecatch_image is None:
+            raise ValueError('article eyecatch image not found')
+
         return await cls._download_resource(
+            url=article_data.eyecatch_image,
             save_folder=save_folder,
-            url=url,
-            subdir=subdir,
-            ignore_exist_file=ignore_exist_file,
-            custom_file_name=custom_file_name,
+            hash_file_name=True,
         )
 
     @classmethod
-    async def query_illustration_list(cls, page: int = 1) -> PixivisionIllustrationList:
+    async def query_illustration_list(cls, page: int = 1) -> PixivisionIllustrations:
         """获取并解析 Pixivision Illustration 导览页面内容"""
         params = {'p': page, 'lang': 'zh'}
         illustration_data = await cls.get_resource_as_text(url=cls._get_illustration_url(), params=params)
 
         return await PixivParser.parse_pixivision_show_page(
             content=illustration_data,
-            root_url=cls._get_root_url()
+            root_url=cls._get_root_url(),
         )
 
     async def query_article(self) -> PixivisionArticle:
@@ -81,7 +78,7 @@ class Pixivision(BasePixivAPI):
 
         return await PixivParser.parse_pixivision_article_page(
             content=article_data,
-            root_url=self._get_root_url()
+            root_url=self._get_root_url(),
         )
 
 

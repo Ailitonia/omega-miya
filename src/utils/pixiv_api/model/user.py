@@ -13,69 +13,21 @@ from typing import Any
 from pydantic import Field, model_validator
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-from .base_model import BasePixivModel
+from .base_model import BaseArtworkData, BaseNovelData, BasePixivModel, BaseUserData
 
 
-class _GlobalUserData(BasePixivModel):
-    """全局用户数据"""
-    id: int
-    pixivId: str
-    name: str
-    profileImg: AnyHttpUrl | None = None
-    profileImgBig: AnyHttpUrl | None = None
-    premium: bool
-    xRestrict: int
-    adult: bool
-    safeMode: bool | None = None  # maybe deactivated
-    illustCreator: bool
-    novelCreator: bool
-    hideAiWorks: bool
-    readingStatusEnabled: bool
-
-
-class _PixivGlobalData(BasePixivModel):
-    """[Deactivated]Pixiv 主页全局数据(新版 Next 首页已无该内容)"""
-    token: str
-    services: dict
-    oneSignalAppId: str
-    publicPath: AnyHttpUrl | None = None
-    commonResourcePath: AnyHttpUrl | None = None
-    development: bool
-    userData: _GlobalUserData
-    adsData: dict | None = None
-    miscData: dict | None = None
-    premium: dict | None = None
-    mute: list
-
-    @property
-    def uid(self) -> int:
-        return self.userData.id
-
-    @property
-    def username(self) -> str:
-        return self.userData.name
-
-
-class PixivUserDataBody(BasePixivModel):
-    """Pixiv 用户信息 Body"""
-    userId: int
-    name: str
-    image: AnyHttpUrl | None = None
-    imageBig: AnyHttpUrl | None = None
-
-
-class PixivUserDataModel(BasePixivModel):
-    """Pixiv 用户信息 Model"""
-    body: PixivUserDataBody
+class PixivUserData(BasePixivModel):
+    """Pixiv 用户信息数据"""
+    body: BaseUserData
     error: bool
     message: str
 
 
-class PixivUserArtworkDataBody(BasePixivModel):
-    """Pixiv 用户作品信息 Body"""
-    illusts: dict[int, Any]
-    manga: dict[int, Any]
-    novels: dict[int, Any]
+class _UserProfileBody(BasePixivModel):
+    """Pixiv 用户作品信息"""
+    illusts: dict[str, BaseArtworkData | None] = Field(default_factory=dict)
+    manga: dict[str, BaseArtworkData | None] = Field(default_factory=dict)
+    novels: dict[str, BaseNovelData | None] = Field(default_factory=dict)
 
     @model_validator(mode='before')
     @classmethod
@@ -88,134 +40,106 @@ class PixivUserArtworkDataBody(BasePixivModel):
         return values
 
     @property
-    def illust_list(self) -> list[int]:
+    def illust_list(self) -> list[str]:
         return list(self.illusts.keys())
 
     @property
-    def manga_list(self) -> list[int]:
+    def manga_list(self) -> list[str]:
         return list(self.manga.keys())
 
     @property
-    def novel_list(self) -> list[int]:
+    def novel_list(self) -> list[str]:
         return list(self.novels.keys())
 
 
-class PixivUserArtworkDataModel(BasePixivModel):
-    """Pixiv 用户作品信息 Model"""
-    body: PixivUserArtworkDataBody
+class PixivUserProfile(BasePixivModel):
+    """Pixiv 用户作品档案数据"""
+    body: _UserProfileBody
     error: bool
     message: str
 
 
-class PixivUserModel(BasePixivModel):
-    """Pixiv 用户 Model"""
-    user_id: int
+class PixivUserFull(BasePixivModel):
+    """汇总 Pixiv 用户全量数据"""
+    user_id: str
     name: str
-    image: AnyHttpUrl | None = None
-    image_big: AnyHttpUrl | None = None
-    illusts: list[int]
-    manga: list[int]
-    novels: list[int]
+    image: AnyHttpUrl
+    image_big: AnyHttpUrl
+    illusts: list[str]
+    manga: list[str]
+    novels: list[str]
 
     @property
-    def manga_illusts(self) -> list[int]:
+    def manga_illusts(self) -> list[str]:
         artwork_list = self.manga + self.illusts
-        artwork_list.sort(reverse=True)
+        artwork_list.sort(key=int, reverse=True)
         return artwork_list
 
 
-class PixivUserSearchingBody(BasePixivModel):
-    """Pixiv 用户搜索结果 body"""
-    user_id: int
+class _SearchedUserItem(BasePixivModel):
+    user_id: str
     user_name: str
-    user_head_url: str | None = None
-    user_illust_count: int | None = None
-    user_desc: str | None = None
+    user_head_url: str | None = Field(default=None)
+    user_illust_count: int | None = Field(default=None)
+    user_desc: str | None = Field(default=None)
     illusts_thumb_urls: list[AnyHttpUrl] = Field(default_factory=list)
 
 
-class PixivUserSearchingModel(BasePixivModel):
-    """Pixiv 用户搜索结果 Model"""
+class PixivUserSearchingResult(BasePixivModel):
+    """Pixiv 用户搜索结果数据"""
     search_name: str
     count: str
-    users: list[PixivUserSearchingBody]
+    users: list[_SearchedUserItem]
 
 
-class PixivFollowLatestIllustPage(BasePixivModel):
-    """关注用户的最新作品页面"""
-    ids: list[int]
+class _FollowLatestIllustPage(BasePixivModel):
+    ids: list[str] = Field(default_factory=list)
     isLastPage: bool
-    tags: list
 
 
-class PixivFollowLatestIllustBody(BasePixivModel):
+class _FollowLatestIllustThumbnails(BasePixivModel):
+    illust: list[BaseArtworkData] = Field(default_factory=list)
+    novel: list[BaseNovelData] = Field(default_factory=list)
+
+
+class _FollowLatestIllustBody(BasePixivModel):
     """关注用户的最新作品内容"""
-    illustSeries: list
-    page: PixivFollowLatestIllustPage
-    requests: list
-    tagTranslation: dict
-    thumbnails: dict
-    users: list
-    zoneConfig: dict
+    page: _FollowLatestIllustPage
+    thumbnails: _FollowLatestIllustThumbnails
+    users: list[BaseUserData] = Field(default_factory=list)
+    tagTranslation: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class PixivFollowLatestIllust(BasePixivModel):
-    """关注用户的最新作品"""
-    body: PixivFollowLatestIllustBody
+    """已关注用户的最新作品"""
+    body: _FollowLatestIllustBody
     error: bool
     message: str
 
     @property
-    def illust_ids(self) -> list[int]:
+    def illust_ids(self) -> list[str]:
         return self.body.page.ids
 
 
-class _WorkBookmarkData(BasePixivModel):
-    """收藏作品属性"""
-    id: str
-    private: bool
-
-
-class BookmarkWork(BasePixivModel):
+class _BookmarkWorkItem(BaseArtworkData):
     """收藏作品详情"""
-    id: int
-    title: str
-    illustType: int
-    xRestrict: int
-    restrict: int
-    sl: int
-    url: AnyHttpUrl
-    description: str
-    tags: list[str]
-    userId: str
-    userName: str
-    width: int
-    height: int
-    pageCount: int
-    isBookmarkable: bool
-    bookmarkData: _WorkBookmarkData | None = None
-    alt: str
-    titleCaptionTranslation: dict
-    createDate: str
-    updateDate: str
     isUnlisted: bool
     isMasked: bool
-    aiType: int
-    profileImageUrl: AnyHttpUrl | None = None
+    url: AnyHttpUrl
+    createDate: str
+    updateDate: str
 
 
-class BookmarkBody(BasePixivModel):
+class _BookmarkBody(BasePixivModel):
     """收藏页内容"""
-    bookmarkTags: list | dict | None = None
-    extraData: dict
+    works: list[_BookmarkWorkItem] = Field(default_factory=list)
+    bookmarkTags: dict[str, list[str]] = Field(default_factory=dict)
     total: int
-    works: list[BookmarkWork]
-    zoneConfig: dict
 
 
 class PixivBookmark(BasePixivModel):
     """Pixiv 收藏作品"""
-    body: BookmarkBody
+    body: _BookmarkBody
     error: bool
     message: str
 
@@ -224,94 +148,61 @@ class PixivBookmark(BasePixivModel):
         return self.body.total
 
     @property
-    def illust_ids(self) -> list[int]:
+    def illust_ids(self) -> list[str]:
         return [x.id for x in self.body.works]
 
 
-class FollowUserIllust(BasePixivModel):
-    id: str
-    title: str
-    illustType: int
-    xRestrict: int
-    restrict: int
-    sl: int
-    url: str
-    description: str
-    tags: list[str]
-    userId: str
-    userName: str
-    width: int
-    height: int
-    pageCount: int
-    isBookmarkable: bool
-    alt: str
+class _FollowUserIllustItem(BaseArtworkData):
+    url: AnyHttpUrl
     createDate: str
     updateDate: str
     isUnlisted: bool
     isMasked: bool
-    aiType: int
-    profileImageUrl: str
+    visibilityScope: int
 
 
-class FollowUserNovel(BasePixivModel):
-    id: str
-    title: str
-    genre: str
-    xRestrict: int
-    restrict: int
-    url: str
-    tags: list[str]
-    userId: str
-    userName: str
-    profileImageUrl: str
-    textCount: int
-    wordCount: int
-    readingTime: int
+class _FollowUserNovelItem(BaseNovelData):
     useWordCount: bool
-    description: str
-    isBookmarkable: bool
-    bookmarkCount: int
     isOriginal: bool
     createDate: str
     updateDate: str
     isMasked: bool
-    aiType: int
     isUnlisted: bool
 
 
-class FollowUserData(BasePixivModel):
-    """关注的用户信息"""
+class _FollowUserItem(BasePixivModel):
     userId: str
     userName: str
     profileImageUrl: str
+    profileImageSmallUrl: str
     userComment: str
+    premium: bool
     following: bool
     followed: bool
     isBlocking: bool
     isMypixiv: bool
-    illusts: list[FollowUserIllust]
-    novels: list[FollowUserNovel]
+    illusts: list[_FollowUserIllustItem] = Field(default_factory=list)
+    novels: list[_FollowUserNovelItem] = Field(default_factory=list)
 
 
-class FollowUserBody(BasePixivModel):
-    users: list[FollowUserData]
+class _FollowUserBody(BasePixivModel):
+    users: list[_FollowUserItem]
     total: int
     followUserTags: list[Any]
 
 
 class PixivFollowUser(BasePixivModel):
-    """关注用户"""
+    """已关注用户"""
+    body: _FollowUserBody
     error: bool
     message: str
-    body: FollowUserBody
 
 
 __all__ = [
-    'PixivUserDataModel',
-    'PixivUserArtworkDataModel',
-    'PixivUserModel',
-    'PixivUserSearchingBody',
-    'PixivUserSearchingModel',
+    'PixivUserData',
+    'PixivUserProfile',
+    'PixivUserFull',
+    'PixivUserSearchingResult',
     'PixivFollowLatestIllust',
     'PixivBookmark',
     'PixivFollowUser',

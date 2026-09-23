@@ -10,71 +10,76 @@
 
 
 from lxml import etree
+from pydantic import Field, model_validator
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
-from .base_model import BasePixivModel
-from .searching import PixivSearchingData
+from .base_model import BaseArtworkData, BasePixivModel
 
 
-class PixivTagTranslation(BasePixivModel):
-    """Pixiv tag 翻译"""
-    en: str
-
-
-class PixivTag(BasePixivModel):
-    """Pixiv tag 模型"""
+class _IllustTagItem(BasePixivModel):
     tag: str
-    translation: PixivTagTranslation | None = None
+    locked: bool
+    deletable: bool
+    userId: str | None = Field(default=None)
+    translation: dict[str, str] = Field(default_factory=dict)
+    userName: str | None = Field(default=None)
 
 
-class PixivArtworkTags(BasePixivModel):
-    """Pixiv 作品 tag 属性"""
-    tags: list[PixivTag]
-    authorId: int | None = None
-    isLocked: bool | None = None
-    writable: bool | None = None
+class _IllustTags(BasePixivModel):
+    tags: list[_IllustTagItem] = Field(default_factory=list)
+    authorId: str | None = Field(default=None)
+    isLocked: bool | None = Field(default=None)
+    writable: bool | None = Field(default=None)
 
     @property
     def all_tags(self) -> list[str]:
         _tags = [x.tag for x in self.tags]
-        _tags.extend([x.translation.en for x in self.tags if x.translation is not None])
-        return _tags
+        _tags.extend([tag_t for tag in self.tags for tag_t in tag.translation.values()])
+        return list(dict.fromkeys(_tags))
 
 
-class PixivArtworkMainUrl(BasePixivModel):
-    """Pixiv 作品主图链接"""
+class _IllustUrls(BasePixivModel):
     mini: AnyHttpUrl
-    original: AnyHttpUrl
-    regular: AnyHttpUrl
-    small: AnyHttpUrl
     thumb: AnyHttpUrl
+    small: AnyHttpUrl
+    regular: AnyHttpUrl
+    original: AnyHttpUrl
 
 
-class PixivArtworkBody(BasePixivModel):
-    """Pixiv 作品信息 Body"""
-    id: int
-    illustId: int
+class _IllustuserIllusts(BaseArtworkData):
+    url: AnyHttpUrl
+    createDate: str
+    updateDate: str
+
+
+class _IllustDataBody(BaseArtworkData):
+    illustId: str
     illustTitle: str
-    illustType: int
     illustComment: str
+    tag_info: _IllustTags = Field(default_factory=_IllustTags)
+    urls: _IllustUrls
     userAccount: str
-    userId: int
-    userName: str
-    title: str
-    description: str
-    width: int
-    height: int
-    xRestrict: int
-    aiType: int
-    tags: PixivArtworkTags
-    urls: PixivArtworkMainUrl
-    pageCount: int
+    userIllusts: dict[str, _IllustuserIllusts | None] = Field(default_factory=dict)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _migrate_tags_field(cls, values):
+        """详情接口返回的 tags 为对象结构(与列表接口的 list[str] 不同), 迁移至 tag_info 字段避免与父类字段冲突"""
+        if isinstance(values, dict) and isinstance(values.get('tags'), dict):
+            values['tag_info'] = values.pop('tags')
+        return values
 
     # 作品相关统计信息
-    likeCount: int
     bookmarkCount: int
-    viewCount: int
+    likeCount: int
     commentCount: int
+    responseCount: int
+    viewCount: int
+
+    # 属性标识
+    isOriginal: bool
+    isUnlisted: bool
+    isLoginOnly: bool
 
     @property
     def parsed_description(self) -> str:
@@ -82,56 +87,52 @@ class PixivArtworkBody(BasePixivModel):
             return ''
 
         description_html = etree.HTML(self.description)
-        for br in description_html.xpath('*//br'):
-            br.tail = '\n' + br.tail if br.tail else '\n'  # replace br tag
+        for br in description_html.iter('br'):
+            br.tail = f'\n{br.tail or ""}'
+        return ''.join(text for text in description_html.itertext())
 
-        return ''.join(text for x in description_html.xpath('/html/body/*') for text in x.itertext())
 
-
-class PixivArtworkDataModel(BasePixivModel):
-    """Pixiv 作品信息 Model"""
-    body: PixivArtworkBody
+class PixivIllustData(BasePixivModel):
+    """Pixiv 作品数据"""
+    body: _IllustDataBody
     error: bool
     message: str
 
 
-class PixivArtworkPageUrl(BasePixivModel):
-    """Pixiv 作品多页链接"""
-    original: AnyHttpUrl
-    regular: AnyHttpUrl
-    small: AnyHttpUrl
+class _IllustPageUrl(BasePixivModel):
     thumb_mini: AnyHttpUrl
+    small: AnyHttpUrl
+    regular: AnyHttpUrl
+    original: AnyHttpUrl
 
 
-class PixivArtworkAllPages(BasePixivModel):
-    """Pixiv 作品多页分类汇总"""
-    original: list[AnyHttpUrl]
-    regular: list[AnyHttpUrl]
-    small: list[AnyHttpUrl]
+class _IllustPageTypesUrl(BasePixivModel):
     thumb_mini: list[AnyHttpUrl]
+    small: list[AnyHttpUrl]
+    regular: list[AnyHttpUrl]
+    original: list[AnyHttpUrl]
 
 
-class PixivArtworkPageUrlContent(BasePixivModel):
-    """Pixiv 作品多页链接内容"""
-    urls: PixivArtworkPageUrl
+class _IllustPageItem(BasePixivModel):
+    urls: _IllustPageUrl
     width: int
     height: int
 
 
-class PixivArtworkPageModel(BasePixivModel):
-    """Pixiv 作品多页信息"""
-    body: list[PixivArtworkPageUrlContent]
+class PixivIllustPages(BasePixivModel):
+    """Pixiv 作品多页数据"""
+    body: list[_IllustPageItem]
     error: bool
     message: str
 
     @property
-    def index_page(self) -> dict[int, PixivArtworkPageUrl]:
+    def index_pages(self) -> dict[int, _IllustPageUrl]:
         if self.error:
             raise ValueError('Artwork pages data status is error')
         return {index: x.urls for index, x in enumerate(self.body)}
 
     @property
-    def type_page(self) -> PixivArtworkAllPages:
+    def type_pages(self) -> _IllustPageTypesUrl:
         if self.error:
             raise ValueError('Artwork pages data status is error')
         _pages_data = {
@@ -140,75 +141,73 @@ class PixivArtworkPageModel(BasePixivModel):
             'small': [x.urls.small for x in self.body],
             'thumb_mini': [x.urls.thumb_mini for x in self.body]
         }
-        return PixivArtworkAllPages.model_validate(_pages_data)
+        return _IllustPageTypesUrl.model_validate(_pages_data)
 
 
-class PixivArtworkUgoiraFrames(BasePixivModel):
-    """Pixiv 作品动图帧信息"""
-    delay: int
+class _IllustUgoiraFrames(BasePixivModel):
     file: str
+    delay: int
 
 
-class PixivArtworkUgoiraMetaBody(BasePixivModel):
-    """Pixiv 作品动图信息 Body"""
-    frames: list[PixivArtworkUgoiraFrames]
-    mime_type: str
-    originalSrc: AnyHttpUrl
+class _IllustUgoiraMetaBody(BasePixivModel):
     src: AnyHttpUrl
+    originalSrc: AnyHttpUrl
+    mime_type: str
+    frames: list[_IllustUgoiraFrames]
 
 
-class PixivArtworkUgoiraMeta(BasePixivModel):
-    """Pixiv 作品动图信息"""
-    body: PixivArtworkUgoiraMetaBody
+class PixivIllustUgoiraMeta(BasePixivModel):
+    """Pixiv 作品动图数据"""
+    body: _IllustUgoiraMetaBody
     error: bool
     message: str
 
 
-class PixivArtworkCompleteDataModel(BasePixivModel):
-    """完整版 Pixiv 作品信息(用于模块数据处理)"""
+class PixivIllustFull(BasePixivModel):
+    """汇总 Pixiv 作品全量数据"""
+    pid: str
     illust_type: int
-    pid: int
-    title: str
-    sanity_level: int
-    is_r18: bool
-    ai_level: int
     is_ai: bool
-    uid: int
-    uname: str
+    ai_level: int
+    is_r18: bool
+    sanity_level: int
+    title: str
     description: str
     tags: list[str]
-    url: AnyHttpUrl
+    uid: str
+    uname: str
     width: int
     height: int
-    like_count: int
     bookmark_count: int
-    view_count: int
+    like_count: int
     comment_count: int
+    response_count: int
+    view_count: int
     page_count: int
+    url: AnyHttpUrl
     orig_url: AnyHttpUrl
     regular_url: AnyHttpUrl
-    all_url: PixivArtworkAllPages
-    all_page: dict[int, PixivArtworkPageUrl]
-    ugoira_meta: PixivArtworkUgoiraMetaBody | None = None
+    type_pages: _IllustPageTypesUrl
+    index_pages: dict[int, _IllustPageUrl]
+    ugoira_meta: _IllustUgoiraMetaBody | None = Field(default=None)
 
 
-class PixivArtworkRecommendModel(BasePixivModel):
-    """Pixiv 作品的相关推荐作品信息"""
-    illusts: list[PixivSearchingData]
-    nextIds: list[int]
+class _IllustRecommendBody(BasePixivModel):
+    illusts: list[BaseArtworkData] = Field(default_factory=list)
+    nextIds: list[str] = Field(default_factory=list)
 
 
-class PixivArtworkPreviewRequestModel(BasePixivModel):
-    """请求 PixivArtworkPreview 的入参"""
-    desc_text: str
-    request_url: AnyHttpUrl
+class PixivIllustRecommend(BasePixivModel):
+    """Pixiv 作品的相关推荐作品数据"""
+    body: _IllustRecommendBody
+    error: bool
+    message: str
 
 
 __all__ = [
-    'PixivArtworkDataModel',
-    'PixivArtworkPageModel',
-    'PixivArtworkUgoiraMeta',
-    'PixivArtworkCompleteDataModel',
-    'PixivArtworkRecommendModel',
-    'PixivArtworkPreviewRequestModel'
+    'PixivIllustData',
+    'PixivIllustPages',
+    'PixivIllustUgoiraMeta',
+    'PixivIllustFull',
+    'PixivIllustRecommend',
 ]

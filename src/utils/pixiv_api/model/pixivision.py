@@ -16,22 +16,22 @@ from src.compat import AnyHttpUrlStr as AnyHttpUrl
 from .base_model import BasePixivModel
 
 
-class PixivisionIllustrationTag(BasePixivModel):
-    tag_id: int
+class _IllustrationTagItem(BasePixivModel):
+    tag_id: str
     tag_name: str
     tag_url: AnyHttpUrl
 
 
-class PixivisionIllustration(BasePixivModel):
-    """Pixivision Illustration Model"""
-    aid: int
+class PixivisionIllustrationItem(BasePixivModel):
+    """Pixivision Illustration 特辑作品数据"""
+    aid: str
     title: str
     thumbnail: AnyHttpUrl
     url: AnyHttpUrl
-    tags: list[PixivisionIllustrationTag]
+    tags: list[_IllustrationTagItem] = Field(default_factory=list)
 
     @property
-    def all_tags_id(self) -> list[int]:
+    def all_tags_id(self) -> list[str]:
         return [x.tag_id for x in self.tags]
 
     @property
@@ -47,13 +47,13 @@ class PixivisionIllustration(BasePixivModel):
         return re.sub(r'【.+?】', '', self.split_title)
 
 
-class PixivisionIllustrationList(BasePixivModel):
-    """Pixivision Illustration 清单"""
-    illustrations: list[PixivisionIllustration]
+class PixivisionIllustrations(BasePixivModel):
+    """Pixivision Illustration 特辑作品导览数据"""
+    illustrations: list[PixivisionIllustrationItem] = Field(default_factory=list)
 
 
-class PixivisionArticleArtwork(BasePixivModel):
-    artwork_id: int
+class _ArticleArtworkItem(BasePixivModel):
+    artwork_id: str
     artwork_title: str
     artwork_user: str
     artwork_url: AnyHttpUrl
@@ -61,13 +61,13 @@ class PixivisionArticleArtwork(BasePixivModel):
 
 
 class PixivisionArticle(BasePixivModel):
-    """Pixivision 文章 Model"""
+    """Pixivision Article 特辑文章数据"""
     title: str
     description: str
     eyecatch_image: AnyHttpUrl | None = None
-    artwork_list: list[PixivisionArticleArtwork] = Field(default_factory=list)
-    illustration_list: list[PixivisionIllustration] = Field(default_factory=list)
-    tags_list: list[PixivisionIllustrationTag]
+    artwork_list: list[_ArticleArtworkItem] = Field(default_factory=list)
+    illustration_list: list[PixivisionIllustrationItem] = Field(default_factory=list)
+    tags_list: list[_IllustrationTagItem] = Field(default_factory=list)
 
     @property
     def title_without_mark(self) -> str:
@@ -75,7 +75,7 @@ class PixivisionArticle(BasePixivModel):
 
 
 __all__ = [
-    'PixivisionIllustrationList',
-    'PixivisionIllustration',
-    'PixivisionArticle'
+    'PixivisionIllustrations',
+    'PixivisionIllustrationItem',
+    'PixivisionArticle',
 ]

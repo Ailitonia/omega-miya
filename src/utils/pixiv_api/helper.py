@@ -13,8 +13,8 @@ import re
 from lxml import etree
 from nonebot.utils import run_sync
 
-from .model.pixivision import PixivisionArticle, PixivisionIllustrationList
-from .model.user import PixivUserSearchingModel
+from .model.pixivision import PixivisionArticle, PixivisionIllustrations
+from .model.user import PixivUserSearchingResult
 
 
 class PixivParser:
@@ -39,7 +39,7 @@ class PixivParser:
 
     @staticmethod
     @run_sync
-    def parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
+    def parse_user_searching_result_page(content: str) -> PixivUserSearchingResult:
         """解析 pixiv 用户搜索结果页内容
 
         :param content: 网页 html
@@ -78,7 +78,8 @@ class PixivParser:
 
             # 解析用户作品预览图
             illust_thumbs = user_icon.xpath(
-                f'parent::div/parent::div/parent::div//div[@type="illust"]/div/a[@data-gtm-user-id="{user_id}"]/div/img'
+                f'parent::div/parent::div/parent::div//div[@type="illust"]/'
+                f'div/a[@data-gtm-user-id="{user_id}"]/div/img'
             )
             illusts_thumb_urls = [
                 x.attrib.get('src')
@@ -90,73 +91,19 @@ class PixivParser:
                 'user_id': user_id,
                 'user_name': user_name,
                 'user_desc': user_desc,
-                'illusts_thumb_urls': illusts_thumb_urls
+                'illusts_thumb_urls': illusts_thumb_urls,
             })
 
         result = {
             'search_name': title,
             'count': count,
-            'users': user_list
+            'users': user_list,
         }
-        return PixivUserSearchingModel.model_validate(result)
+        return PixivUserSearchingResult.model_validate(result)
 
     @staticmethod
     @run_sync
-    def _parse_user_searching_result_page(content: str) -> PixivUserSearchingModel:
-        """[Deactivated]解析 pixiv 用户搜索结果页内容 (旧版页面)
-
-        :param content: 网页 html
-        """
-        html = etree.HTML(content)
-
-        # 获取搜索结果总览的部分
-        column_header = html.xpath('/html/body//div[@class="column-header"]').pop(0)
-        title = column_header.xpath('h1[@class="column-title"]/a[@class="self"]').pop(0).text
-        count = column_header.xpath('span[@class="count-badge"]').pop(0).text
-
-        # 获取搜索结果中用户内容的部分
-        user_list = []
-        users = html.xpath(
-            '/html/body//div[@class="user-search-result-container"]//li[@class="user-recommendation-item"]'
-        )
-        for user in users:
-            # 解析头像
-            user_head_a = user.xpath('a[contains(@class, "_user-icon") and @target="_blank" and @title]').pop(0)
-            user_head_url = user_head_a.attrib.get('data-src')
-            # 解析用户名和uid
-            user_href = user.xpath('h1/a[@class="title" and @target="_blank"]').pop(0)
-            user_name = user_href.text
-            user_id = user_href.attrib.get('href').replace('/users/', '')
-            # 解析投稿作品数
-            user_illust_count = user.xpath('dl[@class="meta inline-list"]/dd[1]/a').pop(0).text
-            # 解析用户简介
-            user_desc = user.xpath('p[@class="caption"]').pop(0).text
-            user_desc = '' if not user_desc else user_desc.replace('\r\n', ' ')
-            # 解析用户作品预览图
-            illust_thumb_urls = [
-                thumb.attrib.get('data-src')
-                for thumb in user.xpath('ul[@class="images"]/li[@class="action-open-thumbnail"]/a')
-                if thumb.attrib.get('data-src') is not None
-            ]
-
-            user_list.append({
-                'user_id': user_id,
-                'user_name': user_name,
-                'user_head_url': user_head_url,
-                'user_illust_count': user_illust_count,
-                'user_desc': user_desc,
-                'illusts_thumb_urls': illust_thumb_urls
-            })
-        result = {
-            'search_name': title,
-            'count': count,
-            'users': user_list
-        }
-        return PixivUserSearchingModel.model_validate(result)
-
-    @staticmethod
-    @run_sync
-    def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustrationList:
+    def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustrations:
         """解析 pixivision 导览页面内容
 
         :param content: 网页 html
@@ -189,7 +136,7 @@ class PixivParser:
                 tag_url = root_url + tag_rela_url
                 tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
             result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail_url, 'url': url, 'tags': tag_list})
-        return PixivisionIllustrationList.model_validate({'illustrations': result_list})
+        return PixivisionIllustrations.model_validate({'illustrations': result_list})
 
     @classmethod
     @run_sync

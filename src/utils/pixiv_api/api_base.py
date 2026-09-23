@@ -27,12 +27,12 @@ class BasePixivAPI(BaseCommonAPI):
     @classmethod
     def _get_default_headers(cls) -> 'HeaderTypes':
         headers = cls._get_omega_requests_default_headers()
-        headers.update({'referer': 'https://www.pixiv.net/'})
+        headers.update({'referer': f'{cls._get_root_url()}/'})
         return headers
 
     @classmethod
     def _get_default_cookies(cls) -> 'CookieTypes':
-        return pixiv_config.cookie_phpssid
+        return pixiv_config.cookie_phpsessid
 
     @classmethod
     def _get_default_user_id(cls) -> str:

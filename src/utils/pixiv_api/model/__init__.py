@@ -9,45 +9,44 @@
 """
 
 from .artwork import (
-    PixivArtworkCompleteDataModel,
-    PixivArtworkDataModel,
-    PixivArtworkPageModel,
-    PixivArtworkPreviewRequestModel,
-    PixivArtworkRecommendModel,
-    PixivArtworkUgoiraMeta,
+    PixivIllustData,
+    PixivIllustFull,
+    PixivIllustPages,
+    PixivIllustRecommend,
+    PixivIllustUgoiraMeta,
 )
-from .discovery import PixivDiscoveryModel, PixivTopModel
-from .pixivision import PixivisionArticle, PixivisionIllustrationList
-from .ranking import PixivRankingModel
-from .searching import PixivSearchingResultModel
+from .discovery import PixivDiscovery, PixivTop
+from .pixivision import PixivisionArticle, PixivisionIllustrationItem, PixivisionIllustrations
+from .ranking import PixivRanking
+from .searching import PixivSearchingResult
 from .user import (
     PixivBookmark,
     PixivFollowLatestIllust,
     PixivFollowUser,
-    PixivUserArtworkDataModel,
-    PixivUserDataModel,
-    PixivUserModel,
-    PixivUserSearchingModel,
+    PixivUserData,
+    PixivUserFull,
+    PixivUserProfile,
+    PixivUserSearchingResult,
 )
 
 __all__ = [
-    'PixivArtworkDataModel',
-    'PixivArtworkPageModel',
-    'PixivArtworkUgoiraMeta',
-    'PixivArtworkCompleteDataModel',
-    'PixivArtworkRecommendModel',
-    'PixivArtworkPreviewRequestModel',
-    'PixivRankingModel',
-    'PixivSearchingResultModel',
-    'PixivDiscoveryModel',
-    'PixivTopModel',
-    'PixivUserDataModel',
-    'PixivUserArtworkDataModel',
-    'PixivUserModel',
-    'PixivUserSearchingModel',
+    'PixivIllustData',
+    'PixivIllustPages',
+    'PixivIllustUgoiraMeta',
+    'PixivIllustFull',
+    'PixivIllustRecommend',
+    'PixivRanking',
+    'PixivSearchingResult',
+    'PixivDiscovery',
+    'PixivTop',
+    'PixivUserData',
+    'PixivUserProfile',
+    'PixivUserFull',
+    'PixivUserSearchingResult',
     'PixivFollowLatestIllust',
     'PixivFollowUser',
     'PixivisionArticle',
-    'PixivisionIllustrationList',
+    'PixivisionIllustrationItem',
+    'PixivisionIllustrations',
     'PixivBookmark',
 ]
