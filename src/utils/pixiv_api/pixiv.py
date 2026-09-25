@@ -137,7 +137,7 @@ class PixivCommon(BasePixivAPI):
         :param csw: 开启后, 可在搜索结果中, 整合显示相同作者投稿的作品
         :param dgw: 开启后, 可以显示有较大可能违反本站方针的作品
         :param lang_: 搜索语言
-        :return: dict, 原始返回数据
+        :return: 搜索结果数据
         """
         encoded_word = quote(word, safe='', encoding='utf-8')
         params: dict[str, str] = {
@@ -233,7 +233,7 @@ class PixivCommon(BasePixivAPI):
         recommend_response = await cls._get_resource_as_json(url=url, params=params)
         recommend_data = PixivTop.model_validate(recommend_response)
         if recommend_data.error:
-            raise WebSourceException(400, f'Query recommend failed, {recommend_data.message}')
+            raise WebSourceException(400, f'Query top illust failed, {recommend_data.message}')
         return recommend_data
 
     @classmethod
@@ -302,7 +302,7 @@ class PixivArtwork(PixivCommon):
         artwork_data = await self._get_resource_as_json(url=self.data_url)
         return PixivIllustData.model_validate(artwork_data)
 
-    async def _query_page_date(self) -> PixivIllustPages:
+    async def _query_page_data(self) -> PixivIllustPages:
         """获取多页信息"""
         page_data = await self._get_resource_as_json(url=self.page_data_url)
         return PixivIllustPages.model_validate(page_data)
@@ -327,7 +327,7 @@ class PixivArtwork(PixivCommon):
                 raise WebSourceException(400, f'Query {self!r} data failed, {artwork_data.message}')
 
             try:
-                page_data = await self._query_page_date()
+                page_data = await self._query_page_data()
             except ValidationError:
                 raise
             except WebSourceException as e:
@@ -528,7 +528,7 @@ class PixivUser(PixivCommon):
             accepting_requests: int = 0,
             lang: str = 'zh',
     ) -> PixivFollowUser:
-        """获取用户作品信息"""
+        """获取已关注用户列表"""
         params = {
             'offset': offset,
             'limit': limit,

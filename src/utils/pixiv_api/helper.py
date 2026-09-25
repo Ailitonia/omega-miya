@@ -16,6 +16,13 @@ from nonebot.utils import run_sync
 from .model.pixivision import PixivisionArticle, PixivisionIllustrations
 from .model.user import PixivUserSearchingResult
 
+_LOCALE_ARTICLE_PATH_PREFIX = re.compile(r'^/[a-z]{2}/a/(?=\d+)')
+"""pixivision 文章链接地域前缀(形如 /zh/a/12345)"""
+_LOCALE_TAG_PATH_PREFIX = re.compile(r'^/[a-z]{2}/t/(?=\d+)')
+"""pixivision 标签链接地域前缀(形如 /zh/t/6789)"""
+_BACKGROUND_IMAGE_URL = re.compile(r'background-image:\s*url\((.+?)\)')
+"""内联样式 background-image 中的图片链接"""
+
 
 class PixivParser:
     """Pixiv 页面解析工具集"""
@@ -25,22 +32,30 @@ class PixivParser:
         """从字符串解析 pid"""
         if url_mode:
             # 分别匹配不同格式 pixiv 链接格式, 仅能匹配特定 url 格式的字符串
-            if url_new := re.search(r'^https?://.*?pixiv\.net/(artworks|i)/(\d+?)$', text):
-                return int(url_new.group(2))
-            elif url_old := re.search(r'^https?://.*?pixiv\.net.*?illust_id=(\d+?)(&mode=\w+?)?$', text):
+            if url_new := re.search(
+                    r'^https?://(?:[a-zA-Z0-9-]+\.)*pixiv\.net/(?:artworks|i)/(\d+)(?:[/?#].*)?$', text
+            ):
+                return int(url_new.group(1))
+            elif url_old := re.search(
+                    r'^https?://(?:[a-zA-Z0-9-]+\.)*pixiv\.net(?:[/?#]\S*)?illust_id=(\d+)(?:[&#].*)?$', text
+            ):
                 return int(url_old.group(1))
         else:
             # 分别匹配不同格式 pixiv 链接格式, 可匹配任何字符串中的 url
-            if url_new := re.search(r'https?://.*?pixiv\.net/(artworks|i)/(\d+)\??', text):
-                return int(url_new.group(2))
-            elif url_old := re.search(r'https?://.*?pixiv\.net.*?illust_id=(\d+)\??', text):
+            if url_new := re.search(
+                    r'https?://(?:[a-zA-Z0-9-]+\.)*pixiv\.net/(?:artworks|i)/(\d+)', text
+            ):
+                return int(url_new.group(1))
+            elif url_old := re.search(
+                    r'https?://(?:[a-zA-Z0-9-]+\.)*pixiv\.net(?:[/?#].*)?illust_id=(\d+)', text
+            ):
                 return int(url_old.group(1))
         return None
 
     @staticmethod
     @run_sync
     def parse_user_searching_result_page(content: str) -> PixivUserSearchingResult:
-        """解析 pixiv 用户搜索结果页内容
+        """解析 pixiv 用户搜索结果页内容, 任意一条解析失败均直接抛出异常
 
         :param content: 网页 html
         """
@@ -64,9 +79,22 @@ class PixivParser:
             # user_head_url = user_icon_img.attrib.get('src')
 
             # 解析用户名和uid, 用户名在其相邻节点
-            user_name_a = user_icon.xpath('following-sibling::div/div[1]/a[@data-ga4-label="user_name_link"]').pop(0)
-            user_name = user_name_a.text
-            user_id = user_name_a.attrib.get('id')
+            user_name_a = user_icon.xpath('following-sibling::div/div[1]/a[@data-ga4-label="user_name_link"]')
+            if not user_name_a:
+                raise ValueError('Parse user searching result failed, user name link not found')
+            user_name_a_item = user_name_a.pop(0)
+            user_name = user_name_a_item.text
+            if not user_name:
+                raise ValueError('Parse user searching result failed, user name not found')
+
+            # 用户 id 位于用户名链接的 href 中
+            user_href = user_name_a_item.attrib.get('href') or ''
+            user_id_matched = re.search(r'/users/(\d+)', user_href)
+            if user_id_matched is None:
+                raise ValueError(
+                    f'Parse user searching result failed, cannot parse user id from herf {user_href!r}'
+                )
+            user_id = user_id_matched.group(1)
 
             # 解析用户简介
             user_desc_divs = user_icon.xpath('following-sibling::div/div[2]')
@@ -104,7 +132,7 @@ class PixivParser:
     @staticmethod
     @run_sync
     def parse_pixivision_show_page(content: str, root_url: str) -> PixivisionIllustrations:
-        """解析 pixivision 导览页面内容
+        """解析 pixivision 导览页面内容, 任意一条解析失败均直接抛出异常
 
         :param content: 网页 html
         :param root_url: pixivision 主域名
@@ -115,33 +143,56 @@ class PixivParser:
         result_list = []
         for card in illustration_cards:
             # 解析每篇文章对应 card 的内容
-            title_href = card.xpath('article//h2[@class="arc__title"]/a[1]').pop(0)
-            title = title_href.text.strip()
-            aid = title_href.attrib.get('data-gtm-label')
-            url = root_url + title_href.attrib.get('href')
+            title_href = card.xpath('article//h2[@class="arc__title"]/a[1]')
+            if not title_href:
+                raise ValueError('Parse pixivision show page failed, article title link not found')
+            title_href_item = title_href.pop(0)
+            title = (title_href_item.text or '').strip()
+            title_rela_url = title_href_item.attrib.get('href') or ''
+
+            aid = _LOCALE_ARTICLE_PATH_PREFIX.sub('', title_rela_url)
+            if not aid.isdigit():
+                raise ValueError(
+                    f'Parse pixivision show page failed, cannot parse article id from href {title_rela_url!r}'
+                )
 
             thumbnail = card.xpath('article//div[@class="_thumbnail"]').pop(0).attrib.get('style')
-            matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', thumbnail)
+            matched_thumbnail = _BACKGROUND_IMAGE_URL.search(thumbnail or '')
             if matched_thumbnail is None:
                 continue
-            thumbnail_url = matched_thumbnail.group(1)
+            thumbnail_url = matched_thumbnail.group(1).strip('\'" ')
 
             tag_container = card.xpath('article//ul[@class="_tag-list"]/li[@class="tls__list-item-container"]')
             tag_list = []
             for tag in tag_container:
-                tag_href = tag.xpath('a[1]').pop(0)
-                tag_name = tag_href.attrib.get('data-gtm-label').strip()
-                tag_rela_url = tag_href.attrib.get('href')
-                tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
-                tag_url = root_url + tag_rela_url
-                tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
-            result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail_url, 'url': url, 'tags': tag_list})
+                tag_href = tag.xpath('a[1]')
+                if not tag_href:
+                    continue
+
+                tag_href_item = tag_href.pop(0)
+                tag_name = tag_href_item.attrib.get('data-gtm-label')
+                tag_rela_url = tag_href_item.attrib.get('href')
+                if not tag_name or not tag_rela_url:
+                    raise ValueError('Parse pixivision tag failed, tag name or href not found')
+
+                tag_id = _LOCALE_TAG_PATH_PREFIX.sub('', tag_rela_url)
+                if not tag_id.isdigit():
+                    raise ValueError(f'Parse pixivision tag id from href {tag_rela_url!r} failed')
+                tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': root_url + tag_rela_url})
+
+            result_list.append({
+                'aid': aid,
+                'title': title,
+                'thumbnail': thumbnail_url,
+                'url': root_url + title_rela_url,
+                'tags': tag_list,
+            })
         return PixivisionIllustrations.model_validate({'illustrations': result_list})
 
     @classmethod
     @run_sync
     def parse_pixivision_article_page(cls, content: str, root_url: str) -> PixivisionArticle:
-        """解析 pixivision 文章页面内容
+        """解析 pixivision 文章页面内容, 任意一条解析失败均直接抛出异常
 
         :param content: 网页 html
         :param root_url: pixivision 主域名
@@ -178,8 +229,17 @@ class PixivParser:
 
             artwork_main = artwork.xpath('div[@class="am__work__main"]').pop(0)
             artwork_url = artwork_main.xpath('a[@class="inner-link"]').pop(0).attrib.get('href')
+            if not artwork_url:
+                raise ValueError('Parse pixivision article page artwork failed, artwork url not found')
+
             artwork_id = cls.parse_pid_from_url(text=artwork_url, url_mode=False)
-            image_url = artwork_main.xpath('a//img[contains(@class, "am__work__illust")]').pop(0).attrib.get('src')
+            if artwork_id is None:
+                raise ValueError(
+                    f'Parse pixivision article page artwork failed, cannot parse artwork id from url {artwork_url!r}'
+                )
+            image_url = artwork_main.xpath(
+                'a//img[contains(@class, "am__work__illust")]'
+            ).pop(0).attrib.get('src')
 
             artwork_list.append({
                 'artwork_id': artwork_id,
@@ -194,29 +254,42 @@ class PixivParser:
         illustrations = article_body.xpath('div//article[@class="_article-card spotlight"]')
         for illustration in illustrations:
             # 解析特辑信息
-            illustration_thumbnail = illustration.xpath('div/a/div[@class="_thumbnail"]').pop(0).attrib.get('style')
-            matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', illustration_thumbnail)
+            illustration_thumbnail = illustration.xpath(
+                'div/a/div[@class="_thumbnail"]'
+            ).pop(0).attrib.get('style')
+            matched_thumbnail = _BACKGROUND_IMAGE_URL.search(illustration_thumbnail or '')
             if matched_thumbnail is None:
                 continue
-            illustration_thumbnail_url = matched_thumbnail.group(1)
+            illustration_thumbnail_url = matched_thumbnail.group(1).strip('\'" ')
+
             illustration_info = illustration.xpath('div/h2[@class="arc__title"]/a').pop(0)
-            illustration_title = illustration_info.text.strip()
-            illustration_href = illustration_info.attrib.get('href')
-            illustration_url = root_url + illustration_href
-            illustration_aid = re.sub(r'^/\w{2}/a/(?=\d+)', '', illustration_href)
+            illustration_title = (illustration_info.text or '').strip()
+            illustration_href = illustration_info.attrib.get('href') or ''
+
+            illustration_aid = _LOCALE_ARTICLE_PATH_PREFIX.sub('', illustration_href)
+            if not illustration_aid.isdigit():
+                raise ValueError(
+                    f'Parse pixivision article page illustration failed, '
+                    f'cannot parse illustration id from href {illustration_href!r}'
+                )
             illustration_tags = [
                 {
-                    'tag_id': re.sub(r'^/\w{2}/t/(?=\d+)', '', x.attrib.get('href')),
-                    'tag_name': x.attrib.get('data-gtm-label'),
-                    'tag_url': root_url + x.attrib.get('href'),
+                    'tag_id': tag_id,
+                    'tag_name': tag_name.strip(),
+                    'tag_url': root_url + tag_href,
                 }
                 for x in illustration.xpath('div/ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a')
+                if (
+                        (tag_href := x.attrib.get('href')) is not None
+                        and (tag_id := _LOCALE_TAG_PATH_PREFIX.sub('', tag_href))
+                        and (tag_name := x.attrib.get('data-gtm-label')) is not None
+                )
             ]
             illustration_list.append({
                 'aid': illustration_aid,
                 'title': illustration_title,
                 'thumbnail': illustration_thumbnail_url,
-                'url': illustration_url,
+                'url': root_url + illustration_href,
                 'tags': illustration_tags,
             })
 
@@ -226,7 +299,9 @@ class PixivParser:
         for tag in tag_hrefs:
             tag_name = tag.attrib.get('data-gtm-label')
             tag_rela_url = tag.attrib.get('href')
-            tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
+            if not tag_rela_url:
+                continue
+            tag_id = _LOCALE_TAG_PATH_PREFIX.sub('', tag_rela_url)
             tag_url = root_url + tag_rela_url
             tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
 

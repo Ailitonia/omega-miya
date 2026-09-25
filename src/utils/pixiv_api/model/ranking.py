@@ -108,9 +108,11 @@ class PixivRanking(BasePixivModel):
     meta: _Meta | None = Field(default=None)
 
     def get_ranking(self, rank_num: int) -> _Content:
-        if not (self.page - 1) * len(self.contents) <= rank_num - 1 < self.page * len(self.contents):
+        # 以页内首条目的 rank 为基准定位, 兼容末页不足整页的情况
+        offset = rank_num - self.contents[0].rank if self.contents else -1
+        if not 0 <= offset < len(self.contents):
             raise ValueError(f'Ranking num not in this page, maybe in page {int((rank_num - 1) // 50 + 1)}')
-        return self.contents[rank_num - 1 - (self.page - 1) * len(self.contents)]
+        return self.contents[offset]
 
 
 __all__ = [

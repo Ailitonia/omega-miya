@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-from typing import Any
-
 from pydantic import Field, model_validator
 
 from src.compat import AnyHttpUrlStr as AnyHttpUrl
@@ -34,9 +32,7 @@ class _UserProfileBody(BasePixivModel):
     def _validate_content_is_none(cls, values):
         """校验 illusts/manga/novels 值为空列表时转为空字典"""
         if isinstance(values, dict):
-            for k, v in values.items():
-                if isinstance(v, list) and not v:
-                    values[k] = {}
+            values = {k: ({} if isinstance(v, list) and not v else v) for k, v in values.items()}
         return values
 
     @property
@@ -188,7 +184,7 @@ class _FollowUserItem(BasePixivModel):
 class _FollowUserBody(BasePixivModel):
     users: list[_FollowUserItem]
     total: int
-    followUserTags: list[Any]
+    followUserTags: list[str] = Field(default_factory=list)
 
 
 class PixivFollowUser(BasePixivModel):

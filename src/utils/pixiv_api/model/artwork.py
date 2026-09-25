@@ -66,7 +66,7 @@ class _IllustDataBody(BaseArtworkData):
     def _migrate_tags_field(cls, values):
         """详情接口返回的 tags 为对象结构(与列表接口的 list[str] 不同), 迁移至 tag_info 字段避免与父类字段冲突"""
         if isinstance(values, dict) and isinstance(values.get('tags'), dict):
-            values['tag_info'] = values.pop('tags')
+            values = {k: v for k, v in values.items() if k != 'tags'} | {'tag_info': values['tags']}
         return values
 
     # 作品相关统计信息
