@@ -8,12 +8,10 @@
 @Software       : PyCharm
 """
 
-from typing import TYPE_CHECKING, Any, ClassVar
-
 from src.exception import WebSourceException
-from src.utils import BaseCommonAPI
-from .config import weibo_api_config
-from .helper import parse_weibo_card_from_status_page
+from .base import BaseWeiboAPI
+from .credential_manager import WEIBO_CREDENTIAL_MANAGER
+from .misc import parse_weibo_card_from_status_page
 from .model import (
     WeiboCard,
     WeiboCardStatus,
@@ -25,56 +23,17 @@ from .model import (
     WeiboUserInfo,
 )
 
-if TYPE_CHECKING:
-    from src.resource import TemporaryResource
 
-
-class Weibo(BaseCommonAPI):
+class Weibo(BaseWeiboAPI):
     """微博, 使用手机端网页 api"""
-
-    _default_cookies: ClassVar[dict[str, str]] = {}
-    """缓存默认 cookies 值"""
-
-    @classmethod
-    def _get_root_url(cls, *args, **kwargs) -> str:
-        return 'https://m.weibo.cn'
-
-    @classmethod
-    def _get_default_headers(cls) -> dict[str, Any]:
-        headers = cls._get_omega_requests_default_headers()
-        headers.update({
-            'origin': 'https://m.weibo.cn',
-            'referer': 'https://m.weibo.cn/'
-        })
-        return headers
-
-    @classmethod
-    def _get_default_cookies(cls) -> dict[str, str]:
-        return cls._default_cookies.copy()
 
     @classmethod
     async def update_default_cookies(cls) -> dict[str, str]:
-        """刷新默认 cookies 值"""
-        main_page_response = await cls._request_get(url=cls._get_root_url())
-        cookies = cls._extra_set_cookies_from_response(response=main_page_response)
-        cls._default_cookies.update(cookies)
-        return cookies
+        """刷新并确保默认 Cookies 可用 (依次经由内存缓存、数据库、访客风控流程)"""
+        from .credential import WeiboCredential
 
-    @classmethod
-    async def download_resource(
-            cls,
-            url: str,
-            *,
-            subdir: str | None = None,
-            ignore_exist_file: bool = False
-    ) -> 'TemporaryResource':
-        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
-        return await cls._download_resource(
-            save_folder=weibo_api_config.default_download_folder,
-            url=url,
-            subdir=subdir,
-            ignore_exist_file=ignore_exist_file
-        )
+        await WeiboCredential.ensure_cookies()
+        return WEIBO_CREDENTIAL_MANAGER.cookies
 
     @classmethod
     async def query_user_data(cls, uid: int | str) -> WeiboUserBase:

@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Literal, Optional
 
 from lxml import etree
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.compat import AnyUrlStr as AnyUrl
 
@@ -21,6 +21,87 @@ class WeiboBaseModel(BaseModel):
     """微博基类"""
 
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True)
+
+
+class WeiboVisitorPageParams(WeiboBaseModel):
+    """访客风控流程起始页面参数"""
+    request_id: str = ''
+    return_url: str
+    ver: str
+    from_: str = Field(alias='from')
+
+
+class _BdResponseData(WeiboBaseModel):
+    """bd 接口返回数据"""
+    rid: str | None = Field(default=None)
+
+
+class WeiboBdResponse(WeiboBaseModel):
+    """bd 指纹校验接口返回"""
+    retcode: int
+    msg: str | None = Field(default=None)
+    data: _BdResponseData | None = Field(default=None)
+
+
+class _GenVisitorData(WeiboBaseModel):
+    """genvisitor2 接口返回数据"""
+    tid: str | None = Field(default=None)
+    new_tid: bool | None = Field(default=None)
+    confidence: int | None = Field(default=None)
+
+
+class WeiboGenVisitorResult(WeiboBaseModel):
+    """genvisitor2 访客令牌签发接口返回 (JSONP 回调解析后)"""
+    retcode: int
+    msg: str | None = Field(default=None)
+    data: _GenVisitorData | None = Field(default=None)
+
+
+class _QrCodeImageData(WeiboBaseModel):
+    """登录二维码申请接口返回数据"""
+    qrid: str
+    image: AnyUrl
+
+
+class WeiboQrCodeImage(WeiboBaseModel):
+    """登录二维码申请接口返回"""
+    retcode: int
+    msg: str | None = Field(default=None)
+    data: _QrCodeImageData | None = Field(default=None)
+
+
+class WeiboLoginQrCodeInfo(WeiboBaseModel):
+    """登录二维码信息 (供生成二维码图片与轮询登录状态使用)"""
+    qrid: str
+    image_url: AnyUrl
+    rid: str
+    csrf_token: str
+
+
+class _QrCodeCheckData(WeiboBaseModel):
+    """二维码登录状态检查接口返回数据"""
+    url: AnyUrl | None = Field(default=None)
+
+
+class WeiboQrCodeCheck(WeiboBaseModel):
+    """二维码登录状态检查接口返回"""
+    retcode: int
+    msg: str | None = Field(default=None)
+    data: _QrCodeCheckData | None = Field(default=None)
+
+
+class _ApiConfigData(WeiboBaseModel):
+    """api/config 接口返回数据"""
+    login: bool
+    st: str | None = Field(default=None)
+    user_token: str | None = Field(default=None)
+    uid: str | None = Field(default=None)
+
+
+class WeiboApiConfig(WeiboBaseModel):
+    """m.weibo.cn/api/config 接口返回"""
+    ok: int | None = Field(default=None)
+    data: _ApiConfigData | None = Field(default=None)
 
 
 class WeiboUserBase(WeiboBaseModel):
@@ -58,7 +139,7 @@ class _UserData(WeiboBaseModel):
     profile_ext: str
     scheme: AnyUrl
     showAppTips: int
-    tabsInfo: dict | None = None
+    tabsInfo: dict | None = Field(default=None)
     userInfo: WeiboUserBase
 
 
@@ -100,26 +181,26 @@ class _MblogPic(WeiboBaseModel):
 class _PagePic(WeiboBaseModel):
     """page_info.page_pic model"""
     url: AnyUrl
-    pid: str | None = None
-    source: int | None = None
-    is_self_cover: int | None = None
-    type: int | None = None
-    width: int | str | None = None
-    height: int | str | None = None
+    pid: str | None = Field(default=None)
+    source: int | None = Field(default=None)
+    is_self_cover: int | None = Field(default=None)
+    type: int | None = Field(default=None)
+    width: int | str | None = Field(default=None)
+    height: int | str | None = Field(default=None)
 
 
 class _PageInfo(WeiboBaseModel):
     """page_info model"""
     type: str
-    object_type: str | None = None
     page_pic: _PagePic
-    page_url: AnyUrl | None = None
-    page_title: str | None = None
-    title: str | None = None
-    content1: str | None = None
-    content2: str | None = None
-    url_ori: AnyUrl | None = None
-    object_id: str | None = None
+    page_url: AnyUrl | None = Field(default=None)
+    page_title: str | None = Field(default=None)
+    title: str | None = Field(default=None)
+    content1: str | None = Field(default=None)
+    content2: str | None = Field(default=None)
+    url_ori: AnyUrl | None = Field(default=None)
+    object_id: str | None = Field(default=None)
+    object_type: str | None = Field(default=None)
 
     @property
     def pic_url(self) -> AnyUrl:
@@ -133,19 +214,19 @@ class _WeiboCardMbLog(WeiboBaseModel):
     id: int
     mid: str
     can_edit: bool
-    show_additional_indication: int | None = None
+    show_additional_indication: int | None = Field(default=None)
     text: str
-    textLength: int | None = None
+    textLength: int | None = Field(default=None)
     source: str
     favorited: bool
     pic_ids: list[str]
-    thumbnail_pic: AnyUrl | None = None
-    bmiddle_pic: AnyUrl | None = None
-    original_pic: AnyUrl | None = None
+    thumbnail_pic: AnyUrl | None = Field(default=None)
+    bmiddle_pic: AnyUrl | None = Field(default=None)
+    original_pic: AnyUrl | None = Field(default=None)
     is_paid: bool
     mblog_vip_type: int
     user: WeiboUserBase
-    retweeted_status: Optional['_WeiboCardMbLog'] = None
+    retweeted_status: Optional['_WeiboCardMbLog'] = Field(default=None)
     reposts_count: int
     comments_count: int
     reprint_cmt_count: int
@@ -154,21 +235,21 @@ class _WeiboCardMbLog(WeiboBaseModel):
     isLongText: bool
     mlevel: int
     show_mlevel: int
-    darwin_tags: list | None = None
-    hot_page: dict | None = None
-    mblogtype: int | None = None
-    rid: str | None = None
-    extern_safe: int | None = None
-    number_display_strategy: dict | None = None
-    content_auth: int | None = None
-    comment_manage_info: dict | None = None
+    darwin_tags: list | None = Field(default=None)
+    hot_page: dict | None = Field(default=None)
+    mblogtype: int | None = Field(default=None)
+    rid: str | None = Field(default=None)
+    extern_safe: int | None = Field(default=None)
+    number_display_strategy: dict | None = Field(default=None)
+    content_auth: int | None = Field(default=None)
+    comment_manage_info: dict | None = Field(default=None)
     pic_num: int
-    new_comment_style: int | None = None
-    region_name: str | None = None
-    region_opt: int | None = None
-    page_info: _PageInfo | None = None
-    edit_config: dict | None = None
-    pics: list[_MblogPic] | None = None
+    new_comment_style: int | None = Field(default=None)
+    region_name: str | None = Field(default=None)
+    region_opt: int | None = Field(default=None)
+    page_info: _PageInfo | None = Field(default=None)
+    edit_config: dict | None = Field(default=None)
+    pics: list[_MblogPic] | None = Field(default=None)
     bid: str
 
     @field_validator('text')
@@ -220,9 +301,9 @@ class WeiboCard(WeiboBaseModel):
     """单条微博内容(data.cards.card model)"""
     card_type: str
     mblog: _WeiboCardMbLog
-    itemid: str | None = None
-    profile_type_id: str | None = None
-    scheme: str | None = None
+    itemid: str | None = Field(default=None)
+    profile_type_id: str | None = Field(default=None)
+    scheme: str | None = Field(default=None)
 
 
 class _CardListInfo(WeiboBaseModel):
@@ -284,53 +365,53 @@ class _HotCardlistInfo(WeiboBaseModel):
     """realtime hot data.cardlistInfo"""
     starttime: int
     can_shared: int
-    cardlist_menus: list | None = None
+    cardlist_menus: list | None = Field(default=None)
     config: dict
     page_type: str
     cardlist_head_cards: list[dict]
-    enable_load_imge_scrolling: int | None = None
+    enable_load_imge_scrolling: int | None = Field(default=None)
     nick: str
     page_title: str
     search_request_id: str
     v_p: str
     containerid: str
     refresh_configs: dict
-    headbg_animation: str | None = None
+    headbg_animation: str | None = Field(default=None)
     total: int
     page_size: int
     select_id: str
     title_top: str
     show_style: int
-    page: int | None = None
+    page: int | None = Field(default=None)
 
 
 class _HotCardGroup(WeiboBaseModel):
     """realtime hot data.cards.card_group"""
     card_type: int
-    icon: AnyUrl | None = None
-    icon_height: int | None = None
-    icon_width: int | None = None
-    itemid: str | None = None
-    pic: AnyUrl | None = None
-    desc: str | None = None
-    desc_extr: str | None = None
-    actionlog: dict | None = None
+    icon: AnyUrl | None = Field(default=None)
+    icon_height: int | None = Field(default=None)
+    icon_width: int | None = Field(default=None)
+    itemid: str | None = Field(default=None)
+    pic: AnyUrl | None = Field(default=None)
+    desc: str | None = Field(default=None)
+    desc_extr: str | None = Field(default=None)
+    actionlog: dict | None = Field(default=None)
     scheme: AnyUrl
-    display_arrow: int | None = None
-    is_show_arrow: int | None = None
-    left_tag_img: AnyUrl | None = None
-    title: str | None = None
-    title_sub: str | None = None
-    sub_title: str | None = None
+    display_arrow: int | None = Field(default=None)
+    is_show_arrow: int | None = Field(default=None)
+    left_tag_img: AnyUrl | None = Field(default=None)
+    title: str | None = Field(default=None)
+    title_sub: str | None = Field(default=None)
+    sub_title: str | None = Field(default=None)
 
 
 class WeiboRealtimeHotCard(WeiboBaseModel):
     """realtime hot data.cards"""
-    itemid: str | None = None
+    itemid: str | None = Field(default=None)
     card_group: list[_HotCardGroup]
     show_type: int
     card_type: int
-    title: str | None = None
+    title: str | None = Field(default=None)
 
 
 class _RealtimeHotData(WeiboBaseModel):
@@ -346,12 +427,19 @@ class WeiboRealtimeHot(WeiboBaseModel):
 
 
 __all__ = [
+    'WeiboApiConfig',
+    'WeiboBdResponse',
     'WeiboCard',
     'WeiboCards',
     'WeiboCardStatus',
     'WeiboExtend',
+    'WeiboGenVisitorResult',
+    'WeiboLoginQrCodeInfo',
+    'WeiboQrCodeCheck',
+    'WeiboQrCodeImage',
     'WeiboRealtimeHotCard',
     'WeiboRealtimeHot',
     'WeiboUserBase',
     'WeiboUserInfo',
+    'WeiboVisitorPageParams',
 ]

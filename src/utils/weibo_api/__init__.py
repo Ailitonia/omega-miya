@@ -8,8 +8,10 @@
 @Software       : PyCharm
 """
 
+from .credential import WeiboCredential
 from .main import Weibo
 
 __all__ = [
     'Weibo',
+    'WeiboCredential',
 ]

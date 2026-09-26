@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-from typing import Literal
-
 from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -17,18 +15,17 @@ from src.resource import TemporaryResource
 
 
 class WeiboAPIConfig(BaseModel):
-    # 默认的缓存资源保存路径
-    weibo_api_default_tmp_folder_name: Literal['weibo'] = 'weibo'
+    """微博 API 配置"""
 
     model_config = ConfigDict(extra='ignore')
 
     @property
     def default_tmp_folder(self) -> TemporaryResource:
-        return TemporaryResource(self.weibo_api_default_tmp_folder_name)
+        return TemporaryResource('weibo')
 
     @property
     def default_download_folder(self) -> TemporaryResource:
-        return TemporaryResource(self.weibo_api_default_tmp_folder_name, 'download')
+        return self.default_tmp_folder('download')
 
 
 try:
