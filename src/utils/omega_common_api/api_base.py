@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING, Any
 from multidict import CIMultiDict
 
 from src.exception import WebSourceException
-from ..omega_requests import OmegaRequests
 from .types import Cookies, Timeout
+from ..omega_requests import OmegaRequests
 
 if TYPE_CHECKING:
     from src.resource import BaseResource
@@ -177,12 +177,17 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """内部方法, 使用 GET 方法请求(仅接受 2xx 状态码响应)"""
         requests = cls._init_omega_requests(
-            timeout=timeout, headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
+            timeout=timeout,
+            headers=headers,
+            cookies=cookies,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
         )
-        response = await requests.get(url=url, params=params)
+        response = await requests.get(url=url, params=params, auto_redirects=auto_redirects)
         if not 200 <= response.status_code < 300:
             raise WebSourceException(response.status_code, str(response.request), response.content)
 
@@ -199,12 +204,17 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """内部方法, 使用 DELETE 方法请求(仅接受 2xx 状态码响应)"""
         requests = cls._init_omega_requests(
-            timeout=timeout, headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
+            timeout=timeout,
+            headers=headers,
+            cookies=cookies,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
         )
-        response = await requests.delete(url=url, params=params)
+        response = await requests.delete(url=url, params=params, auto_redirects=auto_redirects)
         if not 200 <= response.status_code < 300:
             raise WebSourceException(response.status_code, str(response.request), response.content)
 
@@ -225,12 +235,25 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """内部方法, 使用 POST 方法请求(仅接受 2xx 状态码响应)"""
         requests = cls._init_omega_requests(
-            timeout=timeout, headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
+            timeout=timeout,
+            headers=headers,
+            cookies=cookies,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
         )
-        response = await requests.post(url=url, params=params, content=content, data=data, json=json, files=files)
+        response = await requests.post(
+            url=url,
+            params=params,
+            content=content,
+            data=data,
+            json=json,
+            files=files,
+            auto_redirects=auto_redirects,
+        )
         if not 200 <= response.status_code < 300:
             raise WebSourceException(response.status_code, str(response.request), response.content)
 
@@ -251,12 +274,25 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """内部方法, 使用 PUT 方法请求(仅接受 2xx 状态码响应)"""
         requests = cls._init_omega_requests(
-            timeout=timeout, headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
+            timeout=timeout,
+            headers=headers,
+            cookies=cookies,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
         )
-        response = await requests.put(url=url, params=params, content=content, data=data, json=json, files=files)
+        response = await requests.put(
+            url=url,
+            params=params,
+            content=content,
+            data=data,
+            json=json,
+            files=files,
+            auto_redirects=auto_redirects,
+        )
         if not 200 <= response.status_code < 300:
             raise WebSourceException(response.status_code, str(response.request), response.content)
 
@@ -274,6 +310,7 @@ class BaseCommonAPI(abc.ABC):
             no_headers: bool = False,
             no_cookies: bool = False,
             chunk_size: int = 1024,
+            auto_redirects: bool = True,
     ) -> AsyncGenerator['Response', None]:
         """内部方法, 使用 GET 方法发起流式请求
 
@@ -281,9 +318,18 @@ class BaseCommonAPI(abc.ABC):
         状态码校验无从执行, 调用方将观察到空流而非异常; 需要状态保证的场景请使用非流式接口
         """
         requests = cls._init_omega_requests(
-            timeout=timeout, headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
+            timeout=timeout,
+            headers=headers,
+            cookies=cookies,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
         )
-        async for response in requests.stream_get(url=url, params=params, chunk_size=chunk_size):
+        async for response in requests.stream_get(
+                url=url,
+                params=params,
+                chunk_size=chunk_size,
+                auto_redirects=auto_redirects,
+        ):
             if not 200 <= response.status_code < 300:
                 raise WebSourceException(response.status_code, str(response.request), response.content)
             yield response
@@ -304,6 +350,7 @@ class BaseCommonAPI(abc.ABC):
             no_headers: bool = False,
             no_cookies: bool = False,
             chunk_size: int = 1024,
+            auto_redirects: bool = True,
     ) -> AsyncGenerator['Response', None]:
         """内部方法, 使用 POST 方法发起流式请求
 
@@ -311,10 +358,21 @@ class BaseCommonAPI(abc.ABC):
         状态码校验无从执行, 调用方将观察到空流而非异常; 需要状态保证的场景请使用非流式接口
         """
         requests = cls._init_omega_requests(
-            timeout=timeout, headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
+            timeout=timeout,
+            headers=headers,
+            cookies=cookies,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
         )
         async for response in requests.stream_post(
-                url=url, params=params, content=content, data=data, json=json, files=files, chunk_size=chunk_size,
+                url=url,
+                params=params,
+                content=content,
+                data=data,
+                json=json,
+                files=files,
+                chunk_size=chunk_size,
+                auto_redirects=auto_redirects,
         ):
             if not 200 <= response.status_code < 300:
                 raise WebSourceException(response.status_code, str(response.request), response.content)
@@ -331,11 +389,18 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> Any:
         """内部方法, 使用 GET 方法请求 API, 返回 json 内容"""
         response = await cls._request_get(
-            url=url, params=params,
-            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+            url=url,
+            params=params,
+            headers=headers,
+            cookies=cookies,
+            timeout=timeout,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
+            auto_redirects=auto_redirects,
         )
         return cls._parse_content_as_json(response)
 
@@ -350,11 +415,18 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> bytes:
         """内部方法, 使用 GET 方法获取内容, 并转换为 bytes 类型返回"""
         response = await cls._request_get(
-            url=url, params=params,
-            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+            url=url,
+            params=params,
+            headers=headers,
+            cookies=cookies,
+            timeout=timeout,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
+            auto_redirects=auto_redirects,
         )
         return cls._parse_content_as_bytes(response=response)
 
@@ -369,11 +441,18 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> str:
         """内部方法, 使用 GET 方法获取内容, 并转换为 str 类型返回"""
         response = await cls._request_get(
-            url=url, params=params,
-            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+            url=url,
+            params=params,
+            headers=headers,
+            cookies=cookies,
+            timeout=timeout,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
+            auto_redirects=auto_redirects,
         )
         return cls._parse_content_as_text(response=response)
 
@@ -390,6 +469,7 @@ class BaseCommonAPI(abc.ABC):
             no_cookies: bool = False,
             chunk_size: int = 1024,
             encoding: str = 'utf-8',
+            auto_redirects: bool = True,
     ) -> AsyncGenerator[str, None]:
         """内部方法, 使用 GET 方法发起流式请求获取内容, 转换为 str 类型按行迭代
 
@@ -405,6 +485,7 @@ class BaseCommonAPI(abc.ABC):
                     no_headers=no_headers,
                     no_cookies=no_cookies,
                     chunk_size=chunk_size,
+                    auto_redirects=auto_redirects,
                 ),
                 encoding=encoding,
         ):
@@ -427,6 +508,7 @@ class BaseCommonAPI(abc.ABC):
             no_cookies: bool = False,
             chunk_size: int = 1024,
             encoding: str = 'utf-8',
+            auto_redirects: bool = True,
     ) -> AsyncGenerator[str, None]:
         """内部方法, 使用 POST 方法发起流式请求获取内容, 转换为 str 类型按行迭代
 
@@ -446,6 +528,7 @@ class BaseCommonAPI(abc.ABC):
                     no_headers=no_headers,
                     no_cookies=no_cookies,
                     chunk_size=chunk_size,
+                    auto_redirects=auto_redirects,
                 ),
                 encoding=encoding,
         ):
@@ -466,11 +549,22 @@ class BaseCommonAPI(abc.ABC):
             cookies: 'CookieTypes' = None,
             no_headers: bool = False,
             no_cookies: bool = False,
+            auto_redirects: bool = True,
     ) -> Any:
         """内部方法, 使用 POST 方法请求 API, 返回 json 内容"""
         response = await cls._request_post(
-            url=url, params=params, content=content, data=data, json=json, files=files,
-            headers=headers, cookies=cookies, timeout=timeout, no_headers=no_headers, no_cookies=no_cookies
+            url=url,
+            params=params,
+            content=content,
+            data=data,
+            json=json,
+            files=files,
+            headers=headers,
+            cookies=cookies,
+            timeout=timeout,
+            no_headers=no_headers,
+            no_cookies=no_cookies,
+            auto_redirects=auto_redirects,
         )
         return cls._parse_content_as_json(response)
 

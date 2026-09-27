@@ -1025,3 +1025,216 @@ class TestProxy:
         response = await OmegaRequests().get(f'{test_server.base_url}/get', use_proxy=True)
 
         assert response.status_code == 200
+
+
+def _capture_driver_request(monkeypatch: pytest.MonkeyPatch) -> list:
+    """monkeypatch 驱动 request 方法, 捕获 Request setup 并返回固定 200 响应(不经网络)"""
+    from nonebot import get_driver
+    from nonebot.drivers import Response
+
+    captured = []
+
+    async def _fake_request(setup):
+        captured.append(setup)
+        return Response(200, content=b'{}')
+
+    monkeypatch.setattr(get_driver(), 'request', _fake_request)
+    return captured
+
+
+def _capture_driver_stream_request(monkeypatch: pytest.MonkeyPatch) -> list:
+    """monkeypatch 驱动 stream_request 方法, 捕获 Request setup 并产出固定分块(不经网络)"""
+    from nonebot import get_driver
+    from nonebot.drivers import Response
+
+    captured = []
+
+    async def _fake_stream_request(setup, *, chunk_size=1024):
+        captured.append(setup)
+        yield Response(200, content=b'a\nb\n')
+
+    monkeypatch.setattr(get_driver(), 'stream_request', _fake_stream_request)
+    return captured
+
+
+class TestAutoRedirectsSetup:
+    """auto_redirects 参数透传 Request setup 单元测试(monkeypatch 驱动方法, 不经网络)"""
+
+    @pytest.mark.parametrize('method', ['get', 'post', 'put', 'delete'])
+    async def test_request_methods_default_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
+        from src.utils.omega_requests import OmegaRequests
+
+        captured = _capture_driver_request(monkeypatch)
+
+        await getattr(OmegaRequests(), method)('http://127.0.0.1/')
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is True
+
+    @pytest.mark.parametrize('method', ['get', 'post', 'put', 'delete'])
+    async def test_request_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
+        from src.utils.omega_requests import OmegaRequests
+
+        captured = _capture_driver_request(monkeypatch)
+
+        await getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    @pytest.mark.parametrize('method', ['stream_get', 'stream_post'])
+    async def test_stream_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
+        from src.utils.omega_requests import OmegaRequests
+
+        captured = _capture_driver_stream_request(monkeypatch)
+
+        _ = [x async for x in getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)]
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    @pytest.mark.parametrize('method', ['stream_get_iter_lines', 'stream_post_iter_lines'])
+    async def test_iter_lines_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
+        from src.utils.omega_requests import OmegaRequests
+
+        captured = _capture_driver_stream_request(monkeypatch)
+
+        lines = [x async for x in getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)]
+
+        assert lines == ['a', 'b']
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+
+class TestAutoRedirects:
+    """auto_redirects 重定向行为集成测试(真实请求测试服务端)"""
+
+    async def test_get_follows_redirect_by_default(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        token = new_request_token()
+
+        response = await OmegaRequests().get(
+            f'{test_server.base_url}/redirect/302', params={'target': f'/redirect_target/{token}'}
+        )
+
+        assert response.status_code == 200
+        assert OmegaRequests.parse_content_as_json(response) == {'ok': True, 'token': token}
+        assert test_server.state.counters[f'redirect_target:{token}'] == 1
+
+    @pytest.mark.parametrize('code', [301, 302, 303, 307, 308])
+    async def test_get_follows_redirect_codes(self, code: int, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        token = new_request_token()
+
+        response = await OmegaRequests().get(
+            f'{test_server.base_url}/redirect/{code}', params={'target': f'/redirect_target/{token}'}
+        )
+
+        assert response.status_code == 200
+        assert test_server.state.counters[f'redirect_target:{token}'] == 1
+
+    async def test_get_no_follow_redirect(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        token = new_request_token()
+        target = f'/redirect_target/{token}'
+
+        response = await OmegaRequests().get(
+            f'{test_server.base_url}/redirect/302', params={'target': target}, auto_redirects=False
+        )
+
+        assert response.status_code == 302
+        assert response.headers['location'] == target
+        assert OmegaRequests.parse_content_as_bytes(response) == b'redirect 302'
+        assert test_server.state.counters[f'redirect_target:{token}'] == 0
+
+    @pytest.mark.parametrize('method', ['post', 'put', 'delete'])
+    async def test_no_follow_redirect_methods(self, method: str, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        response = await getattr(OmegaRequests(), method)(f'{test_server.base_url}/redirect/302', auto_redirects=False)
+
+        assert response.status_code == 302
+        assert OmegaRequests.parse_content_as_bytes(response) == b'redirect 302'
+
+    async def test_post_redirect_302_becomes_get(self, test_server: SimpleNamespace):
+        """301/302/303 重定向按惯例将 POST 转为 GET(aiohttp 行为), 目标收到的是 GET 请求"""
+        from src.utils.omega_requests import OmegaRequests
+
+        response = await OmegaRequests().post(
+            f'{test_server.base_url}/redirect/302', params={'target': '/get'}, content=b'x'
+        )
+
+        assert response.status_code == 200
+        data = OmegaRequests.parse_content_as_json(response)
+        assert 'headers' in data  # /get 回显形状, 证明重定向后以 GET 到达
+
+    async def test_post_redirect_307_preserves_method_and_body(self, test_server: SimpleNamespace):
+        """307/308 重定向保持方法与请求体, echo 目标应收到原始 JSON"""
+        from src.utils.omega_requests import OmegaRequests
+
+        response = await OmegaRequests().post(
+            f'{test_server.base_url}/redirect/307', params={'target': '/post_json'}, json={'k': 'v'}
+        )
+
+        assert response.status_code == 200
+        assert OmegaRequests.parse_content_as_json(response) == {'echo': {'k': 'v'}}
+
+    async def test_stream_get_follows_redirect(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        responses = [
+            x async for x in OmegaRequests().stream_get(
+                f'{test_server.base_url}/redirect/302', params={'target': '/stream'}
+            )
+        ]
+
+        assert responses
+        assert all(x.status_code == 200 for x in responses)
+        assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
+
+    async def test_stream_get_no_follow_redirect(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        responses = [
+            x async for x in OmegaRequests().stream_get(f'{test_server.base_url}/redirect/302', auto_redirects=False)
+        ]
+
+        assert responses
+        assert all(x.status_code == 302 for x in responses)
+        assert b''.join(x.content for x in responses) == b'redirect 302'
+
+    async def test_stream_post_no_follow_redirect(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        responses = [
+            x async for x in OmegaRequests().stream_post(f'{test_server.base_url}/redirect/302', auto_redirects=False)
+        ]
+
+        assert responses
+        assert all(x.status_code == 302 for x in responses)
+        assert b''.join(x.content for x in responses) == b'redirect 302'
+
+    async def test_stream_get_iter_lines_follows_redirect(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        lines = [
+            x async for x in OmegaRequests().stream_get_iter_lines(
+                f'{test_server.base_url}/redirect/302', params={'target': '/lines'}
+            )
+        ]
+
+        assert lines == _LINES_EXPECTED
+
+    async def test_stream_get_iter_lines_no_follow_redirect(self, test_server: SimpleNamespace):
+        from src.utils.omega_requests import OmegaRequests
+
+        lines = [
+            x async for x in OmegaRequests().stream_get_iter_lines(
+                f'{test_server.base_url}/redirect/302', auto_redirects=False
+            )
+        ]
+
+        assert lines == ['redirect 302']

@@ -16,7 +16,13 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from multidict import CIMultiDict
 
-from tests.test_003_web.helpers import _DOWNLOAD_PAYLOAD, _LINES_EXPECTED, _STREAM_PAYLOAD, line_chunks_stream
+from tests.test_003_web.helpers import (
+    _DOWNLOAD_PAYLOAD,
+    _LINES_EXPECTED,
+    _STREAM_PAYLOAD,
+    line_chunks_stream,
+    new_request_token,
+)
 
 if TYPE_CHECKING:
     from src.utils.omega_common_api import BaseCommonAPI
@@ -622,3 +628,262 @@ class TestDefaultDelegations:
         from src.utils.omega_requests import OmegaRequests
 
         assert api_impl._get_omega_requests_default_headers() == OmegaRequests.get_default_headers()
+
+
+def _capture_driver_request(monkeypatch: pytest.MonkeyPatch) -> list:
+    """monkeypatch 驱动 request 方法, 捕获 Request setup 并返回固定 200 响应(不经网络)"""
+    from nonebot import get_driver
+    from nonebot.drivers import Response
+
+    captured = []
+
+    async def _fake_request(setup):
+        captured.append(setup)
+        return Response(200, content=b'{}')
+
+    monkeypatch.setattr(get_driver(), 'request', _fake_request)
+    return captured
+
+
+def _capture_driver_stream_request(monkeypatch: pytest.MonkeyPatch) -> list:
+    """monkeypatch 驱动 stream_request 方法, 捕获 Request setup 并产出固定分块(不经网络)"""
+    from nonebot import get_driver
+    from nonebot.drivers import Response
+
+    captured = []
+
+    async def _fake_stream_request(setup, *, chunk_size=1024):
+        captured.append(setup)
+        yield Response(200, content=b'a\n')
+
+    monkeypatch.setattr(get_driver(), 'stream_request', _fake_stream_request)
+    return captured
+
+
+class TestAutoRedirects:
+    """auto_redirects 参数透传与重定向行为测试"""
+
+    async def test_request_get_passes_auto_redirects(
+            self, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    ):
+        """默认 True 与显式 False 均应透传至底层 Request setup"""
+        captured = _capture_driver_request(monkeypatch)
+
+        await api_impl._request_get(url='http://127.0.0.1/')
+        await api_impl._request_get(url='http://127.0.0.1/', auto_redirects=False)
+
+        assert [x.auto_redirects for x in captured] == [True, False]
+
+    @pytest.mark.parametrize('method', ['_request_delete', '_request_post', '_request_put'])
+    async def test_request_methods_pass_auto_redirects(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    ):
+        captured = _capture_driver_request(monkeypatch)
+
+        await getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    @pytest.mark.parametrize('method', ['_stream_request_get', '_stream_request_post'])
+    async def test_stream_methods_pass_auto_redirects(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    ):
+        captured = _capture_driver_stream_request(monkeypatch)
+
+        _ = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)]
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    @pytest.mark.parametrize('method', ['_get_resource_as_json', '_get_resource_as_bytes', '_get_resource_as_text'])
+    async def test_get_resource_wrappers_pass_auto_redirects(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    ):
+        captured = _capture_driver_request(monkeypatch)
+
+        await getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    async def test_post_acquire_as_json_passes_auto_redirects(
+            self, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    ):
+        captured = _capture_driver_request(monkeypatch)
+
+        await api_impl._post_acquire_as_json(url='http://127.0.0.1/', auto_redirects=False)
+
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    @pytest.mark.parametrize('method', ['_stream_get_resource_iter_lines', '_stream_post_acquire_iter_lines'])
+    async def test_iter_lines_wrappers_pass_auto_redirects(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    ):
+        captured = _capture_driver_stream_request(monkeypatch)
+
+        lines = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)]
+
+        assert lines == ['a']
+        assert len(captured) == 1
+        assert captured[0].auto_redirects is False
+
+    async def test_request_get_follows_redirect_by_default(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        token = new_request_token()
+
+        response = await api_impl._request_get(
+            url=f'{test_server.base_url}/redirect/302', params={'target': f'/redirect_target/{token}'}
+        )
+
+        assert response.status_code == 200
+        assert api_impl._parse_content_as_json(response) == {'ok': True, 'token': token}
+        assert test_server.state.counters[f'redirect_target:{token}'] == 1
+
+    async def test_request_get_no_follow_redirect_rejected(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        """不跟随重定向时 3xx 不属于 2xx, 应抛出 WebSourceException"""
+        from src.exception import WebSourceException
+
+        token = new_request_token()
+
+        with pytest.raises(WebSourceException) as exc_info:
+            await api_impl._request_get(
+                url=f'{test_server.base_url}/redirect/302',
+                params={'target': f'/redirect_target/{token}'},
+                auto_redirects=False,
+            )
+
+        assert exc_info.value.status_code == 302
+        assert test_server.state.counters[f'redirect_target:{token}'] == 0
+
+    @pytest.mark.parametrize('method', ['_request_delete', '_request_post', '_request_put'])
+    async def test_request_methods_no_follow_redirect_rejected(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        from src.exception import WebSourceException
+
+        with pytest.raises(WebSourceException) as exc_info:
+            await getattr(api_impl, method)(url=f'{test_server.base_url}/redirect/302', auto_redirects=False)
+
+        assert exc_info.value.status_code == 302
+
+    async def test_get_resource_as_json_follows_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        token = new_request_token()
+
+        data = await api_impl._get_resource_as_json(
+            url=f'{test_server.base_url}/redirect/302', params={'target': f'/redirect_target/{token}'}
+        )
+
+        assert data == {'ok': True, 'token': token}
+
+    async def test_get_resource_as_bytes_follows_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        content = await api_impl._get_resource_as_bytes(
+            url=f'{test_server.base_url}/redirect/302', params={'target': '/download'}
+        )
+
+        assert content == _DOWNLOAD_PAYLOAD
+
+    async def test_get_resource_as_text_follows_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        text = await api_impl._get_resource_as_text(
+            url=f'{test_server.base_url}/redirect/302', params={'target': '/get'}
+        )
+
+        assert 'headers' in text
+
+    async def test_get_resource_as_json_no_follow_rejected(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        from src.exception import WebSourceException
+
+        with pytest.raises(WebSourceException) as exc_info:
+            await api_impl._get_resource_as_json(url=f'{test_server.base_url}/redirect/302', auto_redirects=False)
+
+        assert exc_info.value.status_code == 302
+
+    async def test_post_acquire_as_json_follows_307_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        """307 保持方法与请求体, echo 目标应收到原始 JSON"""
+        data = await api_impl._post_acquire_as_json(
+            url=f'{test_server.base_url}/redirect/307', params={'target': '/post_json'}, json={'a': 1}
+        )
+
+        assert data == {'echo': {'a': 1}}
+
+    async def test_stream_request_get_follows_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        responses = [
+            x async for x in api_impl._stream_request_get(
+                url=f'{test_server.base_url}/redirect/302', params={'target': '/stream'}
+            )
+        ]
+
+        assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
+
+    async def test_stream_request_get_no_follow_redirect_rejected(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        """不跟随重定向时 302 分块触发状态码校验, 抛出 WebSourceException"""
+        from src.exception import WebSourceException
+
+        async def _collect():
+            return [
+                x async for x in api_impl._stream_request_get(
+                    url=f'{test_server.base_url}/redirect/302', auto_redirects=False
+                )
+            ]
+
+        with pytest.raises(WebSourceException) as exc_info:
+            await _collect()
+
+        assert exc_info.value.status_code == 302
+
+    async def test_stream_request_post_no_follow_redirect_rejected(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        from src.exception import WebSourceException
+
+        async def _collect():
+            return [
+                x async for x in api_impl._stream_request_post(
+                    url=f'{test_server.base_url}/redirect/302', auto_redirects=False
+                )
+            ]
+
+        with pytest.raises(WebSourceException) as exc_info:
+            await _collect()
+
+        assert exc_info.value.status_code == 302
+
+    async def test_stream_get_resource_iter_lines_follows_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        lines = [
+            x async for x in api_impl._stream_get_resource_iter_lines(
+                url=f'{test_server.base_url}/redirect/302', params={'target': '/lines'}
+            )
+        ]
+
+        assert lines == _LINES_EXPECTED
+
+    async def test_stream_post_acquire_iter_lines_follows_307_redirect(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        lines = [
+            x async for x in api_impl._stream_post_acquire_iter_lines(
+                url=f'{test_server.base_url}/redirect/307', params={'target': '/lines'}, content=b'x'
+            )
+        ]
+
+        assert lines == _LINES_EXPECTED

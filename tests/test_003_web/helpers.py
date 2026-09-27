@@ -113,6 +113,20 @@ def register_test_routes(api: 'OmegaAPI', state: SimpleNamespace) -> None:
         # 空响应体的错误响应: 流式请求不产生任何分块, 用于覆盖 stream_download 零分块核验路径
         return FastAPIResponse(status_code=code)
 
+    @api.register_get_route('/redirect_target/{token}')
+    async def _redirect_target(token: str):
+        # 重定向终点: 计数用于断言跟随/未跟随, 返回 JSON 用于内容断言
+        state.counters[f'redirect_target:{token}'] += 1
+        return {'ok': True, 'token': token}
+
+    @api.register_delete_route('/redirect/{code}')
+    @api.register_put_route('/redirect/{code}')
+    @api.register_post_route('/redirect/{code}')
+    @api.register_get_route('/redirect/{code}')
+    async def _redirect(code: int, target: str = '/redirect_target/default'):
+        # 带响应体的重定向: 空响应体在流式请求中不产生分块, 带 body 才能覆盖流式不跟随重定向的状态校验路径
+        return FastAPIResponse(content=f'redirect {code}', status_code=code, headers={'location': target})
+
     @api.register_get_route('/set_cookie')
     async def _set_cookie():
         # 附两个 Set-Cookie 头, 其中一个值内含等号, 覆盖响应 cookie 解析边界

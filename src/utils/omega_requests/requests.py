@@ -95,11 +95,11 @@ class OmegaRequests:
             return b'' if response.content is None else bytes(response.content)
 
     @staticmethod
-    def parse_content_as_json(response: 'Response', **kwargs) -> Any:
+    def parse_content_as_json(response: 'Response') -> Any:
         """解析 Response Content 为 Json"""
         if response.content is None:
             raise ValueError('content of response is None')
-        return ujson.loads(response.content, **kwargs)
+        return ujson.loads(response.content)
 
     @staticmethod
     def parse_content_as_text(response: 'Response', encoding: str = 'utf-8') -> str:
@@ -341,6 +341,7 @@ class OmegaRequests:
             files: 'FilesTypes' = None,
             timeout: 'TimeoutTypes' = None,
             use_proxy: bool = True,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """发送一个 GET 请求"""
         setup = Request(
@@ -354,7 +355,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         return await self.request(setup=setup)
 
@@ -371,6 +373,7 @@ class OmegaRequests:
             files: 'FilesTypes' = None,
             timeout: 'TimeoutTypes' = None,
             use_proxy: bool = True,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """发送一个 POST 请求"""
         setup = Request(
@@ -384,7 +387,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         return await self.request(setup=setup)
 
@@ -401,6 +405,7 @@ class OmegaRequests:
             files: 'FilesTypes' = None,
             timeout: 'TimeoutTypes' = None,
             use_proxy: bool = True,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """发送一个 PUT 请求"""
         setup = Request(
@@ -414,7 +419,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         return await self.request(setup=setup)
 
@@ -431,6 +437,7 @@ class OmegaRequests:
             files: 'FilesTypes' = None,
             timeout: 'TimeoutTypes' = None,
             use_proxy: bool = True,
+            auto_redirects: bool = True,
     ) -> 'Response':
         """发送一个 DELETE 请求"""
         setup = Request(
@@ -444,7 +451,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         return await self.request(setup=setup)
 
@@ -462,6 +470,7 @@ class OmegaRequests:
             timeout: 'TimeoutTypes' = None,
             use_proxy: bool = True,
             chunk_size: int = 1024,
+            auto_redirects: bool = True,
     ) -> AsyncGenerator['Response', None]:
         """发送一个 GET 流式请求"""
         setup = Request(
@@ -475,7 +484,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         async for response in self.stream_request(setup, chunk_size=chunk_size):
             yield response
@@ -495,6 +505,7 @@ class OmegaRequests:
             use_proxy: bool = True,
             chunk_size: int = 1024,
             encoding: str = 'utf-8',
+            auto_redirects: bool = True,
     ) -> AsyncGenerator[str, None]:
         """发送一个 GET 流式请求, 按行迭代"""
         setup = Request(
@@ -508,7 +519,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         async for line in self.iter_content_as_lines(
                 stream_requester=self.stream_request(setup, chunk_size=chunk_size),
@@ -530,6 +542,7 @@ class OmegaRequests:
             timeout: 'TimeoutTypes' = None,
             use_proxy: bool = True,
             chunk_size: int = 1024,
+            auto_redirects: bool = True,
     ) -> AsyncGenerator['Response', None]:
         """发送一个 POST 流式请求"""
         setup = Request(
@@ -543,7 +556,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         async for response in self.stream_request(setup, chunk_size=chunk_size):
             yield response
@@ -563,6 +577,7 @@ class OmegaRequests:
             use_proxy: bool = True,
             chunk_size: int = 1024,
             encoding: str = 'utf-8',
+            auto_redirects: bool = True,
     ) -> AsyncGenerator[str, None]:
         """发送一个 POST 流式请求, 按行迭代"""
         setup = Request(
@@ -576,7 +591,8 @@ class OmegaRequests:
             json=json,
             files=files,
             timeout=self.timeout if timeout is None else timeout,
-            proxy=omega_requests_config.proxy_url if use_proxy else None
+            proxy=omega_requests_config.proxy_url if use_proxy else None,
+            auto_redirects=auto_redirects,
         )
         async for line in self.iter_content_as_lines(
                 stream_requester=self.stream_request(setup, chunk_size=chunk_size),
@@ -677,7 +693,11 @@ class OmegaRequests:
         received_any = False
         async with temp_file.async_open(mode='ab') as af:
             async for response in self.stream_get(
-                    url=url, params=params, headers=headers, chunk_size=chunk_size, **kwargs
+                    url=url,
+                    params=params,
+                    headers=headers,
+                    chunk_size=chunk_size,
+                    **kwargs,
             ):
                 received_any = True
                 if start_byte > 0 and response.status_code == 206:
@@ -730,7 +750,13 @@ class OmegaRequests:
             # 移除本次续传的 Range 头, 避免全新下载时误用旧的断点位置
             headers.pop('Range', None)
             return await self.stream_download(
-                url, file, params=params, chunk_size=chunk_size, ignore_exist_file=False, headers=headers, **kwargs,
+                url,
+                file,
+                params=params,
+                chunk_size=chunk_size,
+                ignore_exist_file=False,
+                headers=headers,
+                **kwargs,
             )
 
         # 替换临时文件
