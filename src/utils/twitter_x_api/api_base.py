@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 class BaseTwitterAPI(BaseCommonAPI):
     """推特 API 基类"""
 
+    # 注意: 以下三个 ClassVar 经子类 cls 写入时会落在子类上(类属性遮蔽);
+    # 当前所有公开入口均在唯一子类 TwitterGuest 上, 读写一致, 新增子类时须注意状态不共享
     _client_transaction: ClassVar[ClientTransaction | None] = None
     """X-Client-Transaction 计算状态(惰性初始化)"""
     _client_transaction_unavailable: ClassVar[bool] = False

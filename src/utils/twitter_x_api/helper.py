@@ -10,6 +10,8 @@
 
 from typing import Any
 
+from pydantic import ValidationError
+
 from .misc import find_dict
 from .model import TwitterTweet
 
@@ -17,7 +19,7 @@ from .model import TwitterTweet
 def parse_tweet_from_data(data: dict[str, Any]) -> TwitterTweet | None:
     """从时间线条目/推文结果中解析推文数据
 
-    无法解析时(墓碑推文/数据缺失)返回 None
+    无法解析时(墓碑推文/数据缺失/数据校验失败)返回 None
     """
     tweet_data_ = find_dict(data, 'result', True)
     if not tweet_data_:
@@ -37,7 +39,10 @@ def parse_tweet_from_data(data: dict[str, Any]) -> TwitterTweet | None:
     if 'legacy' not in tweet_data:
         return None
 
-    return TwitterTweet.model_validate(tweet_data)
+    try:
+        return TwitterTweet.model_validate(tweet_data)
+    except ValidationError:
+        return None
 
 
 __all__ = [

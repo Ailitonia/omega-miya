@@ -10,6 +10,8 @@
 
 from typing import Any
 
+from pydantic import ValidationError
+
 from src.exception import WebSourceException
 from .api_base import BaseTwitterAPI
 from .consts import (
@@ -45,8 +47,16 @@ class TwitterGuest(BaseTwitterAPI):
             if isinstance(user, dict) and isinstance(user.get('result'), dict):
                 user_data = user['result']
         if user_data is None:
-            raise WebSourceException(400, f'{usage} failed, user data not found in response, {response!r}')
+            raise WebSourceException(400, f'{usage} failed, user data not found in response, {repr(response)[:500]}')
         return user_data
+
+    @staticmethod
+    def _parse_user_result(user_data: dict[str, Any], usage: str) -> TwitterUser:
+        """将用户数据解析为 TwitterUser, 数据残缺(如用户不可用)时抛出异常"""
+        try:
+            return TwitterUser.model_validate(user_data)
+        except ValidationError as e:
+            raise WebSourceException(400, f'{usage} failed, user data parse error, {e}') from e
 
     @classmethod
     async def get_user_by_screen_name(cls, screen_name: str) -> TwitterUser:
@@ -65,7 +75,7 @@ class TwitterGuest(BaseTwitterAPI):
             extra_params=extra_params,
         )
         user_data = cls._extract_user_result(response, f'Query user(screen_name={screen_name})')
-        return TwitterUser.model_validate(user_data)
+        return cls._parse_user_result(user_data, f'Query user(screen_name={screen_name})')
 
     @classmethod
     async def get_user_by_id(cls, user_id: str) -> TwitterUser:
@@ -80,7 +90,7 @@ class TwitterGuest(BaseTwitterAPI):
             features=USER_FEATURES,
         )
         user_data = cls._extract_user_result(response, f'Query user(id={user_id})')
-        return TwitterUser.model_validate(user_data)
+        return cls._parse_user_result(user_data, f'Query user(id={user_id})')
 
     @classmethod
     async def get_user_tweets(cls, user_id: str, count: int = 40) -> list[TwitterTweet]:
@@ -104,7 +114,7 @@ class TwitterGuest(BaseTwitterAPI):
         )
 
         instructions_ = find_dict(response, 'instructions', True)
-        if not instructions_:
+        if not instructions_ or not isinstance(instructions_[0], list):
             return []
         instruction = find_entry_by_type(instructions_[0], 'TimelineAddEntries')
         if instruction is None or not isinstance(instruction.get('entries'), list):
@@ -112,7 +122,11 @@ class TwitterGuest(BaseTwitterAPI):
 
         results = []
         for item in instruction['entries']:
-            entry_id = item.get('entryId', '')
+            if not isinstance(item, dict):
+                continue
+            entry_id = item.get('entryId')
+            if not isinstance(entry_id, str):
+                continue
             if not entry_id.startswith(('tweet', 'profile-conversation', 'profile-grid')):
                 continue
             tweet = parse_tweet_from_data(item)
@@ -179,7 +193,11 @@ class TwitterGuest(BaseTwitterAPI):
         instructions = None
         if isinstance(response, dict) and isinstance(response.get('data'), dict):
             instructions = find_dict(response['data'], 'instructions', True)
-        instruction = find_entry_by_type(instructions[0], 'TimelineAddEntries') if instructions else None
+        instruction = (
+            find_entry_by_type(instructions[0], 'TimelineAddEntries')
+            if instructions and isinstance(instructions[0], list)
+            else None
+        )
         if instruction is None or not isinstance(instruction.get('entries'), list):
             return TwitterHighlightTweetsResult()
 
@@ -187,15 +205,21 @@ class TwitterGuest(BaseTwitterAPI):
         previous_cursor = None
         next_cursor = None
         for entry in instruction['entries']:
-            entry_id = entry.get('entryId', '')
+            if not isinstance(entry, dict):
+                continue
+            entry_id = entry.get('entryId')
+            if not isinstance(entry_id, str):
+                continue
             if entry_id.startswith('tweet'):
                 tweet = parse_tweet_from_data(entry)
                 if tweet is not None:
                     tweets.append(tweet)
             elif entry_id.startswith('cursor-top'):
-                previous_cursor = entry.get('content', {}).get('value')
+                content = entry.get('content')
+                previous_cursor = content.get('value') if isinstance(content, dict) else None
             elif entry_id.startswith('cursor-bottom'):
-                next_cursor = entry.get('content', {}).get('value')
+                content = entry.get('content')
+                next_cursor = content.get('value') if isinstance(content, dict) else None
 
         return TwitterHighlightTweetsResult(
             tweets=tweets,

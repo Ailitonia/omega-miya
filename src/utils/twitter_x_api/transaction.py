@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from src.utils.omega_common_api.types import Response
 
 _ON_DEMAND_FILE_REGEX = re.compile(
-    r"""['|"]ondemand\.s['|"]:\s*['|"](\w*)['|"]""", flags=(re.VERBOSE | re.MULTILINE)
+    r"""['"]ondemand\.s['"]:\s*['"](\w*)['"]""", flags=(re.VERBOSE | re.MULTILINE)
 )
 """首页源码中 ondemand.s 脚本文件哈希正则(旧格式)"""
 

@@ -10,6 +10,8 @@
 
 from typing import Any
 
+import ujson
+
 
 def find_dict(obj: list | dict, key: str | int, find_one: bool = False) -> list[Any]:
     """在嵌套字典/列表中递归查找指定键的所有值
@@ -35,20 +37,24 @@ def find_dict(obj: list | dict, key: str | int, find_one: bool = False) -> list[
 
 
 def find_entry_by_type(entries: list[dict], type_filter: str) -> dict | None:
-    """在时间线 instructions 列表中查找指定 type 的条目"""
+    """在时间线 instructions 列表中查找指定 type 的条目
+
+    入参畸形(非 list/含非 dict 条目)时返回 None
+    """
+    if not isinstance(entries, list):
+        return None
     for entry in entries:
-        if entry.get('type') == type_filter:
+        if isinstance(entry, dict) and entry.get('type') == type_filter:
             return entry
     return None
 
 
 def flatten_params(params: dict[str, Any]) -> dict[str, Any]:
     """将 params 中的 dict/list 值序列化为 JSON 字符串(GraphQL 查询参数格式)"""
-    import json
     flattened_params = {}
     for key, value in params.items():
         if isinstance(value, (list, dict)):
-            value = json.dumps(value)
+            value = ujson.dumps(value)
         flattened_params[key] = value
     return flattened_params
 
