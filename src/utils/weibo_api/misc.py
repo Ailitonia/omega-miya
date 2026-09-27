@@ -11,7 +11,9 @@
 import os
 import random
 import re
+import time
 from base64 import b64encode
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 import ujson
@@ -22,7 +24,15 @@ from Cryptodome.Util.Padding import pad
 from lxml import etree
 
 from src.compat import parse_json_as
-from .consts import RISK_FLOW_STEP_HEADERS, UMD_PUBLIC_KEY_DER, RiskFlowStep, VisitorUrl
+from src.utils import OmegaRequests
+from .consts import (
+    LOGIN_FLOW_STEP_HEADERS,
+    RISK_FLOW_STEP_HEADERS,
+    UMD_PUBLIC_KEY_DER,
+    LoginFlowStep,
+    RiskFlowStep,
+    VisitorUrl,
+)
 from .model import WeiboCardStatus, WeiboVisitorPageParams
 
 if TYPE_CHECKING:
@@ -39,6 +49,20 @@ _FROM_PATTERN = re.compile(r'var\s+from\s*=\s*["\']([^"\']+)["\']', re.IGNORECAS
 """起始页面 from 参数提取正则"""
 _JSON_OBJECT_PATTERN = re.compile(r'\{[\s\S]*}')
 """宽松 JSON 对象提取正则"""
+_FINGERPRINT_ERROR_STACK: str = (
+    "TypeError: Cannot read properties of null (reading '0')\n"
+    '    at W (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:14066)\n'
+    '    at Object.NiOqR (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:3108)\n'
+    '    at https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:29253\n'
+    '    at Array.map (<anonymous>)\n'
+    '    at je (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:29193)\n'
+    '    at Object.Qhlex (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:5250)\n'
+    '    at Ie (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:25296)\n'
+    '    at Object.NsuAP (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:4977)\n'
+    '    at Pe (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:24928)\n'
+    '    at Module.Ve [as get] (https://passport.sinaimg.cn/js/fp/1.2.1.umd.js:1:24667)'
+)
+"""bd 接口风控校验结构化指纹 4 号采集项 (错误堆栈), 模拟 UMD 脚本在真实浏览器中的采集结果"""
 
 
 def _search_pattern(pattern: re.Pattern[str], content: str, default: str) -> str:
@@ -66,14 +90,96 @@ def build_risk_flow_step_headers(
     return headers
 
 
+def build_login_flow_step_headers(
+        step: LoginFlowStep,
+        default_headers: 'HeaderTypes',
+        *,
+        referer: str | None = None,
+) -> dict[str, str]:
+    """构造扫码登录流程各步骤请求头 (基于默认请求头按步骤覆盖)
+
+    :param step: 流程步骤编号 (LoginFlowStep, 对应 consts.LOGIN_FLOW_STEP_HEADERS)
+    :param default_headers: 作为基础的默认请求头
+    :param referer: 可选, 覆盖 referer 请求头
+    """
+    headers: dict[str, str] = dict(default_headers or {})
+    headers.update(LOGIN_FLOW_STEP_HEADERS.get(step, {}))
+    if referer is not None:
+        headers['referer'] = referer
+    return headers
+
+
+def _gen_mouse_track() -> list[list[int]]:
+    """生成模拟鼠标轨迹 (贝塞尔曲线)
+
+    对齐 UMD 脚本 getBehaviourData 的输出格式: 首个轨迹点保留绝对坐标与时间戳, 后续点为相对前一点的 [x, y, t] 增量
+    """
+    now = int(time.time() * 1000)
+    start_time = now - 5 * 60 * 1000
+
+    start_x, start_y = random.randint(0, 199), random.randint(0, 199)
+    end_x, end_y = 200 + random.randint(0, 799), 100 + random.randint(0, 599)
+    control_x = start_x + (end_x - start_x) * 0.3 + random.uniform(-100, 100)
+    control_y = start_y + (end_y - start_y) * 0.7 + random.uniform(-100, 100)
+
+    point_count = 30 + random.randint(0, 39)
+    time_step = (now - start_time) / point_count
+
+    points: list[list[int]] = []
+    current_time = float(start_time)
+    for index in range(point_count + 1):
+        t = index / point_count
+        x = (1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t ** 2 * end_x
+        y = (1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t ** 2 * end_y
+        points.append([round(x), round(y), int(current_time)])
+        current_time += time_step + random.uniform(-100, 100)
+
+    return [points[0]] + [
+        [curr[0] - prev[0], curr[1] - prev[1], curr[2] - prev[2]]
+        for prev, curr in pairwise(points)
+    ]
+
+
 def build_fingerprint() -> str:
-    """构造访客风控校验指纹"""
+    """构造 bd 接口风控校验指纹
+
+    结构化指纹, 对齐 https://passport.sinaimg.cn/js/fp/1.2.1.umd.js 采集器输出:
+    fp 为 0-23 号采集项, bh 为行为数据 (鼠标轨迹/键盘统计), meta 为行为追踪开关;
+    UA 相关采集项取自 OmegaRequests 默认请求头, 保证指纹与实际请求一致
+    """
+    user_agent = OmegaRequests.get_default_headers().get('user-agent', '')
     return ujson.dumps({
-        'ua': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'platform': 'Win32',
-        'screen': '1920x1080x24',
-        'fonts': ['Arial', 'SimSun'],
-        'plugins': [],
+        'fp': {
+            '0': '1.2.1',  # 指纹脚本版本
+            '1': {'s': 1, 'v': False},  # navigator.webdriver
+            '2': {'s': 1, 'v': ['lang']},  # documentElement.getAttributeNames()
+            '3': {'s': 1, 'v': user_agent.replace('Mozilla/', '')},  # navigator.appVersion
+            '4': {'s': 1, 'v': _FINGERPRINT_ERROR_STACK},  # 错误堆栈采集
+            '5': {'s': 1, 'v': 33},  # eval.toString().length
+            '6': {'s': 1, 'v': 'function bind() { [native code] }'},  # Function.prototype.bind
+            '7': {'s': 1, 'v': [['zh-CN']]},  # navigator.languages
+            '8': {'s': 1, 'v': True},  # mimeTypes 原型链检查
+            '9': {'s': 1, 'v': False},  # 通知权限状态
+            '10': {'s': 1, 'v': True},  # plugins 原型链检查
+            '11': {'s': 1, 'v': 5},  # navigator.plugins.length
+            '12': {'s': -1, 'e': ''},  # window.process 不存在
+            '13': {'s': 1, 'v': '20030107'},  # navigator.productSub
+            '14': {'s': 1, 'v': 50},  # navigator.connection.rtt
+            '15': {'s': 1, 'v': user_agent},  # navigator.userAgent
+            '16': {'s': 1, 'v': {'vendor': 'WebKit', 'renderer': 'WebKit WebGL'}},  # WebGL 信息
+            '17': {'s': 1, 'v': '[object External]'},  # window.external
+            '18': {'s': 1, 'v': {'ow': 1920, 'oh': 1152, 'iw': 257, 'ih': 1031}},  # 窗口尺寸
+            '19': {'s': 1, 'v': 'chrome'},  # 浏览器名称
+            '20': {'s': 1, 'v': 'chromium'},  # 浏览器内核
+            '21': {'s': 1, 'v': False},  # document.hasFocus()
+            '22': {'s': 1, 'v': True},  # window.crypto.subtle 可用
+            '23': {'s': 1, 'v': {'ots': False, 'mtp': 0, 'mmtp': -1}},  # 触摸支持
+        },
+        'bh': {
+            'mt': _gen_mouse_track(),
+            'kt': {'down': 0, 'up': 0},
+        },
+        'meta': {'isTraceKeyboard': True, 'isTraceMouse': True},
     })
 
 
@@ -163,6 +269,7 @@ def parse_weibo_card_from_status_page(content: str) -> WeiboCardStatus:
 
 __all__ = [
     'build_fingerprint',
+    'build_login_flow_step_headers',
     'build_risk_flow_step_headers',
     'extract_params_from_html',
     'gen_rand_param',

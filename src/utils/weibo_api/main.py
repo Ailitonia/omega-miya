@@ -45,7 +45,7 @@ class Weibo(BaseWeiboAPI):
             'value': str(uid),
             'containerid': containerid,
         }
-        user_response = await cls._get_resource_as_json(url=url, params=params)
+        user_response = await cls._get_api_json(url=url, params=params, referer=f'{cls._get_root_url()}/u/{uid}')
         user_info = WeiboUserInfo.model_validate(user_response)
 
         if user_info.ok != 1:
@@ -72,7 +72,7 @@ class Weibo(BaseWeiboAPI):
             params.update({
                 'since_id': str(since_id)
             })
-        cards_response = await cls._get_resource_as_json(url=url, params=params)
+        cards_response = await cls._get_api_json(url=url, params=params, referer=f'{cls._get_root_url()}/u/{uid}')
         cards = WeiboCards.model_validate(cards_response)
 
         if cards.ok != 1:
@@ -95,7 +95,7 @@ class Weibo(BaseWeiboAPI):
         params = {
             'id': str(mid)
         }
-        extend_response = await cls._get_resource_as_json(url=url, params=params)
+        extend_response = await cls._get_api_json(url=url, params=params)
         extend = WeiboExtend.model_validate(extend_response)
 
         if extend.ok != 1 or extend.data.ok != 1:
@@ -112,7 +112,7 @@ class Weibo(BaseWeiboAPI):
             'type': 'uid',
             'containerid': containerid,
         }
-        realtime_hot_response = await cls._get_resource_as_json(url=url, params=params)
+        realtime_hot_response = await cls._get_api_json(url=url, params=params)
         realtime_hot = WeiboRealtimeHot.model_validate(realtime_hot_response)
 
         if realtime_hot.ok != 1:

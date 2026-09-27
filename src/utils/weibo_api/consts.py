@@ -55,6 +55,21 @@ class LoginUrl(StrEnum):
     """登录二维码申请接口地址"""
     QRCODE_CHECK_URL = 'https://passport.weibo.com/sso/v2/qrcode/check'
     """二维码登录状态轮询接口地址"""
+    LOGIN_QRCODE_CHECK_VER = '20250520'
+    """二维码登录状态轮询接口 ver 参数(参考项目实测值, 随 passport 前端版本变化)"""
+    LOGIN_SIGNIN_REFERER = (
+        'https://passport.weibo.com/sso/signin?entry=wapsso&source=wapsso&url=https%3A%2F%2Fm.weibo.cn%2F'
+    )
+    """登录流程接口请求 Referer (source=wapsso)"""
+    LOGIN_SIGNIN_WB_REFERER = (
+        'https://passport.weibo.com/sso/signin?entry=wapsso&source=wapssowb&url=https%3A%2F%2Fm.weibo.cn%2F'
+    )
+    """登录二维码申请接口请求 Referer (source=wapssowb)"""
+    LOGIN_CHAIN_REFERER = (
+        'https://passport.weibo.com/sso/signin?'
+        'entry=wapsso&source=wapsso&url=https%3A%2F%2Fm.weibo.cn%2F%3Fjumpfrom%3Dweibocom'
+    )
+    """登录成功跨域重定向链请求 Referer (带 jumpfrom=weibocom)"""
 
 
 @unique
@@ -148,11 +163,99 @@ RISK_FLOW_STEP_HEADERS: dict[RiskFlowStep, dict[str, str]] = {
 """访客风控流程各步骤请求头增量 (基于默认请求头按步骤覆盖, referer 由构建函数注入)"""
 
 
+@unique
+class LoginFlowStep(IntEnum):
+    """扫码登录流程内部名称"""
+    S1_SIGNIN_PAGE = 1  # 登录入口页 (获取 X-CSRF-TOKEN)
+    S2_QRCODE_IMAGE = 2  # 申请登录二维码
+    S3_FETCH_LOGIN_RID = 3  # 登录前访问 bd 接口获取 rid
+    S4_QRCODE_CHECK = 4  # 轮询二维码扫码状态
+    S5_COOKIE_CHAIN = 5  # 登录成功跨域重定向链 (收割 Cookies)
+    S6_QR_IMAGE_RESOURCE = 6  # 下载二维码图片资源
+
+
+LOGIN_FLOW_STEP_HEADERS: dict[LoginFlowStep, dict[str, str]] = {
+    # 步骤 1: GET 登录入口页 (document navigate)
+    LoginFlowStep.S1_SIGNIN_PAGE: {
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'zh-CN,en-US;q=0.5',
+        'priority': 'u=0, i',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'sec-fetch-user': '?1',
+        'sec-gpc': '1',
+        'upgrade-insecure-requests': '1',
+    },
+    # 步骤 2: GET 申请登录二维码 (json, same-origin cors)
+    LoginFlowStep.S2_QRCODE_IMAGE: {
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'zh-CN,en-US;q=0.5',
+        'priority': 'u=0',
+        'referer': LoginUrl.LOGIN_SIGNIN_WB_REFERER,
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'sec-gpc': '1',
+        'x-requested-with': 'XMLHttpRequest',
+    },
+    # 步骤 3: POST bd 获取登录 rid (form, same-origin no-cors)
+    LoginFlowStep.S3_FETCH_LOGIN_RID: {
+        'accept': '*/*',
+        'accept-language': 'zh-CN,en-US;q=0.5',
+        'content-type': 'application/x-www-form-urlencoded',
+        'origin': 'https://passport.weibo.com',
+        'priority': 'u=4',
+        'referer': LoginUrl.LOGIN_SIGNIN_REFERER,
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'no-cors',
+        'sec-fetch-site': 'same-origin',
+        'sec-gpc': '1',
+    },
+    # 步骤 4: GET 轮询二维码扫码状态 (json, same-origin cors)
+    LoginFlowStep.S4_QRCODE_CHECK: {
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'zh-CN,en-US;q=0.5',
+        'referer': LoginUrl.LOGIN_SIGNIN_REFERER,
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'sec-gpc': '1',
+        'x-requested-with': 'XMLHttpRequest',
+    },
+    # 步骤 5: GET 登录成功跨域重定向链 (document navigate)
+    LoginFlowStep.S5_COOKIE_CHAIN: {
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'zh-CN,en-US;q=0.5',
+        'priority': 'u=0, i',
+        'referer': LoginUrl.LOGIN_CHAIN_REFERER,
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'same-origin',
+        'upgrade-insecure-requests': '1',
+    },
+    # 步骤 6: GET 二维码图片资源 (image, cross-site no-cors)
+    LoginFlowStep.S6_QR_IMAGE_RESOURCE: {
+        'accept': 'image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5',
+        'accept-language': 'zh-CN,en-US;q=0.5',
+        'priority': 'u=4, i',
+        'referer': 'https://passport.weibo.com/',
+        'sec-fetch-dest': 'image',
+        'sec-fetch-mode': 'no-cors',
+        'sec-fetch-site': 'cross-site',
+        'sec-gpc': '1',
+    },
+}
+"""扫码登录流程各步骤请求头增量 (基于默认请求头按步骤覆盖, x-csrf-token 由调用方注入)"""
+
+
 __all__ = [
+    'LOGIN_FLOW_STEP_HEADERS',
     'RISK_FLOW_STEP_HEADERS',
     'UMD_PUBLIC_KEY_DER',
     'WEIBO_API_SETTING_NAME',
     'WEIBO_DETECTION_SAMPLE_UID',
+    'LoginFlowStep',
     'RiskFlowStep',
     'VisitorUrl',
     'LoginStatusCode',

@@ -11,15 +11,23 @@
 import asyncio
 import time
 from typing import TYPE_CHECKING, Any, ClassVar
+from urllib.parse import urljoin
 
-from nonebot.drivers import Request
 from nonebot.log import logger
 
 from .base import BaseWeiboAPI
-from .consts import WEIBO_DETECTION_SAMPLE_UID, LoginStatusCode, LoginUrl, RiskFlowStep, VisitorUrl
+from .consts import (
+    WEIBO_DETECTION_SAMPLE_UID,
+    LoginFlowStep,
+    LoginStatusCode,
+    LoginUrl,
+    RiskFlowStep,
+    VisitorUrl,
+)
 from .credential_manager import WEIBO_CREDENTIAL_MANAGER, WeiboCookiesData
 from .misc import (
     build_fingerprint,
+    build_login_flow_step_headers,
     build_risk_flow_step_headers,
     extract_params_from_html,
     gen_rand_param,
@@ -40,7 +48,6 @@ from .model import (
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
-    from src.utils.omega_requests.types import HTTPClientSession
 
 
 class WeiboCredential(BaseWeiboAPI):
@@ -50,6 +57,8 @@ class WeiboCredential(BaseWeiboAPI):
     """扫码登录最大轮询次数"""
     _LOGIN_QR_POLL_INTERVAL: ClassVar[int] = 6
     """扫码登录轮询间隔秒数"""
+    _REDIRECT_CHAIN_MAX_HOPS: ClassVar[int] = 5
+    """登录重定向链最大跟随跳数"""
 
     # ------------------------------------------------------------------ #
     # 访客风控流程
@@ -220,7 +229,11 @@ class WeiboCredential(BaseWeiboAPI):
         }
 
         try:
-            data = await cls._get_resource_as_json(url=url, params=params)
+            data = await cls._get_api_json(
+                url=url,
+                params=params,
+                referer=f'{cls._get_root_url()}/u/{WEIBO_DETECTION_SAMPLE_UID}',
+            )
         except Exception as e:
             logger.opt(colors=True).warning(f'<lc>Weibo</lc> | 访客 Cookies 探测请求异常, {e}')
             return False
@@ -249,53 +262,48 @@ class WeiboCredential(BaseWeiboAPI):
     # 扫码登录流程
     # ------------------------------------------------------------------ #
 
-    @staticmethod
-    def _harvest_session_cookies(session: 'HTTPClientSession') -> dict[str, str]:
-        """从驱动会话的 CookieJar 中收割全部 Cookies (兼容 aiohttp/httpx driver)"""
-        client = getattr(session, 'client', None)
-        if client is None:
-            return {}
-
-        # aiohttp driver: client.cookie_jar 迭代产生 Morsel
-        cookie_jar = getattr(client, 'cookie_jar', None)
-        if cookie_jar is not None:
-            return {morsel.key: morsel.value for morsel in cookie_jar if morsel.value}
-
-        # httpx driver: client.cookies.jar 迭代产生 http.cookiejar.Cookie
-        httpx_cookies = getattr(client, 'cookies', None)
-        jar = getattr(httpx_cookies, 'jar', None)
-        if jar is not None:
-            return {cookie.name: cookie.value for cookie in jar if cookie.value}
-
-        return {}
-
     @classmethod
-    async def _request_harvesting_cookies(
+    async def _follow_redirect_chain(
             cls,
             url: str,
             *,
-            cookies: dict[str, str] | None = None,
+            cookies: dict[str, str],
             headers: dict[str, Any] | None = None,
+            max_hops: int | None = None,
     ) -> dict[str, str]:
-        """发起一次 GET 请求, 收割会话级 Cookies (含自动跟随的重定向链中间跳设置的 Cookies) 及响应 set-cookie
+        """手动跟随重定向链, 逐跳收割 set-cookie 到传入字典
 
-        底层 driver 固定跟随重定向且逐请求丢弃会话, 登录跨域重定向链各跳的 set-cookie
-        只能在请求结束后从会话 CookieJar 中收割
+        底层 driver 逐请求丢弃会话级 Cookies, 登录跨域重定向链各跳的 set-cookie 需手动跟踪收集;
+        通过 auto_redirects=False 禁用重定向自动跟随, 逐跳读取 location 与 set-cookie
         """
-        requests = cls._init_omega_requests(headers=headers, cookies=cookies)
-        async with requests.get_session() as session:
-            response = await session.request(Request(method='GET', url=url))
-            harvested = cls._harvest_session_cookies(session)
+        if headers is None:
+            headers = cls._get_omega_requests_default_headers()
+        if max_hops is None:
+            max_hops = cls._REDIRECT_CHAIN_MAX_HOPS
 
-        merged = dict(cookies) if cookies else {}
-        merge_cookies(merged, cls._extra_set_cookies_from_response(response))
-        merge_cookies(merged, harvested)
-        return merged
+        requests = cls._init_omega_requests(headers=headers, no_cookies=True)
+        current_url = url
+        for _ in range(max_hops):
+            response = await requests.get(url=current_url, cookies=cookies, auto_redirects=False)
+            merge_cookies(cookies, cls._extra_set_cookies_from_response(response))
+
+            location = response.headers.get('location')
+            if response.status_code not in (301, 302, 303, 307, 308) or not location:
+                break
+            current_url = urljoin(current_url, location)
+        return cookies
 
     @classmethod
     async def _fetch_login_csrf_token(cls) -> str:
         """访问登录入口获取 X-CSRF-TOKEN"""
-        cookies = await cls._request_harvesting_cookies(LoginUrl.SSO_SIGNIN_URL)
+        cookies = await cls._follow_redirect_chain(
+            LoginUrl.SSO_SIGNIN_URL,
+            cookies={},
+            headers=build_login_flow_step_headers(
+                LoginFlowStep.S1_SIGNIN_PAGE,
+                default_headers=cls._get_omega_requests_default_headers(),
+            ),
+        )
 
         csrf_token = cookies.get('X-CSRF-TOKEN')
         if not csrf_token:
@@ -306,15 +314,13 @@ class WeiboCredential(BaseWeiboAPI):
     async def _fetch_login_rid(cls, *, csrf_token: str) -> str:
         """登录前访问 bd 接口获取 rid"""
         bd_payload = make_bd_payload(build_fingerprint())
-        headers = cls._get_omega_requests_default_headers()
-        headers.update({
-            'origin': 'https://passport.weibo.com',
-            'referer': 'https://passport.weibo.com/',
-        })
         response = await cls._request_post(
             url=VisitorUrl.BD_PAYLOAD_URL,
             data={'data': bd_payload, 'from': 'weibo'},
-            headers=headers,
+            headers=build_login_flow_step_headers(
+                LoginFlowStep.S3_FETCH_LOGIN_RID,
+                default_headers=cls._get_omega_requests_default_headers(),
+            ),
             cookies={'X-CSRF-TOKEN': csrf_token},
         )
 
@@ -335,11 +341,11 @@ class WeiboCredential(BaseWeiboAPI):
         """获取登录二维码信息 (含 qrid/rid/csrf_token)"""
         csrf_token = await cls._fetch_login_csrf_token()
 
-        headers = cls._get_omega_requests_default_headers()
-        headers.update({
-            'x-csrf-token': csrf_token,
-            'referer': 'https://passport.weibo.com/',
-        })
+        headers = build_login_flow_step_headers(
+            LoginFlowStep.S2_QRCODE_IMAGE,
+            default_headers=cls._get_omega_requests_default_headers(),
+        )
+        headers.update({'x-csrf-token': csrf_token})
         qr_response = await cls._get_resource_as_json(
             url=LoginUrl.QRCODE_IMAGE_URL,
             params={'entry': 'wapsso', 'size': '180'},
@@ -364,7 +370,14 @@ class WeiboCredential(BaseWeiboAPI):
     @classmethod
     async def generate_login_qrcode(cls, qrcode_info: WeiboLoginQrCodeInfo) -> 'TemporaryResource':
         """下载登录二维码图片到本地"""
-        return await cls.download_resource(url=qrcode_info.image_url, subdir='login_qr')
+        return await cls.download_resource(
+            url=qrcode_info.image_url,
+            subdir='login_qr',
+            headers=build_login_flow_step_headers(
+                LoginFlowStep.S6_QR_IMAGE_RESOURCE,
+                default_headers=cls._get_omega_requests_default_headers(),
+            ),
+        )
 
     @classmethod
     async def check_qrcode_login(
@@ -376,11 +389,11 @@ class WeiboCredential(BaseWeiboAPI):
         :param qrcode_info: 登录二维码信息
         :return: (WeiboQrCodeCheck, 登录成功时从重定向链收割的 Cookies, 未成功为 None)
         """
-        headers = cls._get_omega_requests_default_headers()
-        headers.update({
-            'x-csrf-token': qrcode_info.csrf_token,
-            'referer': 'https://passport.weibo.com/',
-        })
+        headers = build_login_flow_step_headers(
+            LoginFlowStep.S4_QRCODE_CHECK,
+            default_headers=cls._get_omega_requests_default_headers(),
+        )
+        headers.update({'x-csrf-token': qrcode_info.csrf_token})
         check_response = await cls._get_resource_as_json(
             url=LoginUrl.QRCODE_CHECK_URL,
             params={
@@ -389,7 +402,7 @@ class WeiboCredential(BaseWeiboAPI):
                 'url': 'https://m.weibo.cn/',
                 'qrid': qrcode_info.qrid,
                 'rid': qrcode_info.rid,
-                'ver': '20250520',
+                'ver': LoginUrl.LOGIN_QRCODE_CHECK_VER,
             },
             headers=headers,
             cookies={'X-CSRF-TOKEN': qrcode_info.csrf_token},
@@ -403,9 +416,14 @@ class WeiboCredential(BaseWeiboAPI):
         ):
             return check_data, None
 
-        chain_headers = cls._get_omega_requests_default_headers()
-        chain_headers.update({'referer': 'https://passport.weibo.com/'})
-        login_cookies = await cls._request_harvesting_cookies(str(check_data.data.url), headers=chain_headers)
+        login_cookies = await cls._follow_redirect_chain(
+            str(check_data.data.url),
+            cookies={},
+            headers=build_login_flow_step_headers(
+                LoginFlowStep.S5_COOKIE_CHAIN,
+                default_headers=cls._get_omega_requests_default_headers(),
+            ),
+        )
         return check_data, login_cookies
 
     @classmethod
@@ -444,12 +462,8 @@ class WeiboCredential(BaseWeiboAPI):
     @classmethod
     async def check_login(cls) -> bool:
         """检查当前凭据登录状态"""
-        headers = cls._get_default_headers()
-        if xsrf_token := WEIBO_CREDENTIAL_MANAGER.get_cookie('XSRF-TOKEN'):
-            headers.update({'x-xsrf-token': xsrf_token})
-
         try:
-            config_response = await cls._get_resource_as_json(url=f'{cls._get_root_url()}/api/config', headers=headers)
+            config_response = await cls._get_api_json(url=f'{cls._get_root_url()}/api/config')
             config_data = WeiboApiConfig.model_validate(config_response)
         except Exception as e:
             logger.opt(colors=True).error(f'<lc>Weibo</lc> | <r>登录状态检查失败</r>, 访问异常, {e}')
