@@ -14,7 +14,7 @@ https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.
 import asyncio
 import binascii
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import qrcode
 from Cryptodome.Cipher import PKCS1_OAEP
@@ -51,6 +51,11 @@ JNrRuoEUXpabUzGB8QIDAQAB
 
 class BilibiliCredential(BilibiliCommon):
     """Bilibili 凭据操作类"""
+
+    _LOGIN_QR_MAX_ATTEMPT: ClassVar[int] = 15
+    """扫码登录最大轮询次数"""
+    _LOGIN_QR_POLL_INTERVAL: ClassVar[int] = 6
+    """扫码登录轮询间隔秒数"""
 
     @staticmethod
     def _get_correspond_path() -> str:
@@ -109,7 +114,7 @@ class BilibiliCredential(BilibiliCommon):
             if login_info.data.code == 0:
                 logger.opt(colors=True).success('<lc>Bilibili</lc> | 扫码登录: 成功')
                 break
-            elif attempt >= 15:
+            elif attempt >= cls._LOGIN_QR_MAX_ATTEMPT:
                 logger.opt(colors=True).error(f'<lc>Bilibili</lc> | 扫码登录: {login_info.data.message}, 等待超时')
                 raise RuntimeError('等待超时')
             elif login_info.data.code == 86101:
@@ -124,7 +129,7 @@ class BilibiliCredential(BilibiliCommon):
             else:
                 logger.opt(colors=True).warning(f'<lc>Bilibili</lc> | 扫码登录: {login_info.data.message}')
                 attempt += 1
-            await asyncio.sleep(6)
+            await asyncio.sleep(cls._LOGIN_QR_POLL_INTERVAL)
 
         login_set_cookies.update({'ac_time_value': login_info.data.refresh_token})
         BILIBILI_CREDENTIAL_MANAGER.clear_cookies()

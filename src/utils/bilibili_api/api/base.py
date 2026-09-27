@@ -80,11 +80,19 @@ class BilibiliCommon(BaseCommonAPI):
         return BILIBILI_CREDENTIAL_MANAGER.login_cookies
 
     @classmethod
-    async def download_resource(cls, url: str) -> 'TemporaryResource':
+    async def download_resource(
+            cls,
+            url: str,
+            *,
+            subdir: str | None = None,
+            ignore_exist_file: bool = False,
+    ) -> 'TemporaryResource':
         """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
         return await cls._download_resource(
             save_folder=bilibili_api_config.download_folder,
             url=url,
+            subdir=subdir,
+            ignore_exist_file=ignore_exist_file,
         )
 
     @classmethod
