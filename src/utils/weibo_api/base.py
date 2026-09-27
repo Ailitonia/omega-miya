@@ -77,7 +77,11 @@ class BaseWeiboAPI(BaseCommonAPI):
             return
 
         WEIBO_CREDENTIAL_MANAGER.replace_cookies(new_cookies_data)
-        await WEIBO_CREDENTIAL_MANAGER.save_to_database()
+        try:
+            await WEIBO_CREDENTIAL_MANAGER.save_to_database()
+        except Exception as e:
+            # 落库失败不影响业务请求, 内存缓存已更新, 后续同步自愈
+            logger.opt(colors=True).error(f'<lc>Weibo</lc> | <r>响应 Cookies 落库失败</r>, {e}')
         changed_keys = sorted(key for key, value in new_cookies.items() if old_cookies.get(key) != value)
         logger.opt(colors=True).debug(f'<lc>Weibo</lc> | 响应 Cookies 已回收并落库, 更新: {changed_keys}')
 

@@ -146,7 +146,7 @@ class _UserData(WeiboBaseModel):
 class WeiboUserInfo(WeiboBaseModel):
     """微博用户信息"""
     ok: int
-    data: _UserData
+    data: _UserData | None = Field(default=None)
 
 
 class _MbLogVisible(WeiboBaseModel):
@@ -207,8 +207,8 @@ class _PageInfo(WeiboBaseModel):
         return self.page_pic.url
 
 
-class _WeiboCardMbLog(WeiboBaseModel):
-    """card.mblog model"""
+class WeiboMbLog(WeiboBaseModel):
+    """微博 mblog 内容 (单条微博/card.mblog/statuses model)"""
     visible: _MbLogVisible
     created_at: str
     id: int
@@ -225,7 +225,7 @@ class _WeiboCardMbLog(WeiboBaseModel):
     is_paid: bool
     mblog_vip_type: int
     user: WeiboUserBase
-    retweeted_status: Optional['_WeiboCardMbLog'] = Field(default=None)
+    retweeted_status: Optional['WeiboMbLog'] = Field(default=None)
     reposts_count: int
     comments_count: int
     reprint_cmt_count: int
@@ -264,8 +264,8 @@ class _WeiboCardMbLog(WeiboBaseModel):
     @field_validator('retweeted_status', mode='before')
     @classmethod
     def _check_retweeted_status(cls, v):
-        # 排除转发了由于作者设置导致没有查看权限的微博
-        if v.get('user', None) is None:
+        # 排除转发了由于作者设置导致没有查看权限的微博 (显式 null/非 dict 值同样按非转发处理)
+        if not isinstance(v, dict) or v.get('user', None) is None:
             return None
         return v
 
@@ -282,24 +282,10 @@ class _WeiboCardMbLog(WeiboBaseModel):
         return self.retweeted_status is not None
 
 
-class WeiboCardStatus(WeiboBaseModel):
-    """微博status页面解析后的单条微博内容"""
-    hotScheme: AnyUrl
-    appScheme: AnyUrl
-    callUinversalLink: bool
-    callWeibo: bool
-    schemeOrigin: bool
-    appLink: AnyUrl
-    xianzhi_scheme: AnyUrl
-    third_scheme: AnyUrl
-    status: _WeiboCardMbLog
-    call: int
-
-
 class WeiboCard(WeiboBaseModel):
     """单条微博内容(data.cards.card model)"""
     card_type: str
-    mblog: _WeiboCardMbLog
+    mblog: WeiboMbLog
     itemid: str | None = Field(default=None)
     profile_type_id: str | None = Field(default=None)
     scheme: str | None = Field(default=None)
@@ -335,7 +321,7 @@ class _CardsData(WeiboBaseModel):
 class WeiboCards(WeiboBaseModel):
     """页面微博内容"""
     ok: int
-    data: _CardsData
+    data: _CardsData | None = Field(default=None)
 
 
 class _WeiboExtendData(WeiboBaseModel):
@@ -349,6 +335,9 @@ class _WeiboExtendData(WeiboBaseModel):
     @field_validator('longTextContent')
     @classmethod
     def _remove_text_html_tags(cls, v):
+        if not v.strip():
+            return v
+
         text_html = etree.HTML(v)
         text = ''.join(text for x in text_html.xpath('/html/*') for text in x.itertext()).strip()
         return text
@@ -357,7 +346,7 @@ class _WeiboExtendData(WeiboBaseModel):
 class WeiboExtend(WeiboBaseModel):
     """获取微博全文内容"""
     ok: int
-    data: _WeiboExtendData
+    data: _WeiboExtendData | None = Field(default=None)
 
 
 class _HotCardlistInfo(WeiboBaseModel):
@@ -422,11 +411,11 @@ class _RealtimeHotData(WeiboBaseModel):
 class WeiboRealtimeHot(WeiboBaseModel):
     """微博实时热搜"""
     ok: int
-    data: _RealtimeHotData
+    data: _RealtimeHotData | None = Field(default=None)
 
 
-class WeiboFeedData(WeiboBaseModel):
-    statuses: list[_WeiboCardMbLog] = Field(default_factory=list)
+class _FeedData(WeiboBaseModel):
+    statuses: list[WeiboMbLog] = Field(default_factory=list)
     hasvisible: bool
     previous_cursor: int
     next_cursor: int
@@ -444,7 +433,7 @@ class WeiboFeedData(WeiboBaseModel):
 class WeiboTopFeed(WeiboBaseModel):
     """微博首页 feed"""
     ok: int
-    data: WeiboFeedData
+    data: _FeedData | None = Field(default=None)
 
 
 
@@ -453,11 +442,10 @@ __all__ = [
     'WeiboBdResponse',
     'WeiboCard',
     'WeiboCards',
-    'WeiboCardStatus',
     'WeiboExtend',
-    'WeiboFeedData',
     'WeiboGenVisitorResult',
     'WeiboLoginQrCodeInfo',
+    'WeiboMbLog',
     'WeiboQrCodeCheck',
     'WeiboQrCodeImage',
     'WeiboRealtimeHotCard',

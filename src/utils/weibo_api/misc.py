@@ -21,9 +21,7 @@ from Cryptodome.Cipher import AES, PKCS1_OAEP
 from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Util.Padding import pad
-from lxml import etree
 
-from src.compat import parse_json_as
 from src.utils import OmegaRequests
 from .consts import (
     LOGIN_FLOW_STEP_HEADERS,
@@ -33,7 +31,7 @@ from .consts import (
     RiskFlowStep,
     VisitorUrl,
 )
-from .model import WeiboCardStatus, WeiboVisitorPageParams
+from .model import WeiboVisitorPageParams
 
 if TYPE_CHECKING:
     from src.utils.omega_requests.types import HeaderTypes
@@ -251,20 +249,8 @@ def merge_cookies(jar: dict[str, str], new_cookies: dict[str, str]) -> dict[str,
 
 
 def gen_rand_param() -> str:
-    """生成 enter 接口的 _rand 参数 (10 位以内数字字符串)"""
-    return str(random.random())[2:12]
-
-
-def parse_weibo_card_from_status_page(content: str) -> WeiboCardStatus:
-    """解析单条微博 Json 数据"""
-    html = etree.HTML(content)
-    render_data = html.xpath('/html/body/script[2]').pop(0)
-
-    start_mark = 'var $render_data = [{'
-    start_index = render_data.text.find(start_mark) + len(start_mark) - 1
-    end_mark = '][0] || {};'
-    end_index = render_data.text.find(end_mark)
-    return parse_json_as(WeiboCardStatus, render_data.text[start_index:end_index])
+    """生成 enter 接口的 _rand 参数 (10 位数字字符串)"""
+    return f'{random.randrange(10 ** 10):010d}'
 
 
 __all__ = [
@@ -277,5 +263,4 @@ __all__ = [
     'merge_cookies',
     'parse_callback_js',
     'parse_loose_json_object',
-    'parse_weibo_card_from_status_page',
 ]

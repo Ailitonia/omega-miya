@@ -244,19 +244,20 @@ class WeiboCredential(BaseWeiboAPI):
         """确保全局凭据缓存中有可用的 Cookies, 依次经由内存缓存、数据库、访客风控流程
 
         :param force_refresh: 跳过内存缓存与数据库检查, 直接执行完整访客风控流程
+        :raise RuntimeError: 访客风控流程执行后凭据仍不可用 (无 SUB/SUBP)
         """
-        if force_refresh:
-            await cls.refresh_visitor_cookies()
-            return
+        if not force_refresh:
+            if WEIBO_CREDENTIAL_MANAGER.get_cookie('SUB') or WEIBO_CREDENTIAL_MANAGER.get_cookie('SUBP'):
+                return
 
-        if WEIBO_CREDENTIAL_MANAGER.get_cookie('SUB') or WEIBO_CREDENTIAL_MANAGER.get_cookie('SUBP'):
-            return
-
-        await WEIBO_CREDENTIAL_MANAGER.load_from_database()
-        if WEIBO_CREDENTIAL_MANAGER.get_cookie('SUB') or WEIBO_CREDENTIAL_MANAGER.get_cookie('SUBP'):
-            return
+            await WEIBO_CREDENTIAL_MANAGER.load_from_database()
+            if WEIBO_CREDENTIAL_MANAGER.get_cookie('SUB') or WEIBO_CREDENTIAL_MANAGER.get_cookie('SUBP'):
+                return
 
         await cls.refresh_visitor_cookies()
+        if WEIBO_CREDENTIAL_MANAGER.get_cookie('SUB') or WEIBO_CREDENTIAL_MANAGER.get_cookie('SUBP'):
+            return
+        raise RuntimeError('微博凭据不可用, 访客 Cookies 刷新后仍未获取到 SUB/SUBP')
 
     # ------------------------------------------------------------------ #
     # 扫码登录流程
