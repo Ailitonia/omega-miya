@@ -26,12 +26,15 @@ ANY_HTTP_URL_ADAPTER = TypeAdapter(AnyHttpUrl)
 """实例化全局 AnyHttpUrlAdapter"""
 
 type AnyUrlStr = Annotated[str, BeforeValidator(lambda v: str(ANY_URL_ADAPTER.validate_python(v)))]
-"""使用 Annotated Validator 将 AnyUrl 格式转换为 str"""
+"""任意 URL 字符串类型, 使用 Annotated Validator 将 AnyUrl 格式转换为 str"""
 
 type AnyHttpUrlStr = Annotated[str, BeforeValidator(lambda v: str(ANY_HTTP_URL_ADAPTER.validate_python(v)))]
-"""使用 Annotated Validator 将 AnyHttpUrl 格式转换为 str"""
+"""任意 http 协议 URL 字符串类型, 使用 Annotated Validator 将 AnyHttpUrl 格式转换为 str"""
 
-type EmptyNoneStr = Annotated[str, BeforeValidator(lambda x: '' if x is None else x)]
+type OptionalUrlStr = Annotated[AnyUrlStr | None, BeforeValidator(lambda v: None if v == '' else v)]
+"""可选 URL 字符串类型, 使用 Annotated Validator 将空字符串转换为 None 后再校验"""
+
+type EmptyNoneStr = Annotated[str, BeforeValidator(lambda v: '' if v is None else v)]
 """默认将 None 转换为空字符串类型"""
 
 
@@ -126,6 +129,7 @@ def dump_json_as[T](
 __all__ = [
     'AnyUrlStr',
     'AnyHttpUrlStr',
+    'OptionalUrlStr',
     'EmptyNoneStr',
     'parse_obj_as',
     'parse_json_as',
