@@ -3,9 +3,9 @@
 @Date           : 2026/9/23 20:48
 @FileName       : test_006_pixiv_api
 @Project        : omega-miya
-@Description    : pixiv api 单元测试(真实请求, 核验原始响应内容)
+@Description    : pixiv api 单元测试
 
-核验分三层: 原始响应(raw json/html)断言 -> 数据模型交叉核验 -> 公开方法结果一致性
+真实请求的核验分三层: 原始响应(raw json/html)断言 -> 数据模型交叉核验 -> 公开方法结果一致性
 页面解析的核验基准由测试内独立的 xpath/正则从同一份原始 HTML 提取, 不复用 PixivParser 实现
 
 真实请求用例默认跳过, 需用户手动设置 PIXIV_API_REAL_TEST=1 环境变量后发起;
