@@ -17,8 +17,10 @@ from .model import (
     WeiboCardStatus,
     WeiboCards,
     WeiboExtend,
+    WeiboFeedData,
     WeiboRealtimeHot,
     WeiboRealtimeHotCard,
+    WeiboTopFeed,
     WeiboUserBase,
     WeiboUserInfo,
 )
@@ -49,7 +51,7 @@ class Weibo(BaseWeiboAPI):
         user_info = WeiboUserInfo.model_validate(user_response)
 
         if user_info.ok != 1:
-            raise WebSourceException(404, f'Query user(uid={uid}) data failed, {user_info.data}')
+            raise WebSourceException(400, f'Query user(uid={uid}) data failed, {user_info.data}')
 
         return user_info.data.userInfo
 
@@ -76,7 +78,7 @@ class Weibo(BaseWeiboAPI):
         cards = WeiboCards.model_validate(cards_response)
 
         if cards.ok != 1:
-            raise WebSourceException(404, f'Query user(uid={uid}) weibo cards failed, {cards.data}')
+            raise WebSourceException(400, f'Query user(uid={uid}) weibo cards failed, {cards.data}')
 
         return cards.data.cards
 
@@ -99,7 +101,7 @@ class Weibo(BaseWeiboAPI):
         extend = WeiboExtend.model_validate(extend_response)
 
         if extend.ok != 1 or extend.data.ok != 1:
-            raise WebSourceException(404, f'Query weibo(mid={mid}) extend content failed, {extend}')
+            raise WebSourceException(400, f'Query weibo(mid={mid}) extend content failed, {extend}')
 
         return extend.data.longTextContent
 
@@ -116,9 +118,23 @@ class Weibo(BaseWeiboAPI):
         realtime_hot = WeiboRealtimeHot.model_validate(realtime_hot_response)
 
         if realtime_hot.ok != 1:
-            raise WebSourceException(404, f'Query realtime hot failed, {realtime_hot.data}')
+            raise WebSourceException(400, f'Query realtime hot failed, {realtime_hot.data}')
 
         return realtime_hot.data.cards
+
+    @classmethod
+    async def query_top_feed(cls) -> WeiboFeedData:
+        """获取首页 feed 更新 (需要已登录状态)"""
+        url = 'https://m.weibo.cn/feed/friends'
+
+        await cls.update_default_cookies()
+        feed_response = await cls._get_api_json(url=url)
+        feed_data = WeiboTopFeed.model_validate(feed_response)
+
+        if feed_data.ok != 1:
+            raise WebSourceException(400, f'Query top feed failed, {feed_data.data}')
+
+        return feed_data.data
 
 
 __all__ = [

@@ -214,12 +214,11 @@ class _WeiboCardMbLog(WeiboBaseModel):
     id: int
     mid: str
     can_edit: bool
-    show_additional_indication: int | None = Field(default=None)
     text: str
     textLength: int | None = Field(default=None)
     source: str
     favorited: bool
-    pic_ids: list[str]
+    pic_ids: list[str] = Field(default_factory=list)
     thumbnail_pic: AnyUrl | None = Field(default=None)
     bmiddle_pic: AnyUrl | None = Field(default=None)
     original_pic: AnyUrl | None = Field(default=None)
@@ -426,6 +425,29 @@ class WeiboRealtimeHot(WeiboBaseModel):
     data: _RealtimeHotData
 
 
+class WeiboFeedData(WeiboBaseModel):
+    statuses: list[_WeiboCardMbLog] = Field(default_factory=list)
+    hasvisible: bool
+    previous_cursor: int
+    next_cursor: int
+    previous_cursor_str: str
+    next_cursor_str: str
+    total_number: int
+    interval: int
+    since_id: int
+    since_id_str: str
+    max_id: int
+    max_id_str: str
+    has_unread: int
+
+
+class WeiboTopFeed(WeiboBaseModel):
+    """微博首页 feed"""
+    ok: int
+    data: WeiboFeedData
+
+
+
 __all__ = [
     'WeiboApiConfig',
     'WeiboBdResponse',
@@ -433,12 +455,14 @@ __all__ = [
     'WeiboCards',
     'WeiboCardStatus',
     'WeiboExtend',
+    'WeiboFeedData',
     'WeiboGenVisitorResult',
     'WeiboLoginQrCodeInfo',
     'WeiboQrCodeCheck',
     'WeiboQrCodeImage',
     'WeiboRealtimeHotCard',
     'WeiboRealtimeHot',
+    'WeiboTopFeed',
     'WeiboUserBase',
     'WeiboUserInfo',
     'WeiboVisitorPageParams',
