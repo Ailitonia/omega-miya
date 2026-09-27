@@ -9,7 +9,7 @@
 """
 
 from src.exception import WebSourceException
-from .base import BaseWeiboAPI
+from .api_base import BaseWeiboAPI
 from .credential import WeiboCredential
 from .credential_manager import WEIBO_CREDENTIAL_MANAGER
 from .model import (

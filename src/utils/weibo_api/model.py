@@ -18,7 +18,7 @@ from src.compat import AnyUrlStr as AnyUrl
 
 
 class WeiboBaseModel(BaseModel):
-    """微博基类"""
+    """微博数据基类"""
 
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True)
 

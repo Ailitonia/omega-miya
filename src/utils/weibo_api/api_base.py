@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2026/9/25 22:38
-@FileName       : base.py
+@FileName       : api_base.py
 @Project        : omega-miya
 @Description    : 微博 API 基类
 @GitHub         : https://github.com/Ailitonia

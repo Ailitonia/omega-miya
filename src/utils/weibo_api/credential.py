@@ -15,7 +15,7 @@ from urllib.parse import urljoin
 
 from nonebot.log import logger
 
-from .base import BaseWeiboAPI
+from .api_base import BaseWeiboAPI
 from .consts import (
     WEIBO_DETECTION_SAMPLE_UID,
     LoginFlowStep,
