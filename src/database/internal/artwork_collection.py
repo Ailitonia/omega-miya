@@ -26,23 +26,23 @@ from ..schema import ArtworkCollectionOrm, ArtworkReviewRecordsOrm, ArtworkTagOr
 @unique
 class ArtworkClassification(IntEnum):
     """图库作品分类"""
-    IGNORED = -2  # 忽略
-    UNKNOWN = -1  # 未知
-    UNCATEGORIZED = 0  # 未分类
-    AI_GENERATED = 1  # AI 生成 (确认为 AI 生成作品)
-    EXTERNAL_CONFIRMED = 2  # 外部来源确认 (来源于资源站点或 API 的数据)
-    HUMAN_CONFIRMED = 3  # 人工审核确认
-    FEATURED = 4  # 精选
+    IGNORED = -2  # 忽略, 可能由于低质/敏感话题/广告等因素被人工审核/标记为忽略, 一般不应使用此等级的作品
+    UNKNOWN = -1  # 未知, 无法确认分类级别, 一般为本地图片或无确切来源 (各种不标明来源的页面, 推文, 动态, etc.) 的图片
+    UNCATEGORIZED = 0  # 未分类, 一般为无分级网站 (pixiv, twitter, etc.) 作品默认分类级别
+    AI_GENERATED = 1  # AI 生成, 确认/疑似为 AI 生成作品
+    EXTERNAL_CONFIRMED = 2  # 外部来源确认, 来源于资源站点/第三方接口的分类, 一般可作为应用层插件使用的最低可信级别
+    HUMAN_CONFIRMED = 3  # 人工审核确认, 由人工审核/确认分级分类的作品, 且分级可信
+    FEATURED = 4  # 精选, 这就是你的 XP
 
 
 @unique
 class ArtworkRating(IntEnum):
     """图库作品分级"""
-    UNKNOWN = -1
-    GENERAL = 0
-    SENSITIVE = 1
-    QUESTIONABLE = 2
-    EXPLICIT = 3
+    UNKNOWN = -1  # 未知, 可能为下面任意一种分级的其中之一, 绝对不要直接当作 G-rated 作品使用
+    GENERAL = 0  # G-rated content. 任何人随时可观看的, sfw
+    SENSITIVE = 1  # Ecchi, sexy, suggestive, or mildly erotic. 包含内衣/泳装/部分裸露/暗示性动作等, 涩图, nsfw
+    QUESTIONABLE = 2  # Softcore erotica. 除了关键之外的明目张胆, 官能作品, nsfw+
+    EXPLICIT = 3  # Hardcore erotica. 限制级作品, R18, nsfw+++
 
 
 @unique
@@ -309,6 +309,7 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             rating_max: int = 0,
             acc_mode: bool = False,
             ratio: int | None = None,
+            has_review_record: bool | None = None,
             order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
     ) -> list[Artwork]:
         """按条件搜索图库收录作品
@@ -323,6 +324,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         :param rating_max: 分级标签最大值
         :param acc_mode: 是否启用精确搜索模式 (精确匹配标题/用户名/标签名)
         :param ratio: 图片长宽, 1: 横图, 0: 方图, -1: 竖图
+        :param has_review_record: 筛选是否具有评审记录,
+            True 仅返回有评审记录的作品, False 仅返回无评审记录的作品, None 不筛选
         :param order_mode: 排序模式 (aid/aid_desc 为数值感知排序),
             random 模式下每次查询独立随机, 与分页组合时不同页可能重复或遗漏
         """
@@ -367,6 +370,12 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         # 根据 ratio 构造图片长宽类型查询语句
         if ratio is not None:
             stmt = stmt.where(ArtworkCollectionOrm.orientation == ratio)
+
+        # has_review_record 不为 None 则筛选是否有评审记录
+        if has_review_record is True:
+            stmt = stmt.where(ArtworkCollectionOrm.review_records_belonged_to_artwork.any())
+        elif has_review_record is False:
+            stmt = stmt.where(~ArtworkCollectionOrm.review_records_belonged_to_artwork.any())
 
         # 添加搜索条件并加载级联, 多个关键词之间为 AND 语义
         for keyword_condition in conditions:

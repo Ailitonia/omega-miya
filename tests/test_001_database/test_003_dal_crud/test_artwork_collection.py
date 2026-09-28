@@ -899,6 +899,201 @@ class TestArtworkCollectionDAL:
         with pytest.raises(ValueError, match='size must be a positive integer'):
             await artwork_dal.query_by_condition(None, None, size=0)
 
+    async def test_query_by_condition_has_review_record(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """has_review_record 三态筛选: True 仅有评审记录, False 仅无评审记录, None 不筛选"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['aid'] = '1001'
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['aid'] = '1002'
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['aid'] = '1003'
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        # a1 一条评审记录, a2 两条评审记录, a3 无评审记录
+        for kwargs, count in ((a1_kwargs, 1), (a2_kwargs, 2)):
+            for i in range(count):
+                await artwork_dal.add_artwork_review_record(
+                    origin=kwargs['origin'],
+                    aid=kwargs['aid'],
+                    review_timestamp=1000000000 + i,
+                    review_classification=3,
+                    review_rating=1,
+                    review_from='test_reviewer',
+                    review_info='test review info',
+                )
+        await artwork_dal.commit_session()
+
+        # True: 仅返回有评审记录的作品, 有两条记录的 a2 仅出现一次 (EXISTS 子查询不产生重复行)
+        result = await artwork_dal.query_by_condition(
+            'test_origin', None, size=10, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1001', '1002']
+
+        # False: 仅返回无评审记录的作品
+        result = await artwork_dal.query_by_condition(
+            'test_origin', None, size=10, has_review_record=False, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1003']
+
+        # None (默认): 不附加筛选, 全部返回
+        result = await artwork_dal.query_by_condition('test_origin', None, size=10, order_mode='aid')
+        assert [item.aid for item in result] == ['1001', '1002', '1003']
+
+        # 为 a3 补加评审记录后, 其从 False 桶转入 True 桶
+        await artwork_dal.add_artwork_review_record(
+            origin=a3_kwargs['origin'],
+            aid=a3_kwargs['aid'],
+            review_timestamp=1000000010,
+            review_classification=3,
+            review_rating=1,
+            review_from='test_reviewer',
+            review_info='test review info',
+        )
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.query_by_condition(
+            'test_origin', None, size=10, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1001', '1002', '1003']
+
+        # 全部作品均有评审记录时, False 返回空集
+        result = await artwork_dal.query_by_condition(
+            'test_origin', None, size=10, has_review_record=False, order_mode='aid'
+        )
+        assert result == []
+
+    async def test_query_by_condition_has_review_record_combined_filters(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """has_review_record 与分类范围/关键词/origin 过滤叠加, 各条件为 AND 语义"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        # a1: classification=2 且有评审记录, 默认分类范围 (3-4) 下不可见
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['aid'] = '1001'
+        a1_kwargs['classification'] = 2
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        # a2/a3: 均关联 neko 标签, a2 有评审记录, a3 无
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['aid'] = '1002'
+        a2_kwargs['raw_tags'] = 'neko'
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['aid'] = '1003'
+        a3_kwargs['raw_tags'] = 'neko'
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        # a4: 其他 origin 且有评审记录, 限定 origin 查询时不应混入
+        a4_kwargs = test_basic_artwork_kwargs_generator()
+        a4_kwargs['aid'] = '1004'
+        a4_kwargs['origin'] = 'test_another_origin'
+        await artwork_dal.add_artwork_update_exist(**a4_kwargs)
+
+        for kwargs in (a1_kwargs, a2_kwargs, a4_kwargs):
+            await artwork_dal.add_artwork_review_record(
+                origin=kwargs['origin'],
+                aid=kwargs['aid'],
+                review_timestamp=1000000000,
+                review_classification=3,
+                review_rating=1,
+                review_from='test_reviewer',
+                review_info='test review info',
+            )
+        await artwork_dal.commit_session()
+
+        # 默认分类范围 (3-4): classification=2 的 a1 即使有评审记录也不可见
+        result = await artwork_dal.query_by_condition(
+            'test_origin', None, size=10, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1002']
+
+        # 放宽分类范围后 a1 可见, 且不含其他 origin 的 a4
+        result = await artwork_dal.query_by_condition(
+            'test_origin', None, size=10, classification_min=-2, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1001', '1002']
+
+        # 与关键词叠加: neko 命中 a2/a3, 叠加 has_review_record 后各自分流 (tag/review 两个 EXISTS 子查询共存)
+        result = await artwork_dal.query_by_condition(
+            'test_origin', ['neko'], size=10, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1002']
+
+        result = await artwork_dal.query_by_condition(
+            'test_origin', ['neko'], size=10, has_review_record=False, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1003']
+
+        # 其他 origin 下 a4 正常命中
+        result = await artwork_dal.query_by_condition(
+            'test_another_origin', None, size=10, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in result] == ['1004']
+
+    async def test_query_by_condition_has_review_record_pagination(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """has_review_record 与分页叠加, 不满足筛选条件的作品不占用页位"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        # 4 个有评审记录作品 (1001-1004) + 2 个无记录作品 (1005, 1006)
+        for i in range(6):
+            kwargs = test_basic_artwork_kwargs_generator()
+            kwargs['aid'] = str(1001 + i)
+            await artwork_dal.add_artwork_update_exist(**kwargs)
+            if i < 4:
+                await artwork_dal.add_artwork_review_record(
+                    origin=kwargs['origin'],
+                    aid=kwargs['aid'],
+                    review_timestamp=1000000000,
+                    review_classification=3,
+                    review_rating=1,
+                    review_from='test_reviewer',
+                    review_info='test review info',
+                )
+        await artwork_dal.commit_session()
+
+        page1 = await artwork_dal.query_by_condition(
+            'test_origin', None, page=1, size=2, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in page1] == ['1001', '1002']
+
+        page2 = await artwork_dal.query_by_condition(
+            'test_origin', None, page=2, size=2, has_review_record=True, order_mode='aid'
+        )
+        assert [item.aid for item in page2] == ['1003', '1004']
+
+        # 超出范围的页返回空列表
+        page3 = await artwork_dal.query_by_condition(
+            'test_origin', None, page=3, size=2, has_review_record=True, order_mode='aid'
+        )
+        assert page3 == []
+
+        # 无记录作品分页
+        page1_no_record = await artwork_dal.query_by_condition(
+            'test_origin', None, page=1, size=2, has_review_record=False, order_mode='aid'
+        )
+        assert [item.aid for item in page1_no_record] == ['1005', '1006']
+
     # ------------------------------------------------------------------ #
     # query_classification_statistic / query_rating_statistic
     # ------------------------------------------------------------------ #
