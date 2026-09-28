@@ -8,43 +8,30 @@
 @Software       : PyCharm
 """
 
-from http.cookiejar import Cookie, CookieJar
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from multidict import CIMultiDict
+from nonebot.internal.driver import Cookies
 
 from tests.test_003_web.helpers import (
     _DOWNLOAD_PAYLOAD,
     _LINES_EXPECTED,
     _STREAM_PAYLOAD,
+    capture_driver_request,
+    capture_driver_stream_request,
     line_chunks_stream,
+    make_cookie_jar,
+    make_response,
+    make_test_folder,
     new_request_token,
 )
 
 if TYPE_CHECKING:
+    from src.resource import AnyResource
     from src.utils.omega_common_api import BaseCommonAPI
-
-
-def _make_response(content: Any = None, headers: Any = None):
-    """构造合成 nonebot Response"""
-    from nonebot.drivers import Response
-
-    return Response(200, headers=headers, content=content)
-
-
-def _make_cookie_jar(name: str, value: str) -> CookieJar:
-    """构造含单个 cookie 的 http.cookiejar.CookieJar"""
-    jar = CookieJar()
-    jar.set_cookie(Cookie(
-        version=0, name=name, value=value,
-        port=None, port_specified=False, domain='example.com', domain_specified=False, domain_initial_dot=False,
-        path='/', path_specified=True, secure=False, expires=None, discard=True,
-        comment=None, comment_url=None, rest={}, rfc2109=False,
-    ))
-    return jar
 
 
 @pytest.fixture(scope='module')
@@ -66,6 +53,12 @@ def api_impl() -> 'type[BaseCommonAPI]':
             return None
 
     return _CommonAPIImpl
+
+
+@pytest.fixture
+def save_folder(tmp_path: Path) -> 'AnyResource':
+    """下载保存目录(临时文件夹资源)"""
+    return make_test_folder(tmp_path)
 
 
 class TestModuleContract:
@@ -138,38 +131,30 @@ class TestAbstractBase:
 class TestExtraSetCookiesFromResponse:
     """响应头 set-cookie 解析测试"""
 
-    def test_single_cookie_with_attributes(self, api_impl: 'type[BaseCommonAPI]'):
-        response = _make_response(headers={'set-cookie': 'a=1; Path=/; HttpOnly'})
-
-        assert api_impl._extra_set_cookies_from_response(response) == {'a': '1'}
-
-    def test_multiple_set_cookie_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        headers = CIMultiDict([('set-cookie', 'a=1; Path=/'), ('Set-Cookie', 'b=2; Path=/')])
-
-        assert api_impl._extra_set_cookies_from_response(_make_response(headers=headers)) == {'a': '1', 'b': '2'}
-
-    def test_cookie_value_with_equals(self, api_impl: 'type[BaseCommonAPI]'):
-        response = _make_response(headers={'set-cookie': 'token=v1=v2; Path=/'})
-
-        assert api_impl._extra_set_cookies_from_response(response) == {'token': 'v1=v2'}
-
-    def test_cookie_without_equals_skipped(self, api_impl: 'type[BaseCommonAPI]'):
-        response = _make_response(headers={'set-cookie': 'invalid; Path=/'})
-
-        assert api_impl._extra_set_cookies_from_response(response) == {}
-
-    def test_cookie_empty_value_kept(self, api_impl: 'type[BaseCommonAPI]'):
-        response = _make_response(headers={'set-cookie': 'a=; Path=/'})
-
-        assert api_impl._extra_set_cookies_from_response(response) == {'a': ''}
-
-    def test_similar_header_not_matched(self, api_impl: 'type[BaseCommonAPI]'):
-        headers = CIMultiDict([('set-cookie', 'a=1; Path=/'), ('set-cookie2', 'b=2; Path=/')])
-
-        assert api_impl._extra_set_cookies_from_response(_make_response(headers=headers)) == {'a': '1'}
-
-    def test_no_cookie_header(self, api_impl: 'type[BaseCommonAPI]'):
-        assert api_impl._extra_set_cookies_from_response(_make_response()) == {}
+    @pytest.mark.parametrize(
+        ('headers', 'expected'),
+        [
+            pytest.param({'set-cookie': 'a=1; Path=/; HttpOnly'}, {'a': '1'}, id='single_cookie_with_attributes'),
+            pytest.param(
+                CIMultiDict([('set-cookie', 'a=1; Path=/'), ('Set-Cookie', 'b=2; Path=/')]),
+                {'a': '1', 'b': '2'},
+                id='multiple_set_cookie_headers',
+            ),
+            pytest.param({'set-cookie': 'token=v1=v2; Path=/'}, {'token': 'v1=v2'}, id='cookie_value_with_equals'),
+            pytest.param({'set-cookie': 'invalid; Path=/'}, {}, id='cookie_without_equals_skipped'),
+            pytest.param({'set-cookie': 'a=; Path=/'}, {'a': ''}, id='cookie_empty_value_kept'),
+            pytest.param(
+                CIMultiDict([('set-cookie', 'a=1; Path=/'), ('set-cookie2', 'b=2; Path=/')]),
+                {'a': '1'},
+                id='similar_header_not_matched',
+            ),
+            pytest.param(None, {}, id='no_cookie_header'),
+        ],
+    )
+    def test_extra_set_cookies_from_response(
+            self, headers: Any, expected: dict[str, str], api_impl: 'type[BaseCommonAPI]',
+    ):
+        assert api_impl._extra_set_cookies_from_response(make_response(headers=headers)) == expected
 
     async def test_from_real_response(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
         response = await api_impl._request_get(url=f'{test_server.base_url}/set_cookie')
@@ -180,22 +165,20 @@ class TestExtraSetCookiesFromResponse:
 class TestIterCookiesItem:
     """cookies 迭代器测试"""
 
-    def test_none_cookies(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_cookies_item(None)) == []
-
-    def test_dict_cookies(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_cookies_item({'a': '1', 'b': None})) == [('a', '1'), ('b', '')]
-
-    def test_list_cookies(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_cookies_item([('a', '1'), ('b', '2')])) == [('a', '1'), ('b', '2')]
-
-    def test_nonebot_cookies(self, api_impl: 'type[BaseCommonAPI]'):
-        from nonebot.internal.driver import Cookies
-
-        assert list(api_impl._iter_cookies_item(Cookies({'a': '1'}))) == [('a', '1')]
-
-    def test_cookie_jar(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_cookies_item(_make_cookie_jar('a', '1'))) == [('a', '1')]
+    @pytest.mark.parametrize(
+        ('cookies', 'expected'),
+        [
+            pytest.param(None, [], id='none_cookies'),
+            pytest.param({'a': '1', 'b': None}, [('a', '1'), ('b', '')], id='dict_cookies'),
+            pytest.param([('a', '1'), ('b', '2')], [('a', '1'), ('b', '2')], id='list_cookies'),
+            pytest.param(Cookies({'a': '1'}), [('a', '1')], id='nonebot_cookies'),
+            pytest.param(make_cookie_jar('a', '1'), [('a', '1')], id='cookie_jar'),
+        ],
+    )
+    def test_iter_cookies_item(
+            self, cookies: Any, expected: list[tuple[str, str]], api_impl: 'type[BaseCommonAPI]',
+    ):
+        assert list(api_impl._iter_cookies_item(cookies)) == expected
 
     def test_unsupported_type_rejected_on_iteration(self, api_impl: 'type[BaseCommonAPI]'):
         """生成器惰性求值, TypeError 在迭代(而非调用)时抛出"""
@@ -206,19 +189,23 @@ class TestIterCookiesItem:
 class TestIterHeadersItem:
     """headers 迭代器测试"""
 
-    def test_none_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_headers_item(None)) == []
-
-    def test_dict_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_headers_item({'a': '1', 'b': None})) == [('a', '1'), ('b', '')]
-
-    def test_list_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        assert list(api_impl._iter_headers_item([('a', '1')])) == [('a', '1')]
-
-    def test_multidict_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        headers = CIMultiDict([('X-A', '1'), ('x-a', '2')])
-
-        assert list(api_impl._iter_headers_item(headers)) == [('X-A', '1'), ('x-a', '2')]
+    @pytest.mark.parametrize(
+        ('headers', 'expected'),
+        [
+            pytest.param(None, [], id='none_headers'),
+            pytest.param({'a': '1', 'b': None}, [('a', '1'), ('b', '')], id='dict_headers'),
+            pytest.param([('a', '1')], [('a', '1')], id='list_headers'),
+            pytest.param(
+                CIMultiDict([('X-A', '1'), ('x-a', '2')]),
+                [('X-A', '1'), ('x-a', '2')],
+                id='multidict_headers',
+            ),
+        ],
+    )
+    def test_iter_headers_item(
+            self, headers: Any, expected: list[tuple[str, str]], api_impl: 'type[BaseCommonAPI]',
+    ):
+        assert list(api_impl._iter_headers_item(headers)) == expected
 
     def test_unsupported_type_rejected_on_iteration(self, api_impl: 'type[BaseCommonAPI]'):
         with pytest.raises(TypeError, match='Unsupported headers type'):
@@ -226,40 +213,46 @@ class TestIterHeadersItem:
 
 
 class TestInitOmegaRequests:
-    """_init_omega_requests 实例装配测试"""
+    """_init_omega_requests 实例装配测试(no_headers=True 时空 headers 经 OmegaRequests 归一为 None)"""
 
-    def test_default(self, api_impl: 'type[BaseCommonAPI]'):
+    @pytest.mark.parametrize(
+        ('kwargs', 'expected_timeout', 'expected_headers', 'expected_cookies'),
+        [
+            pytest.param({}, None, {'x-test-api': 'omega'}, None, id='default'),
+            pytest.param(
+                {'timeout': 10, 'headers': {'a': 'b'}, 'cookies': {'c': 'd'}},
+                10, {'a': 'b'}, {'c': 'd'},
+                id='custom',
+            ),
+            pytest.param({'no_headers': True}, None, None, None, id='no_headers'),
+            pytest.param(
+                {'headers': {'a': 'b'}, 'no_headers': True},
+                None, None, None,
+                id='no_headers_overrides_explicit_headers',
+            ),
+            pytest.param(
+                {'cookies': {'c': 'd'}, 'no_cookies': True},
+                None, {'x-test-api': 'omega'}, None,
+                id='no_cookies',
+            ),
+        ],
+    )
+    def test_init_omega_requests(
+            self, kwargs: dict[str, Any], expected_timeout: int | None,
+            expected_headers: dict[str, str] | None, expected_cookies: dict[str, str] | None,
+            api_impl: 'type[BaseCommonAPI]',
+    ):
         from src.utils.omega_requests import OmegaRequests
 
-        requests = api_impl._init_omega_requests()
+        requests = api_impl._init_omega_requests(**kwargs)
+
+        if expected_timeout is None:
+            expected_timeout = OmegaRequests.get_default_timeout()
 
         assert isinstance(requests, OmegaRequests)
-        assert requests.timeout == OmegaRequests.get_default_timeout()
-        assert requests.headers == {'x-test-api': 'omega'}
-        assert requests.cookies is None
-
-    def test_custom(self, api_impl: 'type[BaseCommonAPI]'):
-        requests = api_impl._init_omega_requests(timeout=10, headers={'a': 'b'}, cookies={'c': 'd'})
-
-        assert requests.timeout == 10
-        assert requests.headers == {'a': 'b'}
-        assert requests.cookies == {'c': 'd'}
-
-    def test_no_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        """no_headers=True 时空 headers 经 OmegaRequests 归一为 None(发送时不携带默认头)"""
-        requests = api_impl._init_omega_requests(no_headers=True)
-
-        assert requests.headers is None
-
-    def test_no_headers_overrides_explicit_headers(self, api_impl: 'type[BaseCommonAPI]'):
-        requests = api_impl._init_omega_requests(headers={'a': 'b'}, no_headers=True)
-
-        assert requests.headers is None
-
-    def test_no_cookies(self, api_impl: 'type[BaseCommonAPI]'):
-        requests = api_impl._init_omega_requests(cookies={'c': 'd'}, no_cookies=True)
-
-        assert requests.cookies is None
+        assert requests.timeout == expected_timeout
+        assert requests.headers == expected_headers
+        assert requests.cookies == expected_cookies
 
 
 class TestRequestMethods:
@@ -273,32 +266,53 @@ class TestRequestMethods:
         assert ['a', '1'] in data['params']
         assert data['headers']['x-test-api'] == 'omega'
 
-    async def test_request_get_error_status(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
+    @pytest.mark.parametrize(
+        ('method', 'status_code', 'kwargs'),
+        [
+            pytest.param('_request_get', 404, {}, id='get'),
+            pytest.param('_request_delete', 500, {}, id='delete'),
+            pytest.param('_request_post', 500, {'content': b'x'}, id='post'),
+            pytest.param('_request_put', 500, {'content': b'x'}, id='put'),
+        ],
+    )
+    async def test_request_error_status(
+            self, method: str, status_code: int, kwargs: dict[str, Any],
+            api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
         from src.exception import WebSourceException
 
+        url = f'{test_server.base_url}/status/{status_code}'
+
         with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._request_get(url=f'{test_server.base_url}/status/404')
+            await getattr(api_impl, method)(url=url, **kwargs)
 
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.content == b'status 404'
-        assert f'{test_server.base_url}/status/404' in exc_info.value.message
+        assert exc_info.value.status_code == status_code
+        assert exc_info.value.content == f'status {status_code}'.encode()
+        assert url in exc_info.value.message
 
-    async def test_other_2xx_status_accepted(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        """201/206 等其他 2xx 状态码同样视为成功"""
-        response_201 = await api_impl._request_get(url=f'{test_server.base_url}/status/201')
-        assert response_201.status_code == 201
-
-        response_206 = await api_impl._request_get(url=f'{test_server.base_url}/status/206')
-        assert response_206.status_code == 206
-
-    async def test_redirect_status_rejected(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        """3xx 等非 2xx 状态码仍视为失败"""
+    @pytest.mark.parametrize(
+        ('status_codes', 'accepted'),
+        [
+            pytest.param([201, 206], True, id='other_2xx_status_accepted'),
+            pytest.param([301], False, id='redirect_status_rejected'),
+        ],
+    )
+    async def test_status_code_handling(
+            self, status_codes: list[int], accepted: bool,
+            api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        """201/206 等其他 2xx 状态码同样视为成功, 3xx 等非 2xx 状态码仍视为失败"""
         from src.exception import WebSourceException
 
-        with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._request_get(url=f'{test_server.base_url}/status/301')
+        for status_code in status_codes:
+            if accepted:
+                response = await api_impl._request_get(url=f'{test_server.base_url}/status/{status_code}')
+                assert response.status_code == status_code
+            else:
+                with pytest.raises(WebSourceException) as exc_info:
+                    await api_impl._request_get(url=f'{test_server.base_url}/status/{status_code}')
 
-        assert exc_info.value.status_code == 301
+                assert exc_info.value.status_code == status_code
 
     async def test_request_post_json(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
         response = await api_impl._request_post(url=f'{test_server.base_url}/post_json', json={'k': 'v'})
@@ -324,30 +338,6 @@ class TestRequestMethods:
         response = await api_impl._request_delete(url=f'{test_server.base_url}/delete')
 
         assert api_impl._parse_content_as_json(response) == {'ok': True, 'method': 'DELETE'}
-
-    async def test_request_delete_error_status(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        from src.exception import WebSourceException
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._request_delete(url=f'{test_server.base_url}/status/500')
-
-        assert exc_info.value.status_code == 500
-
-    async def test_request_post_error_status(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        from src.exception import WebSourceException
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._request_post(url=f'{test_server.base_url}/status/500', content=b'x')
-
-        assert exc_info.value.status_code == 500
-
-    async def test_request_put_error_status(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        from src.exception import WebSourceException
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._request_put(url=f'{test_server.base_url}/status/500', content=b'x')
-
-        assert exc_info.value.status_code == 500
 
     async def test_custom_headers_replace_default(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
         response = await api_impl._request_get(url=f'{test_server.base_url}/get', headers={'x-custom': '1'})
@@ -393,38 +383,36 @@ class TestRequestMethods:
 class TestStreamMethods:
     """流式方法集成测试"""
 
-    async def test_stream_request_get(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        responses = [x async for x in api_impl._stream_request_get(url=f'{test_server.base_url}/stream')]
+    @pytest.mark.parametrize(
+        ('method', 'kwargs'),
+        [
+            pytest.param('_stream_request_get', {}, id='get'),
+            pytest.param('_stream_request_post', {'content': b'x'}, id='post'),
+        ],
+    )
+    async def test_stream_request(
+            self, method: str, kwargs: dict[str, Any],
+            api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    ):
+        responses = [x async for x in getattr(api_impl, method)(url=f'{test_server.base_url}/stream', **kwargs)]
 
         assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
 
-    async def test_stream_request_post(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        responses = [
-            x async for x in api_impl._stream_request_post(url=f'{test_server.base_url}/stream', content=b'x')
-        ]
-
-        assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
-
-    async def test_stream_error_status_rejected(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        from src.exception import WebSourceException
-
-        async def _collect():
-            return [x async for x in api_impl._stream_request_get(url=f'{test_server.base_url}/status/500')]
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await _collect()
-
-        assert exc_info.value.status_code == 500
-
-    async def test_stream_post_error_status_rejected(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    @pytest.mark.parametrize(
+        ('method', 'kwargs'),
+        [
+            pytest.param('_stream_request_get', {}, id='get'),
+            pytest.param('_stream_request_post', {'content': b'x'}, id='post'),
+        ],
+    )
+    async def test_stream_error_status_rejected(
+            self, method: str, kwargs: dict[str, Any],
+            api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
         from src.exception import WebSourceException
 
         async def _collect():
-            return [
-                x async for x in api_impl._stream_request_post(url=f'{test_server.base_url}/status/500', content=b'x')
-            ]
+            return [x async for x in getattr(api_impl, method)(url=f'{test_server.base_url}/status/500', **kwargs)]
 
         with pytest.raises(WebSourceException) as exc_info:
             await _collect()
@@ -447,19 +435,18 @@ class TestStreamMethods:
 
         assert responses == []
 
-    async def test_stream_get_resource_iter_lines(self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace):
-        lines = [x async for x in api_impl._stream_get_resource_iter_lines(url=f'{test_server.base_url}/lines')]
-
-        assert lines == _LINES_EXPECTED
-
-    async def test_stream_post_acquire_iter_lines(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    @pytest.mark.parametrize(
+        ('method', 'kwargs'),
+        [
+            pytest.param('_stream_get_resource_iter_lines', {}, id='get'),
+            pytest.param('_stream_post_acquire_iter_lines', {'content': b'x'}, id='post'),
+        ],
+    )
+    async def test_stream_acquire_iter_lines(
+            self, method: str, kwargs: dict[str, Any],
+            api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
-        lines = [
-            x async for x in api_impl._stream_post_acquire_iter_lines(
-                url=f'{test_server.base_url}/lines', content=b'x'
-            )
-        ]
+        lines = [x async for x in getattr(api_impl, method)(url=f'{test_server.base_url}/lines', **kwargs)]
 
         assert lines == _LINES_EXPECTED
 
@@ -467,27 +454,21 @@ class TestStreamMethods:
 class TestDownloadResource:
     """_download_resource 集成测试"""
 
-    @staticmethod
-    def _save_folder(tmp_path: Path):
-        from src.resource import AnyResource
-
-        return AnyResource(tmp_path)
-
     async def test_download_keep_origin_file_name(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
-        file = await api_impl._download_resource(
-            self._save_folder(tmp_path), f'{test_server.base_url}/download_file/pic.jpg'
-        )
+        file = await api_impl._download_resource(save_folder, f'{test_server.base_url}/download_file/pic.jpg')
 
         assert file.path == tmp_path / 'pic.jpg'
         assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
 
     async def test_download_custom_file_name(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
         file = await api_impl._download_resource(
-            self._save_folder(tmp_path),
+            save_folder,
             f'{test_server.base_url}/download_file/pic.jpg',
             custom_file_name='custom.bin',
         )
@@ -495,14 +476,14 @@ class TestDownloadResource:
         assert file.path == tmp_path / 'custom.bin'
 
     async def test_download_hash_file_name(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, save_folder: 'AnyResource',
     ):
         """哈希文件名前缀应为 API 类名而非元类名 ABCMeta"""
         from src.utils.omega_requests import OmegaRequests
 
         url = f'{test_server.base_url}/download_file/pic.jpg'
 
-        file = await api_impl._download_resource(self._save_folder(tmp_path), url, hash_file_name=True)
+        file = await api_impl._download_resource(save_folder, url, hash_file_name=True)
 
         assert file.name == OmegaRequests.hash_url_file_name('_CommonAPIImpl', url=url)
         assert file.name.startswith('_CommonAPIImpl_')
@@ -510,25 +491,27 @@ class TestDownloadResource:
         assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
 
     async def test_download_empty_file_name_fallback_hash(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
         """URL 无文件名(空路径)时回退哈希文件名, 不再因写入目录而崩溃"""
         from src.utils.omega_requests import OmegaRequests
 
         url = f'{test_server.base_url}/'
 
-        file = await api_impl._download_resource(self._save_folder(tmp_path), url)
+        file = await api_impl._download_resource(save_folder, url)
 
         assert file.name == OmegaRequests.hash_url_file_name('_CommonAPIImpl', url=url)
         assert file.path.parent == tmp_path
         assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
 
     async def test_download_custom_file_name_traversal_stripped(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
         """自定义文件名剥离路径层级, 防止逃逸下载目录"""
         file = await api_impl._download_resource(
-            self._save_folder(tmp_path),
+            save_folder,
             f'{test_server.base_url}/download_file/pic.jpg',
             custom_file_name='../evil.bin',
         )
@@ -537,11 +520,11 @@ class TestDownloadResource:
         assert file.path.parent == tmp_path
 
     async def test_download_invalid_chars_sanitized(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, save_folder: 'AnyResource',
     ):
         """Windows 非法字符替换为下划线"""
         file = await api_impl._download_resource(
-            self._save_folder(tmp_path),
+            save_folder,
             f'{test_server.base_url}/download_file/pic.jpg',
             custom_file_name='bad<>name.bin',
         )
@@ -549,10 +532,11 @@ class TestDownloadResource:
         assert file.name == 'bad__name.bin'
 
     async def test_download_subdir(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
         file = await api_impl._download_resource(
-            self._save_folder(tmp_path),
+            save_folder,
             f'{test_server.base_url}/download_file/pic.jpg',
             subdir='sub',
         )
@@ -560,12 +544,13 @@ class TestDownloadResource:
         assert file.path == tmp_path / 'sub' / 'pic.jpg'
 
     async def test_download_ignore_exist_file(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
         tmp_path.joinpath('exist.bin').write_bytes(b'existing')
 
         file = await api_impl._download_resource(
-            self._save_folder(tmp_path),
+            save_folder,
             f'{test_server.base_url}/download_file/exist.bin',
             ignore_exist_file=True,
         )
@@ -573,20 +558,21 @@ class TestDownloadResource:
         assert file.path.read_bytes() == b'existing'
 
     async def test_download_error_status(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, save_folder: 'AnyResource',
     ):
         from src.exception import WebSourceException
 
         with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._download_resource(self._save_folder(tmp_path), f'{test_server.base_url}/status/404')
+            await api_impl._download_resource(save_folder, f'{test_server.base_url}/status/404')
 
         assert exc_info.value.status_code == 404
 
     async def test_download_stream_mode(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, tmp_path: Path,
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
     ):
         file = await api_impl._download_resource(
-            self._save_folder(tmp_path),
+            save_folder,
             f'{test_server.base_url}/download_file/stream_pic.jpg',
             stream_download=True,
         )
@@ -598,14 +584,18 @@ class TestDownloadResource:
 class TestParseWrappers:
     """内容解析委托方法测试"""
 
-    def test_parse_content_as_bytes(self, api_impl: 'type[BaseCommonAPI]'):
-        assert api_impl._parse_content_as_bytes(_make_response(b'abc')) == b'abc'
-
-    def test_parse_content_as_json(self, api_impl: 'type[BaseCommonAPI]'):
-        assert api_impl._parse_content_as_json(_make_response(b'{"a": 1}')) == {'a': 1}
-
-    def test_parse_content_as_text(self, api_impl: 'type[BaseCommonAPI]'):
-        assert api_impl._parse_content_as_text(_make_response(b'abc')) == 'abc'
+    @pytest.mark.parametrize(
+        ('method', 'content', 'expected'),
+        [
+            pytest.param('_parse_content_as_bytes', b'abc', b'abc', id='parse_content_as_bytes'),
+            pytest.param('_parse_content_as_json', b'{"a": 1}', {'a': 1}, id='parse_content_as_json'),
+            pytest.param('_parse_content_as_text', b'abc', 'abc', id='parse_content_as_text'),
+        ],
+    )
+    def test_parse_content_wrapper(
+            self, method: str, content: bytes, expected: Any, api_impl: 'type[BaseCommonAPI]',
+    ):
+        assert getattr(api_impl, method)(make_response(content)) == expected
 
     async def test_iter_content_as_lines(self, api_impl: 'type[BaseCommonAPI]'):
         lines = [
@@ -618,56 +608,40 @@ class TestParseWrappers:
 class TestDefaultDelegations:
     """OmegaRequests 默认配置委托方法测试"""
 
-    def test_default_timeout_delegation(self, api_impl: 'type[BaseCommonAPI]'):
+    @pytest.mark.parametrize(
+        ('api_methods', 'requests_method'),
+        [
+            pytest.param(
+                ['_get_default_timeout', '_get_omega_requests_default_timeout'], 'get_default_timeout',
+                id='default_timeout_delegation',
+            ),
+            pytest.param(
+                ['_get_omega_requests_default_headers'], 'get_default_headers',
+                id='default_headers_delegation',
+            ),
+        ],
+    )
+    def test_default_delegation(
+            self, api_methods: list[str], requests_method: str, api_impl: 'type[BaseCommonAPI]',
+    ):
         from src.utils.omega_requests import OmegaRequests
 
-        assert api_impl._get_default_timeout() == OmegaRequests.get_default_timeout()
-        assert api_impl._get_omega_requests_default_timeout() == OmegaRequests.get_default_timeout()
-
-    def test_default_headers_delegation(self, api_impl: 'type[BaseCommonAPI]'):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert api_impl._get_omega_requests_default_headers() == OmegaRequests.get_default_headers()
-
-
-def _capture_driver_request(monkeypatch: pytest.MonkeyPatch) -> list:
-    """monkeypatch 驱动 request 方法, 捕获 Request setup 并返回固定 200 响应(不经网络)"""
-    from nonebot import get_driver
-    from nonebot.drivers import Response
-
-    captured = []
-
-    async def _fake_request(setup):
-        captured.append(setup)
-        return Response(200, content=b'{}')
-
-    monkeypatch.setattr(get_driver(), 'request', _fake_request)
-    return captured
-
-
-def _capture_driver_stream_request(monkeypatch: pytest.MonkeyPatch) -> list:
-    """monkeypatch 驱动 stream_request 方法, 捕获 Request setup 并产出固定分块(不经网络)"""
-    from nonebot import get_driver
-    from nonebot.drivers import Response
-
-    captured = []
-
-    async def _fake_stream_request(setup, *, chunk_size=1024):
-        captured.append(setup)
-        yield Response(200, content=b'a\n')
-
-    monkeypatch.setattr(get_driver(), 'stream_request', _fake_stream_request)
-    return captured
+        expected = getattr(OmegaRequests, requests_method)()
+        for api_method in api_methods:
+            assert getattr(api_impl, api_method)() == expected
 
 
 class TestAutoRedirects:
-    """auto_redirects 参数透传与重定向行为测试"""
+    """auto_redirects 参数透传与重定向行为测试
+
+    覆盖分两层: 本类验证 BaseCommonAPI 包装层的参数透传与重定向处理, 驱动层重定向行为由 test_001 覆盖
+    """
 
     async def test_request_get_passes_auto_redirects(
             self, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
         """默认 True 与显式 False 均应透传至底层 Request setup"""
-        captured = _capture_driver_request(monkeypatch)
+        captured = capture_driver_request(monkeypatch)
 
         await api_impl._request_get(url='http://127.0.0.1/')
         await api_impl._request_get(url='http://127.0.0.1/', auto_redirects=False)
@@ -678,7 +652,7 @@ class TestAutoRedirects:
     async def test_request_methods_pass_auto_redirects(
             self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
-        captured = _capture_driver_request(monkeypatch)
+        captured = capture_driver_request(monkeypatch)
 
         await getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)
 
@@ -689,7 +663,7 @@ class TestAutoRedirects:
     async def test_stream_methods_pass_auto_redirects(
             self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
-        captured = _capture_driver_stream_request(monkeypatch)
+        captured = capture_driver_stream_request(monkeypatch, stream_payload=b'a\n')
 
         _ = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)]
 
@@ -700,7 +674,7 @@ class TestAutoRedirects:
     async def test_get_resource_wrappers_pass_auto_redirects(
             self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
-        captured = _capture_driver_request(monkeypatch)
+        captured = capture_driver_request(monkeypatch)
 
         await getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)
 
@@ -710,7 +684,7 @@ class TestAutoRedirects:
     async def test_post_acquire_as_json_passes_auto_redirects(
             self, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
-        captured = _capture_driver_request(monkeypatch)
+        captured = capture_driver_request(monkeypatch)
 
         await api_impl._post_acquire_as_json(url='http://127.0.0.1/', auto_redirects=False)
 
@@ -721,7 +695,7 @@ class TestAutoRedirects:
     async def test_iter_lines_wrappers_pass_auto_redirects(
             self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
-        captured = _capture_driver_stream_request(monkeypatch)
+        captured = capture_driver_stream_request(monkeypatch, stream_payload=b'a\n')
 
         lines = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)]
 
@@ -742,16 +716,20 @@ class TestAutoRedirects:
         assert api_impl._parse_content_as_json(response) == {'ok': True, 'token': token}
         assert test_server.state.counters[f'redirect_target:{token}'] == 1
 
-    async def test_request_get_no_follow_redirect_rejected(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    @pytest.mark.parametrize(
+        'method',
+        ['_request_get', '_request_delete', '_request_post', '_request_put', '_get_resource_as_json'],
+    )
+    async def test_request_methods_no_follow_redirect_rejected(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
-        """不跟随重定向时 3xx 不属于 2xx, 应抛出 WebSourceException"""
+        """不跟随重定向时 3xx 不属于 2xx, 应抛出 WebSourceException 且不触达重定向目标"""
         from src.exception import WebSourceException
 
         token = new_request_token()
 
         with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._request_get(
+            await getattr(api_impl, method)(
                 url=f'{test_server.base_url}/redirect/302',
                 params={'target': f'/redirect_target/{token}'},
                 auto_redirects=False,
@@ -759,17 +737,6 @@ class TestAutoRedirects:
 
         assert exc_info.value.status_code == 302
         assert test_server.state.counters[f'redirect_target:{token}'] == 0
-
-    @pytest.mark.parametrize('method', ['_request_delete', '_request_post', '_request_put'])
-    async def test_request_methods_no_follow_redirect_rejected(
-            self, method: str, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
-    ):
-        from src.exception import WebSourceException
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await getattr(api_impl, method)(url=f'{test_server.base_url}/redirect/302', auto_redirects=False)
-
-        assert exc_info.value.status_code == 302
 
     async def test_get_resource_as_json_follows_redirect(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
@@ -800,16 +767,6 @@ class TestAutoRedirects:
 
         assert 'headers' in text
 
-    async def test_get_resource_as_json_no_follow_rejected(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
-    ):
-        from src.exception import WebSourceException
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await api_impl._get_resource_as_json(url=f'{test_server.base_url}/redirect/302', auto_redirects=False)
-
-        assert exc_info.value.status_code == 302
-
     async def test_post_acquire_as_json_follows_307_redirect(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
@@ -831,15 +788,16 @@ class TestAutoRedirects:
 
         assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
 
-    async def test_stream_request_get_no_follow_redirect_rejected(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    @pytest.mark.parametrize('method', ['_stream_request_get', '_stream_request_post'])
+    async def test_stream_request_no_follow_redirect_rejected(
+            self, method: str, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
         """不跟随重定向时 302 分块触发状态码校验, 抛出 WebSourceException"""
         from src.exception import WebSourceException
 
         async def _collect():
             return [
-                x async for x in api_impl._stream_request_get(
+                x async for x in getattr(api_impl, method)(
                     url=f'{test_server.base_url}/redirect/302', auto_redirects=False
                 )
             ]
@@ -849,40 +807,22 @@ class TestAutoRedirects:
 
         assert exc_info.value.status_code == 302
 
-    async def test_stream_request_post_no_follow_redirect_rejected(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
-    ):
-        from src.exception import WebSourceException
-
-        async def _collect():
-            return [
-                x async for x in api_impl._stream_request_post(
-                    url=f'{test_server.base_url}/redirect/302', auto_redirects=False
-                )
-            ]
-
-        with pytest.raises(WebSourceException) as exc_info:
-            await _collect()
-
-        assert exc_info.value.status_code == 302
-
-    async def test_stream_get_resource_iter_lines_follows_redirect(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+    @pytest.mark.parametrize(
+        ('method', 'redirect_code', 'kwargs'),
+        [
+            pytest.param('_stream_get_resource_iter_lines', 302, {}, id='get'),
+            pytest.param('_stream_post_acquire_iter_lines', 307, {'content': b'x'}, id='post_307'),
+        ],
+    )
+    async def test_iter_lines_wrappers_follow_redirect(
+            self, method: str, redirect_code: int, kwargs: dict[str, Any],
+            api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
     ):
         lines = [
-            x async for x in api_impl._stream_get_resource_iter_lines(
-                url=f'{test_server.base_url}/redirect/302', params={'target': '/lines'}
-            )
-        ]
-
-        assert lines == _LINES_EXPECTED
-
-    async def test_stream_post_acquire_iter_lines_follows_307_redirect(
-            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
-    ):
-        lines = [
-            x async for x in api_impl._stream_post_acquire_iter_lines(
-                url=f'{test_server.base_url}/redirect/307', params={'target': '/lines'}, content=b'x'
+            x async for x in getattr(api_impl, method)(
+                url=f'{test_server.base_url}/redirect/{redirect_code}',
+                params={'target': '/lines'},
+                **kwargs,
             )
         ]
 

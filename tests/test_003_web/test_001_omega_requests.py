@@ -14,12 +14,16 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+import ujson
 
 from tests.test_003_web.helpers import (
     _DOWNLOAD_PAYLOAD,
     _LINES_EXPECTED,
     _STREAM_PAYLOAD,
+    capture_driver_request,
+    capture_driver_stream_request,
     line_chunks_stream,
+    make_response,
     make_test_file,
     new_request_token,
 )
@@ -106,6 +110,11 @@ class TestConfig:
             OmegaRequestsConfig(omega_requests_default_retry_limit=0)
 
 
+def _make_non_forward_driver() -> SimpleNamespace:
+    """构造无 HTTPClient/WebSocketClient 能力的假驱动(type='~none', 用于驱动能力守卫测试)"""
+    return SimpleNamespace(type='~none')
+
+
 class TestInit:
     """OmegaRequests 初始化测试"""
 
@@ -162,7 +171,7 @@ class TestInit:
         import src.utils.omega_requests.requests as requests_module
         from src.utils.omega_requests import OmegaRequests
 
-        monkeypatch.setattr(requests_module, 'get_driver', lambda: SimpleNamespace(type='~none'))
+        monkeypatch.setattr(requests_module, 'get_driver', _make_non_forward_driver)
 
         with pytest.raises(RuntimeError, match='ForwardDriver'):
             OmegaRequests()
@@ -171,93 +180,53 @@ class TestInit:
 class TestParseContent:
     """Response Content 解析测试"""
 
-    def test_bytes_from_str(self):
+    @pytest.mark.parametrize(
+        ('content', 'encoding', 'expected'),
+        [
+            ('hello', 'utf-8', b'hello'),
+            (b'hello', 'utf-8', b'hello'),
+            (None, 'utf-8', b''),
+            (bytearray(b'abc'), 'utf-8', b'abc'),
+            ('中文', 'gbk', '中文'.encode('gbk')),
+        ],
+    )
+    def test_parse_bytes(self, content: Any, encoding: str, expected: bytes):
         from src.utils.omega_requests import OmegaRequests
 
-        response = _make_response('hello')
+        assert OmegaRequests.parse_content_as_bytes(make_response(content), encoding=encoding) == expected
 
-        assert OmegaRequests.parse_content_as_bytes(response) == b'hello'
-
-    def test_bytes_from_bytes(self):
+    @pytest.mark.parametrize(
+        ('content', 'encoding', 'expected'),
+        [
+            ('hello', 'utf-8', 'hello'),
+            (b'hello', 'utf-8', 'hello'),
+            (None, 'utf-8', ''),
+            (123, 'utf-8', '123'),
+            ('中文'.encode('gbk'), 'gbk', '中文'),
+        ],
+    )
+    def test_parse_text(self, content: Any, encoding: str, expected: str):
         from src.utils.omega_requests import OmegaRequests
 
-        response = _make_response(b'hello')
+        assert OmegaRequests.parse_content_as_text(make_response(content), encoding=encoding) == expected
 
-        assert OmegaRequests.parse_content_as_bytes(response) == b'hello'
-
-    def test_bytes_from_none(self):
+    @pytest.mark.parametrize(
+        ('content', 'expected', 'error', 'match'),
+        [
+            (b'{"a": 1}', {'a': 1}, None, None),
+            ('[1, 2]', [1, 2], None, None),
+            (None, None, ValueError, 'content of response is None'),
+            (b'{not json', None, ujson.JSONDecodeError, None),
+        ],
+    )
+    def test_parse_json(self, content: Any, expected: Any, error: type[Exception] | None, match: str | None):
         from src.utils.omega_requests import OmegaRequests
 
-        assert OmegaRequests.parse_content_as_bytes(_make_response(None)) == b''
-
-    def test_bytes_from_other_types(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_bytes(_make_response(bytearray(b'abc'))) == b'abc'
-
-    def test_bytes_custom_encoding(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        response = _make_response('中文')
-
-        assert OmegaRequests.parse_content_as_bytes(response, encoding='gbk') == '中文'.encode('gbk')
-
-    def test_text_from_str(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_text(_make_response('hello')) == 'hello'
-
-    def test_text_from_bytes(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_text(_make_response(b'hello')) == 'hello'
-
-    def test_text_from_none(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_text(_make_response(None)) == ''
-
-    def test_text_from_other_types(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_text(_make_response(123)) == '123'
-
-    def test_text_custom_encoding(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        response = _make_response('中文'.encode('gbk'))
-
-        assert OmegaRequests.parse_content_as_text(response, encoding='gbk') == '中文'
-
-    def test_json_from_bytes(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_json(_make_response(b'{"a": 1}')) == {'a': 1}
-
-    def test_json_from_str(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.parse_content_as_json(_make_response('[1, 2]')) == [1, 2]
-
-    def test_json_from_none_rejected(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        with pytest.raises(ValueError, match='content of response is None'):
-            OmegaRequests.parse_content_as_json(_make_response(None))
-
-    def test_json_invalid_rejected(self):
-        import ujson
-
-        from src.utils.omega_requests import OmegaRequests
-
-        with pytest.raises(ujson.JSONDecodeError):
-            OmegaRequests.parse_content_as_json(_make_response(b'{not json'))
-
-
-def _make_response(content: Any):
-    from nonebot.drivers import Response
-
-    return Response(200, content=content)
+        if error is None:
+            assert OmegaRequests.parse_content_as_json(make_response(content)) == expected
+        else:
+            with pytest.raises(error, match=match):
+                OmegaRequests.parse_content_as_json(make_response(content))
 
 
 class TestUrlFileName:
@@ -319,80 +288,49 @@ class TestUrlFileName:
 class TestGetUrlInText:
     """文本 URL 提取测试: 支持端口/IP/punycode, 剥离尾随标点, 路径仅可打印 ASCII"""
 
-    def test_single_url(self):
+    @pytest.mark.parametrize(
+        'cases',
+        [
+            [('visit https://example.com/page now', ['https://example.com/page'])],
+            [
+                (
+                        'see http://a.example.com/x and https://b.example.com/y',
+                        ['http://a.example.com/x', 'https://b.example.com/y'],
+                )
+            ],
+            [('https://example.com/p?q=1&r=2 end', ['https://example.com/p?q=1&r=2'])],
+            [('see http://example.com:8080/p end', ['http://example.com:8080/p'])],
+            [
+                ('http://127.0.0.1:8080/x', ['http://127.0.0.1:8080/x']),
+                ('http://10.0.0.1/a', ['http://10.0.0.1/a']),
+            ],
+            [('https://example.xn--p1ai/path', ['https://example.xn--p1ai/path'])],
+            # 路径仅匹配可打印 ASCII, 紧随 URL 的中文不再被吞入
+            [('链接https://example.com/a结尾', ['https://example.com/a'])],
+            # 尾随中英文标点及成对符号右半部分自动剥离
+            [
+                ('见 https://example.com/a.', ['https://example.com/a']),
+                ('(https://example.com/a)。', ['https://example.com/a']),
+                ('<https://example.com/a>', ['https://example.com/a']),
+            ],
+            [('ftp://example.com/x file://example.com/y', [])],
+            [('example.com/path', [])],
+            # 无后缀主机名(如 localhost)不识别为合法 URL
+            [('http://localhost:8080/x', [])],
+            [('', [])],
+            [
+                (
+                        'https://example.com/a https://example.com/a',
+                        ['https://example.com/a', 'https://example.com/a'],
+                )
+            ],
+        ],
+    )
+    def test_get_url_in_text(self, cases: list[tuple[str, list[str]]]):
         from src.utils.omega_requests import OmegaRequests
 
-        assert OmegaRequests.get_url_in_text('visit https://example.com/page now') == ['https://example.com/page']
-
-    def test_multiple_urls_keep_order(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        text = 'see http://a.example.com/x and https://b.example.com/y'
-
-        assert OmegaRequests.get_url_in_text(text) == ['http://a.example.com/x', 'https://b.example.com/y']
-
-    def test_url_with_query(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('https://example.com/p?q=1&r=2 end') == ['https://example.com/p?q=1&r=2']
-
-    def test_domain_with_port(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('see http://example.com:8080/p end') == ['http://example.com:8080/p']
-
-    def test_ip_host(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('http://127.0.0.1:8080/x') == ['http://127.0.0.1:8080/x']
-        assert OmegaRequests.get_url_in_text('http://10.0.0.1/a') == ['http://10.0.0.1/a']
-
-    def test_punycode_domain(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('https://example.xn--p1ai/path') == ['https://example.xn--p1ai/path']
-
-    def test_adjacent_cjk_text(self):
-        """路径仅匹配可打印 ASCII, 紧随 URL 的中文不再被吞入"""
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('链接https://example.com/a结尾') == ['https://example.com/a']
-
-    def test_trailing_punctuation_stripped(self):
-        """尾随中英文标点及成对符号右半部分自动剥离"""
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('见 https://example.com/a.') == ['https://example.com/a']
-        assert OmegaRequests.get_url_in_text('(https://example.com/a)。') == ['https://example.com/a']
-        assert OmegaRequests.get_url_in_text('<https://example.com/a>') == ['https://example.com/a']
-
-    def test_unsupported_scheme_rejected(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('ftp://example.com/x file://example.com/y') == []
-
-    def test_bare_domain_rejected(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('example.com/path') == []
-
-    def test_host_without_tld_rejected(self):
-        """无后缀主机名(如 localhost)不识别为合法 URL"""
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('http://localhost:8080/x') == []
-
-    def test_empty_text(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        assert OmegaRequests.get_url_in_text('') == []
-
-    def test_duplicated_occurrences_kept(self):
-        from src.utils.omega_requests import OmegaRequests
-
-        text = 'https://example.com/a https://example.com/a'
-
-        assert OmegaRequests.get_url_in_text(text) == ['https://example.com/a', 'https://example.com/a']
+        for text, expected in cases:
+            assert OmegaRequests.get_url_in_text(text) == expected
 
 
 class TestGetDefaults:
@@ -463,7 +401,7 @@ class TestDriverGuards:
         from src.utils.omega_requests import OmegaRequests
 
         requests = OmegaRequests()
-        requests.driver = SimpleNamespace(type='~none')
+        requests.driver = _make_non_forward_driver()
 
         with pytest.raises(RuntimeError, match='HTTPClient Driver'):
             requests.get_session()
@@ -474,7 +412,7 @@ class TestDriverGuards:
         from src.utils.omega_requests import OmegaRequests
 
         requests = OmegaRequests()
-        requests.driver = SimpleNamespace(type='~none')
+        requests.driver = _make_non_forward_driver()
 
         with pytest.raises(RuntimeError, match='HTTPClient Driver'):
             await requests.request(Request('GET', 'http://127.0.0.1/'))
@@ -485,7 +423,7 @@ class TestDriverGuards:
         from src.utils.omega_requests import OmegaRequests
 
         requests = OmegaRequests()
-        requests.driver = SimpleNamespace(type='~none')
+        requests.driver = _make_non_forward_driver()
 
         async def _collect():
             return [x async for x in requests.stream_request(Request('GET', 'http://127.0.0.1/'))]
@@ -497,7 +435,7 @@ class TestDriverGuards:
         from src.utils.omega_requests import OmegaRequests
 
         requests = OmegaRequests()
-        requests.driver = SimpleNamespace(type='~none')
+        requests.driver = _make_non_forward_driver()
 
         async def _connect():
             async with requests.websocket('GET', 'http://127.0.0.1/'):
@@ -649,34 +587,22 @@ class TestRetry:
 class TestStreaming:
     """流式请求集成测试"""
 
-    async def test_stream_get(self, test_server: SimpleNamespace):
+    @pytest.mark.parametrize('method', ['stream_get', 'stream_post'])
+    async def test_stream(self, method: str, test_server: SimpleNamespace):
         from src.utils.omega_requests import OmegaRequests
 
-        responses = [x async for x in OmegaRequests().stream_get(f'{test_server.base_url}/stream', chunk_size=4)]
+        responses = [x async for x in getattr(OmegaRequests(), method)(f'{test_server.base_url}/stream', chunk_size=4)]
 
         # 驱动按 chunk_size 精确重组块, 15 字节负载应为 [4, 4, 4, 3]
         assert [len(x.content) for x in responses] == [4, 4, 4, 3]
         assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
         assert all(x.status_code == 200 for x in responses)
 
-    async def test_stream_post(self, test_server: SimpleNamespace):
+    @pytest.mark.parametrize('method', ['stream_get_iter_lines', 'stream_post_iter_lines'])
+    async def test_stream_iter_lines(self, method: str, test_server: SimpleNamespace):
         from src.utils.omega_requests import OmegaRequests
 
-        responses = [x async for x in OmegaRequests().stream_post(f'{test_server.base_url}/stream', chunk_size=4)]
-
-        assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
-
-    async def test_stream_get_iter_lines(self, test_server: SimpleNamespace):
-        from src.utils.omega_requests import OmegaRequests
-
-        lines = [x async for x in OmegaRequests().stream_get_iter_lines(f'{test_server.base_url}/lines')]
-
-        assert lines == _LINES_EXPECTED
-
-    async def test_stream_post_iter_lines(self, test_server: SimpleNamespace):
-        from src.utils.omega_requests import OmegaRequests
-
-        lines = [x async for x in OmegaRequests().stream_post_iter_lines(f'{test_server.base_url}/lines')]
+        lines = [x async for x in getattr(OmegaRequests(), method)(f'{test_server.base_url}/lines')]
 
         assert lines == _LINES_EXPECTED
 
@@ -734,6 +660,13 @@ class TestStreaming:
 
         assert exc_info.value.status_code == 500
         assert isinstance(exc_info.value.__cause__, aiohttp.ClientError)
+
+
+def _make_download_target_with_tmp(tmp_path: Path, name: str, tmp_content: bytes):
+    """构造下载目标文件资源, 并以给定内容预写其断点续传 DOWNLOADING_TMP 临时文件"""
+    file = make_test_file(tmp_path, name)
+    make_test_file(tmp_path, f'{name}.DOWNLOADING_TMP').path.write_bytes(tmp_content)
+    return file
 
 
 class TestDownload:
@@ -806,8 +739,7 @@ class TestDownload:
         from src.utils.omega_requests import OmegaRequests
 
         token = new_request_token()
-        file = make_test_file(tmp_path, 'resume.bin')
-        make_test_file(tmp_path, 'resume.bin.DOWNLOADING_TMP').path.write_bytes(_DOWNLOAD_PAYLOAD[:100])
+        file = _make_download_target_with_tmp(tmp_path, 'resume.bin', _DOWNLOAD_PAYLOAD[:100])
 
         result = await OmegaRequests().stream_download(
             url=f'{test_server.base_url}/download_range/{token}', file=file
@@ -822,8 +754,7 @@ class TestDownload:
         from src.utils.omega_requests import OmegaRequests
 
         token = new_request_token()
-        file = make_test_file(tmp_path, 'restart.bin')
-        make_test_file(tmp_path, 'restart.bin.DOWNLOADING_TMP').path.write_bytes(b'x' * 100)
+        file = _make_download_target_with_tmp(tmp_path, 'restart.bin', b'x' * 100)
 
         result = await OmegaRequests().stream_download(
             url=f'{test_server.base_url}/download_no_range/{token}', file=file
@@ -875,8 +806,7 @@ class TestDownload:
         from src.utils.omega_requests import OmegaRequests
 
         token = new_request_token()
-        file = make_test_file(tmp_path, 'resume_stale.bin')
-        make_test_file(tmp_path, 'resume_stale.bin.DOWNLOADING_TMP').path.write_bytes(_DOWNLOAD_PAYLOAD)
+        file = _make_download_target_with_tmp(tmp_path, 'resume_stale.bin', _DOWNLOAD_PAYLOAD)
 
         result = await OmegaRequests().stream_download(
             url=f'{test_server.base_url}/download_range/{token}', file=file
@@ -895,8 +825,7 @@ class TestDownload:
         from src.utils.omega_requests import OmegaRequests
 
         token = new_request_token()
-        file = make_test_file(tmp_path, 'resume_done.bin')
-        make_test_file(tmp_path, 'resume_done.bin.DOWNLOADING_TMP').path.write_bytes(_DOWNLOAD_PAYLOAD)
+        file = _make_download_target_with_tmp(tmp_path, 'resume_done.bin', _DOWNLOAD_PAYLOAD)
 
         result = await OmegaRequests().stream_download(
             url=f'{test_server.base_url}/download_206_empty/{token}', file=file
@@ -914,8 +843,7 @@ class TestDownload:
         from src.utils.omega_requests import OmegaRequests
 
         token = new_request_token()
-        file = make_test_file(tmp_path, 'resume_headers.bin')
-        make_test_file(tmp_path, 'resume_headers.bin.DOWNLOADING_TMP').path.write_bytes(_DOWNLOAD_PAYLOAD[:100])
+        file = _make_download_target_with_tmp(tmp_path, 'resume_headers.bin', _DOWNLOAD_PAYLOAD[:100])
 
         result = await OmegaRequests().stream_download(
             url=f'{test_server.base_url}/download_range/{token}', file=file, headers={'x-test-header': 'omega_test'}
@@ -958,19 +886,19 @@ class TestGetSession:
 class TestWebSocket:
     """WebSocket 集成测试"""
 
-    async def test_text_echo(self, test_server: SimpleNamespace):
+    @pytest.mark.parametrize(
+        ('kind', 'payload', 'expected'),
+        [
+            ('text', 'hello', 'echo:hello'),
+            ('bytes', b'\x00\x01', b'echo:\x00\x01'),
+        ],
+    )
+    async def test_echo(self, kind: str, payload: str | bytes, expected: str | bytes, test_server: SimpleNamespace):
         from src.utils.omega_requests import OmegaRequests
 
         async with OmegaRequests().websocket('GET', f'{test_server.base_url}/ws') as ws:
-            await ws.send_text('hello')
-            assert await ws.receive_text() == 'echo:hello'
-
-    async def test_bytes_echo(self, test_server: SimpleNamespace):
-        from src.utils.omega_requests import OmegaRequests
-
-        async with OmegaRequests().websocket('GET', f'{test_server.base_url}/ws') as ws:
-            await ws.send_bytes(b'\x00\x01')
-            assert await ws.receive_bytes() == b'echo:\x00\x01'
+            await getattr(ws, f'send_{kind}')(payload)
+            assert await getattr(ws, f'receive_{kind}')() == expected
 
     async def test_handshake_failure(self, test_server: SimpleNamespace):
         """对非 WebSocket 端点发起握手: 本方法不包装驱动异常, 原始 aiohttp 异常向上传播"""
@@ -1027,36 +955,6 @@ class TestProxy:
         assert response.status_code == 200
 
 
-def _capture_driver_request(monkeypatch: pytest.MonkeyPatch) -> list:
-    """monkeypatch 驱动 request 方法, 捕获 Request setup 并返回固定 200 响应(不经网络)"""
-    from nonebot import get_driver
-    from nonebot.drivers import Response
-
-    captured = []
-
-    async def _fake_request(setup):
-        captured.append(setup)
-        return Response(200, content=b'{}')
-
-    monkeypatch.setattr(get_driver(), 'request', _fake_request)
-    return captured
-
-
-def _capture_driver_stream_request(monkeypatch: pytest.MonkeyPatch) -> list:
-    """monkeypatch 驱动 stream_request 方法, 捕获 Request setup 并产出固定分块(不经网络)"""
-    from nonebot import get_driver
-    from nonebot.drivers import Response
-
-    captured = []
-
-    async def _fake_stream_request(setup, *, chunk_size=1024):
-        captured.append(setup)
-        yield Response(200, content=b'a\nb\n')
-
-    monkeypatch.setattr(get_driver(), 'stream_request', _fake_stream_request)
-    return captured
-
-
 class TestAutoRedirectsSetup:
     """auto_redirects 参数透传 Request setup 单元测试(monkeypatch 驱动方法, 不经网络)"""
 
@@ -1064,7 +962,7 @@ class TestAutoRedirectsSetup:
     async def test_request_methods_default_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
         from src.utils.omega_requests import OmegaRequests
 
-        captured = _capture_driver_request(monkeypatch)
+        captured = capture_driver_request(monkeypatch)
 
         await getattr(OmegaRequests(), method)('http://127.0.0.1/')
 
@@ -1075,7 +973,7 @@ class TestAutoRedirectsSetup:
     async def test_request_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
         from src.utils.omega_requests import OmegaRequests
 
-        captured = _capture_driver_request(monkeypatch)
+        captured = capture_driver_request(monkeypatch)
 
         await getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)
 
@@ -1086,7 +984,7 @@ class TestAutoRedirectsSetup:
     async def test_stream_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
         from src.utils.omega_requests import OmegaRequests
 
-        captured = _capture_driver_stream_request(monkeypatch)
+        captured = capture_driver_stream_request(monkeypatch)
 
         _ = [x async for x in getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)]
 
@@ -1097,7 +995,7 @@ class TestAutoRedirectsSetup:
     async def test_iter_lines_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
         from src.utils.omega_requests import OmegaRequests
 
-        captured = _capture_driver_stream_request(monkeypatch)
+        captured = capture_driver_stream_request(monkeypatch)
 
         lines = [x async for x in getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)]
 
@@ -1107,7 +1005,10 @@ class TestAutoRedirectsSetup:
 
 
 class TestAutoRedirects:
-    """auto_redirects 重定向行为集成测试(真实请求测试服务端)"""
+    """auto_redirects 重定向行为集成测试(真实请求测试服务端)
+
+    此处驱动层重定向矩阵与 test_002 的 BaseCommonAPI 封装层重定向矩阵为有意重复, 构成双层覆盖
+    """
 
     async def test_get_follows_redirect_by_default(self, test_server: SimpleNamespace):
         from src.utils.omega_requests import OmegaRequests
@@ -1195,22 +1096,14 @@ class TestAutoRedirects:
         assert all(x.status_code == 200 for x in responses)
         assert b''.join(x.content for x in responses) == _STREAM_PAYLOAD
 
-    async def test_stream_get_no_follow_redirect(self, test_server: SimpleNamespace):
+    @pytest.mark.parametrize('method', ['stream_get', 'stream_post'])
+    async def test_stream_no_follow_redirect(self, method: str, test_server: SimpleNamespace):
         from src.utils.omega_requests import OmegaRequests
 
         responses = [
-            x async for x in OmegaRequests().stream_get(f'{test_server.base_url}/redirect/302', auto_redirects=False)
-        ]
-
-        assert responses
-        assert all(x.status_code == 302 for x in responses)
-        assert b''.join(x.content for x in responses) == b'redirect 302'
-
-    async def test_stream_post_no_follow_redirect(self, test_server: SimpleNamespace):
-        from src.utils.omega_requests import OmegaRequests
-
-        responses = [
-            x async for x in OmegaRequests().stream_post(f'{test_server.base_url}/redirect/302', auto_redirects=False)
+            x async for x in getattr(OmegaRequests(), method)(
+                f'{test_server.base_url}/redirect/302', auto_redirects=False
+            )
         ]
 
         assert responses

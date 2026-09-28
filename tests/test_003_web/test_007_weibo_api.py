@@ -10,32 +10,23 @@
 
 import base64
 import json
-import os
-from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.test_003_web.helpers import patch_module_asyncio_sleep, patch_system_setting_dal, require_env_flag
+
 if TYPE_CHECKING:
     from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
     from src.utils.weibo_api.model import WeiboQrCodeCheck
 
-_REAL_TEST_ENABLED = os.getenv('WEIBO_API_REAL_TEST', '').lower() in ('1', 'true', 'yes', 'on')
-"""是否启用真实请求验证: 需用户手动设置 WEIBO_API_REAL_TEST 环境变量 (如 WEIBO_API_REAL_TEST=1)"""
-
-require_real_test = pytest.mark.skipif(
-    not _REAL_TEST_ENABLED,
-    reason='真实请求验证, 需手动设置 WEIBO_API_REAL_TEST=1 环境变量后运行',
-)
+require_real_test = require_env_flag('WEIBO_API_REAL_TEST')
 """真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置环境变量后发起"""
 
-_FORCE_REFRESH_TEST_ENABLED = os.getenv('WEIBO_API_FORCE_REFRESH_TEST', '').lower() in ('1', 'true', 'yes', 'on')
-"""是否启用访客流程强制刷新验证: 需用户手动设置 WEIBO_API_FORCE_REFRESH_TEST=1 环境变量"""
-
-require_force_refresh_test = pytest.mark.skipif(
-    not _FORCE_REFRESH_TEST_ENABLED,
+require_force_refresh_test = require_env_flag(
+    'WEIBO_API_FORCE_REFRESH_TEST',
     reason='会重建数据库 cookies 覆盖登录态, 需手动设置 WEIBO_API_FORCE_REFRESH_TEST=1 环境变量后运行',
 )
 """访客流程强制刷新验证门禁: 常规真实请求验证 (WEIBO_API_REAL_TEST=1) 不执行"""
@@ -62,6 +53,9 @@ _GENVISITOR_JSONP = (
 
 _BD_PAYLOAD = {'retcode': 20000000, 'msg': 'ok', 'data': {'rid': 'rid_value'}}
 """bd 接口模拟成功响应"""
+
+_BD_ERROR_JSON = '{"retcode": 50000000, "msg": "error"}'
+"""bd 接口模拟错误响应 (JSON 文本)"""
 
 _QRCODE_IMAGE_PAYLOAD = {
     'retcode': 20000000, 'msg': 'ok',
@@ -90,52 +84,6 @@ _QRCODE_CHECK_EXPIRED_PAYLOAD = {'retcode': 50114003, 'msg': '二维码已失效
 # ------------------------------------------------------------------ #
 
 
-def _patch_system_setting_dal(
-        monkeypatch: pytest.MonkeyPatch,
-        series: list | None = None,
-        unique: dict[str, str] | None = None,
-) -> SimpleNamespace:
-    """以记录调用的伪 DAL 替换 SystemSettingDAL.create
-
-    :param series: query_series 返回的配置项列表
-    :param unique: query_unique 的键值表, 未命中键抛出 NoResultFound
-    :return: SimpleNamespace(deleted=[被删除的 setting_key], saved={setting_key: setting_value})
-    """
-    from sqlalchemy.exc import NoResultFound
-
-    from src.database import SystemSettingDAL
-
-    fake_dal = SimpleNamespace(deleted=[], saved={}, _series=series or [], _unique=unique or {})
-
-    async def _query_series(setting_name: str, **_kwargs):
-        return fake_dal._series
-
-    async def _query_unique(setting_name: str, setting_key: str, **_kwargs):
-        if setting_key not in fake_dal._unique:
-            raise NoResultFound(f'no row for {setting_key!r}')
-        return SimpleNamespace(
-            setting_name=setting_name, setting_key=setting_key, setting_value=fake_dal._unique[setting_key]
-        )
-
-    async def _delete(setting_name: str, setting_key: str) -> None:
-        fake_dal.deleted.append(setting_key)
-
-    async def _add_update_exist(setting_name: str, setting_key: str, setting_value: str, **_kwargs) -> None:
-        fake_dal.saved[setting_key] = setting_value
-
-    fake_dal.query_series = _query_series
-    fake_dal.query_unique = _query_unique
-    fake_dal.delete = _delete
-    fake_dal.add_update_exist = _add_update_exist
-
-    @asynccontextmanager
-    async def _fake_create(_cls):
-        yield fake_dal
-
-    monkeypatch.setattr(SystemSettingDAL, 'create', classmethod(_fake_create))
-    return fake_dal
-
-
 @pytest.fixture
 def credential_manager_sandbox() -> '_WeiboCredentialManager':
     """全局凭据管理器状态沙箱: 测试前快照, 测试结束后恢复"""
@@ -144,6 +92,13 @@ def credential_manager_sandbox() -> '_WeiboCredentialManager':
     snapshot = WeiboCookiesData.model_validate(WEIBO_CREDENTIAL_MANAGER.cookies)
     yield WEIBO_CREDENTIAL_MANAGER
     WEIBO_CREDENTIAL_MANAGER._cookies_data = snapshot
+
+
+@pytest.fixture
+def clean_manager(credential_manager_sandbox: '_WeiboCredentialManager') -> '_WeiboCredentialManager':
+    """全局凭据管理器状态沙箱 (已预清空 cookies)"""
+    credential_manager_sandbox.clear_cookies()
+    return credential_manager_sandbox
 
 
 def _make_qrcode_info():
@@ -170,15 +125,132 @@ def _make_response(status_code: int = 200, *, headers: list | None = None, conte
     return Response(status_code, headers=headers or [], content=content)
 
 
-def _patch_credential_asyncio(monkeypatch: pytest.MonkeyPatch) -> None:
-    """跳过 credential 模块内的固定 asyncio.sleep 等待
+def _make_user_data() -> dict:
+    """构造最小有效微博用户数据"""
+    return {
+        'id': 1934183965, 'screen_name': '微博管理员',
+        'profile_image_url': 'https://tvax1.sinaimg.cn/a.jpg', 'profile_url': 'https://m.weibo.cn/u/1934183965',
+        'statuses_count': 100, 'verified': True, 'verified_type': 0, 'close_blue_v': False,
+        'description': 'desc', 'gender': 'f', 'mbtype': 2, 'svip': 7, 'urank': 48, 'mbrank': 7,
+        'follow_me': False, 'following': False, 'follow_count': 1,
+        'followers_count': '1000', 'followers_count_str': '1000',
+        'cover_image_phone': 'https://wx1.sinaimg.cn/cover.jpg', 'avatar_hd': 'https://wx1.sinaimg.cn/avatar.jpg',
+        'like': False, 'like_me': False,
+    }
 
-    仅重绑定 credential 模块内的 asyncio 名字, 不得全局 patch asyncio.sleep,
-    否则会与 session 事件循环上常驻的 uvicorn Server.main_loop (asyncio.sleep 轮询) 竞态导致卡死
+
+def _make_mblog_data() -> dict:
+    """构造最小有效单条微博 mblog 数据"""
+    return {
+        'visible': {'type': 0, 'list_id': 0}, 'created_at': 'Thu Sep 25 12:00:00 +0800 2025',
+        'id': 5212345678901234, 'mid': '5212345678901234', 'can_edit': False,
+        'text': 'test <b>content</b>', 'source': '微博网页版', 'favorited': False, 'pic_ids': [],
+        'is_paid': False, 'mblog_vip_type': 0, 'user': _make_user_data(),
+        'reposts_count': 1, 'comments_count': 2, 'reprint_cmt_count': 0, 'attitudes_count': 3,
+        'pending_approval_count': 0, 'isLongText': False, 'mlevel': 0, 'show_mlevel': 0,
+        'pic_num': 0, 'bid': 'QaBcDeFgH',
+    }
+
+
+def _make_user_info_response() -> dict:
+    """构造最小有效用户信息接口响应"""
+    return {
+        'ok': 1,
+        'data': {
+            'fans_scheme': 'https://m.weibo.cn/p/index?containerid=231032',
+            'follow_scheme': 'https://m.weibo.cn/p/index?containerid=231093',
+            'isStarStyle': 0,
+            'profile_ext': '',
+            'scheme': 'https://m.weibo.cn/u/1934183965',
+            'showAppTips': 0,
+            'userInfo': _make_user_data(),
+        },
+    }
+
+
+def _make_cards_response(cards: list | None = None) -> dict:
+    """构造最小有效用户微博列表接口响应"""
+    if cards is None:
+        cards = [{'card_type': 9, 'mblog': _make_mblog_data()}]
+    return {
+        'ok': 1,
+        'data': {
+            'cardlistInfo': {
+                'containerid': '1076031934183965', 'v_p': 42, 'show_style': 1,
+                'total': 100, 'autoLoadMoreIndex': 0, 'since_id': 0,
+            },
+            'cards': cards,
+            'scheme': 'https://m.weibo.cn/u/1934183965',
+            'showAppTips': 0,
+        },
+    }
+
+
+def _make_realtime_hot_response() -> dict:
+    """构造最小有效实时热搜接口响应"""
+    return {
+        'ok': 1,
+        'data': {
+            'cardlistInfo': {
+                'starttime': 1700000000, 'can_shared': 1, 'config': {}, 'page_type': '01',
+                'cardlist_head_cards': [], 'nick': '热搜', 'page_title': '微博热搜',
+                'search_request_id': 'req_id_value', 'v_p': '42', 'containerid': '106003type=25',
+                'refresh_configs': {}, 'total': 50, 'page_size': 10, 'select_id': '001',
+                'title_top': '热搜榜', 'show_style': 1,
+            },
+            'cards': [{
+                'itemid': 'hot_group',
+                'show_type': 0,
+                'card_type': 4,
+                'card_group': [{'card_type': 4, 'scheme': 'https://m.weibo.cn/search?word=x', 'desc': '热搜词'}],
+            }],
+        },
+    }
+
+
+def _make_top_feed_response() -> dict:
+    """构造最小有效首页 feed 接口响应"""
+    return {
+        'ok': 1,
+        'data': {
+            'statuses': [_make_mblog_data()],
+            'hasvisible': False,
+            'previous_cursor': 0,
+            'next_cursor': 0,
+            'previous_cursor_str': '0',
+            'next_cursor_str': '0',
+            'total_number': 1,
+            'interval': 0,
+            'since_id': 0,
+            'since_id_str': '0',
+            'max_id': 0,
+            'max_id_str': '0',
+            'has_unread': 0,
+        },
+    }
+
+
+def _patch_post(monkeypatch: pytest.MonkeyPatch, content: str = '', *, headers: list | None = None) -> AsyncMock:
+    """mock credential 请求层 _request_post, 返回携带给定文本内容与响应头的固定响应"""
+    from src.utils.weibo_api.credential import WeiboCredential
+
+    post_mock = AsyncMock(return_value=_make_response(headers=headers, content=content))
+    monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+    return post_mock
+
+
+def _patch_query_layer(monkeypatch: pytest.MonkeyPatch, response) -> tuple[AsyncMock, AsyncMock]:
+    """mock 查询方法请求层: 跳过凭据确保流程并以给定响应替换 _get_api_json
+
+    :return: (ensure_cookies mock, _get_api_json mock)
     """
-    import src.utils.weibo_api.credential as credential_module
+    from src.utils.weibo_api import Weibo, WeiboCredential
 
-    monkeypatch.setattr(credential_module, 'asyncio', SimpleNamespace(sleep=AsyncMock()))
+    ensure_mock = AsyncMock()
+    monkeypatch.setattr(WeiboCredential, 'ensure_cookies', ensure_mock)
+    get_json_mock = AsyncMock(return_value=response)
+    monkeypatch.setattr(Weibo, '_get_api_json', get_json_mock)
+    return ensure_mock, get_json_mock
 
 
 # ------------------------------------------------------------------ #
@@ -516,111 +588,6 @@ class TestGenRandParam:
         assert len(set(samples)) > 1
 
 
-def _make_user_data() -> dict:
-    """构造最小有效微博用户数据"""
-    return {
-        'id': 1934183965, 'screen_name': '微博管理员',
-        'profile_image_url': 'https://tvax1.sinaimg.cn/a.jpg', 'profile_url': 'https://m.weibo.cn/u/1934183965',
-        'statuses_count': 100, 'verified': True, 'verified_type': 0, 'close_blue_v': False,
-        'description': 'desc', 'gender': 'f', 'mbtype': 2, 'svip': 7, 'urank': 48, 'mbrank': 7,
-        'follow_me': False, 'following': False, 'follow_count': 1,
-        'followers_count': '1000', 'followers_count_str': '1000',
-        'cover_image_phone': 'https://wx1.sinaimg.cn/cover.jpg', 'avatar_hd': 'https://wx1.sinaimg.cn/avatar.jpg',
-        'like': False, 'like_me': False,
-    }
-
-
-def _make_mblog_data() -> dict:
-    """构造最小有效单条微博 mblog 数据"""
-    return {
-        'visible': {'type': 0, 'list_id': 0}, 'created_at': 'Thu Sep 25 12:00:00 +0800 2025',
-        'id': 5212345678901234, 'mid': '5212345678901234', 'can_edit': False,
-        'text': 'test <b>content</b>', 'source': '微博网页版', 'favorited': False, 'pic_ids': [],
-        'is_paid': False, 'mblog_vip_type': 0, 'user': _make_user_data(),
-        'reposts_count': 1, 'comments_count': 2, 'reprint_cmt_count': 0, 'attitudes_count': 3,
-        'pending_approval_count': 0, 'isLongText': False, 'mlevel': 0, 'show_mlevel': 0,
-        'pic_num': 0, 'bid': 'QaBcDeFgH',
-    }
-
-
-def _make_user_info_response() -> dict:
-    """构造最小有效用户信息接口响应"""
-    return {
-        'ok': 1,
-        'data': {
-            'fans_scheme': 'https://m.weibo.cn/p/index?containerid=231032',
-            'follow_scheme': 'https://m.weibo.cn/p/index?containerid=231093',
-            'isStarStyle': 0,
-            'profile_ext': '',
-            'scheme': 'https://m.weibo.cn/u/1934183965',
-            'showAppTips': 0,
-            'userInfo': _make_user_data(),
-        },
-    }
-
-
-def _make_cards_response(cards: list | None = None) -> dict:
-    """构造最小有效用户微博列表接口响应"""
-    if cards is None:
-        cards = [{'card_type': 9, 'mblog': _make_mblog_data()}]
-    return {
-        'ok': 1,
-        'data': {
-            'cardlistInfo': {
-                'containerid': '1076031934183965', 'v_p': 42, 'show_style': 1,
-                'total': 100, 'autoLoadMoreIndex': 0, 'since_id': 0,
-            },
-            'cards': cards,
-            'scheme': 'https://m.weibo.cn/u/1934183965',
-            'showAppTips': 0,
-        },
-    }
-
-
-def _make_realtime_hot_response() -> dict:
-    """构造最小有效实时热搜接口响应"""
-    return {
-        'ok': 1,
-        'data': {
-            'cardlistInfo': {
-                'starttime': 1700000000, 'can_shared': 1, 'config': {}, 'page_type': '01',
-                'cardlist_head_cards': [], 'nick': '热搜', 'page_title': '微博热搜',
-                'search_request_id': 'req_id_value', 'v_p': '42', 'containerid': '106003type=25',
-                'refresh_configs': {}, 'total': 50, 'page_size': 10, 'select_id': '001',
-                'title_top': '热搜榜', 'show_style': 1,
-            },
-            'cards': [{
-                'itemid': 'hot_group',
-                'show_type': 0,
-                'card_type': 4,
-                'card_group': [{'card_type': 4, 'scheme': 'https://m.weibo.cn/search?word=x', 'desc': '热搜词'}],
-            }],
-        },
-    }
-
-
-def _make_top_feed_response() -> dict:
-    """构造最小有效首页 feed 接口响应"""
-    return {
-        'ok': 1,
-        'data': {
-            'statuses': [_make_mblog_data()],
-            'hasvisible': False,
-            'previous_cursor': 0,
-            'next_cursor': 0,
-            'previous_cursor_str': '0',
-            'next_cursor_str': '0',
-            'total_number': 1,
-            'interval': 0,
-            'since_id': 0,
-            'since_id_str': '0',
-            'max_id': 0,
-            'max_id_str': '0',
-            'has_unread': 0,
-        },
-    }
-
-
 class TestWeiboMbLog:
     """单条微博 mblog 模型测试"""
 
@@ -637,43 +604,21 @@ class TestWeiboMbLog:
         assert mblog.is_retweeted is False
         assert mblog.format_created_at == '09-25 12:00'
 
-    def test_retweeted_status_without_user_filtered(self) -> None:
-        """转发了无查看权限的微博 (retweeted_status 缺 user) 时按非转发处理"""
+    @pytest.mark.parametrize('retweeted_status', [{'id': 1}, None, 'deleted'], ids=['missing_user', 'none', 'non_dict'])
+    def test_invalid_retweeted_status_filtered(self, retweeted_status: dict | None | str) -> None:
+        """retweeted_status 缺 user / 为 None / 非 dict 时均按非转发处理, 不得抛出 AttributeError"""
         from src.utils.weibo_api.model import WeiboMbLog
 
-        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'retweeted_status': {'id': 1}})
+        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'retweeted_status': retweeted_status})
 
         assert mblog.is_retweeted is False
 
-    def test_explicit_none_retweeted_status(self) -> None:
-        """显式 retweeted_status=None (上游返回 null) 按非转发处理, 不得抛出 AttributeError"""
+    @pytest.mark.parametrize('text', ['', '<br/>'], ids=['empty', 'html_tags_only'])
+    def test_blank_text_stripped(self, text: str) -> None:
+        """空 text 直接返回, 纯标签 text 剥除后为空串"""
         from src.utils.weibo_api.model import WeiboMbLog
 
-        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'retweeted_status': None})
-
-        assert mblog.is_retweeted is False
-
-    def test_non_dict_retweeted_status(self) -> None:
-        """retweeted_status 为非 dict 值时按非转发处理, 不得抛出 AttributeError"""
-        from src.utils.weibo_api.model import WeiboMbLog
-
-        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'retweeted_status': 'deleted'})
-
-        assert mblog.is_retweeted is False
-
-    def test_empty_text(self) -> None:
-        """空 text 直接返回, 不进入 HTML 剥除"""
-        from src.utils.weibo_api.model import WeiboMbLog
-
-        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'text': ''})
-
-        assert mblog.text == ''
-
-    def test_html_tags_only_text(self) -> None:
-        """纯标签 text 剥除后为空串"""
-        from src.utils.weibo_api.model import WeiboMbLog
-
-        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'text': '<br/>'})
+        mblog = WeiboMbLog.model_validate(_make_mblog_data() | {'text': text})
 
         assert mblog.text == ''
 
@@ -748,53 +693,41 @@ class TestCookiesData:
 class TestCredentialManagerOps:
     """凭据管理器内存操作语义测试"""
 
-    def test_update_cookies_merges(self, credential_manager_sandbox: '_WeiboCredentialManager') -> None:
+    def test_update_cookies_merges(self, clean_manager: '_WeiboCredentialManager') -> None:
         """update_cookies 覆盖同名键, 保留未提供的既有键"""
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value', tid='tid_value')
+        clean_manager.update_cookies(SUB='sub_value', tid='tid_value')
 
-        manager.update_cookies(SUB='new_sub')
+        clean_manager.update_cookies(SUB='new_sub')
 
-        assert manager.get_cookie('SUB') == 'new_sub'
-        assert manager.get_cookie('tid') == 'tid_value'
+        assert clean_manager.get_cookie('SUB') == 'new_sub'
+        assert clean_manager.get_cookie('tid') == 'tid_value'
 
-    def test_update_cookies_ignores_unknown_keys(
-            self, credential_manager_sandbox: '_WeiboCredentialManager',
-    ) -> None:
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+    def test_update_cookies_ignores_unknown_keys(self, clean_manager: '_WeiboCredentialManager') -> None:
+        clean_manager.update_cookies(SUB='sub_value', unknown_cookie='x')
 
-        manager.update_cookies(SUB='sub_value', unknown_cookie='x')
+        assert 'unknown_cookie' not in clean_manager.cookies
 
-        assert 'unknown_cookie' not in manager.cookies
-
-    def test_replace_cookies(self, credential_manager_sandbox: '_WeiboCredentialManager') -> None:
+    def test_replace_cookies(self, clean_manager: '_WeiboCredentialManager') -> None:
         """replace_cookies 一次性全量替换, 未包含的既有键被丢弃"""
         from src.utils.weibo_api.credential_manager import WeiboCookiesData
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='old_sub', tid='old_tid')
+        clean_manager.update_cookies(SUB='old_sub', tid='old_tid')
 
-        manager.replace_cookies(WeiboCookiesData.model_validate({'SUB': 'new_sub'}))
+        clean_manager.replace_cookies(WeiboCookiesData.model_validate({'SUB': 'new_sub'}))
 
-        assert manager.cookies == {'SUB': 'new_sub'}
+        assert clean_manager.cookies == {'SUB': 'new_sub'}
 
-    def test_clear_cookies(self, credential_manager_sandbox: '_WeiboCredentialManager') -> None:
-        manager = credential_manager_sandbox
-        manager.update_cookies(SUB='sub_value')
+    def test_clear_cookies(self, clean_manager: '_WeiboCredentialManager') -> None:
+        clean_manager.update_cookies(SUB='sub_value')
 
-        manager.clear_cookies()
+        clean_manager.clear_cookies()
 
-        assert manager.cookies == {}
+        assert clean_manager.cookies == {}
 
-    def test_get_cookie_by_field_name(self, credential_manager_sandbox: '_WeiboCredentialManager') -> None:
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+    def test_get_cookie_by_field_name(self, clean_manager: '_WeiboCredentialManager') -> None:
+        clean_manager.update_cookies(SUB='sub_value')
 
-        assert manager.get_cookie('weibo_api_sub', alias=False) == manager.get_cookie('SUB')
+        assert clean_manager.get_cookie('weibo_api_sub', alias=False) == clean_manager.get_cookie('SUB')
 
 
 class TestCredentialManagerPersistence:
@@ -803,18 +736,16 @@ class TestCredentialManagerPersistence:
     async def test_rebuild_removes_stale_keys(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+        clean_manager.update_cookies(SUB='sub_value')
 
-        fake_dal = _patch_system_setting_dal(monkeypatch, series=[
+        fake_dal = patch_system_setting_dal(monkeypatch, series=[
             SimpleNamespace(setting_name='weibo_api_config', setting_key='SUB'),
             SimpleNamespace(setting_name='weibo_api_config', setting_key='STALE_KEY'),
         ])
 
-        await manager.rebuild_to_database()
+        await clean_manager.rebuild_to_database()
 
         assert set(fake_dal.deleted) == {'SUB', 'STALE_KEY'}
         assert fake_dal.saved == {'SUB': 'sub_value'}
@@ -822,16 +753,14 @@ class TestCredentialManagerPersistence:
     async def test_save_skips_none_values(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """save_to_database 仅写入非 None 值且不删除既有键"""
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+        clean_manager.update_cookies(SUB='sub_value')
 
-        fake_dal = _patch_system_setting_dal(monkeypatch)
+        fake_dal = patch_system_setting_dal(monkeypatch)
 
-        await manager.save_to_database()
+        await clean_manager.save_to_database()
 
         assert fake_dal.saved == {'SUB': 'sub_value'}
         assert not fake_dal.deleted
@@ -839,19 +768,17 @@ class TestCredentialManagerPersistence:
     async def test_load_from_database(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """load_from_database 先清空再加载: 命中键写入, 未命中键置 None"""
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='stale_sub', tid='stale_tid')
+        clean_manager.update_cookies(SUB='stale_sub', tid='stale_tid')
 
-        _patch_system_setting_dal(monkeypatch, unique={'SUB': 'db_sub'})
+        patch_system_setting_dal(monkeypatch, unique={'SUB': 'db_sub'})
 
-        await manager.load_from_database()
+        await clean_manager.load_from_database()
 
-        assert manager.get_cookie('SUB') == 'db_sub'
-        assert manager.get_cookie('tid') is None
+        assert clean_manager.get_cookie('SUB') == 'db_sub'
+        assert clean_manager.get_cookie('tid') is None
 
 
 # ------------------------------------------------------------------ #
@@ -887,9 +814,7 @@ class TestVisitorFlowSteps:
         from src.utils.weibo_api.consts import VisitorUrl
         from src.utils.weibo_api.credential import WeiboCredential
 
-        response = _make_response(headers=[('set-cookie', 'SUB=sub_value; path=/')])
-        post_mock = AsyncMock(return_value=response)
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        post_mock = _patch_post(monkeypatch, headers=[('set-cookie', 'SUB=sub_value; path=/')])
 
         cookies: dict[str, str] = {}
         rand = await WeiboCredential._post_visitor_enter(cookies=cookies)
@@ -924,8 +849,7 @@ class TestVisitorFlowSteps:
         from src.utils.weibo_api.consts import VisitorUrl
         from src.utils.weibo_api.credential import WeiboCredential
 
-        post_mock = AsyncMock(return_value=_make_response(content=json.dumps(_BD_PAYLOAD)))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        post_mock = _patch_post(monkeypatch, json.dumps(_BD_PAYLOAD))
 
         cookies: dict[str, str] = {}
         rid = await WeiboCredential._fetch_visitor_rid(cookies=cookies)
@@ -940,8 +864,7 @@ class TestVisitorFlowSteps:
         """bd 未返回 rid 时回退为毫秒时间戳"""
         from src.utils.weibo_api.credential import WeiboCredential
 
-        post_mock = AsyncMock(return_value=_make_response(content='{"retcode": 50000000, "msg": "error"}'))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        _patch_post(monkeypatch, _BD_ERROR_JSON)
 
         rid = await WeiboCredential._fetch_visitor_rid(cookies={})
 
@@ -953,8 +876,7 @@ class TestVisitorFlowSteps:
         from src.utils.weibo_api.credential import WeiboCredential
         from src.utils.weibo_api.model import WeiboVisitorPageParams
 
-        post_mock = AsyncMock(return_value=_make_response(content=_GENVISITOR_JSONP))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        post_mock = _patch_post(monkeypatch, _GENVISITOR_JSONP)
 
         page_params = WeiboVisitorPageParams.model_validate({
             'request_id': 'req_id_value', 'return_url': 'https://m.weibo.cn/', 'ver': '20260925', 'from': 'weibo',
@@ -970,34 +892,27 @@ class TestVisitorFlowSteps:
         assert call_kwargs['data']['rid'] == 'rid_value'
         assert cookies == {'tid': 'tid_value'}
 
-    async def test_post_genvisitor_failure_retcode(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """genvisitor2 返回异常 retcode 时抛出异常"""
+    @pytest.mark.parametrize(
+        ('content', 'match'),
+        [
+            ('visitor_gray_callback({"retcode": 50000000, "msg": "error"});', '签发访客 tid 失败'),
+            ('<html>error</html>', '解析 genvisitor2 返回失败'),
+        ],
+        ids=['failure_retcode', 'unparsable'],
+    )
+    async def test_post_genvisitor_failure(
+            self, monkeypatch: pytest.MonkeyPatch, content: str, match: str,
+    ) -> None:
+        """genvisitor2 返回异常 retcode / 非标准 JSONP 时抛出异常"""
         from src.utils.weibo_api.credential import WeiboCredential
         from src.utils.weibo_api.model import WeiboVisitorPageParams
 
-        post_mock = AsyncMock(return_value=_make_response(
-            content='visitor_gray_callback({"retcode": 50000000, "msg": "error"});'
-        ))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        _patch_post(monkeypatch, content)
 
         page_params = WeiboVisitorPageParams.model_validate({
             'request_id': '', 'return_url': 'https://m.weibo.cn/', 'ver': '20260925', 'from': 'weibo',
         })
-        with pytest.raises(RuntimeError, match='签发访客 tid 失败'):
-            await WeiboCredential._post_genvisitor(page_params=page_params, rid='rid_value', rand='123', cookies={})
-
-    async def test_post_genvisitor_unparsable(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """genvisitor2 返回非标准 JSONP 时抛出异常"""
-        from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.model import WeiboVisitorPageParams
-
-        post_mock = AsyncMock(return_value=_make_response(content='<html>error</html>'))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
-
-        page_params = WeiboVisitorPageParams.model_validate({
-            'request_id': '', 'return_url': 'https://m.weibo.cn/', 'ver': '20260925', 'from': 'weibo',
-        })
-        with pytest.raises(RuntimeError, match='解析 genvisitor2 返回失败'):
+        with pytest.raises(RuntimeError, match=match):
             await WeiboCredential._post_genvisitor(page_params=page_params, rid='rid_value', rand='123', cookies={})
 
 
@@ -1007,7 +922,7 @@ class TestRefreshVisitorCookies:
     async def test_refresh_success_swaps_atomically(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """HTTP 层模拟完整访客流程, 成功后全量替换凭据并落库"""
         from src.utils.weibo_api.consts import VisitorUrl
@@ -1033,18 +948,16 @@ class TestRefreshVisitorCookies:
 
         monkeypatch.setattr(WeiboCredential, '_request_get', AsyncMock(side_effect=_dispatch_get))
         monkeypatch.setattr(WeiboCredential, '_request_post', AsyncMock(side_effect=_dispatch_post))
-        fake_dal = _patch_system_setting_dal(monkeypatch, series=[
+        fake_dal = patch_system_setting_dal(monkeypatch, series=[
             SimpleNamespace(setting_name='weibo_api_config', setting_key='SUB'),
         ])
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='stale_sub')
+        clean_manager.update_cookies(SUB='stale_sub')
 
         result = await WeiboCredential.refresh_visitor_cookies()
 
         assert result is True
-        assert manager.cookies == {
+        assert clean_manager.cookies == {
             '_T_WM': 'twm_value',
             'SUB': 'sub_value',
             'SUBP': 'subp_value',
@@ -1061,7 +974,7 @@ class TestRefreshVisitorCookies:
     async def test_refresh_failure_keeps_manager_untouched(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """中间步骤异常: 返回 False 且全局凭据不变, 不落库"""
         from src.utils.weibo_api.credential import WeiboCredential
@@ -1083,37 +996,50 @@ class TestRefreshVisitorCookies:
         rebuild_mock = AsyncMock()
         monkeypatch.setattr(_WeiboCredentialManager, 'rebuild_to_database', rebuild_mock)
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='old_sub')
+        clean_manager.update_cookies(SUB='old_sub')
 
         result = await WeiboCredential.refresh_visitor_cookies()
 
         assert result is False
-        assert manager.get_cookie('SUB') == 'old_sub'
+        assert clean_manager.get_cookie('SUB') == 'old_sub'
         rebuild_mock.assert_not_awaited()
 
 
 class TestEnsureCookies:
     """ensure_cookies 逐级回退测试"""
 
-    async def test_memory_hit_short_circuit(
-            self,
+    @staticmethod
+    def _mock_load_refresh(
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
-    ) -> None:
-        """内存缓存已有 SUB/SUBP 时直接返回, 不加载数据库也不刷新"""
+            load_mock: AsyncMock | None = None,
+            refresh_mock: AsyncMock | None = None,
+    ) -> tuple[AsyncMock, AsyncMock]:
+        """mock 凭据数据库加载与访客刷新流程
+
+        :return: (load_from_database mock, refresh_visitor_cookies mock)
+        """
         from src.utils.weibo_api.credential import WeiboCredential
         from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        load_mock = AsyncMock()
-        refresh_mock = AsyncMock()
+        load_mock = load_mock or AsyncMock()
+        refresh_mock = refresh_mock or AsyncMock()
         monkeypatch.setattr(_WeiboCredentialManager, 'load_from_database', load_mock)
         monkeypatch.setattr(WeiboCredential, 'refresh_visitor_cookies', refresh_mock)
+        return load_mock, refresh_mock
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+    @pytest.mark.parametrize('cookies', [{'SUB': 'sub_value'}, {'SUBP': 'subp_value'}], ids=['sub', 'subp'])
+    async def test_memory_hit_short_circuit(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            clean_manager: '_WeiboCredentialManager',
+            cookies: dict,
+    ) -> None:
+        """内存缓存已有 SUB/SUBP 时直接返回, 不加载数据库也不刷新"""
+        from src.utils.weibo_api.credential import WeiboCredential
+
+        load_mock, refresh_mock = self._mock_load_refresh(monkeypatch)
+
+        clean_manager.update_cookies(**cookies)
 
         await WeiboCredential.ensure_cookies()
 
@@ -1123,24 +1049,16 @@ class TestEnsureCookies:
     async def test_database_fallback(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """内存缺失时从数据库加载, 命中后不触发刷新"""
         from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
-
-        manager = credential_manager_sandbox
 
         async def _fake_load():
-            manager.clear_cookies()
-            manager.update_cookies(SUBP='db_subp')
+            clean_manager.clear_cookies()
+            clean_manager.update_cookies(SUBP='db_subp')
 
-        load_mock = AsyncMock(side_effect=_fake_load)
-        refresh_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'load_from_database', load_mock)
-        monkeypatch.setattr(WeiboCredential, 'refresh_visitor_cookies', refresh_mock)
-
-        manager.clear_cookies()
+        load_mock, refresh_mock = self._mock_load_refresh(monkeypatch, load_mock=AsyncMock(side_effect=_fake_load))
 
         await WeiboCredential.ensure_cookies()
 
@@ -1150,24 +1068,20 @@ class TestEnsureCookies:
     async def test_refresh_when_missing(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """内存与数据库均缺失时触发完整访客风控流程"""
         from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
-
-        manager = credential_manager_sandbox
 
         async def _fake_refresh() -> bool:
-            manager.update_cookies(SUB='refreshed_sub')
+            clean_manager.update_cookies(SUB='refreshed_sub')
             return True
 
-        load_mock = AsyncMock(side_effect=lambda: None)
-        refresh_mock = AsyncMock(side_effect=_fake_refresh)
-        monkeypatch.setattr(_WeiboCredentialManager, 'load_from_database', load_mock)
-        monkeypatch.setattr(WeiboCredential, 'refresh_visitor_cookies', refresh_mock)
-
-        manager.clear_cookies()
+        load_mock, refresh_mock = self._mock_load_refresh(
+            monkeypatch,
+            load_mock=AsyncMock(side_effect=lambda: None),
+            refresh_mock=AsyncMock(side_effect=_fake_refresh),
+        )
 
         await WeiboCredential.ensure_cookies()
 
@@ -1177,64 +1091,33 @@ class TestEnsureCookies:
     async def test_force_refresh(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """force_refresh 跳过内存与数据库检查直接刷新"""
         from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        load_mock = AsyncMock()
-        refresh_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'load_from_database', load_mock)
-        monkeypatch.setattr(WeiboCredential, 'refresh_visitor_cookies', refresh_mock)
+        load_mock, refresh_mock = self._mock_load_refresh(monkeypatch)
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+        clean_manager.update_cookies(SUB='sub_value')
 
         await WeiboCredential.ensure_cookies(force_refresh=True)
 
         load_mock.assert_not_awaited()
         refresh_mock.assert_awaited_once()
 
-    async def test_subp_only_memory_hit(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
-    ) -> None:
-        """内存缓存仅有 SUBP 时同样视为凭据命中, 直接短路返回"""
-        from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
-
-        load_mock = AsyncMock()
-        refresh_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'load_from_database', load_mock)
-        monkeypatch.setattr(WeiboCredential, 'refresh_visitor_cookies', refresh_mock)
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUBP='subp_value')
-
-        await WeiboCredential.ensure_cookies()
-
-        load_mock.assert_not_awaited()
-        refresh_mock.assert_not_awaited()
-
     async def test_refresh_failure_raises(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """访客风控流程执行后仍无 SUB/SUBP 时抛出 RuntimeError (不得静默继续)"""
         from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        load_mock = AsyncMock(side_effect=lambda: None)
-        refresh_mock = AsyncMock(return_value=False)
-        monkeypatch.setattr(_WeiboCredentialManager, 'load_from_database', load_mock)
-        monkeypatch.setattr(WeiboCredential, 'refresh_visitor_cookies', refresh_mock)
-
-        credential_manager_sandbox.clear_cookies()
+        load_mock, refresh_mock = self._mock_load_refresh(
+            monkeypatch,
+            load_mock=AsyncMock(side_effect=lambda: None),
+            refresh_mock=AsyncMock(return_value=False),
+        )
 
         with pytest.raises(RuntimeError, match='凭据不可用'):
             await WeiboCredential.ensure_cookies()
@@ -1262,19 +1145,19 @@ class TestCheckVisitorCookiesValid:
         assert params['containerid'] == f'100505{WEIBO_DETECTION_SAMPLE_UID}'
         assert call_kwargs['referer'] == f'https://m.weibo.cn/u/{WEIBO_DETECTION_SAMPLE_UID}'
 
-    async def test_invalid_ok(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'get_json_mock',
+        [
+            AsyncMock(return_value={'ok': -100}),
+            AsyncMock(side_effect=RuntimeError('network error')),
+        ],
+        ids=['invalid_ok', 'request_exception'],
+    )
+    async def test_invalid(self, monkeypatch: pytest.MonkeyPatch, get_json_mock: AsyncMock) -> None:
+        """响应 ok != 1 或请求异常时视为凭据无效"""
         from src.utils.weibo_api.credential import WeiboCredential
 
-        monkeypatch.setattr(WeiboCredential, '_get_api_json', AsyncMock(return_value={'ok': -100}))
-
-        assert await WeiboCredential.check_visitor_cookies_valid() is False
-
-    async def test_request_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.utils.weibo_api.credential import WeiboCredential
-
-        monkeypatch.setattr(
-            WeiboCredential, '_get_api_json', AsyncMock(side_effect=RuntimeError('network error'))
-        )
+        monkeypatch.setattr(WeiboCredential, '_get_api_json', get_json_mock)
 
         assert await WeiboCredential.check_visitor_cookies_valid() is False
 
@@ -1413,8 +1296,7 @@ class TestFetchLoginRid:
         from src.utils.weibo_api.consts import LoginUrl, VisitorUrl
         from src.utils.weibo_api.credential import WeiboCredential
 
-        post_mock = AsyncMock(return_value=_make_response(content=json.dumps(_BD_PAYLOAD)))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        post_mock = _patch_post(monkeypatch, json.dumps(_BD_PAYLOAD))
 
         rid = await WeiboCredential._fetch_login_rid(csrf_token='csrf_value')
 
@@ -1426,22 +1308,21 @@ class TestFetchLoginRid:
         assert call_kwargs['headers']['origin'] == 'https://passport.weibo.com'
         assert call_kwargs['headers']['referer'] == LoginUrl.LOGIN_SIGNIN_REFERER
 
-    async def test_failure_retcode_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        ('content', 'match'),
+        [
+            (_BD_ERROR_JSON, '获取登录 rid 失败'),
+            ('<html>error</html>', '解析 bd 接口返回失败'),
+        ],
+        ids=['failure_retcode', 'unparsable'],
+    )
+    async def test_failure_raises(self, monkeypatch: pytest.MonkeyPatch, content: str, match: str) -> None:
+        """bd 接口返回异常 retcode / 非 JSON 文本时抛出异常"""
         from src.utils.weibo_api.credential import WeiboCredential
 
-        post_mock = AsyncMock(return_value=_make_response(content='{"retcode": 50000000, "msg": "error"}'))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
+        _patch_post(monkeypatch, content)
 
-        with pytest.raises(RuntimeError, match='获取登录 rid 失败'):
-            await WeiboCredential._fetch_login_rid(csrf_token='csrf_value')
-
-    async def test_unparsable_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.utils.weibo_api.credential import WeiboCredential
-
-        post_mock = AsyncMock(return_value=_make_response(content='<html>error</html>'))
-        monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
-
-        with pytest.raises(RuntimeError, match='解析 bd 接口返回失败'):
+        with pytest.raises(RuntimeError, match=match):
             await WeiboCredential._fetch_login_rid(csrf_token='csrf_value')
 
 
@@ -1449,6 +1330,7 @@ class TestGetLoginQrcode:
     """登录二维码信息获取测试"""
 
     async def test_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.utils.weibo_api import credential as credential_module
         from src.utils.weibo_api.consts import LoginUrl
         from src.utils.weibo_api.credential import WeiboCredential
 
@@ -1456,7 +1338,8 @@ class TestGetLoginQrcode:
         get_json_mock = AsyncMock(return_value=_QRCODE_IMAGE_PAYLOAD)
         monkeypatch.setattr(WeiboCredential, '_get_resource_as_json', get_json_mock)
         monkeypatch.setattr(WeiboCredential, '_fetch_login_rid', AsyncMock(return_value='rid_value'))
-        _patch_credential_asyncio(monkeypatch)
+        # 跳过 credential 模块内的固定 asyncio.sleep 等待
+        patch_module_asyncio_sleep(monkeypatch, credential_module)
 
         qrcode_info = await WeiboCredential.get_login_qrcode()
 
@@ -1472,6 +1355,7 @@ class TestGetLoginQrcode:
         assert call_kwargs['headers']['referer'] == LoginUrl.LOGIN_SIGNIN_WB_REFERER
 
     async def test_qrcode_failure_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.utils.weibo_api import credential as credential_module
         from src.utils.weibo_api.credential import WeiboCredential
 
         monkeypatch.setattr(WeiboCredential, '_fetch_login_csrf_token', AsyncMock(return_value='csrf_value'))
@@ -1480,7 +1364,8 @@ class TestGetLoginQrcode:
             '_get_resource_as_json',
             AsyncMock(return_value={'retcode': 50000000, 'msg': 'error'}),
         )
-        _patch_credential_asyncio(monkeypatch)
+        # 跳过 credential 模块内的固定 asyncio.sleep 等待
+        patch_module_asyncio_sleep(monkeypatch, credential_module)
 
         with pytest.raises(RuntimeError, match='获取登录二维码失败'):
             await WeiboCredential.get_login_qrcode()
@@ -1513,37 +1398,22 @@ class TestCheckQrcodeLogin:
         # 重定向链请求头 Referer 带 jumpfrom=weibocom
         assert 'jumpfrom%3Dweibocom' in harvest_mock.call_args.kwargs['headers']['referer']
 
-    async def test_pending_returns_none_cookies(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """未扫码时不收割 Cookies"""
-        from src.utils.weibo_api.consts import LoginStatusCode
+    @pytest.mark.parametrize(
+        'payload',
+        [_QRCODE_CHECK_PENDING_PAYLOAD, _QRCODE_CHECK_EXPIRED_PAYLOAD],
+        ids=['pending', 'expired'],
+    )
+    async def test_not_success_returns_none_cookies(self, monkeypatch: pytest.MonkeyPatch, payload: dict) -> None:
+        """未扫码/二维码过期时不收割 Cookies (过期异常由 login_with_qrcode 轮询层抛出)"""
         from src.utils.weibo_api.credential import WeiboCredential
 
-        monkeypatch.setattr(
-            WeiboCredential, '_get_resource_as_json', AsyncMock(return_value=_QRCODE_CHECK_PENDING_PAYLOAD)
-        )
+        monkeypatch.setattr(WeiboCredential, '_get_resource_as_json', AsyncMock(return_value=payload))
         harvest_mock = AsyncMock()
         monkeypatch.setattr(WeiboCredential, '_follow_redirect_chain', harvest_mock)
 
         check_data, login_cookies = await WeiboCredential.check_qrcode_login(qrcode_info=_make_qrcode_info())
 
-        assert check_data.retcode == LoginStatusCode.RETCODE_QR_WAIT_SCAN
-        assert login_cookies is None
-        harvest_mock.assert_not_awaited()
-
-    async def test_expired_returns_none_cookies(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """二维码过期时不收割 Cookies (过期异常由 login_with_qrcode 轮询层抛出)"""
-        from src.utils.weibo_api.consts import LoginStatusCode
-        from src.utils.weibo_api.credential import WeiboCredential
-
-        monkeypatch.setattr(
-            WeiboCredential, '_get_resource_as_json', AsyncMock(return_value=_QRCODE_CHECK_EXPIRED_PAYLOAD)
-        )
-        harvest_mock = AsyncMock()
-        monkeypatch.setattr(WeiboCredential, '_follow_redirect_chain', harvest_mock)
-
-        check_data, login_cookies = await WeiboCredential.check_qrcode_login(qrcode_info=_make_qrcode_info())
-
-        assert check_data.retcode == LoginStatusCode.RETCODE_QR_EXPIRED
+        assert check_data.retcode == payload['retcode']
         assert login_cookies is None
         harvest_mock.assert_not_awaited()
 
@@ -1555,27 +1425,33 @@ class TestLoginWithQrcode:
             self,
             monkeypatch: pytest.MonkeyPatch,
             poll_results: list,
-    ) -> AsyncMock:
+    ) -> tuple[AsyncMock, AsyncMock]:
+        """mock 扫码登录轮询管线: 固定轮询结果序列, 跳过凭据落库与登录态检查
+
+        :return: (check_qrcode_login mock, rebuild_to_database mock)
+        """
+        from src.utils.weibo_api import credential as credential_module
         from src.utils.weibo_api.credential import WeiboCredential
         from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
         check_mock = AsyncMock(side_effect=poll_results)
         monkeypatch.setattr(WeiboCredential, 'check_qrcode_login', check_mock)
-        _patch_credential_asyncio(monkeypatch)
-        monkeypatch.setattr(_WeiboCredentialManager, 'rebuild_to_database', AsyncMock())
+        # 跳过 credential 模块内的固定 asyncio.sleep 等待
+        patch_module_asyncio_sleep(monkeypatch, credential_module)
+        rebuild_mock = AsyncMock()
+        monkeypatch.setattr(_WeiboCredentialManager, 'rebuild_to_database', rebuild_mock)
         monkeypatch.setattr(WeiboCredential, 'check_login', AsyncMock(return_value=True))
-        return check_mock
+        return check_mock, rebuild_mock
 
     async def test_login_success_merges_cookies(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """登录成功后收割的登录 Cookies 并入现有凭据并落库"""
         from src.utils.weibo_api.credential import WeiboCredential
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        self._mock_login_pipeline(
+        _, rebuild_mock = self._mock_login_pipeline(
             monkeypatch,
             [
                 (_make_check_result(_QRCODE_CHECK_PENDING_PAYLOAD), None),
@@ -1583,26 +1459,22 @@ class TestLoginWithQrcode:
                 (_make_check_result(_QRCODE_CHECK_SUCCESS_PAYLOAD), {'SUB': 'login_sub', 'SUBP': 'login_subp'}),
             ],
         )
-        rebuild_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'rebuild_to_database', rebuild_mock)
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(tid='visitor_tid', SUB='stale_sub')
+        clean_manager.update_cookies(tid='visitor_tid', SUB='stale_sub')
 
         result = await WeiboCredential.login_with_qrcode(qrcode_info=_make_qrcode_info())
 
         assert result is True
         rebuild_mock.assert_awaited_once()
         # 收割的登录 Cookies 覆盖同名键, 既有访客 Cookies 保留
-        assert manager.get_cookie('SUB') == 'login_sub'
-        assert manager.get_cookie('SUBP') == 'login_subp'
-        assert manager.get_cookie('tid') == 'visitor_tid'
+        assert clean_manager.get_cookie('SUB') == 'login_sub'
+        assert clean_manager.get_cookie('SUBP') == 'login_subp'
+        assert clean_manager.get_cookie('tid') == 'visitor_tid'
 
     async def test_expired_qrcode_raises(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """50114003 二维码过期应立即抛出异常"""
         from src.utils.weibo_api.credential import WeiboCredential
@@ -1612,26 +1484,22 @@ class TestLoginWithQrcode:
             [(_make_check_result(_QRCODE_CHECK_EXPIRED_PAYLOAD), None)],
         )
 
-        credential_manager_sandbox.clear_cookies()
-
         with pytest.raises(RuntimeError, match='登录二维码过期'):
             await WeiboCredential.login_with_qrcode(qrcode_info=_make_qrcode_info())
 
     async def test_wait_timeout_raises(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """持续未扫码超过尝试上限应抛出等待超时异常"""
         from src.utils.weibo_api.credential import WeiboCredential
 
         monkeypatch.setattr(WeiboCredential, '_LOGIN_QR_MAX_ATTEMPT', 2)
-        check_mock = self._mock_login_pipeline(
+        check_mock, _ = self._mock_login_pipeline(
             monkeypatch,
             [(_make_check_result(_QRCODE_CHECK_PENDING_PAYLOAD), None)] * 3,
         )
-
-        credential_manager_sandbox.clear_cookies()
 
         with pytest.raises(RuntimeError, match='等待超时'):
             await WeiboCredential.login_with_qrcode(qrcode_info=_make_qrcode_info())
@@ -1641,18 +1509,16 @@ class TestLoginWithQrcode:
     async def test_unknown_retcode_counts_attempt(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         """未知 retcode 计入尝试次数, 超过上限后抛出等待超时异常"""
         from src.utils.weibo_api.credential import WeiboCredential
 
         monkeypatch.setattr(WeiboCredential, '_LOGIN_QR_MAX_ATTEMPT', 2)
-        check_mock = self._mock_login_pipeline(
+        check_mock, _ = self._mock_login_pipeline(
             monkeypatch,
             [(_make_check_result({'retcode': 50000000, 'msg': 'unknown'}), None)] * 3,
         )
-
-        credential_manager_sandbox.clear_cookies()
 
         with pytest.raises(RuntimeError, match='等待超时'):
             await WeiboCredential.login_with_qrcode(qrcode_info=_make_qrcode_info())
@@ -1676,29 +1542,20 @@ class TestCheckLogin:
         assert result is True
         assert get_json_mock.call_args.kwargs['url'] == 'https://m.weibo.cn/api/config'
 
-    async def test_not_logged_in(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'get_json_mock',
+        [
+            AsyncMock(return_value={'ok': 1, 'data': {'login': False}}),
+            AsyncMock(return_value={'ok': 0}),
+            AsyncMock(side_effect=RuntimeError('network error')),
+        ],
+        ids=['not_logged_in', 'missing_data', 'request_exception'],
+    )
+    async def test_returns_false(self, monkeypatch: pytest.MonkeyPatch, get_json_mock: AsyncMock) -> None:
+        """未登录/响应缺 data/请求异常时均返回 False"""
         from src.utils.weibo_api.credential import WeiboCredential
 
-        monkeypatch.setattr(
-            WeiboCredential, '_get_api_json', AsyncMock(return_value={'ok': 1, 'data': {'login': False}})
-        )
-
-        assert await WeiboCredential.check_login() is False
-
-    async def test_missing_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.utils.weibo_api.credential import WeiboCredential
-
-        monkeypatch.setattr(WeiboCredential, '_get_api_json', AsyncMock(return_value={'ok': 0}))
-
-        assert await WeiboCredential.check_login() is False
-
-    async def test_request_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """请求异常返回 False"""
-        from src.utils.weibo_api.credential import WeiboCredential
-
-        monkeypatch.setattr(
-            WeiboCredential, '_get_api_json', AsyncMock(side_effect=RuntimeError('network error'))
-        )
+        monkeypatch.setattr(WeiboCredential, '_get_api_json', get_json_mock)
 
         assert await WeiboCredential.check_login() is False
 
@@ -1706,16 +1563,20 @@ class TestCheckLogin:
 class TestBaseWeiboApi:
     """BaseWeiboAPI 风控请求头与响应 Cookies 回收测试"""
 
-    def test_api_headers_injects_xsrf_token(
-            self,
-            credential_manager_sandbox: '_WeiboCredentialManager',
-    ) -> None:
+    @pytest.fixture
+    def save_mock(self, monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+        """mock 凭据落库 save_to_database"""
+        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
+
+        mock = AsyncMock()
+        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', mock)
+        return mock
+
+    def test_api_headers_injects_xsrf_token(self, clean_manager: '_WeiboCredentialManager') -> None:
         """凭据缓存中存在 XSRF-TOKEN 时注入 x-xsrf-token 请求头"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(**{'XSRF-TOKEN': 'xsrf_value'})
+        clean_manager.update_cookies(**{'XSRF-TOKEN': 'xsrf_value'})
 
         headers = BaseWeiboAPI._get_api_headers(referer='https://m.weibo.cn/u/12345')
 
@@ -1724,14 +1585,9 @@ class TestBaseWeiboApi:
         assert headers['x-requested-with'] == 'XMLHttpRequest'
         assert headers['mweibo-pwa'] == '1'
 
-    def test_api_headers_without_xsrf_token(
-            self,
-            credential_manager_sandbox: '_WeiboCredentialManager',
-    ) -> None:
+    def test_api_headers_without_xsrf_token(self, clean_manager: '_WeiboCredentialManager') -> None:
         """凭据缓存中不存在 XSRF-TOKEN 时不注入对应请求头"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-
-        credential_manager_sandbox.clear_cookies()
 
         headers = BaseWeiboAPI._get_api_headers()
 
@@ -1740,81 +1596,59 @@ class TestBaseWeiboApi:
 
     async def test_sync_response_cookies_updates_and_saves(
             self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
+            save_mock: AsyncMock,
     ) -> None:
         """响应 set-cookie 有实际变化时回收进凭据缓存并落库"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        save_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', save_mock)
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+        clean_manager.update_cookies(SUB='sub_value')
 
         response = _make_response(headers=[('set-cookie', 'XSRF-TOKEN=xsrf_new; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
-        assert manager.get_cookie('XSRF-TOKEN') == 'xsrf_new'
-        assert manager.get_cookie('SUB') == 'sub_value'
+        assert clean_manager.get_cookie('XSRF-TOKEN') == 'xsrf_new'
+        assert clean_manager.get_cookie('SUB') == 'sub_value'
         save_mock.assert_awaited_once()
 
     async def test_sync_response_cookies_skips_unchanged(
             self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
+            save_mock: AsyncMock,
     ) -> None:
         """响应 set-cookie 无实际变化时不落库"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        save_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', save_mock)
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+        clean_manager.update_cookies(SUB='sub_value')
 
         response = _make_response(headers=[('set-cookie', 'SUB=sub_value; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
-        assert manager.get_cookie('SUB') == 'sub_value'
+        assert clean_manager.get_cookie('SUB') == 'sub_value'
         save_mock.assert_not_awaited()
 
     async def test_sync_response_cookies_ignores_unknown_cookies(
             self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
+            save_mock: AsyncMock,
     ) -> None:
         """凭据模型外的 Cookies 不入库也不触发落库"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
-
-        save_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', save_mock)
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
 
         response = _make_response(headers=[('set-cookie', 'UNKNOWN_COOKIE=unknown_value; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
-        assert manager.cookies == {}
+        assert clean_manager.cookies == {}
         save_mock.assert_not_awaited()
 
     async def test_get_api_json_injects_headers_and_harvests_cookies(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
+            save_mock: AsyncMock,
     ) -> None:
         """API 请求注入风控请求头并回收响应 set-cookie"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
-
-        save_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', save_mock)
 
         response = _make_response(
             headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')],
@@ -1823,58 +1657,46 @@ class TestBaseWeiboApi:
         request_mock = AsyncMock(return_value=response)
         monkeypatch.setattr(BaseWeiboAPI, '_request_get', request_mock)
 
-        credential_manager_sandbox.clear_cookies()
         result = await BaseWeiboAPI._get_api_json('https://m.weibo.cn/api/config', referer='https://m.weibo.cn/u/1')
 
         assert result == {'ok': 1}
         request_headers = request_mock.call_args.kwargs['headers']
         assert request_headers['x-requested-with'] == 'XMLHttpRequest'
         assert request_headers['referer'] == 'https://m.weibo.cn/u/1'
-        assert credential_manager_sandbox.get_cookie('XSRF-TOKEN') == 'xsrf_value'
+        assert clean_manager.get_cookie('XSRF-TOKEN') == 'xsrf_value'
         save_mock.assert_awaited_once()
 
     async def test_sync_response_cookies_deleted_value_removes_key(
             self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
+            save_mock: AsyncMock,
     ) -> None:
         """响应 set-cookie 值为 deleted 时移除对应键并触发落库"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        save_mock = AsyncMock()
-        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', save_mock)
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value', tid='tid_value')
+        clean_manager.update_cookies(SUB='sub_value', tid='tid_value')
 
         response = _make_response(headers=[('set-cookie', 'SUB=deleted; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
-        assert manager.get_cookie('SUB') is None
-        assert manager.get_cookie('tid') == 'tid_value'
+        assert clean_manager.get_cookie('SUB') is None
+        assert clean_manager.get_cookie('tid') == 'tid_value'
         save_mock.assert_awaited_once()
 
     async def test_sync_response_cookies_save_failure_not_propagated(
             self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
+            save_mock: AsyncMock,
     ) -> None:
         """落库异常不得穿透业务请求, 内存缓存保持已更新状态"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
-        from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
 
-        save_mock = AsyncMock(side_effect=RuntimeError('db down'))
-        monkeypatch.setattr(_WeiboCredentialManager, 'save_to_database', save_mock)
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        save_mock.side_effect = RuntimeError('db down')
 
         response = _make_response(headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
-        assert manager.get_cookie('XSRF-TOKEN') == 'xsrf_value'
+        assert clean_manager.get_cookie('XSRF-TOKEN') == 'xsrf_value'
         save_mock.assert_awaited_once()
 
 
@@ -1889,7 +1711,7 @@ class TestUpdateDefaultCookies:
     async def test_delegate_to_ensure_cookies(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_WeiboCredentialManager',
+            clean_manager: '_WeiboCredentialManager',
     ) -> None:
         from src.utils.weibo_api import Weibo
         from src.utils.weibo_api.credential import WeiboCredential
@@ -1897,28 +1719,12 @@ class TestUpdateDefaultCookies:
         ensure_mock = AsyncMock()
         monkeypatch.setattr(WeiboCredential, 'ensure_cookies', ensure_mock)
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SUB='sub_value')
+        clean_manager.update_cookies(SUB='sub_value')
 
         result = await Weibo.update_default_cookies()
 
         ensure_mock.assert_awaited_once()
         assert result == {'SUB': 'sub_value'}
-
-
-def _patch_query_layer(monkeypatch: pytest.MonkeyPatch, response) -> tuple[AsyncMock, AsyncMock]:
-    """mock 查询方法请求层: 跳过凭据确保流程并以给定响应替换 _get_api_json
-
-    :return: (ensure_cookies mock, _get_api_json mock)
-    """
-    from src.utils.weibo_api import Weibo, WeiboCredential
-
-    ensure_mock = AsyncMock()
-    monkeypatch.setattr(WeiboCredential, 'ensure_cookies', ensure_mock)
-    get_json_mock = AsyncMock(return_value=response)
-    monkeypatch.setattr(Weibo, '_get_api_json', get_json_mock)
-    return ensure_mock, get_json_mock
 
 
 class TestQueryUserData:
@@ -1939,22 +1745,17 @@ class TestQueryUserData:
         assert call_kwargs['params'] == {'type': 'uid', 'value': '1934183965', 'containerid': '1005051934183965'}
         assert call_kwargs['referer'] == 'https://m.weibo.cn/u/1934183965'
 
-    async def test_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """ok != 1 的业务错误响应应抛出 WebSourceException"""
+    @pytest.mark.parametrize(
+        'response',
+        [{'ok': -100, 'msg': 'uid 不存在'}, {'ok': 1}],
+        ids=['not_ok', 'missing_data'],
+    )
+    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
+        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException 而非 ValidationError"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, {'ok': -100, 'msg': 'uid 不存在'})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_user_data(uid=1934183965)
-
-    async def test_missing_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """ok == 1 但 data 缺失时应抛出 WebSourceException 而非 ValidationError"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1})
+        _patch_query_layer(monkeypatch, response)
 
         with pytest.raises(WebSourceException):
             await Weibo.query_user_data(uid=1934183965)
@@ -1989,20 +1790,17 @@ class TestQueryUserWeiboCards:
         assert cards == []
         assert get_json_mock.call_args.kwargs['params']['since_id'] == '12345'
 
-    async def test_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'response',
+        [{'ok': -100}, {'ok': 1}],
+        ids=['not_ok', 'missing_data'],
+    )
+    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
+        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, {'ok': -100})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_user_weibo_cards(uid=1934183965)
-
-    async def test_missing_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1})
+        _patch_query_layer(monkeypatch, response)
 
         with pytest.raises(WebSourceException):
             await Weibo.query_user_weibo_cards(uid=1934183965)
@@ -2026,41 +1824,17 @@ class TestQueryWeiboCard:
         assert call_args.args[1] == {'id': '5212345678901234'}
         assert call_args.kwargs['referer'] == 'https://m.weibo.cn/status/5212345678901234'
 
-    async def test_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'response',
+        [{'ok': -100, 'data': None}, {'ok': 1}, {'ok': 1, 'data': 'deleted'}, ['unexpected']],
+        ids=['not_ok', 'missing_data', 'non_dict_data', 'non_dict_response'],
+    )
+    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict | list) -> None:
+        """业务错误响应 / data 缺失或非 dict / 整体响应非 dict 时应抛出 WebSourceException 而非 ValidationError"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, {'ok': -100, 'data': None})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_weibo_card(mid=5212345678901234)
-
-    async def test_missing_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """ok == 1 但 data 缺失时应抛出 WebSourceException 而非 ValidationError"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_weibo_card(mid=5212345678901234)
-
-    async def test_non_dict_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """data 为非 dict 值时应抛出 WebSourceException 而非 ValidationError"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1, 'data': 'deleted'})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_weibo_card(mid=5212345678901234)
-
-    async def test_non_dict_response_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """整体响应为非 dict 值时应抛出 WebSourceException"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, ['unexpected'])
+        _patch_query_layer(monkeypatch, response)
 
         with pytest.raises(WebSourceException):
             await Weibo.query_weibo_card(mid=5212345678901234)
@@ -2084,20 +1858,17 @@ class TestQueryWeiboExtendText:
 
         assert text == 'full text'
 
-    async def test_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'response',
+        [{'ok': -100}, {'ok': 1}],
+        ids=['not_ok', 'missing_data'],
+    )
+    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
+        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, {'ok': -100})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_weibo_extend_text(mid=5212345678901234)
-
-    async def test_missing_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1})
+        _patch_query_layer(monkeypatch, response)
 
         with pytest.raises(WebSourceException):
             await Weibo.query_weibo_extend_text(mid=5212345678901234)
@@ -2133,20 +1904,17 @@ class TestQueryRealtimeHot:
             '106003type=25&t=3&disable_hot=1&filter_type=realtimehot'
         )
 
-    async def test_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'response',
+        [{'ok': 0}, {'ok': 1}],
+        ids=['not_ok', 'missing_data'],
+    )
+    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
+        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, {'ok': 0})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_realtime_hot()
-
-    async def test_missing_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1})
+        _patch_query_layer(monkeypatch, response)
 
         with pytest.raises(WebSourceException):
             await Weibo.query_realtime_hot()
@@ -2167,20 +1935,17 @@ class TestQueryTopFeed:
         ensure_mock.assert_awaited_once()
         assert get_json_mock.call_args.kwargs['url'] == 'https://m.weibo.cn/feed/friends'
 
-    async def test_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        'response',
+        [{'ok': 0}, {'ok': 1}],
+        ids=['not_ok', 'missing_data'],
+    )
+    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
+        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, {'ok': 0})
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_top_feed()
-
-    async def test_missing_data_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, {'ok': 1})
+        _patch_query_layer(monkeypatch, response)
 
         with pytest.raises(WebSourceException):
             await Weibo.query_top_feed()
@@ -2189,13 +1954,6 @@ class TestQueryTopFeed:
 # ------------------------------------------------------------------ #
 # 真实请求验证
 # ------------------------------------------------------------------ #
-
-
-async def _load_db_cookies() -> None:
-    """从数据库加载已配置的 weibo cookies 到全局凭据缓存 (幂等, 每个真实用例开头调用)"""
-    from src.utils.weibo_api.credential_manager import WEIBO_CREDENTIAL_MANAGER
-
-    await WEIBO_CREDENTIAL_MANAGER.load_from_database()
 
 
 @require_real_test
@@ -2207,19 +1965,22 @@ class TestWeiboLive:
     `pytest tests/test_003_web/test_007_weibo_api.py -k TestWeiboLive -v -s` 单独运行
     """
 
+    @pytest.fixture(autouse=True)
+    async def _load_db_cookies(self) -> None:
+        """从数据库加载已配置的 weibo cookies 到全局凭据缓存 (幂等, 每个真实用例开头执行)"""
+        from src.utils.weibo_api.credential_manager import WEIBO_CREDENTIAL_MANAGER
+
+        await WEIBO_CREDENTIAL_MANAGER.load_from_database()
+
     async def test_check_login(self) -> None:
         """登录状态检查: 数据库中配置的 cookies 应为已登录状态"""
         from src.utils.weibo_api import WeiboCredential
-
-        await _load_db_cookies()
 
         assert await WeiboCredential.check_login() is True, '数据库中配置的 weibo cookies 未处于已登录状态'
 
     async def test_update_default_cookies(self) -> None:
         """确保默认 Cookies 可用 (内存缓存/数据库命中, 不触发访客风控流程)"""
         from src.utils.weibo_api import Weibo
-
-        await _load_db_cookies()
 
         cookies = await Weibo.update_default_cookies()
         assert cookies, '默认 Cookies 为空'
@@ -2228,8 +1989,6 @@ class TestWeiboLive:
     async def test_query_realtime_hot(self) -> None:
         """获取微博热搜并校验 WeiboRealtimeHotCard 模型"""
         from src.utils.weibo_api import Weibo
-
-        await _load_db_cookies()
 
         cards = await Weibo.query_realtime_hot()
         assert cards, '热搜查询结果为空'
@@ -2243,8 +2002,6 @@ class TestWeiboLive:
         from src.utils.weibo_api import Weibo
         from src.utils.weibo_api.consts import WEIBO_DETECTION_SAMPLE_UID
 
-        await _load_db_cookies()
-
         user = await Weibo.query_user_data(uid=WEIBO_DETECTION_SAMPLE_UID)
         assert user.id == int(WEIBO_DETECTION_SAMPLE_UID)
         assert user.screen_name, '用户 screen_name 为空'
@@ -2253,8 +2010,6 @@ class TestWeiboLive:
         """获取用户微博并校验 WeiboCard 模型"""
         from src.utils.weibo_api import Weibo
         from src.utils.weibo_api.consts import WEIBO_DETECTION_SAMPLE_UID
-
-        await _load_db_cookies()
 
         cards = await Weibo.query_user_weibo_cards(uid=WEIBO_DETECTION_SAMPLE_UID)
         assert cards, '用户微博查询结果为空'
@@ -2269,8 +2024,6 @@ class TestWeiboLive:
         from src.utils.weibo_api import Weibo
         from src.utils.weibo_api.consts import WEIBO_DETECTION_SAMPLE_UID
 
-        await _load_db_cookies()
-
         cards = await Weibo.query_user_weibo_cards(uid=WEIBO_DETECTION_SAMPLE_UID)
         assert cards, '用户微博查询结果为空, 无法获取单条微博样本'
         mid = cards[0].mblog.id
@@ -2283,8 +2036,6 @@ class TestWeiboLive:
         """获取微博展开全文 (需样本用户首页存在长微博)"""
         from src.utils.weibo_api import Weibo
         from src.utils.weibo_api.consts import WEIBO_DETECTION_SAMPLE_UID
-
-        await _load_db_cookies()
 
         cards = await Weibo.query_user_weibo_cards(uid=WEIBO_DETECTION_SAMPLE_UID)
         long_text_mid = next((card.mblog.id for card in cards if card.mblog.isLongText), None)
@@ -2299,8 +2050,6 @@ class TestWeiboLive:
         """获取首页 feed 并校验 WeiboMbLog 模型 (需要已登录状态)"""
         from src.utils.weibo_api import Weibo
 
-        await _load_db_cookies()
-
         statuses = await Weibo.query_top_feed()
         assert isinstance(statuses, list)
         assert statuses, '首页 feed 为空'
@@ -2309,16 +2058,18 @@ class TestWeiboLive:
 
 
 @require_force_refresh_test
-async def test_refresh_visitor_cookies_live() -> None:
-    """访客风控流程强制刷新 Cookies 后业务查询可用
+class TestRefreshVisitorCookiesLive:
+    """访客流程强制刷新真实验证 (会重建数据库 cookies 覆盖登录态, 默认跳过)
 
-    注意: 本用例会强制刷新访客 Cookies 并重建数据库中 weibo cookies, 将覆盖已配置的登录态,
     需单独设置 WEIBO_API_FORCE_REFRESH_TEST=1 环境变量并以
-    `pytest tests/test_003_web/test_007_weibo_api.py -k test_refresh_visitor_cookies_live -v -s` 单独运行
+    `pytest tests/test_003_web/test_007_weibo_api.py -k TestRefreshVisitorCookiesLive -v -s` 单独运行
     """
-    from src.utils.weibo_api import Weibo, WeiboCredential
 
-    await WeiboCredential.ensure_cookies(force_refresh=True)
+    async def test_refresh_visitor_cookies_live(self) -> None:
+        """访客风控流程强制刷新 Cookies 后业务查询可用"""
+        from src.utils.weibo_api import Weibo, WeiboCredential
 
-    cards = await Weibo.query_realtime_hot()
-    assert cards, '热搜查询为空, 访客 Cookies 可能未通过风控校验'
+        await WeiboCredential.ensure_cookies(force_refresh=True)
+
+        cards = await Weibo.query_realtime_hot()
+        assert cards, '热搜查询为空, 访客 Cookies 可能未通过风控校验'

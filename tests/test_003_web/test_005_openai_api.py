@@ -3,14 +3,14 @@
 @Date           : 2026/9/19 16:06
 @FileName       : test_005_openai_api
 @Project        : omega-miya
-@Description    : openai api 单元测试(全部用例经合成载荷/mock 覆盖, 不发起真实请求)
+@Description    : openai api 单元测试(主体经合成载荷/mock 覆盖; TestRealAPI 为 OPENAI_API_REAL_TEST 门禁的真实 API 验证)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
 import base64
 import json
-import os
+from contextlib import contextmanager
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
@@ -18,12 +18,12 @@ import pytest
 from PIL import Image
 from pydantic import BaseModel
 
+from tests.test_003_web.helpers import require_env_flag
+
 if TYPE_CHECKING:
     from pathlib import Path
 
     from src.utils.openai_api import OpenAIClient
-
-# ---------- 共享罐头载荷 ----------
 
 _SERVICE_NAME = 'test_service'
 _SERVICE_KEY = 'sk-test-key'
@@ -57,14 +57,17 @@ def _chunk(delta: dict[str, Any], index: int = 0, finish_reason: str | None = No
     }
 
 
-def _sse_lines(chunks: list[dict[str, Any]], *, with_blank_line: bool = True) -> list[str]:
+def _sse_lines(chunks: list[dict[str, Any]]) -> list[str]:
     lines = ['data: ' + json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
-    if with_blank_line:
-        lines.insert(1, '')
+    lines.insert(1, '')
     return lines + ['data: [DONE]']
 
 
-# ---------- fixtures ----------
+async def _make_chat_call(client: 'OpenAIClient', **kwargs):
+    """以罐头入参(固定模型与单条 user 消息)发起聚合补全调用"""
+    return await client.create_chat_completion(
+        model='test-model', message=[{'role': 'user', 'content': 'hi'}], **kwargs
+    )
 
 
 @pytest.fixture(scope='module')
@@ -98,7 +101,7 @@ def configured_service(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def client(configured_service: None, openai_api) -> 'OpenAIClient':
+def client(configured_service, openai_api) -> 'OpenAIClient':
     return openai_api.OpenAIClient(api_key=_SERVICE_KEY, base_url=_SERVICE_BASE)
 
 
@@ -140,9 +143,32 @@ def capture_get(monkeypatch: pytest.MonkeyPatch, openai_api) -> dict[str, Any]:
             ], 'first_id': 'chatcmpl-1-0', 'last_id': 'chatcmpl-1-0', 'has_more': False}
         if url.endswith('/chat/completions/chatcmpl-1'):
             return _CHAT_COMPLETION_PAYLOAD
+        if url.endswith('/chat/completions'):
+            return {
+                'object': 'list',
+                'data': [_CHAT_COMPLETION_PAYLOAD],
+                'first_id': 'chatcmpl-test',
+                'last_id': 'chatcmpl-test',
+                'has_more': False,
+            }
         return {'ok': True}
 
     monkeypatch.setattr(openai_api.OpenAIClient, '_get_resource_as_json', fake_get)
+    return captured
+
+
+@pytest.fixture
+def capture_delete(monkeypatch: pytest.MonkeyPatch, openai_api) -> dict[str, Any]:
+    """mock _request_delete, 捕获请求参数并返回按 'payload' 键构造的合成 Response"""
+    from nonebot.drivers import Response
+
+    captured: dict[str, Any] = {}
+
+    async def fake_delete(self_, url, params=None, **kwargs):
+        captured.update({'url': url, 'kwargs': kwargs})
+        return Response(200, content=json.dumps(captured['payload']).encode())
+
+    monkeypatch.setattr(openai_api.OpenAIClient, '_request_delete', fake_delete)
     return captured
 
 
@@ -168,27 +194,24 @@ def stream_lines_factory(monkeypatch: pytest.MonkeyPatch, openai_api):
     return _install
 
 
-# ---------- 客户端初始化与配置 ----------
-
-
 class TestClientInit:
 
-    def test_get_available_services(self, configured_service: None, openai_api):
+    def test_get_available_services(self, configured_service, openai_api):
         assert openai_api.OpenAIClient.get_available_services() == [
             (_SERVICE_NAME, 'test-model'),
             (_SERVICE_NAME, 'test-model-mini'),
             ('second_service', 'other-model'),
         ]
 
-    def test_init_from_config(self, configured_service: None, openai_api):
+    def test_init_from_config(self, configured_service, openai_api):
         client = openai_api.OpenAIClient.init_from_config(service_name=_SERVICE_NAME, model_name='test-model')
         assert client.base_url == _SERVICE_BASE
 
-    def test_init_from_config_with_unknown_service(self, configured_service: None, openai_api):
+    def test_init_from_config_with_unknown_service(self, configured_service, openai_api):
         with pytest.raises(ValueError, match='not config'):
             openai_api.OpenAIClient.init_from_config(service_name='no_such', model_name='test-model')
 
-    def test_init_from_config_with_unavailable_model(self, configured_service: None, openai_api):
+    def test_init_from_config_with_unavailable_model(self, configured_service, openai_api):
         with pytest.raises(ValueError, match='not provide model'):
             openai_api.OpenAIClient.init_from_config(service_name=_SERVICE_NAME, model_name='gpt-4o')
 
@@ -203,9 +226,6 @@ class TestClientInit:
         headers = client.request_headers
         assert headers['Authorization'] == f'Bearer {_SERVICE_KEY}'
         assert headers['Content-Type'] == 'application/json'
-
-
-# ---------- Chat Completions ----------
 
 
 class TestCreateChatCompletion:
@@ -316,7 +336,7 @@ class TestCreateChatCompletion:
             _chunk({'content': ' world'}, finish_reason='stop'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         assert captured['kwargs']['json']['stream'] is True
         assert len(result) == 1
@@ -343,7 +363,7 @@ class TestCreateChatCompletion:
             }, finish_reason='stop'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         assert result[0].refusal == 'cannot help'
         # audio/annotations 取末个非空分片
@@ -361,7 +381,7 @@ class TestCreateChatCompletion:
             _chunk({'tool_calls': [{'index': 0, 'function': {'arguments': ' "SF"}'}}]}, finish_reason='tool_calls'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         tool_calls = result[0].tool_calls
         assert tool_calls is not None
@@ -384,7 +404,7 @@ class TestCreateChatCompletion:
             ]}, finish_reason='tool_calls'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         tool_calls = sorted(result[0].tool_calls or [], key=lambda x: x.index or 0)
         assert len(tool_calls) == 2
@@ -402,7 +422,7 @@ class TestCreateChatCompletion:
             _chunk({'tool_calls': [{'function': {'arguments': ' 1}'}}]}, finish_reason='tool_calls'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         tool_calls = result[0].tool_calls
         assert tool_calls is not None
@@ -419,7 +439,7 @@ class TestCreateChatCompletion:
             _chunk({'tool_calls': [{'index': 0, 'custom': {'input': ' * FROM t'}}]}, finish_reason='tool_calls'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         tool_calls = result[0].tool_calls
         assert tool_calls is not None
@@ -438,7 +458,7 @@ class TestCreateChatCompletion:
             _chunk({}, index=1, finish_reason='stop'),
         ]))
 
-        result = await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+        result = await _make_chat_call(client)
 
         assert len(result) == 2
         assert result[0].content == 'first /more'
@@ -448,18 +468,13 @@ class TestCreateChatCompletion:
         # 空响应体的错误响应在流式请求中不产生任何分块, 聚合层应抛出带上下文的异常而非静默返回空列表
         stream_lines_factory([])
         with pytest.raises(RuntimeError, match='no chunks'):
-            await client.create_chat_completion(model='test-model', message=[{'role': 'user', 'content': 'hi'}])
+            await _make_chat_call(client)
 
     async def test_non_stream_returns_choice_messages(self, client: 'OpenAIClient', capture_post: dict[str, Any]):
-        result = await client.create_chat_completion(
-            model='test-model', message=[{'role': 'user', 'content': 'hi'}], stream=False
-        )
+        result = await _make_chat_call(client, stream=False)
         assert len(result) == 1
         assert result[0].content == 'hello'
         assert capture_post['kwargs']['json']['stream'] is False
-
-
-# ---------- Embeddings / Models / Files / 存储式补全端点 ----------
 
 
 class TestOtherEndpoints:
@@ -510,46 +525,23 @@ class TestOtherEndpoints:
         await client.retrieve_file_content('file-1')
         assert capture_get['url'] == f'{_SERVICE_BASE}/files/file-1/content'
 
-    async def test_delete_file(self, monkeypatch: pytest.MonkeyPatch, client: 'OpenAIClient', openai_api):
-        from nonebot.drivers import Response
-
+    async def test_delete_file(self, client: 'OpenAIClient', capture_delete: dict[str, Any]):
         from src.utils.openai_api.models import FileDeleted
 
-        captured: dict[str, Any] = {}
-
-        async def fake_delete(self_, url, params=None, **kwargs):
-            captured.update({'url': url, 'kwargs': kwargs})
-            return Response(
-                200,
-                content=json.dumps({'id': 'file-1', 'object': 'file.deleted', 'deleted': True}).encode(),
-            )
-
-        monkeypatch.setattr(openai_api.OpenAIClient, '_request_delete', fake_delete)
+        capture_delete['payload'] = {'id': 'file-1', 'object': 'file.deleted', 'deleted': True}
 
         result = await client.delete_file('file-1')
 
         assert isinstance(result, FileDeleted)
         assert result.deleted is True
-        assert captured['url'] == f'{_SERVICE_BASE}/files/file-1'
+        assert capture_delete['url'] == f'{_SERVICE_BASE}/files/file-1'
 
-    async def test_upload_file(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            tmp_path: 'Path',
-            client: 'OpenAIClient',
-            openai_api,
-    ):
+    async def test_upload_file(self, tmp_path: 'Path', client: 'OpenAIClient', capture_post: dict[str, Any]):
         from src.resource import AnyResource
         from src.utils.openai_api.models import File
 
-        captured: dict[str, Any] = {}
-
-        async def fake_post(self_, url, params=None, payload=None, **kwargs):
-            captured.update({'url': url, 'kwargs': kwargs})
-            return {'id': 'file-1', 'object': 'file', 'bytes': 3, 'created_at': 1,
-                    'filename': 'a.txt', 'purpose': 'user_data'}
-
-        monkeypatch.setattr(openai_api.OpenAIClient, '_post_acquire_as_json', fake_post)
+        capture_post['response'] = {'id': 'file-1', 'object': 'file', 'bytes': 3, 'created_at': 1,
+                                    'filename': 'a.txt', 'purpose': 'user_data'}
 
         resource_file = tmp_path / 'a.txt'
         resource_file.write_bytes(b'abc')
@@ -557,8 +549,8 @@ class TestOtherEndpoints:
 
         assert isinstance(result, File)
         assert result.id == 'file-1'
-        assert captured['url'] == f'{_SERVICE_BASE}/files'
-        files = captured['kwargs']['files']
+        assert capture_post['url'] == f'{_SERVICE_BASE}/files'
+        files = capture_post['kwargs']['files']
         assert files['purpose'] == (None, 'user_data', 'text/plain')
         assert files['file'][0] == 'a.txt'
 
@@ -574,52 +566,25 @@ class TestOtherEndpoints:
         assert capture_post['url'] == f'{_SERVICE_BASE}/chat/completions/chatcmpl-1'
         assert capture_post['kwargs']['json'] == {'metadata': {'k': 'v'}}
 
-    async def test_delete_chat_completion(self, monkeypatch: pytest.MonkeyPatch, client: 'OpenAIClient', openai_api):
-        from nonebot.drivers import Response
-
+    async def test_delete_chat_completion(self, client: 'OpenAIClient', capture_delete: dict[str, Any]):
         from src.utils.openai_api.models import ChatCompletionDeleted
 
-        async def fake_delete(self_, url, params=None, **kwargs):
-            return Response(
-                200,
-                content=json.dumps({'id': 'chatcmpl-1', 'object': 'chat.completion.deleted', 'deleted': True}).encode(),
-            )
-
-        monkeypatch.setattr(openai_api.OpenAIClient, '_request_delete', fake_delete)
+        capture_delete['payload'] = {'id': 'chatcmpl-1', 'object': 'chat.completion.deleted', 'deleted': True}
 
         result = await client.delete_chat_completion('chatcmpl-1')
         assert isinstance(result, ChatCompletionDeleted)
         assert result.deleted is True
 
-    async def test_list_chat_completions(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            client: 'OpenAIClient',
-            openai_api,
-    ):
+    async def test_list_chat_completions(self, client: 'OpenAIClient', capture_get: dict[str, Any]):
         from src.utils.openai_api.models import ChatCompletionList
-
-        captured: dict[str, Any] = {}
-
-        async def fake_get(self_, url, params=None, **kwargs):
-            captured.update({'url': url, 'params': params})
-            return {
-                'object': 'list',
-                'data': [_CHAT_COMPLETION_PAYLOAD],
-                'first_id': 'chatcmpl-test',
-                'last_id': 'chatcmpl-test',
-                'has_more': False,
-            }
-
-        monkeypatch.setattr(openai_api.OpenAIClient, '_get_resource_as_json', fake_get)
 
         result = await client.list_chat_completions(
             after='chatcmpl-0', limit=5, metadata={'k': 'v'}, model='test-model', order='desc'
         )
         assert isinstance(result, ChatCompletionList)
         assert result.has_more is False
-        assert captured['url'] == f'{_SERVICE_BASE}/chat/completions'
-        assert captured['params'] == {
+        assert capture_get['url'] == f'{_SERVICE_BASE}/chat/completions'
+        assert capture_get['params'] == {
             'after': 'chatcmpl-0', 'limit': 5, 'metadata[k]': 'v', 'model': 'test-model', 'order': 'desc',
         }
 
@@ -631,9 +596,6 @@ class TestOtherEndpoints:
         assert isinstance(result, ChatCompletionMessageList)
         assert capture_get['url'] == f'{_SERVICE_BASE}/chat/completions/chatcmpl-1/messages'
         assert capture_get['params'] == {'after': 'm-0', 'limit': 10, 'order': 'asc'}
-
-
-# ---------- 数据模型 ----------
 
 
 class TestModels:
@@ -693,22 +655,21 @@ class TestModels:
         assert 'reasoning_content' not in dumped
         assert 'name' not in dumped
 
-    def test_message_trim_chat_messages(self):
+    @pytest.mark.parametrize(
+        ('added', 'expected'),
+        [
+            pytest.param(['m0', 'm1', 'm2'], ['m1', 'm2'], id='trim_over_limit'),
+            pytest.param(['m0', 'm1'], ['m0', 'm1'], id='keep_exactly_limit'),
+        ],
+    )
+    def test_message_trim_chat_messages(self, added: list[str], expected: list[str]):
         from src.utils.openai_api.models import Message, MessageContent
 
         message = Message(max_messages=2)
-        for i in range(3):
-            message.add_content(MessageContent.user().set_plain_text(f'm{i}'))
+        for text in added:
+            message.add_content(MessageContent.user().set_plain_text(text))
 
-        assert [x.content for x in message.messages] == ['m1', 'm2']
-
-    def test_message_keep_exactly_limit_messages(self):
-        from src.utils.openai_api.models import Message, MessageContent
-
-        message = Message(max_messages=2)
-        message.add_content(MessageContent.user().set_plain_text('m0'))
-        message.add_content(MessageContent.user().set_plain_text('m1'))
-        assert [x.content for x in message.messages] == ['m0', 'm1']
+        assert [x.content for x in message.messages] == expected
 
     def test_message_prefix_content(self):
         from src.utils.openai_api.models import Message, MessageRole
@@ -763,8 +724,8 @@ class TestModels:
     def test_chat_completion_null_finish_reason(self):
         from src.utils.openai_api.models import ChatCompletion
 
-        payload = json.loads(json.dumps(_CHAT_COMPLETION_PAYLOAD))
-        payload['choices'][0]['finish_reason'] = None
+        payload = {k: v for k, v in _CHAT_COMPLETION_PAYLOAD.items() if k != 'choices'}
+        payload['choices'] = [{**_CHAT_COMPLETION_PAYLOAD['choices'][0], 'finish_reason': None}]
         completion = ChatCompletion.model_validate(payload)
         assert completion.choices[0].finish_reason == 'not_provided'
 
@@ -788,25 +749,31 @@ class TestModels:
         assert tool_call.custom is not None
         assert tool_call.custom.name == 'ct'
 
-    def test_chunk_complements_empty_delta_role(self):
+    @pytest.mark.parametrize(
+        ('delta', 'extra_fields', 'expected_content'),
+        [
+            pytest.param({}, {}, '', id='complements_empty_delta_role'),
+            # 未建模的额外字段(如 obfuscation)应被忽略
+            pytest.param({'content': 'x'}, {'obfuscation': 'r4N7vQ2m'}, 'x', id='ignores_extra_fields'),
+            pytest.param({'content': 'x'}, {}, 'x', id='null_finish_reason'),
+        ],
+    )
+    def test_chunk_field_defaults(
+            self,
+            delta: dict[str, Any],
+            extra_fields: dict[str, Any],
+            expected_content: str,
+    ):
         from src.utils.openai_api.models import ChatCompletionChunk
 
-        chunk = ChatCompletionChunk.model_validate(_chunk({}))
-        assert chunk.choices[0].delta.role == 'assistant'
-
-    def test_chunk_ignores_extra_fields(self):
-        from src.utils.openai_api.models import ChatCompletionChunk
-
-        payload = _chunk({'content': 'x'})
-        payload['obfuscation'] = 'r4N7vQ2m'
+        payload = _chunk(delta)
+        payload.update(extra_fields)
         chunk = ChatCompletionChunk.model_validate(payload)
-        assert chunk.choices[0].delta.content == 'x'
 
-    def test_chunk_null_finish_reason(self):
-        from src.utils.openai_api.models import ChatCompletionChunk
-
-        chunk = ChatCompletionChunk.model_validate(_chunk({'content': 'x'}))
-        assert chunk.choices[0].finish_reason == 'not_provided'
+        choice = chunk.choices[0]
+        assert choice.delta.role == 'assistant'
+        assert choice.delta.content == expected_content
+        assert choice.finish_reason == 'not_provided'
 
     def test_stored_completion_models(self):
         from src.utils.openai_api.models import (
@@ -859,9 +826,6 @@ class TestModels:
         assert model_list.data[0].id == 'm'
 
 
-# ---------- helpers ----------
-
-
 def _make_png_bytes() -> bytes:
     image = Image.new('RGB', (4, 4), color=(255, 0, 0))
     with BytesIO() as buffer:
@@ -881,21 +845,21 @@ class TestHelpers:
             assert decoded.format == 'WEBP'
             assert decoded.size == (4, 4)
 
-    async def test_encode_local_image(self, tmp_path: 'Path'):
+    @pytest.mark.parametrize(
+        ('convert_format', 'expected_prefix'),
+        [
+            pytest.param(None, 'data:image/png;base64,', id='default_format'),
+            pytest.param('webp', 'data:image/webp;base64,', id='convert_webp'),
+        ],
+    )
+    async def test_encode_local_image(self, tmp_path: 'Path', convert_format: str | None, expected_prefix: str):
         from src.resource import AnyResource
         from src.utils.openai_api.helpers import encode_local_image
 
         (tmp_path / 'img.png').write_bytes(_make_png_bytes())
-        data_url = await encode_local_image(AnyResource(tmp_path, 'img.png'))
-        assert data_url.startswith('data:image/png;base64,')
-
-    async def test_encode_local_image_with_convert_format(self, tmp_path: 'Path'):
-        from src.resource import AnyResource
-        from src.utils.openai_api.helpers import encode_local_image
-
-        (tmp_path / 'img.png').write_bytes(_make_png_bytes())
-        data_url = await encode_local_image(AnyResource(tmp_path, 'img.png'), convert_format='webp')
-        assert data_url.startswith('data:image/webp;base64,')
+        kwargs = {} if convert_format is None else {'convert_format': convert_format}
+        data_url = await encode_local_image(AnyResource(tmp_path, 'img.png'), **kwargs)
+        assert data_url.startswith(expected_prefix)
 
     async def test_encode_local_file_and_audio(self, tmp_path: 'Path'):
         from src.resource import AnyResource
@@ -910,58 +874,28 @@ class TestHelpers:
         assert base64.b64decode(audio_data) == b'wave-bytes'
         assert audio_format == 'wav'
 
-    def test_fix_json_valid_passthrough(self):
+    @pytest.mark.parametrize(
+        ('raw', 'expected'),
+        [
+            pytest.param('{"a": 1, "b": [1, 2]}', {'a': 1, 'b': [1, 2]}, id='valid_passthrough'),
+            # 仅缺闭合符时不应截断尾部字段
+            pytest.param('{"a": "x", "b": "y"', {'a': 'x', 'b': 'y'}, id='only_missing_closers_keeps_fields'),
+            pytest.param('{"a": 1, "b":', {'a': 1}, id='truncated_tail_value'),
+            # 尾部字段完整时仅补闭合符, 不丢失 "c"
+            pytest.param('{"a": 1, "b": 2, "c": 3', {'a': 1, 'b': 2, 'c': 3},
+                         id='truncated_trailing_field_kept_when_closable'),
+            pytest.param('{"a": [1, {"b": 2', {'a': [1, {'b': 2}]}, id='nested_unclosed'),
+            pytest.param('{"a": "has } brace and , comma"', {'a': 'has } brace and , comma'},
+                         id='ignores_braces_inside_strings'),
+            pytest.param('{"a": "quote \\" inside"', {'a': 'quote " inside'}, id='escaped_quotes'),
+            pytest.param('{"a":\n "line1\\nline2"\n', {'a': 'line1\nline2'}, id='removes_external_newlines_only'),
+        ],
+    )
+    def test_fix_broken_generated_json(self, raw: str, expected: dict):
+        """修复破损生成 JSON 的两级策略: 先整体解析, 失败时补全闭合符, 再失败时截断尾部残缺字段"""
         from src.utils.openai_api.helpers import fix_broken_generated_json
 
-        raw = '{"a": 1, "b": [1, 2]}'
-        assert fix_broken_generated_json(raw) == raw
-
-    def test_fix_json_only_missing_closers_keeps_fields(self):
-        """仅缺闭合符时不应截断尾部字段(M2: 两级修复策略)"""
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a": "x", "b": "y"')
-        assert json.loads(fixed) == {'a': 'x', 'b': 'y'}
-
-    def test_fix_json_truncated_tail_value(self):
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a": 1, "b":')
-        assert json.loads(fixed) == {'a': 1}
-
-    def test_fix_json_truncated_trailing_field_kept_when_closable(self):
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a": 1, "b": 2, "c": 3')
-        # 尾部字段完整时仅补闭合符, 不丢失 "c"
-        assert json.loads(fixed) == {'a': 1, 'b': 2, 'c': 3}
-
-    def test_fix_json_nested_unclosed(self):
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a": [1, {"b": 2')
-        assert json.loads(fixed) == {'a': [1, {'b': 2}]}
-
-    def test_fix_json_ignores_braces_inside_strings(self):
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a": "has } brace and , comma"')
-        assert json.loads(fixed) == {'a': 'has } brace and , comma'}
-
-    def test_fix_json_escaped_quotes(self):
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a": "quote \\" inside"')
-        assert json.loads(fixed) == {'a': 'quote " inside'}
-
-    def test_fix_json_removes_external_newlines_only(self):
-        from src.utils.openai_api.helpers import fix_broken_generated_json
-
-        fixed = fix_broken_generated_json('{"a":\n "line1\\nline2"\n')
-        assert json.loads(fixed) == {'a': 'line1\nline2'}
-
-
-# ---------- ChatSession ----------
+        assert json.loads(fix_broken_generated_json(raw)) == expected
 
 
 class _ReplyModel(BaseModel):
@@ -969,7 +903,7 @@ class _ReplyModel(BaseModel):
 
 
 @pytest.fixture
-def chat_session(configured_service: None):
+def chat_session(configured_service):
     from src.utils.openai_api import ChatSession
 
     session = ChatSession(
@@ -1005,7 +939,7 @@ class TestChatSession:
         assert prefix[0].role is MessageRole.system
         assert prefix[0].content == 'you are helpful'
 
-    def test_init_with_developer_prefix(self, configured_service: None):
+    def test_init_with_developer_prefix(self, configured_service):
         from src.utils.openai_api import ChatSession
         from src.utils.openai_api.models import MessageRole
 
@@ -1053,12 +987,22 @@ class TestChatSession:
         assert reply.value == 'ok'
         assert captured['kwargs']['response_format'] == {'type': 'json_object'}
 
+        # advance_chat 的 json_object 与仅 model_type 两个分支分别委派 chat_query_json / chat 后解析
+        reply_json = await chat_session.advance_chat('extract', response_format='json_object', model_type=_ReplyModel)
+        assert reply_json.value == 'ok'
+        reply_model = await chat_session.advance_chat('extract', model_type=_ReplyModel)
+        assert reply_model.value == 'ok'
+
     async def test_chat_query_json_without_model_type(self, monkeypatch: pytest.MonkeyPatch, chat_session):
         _mock_session_reply(monkeypatch, chat_session, ['{"raw": 1}'])
 
         reply = await chat_session.chat_query_json('extract')
 
         assert reply == {'raw': 1}
+
+        # advance_chat 无 response_format/model_type 时透传纯文本响应
+        reply_text = await chat_session.advance_chat('extract')
+        assert reply_text == '{"raw": 1}'
 
     async def test_chat_query_schema(self, monkeypatch: pytest.MonkeyPatch, chat_session):
         captured = _mock_session_reply(monkeypatch, chat_session, ['{"value": "ok"}'])
@@ -1072,18 +1016,9 @@ class TestChatSession:
         assert response_format['json_schema']['strict'] is True
         assert 'properties' in response_format['json_schema']['schema']
 
-    async def test_advance_chat_branches(self, monkeypatch: pytest.MonkeyPatch, chat_session):
-        _mock_session_reply(monkeypatch, chat_session, ['{"value": "ok"}'])
-
-        reply_schema = await chat_session.advance_chat('q', response_format='json_schema', model_type=_ReplyModel)
-        reply_json = await chat_session.advance_chat('q', response_format='json_object', model_type=_ReplyModel)
-        reply_model = await chat_session.advance_chat('q', model_type=_ReplyModel)
-        reply_text = await chat_session.advance_chat('q')
-
+        # advance_chat 的 json_schema 分支委派 chat_query_schema
+        reply_schema = await chat_session.advance_chat('extract', response_format='json_schema', model_type=_ReplyModel)
         assert reply_schema.value == 'ok'
-        assert reply_json.value == 'ok'
-        assert reply_model.value == 'ok'
-        assert reply_text == '{"value": "ok"}'
 
     async def test_add_chat_file_requires_any_param(self, chat_session):
         with pytest.raises(ValueError, match='None of any'):
@@ -1116,7 +1051,7 @@ class TestChatSession:
 
     async def test_chat_session_trim_history(
             self,
-            configured_service: None,
+            configured_service,
             monkeypatch: pytest.MonkeyPatch,
     ):
         from src.utils.openai_api import ChatSession
@@ -1141,11 +1076,7 @@ class TestChatSession:
         assert ChatSession.fix_md_json('```\n{"a": 1}\n```') == '{"a": 1}'
 
 
-# ---------- 真实 API 验证 ----------
-# 本节用例会向 .env.test 中配置的真实提供商发起请求, 仅在手动设置 OPENAI_API_REAL_TEST=1 时执行:
-#   OPENAI_API_REAL_TEST=1 .venv/Scripts/python.exe -m pytest \
-#     tests/test_003_web/test_005_openai_api.py -k TestRealAPI -v
-# 常规测试运行会整体跳过本节, 不发起任何真实请求
+# 真实 API 验证: 常规运行整体跳过, 手动执行 OPENAI_API_REAL_TEST=1 pytest ... -k TestRealAPI
 
 _REAL_API_ENV = 'OPENAI_API_REAL_TEST'
 
@@ -1202,10 +1133,16 @@ def _skip_on_provider_error(exc: Exception, raw_capture: list[Any]) -> None:
     _skip_if_unsupported(exc)
 
 
-@pytest.mark.skipif(
-    os.environ.get(_REAL_API_ENV) != '1',
-    reason=f'真实 API 验证用例, 需设置 {_REAL_API_ENV}=1 手动发起',
-)
+@contextmanager
+def real_endpoint_guard(raw_capture: list[Any]):
+    """文件子端点请求守卫: 提供商不支持该子端点时跳过用例(_skip_on_provider_error 的 with 包装)"""
+    try:
+        yield
+    except Exception as e:
+        _skip_on_provider_error(e, raw_capture)
+
+
+@require_env_flag(_REAL_API_ENV)
 class TestRealAPI:
 
     @pytest.fixture
@@ -1455,19 +1392,15 @@ class TestRealAPI:
         assert real_uploaded_file.id in listed_ids
 
     async def test_real_files_retrieve(self, real_client, real_uploaded_file, raw_capture: list[Any]):
-        try:
+        with real_endpoint_guard(raw_capture):
             retrieved = await real_client.retrieve_file(real_uploaded_file.id)
-        except Exception as e:
-            _skip_on_provider_error(e, raw_capture)
         assert retrieved.id == real_uploaded_file.id
 
     async def test_real_files_content(self, real_client, real_uploaded_file, raw_capture: list[Any]):
         from src.utils.openai_api.models import FileContent
 
-        try:
+        with real_endpoint_guard(raw_capture):
             content = await real_client.retrieve_file_content(real_uploaded_file.id)
-        except Exception as e:
-            _skip_on_provider_error(e, raw_capture)
         assert isinstance(content, FileContent)
         assert content.content
         self._assert_no_meaningful_drop(raw_capture[-1], content.model_dump(), where='(files/content)')
@@ -1475,10 +1408,8 @@ class TestRealAPI:
     async def test_real_files_delete(self, real_client, real_uploaded_file, raw_capture: list[Any]):
         from src.utils.openai_api.models import FileDeleted
 
-        try:
+        with real_endpoint_guard(raw_capture):
             deleted = await real_client.delete_file(real_uploaded_file.id)
-        except Exception as e:
-            _skip_on_provider_error(e, raw_capture)
         assert isinstance(deleted, FileDeleted)
         assert deleted.deleted is True
 

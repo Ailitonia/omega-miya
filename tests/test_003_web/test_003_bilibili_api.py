@@ -10,30 +10,30 @@
 
 import asyncio
 import json
-import os
 import re
 from collections import Counter
-from contextlib import asynccontextmanager
+from collections.abc import Coroutine
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import quote
 
 import pytest
 from pydantic import ValidationError
 
+from tests.test_003_web.helpers import (
+    patch_module_asyncio_sleep,
+    patch_module_time,
+    patch_system_setting_dal,
+    require_env_flag,
+)
+
 if TYPE_CHECKING:
     from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
 
-_REAL_TEST_ENABLED = os.getenv('BILIBILI_API_REAL_TEST', '').lower() in ('1', 'true', 'yes', 'on')
-"""是否启用真实请求验证: 需用户手动设置 BILIBILI_API_REAL_TEST 环境变量 (如 BILIBILI_API_REAL_TEST=1)"""
-
-require_real_test = pytest.mark.skipif(
-    not _REAL_TEST_ENABLED,
-    reason='真实请求验证, 需手动设置 BILIBILI_API_REAL_TEST=1 环境变量后运行',
-)
-"""真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置环境变量后发起"""
+require_real_test = require_env_flag('BILIBILI_API_REAL_TEST')
+"""真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置 BILIBILI_API_REAL_TEST=1 后发起"""
 
 # ------------------------------------------------------------------ #
 # wbi 签名已知答案向量 (本地按参考算法预计算, 不依赖网络)
@@ -335,50 +335,17 @@ def _make_room_info_dict(**overrides) -> dict:
 # ------------------------------------------------------------------ #
 
 
-def _patch_system_setting_dal(
+def mock_json_response(
         monkeypatch: pytest.MonkeyPatch,
-        series: list | None = None,
-        unique: dict[str, str] | None = None,
-) -> SimpleNamespace:
-    """以记录调用的伪 DAL 替换 SystemSettingDAL.create
-
-    :param series: query_series 返回的配置项列表
-    :param unique: query_unique 的键值表, 未命中键抛出 NoResultFound
-    :return: SimpleNamespace(deleted=[被删除的 setting_key], saved={setting_key: setting_value})
-    """
-    from sqlalchemy.exc import NoResultFound
-
-    from src.database import SystemSettingDAL
-
-    fake_dal = SimpleNamespace(deleted=[], saved={}, _series=series or [], _unique=unique or {})
-
-    async def _query_series(setting_name: str, **_kwargs):
-        return fake_dal._series
-
-    async def _query_unique(setting_name: str, setting_key: str, **_kwargs):
-        if setting_key not in fake_dal._unique:
-            raise NoResultFound(f'no row for {setting_key!r}')
-        return SimpleNamespace(
-            setting_name=setting_name, setting_key=setting_key, setting_value=fake_dal._unique[setting_key]
-        )
-
-    async def _delete(setting_name: str, setting_key: str) -> None:
-        fake_dal.deleted.append(setting_key)
-
-    async def _add_update_exist(setting_name: str, setting_key: str, setting_value: str, **_kwargs) -> None:
-        fake_dal.saved[setting_key] = setting_value
-
-    fake_dal.query_series = _query_series
-    fake_dal.query_unique = _query_unique
-    fake_dal.delete = _delete
-    fake_dal.add_update_exist = _add_update_exist
-
-    @asynccontextmanager
-    async def _fake_create(_cls):
-        yield fake_dal
-
-    monkeypatch.setattr(SystemSettingDAL, 'create', classmethod(_fake_create))
-    return fake_dal
+        cls: type,
+        payload: dict,
+        *,
+        method: str = '_get_resource_as_json',
+) -> AsyncMock:
+    """monkeypatch 指定类的资源请求方法为返回固定 JSON 负载的 AsyncMock"""
+    json_mock = AsyncMock(return_value=payload)
+    monkeypatch.setattr(cls, method, json_mock)
+    return json_mock
 
 
 @pytest.fixture
@@ -416,6 +383,32 @@ def bilibili_common_state(monkeypatch: pytest.MonkeyPatch) -> None:
                 pass
 
 
+@pytest.fixture
+def cleared_credential_manager(
+        credential_manager_sandbox: '_BilibiliCredentialManager',
+) -> '_BilibiliCredentialManager':
+    """已清空 cookies 的凭据管理器沙箱"""
+    credential_manager_sandbox.clear_cookies()
+    return credential_manager_sandbox
+
+
+@pytest.fixture
+def wbi_keyed_manager(cleared_credential_manager: '_BilibiliCredentialManager') -> '_BilibiliCredentialManager':
+    """已写入 wbi 签名键 (img_key/sub_key) 的凭据管理器沙箱"""
+    cleared_credential_manager.update_cookies(img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
+    return cleared_credential_manager
+
+
+@pytest.fixture
+def stub_spm_prefix(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    """打桩 spm_prefix 初始化, 直接返回回退值 333.1387 (不经网络)"""
+    from src.utils.bilibili_api.api.base import BilibiliCommon
+
+    spm_mock = AsyncMock(return_value='333.1387')
+    monkeypatch.setattr(BilibiliCommon, '_init_spm_prefix', spm_mock)
+    return spm_mock
+
+
 # ------------------------------------------------------------------ #
 # misc 纯函数测试
 # ------------------------------------------------------------------ #
@@ -432,7 +425,7 @@ class TestWbiSign:
     def test_enc_wbi_known_answer(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api.misc import wbi
 
-        monkeypatch.setattr(wbi.time, 'time', lambda: _WBI_WTS)
+        patch_module_time(monkeypatch, wbi, _WBI_WTS)
         signed = wbi.enc_wbi(params={'foo': 'bar'}, img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
 
         assert signed == {'foo': 'bar', 'wts': str(_WBI_WTS), 'w_rid': _WBI_FOO_BAR_W_RID}
@@ -441,7 +434,7 @@ class TestWbiSign:
         """参数值中的 !'()* 字符在签名前被过滤"""
         from src.utils.bilibili_api.misc import wbi
 
-        monkeypatch.setattr(wbi.time, 'time', lambda: _WBI_WTS)
+        patch_module_time(monkeypatch, wbi, _WBI_WTS)
         signed = wbi.enc_wbi(params={'text': "a!b'c(d)e*f"}, img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
 
         assert signed['text'] == 'abcdef'
@@ -451,7 +444,7 @@ class TestWbiSign:
         """参数按 key 排序后签名, 传入顺序不影响 w_rid"""
         from src.utils.bilibili_api.misc import wbi
 
-        monkeypatch.setattr(wbi.time, 'time', lambda: _WBI_WTS)
+        patch_module_time(monkeypatch, wbi, _WBI_WTS)
         signed_ab = wbi.enc_wbi(params={'a': '1', 'b': '2'}, img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
         signed_ba = wbi.enc_wbi(params={'b': '2', 'a': '1'}, img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
 
@@ -461,7 +454,7 @@ class TestWbiSign:
         """None 参数仅注入 wts/w_rid"""
         from src.utils.bilibili_api.misc import wbi
 
-        monkeypatch.setattr(wbi.time, 'time', lambda: _WBI_WTS)
+        patch_module_time(monkeypatch, wbi, _WBI_WTS)
         signed = wbi.enc_wbi(params=None, img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
 
         assert set(signed.keys()) == {'wts', 'w_rid'}
@@ -486,7 +479,7 @@ class TestWbiSign:
         from src.utils.bilibili_api.misc import wbi
         from src.utils.bilibili_api.models import WebInterfaceNav
 
-        monkeypatch.setattr(wbi.time, 'time', lambda: _WBI_WTS)
+        patch_module_time(monkeypatch, wbi, _WBI_WTS)
         nav = WebInterfaceNav.model_validate({
             'code': 0, 'message': '0', 'ttl': 1,
             'data': {
@@ -532,7 +525,7 @@ class TestWebTicket:
         """hexsign 与 context[ts] 必须对应同一时间戳"""
         from src.utils.bilibili_api.misc import web_ticket
 
-        monkeypatch.setattr(web_ticket.time, 'time', lambda: 1700000000.0)
+        patch_module_time(monkeypatch, web_ticket, 1700000000)
         params = web_ticket.create_gen_web_ticket_params()
 
         assert params['context[ts]'] == '1700000000'
@@ -599,35 +592,23 @@ class TestExclimbwuzhi:
 class TestQuoteSessdata:
     """SESSDATA 编码测试 (对原始值与已编码值均应幂等)"""
 
-    def test_raw_value_quoted(self) -> None:
+    @pytest.mark.parametrize(
+        ('cookies', 'expected'),
+        [
+            ({'SESSDATA': 'a,b*c'}, quote('a,b*c')),
+            ({'SESSDATA': quote('a,b*c')}, quote('a,b*c')),
+            # 含非法 % 序列的原始值应被正确编码而非误判为已编码
+            ({'SESSDATA': 'a%b'}, 'a%25b'),
+            ({}, None),
+        ],
+        ids=['raw_value_quoted', 'quoted_value_idempotent', 'invalid_percent_sequence_normalized', 'none'],
+    )
+    def test_sessdata_quoted(self, cookies: dict, expected: str | None) -> None:
         from src.utils.bilibili_api.credential_manager import BilibiliCookiesData
 
-        data = BilibiliCookiesData.model_validate({'SESSDATA': 'a,b*c'})
+        data = BilibiliCookiesData.model_validate(cookies)
 
-        assert data.bilibili_api_sessdata == quote('a,b*c')
-
-    def test_quoted_value_idempotent(self) -> None:
-        from src.utils.bilibili_api.credential_manager import BilibiliCookiesData
-
-        quoted = quote('a,b*c')
-        data = BilibiliCookiesData.model_validate({'SESSDATA': quoted})
-
-        assert data.bilibili_api_sessdata == quoted
-
-    def test_invalid_percent_sequence_normalized(self) -> None:
-        """含非法 % 序列的原始值应被正确编码而非误判为已编码"""
-        from src.utils.bilibili_api.credential_manager import BilibiliCookiesData
-
-        data = BilibiliCookiesData.model_validate({'SESSDATA': 'a%b'})
-
-        assert data.bilibili_api_sessdata == 'a%25b'
-
-    def test_none_passthrough(self) -> None:
-        from src.utils.bilibili_api.credential_manager import BilibiliCookiesData
-
-        data = BilibiliCookiesData.model_validate({})
-
-        assert data.bilibili_api_sessdata is None
+        assert data.bilibili_api_sessdata == expected
 
 
 class TestCookiesData:
@@ -677,10 +658,9 @@ class TestCookiesData:
 class TestCredentialManagerOps:
     """凭据管理器内存操作语义测试"""
 
-    def test_update_cookies_merges(self, credential_manager_sandbox: '_BilibiliCredentialManager') -> None:
+    def test_update_cookies_merges(self, cleared_credential_manager: '_BilibiliCredentialManager') -> None:
         """update_cookies 覆盖同名键, 保留未提供的既有键"""
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value')
 
         manager.update_cookies(SESSDATA='new_sess')
@@ -689,21 +669,19 @@ class TestCredentialManagerOps:
         assert manager.get_cookie('bili_jct') == 'jct_value'
 
     def test_update_cookies_ignores_unknown_keys(
-            self, credential_manager_sandbox: '_BilibiliCredentialManager',
+            self, cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
 
         manager.update_cookies(SESSDATA='sess_value', unknown_cookie='x')
 
         assert 'unknown_cookie' not in manager.cookies
 
-    def test_replace_cookies(self, credential_manager_sandbox: '_BilibiliCredentialManager') -> None:
+    def test_replace_cookies(self, cleared_credential_manager: '_BilibiliCredentialManager') -> None:
         """replace_cookies 一次性全量替换, 未包含的既有键被丢弃"""
         from src.utils.bilibili_api.credential_manager import BilibiliCookiesData
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='old_sess', bili_jct='old_jct')
 
         manager.replace_cookies(BilibiliCookiesData.model_validate({'SESSDATA': 'new_sess'}))
@@ -718,9 +696,8 @@ class TestCredentialManagerOps:
 
         assert manager.cookies == {}
 
-    def test_get_cookie_by_field_name(self, credential_manager_sandbox: '_BilibiliCredentialManager') -> None:
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+    def test_get_cookie_by_field_name(self, cleared_credential_manager: '_BilibiliCredentialManager') -> None:
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='sess_value')
 
         assert manager.get_cookie('bilibili_api_sessdata', alias=False) == manager.get_cookie('SESSDATA')
@@ -732,13 +709,12 @@ class TestCredentialManagerPersistence:
     async def test_rebuild_removes_stale_keys(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='sess_value')
 
-        fake_dal = _patch_system_setting_dal(monkeypatch, series=[
+        fake_dal = patch_system_setting_dal(monkeypatch, series=[
             SimpleNamespace(setting_name='bilibili_api_config', setting_key='SESSDATA'),
             SimpleNamespace(setting_name='bilibili_api_config', setting_key='STALE_KEY'),
         ])
@@ -751,14 +727,13 @@ class TestCredentialManagerPersistence:
     async def test_save_skips_none_values(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """save_to_database 仅写入非 None 值且不删除既有键"""
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='sess_value')
 
-        fake_dal = _patch_system_setting_dal(monkeypatch)
+        fake_dal = patch_system_setting_dal(monkeypatch)
 
         await manager.save_to_database()
 
@@ -768,14 +743,13 @@ class TestCredentialManagerPersistence:
     async def test_load_from_database(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """load_from_database 先清空再加载: 命中键写入, 未命中键置 None"""
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='stale_sess', bili_jct='stale_jct')
 
-        _patch_system_setting_dal(monkeypatch, unique={'SESSDATA': 'db_sess'})
+        patch_system_setting_dal(monkeypatch, unique={'SESSDATA': 'db_sess'})
 
         await manager.load_from_database()
 
@@ -836,26 +810,22 @@ class TestBilibiliCommonBase:
         assert await BilibiliCommon._init_spm_prefix() == '333.999'
         get_text_mock.assert_not_awaited()
 
-    async def test_init_spm_prefix_missing_meta(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+    @pytest.mark.parametrize(
+        ('html', 'match'),
+        [
+            (_SPM_HTML_NO_META, 'parsing API spm_prefix not found'),
+            (_SPM_HTML_EMPTY_CONTENT, 'parsing API spm_prefix failed'),
+        ],
+        ids=['missing_meta', 'empty_content'],
+    )
+    async def test_init_spm_prefix_failure(
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, html: str, match: str,
     ) -> None:
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        monkeypatch.setattr(BilibiliCommon, '_get_resource_as_text', AsyncMock(return_value=_SPM_HTML_NO_META))
+        monkeypatch.setattr(BilibiliCommon, '_get_resource_as_text', AsyncMock(return_value=html))
 
-        with pytest.raises(RuntimeError, match='parsing API spm_prefix not found'):
-            await BilibiliCommon._init_spm_prefix()
-
-    async def test_init_spm_prefix_empty_content(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
-    ) -> None:
-        from src.utils.bilibili_api.api.base import BilibiliCommon
-
-        monkeypatch.setattr(
-            BilibiliCommon, '_get_resource_as_text', AsyncMock(return_value=_SPM_HTML_EMPTY_CONTENT)
-        )
-
-        with pytest.raises(RuntimeError, match='parsing API spm_prefix failed'):
+        with pytest.raises(RuntimeError, match=match):
             await BilibiliCommon._init_spm_prefix()
 
 
@@ -865,19 +835,15 @@ class TestSignWbiParams:
     async def test_uses_cached_keys(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            wbi_keyed_manager: '_BilibiliCredentialManager',
     ) -> None:
         """凭据中已有 img_key/sub_key 时直接本地签名, 不请求 nav 接口"""
         from src.utils.bilibili_api.api.base import BilibiliCommon
         from src.utils.bilibili_api.misc import wbi
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
-
         nav_mock = AsyncMock()
         monkeypatch.setattr(BilibiliCommon, '_sign_wbi_params_nav', nav_mock)
-        monkeypatch.setattr(wbi.time, 'time', lambda: _WBI_WTS)
+        patch_module_time(monkeypatch, wbi, _WBI_WTS)
 
         signed = await BilibiliCommon.sign_wbi_params(params={'foo': 'bar'})
 
@@ -887,16 +853,12 @@ class TestSignWbiParams:
     async def test_fallback_to_nav(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """凭据缺少 wbi 键时从 nav 接口获取签名参数"""
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-
-        get_json_mock = AsyncMock(return_value=_make_nav_payload(0))
-        monkeypatch.setattr(BilibiliCommon, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliCommon, _make_nav_payload(0))
 
         signed = await BilibiliCommon.sign_wbi_params(params={'foo': 'bar'})
 
@@ -911,8 +873,7 @@ class TestTicketWbiCookies:
     async def test_fetch_ticket_wbi_cookies(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        post_mock = AsyncMock(return_value=_TICKET_PAYLOAD)
-        monkeypatch.setattr(BilibiliCommon, '_post_acquire_as_json', post_mock)
+        post_mock = mock_json_response(monkeypatch, BilibiliCommon, _TICKET_PAYLOAD, method='_post_acquire_as_json')
 
         new_cookies = await BilibiliCommon._fetch_ticket_wbi_cookies(bili_jct='jct_value')
 
@@ -926,8 +887,7 @@ class TestTicketWbiCookies:
         """未登录 (bili_jct=None) 时 csrf 为空字符串"""
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        post_mock = AsyncMock(return_value=_TICKET_PAYLOAD)
-        monkeypatch.setattr(BilibiliCommon, '_post_acquire_as_json', post_mock)
+        post_mock = mock_json_response(monkeypatch, BilibiliCommon, _TICKET_PAYLOAD, method='_post_acquire_as_json')
 
         await BilibiliCommon._fetch_ticket_wbi_cookies(bili_jct=None)
 
@@ -936,16 +896,15 @@ class TestTicketWbiCookies:
     async def test_update_ticket_wbi_cookies(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """update_ticket_wbi_cookies 将新值写入全局凭据并返回登录用 cookies"""
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(bili_jct='jct_value')
 
-        monkeypatch.setattr(BilibiliCommon, '_post_acquire_as_json', AsyncMock(return_value=_TICKET_PAYLOAD))
+        mock_json_response(monkeypatch, BilibiliCommon, _TICKET_PAYLOAD, method='_post_acquire_as_json')
 
         result = await BilibiliCommon.update_ticket_wbi_cookies()
 
@@ -957,26 +916,21 @@ class TestTicketWbiCookies:
 class TestUpdateBuvidCookies:
     """buvid 激活流程测试 (响应校验必须按 dict 处理, 成功路径不得抛异常)"""
 
-    def _mock_network(self, monkeypatch: pytest.MonkeyPatch, exclimbwuzhi_payload: dict) -> None:
-        from src.utils.bilibili_api.api.base import BilibiliCommon
-
-        monkeypatch.setattr(BilibiliCommon, '_init_spm_prefix', AsyncMock(return_value='333.1387'))
-        monkeypatch.setattr(BilibiliCommon, '_get_resource_as_json', AsyncMock(return_value=_SPI_PAYLOAD))
-        monkeypatch.setattr(
-            BilibiliCommon, '_post_acquire_as_json', AsyncMock(return_value=exclimbwuzhi_payload)
-        )
-
     async def test_update_buvid_cookies_success(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
             bilibili_common_state: None,
+            stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliDynamic
+        from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        self._mock_network(monkeypatch, _EXCLIMBWUZHI_SUCCESS_PAYLOAD)
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        mock_json_response(monkeypatch, BilibiliCommon, _SPI_PAYLOAD)
+        mock_json_response(
+            monkeypatch, BilibiliCommon, _EXCLIMBWUZHI_SUCCESS_PAYLOAD, method='_post_acquire_as_json'
+        )
+        manager = cleared_credential_manager
 
         result = await BilibiliDynamic.update_buvid_cookies()
 
@@ -990,10 +944,16 @@ class TestUpdateBuvidCookies:
             monkeypatch: pytest.MonkeyPatch,
             credential_manager_sandbox: '_BilibiliCredentialManager',
             bilibili_common_state: None,
+            stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliDynamic
+        from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        self._mock_network(monkeypatch, {'code': -400, 'message': 'request error', 'ttl': 1})
+        mock_json_response(monkeypatch, BilibiliCommon, _SPI_PAYLOAD)
+        mock_json_response(
+            monkeypatch, BilibiliCommon, {'code': -400, 'message': 'request error', 'ttl': 1},
+            method='_post_acquire_as_json',
+        )
 
         with pytest.raises(RuntimeError, match='active buvid failed'):
             await BilibiliDynamic.update_buvid_cookies()
@@ -1003,12 +963,16 @@ class TestUpdateBuvidCookies:
             monkeypatch: pytest.MonkeyPatch,
             credential_manager_sandbox: '_BilibiliCredentialManager',
             bilibili_common_state: None,
+            stub_spm_prefix: AsyncMock,
     ) -> None:
         """spm_prefix 刷新失败应降级为回退值, 不应中断 buvid 激活流程"""
         from src.utils.bilibili_api import BilibiliDynamic
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        self._mock_network(monkeypatch, _EXCLIMBWUZHI_SUCCESS_PAYLOAD)
+        mock_json_response(monkeypatch, BilibiliCommon, _SPI_PAYLOAD)
+        mock_json_response(
+            monkeypatch, BilibiliCommon, _EXCLIMBWUZHI_SUCCESS_PAYLOAD, method='_post_acquire_as_json'
+        )
         monkeypatch.setattr(
             BilibiliCommon, '_init_spm_prefix', AsyncMock(side_effect=RuntimeError('spm fetch failed'))
         )
@@ -1025,17 +989,12 @@ class TestGlobalSearch:
     async def test_global_search_all(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            wbi_keyed_manager: '_BilibiliCredentialManager',
     ) -> None:
         """综合搜索参数需经 wbi 签名, 结果跨 result_type 打平"""
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
-
-        get_json_mock = AsyncMock(return_value=_make_search_all_payload())
-        monkeypatch.setattr(BilibiliCommon, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliCommon, _make_search_all_payload())
 
         result = await BilibiliCommon.global_search_all(keyword='test')
 
@@ -1049,8 +1008,7 @@ class TestGlobalSearch:
         """分类搜索不强制 wbi 签名, 参数原样透传"""
         from src.utils.bilibili_api.api.base import BilibiliCommon
 
-        get_json_mock = AsyncMock(return_value=_SEARCH_TYPE_PAYLOAD)
-        monkeypatch.setattr(BilibiliCommon, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliCommon, _SEARCH_TYPE_PAYLOAD)
 
         result = await BilibiliCommon.global_search_by_type(search_type='bili_user', keyword='test', page=2)
 
@@ -1099,21 +1057,12 @@ class TestSearchModels:
 class TestDynamicQueryParams:
     """动态查询请求参数测试 (update_baseline 必须写入正确参数键)"""
 
-    def _mock_request(self, monkeypatch: pytest.MonkeyPatch, payload: dict) -> AsyncMock:
-        from src.utils.bilibili_api import BilibiliDynamic
-        from src.utils.bilibili_api.api.base import BilibiliCommon
-
-        monkeypatch.setattr(BilibiliCommon, '_init_spm_prefix', AsyncMock(return_value='333.1387'))
-        get_json_mock = AsyncMock(return_value=payload)
-        monkeypatch.setattr(BilibiliDynamic, '_get_resource_as_json', get_json_mock)
-        return get_json_mock
-
     async def test_update_baseline_param_key(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliDynamic
 
-        get_json_mock = self._mock_request(monkeypatch, _DYNAMICS_PAYLOAD)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliDynamic, _DYNAMICS_PAYLOAD)
 
         await BilibiliDynamic.query_my_following_dynamics(type_='video', update_baseline=123456)
 
@@ -1122,12 +1071,12 @@ class TestDynamicQueryParams:
         assert params.get('type') == 'video'
 
     async def test_offset_and_baseline_accept_str(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, stub_spm_prefix: AsyncMock,
     ) -> None:
         """分页参数与模型字段 (str) 对齐, 支持直接回传"""
         from src.utils.bilibili_api import BilibiliDynamic
 
-        get_json_mock = self._mock_request(monkeypatch, _DYNAMICS_PAYLOAD)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliDynamic, _DYNAMICS_PAYLOAD)
 
         await BilibiliDynamic.query_user_space_dynamics(host_mid=123, offset='offset_str_value')
 
@@ -1135,12 +1084,12 @@ class TestDynamicQueryParams:
         assert params.get('offset') == 'offset_str_value'
 
     async def test_optional_params_omitted(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, stub_spm_prefix: AsyncMock,
     ) -> None:
         """缺省参数不应出现在请求参数中"""
         from src.utils.bilibili_api import BilibiliDynamic
 
-        get_json_mock = self._mock_request(monkeypatch, _DYNAMICS_PAYLOAD)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliDynamic, _DYNAMICS_PAYLOAD)
 
         await BilibiliDynamic.query_my_following_dynamics()
 
@@ -1151,11 +1100,11 @@ class TestDynamicQueryParams:
         assert 'update_baseline' not in params
 
     async def test_space_dynamics_params(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliDynamic
 
-        get_json_mock = self._mock_request(monkeypatch, _DYNAMICS_PAYLOAD)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliDynamic, _DYNAMICS_PAYLOAD)
 
         await BilibiliDynamic.query_user_space_dynamics(host_mid=123, timezone_offset=-480)
 
@@ -1165,11 +1114,11 @@ class TestDynamicQueryParams:
         assert 'offset' not in params
 
     async def test_query_dynamic_detail_params(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliDynamic
 
-        get_json_mock = self._mock_request(monkeypatch, _DYNAMIC_DETAIL_PAYLOAD)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliDynamic, _DYNAMIC_DETAIL_PAYLOAD)
 
         detail = await BilibiliDynamic.query_dynamic_detail(id_=1001, timezone_offset=-480)
 
@@ -1181,11 +1130,11 @@ class TestDynamicQueryParams:
         assert detail.data.item.id_str == '1001'
 
     async def test_query_dynamic_opus_detail_params(
-            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None,
+            self, monkeypatch: pytest.MonkeyPatch, bilibili_common_state: None, stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliDynamic
 
-        get_json_mock = self._mock_request(monkeypatch, _DYNAMIC_OPUS_DETAIL_PAYLOAD)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliDynamic, _DYNAMIC_OPUS_DETAIL_PAYLOAD)
 
         detail = await BilibiliDynamic.query_dynamic_opus_detail(id_=1002)
 
@@ -1206,8 +1155,7 @@ class TestLiveQueryParams:
     async def test_query_room_info_params(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api import BilibiliLive
 
-        get_json_mock = AsyncMock(return_value=_ROOM_INFO_PAYLOAD)
-        monkeypatch.setattr(BilibiliLive, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliLive, _ROOM_INFO_PAYLOAD)
 
         room_info = await BilibiliLive.query_room_info(room_id=1234567)
 
@@ -1218,8 +1166,7 @@ class TestLiveQueryParams:
         """批量接口使用重复 room_ids 参数对编码"""
         from src.utils.bilibili_api import BilibiliLive
 
-        get_json_mock = AsyncMock(return_value=_ROOM_BASE_INFO_PAYLOAD)
-        monkeypatch.setattr(BilibiliLive, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliLive, _ROOM_BASE_INFO_PAYLOAD)
 
         base_info = await BilibiliLive.query_room_info_by_room_id_list(room_id_list=[1234567, '890'])
 
@@ -1233,8 +1180,9 @@ class TestLiveQueryParams:
         """按 uid 批量查询为 POST JSON 载荷且不携带 cookies"""
         from src.utils.bilibili_api import BilibiliLive
 
-        post_mock = AsyncMock(return_value=_USERS_ROOM_INFO_PAYLOAD)
-        monkeypatch.setattr(BilibiliLive, '_post_acquire_as_json', post_mock)
+        post_mock = mock_json_response(
+            monkeypatch, BilibiliLive, _USERS_ROOM_INFO_PAYLOAD, method='_post_acquire_as_json'
+        )
 
         users_info = await BilibiliLive.query_room_info_by_uid_list(uid_list=[2165572, 12345])
 
@@ -1245,8 +1193,7 @@ class TestLiveQueryParams:
     async def test_query_room_user_info_params(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api import BilibiliLive
 
-        get_json_mock = AsyncMock(return_value=_ROOM_USER_INFO_PAYLOAD)
-        monkeypatch.setattr(BilibiliLive, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliLive, _ROOM_USER_INFO_PAYLOAD)
 
         room_user_info = await BilibiliLive.query_room_user_info(room_id=1234567)
 
@@ -1340,7 +1287,7 @@ class TestMyInfo:
     async def test_query_my_account_info(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api.api.user import BilibiliUser
 
-        monkeypatch.setattr(BilibiliUser, '_get_resource_as_json', AsyncMock(return_value=_ACCOUNT_PAYLOAD))
+        mock_json_response(monkeypatch, BilibiliUser, _ACCOUNT_PAYLOAD)
 
         account = await BilibiliUser.query_my_account_info()
 
@@ -1351,7 +1298,7 @@ class TestMyInfo:
     async def test_query_my_vip_info(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api.api.user import BilibiliUser
 
-        monkeypatch.setattr(BilibiliUser, '_get_resource_as_json', AsyncMock(return_value=_VIP_PAYLOAD))
+        mock_json_response(monkeypatch, BilibiliUser, _VIP_PAYLOAD)
 
         vip = await BilibiliUser.query_my_vip_info()
 
@@ -1390,23 +1337,18 @@ class TestQueryUserInfo:
     async def test_with_w_webid(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            wbi_keyed_manager: '_BilibiliCredentialManager',
     ) -> None:
         """RENDER_DATA 可用时请求参数包含 w_webid 与 wbi 签名"""
         from src.utils.bilibili_api.api.user import BilibiliUser
         from src.utils.bilibili_api.models import UserSpaceRenderData
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
 
         monkeypatch.setattr(
             BilibiliUser,
             '_query_user_space_w_webid',
             AsyncMock(return_value=UserSpaceRenderData.model_validate({'access_id': 'access_id_value'})),
         )
-        get_json_mock = AsyncMock(return_value=_USER_PAYLOAD)
-        monkeypatch.setattr(BilibiliUser, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliUser, _USER_PAYLOAD)
 
         user = await BilibiliUser.query_user_info(mid=12345)
 
@@ -1420,22 +1362,17 @@ class TestQueryUserInfo:
     async def test_render_data_failure_degrades(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            wbi_keyed_manager: '_BilibiliCredentialManager',
     ) -> None:
         """RENDER_DATA 获取失败时降级为无 w_webid 请求, 不中断查询"""
         from src.utils.bilibili_api.api.user import BilibiliUser
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(img_key=_WBI_KEY_IMG, sub_key=_WBI_KEY_SUB)
 
         monkeypatch.setattr(
             BilibiliUser,
             '_query_user_space_w_webid',
             AsyncMock(side_effect=RuntimeError('render data missing')),
         )
-        get_json_mock = AsyncMock(return_value=_USER_PAYLOAD)
-        monkeypatch.setattr(BilibiliUser, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliUser, _USER_PAYLOAD)
 
         user = await BilibiliUser.query_user_info(mid=12345)
 
@@ -1473,106 +1410,52 @@ class TestSearchUser:
 class TestCheckValid:
     """登录验证测试 (仅明确的未登录语义才清除凭据, 风控等临时状态码保留凭据)"""
 
-    def _mock_nav(self, monkeypatch: pytest.MonkeyPatch, payload: dict) -> None:
-        from src.utils.bilibili_api import BilibiliCredential
-
-        monkeypatch.setattr(BilibiliCredential, '_get_resource_as_json', AsyncMock(return_value=payload))
-
-    async def test_risk_control_code_keeps_cookies(
+    @pytest.mark.parametrize(
+        ('nav_payload', 'expected_result', 'expected_dedeuserid'),
+        [
+            # 风控临时状态码: 校验失败但保留凭据
+            (_make_nav_payload(-412), False, '12345'),
+            (_make_nav_payload(0, is_login=False), False, None),
+            (_make_nav_payload(-101), False, None),
+            (_make_nav_payload(0, mid='99999'), False, None),
+            (_make_nav_payload(0), True, '12345'),
+        ],
+        ids=[
+            'risk_control_code_keeps_cookies',
+            'not_logged_in_clears_cookies',
+            'code_minus_101_clears_cookies',
+            'mid_mismatch_clears_cookies',
+            'valid_cookies',
+        ],
+    )
+    async def test_check_valid(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
+            nav_payload: dict,
+            expected_result: bool,
+            expected_dedeuserid: str | None,
     ) -> None:
         from src.utils.bilibili_api import BilibiliCredential
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value', DedeUserID='12345')
-        self._mock_nav(monkeypatch, _make_nav_payload(-412))
+        mock_json_response(monkeypatch, BilibiliCredential, nav_payload)
 
         result = await BilibiliCredential.check_valid()
 
-        assert result is False
-        assert manager.get_cookie('DedeUserID') == '12345'
-
-    async def test_not_logged_in_clears_cookies(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        from src.utils.bilibili_api import BilibiliCredential
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value', DedeUserID='12345')
-        self._mock_nav(monkeypatch, _make_nav_payload(0, is_login=False))
-
-        result = await BilibiliCredential.check_valid()
-
-        assert result is False
-        assert manager.get_cookie('DedeUserID') is None
-
-    async def test_code_minus_101_clears_cookies(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        from src.utils.bilibili_api import BilibiliCredential
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value', DedeUserID='12345')
-        self._mock_nav(monkeypatch, _make_nav_payload(-101))
-
-        result = await BilibiliCredential.check_valid()
-
-        assert result is False
-        assert manager.get_cookie('DedeUserID') is None
-
-    async def test_mid_mismatch_clears_cookies(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        from src.utils.bilibili_api import BilibiliCredential
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value', DedeUserID='12345')
-        self._mock_nav(monkeypatch, _make_nav_payload(0, mid='99999'))
-
-        result = await BilibiliCredential.check_valid()
-
-        assert result is False
-        assert manager.get_cookie('DedeUserID') is None
-
-    async def test_valid_cookies(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        from src.utils.bilibili_api import BilibiliCredential
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value', DedeUserID='12345')
-        self._mock_nav(monkeypatch, _make_nav_payload(0))
-
-        result = await BilibiliCredential.check_valid()
-
-        assert result is True
-        assert manager.get_cookie('DedeUserID') == '12345'
+        assert result is expected_result
+        assert manager.get_cookie('DedeUserID') == expected_dedeuserid
 
     async def test_request_failure_keeps_cookies(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """请求异常 (网络错误/响应解析失败) 返回 False 且保留凭据"""
         from src.utils.bilibili_api import BilibiliCredential
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='sess_value', bili_jct='jct_value', DedeUserID='12345')
         monkeypatch.setattr(
             BilibiliCredential, '_get_resource_as_json', AsyncMock(side_effect=RuntimeError('network error'))
@@ -1588,63 +1471,37 @@ class TestCheckNeedRefresh:
     """刷新必要性检查测试"""
 
     async def test_no_bili_jct_needs_refresh(
-            self, credential_manager_sandbox: '_BilibiliCredentialManager',
+            self, cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         from src.utils.bilibili_api import BilibiliCredential
-
-        credential_manager_sandbox.clear_cookies()
 
         assert await BilibiliCredential.check_need_refresh() is True
 
-    async def test_api_error_returns_false(
+    @pytest.mark.parametrize(
+        ('payload', 'expected'),
+        [
+            # cookie/info 接口返回异常 code 时视为无需刷新
+            ({'code': -101, 'message': '账号未登录', 'ttl': 1}, False),
+            (_COOKIE_INFO_PAYLOAD, True),
+            ({'code': 0, 'message': '0', 'ttl': 1, 'data': {'refresh': False, 'timestamp': 1700000000000}}, False),
+        ],
+        ids=['api_error_returns_false', 'refresh_flag_true', 'refresh_flag_false'],
+    )
+    async def test_check_need_refresh(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        """cookie/info 接口返回异常 code 时视为无需刷新"""
-        from src.utils.bilibili_api import BilibiliCredential
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(bili_jct='jct_value')
-        monkeypatch.setattr(
-            BilibiliCredential,
-            '_get_resource_as_json',
-            AsyncMock(return_value={'code': -101, 'message': '账号未登录', 'ttl': 1}),
-        )
-
-        assert await BilibiliCredential.check_need_refresh() is False
-
-    async def test_refresh_flag_true(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
+            payload: dict,
+            expected: bool,
     ) -> None:
         from src.utils.bilibili_api import BilibiliCredential
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(bili_jct='jct_value')
-        get_json_mock = AsyncMock(return_value=_COOKIE_INFO_PAYLOAD)
-        monkeypatch.setattr(BilibiliCredential, '_get_resource_as_json', get_json_mock)
+        get_json_mock = mock_json_response(monkeypatch, BilibiliCredential, payload)
 
-        assert await BilibiliCredential.check_need_refresh() is True
+        assert await BilibiliCredential.check_need_refresh() is expected
         assert get_json_mock.call_args.kwargs['params'] == {'csrf': 'jct_value'}
-
-    async def test_refresh_flag_false(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        from src.utils.bilibili_api import BilibiliCredential
-
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
-        manager.update_cookies(bili_jct='jct_value')
-        payload = {'code': 0, 'message': '0', 'ttl': 1, 'data': {'refresh': False, 'timestamp': 1700000000000}}
-        monkeypatch.setattr(BilibiliCredential, '_get_resource_as_json', AsyncMock(return_value=payload))
-
-        assert await BilibiliCredential.check_need_refresh() is False
 
 
 class TestGetRefreshCsrf:
@@ -1654,10 +1511,8 @@ class TestGetRefreshCsrf:
         import src.utils.bilibili_api.api.login as login_module
         from src.utils.bilibili_api import BilibiliCredential
 
-        # get_refresh_csrf 内含固定的 asyncio.sleep 等待, 测试中跳过;
-        # 仅重绑定 login 模块内的 asyncio 名字, 不得全局 patch asyncio.sleep,
-        # 否则会与 session 事件循环上常驻的 uvicorn Server.main_loop (asyncio.sleep 轮询) 竞态导致卡死
-        monkeypatch.setattr(login_module, 'asyncio', SimpleNamespace(sleep=AsyncMock()))
+        # 跳过 get_refresh_csrf 固定等待(asyncio.sleep 打桩原理见 patch_module_asyncio_sleep docstring)
+        patch_module_asyncio_sleep(monkeypatch, login_module)
         monkeypatch.setattr(BilibiliCredential, '_get_resource_as_text', AsyncMock(return_value=html))
 
     async def test_parse_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1702,8 +1557,9 @@ class TestConfirmCookiesRefresh:
     async def test_params_shape(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api import BilibiliCredential
 
-        post_mock = AsyncMock(return_value={'code': 0, 'message': '0', 'ttl': 1})
-        monkeypatch.setattr(BilibiliCredential, '_post_acquire_as_json', post_mock)
+        post_mock = mock_json_response(
+            monkeypatch, BilibiliCredential, {'code': 0, 'message': '0', 'ttl': 1}, method='_post_acquire_as_json'
+        )
 
         await BilibiliCredential.confirm_cookies_refresh(csrf='csrf_value', refresh_token='rt_value')
 
@@ -1712,8 +1568,9 @@ class TestConfirmCookiesRefresh:
     async def test_none_refresh_token_becomes_empty_str(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.utils.bilibili_api import BilibiliCredential
 
-        post_mock = AsyncMock(return_value={'code': 0, 'message': '0', 'ttl': 1})
-        monkeypatch.setattr(BilibiliCredential, '_post_acquire_as_json', post_mock)
+        post_mock = mock_json_response(
+            monkeypatch, BilibiliCredential, {'code': 0, 'message': '0', 'ttl': 1}, method='_post_acquire_as_json'
+        )
 
         await BilibiliCredential.confirm_cookies_refresh(csrf='csrf_value', refresh_token=None)
 
@@ -1736,7 +1593,6 @@ class TestRefreshCookies:
         from src.utils.bilibili_api.api.base import BilibiliCommon
         from src.utils.bilibili_api.models import WebConfirmRefreshInfo
 
-        monkeypatch.setattr(BilibiliCommon, '_init_spm_prefix', AsyncMock(return_value='333.1387'))
         monkeypatch.setattr(BilibiliCredential, 'get_refresh_csrf', AsyncMock(return_value='refresh_csrf_value'))
         monkeypatch.setattr(BilibiliCredential, '_request_post', AsyncMock(return_value=MagicMock()))
         monkeypatch.setattr(
@@ -1776,6 +1632,14 @@ class TestRefreshCookies:
             )),
         )
 
+    def _mock_rebuild(self, monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+        """打桩凭据落库并返回可断言的 rebuild_to_database mock"""
+        from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
+
+        rebuild_mock = AsyncMock()
+        monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
+        return rebuild_mock
+
     def _prepare_manager(self, manager: '_BilibiliCredentialManager') -> None:
         manager.clear_cookies()
         manager.update_cookies(
@@ -1793,13 +1657,12 @@ class TestRefreshCookies:
             self,
             monkeypatch: pytest.MonkeyPatch,
             credential_manager_sandbox: '_BilibiliCredentialManager',
+            stub_spm_prefix: AsyncMock,
     ) -> None:
         from src.utils.bilibili_api import BilibiliCredential
-        from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
 
         self._mock_refresh_pipeline(monkeypatch)
-        rebuild_mock = AsyncMock()
-        monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
+        rebuild_mock = self._mock_rebuild(monkeypatch)
         monkeypatch.setattr(BilibiliCredential, 'check_valid', AsyncMock(return_value=True))
 
         manager = credential_manager_sandbox
@@ -1815,87 +1678,35 @@ class TestRefreshCookies:
         assert manager.get_cookie('buvid3') == 'b3'
         rebuild_mock.assert_awaited_once()
 
+    @pytest.mark.parametrize(
+        'pipeline_kwargs',
+        [
+            # 中间步骤异常 (buvid 激活失败)
+            {'buvid_side_effect': RuntimeError('buvid activate failed')},
+            # 确认更新失败
+            {'confirm_code': -400},
+            # 刷新接口返回异常 code
+            {'refresh_payload': {
+                'code': -101, 'message': '账号未登录', 'ttl': 1,
+                'data': {'status': -101, 'message': '账号未登录', 'refresh_token': ''},
+            }},
+            # set-cookies 缺少 bili_jct: 确认步骤取键失败被捕获
+            {'set_cookies': {'SESSDATA': 'new_sess'}},
+        ],
+        ids=['buvid_failure', 'confirm_failure', 'refresh_code_nonzero', 'missing_bili_jct_in_set_cookies'],
+    )
     async def test_refresh_failure_keeps_manager_untouched(
             self,
             monkeypatch: pytest.MonkeyPatch,
             credential_manager_sandbox: '_BilibiliCredentialManager',
+            stub_spm_prefix: AsyncMock,
+            pipeline_kwargs: dict,
     ) -> None:
-        """中间步骤异常: 返回 False 且全局凭据不变, 不落库"""
+        """刷新流程中间步骤失败: 返回 False 且全局凭据不变, 不落库"""
         from src.utils.bilibili_api import BilibiliCredential
-        from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
 
-        self._mock_refresh_pipeline(monkeypatch, buvid_side_effect=RuntimeError('buvid activate failed'))
-        rebuild_mock = AsyncMock()
-        monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
-
-        manager = credential_manager_sandbox
-        self._prepare_manager(manager)
-
-        result = await BilibiliCredential.refresh_cookies()
-
-        assert result is False
-        self._assert_manager_unchanged(manager)
-        rebuild_mock.assert_not_awaited()
-
-    async def test_confirm_failure_keeps_manager_untouched(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        """确认更新失败: 返回 False 且全局凭据不变, 不落库"""
-        from src.utils.bilibili_api import BilibiliCredential
-        from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
-
-        self._mock_refresh_pipeline(monkeypatch, confirm_code=-400)
-        rebuild_mock = AsyncMock()
-        monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
-
-        manager = credential_manager_sandbox
-        self._prepare_manager(manager)
-
-        result = await BilibiliCredential.refresh_cookies()
-
-        assert result is False
-        self._assert_manager_unchanged(manager)
-        rebuild_mock.assert_not_awaited()
-
-    async def test_refresh_code_nonzero_keeps_manager_untouched(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        """刷新接口返回异常 code: 返回 False 且全局凭据不变"""
-        from src.utils.bilibili_api import BilibiliCredential
-        from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
-
-        self._mock_refresh_pipeline(monkeypatch, refresh_payload={
-            'code': -101, 'message': '账号未登录', 'ttl': 1,
-            'data': {'status': -101, 'message': '账号未登录', 'refresh_token': ''},
-        })
-        rebuild_mock = AsyncMock()
-        monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
-
-        manager = credential_manager_sandbox
-        self._prepare_manager(manager)
-
-        result = await BilibiliCredential.refresh_cookies()
-
-        assert result is False
-        self._assert_manager_unchanged(manager)
-        rebuild_mock.assert_not_awaited()
-
-    async def test_missing_bili_jct_in_set_cookies_keeps_manager_untouched(
-            self,
-            monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
-    ) -> None:
-        """set-cookies 缺少 bili_jct: 确认步骤取键失败被捕获, 返回 False 且全局凭据不变"""
-        from src.utils.bilibili_api import BilibiliCredential
-        from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
-
-        self._mock_refresh_pipeline(monkeypatch, set_cookies={'SESSDATA': 'new_sess'})
-        rebuild_mock = AsyncMock()
-        monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
+        self._mock_refresh_pipeline(monkeypatch, **pipeline_kwargs)
+        rebuild_mock = self._mock_rebuild(monkeypatch)
 
         manager = credential_manager_sandbox
         self._prepare_manager(manager)
@@ -1921,9 +1732,8 @@ class TestLoginWithQrcode:
 
         check_mock = AsyncMock(side_effect=poll_results)
         monkeypatch.setattr(BilibiliCredential, 'check_qrcode_login', check_mock)
-        # 轮询间隔固定 asyncio.sleep(6), 测试中跳过;
-        # 仅重绑定 login 模块内的 asyncio 名字, 避免全局 patch 与 uvicorn Server.main_loop 竞态卡死
-        monkeypatch.setattr(login_module, 'asyncio', SimpleNamespace(sleep=AsyncMock()))
+        # 跳过轮询固定等待(asyncio.sleep 打桩原理见 patch_module_asyncio_sleep docstring)
+        patch_module_asyncio_sleep(monkeypatch, login_module)
         monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', AsyncMock())
         monkeypatch.setattr(BilibiliCredential, 'check_valid', AsyncMock(return_value=True))
         return check_mock
@@ -1931,7 +1741,7 @@ class TestLoginWithQrcode:
     async def test_login_success_uses_rebuild(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """登录成功后重建数据库系列并写入新凭据"""
         from src.utils.bilibili_api import BilibiliCredential
@@ -1946,8 +1756,7 @@ class TestLoginWithQrcode:
         rebuild_mock = AsyncMock()
         monkeypatch.setattr(_BilibiliCredentialManager, 'rebuild_to_database', rebuild_mock)
 
-        manager = credential_manager_sandbox
-        manager.clear_cookies()
+        manager = cleared_credential_manager
         manager.update_cookies(SESSDATA='stale_sess')
 
         qrcode_info = WebQrcodeGenerateInfo.model_validate(_QRCODE_GENERATE_PAYLOAD)
@@ -1961,7 +1770,7 @@ class TestLoginWithQrcode:
     async def test_retry_then_success(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """86101 待扫码重试后登录成功"""
         from src.utils.bilibili_api import BilibiliCredential
@@ -1978,8 +1787,6 @@ class TestLoginWithQrcode:
             ],
         )
 
-        credential_manager_sandbox.clear_cookies()
-
         qrcode_info = WebQrcodeGenerateInfo.model_validate(_QRCODE_GENERATE_PAYLOAD)
         result = await BilibiliCredential.login_with_qrcode(qrcode_info=qrcode_info)
 
@@ -1989,7 +1796,7 @@ class TestLoginWithQrcode:
     async def test_expired_qrcode_raises(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """86038 二维码过期应立即抛出异常"""
         from src.utils.bilibili_api import BilibiliCredential
@@ -1998,8 +1805,6 @@ class TestLoginWithQrcode:
         expired_info = WebQrcodePollInfo.model_validate(_QRCODE_POLL_EXPIRED_PAYLOAD)
         self._mock_login_pipeline(monkeypatch, [(expired_info, {})])
 
-        credential_manager_sandbox.clear_cookies()
-
         qrcode_info = WebQrcodeGenerateInfo.model_validate(_QRCODE_GENERATE_PAYLOAD)
         with pytest.raises(RuntimeError, match='登录二维码过期'):
             await BilibiliCredential.login_with_qrcode(qrcode_info=qrcode_info)
@@ -2007,7 +1812,7 @@ class TestLoginWithQrcode:
     async def test_wait_timeout_raises(
             self,
             monkeypatch: pytest.MonkeyPatch,
-            credential_manager_sandbox: '_BilibiliCredentialManager',
+            cleared_credential_manager: '_BilibiliCredentialManager',
     ) -> None:
         """持续未扫码超过尝试上限 (attempt >= 15) 应抛出等待超时异常, 共发起 16 次轮询"""
         from src.utils.bilibili_api import BilibiliCredential
@@ -2015,8 +1820,6 @@ class TestLoginWithQrcode:
 
         pending_info = WebQrcodePollInfo.model_validate(_QRCODE_POLL_PENDING_PAYLOAD)
         check_mock = self._mock_login_pipeline(monkeypatch, [(pending_info, {})] * 16)
-
-        credential_manager_sandbox.clear_cookies()
 
         qrcode_info = WebQrcodeGenerateInfo.model_validate(_QRCODE_GENERATE_PAYLOAD)
         with pytest.raises(RuntimeError, match='等待超时'):
@@ -2053,8 +1856,53 @@ class TestMakeQrcode:
         assert result == 'qrcode_file_value'
 
 
+# ------------------------------------------------------------------ #
+# 真实请求验证 (默认跳过, 需手动设置 BILIBILI_API_REAL_TEST=1)
+# ------------------------------------------------------------------ #
+
 _LIVE_REQUEST_INTERVAL = 1.5
 """真实请求间隔秒数, 防频控"""
+
+
+def _diag(*args) -> None:
+    """真实请求验证的用例诊断输出 (仅 -s 运行时可见)"""
+    print(*args)  # noqa: T201 用例诊断输出
+
+
+async def live_call(label: str, coro: Coroutine[Any, Any, Any]) -> Any:
+    """真实请求公共骨架: 请求间隔等待, 响应模型验证失败转为 pytest.fail, 并断言接口无错误
+
+    :param label: 用例标签 (可携带上下文参数), 用于失败消息定位
+    :param coro: 待执行的接口调用协程
+    :return: 接口响应模型
+    """
+    await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
+    try:
+        result = await coro
+    except ValidationError as e:
+        pytest.fail(f'{label}响应模型验证失败: \n{e}')
+
+    assert not result.error, f'{label}接口返回异常: code={result.code}, message={result.message}'
+    return result
+
+
+async def _load_live_credential(*, require_valid: bool) -> '_BilibiliCredentialManager':
+    """真实请求验证公共凭据前导: 仅从数据库加载凭据 (不执行任何写入/轮换), 按需校验登录态
+
+    :param require_valid: True 时要求已配置 SESSDATA 且 check_valid 通过, 否则跳过整类用例;
+        False 时仅加载 (端点匿名可用, 登录态由调用方自行判断)
+    """
+    from src.utils.bilibili_api.api.login import BilibiliCredential
+    from src.utils.bilibili_api.credential_manager import BILIBILI_CREDENTIAL_MANAGER
+
+    await BILIBILI_CREDENTIAL_MANAGER.load_from_database()
+    if not require_valid:
+        return BILIBILI_CREDENTIAL_MANAGER
+    if BILIBILI_CREDENTIAL_MANAGER.get_cookie('SESSDATA') is None:
+        pytest.skip('数据库中未配置 bilibili 登录 Cookies, 跳过真实请求验证')
+    if not await BilibiliCredential.check_valid():
+        pytest.skip('Cookies 已失效或触发风控, 跳过真实请求验证')
+    return BILIBILI_CREDENTIAL_MANAGER
 
 
 @pytest.fixture(scope='class')
@@ -2063,14 +1911,7 @@ async def live_dynamic_state() -> SimpleNamespace:
 
     仅读取数据库 (load_from_database), 不执行任何凭据写入/轮换
     """
-    from src.utils.bilibili_api.api.login import BilibiliCredential
-    from src.utils.bilibili_api.credential_manager import BILIBILI_CREDENTIAL_MANAGER
-
-    await BILIBILI_CREDENTIAL_MANAGER.load_from_database()
-    if BILIBILI_CREDENTIAL_MANAGER.get_cookie('SESSDATA') is None:
-        pytest.skip('数据库中未配置 bilibili 登录 Cookies, 跳过真实请求验证')
-    if not await BilibiliCredential.check_valid():
-        pytest.skip('Cookies 已失效或触发风控, 跳过真实请求验证')
+    await _load_live_credential(require_valid=True)
 
     return SimpleNamespace(feed=None, harvested=[])
 
@@ -2081,6 +1922,10 @@ class TestBilibiliDynamicLive:
 
     本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliDynamicLive -v -s` 单独运行
+
+    注意: 本类用例有意按声明顺序共享 live_dynamic_state 状态 — 后两个用例
+    (test_query_my_following_dynamics_pagination / test_query_user_space_dynamics)
+    依赖 test_query_my_following_dynamics 采收的 feed 与动态条目, 请勿乱序或剔除前者单独运行
     """
 
     @staticmethod
@@ -2100,18 +1945,13 @@ class TestBilibiliDynamicLive:
         """关注动态 feed 默认参数验证"""
         from src.utils.bilibili_api import BilibiliDynamic
 
-        try:
-            feed = await BilibiliDynamic.query_my_following_dynamics()
-        except ValidationError as e:
-            pytest.fail(f'关注动态 feed 响应模型验证失败 (模型过时或未登录): \n{e}')
-
-        assert not feed.error, f'feed 接口返回异常: code={feed.code}, message={feed.message}'
+        feed = await live_call('关注动态 feed', BilibiliDynamic.query_my_following_dynamics())
         assert feed.data.items, '关注动态 feed 为空, 无法验证模型 (账号可能无关注更新)'
 
         type_counter = self._smoke_items(feed.data.items)
-        print(f'feed/all 类型分布: {dict(type_counter)}')  # noqa: T201 用例诊断输出
+        _diag(f'feed/all 类型分布: {dict(type_counter)}')
         first = feed.data.items[0]
-        print(f'feed/all 首条: [{first.type}] {first.modules.module_author.name}: '  # noqa: T201 用例诊断输出
+        _diag(f'feed/all 首条: [{first.type}] {first.modules.module_author.name}: '
               f'{first.modules.dyn_text[:80]!r}')
 
         assert all(item.id_str for item in feed.data.items)
@@ -2125,15 +1965,9 @@ class TestBilibiliDynamicLive:
         from src.utils.bilibili_api import BilibiliDynamic
         from src.utils.bilibili_api.models.dynamic import DynamicType
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            feed = await BilibiliDynamic.query_my_following_dynamics(type_='video')
-        except ValidationError as e:
-            pytest.fail(f'type=video feed 响应模型验证失败: \n{e}')
-
-        assert not feed.error, f'type=video feed 接口返回异常: code={feed.code}, message={feed.message}'
+        feed = await live_call('type=video feed', BilibiliDynamic.query_my_following_dynamics(type_='video'))
         if not feed.data.items:
-            print('type=video feed 为空, 跳过类型断言')  # noqa: T201 用例诊断输出
+            _diag('type=video feed 为空, 跳过类型断言')
         else:
             assert all(x.type == DynamicType.av for x in feed.data.items), (
                 f'type=video 过滤后仍存在非视频动态: '
@@ -2150,20 +1984,13 @@ class TestBilibiliDynamicLive:
         offset, update_baseline = feed.data.offset, feed.data.update_baseline
         assert offset or update_baseline, '首页未返回分页参数'
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            next_feed = await BilibiliDynamic.query_my_following_dynamics(
-                offset=offset, update_baseline=update_baseline
-            )
-        except ValidationError as e:
-            pytest.fail(f'分页 feed 响应模型验证失败: \n{e}')
-
-        assert not next_feed.error, (
-            f'分页 feed 接口返回异常: code={next_feed.code}, message={next_feed.message}'
+        next_feed = await live_call(
+            '分页 feed',
+            BilibiliDynamic.query_my_following_dynamics(offset=offset, update_baseline=update_baseline),
         )
         first_ids = {x.id_str for x in feed.data.items}
         next_ids = {x.id_str for x in next_feed.data.items}
-        print(f'feed/all 分页: 首页 {len(first_ids)} 条, 次页 {len(next_ids)} 条, '  # noqa: T201 用例诊断输出
+        _diag(f'feed/all 分页: 首页 {len(first_ids)} 条, 次页 {len(next_ids)} 条, '
               f'重叠 {len(first_ids & next_ids)} 条, offset={offset!r}, update_baseline={update_baseline!r}')
         assert next_ids != first_ids, 'offset 分页回传后内容与首页完全相同, offset 参数可能未生效'
         self._smoke_items(next_feed.data.items)
@@ -2175,33 +2002,20 @@ class TestBilibiliDynamicLive:
         assert live_dynamic_state.harvested, '依赖 test_query_my_following_dynamics 采收的 host_mid'
         host_mid = live_dynamic_state.harvested[0][2]
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            space_feed = await BilibiliDynamic.query_user_space_dynamics(host_mid=host_mid)
-        except ValidationError as e:
-            pytest.fail(f'用户空间动态响应模型验证失败: \n{e}')
-
-        assert not space_feed.error, (
-            f'空间动态接口返回异常 (mid={host_mid}): code={space_feed.code}, message={space_feed.message}'
+        space_feed = await live_call(
+            f'空间动态 (mid={host_mid})', BilibiliDynamic.query_user_space_dynamics(host_mid=host_mid)
         )
         assert space_feed.data.items, f'用户 {host_mid} 空间动态为空'
 
         type_counter = self._smoke_items(space_feed.data.items)
-        print(f'feed/space 类型分布 (mid={host_mid}): {dict(type_counter)}')  # noqa: T201 用例诊断输出
+        _diag(f'feed/space 类型分布 (mid={host_mid}): {dict(type_counter)}')
         live_dynamic_state.harvested.extend(
             (item.id_str, str(item.type), host_mid) for item in space_feed.data.items
         )
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            next_feed = await BilibiliDynamic.query_user_space_dynamics(
-                host_mid=host_mid, offset=space_feed.data.offset
-            )
-        except ValidationError as e:
-            pytest.fail(f'空间动态分页响应模型验证失败: \n{e}')
-
-        assert not next_feed.error, (
-            f'空间动态分页接口返回异常 (mid={host_mid}): code={next_feed.code}, message={next_feed.message}'
+        next_feed = await live_call(
+            f'空间动态分页 (mid={host_mid})',
+            BilibiliDynamic.query_user_space_dynamics(host_mid=host_mid, offset=space_feed.data.offset),
         )
         first_ids = {x.id_str for x in space_feed.data.items}
         next_ids = {x.id_str for x in next_feed.data.items}
@@ -2218,19 +2032,12 @@ class TestBilibiliDynamicLive:
         assert picked, '无可用的动态 id 采收结果'
 
         for dyn_type, dyn_id in list(picked.items())[:6]:
-            await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-            try:
-                detail = await BilibiliDynamic.query_dynamic_detail(id_=dyn_id)
-            except ValidationError as e:
-                pytest.fail(f'动态详情响应模型验证失败 (type={dyn_type}, id={dyn_id}): \n{e}')
-
-            assert not detail.error, (
-                f'动态详情接口返回异常 (type={dyn_type}, id={dyn_id}): '
-                f'code={detail.code}, message={detail.message}'
+            detail = await live_call(
+                f'动态详情 (type={dyn_type}, id={dyn_id})', BilibiliDynamic.query_dynamic_detail(id_=dyn_id)
             )
             assert detail.data.item.id_str == dyn_id
             self._smoke_items([detail.data.item])
-            print(f'动态详情验证通过: type={dyn_type}, id={dyn_id}')  # noqa: T201 用例诊断输出
+            _diag(f'动态详情验证通过: type={dyn_type}, id={dyn_id}')
 
 
 @pytest.fixture(scope='class')
@@ -2241,14 +2048,13 @@ async def live_room_state() -> SimpleNamespace:
     采收来源: 关注动态的 LIVE_RCMD 项 -> 直播间搜索兜底
     """
     from src.utils.bilibili_api import BilibiliDynamic, BilibiliLive
-    from src.utils.bilibili_api.credential_manager import BILIBILI_CREDENTIAL_MANAGER
     from src.utils.bilibili_api.models.dynamic import DynamicType, ModuleDynamicMajorLiveRcmd
     from src.utils.bilibili_api.models.search import LiveRoomSearchResult
 
-    await BILIBILI_CREDENTIAL_MANAGER.load_from_database()
+    manager = await _load_live_credential(require_valid=False)
 
     rooms: list[tuple[int, int]] = []
-    if BILIBILI_CREDENTIAL_MANAGER.get_cookie('SESSDATA') is not None:
+    if manager.get_cookie('SESSDATA') is not None:
         try:
             feed = await BilibiliDynamic.query_my_following_dynamics()
             for item in feed.data.items:
@@ -2257,7 +2063,7 @@ async def live_room_state() -> SimpleNamespace:
                     play_info = major.live_rcmd.content.live_play_info
                     rooms.append((play_info.room_id, play_info.uid))
         except Exception as e:
-            print(f'feed 采收直播房间失败, 将尝试搜索兜底: {e}')  # noqa: T201 用例诊断输出
+            _diag(f'feed 采收直播房间失败, 将尝试搜索兜底: {e}')
 
     if not rooms:
         try:
@@ -2267,13 +2073,13 @@ async def live_room_state() -> SimpleNamespace:
                 if isinstance(result, LiveRoomSearchResult) and result.live_status == 1:
                     rooms.append((result.roomid, result.uid))
         except Exception as e:
-            print(f'搜索兜底采收直播房间失败: {e}')  # noqa: T201 用例诊断输出
+            _diag(f'搜索兜底采收直播房间失败: {e}')
 
     unique_rooms = list(dict.fromkeys(rooms))[:5]
     if not unique_rooms:
         pytest.skip('无可用的真实直播间候选 (feed 无 LIVE_RCMD 且搜索兜底失败), 跳过真实请求验证')
 
-    print(f'直播验证候选房间: {unique_rooms}')  # noqa: T201 用例诊断输出
+    _diag(f'直播验证候选房间: {unique_rooms}')
     return SimpleNamespace(rooms=unique_rooms)
 
 
@@ -2291,20 +2097,14 @@ class TestBilibiliLiveLive:
         from src.utils.bilibili_api.models.live import LiveStatus
 
         for room_id, _uid in live_room_state.rooms[:3]:
-            await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-            try:
-                room_info = await BilibiliLive.query_room_info(room_id=room_id)
-            except ValidationError as e:
-                pytest.fail(f'直播间信息响应模型验证失败 (room_id={room_id}): \n{e}')
-
-            assert not room_info.error, (
-                f'直播间信息接口返回异常 (room_id={room_id}): code={room_info.code}, message={room_info.message}'
+            room_info = await live_call(
+                f'直播间信息 (room_id={room_id})', BilibiliLive.query_room_info(room_id=room_id)
             )
             data = room_info.data
             assert str(data.room_id) == str(room_id)
             assert data.uname, f'直播间 {room_id} 主播名为空'
             assert data.title, f'直播间 {room_id} 标题为空'
-            print(f'直播间 {room_id}: {data.uname} - {data.title!r}, '  # noqa: T201 用例诊断输出
+            _diag(f'直播间 {room_id}: {data.uname} - {data.title!r}, '
                   f'状态: {data.live_status.name}, live_time={data.live_time!r}')
 
             if data.live_status == LiveStatus.streaming:
@@ -2318,20 +2118,15 @@ class TestBilibiliLiveLive:
 
         room_ids = [room_id for room_id, _ in live_room_state.rooms]
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            base_info = await BilibiliLive.query_room_info_by_room_id_list(room_id_list=room_ids)
-        except ValidationError as e:
-            pytest.fail(f'批量直播间信息响应模型验证失败 (room_ids={room_ids}): \n{e}')
-
-        assert not base_info.error, (
-            f'批量直播间信息接口返回异常: code={base_info.code}, message={base_info.message}'
+        base_info = await live_call(
+            f'批量直播间信息 (room_ids={room_ids})',
+            BilibiliLive.query_room_info_by_room_id_list(room_id_list=room_ids),
         )
         assert set(base_info.data.by_room_ids.keys()) == {str(x) for x in room_ids}
         for key, room_data in base_info.data.by_room_ids.items():
             assert str(room_data.room_id) == key
             _ = room_data.cover_url
-        print(f'批量直播间信息验证通过: {list(base_info.data.by_room_ids.keys())}')  # noqa: T201 用例诊断输出
+        _diag(f'批量直播间信息验证通过: {list(base_info.data.by_room_ids.keys())}')
 
     async def test_query_room_info_by_uid_list(self, live_room_state: SimpleNamespace) -> None:
         """按 uid 列表批量获取直播间信息验证 (POST, 无凭据, 键 coercion)"""
@@ -2339,38 +2134,25 @@ class TestBilibiliLiveLive:
 
         uids = [uid for _, uid in live_room_state.rooms]
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            users_room_info = await BilibiliLive.query_room_info_by_uid_list(uid_list=uids)
-        except ValidationError as e:
-            pytest.fail(f'uid 批量直播间信息响应模型验证失败 (uids={uids}): \n{e}')
-
-        assert not users_room_info.error, (
-            f'uid 批量直播间信息接口返回异常: code={users_room_info.code}, message={users_room_info.message}'
+        users_room_info = await live_call(
+            f'uid 批量直播间信息 (uids={uids})', BilibiliLive.query_room_info_by_uid_list(uid_list=uids)
         )
         assert set(users_room_info.data.keys()) == {int(x) for x in uids}
         for uid_key, room_data in users_room_info.data.items():
             assert str(room_data.uid) == str(uid_key)
-        print(f'uid 批量直播间信息验证通过: {list(users_room_info.data.keys())}')  # noqa: T201 用例诊断输出
+        _diag(f'uid 批量直播间信息验证通过: {list(users_room_info.data.keys())}')
 
     async def test_query_room_user_info(self, live_room_state: SimpleNamespace) -> None:
         """直播间主播信息验证 (重点核实 san 字段存续)"""
         from src.utils.bilibili_api import BilibiliLive
 
         for room_id, uid in live_room_state.rooms[:3]:
-            await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-            try:
-                room_user_info = await BilibiliLive.query_room_user_info(room_id=room_id)
-            except ValidationError as e:
-                pytest.fail(f'直播间主播信息响应模型验证失败 (room_id={room_id}): \n{e}')
-
-            assert not room_user_info.error, (
-                f'直播间主播信息接口返回异常 (room_id={room_id}): '
-                f'code={room_user_info.code}, message={room_user_info.message}'
+            room_user_info = await live_call(
+                f'直播间主播信息 (room_id={room_id})', BilibiliLive.query_room_user_info(room_id=room_id)
             )
             assert room_user_info.data.info.uid == int(uid)
             assert room_user_info.data.info.uname
-            print(f'直播间 {room_id} 主播: {room_user_info.data.info.uname}, '  # noqa: T201 用例诊断输出
+            _diag(f'直播间 {room_id} 主播: {room_user_info.data.info.uname}, '
                   f'uid={room_user_info.data.info.uid}, san={room_user_info.data.san}')
 
 
@@ -2381,15 +2163,11 @@ async def live_user_state() -> SimpleNamespace:
     凭据仅读取 (load_from_database); 本类 account/vip 用例强制依赖登录态, 失效则整类跳过
     """
     from src.utils.bilibili_api import BilibiliDynamic
-    from src.utils.bilibili_api.api.login import BilibiliCredential
-    from src.utils.bilibili_api.credential_manager import BILIBILI_CREDENTIAL_MANAGER
 
-    await BILIBILI_CREDENTIAL_MANAGER.load_from_database()
-    dedeuserid = BILIBILI_CREDENTIAL_MANAGER.get_cookie('DedeUserID')
-    if BILIBILI_CREDENTIAL_MANAGER.get_cookie('SESSDATA') is None or dedeuserid is None:
+    manager = await _load_live_credential(require_valid=True)
+    dedeuserid = manager.get_cookie('DedeUserID')
+    if dedeuserid is None:
         pytest.skip('数据库中未配置 bilibili 登录 Cookies, 跳过真实请求验证')
-    if not await BilibiliCredential.check_valid():
-        pytest.skip('Cookies 已失效或触发风控, 跳过真实请求验证')
 
     author: tuple[str, str] | None = None
     try:
@@ -2398,7 +2176,7 @@ async def live_user_state() -> SimpleNamespace:
             author_info = feed.data.items[0].modules.module_author
             author = (author_info.mid, author_info.name)
     except Exception as e:
-        print(f'feed 采收外部 UP 主失败, 相关用例将跳过: {e}')  # noqa: T201 用例诊断输出
+        _diag(f'feed 采收外部 UP 主失败, 相关用例将跳过: {e}')
 
     return SimpleNamespace(own_mid=int(dedeuserid), author=author)
 
@@ -2415,16 +2193,10 @@ class TestBilibiliUserLive:
         """我的账户信息验证 (mid 与凭据一致性)"""
         from src.utils.bilibili_api import BilibiliUser
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            account = await BilibiliUser.query_my_account_info()
-        except ValidationError as e:
-            pytest.fail(f'account 响应模型验证失败: \n{e}')
-
-        assert not account.error, f'account 接口返回异常: code={account.code}, message={account.message}'
+        account = await live_call('account', BilibiliUser.query_my_account_info())
         assert account.data.mid == live_user_state.own_mid
         assert account.data.uname, 'account 用户名为空'
-        print(f'account: mid={account.data.mid}, uname={account.data.uname}, '  # noqa: T201 用例诊断输出
+        _diag(f'account: mid={account.data.mid}, uname={account.data.uname}, '
               f'userid={account.data.userid!r}, rank={account.data.rank!r}, '
               f'sex={account.data.sex!r}, birthday={account.data.birthday!r}')
 
@@ -2432,15 +2204,9 @@ class TestBilibiliUserLive:
         """我的大会员状态验证 (零值形态建模)"""
         from src.utils.bilibili_api import BilibiliUser
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            vip = await BilibiliUser.query_my_vip_info()
-        except ValidationError as e:
-            pytest.fail(f'vip 响应模型验证失败: \n{e}')
-
-        assert not vip.error, f'vip 接口返回异常: code={vip.code}, message={vip.message}'
+        vip = await live_call('vip', BilibiliUser.query_my_vip_info())
         assert vip.data.mid == live_user_state.own_mid
-        print(f'vip: mid={vip.data.mid}, vip_type={vip.data.vip_type}, '  # noqa: T201 用例诊断输出
+        _diag(f'vip: mid={vip.data.mid}, vip_type={vip.data.vip_type}, '
               f'vip_status={vip.data.vip_status}, vip_due_date={vip.data.vip_due_date}, '
               f'vip_pay_type={vip.data.vip_pay_type}, theme_type={vip.data.theme_type}')
 
@@ -2448,16 +2214,10 @@ class TestBilibiliUserLive:
         """自查询用户信息验证 (覆盖 __RENDER_DATA__ -> w_webid -> wbi 签名完整链路)"""
         from src.utils.bilibili_api import BilibiliUser
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            user = await BilibiliUser.query_user_info(mid=live_user_state.own_mid)
-        except ValidationError as e:
-            pytest.fail(f'用户信息(自查询)响应模型验证失败: \n{e}')
-
-        assert not user.error, f'用户信息(自查询)接口返回异常: code={user.code}, message={user.message}'
+        user = await live_call('用户信息(自查询)', BilibiliUser.query_user_info(mid=live_user_state.own_mid))
         assert user.data.mid == live_user_state.own_mid
         assert user.data.name, '用户名(自查询)为空'
-        print(f'user(self): mid={user.data.mid}, name={user.data.name}, '  # noqa: T201 用例诊断输出
+        _diag(f'user(self): mid={user.data.mid}, name={user.data.name}, '
               f'level={user.data.level}, live_room={user.data.live_room!r}, '
               f'top_photo={user.data.top_photo!r}, birthday={user.data.birthday!r}')
 
@@ -2469,18 +2229,12 @@ class TestBilibiliUserLive:
             pytest.skip('未采收到外部 UP 主, 跳过他查询验证')
         author_mid, _author_name = live_user_state.author
 
-        await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
-        try:
-            user = await BilibiliUser.query_user_info(mid=author_mid)
-        except ValidationError as e:
-            pytest.fail(f'用户信息(他查询)响应模型验证失败 (mid={author_mid}): \n{e}')
-
-        assert not user.error, (
-            f'用户信息(他查询)接口返回异常 (mid={author_mid}): code={user.code}, message={user.message}'
+        user = await live_call(
+            f'用户信息(他查询) (mid={author_mid})', BilibiliUser.query_user_info(mid=author_mid)
         )
         assert user.data.mid == int(author_mid)
         assert user.data.name, f'用户名(他查询, mid={author_mid})为空'
-        print(f'user(other): mid={user.data.mid}, name={user.data.name}, '  # noqa: T201 用例诊断输出
+        _diag(f'user(other): mid={user.data.mid}, name={user.data.name}, '
               f'is_followed={user.data.is_followed}, level={user.data.level}')
 
     async def test_search_user(self, live_user_state: SimpleNamespace) -> None:
@@ -2491,6 +2245,7 @@ class TestBilibiliUserLive:
             pytest.skip('未采收到外部 UP 主, 跳过搜索验证')
         author_mid, author_name = live_user_state.author
 
+        # search_user 返回结果列表而非响应模型 (无 error 字段), 不走 live_call 的 error 断言
         await asyncio.sleep(_LIVE_REQUEST_INTERVAL)
         try:
             results = await BilibiliUser.search_user(keyword=author_name)
@@ -2503,8 +2258,7 @@ class TestBilibiliUserLive:
             _ = result.uname
             _ = result.fans
             _ = result.upic
-        print(f'search_user({author_name!r}) 前 3 结果: '  # noqa: T201 用例诊断输出
-              f'{[(r.mid, r.uname, r.fans) for r in results[:3]]}')
+        _diag(f'search_user({author_name!r}) 前 3 结果: {[(r.mid, r.uname, r.fans) for r in results[:3]]}')
         assert any(r.mid == int(author_mid) for r in results), (
             f'目标 UP 主 {author_mid} 未出现在其名称 {author_name!r} 的搜索结果中'
         )

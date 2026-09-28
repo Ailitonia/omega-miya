@@ -19,7 +19,6 @@
 """
 
 import asyncio
-import os
 import re
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -27,32 +26,35 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from lxml import etree
 
+from tests.test_003_web.helpers import require_env_flag
+
 if TYPE_CHECKING:
     from src.utils.pixiv_api import PixivArtwork, PixivUser
 
-_REAL_TEST_ENABLED = os.getenv('PIXIV_API_REAL_TEST', '').lower() in ('1', 'true', 'yes', 'on')
-"""是否启用真实请求验证: 需用户手动设置 PIXIV_API_REAL_TEST 环境变量 (如 PIXIV_API_REAL_TEST=1)"""
-
-require_real_test = pytest.mark.skipif(
-    not _REAL_TEST_ENABLED,
-    reason='真实请求验证, 需手动设置 PIXIV_API_REAL_TEST=1 环境变量后运行',
-)
+require_real_test = require_env_flag('PIXIV_API_REAL_TEST')
 """真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置环境变量后发起"""
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def _throttle_requests():
-    """pixiv 真实接口请求节流"""
+    """pixiv 真实接口请求节流(仅真实请求用例, 每个用例结束后等待 1s)"""
     yield
     await asyncio.sleep(1)
 
 
+async def throttled_get_json(url: str, params: Any = None) -> Any:
+    """请求 pixiv 接口 JSON 并等待 1s(请求节流)"""
+    from src.utils.pixiv_api import PixivCommon
+
+    result = await PixivCommon._get_resource_as_json(url=url, params=params)
+    await asyncio.sleep(1)
+    return result
+
+
 async def _fetch_user_raw(api: 'PixivUser') -> SimpleNamespace:
     """抓取指定用户的 data/profile 原始响应(请求间 1s 节流)"""
-    raw_user = await api._get_resource_as_json(url=api.data_url, params={'lang': 'zh'})
-    await asyncio.sleep(1)
-    raw_profile = await api._get_resource_as_json(url=api.profile_url, params={'lang': 'zh'})
-    await asyncio.sleep(1)
+    raw_user = await throttled_get_json(url=api.data_url, params={'lang': 'zh'})
+    raw_profile = await throttled_get_json(url=api.profile_url, params={'lang': 'zh'})
     return SimpleNamespace(api=api, raw_user=raw_user, raw_profile=raw_profile)
 
 
@@ -65,18 +67,15 @@ async def _fetch_artwork_sample(candidates: list[str], *, with_ugoira: bool = Fa
 
     for pid in candidates[:5]:
         api = PixivArtwork(pid=pid)
-        raw_data = await api._get_resource_as_json(url=api.data_url)
-        await asyncio.sleep(1)
+        raw_data = await throttled_get_json(url=api.data_url)
         if raw_data.get('error'):
             continue
-        raw_pages = await api._get_resource_as_json(url=api.page_data_url)
-        await asyncio.sleep(1)
+        raw_pages = await throttled_get_json(url=api.page_data_url)
         if raw_pages.get('error'):
             continue
         raw_ugoira = None
         if with_ugoira and raw_data['body']['illustType'] == 2:
-            raw_ugoira = await api._get_resource_as_json(url=api.ugoira_meta_url)
-            await asyncio.sleep(1)
+            raw_ugoira = await throttled_get_json(url=api.ugoira_meta_url)
         return SimpleNamespace(api=api, raw_data=raw_data, raw_pages=raw_pages, raw_ugoira=raw_ugoira)
     return None
 
@@ -99,11 +98,10 @@ async def following_users_samples(session_user_sample: SimpleNamespace) -> Simpl
     from src.utils.pixiv_api import PixivUser
 
     api: PixivUser = session_user_sample.api
-    raw_following = await api._get_resource_as_json(
+    raw_following = await throttled_get_json(
         url=api.follow_user_url,
         params={'offset': 0, 'limit': 24, 'rest': 'show', 'acceptingRequests': 0, 'lang': 'zh'},
     )
-    await asyncio.sleep(1)
 
     samples = []
     for item in (raw_following.get('body', {}).get('users') or [])[:5]:
@@ -124,16 +122,14 @@ async def artwork_pool_sample() -> SimpleNamespace:
     except ValueError as e:
         pytest.skip(f'未配置 Pixiv Cookie, 跳过作品取样: {e}')
 
-    raw_bookmarks = await PixivCommon._get_resource_as_json(
+    raw_bookmarks = await throttled_get_json(
         url=f'{PixivCommon._get_root_url()}/ajax/user/{uid}/illusts/bookmarks',
         params={'tag': '', 'offset': 0, 'limit': 48, 'rest': 'show', 'lang': 'zh'},
     )
-    await asyncio.sleep(1)
-    raw_follow_latest = await PixivCommon._get_resource_as_json(
+    raw_follow_latest = await throttled_get_json(
         url=f'{PixivCommon._get_root_url()}/ajax/follow_latest/illust',
         params={'mode': 'all', 'lang': 'zh', 'p': 1},
     )
-    await asyncio.sleep(1)
 
     bookmark_works = raw_bookmarks.get('body', {}).get('works') or []
     follow_body = raw_follow_latest.get('body', {})
@@ -185,6 +181,34 @@ async def show_page() -> SimpleNamespace:
     return SimpleNamespace(content=content, parsed=parsed, root_url=Pixivision._get_root_url())
 
 
+@pytest.fixture(scope='module')
+async def article_pages_sample(show_page: SimpleNamespace) -> list[SimpleNamespace]:
+    """pixivision 文章页样本: 导览页前 10 篇特辑的页面内容与解析结果(请求间 1s 节流)"""
+    from src.utils.pixiv_api import Pixivision
+    from src.utils.pixiv_api.helper import PixivParser
+
+    pages = []
+    for item in show_page.parsed.illustrations[:10]:
+        content = await Pixivision.get_resource_as_text(url=f'{Pixivision._get_articles_url()}/{item.aid}')
+        parsed = await PixivParser.parse_pixivision_article_page(
+            content=content, root_url=Pixivision._get_root_url()
+        )
+        pages.append(SimpleNamespace(aid=item.aid, content=content, parsed=parsed))
+        await asyncio.sleep(1)
+    return pages
+
+
+def assert_no_error(raw: Any, label: str, *, hint: str = '') -> None:
+    """接口原始响应 error 标记核验(应为 False), hint 为附加排查提示"""
+    suffix = f' ({hint})' if hint else ''
+    assert raw.get('error') is False, f'{label} error: {raw.get("message")}{suffix}'
+
+
+def assert_numeric(value: Any, label: str = 'value') -> None:
+    """纯数字字段核验(字符串化后应整体匹配 \\d+)"""
+    assert re.fullmatch(r'\d+', str(value)), f'illegal {label}: {value!r}'
+
+
 def _content_keys(content: Any) -> list[str]:
     """profile 接口作品索引的键集合(无内容时接口返回空列表, 按空字典处理)"""
     return list(content.keys()) if isinstance(content, dict) else []
@@ -217,17 +241,15 @@ def _gt_user_search_page(content: str) -> dict[str, Any]:
     return {'title': title, 'count': count, 'users': users, 'thumbs': thumbs}
 
 
-def _gt_pixivision_show_page(content: str) -> list[dict[str, Any]]:
-    """独立基准提取: pixivision 导览页特辑卡片(不复用 PixivParser 实现)"""
-    html = etree.HTML(content)
-
+def _extract_cards(context: Any, xpath: str) -> list[dict[str, Any]]:
+    """独立基准提取: 特辑卡片条目(导览页卡片与文章页合集卡片共用提取逻辑)"""
     items = []
-    for card in html.xpath('//li[@class="article-card-container"]'):
-        title_a = card.xpath('.//h2/a')
+    for card in context.xpath(xpath):
+        link = card.xpath('.//h2/a')
         thumb_div = card.xpath('.//div[@class="_thumbnail"]')
-        if not title_a or not thumb_div:
+        if not link or not thumb_div:
             continue
-        href = title_a[0].attrib.get('href') or ''
+        href = link[0].attrib.get('href') or ''
         aid_matched = re.search(r'/a/(\d+)', href)
         thumb_matched = re.search(r'url\((.*?)\)', thumb_div[0].attrib.get('style') or '')
         if aid_matched is None or thumb_matched is None:
@@ -239,12 +261,18 @@ def _gt_pixivision_show_page(content: str) -> list[dict[str, Any]]:
                 tags.append({'id': tid_matched.group(1), 'name': ''.join(tag_a.itertext()).strip()})
         items.append({
             'aid': aid_matched.group(1),
-            'title': ''.join(title_a[0].itertext()).strip(),
+            'title': ''.join(link[0].itertext()).strip(),
             'href': href,
             'thumbnail': thumb_matched.group(1).strip('\'" '),
             'tags': tags,
         })
     return items
+
+
+def _gt_pixivision_show_page(content: str) -> list[dict[str, Any]]:
+    """独立基准提取: pixivision 导览页特辑卡片(不复用 PixivParser 实现)"""
+    html = etree.HTML(content)
+    return _extract_cards(html, '//li[@class="article-card-container"]')
 
 
 def _gt_pixivision_article_page(content: str) -> dict[str, Any]:
@@ -276,29 +304,7 @@ def _gt_pixivision_article_page(content: str) -> dict[str, Any]:
             'image': img_nodes[0].attrib.get('src') if img_nodes else None,
         })
 
-    collections = []
-    for card in main.xpath('.//article[contains(@class, "spotlight")]'):
-        link = card.xpath('.//h2/a')
-        thumb_div = card.xpath('.//div[@class="_thumbnail"]')
-        if not link or not thumb_div:
-            continue
-        href = link[0].attrib.get('href') or ''
-        aid_matched = re.search(r'/a/(\d+)', href)
-        thumb_matched = re.search(r'url\((.*?)\)', thumb_div[0].attrib.get('style') or '')
-        if aid_matched is None or thumb_matched is None:
-            continue
-        tags = []
-        for tag_a in card.xpath('.//ul/li/a[contains(@href, "/t/")]'):
-            tid_matched = re.search(r'/t/(\d+)', tag_a.attrib.get('href') or '')
-            if tid_matched is not None:
-                tags.append({'id': tid_matched.group(1), 'name': ''.join(tag_a.itertext()).strip()})
-        collections.append({
-            'aid': aid_matched.group(1),
-            'title': ''.join(link[0].itertext()).strip(),
-            'href': href,
-            'thumbnail': thumb_matched.group(1).strip('\'" '),
-            'tags': tags,
-        })
+    collections = _extract_cards(main, './/article[contains(@class, "spotlight")]')
 
     article_tags = []
     for tag_a in main.xpath('./div//ul[@class="_tag-list"]/a'):
@@ -483,7 +489,7 @@ async def _assert_user_full(sample: SimpleNamespace) -> None:
     assert full.manga == _content_keys(sample.raw_profile['body']['manga'])
     assert full.novels == _content_keys(sample.raw_profile['body']['novels'])
 
-    # manga_illusts 必须为数值降序(锁定排序修复)
+    # manga_illusts 必须为数值降序
     combined = full.manga_illusts
     assert combined == sorted(combined, key=int, reverse=True)
 
@@ -491,7 +497,21 @@ async def _assert_user_full(sample: SimpleNamespace) -> None:
     assert await api.query_user() is full
 
 
+def _require_following_samples(following_users_samples: SimpleNamespace) -> list[SimpleNamespace]:
+    """关注列表样本准入核验: 关注列表为空时跳过, 返回用户样本列表"""
+    raw_following = following_users_samples.raw_following
+    assert raw_following.get('error') is False, f'following users error: {raw_following.get("message")}'
+
+    samples = following_users_samples.samples
+    if not samples:
+        pytest.skip('Session 用户关注列表为空')
+    # 取样数量应为关注数与前 5 的较小值
+    assert len(samples) == min(5, len(raw_following['body']['users']))
+    return samples
+
+
 @require_real_test
+@pytest.mark.usefixtures('_throttle_requests')
 class TestPixivCommon:
     """Pixiv 主站通用接口(真实请求 + 原始 JSON 核验)"""
 
@@ -500,10 +520,9 @@ class TestPixivCommon:
         from src.utils.pixiv_api.model import PixivRanking
 
         url = f'{PixivCommon._get_root_url()}/ranking.php'
-        raw_p1 = await PixivCommon._get_resource_as_json(
+        raw_p1 = await throttled_get_json(
             url=url, params={'format': 'json', 'mode': 'daily', 'p': 1, 'content': 'illust'}
         )
-        await asyncio.sleep(1)
         raw_p2 = await PixivCommon._get_resource_as_json(
             url=url, params={'format': 'json', 'mode': 'daily', 'p': 2, 'content': 'illust'}
         )
@@ -514,7 +533,7 @@ class TestPixivCommon:
         assert [x['rank'] for x in raw_p1['contents']] == list(range(1, 51))
         assert [x['rank'] for x in raw_p2['contents']] == list(range(51, 101))
         for item in raw_p1['contents'][:5]:
-            assert re.fullmatch(r'\d+', str(item['illust_id'])), f'illegal illust_id: {item["illust_id"]!r}'
+            assert_numeric(item['illust_id'], 'illust_id')
             # ranking 接口的 url 字段为作品缩略图链接而非作品页链接
             assert item['url'].startswith('https://i.pximg.net/'), f'illegal url: {item["url"]!r}'
 
@@ -546,14 +565,14 @@ class TestPixivCommon:
         raw = await PixivCommon._get_resource_as_json(url=url, params=params)
 
         # raw 核验
-        assert raw.get('error') is False, f'search error: {raw.get("message")}'
+        assert_no_error(raw, 'search')
         body = raw['body']
         assert body['illust']['data'], 'search result illust data is empty'
         assert isinstance(body['illust']['total'], int)
         assert body['illust']['total'] > 0
         for item in body['illust']['data'][:5]:
-            assert re.fullmatch(r'\d+', str(item['id'])), f'illegal id: {item["id"]!r}'
-            assert re.fullmatch(r'\d+', str(item['userId'])), f'illegal userId: {item["userId"]!r}'
+            assert_numeric(item['id'], 'id')
+            assert_numeric(item['userId'], 'userId')
             assert isinstance(item['title'], str)
             assert item['title'], 'title is empty'
             assert isinstance(item['tags'], list)
@@ -600,11 +619,11 @@ class TestPixivCommon:
         url = f'{PixivCommon._get_root_url()}/ajax/discovery/artworks'
         raw = await PixivCommon._get_resource_as_json(url=url, params={'mode': 'safe', 'limit': 60, 'lang': 'zh'})
 
-        assert raw.get('error') is False, f'discovery error: {raw.get("message")}'
+        assert_no_error(raw, 'discovery')
         body = raw['body']
         assert body['recommendedIllusts'], 'discovery recommendedIllusts is empty'
         for item in body['recommendedIllusts'][:5]:
-            assert re.fullmatch(r'\d+', str(item['illustId'])), f'illegal illustId: {item["illustId"]!r}'
+            assert_numeric(item['illustId'], 'illustId')
         assert body['thumbnails']['illust'], 'discovery thumbnails illust is empty'
         for item in body['thumbnails']['illust'][:5]:
             assert isinstance(item['urls'], dict)
@@ -625,10 +644,11 @@ class TestPixivCommon:
         url = f'{PixivCommon._get_root_url()}/ajax/top/illust'
         raw = await PixivCommon._get_resource_as_json(url=url, params={'mode': 'all', 'lang': 'zh'})
 
-        assert raw.get('error') is False, f'top illust error: {raw.get("message")}'
+        assert_no_error(raw, 'top illust')
         body = raw['body']
         assert body['page']['recommend']['ids'], 'top illust recommend ids is empty'
-        assert all(re.fullmatch(r'\d+', str(x)) for x in body['page']['recommend']['ids'][:10])
+        for pid in body['page']['recommend']['ids'][:10]:
+            assert_numeric(pid, 'recommend id')
 
         result = PixivTop.model_validate(raw)
         assert result.recommend_pids == [str(x) for x in body['page']['recommend']['ids']]
@@ -637,17 +657,17 @@ class TestPixivCommon:
         assert method_result.error is False
         assert method_result.recommend_pids, 'top illust method returned empty pids'
 
-    async def test_query_following_user_latest_illust(self):
+    async def test_query_following_user_latest_illust(self, artwork_pool_sample: SimpleNamespace):
         from src.utils.pixiv_api import PixivCommon
         from src.utils.pixiv_api.model import PixivFollowLatestIllust
 
-        url = f'{PixivCommon._get_root_url()}/ajax/follow_latest/illust'
-        raw = await PixivCommon._get_resource_as_json(url=url, params={'mode': 'all', 'lang': 'zh', 'p': 1})
-
-        assert raw.get('error') is False, f'follow latest error: {raw.get("message")} (cookies may be invalid)'
+        # 复用作品池样本已抓取的关注动态第 1 页原始响应, 不重复请求
+        raw = artwork_pool_sample.raw_follow_latest
+        assert_no_error(raw, 'follow latest', hint='cookies may be invalid')
         body = raw['body']
         assert isinstance(body['page']['ids'], list)
-        assert all(re.fullmatch(r'\d+', str(x)) for x in body['page']['ids']), 'illegal ids in page'
+        for pid in body['page']['ids']:
+            assert_numeric(pid, 'id')
         assert isinstance(body['page']['isLastPage'], bool)
         assert isinstance(body['thumbnails']['illust'], list)
 
@@ -657,23 +677,20 @@ class TestPixivCommon:
         method_result = await PixivCommon.query_following_user_latest_illust(page=1)
         assert method_result.error is False
 
-    async def test_query_bookmarks(self):
+    async def test_query_bookmarks(self, artwork_pool_sample: SimpleNamespace):
         from src.utils.pixiv_api import PixivCommon
         from src.utils.pixiv_api.model import PixivBookmark
 
-        uid = PixivCommon._get_default_user_id()
-        url = f'{PixivCommon._get_root_url()}/ajax/user/{uid}/illusts/bookmarks'
-        params = {'tag': '', 'offset': 0, 'limit': 48, 'rest': 'show', 'lang': 'zh'}
-        raw = await PixivCommon._get_resource_as_json(url=url, params=params)
-
-        assert raw.get('error') is False, f'bookmarks error: {raw.get("message")} (cookies may be invalid)'
+        # 复用作品池样本已抓取的收藏第 1 页原始响应, 不重复请求
+        raw = artwork_pool_sample.raw_bookmarks
+        assert_no_error(raw, 'bookmarks', hint='cookies may be invalid')
         body = raw['body']
         assert isinstance(body['total'], int)
         assert body['total'] >= 0
         assert isinstance(body['works'], list)
         assert body['total'] >= len(body['works'])
         for item in body['works'][:5]:
-            assert re.fullmatch(r'\d+', str(item['id'])), f'illegal id: {item["id"]!r}'
+            assert_numeric(item['id'], 'id')
 
         result = PixivBookmark.model_validate(raw)
         assert result.total == body['total']
@@ -685,18 +702,23 @@ class TestPixivCommon:
 
 
 @require_real_test
+@pytest.mark.usefixtures('_throttle_requests')
 class TestPixivArtwork:
     """Pixiv 作品接口(真实请求 + 原始 JSON 核验, 样本动态取自最新收藏与关注动态)"""
 
-    async def test_bookmark_artwork_raw(self, bookmark_artwork_sample: SimpleNamespace | None):
-        if bookmark_artwork_sample is None:
-            pytest.skip('收藏为空或候选作品均不可用')
-        _assert_artwork_raw(bookmark_artwork_sample)
-
-    async def test_latest_artwork_raw(self, latest_artwork_sample: SimpleNamespace | None):
-        if latest_artwork_sample is None:
-            pytest.skip('关注动态为空或候选作品均不可用')
-        _assert_artwork_raw(latest_artwork_sample)
+    @pytest.mark.parametrize(
+        ('fixture_name', 'skip_reason'),
+        [
+            ('bookmark_artwork_sample', '收藏为空或候选作品均不可用'),
+            ('latest_artwork_sample', '关注动态为空或候选作品均不可用'),
+        ],
+        ids=['bookmark', 'latest'],
+    )
+    async def test_artwork_raw(self, fixture_name: str, skip_reason: str, request: pytest.FixtureRequest):
+        sample: SimpleNamespace | None = request.getfixturevalue(fixture_name)
+        if sample is None:
+            pytest.skip(skip_reason)
+        _assert_artwork_raw(sample)
 
     async def test_ugoira_meta_raw(self, ugoira_artwork_sample: SimpleNamespace | None):
         from src.utils.pixiv_api.model import PixivIllustUgoiraMeta
@@ -795,6 +817,7 @@ class TestPixivArtwork:
 
 
 @require_real_test
+@pytest.mark.usefixtures('_throttle_requests')
 class TestPixivUser:
     """Pixiv 用户接口(真实请求 + 原始 JSON/HTML 核验, 样本动态取自 Session 用户及其关注列表)"""
 
@@ -809,21 +832,11 @@ class TestPixivUser:
         await _assert_user_full(session_user_sample)
 
     async def test_following_users_raw(self, following_users_samples: SimpleNamespace):
-        raw_following = following_users_samples.raw_following
-        assert raw_following.get('error') is False, f'following users error: {raw_following.get("message")}'
-
-        samples = following_users_samples.samples
-        if not samples:
-            pytest.skip('Session 用户关注列表为空')
-        # 取样数量应为关注数与前 5 的较小值
-        assert len(samples) == min(5, len(raw_following['body']['users']))
-        for sample in samples:
+        for sample in _require_following_samples(following_users_samples):
             _assert_user_raw(sample)
 
     async def test_following_users_full(self, following_users_samples: SimpleNamespace):
-        if not following_users_samples.samples:
-            pytest.skip('Session 用户关注列表为空')
-        for sample in following_users_samples.samples:
+        for sample in _require_following_samples(following_users_samples):
             await _assert_user_full(sample)
             await asyncio.sleep(1)
 
@@ -844,12 +857,14 @@ class TestPixivUser:
         else:
             assert len(page1.illust_ids) == page1.total
 
-    async def test_query_user_following_users(self, session_user_sample: SimpleNamespace):
+    async def test_query_user_following_users(
+            self,
+            session_user_sample: SimpleNamespace,
+            following_users_samples: SimpleNamespace,
+    ):
         api: PixivUser = session_user_sample.api
-        raw = await api._get_resource_as_json(
-            url=api.follow_user_url,
-            params={'offset': 0, 'limit': 24, 'rest': 'show', 'acceptingRequests': 0, 'lang': 'zh'},
-        )
+        # 复用关注列表样本已抓取的原始响应, 不重复请求
+        raw = following_users_samples.raw_following
 
         assert raw.get('error') is False, f'following users error: {raw.get("message")}'
         body = raw['body']
@@ -862,7 +877,7 @@ class TestPixivUser:
             assert item['userName'], 'userName is empty'
             assert isinstance(item['profileImageUrl'], str)
 
-        # followUserTags 元素类型核验(已明确为标签名 str 列表)
+        # followUserTags 元素为标签名 str 列表
         assert isinstance(body.get('followUserTags'), list)
         for tag in body.get('followUserTags', []):
             assert isinstance(tag, str), f'unexpected followUserTags element type: {type(tag)}'
@@ -909,6 +924,7 @@ class TestPixivUser:
 
 
 @require_real_test
+@pytest.mark.usefixtures('_throttle_requests')
 class TestPixivision:
     """Pixivision 接口(真实请求 + 原始 HTML 核验)"""
 
@@ -927,18 +943,12 @@ class TestPixivision:
             assert item.thumbnail == gt_item['thumbnail']
             assert item.all_tags_id == [x['id'] for x in gt_item['tags']]
 
-    async def test_article_artwork_type(self, show_page: SimpleNamespace):
-        from src.utils.pixiv_api import Pixivision
-        from src.utils.pixiv_api.helper import PixivParser
-
+    async def test_article_artwork_type(self, article_pages_sample: list[SimpleNamespace]):
         # 取导览页首篇特辑, 同一份 HTML 上比对解析结果与独立基准
-        aid = show_page.parsed.illustrations[0].aid
-        content = await Pixivision.get_resource_as_text(url=f'{Pixivision._get_articles_url()}/{aid}')
-        parsed = await PixivParser.parse_pixivision_article_page(
-            content=content, root_url=Pixivision._get_root_url()
-        )
+        page = article_pages_sample[0]
+        parsed = page.parsed
 
-        gt = _gt_pixivision_article_page(content)
+        gt = _gt_pixivision_article_page(page.content)
         assert parsed.title == gt['title']
         assert parsed.eyecatch_image == gt['eyecatch']
         # description 核验内容忠实性(忽略换行/空白分隔差异)
@@ -954,26 +964,23 @@ class TestPixivision:
             assert item.artwork_user == gt_item['user']
             assert item.image_url == gt_item['image']
 
-    async def test_article_collection_type(self, show_page: SimpleNamespace):
+    async def test_article_collection_type(self, article_pages_sample: list[SimpleNamespace]):
         from src.utils.pixiv_api import Pixivision
-        from src.utils.pixiv_api.helper import PixivParser
 
         # 合集型特辑动态取样: 导览页前 10 篇中首篇正文为特辑卡片合集的文章
         root_url = Pixivision._get_root_url()
-        content = None
-        for item in show_page.parsed.illustrations[:10]:
-            page_content = await Pixivision.get_resource_as_text(url=f'{Pixivision._get_articles_url()}/{item.aid}')
-            if _gt_pixivision_article_page(page_content)['collections']:
-                content = page_content
+        sample_page = None
+        for page in article_pages_sample:
+            if _gt_pixivision_article_page(page.content)['collections']:
+                sample_page = page
                 break
-            await asyncio.sleep(1)
-        if content is None:
+        if sample_page is None:
             pytest.skip('当前导览页前 10 篇特辑均非合集型')
 
-        gt = _gt_pixivision_article_page(content)
+        gt = _gt_pixivision_article_page(sample_page.content)
         assert gt['collections'], '样本页面中未找到合集卡片, 页面结构可能已变化'
 
-        parsed = await PixivParser.parse_pixivision_article_page(content=content, root_url=root_url)
+        parsed = sample_page.parsed
 
         # 文章基础信息与文章级 tag 核验
         assert parsed.title == gt['title']
@@ -992,23 +999,17 @@ class TestPixivision:
             assert sub.all_tags_id == [x['id'] for x in gt_sub['tags']]
             assert sub.all_tags_name == [x['name'] for x in gt_sub['tags']]
 
-    async def test_download_eyecatch(self, show_page: SimpleNamespace):
+    async def test_download_eyecatch(self, article_pages_sample: list[SimpleNamespace]):
         from src.resource import TemporaryResource
         from src.utils.pixiv_api import Pixivision
-        from src.utils.pixiv_api.helper import PixivParser
 
         # 找一篇有头图的特辑并下载
-        for item in show_page.parsed.illustrations[:5]:
-            content = await Pixivision.get_resource_as_text(url=f'{Pixivision._get_articles_url()}/{item.aid}')
-            parsed = await PixivParser.parse_pixivision_article_page(
-                content=content, root_url=Pixivision._get_root_url()
-            )
-            if parsed.eyecatch_image is None:
-                await asyncio.sleep(1)
+        for page in article_pages_sample[:5]:
+            if page.parsed.eyecatch_image is None:
                 continue
 
             file = await Pixivision.download_article_eyecatch_image(
-                article_data=parsed, save_folder=TemporaryResource('test_pixiv')
+                article_data=page.parsed, save_folder=TemporaryResource('test_pixiv')
             )
             assert file.is_file, f'downloaded file not exists: {file}'
             assert file.file_size > 0, 'downloaded eyecatch image is empty'
