@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.compat import OptionalUrlStr as OptionalUrl
-from .misc import find_dict
+from .misc import find_dict, orig_image_url
 
 _TWEET_CREATED_AT_FORMAT = '%a %b %d %H:%M:%S %z %Y'
 """推文/用户数据中的 created_at 时间格式"""
@@ -294,6 +294,18 @@ class TwitterTweet(TwitterBaseModel):
             return datetime.strptime(self.created_at, _TWEET_CREATED_AT_FORMAT)
         except ValueError:
             return None
+
+    @property
+    def image_urls(self) -> list[str]:
+        """推文所有图片原图链接
+
+        仅返回图片类型的媒体链接(统一转换为 ?name=orig 原图形式), 视频/GIF 的封面图不包含在内
+        """
+        return [
+            orig_image_url(media.media_url)
+            for media in self.media
+            if media.type == 'photo' and media.media_url is not None
+        ]
 
 
 TwitterTweet.model_rebuild()

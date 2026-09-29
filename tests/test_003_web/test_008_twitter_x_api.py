@@ -146,6 +146,21 @@ def _tweet_result_payload(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
+def _media_entry(index: int, media_type: str = 'photo', media_url: str | None = None) -> dict[str, Any]:
+    """图片/视频媒体条目"""
+    if media_url is None:
+        media_url = f'https://pbs.twimg.com/media/pic{index}.{"png" if media_type == "photo" else "jpg"}'
+    return {
+        'id_str': f'19000000000000000{index:02d}',
+        'type': media_type,
+        'media_url_https': media_url,
+        'url': f'https://t.co/m{index}',
+        'display_url': f'pic.x.com/m{index}',
+        'expanded_url': f'https://x.com/X/status/1780/photo/{index}',
+        'original_info': {'width': 800, 'height': 600},
+    }
+
+
 def _timeline_entry(entry_id: str, tweet: dict[str, Any] | None = None) -> dict[str, Any]:
     """TimelineAddEntries 中的推文条目"""
     return {
@@ -242,6 +257,54 @@ class TestMiscHelpers:
         assert result['count'] == 0
         assert result['none_val'] is None
         assert ujson.loads(result['list_val']) == [1, 2]
+
+    def test_orig_image_url(self, misc: ModuleType) -> None:
+        # 基础链接追加 ?name=orig
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.jpg') == (
+            'https://pbs.twimg.com/media/xxx.jpg?name=orig'
+        )
+        # 已是 ?name=orig 幂等
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.jpg?name=orig') == (
+            'https://pbs.twimg.com/media/xxx.jpg?name=orig'
+        )
+        # 其他尺寸参数替换为 orig
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.webp?name=4096x4096') == (
+            'https://pbs.twimg.com/media/xxx.webp?name=orig'
+        )
+        # format 等其他查询参数保留且相对顺序不变
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.jpg?format=png&name=large') == (
+            'https://pbs.twimg.com/media/xxx.jpg?format=png&name=orig'
+        )
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.jpg?foo=bar') == (
+            'https://pbs.twimg.com/media/xxx.jpg?foo=bar&name=orig'
+        )
+        # 无扩展名 + format 形式
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx?format=jpg') == (
+            'https://pbs.twimg.com/media/xxx?format=jpg&name=orig'
+        )
+
+    def test_orig_image_url_legacy_suffix(self, misc: ModuleType) -> None:
+        # :orig/:small 等 legacy 后缀归一为 ?name=orig 形式
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.jpg:orig') == (
+            'https://pbs.twimg.com/media/xxx.jpg?name=orig'
+        )
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.png:small') == (
+            'https://pbs.twimg.com/media/xxx.png?name=orig'
+        )
+        # legacy 后缀与尺寸参数同时存在时后缀剥离且参数替换
+        assert misc.orig_image_url('https://pbs.twimg.com/media/xxx.jpg:large?name=small') == (
+            'https://pbs.twimg.com/media/xxx.jpg?name=orig'
+        )
+
+    def test_orig_image_url_non_media_passthrough(self, misc: ModuleType) -> None:
+        # 非 pbs.twimg.com 域名或非 /media/ 路径的图片链接原样返回
+        assert misc.orig_image_url('https://example.com/media/xxx.jpg') == 'https://example.com/media/xxx.jpg'
+        assert misc.orig_image_url('https://pbs.twimg.com/profile_images/xxx_normal.jpg') == (
+            'https://pbs.twimg.com/profile_images/xxx_normal.jpg'
+        )
+        assert misc.orig_image_url('https://video.twimg.com/ext_tw_video/1/pu/vid/xxx.mp4') == (
+            'https://video.twimg.com/ext_tw_video/1/pu/vid/xxx.mp4'
+        )
 
 
 class TestConsts:
@@ -432,6 +495,81 @@ class TestModels:
         assert media.video_info.duration_millis == 30000
         assert [x.bitrate for x in media.streams] == [832000, 2176000]  # 非 video/* 变体被过滤
 
+    def test_tweet_image_urls_single_photo(self, model: ModuleType) -> None:
+        tweet = model.TwitterTweet.model_validate(_tweet_result_payload())
+        assert tweet.image_urls == ['https://pbs.twimg.com/media/xxx.jpg?name=orig']
+
+    def test_tweet_image_urls_multiple_photos(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [_media_entry(1), _media_entry(2), _media_entry(3)]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == [  # 保持 entities 顺序
+            'https://pbs.twimg.com/media/pic1.png?name=orig',
+            'https://pbs.twimg.com/media/pic2.png?name=orig',
+            'https://pbs.twimg.com/media/pic3.png?name=orig',
+        ]
+
+    def test_tweet_image_urls_mixed_media_only_returns_photo(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [
+            _media_entry(1, media_type='video'),
+            _media_entry(2),
+            _media_entry(3, media_type='animated_gif'),
+        ]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == ['https://pbs.twimg.com/media/pic2.png?name=orig']  # 视频/GIF 封面图不返回
+
+    def test_tweet_image_urls_video_only_returns_empty(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [_media_entry(1, media_type='video')]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == []
+
+    def test_tweet_image_urls_no_media_returns_empty(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities'].pop('media')
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == []
+
+    def test_tweet_image_urls_skips_empty_media_url(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [
+            _media_entry(1, media_url=''),  # 空串经 OptionalUrlStr 归一为 None, 跳过
+            _media_entry(2),
+        ]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == ['https://pbs.twimg.com/media/pic2.png?name=orig']
+
+    def test_tweet_image_urls_normalizes_size_param(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [
+            _media_entry(1, media_url='https://pbs.twimg.com/media/pic1.jpg?name=large'),  # 尺寸参数替换为 orig
+            _media_entry(2, media_url='https://pbs.twimg.com/media/pic2.jpg?format=png&name=small'),
+        ]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == [
+            'https://pbs.twimg.com/media/pic1.jpg?name=orig',
+            'https://pbs.twimg.com/media/pic2.jpg?format=png&name=orig',  # format 参数保留
+        ]
+
+    def test_tweet_image_urls_normalizes_legacy_suffix(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [
+            _media_entry(1, media_url='https://pbs.twimg.com/media/pic1.jpg:orig'),  # legacy 后缀归一
+        ]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == ['https://pbs.twimg.com/media/pic1.jpg?name=orig']
+
+    def test_tweet_image_urls_skips_missing_fields(self, model: ModuleType) -> None:
+        payload = _tweet_result_payload()
+        no_url_entry = _media_entry(1)
+        del no_url_entry['media_url_https']  # media_url 缺省为 None, 跳过
+        no_type_entry = _media_entry(2)
+        del no_type_entry['type']  # type 缺省为空串, 不等于 'photo', 跳过
+        payload['legacy']['entities']['media'] = [no_url_entry, no_type_entry, _media_entry(3)]
+        tweet = model.TwitterTweet.model_validate(payload)
+        assert tweet.image_urls == ['https://pbs.twimg.com/media/pic3.png?name=orig']
+
     def test_highlight_result_and_activate_result(self, model: ModuleType) -> None:
         assert model.TwitterGuestActivateResult.model_validate({'guest_token': '123'}).guest_token == '123'
         empty = model.TwitterHighlightTweetsResult()
@@ -568,6 +706,12 @@ class TestParseTweetFromData:
         # 通过结构守卫但模型校验失败(如缺 rest_id)时返回 None 而非抛 ValidationError
         payload = _tweet_result_payload()
         del payload['rest_id']
+        assert parse_tweet_from_data({'tweet_results': {'result': payload}}) is None
+
+    def test_parse_invalid_media_url_returns_none(self, parse_tweet_from_data: Callable[..., Any]) -> None:
+        # 固定当前行为: 任一媒体 URL 非法 → 模型校验失败 → 整条推文解析为 None(毒化, 审计发现项)
+        payload = _tweet_result_payload()
+        payload['legacy']['entities']['media'] = [_media_entry(1, media_url='not-a-valid-url')]
         assert parse_tweet_from_data({'tweet_results': {'result': payload}}) is None
 
     def test_parse_wrapped_tombstone_returns_none(self, parse_tweet_from_data: Callable[..., Any]) -> None:

@@ -9,6 +9,7 @@
 """
 
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import ujson
 
@@ -59,8 +60,25 @@ def flatten_params(params: dict[str, Any]) -> dict[str, Any]:
     return flattened_params
 
 
+def orig_image_url(url: str) -> str:
+    """将 Twitter 图片链接转换为原图链接(?name=orig 形式)
+
+    仅处理 pbs.twimg.com 的 /media/ 图片链接, 其余链接原样返回;
+    兼容 ?name=xxx 查询参数与 :orig 等 legacy 后缀两种形式, 保留 format 等其他查询参数
+    """
+    parts = urlsplit(url)
+    if parts.netloc.lower() != 'pbs.twimg.com' or not parts.path.startswith('/media/'):
+        return url
+    path = parts.path.rsplit(':', maxsplit=1)[0]  # 剥离 :orig 等 legacy 后缀
+    query = [('name', 'orig') if k == 'name' else (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)]
+    if all(k != 'name' for k, _ in query):
+        query.append(('name', 'orig'))
+    return urlunsplit((parts.scheme, parts.netloc, path, urlencode(query), parts.fragment))
+
+
 __all__ = [
     'find_dict',
     'find_entry_by_type',
     'flatten_params',
+    'orig_image_url',
 ]
