@@ -9,79 +9,128 @@
 """
 
 import abc
+import hashlib
+import unicodedata
+from datetime import datetime
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, Sequence
 from urllib.parse import unquote, urlparse
 
 from pydantic import ValidationError
 
+from src.database.internal.artwork_collection import (
+    ArtworkCollectionDAL,
+    ArtworkClassificationStatistic,
+    ArtworkRatingStatistic,
+)
 from src.utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
-from .models import ArtworkData
+from .models import ArtistUserData, ArtworkPoolData, ArtworkProxyData, PreviewImageThumbsItem, PreviewImagesData
+from .preview_image_utils import ArtworkImageOps
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
 
-    from .typing import ArtworkPageParamType
+type ArtworkPageParamType = Literal['preview', 'regular', 'original']
+"""作品页面可选类型参数"""
+type ArtworkRankParamType = Literal['daily', 'weekly', 'monthly']
+"""作品榜单页面可选类型参数"""
+type ArtworkProcessParamType = Literal['mark', 'blur', 'noise']
+"""作品图片处理方法可选参数类型"""
+
+_INT_AID_SLICED_SIZE: int = 1_000_000
+"""数字型 artwork_id 切分目录分片大小(按分段)"""
+_STR_AID_SLICED_LEN: int = 3
+"""字符型 artwork_id 切分目录分片长度(按哈希)"""
 
 
 class BaseArtworkProxy(abc.ABC):
     """Artwork Proxy 基类"""
 
+    _path_config: ClassVar[ArtworkProxyPathConfig | None] = None
+    """作品相关缓存及数据存储路径配置"""
+
     def __init__(self, artwork_id: str | int):
-        self.__id = artwork_id
-        self.__path_config = self._generate_path_config()
+        self.__id: str = str(artwork_id)
 
         # 实例缓存
-        self.artwork_data: ArtworkData | None = None
+        self.artwork_data: ArtworkProxyData | None = None
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(artwork_id={self.s_aid})'
+        return f'{self.__class__.__name__}(origin={self.origin_name}, artwork_id={self.__id})'
 
     @property
     def i_aid(self) -> int:
-        if isinstance(self.__id, int):
-            return self.__id
-        else:
-            return int(self.__id)  # 忽略数字类型检查，任由 `ValueError` 异常抛出并由后续流程处理
+        if self.__id.isdecimal():
+            return int(self.__id)
+        raise ValueError(f'aid {self.__id} is not a number')
 
     @property
     def s_aid(self) -> str:
-        return str(self.__id)
+        return self.__id
 
-    @property
-    def meta_file_name(self) -> str:
-        return f'{self.s_aid}.json'
+    @classmethod
+    @abc.abstractmethod
+    def _get_base_origin_name(cls) -> str:
+        """内部方法, 获取该图库的来源名称, 作为缓存路径及数据库收录分类字段名"""
+        raise NotImplementedError
 
-    @property
-    def meta_file(self) -> 'TemporaryResource':
-        return self.path_config.meta_path(self.meta_file_name)
+    @classmethod
+    def _get_path_config(cls) -> ArtworkProxyPathConfig:
+        """内部方法, 初始化该图库的本地存储路径配置项"""
+        if not isinstance(cls._path_config, ArtworkProxyPathConfig):
+            cls._path_config = ArtworkProxyPathConfig(base_path_name=cls._get_base_origin_name())
+        return cls._path_config
 
     @property
     def origin_name(self) -> str:
         """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
-        return self.get_base_origin_name()
+        return self._get_base_origin_name()
 
     @property
     def path_config(self) -> ArtworkProxyPathConfig:
         """对外暴露该作品对应存储路径配置, 便于插件调用"""
-        return self.__path_config
+        return self._get_path_config()
+
+    @property
+    def sliced_aid_subdir_name(self) -> str:
+        """根据 artwork_id 切分缓存及数据文件子目录, 避免单一目录文件过多"""
+        if self.s_aid.isdecimal():
+            start, _ = divmod(int(self.s_aid), _INT_AID_SLICED_SIZE)
+            subdir_name = f'artwork_id_{start * _INT_AID_SLICED_SIZE}-{(start + 1) * _INT_AID_SLICED_SIZE - 1}'
+        else:
+            id_hash = hashlib.sha256(unicodedata.normalize('NFC', self.s_aid).encode('utf-8')).hexdigest()
+            subdir_name = f'artwork_id_H{id_hash[:_STR_AID_SLICED_LEN]}'
+        return subdir_name
+
+    @property
+    def meta_path(self) -> 'TemporaryResource':
+        """本类型作品元数据文件目录"""
+        return self.path_config.meta_path(self.sliced_aid_subdir_name)
+
+    @property
+    def artwork_path(self) -> 'TemporaryResource':
+        """本类型作品图片缓存文件目录"""
+        return self.path_config.artwork_path(self.sliced_aid_subdir_name)
+
+    @property
+    def meta_file(self) -> 'TemporaryResource':
+        """作品元数据文件路径"""
+        return self.meta_path(f'{self.s_aid}.json')
+
+    @property
+    def meta_file_date_snapshot(self) -> 'TemporaryResource':
+        """作品元数据文件(获取时快照副本)路径"""
+        return self.meta_path(f'{self.s_aid}.{datetime.now().strftime("%Y%m%d%H%M%S")}.json.snapshot')
 
     @staticmethod
     def parse_url_file_suffix(url: str) -> str:
         """尝试解析 url 对应的文件后缀名"""
         return PurePath(unquote(urlparse(url=url, allow_fragments=True).path)).suffix
 
-    @classmethod
-    @abc.abstractmethod
-    def get_base_origin_name(cls) -> str:
-        """内部方法, 返回该图库的来源名称, 作为缓存路径及数据库收录分类字段名"""
-        raise NotImplementedError
-
-    @classmethod
-    def _generate_path_config(cls) -> ArtworkProxyPathConfig:
-        """内部方法, 生成该图库的本地存储路径配置项"""
-        return ArtworkProxyPathConfig(base_path_name=cls.get_base_origin_name())
+    # ------------------------------------------------------------------ #
+    # 源站或 API 请求相关方法
+    # ------------------------------------------------------------------ #
 
     @classmethod
     @abc.abstractmethod
@@ -91,48 +140,44 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
-        """内部方法, 请求原始资源内容, 并转换为 str 类型返回"""
-        raise NotImplementedError
-
-    @classmethod
-    @abc.abstractmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
-        """内部方法, 随机获取作品 ID 列表"""
+        """内部方法, 从源站或 API 随机获取作品 ID 列表"""
         raise NotImplementedError
 
     @classmethod
     @abc.abstractmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
-        """内部方法, 根据关键词搜索作品 ID 列表"""
+        """内部方法, 从源站或 API 根据关键词搜索作品 ID 列表"""
         raise NotImplementedError
 
     @classmethod
     async def random(cls, *, limit: int = 20) -> list[Self]:
-        """随机获取作品列表"""
+        """从源站或 API 随机获取作品列表"""
         return [cls(artwork_id=aid) for aid in await cls._random(limit=limit)]
 
     @classmethod
     async def search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[Self]:
-        """根据关键词搜索作品列表"""
+        """从源站或 API 根据关键词搜索作品列表"""
         return [cls(artwork_id=aid) for aid in await cls._search(keyword=keyword, page=page, **kwargs)]
 
     @abc.abstractmethod
-    async def _query(self) -> ArtworkData:
-        """内部方法, 获取作品信息"""
+    async def _query(self) -> ArtworkProxyData:
+        """内部方法, 从源站或 API 获取作品信息"""
         raise NotImplementedError
 
-    async def _dumps_meta(self, artwork_data: ArtworkData) -> None:
-        """内部方法, 缓存元数据"""
-        async with self.meta_file.async_open('w', encoding='utf8') as af:
+    async def _dumps_meta(self, artwork_data: ArtworkProxyData) -> None:
+        """内部方法, 缓存元数据, 默认额外保存当前快照副本"""
+        async with self.meta_file.async_open('w', encoding='utf-8') as af:
             await af.write(artwork_data.model_dump_json())
+        async with self.meta_file_date_snapshot.async_open('w', encoding='utf-8') as asf:
+            await asf.write(artwork_data.model_dump_json())
 
-    async def _fast_query(self, *, use_cache: bool = True) -> ArtworkData:
+    async def _fast_query(self, *, use_cache: bool = True) -> ArtworkProxyData:
         """获取作品信息, 优先从本地缓存加载"""
         if use_cache and self.meta_file.is_file:
             try:
-                async with self.meta_file.async_open('r', encoding='utf8') as af:
-                    artwork_data = ArtworkData.model_validate_json(await af.read())
+                async with self.meta_file.async_open('r', encoding='utf-8') as af:
+                    artwork_data = ArtworkProxyData.model_validate_json(await af.read())
             except ValidationError:
                 artwork_data = await self._query()
                 await self._dumps_meta(artwork_data=artwork_data)
@@ -142,13 +187,13 @@ class BaseArtworkProxy(abc.ABC):
 
         return artwork_data
 
-    async def query(self, *, use_cache: bool = True) -> ArtworkData:
+    async def query(self, *, use_cache: bool = True) -> ArtworkProxyData:
         """获取作品信息"""
-        if not isinstance(self.artwork_data, ArtworkData):
+        if not isinstance(self.artwork_data, ArtworkProxyData):
             self.artwork_data = await self._fast_query(use_cache=use_cache)
 
-        if not isinstance(self.artwork_data, ArtworkData):
-            raise TypeError('Query artwork data failed')
+        if not isinstance(self.artwork_data, ArtworkProxyData):
+            raise RuntimeError('Query artwork data failed')
         return self.artwork_data
 
     @abc.abstractmethod
@@ -158,31 +203,222 @@ class BaseArtworkProxy(abc.ABC):
 
     @abc.abstractmethod
     async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
-        """获取格式化作品在预览图中的描述信息"""
+        """获取格式化作品预览图描述信息"""
         raise NotImplementedError
 
-    async def _query_page(
-            self,
-            page_index: int = 0,
-            page_type: 'ArtworkPageParamType' = 'regular'
-    ) -> bytes:
-        """内部方法, 加载作品图片资源"""
-        artwork_data = await self.query()
+    # ------------------------------------------------------------------ #
+    # 图集相关方法
+    # ------------------------------------------------------------------ #
 
-        match page_type:
-            case 'preview':
-                file_url = artwork_data.preview_pages_url[page_index]
-            case 'original':
-                file_url = artwork_data.original_pages_url[page_index]
-            case 'regular' | _:
-                file_url = artwork_data.regular_pages_url[page_index]
+    @classmethod
+    def _get_pool_meta_file(cls, pool_id: str | int, *, snapshot: bool = False) -> 'TemporaryResource':
+        if snapshot:
+            file_name = f'pool_{pool_id}.{datetime.now().strftime("%Y%m%d%H%M%S")}.json.snapshot'
+        else:
+            file_name = f'pool_{pool_id}.json'
+        return cls._get_path_config().meta_path('pool', file_name)
 
-        return await self._get_resource_as_bytes(url=file_url)  # type: ignore
+    @classmethod
+    @abc.abstractmethod
+    async def _query_pool(cls, pool_id: str | int) -> ArtworkPoolData:
+        """获取图集信息"""
+        raise NotImplementedError
+
+    @classmethod
+    async def _dumps_pool_meta(cls, pool_data: ArtworkPoolData) -> None:
+        """内部方法, 缓存图集元数据, 默认额外保存当前快照副本"""
+        pid = pool_data.pool_id
+        async with cls._get_pool_meta_file(pool_id=pid).async_open('w', encoding='utf8') as af:
+            await af.write(pool_data.model_dump_json())
+        async with cls._get_pool_meta_file(pid, snapshot=True).async_open('w', encoding='utf8') as asf:
+            await asf.write(pool_data.model_dump_json())
+
+    @classmethod
+    async def _fast_query_pool(cls, pool_id: str | int, *, use_cache: bool = True) -> ArtworkPoolData:
+        """获取图集信息, 优先从本地缓存加载"""
+        if use_cache and cls._get_pool_meta_file(pool_id=pool_id).is_file:
+            try:
+                async with cls._get_pool_meta_file(pool_id).async_open('r', encoding='utf8') as af:
+                    pool_data = ArtworkPoolData.model_validate_json(await af.read())
+            except ValidationError:
+                pool_data = await cls._query_pool(pool_id=pool_id)
+                await cls._dumps_pool_meta(pool_data=pool_data)
+        else:
+            pool_data = await cls._query_pool(pool_id=pool_id)
+            await cls._dumps_pool_meta(pool_data=pool_data)
+
+        return pool_data
+
+    @classmethod
+    async def query_pool(cls, pool_id: str | int, *, use_cache: bool = True) -> ArtworkPoolData:
+        """获取图集信息"""
+        return await cls._fast_query_pool(pool_id=pool_id, use_cache=use_cache)
+
+    @classmethod
+    async def query_pool_all_artworks(cls, pool_id: str) -> list['ArtworkProxyData']:
+        """获取图集中所有作品信息"""
+        pool_data = await cls.query_pool(pool_id=pool_id)
+        tasks = [cls(aid).query() for aid in pool_data.artwork_ids]
+        return list(await semaphore_gather(tasks=tasks, semaphore_num=6, return_exceptions=False))
+
+    @classmethod
+    async def query_pool_all_artwork_pages(cls, pool_id: str) -> list['TemporaryResource']:
+        """获取图集中所有作品封面图片"""
+        pool_data = await cls.query_pool(pool_id=pool_id)
+        tasks = [cls(aid).get_page_file() for aid in pool_data.artwork_ids]
+        return list(await semaphore_gather(tasks=tasks, semaphore_num=6, return_exceptions=False))
+
+    @classmethod
+    async def generate_pool_preview(cls, pool_id: str) -> 'TemporaryResource':
+        """生成图集的预览图"""
+        pool_data = await cls.query_pool(pool_id=pool_id)
+        return await cls.generate_artworks_preview(
+            preview_name=f'{cls._get_base_origin_name().title()} Pool #{pool_id}: {pool_data.name}',
+            artworks=[cls(aid) for aid in pool_data.artwork_ids],
+        )
+
+    # ------------------------------------------------------------------ #
+    # 用户空间相关方法
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    @abc.abstractmethod
+    async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
+        """内部方法, 获取首页/发现页/瀑布流作品"""
+        raise NotImplementedError
+
+    @classmethod
+    async def discovery(cls, *, limit: int = 20) -> list[Self]:
+        """获取首页/发现页/瀑布流作品"""
+        return [cls(artwork_id=aid) for aid in await cls._discovery(limit=limit)]
+
+    @classmethod
+    @abc.abstractmethod
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        """内部方法, 获取推荐作品, 如未提供基准 Artwork ID, 则使用类似首页推荐机制进行获取"""
+        raise NotImplementedError
+
+    @classmethod
+    async def recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[Self]:
+        """获取推荐作品, 如未提供基准 Artwork ID, 则使用类似首页推荐机制进行获取"""
+        return [cls(artwork_id=aid) for aid in await cls._recommend(base_aid=base_aid, limit=limit)]
+
+    @classmethod
+    @abc.abstractmethod
+    async def _daily_ranking(cls, page: int) -> list[str | int]:
+        """内部方法, 获取每日榜单作品"""
+        raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
+    async def _weekly_ranking(cls, page: int) -> list[str | int]:
+        """内部方法, 获取每周榜单作品"""
+        raise NotImplementedError
+
+    @classmethod
+    @abc.abstractmethod
+    async def _monthly_ranking(cls, page: int) -> list[str | int]:
+        """内部方法, 获取每月榜单作品"""
+        raise NotImplementedError
+
+    @classmethod
+    async def ranking(cls, mode: ArtworkRankParamType, page: int) -> list[Self]:
+        """获取榜单作品"""
+        page = 1 if page < 1 else page
+        match mode:
+            case 'daily':
+                artwork_ids = await cls._daily_ranking(page=page)
+            case 'weekly':
+                artwork_ids = await cls._weekly_ranking(page=page)
+            case 'monthly' | _:
+                artwork_ids = await cls._monthly_ranking(page=page)
+        return [cls(artwork_id=aid) for aid in artwork_ids]
+
+    @classmethod
+    def _get_user_meta_file(cls, uid: str | int, *, snapshot: bool = False) -> 'TemporaryResource':
+        if snapshot:
+            file_name = f'user_{uid}.{datetime.now().strftime("%Y%m%d%H%M%S")}.json.snapshot'
+        else:
+            file_name = f'user_{uid}.json'
+        return cls._get_path_config().meta_path('user', file_name)
+
+    @classmethod
+    @abc.abstractmethod
+    async def _query_user(cls, uid: str | int) -> ArtistUserData:
+        """内部方法, 获取用户信息"""
+        raise NotImplementedError
+
+    @classmethod
+    async def _dumps_user_meta(cls, user_data: ArtistUserData) -> None:
+        """内部方法, 缓存用户元数据, 默认额外保存当前快照副本"""
+        uid = user_data.uid
+        async with cls._get_user_meta_file(uid=uid).async_open('w', encoding='utf8') as af:
+            await af.write(user_data.model_dump_json())
+        async with cls._get_user_meta_file(uid, snapshot=True).async_open('w', encoding='utf8') as asf:
+            await asf.write(user_data.model_dump_json())
+
+    @classmethod
+    async def _fast_query_user(cls, uid: str | int, *, use_cache: bool = True) -> ArtistUserData:
+        """内部方法, 获取用户信息, 优先从本地缓存加载"""
+        if use_cache and cls._get_user_meta_file(uid=uid).is_file:
+            try:
+                async with cls._get_user_meta_file(uid=uid).async_open('r', encoding='utf8') as af:
+                    user_data = ArtistUserData.model_validate_json(await af.read())
+            except ValidationError:
+                user_data = await cls._query_user(uid=uid)
+                await cls._dumps_user_meta(user_data=user_data)
+        else:
+            user_data = await cls._query_user(uid=uid)
+            await cls._dumps_user_meta(user_data=user_data)
+
+        return user_data
+
+    @classmethod
+    async def query_user(cls, uid: str | int, *, use_cache: bool = True) -> ArtistUserData:
+        """获取用户信息"""
+        return await cls._fast_query_user(uid=uid, use_cache=use_cache)
+
+    @classmethod
+    async def _query_user_artworks(cls, uid: str | int) -> list[str | int]:
+        """内部方法, 获取用户作品列表"""
+        return list((await cls.query_user(uid=uid, use_cache=False)).artwork_ids)
+
+    @classmethod
+    async def query_user_artworks(cls, uid: str | int) -> list[Self]:
+        """获取用户作品列表"""
+        return [cls(artwork_id=aid) for aid in await cls._query_user_artworks(uid=uid)]
+
+    @classmethod
+    @abc.abstractmethod
+    async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
+        """内部方法, 获取用户收藏作品"""
+        raise NotImplementedError
+
+    @classmethod
+    async def query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[Self]:
+        """获取用户收藏作品"""
+        page = 1 if page < 1 else page
+        return [cls(artwork_id=aid) for aid in await cls._query_user_bookmark_artworks(uid=uid, page=page)]
+
+    @classmethod
+    @abc.abstractmethod
+    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+        """内部方法, 获取已关注的最新作品, 若无关注功能, 则为站点更新最新作品"""
+        raise NotImplementedError
+
+    @classmethod
+    async def query_follow_latest(cls, page: int) -> list[Self]:
+        """获取已关注的最新作品, 若无关注功能, 则为站点更新最新作品"""
+        return [cls(artwork_id=aid) for aid in await cls._query_follow_latest(page=page)]
+
+    # ------------------------------------------------------------------ #
+    # 作品获取及本地缓存相关方法
+    # ------------------------------------------------------------------ #
 
     async def _save_page(
             self,
             page_index: int = 0,
-            page_type: 'ArtworkPageParamType' = 'regular'
+            page_type: 'ArtworkPageParamType' = 'regular',
     ) -> 'TemporaryResource':
         """内部方法, 保存作品资源到本地"""
         artwork_data = await self.query()
@@ -196,14 +432,14 @@ class BaseArtworkProxy(abc.ABC):
                 page = artwork_data.index_pages[page_index].regular_file
 
         page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{page.file_ext.strip(".")}'
-        page_file = self.path_config.artwork_path(page_file_name)
+        page_file = self.artwork_path(page_file_name)
 
         # 如果已经存在则直接返回本地资源
         if page_file.is_file:
             return page_file
 
         # 没有的话再下载并保存文件
-        page_content = await self._query_page(page_index=page_index, page_type=page_type)
+        page_content = await self._get_resource_as_bytes(url=page.url)
         async with page_file.async_open('wb') as af:
             await af.write(page_content)
         return page_file
@@ -211,7 +447,7 @@ class BaseArtworkProxy(abc.ABC):
     async def _load_page(
             self,
             page_index: int = 0,
-            page_type: 'ArtworkPageParamType' = 'regular'
+            page_type: 'ArtworkPageParamType' = 'regular',
     ) -> bytes:
         """内部方法, 获取作品资源, 优先从本地缓存资源加载"""
         page_file = await self._save_page(page_index=page_index, page_type=page_type)
@@ -223,7 +459,7 @@ class BaseArtworkProxy(abc.ABC):
     async def get_page_bytes(
             self,
             page_index: int = 0,
-            page_type: 'ArtworkPageParamType' = 'regular'
+            page_type: 'ArtworkPageParamType' = 'regular',
     ) -> bytes:
         """获取作品文件内容, 使用本地缓存"""
         return await self._load_page(page_index=page_index, page_type=page_type)
@@ -231,7 +467,7 @@ class BaseArtworkProxy(abc.ABC):
     async def get_page_file(
             self,
             page_index: int = 0,
-            page_type: 'ArtworkPageParamType' = 'regular'
+            page_type: 'ArtworkPageParamType' = 'regular',
     ) -> 'TemporaryResource':
         """获取作品文件资源, 使用本地缓存"""
         return await self._save_page(page_index=page_index, page_type=page_type)
@@ -239,7 +475,7 @@ class BaseArtworkProxy(abc.ABC):
     async def get_all_pages_file(
             self,
             page_limit: int = 10,
-            page_type: 'ArtworkPageParamType' = 'regular'
+            page_type: 'ArtworkPageParamType' = 'regular',
     ) -> list['TemporaryResource']:
         """获取作品所有文件资源列表, 使用本地缓存
 
@@ -273,7 +509,431 @@ class BaseArtworkProxy(abc.ABC):
         """下载作品全部原图到本地"""
         return await self.get_all_pages_file(page_limit=0, page_type='original')
 
+    # ------------------------------------------------------------------ #
+    # 作品图片处理和生成相关方法
+    # ------------------------------------------------------------------ #
+
+    async def _process_artwork_page(
+            self,
+            page_index: int = 0,
+            *,
+            page_type: 'ArtworkPageParamType' = 'regular',
+            process_mode: 'ArtworkProcessParamType' = 'mark',
+    ) -> 'TemporaryResource':
+        """处理作品图片"""
+        artwork_data = await self.query()
+        origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
+
+        page_file = await self.get_page_file(page_index=page_index, page_type=page_type)
+        match process_mode:
+            case 'noise':
+                image = await ArtworkImageOps.handle_noise(image=page_file, origin_mark=origin_mark)
+                output_file_name = f'{page_file.stem}_noise_sigma16_marked.jpg'
+            case 'blur':
+                image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
+                output_file_name = f'{page_file.stem}_blur_marked.jpg'
+            case 'mark' | _:
+                image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
+                output_file_name = f'{page_file.stem}_marked.jpg'
+
+        output_file = self.path_config.processed_path(output_file_name)
+        return await image.save(file=output_file)
+
+    async def get_custom_proceed_page_file(
+            self,
+            page_index: int = 0,
+            *,
+            page_type: 'ArtworkPageParamType' = 'regular',
+            process_mode: 'ArtworkProcessParamType' = 'mark',
+    ) -> 'TemporaryResource':
+        """使用相关方法处理作品图片"""
+        return await self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode=process_mode)
+
+    async def get_auto_proceed_page_file(
+            self,
+            page_index: int = 0,
+            *,
+            page_type: 'ArtworkPageParamType' = 'regular',
+            need_blur_rating: int = 2,
+    ) -> 'TemporaryResource':
+        """根据作品分级处理作品图片
+
+        :param page_index: 作品图片页码
+        :param page_type: 作品图片类型
+        :param need_blur_rating: 需要模糊处理的最小分级等级, 默认为 2: QUESTIONABLE
+        :return: 处理后的图片文件
+        """
+        need_blur_rating = max(0, need_blur_rating)
+        artwork_data = await self.query()
+
+        if artwork_data.rating.value == 0:
+            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='mark')
+        elif artwork_data.rating.value < need_blur_rating:
+            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='noise')
+        else:
+            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='blur')
+
+        return await process
+
+    async def _get_preview_thumb_data(
+            self,
+            *,
+            page_type: 'ArtworkPageParamType' = 'preview',
+            need_blur_rating: int = 2,
+    ) -> 'PreviewImageThumbsItem':
+        """内部方法, 获取生成预览图所需要的每个小缩略图的数据"""
+        need_blur_rating = max(0, need_blur_rating)
+        artwork_data = await self.query()
+
+        page_file = await self.get_page_file(page_type=page_type)
+        if artwork_data.rating.value < need_blur_rating:
+            proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=artwork_data.aid)
+        else:
+            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=artwork_data.aid)
+
+        desc_text = await self.get_std_preview_desc()
+        thumb_data = await proceed_image.async_get_bytes()
+
+        return PreviewImageThumbsItem(desc_text=desc_text, thumb_data=thumb_data)
+
+    @classmethod
+    async def _get_artworks_preview_data(
+            cls,
+            preview_name: str,
+            artworks: Sequence[Self],
+            *,
+            page_type: 'ArtworkPageParamType' = 'preview',
+            need_blur_rating: int = 2,
+            limit: int = 100,
+    ) -> 'PreviewImagesData':
+        """内部方法, 获取生成预览图所需要的所有作品的数据"""
+        tasks = [
+            artwork._get_preview_thumb_data(page_type=page_type, need_blur_rating=need_blur_rating)
+            for artwork in artworks[:limit]
+        ]
+        thumb_items = list(await semaphore_gather(tasks=tasks, semaphore_num=6, filter_exception=True))
+        return PreviewImagesData(preview_name=preview_name, thumb_items=thumb_items)
+
+    @classmethod
+    async def generate_artworks_preview(
+            cls,
+            preview_name: str,
+            artworks: Sequence[Self],
+            *,
+            page_type: 'ArtworkPageParamType' = 'preview',
+            need_blur_rating: int = 2,
+            preview_size: tuple[int, int] = (256, 256),
+            header_color: tuple[int, int, int] = (0, 150, 250),
+            edge_scale: float = 1 / 32,
+            num_of_line: int = 6,
+            limit: int = 100,
+    ) -> 'TemporaryResource':
+        """生成多个作品的预览图
+
+        :param preview_name: 预览图标题
+        :param artworks: 作品列表
+        :param page_type: 作品图片类型
+        :param need_blur_rating: 需要模糊处理的最小分级等级
+        :param preview_size: 单个小缩略图的尺寸, 默认为 256x256
+        :param header_color: 页眉装饰色, 默认为 (0, 150, 250)
+        :param edge_scale: 缩略图添加白边的比例, 范围 0~1
+        :param num_of_line: 生成预览每一行的预览图数
+        :param limit: 限制生成时缩略图数量的最大值
+        :return: 生成的预览图文件
+        """
+        preview = await cls._get_artworks_preview_data(
+            preview_name=preview_name,
+            artworks=artworks,
+            page_type=page_type,
+            need_blur_rating=need_blur_rating,
+            limit=limit,
+        )
+        path_config = cls._get_path_config()
+
+        return await ArtworkImageOps.generate_preview_image(
+            preview=preview,
+            preview_size=preview_size,
+            font_path=path_config.theme_font,
+            output_folder=path_config.preview_path,
+            header_color=header_color,
+            edge_scale=edge_scale,
+            num_of_line=num_of_line,
+            limit=limit,
+        )
+
+    # ------------------------------------------------------------------ #
+    # 内部数据库 (artwork_collection) 查询相关方法
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _convert_proxy_data_to_add_artwork_params(data: ArtworkProxyData) -> dict[str, Any]:
+        return {
+            'origin': data.origin,
+            'aid': data.aid,
+            'uid': data.uid,
+            'title': data.title,
+            'uname': data.uname,
+            'classification': data.classification,
+            'rating': data.rating,
+            'width': data.width,
+            'height': data.height,
+            'url': data.source,
+            'source': data.source,
+            'cover_page': data.cover_page_url,
+            'raw_tags': ','.join(data.tags),
+            'tag_handler': None,
+            'description': data.description,
+            'published_at': data.published_at,
+        }
+
+    @staticmethod
+    async def query_db_any_origin_by_condition(
+            keywords: str | Sequence[str] | None,
+            origin: str | Sequence[str] | None = None,
+            page: int = 1,
+            size: int = 3,
+            *,
+            allow_classification_range: tuple[int, int] | None = None,
+            allow_rating_range: tuple[int, int] | None = None,
+            acc_mode: bool = False,
+            ratio: int | None = None,
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
+    ) -> list[tuple[str, str]]:
+        """从数据库所有或任意指定来源根据要求查询作品
+
+        default classification range: 3~4, default rating range: 0~0
+        :return: (origin, artwork_id)
+        """
+        if isinstance(keywords, str):
+            keywords = [keywords]
+
+        if allow_classification_range is None:
+            allow_classification_range = (3, 4)
+
+        if allow_rating_range is None:
+            allow_rating_range = (0, 0)
+
+        async with ArtworkCollectionDAL.create() as dal:
+            result = await dal.query_by_condition(
+                origin=origin,
+                keywords=keywords,
+                page=page,
+                size=size,
+                classification_min=min(allow_classification_range),
+                classification_max=max(allow_classification_range),
+                rating_min=min(allow_rating_range),
+                rating_max=max(allow_rating_range),
+                acc_mode=acc_mode,
+                ratio=ratio,
+                order_mode=order_mode,
+            )
+        return [(x.origin, x.aid) for x in result]
+
+    @classmethod
+    async def query_db_by_condition(
+            cls,
+            keywords: str | Sequence[str] | None,
+            page: int = 1,
+            size: int = 3,
+            *,
+            allow_classification_range: tuple[int, int] | None = None,
+            allow_rating_range: tuple[int, int] | None = None,
+            acc_mode: bool = False,
+            ratio: int | None = None,
+            order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
+    ) -> list[Self]:
+        """从数据库根据要求查询作品
+
+        default classification range: 3~4, default rating range: 0~0
+        """
+        origin_name = cls._get_base_origin_name()
+        result = await cls.query_db_any_origin_by_condition(
+            origin=origin_name,
+            keywords=keywords,
+            page=page,
+            size=size,
+            allow_classification_range=allow_classification_range,
+            allow_rating_range=allow_rating_range,
+            acc_mode=acc_mode,
+            ratio=ratio,
+            order_mode=order_mode,
+        )
+        return [cls(artwork_id=aid) for origin, aid in result if origin == origin_name]
+
+    @classmethod
+    async def query_db_random(
+            cls,
+            num: int = 3,
+            *,
+            allow_classification_range: tuple[int, int] | None = None,
+            allow_rating_range: tuple[int, int] | None = None,
+            ratio: int | None = None,
+    ) -> list[Self]:
+        """从数据库获取随机作品
+
+        default classification range: 3~4, default rating range: 0~0
+        """
+        return await cls.query_db_by_condition(
+            keywords=None,
+            page=1,
+            size=num,
+            ratio=ratio,
+            allow_classification_range=allow_classification_range,
+            allow_rating_range=allow_rating_range,
+        )
+
+    @classmethod
+    async def query_db_classification_statistic(
+            cls,
+            *,
+            keywords: str | Sequence[str] | None = None,
+    ) -> 'ArtworkClassificationStatistic':
+        """查询数据库按分类统计收录作品数"""
+        if isinstance(keywords, str):
+            keywords = [keywords]
+
+        async with ArtworkCollectionDAL.create() as dal:
+            result = await dal.query_classification_statistic(
+                origin=cls._get_base_origin_name(),
+                keywords=keywords,
+            )
+        return result
+
+    @classmethod
+    async def query_db_rating_statistic(
+            cls,
+            *,
+            keywords: str | Sequence[str] | None = None,
+    ) -> 'ArtworkRatingStatistic':
+        """查询数据库按分级统计收录作品数"""
+        if isinstance(keywords, str):
+            keywords = [keywords]
+
+        async with ArtworkCollectionDAL.create() as dal:
+            result = await dal.query_rating_statistic(
+                origin=cls._get_base_origin_name(),
+                keywords=keywords,
+            )
+        return result
+
+    @classmethod
+    async def query_db_user_all_artworks(
+            cls,
+            uid: str | None = None,
+            uname: str | None = None,
+    ) -> list[Self]:
+        """从数据库通过 uid 或用户名精准查找用户所有作品"""
+        async with ArtworkCollectionDAL.create() as dal:
+            result = await dal.query_user_all_aids(
+                origin=cls._get_base_origin_name(),
+                uid=uid,
+                uname=uname,
+            )
+        return [cls(artwork_id=aid) for aid in result]
+
+    @classmethod
+    async def query_db_exists_artworks(
+            cls,
+            aids: Sequence[str],
+            *,
+            filter_classification: int | None = None,
+            filter_rating: int | None = None,
+    ) -> list[Self]:
+        """从数据库根据提供的 aids 列表查询数据库中已存在的列表中的作品
+
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param filter_classification: 筛选指定的作品分类, 只有该分类的作品都会被视为存在
+        :param filter_rating: 筛选指定的作品分级, 只有该分级的作品都会被视为存在
+        """
+        async with ArtworkCollectionDAL.create() as dal:
+            result = await dal.query_exists_aids(
+                origin=cls._get_base_origin_name(),
+                aids=aids,
+                filter_classification=filter_classification,
+                filter_rating=filter_rating,
+            )
+        return [cls(artwork_id=aid) for aid in result]
+
+    @classmethod
+    async def query_db_not_exists_artworks(
+            cls,
+            aids: Sequence[str],
+            *,
+            exclude_classification: int | None = None,
+            exclude_rating: int | None = None,
+    ) -> list[Self]:
+        """从数据库根据提供的 aids 列表查询数据库中不存在的列表中的作品
+
+        :param aids: 待匹配的作品 artwork_id 清单
+        :param exclude_classification: 排除指定的作品分类, 所有非该分类的作品都会被视为不存在
+        :param exclude_rating: 排除指定的作品分级, 所有非该分级的作品都会被视为不存在
+        """
+        async with ArtworkCollectionDAL.create() as dal:
+            result = await dal.query_not_exists_aids(
+                origin=cls._get_base_origin_name(),
+                aids=aids,
+                exclude_classification=exclude_classification,
+                exclude_rating=exclude_rating,
+            )
+        return [cls(artwork_id=aid) for aid in result]
+
+    async def add_and_upgrade_artwork_into_database(
+            self,
+            *,
+            use_cache: bool = True,
+            classification: int | None = None,
+            rating: int | None = None,
+            force_update_cr: bool = False,
+    ) -> None:
+        """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在则更新
+
+        :param use_cache: 使用缓存的作品信息
+        :param classification: 指定写入的 classification
+        :param rating: 指定写入的 rating
+        :param force_update_cr: 是否强制更新数据库中存在的 classification 及 rating 标签, 若否则仅大于已有值时更新
+        """
+        artwork_data = await self.query(use_cache=use_cache)
+        classification = classification if (classification is not None) else artwork_data.classification
+        rating = rating if (rating is not None) else artwork_data.rating
+
+        async with ArtworkCollectionDAL.create() as dal:
+            await dal.add_artwork_update_exist(
+                **self._convert_proxy_data_to_add_artwork_params(data=artwork_data),
+                classification=classification,
+                rating=rating,
+                force_update_cr=force_update_cr,
+            )
+
+    async def add_artwork_into_database_ignore_exists(
+            self,
+            *,
+            use_cache: bool = True,
+            classification: int | None = None,
+            rating: int | None = None,
+    ) -> None:
+        """查询图站获取作品元数据, 向数据库新增该作品信息, 若已存在忽略
+
+        :param use_cache: 使用缓存的作品信息
+        :param classification: 指定写入的 classification
+        :param rating: 指定写入的 rating
+        """
+        artwork_data = await self.query(use_cache=use_cache)
+        classification = classification if (classification is not None) else artwork_data.classification
+        rating = rating if (rating is not None) else artwork_data.rating
+
+        async with ArtworkCollectionDAL.create() as dal:
+            await dal.add_artwork_ignore_exist(
+                **self._convert_proxy_data_to_add_artwork_params(data=artwork_data),
+                classification=classification,
+                rating=rating,
+            )
+
+    async def delete_artwork_from_database(self) -> None:
+        """从数据库删除该作品信息"""
+        async with ArtworkCollectionDAL.create() as dal:
+            await dal.delete(origin=self.origin_name, aid=self.s_aid)
+
 
 __all__ = [
-    'BaseArtworkProxy'
+    'BaseArtworkProxy',
 ]

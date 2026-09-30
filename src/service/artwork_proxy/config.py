@@ -56,5 +56,5 @@ class ArtworkProxyPathConfig:
 
 
 __all__ = [
-    'ArtworkProxyPathConfig'
+    'ArtworkProxyPathConfig',
 ]
