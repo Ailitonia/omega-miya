@@ -8,10 +8,12 @@
 @Software       : PyCharm
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .internal import BaseArtworkProxy
 
 from .sites import (
-    BehoimiArtworkProxy,
     DanbooruArtworkProxy,
     GelbooruArtworkProxy,
     KonachanArtworkProxy,
@@ -22,27 +24,36 @@ from .sites import (
     YandereArtworkProxy,
 )
 
-type ALLOW_ARTWORK_ORIGIN = Literal[
-    'pixiv',
-    'danbooru',
-    'gelbooru',
-    'behoimi',
-    'konachan',
-    'yandere',
-    'local_collected_artwork',
-    'none',
-]
+AVAILABLE_ARTWORK_PROXY: dict[str, type['BaseArtworkProxy']] = {
+    x.get_origin_name(): x
+    for x in [
+        DanbooruArtworkProxy,
+        GelbooruArtworkProxy,
+        KonachanArtworkProxy,
+        KonachanSafeArtworkProxy,
+        LocalCollectedArtworkProxy,
+        NoneArtworkProxy,
+        PixivArtworkProxy,
+        YandereArtworkProxy,
+    ]
+}
+"""所有可用的 ArtworkProxy"""
+
+
+def get_artwork_proxy(origin_name: str) -> type['BaseArtworkProxy'] | None:
+    """根据 origin_name 获取对应图站的 ArtworkProxy 类"""
+    return AVAILABLE_ARTWORK_PROXY.get(origin_name, None)
 
 
 __all__ = [
-    'ALLOW_ARTWORK_ORIGIN',
+    'AVAILABLE_ARTWORK_PROXY',
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',
-    'LocalCollectedArtworkProxy',
-    'BehoimiArtworkProxy',
     'KonachanArtworkProxy',
     'KonachanSafeArtworkProxy',
-    'YandereArtworkProxy',
+    'LocalCollectedArtworkProxy',
     'NoneArtworkProxy',
     'PixivArtworkProxy',
+    'YandereArtworkProxy',
+    'get_artwork_proxy',
 ]

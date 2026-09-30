@@ -12,7 +12,6 @@ from .danbooru import DanbooruArtworkProxy
 from .gelbooru import GelbooruArtworkProxy
 from .local import LocalCollectedArtworkProxy
 from .moebooru import (
-    BehoimiArtworkProxy,
     KonachanArtworkProxy,
     KonachanSafeArtworkProxy,
     YandereArtworkProxy,
@@ -24,7 +23,6 @@ __all__ = [
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',
     'LocalCollectedArtworkProxy',
-    'BehoimiArtworkProxy',
     'KonachanArtworkProxy',
     'KonachanSafeArtworkProxy',
     'YandereArtworkProxy',

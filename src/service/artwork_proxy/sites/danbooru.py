@@ -8,39 +8,40 @@
 @Software       : PyCharm
 """
 
-import abc
 from typing import TYPE_CHECKING, Optional
 
 from src.exception import WebSourceException
-from src.utils.booru_api import danbooru_api
-from src.utils.booru_api.danbooru import BaseDanbooruAPI, DanbooruAPI
-from ..add_ons import ImageOpsPlusPoolMixin
+from src.utils.booru_api.danbooru import DanbooruAPI
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData, ArtworkPageFile, ArtworkPool
+from ..models import ArtworkProxyData, ArtistUserData, ArtworkPageFile, ArtworkPoolData
 
 if TYPE_CHECKING:
     from src.utils.booru_api.models.danbooru import PostMediaAsset, PostVariantTypes
 
 
-class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
-    """Danbooru 图库统一接口实现"""
+class DanbooruArtworkProxy(BaseArtworkProxy):
+    """https://danbooru.donmai.us 主站图库统一接口实现"""
+
+    _api: DanbooruAPI | None = None
 
     @classmethod
-    @abc.abstractmethod
-    def _get_api(cls) -> BaseDanbooruAPI:
+    def _get_base_origin_name(cls) -> str:
+        return 'danbooru'
+
+    @classmethod
+    def _get_api(cls) -> DanbooruAPI:
         """内部方法, 获取 API 实例"""
-        raise NotImplementedError
+        if cls._api is None:
+            cls._api = DanbooruAPI()
+        return cls._api
 
     @classmethod
     async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
         return await cls._get_api().get_resource_as_bytes(url=url, timeout=timeout)
 
-    @classmethod
-    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
-        return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
-
     @staticmethod
     def _get_variant_page_file(variant: Optional['PostVariantTypes']) -> ArtworkPageFile:
+        """内部方法, 根据作品图片类型变种解析对应 Page 信息"""
         if variant is None:
             model_data = {
                 'url': 'https://example.com/FileNotFound',
@@ -72,10 +73,10 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
 
     @classmethod
     def _get_original_file(cls, media_asset: 'PostMediaAsset') -> ArtworkPageFile:
-        if media_asset.variant_type_full is not None:
-            return cls._get_variant_page_file(variant=media_asset.variant_type_full)
-        else:
+        if media_asset.variant_type_original is not None:
             return cls._get_variant_page_file(variant=media_asset.variant_type_original)
+        else:
+            return cls._get_variant_page_file(variant=media_asset.variant_type_full)
 
     @classmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
@@ -95,7 +96,7 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data]
 
-    async def _query(self) -> ArtworkData:
+    async def _query(self) -> ArtworkProxyData:
         artwork_data = await self._get_api().post_show(id_=self.i_aid)
 
         """Danbooru 图站收录作品默认分类分级
@@ -149,11 +150,11 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             title = artwork_data.tag_string_copyright
             description = None
 
-        return ArtworkData.model_validate({
-            'origin': self.get_base_origin_name(),
+        return ArtworkProxyData.model_validate({
+            'origin': self._get_base_origin_name(),
             'aid': artwork_data.id,
-            'title': title,
             'uid': artwork_data.uploader_id,
+            'title': title,
             'uname': artwork_data.tag_string_artist,
             'classification': classification,
             'rating': rating,
@@ -164,13 +165,14 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
+                'page_index': 0,
                 'preview_file': self._get_preview_file(media_asset=artwork_data.media_asset),
                 'regular_file': self._get_regular_file(media_asset=artwork_data.media_asset),
                 'original_file': self._get_original_file(media_asset=artwork_data.media_asset)
-            }]
+            }],
         })
 
-    async def get_std_desc(self, *, desc_len_limit: int = 128) -> str:
+    async def get_std_desc(self, *, split_len: int = 128) -> str:
         artwork_data = await self.query()
 
         tag_t = ' '.join(f'#{x.strip()}' for x in artwork_data.tags)
@@ -183,37 +185,65 @@ class BaseDanbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         )
         return desc_t.strip()
 
-    async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
+    async def get_std_preview_desc(self, *, split_len: int = 12) -> str:
         artwork_data = await self.query()
 
         artist = f'Artist: {artwork_data.uname}'
-        artist = f'{artist[:text_len_limit]}...' if len(artist) > text_len_limit else artist
+        artist = f'{artist[:split_len]}...' if len(artist) > split_len else artist
 
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}\n{artist}'
 
-
-class DanbooruArtworkProxy(BaseDanbooruArtworkProxy, ImageOpsPlusPoolMixin):
-    """https://danbooru.donmai.us 主站图库统一接口实现"""
-
     @classmethod
-    def _get_api(cls) -> DanbooruAPI:
-        return danbooru_api
-
-    @classmethod
-    def get_base_origin_name(cls) -> str:
-        return 'danbooru'
-
-    @classmethod
-    async def _query_pool(cls, pool_id: str) -> ArtworkPool:
+    async def _query_pool(cls, pool_id: str | int) -> ArtworkPoolData:
         pool_data = await cls._get_api().pool_show(id_=int(pool_id))
 
-        return ArtworkPool.model_validate({
-            'origin': cls.get_base_origin_name(),
+        return ArtworkPoolData.model_validate({
+            'origin': cls._get_base_origin_name(),
             'pool_id': pool_id,
             'name': pool_data.name,
             'description': pool_data.description,
             'artwork_ids': pool_data.post_ids,
         })
+
+    @classmethod
+    async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
+        artworks_data = await cls._get_api().explore_popular_posts()
+        return [x.id for x in artworks_data[:limit]]
+
+    @classmethod
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _daily_ranking(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _weekly_ranking(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _monthly_ranking(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_user(cls, uid: str | int) -> ArtistUserData:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
 
 
 __all__ = [

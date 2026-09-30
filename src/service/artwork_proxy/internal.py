@@ -57,7 +57,7 @@ class BaseArtworkProxy(abc.ABC):
         self.artwork_data: ArtworkProxyData | None = None
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(origin={self.origin_name}, artwork_id={self.__id})'
+        return f'{self.__class__.__name__}(origin={self._get_base_origin_name()}, artwork_id={self.__id})'
 
     @property
     def i_aid(self) -> int:
@@ -111,12 +111,12 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def meta_path(self) -> 'TemporaryResource':
         """本类型作品元数据文件目录"""
-        return self.path_config.meta_path(self.sliced_aid_subdir_name)
+        return self._get_path_config().meta_path(self.sliced_aid_subdir_name)
 
     @property
     def artwork_path(self) -> 'TemporaryResource':
         """本类型作品图片缓存文件目录"""
-        return self.path_config.artwork_path(self.sliced_aid_subdir_name)
+        return self._get_path_config().artwork_path(self.sliced_aid_subdir_name)
 
     @property
     def meta_file(self) -> 'TemporaryResource':
@@ -541,7 +541,7 @@ class BaseArtworkProxy(abc.ABC):
                 image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
                 output_file_name = f'{page_file.stem}_marked.jpg'
 
-        output_file = self.path_config.processed_path(output_file_name)
+        output_file = self._get_path_config().processed_path(output_file_name)
         return await image.save(file=output_file)
 
     async def get_custom_proceed_page_file(
@@ -936,7 +936,7 @@ class BaseArtworkProxy(abc.ABC):
     async def delete_artwork_from_database(self) -> None:
         """从数据库删除该作品信息"""
         async with ArtworkCollectionDAL.create() as dal:
-            await dal.delete(origin=self.origin_name, aid=self.s_aid)
+            await dal.delete(origin=self._get_base_origin_name(), aid=self.s_aid)
 
 
 __all__ = [

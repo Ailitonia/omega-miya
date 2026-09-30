@@ -10,26 +10,21 @@
 
 import random
 
-from src.utils.pixiv_api import PixivArtwork, PixivUser
-from ..add_ons import ImageOpsMixin, UserSpaceMixin
+from src.utils.pixiv_api import PixivArtwork, PixivUser, Pixivision
 from ..internal import BaseArtworkProxy
-from ..models import ArtistUserData, ArtworkData
+from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
 
 
-class _PixivArtworkProxy(BaseArtworkProxy):
+class PixivArtworkProxy(BaseArtworkProxy):
     """Pixiv 图库统一接口实现"""
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
+    def _get_base_origin_name(cls) -> str:
         return 'pixiv'
 
     @classmethod
     async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
         return await PixivArtwork.get_resource_as_bytes(url=url, timeout=timeout)
-
-    @classmethod
-    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
-        return await PixivArtwork.get_resource_as_text(url=url, timeout=timeout)
 
     @classmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
@@ -41,12 +36,12 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         page = 1 if page is None else page
         if kwargs:
             artworks_data = await PixivArtwork.search(word=keyword, page=page, **kwargs)
-            return [x.id for x in artworks_data.searching_result]
+            return [x.id for x in artworks_data.artworks]
         else:
             artworks_data = await PixivArtwork.search_by_default_popular_condition(word=keyword, page=page)
-            return [x.id for x in artworks_data.searching_result]
+            return [x.id for x in artworks_data.artworks]
 
-    async def _query(self) -> ArtworkData:
+    async def _query(self) -> ArtworkProxyData:
         artwork_data = await PixivArtwork(pid=self.i_aid).query_artwork()
 
         """Pixiv 主站作品默认分类分级
@@ -56,11 +51,11 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         not_r18    (1, -1)    (0, -1)
         """
 
-        return ArtworkData.model_validate({
-            'origin': self.get_base_origin_name(),
+        return ArtworkProxyData.model_validate({
+            'origin': self._get_base_origin_name(),
             'aid': artwork_data.pid,
-            'title': artwork_data.title,
             'uid': artwork_data.uid,
+            'title': artwork_data.title,
             'uname': artwork_data.uname,
             'classification': 1 if artwork_data.is_ai else 0,
             'rating': 3 if artwork_data.is_r18 else -1,
@@ -75,31 +70,36 @@ class _PixivArtworkProxy(BaseArtworkProxy):
             'source': artwork_data.url,
             'pages': [
                 {
+                    'page_index': index,
                     'preview_file': {
                         'url': page.small,
-                        'file_ext': self.parse_url_file_suffix(page.small),  # type: ignore
+                        'file_ext': self.parse_url_file_suffix(page.small),
                         'width': None,
                         'height': None,
                     },
                     'regular_file': {
                         'url': page.regular,
-                        'file_ext': self.parse_url_file_suffix(page.regular),  # type: ignore
+                        'file_ext': self.parse_url_file_suffix(page.regular),
                         'width': None,
                         'height': None,
                     },
                     'original_file': {
                         'url': page.original,
-                        'file_ext': self.parse_url_file_suffix(page.original),  # type: ignore
+                        'file_ext': self.parse_url_file_suffix(page.original),
                         'width': artwork_data.width,
                         'height': artwork_data.height,
                     }
                 }
-                for _, page in artwork_data.all_page.items()
+                for index, page in artwork_data.index_pages.items()
             ],
-            'extra_resource': [artwork_data.ugoira_meta.originalSrc] if artwork_data.ugoira_meta is not None else []
+            'extra_resource': (
+                [artwork_data.ugoira_meta.originalSrc]
+                if artwork_data.ugoira_meta is not None
+                else []
+            ),
         })
 
-    async def get_std_desc(self, *, desc_len_limit: int = 128) -> str:
+    async def get_std_desc(self, *, split_len: int = 128) -> str:
         artwork_data = await self.query()
 
         tag_t = ' '.join(f'#{x.strip()}' for x in artwork_data.tags)
@@ -109,29 +109,36 @@ class _PixivArtworkProxy(BaseArtworkProxy):
         else:
             desc_t = (
                 f'「{artwork_data.title}」/「{artwork_data.uname}」\n{tag_t}\n{artwork_data.source}\n{"-" * 16}\n'
-                f'{artwork_data.description[:desc_len_limit]}'
-                f'{"." * 6 if len(artwork_data.description) > desc_len_limit else ""}'
+                f'{artwork_data.description[:split_len]}'
+                f'{"." * 6 if len(artwork_data.description) > split_len else ""}'
             )
         return desc_t.strip()
 
-    async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
+    async def get_std_preview_desc(self, *, split_len: int = 12) -> str:
         artwork_data = await self.query()
 
         origin = f'{artwork_data.origin.title()}: {artwork_data.aid}'
         title = (
-            f'{artwork_data.title[:text_len_limit]}...'
-            if len(artwork_data.title) > text_len_limit
+            f'{artwork_data.title[:split_len]}...'
+            if len(artwork_data.title) > split_len
             else artwork_data.title
         )
 
         author = f'Author: {artwork_data.uname}'
-        author = f'{author[:text_len_limit]}...' if len(author) > text_len_limit else author
+        author = f'{author[:split_len]}...' if len(author) > split_len else author
 
         return f'{origin}\n{title}\n{author}'
 
-
-class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
-    """Pixiv 图库统一接口实现"""
+    @classmethod
+    async def _query_pool(cls, pool_id: str | int) -> ArtworkPoolData:
+        pool_data = await Pixivision(aid=pool_id).query_article()
+        return ArtworkPoolData.model_validate({
+            'origin': cls._get_base_origin_name(),
+            'pool_id': str(pool_id),
+            'name': pool_data.title,
+            'description': pool_data.description,
+            'artwork_ids': [x.artwork_id for x in pool_data.artwork_list],
+        })
 
     @classmethod
     async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
@@ -140,9 +147,8 @@ class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
 
     @classmethod
     async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
-        if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdigit()):
-            recommend_result = await PixivArtwork(pid=int(base_aid)).query_recommend(init_limit=limit)
-            artwork_ids = [x.id for x in recommend_result.illusts]
+        if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdecimal()):
+            artwork_ids = (await PixivArtwork(pid=base_aid).query_recommend(init_limit=limit)).illust_ids
         else:
             artwork_ids = (await PixivArtwork.query_top_illust()).recommend_pids
         return list(artwork_ids[:limit])
@@ -164,20 +170,21 @@ class PixivArtworkProxy(_PixivArtworkProxy, ImageOpsMixin, UserSpaceMixin):
 
     @classmethod
     async def _query_user(cls, uid: str | int) -> ArtistUserData:
-        user_data = await PixivUser(uid=uid).query_user_data()
+        user_data = await PixivUser(uid=uid).query_user()
         return ArtistUserData.model_validate({
-            'origin': cls.get_base_origin_name(),
+            'origin': cls._get_base_origin_name(),
             'uid': user_data.user_id,
             'name': user_data.name,
             'profile_image': user_data.image,
-            'artwork_ids': user_data.manga_illusts
+            'artwork_ids': user_data.manga_illusts,
         })
 
     @classmethod
     async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
         return list((await PixivUser(uid=uid).query_user_bookmarks(page=page)).illust_ids)
 
-    async def _follow_latest(self, page: int) -> list[str | int]:
+    @classmethod
+    async def _query_follow_latest(cls, page: int) -> list[str | int]:
         return list((await PixivArtwork.query_following_user_latest_illust(page=page)).illust_ids)
 
 

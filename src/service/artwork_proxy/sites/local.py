@@ -47,7 +47,7 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
 
     @property
     def self_file(self) -> 'TemporaryResource':
-        return self.path_config.artwork_path(self.s_aid)
+        return self._get_path_config().artwork_path(self.s_aid)
 
     async def _query(self) -> ArtworkProxyData:
         self.self_file.raise_not_file()

@@ -10,15 +10,19 @@
 
 import abc
 
-from src.utils.booru_api import behoimi_api, konachan_api, konachan_safe_api, yandere_api
-from src.utils.booru_api.moebooru import BaseMoebooruAPI, BehoimiAPI, KonachanAPI, KonachanSafeAPI, YandereAPI
-from ..add_ons import ImageOpsPlusPoolMixin
+from src.utils.booru_api.moebooru import BaseMoebooruAPI, KonachanAPI, KonachanSafeAPI, YandereAPI
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData, ArtworkPool
+from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
 
 
 class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
     """Moebooru 图库统一接口实现"""
+
+    _api: BaseMoebooruAPI | None = None
+
+    @classmethod
+    def _get_base_origin_name(cls) -> str:
+        return 'moebooru'
 
     @classmethod
     @abc.abstractmethod
@@ -31,10 +35,6 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         return await cls._get_api().get_resource_as_bytes(url=url, timeout=timeout)
 
     @classmethod
-    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
-        return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
-
-    @classmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
         artworks_data = await cls._get_api().posts_index(tags='order:random', limit=limit)
         return [x.id for x in artworks_data]
@@ -44,7 +44,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data]
 
-    async def _query(self) -> ArtworkData:
+    async def _query(self) -> ArtworkProxyData:
         artwork_data = await self._get_api().post_show(id_=self.i_aid)
 
         """moebooru 图站收录作品默认分类分级
@@ -82,15 +82,15 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             case _:
                 rating = -1
 
-        original_url = 'https://example.com/FileNotFound' if not artwork_data.file_url else artwork_data.file_url
-        regular_url = original_url if not artwork_data.sample_url else artwork_data.sample_url
-        preview_url = regular_url if not artwork_data.preview_url else artwork_data.preview_url
+        original_url = artwork_data.file_url if artwork_data.file_url else 'https://example.com/FileNotFound'
+        regular_url = artwork_data.sample_url if artwork_data.sample_url else original_url
+        preview_url = artwork_data.preview_url if artwork_data.preview_url else regular_url
 
-        return ArtworkData.model_validate({
-            'origin': self.get_base_origin_name(),
+        return ArtworkProxyData.model_validate({
+            'origin': self._get_base_origin_name(),
             'aid': artwork_data.id,
-            'title': f'Upload by: {artwork_data.author}',
             'uid': -1 if artwork_data.creator_id is None else artwork_data.creator_id,
+            'title': f'Upload by: {artwork_data.author}',
             'uname': artwork_data.author,
             'classification': classification,
             'rating': rating,
@@ -101,6 +101,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
+                'page_index': 0,
                 'preview_file': {
                     'url': preview_url,
                     'file_ext': self.parse_url_file_suffix(preview_url),
@@ -119,10 +120,10 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
                     'width': artwork_data.width,
                     'height': artwork_data.height,
                 },
-            }]
+            }],
         })
 
-    async def get_std_desc(self, *, desc_len_limit: int = 128) -> str:
+    async def get_std_desc(self, *, split_len: int = 128) -> str:
         artwork_data = await self.query()
 
         tag_t = ' '.join(f'#{x.strip()}' for x in artwork_data.tags)
@@ -134,77 +135,116 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         )
         return desc_t.strip()
 
-    async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
+    async def get_std_preview_desc(self, *, split_len: int = 12) -> str:
         artwork_data = await self.query()
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}'
 
-
-class BaseMoebooruPlusPoolArtworkProxy(BaseMoebooruArtworkProxy, ImageOpsPlusPoolMixin, abc.ABC):
-    """Moebooru 图库统一接口附加图集处理插件"""
-
     @classmethod
-    async def _query_pool(cls, pool_id: str) -> ArtworkPool:  # 提前实现 ImageOpsPlusPoolMixin 基类方法
+    async def _query_pool(cls, pool_id: str | int) -> ArtworkPoolData:
         pool_data = await cls._get_api().pool_posts_show(pool_id=int(pool_id))
 
-        return ArtworkPool.model_validate({
-            'origin': cls.get_base_origin_name(),
+        return ArtworkPoolData.model_validate({
+            'origin': cls._get_base_origin_name(),
             'pool_id': pool_id,
             'name': pool_data.name,
             'description': pool_data.description,
             'artwork_ids': [] if pool_data.posts is None else pool_data.posts,
         })
 
-
-class BehoimiArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
-    """http://behoimi.org 主站图库统一接口实现"""
+    @classmethod
+    async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
+        artworks_data = await cls._get_api().posts_show_popular_recent()
+        return [x.id for x in artworks_data[:limit]]
 
     @classmethod
-    def _get_api(cls) -> BehoimiAPI:
-        return behoimi_api
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdecimal()):
+            artworks_data = await cls._get_api().post_show_similar(id_=int(base_aid))
+        else:
+            artworks_data = await cls._get_api().posts_show_popular_recent()
+        return [x.id for x in artworks_data[:limit]]
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
-        return 'behoimi'
+    async def _daily_ranking(cls, page: int) -> list[str | int]:
+        artworks_data = await cls._get_api().posts_show_popular_by_day()
+        return [x.id for x in artworks_data]
+
+    @classmethod
+    async def _weekly_ranking(cls, page: int) -> list[str | int]:
+        artworks_data = await cls._get_api().posts_show_popular_by_week()
+        return [x.id for x in artworks_data]
+
+    @classmethod
+    async def _monthly_ranking(cls, page: int) -> list[str | int]:
+        artworks_data = await cls._get_api().posts_show_popular_by_month()
+        return [x.id for x in artworks_data]
+
+    @classmethod
+    async def _query_user(cls, uid: str | int) -> ArtistUserData:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
 
 
-class KonachanArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
+class KonachanArtworkProxy(BaseMoebooruArtworkProxy):
     """https://konachan.com 主站图库统一接口实现, 主站有 Cloudflare 盾, 建议直接使用全年龄站接口"""
+
+    _api: KonachanAPI | None = None
 
     @classmethod
     def _get_api(cls) -> KonachanAPI:
-        return konachan_api
+        if cls._api is None:
+            cls._api = KonachanAPI()
+        return cls._api
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
+    def _get_base_origin_name(cls) -> str:
         return 'konachan'
 
 
-class KonachanSafeArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
+class KonachanSafeArtworkProxy(BaseMoebooruArtworkProxy):
     """https://konachan.net 全年龄站图库统一接口实现, 与主站共用后端, 只是网站页面不显示 rating:E 的作品"""
+
+    _api: KonachanSafeAPI | None = None
 
     @classmethod
     def _get_api(cls) -> KonachanSafeAPI:
-        return konachan_safe_api
+        if cls._api is None:
+            cls._api = KonachanSafeAPI()
+        return cls._api
+
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
+    def _get_base_origin_name(cls) -> str:
         return 'konachan'
 
 
-class YandereArtworkProxy(BaseMoebooruPlusPoolArtworkProxy):
+class YandereArtworkProxy(BaseMoebooruArtworkProxy):
     """https://yande.re 主站图库统一接口实现"""
+
+    _api: YandereAPI | None = None
 
     @classmethod
     def _get_api(cls) -> YandereAPI:
-        return yandere_api
+        if cls._api is None:
+            cls._api = YandereAPI()
+        return cls._api
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
+    def _get_base_origin_name(cls) -> str:
         return 'yandere'
 
 
 __all__ = [
-    'BehoimiArtworkProxy',
     'KonachanArtworkProxy',
     'KonachanSafeArtworkProxy',
     'YandereArtworkProxy',

@@ -8,31 +8,30 @@
 @Software       : PyCharm
 """
 
-import abc
-
-from src.utils.booru_api import gelbooru_api
-from src.utils.booru_api.gelbooru import BaseGelbooruAPI, GelbooruAPI
-from ..add_ons import ImageOpsMixin
+from src.utils.booru_api.gelbooru import GelbooruAPI
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkData
+from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
 
 
-class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
-    """Gelbooru 图库统一接口实现"""
+class GelbooruArtworkProxy(BaseArtworkProxy):
+    """https://gelbooru.com 主站图库统一接口实现"""
+
+    _api: GelbooruAPI | None = None
 
     @classmethod
-    @abc.abstractmethod
-    def _get_api(cls) -> BaseGelbooruAPI:
+    def _get_base_origin_name(cls) -> str:
+        return 'gelbooru'
+
+    @classmethod
+    def _get_api(cls) -> GelbooruAPI:
         """内部方法, 获取 API 实例"""
-        raise NotImplementedError
+        if cls._api is None:
+            cls._api = GelbooruAPI()
+        return cls._api
 
     @classmethod
     async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
         return await cls._get_api().get_resource_as_bytes(url=url, timeout=timeout)
-
-    @classmethod
-    async def _get_resource_as_text(cls, url: str, *, timeout: int = 10) -> str:
-        return await cls._get_api().get_resource_as_text(url=url, timeout=timeout)
 
     @classmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
@@ -44,7 +43,7 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         artworks_data = await cls._get_api().posts_index(tags=keyword, page=page, **kwargs)
         return [x.id for x in artworks_data.post]
 
-    async def _query(self) -> ArtworkData:
+    async def _query(self) -> ArtworkProxyData:
         artwork_data = await self._get_api().post_show(id_=self.i_aid)
 
         """Gelbooru 图站收录作品默认分类分级
@@ -85,15 +84,15 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             case _:
                 rating = -1
 
-        original_url = 'https://example.com/FileNotFound' if not artwork_data.file_url else artwork_data.file_url
-        regular_url = original_url if not artwork_data.sample_url else artwork_data.sample_url
-        preview_url = regular_url if not artwork_data.preview_url else artwork_data.preview_url
+        original_url = artwork_data.file_url if artwork_data.file_url else 'https://example.com/FileNotFound'
+        regular_url = artwork_data.sample_url if artwork_data.sample_url else original_url
+        preview_url = artwork_data.preview_url if artwork_data.preview_url else regular_url
 
-        return ArtworkData.model_validate({
-            'origin': self.get_base_origin_name(),
+        return ArtworkProxyData.model_validate({
+            'origin': self._get_base_origin_name(),
             'aid': artwork_data.id,
-            'title': artwork_data.title,
             'uid': artwork_data.creator_id,
+            'title': artwork_data.title,
             'uname': 'Unknown',
             'classification': classification,
             'rating': rating,
@@ -104,6 +103,7 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
             'like_count': artwork_data.score,
             'source': artwork_data.source,
             'pages': [{
+                'page_index': 0,
                 'preview_file': {
                     'url': preview_url,
                     'file_ext': self.parse_url_file_suffix(preview_url),
@@ -122,10 +122,10 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
                     'width': artwork_data.width,
                     'height': artwork_data.height,
                 },
-            }]
+            }],
         })
 
-    async def get_std_desc(self, *, desc_len_limit: int = 128) -> str:
+    async def get_std_desc(self, *, split_len: int = 128) -> str:
         artwork_data = await self.query()
 
         tag_t = ' '.join(f'#{x.strip()}' for x in artwork_data.tags)
@@ -137,21 +137,54 @@ class BaseGelbooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         )
         return desc_t.strip()
 
-    async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
+    async def get_std_preview_desc(self, *, split_len: int = 12) -> str:
         artwork_data = await self.query()
         return f'{artwork_data.origin.title()}\nID: {artwork_data.aid}'
 
-
-class GelbooruArtworkProxy(BaseGelbooruArtworkProxy, ImageOpsMixin):
-    """https://gelbooru.com 主站图库统一接口实现"""
+    @classmethod
+    async def _query_pool(cls, pool_id: str | int) -> ArtworkPoolData:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
 
     @classmethod
-    def _get_api(cls) -> GelbooruAPI:
-        return gelbooru_api
+    async def _discovery(cls, *, limit: int = 20) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
 
     @classmethod
-    def get_base_origin_name(cls) -> str:
-        return 'gelbooru'
+    async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _daily_ranking(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _weekly_ranking(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _monthly_ranking(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_user(cls, uid: str | int) -> ArtistUserData:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
+
+    @classmethod
+    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+        # 源站无此功能, 不予实现
+        raise NotImplementedError
 
 
 __all__ = [
