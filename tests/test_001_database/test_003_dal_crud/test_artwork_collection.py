@@ -302,6 +302,123 @@ class TestArtworkCollectionDAL:
         assert artwork_dal._calc_orientation(512, 512) is ArtworkOrientation.SQUARE
 
     # ------------------------------------------------------------------ #
+    # add_artwork_update_exist: force_update_cr
+    # ------------------------------------------------------------------ #
+
+    async def test_add_update_exist_keeps_higher_cr_by_default(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """默认 (force_update_cr=False) 更新时 classification/rating 仅升不降, 其余字段正常更新且 tag 关联重建"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 3, 'rating': 2, 'raw_tags': 'neko'})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        update_kwargs = artwork_kwargs.copy()
+        update_kwargs.update({'classification': 0, 'rating': 0, 'title': 'cr_updated_title', 'raw_tags': 'moe'})
+        result = await artwork_dal.add_artwork_update_exist(**update_kwargs)
+        await artwork_dal.commit_session()
+
+        # classification/rating 保持库内更高值, 其余字段正常更新, tag 关联同步重建
+        assert result.classification == 3
+        assert result.rating == 2
+        assert result.title == 'cr_updated_title'
+        assert [tag.tag_name for tag in result.tags_name_artwork_had] == ['moe']
+
+        # 查回验证已持久化
+        persisted = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted.classification == 3
+        assert persisted.rating == 2
+
+    async def test_add_update_exist_upgrades_lower_cr_by_default(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """默认更新时入参高于库内值则升至入参值"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 0, 'rating': 0})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        update_kwargs = artwork_kwargs.copy()
+        update_kwargs.update({'classification': 3, 'rating': 2})
+        result = await artwork_dal.add_artwork_update_exist(**update_kwargs)
+        await artwork_dal.commit_session()
+
+        assert result.classification == 3
+        assert result.rating == 2
+
+        persisted = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted.classification == 3
+        assert persisted.rating == 2
+
+    async def test_add_update_exist_cr_independent_max(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """classification 与 rating 各自独立取 max, 一升一保持互不影响"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 3, 'rating': 0})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        update_kwargs = artwork_kwargs.copy()
+        update_kwargs.update({'classification': 2, 'rating': 3})
+        result = await artwork_dal.add_artwork_update_exist(**update_kwargs)
+        await artwork_dal.commit_session()
+
+        # classification 入参更低保持库内值, rating 入参更高升至入参值
+        assert result.classification == 3
+        assert result.rating == 3
+
+    async def test_add_update_exist_force_update_cr(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """force_update_cr=True 时强制覆盖为入参值, 允许降级 (含负值枚举)"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 3, 'rating': 2})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        downgrade_kwargs = artwork_kwargs.copy()
+        downgrade_kwargs.update({'classification': 0, 'rating': 0, 'force_update_cr': True})
+        result = await artwork_dal.add_artwork_update_exist(**downgrade_kwargs)
+
+        assert result.classification == 0
+        assert result.rating == 0
+
+        # 负值枚举同样强制覆盖 (IGNORED=-2 / UNKNOWN=-1)
+        negative_kwargs = artwork_kwargs.copy()
+        negative_kwargs.update({'classification': -2, 'rating': -1, 'force_update_cr': True})
+        result = await artwork_dal.add_artwork_update_exist(**negative_kwargs)
+        await artwork_dal.commit_session()
+
+        assert result.classification == -2
+        assert result.rating == -1
+
+        persisted = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted.classification == -2
+        assert persisted.rating == -1
+
+    # ------------------------------------------------------------------ #
     # 枚举校验 (ArtworkClassification / ArtworkRating)
     # ------------------------------------------------------------------ #
 
@@ -2420,6 +2537,135 @@ class TestArtworkCollectionDAL:
         artwork = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
         assert artwork.classification == 3
         assert artwork.rating == 0
+
+    async def test_update_review_cr_no_downgrade_by_default(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """默认 (force_update_cr=False) 时传入更低值不生效, 库内更高值保持"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 3, 'rating': 2})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.update_artwork_review_classification_rating(
+            artwork_kwargs['origin'],
+            artwork_kwargs['aid'],
+            classification=0,
+            rating=0,
+        )
+        await artwork_dal.commit_session()
+
+        assert result.classification == 3
+        assert result.rating == 2
+
+        persisted = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted.classification == 3
+        assert persisted.rating == 2
+
+    async def test_update_review_cr_mixed_direction_by_default(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """默认时 classification 与 rating 各自独立取 max: 一升一保持"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 1, 'rating': 2})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.update_artwork_review_classification_rating(
+            artwork_kwargs['origin'],
+            artwork_kwargs['aid'],
+            classification=3,
+            rating=0,
+        )
+
+        assert result.classification == 3  # 入参更高, 升至入参值
+        assert result.rating == 2  # 入参更低, 保持库内值
+
+    async def test_update_review_cr_force_update(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """force_update_cr=True 时强制覆盖为入参值, 允许降级 (含负值枚举)"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 3, 'rating': 2})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        result = await artwork_dal.update_artwork_review_classification_rating(
+            artwork_kwargs['origin'],
+            artwork_kwargs['aid'],
+            classification=0,
+            rating=0,
+            force_update_cr=True,
+        )
+        assert result.classification == 0
+        assert result.rating == 0
+
+        # 负值枚举同样强制覆盖 (IGNORED=-2 / UNKNOWN=-1)
+        result = await artwork_dal.update_artwork_review_classification_rating(
+            artwork_kwargs['origin'],
+            artwork_kwargs['aid'],
+            classification=-2,
+            rating=-1,
+            force_update_cr=True,
+        )
+        await artwork_dal.commit_session()
+        assert result.classification == -2
+        assert result.rating == -1
+
+        persisted = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted.classification == -2
+        assert persisted.rating == -1
+
+    async def test_update_review_cr_invalid_smaller_value_raises(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """非法枚举入参即使小于库内已有值也应抛出 ValueError, 且字段不被污染"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({'classification': 3, 'rating': 2})
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
+            await artwork_dal.update_artwork_review_classification_rating(
+                artwork_kwargs['origin'], artwork_kwargs['aid'], -99, 0
+            )
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkRating'):
+            await artwork_dal.update_artwork_review_classification_rating(
+                artwork_kwargs['origin'], artwork_kwargs['aid'], 0, -99
+            )
+
+        persisted = await artwork_dal.query_unique(artwork_kwargs['origin'], artwork_kwargs['aid'])
+        assert persisted.classification == 3
+        assert persisted.rating == 2
+
+    async def test_update_review_cr_invalid_param_precedence(self, artwork_dal) -> None:
+        """非法枚举值与不存在的作品同时成立时, 参数校验先于查询抛出 ValueError"""
+        await artwork_dal._clear_all()
+        await artwork_dal.commit_session()
+
+        with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
+            await artwork_dal.update_artwork_review_classification_rating('test_origin', 'not_exists_aid', -99, 0)
 
     async def test_query_by_condition_latest_order_null_published_at(
             self,

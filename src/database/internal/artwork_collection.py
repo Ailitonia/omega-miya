@@ -734,10 +734,13 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             tag_handler: Callable[[str], list[tuple[str, str | None]]] | None = None,
             description: str | None = None,
             published_at: datetime | None = None,
+            *,
+            force_update_cr: bool = False,
     ) -> Artwork:
         """向数据库新增该作品信息, 若已存在则更新 (更新时同步重建 tag 关联)
 
         同一事务中处理 tag 表及 tag 关联表插入, 确保并发与原子性
+        force_update_cr 参数用于控制是否强制更新数据库中存在的 classification 及 rating 标签
 
         Note: SQLite 后端在嵌套事务 (SAVEPOINT) 场景下, 插入分支可能因驱动 legacy 事务控制
         (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
@@ -779,16 +782,25 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
                 if not self.is_unique_conflict_error(e):
                     raise
                 # 插入失败说明是已存在的条目, 锁定查询并更新信息
+                # populate_existing 刷新 identity map 中可能存在的旧实例, 确保后续 max 基于最新库内值计算
                 artwork_item = await self._select_unique(
                     origin=origin,
                     aid=aid,
+                    populate_existing=True,
                     with_for_update=True,
                 )
+                # 检查是否强制更新数据库中存在的 classification 及 rating 标签, 否则仅大于已有值时更新
+                if not force_update_cr:
+                    classification = max(artwork_item.classification, classification)
+                    rating = max(artwork_item.rating, rating)
+                classification_ = ArtworkClassification(classification)
+                rating_ = ArtworkRating(rating)
+
                 artwork_item.uid = uid
                 artwork_item.title = title
                 artwork_item.uname = uname
-                artwork_item.classification = ArtworkClassification(classification)
-                artwork_item.rating = ArtworkRating(rating)
+                artwork_item.classification = classification_
+                artwork_item.rating = rating_
                 artwork_item.width = width
                 artwork_item.height = height
                 artwork_item.orientation = self._calc_orientation(width, height)
@@ -924,16 +936,26 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             aid: str,
             classification: int,
             rating: int,
+            *,
+            force_update_cr: bool = False,
     ) -> Artwork:
         """更新图库作品评审分级分类
 
         如果作品不存在直接抛出异常
+        force_update_cr 参数用于控制是否强制更新数据库中存在的 classification 及 rating 标签
         """
         # 先完成枚举校验再变更 ORM 对象, 避免校验失败时将部分赋值的脏对象遗留在会话中
+        # 非强制更新时与库内已有值取 max, 需先校验入参合法, 避免非法入参小于库内值时被 max 静默吞掉
         classification_ = ArtworkClassification(classification)
         rating_ = ArtworkRating(rating)
 
         artwork_item = await self._select_unique(origin, aid, populate_existing=True, with_for_update=True)
+
+        # 检查是否强制更新数据库中存在的 classification 及 rating 标签, 否则仅大于已有值时更新
+        if not force_update_cr:
+            # max 结果取自已校验的入参与库内值, 必为合法枚举值, 再次构造仅为统一枚举类型
+            classification_ = ArtworkClassification(max(artwork_item.classification, classification_))
+            rating_ = ArtworkRating(max(artwork_item.rating, rating_))
 
         artwork_item.classification = classification_
         artwork_item.rating = rating_
