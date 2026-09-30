@@ -32,6 +32,7 @@ class ArtworkPageFile(BaseArtworkProxyModel):
 
 class ArtworkPage(BaseArtworkProxyModel):
     """作品图片信息"""
+    page_index: int
     preview_file: ArtworkPageFile  # 预览图/缩略图
     regular_file: ArtworkPageFile  # 通常大图
     original_file: ArtworkPageFile  # 原图
@@ -62,7 +63,10 @@ class ArtworkProxyData(BaseArtworkProxyModel):
     @property
     def index_pages(self) -> dict[int, ArtworkPage]:
         """索引所有图片信息"""
-        return dict(enumerate(self.pages))
+        index = {p.page_index: p for i, p in enumerate(self.pages) if p.page_index == i}
+        if len(index) != len(self.pages):
+            raise ValueError(f'{self.origin} {self.aid} has erroneous or duplicate page index')
+        return index
 
     @property
     def cover_page_url(self) -> AnyHttpUrl:

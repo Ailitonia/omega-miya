@@ -33,10 +33,10 @@ if TYPE_CHECKING:
 
 type ArtworkPageParamType = Literal['preview', 'regular', 'original']
 """作品页面可选类型参数"""
-type ArtworkRankParamType = Literal['daily', 'weekly', 'monthly']
-"""作品榜单页面可选类型参数"""
 type ArtworkProcessParamType = Literal['mark', 'blur', 'noise']
 """作品图片处理方法可选参数类型"""
+type ArtworkRankParamType = Literal['daily', 'weekly', 'monthly']
+"""作品榜单页面可选类型参数"""
 
 _INT_AID_SLICED_SIZE: int = 1_000_000
 """数字型 artwork_id 切分目录分片大小(按分段)"""
@@ -76,6 +76,11 @@ class BaseArtworkProxy(abc.ABC):
         raise NotImplementedError
 
     @classmethod
+    def get_origin_name(cls) -> str:
+        """对外暴露该图库的来源名称, 作为缓存路径及数据库收录分类字段名"""
+        return cls._get_base_origin_name()
+
+    @classmethod
     def _get_path_config(cls) -> ArtworkProxyPathConfig:
         """内部方法, 初始化该图库的本地存储路径配置项"""
         if not isinstance(cls._path_config, ArtworkProxyPathConfig):
@@ -84,7 +89,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @property
     def origin_name(self) -> str:
-        """对外暴露该作品对应图库的来源名称, 用于数据库收录"""
+        """对外暴露该作品对应图库的来源名称, 作为缓存路径及数据库收录分类字段名"""
         return self._get_base_origin_name()
 
     @property
@@ -197,12 +202,12 @@ class BaseArtworkProxy(abc.ABC):
         return self.artwork_data
 
     @abc.abstractmethod
-    async def get_std_desc(self, *, desc_len_limit: int = 128) -> str:
+    async def get_std_desc(self, *, split_len: int = 128) -> str:
         """获取格式化作品描述文本"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def get_std_preview_desc(self, *, text_len_limit: int = 12) -> str:
+    async def get_std_preview_desc(self, *, split_len: int = 12) -> str:
         """获取格式化作品预览图描述信息"""
         raise NotImplementedError
 
@@ -935,5 +940,8 @@ class BaseArtworkProxy(abc.ABC):
 
 
 __all__ = [
+    'ArtworkPageParamType',
+    'ArtworkProcessParamType',
+    'ArtworkRankParamType',
     'BaseArtworkProxy',
 ]
