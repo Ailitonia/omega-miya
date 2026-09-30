@@ -244,6 +244,81 @@ class TestImageLoaderText:
         assert image.mode == 'RGB'
 
 
+class TestImageLoaderExtract:
+    """ImageLoader.extract_to_bytes / async_extract_to_bytes"""
+
+    def test_extract_png_roundtrip(self):
+        from src.utils.image_utils import ImageLoader
+        image = ImageLoader.init_from_bytes(image=_png_bytes(size=(20, 10), color=(255, 0, 0)))
+        content = ImageLoader.extract_to_bytes(image=image, format_='PNG')
+        assert content.startswith(PNG_MAGIC)
+        reloaded = ImageLoader.init_from_bytes(image=content)
+        assert reloaded.size == (20, 10)
+        assert reloaded.mode == 'RGB'
+        assert reloaded.getpixel((0, 0)) == (255, 0, 0)
+
+    def test_extract_jpeg_from_rgb(self):
+        from src.utils.image_utils import ImageLoader
+        content = ImageLoader.extract_to_bytes(image=_new_image(), format_='JPEG')
+        assert content.startswith(JPEG_MAGIC)
+
+    def test_extract_rgba_png_preserves_alpha(self):
+        from src.utils.image_utils import ImageLoader
+        image = _new_image(mode='RGBA', color=(255, 0, 0, 128))
+        content = ImageLoader.extract_to_bytes(image=image, format_='PNG')
+        reloaded = ImageLoader.init_from_bytes(image=content)
+        assert reloaded.mode == 'RGBA'
+        assert reloaded.getpixel((0, 0)) == (255, 0, 0, 128)
+
+    def test_extract_palette_png_preserves_mode(self):
+        from src.utils.image_utils import ImageLoader
+        image = ImageLoader.init_from_bytes(image=_png_bytes(size=(10, 10), mode='P'))
+        content = ImageLoader.extract_to_bytes(image=image, format_='PNG')
+        reloaded = ImageLoader.init_from_bytes(image=content)
+        assert reloaded.mode == 'P'
+
+    def test_extract_returns_bytes_type(self):
+        from src.utils.image_utils import ImageLoader
+        content = ImageLoader.extract_to_bytes(image=_new_image(), format_='PNG')
+        assert isinstance(content, bytes)
+
+    def test_extract_lowercase_format_accepted(self):
+        from src.utils.image_utils import ImageLoader
+        assert ImageLoader.extract_to_bytes(image=_new_image(), format_='png').startswith(PNG_MAGIC)
+        assert ImageLoader.extract_to_bytes(image=_new_image(), format_='jpeg').startswith(JPEG_MAGIC)
+
+    def test_extract_jpg_alias_raises_key_error(self):
+        """与 get_bytes 的 'JPG' 别名规范化不同, 本方法直接抛出 KeyError"""
+        from src.utils.image_utils import ImageLoader
+        with pytest.raises(KeyError):
+            ImageLoader.extract_to_bytes(image=_new_image(), format_='JPG')
+
+    def test_extract_unknown_format_raises_key_error(self):
+        from src.utils.image_utils import ImageLoader
+        with pytest.raises(KeyError):
+            ImageLoader.extract_to_bytes(image=_new_image(), format_='FOO')
+
+    def test_extract_rgba_jpeg_raises_os_error(self):
+        """本方法不做色彩模式自动转换, RGBA 直接编码 JPEG 抛出 OSError"""
+        from src.utils.image_utils import ImageLoader
+        with pytest.raises(OSError, match='cannot write mode RGBA as JPEG'):
+            ImageLoader.extract_to_bytes(image=_new_image(mode='RGBA'), format_='JPEG')
+
+    def test_get_bytes_delegation_equivalence(self):
+        """get_bytes 委托 extract_to_bytes 的重构等价性"""
+        from src.utils.image_utils import ImageLoader
+        image = _new_image()
+        processor = _make_processor(image)
+        assert processor.get_bytes(format_='PNG') == ImageLoader.extract_to_bytes(image=image, format_='PNG')
+
+    async def test_async_extract_to_bytes_matches_sync(self):
+        from src.utils.image_utils import ImageLoader
+        image = _new_image()
+        content = await ImageLoader.async_extract_to_bytes(image=image, format_='PNG')
+        assert isinstance(content, bytes)
+        assert content == ImageLoader.extract_to_bytes(image=image, format_='PNG')
+
+
 class TestFontTools:
     """ImageTextProcessor 字体加载与字形查找"""
 

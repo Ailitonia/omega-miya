@@ -55,6 +55,22 @@ class ImageLoader:
         if image.width * image.height > max_pixels:
             raise ValueError(f'image size {image.width}x{image.height} exceeds max pixels limit {max_pixels}')
 
+    @staticmethod
+    def extract_to_bytes(image: 'Image.Image', format_: str) -> bytes:
+        """提取图片内容为 Bytes
+
+        不做格式规范化与色彩模式自动转换, 未知格式抛出 KeyError,
+        目标编码格式不支持当前色彩模式时(如 RGBA 保存为 JPEG)抛出 OSError, 模式转换由调用方负责
+
+        :param image: 待导出的图片对象
+        :param format_: 目标编码格式名称, 大小写不敏感, 须为 Pillow 支持的格式
+        :return: 编码后的图片内容
+        """
+        with BytesIO() as bf:
+            image.save(bf, format=format_)
+            content = bf.getvalue()
+        return content
+
     @classmethod
     def init_from_bytes(cls, image: bytes) -> 'Image.Image':
         """从 Bytes 中初始化, 像素尺寸超出限制时抛出 ValueError"""
@@ -117,6 +133,11 @@ class ImageLoader:
             fill=(0, 0, 0)
         )
         return background
+
+    @classmethod
+    @run_sync
+    def async_extract_to_bytes(cls, image: 'Image.Image', format_: str) -> bytes:
+        return cls.extract_to_bytes(image=image, format_=format_)
 
     @classmethod
     @run_sync
@@ -533,10 +554,7 @@ class ImageEffectProcessor:
         """
         normalized = self._normalize_save_format(format_)
         self._auto_convert_mode_for_save(format_=normalized)
-        with BytesIO() as _bf:
-            self.image.save(_bf, format=normalized)
-            content = _bf.getvalue()
-        return content
+        return ImageLoader.extract_to_bytes(self.image, format_=normalized)
 
     def mark(
             self,
