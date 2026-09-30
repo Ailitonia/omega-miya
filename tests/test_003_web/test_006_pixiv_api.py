@@ -783,10 +783,12 @@ class TestPixivArtwork:
 
         result = PixivIllustRecommend.model_validate(raw)
         assert [x.id for x in result.body.illusts] == [str(x['id']) for x in body['illusts']]
+        assert result.illust_ids == [str(x['id']) for x in body['illusts']]
 
         method_result = await api.query_recommend()
         assert method_result.error is False
         assert method_result.body.illusts, 'recommend method returned empty illusts'
+        assert method_result.illust_ids, 'recommend method returned empty illust_ids'
 
     async def test_get_resource_as_bytes(self, latest_artwork_sample: SimpleNamespace | None):
         from src.utils.pixiv_api import PixivArtwork
@@ -1106,6 +1108,35 @@ def _make_ranking(page: int, ranks: list[int]):
     })
 
 
+def _make_recommend(illust_ids: list[str | int], *, error: bool = False, message: str = ''):
+    """离线构造 PixivIllustRecommend 模型(仅 id 有实际意义, 其余字段为占位值)"""
+    from src.utils.pixiv_api.model import PixivIllustRecommend
+
+    illusts = [
+        {
+            'id': pid,
+            'title': f'title_{pid}',
+            'illustType': 0,
+            'aiType': 0,
+            'xRestrict': 0,
+            'restrict': 0,
+            'description': '',
+            'userId': '1',
+            'userName': 'user',
+            'width': 1000,
+            'height': 1000,
+            'pageCount': 1,
+            'isBookmarkable': True,
+        }
+        for pid in illust_ids
+    ]
+    return PixivIllustRecommend.model_validate({
+        'body': {'illusts': illusts, 'nextIds': []},
+        'error': error,
+        'message': message,
+    })
+
+
 class TestPixivModel:
     """数据模型纯本地核验(无网络请求)"""
 
@@ -1137,3 +1168,21 @@ class TestPixivModel:
         ranking = _make_ranking(page=1, ranks=[])
         with pytest.raises(ValueError, match='Ranking num not in this page'):
             ranking.get_ranking(1)
+
+    def test_illust_recommend_illust_ids(self):
+        # 多个作品: 保序返回, 与 body.illusts 逐项一致, 元素均为 str
+        recommend = _make_recommend(['1001', '1002', '1003'])
+        assert recommend.illust_ids == ['1001', '1002', '1003']
+        assert recommend.illust_ids == [x.id for x in recommend.body.illusts]
+        assert all(isinstance(x, str) for x in recommend.illust_ids)
+
+    def test_illust_recommend_illust_ids_coerce_numeric_id(self):
+        # 接口返回数字型 id: 由 coerce_numbers_to_str 统一转为 str
+        recommend = _make_recommend([1001, 1002])
+        assert recommend.illust_ids == ['1001', '1002']
+        assert all(isinstance(x, str) for x in recommend.illust_ids)
+
+    def test_illust_recommend_illust_ids_empty_and_error(self):
+        # 空推荐与 error 响应(body 为空)均返回空列表而非抛出异常, 与 PixivBookmark.illust_ids 惯例一致
+        assert _make_recommend([]).illust_ids == []
+        assert _make_recommend([], error=True, message='not found').illust_ids == []

@@ -203,6 +203,10 @@ class PixivIllustRecommend(BasePixivModel):
     error: bool
     message: str
 
+    @property
+    def illust_ids(self) -> list[str]:
+        return [x.id for x in self.body.illusts]
+
 
 __all__ = [
     'PixivIllustData',
