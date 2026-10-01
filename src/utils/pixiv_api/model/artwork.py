@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+from datetime import datetime
 
 from lxml import etree
 from pydantic import Field, model_validator
@@ -61,13 +62,10 @@ class _IllustDataBody(BaseArtworkData):
     userAccount: str
     userIllusts: dict[str, _IllustuserIllusts | None] = Field(default_factory=dict)
 
-    @model_validator(mode='before')
-    @classmethod
-    def _migrate_tags_field(cls, values):
-        """详情接口返回的 tags 为对象结构(与列表接口的 list[str] 不同), 迁移至 tag_info 字段避免与父类字段冲突"""
-        if isinstance(values, dict) and isinstance(values.get('tags'), dict):
-            values = {k: v for k, v in values.items() if k != 'tags'} | {'tag_info': values['tags']}
-        return values
+    # 作品发布相关时间, 为 ISO 8601 字符串
+    createDate: str
+    uploadDate: str
+    reuploadDate: str | None = Field(default=None)
 
     # 作品相关统计信息
     bookmarkCount: int
@@ -80,6 +78,14 @@ class _IllustDataBody(BaseArtworkData):
     isOriginal: bool
     isUnlisted: bool
     isLoginOnly: bool
+
+    @model_validator(mode='before')
+    @classmethod
+    def _migrate_tags_field(cls, values):
+        """详情接口返回的 tags 为对象结构(与列表接口的 list[str] 不同), 迁移至 tag_info 字段避免与父类字段冲突"""
+        if isinstance(values, dict) and isinstance(values.get('tags'), dict):
+            values = {k: v for k, v in values.items() if k != 'tags'} | {'tag_info': values['tags']}
+        return values
 
     @property
     def parsed_description(self) -> str:
@@ -190,6 +196,7 @@ class PixivIllustFull(BasePixivModel):
     type_pages: _IllustPageTypesUrl
     index_pages: dict[int, _IllustPageUrl]
     ugoira_meta: _IllustUgoiraMetaBody | None = Field(default=None)
+    published_at: datetime
 
 
 class _IllustRecommendBody(BasePixivModel):

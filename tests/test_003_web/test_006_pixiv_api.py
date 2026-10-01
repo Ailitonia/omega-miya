@@ -20,6 +20,7 @@
 
 import asyncio
 import re
+from datetime import datetime
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -347,6 +348,12 @@ def _assert_artwork_raw(sample: SimpleNamespace) -> None:
         assert body[key] >= 0, f'illegal {key}'
     assert isinstance(body['xRestrict'], int)
     assert isinstance(body['aiType'], int)
+    # 发布相关时间应为可解析的 ISO 8601 字符串
+    for key in ('createDate', 'uploadDate'):
+        assert isinstance(body[key], str), f'illegal {key}'
+        datetime.fromisoformat(body[key])
+    if body.get('reuploadDate') is not None:
+        datetime.fromisoformat(body['reuploadDate'])
 
     # 模型交叉核验
     data = PixivIllustData.model_validate(raw)
@@ -355,6 +362,10 @@ def _assert_artwork_raw(sample: SimpleNamespace) -> None:
     assert data.body.userId == str(body['userId'])
     assert data.body.bookmarkCount == body['bookmarkCount']
     assert data.body.pageCount == body['pageCount']
+    # 发布相关时间与 raw 一致, reuploadDate 缺省为 None
+    assert data.body.createDate == body['createDate']
+    assert data.body.uploadDate == body['uploadDate']
+    assert data.body.reuploadDate == body.get('reuploadDate')
     # tag_info 迁移核验: 原始 tags 对象迁入 tag_info, 父类列表字段保持默认空
     assert data.body.tags == []
     assert data.body.tag_info.all_tags == list(dict.fromkeys(
@@ -410,6 +421,11 @@ async def _assert_artwork_full(sample: SimpleNamespace) -> None:
     assert full.orig_url == body['urls']['original']
     assert full.regular_url == body['urls']['regular']
     assert len(full.index_pages) == len(sample.raw_pages['body'])
+
+    # 发布时间核验: 与 raw 独立推导的期望值一致(reuploadDate 优先, 回退 uploadDate), 且为 tz-aware
+    expected_published_at = datetime.fromisoformat(body.get('reuploadDate') or body['uploadDate']).astimezone()
+    assert full.published_at == expected_published_at
+    assert full.published_at.utcoffset() is not None
 
     # 依据 raw 独立推导 is_r18/is_ai 期望值并比对
     raw_tags = [x['tag'] for x in body['tags']['tags']]
@@ -706,19 +722,15 @@ class TestPixivCommon:
 class TestPixivArtwork:
     """Pixiv 作品接口(真实请求 + 原始 JSON 核验, 样本动态取自最新收藏与关注动态)"""
 
-    @pytest.mark.parametrize(
-        ('fixture_name', 'skip_reason'),
-        [
-            ('bookmark_artwork_sample', '收藏为空或候选作品均不可用'),
-            ('latest_artwork_sample', '关注动态为空或候选作品均不可用'),
-        ],
-        ids=['bookmark', 'latest'],
-    )
-    async def test_artwork_raw(self, fixture_name: str, skip_reason: str, request: pytest.FixtureRequest):
-        sample: SimpleNamespace | None = request.getfixturevalue(fixture_name)
-        if sample is None:
-            pytest.skip(skip_reason)
-        _assert_artwork_raw(sample)
+    async def test_bookmark_artwork_raw(self, bookmark_artwork_sample: SimpleNamespace | None):
+        if bookmark_artwork_sample is None:
+            pytest.skip('收藏为空或候选作品均不可用')
+        _assert_artwork_raw(bookmark_artwork_sample)
+
+    async def test_latest_artwork_raw(self, latest_artwork_sample: SimpleNamespace | None):
+        if latest_artwork_sample is None:
+            pytest.skip('关注动态为空或候选作品均不可用')
+        _assert_artwork_raw(latest_artwork_sample)
 
     async def test_ugoira_meta_raw(self, ugoira_artwork_sample: SimpleNamespace | None):
         from src.utils.pixiv_api.model import PixivIllustUgoiraMeta
@@ -816,6 +828,64 @@ class TestPixivArtwork:
             await api.query_artwork()
         assert exc_info.value.status_code in (400, 404)
         assert f'Query {api!r} data failed' in exc_info.value.message
+
+
+class TestPixivArtworkOffline:
+    """PixivArtwork 离线核验(monkeypatch 请求层返回固化响应, 无网络请求)"""
+
+    @staticmethod
+    def _patch_requests(monkeypatch: pytest.MonkeyPatch, data_raw: dict) -> None:
+        """以固化响应替换请求层: data 接口返回 data_raw, pages 接口返回单页固化响应"""
+        from src.utils.pixiv_api import PixivArtwork
+
+        pages_raw = _make_illust_pages_raw()
+
+        async def _fake_get_json(cls, url: str, params: Any = None) -> Any:
+            if url.endswith('/pages'):
+                return pages_raw
+            return data_raw
+
+        monkeypatch.setattr(PixivArtwork, '_get_resource_as_json', classmethod(_fake_get_json))
+
+    async def test_published_at_from_upload_date(self, monkeypatch: pytest.MonkeyPatch):
+        # 无 reuploadDate: 发布时间取 uploadDate, 结果为 tz-aware 本地时间
+        from src.utils.pixiv_api import PixivArtwork
+
+        upload_date = '2020-02-12T01:00:00+00:00'
+        self._patch_requests(monkeypatch, _make_illust_data_raw('12345', upload_date=upload_date))
+
+        full = await PixivArtwork(pid='12345').query_artwork()
+        assert full.published_at == datetime.fromisoformat(upload_date).astimezone()
+        assert full.published_at.utcoffset() is not None
+
+    async def test_published_at_prefer_reupload_date(self, monkeypatch: pytest.MonkeyPatch):
+        # 有 reuploadDate: 发布时间取 reupload 时间(最新版本时间)
+        from src.utils.pixiv_api import PixivArtwork
+
+        upload_date = '2020-02-12T01:00:00+00:00'
+        reupload_date = '2021-03-01T12:00:00+09:00'
+        self._patch_requests(
+            monkeypatch,
+            _make_illust_data_raw('12345', upload_date=upload_date, reupload_date=reupload_date),
+        )
+
+        full = await PixivArtwork(pid='12345').query_artwork()
+        assert full.published_at == datetime.fromisoformat(reupload_date).astimezone()
+        assert full.published_at.utcoffset() is not None
+
+    async def test_published_at_empty_reupload_fallback(self, monkeypatch: pytest.MonkeyPatch):
+        # reuploadDate 为空串: 回退取 uploadDate
+        from src.utils.pixiv_api import PixivArtwork
+
+        upload_date = '2020-02-12T01:00:00+00:00'
+        self._patch_requests(
+            monkeypatch,
+            _make_illust_data_raw('12345', upload_date=upload_date, reupload_date=''),
+        )
+
+        full = await PixivArtwork(pid='12345').query_artwork()
+        assert full.published_at == datetime.fromisoformat(upload_date).astimezone()
+        assert full.published_at.utcoffset() is not None
 
 
 @require_real_test
@@ -1137,6 +1207,64 @@ def _make_recommend(illust_ids: list[str | int], *, error: bool = False, message
     })
 
 
+def _make_illust_data_raw(pid: str, *, upload_date: str, reupload_date: str | None = None) -> dict:
+    """离线构造详情接口原始响应(仅 id 与发布相关时间有实际意义, 其余字段为占位值)
+
+    reupload_date 不为 None 时注入 reuploadDate 键(空串亦注入, 用于覆盖回退分支)
+    """
+    body = {
+        'id': pid,
+        'illustId': pid,
+        'title': f'title_{pid}',
+        'illustTitle': f'title_{pid}',
+        'illustComment': '',
+        'illustType': 0,
+        'aiType': 0,
+        'xRestrict': 0,
+        'restrict': 0,
+        'description': '',
+        'tags': {'tags': []},
+        'urls': dict.fromkeys(('mini', 'thumb', 'small', 'regular', 'original'), 'https://i.pximg.net/example.jpg'),
+        'userId': '1',
+        'userAccount': 'user',
+        'userName': 'user',
+        'width': 1000,
+        'height': 1000,
+        'pageCount': 1,
+        'isBookmarkable': True,
+        'bookmarkCount': 0,
+        'likeCount': 0,
+        'commentCount': 0,
+        'responseCount': 0,
+        'viewCount': 0,
+        'isOriginal': False,
+        'isUnlisted': False,
+        'isLoginOnly': False,
+        'createDate': upload_date,
+        'uploadDate': upload_date,
+    }
+    if reupload_date is not None:
+        body['reuploadDate'] = reupload_date
+    return {'error': False, 'message': '', 'body': body}
+
+
+def _make_illust_pages_raw() -> dict:
+    """离线构造多页接口原始响应(单页, 仅结构有实际意义)"""
+    return {
+        'error': False,
+        'message': '',
+        'body': [
+            {
+                'urls': dict.fromkeys(
+                    ('thumb_mini', 'small', 'regular', 'original'), 'https://i.pximg.net/example.jpg'
+                ),
+                'width': 1000,
+                'height': 1000,
+            }
+        ],
+    }
+
+
 class TestPixivModel:
     """数据模型纯本地核验(无网络请求)"""
 
@@ -1186,3 +1314,20 @@ class TestPixivModel:
         # 空推荐与 error 响应(body 为空)均返回空列表而非抛出异常, 与 PixivBookmark.illust_ids 惯例一致
         assert _make_recommend([]).illust_ids == []
         assert _make_recommend([], error=True, message='not found').illust_ids == []
+
+    def test_illust_data_date_fields(self):
+        from src.utils.pixiv_api.model import PixivIllustData
+
+        # createDate/uploadDate 保留原值, reuploadDate 缺省为 None
+        raw = _make_illust_data_raw('12345', upload_date='2020-02-12T01:00:00+00:00')
+        data = PixivIllustData.model_validate(raw)
+        assert data.body.createDate == '2020-02-12T01:00:00+00:00'
+        assert data.body.uploadDate == '2020-02-12T01:00:00+00:00'
+        assert data.body.reuploadDate is None
+
+        # 传入 reuploadDate 时保留
+        raw_reupload = _make_illust_data_raw(
+            '12345', upload_date='2020-02-12T01:00:00+00:00', reupload_date='2021-03-01T12:00:00+09:00'
+        )
+        data_reupload = PixivIllustData.model_validate(raw_reupload)
+        assert data_reupload.body.reuploadDate == '2021-03-01T12:00:00+09:00'

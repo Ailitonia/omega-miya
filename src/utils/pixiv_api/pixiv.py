@@ -241,12 +241,15 @@ class PixivCommon(BasePixivAPI):
             cls,
             page: int,
             *,
+            tag: str | None = None,
             mode: Literal['all', 'r18'] = 'all',
             lang: str = 'zh'
     ) -> PixivFollowLatestIllust:
         """获取已关注用户最新作品(需要 cookies)"""
         url = f'{cls._get_root_url()}/ajax/follow_latest/illust'
         params = {'mode': mode, 'lang': lang, 'p': page}
+        if tag is not None:
+            params.update({'tag': tag})
 
         following_response = await cls._get_resource_as_json(url=url, params=params)
         following_data = PixivFollowLatestIllust.model_validate(following_response)
@@ -376,6 +379,9 @@ class PixivArtwork(PixivCommon):
             else:
                 ugoira_meta = None
 
+            # 获取发布日期
+            published_at = datetime.fromisoformat(artwork_data.body.reuploadDate or artwork_data.body.uploadDate)
+
             _data = {
                 'pid': artwork_data.body.illustId,
                 'illust_type': illust_type,
@@ -402,6 +408,7 @@ class PixivArtwork(PixivCommon):
                 'type_pages': page_data.type_pages,
                 'index_pages': page_data.index_pages,
                 'ugoira_meta': ugoira_meta,
+                'published_at': published_at.astimezone(),
             }
             self.artwork_data = PixivIllustFull.model_validate(_data)
 
