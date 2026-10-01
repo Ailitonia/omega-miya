@@ -27,7 +27,6 @@ AVAILABLE_SEARCHERS: list[type['BaseImageSearcherAPI']] = [
     TraceMoe,
 ]
 
-
 __all__ = [
     'AVAILABLE_SEARCHERS',
     'AnimeTrace',

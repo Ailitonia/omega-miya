@@ -43,7 +43,6 @@ class SaucenaoResult(BaseSaucenaoModel):
         message: str | None = None
 
     class _Result(BaseSaucenaoModel):
-
         class _Header(BaseSaucenaoModel):
             similarity: float
             thumbnail: AnyUrl | None = None
@@ -60,6 +59,7 @@ class SaucenaoResult(BaseSaucenaoModel):
 
         class _NullData(_BaseData):
             """默认无解析的结果类"""
+
             @property
             def data_text(self) -> str:
                 return ''
