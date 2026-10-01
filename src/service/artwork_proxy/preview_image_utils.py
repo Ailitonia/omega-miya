@@ -235,7 +235,7 @@ class ArtworkImageOps:
             num_of_line=num_of_line,
         )
         image_file_name = (
-            f'preview_{hashlib.sha256(preview_name.encode('utf-8')).hexdigest()[:8]}'
+            f'preview_{hashlib.sha256(preview_name.encode('utf-8')).hexdigest()[:16]}'
             f'_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg'
         )
         save_file = output_folder(image_file_name)

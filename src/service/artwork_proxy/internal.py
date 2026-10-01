@@ -58,10 +58,16 @@ _STR_AID_SLICED_LEN: int = 3
 
 _FILE_NAME_INVALID_CHARS = re.compile(r'[/\\<>:"|?*\x00-\x1f]')
 """缓存文件名中不允许出现的字符(Windows/POSIX 文件名保留字符与控制字符/路径分隔符/NUL)"""
-_META_SNAPSHOT_KEPT_NUM: int = 8
-"""每个作品保留的元数据快照数量上限"""
+_FILE_NAME_MAX_LENGTH: int = 128
+"""清洗后文件名长度上限(超出时截断基名并追加确定性短哈希后缀)"""
+_WINDOWS_RESERVED_FILE_NAMES = frozenset(
+    {'CON', 'PRN', 'AUX', 'NUL'} | {f'COM{i}' for i in range(1, 10)} | {f'LPT{i}' for i in range(1, 10)}
+)
+"""Windows 保留设备文件名(不区分大小写, 含扩展名形式, 不可用作文件名)"""
 _PAGE_FILE_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 """作品页面文件写入的进程内锁注册表(按目标文件解析路径, 弱引用自动清理)"""
+_META_SNAPSHOT_KEPT_NUM: int = 8
+"""每个作品保留的元数据快照数量上限"""
 
 
 class BaseArtworkProxy(abc.ABC):
@@ -91,13 +97,27 @@ class BaseArtworkProxy(abc.ABC):
 
     @staticmethod
     def _clean_file_name(value: str | int) -> str:
-        """规范化文件名, 拦截路径分隔符/特殊目录名/NUL/Windows 保留字符, 为空时回退为哈希文件名
+        """规范化文件名, 拦截路径分隔符/特殊目录名/NUL/Windows 保留字符及保留设备名, 为空时回退为哈希文件名
 
+        清洗结果与原始值不一致或超出长度上限时, 截断基名并追加确定性短哈希后缀,
+        保证最终文件名长度不超过 _FILE_NAME_MAX_LENGTH 且不同原始值不碰撞到同一文件名;
         底层路径越界最终由 TemporaryResource confinement 兜底
         """
         cleaned = _FILE_NAME_INVALID_CHARS.sub('_', str(value).strip().rstrip('. '))
+        value_hash = hashlib.sha256(str(value).encode('utf-8')).hexdigest()
+
+        if cleaned and cleaned.upper().split('.')[0] in _WINDOWS_RESERVED_FILE_NAMES:
+            # Windows 保留设备名(含扩展名形式)不可用作文件名, 按无效输入回退为哈希文件名
+            cleaned = ''
+
         if not cleaned:
-            cleaned = hashlib.sha256(str(value).encode('utf-8')).hexdigest()
+            # 原始值全部无效或为 Windows 保留设备名时, 回退为确定性哈希文件名
+            return value_hash[:16]
+
+        if cleaned != str(value) or len(cleaned) > _FILE_NAME_MAX_LENGTH:
+            # 清洗改变了原始值或超出长度上限时, 截断基名并追加确定性短哈希后缀,
+            # 避免 'a/b' 与 'a\\b' 等不同原始值碰撞到同一文件名, 且总长度不超过上限
+            cleaned = f'{cleaned[:_FILE_NAME_MAX_LENGTH - 5]}.{value_hash[:4]}'
         return cleaned
 
     @classmethod

@@ -54,7 +54,7 @@ class BilibiliDynamicPicArtworkProxy(BaseArtworkProxy):
             'origin': self._get_base_origin_name(),
             'aid': dynamic_data.data.item.id_str,
             'uid': dynamic_data.data.item.modules.module_author.mid,
-            'title': opus_data.title,
+            'title': opus_data.title or opus_data.summary.text,
             'uname': dynamic_data.data.item.modules.module_author.name,
             'classification': 0,
             'rating': -1,
