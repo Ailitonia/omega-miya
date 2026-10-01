@@ -170,6 +170,7 @@ class DanbooruArtworkProxy(BaseArtworkProxy):
                 'regular_file': self._get_regular_file(media_asset=artwork_data.media_asset),
                 'original_file': self._get_original_file(media_asset=artwork_data.media_asset)
             }],
+            'published_at': artwork_data.created_at,
         })
 
     async def get_std_desc(self, *, split_len: int = 128) -> str:
@@ -241,7 +242,7 @@ class DanbooruArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+    async def _query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[str | int]:
         # 源站无此功能, 不予实现
         raise NotImplementedError
 

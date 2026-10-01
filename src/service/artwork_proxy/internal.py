@@ -216,12 +216,8 @@ class BaseArtworkProxy(abc.ABC):
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def _get_pool_meta_file(cls, pool_id: str | int, *, snapshot: bool = False) -> 'TemporaryResource':
-        if snapshot:
-            file_name = f'pool_{pool_id}.{datetime.now().strftime("%Y%m%d%H%M%S")}.json.snapshot'
-        else:
-            file_name = f'pool_{pool_id}.json'
-        return cls._get_path_config().meta_path('pool', file_name)
+    def _get_pool_meta_file(cls, pool_id: str | int) -> 'TemporaryResource':
+        return cls._get_path_config().meta_path('pool', f'pool_{pool_id}.json')
 
     @classmethod
     @abc.abstractmethod
@@ -231,12 +227,10 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     async def _dumps_pool_meta(cls, pool_data: ArtworkPoolData) -> None:
-        """内部方法, 缓存图集元数据, 默认额外保存当前快照副本"""
+        """内部方法, 缓存图集元数据"""
         pid = pool_data.pool_id
         async with cls._get_pool_meta_file(pool_id=pid).async_open('w', encoding='utf8') as af:
             await af.write(pool_data.model_dump_json())
-        async with cls._get_pool_meta_file(pid, snapshot=True).async_open('w', encoding='utf8') as asf:
-            await asf.write(pool_data.model_dump_json())
 
     @classmethod
     async def _fast_query_pool(cls, pool_id: str | int, *, use_cache: bool = True) -> ArtworkPoolData:
@@ -260,21 +254,21 @@ class BaseArtworkProxy(abc.ABC):
         return await cls._fast_query_pool(pool_id=pool_id, use_cache=use_cache)
 
     @classmethod
-    async def query_pool_all_artworks(cls, pool_id: str) -> list['ArtworkProxyData']:
+    async def query_pool_all_artworks(cls, pool_id: str | int) -> list['ArtworkProxyData']:
         """获取图集中所有作品信息"""
         pool_data = await cls.query_pool(pool_id=pool_id)
         tasks = [cls(aid).query() for aid in pool_data.artwork_ids]
         return list(await semaphore_gather(tasks=tasks, semaphore_num=6, return_exceptions=False))
 
     @classmethod
-    async def query_pool_all_artwork_pages(cls, pool_id: str) -> list['TemporaryResource']:
+    async def query_pool_all_artwork_pages(cls, pool_id: str | int) -> list['TemporaryResource']:
         """获取图集中所有作品封面图片"""
         pool_data = await cls.query_pool(pool_id=pool_id)
         tasks = [cls(aid).get_page_file() for aid in pool_data.artwork_ids]
         return list(await semaphore_gather(tasks=tasks, semaphore_num=6, return_exceptions=False))
 
     @classmethod
-    async def generate_pool_preview(cls, pool_id: str) -> 'TemporaryResource':
+    async def generate_pool_preview(cls, pool_id: str | int) -> 'TemporaryResource':
         """生成图集的预览图"""
         pool_data = await cls.query_pool(pool_id=pool_id)
         return await cls.generate_artworks_preview(
@@ -340,12 +334,8 @@ class BaseArtworkProxy(abc.ABC):
         return [cls(artwork_id=aid) for aid in artwork_ids]
 
     @classmethod
-    def _get_user_meta_file(cls, uid: str | int, *, snapshot: bool = False) -> 'TemporaryResource':
-        if snapshot:
-            file_name = f'user_{uid}.{datetime.now().strftime("%Y%m%d%H%M%S")}.json.snapshot'
-        else:
-            file_name = f'user_{uid}.json'
-        return cls._get_path_config().meta_path('user', file_name)
+    def _get_user_meta_file(cls, uid: str | int) -> 'TemporaryResource':
+        return cls._get_path_config().meta_path('user', f'user_{uid}.json')
 
     @classmethod
     @abc.abstractmethod
@@ -359,8 +349,6 @@ class BaseArtworkProxy(abc.ABC):
         uid = user_data.uid
         async with cls._get_user_meta_file(uid=uid).async_open('w', encoding='utf8') as af:
             await af.write(user_data.model_dump_json())
-        async with cls._get_user_meta_file(uid, snapshot=True).async_open('w', encoding='utf8') as asf:
-            await asf.write(user_data.model_dump_json())
 
     @classmethod
     async def _fast_query_user(cls, uid: str | int, *, use_cache: bool = True) -> ArtistUserData:
@@ -407,14 +395,14 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def _query_follow_latest(cls, page: int) -> list[str | int]:
-        """内部方法, 获取已关注的最新作品, 若无关注功能, 则为站点更新最新作品"""
+    async def _query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[str | int]:
+        """内部方法, 获取已关注的最新作品"""
         raise NotImplementedError
 
     @classmethod
-    async def query_follow_latest(cls, page: int) -> list[Self]:
-        """获取已关注的最新作品, 若无关注功能, 则为站点更新最新作品"""
-        return [cls(artwork_id=aid) for aid in await cls._query_follow_latest(page=page)]
+    async def query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[Self]:
+        """获取已关注的最新作品"""
+        return [cls(artwork_id=aid) for aid in await cls._query_follow_latest(page=page, filter_tag=filter_tag)]
 
     # ------------------------------------------------------------------ #
     # 作品获取及本地缓存相关方法
@@ -901,13 +889,15 @@ class BaseArtworkProxy(abc.ABC):
         classification = classification if (classification is not None) else artwork_data.classification
         rating = rating if (rating is not None) else artwork_data.rating
 
+        add_artwork_params = self._convert_proxy_data_to_add_artwork_params(data=artwork_data)
+        add_artwork_params.update({
+            'classification': classification,
+            'rating': rating,
+            'force_update_cr': force_update_cr,
+        })
+
         async with ArtworkCollectionDAL.create() as dal:
-            await dal.add_artwork_update_exist(
-                **self._convert_proxy_data_to_add_artwork_params(data=artwork_data),
-                classification=classification,
-                rating=rating,
-                force_update_cr=force_update_cr,
-            )
+            await dal.add_artwork_update_exist(**add_artwork_params)
 
     async def add_artwork_into_database_ignore_exists(
             self,
@@ -926,12 +916,14 @@ class BaseArtworkProxy(abc.ABC):
         classification = classification if (classification is not None) else artwork_data.classification
         rating = rating if (rating is not None) else artwork_data.rating
 
+        add_artwork_params = self._convert_proxy_data_to_add_artwork_params(data=artwork_data)
+        add_artwork_params.update({
+            'classification': classification,
+            'rating': rating,
+        })
+
         async with ArtworkCollectionDAL.create() as dal:
-            await dal.add_artwork_ignore_exist(
-                **self._convert_proxy_data_to_add_artwork_params(data=artwork_data),
-                classification=classification,
-                rating=rating,
-            )
+            await dal.add_artwork_ignore_exist(**add_artwork_params)
 
     async def delete_artwork_from_database(self) -> None:
         """从数据库删除该作品信息"""

@@ -121,6 +121,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
                     'height': artwork_data.height,
                 },
             }],
+            'published_at': artwork_data.created_at,
         })
 
     async def get_std_desc(self, *, split_len: int = 128) -> str:
@@ -190,7 +191,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+    async def _query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[str | int]:
         # 源站无此功能, 不予实现
         raise NotImplementedError
 

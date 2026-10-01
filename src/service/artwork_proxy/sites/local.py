@@ -142,7 +142,7 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
         raise NotImplementedError
 
     @classmethod
-    async def _query_follow_latest(cls, page: int) -> list[str | int]:
+    async def _query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[str | int]:
         raise NotImplementedError
 
 

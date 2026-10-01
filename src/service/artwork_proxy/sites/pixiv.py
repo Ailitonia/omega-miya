@@ -97,6 +97,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
                 if artwork_data.ugoira_meta is not None
                 else []
             ),
+            'published_at': artwork_data.published_at,
         })
 
     async def get_std_desc(self, *, split_len: int = 128) -> str:
@@ -184,8 +185,10 @@ class PixivArtworkProxy(BaseArtworkProxy):
         return list((await PixivUser(uid=uid).query_user_bookmarks(page=page)).illust_ids)
 
     @classmethod
-    async def _query_follow_latest(cls, page: int) -> list[str | int]:
-        return list((await PixivArtwork.query_following_user_latest_illust(page=page)).illust_ids)
+    async def _query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[str | int]:
+        return list(
+            (await PixivArtwork.query_following_user_latest_illust(page=page, tag=filter_tag)).illust_ids
+        )
 
 
 __all__ = [

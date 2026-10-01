@@ -24,7 +24,7 @@ from .sites import (
     YandereArtworkProxy,
 )
 
-AVAILABLE_ARTWORK_PROXY: dict[str, type['BaseArtworkProxy']] = {
+_AVAILABLE_ARTWORK_PROXY: dict[str, type['BaseArtworkProxy']] = {
     x.get_origin_name(): x
     for x in [
         DanbooruArtworkProxy,
@@ -40,13 +40,17 @@ AVAILABLE_ARTWORK_PROXY: dict[str, type['BaseArtworkProxy']] = {
 """所有可用的 ArtworkProxy"""
 
 
-def get_artwork_proxy(origin_name: str) -> type['BaseArtworkProxy'] | None:
-    """根据 origin_name 获取对应图站的 ArtworkProxy 类"""
-    return AVAILABLE_ARTWORK_PROXY.get(origin_name, None)
+def get_available_artwork_proxy_origin_name() -> list[str]:
+    """获取所有可用的 ArtworkProxy origin_name 列表"""
+    return list(_AVAILABLE_ARTWORK_PROXY.keys())
+
+
+def get_artwork_proxy(origin_name: str) -> type['BaseArtworkProxy']:
+    """根据 origin_name 获取对应图站的 ArtworkProxy 类, 不存在的话抛出 KeyError 异常"""
+    return _AVAILABLE_ARTWORK_PROXY[origin_name]
 
 
 __all__ = [
-    'AVAILABLE_ARTWORK_PROXY',
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',
     'KonachanArtworkProxy',
@@ -56,4 +60,5 @@ __all__ = [
     'PixivArtworkProxy',
     'YandereArtworkProxy',
     'get_artwork_proxy',
+    'get_available_artwork_proxy_origin_name',
 ]
