@@ -10,7 +10,7 @@
 
 from src.utils.booru_api.gelbooru import GelbooruAPI
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 
 class GelbooruArtworkProxy(BaseArtworkProxy):

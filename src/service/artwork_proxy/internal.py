@@ -9,13 +9,18 @@
 """
 
 import abc
+import asyncio
+import glob
 import hashlib
+import re
 import unicodedata
+import weakref
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 from urllib.parse import unquote, urlparse
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -51,6 +56,13 @@ _INT_AID_SLICED_SIZE: int = 1_000_000
 _STR_AID_SLICED_LEN: int = 3
 """字符型 artwork_id 切分目录分片长度(按哈希)"""
 
+_FILE_NAME_INVALID_CHARS = re.compile(r'[/\\<>:"|?*\x00-\x1f]')
+"""缓存文件名中不允许出现的字符(Windows/POSIX 文件名保留字符与控制字符/路径分隔符/NUL)"""
+_META_SNAPSHOT_KEPT_NUM: int = 8
+"""每个作品保留的元数据快照数量上限"""
+_PAGE_FILE_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+"""作品页面文件写入的进程内锁注册表(按目标文件解析路径, 弱引用自动清理)"""
+
 
 class BaseArtworkProxy(abc.ABC):
     """Artwork Proxy 基类"""
@@ -59,7 +71,7 @@ class BaseArtworkProxy(abc.ABC):
     """作品相关缓存及数据存储路径配置"""
 
     def __init__(self, artwork_id: str | int):
-        self.__id: str = str(artwork_id)
+        self.__id: str = self._clean_file_name(artwork_id)
 
         # 实例缓存
         self.artwork_data: ArtworkProxyData | None = None
@@ -76,6 +88,17 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def s_aid(self) -> str:
         return self.__id
+
+    @staticmethod
+    def _clean_file_name(value: str | int) -> str:
+        """规范化文件名, 拦截路径分隔符/特殊目录名/NUL/Windows 保留字符, 为空时回退为哈希文件名
+
+        底层路径越界最终由 TemporaryResource confinement 兜底
+        """
+        cleaned = _FILE_NAME_INVALID_CHARS.sub('_', str(value).strip().rstrip('. '))
+        if not cleaned:
+            cleaned = hashlib.sha256(str(value).encode('utf-8')).hexdigest()
+        return cleaned
 
     @classmethod
     @abc.abstractmethod
@@ -136,7 +159,7 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def meta_file_date_snapshot(self) -> 'TemporaryResource':
         """作品元数据文件(获取时快照副本)路径"""
-        return self.meta_path(f'{self.s_aid}.{datetime.now().strftime("%Y%m%d%H%M%S")}.json.snapshot')
+        return self.meta_path(f'{self.s_aid}.{datetime.now().strftime("%Y%m%d%H%M%S%f")}.json.snapshot')
 
     @staticmethod
     def parse_url_file_suffix(url: str) -> str:
@@ -181,11 +204,16 @@ class BaseArtworkProxy(abc.ABC):
         raise NotImplementedError
 
     async def _dumps_meta(self, artwork_data: ArtworkProxyData) -> None:
-        """内部方法, 缓存元数据, 默认额外保存当前快照副本"""
+        """内部方法, 缓存元数据, 默认额外保存当前快照副本(仅保留最新若干份)"""
         async with self.meta_file.async_open('w', encoding='utf-8') as af:
             await af.write(artwork_data.model_dump_json())
         async with self.meta_file_date_snapshot.async_open('w', encoding='utf-8') as asf:
             await asf.write(artwork_data.model_dump_json())
+
+        # 清理超出保留上限的历史快照(文件名时间戳定宽, 按名称排序即按时间排序), 避免快照只增不减
+        snapshots = sorted(self.meta_path.path.glob(f'{glob.escape(self.s_aid)}.*.json.snapshot'))
+        for stale_snapshot in snapshots[:-_META_SNAPSHOT_KEPT_NUM]:
+            stale_snapshot.unlink(missing_ok=True)
 
     async def _fast_query(self, *, use_cache: bool = True) -> ArtworkProxyData:
         """获取作品信息, 优先从本地缓存加载(缓存损坏或读取失败时回源重建)"""
@@ -206,9 +234,6 @@ class BaseArtworkProxy(abc.ABC):
         """获取作品信息"""
         if not isinstance(self.artwork_data, ArtworkProxyData):
             self.artwork_data = await self._fast_query(use_cache=use_cache)
-
-        if not isinstance(self.artwork_data, ArtworkProxyData):
-            raise RuntimeError('Query artwork data failed')
         return self.artwork_data
 
     @abc.abstractmethod
@@ -227,6 +252,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     def _get_pool_meta_file(cls, pool_id: str | int) -> 'TemporaryResource':
+        pool_id = cls._clean_file_name(pool_id)
         return cls._get_path_config().meta_path('pool', f'pool_{pool_id}.json')
 
     @classmethod
@@ -332,7 +358,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     async def ranking(cls, mode: ArtworkRankParamType, page: int) -> list[Self]:
-        """获取榜单作品"""
+        """获取榜单作品(未知 mode 回退为 monthly)"""
         page = 1 if page < 1 else page
         match mode:
             case 'daily':
@@ -345,6 +371,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     def _get_user_meta_file(cls, uid: str | int) -> 'TemporaryResource':
+        uid = cls._clean_file_name(uid)
         return cls._get_path_config().meta_path('user', f'user_{uid}.json')
 
     @classmethod
@@ -355,7 +382,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     async def _dumps_user_meta(cls, user_data: ArtistUserData) -> None:
-        """内部方法, 缓存用户元数据, 默认额外保存当前快照副本"""
+        """内部方法, 缓存用户元数据"""
         uid = user_data.uid
         async with cls._get_user_meta_file(uid=uid).async_open('w', encoding='utf8') as af:
             await af.write(user_data.model_dump_json())
@@ -423,7 +450,7 @@ class BaseArtworkProxy(abc.ABC):
             page_index: int = 0,
             page_type: 'ArtworkPageParamType' = 'regular',
     ) -> 'TemporaryResource':
-        """内部方法, 保存作品资源到本地"""
+        """内部方法, 保存作品资源到本地(未知 page_type 回退为 regular 文件, 但文件名沿用传入类型串)"""
         artwork_data = await self.query()
         index_pages = artwork_data.index_pages
         if page_index not in index_pages:
@@ -437,18 +464,27 @@ class BaseArtworkProxy(abc.ABC):
             case 'regular' | _:
                 page = index_pages[page_index].regular_file
 
-        page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{page.file_ext.strip(".")}'
+        file_ext = self._clean_file_name(page.file_ext.strip('.'))
+        page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{file_ext}'
         page_file = self.artwork_path(page_file_name)
 
         # 如果已经存在则直接返回本地资源
         if page_file.is_file:
             return page_file
 
-        # 没有的话再下载并保存文件
-        page_content = await self._get_resource_as_bytes(url=page.url)
-        async with page_file.async_open('wb') as af:
-            await af.write(page_content)
-        return page_file
+        # 按目标文件路径加进程内锁(事件循环单线程, setdefault 与加锁之间无 await, 无竞态), 避免同一页并发重复下载
+        lock = _PAGE_FILE_LOCKS.setdefault(page_file.resolve_path, asyncio.Lock())
+        async with lock:
+            # 获取锁后二次检查, 前序任务可能已完成下载
+            if page_file.is_file:
+                return page_file
+
+            # 先写临时文件再原子替换, 避免写入中断残留截断文件被当作有效缓存
+            page_content = await self._get_resource_as_bytes(url=page.url)
+            tmp_file = page_file.with_name(f'{page_file.name}.{uuid4().hex}.downloading')
+            async with tmp_file.async_open('wb') as af:
+                await af.write(page_content)
+            return tmp_file.replace(page_file.path)
 
     async def _load_page(
             self,
@@ -527,7 +563,7 @@ class BaseArtworkProxy(abc.ABC):
             page_type: 'ArtworkPageParamType' = 'regular',
             process_mode: 'ArtworkProcessParamType' = 'mark',
     ) -> 'TemporaryResource':
-        """处理作品图片"""
+        """处理作品图片(未知 process_mode 回退为 mark)"""
         artwork_data = await self.query()
         origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
 
@@ -602,12 +638,13 @@ class BaseArtworkProxy(abc.ABC):
         artwork_data = await self.query()
 
         page_file = await self.get_page_file(page_type=page_type)
+        origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
         if artwork_data.rating == ArtworkRating.UNKNOWN:
-            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=artwork_data.aid)
+            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
         elif 0 <= artwork_data.rating.value < need_blur_rating:
-            proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=artwork_data.aid)
+            proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
         else:
-            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=artwork_data.aid)
+            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
 
         desc_text = await self.get_std_preview_desc()
         thumb_data = await proceed_image.async_get_bytes()

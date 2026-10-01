@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+import hashlib
 from datetime import datetime
 from math import ceil
 from typing import TYPE_CHECKING
@@ -19,8 +20,7 @@ from src.utils.image_utils import ImageEffectProcessor, ImageLoader, ImageTextPr
 
 if TYPE_CHECKING:
     from src.resource import StaticResource, TemporaryResource
-
-    from .models import PreviewImagesData, PreviewImageThumbsItem
+    from .models import PreviewImageThumbsItem, PreviewImagesData
 
 
 class ArtworkImageOps:
@@ -73,11 +73,9 @@ class ArtworkImageOps:
         :param previews: 预览图中缩略图内容
         :param preview_size: 单个小缩略图的尺寸
         :param font_path: 用于生成预览图说明的字体
-        :param output_folder: 输出文件夹
         :param header_color: 页眉装饰色
         :param edge_scale: 缩略图添加白边的比例, 范围 0~1
         :param num_of_line: 生成预览每一行的预览图数
-        :param limit: 限制生成时加载 preview 中图片的最大值
         """
         _thumb_w, _thumb_h = preview_size
         _font_path = font_path.resolve_path
@@ -202,7 +200,7 @@ class ArtworkImageOps:
             header_color: tuple[int, int, int] = (255, 255, 255),
             edge_scale: float = 1 / 32,
             num_of_line: int = 6,
-            limit: int = 1000,
+            limit: int = 100,
     ) -> 'TemporaryResource':
         """生成多个带说明的缩略图的预览图, 输出 JPEG 格式图片
 
@@ -215,6 +213,15 @@ class ArtworkImageOps:
         :param num_of_line: 生成预览每一行的预览图数
         :param limit: 限制生成时加载 preview 中图片的最大值
         """
+        if num_of_line < 1:
+            raise ValueError(f'num_of_line must be >= 1, got {num_of_line!r}')
+        if preview_size[0] < 16 or preview_size[1] < 16:
+            raise ValueError(f'preview_size must be >= (16, 16), got {preview_size!r}')
+        if not 0 <= edge_scale <= 1:
+            raise ValueError(f'edge_scale must be in range 0~1, got {edge_scale!r}')
+        if limit < 1:
+            raise ValueError(f'limit must be >= 1, got {limit!r}')
+
         preview_name = preview.preview_name
         previews = preview.thumb_items[:limit]
 
@@ -227,7 +234,10 @@ class ArtworkImageOps:
             edge_scale=edge_scale,
             num_of_line=num_of_line,
         )
-        image_file_name = f"preview_{hash(preview_name)}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg"
+        image_file_name = (
+            f'preview_{hashlib.sha256(preview_name.encode('utf-8')).hexdigest()[:8]}'
+            f'_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.jpg'
+        )
         save_file = output_folder(image_file_name)
         async with save_file.async_open('wb') as af:
             await af.write(image_content)

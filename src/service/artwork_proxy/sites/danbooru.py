@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 from src.exception import WebSourceException
 from src.utils.booru_api.danbooru import DanbooruAPI
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPageFile, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPageFile, ArtworkPoolData, ArtworkProxyData
 
 if TYPE_CHECKING:
     from src.utils.booru_api.models.danbooru import PostMediaAsset, PostVariantTypes

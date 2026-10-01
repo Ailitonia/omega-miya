@@ -12,7 +12,7 @@ from datetime import datetime
 
 from src.utils.bilibili_api import BilibiliDynamic
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 
 class BilibiliDynamicPicArtworkProxy(BaseArtworkProxy):

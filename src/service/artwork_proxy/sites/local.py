@@ -12,7 +12,7 @@ import random
 from typing import TYPE_CHECKING, Self
 
 from ..internal import ArtworkPageParamType, BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
@@ -32,7 +32,8 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
         artwork_path = cls._get_path_config().artwork_path
-        return [file.name for file in random.sample(artwork_path.list_all_files(), k=limit)]
+        all_files = artwork_path.list_all_files()
+        return [file.name for file in random.sample(all_files, k=min(limit, len(all_files)))]
 
     @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:

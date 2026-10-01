@@ -9,7 +9,7 @@
 """
 
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 
 class NoneArtworkProxy(BaseArtworkProxy):

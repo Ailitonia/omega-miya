@@ -55,6 +55,7 @@ def get_artwork_proxy(origin_name: str) -> type['BaseArtworkProxy']:
 
 
 __all__ = [
+    'BilibiliDynamicPicArtworkProxy',
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',
     'KonachanArtworkProxy',
@@ -62,6 +63,7 @@ __all__ = [
     'LocalCollectedArtworkProxy',
     'NoneArtworkProxy',
     'PixivArtworkProxy',
+    'TweetPicArtworkProxy',
     'YandereArtworkProxy',
     'get_artwork_proxy',
     'get_available_artwork_proxy_origin_name',

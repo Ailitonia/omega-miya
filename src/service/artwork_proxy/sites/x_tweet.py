@@ -11,7 +11,7 @@
 from src.utils.twitter_x_api import TwitterGuest
 from src.utils.twitter_x_api.misc import orig_image_url
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 
 class TweetPicArtworkProxy(BaseArtworkProxy):

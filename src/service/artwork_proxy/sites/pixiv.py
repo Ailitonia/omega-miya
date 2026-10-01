@@ -12,7 +12,7 @@ import random
 
 from src.utils.pixiv_api import PixivArtwork, PixivUser, Pixivision
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 
 class PixivArtworkProxy(BaseArtworkProxy):
@@ -29,7 +29,8 @@ class PixivArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _random(cls, *, limit: int = 20) -> list[str | int]:
         artworks_data = await PixivArtwork.query_discovery_artworks()
-        return list(random.sample(artworks_data.recommend_pids, k=limit))
+        recommend_pids = list(artworks_data.recommend_pids)
+        return random.sample(recommend_pids, k=min(limit, len(recommend_pids)))
 
     @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:

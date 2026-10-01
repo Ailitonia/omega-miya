@@ -12,7 +12,7 @@ import abc
 
 from src.utils.booru_api.moebooru import BaseMoebooruAPI, KonachanAPI, KonachanSafeAPI, YandereAPI
 from ..internal import BaseArtworkProxy
-from ..models import ArtworkProxyData, ArtistUserData, ArtworkPoolData
+from ..models import ArtistUserData, ArtworkPoolData, ArtworkProxyData
 
 
 class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
