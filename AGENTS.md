@@ -3,12 +3,13 @@
 ## Project Overview
 
 Omega-Miya is a multi-platform chatbot built on [NoneBot2](https://github.com/nonebot/nonebot2). It supports OneBot V11,
-QQ (Open Platform), Telegram, and Console adapters, and uses an async SQLAlchemy ORM layer with Alembic migrations over
+Telegram, and Console adapters, and uses an async SQLAlchemy ORM layer with Alembic migrations over
 MySQL/PostgreSQL/SQLite backends.
 
 - **Language**: Python >= 3.12
 - **Entry Point**: `bot.py` - thin launcher that delegates to `src/cli`. Use `python bot.py --run` to start the bot; the
-  `--database-*` commands manage schema migrations (see "Database Migrations (Alembic)").
+  `--database-*` commands manage schema migrations (see "Database Migrations (Alembic)"); `--tool-execute
+  <module>[:<func>]` runs an entry function of a module under `tools/` (defaults to `main` when `<func>` is omitted).
 - **Package Manager**: Poetry (see `pyproject.toml`)
 - **Config**: `.env` -> `.env.<ENVIRONMENT>` loaded by NoneBot2/Pydantic
 
@@ -18,7 +19,7 @@ MySQL/PostgreSQL/SQLite backends.
 - `src/cli` - command-line interface.
     - `command.py` - argparse parser definition and the `CliQueryArguments` pydantic model.
     - `hanlder.py` (sic) - command dispatch. `run_bot` sets up logging, calls `nonebot.init()`, registers adapters
-      conditionally from config (OneBot V11 / QQ / Telegram / Console), and loads `src/service` then `src/plugins`.
+      conditionally from config (OneBot V11 / Telegram / Console), and loads `src/service` then `src/plugins`.
 - `src/compat.py` - compatibility helpers, e.g. pydantic v2 URL `TypeAdapter`s and reusable `type` aliases.
 - `src/exception.py` - `OmegaException` base class and the project exception hierarchy.
 - `src/resource.py` - resource path abstraction. Defines `BaseResource` (plus `AnyResource`, `LogFileResource`,
@@ -28,36 +29,66 @@ MySQL/PostgreSQL/SQLite backends.
     - `connector.py` - creates `AsyncEngine` and `async_sessionmaker` on import.
     - `schema_base.py` - declarative base with constraint naming conventions.
     - `schema.py` - ORM table models.
-    - `model.py` - DAL base classes (`BaseDataAccessLayerModel`, `BaseDataQueryResultModel`).
+  - `model.py` - DAL base classes (`BaseDataAccessLayer`, `BaseDataOutModel`).
     - `types.py` - cross-dialect column type variants (e.g. `IndexInt`).
     - `migrate.py` - Alembic command wrappers and the `check_migration_state()` safety check (`MigrationStatus`).
     - `internal/` - DALs (data access layers) for bot, entity, plugin, sign-in, subscriptions, etc.
     - `helpers.py` - startup hook runs the migration safety check and auto-upgrade (aborts startup on unsafe states);
       also provides session context utilities and the `DATABASE_SESSION` dependency.
 - `src/service` - core services.
-    - `omega_base` - entity wrappers, platform middlewares, message/event types, dependency injectors.
-    - `omega_processor` - unified permission, cooldown, cost, rate-limit, history, statistic, friendship processing.
+    - `omega_base` - core entity and platform abstraction layer, split into three parts:
+        - `interface.py` - `OmegaEntityInterface` / `OmegaMatcherInterface`, the unified interfaces for invoking
+          platform bot APIs outside Event/Matcher contexts.
+        - `internal/` - `OmegaEntity` (DB-backed entity wrapper), the platform adapter registry
+          (`ENTITY_TARGET_REGISTER` / `EVENT_DEPEND_REGISTER` over the `BaseEntityTarget` / `BaseEventDepend` base
+          classes), online-bot tracking (`get_online_bots`), and custom bot lifecycle events.
+        - `middlewares/` - per-platform implementations of those base classes (`console`, `onebot_v11`, `telegram`)
+          that adapt nonebot adapters and their events onto the unified interfaces.
+    - `omega_processor` - unified event/run pre- and post-processing, organized under `universal/` by concern (plugin
+      manager, permission, cooldown, cost, rate limiting, history, statistic, friendship, cancellation).
     - `omega_api` - FastAPI sub-app mounting and HMAC-signed router utilities.
     - `omega_global_cache` - memory + DB-backed cache.
     - `omega_multibot_support` - multi-protocol bot tracking and response de-duplication.
-    - `omega_message_context` - message context manager and custom depends (e.g. artwork extraction).
+    - `omega_message_context` - message context manager (`manager.py`) plus custom depends for extracting artwork
+      data from messages (`custom_depends/`).
     - `omega_file_host` / `omega_short_link` - auxiliary HTTP services (file hosting, short links).
     - `apscheduler` - scheduled-job wrapper.
     - `artwork_proxy` / `artwork_collection` - artwork-site proxy and local collection DB.
-    - `gocqhttp_addition_event_patch` / `gocqhttp_self_sent_patch` / `qq_guild_audit_patch` - adapter behavior patches.
+    - `onebot_v11_addition_event_patch` / `onebot_v11_self_sent_patch` - adapter behavior patches.
 - `src/params` - NoneBot dependency injectors, handlers, rules, and reusable templates.
+    - `depends/entity_depends/` - new home (migrating in from the former `src/service/omega_base/depends`) of the
+      `EVENT_*` / `USER_*` `Annotated` sub-dependencies for entity params, `OmegaEntity` instances, and the
+      entity/matcher interfaces, plus the `get_entity_session*` context helpers. The migration is in progress:
+      `depends/__init__.py` still re-exports from the removed `src.service.omega_base.depends` and the moved files
+      keep relative imports from their old location, so `src.params.depends` does not import until they are rewired;
+      `depends_tmp.py` is a scratchpad of `Annotated` DAL/session type aliases for the same effort, and a few
+      `TYPE_CHECKING` imports still reference the removed `omega_base.middlewares.models`.
+    - `handler.py` / `permission.py` / `rule.py` - reusable handlers, permission checks, and matcher rules.
+    - `template/subscription_manager` - reusable subscription-manager template (manager + handlers).
 - `src/utils` - external API clients and helpers: `bilibili_api`, `pixiv_api`, `weibo_api`, `booru_api`, `openai_api`,
   `nhentai` / `comic18`, `image_searcher`, `image_utils`, `omega_requests` / `omega_common_api`, `crypto`, etc.
 - `src/plugins` - business plugins. Naming convention: `omega_*` are core/meta plugins, `onebot_v11_*` are OneBot
   V11-specific, and the rest are platform-agnostic.
-- `alembic/` + `alembic.ini` - database migration scripts; the baseline revision is locked (see below).
+- `alembic/` + `alembic.ini` - database migration scripts; the baseline revision policy is described below.
 - `tools/` - standalone utility scripts (artwork downloader, old-version data migration, artwork rating GUI, etc.).
-- `tests/` - pytest suite (see "Testing Instructions").
+    - `fix_p0_unique_constraints` - repairs legacy duplicate rows and (re)creates the unique indexes on `sign_in` /
+      `auth_setting`; run `python -m tools.fix_p0_unique_constraints` for a dry-run and `--apply` to execute (back
+      up the database first).
+- `tests/` - pytest suite (see "Testing Instructions"): `test_001_database` (migration state check, database init,
+  per-table DAL CRUD, DAL execute), `test_002_core` (compat, resource, apscheduler, event patches, omega services,
+  `OmegaEntity`, omega_base internals), `test_004_tools` (crypto: key derivation, AES/ChaCha20 modes, authenticated
+  envelopes), and `test_009_cli` (CLI `--tool-execute` entry).
+- `docs/` - documentation assets: `img/` holds images referenced by the README; `reference/` holds curated reference
+  tutorials (see "Reference Documentation").
 
 ## Database Migrations (Alembic)
 
-- Schema versions are managed by Alembic (`alembic.ini`, `alembic/versions/`). The baseline revision
-  (`0bd5556acb4c_init_baseline`) is locked - never edit it; add new revisions instead.
+- Schema versions are managed by Alembic (`alembic.ini`, `alembic/versions/`). Until the 2.0 release (while on the
+  `dev-2.0-database-breaking` line) the baseline revision (`69d603c01e0e_init_baseline_20260828`) MAY be edited
+  in place for breaking schema changes (see `8ec0c16d`, `db385e29`); editing the baseline does not re-run it on
+  databases already stamped at head, so every existing database (including the shared dev/test one) must be rebuilt
+  afterwards: `python bot.py --database-downgrade base && python bot.py --database-upgrade-to-head`, or drop and
+  re-create the database. After the 2.0 release the baseline is locked - never edit it; add new revisions instead.
 - On startup (`src/database/helpers.py`), the bot runs `check_migration_state()` first: safe states (`FRESH`,
   `UPGRADABLE`, `UP_TO_DATE`) proceed to an automatic upgrade to head followed by a post-migration re-check; unsafe
   states (`UNSTAMPED_DATABASE`, `UNKNOWN_REVISION`, `MULTIPLE_*`) abort startup with remediation guidance.
@@ -71,7 +102,11 @@ MySQL/PostgreSQL/SQLite backends.
 ## Code Style Guidelines
 
 - Python 3.12+ syntax; use type hints throughout.
-- Linting / formatting: `ruff` (configured in `pyproject.toml`).
+- Linting (enforced): code must pass `ruff check` (rules configured in `pyproject.toml`) - this is the only
+  mandatory style gate.
+- Formatting (not enforced): `ruff format` is not used - do not run it over existing code. The codebase follows
+  PyCharm's hanging-indent style (double-indent continuation lines), which differs from `ruff format` output;
+  match the surrounding code style instead.
 - Line length: 120 characters.
 - String quotes: single quotes for inline strings.
 - Imports: sorted and grouped; `E402` ignored for NoneBot adapter conditional imports.
@@ -90,19 +125,54 @@ MySQL/PostgreSQL/SQLite backends.
   fixture), so `src.*` imports must stay inside fixtures/test functions.
 - `tests/conftest.py` auto-marks every async test with `loop_scope='session'` (shared event loop) and loads all of
   `src/service` and `src/plugins` after nonebug initializes NoneBot.
-- `tests/database` tests reuse the real database connection configured by `.env.test` and perform guarded DDL/DML
-  (snapshot & restore `alembic_version`, create/drop sentinel tables). Never point the test environment at a production
-  database.
+- Never resolve async fixtures lazily via `request.getfixturevalue()` inside async tests or async fixtures: with the
+  shared session event loop already running, pytest-asyncio would call `Runner.run()` on the running loop and raise
+  `RuntimeError`. Declare async fixtures as parameters so they resolve during setup instead.
+- Never monkeypatch attributes on process-shared modules - stdlib (`asyncio`, `random`, `time`, `os`, `sys`,
+  `subprocess`, `zipfile`, ...) or third-party libraries (`py7zr`, `openpyxl`, ...) - whether through dotted paths
+  such as `monkeypatch.setattr('src.utils.foo.asyncio.sleep', ...)` or directly on the module object such as
+  `monkeypatch.setattr(zipfile, 'ZipFile', ...)`: `src.utils.foo.asyncio` IS the global `asyncio` module object, so
+  this replaces `asyncio.sleep` process-wide for the duration of the test. With the shared session event loop,
+  long-lived loop residents (e.g. the uvicorn `Server.main_loop` polling `asyncio.sleep(0.1)` from
+  `tests/test_003_web`'s session-scoped `test_server`) can then crash mid-session and surface later as misleading
+  teardown `ERROR`s attributed to unrelated tests. Instead, rebind the name inside the target module's namespace
+  with a copied namespace, e.g.
+  `monkeypatch.setattr(module, 'asyncio', SimpleNamespace(**{**vars(asyncio), 'sleep': fake}))`; see
+  `tests/test_003_web/helpers.py` (`patch_module_asyncio_sleep`, `patch_module_time`) for the ready-made pattern.
+- `tests/conftest.py` also provides the session-scoped `database_schema_guard` fixture, pulled in by
+  `after_nonebot_init` so it runs before nonebug's lifespan startup: it migrates the test database to the Alembic
+  head at session start, and skips the whole suite (instead of hard-failing via `sys.exit` in the startup hook) when
+  the database is unreachable or the migration state is unsafe.
+- `tests/test_001_database` tests reuse the real database connection configured by `.env.test` and perform guarded
+  DDL/DML (snapshot & restore `alembic_version`, create/drop sentinel tables). Never point the test environment at
+  a production database.
+- Background for the test setup lives in `docs/reference/` (see "Reference Documentation").
+
+## Reference Documentation
+
+Curated reference material lives under `docs/reference/`; consult the relevant document before working on each area:
+
+- Testing: `k.1.1-pytest_fastapi_tutorial.md` (pytest basics with async FastAPI),
+  `k.1.2-nonebot2_testing_tutorial.md` (unit-testing a NoneBot2 + SQLAlchemy project, mirrors this repo's setup),
+  `g.1.3-nonebug_tutorial.md` (nonebug usage and best practices).
+- Database: `k.2.1-sqlalchemy_async_tutorial.md` (async SQLAlchemy 2.0 patterns),
+  `k.2.2-alembic_migration_tutorial.md` (Alembic versioned migrations),
+  `k.2.3-nonebot2_alembic_startup_tutorial.md` (startup-time auto-migration, the approach implemented in
+  `src/database/helpers.py`).
+- Command/message handling: `g.3.1-learning_alconna.md` (nonebot-plugin-alconna source-level notes) and
+  `g.3.2-alconna_tutorial.md` (developing plugins on alconna/uniseg, as used across `src/service` and
+  `src/plugins`).
 
 ## Security Considerations
 
 - **Secrets live in `.env`** and must never be committed.
-    - `AES_KEY`, `DB_PASSWORD`, `ONEBOT_ACCESS_TOKEN`, `TENCENT_CLOUD_SECRET_*`, `PIXIV_PHPSESSID`,
-      `IMAGE_SEARCHER_SAUCENAO_API_KEY`, etc.
+    - `OMEGA_AES_KEY` (required to be non-empty: `src/utils/crypto` now rejects an empty value at startup, and changing
+      it makes ciphertext written with the previous key undecryptable), `DB_PASSWORD`, `ONEBOT_ACCESS_TOKEN`,
+      `TENCENT_CLOUD_SECRET_*`, `PIXIV_PHPSESSID`, `IMAGE_SEARCHER_SAUCENAO_API_KEY`, etc.
 - Database credentials are read via `src/database/config.py` from environment variables.
 - `src/service/omega_api/` provides HMAC-signed API routes; verify signatures on any exposed HTTP endpoints.
-- Be cautious with adapter-specific patches under `src/service` (`gocqhttp_addition_event_patch`,
-  `gocqhttp_self_sent_patch`, `qq_guild_audit_patch`) - they modify event/permission behavior.
+- Be cautious with adapter-specific patches under `src/service` (`onebot_v11_addition_event_patch`,
+  `onebot_v11_self_sent_patch`) - they modify event/permission behavior.
 - Artwork and image plugins fetch external content; validate paths, avoid SSRF, and do not expose local filesystem
   paths.
 - Use parameterized SQLAlchemy queries; do not concatenate raw SQL.
