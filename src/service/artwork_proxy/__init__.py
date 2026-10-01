@@ -22,6 +22,7 @@ from .sites import (
     LocalCollectedArtworkProxy,
     NoneArtworkProxy,
     PixivArtworkProxy,
+    TweetPicArtworkProxy,
     YandereArtworkProxy,
 )
 
@@ -36,6 +37,7 @@ _AVAILABLE_ARTWORK_PROXY: dict[str, type['BaseArtworkProxy']] = {
         LocalCollectedArtworkProxy,
         NoneArtworkProxy,
         PixivArtworkProxy,
+        TweetPicArtworkProxy,
         YandereArtworkProxy,
     ]
 }

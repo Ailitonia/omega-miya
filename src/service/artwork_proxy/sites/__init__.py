@@ -19,6 +19,7 @@ from .moebooru import (
 )
 from .none import NoneArtworkProxy
 from .pixiv import PixivArtworkProxy
+from .x_tweet import TweetPicArtworkProxy
 
 __all__ = [
     'BilibiliDynamicPicArtworkProxy',
@@ -27,7 +28,8 @@ __all__ = [
     'LocalCollectedArtworkProxy',
     'KonachanArtworkProxy',
     'KonachanSafeArtworkProxy',
-    'YandereArtworkProxy',
     'NoneArtworkProxy',
     'PixivArtworkProxy',
+    'TweetPicArtworkProxy',
+    'YandereArtworkProxy',
 ]

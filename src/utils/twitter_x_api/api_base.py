@@ -23,7 +23,7 @@ from .transaction import ClientTransaction
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
-    from src.utils.omega_common_api.types import CookieTypes, HeaderTypes
+    from src.utils.omega_common_api.types import CookieTypes, HeaderTypes, QueryTypes
 
 
 class BaseTwitterAPI(BaseCommonAPI):
@@ -176,6 +176,11 @@ class BaseTwitterAPI(BaseCommonAPI):
                 )
             raise
         return cls._parse_content_as_json(response)
+
+    @classmethod
+    async def get_resource_as_bytes(cls, url: str, *, params: 'QueryTypes' = None, timeout: int = 30) -> bytes:
+        """请求原始资源内容"""
+        return await cls._get_resource_as_bytes(url, params, timeout=timeout)
 
     @classmethod
     async def download_resource(
