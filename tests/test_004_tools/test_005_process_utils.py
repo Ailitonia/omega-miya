@@ -9,6 +9,7 @@
 """
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
@@ -45,6 +46,9 @@ class TestRunAsyncDelay:
         assert _named.__wrapped__ is not None
 
     async def test_delay_applied(self, monkeypatch: pytest.MonkeyPatch):
+        import asyncio as asyncio_module
+
+        import src.utils.process_utils as process_utils
         from src.utils.process_utils import run_async_delay
 
         _recorded: list[float | None] = []
@@ -52,7 +56,10 @@ class TestRunAsyncDelay:
         async def _fake_sleep(*, delay: float | None = None) -> None:
             _recorded.append(delay)
 
-        monkeypatch.setattr('src.utils.process_utils.asyncio.sleep', _fake_sleep)
+        # 重绑定模块内 asyncio 名字(拷贝命名空间), 不得经点路径 patch 污染进程级共享的 asyncio 模块对象
+        monkeypatch.setattr(
+            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
+        )
 
         @run_async_delay(delay_time=0.2)
         async def _func() -> str:
@@ -62,6 +69,10 @@ class TestRunAsyncDelay:
         assert _recorded == [0.2]
 
     async def test_random_sigma_uses_absolute_delay(self, monkeypatch: pytest.MonkeyPatch):
+        import asyncio as asyncio_module
+        import random as random_module
+
+        import src.utils.process_utils as process_utils
         from src.utils.process_utils import run_async_delay
 
         _recorded: list[float | None] = []
@@ -69,8 +80,13 @@ class TestRunAsyncDelay:
         async def _fake_sleep(*, delay: float | None = None) -> None:
             _recorded.append(delay)
 
-        monkeypatch.setattr('src.utils.process_utils.random.gauss', lambda mu, sigma: -1.0)
-        monkeypatch.setattr('src.utils.process_utils.asyncio.sleep', _fake_sleep)
+        # 重绑定模块内 random/asyncio 名字(拷贝命名空间), 不得经点路径 patch 污染进程级共享模块对象
+        monkeypatch.setattr(
+            process_utils, 'random', SimpleNamespace(**{**vars(random_module), 'gauss': lambda mu, sigma: -1.0})
+        )
+        monkeypatch.setattr(
+            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
+        )
 
         @run_async_delay(delay_time=5, random_sigma=1)
         async def _func() -> str:
@@ -98,6 +114,9 @@ class TestRunAsyncDelay:
             run_async_delay(delay_time=5, random_sigma=-0.1)
 
     async def test_default_delay_time(self, monkeypatch: pytest.MonkeyPatch):
+        import asyncio as asyncio_module
+
+        import src.utils.process_utils as process_utils
         from src.utils.process_utils import run_async_delay
 
         _recorded: list[float | None] = []
@@ -105,7 +124,10 @@ class TestRunAsyncDelay:
         async def _fake_sleep(*, delay: float | None = None) -> None:
             _recorded.append(delay)
 
-        monkeypatch.setattr('src.utils.process_utils.asyncio.sleep', _fake_sleep)
+        # 重绑定模块内 asyncio 名字(拷贝命名空间), 不得经点路径 patch 污染进程级共享的 asyncio 模块对象
+        monkeypatch.setattr(
+            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
+        )
 
         @run_async_delay()
         async def _func() -> str:
@@ -113,6 +135,28 @@ class TestRunAsyncDelay:
 
         assert await _func() == 'ok'
         assert _recorded == [5]
+
+    async def test_module_patch_does_not_pollute_global_asyncio(self, monkeypatch: pytest.MonkeyPatch):
+        """模块命名空间重绑定不得污染全局 asyncio.sleep
+
+        回归: 全局污染曾在 patch 窗口内杀死 session loop 常驻的 uvicorn Server.main_loop,
+        导致 session 结束拆卸 test_server 时报 ERROR(teardown 竞态)
+        """
+        import asyncio as asyncio_module
+
+        import src.utils.process_utils as process_utils
+
+        original_sleep = asyncio_module.sleep
+
+        async def _fake_sleep(*, delay: float | None = None) -> None:
+            pass
+
+        monkeypatch.setattr(
+            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
+        )
+
+        assert asyncio_module.sleep is original_sleep
+        await asyncio_module.sleep(0)  # 若全局被 keyword-only fake 污染, 位置参数调用将抛 TypeError
 
     def test_nan_delay_time_raises(self):
         from src.utils.process_utils import run_async_delay
