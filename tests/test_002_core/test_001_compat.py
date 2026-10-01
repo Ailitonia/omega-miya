@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, ValidationInfo, field_validator
 
-from src.compat import AnyHttpUrlStr, AnyUrlStr, EmptyNoneStr
+from src.compat import AnyHttpUrlStr, AnyUrlStr, EmptyNoneStr, OptionalUrlStr
 
 
 class _SimpleModel(BaseModel):
@@ -58,6 +58,12 @@ class _HttpUrlModel(BaseModel):
     url: AnyHttpUrlStr
 
 
+class _OptionalUrlModel(BaseModel):
+    """OptionalUrlStr 模型字段测试用模型"""
+
+    url: OptionalUrlStr = None
+
+
 class _EmptyNoneModel(BaseModel):
     """EmptyNoneStr 模型字段测试用模型"""
 
@@ -73,6 +79,7 @@ class TestModuleContract:
         assert src.compat.__all__ == [
             'AnyUrlStr',
             'AnyHttpUrlStr',
+            'OptionalUrlStr',
             'EmptyNoneStr',
             'parse_obj_as',
             'parse_json_as',
@@ -185,6 +192,55 @@ class TestAnyHttpUrlStr:
     def test_model_json_roundtrip(self):
         model = _HttpUrlModel(url='https://example.com')
         assert _HttpUrlModel.model_validate_json(model.model_dump_json()) == model
+
+
+class TestOptionalUrlStr:
+    """OptionalUrlStr 类型测试"""
+
+    def test_empty_str_becomes_none(self):
+        from src.compat import OptionalUrlStr
+
+        assert TypeAdapter(OptionalUrlStr).validate_python('') is None
+
+    def test_none_preserved(self):
+        from src.compat import OptionalUrlStr
+
+        assert TypeAdapter(OptionalUrlStr).validate_python(None) is None
+
+    def test_valid_url_normalized_and_str_type(self):
+        from src.compat import OptionalUrlStr
+
+        result = TypeAdapter(OptionalUrlStr).validate_python('https://example.com')
+        assert result == 'https://example.com/'
+        assert type(result) is str
+
+    def test_url_normalized(self):
+        from src.compat import OptionalUrlStr
+
+        # URL 规范化委派 AnyUrlStr: scheme 与 host 小写化, 路径大小写保留
+        assert TypeAdapter(OptionalUrlStr).validate_python('HTTPS://EXAMPLE.COM/Path') == 'https://example.com/Path'
+
+    def test_non_http_schemes_allowed(self):
+        from src.compat import OptionalUrlStr
+
+        # 继承 AnyUrl 的 scheme 广度(与 AnyHttpUrlStr 的区分点)
+        assert TypeAdapter(OptionalUrlStr).validate_python('ftp://example.com/f') == 'ftp://example.com/f'
+
+    @pytest.mark.parametrize('invalid_input', ['not a url', 'example.com', '   ', 123, True])
+    def test_invalid_input_raises(self, invalid_input: Any):
+        from src.compat import OptionalUrlStr
+
+        # 仅精确空串被转换为 None, 空白串/非法值不误吞, 走正常 URL 校验报错
+        with pytest.raises(ValidationError):
+            TypeAdapter(OptionalUrlStr).validate_python(invalid_input)
+
+    def test_model_field(self):
+        # 默认值与空串均为 None, 合法 URL 规范化, JSON 往返一致
+        assert _OptionalUrlModel().url is None
+        assert _OptionalUrlModel(url='').url is None
+        model = _OptionalUrlModel(url='https://example.com')
+        assert model.url == 'https://example.com/'
+        assert _OptionalUrlModel.model_validate_json(model.model_dump_json()) == model
 
 
 class TestEmptyNoneStr:
