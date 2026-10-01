@@ -37,7 +37,7 @@ from ..models import (
 
 if TYPE_CHECKING:
     from src.resource import TemporaryResource
-    from src.utils.omega_common_api.types import CookieTypes
+    from src.utils.omega_common_api.types import CookieTypes, QueryTypes
 
 
 class BilibiliCommon(BaseCommonAPI):
@@ -78,6 +78,11 @@ class BilibiliCommon(BaseCommonAPI):
     @classmethod
     def _get_default_cookies(cls) -> 'CookieTypes':
         return BILIBILI_CREDENTIAL_MANAGER.login_cookies
+
+    @classmethod
+    async def get_resource_as_bytes(cls, url: str, *, params: 'QueryTypes' = None, timeout: int = 30) -> bytes:
+        """请求原始资源内容"""
+        return await cls._get_resource_as_bytes(url, params, timeout=timeout)
 
     @classmethod
     async def download_resource(

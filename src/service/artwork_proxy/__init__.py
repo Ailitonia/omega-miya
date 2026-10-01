@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .internal import BaseArtworkProxy
 
 from .sites import (
+    BilibiliDynamicPicArtworkProxy,
     DanbooruArtworkProxy,
     GelbooruArtworkProxy,
     KonachanArtworkProxy,
@@ -27,6 +28,7 @@ from .sites import (
 _AVAILABLE_ARTWORK_PROXY: dict[str, type['BaseArtworkProxy']] = {
     x.get_origin_name(): x
     for x in [
+        BilibiliDynamicPicArtworkProxy,
         DanbooruArtworkProxy,
         GelbooruArtworkProxy,
         KonachanArtworkProxy,

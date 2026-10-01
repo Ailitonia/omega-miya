@@ -100,8 +100,8 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def sliced_aid_subdir_name(self) -> str:
         """根据 artwork_id 切分缓存及数据文件子目录, 避免单一目录文件过多"""
-        if self.s_aid.isdecimal():
-            start, _ = divmod(int(self.s_aid), _INT_AID_SLICED_SIZE)
+        if self.s_aid.isdecimal() and (i_aid := int(self.s_aid)) <= _INT_AID_SLICED_SIZE ** 2:
+            start, _ = divmod(i_aid, _INT_AID_SLICED_SIZE)
             subdir_name = f'artwork_id_{start * _INT_AID_SLICED_SIZE}-{(start + 1) * _INT_AID_SLICED_SIZE - 1}'
         else:
             id_hash = hashlib.sha256(unicodedata.normalize('NFC', self.s_aid).encode('utf-8')).hexdigest()

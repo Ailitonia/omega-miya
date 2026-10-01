@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+from .bilibili_dynamic import BilibiliDynamicPicArtworkProxy
 from .danbooru import DanbooruArtworkProxy
 from .gelbooru import GelbooruArtworkProxy
 from .local import LocalCollectedArtworkProxy
@@ -20,6 +21,7 @@ from .none import NoneArtworkProxy
 from .pixiv import PixivArtworkProxy
 
 __all__ = [
+    'BilibiliDynamicPicArtworkProxy',
     'DanbooruArtworkProxy',
     'GelbooruArtworkProxy',
     'LocalCollectedArtworkProxy',
