@@ -11,21 +11,29 @@
 import abc
 import hashlib
 import unicodedata
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 from urllib.parse import unquote, urlparse
 
 from pydantic import ValidationError
 
 from src.database.internal.artwork_collection import (
-    ArtworkCollectionDAL,
     ArtworkClassificationStatistic,
+    ArtworkCollectionDAL,
     ArtworkRatingStatistic,
 )
 from src.utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
-from .models import ArtistUserData, ArtworkPoolData, ArtworkProxyData, PreviewImageThumbsItem, PreviewImagesData
+from .models import (
+    ArtistUserData,
+    ArtworkPoolData,
+    ArtworkProxyData,
+    ArtworkRating,
+    PreviewImageThumbsItem,
+    PreviewImagesData,
+)
 from .preview_image_utils import ArtworkImageOps
 
 if TYPE_CHECKING:
@@ -82,10 +90,12 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     def _get_path_config(cls) -> ArtworkProxyPathConfig:
-        """内部方法, 初始化该图库的本地存储路径配置项"""
-        if not isinstance(cls._path_config, ArtworkProxyPathConfig):
-            cls._path_config = ArtworkProxyPathConfig(base_path_name=cls._get_base_origin_name())
-        return cls._path_config
+        """内部方法, 初始化该图库的本地存储路径配置项(仅使用本类自身的缓存, 避免继承自父类的配置串 origin 目录)"""
+        config = cls.__dict__.get('_path_config')
+        if not isinstance(config, ArtworkProxyPathConfig):
+            config = ArtworkProxyPathConfig(base_path_name=cls._get_base_origin_name())
+            cls._path_config = config
+        return config
 
     @property
     def origin_name(self) -> str:
@@ -178,12 +188,12 @@ class BaseArtworkProxy(abc.ABC):
             await asf.write(artwork_data.model_dump_json())
 
     async def _fast_query(self, *, use_cache: bool = True) -> ArtworkProxyData:
-        """获取作品信息, 优先从本地缓存加载"""
+        """获取作品信息, 优先从本地缓存加载(缓存损坏或读取失败时回源重建)"""
         if use_cache and self.meta_file.is_file:
             try:
                 async with self.meta_file.async_open('r', encoding='utf-8') as af:
                     artwork_data = ArtworkProxyData.model_validate_json(await af.read())
-            except ValidationError:
+            except (ValidationError, OSError, UnicodeDecodeError):
                 artwork_data = await self._query()
                 await self._dumps_meta(artwork_data=artwork_data)
         else:
@@ -234,12 +244,12 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     async def _fast_query_pool(cls, pool_id: str | int, *, use_cache: bool = True) -> ArtworkPoolData:
-        """获取图集信息, 优先从本地缓存加载"""
+        """获取图集信息, 优先从本地缓存加载(缓存损坏或读取失败时回源重建)"""
         if use_cache and cls._get_pool_meta_file(pool_id=pool_id).is_file:
             try:
                 async with cls._get_pool_meta_file(pool_id).async_open('r', encoding='utf8') as af:
                     pool_data = ArtworkPoolData.model_validate_json(await af.read())
-            except ValidationError:
+            except (ValidationError, OSError, UnicodeDecodeError):
                 pool_data = await cls._query_pool(pool_id=pool_id)
                 await cls._dumps_pool_meta(pool_data=pool_data)
         else:
@@ -352,12 +362,12 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     async def _fast_query_user(cls, uid: str | int, *, use_cache: bool = True) -> ArtistUserData:
-        """内部方法, 获取用户信息, 优先从本地缓存加载"""
+        """内部方法, 获取用户信息, 优先从本地缓存加载(缓存损坏或读取失败时回源重建)"""
         if use_cache and cls._get_user_meta_file(uid=uid).is_file:
             try:
                 async with cls._get_user_meta_file(uid=uid).async_open('r', encoding='utf8') as af:
                     user_data = ArtistUserData.model_validate_json(await af.read())
-            except ValidationError:
+            except (ValidationError, OSError, UnicodeDecodeError):
                 user_data = await cls._query_user(uid=uid)
                 await cls._dumps_user_meta(user_data=user_data)
         else:
@@ -415,14 +425,17 @@ class BaseArtworkProxy(abc.ABC):
     ) -> 'TemporaryResource':
         """内部方法, 保存作品资源到本地"""
         artwork_data = await self.query()
+        index_pages = artwork_data.index_pages
+        if page_index not in index_pages:
+            raise ValueError(f'{self.origin_name} {self.s_aid} has no page with page_index {page_index}')
 
         match page_type:
             case 'preview':
-                page = artwork_data.index_pages[page_index].preview_file
+                page = index_pages[page_index].preview_file
             case 'original':
-                page = artwork_data.index_pages[page_index].original_file
+                page = index_pages[page_index].original_file
             case 'regular' | _:
-                page = artwork_data.index_pages[page_index].regular_file
+                page = index_pages[page_index].regular_file
 
         page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{page.file_ext.strip(".")}'
         page_file = self.artwork_path(page_file_name)
@@ -472,7 +485,8 @@ class BaseArtworkProxy(abc.ABC):
     ) -> list['TemporaryResource']:
         """获取作品所有文件资源列表, 使用本地缓存
 
-        :param page_limit: 返回作品图片最大数量限制, 从第一张图开始计算, 避免漫画作品等单作品图片数量过多出现问题, 0 为无限制
+        :param page_limit: 返回作品图片最大数量限制, 从第一张图开始计算,
+            避免漫画作品等单作品图片数量过多出现问题, 0 为无限制
         :param page_type: 类型, original: 原始图片, regular: 默认大图, preview: 缩略图
         """
         artwork_data = await self.query()
@@ -555,11 +569,15 @@ class BaseArtworkProxy(abc.ABC):
         :param page_type: 作品图片类型
         :param need_blur_rating: 需要模糊处理的最小分级等级, 默认为 2: QUESTIONABLE
         :return: 处理后的图片文件
+
+        注意: UNKNOWN(-1) 可能为任意分级, 按最严格的模糊(blur)处理, 不得直接视为 G-rated 作品
         """
         need_blur_rating = max(0, need_blur_rating)
         artwork_data = await self.query()
 
-        if artwork_data.rating.value == 0:
+        if artwork_data.rating == ArtworkRating.UNKNOWN:
+            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='blur')
+        elif artwork_data.rating.value == 0:
             process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='mark')
         elif artwork_data.rating.value < need_blur_rating:
             process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='noise')
@@ -574,12 +592,19 @@ class BaseArtworkProxy(abc.ABC):
             page_type: 'ArtworkPageParamType' = 'preview',
             need_blur_rating: int = 2,
     ) -> 'PreviewImageThumbsItem':
-        """内部方法, 获取生成预览图所需要的每个小缩略图的数据"""
+        """内部方法, 获取生成预览图所需要的每个小缩略图的数据
+
+        缩略图处理策略类似 get_auto_proceed_page_file 方法,
+        为保证显示效果 0 < rating <= need_blur_rating 的图片不再 noise 处理;
+        UNKNOWN(-1) 可能为任意分级, 按最严格的模糊(blur)处理, 不得直接视为 G-rated 作品
+        """
         need_blur_rating = max(0, need_blur_rating)
         artwork_data = await self.query()
 
         page_file = await self.get_page_file(page_type=page_type)
-        if artwork_data.rating.value < need_blur_rating:
+        if artwork_data.rating == ArtworkRating.UNKNOWN:
+            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=artwork_data.aid)
+        elif 0 <= artwork_data.rating.value < need_blur_rating:
             proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=artwork_data.aid)
         else:
             proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=artwork_data.aid)

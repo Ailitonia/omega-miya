@@ -70,7 +70,9 @@ class ArtworkProxyData(BaseArtworkProxyModel):
 
     @property
     def cover_page_url(self) -> AnyHttpUrl:
-        """首页/封面原图链接"""
+        """首页/封面原图链接, 作品无任何页面时抛出 ValueError"""
+        if not self.pages:
+            raise ValueError(f'{self.origin} {self.aid} has no pages')
         return self.index_pages[0].original_file.url
 
 
