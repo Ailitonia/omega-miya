@@ -76,8 +76,9 @@ MySQL/PostgreSQL/SQLite backends.
       up the database first).
 - `tests/` - pytest suite (see "Testing Instructions"): `test_001_database` (migration state check, database init,
   per-table DAL CRUD, DAL execute), `test_002_core` (compat, resource, apscheduler, event patches, omega services,
-  `OmegaEntity`, omega_base internals), `test_004_tools` (crypto: key derivation, AES/ChaCha20 modes, authenticated
-  envelopes), and `test_009_cli` (CLI `--tool-execute` entry).
+  `OmegaEntity`, omega_base internals), `test_003_web` (HTTP client layer, external API clients, artwork proxy -
+  against the local uvicorn test server), `test_004_tools` (crypto: key derivation, AES/ChaCha20 modes,
+  authenticated envelopes), and `test_009_cli` (CLI `--tool-execute` entry).
 - `docs/` - documentation assets: `img/` holds images referenced by the README; `reference/` holds curated reference
   tutorials (see "Reference Documentation").
 
@@ -118,16 +119,75 @@ MySQL/PostgreSQL/SQLite backends.
 
 ## Testing Instructions
 
-- Test suite lives under `tests/` (pytest + nonebug + pytest-asyncio, `asyncio_mode = "auto"`).
+### Environment & Setup
+
+- Test suite lives under `tests/` (pytest + nonebug + pytest-asyncio, `asyncio_mode = "auto"`, asyncio only - do
+  not add anyio/trio backend parametrization or `@pytest.mark.anyio`; the suite pins one event-loop model).
 - Test environment config comes from `.env.test` (`tests/conftest.py` sets `ENVIRONMENT=test`); external API calls
   should be mocked.
 - Test modules are imported at collection time before NoneBot is initialized (nonebug initializes it in a session
-  fixture), so `src.*` imports must stay inside fixtures/test functions.
+  fixture), so `src.*` imports must stay inside fixtures/test functions. The same applies to fixture plugins: keep
+  them out of collection (`collect_ignore` or no `test_` prefix), load them once per session in an autouse fixture
+  after nonebug init (the `after_nonebot_init` pattern), and import their symbols inside test functions.
 - `tests/conftest.py` auto-marks every async test with `loop_scope='session'` (shared event loop) and loads all of
-  `src/service` and `src/plugins` after nonebug initializes NoneBot.
+  `src/service` after nonebug initializes NoneBot (`src/plugins` loading is commented out in `tests/conftest.py`
+  until a test needs it).
 - Never resolve async fixtures lazily via `request.getfixturevalue()` inside async tests or async fixtures: with the
   shared session event loop already running, pytest-asyncio would call `Runner.run()` on the running loop and raise
   `RuntimeError`. Declare async fixtures as parameters so they resolve during setup instead.
+- `tests/conftest.py` also provides the session-scoped `database_schema_guard` fixture, pulled in by
+  `after_nonebot_init` so it runs before nonebug's lifespan startup: it migrates the test database to the Alembic
+  head at session start, and skips the whole suite (instead of hard-failing via `sys.exit` in the startup hook) when
+  the database is unreachable or the migration state is unsafe.
+- `tests/test_001_database` tests reuse the real database connection configured by `.env.test` and perform guarded
+  DDL/DML (snapshot & restore `alembic_version`, create/drop sentinel tables). Never point the test environment at
+  a production database.
+
+### Writing Tests
+
+- Fabricate events/messages through the shared factories (`tests/utils.py:make_fake_event` / `make_fake_message`;
+  platform event builders live in `tests/test_002_core/helpers.py`) with per-test keyword overrides; never hand-roll
+  `Event` subclasses per file, and never `unittest.mock` framework objects - fakes plus the real nonebot machinery
+  give higher fidelity (`tests/test_002_core/helpers.py:make_mock_bot` is the documented exception for don't-care
+  bot carriers).
+- Drive matcher/handler flows through nonebug `App` contexts: `app.test_matcher(...)` +
+  `ctx.receive_event(bot, event)` + `ctx.should_call_send(...)` / `ctx.should_call_api(...)`; assert *silence* by
+  receiving an event with no expectation, and assert teardown after exiting the context.
+- Unit-test custom `Annotated` depends (`src/params/depends/entity_depends/`) with `app.test_dependent`:
+  `ctx.pass_params(...)` / `ctx.should_return(...)`, including the `TypeMisMatch` negative path fed by a wrong-type
+  fabricated event.
+- Test custom rules/permissions (and processors such as cooldown/cost) as parametrized truth tables that invoke the
+  dependent directly against fabricated events, covering `None` attributes and non-matching event types.
+- Prefer sync tests by default; write async tests only when entering a nonebug/matcher/API context.
+- Assertion style: identity (`is`) for object passing, structural equality for state dicts, set-of-callables
+  comparison for checker wiring, shared sentinels defined once in fixture plugins.
+- Exercise real configuration effects via `.env.test` / `NONEBOT_INIT_KWARGS` instead of stubbing config; test
+  config parsing against committed dotenv fixtures (defaults, JSON-typed values, aliases, precedence,
+  malformed-value error).
+- Test HTTP/network code against real local servers scoped to the test directory that needs them (port 0,
+  background thread, `shutdown()`+`join()` teardown; `tests/test_003_web`'s uvicorn server is the model), asserting
+  against echoed/reflected data - never external hosts, never suite-wide autouse servers.
+- Assert error paths as exception + residual state: `pytest.raises(..., match=...)` pinning message fragments, then
+  verify registries/state are restored and the session still works; capture swallowed-exception logs with a
+  temporary loguru sink + `capsys`, removed in `finally`.
+- Parametrize implementation variants through indirect fixtures that resolve a string path (`"pkg.mod:Class"` via
+  `request.param`), open the test with an `isinstance` capability guard, and give params explicit readable `id=`.
+- Gate version/platform-specific tests with `skipif(..., reason=...)`; express known upstream bugs as `xfail` with
+  exact version ranges and issue links; keep version-gated fixture code in separate subtrees.
+- Do not re-test framework internals (nonebot/SQLAlchemy/pydantic semantics themselves); test the project's own
+  code through public APIs and the nonebug harness. Do not import or monkeypatch nonebot private internals
+  (`nonebot.message._check_matcher`, `_event_preprocessors`, `Driver._bots`) - version-fragile; white-box only the
+  project's own internals.
+- Anchor fixture data files to `Path(__file__).parent`; never use CWD-relative paths.
+
+### Isolation & Patching
+
+- Snapshot and restore every global registry a test mutates (try/finally or a `_recover`-style decorator); prefer
+  nonebug `app.provider.context({...})` to scope matcher-registry state, and assert cleanup (registries empty,
+  flags reset) after each scenario - under the shared session event loop, leaked state surfaces in unrelated tests.
+- Scope monkeypatches lexically with `pytest.MonkeyPatch.context()` inside the test body, patch the narrowest
+  target (instance attribute > class attribute), and replace whole registries with fresh containers so
+  registrations roll back automatically.
 - Never monkeypatch attributes on process-shared modules - stdlib (`asyncio`, `random`, `time`, `os`, `sys`,
   `subprocess`, `zipfile`, ...) or third-party libraries (`py7zr`, `openpyxl`, ...) - whether through dotted paths
   such as `monkeypatch.setattr('src.utils.foo.asyncio.sleep', ...)` or directly on the module object such as
@@ -136,17 +196,13 @@ MySQL/PostgreSQL/SQLite backends.
   long-lived loop residents (e.g. the uvicorn `Server.main_loop` polling `asyncio.sleep(0.1)` from
   `tests/test_003_web`'s session-scoped `test_server`) can then crash mid-session and surface later as misleading
   teardown `ERROR`s attributed to unrelated tests. Instead, rebind the name inside the target module's namespace
-  with a copied namespace, e.g.
-  `monkeypatch.setattr(module, 'asyncio', SimpleNamespace(**{**vars(asyncio), 'sleep': fake}))`; see
-  `tests/test_003_web/helpers.py` (`patch_module_asyncio_sleep`, `patch_module_time`) for the ready-made pattern.
-- `tests/conftest.py` also provides the session-scoped `database_schema_guard` fixture, pulled in by
-  `after_nonebot_init` so it runs before nonebug's lifespan startup: it migrates the test database to the Alembic
-  head at session start, and skips the whole suite (instead of hard-failing via `sys.exit` in the startup hook) when
-  the database is unreachable or the migration state is unsafe.
-- `tests/test_001_database` tests reuse the real database connection configured by `.env.test` and perform guarded
-  DDL/DML (snapshot & restore `alembic_version`, create/drop sentinel tables). Never point the test environment at
-  a production database.
-- Background for the test setup lives in `docs/reference/` (see "Reference Documentation").
+  with a copied namespace - the ready-made helpers are `tests/utils.py:rebind_module_namespace` (generic) and
+  `tests/test_003_web/helpers.py:patch_module_asyncio_sleep` / `patch_module_time` (specialized).
+- Use sentinel-fail patches (replacement body is `pytest.fail(...)`) to prove a code path is *not* taken.
+- Bound every concurrency wait (`asyncio.timeout` / `wait_for`) so deadlocks fail fast instead of hanging the
+  session loop; never use settling sleeps (`asyncio.sleep` to "let tasks finish") - synchronize on explicit
+  `asyncio.Event`s/task groups instead.
+- Prefer composition-based fakes; never subclass a third-party client class with a bypassed `__init__`.
 
 ## Reference Documentation
 
