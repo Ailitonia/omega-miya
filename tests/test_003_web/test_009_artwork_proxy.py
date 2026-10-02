@@ -182,6 +182,7 @@ def fake_artwork_dal(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         query_user_all_aids=AsyncMock(return_value=[]),
         query_exists_aids=AsyncMock(return_value=[]),
         query_not_exists_aids=AsyncMock(return_value=[]),
+        query_unique=AsyncMock(return_value='artwork_from_db'),
         add_artwork_update_exist=AsyncMock(),
         add_artwork_ignore_exist=AsyncMock(),
         delete=AsyncMock(),
@@ -1360,6 +1361,40 @@ class TestDatabaseOps:
         await proxy.delete_artwork_from_database()
 
         fake_artwork_dal.delete.assert_awaited_once_with(origin='unit_test_proxy', aid='123')
+
+    async def test_query_artwork_from_database(
+            self, proxy_factory: SimpleNamespace, fake_artwork_dal: SimpleNamespace,
+    ):
+        proxy = proxy_factory.cls('123')
+
+        result = await proxy.query_artwork_from_database()
+
+        assert result == 'artwork_from_db'
+        fake_artwork_dal.query_unique.assert_awaited_once_with(origin='unit_test_proxy', aid='123')
+
+    async def test_query_artwork_from_database_not_found(
+            self, proxy_factory: SimpleNamespace, fake_artwork_dal: SimpleNamespace,
+    ):
+        """作品不存在时原样传播 NoResultFound"""
+        from sqlalchemy.exc import NoResultFound
+
+        fake_artwork_dal.query_unique.side_effect = NoResultFound
+        proxy = proxy_factory.cls('123')
+
+        with pytest.raises(NoResultFound):
+            await proxy.query_artwork_from_database()
+
+    async def test_query_artwork_from_database_uses_cleaned_aid(
+            self, proxy_factory: SimpleNamespace, fake_artwork_dal: SimpleNamespace,
+    ):
+        """含路径分隔符的 aid 按清洗后的 s_aid 查询数据库, 与 delete/add 同口径"""
+        proxy = proxy_factory.cls('a/b')
+
+        await proxy.query_artwork_from_database()
+
+        kwargs = fake_artwork_dal.query_unique.await_args.kwargs
+        assert kwargs['origin'] == 'unit_test_proxy'
+        assert kwargs['aid'] == proxy.s_aid
 
 
 class TestModels:

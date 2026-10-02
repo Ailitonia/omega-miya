@@ -25,6 +25,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from src.database.internal.artwork_collection import (
+    Artwork,
     ArtworkClassificationStatistic,
     ArtworkCollectionDAL,
     ArtworkRatingStatistic,
@@ -633,9 +634,9 @@ class BaseArtworkProxy(abc.ABC):
 
         if artwork_data.rating == ArtworkRating.UNKNOWN:
             process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='blur')
-        elif artwork_data.rating.value == 0:
+        elif artwork_data.rating == 0:
             process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='mark')
-        elif artwork_data.rating.value < need_blur_rating:
+        elif artwork_data.rating < need_blur_rating:
             process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='noise')
         else:
             process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='blur')
@@ -661,7 +662,7 @@ class BaseArtworkProxy(abc.ABC):
         origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
         if artwork_data.rating == ArtworkRating.UNKNOWN:
             proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
-        elif 0 <= artwork_data.rating.value < need_blur_rating:
+        elif 0 <= artwork_data.rating < need_blur_rating:
             proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
         else:
             proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
@@ -1011,6 +1012,15 @@ class BaseArtworkProxy(abc.ABC):
         """从数据库删除该作品信息"""
         async with ArtworkCollectionDAL.create() as dal:
             await dal.delete(origin=self._get_base_origin_name(), aid=self.s_aid)
+
+    async def query_artwork_from_database(self) -> 'Artwork':
+        """从数据库查询作品信息
+
+        :raises sqlalchemy.exc.NoResultFound: 数据库中不存在该作品时抛出
+        """
+        async with ArtworkCollectionDAL.create() as dal:
+            artwork = await dal.query_unique(origin=self._get_base_origin_name(), aid=self.s_aid)
+        return artwork
 
 
 __all__ = [
