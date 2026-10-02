@@ -88,21 +88,18 @@ async def test_full_artwork_kwargs_generator(
 
 
 @pytest.fixture(scope='class')
-async def test_artwork_hashtag_handler() -> Callable[[str], list[tuple[str, str | None]]]:
-    """构造测试 #tag 形态的标签处理器"""
-
-    def _handler(raw_tags: str) -> list[tuple[str, str | None]]:
-        return [(tag.strip().lower(), None) for tag in raw_tags.split('#')]
-
-    return _handler
-
-
-@pytest.fixture(scope='class')
 async def artwork_dal() -> AsyncGenerator['ArtworkCollectionDAL', None]:
     from src.database.internal.artwork_collection import ArtworkCollectionDAL
 
     async with ArtworkCollectionDAL.create() as dal:
         yield dal
+
+
+@pytest.fixture(autouse=True)
+async def _clean_table(artwork_dal) -> None:
+    """每个测试用例执行前清空数据表"""
+    await artwork_dal._clear_all()
+    await artwork_dal.commit_session()
 
 
 class TestArtworkCollectionDAL:
@@ -145,9 +142,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """新增带标签作品, 验证字段往返及标签解析 (去重/小写/去空标签)"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'Neko, nekomimi,,NEKO '
         result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -173,9 +167,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """新增无标签作品, 验证标签列表为空且返回模型可正常校验"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -192,9 +183,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """raw_tags 为空字符串/仅分隔符时不应插入空标签行"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = ', ,'
         result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -209,9 +197,6 @@ class TestArtworkCollectionDAL:
             test_full_artwork_kwargs_generator,
     ) -> None:
         """相同 (origin, aid) 再次添加应更新字段 (含 url) 并重建 tag 关联"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_full_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         artwork_kwargs.update({
@@ -241,12 +226,8 @@ class TestArtworkCollectionDAL:
             self,
             artwork_dal,
             test_basic_artwork_kwargs_generator,
-            test_random_tags_generator,
     ) -> None:
         """使用自定义 tag_handler 解析标签"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({
             'raw_tags': 'foo bar|baz qux',
@@ -260,12 +241,8 @@ class TestArtworkCollectionDAL:
             self,
             artwork_dal,
             test_basic_artwork_kwargs_generator,
-            test_random_tags_generator,
     ) -> None:
         """tag_handler 返回同名不同别名的标签时按 tag_name 去重, 不触发关联表主键冲突"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({
             'raw_tags': 'dup_tag',
@@ -282,9 +259,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """width == height 时 orientation == 0 (方图)"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['width'] = 512
         artwork_kwargs['height'] = 512
@@ -311,9 +285,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """默认 (force_update_cr=False) 更新时 classification/rating 仅升不降, 其余字段正常更新且 tag 关联重建"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 3, 'rating': 2, 'raw_tags': 'neko'})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -341,9 +312,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """默认更新时入参高于库内值则升至入参值"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 0, 'rating': 0})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -367,9 +335,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """classification 与 rating 各自独立取 max, 一升一保持互不影响"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 3, 'rating': 0})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -390,9 +355,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """force_update_cr=True 时强制覆盖为入参值, 允许降级 (含负值枚举)"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 3, 'rating': 2})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -430,9 +392,6 @@ class TestArtworkCollectionDAL:
         """classification/rating 直接传枚举成员 (IntEnum 兼容 int 签名), 查回验证为对应枚举成员"""
         from src.database.internal.artwork_collection import ArtworkClassification, ArtworkRating
 
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['classification'] = ArtworkClassification.EXTERNAL_CONFIRMED
         artwork_kwargs['rating'] = ArtworkRating.GENERAL
@@ -443,7 +402,7 @@ class TestArtworkCollectionDAL:
         assert result.classification is ArtworkClassification.EXTERNAL_CONFIRMED
         assert result.rating is ArtworkRating.GENERAL
 
-        # FEATURED(4) 新增枚举成员, int 与枚举成员入参均可写入并还原为对应枚举成员
+        # FEATURED(4): int 与枚举成员入参均可写入并还原为对应枚举成员
         featured_kwargs = test_basic_artwork_kwargs_generator()
         featured_kwargs['classification'] = ArtworkClassification.FEATURED
         await artwork_dal.add_artwork_update_exist(**featured_kwargs)
@@ -466,9 +425,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """classification 传未定义的枚举值, 预期 ValueError 且不产生写入"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['classification'] = 5
         with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
@@ -482,9 +438,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """rating 传未定义的枚举值, 预期 ValueError 且不产生写入"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['rating'] = 4
         with pytest.raises(ValueError, match='is not a valid ArtworkRating'):
@@ -496,43 +449,12 @@ class TestArtworkCollectionDAL:
     # add_artwork_ignore_exist
     # ------------------------------------------------------------------ #
 
-    async def test_add_ignore_exist_insert_new(
-            self,
-            artwork_dal,
-            test_basic_artwork_kwargs_generator,
-    ) -> None:
-        """插入不存在的新作品, 验证为插入行为"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
-        artwork_kwargs = test_basic_artwork_kwargs_generator()
-        artwork_kwargs['raw_tags'] = 'Neko, nekomimi,,NEKO '
-        result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-
-        assert result.origin == 'test_origin'
-        assert result.aid == artwork_kwargs['aid']
-        assert result.uid == artwork_kwargs['uid']
-        assert result.uname == artwork_kwargs['uname']
-        assert result.title == artwork_kwargs['title']
-        assert result.classification == artwork_kwargs['classification']
-        assert result.rating == artwork_kwargs['rating']
-        assert result.orientation == 1  # width > height 横图
-        assert result.url == artwork_kwargs['url']
-        assert result.raw_tags == 'Neko, nekomimi,,NEKO '
-        assert sorted(tag.tag_name for tag in result.tags_name_artwork_had) == ['neko', 'nekomimi']
-
-        assert await artwork_dal._count_artwork_all() == 1
-        assert await artwork_dal._count_artwork_with_tags_all() == 2
-
     async def test_add_ignore_exist(
             self,
             artwork_dal,
             test_full_artwork_kwargs_generator,
     ) -> None:
         """相同 (origin, aid) 再次添加应忽略, 已有数据保持不变"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_full_artwork_kwargs_generator()
         await artwork_dal.add_artwork_ignore_exist(**artwork_kwargs)
 
@@ -547,7 +469,7 @@ class TestArtworkCollectionDAL:
             'height': 1920,
         })
 
-        result = await artwork_dal.add_artwork_ignore_exist(**artwork_kwargs)
+        result = await artwork_dal.add_artwork_ignore_exist(**update_kwargs)
 
         assert result.uid == artwork_kwargs['uid']
         assert result.uname == artwork_kwargs['uname']
@@ -567,18 +489,13 @@ class TestArtworkCollectionDAL:
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
-        """外层已有活动事务时插入走 SAVEPOINT, 外层 rollback 后作品/标签/关联应全部撤销
-
-        注意: SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-        外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-        外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-        """
+        """外层已有活动事务时插入走 SAVEPOINT, 外层 rollback 后作品/标签/关联应全部撤销"""
         from src.database.config import database_config
         if database_config.database == 'sqlite':
+            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
+            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
+            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
             pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'neko, moe'
@@ -605,16 +522,11 @@ class TestArtworkCollectionDAL:
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
-        """外层已有活动事务时更新走 SAVEPOINT (含复用已存在标签的冲突回退路径), 外层 rollback 后应全部恢复
-
-        注意: SQLite 后端下同受驱动 legacy 事务控制限制 (标签先行插入会被提前物理提交), 本平台跳过该用例
-        """
+        """外层已有活动事务时更新走 SAVEPOINT (含复用已存在标签的冲突回退路径), 外层 rollback 后应全部恢复"""
         from src.database.config import database_config
         if database_config.database == 'sqlite':
+            # SQLite 后端下同受驱动 legacy 事务控制限制 (标签先行插入会被提前物理提交), 本平台跳过该用例
             pytest.skip('SQLite 驱动 legacy 事务控制下嵌套事务语义不完整, 跳过')
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         # 预提交作品 (tags: neko, moe)
         artwork_kwargs = test_basic_artwork_kwargs_generator()
@@ -649,16 +561,11 @@ class TestArtworkCollectionDAL:
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
-        """外层已有活动事务时 ignore_exist 插入走 SAVEPOINT, 外层 rollback 后全部撤销; 对已存在作品应保持忽略语义
-
-        注意: SQLite 后端下同受驱动 legacy 事务控制限制 (插入会被提前物理提交), 本平台跳过该用例
-        """
+        """外层已有活动事务时 ignore_exist 插入走 SAVEPOINT, 外层 rollback 后全部撤销; 对已存在作品应保持忽略语义"""
         from src.database.config import database_config
         if database_config.database == 'sqlite':
+            # SQLite 后端下同受驱动 legacy 事务控制限制 (插入会被提前物理提交), 本平台跳过该用例
             pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         # 外层事务内插入新作品, rollback 后全部撤销
         artwork_kwargs = test_basic_artwork_kwargs_generator()
@@ -694,9 +601,6 @@ class TestArtworkCollectionDAL:
 
     async def test_query_unique_not_found(self, artwork_dal) -> None:
         """查询不存在的作品, 预期 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await artwork_dal.query_unique('nonexistent_origin', 'nonexistent_aid')
 
@@ -706,9 +610,6 @@ class TestArtworkCollectionDAL:
             test_full_artwork_kwargs_generator,
     ) -> None:
         """插入带标签作品后 query_unique 查回, 验证 Artwork model 所有字段"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_full_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -741,9 +642,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """关键词搜索仅命中作品自身关联的标签, 且结果无重复行"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         # a1 关联两个均含 neko 的标签, 用于验证结果去重
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['raw_tags'] = 'neko,nekomimi'
@@ -768,9 +666,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """多关键词为 AND 语义, 每个关键词须各自命中标题/用户名/标签中的任一字段"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['title'] = 'alpha_art'
@@ -815,9 +710,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """无关键词时不应附加关键词过滤条件, 空 origin 序列应匹配所有来源, 返回全部满足分类/分级条件的作品"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**a1_kwargs)
 
@@ -840,9 +732,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """默认分类过滤范围为 3-4: 人工审核确认与精选可见, 外部来源确认 (2) 不可见"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         external_kwargs = test_basic_artwork_kwargs_generator()
         external_kwargs['aid'] = '1001'
         external_kwargs['classification'] = 2
@@ -867,9 +756,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """精确搜索模式, 标题/用户名/标签名精确匹配"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['aid'] = 'acc1001'
         artwork_kwargs['title'] = 'ExactTitle'
@@ -898,9 +784,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """按图片长宽类型筛选"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['width'] = 320
@@ -934,9 +817,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """插入多条记录, 验证 page+size 分页正确"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         aids = []
         for i in range(5):
             kwargs = test_basic_artwork_kwargs_generator()
@@ -963,9 +843,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """order_mode='latest' 按 published_at DESC 排序"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         for i in range(3):
             kwargs = test_basic_artwork_kwargs_generator()
             kwargs['aid'] = str(1001 + i)
@@ -983,9 +860,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """origin 参数传列表, 匹配列表内所有 origin"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['origin'] = 'origin_a'
         await artwork_dal.add_artwork_update_exist(**a1_kwargs)
@@ -1022,9 +896,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """has_review_record 三态筛选: True 仅有评审记录, False 仅无评审记录, None 不筛选"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         await artwork_dal.add_artwork_update_exist(**a1_kwargs)
@@ -1096,9 +967,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """has_review_record 与分类范围/关键词/origin 过滤叠加, 各条件为 AND 语义"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         # a1: classification=2 且有评审记录, 默认分类范围 (3-4) 下不可见
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
@@ -1169,9 +1037,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """has_review_record 与分页叠加, 不满足筛选条件的作品不占用页位"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         # 4 个有评审记录作品 (1001-1004) + 2 个无记录作品 (1005, 1006)
         for i in range(6):
             kwargs = test_basic_artwork_kwargs_generator()
@@ -1221,9 +1086,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """按分类统计, 验证各分类桶计数及总数"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['classification'] = 0
@@ -1291,9 +1153,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """按分级统计, 验证各分级桶计数及总数"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['rating'] = 0
@@ -1356,9 +1215,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """存在性查询, 验证存在/不存在及分类分级过滤"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['classification'] = 2
@@ -1395,9 +1251,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """filter_rating 只返回该分级的 aid"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['rating'] = 0
@@ -1435,9 +1288,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """按 uid/uname 查询用户作品, 同时提供时为 AND 语义, 均不提供预期 ValueError"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '1001'
         a1_kwargs['uid'] = 'uid_1'
@@ -1473,9 +1323,6 @@ class TestArtworkCollectionDAL:
 
     async def test_query_user_all_aids_no_params_raises(self, artwork_dal) -> None:
         """uid 和 uname 都为 None, 预期 ValueError"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(ValueError, match='need at least one of the uid and uname parameters'):
             await artwork_dal.query_user_all_aids('test_origin')
 
@@ -1490,9 +1337,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """为已存在作品插入评审记录, 验证字段及关联作品"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -1518,9 +1362,6 @@ class TestArtworkCollectionDAL:
 
     async def test_add_artwork_review_record_not_found(self, artwork_dal) -> None:
         """为不存在的作品插入评审记录, 预期 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await artwork_dal.add_artwork_review_record(
                 origin='nonexistent_origin',
@@ -1538,9 +1379,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """评审记录传未定义的枚举值, 预期 ValueError 且不产生写入"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         await artwork_dal.commit_session()
@@ -1565,9 +1403,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """显式传入合法 record_tag (字符串与枚举实例), 验证返回值及持久化"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -1606,9 +1441,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """评审记录传未定义的 record_tag, 预期 ValueError 且不产生写入"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         await artwork_dal.commit_session()
@@ -1633,9 +1465,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """record_tag 为空串或大小写不匹配 (枚举值大小写敏感), 预期 ValueError 且不产生写入"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         await artwork_dal.commit_session()
@@ -1662,9 +1491,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """边界枚举值 classification=-2/4 (IGNORED/FEATURED), rating=-1/3 (UNKNOWN/EXPLICIT) 均合法写入"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -1707,9 +1533,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """插入作品 + 多条评审记录, 查询验证全部返回"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -1735,9 +1558,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """带 start_timestamp 过滤, 只返回 >= start_timestamp 的记录"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -1771,9 +1591,6 @@ class TestArtworkCollectionDAL:
 
     async def test_query_artwork_review_records_not_found(self, artwork_dal) -> None:
         """查询不存在作品的评审记录, 预期 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await artwork_dal.query_artwork_review_records('nonexistent_origin', 'nonexistent_aid')
 
@@ -1788,9 +1605,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """插入不同标签的评审记录, 按标签筛选查询验证结果与空结果"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -1822,9 +1636,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """相同标签的评审记录按 artwork_index_id 过滤, 只返回指定作品的记录"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs_a = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs_a)
         artwork_kwargs_b = test_basic_artwork_kwargs_generator()
@@ -1867,9 +1678,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """分页参数 page/size 正确限制结果数量与偏移, 结果按记录 id 倒序"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -1903,9 +1711,6 @@ class TestArtworkCollectionDAL:
 
     async def test_query_artwork_review_records_with_tag_invalid_params(self, artwork_dal) -> None:
         """非法标签与分页参数应抛出 ValueError"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
             await artwork_dal.query_artwork_review_records_with_tag('invalid_tag')
 
@@ -1927,9 +1732,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """artwork_index_id 过滤与分页组合, 指定作品内按记录 id 倒序分页, 不混入其他作品记录"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs_a = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs_a)
         artwork_kwargs_b = test_basic_artwork_kwargs_generator()
@@ -1977,9 +1779,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """size 大于匹配记录总数时返回全部记录"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -2006,9 +1805,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """artwork_index_id 指向不存在作品时返回空列表, 而非抛出 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         await artwork_dal.add_artwork_review_record(
@@ -2033,9 +1829,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """record_tag 传枚举实例与传字符串等效"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2064,9 +1857,6 @@ class TestArtworkCollectionDAL:
         from pydantic import ValidationError
 
         from src.database.schema import ArtworkReviewRecordsOrm
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2097,9 +1887,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """修改评审记录全部可变字段, 验证返回值及提交后持久化"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2144,9 +1931,6 @@ class TestArtworkCollectionDAL:
         """仅修改 record_tag, 其余字段保持不变"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
 
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         record = await artwork_dal.add_artwork_review_record(
@@ -2174,9 +1958,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """不传任何可变字段时返回原记录, 不产生变更"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         record = await artwork_dal.add_artwork_review_record(
@@ -2201,9 +1982,6 @@ class TestArtworkCollectionDAL:
 
     async def test_alter_review_record_not_found(self, artwork_dal) -> None:
         """修改不存在的评审记录, 预期 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await artwork_dal.alter_review_record(999999999, record_tag='approved')
 
@@ -2214,9 +1992,6 @@ class TestArtworkCollectionDAL:
     ) -> None:
         """修改时传未定义的枚举值, 预期 ValueError 且原记录未被污染"""
         from src.database.internal.artwork_collection import ArtworkReviewTag
-
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2252,9 +2027,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """review_from/review_info 传空串 (非 None) 时实际更新为空串"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         record = await artwork_dal.add_artwork_review_record(
@@ -2279,9 +2051,6 @@ class TestArtworkCollectionDAL:
 
     async def test_alter_review_record_invalid_param_precedence(self, artwork_dal) -> None:
         """非法枚举值与不存在的记录 id 同时成立时, 参数校验先于查询抛出 ValueError"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
             await artwork_dal.alter_review_record(999999999, record_tag='invalid_tag')
 
@@ -2291,9 +2060,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """新建记录 updated_at 为空, 修改后 updated_at 被填充 (onupdate 生效)"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         record = await artwork_dal.add_artwork_review_record(
@@ -2321,9 +2087,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """删除作品后查询应抛出 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         assert await artwork_dal._count_artwork_all() == 1
@@ -2345,9 +2108,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """删除作品后评审记录和标签关联均被级联删除"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'neko,nekomimi'
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2380,9 +2140,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """纯数字 aid 按数值感知顺序排序, 而非字典序"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['aid'] = '8'
         a1_kwargs['uid'] = '99'
@@ -2421,9 +2178,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """模糊搜索关键词中的 LIKE 通配符 (% _ \\) 必须被转义为字面量, 不产生通配命中"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         # 标题含字面 % 和 _ 的作品 (注意 uname/raw_tags 均不得含 %/_, 避免经其他字段命中干扰断言)
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['title'] = '100%_perfect'
@@ -2475,9 +2229,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """更新评审分类分级, 验证字段更新且标签关联保留"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'neko, nekomimi'
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2504,9 +2255,6 @@ class TestArtworkCollectionDAL:
 
     async def test_update_artwork_review_classification_rating_not_exists(self, artwork_dal) -> None:
         """作品不存在时应抛出 NoResultFound"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await artwork_dal.update_artwork_review_classification_rating('test_origin', 'not_exists_aid', 3, 2)
 
@@ -2516,9 +2264,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """非法枚举值应抛出 ValueError 且不产生写入"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
         await artwork_dal.commit_session()
@@ -2544,9 +2289,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """默认 (force_update_cr=False) 时传入更低值不生效, 库内更高值保持"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 3, 'rating': 2})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2573,9 +2315,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """默认时 classification 与 rating 各自独立取 max: 一升一保持"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 1, 'rating': 2})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2597,9 +2336,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """force_update_cr=True 时强制覆盖为入参值, 允许降级 (含负值枚举)"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 3, 'rating': 2})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2637,9 +2373,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """非法枚举入参即使小于库内已有值也应抛出 ValueError, 且字段不被污染"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({'classification': 3, 'rating': 2})
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
@@ -2661,9 +2394,6 @@ class TestArtworkCollectionDAL:
 
     async def test_update_review_cr_invalid_param_precedence(self, artwork_dal) -> None:
         """非法枚举值与不存在的作品同时成立时, 参数校验先于查询抛出 ValueError"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
             await artwork_dal.update_artwork_review_classification_rating('test_origin', 'not_exists_aid', -99, 0)
 
@@ -2673,9 +2403,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """latest 排序: published_at 为空的行排在最后, 同发布时间按 id DESC 稳定排序 (跨方言一致)"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['published_at'] = datetime(2020, 2, 12, 1, 0, 0)
         await artwork_dal.add_artwork_update_exist(**a1_kwargs)
@@ -2705,9 +2432,6 @@ class TestArtworkCollectionDAL:
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """IGNORED(-2) 与 UNKNOWN(-1) 均落入 unused 桶, 计数应累加而非覆盖"""
-        await artwork_dal._clear_all()
-        await artwork_dal.commit_session()
-
         a1_kwargs = test_basic_artwork_kwargs_generator()
         a1_kwargs['classification'] = -2
         await artwork_dal.add_artwork_update_exist(**a1_kwargs)

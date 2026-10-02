@@ -61,6 +61,19 @@ def running_job(running_scheduler: AsyncIOScheduler) -> Job:
     return running_scheduler.add_job(_dummy_job_func, 'cron', minute='0', id=_TEST_JOB_ID)
 
 
+@pytest.fixture
+async def scheduler_job_pair(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[AsyncIOScheduler, Job], None]:
+    """间接 fixture: 按参数返回 (pending 调度器, pending job) 或 (已启动调度器, 已落库 job), 测试后关闭清理"""
+    if request.param == 'pending':
+        scheduler = AsyncIOScheduler()
+        yield scheduler, scheduler.add_job(_dummy_job_func, 'cron', minute='0', id=_TEST_JOB_ID)
+    else:
+        scheduler = AsyncIOScheduler()
+        scheduler.start()
+        yield scheduler, scheduler.add_job(_dummy_job_func, 'cron', minute='0', id=_TEST_JOB_ID)
+        scheduler.shutdown()
+
+
 class TestModuleContract:
     """模块导出契约测试"""
 
@@ -196,36 +209,37 @@ class TestRescheduleOnPendingJob:
         assert pending_job.pending
         assert not hasattr(pending_job, 'next_run_time')
 
-    def test_reschedule_to_interval(self, pending_job: Job):
+    @pytest.mark.parametrize(
+        ('mode', 'kwargs', 'trigger_cls'),
+        [
+            ('interval', {'minutes': 5}, IntervalTrigger),
+            ('cron', {'minute': '*/5'}, CronTrigger),
+            ('date', {'run_date': datetime(2030, 1, 1, 12, 0, 0, tzinfo=UTC)}, DateTrigger),
+        ],
+    )
+    def test_reschedule_converts_trigger(
+            self,
+            pending_job: Job,
+            mode: str,
+            kwargs: dict[str, Any],
+            trigger_cls: type,
+    ) -> None:
         from src.service.apscheduler import reschedule_job
 
         before = datetime.now(UTC)
-        result = reschedule_job(job=pending_job, trigger_mode='interval', minutes=5)
+        result = reschedule_job(job=pending_job, trigger_mode=mode, **kwargs)
         after = datetime.now(UTC)
 
         assert result is pending_job
-        assert isinstance(pending_job.trigger, IntervalTrigger)
-        assert pending_job.trigger.interval == timedelta(minutes=5)
-        assert before + timedelta(minutes=5) <= pending_job.next_run_time <= after + timedelta(minutes=5)
+        assert isinstance(pending_job.trigger, trigger_cls)
 
-    def test_reschedule_to_cron(self, pending_job: Job):
-        from src.service.apscheduler import reschedule_job
-
-        result = reschedule_job(job=pending_job, trigger_mode='cron', minute='*/5')
-
-        assert result is pending_job
-        assert isinstance(pending_job.trigger, CronTrigger)
-        assert pending_job.next_run_time is not None
-
-    def test_reschedule_to_date(self, pending_job: Job):
-        from src.service.apscheduler import reschedule_job
-
-        run_date = datetime(2030, 1, 1, 12, 0, 0, tzinfo=UTC)
-        result = reschedule_job(job=pending_job, trigger_mode='date', run_date=run_date)
-
-        assert result is pending_job
-        assert isinstance(pending_job.trigger, DateTrigger)
-        assert pending_job.next_run_time == run_date
+        if mode == 'interval':
+            assert pending_job.trigger.interval == timedelta(minutes=5)
+            assert before + timedelta(minutes=5) <= pending_job.next_run_time <= after + timedelta(minutes=5)
+        elif mode == 'date':
+            assert pending_job.next_run_time == kwargs['run_date']
+        else:
+            assert pending_job.next_run_time is not None
 
     def test_reschedule_to_date_with_str_run_date(self, pending_job: Job):
         from src.service.apscheduler import reschedule_job
@@ -286,16 +300,6 @@ class TestRescheduleOnPendingJob:
         assert pending_job.id == _TEST_JOB_ID
         assert pending_job.func is _dummy_job_func
 
-    def test_reschedule_removed_job_raises(self, pending_job: Job, fresh_scheduler: AsyncIOScheduler):
-        from apscheduler.jobstores.base import JobLookupError
-
-        from src.service.apscheduler import reschedule_job
-
-        fresh_scheduler.remove_job(pending_job.id)
-
-        with pytest.raises(JobLookupError):
-            reschedule_job(job=pending_job, trigger_mode='interval', minutes=5)
-
 
 class TestRescheduleOnRunningScheduler:
     """已启动调度器(jobstore 落库 job)上的 reschedule 行为测试(异步路径)"""
@@ -325,12 +329,20 @@ class TestRescheduleOnRunningScheduler:
         assert stored_job is not None
         assert before + timedelta(minutes=5) <= stored_job.next_run_time <= after + timedelta(minutes=5)
 
-    async def test_reschedule_removed_job_raises(self, running_scheduler: AsyncIOScheduler, running_job: Job):
+
+class TestRescheduleRemovedJob:
+    """已移除 job 的 reschedule 行为测试(pending 与已启动调度器均抛出 JobLookupError)"""
+
+    @pytest.mark.parametrize('scheduler_job_pair', ['pending', 'running'], indirect=True)
+    async def test_reschedule_removed_job_raises(
+            self, scheduler_job_pair: tuple[AsyncIOScheduler, Job],
+    ) -> None:
         from apscheduler.jobstores.base import JobLookupError
 
         from src.service.apscheduler import reschedule_job
 
-        running_scheduler.remove_job(running_job.id)
+        scheduler, job = scheduler_job_pair
+        scheduler.remove_job(job.id)
 
         with pytest.raises(JobLookupError):
-            reschedule_job(job=running_job, trigger_mode='interval', minutes=5)
+            reschedule_job(job=job, trigger_mode='interval', minutes=5)

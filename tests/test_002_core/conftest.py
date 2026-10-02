@@ -11,7 +11,7 @@
 import random
 from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -19,6 +19,7 @@ from async_asgi_testclient import TestClient
 from nonebug import App
 
 from tests.test_002_core.helpers import delete_global_cache_rows
+from tests.utils import unique_test_id
 
 if TYPE_CHECKING:
     from src.database.internal.bot import BotSelf
@@ -49,7 +50,7 @@ class _TestDataFactory:
     @staticmethod
     def unique_id(prefix: str) -> str:
         """生成带唯一后缀的测试 ID"""
-        return f'{prefix}_{uuid4().hex[:8]}'
+        return unique_test_id(prefix)
 
     async def clear_all(self) -> None:
         from src.database.internal.bot import BotSelfDAL
@@ -262,40 +263,6 @@ async def test_onebot_v11_entity_factory(test_onebot_v11_bot) -> AsyncGenerator[
 
 
 @pytest.fixture(scope='class')
-async def test_onebot_v11_user(test_db_data_factory, test_onebot_v11_bot) -> AsyncGenerator['Entity', None]:
-    """测试用 OneBot V11 用户 Entity, 测试类结束后清理"""
-    from src.database.internal.bot import BotType
-    from src.database.internal.entity import EntityType
-
-    entity = await test_db_data_factory.create_test_entity(
-        bot_type=BotType.ONEBOT_V11,
-        entity_type=EntityType.ONEBOT_V11_USER,
-    )
-
-    try:
-        yield entity
-    finally:
-        await test_db_data_factory.delete_test_entity(entity=entity)
-
-
-@pytest.fixture(scope='class')
-async def test_onebot_v11_group(test_db_data_factory, test_onebot_v11_bot) -> AsyncGenerator['Entity', None]:
-    """测试用 OneBot V11 群组 Entity, 测试类结束后清理"""
-    from src.database.internal.bot import BotType
-    from src.database.internal.entity import EntityType
-
-    entity = await test_db_data_factory.create_test_entity(
-        bot_type=BotType.ONEBOT_V11,
-        entity_type=EntityType.ONEBOT_V11_GROUP,
-    )
-
-    try:
-        yield entity
-    finally:
-        await test_db_data_factory.delete_test_entity(entity=entity)
-
-
-@pytest.fixture(scope='class')
 async def test_subscription_source(test_db_data_factory) -> AsyncGenerator['SubscriptionSource', None]:
     """测试用订阅源, 测试类结束后清理"""
 
@@ -354,7 +321,7 @@ async def global_cache_row_tracker_factory() -> AsyncGenerator[Callable[[str], l
 
 
 # ------------------------------------------------------------------ #
-# omega_base / 事件族 fixture (自 test_010 / test_012 上移, 保持测试方法体零改动)
+# omega_base / 事件族 fixture
 # ------------------------------------------------------------------ #
 
 @pytest.fixture
@@ -403,6 +370,27 @@ def online_bots_sandbox(monkeypatch: pytest.MonkeyPatch):
     getattr(bots_module, '__ONLINE_BOTS').update(online_bots_snapshot)
     getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
     getattr(bots_module, '__FIRST_RESPOND_REGISTRY').update(registry_snapshot)
+
+
+@pytest.fixture
+def fake_uni_message_send(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    """以 UniMessage 替身子类重绑定 omega_base 适配器模块内的 UniMessage 名字, 并返回其 send AsyncMock
+
+    UniMessage 为第三方类 (nonebot_plugin_alconna.uniseg), 直接 patch 其 send 类属性会进程级生效;
+    此处仅替换 src.service.omega_base.internal.adapter 模块命名空间内的 UniMessage 名字,
+    send 调用经由替身子类路由到返回的 AsyncMock (默认返回 MagicMock, 可覆盖 return_value)
+    """
+    from nonebot_plugin_alconna.uniseg import UniMessage
+
+    import src.service.omega_base.internal.adapter as adapter_module
+
+    send_mock = AsyncMock(return_value=MagicMock())
+
+    class _FakeUniMessage(UniMessage):
+        send = send_mock
+
+    monkeypatch.setattr(adapter_module, 'UniMessage', _FakeUniMessage)
+    return send_mock
 
 
 @pytest.fixture(scope='class')

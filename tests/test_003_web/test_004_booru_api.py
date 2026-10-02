@@ -1033,13 +1033,11 @@ class BooruAPILiveTestBase:
 
 @requires_live
 class TestDanbooruAPI(BooruAPILiveTestBase):
-    """Danbooru 主站 API 真实请求验证
+    """Danbooru 主站 API 真实请求验证(凭据经 .env.test 配置 danbooru_username/danbooru_api_key)
 
-    凭据经 .env.test 配置(danbooru_username/danbooru_api_key)。上游行为:
-    - versions/dmails 端点匿名访问返回 403, 需登录态; 其中 versions 端点对普通(Member)账户仍 403, 需更高账户等级
-    - uploads 匿名访问返回 200 但为空列表
-    - /profile.json 匿名访问返回 200 幽灵用户(id=None, level=0)
-    - /explore/posts/curated.json 与 /artists/banned.json 上游主站已移除(404)
+    上游行为记录(2026-09): versions/dmails 匿名 403(versions 对 Member 账户仍 403, 需更高等级);
+    uploads 匿名 200 但空列表; /profile.json 匿名 200 幽灵用户(id=None, level=0);
+    /explore/posts/curated.json 与 /artists/banned.json 上游已移除(404)
     """
 
     # ------------------------------------------------------------------ #
@@ -1439,9 +1437,9 @@ async def gelbooru_api(nonebug_init: None) -> 'GelbooruAPI':
 
 @requires_live
 class TestGelbooruAPI(BooruAPILiveTestBase):
-    """Gelbooru 主站 API 真实请求验证(匿名访问)
+    """Gelbooru 主站 API 真实请求验证(匿名访问; 响应模型未见于 dapi 文档, 全部实测验证)
 
-    响应模型未见于 dapi 文档记载, 全部为实测验证; 空结果时 dapi 可能省略数组键(模型默认空列表)。
+    空结果时 dapi 可能省略数组键(模型默认空列表)。
     """
 
     # ------------------------------------------------------------------ #

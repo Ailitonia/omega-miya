@@ -287,21 +287,16 @@ class TestLoad:
         assert value == 'value1'
         assert cache._cache['key1'] == 'value1'
 
-    async def test_load_memory_hit_skips_db(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
-        """内存命中时直接返回, 不访问数据库"""
+    @pytest.mark.parametrize('value', ['memory_value', ''], ids=['normal_value', 'empty_string_falsy_hit'])
+    async def test_load_memory_hit_skips_db(
+            self, cache_factory, monkeypatch: pytest.MonkeyPatch, value: str,
+    ) -> None:
+        """内存命中时直接返回命中值, 不访问数据库 (空串为 falsy 但非 None, 命中判定基于 is not None)"""
         cache = cache_factory()
-        cache._cache['key1'] = 'memory_value'
+        cache._cache['key1'] = value
         monkeypatch.setattr(cache, '_query_key_value', _unexpected_query)
 
-        assert await cache.load('key1') == 'memory_value'
-
-    async def test_load_memory_hit_empty_string(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
-        """空字符串值为 falsy, 内存命中判断基于 is not None, 不应被误判为未命中"""
-        cache = cache_factory()
-        cache._cache['key1'] = ''
-        monkeypatch.setattr(cache, '_query_key_value', _unexpected_query)
-
-        assert await cache.load('key1') == ''
+        assert await cache.load('key1') == value
 
     async def test_load_expired_row_returns_none(self, cache_factory) -> None:
         cache = cache_factory()
@@ -355,24 +350,6 @@ class TestLoad:
         cache._cache.clear()
 
         assert await cache.load(key) == 'value1'
-
-    async def test_load_key_over_length_raises(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
-        """cache_key 超过 64 字符时主动抛出 ValueError: 优先于内存查询且不访问数据库"""
-        cache = cache_factory()
-        key = 'k' * (_KEY_MAX_LENGTH + 1)
-        cache._cache[key] = 'memory_value'
-        monkeypatch.setattr(cache, '_query_key_value', _unexpected_query)
-
-        with pytest.raises(ValueError, match='Invalid cache_key'):
-            await cache.load(key)
-
-    async def test_load_empty_key_raises(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
-        """cache_key 为空时主动抛出 ValueError, 且不访问数据库"""
-        cache = cache_factory()
-        monkeypatch.setattr(cache, '_query_key_value', _unexpected_query)
-
-        with pytest.raises(ValueError, match='Invalid cache_key'):
-            await cache.load('')
 
     async def test_load_long_and_unicode_value_roundtrip(self, cache_factory) -> None:
         """清空内存强制走数据库路径, 验证长文本与 unicode 值往返一致"""
@@ -473,27 +450,6 @@ class TestSave:
         assert row is not None
         assert row.cache_value == value
 
-    async def test_save_key_over_length_raises(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
-        """cache_key 超过 64 字符时主动抛出 ValueError, 且不访问数据库、不污染内存"""
-        cache = cache_factory()
-        key = 'k' * (_KEY_MAX_LENGTH + 1)
-        monkeypatch.setattr(cache, '_upsert_key_value', _unexpected_query)
-
-        with pytest.raises(ValueError, match='Invalid cache_key'):
-            await cache.save(key, 'value1')
-
-        assert key not in cache._cache
-
-    async def test_save_empty_key_raises(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
-        """cache_key 为空时主动抛出 ValueError, 且不访问数据库、不污染内存"""
-        cache = cache_factory()
-        monkeypatch.setattr(cache, '_upsert_key_value', _unexpected_query)
-
-        with pytest.raises(ValueError, match='Invalid cache_key'):
-            await cache.save('', 'value1')
-
-        assert '' not in cache._cache
-
     async def test_save_failure_not_pollute_memory(self, cache_factory, monkeypatch: pytest.MonkeyPatch) -> None:
         """写库失败时异常向上传播, 且内存缓存不被污染"""
         cache = cache_factory()
@@ -507,6 +463,29 @@ class TestSave:
             await cache.save('key1', 'value1')
 
         assert 'key1' not in cache._cache
+
+
+class TestKeyValidation:
+    """load/save 的 cache_key 主动校验测试"""
+
+    @pytest.mark.parametrize('method', ['load', 'save'])
+    @pytest.mark.parametrize('key', ['k' * (_KEY_MAX_LENGTH + 1), ''], ids=['over_length_key', 'empty_key'])
+    async def test_invalid_key_raises(
+            self, cache_factory, monkeypatch: pytest.MonkeyPatch, method: str, key: str,
+    ) -> None:
+        """非法 cache_key 主动抛出 ValueError: 校验优先于内存查询, 不访问数据库且不污染内存"""
+        cache = cache_factory()
+        monkeypatch.setattr(cache, '_query_key_value', _unexpected_query)
+        monkeypatch.setattr(cache, '_upsert_key_value', _unexpected_query)
+
+        if method == 'load':
+            cache._cache[key] = 'memory_value'  # 预置内存命中: 校验须优先于内存查询
+            with pytest.raises(ValueError, match='Invalid cache_key'):
+                await cache.load(key)
+        else:
+            with pytest.raises(ValueError, match='Invalid cache_key'):
+                await cache.save(key, 'value1')
+            assert key not in cache._cache
 
 
 class TestSyncInternal:

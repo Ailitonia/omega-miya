@@ -444,43 +444,50 @@ class TestPathProperties:
 class TestRaiseHelpers:
     """raise_not_file/raise_not_dir 测试"""
 
-    def test_raise_not_file_on_file(self, sample_file: _SampleFileFactory):
+    @pytest.mark.parametrize(
+        ('method', 'target', 'exc_class_name'),
+        [
+            ('raise_not_file', 'file', None),
+            ('raise_not_file', 'dir', 'ResourceNotFileError'),
+            ('raise_not_file', 'missing', 'ResourceNotFileError'),
+            ('raise_not_dir', 'dir', None),
+            ('raise_not_dir', 'file', 'ResourceNotFolderError'),
+            ('raise_not_dir', 'missing', 'ResourceNotFolderError'),
+        ],
+        ids=[
+            'not_file_on_file_passes',
+            'not_file_on_dir_raises',
+            'not_file_on_missing_raises',
+            'not_dir_on_dir_passes',
+            'not_dir_on_file_raises',
+            'not_dir_on_missing_raises',
+        ],
+    )
+    def test_raise_not_file_or_dir(
+            self,
+            tmp_path: Path,
+            sample_file: _SampleFileFactory,
+            method: str,
+            target: str,
+            exc_class_name: str | None,
+    ):
+        import src.resource
         from src.resource import AnyResource
 
-        file = sample_file('f.txt', 'x')
-        assert AnyResource(file).raise_not_file() is None
+        match target:
+            case 'file':
+                resource = AnyResource(sample_file('f.txt', 'x'))
+            case 'dir':
+                resource = AnyResource(tmp_path)
+            case _:
+                resource = AnyResource(tmp_path / 'missing')
 
-    def test_raise_not_file_on_dir(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError) as exc_info:
-            AnyResource(tmp_path).raise_not_file()
-        assert exc_info.value.path == tmp_path
-
-    def test_raise_not_file_on_missing(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path / 'missing.txt').raise_not_file()
-
-    def test_raise_not_dir_on_dir(self, tmp_path: Path):
-        from src.resource import AnyResource
-
-        assert AnyResource(tmp_path).raise_not_dir() is None
-
-    def test_raise_not_dir_on_file(self, sample_file: _SampleFileFactory):
-        from src.resource import AnyResource, ResourceNotFolderError
-
-        file = sample_file('f.txt', 'x')
-        with pytest.raises(ResourceNotFolderError) as exc_info:
-            AnyResource(file).raise_not_dir()
-        assert exc_info.value.path == file
-
-    def test_raise_not_dir_on_missing(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFolderError
-
-        with pytest.raises(ResourceNotFolderError):
-            AnyResource(tmp_path / 'missing').raise_not_dir()
+        if exc_class_name is None:
+            assert getattr(resource, method)() is None
+        else:
+            with pytest.raises(getattr(src.resource, exc_class_name)) as exc_info:
+                getattr(resource, method)()
+            assert exc_info.value.path == resource.path
 
 
 class TestOpenSync:
@@ -595,35 +602,33 @@ class TestFileUriAndSize:
         file = sample_file('f.txt', 'x')
         assert AnyResource(file).file_uri.startswith('file:///')
 
-    def test_file_uri_missing_file_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path / 'missing.txt').file_uri  # noqa: B018
-
-    def test_file_uri_on_directory_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path).file_uri  # noqa: B018
-
     def test_file_size(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
         file = sample_file('f.txt', b'12345')
         assert AnyResource(file).file_size == 5
 
-    def test_file_size_missing_raises(self, tmp_path: Path):
+    @pytest.mark.parametrize(
+        ('attr', 'target'),
+        [
+            ('file_uri', 'missing'),
+            ('file_uri', 'dir'),
+            ('file_size', 'missing'),
+            ('file_size', 'dir'),
+        ],
+        ids=[
+            'file_uri_missing_raises',
+            'file_uri_on_directory_raises',
+            'file_size_missing_raises',
+            'file_size_on_directory_raises',
+        ],
+    )
+    def test_missing_or_directory_target_raises(self, tmp_path: Path, attr: str, target: str):
         from src.resource import AnyResource, ResourceNotFileError
 
+        resource = AnyResource(tmp_path / 'missing.txt') if target == 'missing' else AnyResource(tmp_path)
         with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path / 'missing.txt').file_size  # noqa: B018
-
-    def test_file_size_on_directory_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path).file_size  # noqa: B018
+            getattr(resource, attr)
 
 
 class TestListFiles:
@@ -693,17 +698,14 @@ class TestRenameReplaceRemove:
         assert not tmp_path.joinpath('old.txt').exists()
         assert tmp_path.joinpath('new.txt').is_file()
 
-    def test_rename_missing_source_raises(self, tmp_path: Path):
+    @pytest.mark.parametrize('method', ['rename', 'replace'])
+    @pytest.mark.parametrize('source', ['missing', 'directory'])
+    def test_missing_or_directory_source_raises(self, tmp_path: Path, method: str, source: str):
         from src.resource import AnyResource, ResourceNotFileError
 
+        resource = AnyResource(tmp_path / 'missing.txt') if source == 'missing' else AnyResource(tmp_path)
         with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path / 'missing.txt').rename(tmp_path / 'new.txt')
-
-    def test_rename_on_directory_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path).rename(tmp_path / 'new')
+            getattr(resource, method)(tmp_path / 'new')
 
     def test_replace_overwrites_existing_target(self, tmp_path: Path):
         from src.resource import AnyResource
@@ -713,18 +715,6 @@ class TestRenameReplaceRemove:
         AnyResource(tmp_path / 'old.txt').replace(tmp_path / 'exist.txt')
         assert not tmp_path.joinpath('old.txt').exists()
         assert tmp_path.joinpath('exist.txt').read_text(encoding='utf-8') == 'new content'
-
-    def test_replace_missing_source_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path / 'missing.txt').replace(tmp_path / 'new.txt')
-
-    def test_replace_on_directory_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            AnyResource(tmp_path).replace(tmp_path / 'new')
 
     def test_remove_existing_file(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
@@ -844,23 +834,6 @@ class TestHostProtocol:
 
 class TestGlobalHostProtocolRegistration:
     """omega_file_host 全局注册契约测试 (重构后: 本地资源统一注册 OmegaFileHostProtocol)"""
-
-    def test_global_registration_state(self):
-        import src.service.omega_file_host  # noqa: F401 (显式导入保证注册, sys.modules 幂等)
-        from src.resource import (
-            AnyResource,
-            BaseResourceHostProtocol,
-            LogFileResource,
-            StaticResource,
-            TemporaryResource,
-        )
-        from src.service.omega_file_host import OmegaFileHostProtocol
-
-        for resource_class in (AnyResource, StaticResource, TemporaryResource):
-            assert resource_class._host_protocol is OmegaFileHostProtocol
-            assert issubclass(resource_class._host_protocol, BaseResourceHostProtocol)
-
-        assert LogFileResource._host_protocol is None
 
     def test_registered_class_rejects_second_registration(self):
         """已全局注册的类拒绝再次注册, 异常先于赋值抛出, 状态不被修改"""

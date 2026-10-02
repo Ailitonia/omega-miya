@@ -348,15 +348,25 @@ class TestForwardEndpoint:
         if not short_link_config.omega_short_link_enable_http_forward_service:
             pytest.skip('短链接转发服务未启用')
 
+    @pytest.mark.parametrize(
+        'url',
+        [
+            pytest.param(_make_unique_url(), id='plain_url'),
+            pytest.param(
+                f'https://example.com/t/{uuid.uuid4().hex}?a=1&b=%E6%B5%8B%E8%AF%95#frag',
+                id='complex_url_with_query_and_fragment',
+            ),
+        ],
+    )
     async def test_redirect_hit(
             self,
+            url: str,
             short_link_row_tracker,
             mounted_app_client: TestClient,
     ) -> None:
-        """命中时 307 重定向且 Location 为真实 URL(无需任何鉴权 Headers)"""
+        """命中时 307 重定向且 Location 原样为真实 URL (含 query 参数与特殊字符, 无需鉴权 Headers)"""
         from src.service import omega_short_link
 
-        url = _make_unique_url()
         link_uuid = await omega_short_link.query_short_link_uuid(url)
         short_link_row_tracker.append(link_uuid)
 
@@ -372,23 +382,6 @@ class TestForwardEndpoint:
 
         assert response.status_code == 404
         assert response.json()['detail'] == 'Short link expired or deleted'
-
-    async def test_redirect_preserves_complex_url(
-            self,
-            short_link_row_tracker,
-            mounted_app_client: TestClient,
-    ) -> None:
-        """Location 原样保留带 query 参数与特殊字符的 URL"""
-        from src.service import omega_short_link
-
-        url = f'https://example.com/t/{uuid.uuid4().hex}?a=1&b=%E6%B5%8B%E8%AF%95#frag'
-        link_uuid = await omega_short_link.query_short_link_uuid(url)
-        short_link_row_tracker.append(link_uuid)
-
-        response = await mounted_app_client.get(f'{_FORWARD_PATH_PREFIX}/go/{link_uuid}', allow_redirects=False)
-
-        assert response.status_code == 307
-        assert response.headers['location'] == url
 
     async def test_redirect_triggers_refresh(
             self,

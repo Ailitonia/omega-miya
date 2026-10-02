@@ -14,13 +14,16 @@
 @Software       : PyCharm
 """
 
+import random
 from collections.abc import AsyncGenerator
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import pytest
 from nonebot.utils import run_sync
 from sqlalchemy import Column, Integer, MetaData, String, Table, inspect, select
 from sqlalchemy.engine import Connection
+
+from tests.utils import unique_test_id
 
 
 class _TestDatabaseMigrationHelper:
@@ -168,3 +171,197 @@ async def test_database_helper() -> AsyncGenerator[_TestDatabaseMigrationHelper,
     finally:
         await helper.drop_all_tables()
         await helper.upgrade_to('head')
+
+
+# ---------------------------------------------------------------------- #
+# test_003_dal_crud 共享测试数据 fixtures (class 作用域, 每个消费类获得独立随机值)
+# ---------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope='class')
+def test_bot_type() -> str:
+    """测试用 Bot 类型 (须为 BotType 枚举成员, 不可随机化)"""
+    return 'OneBot V11'
+
+
+@pytest.fixture(scope='class')
+def test_bot_self_id() -> str:
+    return unique_test_id('TEST_BOT')
+
+
+@pytest.fixture(scope='class')
+def test_sub_type() -> str:
+    return unique_test_id('TEST_SUB_TYPE')
+
+
+@pytest.fixture(scope='class')
+def test_sub_id() -> str:
+    return unique_test_id('TEST_SUB_ID')
+
+
+@pytest.fixture(scope='class')
+def test_sub_user_name() -> str:
+    return unique_test_id('TEST_SUB_USER_NAME')
+
+
+@pytest.fixture(scope='class')
+def test_plugin_name() -> str:
+    return unique_test_id('PLUGIN_NAME')
+
+
+@pytest.fixture(scope='class')
+def test_plugin_module() -> str:
+    return unique_test_id('PLUGIN_MODULE')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_id() -> str:
+    return unique_test_id('MESSAGE_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_bot_self_id() -> str:
+    return unique_test_id('BOT_SELF_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_event_entity_id() -> str:
+    return unique_test_id('EVENT_ENTITY_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_user_entity_id() -> str:
+    return unique_test_id('USER_ENTITY_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_type() -> str:
+    return unique_test_id('MESSAGE_TYPE')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_plain_text() -> str:
+    return unique_test_id('MESSAGE_PLAIN_TEXT')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_raw(
+        test_history_message_type: str,
+        test_history_message_plain_text: str,
+) -> list[dict[str, Any]]:
+    return [
+        {'type': 'text', 'data': {'text': test_history_message_plain_text}},
+        {'type': test_history_message_type, 'data': {'meta': 'test'}},
+    ]
+
+
+@pytest.fixture(scope='class')
+def test_global_cache_name() -> str:
+    return unique_test_id('CACHE_NAME')
+
+
+@pytest.fixture(scope='class')
+def test_global_cache_key() -> str:
+    return unique_test_id('CACHE_KEY')
+
+
+@pytest.fixture(scope='class')
+def test_global_cache_value() -> str:
+    return unique_test_id('CACHE_VALUE')
+
+
+@pytest.fixture(scope='class')
+def test_statistic_plugin_name() -> str:
+    return unique_test_id('PLUGIN_NAME')
+
+
+@pytest.fixture(scope='class')
+def test_statistic_plugin_module() -> str:
+    return unique_test_id('PLUGIN_MODULE')
+
+
+@pytest.fixture(scope='class')
+def test_statistic_call_entity_meta() -> dict[str, Any]:
+    return {
+        'id': random.randint(100000, 999999),
+        'name': unique_test_id('ENTITY_META_NAME'),
+        'message': unique_test_id('ENTITY_META_MESSAGE'),
+    }
+
+
+@pytest.fixture(scope='class')
+def test_statistic_call_data() -> dict[str, Any]:
+    return {
+        'command': unique_test_id('CALL_COMMAND'),
+        'data': {
+            'target': unique_test_id('CALL_DATA_TARGET'),
+            'payload': unique_test_id('CALL_DATA_PAYLOAD'),
+        },
+        'token': unique_test_id('CALL_TOKEN'),
+    }
+
+
+@pytest.fixture(scope='class')
+def test_smc_source() -> str:
+    return unique_test_id('TEST_SMC_SOURCE')
+
+
+@pytest.fixture(scope='class')
+def test_smc_m_type() -> str:
+    return unique_test_id('TEST_SMC_M_TYPE')
+
+
+@pytest.fixture(scope='class')
+def test_smc_m_id() -> str:
+    return unique_test_id('TEST_SMC_M_ID')
+
+
+@pytest.fixture(scope='class')
+def test_smc_m_uid() -> str:
+    return unique_test_id('TEST_SMC_M_UID')
+
+
+@pytest.fixture(scope='class')
+def test_smc_title() -> str:
+    return unique_test_id('TEST_SMC_TITLE')
+
+
+@pytest.fixture(scope='class')
+def test_smc_content() -> str:
+    return unique_test_id('TEST_SMC_CONTENT')
+
+
+@pytest.fixture(scope='class')
+def test_content_raw_data(
+        test_smc_source: str,
+        test_smc_m_type: str,
+        test_smc_m_id: str,
+        test_smc_m_uid: str,
+        test_smc_title: str,
+        test_smc_content: str,
+) -> dict[str, Any]:
+    return {
+        'id': test_smc_m_id,
+        'type': test_smc_m_type,
+        'uid': test_smc_m_uid,
+        'content': {
+            'title': test_smc_title,
+            'body': test_smc_content,
+        },
+        'source': test_smc_source,
+    }
+
+
+@pytest.fixture(scope='class')
+def test_system_setting_name() -> str:
+    return unique_test_id('SETTING_NAME')
+
+
+@pytest.fixture(scope='class')
+def test_system_setting_key() -> str:
+    return unique_test_id('SETTING_KEY')
+
+
+@pytest.fixture(scope='class')
+def test_system_setting_value() -> str:
+    return unique_test_id('SETTING_VALUE')

@@ -52,6 +52,14 @@ def file_host_row_tracker(global_cache_row_tracker_factory) -> list[str]:
     return global_cache_row_tracker_factory(_FILE_HOST_CACHE_NAME)
 
 
+@pytest.fixture
+def _require_hosting_service() -> None:
+    from src.service.omega_file_host.config import file_host_config
+
+    if not file_host_config.omega_file_host_enable_hosting_service:
+        pytest.skip('文件托管服务未启用')
+
+
 class TestModuleContract:
     """模块导出与单例契约测试"""
 
@@ -318,15 +326,9 @@ class TestQueryFileRealPath:
         assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, key) is None
 
 
+@pytest.mark.usefixtures('_require_hosting_service')
 class TestSyncJob:
     """_sync_file_host_cache 定时同步任务测试(真实数据库)"""
-
-    @pytest.fixture(autouse=True)
-    def _require_hosting_service(self) -> None:
-        from src.service.omega_file_host.config import file_host_config
-
-        if not file_host_config.omega_file_host_enable_hosting_service:
-            pytest.skip('文件托管服务未启用')
 
     async def test_sync_loads_db_rows(self, file_host_row_tracker) -> None:
         """同步后内存缓存与数据库一致"""
@@ -373,15 +375,9 @@ class TestSyncJob:
         await file_host_api._sync_file_host_cache()
 
 
+@pytest.mark.usefixtures('_require_hosting_service')
 class TestDownloadEndpoint:
     """文件下载端点测试(直打子应用)"""
-
-    @pytest.fixture(autouse=True)
-    def _require_hosting_service(self) -> None:
-        from src.service.omega_file_host.config import file_host_config
-
-        if not file_host_config.omega_file_host_enable_hosting_service:
-            pytest.skip('文件托管服务未启用')
 
     async def test_download_hit(
             self,
@@ -490,11 +486,7 @@ class TestDownloadEndpoint:
         assert response.status_code == 405
 
     async def test_download_encoded_slash_no_traversal(self, mounted_app_client: TestClient) -> None:
-        """路径段含编码斜杠时不存在路径穿越
-
-        测试客户端不对 scope path 做百分号解码, `..%2F..%2Fsecret` 作为单一路径段命中
-        `/download/{file_id}` 路由, 但该值不是已登记的文件 UUID, 缓存未命中返回 404
-        """
+        """编码斜杠路径段不构成路径穿越, 未命中缓存返回 404"""
         response = await mounted_app_client.get(f'{_DOWNLOAD_PATH_PREFIX}/download/..%2F..%2Fsecret')
 
         assert response.status_code == 404

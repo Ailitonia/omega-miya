@@ -518,49 +518,25 @@ class TestArtworkMetaCache:
         async with proxy.meta_file.async_open('r', encoding='utf-8') as af:
             assert ArtworkProxyData.model_validate_json(await af.read()).title == 'new title'
 
-    async def test_fast_query_corrupt_json_requery(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
-        proxy_factory.hooks.query.return_value = make_artwork_data()
-        proxy = proxy_factory.cls('123')
-        async with proxy.meta_file.async_open('wb') as af:
-            await af.write(b'not json')
-
-        result = await proxy.query()
-
-        proxy_factory.hooks.query.assert_awaited_once()
-        assert result == proxy_factory.hooks.query.return_value
-
-    async def test_fast_query_schema_mismatch_requery(
+    @pytest.mark.parametrize(
+        ('content', 'open_mode'),
+        [
+            pytest.param(b'not json', 'wb', id='corrupt_json'),
+            pytest.param('{"foo": 1}', 'w', id='schema_mismatch'),
+            pytest.param('', 'w', id='empty_file'),
+            pytest.param(b'\xff\xfe\xff', 'wb', id='corrupt_encoding'),
+        ],
+    )
+    async def test_fast_query_invalid_cache_requery(
             self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
+            content: str | bytes, open_mode: str,
     ):
+        """缓存文件损坏(非法 JSON / schema 不符 / 空文件 / 非 UTF-8 编码)时应回源重建, 而非外抛解析异常"""
         proxy_factory.hooks.query.return_value = make_artwork_data()
         proxy = proxy_factory.cls('123')
-        async with proxy.meta_file.async_open('w', encoding='utf-8') as af:
-            await af.write('{"foo": 1}')
-
-        result = await proxy.query()
-
-        proxy_factory.hooks.query.assert_awaited_once()
-        assert result == proxy_factory.hooks.query.return_value
-
-    async def test_fast_query_empty_file_requery(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
-        proxy_factory.hooks.query.return_value = make_artwork_data()
-        proxy = proxy_factory.cls('123')
-        async with proxy.meta_file.async_open('w', encoding='utf-8') as af:
-            await af.write('')
-
-        result = await proxy.query()
-
-        proxy_factory.hooks.query.assert_awaited_once()
-        assert result == proxy_factory.hooks.query.return_value
-
-    async def test_fast_query_corrupt_encoding_requery(
-            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
-    ):
-        """缓存文件编码损坏(非 UTF-8)时应回源重建, 而非外抛 UnicodeDecodeError"""
-        proxy_factory.hooks.query.return_value = make_artwork_data()
-        proxy = proxy_factory.cls('123')
-        async with proxy.meta_file.async_open('wb') as af:
-            await af.write(b'\xff\xfe\xff')
+        open_kwargs = {} if 'b' in open_mode else {'encoding': 'utf-8'}
+        async with proxy.meta_file.async_open(open_mode, **open_kwargs) as af:
+            await af.write(content)
 
         result = await proxy.query()
 
@@ -944,38 +920,36 @@ class TestUserSpace:
 class TestSiteListing:
     """列表类接口(random/search/discovery/recommend/ranking)测试"""
 
-    async def test_random_wraps_ids(self, proxy_factory: SimpleNamespace):
-        proxy_factory.hooks.random.return_value = [1, 'a']
+    @pytest.mark.parametrize(
+        ('method', 'hook_name', 'call_args', 'call_kwargs', 'expected_hook_call'),
+        [
+            pytest.param('random', 'random', (), {'limit': 5}, ((), {'limit': 5}), id='random'),
+            pytest.param(
+                'search', 'search', ('kw',), {'page': 2, 'extra': 'x'}, (('kw',), {'page': 2, 'extra': 'x'}),
+                id='search',
+            ),
+            pytest.param('discovery', 'discovery', (), {'limit': 7}, ((), {'limit': 7}), id='discovery'),
+            pytest.param(
+                'recommend', 'recommend', (), {'base_aid': 100, 'limit': 2}, ((), {'base_aid': 100, 'limit': 2}),
+                id='recommend',
+            ),
+        ],
+    )
+    async def test_listing_wraps_ids(
+            self, proxy_factory: SimpleNamespace,
+            method: str, hook_name: str,
+            call_args: tuple, call_kwargs: dict[str, Any],
+            expected_hook_call: tuple[tuple, dict[str, Any]],
+    ):
+        """列表接口将 id 列表包装为实例并原样透传参数"""
+        hook = getattr(proxy_factory.hooks, hook_name)
+        hook.return_value = [1, 'a']
 
-        result = await proxy_factory.cls.random(limit=5)
+        result = await getattr(proxy_factory.cls, method)(*call_args, **call_kwargs)
 
-        proxy_factory.hooks.random.assert_awaited_once_with(limit=5)
+        hook.assert_awaited_once_with(*expected_hook_call[0], **expected_hook_call[1])
         assert [x.s_aid for x in result] == ['1', 'a']
         assert all(isinstance(x, proxy_factory.cls) for x in result)
-
-    async def test_search_wraps_ids_and_passthrough_args(self, proxy_factory: SimpleNamespace):
-        proxy_factory.hooks.search.return_value = ['9']
-
-        result = await proxy_factory.cls.search('kw', page=2, extra='x')
-
-        proxy_factory.hooks.search.assert_awaited_once_with('kw', page=2, extra='x')
-        assert [x.s_aid for x in result] == ['9']
-
-    async def test_discovery_wraps_ids(self, proxy_factory: SimpleNamespace):
-        proxy_factory.hooks.discovery.return_value = [3]
-
-        result = await proxy_factory.cls.discovery(limit=7)
-
-        proxy_factory.hooks.discovery.assert_awaited_once_with(limit=7)
-        assert [x.s_aid for x in result] == ['3']
-
-    async def test_recommend_wraps_ids(self, proxy_factory: SimpleNamespace):
-        proxy_factory.hooks.recommend.return_value = [4]
-
-        result = await proxy_factory.cls.recommend(base_aid=100, limit=2)
-
-        proxy_factory.hooks.recommend.assert_awaited_once_with(base_aid=100, limit=2)
-        assert [x.s_aid for x in result] == ['4']
 
     @pytest.mark.parametrize(
         ('mode', 'hook_name'),
@@ -1433,7 +1407,7 @@ class TestModels:
 
 
 class TestSitesFixes:
-    """站点适配层修复回归测试(L1)"""
+    """站点适配层行为测试"""
 
     async def test_local_random_sample_clamped_by_available(self, isolated_temporary_root: Path):
         """候选文件数少于 limit 时返回全部而非抛 ValueError"""
@@ -1450,7 +1424,7 @@ class TestSitesFixes:
 
 
 class TestArtworkImageOpsReal:
-    """ArtworkImageOps 真实图片处理回归(真实 PIL + 本地字体, 不经网络)"""
+    """ArtworkImageOps 真实图片处理测试(真实 PIL + 本地字体, 不经网络)"""
 
     @staticmethod
     def _make_image_file(tmp_path: Path, name: str = 'sample.png'):
@@ -1487,16 +1461,13 @@ class TestArtworkImageOpsReal:
         assert content[:2] == b'\xff\xd8'  # JPEG SOI
 
     async def test_generate_preview_image_real_roundtrip(
-            self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+            self, tmp_path: Path, isolated_temporary_root: Path,
     ):
         """真实端到端: 含一张损坏缩略图(走灰色占位分支), 输出合法 JPEG"""
         import src.resource
         from src.resource import StaticResource
         from src.service.artwork_proxy.models import PreviewImagesData
         from src.service.artwork_proxy.preview_image_utils import ArtworkImageOps
-
-        monkeypatch.setattr(src.resource, '_TEMPORARY_RESOURCE_FOLDER', tmp_path)
-        monkeypatch.setattr(src.resource.TemporaryResource, '_CONFINEMENT_ROOT', tmp_path.resolve())
 
         preview = PreviewImagesData.model_validate({
             'preview_name': 'roundtrip',

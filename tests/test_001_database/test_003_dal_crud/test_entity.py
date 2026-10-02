@@ -21,18 +21,8 @@ from sqlalchemy.exc import NoResultFound, StatementError
 
 if TYPE_CHECKING:
     from src.database.internal.bot import BotSelf, BotSelfDAL
-    from src.database.internal.entity import EntityDAL
+    from src.database.internal.entity import Entity, EntityDAL
     from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceDAL
-
-
-@pytest.fixture(scope='class')
-async def test_bot_type() -> str:
-    return 'OneBot V11'
-
-
-@pytest.fixture(scope='class')
-async def test_bot_self_id() -> str:
-    return f'TEST_BOT_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
 
 
 @pytest.fixture(scope='class')
@@ -53,21 +43,6 @@ async def test_entity_name() -> str:
 @pytest.fixture(scope='class')
 async def test_entity_extra() -> dict:
     return {'platform': 'test', 'tags': ['a', 'b'], 'meta': {'level': 1}, 'enabled': True, 'note': None, '昵称': '米娅'}
-
-
-@pytest.fixture(scope='class')
-async def test_sub_type() -> str:
-    return f'TEST_SUB_TYPE_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_sub_id() -> str:
-    return f'TEST_SUB_ID_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_sub_user_name() -> str:
-    return f'TEST_SUB_USER_NAME_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
 
 
 @pytest.fixture(scope='class')
@@ -127,6 +102,38 @@ async def entity_dal(bot_dal, subscription_source_dal) -> AsyncGenerator['Entity
 
     async with EntityDAL.create() as dal:
         yield dal
+
+
+@pytest.fixture(autouse=True)
+async def _clean_table(entity_dal) -> None:
+    """每个测试用例执行前清空数据表"""
+    await entity_dal._clear_all()
+    await entity_dal.commit_session()
+
+
+@pytest.fixture
+async def fresh_entity(
+        entity_dal,
+        test_bot,
+        test_entity_type,
+        test_entity_id,
+        test_entity_name,
+        test_entity_extra,
+) -> 'Entity':
+    """清空实体数据表并提交创建一个标准测试实体"""
+    await entity_dal._clear_all()
+    await entity_dal.commit_session()
+
+    entity = await entity_dal.add_update_exist(
+        bot_type=test_bot.bot_type,
+        bot_self_id=test_bot.self_id,
+        entity_type=test_entity_type,
+        entity_id=test_entity_id,
+        entity_name=test_entity_name,
+        entity_extra=test_entity_extra,
+    )
+    await entity_dal.commit_session()
+    return entity
 
 
 class TestEntityDAL:
@@ -203,9 +210,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """首次插入验证字段 + entity_parent_bot 加载"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         result = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -235,9 +239,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """entity_info=None 插入"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         result = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -261,9 +262,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """同 (bot, entity_type, entity_id) 再次调用更新 name/info, entity_extra 浅合并"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -301,9 +299,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """先带 info 插入, 再更新 info=None: entity_info 传 None 时保留原值, entity_extra 与原内容浅合并"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -343,18 +338,13 @@ class TestEntityDAL:
             test_entity_name,
             test_entity_extra,
     ) -> None:
-        """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销
-
-        注意: SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-        外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-        外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-        """
+        """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销"""
         from src.database.config import database_config
         if database_config.database == 'sqlite':
+            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
+            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
+            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
             pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
 
         await entity_dal.db_session.begin()
         result = await entity_dal.add_update_exist(
@@ -381,9 +371,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """外层已有活动事务时更新分支走 SAVEPOINT, 外层 rollback 后更新应被撤销"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -430,9 +417,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """首次插入"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         result = await entity_dal.add_ignore_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -459,9 +443,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """已存在时忽略, 返回原数据不变"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -488,42 +469,19 @@ class TestEntityDAL:
         assert result.entity_extra == test_entity_extra
         assert result.entity_info == 'original'
 
-    async def test_add_update_exist_bot_not_found(
+    @pytest.mark.parametrize('method_name', ['add_update_exist', 'add_ignore_exist'])
+    async def test_add_bot_not_found(
             self,
+            method_name: str,
             entity_dal,
             test_entity_type,
             test_entity_id,
             test_entity_name,
             test_entity_extra,
     ) -> None:
-        """所属 Bot 不存在时调用 add_update_exist, 预期 NoResultFound"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
+        """所属 Bot 不存在时调用 add_update_exist/add_ignore_exist, 预期 NoResultFound"""
         with pytest.raises(NoResultFound):
-            await entity_dal.add_update_exist(
-                bot_type='Console',
-                bot_self_id='nonexistent_bot_self_id',
-                entity_type=test_entity_type,
-                entity_id=test_entity_id,
-                entity_name=test_entity_name,
-                entity_extra=test_entity_extra,
-            )
-
-    async def test_add_ignore_exist_bot_not_found(
-            self,
-            entity_dal,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
-        """所属 Bot 不存在时调用 add_ignore_exist, 预期 NoResultFound"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        with pytest.raises(NoResultFound):
-            await entity_dal.add_ignore_exist(
+            await getattr(entity_dal, method_name)(
                 bot_type='Console',
                 bot_self_id='nonexistent_bot_self_id',
                 entity_type=test_entity_type,
@@ -545,9 +503,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """entity_extra={} 空字典插入"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         result = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -569,9 +524,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """entity_extra 嵌套结构/Unicode/各 JSON 标量类型写入与读回一致"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         complex_extra = {
             'str': 'value',
             'int': 42,
@@ -609,9 +561,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """entity_extra 更新语义为浅合并: 新键并入, 同顶层键覆盖, 未涉及的键保留"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -643,9 +592,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """entity_extra 为浅合并且不做深合并: 同顶层键的嵌套 dict 被整体替换"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -678,9 +624,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """entity_extra 更新时传 {} 为无操作合并, 原有内容保留"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -712,9 +655,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """entity_extra=None 不符合 dict 类型约束, 预期 ValidationError 且不写入任何数据"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         with pytest.raises(ValidationError):
             await entity_dal.add_update_exist(
                 bot_type=test_bot.bot_type,
@@ -736,9 +676,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """add_ignore_exist 同样在入口处校验 entity_extra, 预期 ValidationError"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         with pytest.raises(ValidationError):
             await entity_dal.add_ignore_exist(
                 bot_type=test_bot.bot_type,
@@ -760,9 +697,6 @@ class TestEntityDAL:
             test_entity_name,
     ) -> None:
         """entity_extra 为非 dict 类型 (如 str) 时预期 ValidationError"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         with pytest.raises(ValidationError):
             await entity_dal.add_update_exist(
                 bot_type=test_bot.bot_type,
@@ -783,16 +717,10 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
     ) -> None:
-        """entity_extra 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败
-
-        entity_extra 类型为 dict[str, Any], 入口 pydantic 校验不限制 value 类型,
-        不可序列化值 (如 bytes) 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异
-        (SQLite 下为 StatementError 包装 TypeError), 此处固定当前的失败行为,
-        若后续 DAL 层增加前置序列化校验, 本用例需同步调整
-        """
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
+        """entity_extra 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败"""
+        # entity_extra 类型为 dict[str, Any], 入口 pydantic 校验不限制 value 类型, 不可序列化值 (如 bytes)
+        # 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异 (SQLite 下为 StatementError 包装 TypeError),
+        # 此处固定当前的失败行为, 若后续 DAL 层增加前置序列化校验, 本用例需同步调整
         with pytest.raises((TypeError, StatementError)):
             await entity_dal.add_update_exist(
                 bot_type=test_bot.bot_type,
@@ -819,9 +747,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """按 (bot_type, bot_self_id, entity_type, entity_id) 查"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -853,9 +778,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """按 index_id 查"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         added = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -879,9 +801,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """同时提供时 index_id 优先"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -912,17 +831,11 @@ class TestEntityDAL:
 
     async def test_query_unique_not_found(self, entity_dal) -> None:
         """查询不存在, 预期 NoResultFound"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await entity_dal.query_unique('Console', 'nonexistent', 'console_user', 'nonexistent', None)
 
     async def test_query_unique_insufficient_params_raises(self, entity_dal) -> None:
         """不全提供 bot_type 等参数时 ValueError"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         with pytest.raises(ValueError, match='must both be provided'):
             await entity_dal.query_unique('Console', None, None, None, None)
 
@@ -936,9 +849,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """load_all_rel=True 返回 EntityWithFullRel 带级联属性"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -974,9 +884,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """load_all_rel=True 且存在关联数据时, 应正确带出全部级联属性"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         entity = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -1034,9 +941,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """多条 + 排序"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -1069,9 +973,6 @@ class TestEntityDAL:
 
     async def test_query_all_empty(self, entity_dal) -> None:
         """空表"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         assert await entity_dal.query_all() == []
 
     async def test_query_type_all_filtered(
@@ -1083,9 +984,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """按 bot+type 过滤"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -1115,9 +1013,6 @@ class TestEntityDAL:
             test_entity_type,
     ) -> None:
         """不匹配返回空"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         result = await entity_dal.query_type_all(test_bot.bot_type, test_bot.self_id, test_entity_type)
         assert result == []
 
@@ -1131,9 +1026,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """删除后查不到"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         added = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -1152,9 +1044,6 @@ class TestEntityDAL:
 
     async def test_delete_from_index_non_existing(self, entity_dal) -> None:
         """不存在不抛异常"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         await entity_dal.delete_from_index(999999)
         await entity_dal.commit_session()
 
@@ -1162,31 +1051,10 @@ class TestEntityDAL:
     # Friendship
     # ------------------------------------------------------------------ #
 
-    async def test_set_friendship_insert(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_friendship_insert(self, entity_dal, fresh_entity) -> None:
         """首次设置验证字段 (Decimal)"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         result = await entity_dal.set_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             status='happy',
             mood=Decimal('5.5'),
             friendship=Decimal('100'),
@@ -1202,40 +1070,19 @@ class TestEntityDAL:
         assert result.energy == Decimal('50')
         assert result.currency == Decimal('25')
         assert result.rsp_threshold == Decimal('3')
-        assert result.entity_index_id == entity.id
+        assert result.entity_index_id == fresh_entity.id
 
-    async def test_set_friendship_update(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_friendship_update(self, entity_dal, fresh_entity) -> None:
         """再次设置更新值"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         await entity_dal.set_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             mood=Decimal('1'),
             friendship=Decimal('10'),
         )
         await entity_dal.commit_session()
 
         result = await entity_dal.set_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             status='sad',
             mood=Decimal('2'),
             friendship=Decimal('20'),
@@ -1246,30 +1093,9 @@ class TestEntityDAL:
         assert result.mood == Decimal('2')
         assert result.friendship == Decimal('20')
 
-    async def test_set_friendship_default_values(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_friendship_default_values(self, entity_dal, fresh_entity) -> None:
         """默认值全为 0 / status='normal'"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_friendship(entity.id)
+        result = await entity_dal.set_entity_friendship(fresh_entity.id)
         await entity_dal.commit_session()
 
         assert result.status == 'normal'
@@ -1279,31 +1105,10 @@ class TestEntityDAL:
         assert result.currency == Decimal('0')
         assert result.rsp_threshold == Decimal('0')
 
-    async def test_set_friendship_partial_update_preserves_others(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_friendship_partial_update_preserves_others(self, entity_dal, fresh_entity) -> None:
         """部分更新语义: 仅传入的字段被更新, 未传入的字段 (None) 保持原值"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         await entity_dal.set_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             status='happy',
             mood=Decimal('5'),
             friendship=Decimal('100'),
@@ -1314,7 +1119,7 @@ class TestEntityDAL:
         await entity_dal.commit_session()
 
         # 仅更新 currency, 其余字段应保持不变
-        result = await entity_dal.set_entity_friendship(entity.id, currency=Decimal('999'))
+        result = await entity_dal.set_entity_friendship(fresh_entity.id, currency=Decimal('999'))
         await entity_dal.commit_session()
 
         assert result.currency == Decimal('999')
@@ -1324,63 +1129,21 @@ class TestEntityDAL:
         assert result.energy == Decimal('50')
         assert result.rsp_threshold == Decimal('3')
 
-    async def test_set_friendship_all_none_no_change(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_friendship_all_none_no_change(self, entity_dal, fresh_entity) -> None:
         """全部参数缺省时 (仅提供 entity_index_id), 已有记录的字段不应被修改"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_friendship(fresh_entity.id, status='happy', friendship=Decimal('42'))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_friendship(entity.id, status='happy', friendship=Decimal('42'))
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_friendship(entity.id)
+        result = await entity_dal.set_entity_friendship(fresh_entity.id)
         await entity_dal.commit_session()
 
         assert result.status == 'happy'
         assert result.friendship == Decimal('42')
 
-    async def test_alter_friendship_increment(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_alter_friendship_increment(self, entity_dal, fresh_entity) -> None:
         """先 set 再 alter, 验证增量累加"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         await entity_dal.set_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             mood=Decimal('10'),
             friendship=Decimal('100'),
             energy=Decimal('50'),
@@ -1388,7 +1151,7 @@ class TestEntityDAL:
         await entity_dal.commit_session()
 
         result = await entity_dal.alter_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             mood=Decimal('5'),
             friendship=Decimal('20'),
             energy=Decimal('-10'),
@@ -1399,31 +1162,10 @@ class TestEntityDAL:
         assert result.friendship == Decimal('120')
         assert result.energy == Decimal('40')
 
-    async def test_alter_friendship_insert_new(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_alter_friendship_insert_new(self, entity_dal, fresh_entity) -> None:
         """无好感度记录时直接 alter, 应插入新行且 delta 即为初始值"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         result = await entity_dal.alter_entity_friendship(
-            entity.id,
+            fresh_entity.id,
             mood=Decimal('5'),
             friendship=Decimal('20'),
             energy=Decimal('-10'),
@@ -1436,59 +1178,17 @@ class TestEntityDAL:
         assert result.energy == Decimal('-10')
         assert await entity_dal._count_entity_friendship_all() == 1
 
-    async def test_query_friendship_exists(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_friendship_exists(self, entity_dal, fresh_entity) -> None:
         """已有 friendship 直接返回"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_friendship(fresh_entity.id, friendship=Decimal('50'))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_friendship(entity.id, friendship=Decimal('50'))
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_friendship(entity.id)
+        result = await entity_dal.query_entity_friendship(fresh_entity.id)
         assert result.friendship == Decimal('50')
 
-    async def test_query_friendship_auto_init(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_friendship_auto_init(self, entity_dal, fresh_entity) -> None:
         """没有 friendship 时自动初始化默认值"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_friendship(entity.id)
+        result = await entity_dal.query_entity_friendship(fresh_entity.id)
         assert result.status == 'normal'
         assert result.friendship == Decimal('0')
 
@@ -1496,60 +1196,18 @@ class TestEntityDAL:
     # SignIn
     # ------------------------------------------------------------------ #
 
-    async def test_set_sign_in_with_date(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_sign_in_with_date(self, entity_dal, fresh_entity) -> None:
         """指定 date 对象, info 默认 'Fixed Sign In'"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1))
+        result = await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2026, 1, 1))
         await entity_dal.commit_session()
 
         assert result.sign_in_date == date(2026, 1, 1)
         assert result.sign_in_info == 'Fixed Sign In'
 
-    async def test_set_sign_in_with_datetime(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_sign_in_with_datetime(self, entity_dal, fresh_entity) -> None:
         """指定 datetime 对象, 自动取 .date()"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         result = await entity_dal.set_entity_sign_in(
-            entity.id,
+            fresh_entity.id,
             date_=datetime(2026, 1, 1, 12, 30, 30),
             sign_in_info='custom',
         )
@@ -1558,94 +1216,31 @@ class TestEntityDAL:
         assert result.sign_in_date == date(2026, 1, 1)
         assert result.sign_in_info == 'custom'
 
-    async def test_set_sign_in_none_date(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_sign_in_none_date(self, entity_dal, fresh_entity) -> None:
         """date_=None 用今天, info 默认 'Normal Sign In'"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_sign_in(entity.id)
+        result = await entity_dal.set_entity_sign_in(fresh_entity.id)
         await entity_dal.commit_session()
 
         assert result.sign_in_date == datetime.now().date()
         assert result.sign_in_info == 'Normal Sign In'
 
-    async def test_set_sign_in_duplicate(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_sign_in_duplicate(self, entity_dal, fresh_entity) -> None:
         """同日重复签到且未指定 sign_in_info 时, 签到信息应标记为 'Duplicate Sign In'"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1), sign_in_info='first')
+        await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2026, 1, 1), sign_in_info='first')
         await entity_dal.commit_session()
 
         # 重复签到且未指定 sign_in_info, 应标记为 'Duplicate Sign In'
-        result = await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1))
+        result = await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2026, 1, 1))
         await entity_dal.commit_session()
 
         assert result.sign_in_info == 'Duplicate Sign In'
 
-    async def test_check_sign_in_true(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_check_sign_in_true(self, entity_dal, fresh_entity) -> None:
         """已签到返回 True"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2026, 1, 1))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1))
-        await entity_dal.commit_session()
-
-        assert await entity_dal.check_entity_date_is_sign_in(entity.id, date_=date(2026, 1, 1)) is True
+        assert await entity_dal.check_entity_date_is_sign_in(fresh_entity.id, date_=date(2026, 1, 1)) is True
 
     async def test_check_sign_in_false(
             self,
@@ -1657,9 +1252,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """未签到返回 False"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         entity = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
@@ -1670,66 +1262,24 @@ class TestEntityDAL:
 
         assert await entity_dal.check_entity_date_is_sign_in(entity.id, date_=date(2026, 1, 1)) is False
 
-    async def test_query_sign_in_days(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_sign_in_days(self, entity_dal, fresh_entity) -> None:
         """多天签到返回日期列表"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2024, 2, 4))
+        await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2025, 10, 17))
+        await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2026, 5, 28))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_sign_in(entity.id, date_=date(2024, 2, 4))
-        await entity_dal.set_entity_sign_in(entity.id, date_=date(2025, 10, 17))
-        await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 5, 28))
-        await entity_dal.commit_session()
-
-        days = await entity_dal.query_entity_sign_in_days(entity.id)
+        days = await entity_dal.query_entity_sign_in_days(fresh_entity.id)
         assert set(days) == {date(2026, 5, 28), date(2025, 10, 17), date(2024, 2, 4)}
 
     # ------------------------------------------------------------------ #
     # AuthSetting
     # ------------------------------------------------------------------ #
 
-    async def test_set_auth_insert(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_auth_insert(self, entity_dal, fresh_entity) -> None:
         """首次设置验证字段 + JSON value"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         result = await entity_dal.set_entity_auth_setting(
-            entity.id,
+            fresh_entity.id,
             'test_module',
             'test_plugin',
             'test_node',
@@ -1744,31 +1294,10 @@ class TestEntityDAL:
         assert result.available == 1
         assert result.value == {'key': 'val', 'nested': {'a': 1}}
 
-    async def test_set_auth_update(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_auth_update(self, entity_dal, fresh_entity) -> None:
         """更新 available 和 value"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         await entity_dal.set_entity_auth_setting(
-            entity.id,
+            fresh_entity.id,
             'test_module',
             'test_plugin',
             'test_node',
@@ -1778,7 +1307,7 @@ class TestEntityDAL:
         await entity_dal.commit_session()
 
         result = await entity_dal.set_entity_auth_setting(
-            entity.id,
+            fresh_entity.id,
             'test_module',
             'test_plugin',
             'test_node',
@@ -1790,31 +1319,10 @@ class TestEntityDAL:
         assert result.available == 1
         assert result.value == {'b': 2}
 
-    async def test_set_auth_empty_value(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_auth_empty_value(self, entity_dal, fresh_entity) -> None:
         """value 为空 {}"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         result = await entity_dal.set_entity_auth_setting(
-            entity.id,
+            fresh_entity.id,
             'test_module',
             'test_plugin',
             'test_node',
@@ -1825,31 +1333,10 @@ class TestEntityDAL:
 
         assert result.value == {}
 
-    async def test_query_auth_setting_normal(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_auth_setting_normal(self, entity_dal, fresh_entity) -> None:
         """查回验证"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         await entity_dal.set_entity_auth_setting(
-            entity.id,
+            fresh_entity.id,
             'test_module',
             'test_plugin',
             'test_node',
@@ -1859,7 +1346,7 @@ class TestEntityDAL:
         await entity_dal.commit_session()
 
         result = await entity_dal.query_entity_auth_setting(
-            entity.id,
+            fresh_entity.id,
             'test_module',
             'test_plugin',
             'test_node',
@@ -1867,60 +1354,18 @@ class TestEntityDAL:
         assert result.available == 1
         assert result.value == {'test_value': True}
 
-    async def test_query_auth_setting_not_found(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_auth_setting_not_found(self, entity_dal, fresh_entity) -> None:
         """NoResultFound"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         with pytest.raises(NoResultFound):
-            await entity_dal.query_entity_auth_setting(entity.id, 'test_module', 'test_plugin', 'test_node')
+            await entity_dal.query_entity_auth_setting(fresh_entity.id, 'test_module', 'test_plugin', 'test_node')
 
-    async def test_query_any_auth_all(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_any_auth_all(self, entity_dal, fresh_entity) -> None:
         """查全部 auth"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_auth_setting(fresh_entity.id, 'mod_a', 'plug_a', 'node_1', available=1, value={})
+        await entity_dal.set_entity_auth_setting(fresh_entity.id, 'mod_b', 'plug_b', 'node_2', available=0, value={})
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_auth_setting(entity.id, 'mod_a', 'plug_a', 'node_1', available=1, value={})
-        await entity_dal.set_entity_auth_setting(entity.id, 'mod_b', 'plug_b', 'node_2', available=0, value={})
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_any_auth_settings(entity.id)
+        result = await entity_dal.query_entity_any_auth_settings(fresh_entity.id)
         assert len(result) == 2
 
     async def test_query_any_auth_by_module(
@@ -1933,9 +1378,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """按 module 过滤"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         entity = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
@@ -1963,9 +1405,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """按 module+plugin 过滤"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         entity = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
@@ -1982,30 +1421,9 @@ class TestEntityDAL:
         assert len(result) == 1
         assert result[0].node == 'node_1'
 
-    async def test_query_any_auth_empty(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_any_auth_empty(self, entity_dal, fresh_entity) -> None:
         """无配置返回空"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_any_auth_settings(entity.id)
+        result = await entity_dal.query_entity_any_auth_settings(fresh_entity.id)
         assert result == []
 
     async def test_query_module_plugin_auth(
@@ -2017,9 +1435,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """跨实体查询某 module+plugin 的所有配置"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         e1 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -2054,9 +1469,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """查有特定权限节点的实体"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         e1 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -2082,18 +1494,24 @@ class TestEntityDAL:
         assert len(result) == 1
         assert result[0].entity_id == 'eid_a'
 
+    @pytest.mark.parametrize(
+        ('strict_match', 'expected_ids'),
+        [
+            (True, ['eid_a']),  # strict_match=True 只匹配 available==1
+            (False, ['eid_a', 'eid_b']),  # strict_match=False 匹配 available>=1
+        ],
+    )
     async def test_query_entities_has_auth_strict_match(
             self,
+            strict_match: bool,
+            expected_ids: list[str],
             entity_dal,
             test_bot,
             test_entity_type,
             test_entity_name,
             test_entity_extra,
     ) -> None:
-        """strict_match=True 只匹配 available==1"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
+        """strict_match=True 只匹配 available==1, strict_match=False 匹配 available>=1"""
         e1 = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,
             bot_self_id=test_bot.self_id,
@@ -2121,172 +1539,44 @@ class TestEntityDAL:
             'plug',
             'node',
             available=1,
-            strict_match=True,
+            strict_match=strict_match,
         )
-        assert len(result) == 1
-        assert result[0].entity_id == 'eid_a'
+        assert sorted(item.entity_id for item in result) == expected_ids
 
-    async def test_query_entities_has_auth_non_strict(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
-        """strict_match=False 匹配 available>=1"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        e1 = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id='eid_a',
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        e2 = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id='eid_b',
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_auth_setting(e1.id, 'mod', 'plug', 'node', available=1, value={})
-        await entity_dal.set_entity_auth_setting(e2.id, 'mod', 'plug', 'node', available=2, value={})
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entities_has_auth_setting(
-            'mod',
-            'plug',
-            'node',
-            available=1,
-            strict_match=False,
-        )
-        assert len(result) == 2
-
-    async def test_delete_auth_setting(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_delete_auth_setting(self, entity_dal, fresh_entity) -> None:
         """删除后查不到"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_auth_setting(fresh_entity.id, 'mod', 'plug', 'node', available=1, value={})
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_auth_setting(entity.id, 'mod', 'plug', 'node', available=1, value={})
-        await entity_dal.commit_session()
-
-        await entity_dal.delete_entity_auth_setting(entity.id, 'mod', 'plug', 'node')
+        await entity_dal.delete_entity_auth_setting(fresh_entity.id, 'mod', 'plug', 'node')
         await entity_dal.commit_session()
 
         with pytest.raises(NoResultFound):
-            await entity_dal.query_entity_auth_setting(entity.id, 'mod', 'plug', 'node')
+            await entity_dal.query_entity_auth_setting(fresh_entity.id, 'mod', 'plug', 'node')
 
-    async def test_delete_auth_setting_non_existing(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_delete_auth_setting_non_existing(self, entity_dal, fresh_entity) -> None:
         """不存在不抛异常"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.delete_entity_auth_setting(entity.id, 'mod', 'plug', 'node')
+        await entity_dal.delete_entity_auth_setting(fresh_entity.id, 'mod', 'plug', 'node')
         await entity_dal.commit_session()
 
     # ------------------------------------------------------------------ #
     # Cooldown
     # ------------------------------------------------------------------ #
 
-    async def test_set_cooldown_datetime(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_cooldown_datetime(self, entity_dal, fresh_entity) -> None:
         """expired_time 为 datetime"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         stop = datetime(2099, 1, 1, 0, 0, 0)
-        result = await entity_dal.set_entity_cooldown(entity.id, 'test_event', stop, 'desc')
+        result = await entity_dal.set_entity_cooldown(fresh_entity.id, 'test_event', stop, 'desc')
         await entity_dal.commit_session()
 
         assert result.stop_at == stop
         assert result.description == 'desc'
         assert result.event == 'test_event'
 
-    async def test_set_cooldown_timedelta(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_cooldown_timedelta(self, entity_dal, fresh_entity) -> None:
         """expired_time 为 timedelta"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         before = datetime.now()
-        result = await entity_dal.set_entity_cooldown(entity.id, 'test_event', timedelta(seconds=60))
+        result = await entity_dal.set_entity_cooldown(fresh_entity.id, 'test_event', timedelta(seconds=60))
         await entity_dal.commit_session()
 
         # 数据库 datetime 可能截断到秒, 留 1 秒容差
@@ -2303,9 +1593,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """非 datetime/timedelta 抛 TypeError"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
         entity = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type, bot_self_id=test_bot.self_id,
             entity_type=test_entity_type, entity_id=test_entity_id,
@@ -2317,316 +1604,104 @@ class TestEntityDAL:
         with pytest.raises(TypeError):
             await entity_dal.set_entity_cooldown(entity.id, 'test_event', 'invalid')
 
-    async def test_set_cooldown_update(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_cooldown_update(self, entity_dal, fresh_entity) -> None:
         """同 event 再次设置更新 stop_at"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', datetime(2020, 1, 1))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_cooldown(entity.id, 'event', datetime(2020, 1, 1))
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_cooldown(entity.id, 'event', datetime(2099, 1, 1))
+        result = await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', datetime(2099, 1, 1))
         await entity_dal.commit_session()
 
         assert result.stop_at == datetime(2099, 1, 1)
 
-    async def test_query_cooldown_normal(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_cooldown_normal(self, entity_dal, fresh_entity) -> None:
         """查回验证"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', datetime(2099, 1, 1))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_cooldown(entity.id, 'event', datetime(2099, 1, 1))
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_cooldown(entity.id, 'event')
+        result = await entity_dal.query_entity_cooldown(fresh_entity.id, 'event')
         assert result.event == 'event'
         assert result.stop_at == datetime(2099, 1, 1)
 
-    async def test_query_cooldown_not_found(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_cooldown_not_found(self, entity_dal, fresh_entity) -> None:
         """NoResultFound"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         with pytest.raises(NoResultFound):
-            await entity_dal.query_entity_cooldown(entity.id, 'event')
+            await entity_dal.query_entity_cooldown(fresh_entity.id, 'event')
 
-    async def test_check_cooldown_expired(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_check_cooldown_expired(self, entity_dal, fresh_entity) -> None:
         """stop_at 已过返回 (True, stop_at)"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         past = datetime(1990, 1, 1)
-        await entity_dal.set_entity_cooldown(entity.id, 'event', past)
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', past)
         await entity_dal.commit_session()
 
-        expired, stop_at = await entity_dal.check_entity_cooldown_is_expired(entity.id, 'event')
+        expired, stop_at = await entity_dal.check_entity_cooldown_is_expired(fresh_entity.id, 'event')
         assert expired is True
         assert stop_at == past
 
-    async def test_check_cooldown_not_expired(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_check_cooldown_not_expired(self, entity_dal, fresh_entity) -> None:
         """stop_at 未过返回 (False, stop_at)"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         future = datetime(2099, 1, 1)
-        await entity_dal.set_entity_cooldown(entity.id, 'event', future)
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', future)
         await entity_dal.commit_session()
 
-        expired, stop_at = await entity_dal.check_entity_cooldown_is_expired(entity.id, 'event')
+        expired, stop_at = await entity_dal.check_entity_cooldown_is_expired(fresh_entity.id, 'event')
         assert expired is False
         assert stop_at == future
 
-    async def test_check_cooldown_not_exist(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_check_cooldown_not_exist(self, entity_dal, fresh_entity) -> None:
         """不存在返回 (True, now)"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         before = datetime.now()
-        expired, stop_at = await entity_dal.check_entity_cooldown_is_expired(entity.id, 'event')
+        expired, stop_at = await entity_dal.check_entity_cooldown_is_expired(fresh_entity.id, 'event')
         assert expired is True
         assert stop_at >= before
 
-    async def test_delete_cooldown(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_delete_cooldown(self, entity_dal, fresh_entity) -> None:
         """删除后查不到"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', datetime(2099, 1, 1))
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_cooldown(entity.id, 'event', datetime(2099, 1, 1))
-        await entity_dal.commit_session()
-
-        await entity_dal.delete_entity_cooldown(entity.id, 'event')
+        await entity_dal.delete_entity_cooldown(fresh_entity.id, 'event')
         await entity_dal.commit_session()
 
         with pytest.raises(NoResultFound):
-            await entity_dal.query_entity_cooldown(entity.id, 'event')
+            await entity_dal.query_entity_cooldown(fresh_entity.id, 'event')
 
-    async def test_clear_expired_cooldown(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_clear_expired_cooldown(self, entity_dal, fresh_entity) -> None:
         """只删过期的, 未过期保留"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_cooldown(entity.id, 'past_event', datetime(1990, 1, 1))
-        await entity_dal.set_entity_cooldown(entity.id, 'future_event', datetime(2099, 1, 1))
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'past_event', datetime(1990, 1, 1))
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'future_event', datetime(2099, 1, 1))
         await entity_dal.commit_session()
 
         await entity_dal.clear_all_expired_cooldown()
         await entity_dal.commit_session()
 
         assert await entity_dal._count_entity_cooldown_all() == 1
-        remaining = await entity_dal.query_entity_cooldown(entity.id, 'future_event')
+        remaining = await entity_dal.query_entity_cooldown(fresh_entity.id, 'future_event')
         assert remaining.event == 'future_event'
 
     # ------------------------------------------------------------------ #
     # Subscription
     # ------------------------------------------------------------------ #
 
-    async def test_set_subscription_insert(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_subscription_source,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_subscription_insert(self, entity_dal, fresh_entity, test_subscription_source) -> None:
         """首次设置验证"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
         result = await entity_dal.set_entity_subscription(
-            entity.id,
+            fresh_entity.id,
             test_subscription_source.id,
             sub_info='sub info',
         )
         await entity_dal.commit_session()
 
-        assert result.entity_index_id == entity.id
+        assert result.entity_index_id == fresh_entity.id
         assert result.sub_source_index_id == test_subscription_source.id
         assert result.sub_info == 'sub info'
 
-    async def test_set_subscription_update(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_subscription_source,
-            test_entity_extra,
-    ) -> None:
+    async def test_set_subscription_update(self, entity_dal, fresh_entity, test_subscription_source) -> None:
         """再次设置更新 sub_info"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id, 'original')
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id, 'original')
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id, 'updated')
+        result = await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id, 'updated')
         await entity_dal.commit_session()
 
         assert result.sub_info == 'updated'
@@ -2634,192 +1709,71 @@ class TestEntityDAL:
     async def test_set_subscription_update_with_none_info(
             self,
             entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
+            fresh_entity,
             test_subscription_source,
-            test_entity_extra,
     ) -> None:
         """sub_info=None 不更新已有值"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id, 'original')
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id, 'original')
-        await entity_dal.commit_session()
-
-        result = await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id, None)
+        result = await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id, None)
         await entity_dal.commit_session()
 
         assert result.sub_info == 'original'
 
-    async def test_query_subscribed_source_all(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_subscription_source,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_subscribed_source_all(self, entity_dal, fresh_entity, test_subscription_source) -> None:
         """查全部订阅源"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id)
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id)
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_subscribed_source(entity.id)
+        result = await entity_dal.query_entity_subscribed_source(fresh_entity.id)
         assert len(result) == 1
         assert result[0].sub_id == test_subscription_source.sub_id
 
     async def test_query_subscribed_source_by_type(
             self,
             entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
+            fresh_entity,
             test_subscription_source,
             test_sub_type,
-            test_entity_extra,
     ) -> None:
         """按 sub_type 过滤"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id)
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id)
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_subscribed_source(entity.id, sub_type=test_sub_type)
+        result = await entity_dal.query_entity_subscribed_source(fresh_entity.id, sub_type=test_sub_type)
         assert len(result) == 1
 
-        result_empty = await entity_dal.query_entity_subscribed_source(entity.id, sub_type='nonexistent')
+        result_empty = await entity_dal.query_entity_subscribed_source(fresh_entity.id, sub_type='nonexistent')
         assert result_empty == []
 
-    async def test_query_subscribed_source_empty(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_entity_extra,
-    ) -> None:
+    async def test_query_subscribed_source_empty(self, entity_dal, fresh_entity) -> None:
         """无订阅返回空"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_subscribed_source(entity.id)
+        result = await entity_dal.query_entity_subscribed_source(fresh_entity.id)
         assert result == []
 
-    async def test_delete_subscription(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_subscription_source,
-            test_entity_extra,
-    ) -> None:
+    async def test_delete_subscription(self, entity_dal, fresh_entity, test_subscription_source) -> None:
         """删除后查不到"""
-        await entity_dal._clear_all()
+        await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id)
         await entity_dal.commit_session()
 
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
+        await entity_dal.delete_entity_subscription(fresh_entity.id, test_subscription_source.id)
         await entity_dal.commit_session()
 
-        await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id)
-        await entity_dal.commit_session()
-
-        await entity_dal.delete_entity_subscription(entity.id, test_subscription_source.id)
-        await entity_dal.commit_session()
-
-        result = await entity_dal.query_entity_subscribed_source(entity.id)
+        result = await entity_dal.query_entity_subscribed_source(fresh_entity.id)
         assert result == []
 
     # ------------------------------------------------------------------ #
     # delete_from_index 级联验证
     # ------------------------------------------------------------------ #
 
-    async def test_delete_from_index_cascade(
-            self,
-            entity_dal,
-            test_bot,
-            test_entity_type,
-            test_entity_id,
-            test_entity_name,
-            test_subscription_source,
-            test_entity_extra,
-    ) -> None:
+    async def test_delete_from_index_cascade(self, entity_dal, fresh_entity, test_subscription_source) -> None:
         """删除 entity 后 friendship/sign_in/auth/cooldown/subscription 均被级联删除"""
-        await entity_dal._clear_all()
-        await entity_dal.commit_session()
-
-        entity = await entity_dal.add_update_exist(
-            bot_type=test_bot.bot_type,
-            bot_self_id=test_bot.self_id,
-            entity_type=test_entity_type,
-            entity_id=test_entity_id,
-            entity_name=test_entity_name,
-            entity_extra=test_entity_extra,
-        )
-        await entity_dal.commit_session()
-
-        await entity_dal.set_entity_friendship(entity.id, friendship=Decimal('10'))
-        await entity_dal.set_entity_sign_in(entity.id, date_=date(2026, 1, 1))
-        await entity_dal.set_entity_auth_setting(entity.id, 'mod', 'plug', 'node', available=1, value={})
-        await entity_dal.set_entity_cooldown(entity.id, 'event', datetime(2099, 1, 1))
-        await entity_dal.set_entity_subscription(entity.id, test_subscription_source.id)
+        await entity_dal.set_entity_friendship(fresh_entity.id, friendship=Decimal('10'))
+        await entity_dal.set_entity_sign_in(fresh_entity.id, date_=date(2026, 1, 1))
+        await entity_dal.set_entity_auth_setting(fresh_entity.id, 'mod', 'plug', 'node', available=1, value={})
+        await entity_dal.set_entity_cooldown(fresh_entity.id, 'event', datetime(2099, 1, 1))
+        await entity_dal.set_entity_subscription(fresh_entity.id, test_subscription_source.id)
         await entity_dal.commit_session()
 
         assert await entity_dal._count_entity_friendship_all() == 1
@@ -2828,7 +1782,7 @@ class TestEntityDAL:
         assert await entity_dal._count_entity_cooldown_all() == 1
         assert await entity_dal._count_entity_subscription_all() == 1
 
-        await entity_dal.delete_from_index(entity.id)
+        await entity_dal.delete_from_index(fresh_entity.id)
         await entity_dal.commit_session()
 
         assert await entity_dal._count_entity_all() == 0

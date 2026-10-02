@@ -607,12 +607,3 @@ class TestSelfSentPermission:
         event = MessageSentEvent.model_validate(_make_message_sent_payload(user_id=_USER_ID))
 
         assert not await SELF_SENT(MagicMock(), event)
-
-    async def test_self_sent_checker(self):
-        from src.service.onebot_v11_self_sent_patch import MessageSentEvent, _self_sent
-
-        event = MessageSentEvent.model_validate(_make_message_sent_payload())
-        other_event = MessageSentEvent.model_validate(_make_message_sent_payload(user_id=_USER_ID))
-
-        assert await _self_sent(event)
-        assert not await _self_sent(other_event)

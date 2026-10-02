@@ -58,9 +58,12 @@ def new_request_token() -> str:
 
 
 def make_response(content: Any = None, headers: Any = None, status_code: int = 200):
-    """构造合成 nonebot Response(不经网络)"""
+    """构造合成 nonebot Response(不经网络); content 为 str/bytes 时原样作为响应体, 其余对象按 JSON 序列化"""
+    import ujson
     from nonebot.drivers import Response
 
+    if content is not None and not isinstance(content, (str, bytes, bytearray)):
+        content = ujson.dumps(content).encode(encoding='utf-8')
     return Response(status_code, headers=headers, content=content)
 
 

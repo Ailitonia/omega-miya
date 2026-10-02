@@ -10,6 +10,7 @@
 
 import random
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -22,11 +23,13 @@ from pydantic import ValidationError
 from tests.test_002_core.helpers import (
     make_entity_init_params,
     make_mock_bot,
+    make_mock_receipt,
     make_obv11_group_message_event,
     registered_online_bot,
 )
 
 if TYPE_CHECKING:
+    from src.database.internal.bot import BotType
     from src.service.omega_base.internal.entity import EntityInitParams
 
 
@@ -168,6 +171,42 @@ def _define_message_event_cls() -> type:
             return False
 
     return _FakeMessageEvent
+
+
+async def _run_bot_disconnect_scenario(
+        app: App,
+        bot_factory: Callable[[Any], Any],
+        bot_type: 'BotType',
+        self_id: str,
+        *,
+        expect_disabled: bool,
+) -> None:
+    """同步驱动 BotDisconnectEvent 真实处理管线, 并验证断开处理的落库结果
+
+    bot_factory 在 test_api 上下文中构造平台 Bot (各平台构造方式不同);
+    expect_disabled 控制是否断言 bot_status 已置为 DISABLED
+    """
+    from nonebot.message import handle_event
+
+    from src.database.internal.bot import BotSelfDAL, BotStatus
+    from src.service.omega_base.internal import BotDisconnectEvent
+
+    async with app.test_api() as ctx:
+        bot = bot_factory(ctx)
+
+        # 断开处理不调用任何 API, 期望队列应保持为空
+        await handle_event(
+            bot=bot,
+            event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()),
+        )
+        assert ctx.wait_list.empty()
+
+    # 验证断开处理更新了 Bot 状态信息
+    async with BotSelfDAL.create() as dal:
+        bot_self = await dal.query_unique(bot_type=bot_type, self_id=self_id)
+    if expect_disabled:
+        assert bot_self.bot_status == BotStatus.DISABLED
+    assert bot_self.bot_info == 'Bot Offline'
 
 
 class TestModuleContract:
@@ -420,8 +459,7 @@ class TestEntityTargetRegister:
         dummy_cls = _define_dummy_target_cls()
         target = dummy_cls(entity_params=make_entity_init_params())
 
-        receipt = MagicMock()
-        receipt.recall = AsyncMock()
+        receipt = make_mock_receipt()
         target.send_message = AsyncMock(return_value=receipt)
 
         await target.send_message_auto_revoke('hello', revoke_delay=5)
@@ -433,18 +471,15 @@ class TestEntityTargetRegister:
 class TestBaseEntityTarget:
     """BaseEntityTarget 平台 API 适配器基类方法测试"""
 
-    async def test_send_message_constructs_target_and_passthrough(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_send_message_constructs_target_and_passthrough(self, fake_uni_message_send: AsyncMock) -> None:
         """send_message 应使用 _construct_target 构造的 Target 与 get_bot 的 Bot, 并透传 flags/kwargs"""
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
         dummy_cls = _define_dummy_target_cls()
         target_adapter = dummy_cls(entity_params=make_entity_init_params())
 
         fake_bot = MagicMock()
         target_adapter.get_bot = lambda: fake_bot  # type: ignore[method-assign]
 
-        send_mock = AsyncMock(return_value=MagicMock())
-        monkeypatch.setattr(UniMessage, 'send', send_mock)
+        send_mock = fake_uni_message_send
 
         result = await target_adapter.send_message('hello', at_sender=True, reply_to=True, extra_kwarg=1)
 
@@ -461,8 +496,7 @@ class TestBaseEntityTarget:
         dummy_cls = _define_dummy_target_cls()
         target = dummy_cls(entity_params=make_entity_init_params())
 
-        receipt = MagicMock()
-        receipt.recall = AsyncMock()
+        receipt = make_mock_receipt()
         target.send_message = AsyncMock(return_value=receipt)
 
         await target.send_message_auto_revoke('hello')
@@ -545,16 +579,15 @@ class TestBaseEventDepend:
         with pytest.raises(ValueError, match='Not supported entity acquire_type'):
             depend.extract_entity_params('invalid')
 
-    async def test_send_passthrough(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_send_passthrough(self, fake_uni_message_send: AsyncMock) -> None:
         """send 应使用事件 Target 与构造时的 Bot, 并透传 flags/kwargs"""
-        from nonebot_plugin_alconna.uniseg import Target, UniMessage
+        from nonebot_plugin_alconna.uniseg import Target
 
         bot = MagicMock()
         depend = _define_dummy_depend_cls()(bot=bot, event=MagicMock())
         depend.get_target = lambda: Target(id='TARGET_1', private=True)
 
-        send_mock = AsyncMock(return_value=MagicMock())
-        monkeypatch.setattr(UniMessage, 'send', send_mock)
+        send_mock = fake_uni_message_send
 
         result = await depend.send('hello', at_sender=True, reply_to=True, custom_kwarg='x')
 
@@ -571,8 +604,7 @@ class TestBaseEventDepend:
         """revoke_bot_sent_msg 应将 delay 原样透传至 receipt.recall"""
         from src.service.omega_base.internal import BaseEventDepend
 
-        receipt = MagicMock()
-        receipt.recall = AsyncMock()
+        receipt = make_mock_receipt()
 
         await BaseEventDepend.revoke_bot_sent_msg(receipt, revoke_delay=30)
 
@@ -669,38 +701,39 @@ class TestBaseEventDepend:
 
         assert depend.get_reply_message() is first_reply
 
-    async def test_get_reply_msg_plain_text_str_branch(self) -> None:
-        from nonebot_plugin_alconna.uniseg import Reply, UniMessage
-
-        depend = _define_dummy_depend_cls()(bot=MagicMock(), event=MagicMock())
-        depend.get_uni_message = lambda **kwargs: UniMessage([Reply(id='1', msg='raw string')])
-
-        assert depend.get_reply_msg_plain_text() == 'raw string'
-
-    async def test_get_reply_msg_plain_text_message_branch(self) -> None:
+    @pytest.mark.parametrize(
+        ('reply_msg_kind', 'expected'),
+        [
+            ('raw_str', 'raw string'),
+            ('platform_message', 'hello world'),
+            ('none_msg', None),
+            ('no_reply', None),
+        ],
+    )
+    async def test_get_reply_msg_plain_text(self, reply_msg_kind: str, expected: str | None) -> None:
+        """按 Reply.msg 类型提取回复纯文本: str 原样返回/平台 Message 提取文本/None 及无回复返回 None"""
         from nonebot.adapters.onebot.v11 import Message
         from nonebot_plugin_alconna.uniseg import Reply, UniMessage
 
-        depend = _define_dummy_depend_cls()(bot=MagicMock(), event=MagicMock())
-        depend.get_uni_message = lambda **kwargs: UniMessage([Reply(id='1', msg=Message('hello world'))])
-
-        assert depend.get_reply_msg_plain_text() == 'hello world'
-
-    async def test_get_reply_msg_plain_text_none_msg_branch(self) -> None:
-        from nonebot_plugin_alconna.uniseg import Reply, UniMessage
-
-        depend = _define_dummy_depend_cls()(bot=MagicMock(), event=MagicMock())
-        depend.get_uni_message = lambda **kwargs: UniMessage([Reply(id='1', msg=None)])
-
-        assert depend.get_reply_msg_plain_text() is None
-
-    async def test_get_reply_msg_plain_text_no_reply_returns_none(self) -> None:
-        from nonebot_plugin_alconna.uniseg import UniMessage
+        if reply_msg_kind == 'no_reply':
+            uni_message = UniMessage('plain text')
+        else:
+            msg: Any = {
+                'raw_str': 'raw string',
+                'platform_message': Message('hello world'),
+                'none_msg': None,
+            }[reply_msg_kind]
+            uni_message = UniMessage([Reply(id='1', msg=msg)])
 
         depend = _define_dummy_depend_cls()(bot=MagicMock(), event=MagicMock())
-        depend.get_uni_message = lambda **kwargs: UniMessage('plain text')
+        depend.get_uni_message = lambda **kwargs: uni_message
 
-        assert depend.get_reply_msg_plain_text() is None
+        result = depend.get_reply_msg_plain_text()
+
+        if expected is None:
+            assert result is None
+        else:
+            assert result == expected
 
     async def test_reply_from_platform_message(self, app: App) -> None:
         """OneBot V11 reply 段经真实转换后 msg 为 None, 文本提取应返回 None"""
@@ -1038,27 +1071,20 @@ class TestBotActions:
             test_onebot_v11_bot,
     ) -> None:
         from nonebot.adapters.onebot.v11 import Adapter, Bot
-        from nonebot.message import handle_event
 
-        from src.database.internal.bot import BotSelfDAL, BotType
-        from src.service.omega_base.internal import BotDisconnectEvent
+        from src.database.internal.bot import BotType
 
-        test_bot_self_id = test_onebot_v11_bot.self_id
-        async with app.test_api() as ctx:
+        def _bot_factory(ctx: Any) -> Any:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(self_id=test_bot_self_id, base=Bot, adapter=adapter, auto_connect=False)
-
-            # 断开处理不调用任何 API, 期望队列应保持为空
-            await handle_event(
-                bot=bot,
-                event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()),
+            # auto_connect=False: 不触发后台连接钩子任务, 由场景辅助函数同步驱动
+            return ctx.create_bot(
+                self_id=test_onebot_v11_bot.self_id, base=Bot, adapter=adapter, auto_connect=False,
             )
-            assert ctx.wait_list.empty()
 
-        # 验证断开处理更新了 Bot 状态信息
-        async with BotSelfDAL.create() as dal:
-            bot_self = await dal.query_unique(bot_type=BotType.ONEBOT_V11, self_id=test_bot_self_id)
-        assert bot_self.bot_info == 'Bot Offline'
+        # OneBot V11 不断言 bot_status, 仅验证 bot_info 更新
+        await _run_bot_disconnect_scenario(
+            app, _bot_factory, BotType.ONEBOT_V11, test_onebot_v11_bot.self_id, expect_disabled=False,
+        )
 
     async def test_console_bot_connected(
             self,
@@ -1100,29 +1126,19 @@ class TestBotActions:
     ) -> None:
         from nonebot.adapters.console import Adapter
         from nonebot.adapters.console import Bot as ConsoleBot
-        from nonebot.message import handle_event
         from nonechat.model import Robot
 
-        from src.database.internal.bot import BotSelfDAL, BotStatus, BotType
-        from src.service.omega_base.internal import BotDisconnectEvent
+        from src.database.internal.bot import BotType
 
-        test_bot_self_id = test_console_bot.self_id
-        async with app.test_api() as ctx:
+        def _bot_factory(ctx: Any) -> Any:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ConsoleBot(adapter=adapter, info=Robot(id=test_bot_self_id))
+            # Console Bot 构造签名为 __init__(adapter, info: Robot), 与 nonebug 的
+            # create_bot(self_id=...) 不兼容, 手动构造实例 (不注册进 driver)
+            return ConsoleBot(adapter=adapter, info=Robot(id=test_console_bot.self_id))
 
-            # 断开处理不调用任何 API, 期望队列应保持为空
-            await handle_event(
-                bot=bot,
-                event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()),
-            )
-            assert ctx.wait_list.empty()
-
-        # 验证断开处理更新了 Bot 状态信息
-        async with BotSelfDAL.create() as dal:
-            bot_self = await dal.query_unique(bot_type=BotType.CONSOLE, self_id=test_bot_self_id)
-        assert bot_self.bot_status == BotStatus.DISABLED
-        assert bot_self.bot_info == 'Bot Offline'
+        await _run_bot_disconnect_scenario(
+            app, _bot_factory, BotType.CONSOLE, test_console_bot.self_id, expect_disabled=True,
+        )
 
     async def test_telegram_bot_connected(
             self,
@@ -1180,31 +1196,21 @@ class TestBotActions:
     ) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
         from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
-        from nonebot.message import handle_event
 
-        from src.database.internal.bot import BotSelfDAL, BotStatus, BotType
-        from src.service.omega_base.internal import BotDisconnectEvent
+        from src.database.internal.bot import BotType
 
-        test_bot_self_id = test_telegram_bot.self_id
-        async with app.test_api() as ctx:
+        def _bot_factory(ctx: Any) -> Any:
             adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(
-                self_id=test_bot_self_id,
+            # auto_connect=False: 不触发后台连接钩子任务, 由场景辅助函数同步驱动
+            # Telegram Bot 构造强制要求 config 参数, 经 create_bot 的 **kwargs 透传
+            return ctx.create_bot(
+                self_id=test_telegram_bot.self_id,
                 base=Bot,
                 adapter=adapter,
                 auto_connect=False,
                 config=TelegramBotConfig(token='123456:TEST_TOKEN'),
             )
 
-            # 断开处理不调用任何 API, 期望队列应保持为空
-            await handle_event(
-                bot=bot,
-                event=BotDisconnectEvent(bot_id=bot.self_id, bot_type=bot.adapter.get_name()),
-            )
-            assert ctx.wait_list.empty()
-
-        # 验证断开处理更新了 Bot 状态信息
-        async with BotSelfDAL.create() as dal:
-            bot_self = await dal.query_unique(bot_type=BotType.TELEGRAM, self_id=test_bot_self_id)
-        assert bot_self.bot_status == BotStatus.DISABLED
-        assert bot_self.bot_info == 'Bot Offline'
+        await _run_bot_disconnect_scenario(
+            app, _bot_factory, BotType.TELEGRAM, test_telegram_bot.self_id, expect_disabled=True,
+        )

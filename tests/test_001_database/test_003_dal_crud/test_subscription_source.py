@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-import random
-import string
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING
 
@@ -18,21 +16,39 @@ from sqlalchemy.exc import NoResultFound
 
 if TYPE_CHECKING:
     from src.database.internal.subscription_source import SubscriptionSourceDAL
+    from src.database.schema import BotSelfOrm, EntityOrm, SubscriptionSourceOrm
 
 
-@pytest.fixture(scope='class')
-async def test_sub_type() -> str:
-    return f'TEST_SUB_TYPE_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+async def _build_subscribed_chain(
+        subscription_source_dal: 'SubscriptionSourceDAL',
+        test_sub_type: str,
+        test_sub_id: str,
+        test_sub_user_name: str,
+        name_suffix: str,
+) -> tuple['BotSelfOrm', 'SubscriptionSourceOrm', 'EntityOrm']:
+    """构造 Bot -> Entity -> SubscriptionSource -> Subscription 链路 (命名带随机后缀避免重跑冲突)"""
+    from src.database.schema import BotSelfOrm, EntityOrm, SubscriptionOrm, SubscriptionSourceOrm
 
+    session = subscription_source_dal.db_session
+    bot_obj = BotSelfOrm(bot_type='Console', self_id=f'sub_test_bot_{name_suffix}{test_sub_id}', bot_status=1)
+    source_obj = SubscriptionSourceOrm(
+        sub_type=test_sub_type, sub_id=test_sub_id, sub_user_name=test_sub_user_name,
+    )
+    session.add_all([bot_obj, source_obj])
+    await session.flush()
 
-@pytest.fixture(scope='class')
-async def test_sub_id() -> str:
-    return f'TEST_SUB_ID_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+    entity_obj = EntityOrm(
+        bot_index_id=bot_obj.id,
+        entity_id=f'sub_test_entity_{name_suffix}{test_sub_id}',
+        entity_type='console_user',
+        entity_name='sub test entity',
+    )
+    session.add(entity_obj)
+    await session.flush()
 
-
-@pytest.fixture(scope='class')
-async def test_sub_user_name() -> str:
-    return f'TEST_SUB_USER_NAME_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+    session.add(SubscriptionOrm(sub_source_index_id=source_obj.id, entity_index_id=entity_obj.id))
+    await subscription_source_dal.commit_session()
+    return bot_obj, source_obj, entity_obj
 
 
 @pytest.fixture(scope='class')
@@ -43,41 +59,15 @@ async def subscription_source_dal() -> AsyncGenerator['SubscriptionSourceDAL', N
         yield dal
 
 
+@pytest.fixture(autouse=True)
+async def _clean_table(subscription_source_dal) -> None:
+    """每个测试用例执行前清空数据表"""
+    await subscription_source_dal._clear_all()
+    await subscription_source_dal.commit_session()
+
+
 class TestSubscriptionSourceDAL:
     """SubscriptionSourceDAL CRUD 单元测试"""
-
-    async def test_check_clear_table(self, subscription_source_dal) -> None:
-        """清空数据表, 查回验证表行数为空"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
-        rows_num = await subscription_source_dal._count_all()
-
-        assert rows_num == 0
-
-    async def test_clear_all_rollback(
-            self,
-            subscription_source_dal,
-            test_sub_type,
-            test_sub_id,
-            test_sub_user_name,
-    ) -> None:
-        """_clear_all 不执行 commit, 外层事务 rollback 后数据应恢复"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
-        await subscription_source_dal.add_update_exist(
-            sub_type=test_sub_type,
-            sub_id=test_sub_id,
-            sub_user_name=test_sub_user_name,
-        )
-        await subscription_source_dal.commit_session()
-
-        await subscription_source_dal._clear_all()
-        assert await subscription_source_dal._count_all() == 0
-
-        await subscription_source_dal.rollback_session()
-        assert await subscription_source_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
     # query_unique
@@ -91,9 +81,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """插入后按 (sub_type, sub_id) 查回验证字段"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -111,9 +98,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_query_unique_not_found(self, subscription_source_dal) -> None:
         """查询不存在的记录, 预期 NoResultFound"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await subscription_source_dal.query_unique('nonexistent_type', 'nonexistent_id')
 
@@ -129,31 +113,9 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """存在订阅实体时, query_unique/query_all 应正确加载 entities_subscription_source_had"""
-        from src.database.schema import BotSelfOrm, EntityOrm, SubscriptionOrm, SubscriptionSourceOrm
-
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
-        # 构造 Bot -> Entity -> SubscriptionSource -> Subscription 链路 (命名带随机后缀避免重跑冲突)
-        session = subscription_source_dal.db_session
-        bot_obj = BotSelfOrm(bot_type='Console', self_id=f'sub_test_bot_q_{test_sub_id}', bot_status=1)
-        source_obj = SubscriptionSourceOrm(
-            sub_type=test_sub_type, sub_id=test_sub_id, sub_user_name=test_sub_user_name,
+        bot_obj, _, entity_obj = await _build_subscribed_chain(
+            subscription_source_dal, test_sub_type, test_sub_id, test_sub_user_name, 'q_',
         )
-        session.add_all([bot_obj, source_obj])
-        await session.flush()
-
-        entity_obj = EntityOrm(
-            bot_index_id=bot_obj.id,
-            entity_id=f'sub_test_entity_q_{test_sub_id}',
-            entity_type='console_user',
-            entity_name='sub test entity',
-        )
-        session.add(entity_obj)
-        await session.flush()
-
-        session.add(SubscriptionOrm(sub_source_index_id=source_obj.id, entity_index_id=entity_obj.id))
-        await subscription_source_dal.commit_session()
 
         result = await subscription_source_dal.query_unique(test_sub_type, test_sub_id)
         assert len(result.entities_subscription_source_had) == 1
@@ -174,9 +136,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_query_all_multiple(self, subscription_source_dal) -> None:
         """插入多条, 验证返回全部且按 (sub_type, sub_id) 排序"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         # 故意按非字典序插入
         await subscription_source_dal.add_update_exist(sub_type='type_b', sub_id='id_3', sub_user_name='user_c')
         await subscription_source_dal.add_update_exist(sub_type='type_a', sub_id='id_2', sub_user_name='user_b')
@@ -190,9 +149,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_query_all_empty(self, subscription_source_dal) -> None:
         """空表返回空列表"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         result = await subscription_source_dal.query_all()
         assert result == []
 
@@ -202,9 +158,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_query_type_all_filtered(self, subscription_source_dal) -> None:
         """插入多个 sub_type, 查询指定 sub_type 只返回匹配项"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(sub_type='type_a', sub_id='id_1', sub_user_name='user_a')
         await subscription_source_dal.add_update_exist(sub_type='type_a', sub_id='id_2', sub_user_name='user_b')
         await subscription_source_dal.add_update_exist(sub_type='type_b', sub_id='id_3', sub_user_name='user_c')
@@ -220,9 +173,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_query_type_all_ordering(self, subscription_source_dal) -> None:
         """验证结果按 (sub_type, sub_id) 排序"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         # 故意按非字典序插入
         await subscription_source_dal.add_update_exist(sub_type='type_a', sub_id='id_3', sub_user_name='user_c')
         await subscription_source_dal.add_update_exist(sub_type='type_a', sub_id='id_1', sub_user_name='user_a')
@@ -235,9 +185,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_query_type_all_empty(self, subscription_source_dal) -> None:
         """不存在的 sub_type 返回空列表"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         result = await subscription_source_dal.query_type_all('nonexistent_type')
         assert result == []
 
@@ -253,9 +200,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """首次调用 add_update_exist, 验证为插入行为"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         result = await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -280,9 +224,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """sub_info=None 插入验证"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         result = await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -303,9 +244,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """sub_info='explicit info' 插入验证"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         result = await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -327,9 +265,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """同 (sub_type, sub_id) 再次调用更新 user_name/info, 验证返回新值"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -365,9 +300,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """先带 info 插入, 再 add_update_exist 用 sub_info=None 更新, 验证 info 被更新为 None"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -400,18 +332,13 @@ class TestSubscriptionSourceDAL:
             test_sub_id,
             test_sub_user_name,
     ) -> None:
-        """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销
-
-        注意: SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-        外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-        外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-        """
+        """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销"""
         from src.database.config import database_config
         if database_config.database == 'sqlite':
+            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
+            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
+            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
             pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
 
         await subscription_source_dal.db_session.begin()
         result = await subscription_source_dal.add_update_exist(
@@ -435,9 +362,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """外层已有活动事务时更新分支走 SAVEPOINT, 外层 rollback 后更新应被撤销"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -480,9 +404,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """插入后 delete, 用 query_unique 查不到 (NoResultFound)"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,
             sub_id=test_sub_id,
@@ -498,9 +419,6 @@ class TestSubscriptionSourceDAL:
 
     async def test_delete_non_existing(self, subscription_source_dal) -> None:
         """删除不存在的记录, 不抛异常"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.delete('nonexistent_type', 'nonexistent_id')
         await subscription_source_dal.commit_session()
 
@@ -514,9 +432,6 @@ class TestSubscriptionSourceDAL:
             test_sub_user_name,
     ) -> None:
         """插入多条, delete 只删除目标记录, 其他不受影响"""
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
         await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type, sub_id=test_sub_id, sub_user_name=test_sub_user_name,
         )
@@ -549,31 +464,11 @@ class TestSubscriptionSourceDAL:
         """删除订阅源后, subscription 表中的关联行应被级联清除"""
         from sqlalchemy import func, select
 
-        from src.database.schema import BotSelfOrm, EntityOrm, SubscriptionOrm, SubscriptionSourceOrm
+        from src.database.schema import SubscriptionOrm
 
-        await subscription_source_dal._clear_all()
-        await subscription_source_dal.commit_session()
-
-        # 构造 Bot -> Entity -> SubscriptionSource -> Subscription 链路 (命名带随机后缀避免重跑冲突)
-        session = subscription_source_dal.db_session
-        bot_obj = BotSelfOrm(bot_type='Console', self_id=f'sub_test_bot_d_{test_sub_id}', bot_status=1)
-        source_obj = SubscriptionSourceOrm(
-            sub_type=test_sub_type, sub_id=test_sub_id, sub_user_name=test_sub_user_name,
+        _, source_obj, _ = await _build_subscribed_chain(
+            subscription_source_dal, test_sub_type, test_sub_id, test_sub_user_name, 'd_',
         )
-        session.add_all([bot_obj, source_obj])
-        await session.flush()
-
-        entity_obj = EntityOrm(
-            bot_index_id=bot_obj.id,
-            entity_id=f'sub_test_entity_d_{test_sub_id}',
-            entity_type='console_user',
-            entity_name='sub test entity',
-        )
-        session.add(entity_obj)
-        await session.flush()
-
-        session.add(SubscriptionOrm(sub_source_index_id=source_obj.id, entity_index_id=entity_obj.id))
-        await subscription_source_dal.commit_session()
 
         # 删除订阅源
         await subscription_source_dal.delete(test_sub_type, test_sub_id)
@@ -583,4 +478,4 @@ class TestSubscriptionSourceDAL:
         stmt = (select(func.count())
                 .select_from(SubscriptionOrm)
                 .where(SubscriptionOrm.sub_source_index_id == source_obj.id))
-        assert (await session.execute(stmt)).scalar_one() == 0
+        assert (await subscription_source_dal.db_session.execute(stmt)).scalar_one() == 0

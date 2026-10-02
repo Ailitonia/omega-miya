@@ -18,7 +18,7 @@ import pytest
 import ujson
 from pydantic import ValidationError
 
-from tests.test_003_web.helpers import require_env_flag
+from tests.test_003_web.helpers import make_response, require_env_flag
 
 if TYPE_CHECKING:
     from nonebot.drivers import Response
@@ -39,19 +39,6 @@ pytestmark = pytest.mark.usefixtures('_twitter_api_ready')
 @pytest.fixture(scope='session')
 def _twitter_api_ready(nonebug_init: None) -> None:
     """src.utils.twitter_x_api 导入期依赖 NoneBot 初始化(get_plugin_config), 离线用例的统一屏障"""
-
-
-def _fake_response(content: Any, status_code: int = 200) -> 'Response':
-    """构造罐装 nonebot Response: str/bytes 原样作为响应体, 其余按 JSON 序列化"""
-    from nonebot.drivers import Response
-
-    if isinstance(content, str):
-        body = content.encode('utf-8')
-    elif isinstance(content, bytes):
-        body = content
-    else:
-        body = ujson.dumps(content).encode('utf-8')
-    return Response(status_code, content=body)
 
 
 def _user_result_payload(**overrides: Any) -> dict[str, Any]:
@@ -709,7 +696,7 @@ class TestParseTweetFromData:
         assert parse_tweet_from_data({'tweet_results': {'result': payload}}) is None
 
     def test_parse_invalid_media_url_returns_none(self, parse_tweet_from_data: Callable[..., Any]) -> None:
-        # 固定当前行为: 任一媒体 URL 非法 → 模型校验失败 → 整条推文解析为 None(毒化, 审计发现项)
+        # 固定当前行为: 任一媒体 URL 非法时模型校验失败, 整条推文解析为 None(单条毒化)
         payload = _tweet_result_payload()
         payload['legacy']['entities']['media'] = [_media_entry(1, media_url='not-a-valid-url')]
         assert parse_tweet_from_data({'tweet_results': {'result': payload}}) is None
@@ -760,7 +747,7 @@ def _patch_offline_request(
         item = get_queue.pop(0)
         if isinstance(item, Exception):
             raise item
-        return _fake_response(item)
+        return make_response(item)
 
     async def _fake_post(cls: type, url: str, params: Any = None, *, data: Any = None, **kwargs: Any) -> Any:
         if captured is not None:
@@ -770,7 +757,7 @@ def _patch_offline_request(
         item = post_queue.pop(0)
         if isinstance(item, Exception):
             raise item
-        return _fake_response(item)
+        return make_response(item)
 
     monkeypatch.setattr(BaseTwitterAPI, '_request_get', classmethod(_fake_get))
     monkeypatch.setattr(BaseTwitterAPI, '_request_post', classmethod(_fake_post))
@@ -1290,16 +1277,16 @@ class _MappingTxRequester:
     async def get(self, url: str, **kwargs: Any) -> 'Response':
         self.get_urls.append(url)
         if url in self._pages:
-            return _fake_response(self._pages[url])
+            return make_response(self._pages[url])
         if self._get_fallback is not None:
-            return _fake_response(self._get_fallback)
+            return make_response(self._get_fallback)
         raise AssertionError(f'unexpected GET url in fake requester: {url}')
 
     async def post(self, url: str, **kwargs: Any) -> 'Response':
         self.posts.append((url, kwargs.get('data')))
         if url not in self._pages:
             raise AssertionError(f'unexpected POST url in fake requester: {url}')
-        return _fake_response(self._pages[url])
+        return make_response(self._pages[url])
 
 
 def _make_tx_requester(home_html: str, ondemand_js: str) -> _MappingTxRequester:
@@ -1621,18 +1608,10 @@ class TestTwitterGuestLive:
     所有真实请求仅经由本类用例发起; 用例自足链式取样, 不依赖执行顺序。
     X 访客 API 限速较严, 每用例前 pacing 2s。
 
-    当前上游行为记录:
-    - UserByRestId 端点被 Cloudflare WAF 拦截: 稳定 403 且响应体为 Cloudflare HTML 拦截页, 与请求参数无关
-      (twikit 参考实现的相同参数同样被拦); UserByScreenName/UserTweets/TweetResultByRestId/
-      UserHighlightsTweets 均不受影响。客户端经 403 自动重试(重置访客会话并重新激活)后仍 403,
-      最终抛出 WebSourceException。上游恢复后应将 test_get_user_by_id 改回正向查询断言
-    - 访客首页为 X 新版精简 app shell(约 35KB, data-app-env="prod" 的 x-web 模块结构), 不含
-      twitter-site-verification meta / loading-x-anim SVG / ondemand.s 脚本引用, ClientTransaction
-      无法初始化(twikit 的 x_client_transaction 同样失效); 客户端按设计降级为不携带
-      X-Client-Transaction-Id 请求, 其余 live 用例证明该降级下访客 API 可用。上游首页结构恢复后,
-      test_client_transaction_availability_probe 自动转为验证初始化成功路径
-    - X 对不存在用户返回 200 + data.user=null, 客户端转为 WebSourceException(400); 不存在推文转为
-      WebSourceException(404)
+    上游行为记录(2026-09): UserByRestId 被 Cloudflare WAF 稳定拦截 403(重试后仍 403 抛出, 上游恢复后应将
+    test_get_user_by_id 改回正向查询断言); 首页 app shell 不含 ClientTransaction 初始化要素, 按设计降级为不携带
+    X-Client-Transaction-Id(恢复后 test_client_transaction_availability_probe 自动转为验证成功路径);
+    不存在用户/推文分别转为 WebSourceException(400)/(404)
     """
 
     @pytest.fixture(autouse=True)

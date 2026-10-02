@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from multidict import CIMultiDict
-from nonebot.internal.driver import Cookies
+from nonebot.drivers import Cookies
 
 from tests.test_003_web.helpers import (
     _DOWNLOAD_PAYLOAD,
@@ -637,71 +637,41 @@ class TestAutoRedirects:
     覆盖分两层: 本类验证 BaseCommonAPI 包装层的参数透传与重定向处理, 驱动层重定向行为由 test_001 覆盖
     """
 
-    async def test_request_get_passes_auto_redirects(
-            self, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
+    @pytest.mark.parametrize(
+        ('method', 'stream', 'expected'),
+        [
+            pytest.param('_request_get', False, True, id='request_get_default_true'),
+            pytest.param('_request_get', False, False, id='request_get_explicit_false'),
+            pytest.param('_request_delete', False, False, id='request_delete'),
+            pytest.param('_request_post', False, False, id='request_post'),
+            pytest.param('_request_put', False, False, id='request_put'),
+            pytest.param('_get_resource_as_json', False, False, id='get_resource_as_json'),
+            pytest.param('_get_resource_as_bytes', False, False, id='get_resource_as_bytes'),
+            pytest.param('_get_resource_as_text', False, False, id='get_resource_as_text'),
+            pytest.param('_post_acquire_as_json', False, False, id='post_acquire_as_json'),
+            pytest.param('_stream_request_get', True, False, id='stream_request_get'),
+            pytest.param('_stream_request_post', True, False, id='stream_request_post'),
+            pytest.param('_stream_get_resource_iter_lines', True, False, id='stream_get_resource_iter_lines'),
+            pytest.param('_stream_post_acquire_iter_lines', True, False, id='stream_post_acquire_iter_lines'),
+        ],
+    )
+    async def test_auto_redirects_passthrough(
+            self, method: str, stream: bool, expected: bool,
+            api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
     ):
         """默认 True 与显式 False 均应透传至底层 Request setup"""
-        captured = capture_driver_request(monkeypatch)
-
-        await api_impl._request_get(url='http://127.0.0.1/')
-        await api_impl._request_get(url='http://127.0.0.1/', auto_redirects=False)
-
-        assert [x.auto_redirects for x in captured] == [True, False]
-
-    @pytest.mark.parametrize('method', ['_request_delete', '_request_post', '_request_put'])
-    async def test_request_methods_pass_auto_redirects(
-            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
-    ):
-        captured = capture_driver_request(monkeypatch)
-
-        await getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)
+        kwargs = {} if expected else {'auto_redirects': False}
+        if stream:
+            captured = capture_driver_stream_request(monkeypatch, stream_payload=b'a\n')
+            lines = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', **kwargs)]
+            if method.endswith('iter_lines'):
+                assert lines == ['a']
+        else:
+            captured = capture_driver_request(monkeypatch)
+            await getattr(api_impl, method)(url='http://127.0.0.1/', **kwargs)
 
         assert len(captured) == 1
-        assert captured[0].auto_redirects is False
-
-    @pytest.mark.parametrize('method', ['_stream_request_get', '_stream_request_post'])
-    async def test_stream_methods_pass_auto_redirects(
-            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
-    ):
-        captured = capture_driver_stream_request(monkeypatch, stream_payload=b'a\n')
-
-        _ = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)]
-
-        assert len(captured) == 1
-        assert captured[0].auto_redirects is False
-
-    @pytest.mark.parametrize('method', ['_get_resource_as_json', '_get_resource_as_bytes', '_get_resource_as_text'])
-    async def test_get_resource_wrappers_pass_auto_redirects(
-            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
-    ):
-        captured = capture_driver_request(monkeypatch)
-
-        await getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)
-
-        assert len(captured) == 1
-        assert captured[0].auto_redirects is False
-
-    async def test_post_acquire_as_json_passes_auto_redirects(
-            self, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
-    ):
-        captured = capture_driver_request(monkeypatch)
-
-        await api_impl._post_acquire_as_json(url='http://127.0.0.1/', auto_redirects=False)
-
-        assert len(captured) == 1
-        assert captured[0].auto_redirects is False
-
-    @pytest.mark.parametrize('method', ['_stream_get_resource_iter_lines', '_stream_post_acquire_iter_lines'])
-    async def test_iter_lines_wrappers_pass_auto_redirects(
-            self, method: str, api_impl: 'type[BaseCommonAPI]', monkeypatch: pytest.MonkeyPatch,
-    ):
-        captured = capture_driver_stream_request(monkeypatch, stream_payload=b'a\n')
-
-        lines = [x async for x in getattr(api_impl, method)(url='http://127.0.0.1/', auto_redirects=False)]
-
-        assert lines == ['a']
-        assert len(captured) == 1
-        assert captured[0].auto_redirects is False
+        assert captured[0].auto_redirects is expected
 
     async def test_request_get_follows_redirect_by_default(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,

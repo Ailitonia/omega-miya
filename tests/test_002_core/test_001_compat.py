@@ -16,8 +16,6 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, ValidationInfo, field_validator
 
-from src.compat import AnyHttpUrlStr, AnyUrlStr, EmptyNoneStr, OptionalUrlStr
-
 
 class _SimpleModel(BaseModel):
     """parse 系列函数测试用简单模型"""
@@ -44,30 +42,6 @@ class _ContextModel(BaseModel):
     @classmethod
     def _append_context_tag(cls, value: str, info: ValidationInfo) -> str:
         return f'{value}:{(info.context or {}).get("tag", "none")}'
-
-
-class _UrlModel(BaseModel):
-    """AnyUrlStr 模型字段集成测试用模型"""
-
-    url: AnyUrlStr
-
-
-class _HttpUrlModel(BaseModel):
-    """AnyHttpUrlStr 模型 JSON 往返测试用模型"""
-
-    url: AnyHttpUrlStr
-
-
-class _OptionalUrlModel(BaseModel):
-    """OptionalUrlStr 模型字段测试用模型"""
-
-    url: OptionalUrlStr = None
-
-
-class _EmptyNoneModel(BaseModel):
-    """EmptyNoneStr 模型字段测试用模型"""
-
-    v: EmptyNoneStr = 'default'
 
 
 class TestModuleContract:
@@ -150,6 +124,13 @@ class TestAnyUrlStr:
             TypeAdapter(AnyUrlStr).validate_python(invalid_input)
 
     def test_model_field_integration(self):
+        from src.compat import AnyUrlStr
+
+        class _UrlModel(BaseModel):
+            """AnyUrlStr 模型字段集成测试用模型"""
+
+            url: AnyUrlStr
+
         model = _UrlModel(url='https://example.com')
         assert type(model.url) is str
         assert model.model_dump() == {'url': 'https://example.com/'}
@@ -190,6 +171,13 @@ class TestAnyHttpUrlStr:
             TypeAdapter(AnyHttpUrlStr).validate_python(invalid_input)
 
     def test_model_json_roundtrip(self):
+        from src.compat import AnyHttpUrlStr
+
+        class _HttpUrlModel(BaseModel):
+            """AnyHttpUrlStr 模型 JSON 往返测试用模型"""
+
+            url: AnyHttpUrlStr
+
         model = _HttpUrlModel(url='https://example.com')
         assert _HttpUrlModel.model_validate_json(model.model_dump_json()) == model
 
@@ -235,6 +223,13 @@ class TestOptionalUrlStr:
             TypeAdapter(OptionalUrlStr).validate_python(invalid_input)
 
     def test_model_field(self):
+        from src.compat import OptionalUrlStr
+
+        class _OptionalUrlModel(BaseModel):
+            """OptionalUrlStr 模型字段测试用模型"""
+
+            url: OptionalUrlStr = None
+
         # 默认值与空串均为 None, 合法 URL 规范化, JSON 往返一致
         assert _OptionalUrlModel().url is None
         assert _OptionalUrlModel(url='').url is None
@@ -275,6 +270,13 @@ class TestEmptyNoneStr:
             TypeAdapter(EmptyNoneStr).validate_python(invalid_input)
 
     def test_model_field(self):
+        from src.compat import EmptyNoneStr
+
+        class _EmptyNoneModel(BaseModel):
+            """EmptyNoneStr 模型字段测试用模型"""
+
+            v: EmptyNoneStr = 'default'
+
         assert _EmptyNoneModel(v=None).v == ''
         assert _EmptyNoneModel(v='text').v == 'text'
         assert _EmptyNoneModel().v == 'default'

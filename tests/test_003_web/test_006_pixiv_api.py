@@ -32,7 +32,7 @@ from tests.test_003_web.helpers import require_env_flag
 if TYPE_CHECKING:
     from src.utils.pixiv_api import PixivArtwork, PixivUser
 
-require_real_test = require_env_flag('PIXIV_API_REAL_TEST')
+requires_live = require_env_flag('PIXIV_API_REAL_TEST')
 """真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置环境变量后发起"""
 
 
@@ -526,7 +526,7 @@ def _require_following_samples(following_users_samples: SimpleNamespace) -> list
     return samples
 
 
-@require_real_test
+@requires_live
 @pytest.mark.usefixtures('_throttle_requests')
 class TestPixivCommon:
     """Pixiv 主站通用接口(真实请求 + 原始 JSON 核验)"""
@@ -717,7 +717,7 @@ class TestPixivCommon:
         assert method_result.total == body['total']
 
 
-@require_real_test
+@requires_live
 @pytest.mark.usefixtures('_throttle_requests')
 class TestPixivArtwork:
     """Pixiv 作品接口(真实请求 + 原始 JSON 核验, 样本动态取自最新收藏与关注动态)"""
@@ -847,48 +847,32 @@ class TestPixivArtworkOffline:
 
         monkeypatch.setattr(PixivArtwork, '_get_resource_as_json', classmethod(_fake_get_json))
 
-    async def test_published_at_from_upload_date(self, monkeypatch: pytest.MonkeyPatch):
-        # 无 reuploadDate: 发布时间取 uploadDate, 结果为 tz-aware 本地时间
+    @pytest.mark.parametrize(
+        ('reupload_date', 'use_reupload'),
+        [
+            pytest.param(None, False, id='no_reupload'),
+            pytest.param('2021-03-01T12:00:00+09:00', True, id='prefer_reupload'),
+            pytest.param('', False, id='empty_reupload_fallback'),
+        ],
+    )
+    async def test_published_at(
+            self, monkeypatch: pytest.MonkeyPatch, reupload_date: str | None, use_reupload: bool,
+    ):
+        # reuploadDate 存在且非空时取 reupload 时间(最新版本时间), 缺失或空串时回退 uploadDate; 结果为 tz-aware 本地时间
         from src.utils.pixiv_api import PixivArtwork
 
         upload_date = '2020-02-12T01:00:00+00:00'
-        self._patch_requests(monkeypatch, _make_illust_data_raw('12345', upload_date=upload_date))
-
-        full = await PixivArtwork(pid='12345').query_artwork()
-        assert full.published_at == datetime.fromisoformat(upload_date).astimezone()
-        assert full.published_at.utcoffset() is not None
-
-    async def test_published_at_prefer_reupload_date(self, monkeypatch: pytest.MonkeyPatch):
-        # 有 reuploadDate: 发布时间取 reupload 时间(最新版本时间)
-        from src.utils.pixiv_api import PixivArtwork
-
-        upload_date = '2020-02-12T01:00:00+00:00'
-        reupload_date = '2021-03-01T12:00:00+09:00'
         self._patch_requests(
             monkeypatch,
             _make_illust_data_raw('12345', upload_date=upload_date, reupload_date=reupload_date),
         )
 
         full = await PixivArtwork(pid='12345').query_artwork()
-        assert full.published_at == datetime.fromisoformat(reupload_date).astimezone()
-        assert full.published_at.utcoffset() is not None
-
-    async def test_published_at_empty_reupload_fallback(self, monkeypatch: pytest.MonkeyPatch):
-        # reuploadDate 为空串: 回退取 uploadDate
-        from src.utils.pixiv_api import PixivArtwork
-
-        upload_date = '2020-02-12T01:00:00+00:00'
-        self._patch_requests(
-            monkeypatch,
-            _make_illust_data_raw('12345', upload_date=upload_date, reupload_date=''),
-        )
-
-        full = await PixivArtwork(pid='12345').query_artwork()
-        assert full.published_at == datetime.fromisoformat(upload_date).astimezone()
+        assert full.published_at == datetime.fromisoformat(reupload_date if use_reupload else upload_date).astimezone()
         assert full.published_at.utcoffset() is not None
 
 
-@require_real_test
+@requires_live
 @pytest.mark.usefixtures('_throttle_requests')
 class TestPixivUser:
     """Pixiv 用户接口(真实请求 + 原始 JSON/HTML 核验, 样本动态取自 Session 用户及其关注列表)"""
@@ -995,7 +979,7 @@ class TestPixivUser:
             )
 
 
-@require_real_test
+@requires_live
 @pytest.mark.usefixtures('_throttle_requests')
 class TestPixivision:
     """Pixivision 接口(真实请求 + 原始 HTML 核验)"""

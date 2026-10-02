@@ -6,7 +6,7 @@
 @Description    : src/database/migrate.py 迁移状态检查功能单元测试
 
 注意:
-- 所有 src.* 的导入一律放在测试函数体内, 原因见 tests/database/conftest.py
+- 所有 src.* 的导入一律放在测试函数体内, 原因见 tests/test_001_database/conftest.py
 - TestInspectDatabase / TestCheckMigrationState 中的用例直接操作 .env.test 配置的测试数据库
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm

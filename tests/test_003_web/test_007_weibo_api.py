@@ -16,13 +16,18 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tests.test_003_web.helpers import patch_module_asyncio_sleep, patch_system_setting_dal, require_env_flag
+from tests.test_003_web.helpers import (
+    make_response,
+    patch_module_asyncio_sleep,
+    patch_system_setting_dal,
+    require_env_flag,
+)
 
 if TYPE_CHECKING:
     from src.utils.weibo_api.credential_manager import _WeiboCredentialManager
     from src.utils.weibo_api.model import WeiboQrCodeCheck
 
-require_real_test = require_env_flag('WEIBO_API_REAL_TEST')
+requires_live = require_env_flag('WEIBO_API_REAL_TEST')
 """真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置环境变量后发起"""
 
 require_force_refresh_test = require_env_flag(
@@ -117,12 +122,6 @@ def _make_check_result(payload: dict) -> 'WeiboQrCodeCheck':
     from src.utils.weibo_api.model import WeiboQrCodeCheck
 
     return WeiboQrCodeCheck.model_validate(payload)
-
-
-def _make_response(status_code: int = 200, *, headers: list | None = None, content: str | bytes = ''):
-    from src.utils.omega_requests.types import Response
-
-    return Response(status_code, headers=headers or [], content=content)
 
 
 def _make_user_data() -> dict:
@@ -234,7 +233,7 @@ def _patch_post(monkeypatch: pytest.MonkeyPatch, content: str = '', *, headers: 
     """mock credential 请求层 _request_post, 返回携带给定文本内容与响应头的固定响应"""
     from src.utils.weibo_api.credential import WeiboCredential
 
-    post_mock = AsyncMock(return_value=_make_response(headers=headers, content=content))
+    post_mock = AsyncMock(return_value=make_response(headers=headers, content=content))
     monkeypatch.setattr(WeiboCredential, '_request_post', post_mock)
     return post_mock
 
@@ -794,7 +793,7 @@ class TestVisitorFlowSteps:
         from src.utils.weibo_api.consts import VisitorUrl
         from src.utils.weibo_api.credential import WeiboCredential
 
-        response = _make_response(
+        response = make_response(
             headers=[('set-cookie', '_T_WM=twm_value; path=/')],
             content=_VISITOR_HTML,
         )
@@ -834,7 +833,7 @@ class TestVisitorFlowSteps:
         from src.utils.weibo_api.consts import VisitorUrl
         from src.utils.weibo_api.credential import WeiboCredential
 
-        get_mock = AsyncMock(return_value=_make_response())
+        get_mock = AsyncMock(return_value=make_response())
         monkeypatch.setattr(WeiboCredential, '_request_get', get_mock)
 
         await WeiboCredential._preload_risk_scripts(rand='1234567890', cookies={})
@@ -930,20 +929,20 @@ class TestRefreshVisitorCookies:
 
         def _dispatch_get(*_args, **kwargs):
             if kwargs['url'] == VisitorUrl.START_URL:
-                return _make_response(headers=[('set-cookie', '_T_WM=twm_value; path=/')], content=_VISITOR_HTML)
-            return _make_response()
+                return make_response(headers=[('set-cookie', '_T_WM=twm_value; path=/')], content=_VISITOR_HTML)
+            return make_response()
 
         def _dispatch_post(*_args, **kwargs):
             url = kwargs['url']
             if url == VisitorUrl.VISITOR_ENTER_URL:
-                return _make_response(headers=[
+                return make_response(headers=[
                     ('set-cookie', 'SUB=sub_value; path=/'),
                     ('set-cookie', 'SUBP=subp_value; path=/'),
                 ])
             if url == VisitorUrl.BD_PAYLOAD_URL:
-                return _make_response(content=json.dumps(_BD_PAYLOAD))
+                return make_response(content=json.dumps(_BD_PAYLOAD))
             if url == VisitorUrl.GENVISITOR_URL:
-                return _make_response(content=_GENVISITOR_JSONP)
+                return make_response(content=_GENVISITOR_JSONP)
             raise AssertionError(f'unexpected url {url}')
 
         monkeypatch.setattr(WeiboCredential, '_request_get', AsyncMock(side_effect=_dispatch_get))
@@ -1185,15 +1184,15 @@ class TestFollowRedirectChain:
         from src.utils.weibo_api.credential import WeiboCredential
 
         get_mock = self._mock_requests(monkeypatch, [
-            _make_response(302, headers=[
+            make_response(status_code=302, headers=[
                 ('set-cookie', 'SUB=sub_hop1; path=/'),
                 ('location', '/next'),
             ]),
-            _make_response(302, headers=[
+            make_response(status_code=302, headers=[
                 ('set-cookie', 'SUBP=subp_hop2; path=/'),
                 ('location', 'https://m.weibo.cn/'),
             ]),
-            _make_response(200, headers=[('set-cookie', 'XSRF-TOKEN=xsrf_final; path=/')]),
+            make_response(status_code=200, headers=[('set-cookie', 'XSRF-TOKEN=xsrf_final; path=/')]),
         ])
 
         cookies = await WeiboCredential._follow_redirect_chain(
@@ -1216,7 +1215,7 @@ class TestFollowRedirectChain:
         from src.utils.weibo_api.credential import WeiboCredential
 
         get_mock = self._mock_requests(monkeypatch, [
-            _make_response(200, headers=[('set-cookie', 'X-CSRF-TOKEN=csrf_value; path=/')]),
+            make_response(status_code=200, headers=[('set-cookie', 'X-CSRF-TOKEN=csrf_value; path=/')]),
         ])
 
         cookies = await WeiboCredential._follow_redirect_chain('https://example.com/', cookies={})
@@ -1229,7 +1228,7 @@ class TestFollowRedirectChain:
         from src.utils.weibo_api.credential import WeiboCredential
 
         get_mock = self._mock_requests(monkeypatch, [
-            _make_response(302, headers=[('set-cookie', 'tid=tid_value; path=/')]),
+            make_response(status_code=302, headers=[('set-cookie', 'tid=tid_value; path=/')]),
         ])
 
         cookies = await WeiboCredential._follow_redirect_chain('https://example.com/', cookies={})
@@ -1241,7 +1240,7 @@ class TestFollowRedirectChain:
         """重定向链超过 max_hops 时按上限截断"""
         from src.utils.weibo_api.credential import WeiboCredential
 
-        redirect_response = _make_response(302, headers=[('location', 'https://example.com/next')])
+        redirect_response = make_response(status_code=302, headers=[('location', 'https://example.com/next')])
         get_mock = self._mock_requests(monkeypatch, [redirect_response] * 10)
 
         await WeiboCredential._follow_redirect_chain('https://example.com/', cookies={}, max_hops=2)
@@ -1256,8 +1255,8 @@ class TestFollowRedirectChain:
         from src.utils.weibo_api.credential import WeiboCredential
 
         get_mock = self._mock_requests(monkeypatch, [
-            _make_response(status_code, headers=[('location', 'https://m.weibo.cn/')]),
-            _make_response(200, headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')]),
+            make_response(status_code=status_code, headers=[('location', 'https://m.weibo.cn/')]),
+            make_response(status_code=200, headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')]),
         ])
 
         cookies = await WeiboCredential._follow_redirect_chain('https://example.com/', cookies={})
@@ -1604,7 +1603,7 @@ class TestBaseWeiboApi:
 
         clean_manager.update_cookies(SUB='sub_value')
 
-        response = _make_response(headers=[('set-cookie', 'XSRF-TOKEN=xsrf_new; path=/')])
+        response = make_response(headers=[('set-cookie', 'XSRF-TOKEN=xsrf_new; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
         assert clean_manager.get_cookie('XSRF-TOKEN') == 'xsrf_new'
@@ -1621,7 +1620,7 @@ class TestBaseWeiboApi:
 
         clean_manager.update_cookies(SUB='sub_value')
 
-        response = _make_response(headers=[('set-cookie', 'SUB=sub_value; path=/')])
+        response = make_response(headers=[('set-cookie', 'SUB=sub_value; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
         assert clean_manager.get_cookie('SUB') == 'sub_value'
@@ -1635,7 +1634,7 @@ class TestBaseWeiboApi:
         """凭据模型外的 Cookies 不入库也不触发落库"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
 
-        response = _make_response(headers=[('set-cookie', 'UNKNOWN_COOKIE=unknown_value; path=/')])
+        response = make_response(headers=[('set-cookie', 'UNKNOWN_COOKIE=unknown_value; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
         assert clean_manager.cookies == {}
@@ -1650,7 +1649,7 @@ class TestBaseWeiboApi:
         """API 请求注入风控请求头并回收响应 set-cookie"""
         from src.utils.weibo_api.api_base import BaseWeiboAPI
 
-        response = _make_response(
+        response = make_response(
             headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')],
             content='{"ok": 1}',
         )
@@ -1676,7 +1675,7 @@ class TestBaseWeiboApi:
 
         clean_manager.update_cookies(SUB='sub_value', tid='tid_value')
 
-        response = _make_response(headers=[('set-cookie', 'SUB=deleted; path=/')])
+        response = make_response(headers=[('set-cookie', 'SUB=deleted; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
         assert clean_manager.get_cookie('SUB') is None
@@ -1693,7 +1692,7 @@ class TestBaseWeiboApi:
 
         save_mock.side_effect = RuntimeError('db down')
 
-        response = _make_response(headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')])
+        response = make_response(headers=[('set-cookie', 'XSRF-TOKEN=xsrf_value; path=/')])
         await BaseWeiboAPI._sync_response_cookies(response)
 
         assert clean_manager.get_cookie('XSRF-TOKEN') == 'xsrf_value'
@@ -1745,21 +1744,6 @@ class TestQueryUserData:
         assert call_kwargs['params'] == {'type': 'uid', 'value': '1934183965', 'containerid': '1005051934183965'}
         assert call_kwargs['referer'] == 'https://m.weibo.cn/u/1934183965'
 
-    @pytest.mark.parametrize(
-        'response',
-        [{'ok': -100, 'msg': 'uid 不存在'}, {'ok': 1}],
-        ids=['not_ok', 'missing_data'],
-    )
-    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
-        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException 而非 ValidationError"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, response)
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_user_data(uid=1934183965)
-
 
 class TestQueryUserWeiboCards:
     """Weibo.query_user_weibo_cards 测试 (mock 请求层)"""
@@ -1790,21 +1774,6 @@ class TestQueryUserWeiboCards:
         assert cards == []
         assert get_json_mock.call_args.kwargs['params']['since_id'] == '12345'
 
-    @pytest.mark.parametrize(
-        'response',
-        [{'ok': -100}, {'ok': 1}],
-        ids=['not_ok', 'missing_data'],
-    )
-    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
-        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, response)
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_user_weibo_cards(uid=1934183965)
-
 
 class TestQueryWeiboCard:
     """Weibo.query_weibo_card 测试 (mock 请求层)"""
@@ -1824,21 +1793,6 @@ class TestQueryWeiboCard:
         assert call_args.args[1] == {'id': '5212345678901234'}
         assert call_args.kwargs['referer'] == 'https://m.weibo.cn/status/5212345678901234'
 
-    @pytest.mark.parametrize(
-        'response',
-        [{'ok': -100, 'data': None}, {'ok': 1}, {'ok': 1, 'data': 'deleted'}, ['unexpected']],
-        ids=['not_ok', 'missing_data', 'non_dict_data', 'non_dict_response'],
-    )
-    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict | list) -> None:
-        """业务错误响应 / data 缺失或非 dict / 整体响应非 dict 时应抛出 WebSourceException 而非 ValidationError"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, response)
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_weibo_card(mid=5212345678901234)
-
 
 class TestQueryWeiboExtendText:
     """Weibo.query_weibo_extend_text 测试 (mock 请求层)"""
@@ -1857,21 +1811,6 @@ class TestQueryWeiboExtendText:
         text = await Weibo.query_weibo_extend_text(mid=5212345678901234)
 
         assert text == 'full text'
-
-    @pytest.mark.parametrize(
-        'response',
-        [{'ok': -100}, {'ok': 1}],
-        ids=['not_ok', 'missing_data'],
-    )
-    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
-        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, response)
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_weibo_extend_text(mid=5212345678901234)
 
     async def test_inner_not_ok_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """内层 data.ok != 1 时应抛出 WebSourceException"""
@@ -1904,21 +1843,6 @@ class TestQueryRealtimeHot:
             '106003type=25&t=3&disable_hot=1&filter_type=realtimehot'
         )
 
-    @pytest.mark.parametrize(
-        'response',
-        [{'ok': 0}, {'ok': 1}],
-        ids=['not_ok', 'missing_data'],
-    )
-    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
-        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
-        from src.exception import WebSourceException
-        from src.utils.weibo_api import Weibo
-
-        _patch_query_layer(monkeypatch, response)
-
-        with pytest.raises(WebSourceException):
-            await Weibo.query_realtime_hot()
-
 
 class TestQueryTopFeed:
     """Weibo.query_top_feed 测试 (mock 请求层)"""
@@ -1935,20 +1859,50 @@ class TestQueryTopFeed:
         ensure_mock.assert_awaited_once()
         assert get_json_mock.call_args.kwargs['url'] == 'https://m.weibo.cn/feed/friends'
 
+
+class TestQueryErrorResponses:
+    """Weibo.query_* 业务错误响应统一测试 (mock 请求层)"""
+
     @pytest.mark.parametrize(
-        'response',
-        [{'ok': 0}, {'ok': 1}],
-        ids=['not_ok', 'missing_data'],
+        ('method_name', 'kwargs', 'response_cases'),
+        [
+            pytest.param(
+                'query_user_data', {'uid': 1934183965},
+                [{'ok': -100, 'msg': 'uid 不存在'}, {'ok': 1}],
+                id='query_user_data',
+            ),
+            pytest.param(
+                'query_user_weibo_cards', {'uid': 1934183965},
+                [{'ok': -100}, {'ok': 1}],
+                id='query_user_weibo_cards',
+            ),
+            pytest.param(
+                'query_weibo_card', {'mid': 5212345678901234},
+                [{'ok': -100, 'data': None}, {'ok': 1}, {'ok': 1, 'data': 'deleted'}, ['unexpected']],
+                id='query_weibo_card',
+            ),
+            pytest.param(
+                'query_weibo_extend_text', {'mid': 5212345678901234},
+                [{'ok': -100}, {'ok': 1}],
+                id='query_weibo_extend_text',
+            ),
+            pytest.param('query_realtime_hot', {}, [{'ok': 0}, {'ok': 1}], id='query_realtime_hot'),
+            pytest.param('query_top_feed', {}, [{'ok': 0}, {'ok': 1}], id='query_top_feed'),
+        ],
     )
-    async def test_error_response_raises(self, monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
-        """ok != 1 的业务错误响应或 data 缺失时应抛出 WebSourceException"""
+    async def test_error_response_raises(
+            self, monkeypatch: pytest.MonkeyPatch,
+            method_name: str, kwargs: dict, response_cases: list,
+    ) -> None:
+        """业务错误响应 / data 缺失或非 dict / 整体响应非 dict 时应抛出 WebSourceException 而非 ValidationError"""
         from src.exception import WebSourceException
         from src.utils.weibo_api import Weibo
 
-        _patch_query_layer(monkeypatch, response)
+        for response in response_cases:
+            _patch_query_layer(monkeypatch, response)
 
-        with pytest.raises(WebSourceException):
-            await Weibo.query_top_feed()
+            with pytest.raises(WebSourceException):
+                await getattr(Weibo, method_name)(**kwargs)
 
 
 # ------------------------------------------------------------------ #
@@ -1956,11 +1910,11 @@ class TestQueryTopFeed:
 # ------------------------------------------------------------------ #
 
 
-@require_real_test
+@requires_live
 class TestWeiboLive:
-    """Weibo 真实请求验证 (发起真实微博 API 请求, 默认跳过)
+    """Weibo 真实请求验证
 
-    前置条件: 数据库 (system_setting 表 weibo_api_config 系列) 中已配置已登录状态的 cookies
+    前置条件: 数据库 (system_setting 表 weibo_api_config 系列) 中已配置已登录状态的 cookies;
     需手动设置环境变量 WEIBO_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_007_weibo_api.py -k TestWeiboLive -v -s` 单独运行
     """
@@ -2059,9 +2013,9 @@ class TestWeiboLive:
 
 @require_force_refresh_test
 class TestRefreshVisitorCookiesLive:
-    """访客流程强制刷新真实验证 (会重建数据库 cookies 覆盖登录态, 默认跳过)
+    """访客流程强制刷新真实验证 (会重建数据库 cookies 覆盖登录态)
 
-    需单独设置 WEIBO_API_FORCE_REFRESH_TEST=1 环境变量并以
+    需手动设置环境变量 WEIBO_API_FORCE_REFRESH_TEST=1 并以
     `pytest tests/test_003_web/test_007_weibo_api.py -k TestRefreshVisitorCookiesLive -v -s` 单独运行
     """
 

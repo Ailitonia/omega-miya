@@ -121,6 +121,12 @@ async def _grant_entity_permissions(
         await entity.set_permission_level(level=level)
 
 
+@pytest.fixture
+def bound_mock_bot(test_onebot_v11_bot) -> MagicMock:
+    """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
+    return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
+
+
 class TestModuleContract:
     """模块导出契约测试"""
 
@@ -467,11 +473,6 @@ class TestRateLimiting:
 class TestPermission:
     """权限预处理器测试 (直接调用, 真实数据库)"""
 
-    @pytest.fixture
-    def bound_mock_bot(self, test_onebot_v11_bot) -> MagicMock:
-        """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
-        return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
-
     async def test_non_plugin_matcher_ignored(self) -> None:
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.permission import preprocessor_permission
@@ -484,10 +485,7 @@ class TestPermission:
             )
 
     async def test_super_user_ignored(self, app: App, test_onebot_v11_bot) -> None:
-        """超级用户跳过权限检查; 对照组普通用户无授权时被阻断
-
-        SUPERUSER 经 NoneBot 依赖注入且对 bot/event 做 isinstance 校验, 必须使用真实 Bot
-        """
+        """超级用户跳过权限检查; 对照组普通用户无授权被阻断"""
         from nonebot.exception import IgnoredException
 
         from src.database.helpers import database_session
@@ -617,11 +615,6 @@ class TestPermission:
 
 class TestCooldown:
     """冷却预处理器测试 (直接调用, 真实数据库)"""
-
-    @pytest.fixture
-    def bound_mock_bot(self, test_onebot_v11_bot) -> MagicMock:
-        """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
-        return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
 
     async def test_zero_cooldown_ignored(self) -> None:
         from src.database.helpers import database_session
@@ -837,11 +830,6 @@ class TestCooldown:
 
 class TestCost:
     """命令消耗预处理器测试 (直接调用, 真实数据库)"""
-
-    @pytest.fixture
-    def bound_mock_bot(self, test_onebot_v11_bot) -> MagicMock:
-        """绑定 test_onebot_v11_bot 身份的 mock Bot (实体落库要求 self_id 对应的 Bot 行存在)"""
-        return make_mock_bot(self_id=test_onebot_v11_bot.self_id)
 
     async def test_zero_cost_ignored(self) -> None:
         from src.database.helpers import database_session
@@ -1286,27 +1274,31 @@ class TestFullPipeline:
         matcher = self._make_pipeline_matcher(cmd, level=1)
         user_id = random.randint(10_000_000, 99_999_999)
 
-        await _grant_entity_permissions(
-            test_onebot_v11_numeric_bot.bot_type,
-            test_onebot_v11_numeric_bot.self_id,
-            'onebot_v11_user',
-            str(user_id),
-            level=1,
-        )
+        try:
+            await _grant_entity_permissions(
+                test_onebot_v11_numeric_bot.bot_type,
+                test_onebot_v11_numeric_bot.self_id,
+                'onebot_v11_user',
+                str(user_id),
+                level=1,
+            )
 
-        @matcher.handle()
-        async def _handle() -> None:
-            await matcher.finish('done')
+            @matcher.handle()
+            async def _handle() -> None:
+                await matcher.finish('done')
 
-        async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
-            event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
+            async with app.test_matcher(matcher) as ctx:
+                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
 
-            ctx.receive_event(bot, event)
-            ctx.should_pass_rule(matcher=matcher)
-            ctx.should_pass_permission(matcher=matcher)
-            ctx.should_call_send(event, 'done', 'result', bot=bot)
-            ctx.should_finished(matcher=matcher)
+                ctx.receive_event(bot, event)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+                ctx.should_call_send(event, 'done', 'result', bot=bot)
+                ctx.should_finished(matcher=matcher)
+        finally:
+            # on_command 注册的 matcher 进入全局注册表, 用后必须销毁
+            matcher.destroy()
 
     async def test_global_permission_denied_blocks_handler(
             self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
@@ -1316,17 +1308,20 @@ class TestFullPipeline:
         matcher = self._make_pipeline_matcher(cmd, level=1)
         user_id = random.randint(10_000_000, 99_999_999)
 
-        async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
-            event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
+        try:
+            async with app.test_matcher(matcher) as ctx:
+                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
 
-            ctx.receive_event(bot, event)
-            ctx.should_pass_rule(matcher=matcher)
-            ctx.should_pass_permission(matcher=matcher)
-            # 权限预处理器发送全局功能未启用提示后被忽略, 不声明 handler 动作
-            ctx.should_call_send(
-                event, 'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理', 'result', bot=bot,
-            )
+                ctx.receive_event(bot, event)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+                # 权限预处理器发送全局功能未启用提示后被忽略, 不声明 handler 动作
+                ctx.should_call_send(
+                    event, 'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理', 'result', bot=bot,
+                )
+        finally:
+            matcher.destroy()
 
     async def test_cooldown_blocks_second_invocation(
             self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
@@ -1338,34 +1333,37 @@ class TestFullPipeline:
         )
         user_id = random.randint(10_000_000, 99_999_999)
 
-        await _grant_entity_permissions(
-            test_onebot_v11_numeric_bot.bot_type,
-            test_onebot_v11_numeric_bot.self_id,
-            'onebot_v11_user',
-            str(user_id),
-            level=1,
-        )
+        try:
+            await _grant_entity_permissions(
+                test_onebot_v11_numeric_bot.bot_type,
+                test_onebot_v11_numeric_bot.self_id,
+                'onebot_v11_user',
+                str(user_id),
+                level=1,
+            )
 
-        @matcher.handle()
-        async def _handle() -> None:
-            await matcher.finish('done')
+            @matcher.handle()
+            async def _handle() -> None:
+                await matcher.finish('done')
 
-        async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+            async with app.test_matcher(matcher) as ctx:
+                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
 
-            # 第一轮: 通过全部检查并执行 handler
-            event_1 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
-            ctx.receive_event(bot, event_1)
-            ctx.should_pass_rule(matcher=matcher)
-            ctx.should_pass_permission(matcher=matcher)
-            ctx.should_call_send(event_1, 'done', 'result', bot=bot)
-            ctx.should_finished(matcher=matcher)
+                # 第一轮: 通过全部检查并执行 handler
+                event_1 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
+                ctx.receive_event(bot, event_1)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+                ctx.should_call_send(event_1, 'done', 'result', bot=bot)
+                ctx.should_finished(matcher=matcher)
 
-            # 第二轮: 冷却期内被忽略 (echo 已关闭, 无任何发送), handler 不执行
-            event_2 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
-            ctx.receive_event(bot, event_2)
-            ctx.should_pass_rule(matcher=matcher)
-            ctx.should_pass_permission(matcher=matcher)
+                # 第二轮: 冷却期内被忽略 (echo 已关闭, 无任何发送), handler 不执行
+                event_2 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
+                ctx.receive_event(bot, event_2)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+        finally:
+            matcher.destroy()
 
     async def test_non_plugin_matcher_bypasses_processors(
             self, app: App, test_onebot_v11_numeric_bot, plugin_enabled_guard,
@@ -1380,19 +1378,22 @@ class TestFullPipeline:
         async def _handle() -> None:
             await matcher.finish('bare done')
 
-        async with app.test_matcher(matcher) as ctx:
-            bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
-            event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, 54001, f'/{cmd}')
+        try:
+            async with app.test_matcher(matcher) as ctx:
+                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, 54001, f'/{cmd}')
 
-            ctx.receive_event(bot, event)
-            ctx.should_pass_rule(matcher=matcher)
-            ctx.should_pass_permission(matcher=matcher)
-            ctx.should_call_send(event, 'bare done', 'result', bot=bot)
-            ctx.should_finished(matcher=matcher)
+                ctx.receive_event(bot, event)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+                ctx.should_call_send(event, 'bare done', 'result', bot=bot)
+                ctx.should_finished(matcher=matcher)
+        finally:
+            matcher.destroy()
 
 
 # ------------------------------------------------------------------ #
-# Telegram 图片解析预处理器测试测试辅助
+# Telegram 图片解析预处理器测试辅助
 # ------------------------------------------------------------------ #
 
 

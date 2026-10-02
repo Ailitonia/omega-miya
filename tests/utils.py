@@ -9,9 +9,36 @@
 """
 
 from collections.abc import Iterable, Mapping
+from types import ModuleType, SimpleNamespace
+from typing import Any
+from uuid import uuid4
 
+import pytest
 from nonebot.adapters import Event, Message, MessageSegment
 from pydantic import create_model
+
+
+def unique_test_id(prefix: str) -> str:
+    """生成带唯一后缀的测试 ID"""
+    return f'{prefix}_{uuid4().hex[:8]}'
+
+
+def rebind_module_namespace(
+        monkeypatch: pytest.MonkeyPatch,
+        module: ModuleType,
+        name: str,
+        **overrides: Any,
+) -> SimpleNamespace:
+    """以 SimpleNamespace 重绑定目标模块命名空间内的名字(继承原对象全部属性, 仅覆盖指定项)
+
+    目标模块内 `import asyncio`/`import time` 之类的名字指向进程共享的全局模块对象,
+    直接 patch 其属性会在共享 session 事件循环上殃及常驻组件(如 uvicorn Server.main_loop);
+    此处仅替换目标模块内的名字绑定本身, 返回替换后的命名空间以便取用注入的替身
+    """
+    source = getattr(module, name)
+    namespace = SimpleNamespace(**{**vars(source), **overrides})
+    monkeypatch.setattr(module, name, namespace)
+    return namespace
 
 
 def escape_text(s: str, *, escape_comma: bool = True) -> str:

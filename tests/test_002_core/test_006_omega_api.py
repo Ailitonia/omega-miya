@@ -745,54 +745,63 @@ class TestTokenVerifyMiddleware:
         assert resp.status_code == 200
         assert resp.json() == {'ok': True}
 
-    async def test_missing_app_header_rejected(self, secured_client: TestClient):
-        resp = await secured_client.get('/test')
+    @pytest.mark.parametrize(
+        ('method', 'path', 'sign_overrides', 'header_mutation', 'request_overrides', 'expected_message'),
+        [
+            ('GET', '/test', {}, lambda h: h.clear(), {}, 'Invalid Request App'),
+            ('GET', '/test', {}, lambda h: h.update({'X-OmegaAPI-App': 'other_app'}), {}, 'Invalid Request App'),
+            ('GET', '/test', {}, lambda h: h.pop('X-OmegaAPI-Timestamp'), {}, 'Timestamp Not Provided'),
+            ('GET', '/test', {}, lambda h: h.update({'X-OmegaAPI-Timestamp': 'not-a-number'}), {}, 'Invalid Timestamp'),
+            ('GET', '/test', {}, lambda h: h.update({'X-OmegaAPI-Timestamp': '1' * 17}), {}, 'Invalid Timestamp'),
+            ('GET', '/test', {'timestamp': int(time.time()) - 3600}, None, {}, 'Invalid Timestamp'),
+            ('GET', '/test', {}, lambda h: h.pop('X-OmegaAPI-Token'), {}, 'Token Not Provided'),
+            ('GET', '/test', {}, lambda h: h.update({'X-OmegaAPI-Token': '0' * 64}), {}, 'Invalid Token'),
+            ('POST', '/echo', {'body': b'original'}, None, {'data': b'tampered'}, 'Invalid Token'),
+            ('GET', '/test', {'params': {'a': '1'}}, None, {'query_string': {'a': '2'}}, 'Invalid Token'),
+            ('GET', '/other', {}, None, {'path': '/test'}, 'Invalid Token'),
+            ('POST', '/test', {}, None, {'method': 'GET'}, 'Invalid Token'),
+        ],
+        ids=[
+            'missing_app_header',
+            'wrong_app_header',
+            'missing_timestamp',
+            'non_decimal_timestamp',
+            'overlong_timestamp',
+            'expired_timestamp',
+            'missing_token',
+            'wrong_token',
+            'tampered_body',
+            'tampered_query_params',
+            'wrong_path_signature',
+            'wrong_method_signature',
+        ],
+    )
+    async def test_invalid_request_rejected(
+            self,
+            secured_client: TestClient,
+            secured_api: 'OmegaAPI',
+            method: str,
+            path: str,
+            sign_overrides: dict[str, Any],
+            header_mutation: Callable[[dict[str, str]], None] | None,
+            request_overrides: dict[str, Any],
+            expected_message: str,
+    ) -> None:
+        """签名头缺失/被篡改或签名任一组成部分与实际请求不匹配的请求均应被 403 拒绝"""
+        headers = _make_signed_headers(secured_api._app_name, method, path, **sign_overrides)
+        if header_mutation is not None:
+            header_mutation(headers)
+
+        request_kwargs = dict(request_overrides)
+        resp = await secured_client.open(
+            request_kwargs.pop('path', path),
+            method=request_kwargs.pop('method', method),
+            headers=headers,
+            **request_kwargs,
+        )
 
         assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Request App'}
-
-    async def test_wrong_app_header_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        from src.service.omega_api.consts import APP_HEADER_KEY
-
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
-        headers[APP_HEADER_KEY] = 'other_app'
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Request App'}
-
-    async def test_missing_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        from src.service.omega_api.consts import APP_HEADER_KEY
-
-        resp = await secured_client.get('/test', headers={APP_HEADER_KEY: secured_api._app_name})
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Timestamp Not Provided'}
-
-    async def test_non_decimal_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
-        headers['X-OmegaAPI-Timestamp'] = 'not-a-number'
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
-
-    async def test_overlong_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        """超长时间戳数字串直接拒绝(防 int() 异常/超大整数)"""
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
-        headers['X-OmegaAPI-Timestamp'] = '1' * 17
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
-
-    async def test_expired_timestamp_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        expired_timestamp = int(time.time()) - 3600
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test', timestamp=expired_timestamp)
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Timestamp'}
+        assert resp.json() == {'error': True, 'message': expected_message}
 
     async def test_timestamp_at_window_edge_allowed(
             self, secured_client: TestClient, secured_api: 'OmegaAPI', monkeypatch: pytest.MonkeyPatch,
@@ -825,29 +834,8 @@ class TestTokenVerifyMiddleware:
 
         assert resp.status_code == 200
 
-    async def test_missing_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        from src.service.omega_api.consts import APP_HEADER_KEY, TIMESTAMP_HEADER_KEY
-
-        headers = {APP_HEADER_KEY: secured_api._app_name, TIMESTAMP_HEADER_KEY: str(int(time.time()))}
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Token Not Provided'}
-
-    async def test_wrong_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
-        headers['X-OmegaAPI-Token'] = '0' * 64
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Token'}
-
     async def test_non_ascii_token_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        """非 ASCII Token 应正常返回 403 而非触发 500
-
-        测试客户端以 UTF-8 编码发送非 ASCII header 值, 中间件收到的 Token 含非 ASCII 字符,
-        compare_digest 对非 ASCII 输入的限制应被妥善处理为非法签名而非未捕获异常
-        """
+        """非 ASCII Token 应判定为非法签名并返回 403, 不触发 500"""
         headers = _make_signed_headers(secured_api._app_name, 'GET', '/test')
         headers['X-OmegaAPI-Token'] = 'é' * 64
         resp = await secured_client.get('/test', headers=headers)
@@ -872,34 +860,6 @@ class TestTokenVerifyMiddleware:
 
         assert resp.status_code == 200
         assert resp.json() == {'echo': '请求体 content'}
-
-    async def test_tampered_body_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        headers = _make_signed_headers(secured_api._app_name, 'POST', '/echo', body=b'original')
-        resp = await secured_client.post('/echo', headers=headers, data=b'tampered')
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Token'}
-
-    async def test_tampered_query_params_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/test', params={'a': '1'})
-        resp = await secured_client.get('/test', query_string={'a': '2'}, headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Token'}
-
-    async def test_wrong_path_signature_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        headers = _make_signed_headers(secured_api._app_name, 'GET', '/other')
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Token'}
-
-    async def test_wrong_method_signature_rejected(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
-        headers = _make_signed_headers(secured_api._app_name, 'POST', '/test')
-        resp = await secured_client.get('/test', headers=headers)
-
-        assert resp.status_code == 403
-        assert resp.json() == {'error': True, 'message': 'Invalid Token'}
 
     async def test_multi_value_query_params_signed(self, secured_client: TestClient, secured_api: 'OmegaAPI'):
         """多值 query 参数(?a=1&a=2)完整参与签名"""

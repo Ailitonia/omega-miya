@@ -306,10 +306,7 @@ class TestParseContinuousSignInDay:
             days_ago_offsets: list[int],
             expected_streak: int,
     ) -> None:
-        """输入以相对今日天数偏移构造的签到日期列表, 期望返回 (连续签到日数, 连续段起始日前一日的序数)
-
-        覆盖: 空列表/仅今日/连续多日/乱序输入/重复日期去重/断签截断/缺今日/单个旧日期/远端断签/仅未来日期/未来日期忽略
-        """
+        """以今日为锚点向前累计连续签到段, 返回连续日数与起始日前一日序数"""
         from src.service.omega_base.internal.entity import OmegaEntity
 
         result = await OmegaEntity._parse_continuous_sign_in_day([_days_ago(n) for n in days_ago_offsets])
@@ -758,13 +755,7 @@ class TestSignInWithFriendshipConcurrency:
             test_onebot_v11_bot,
             test_onebot_v11_entity_factory,
     ) -> None:
-        """两个独立会话并发签到同一 Entity, 好感度奖励只应发放一次
-
-        后到事务要么 NOWAIT 快速失败抛出 RuntimeError (由业务层处理),
-        要么在锁空闲后到达并经锁定读判重为重复签到, 两种交错下奖励均不重复发放;
-        行锁/NOWAIT 依赖 MySQL/PostgreSQL 后端, SQLite 为空操作故跳过;
-        注意须使用非 scoped 的独立会话 (scoped session 在非事件上下文中共享同一作用域键, 无法并发)
-        """
+        """两会话并发签到同一实体, 好感度奖励仅发放一次 (SQLite 无行锁跳过)"""
         from src.database.connector import get_engine, get_session_factory
         from src.service.omega_base.internal.entity import OmegaEntity
 
@@ -792,11 +783,13 @@ class TestSignInWithFriendshipConcurrency:
                     )
                     await session.commit()
                     return result
-                except:  # noqa: E722
+                except BaseException:
                     await session.rollback()
                     raise
 
-        results = await asyncio.gather(_sign_in(), _sign_in(), return_exceptions=True)
+        # 限时等待: 并发路径退化为阻塞时快速失败, 避免挂住共享 session 事件循环
+        async with asyncio.timeout(10):
+            results = await asyncio.gather(_sign_in(), _sign_in(), return_exceptions=True)
 
         succeeded = [x for x in results if not isinstance(x, BaseException)]
         failed = [x for x in results if isinstance(x, BaseException)]
@@ -817,10 +810,7 @@ class TestSignInWithFriendshipConcurrency:
             test_onebot_v11_bot,
             test_onebot_v11_entity_factory,
     ) -> None:
-        """Entity 行锁被其他事务持有时, 组合方法应 NOWAIT 快速失败抛出 RuntimeError
-
-        行锁/NOWAIT 依赖 MySQL/PostgreSQL 后端, SQLite 为空操作故跳过
-        """
+        """Entity 行锁被他方持有时, 组合签到方法应 NOWAIT 快速失败"""
         from src.database.connector import get_engine, get_session_factory
         from src.database.internal.entity import EntityDAL
 
@@ -855,9 +845,10 @@ class TestSignInWithFriendshipConcurrency:
                         entity_id=entity.entity_id,
                     )
                     with pytest.raises(RuntimeError, match='并发签到处理中'):
-                        await omega_entity.check_and_execute_sign_in_with_alter_friendship(
-                            alter_friendship=Decimal('1'),
-                        )
+                        async with asyncio.timeout(10):
+                            await omega_entity.check_and_execute_sign_in_with_alter_friendship(
+                                alter_friendship=Decimal('1'),
+                            )
                     await session.rollback()
             finally:
                 await lock_holder_session.rollback()
@@ -867,11 +858,7 @@ class TestSignInWithFriendshipConcurrency:
             test_onebot_v11_bot,
             test_onebot_v11_entity_factory,
     ) -> None:
-        """事务快照过期 (锁空闲但快照确立后有并发提交) 时, 普通读不一致应抛出 RuntimeError
-
-        REPEATABLE READ 下旧快照看不到并发事务已提交的好感度行, 触发兜底转换;
-        依赖 MySQL/PostgreSQL 后端, SQLite 跳过
-        """
+        """事务快照过期时普通读不一致应抛出 RuntimeError (SQLite 跳过)"""
         from src.database.connector import get_engine, get_session_factory
         from src.service.omega_base.internal.entity import OmegaEntity
 
@@ -906,9 +893,10 @@ class TestSignInWithFriendshipConcurrency:
 
             # 会话S: 锁空闲可获取, 但快照过期, 重复签到路径的好感度行在旧快照中不可见
             with pytest.raises(RuntimeError, match='读视图不一致'):
-                await stale_entity.check_and_execute_sign_in_with_alter_friendship(
-                    alter_friendship=Decimal('1'),
-                )
+                async with asyncio.timeout(10):
+                    await stale_entity.check_and_execute_sign_in_with_alter_friendship(
+                        alter_friendship=Decimal('1'),
+                    )
             await stale_session.rollback()
 
 

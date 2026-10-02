@@ -75,6 +75,15 @@ def _normalized(text: str) -> str:
     return ''.join(text.split('\n'))
 
 
+def _draw_once() -> bytes:
+    """以缓存字体绘制一次多行文本并返回像素字节, 用于缓存复用的确定性比对"""
+    from src.utils.image_utils import ImageTextProcessor
+
+    image = _new_image(size=(160, 160))
+    ImageTextProcessor.draw_multiline_text(ImageDraw.Draw(image), xy=(4, 4), text=TEXT_MULTILINE, size=20)
+    return image.tobytes()
+
+
 class _StubFileResource:
     """init_from_file 用的资源桩, open 返回 BytesIO, 不落盘"""
 
@@ -287,16 +296,12 @@ class TestImageLoaderExtract:
         assert ImageLoader.extract_to_bytes(image=_new_image(), format_='png').startswith(PNG_MAGIC)
         assert ImageLoader.extract_to_bytes(image=_new_image(), format_='jpeg').startswith(JPEG_MAGIC)
 
-    def test_extract_jpg_alias_raises_key_error(self):
-        """与 get_bytes 的 'JPG' 别名规范化不同, 本方法直接抛出 KeyError"""
+    @pytest.mark.parametrize('format_', ['JPG', 'FOO'], ids=['jpg-alias', 'unknown'])
+    def test_extract_unsupported_format_raises_key_error(self, format_):
+        """与 get_bytes 的 'JPG' 别名规范化不同, 本方法对未注册格式名直接抛出 KeyError"""
         from src.utils.image_utils import ImageLoader
         with pytest.raises(KeyError):
-            ImageLoader.extract_to_bytes(image=_new_image(), format_='JPG')
-
-    def test_extract_unknown_format_raises_key_error(self):
-        from src.utils.image_utils import ImageLoader
-        with pytest.raises(KeyError):
-            ImageLoader.extract_to_bytes(image=_new_image(), format_='FOO')
+            ImageLoader.extract_to_bytes(image=_new_image(), format_=format_)
 
     def test_extract_rgba_jpeg_raises_os_error(self):
         """本方法不做色彩模式自动转换, RGBA 直接编码 JPEG 抛出 OSError"""
@@ -549,35 +554,23 @@ class TestEffectBytes:
         content = _make_processor().get_bytes()
         assert content.startswith(JPEG_MAGIC)
 
-    def test_rgba_jpeg_auto_converts(self):
-        processor = _make_processor(_new_image(mode='RGBA', color=(255, 0, 0, 128)))
-        content = processor.get_bytes(format_='JPEG')
-        assert content.startswith(JPEG_MAGIC)
-        assert processor.image.mode == 'RGB'
-
-    def test_palette_jpeg_auto_converts(self):
-        processor = _make_processor(_new_image(mode='P'))
-        content = processor.get_bytes(format_='JPEG')
-        assert content.startswith(JPEG_MAGIC)
-        assert processor.image.mode == 'RGB'
-
-    def test_l_mode_jpeg_keeps_mode(self):
-        processor = _make_processor(_new_image(mode='L', color=128))
-        content = processor.get_bytes(format_='JPEG')
-        assert content.startswith(JPEG_MAGIC)
-        assert processor.image.mode == 'L'
-
-    def test_rgba_png_keeps_mode(self):
-        processor = _make_processor(_new_image(mode='RGBA'))
-        content = processor.get_bytes(format_='PNG')
-        assert content.startswith(PNG_MAGIC)
-        assert processor.image.mode == 'RGBA'
-
-    def test_cmyk_jpeg_keeps_mode(self):
-        processor = _make_processor(_new_image(mode='CMYK', color=(0, 0, 0, 0)))
-        content = processor.get_bytes(format_='JPEG')
-        assert content.startswith(JPEG_MAGIC)
-        assert processor.image.mode == 'CMYK'
+    @pytest.mark.parametrize(
+        ('mode', 'color', 'format_', 'expected_mode', 'magic'),
+        [
+            ('RGBA', (255, 0, 0, 128), 'JPEG', 'RGB', JPEG_MAGIC),
+            ('P', (255, 255, 255), 'JPEG', 'RGB', JPEG_MAGIC),
+            ('L', 128, 'JPEG', 'L', JPEG_MAGIC),
+            ('RGBA', (255, 255, 255), 'PNG', 'RGBA', PNG_MAGIC),
+            ('CMYK', (0, 0, 0, 0), 'JPEG', 'CMYK', JPEG_MAGIC),
+        ],
+        ids=['rgba-jpeg', 'palette-jpeg', 'l-jpeg', 'rgba-png', 'cmyk-jpeg'],
+    )
+    def test_get_bytes_mode_handling(self, mode, color, format_, expected_mode, magic):
+        """JPEG 编码自动转换不兼容模式(RGBA/P → RGB), 兼容模式原样保留"""
+        processor = _make_processor(_new_image(mode=mode, color=color))
+        content = processor.get_bytes(format_=format_)
+        assert content.startswith(magic)
+        assert processor.image.mode == expected_mode
 
     def test_get_base64_default_prefix(self):
         content = _make_processor().get_base64()
@@ -636,11 +629,6 @@ class TestMark:
     def test_mark_invalid_position_raises(self):
         with pytest.raises(ValueError, match='invalid mark position'):
             _make_processor().mark(text='mark', position='middle')  # type: ignore[arg-type]
-
-    def test_mark_l_mode_converts_to_rgb(self):
-        processor = _make_processor(_new_image(mode='L', color=128))
-        processor.mark(text='mark')
-        assert processor.image.mode == 'RGB'
 
     def test_mark_tiny_image(self):
         processor = _make_processor(_new_image(size=(8, 8)))
@@ -876,20 +864,15 @@ class TestDrawMultilineTextEmptyLines:
 
 
 class TestMarkColorModes:
-    """mark 色彩模式处理"""
+    """mark 色彩模式处理: 非 RGB/RGBA 模式先转换为 RGB"""
 
-    def test_mark_la_mode_converts_to_rgb(self):
-        processor = _make_processor(_new_image(mode='LA', color=(128, 255)))
-        processor.mark(text='mark')
-        assert processor.image.mode == 'RGB'
-
-    def test_mark_p_mode_converts_to_rgb(self):
-        processor = _make_processor(_new_image(mode='P', color=1))
-        processor.mark(text='mark')
-        assert processor.image.mode == 'RGB'
-
-    def test_mark_cmyk_mode_converts_to_rgb(self):
-        processor = _make_processor(_new_image(mode='CMYK', color=(0, 0, 0, 0)))
+    @pytest.mark.parametrize(
+        ('mode', 'color'),
+        [('L', 128), ('LA', (128, 255)), ('P', 1), ('CMYK', (0, 0, 0, 0))],
+        ids=['L', 'LA', 'P', 'CMYK'],
+    )
+    def test_mark_non_rgb_mode_converts_to_rgb(self, mode, color):
+        processor = _make_processor(_new_image(mode=mode, color=color))
         processor.mark(text='mark')
         assert processor.image.mode == 'RGB'
 
@@ -912,33 +895,24 @@ class TestParameterValidation:
         image = ImageLoader.init_from_text(text='hi', image_width=25)
         assert image.width == 25
 
-    def test_resize_with_filling_zero_size_raises(self):
+    @pytest.mark.parametrize('method', ['resize_with_filling', 'resize_fill_canvas'])
+    @pytest.mark.parametrize('size', [(0, 0), (-1, 100)], ids=['zero', 'negative'])
+    def test_resize_invalid_size_raises(self, method, size):
         with pytest.raises(ValueError, match='size must be positive'):
-            _make_processor().resize_with_filling(size=(0, 0))
+            getattr(_make_processor(), method)(size=size)
 
-    def test_resize_with_filling_negative_size_raises(self):
-        with pytest.raises(ValueError, match='size must be positive'):
-            _make_processor().resize_with_filling(size=(-1, 100))
-
-    def test_resize_fill_canvas_zero_size_raises(self):
-        with pytest.raises(ValueError, match='size must be positive'):
-            _make_processor().resize_fill_canvas(size=(0, 100))
-
-    def test_resize_fill_canvas_negative_size_raises(self):
-        with pytest.raises(ValueError, match='size must be positive'):
-            _make_processor().resize_fill_canvas(size=(-1, 100))
-
-    def test_gaussian_blur_negative_radius_raises(self):
-        with pytest.raises(ValueError, match='radius'):
-            _make_processor().gaussian_blur(radius=-1)
-
-    def test_gaussian_noise_negative_sigma_raises(self):
-        with pytest.raises(ValueError, match='sigma'):
-            _make_processor().gaussian_noise(sigma=-1, enable_random=False)
-
-    def test_gaussian_noise_mask_factor_out_of_range_raises(self):
-        with pytest.raises(ValueError, match='mask_factor'):
-            _make_processor().gaussian_noise(mask_factor=1.5, enable_random=False)
+    @pytest.mark.parametrize(
+        ('method', 'kwargs', 'match'),
+        [
+            ('gaussian_blur', {'radius': -1}, 'radius'),
+            ('gaussian_noise', {'sigma': -1, 'enable_random': False}, 'sigma'),
+            ('gaussian_noise', {'mask_factor': 1.5, 'enable_random': False}, 'mask_factor'),
+        ],
+        ids=['blur-radius', 'noise-sigma', 'noise-mask-factor'],
+    )
+    def test_gaussian_invalid_parameter_raises(self, method, kwargs, match):
+        with pytest.raises(ValueError, match=match):
+            getattr(_make_processor(), method)(**kwargs)
 
     def test_has_glyph_multi_char_raises(self):
         from src.utils.image_utils import ImageTextProcessor
@@ -1006,7 +980,7 @@ class TestPathTraversalGuard:
 
 
 class TestFontCache:
-    """字体加载缓存(L8)"""
+    """字体加载缓存"""
 
     def test_load_fonts_returns_cached_ttfont(self):
         """同名字体重复加载返回缓存的同一 TTFont 对象"""
@@ -1024,25 +998,11 @@ class TestFontCache:
 
     def test_cached_font_rendering_unchanged(self):
         """缓存复用不改变绘制结果"""
-        from src.utils.image_utils import ImageTextProcessor
-
-        def _draw_once() -> bytes:
-            image = _new_image(size=(160, 160))
-            ImageTextProcessor.draw_multiline_text(ImageDraw.Draw(image), xy=(4, 4), text=TEXT_MULTILINE, size=20)
-            return image.tobytes()
-
         assert _draw_once() == _draw_once()
 
     def test_concurrent_draw_deterministic_output(self):
         """跨线程共享缓存字体时绘制结果仍确定(Pillow 字体操作以临界区保护)"""
         from concurrent.futures import ThreadPoolExecutor
-
-        from src.utils.image_utils import ImageTextProcessor
-
-        def _draw_once() -> bytes:
-            image = _new_image(size=(160, 160))
-            ImageTextProcessor.draw_multiline_text(ImageDraw.Draw(image), xy=(4, 4), text=TEXT_MULTILINE, size=20)
-            return image.tobytes()
 
         expected = _draw_once()
         with ThreadPoolExecutor(max_workers=4) as pool:

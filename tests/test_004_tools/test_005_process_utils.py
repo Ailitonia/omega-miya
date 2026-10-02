@@ -45,103 +45,55 @@ class TestRunAsyncDelay:
         assert _named.__name__ == '_named'
         assert _named.__wrapped__ is not None
 
-    async def test_delay_applied(self, monkeypatch: pytest.MonkeyPatch):
-        import asyncio as asyncio_module
-
-        import src.utils.process_utils as process_utils
+    async def test_delay_applied(self, recorded_sleep):
         from src.utils.process_utils import run_async_delay
-
-        _recorded: list[float | None] = []
-
-        async def _fake_sleep(*, delay: float | None = None) -> None:
-            _recorded.append(delay)
-
-        # 重绑定模块内 asyncio 名字(拷贝命名空间), 不得经点路径 patch 污染进程级共享的 asyncio 模块对象
-        monkeypatch.setattr(
-            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
-        )
 
         @run_async_delay(delay_time=0.2)
         async def _func() -> str:
             return 'ok'
 
         assert await _func() == 'ok'
-        assert _recorded == [0.2]
+        assert recorded_sleep == [0.2]
 
-    async def test_random_sigma_uses_absolute_delay(self, monkeypatch: pytest.MonkeyPatch):
-        import asyncio as asyncio_module
-        import random as random_module
-
-        import src.utils.process_utils as process_utils
+    @pytest.mark.parametrize('recorded_sleep', [True], indirect=True)
+    async def test_random_sigma_uses_absolute_delay(self, recorded_sleep):
         from src.utils.process_utils import run_async_delay
-
-        _recorded: list[float | None] = []
-
-        async def _fake_sleep(*, delay: float | None = None) -> None:
-            _recorded.append(delay)
-
-        # 重绑定模块内 random/asyncio 名字(拷贝命名空间), 不得经点路径 patch 污染进程级共享模块对象
-        monkeypatch.setattr(
-            process_utils, 'random', SimpleNamespace(**{**vars(random_module), 'gauss': lambda mu, sigma: -1.0})
-        )
-        monkeypatch.setattr(
-            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
-        )
 
         @run_async_delay(delay_time=5, random_sigma=1)
         async def _func() -> str:
             return 'ok'
 
         assert await _func() == 'ok'
-        assert _recorded == [1.0]
+        assert recorded_sleep == [1.0]
 
-    def test_negative_delay_time_raises(self):
+    @pytest.mark.parametrize('delay_time', [-1, float('nan'), float('inf')], ids=['negative', 'nan', 'inf'])
+    def test_invalid_delay_time_raises(self, delay_time):
         from src.utils.process_utils import run_async_delay
 
         with pytest.raises(ValueError, match='delay_time'):
-            run_async_delay(delay_time=-1)
+            run_async_delay(delay_time=delay_time)
 
-    def test_zero_random_sigma_raises(self):
+    @pytest.mark.parametrize(
+        'random_sigma', [0, -0.1, float('nan'), float('inf')], ids=['zero', 'negative', 'nan', 'inf']
+    )
+    def test_invalid_random_sigma_raises(self, random_sigma):
         from src.utils.process_utils import run_async_delay
 
         with pytest.raises(ValueError, match='random_sigma'):
-            run_async_delay(delay_time=5, random_sigma=0)
+            run_async_delay(delay_time=5, random_sigma=random_sigma)
 
-    def test_negative_random_sigma_raises(self):
+    async def test_default_delay_time(self, recorded_sleep):
         from src.utils.process_utils import run_async_delay
-
-        with pytest.raises(ValueError, match='random_sigma'):
-            run_async_delay(delay_time=5, random_sigma=-0.1)
-
-    async def test_default_delay_time(self, monkeypatch: pytest.MonkeyPatch):
-        import asyncio as asyncio_module
-
-        import src.utils.process_utils as process_utils
-        from src.utils.process_utils import run_async_delay
-
-        _recorded: list[float | None] = []
-
-        async def _fake_sleep(*, delay: float | None = None) -> None:
-            _recorded.append(delay)
-
-        # 重绑定模块内 asyncio 名字(拷贝命名空间), 不得经点路径 patch 污染进程级共享的 asyncio 模块对象
-        monkeypatch.setattr(
-            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
-        )
 
         @run_async_delay()
         async def _func() -> str:
             return 'ok'
 
         assert await _func() == 'ok'
-        assert _recorded == [5]
+        assert recorded_sleep == [5]
 
     async def test_module_patch_does_not_pollute_global_asyncio(self, monkeypatch: pytest.MonkeyPatch):
-        """模块命名空间重绑定不得污染全局 asyncio.sleep
-
-        回归: 全局污染曾在 patch 窗口内杀死 session loop 常驻的 uvicorn Server.main_loop,
-        导致 session 结束拆卸 test_server 时报 ERROR(teardown 竞态)
-        """
+        """模块命名空间重绑定不得污染全局 asyncio.sleep"""
         import asyncio as asyncio_module
 
         import src.utils.process_utils as process_utils
@@ -157,30 +109,6 @@ class TestRunAsyncDelay:
 
         assert asyncio_module.sleep is original_sleep
         await asyncio_module.sleep(0)  # 若全局被 keyword-only fake 污染, 位置参数调用将抛 TypeError
-
-    def test_nan_delay_time_raises(self):
-        from src.utils.process_utils import run_async_delay
-
-        with pytest.raises(ValueError, match='delay_time'):
-            run_async_delay(delay_time=float('nan'))
-
-    def test_inf_delay_time_raises(self):
-        from src.utils.process_utils import run_async_delay
-
-        with pytest.raises(ValueError, match='delay_time'):
-            run_async_delay(delay_time=float('inf'))
-
-    def test_nan_random_sigma_raises(self):
-        from src.utils.process_utils import run_async_delay
-
-        with pytest.raises(ValueError, match='random_sigma'):
-            run_async_delay(delay_time=5, random_sigma=float('nan'))
-
-    def test_inf_random_sigma_raises(self):
-        from src.utils.process_utils import run_async_delay
-
-        with pytest.raises(ValueError, match='random_sigma'):
-            run_async_delay(delay_time=5, random_sigma=float('inf'))
 
 
 class TestRunAsyncWithTimeLimited:
@@ -219,13 +147,22 @@ class TestRunAsyncWithTimeLimited:
     async def test_timeout_raises_timeout_error_with_shield(self):
         from src.utils.process_utils import run_async_with_time_limited
 
+        cancelled = asyncio.Event()
+
         @run_async_with_time_limited(delay_time=0.05, shield=True)
         async def _func() -> str:
-            await asyncio.sleep(1)
+            try:
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
             return 'ok'
 
         with pytest.raises(TimeoutError):
             await _func()
+
+        # shield 仅抵御外部取消, 超时到期时内层协程仍被本作用域取消, 有界等待确认取消已交付且无任务残留
+        await asyncio.wait_for(cancelled.wait(), 5)
 
     async def test_original_exception_passthrough(self):
         from src.utils.process_utils import run_async_with_time_limited
@@ -246,11 +183,12 @@ class TestRunAsyncWithTimeLimited:
 
         assert await _func() == 'ok'
 
-    def test_negative_delay_time_raises(self):
+    @pytest.mark.parametrize('delay_time', [-1, float('nan'), float('inf')], ids=['negative', 'nan', 'inf'])
+    def test_invalid_delay_time_raises(self, delay_time):
         from src.utils.process_utils import run_async_with_time_limited
 
         with pytest.raises(ValueError, match='delay_time'):
-            run_async_with_time_limited(delay_time=-1)
+            run_async_with_time_limited(delay_time=delay_time)
 
     async def test_zero_delay_time_times_out_immediately(self):
         from src.utils.process_utils import run_async_with_time_limited
@@ -262,19 +200,6 @@ class TestRunAsyncWithTimeLimited:
 
         with pytest.raises(TimeoutError):
             await _func()
-
-    def test_nan_delay_time_raises(self):
-        from src.utils.process_utils import run_async_with_time_limited
-
-        with pytest.raises(ValueError, match='delay_time'):
-            run_async_with_time_limited(delay_time=float('nan'))
-
-    def test_inf_delay_time_raises(self):
-        from src.utils.process_utils import run_async_with_time_limited
-
-        with pytest.raises(ValueError, match='delay_time'):
-            run_async_with_time_limited(delay_time=float('inf'))
-
 
 class TestSemaphoreGather:
     """semaphore_gather 并发任务聚合"""
@@ -413,35 +338,14 @@ class TestSemaphoreGather:
         assert any(isinstance(x, ValueError) for x in _result[0].exceptions)
         assert _result[1] == 'ok'
 
-    async def test_semaphore_num_zero_raises_value_error(self):
+    @pytest.mark.parametrize(
+        'semaphore_num', [0, -1, '2', True, 2.0], ids=['zero', 'negative', 'str', 'bool', 'float']
+    )
+    async def test_invalid_semaphore_num_raises_value_error(self, semaphore_num):
         from src.utils.process_utils import semaphore_gather
 
         with pytest.raises(ValueError, match='semaphore_num'):
-            await semaphore_gather(tasks=[], semaphore_num=0)
-
-    async def test_semaphore_num_negative_raises_value_error(self):
-        from src.utils.process_utils import semaphore_gather
-
-        with pytest.raises(ValueError, match='semaphore_num'):
-            await semaphore_gather(tasks=[], semaphore_num=-1)
-
-    async def test_semaphore_num_non_int_raises_value_error(self):
-        from src.utils.process_utils import semaphore_gather
-
-        with pytest.raises(ValueError, match='semaphore_num'):
-            await semaphore_gather(tasks=[], semaphore_num='2')
-
-    async def test_semaphore_num_bool_raises_value_error(self):
-        from src.utils.process_utils import semaphore_gather
-
-        with pytest.raises(ValueError, match='semaphore_num'):
-            await semaphore_gather(tasks=[], semaphore_num=True)
-
-    async def test_semaphore_num_float_raises_value_error(self):
-        from src.utils.process_utils import semaphore_gather
-
-        with pytest.raises(ValueError, match='semaphore_num'):
-            await semaphore_gather(tasks=[], semaphore_num=2.0)
+            await semaphore_gather(tasks=[], semaphore_num=semaphore_num)
 
 
 class TestModuleExports:

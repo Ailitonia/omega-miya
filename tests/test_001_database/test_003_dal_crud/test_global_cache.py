@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-import random
-import string
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -22,26 +20,18 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope='class')
-async def test_global_cache_name() -> str:
-    return f'CACHE_NAME_{random.randint(0, 1000)}'
-
-
-@pytest.fixture(scope='class')
-async def test_global_cache_key() -> str:
-    return f'CACHE_KEY_{random.randint(0, 1000)}'
-
-
-@pytest.fixture(scope='class')
-async def test_global_cache_value() -> str:
-    return f'CACHE_VALUE_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
 async def global_cache_dal() -> AsyncGenerator['GlobalCacheDAL', None]:
     from src.database.internal.global_cache import GlobalCacheDAL
 
     async with GlobalCacheDAL.create() as dal:
         yield dal
+
+
+@pytest.fixture(autouse=True)
+async def _clean_table(global_cache_dal) -> None:
+    """每个测试用例执行前清空数据表"""
+    await global_cache_dal._clear_all()
+    await global_cache_dal.commit_session()
 
 
 class TestGlobalCacheDAL:
@@ -92,9 +82,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """插入一条记录 (默认过期时间), 查回验证字段正确, expired_at 为 9999-12-31"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         result = await global_cache_dal.add(
             cache_name=test_global_cache_name,
             cache_key=test_global_cache_key,
@@ -116,9 +103,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """expired_time 为 timedelta 时, expired_at 应在 now 到 now+timedelta 范围内"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         delta = timedelta(seconds=60)
         expected_from = datetime.now() + delta
         result = await global_cache_dal.add(
@@ -140,9 +124,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """expired_time 为 datetime 时, expired_at 应等于传入值"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         target = datetime(year=2099, month=6, day=15, hour=12, minute=0, second=0)
         result = await global_cache_dal.add(
             cache_name=test_global_cache_name,
@@ -162,9 +143,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """对同一 (cache_name, cache_key) 插入两次, 预期 IntegrityError"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
             cache_key=test_global_cache_key,
@@ -185,27 +163,6 @@ class TestGlobalCacheDAL:
         queried = await global_cache_dal.query_unique(test_global_cache_name, test_global_cache_key)
         assert queried.cache_value == test_global_cache_value
 
-    async def test_add_expired_datetime(
-            self,
-            global_cache_dal,
-            test_global_cache_name,
-    ) -> None:
-        """expired_time 为过去时间, 插入后默认查询查不到 (抛 NoResultFound)"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
-        past = datetime(1990, 1, 1, 0, 0, 0)
-        await global_cache_dal.add(
-            cache_name=test_global_cache_name,
-            cache_key='key_expired',
-            cache_value='value_expired',
-            expired_time=past,
-        )
-        await global_cache_dal.commit_session()
-
-        with pytest.raises(NoResultFound):
-            await global_cache_dal.query_unique(test_global_cache_name, 'key_expired')
-
     # ------------------------------------------------------------------ #
     # query_unique
     # ------------------------------------------------------------------ #
@@ -215,9 +172,6 @@ class TestGlobalCacheDAL:
             global_cache_dal,
     ) -> None:
         """查询不存在的 key, 预期 NoResultFound"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await global_cache_dal.query_unique('nonexistent_name', 'nonexistent_key')
 
@@ -227,9 +181,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """插入过期记录, 默认查询查不到; include_expired=True 能查到"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         past = datetime(1990, 1, 1, 0, 0, 0)
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
@@ -257,9 +208,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """插入未过期记录, 正常查回"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
             cache_key=test_global_cache_key,
@@ -282,9 +230,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """同一 cache_name 插入多条不同 cache_key, 查回列表长度正确"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         keys = ['series_key_1', 'series_key_2', 'series_key_3']
         for key in keys:
             await global_cache_dal.add(
@@ -305,9 +250,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """同一 cache_name 下混入过期记录, 默认查询排除; include_expired=True 全部查回"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         past = datetime(1990, 1, 1, 0, 0, 0)
         future = datetime(year=9999, month=12, day=31)
 
@@ -337,9 +279,6 @@ class TestGlobalCacheDAL:
             global_cache_dal,
     ) -> None:
         """查询不存在的 cache_name, 返回空列表"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         result = await global_cache_dal.query_series('nonexistent_cache_name')
         assert result == []
 
@@ -351,9 +290,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """首次调用 add_update_exist, 验证为插入行为"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         result = await global_cache_dal.add_update_exist(
             cache_name=test_global_cache_name,
             cache_key=test_global_cache_key,
@@ -381,9 +317,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """先 add 插入, 再 add_update_exist 更新为新 value, 验证返回新值"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
             cache_key=test_global_cache_key,
@@ -416,9 +349,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """add_update_exist 带 timedelta 过期时间, 验证更新后 expired_at 变化"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         # 先插入一条带默认过期时间 (9999-12-31) 的记录
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
@@ -454,9 +384,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """对已过期记录调用 add_update_exist, 应为更新续期而非插入新行"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         past = datetime(1990, 1, 1, 0, 0, 0)
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
@@ -491,9 +418,6 @@ class TestGlobalCacheDAL:
             test_global_cache_value,
     ) -> None:
         """add_update_exist 带 datetime 过期时间更新已有记录, expired_at 应等于传入值"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         await global_cache_dal.add(
             cache_name=test_global_cache_name,
             cache_key=test_global_cache_key,
@@ -523,9 +447,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """同一 cache_name 下有过期和未过期记录, delete_series_expired 仅删除过期项"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         past = datetime(1990, 1, 1, 0, 0, 0)
         future = datetime(year=9999, month=12, day=31)
 
@@ -553,9 +474,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """delete_series_expired 只删除指定 cache_name 的过期记录, 不影响其他 cache_name"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         past = datetime(1990, 1, 1, 0, 0, 0)
 
         # 目标 cache_name 的过期记录
@@ -590,9 +508,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """跨多个 cache_name 的过期与未过期记录, delete_all_expired 删除所有过期项"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         past = datetime(1990, 1, 1, 0, 0, 0)
         future = datetime(year=9999, month=12, day=31)
 
@@ -631,9 +546,6 @@ class TestGlobalCacheDAL:
             test_global_cache_name,
     ) -> None:
         """无过期记录时, delete_all_expired 不影响任何数据"""
-        await global_cache_dal._clear_all()
-        await global_cache_dal.commit_session()
-
         future = datetime(year=9999, month=12, day=31)
         await global_cache_dal.add(
             cache_name=test_global_cache_name, cache_key='alive_1', cache_value='v1', expired_time=future,

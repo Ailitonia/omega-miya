@@ -1080,6 +1080,9 @@ class TestChatSession:
 
 _REAL_API_ENV = 'OPENAI_API_REAL_TEST'
 
+requires_live = require_env_flag(_REAL_API_ENV)
+"""真实请求验证类门禁: 日常运行(含全量套件)一律跳过, 由用户手动设置 OPENAI_API_REAL_TEST=1 后发起"""
+
 _REAL_API_TOOLS = [{
     'type': 'function',
     'function': {
@@ -1142,7 +1145,7 @@ def real_endpoint_guard(raw_capture: list[Any]):
         _skip_on_provider_error(e, raw_capture)
 
 
-@require_env_flag(_REAL_API_ENV)
+@requires_live
 class TestRealAPI:
 
     @pytest.fixture

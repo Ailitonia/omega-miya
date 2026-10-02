@@ -17,7 +17,14 @@ import pytest
 from nonebot.exception import FinishedException, PausedException, RejectedException
 from nonebug import App
 
-from tests.test_002_core.helpers import make_entity_init_params, make_mock_bot, registered_online_bot
+from tests.test_002_core.helpers import (
+    make_entity_init_params,
+    make_mock_bot,
+    make_mock_receipt,
+    make_obv11_group_message_event,
+    make_obv11_private_message_event,
+    registered_online_bot,
+)
 
 if TYPE_CHECKING:
     from nonebot.adapters import Event as BaseEvent
@@ -26,59 +33,6 @@ if TYPE_CHECKING:
 # ------------------------------------------------------------------ #
 # 事件构造工具
 # ------------------------------------------------------------------ #
-
-def _make_obv11_group_message_event(
-        *,
-        group_id: int = 10000,
-        user_id: int = 10001,
-        nickname: str | None = None,
-        card: str | None = None,
-        reply: Any = None,
-) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11 import Message
-    from nonebot.adapters.onebot.v11.event import GroupMessageEvent, Sender
-
-    return GroupMessageEvent(
-        time=1,
-        self_id=10086,
-        post_type='message',
-        sub_type='normal',
-        message_id=1,
-        user_id=user_id,
-        message_type='group',
-        group_id=group_id,
-        message=Message('hi'),
-        original_message=Message('hi'),
-        raw_message='hi',
-        font=0,
-        sender=Sender(user_id=user_id, nickname=nickname, card=card),
-        reply=reply,
-    )
-
-
-def _make_obv11_private_message_event(
-        *,
-        user_id: int = 10001,
-        nickname: str | None = None,
-) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11 import Message
-    from nonebot.adapters.onebot.v11.event import PrivateMessageEvent, Sender
-
-    return PrivateMessageEvent(
-        time=1,
-        self_id=10086,
-        post_type='message',
-        message_type='private',
-        sub_type='friend',
-        message_id=1,
-        user_id=user_id,
-        message=Message('hi'),
-        original_message=Message('hi'),
-        raw_message='hi',
-        font=0,
-        sender=Sender(user_id=user_id, nickname=nickname),
-    )
-
 
 def _make_obv11_meta_event() -> 'BaseEvent':
     from nonebot.adapters.onebot.v11.event import MetaEvent
@@ -189,6 +143,14 @@ def _make_console_message_event(*, direct: bool = False, channel_id: str = 'chan
     )
 
 
+def _make_event_depend(event: 'BaseEvent', adapter_name: str) -> Any:
+    """经注册表解析事件对应 Depend 类, 并以指定适配器名的 mock Bot 构造实例"""
+    from src.service.omega_base import OmegaMatcherInterface
+
+    depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
+    return depend_cls(bot=make_mock_bot(adapter_name=adapter_name), event=event)
+
+
 class TestModuleContract:
     """模块导出契约测试"""
 
@@ -288,14 +250,12 @@ class TestOmegaEntityInterface:
 
                 assert interface.get_bot() is bot
 
-    async def test_send_entity_message_wires_target_and_bot(self, app: App, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_send_entity_message_wires_target_and_bot(self, app: App, fake_uni_message_send: AsyncMock) -> None:
         from nonebot.adapters.onebot.v11 import Adapter, Bot
-        from nonebot_plugin_alconna.uniseg import UniMessage
 
         from src.service.omega_base import OmegaEntityInterface
 
-        send_mock = AsyncMock(return_value=MagicMock())
-        monkeypatch.setattr(UniMessage, 'send', send_mock)
+        send_mock = fake_uni_message_send
 
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
@@ -315,18 +275,16 @@ class TestOmegaEntityInterface:
                 assert kwargs['target'].id == '10000'
                 assert kwargs['target'].private is False
 
-    async def test_send_entity_message_auto_revoke_recalls(self, app: App, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_send_entity_message_auto_revoke_recalls(self, app: App, fake_uni_message_send: AsyncMock) -> None:
         from nonebot.adapters.console import Adapter
         from nonebot.adapters.console import Bot as ConsoleBot
-        from nonebot_plugin_alconna.uniseg import UniMessage
         from nonechat.model import Robot
 
         from src.service.omega_base import OmegaEntityInterface
 
-        receipt = MagicMock()
-        receipt.recall = AsyncMock()
-        send_mock = AsyncMock(return_value=receipt)
-        monkeypatch.setattr(UniMessage, 'send', send_mock)
+        receipt = make_mock_receipt()
+        send_mock = fake_uni_message_send
+        send_mock.return_value = receipt
 
         async with app.test_api():
             adapter = nonebot.get_adapter(Adapter)
@@ -614,7 +572,7 @@ class TestOmegaMatcherInterface:
         """直接构造默认 acquire_type='event'; depend 工厂按给定 acquire_type 构造接口实例"""
         from src.service.omega_base import OmegaMatcherInterface
 
-        bot, event, matcher = make_mock_bot(), _make_obv11_group_message_event(), MagicMock()
+        bot, event, matcher = make_mock_bot(), make_obv11_group_message_event(), MagicMock()
 
         interface = OmegaMatcherInterface(bot=bot, event=event, matcher=matcher)
 
@@ -642,10 +600,10 @@ class TestOmegaMatcherInterface:
         )
 
         assert OmegaMatcherInterface.get_event_depend_cls(
-            target_event=_make_obv11_group_message_event(),
+            target_event=make_obv11_group_message_event(),
         ) is OneBotV11GroupMessageEventDepend
         assert OmegaMatcherInterface.get_event_depend_cls(
-            target_event=_make_obv11_private_message_event(),
+            target_event=make_obv11_private_message_event(),
         ) is OneBotV11PrivateMessageEventDepend
         assert OmegaMatcherInterface.get_event_depend_cls(
             target_event=_make_obv11_poke_notify_event(),
@@ -667,7 +625,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11GroupMessageEventDepend
 
         bot = make_mock_bot()
-        event = _make_obv11_group_message_event()
+        event = make_obv11_group_message_event()
         interface = OmegaMatcherInterface(bot=bot, event=event, matcher=MagicMock())
 
         depend = interface.get_event_depend()
@@ -680,7 +638,7 @@ class TestOmegaMatcherInterface:
         from src.database.internal.entity import EntityType
         from src.service.omega_base import OmegaMatcherInterface
 
-        event = _make_obv11_group_message_event(group_id=20000, user_id=30001, nickname='nick')
+        event = make_obv11_group_message_event(group_id=20000, user_id=30001, nickname='nick')
 
         event_params = OmegaMatcherInterface(
             bot=make_mock_bot(), event=event, matcher=MagicMock(),
@@ -699,7 +657,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base import OmegaEntityInterface, OmegaMatcherInterface
 
         interface = OmegaMatcherInterface(
-            bot=make_mock_bot(), event=_make_obv11_group_message_event(group_id=20000), matcher=MagicMock(),
+            bot=make_mock_bot(), event=make_obv11_group_message_event(group_id=20000), matcher=MagicMock(),
         )
 
         entity_interface = interface.get_current_entity_interface()
@@ -715,7 +673,7 @@ class TestOmegaMatcherInterface:
 
         interface = OmegaMatcherInterface(
             bot=make_mock_bot(),
-            event=_make_obv11_group_message_event(group_id=20000, user_id=30001),
+            event=make_obv11_group_message_event(group_id=20000, user_id=30001),
             matcher=MagicMock(),
         )
 
@@ -739,7 +697,7 @@ class TestOmegaMatcherInterface:
             bot = ctx.create_bot(self_id=test_onebot_v11_bot.self_id, base=Bot, adapter=adapter, auto_connect=False)
 
             interface = OmegaMatcherInterface(
-                bot=bot, event=_make_obv11_group_message_event(group_id=group_id), matcher=MagicMock(),
+                bot=bot, event=make_obv11_group_message_event(group_id=group_id), matcher=MagicMock(),
             )
 
             async with interface.create_current_entity_session() as entity:
@@ -776,7 +734,7 @@ class TestOmegaMatcherInterface:
             bot = ctx.create_bot(self_id=test_onebot_v11_bot.self_id, base=Bot, adapter=adapter, auto_connect=False)
 
             interface = OmegaMatcherInterface(
-                bot=bot, event=_make_obv11_group_message_event(group_id=group_id), matcher=MagicMock(),
+                bot=bot, event=make_obv11_group_message_event(group_id=group_id), matcher=MagicMock(),
             )
 
             async def _raise_inside_session() -> None:
@@ -806,7 +764,7 @@ class TestOmegaMatcherInterface:
         from src.service.omega_base import OmegaMatcherInterface
 
         interface = OmegaMatcherInterface(
-            bot=make_mock_bot(), event=_make_obv11_group_message_event(), matcher=MagicMock(),
+            bot=make_mock_bot(), event=make_obv11_group_message_event(), matcher=MagicMock(),
         )
         mock_depend = MagicMock()
         mock_depend.send = AsyncMock(return_value=MagicMock())
@@ -828,8 +786,7 @@ class TestOmegaMatcherInterface:
     async def test_send_auto_revoke_recalls(self, monkeypatch: pytest.MonkeyPatch) -> None:
         interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
 
-        receipt = MagicMock()
-        receipt.recall = AsyncMock()
+        receipt = make_mock_receipt()
         mock_depend.send = AsyncMock(return_value=receipt)
         mock_depend.revoke_bot_sent_msg = AsyncMock()
 
@@ -847,7 +804,7 @@ class TestOmegaMatcherInterface:
 
         entity = OmegaMatcherInterface.get_target_entity(
             bot=make_mock_bot(),
-            event=_make_obv11_group_message_event(group_id=20000, user_id=30001),
+            event=make_obv11_group_message_event(group_id=20000, user_id=30001),
             db_session=MagicMock(),
             acquire_type='user',
         )
@@ -923,7 +880,7 @@ class TestOmegaMatcherInterface:
         matcher.reject_arg = AsyncMock(side_effect=RejectedException)
         matcher.reject_receive = AsyncMock(side_effect=RejectedException)
         interface = OmegaMatcherInterface(
-            bot=make_mock_bot(), event=_make_obv11_group_message_event(), matcher=matcher,
+            bot=make_mock_bot(), event=make_obv11_group_message_event(), matcher=matcher,
         )
         mock_depend = MagicMock()
         mock_depend.send = AsyncMock(return_value=MagicMock())
@@ -942,17 +899,12 @@ class TestOmegaMatcherInterface:
 class TestOneBotV11EventDepends:
     """OneBot V11 中间件 EventDepend 提取逻辑测试"""
 
-    @staticmethod
-    def _make_depend(event: 'BaseEvent') -> Any:
-        from src.service.omega_base import OmegaMatcherInterface
-
-        depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
-        return depend_cls(bot=make_mock_bot(adapter_name='OneBot V11'), event=event)
-
     async def test_group_message_event_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_obv11_group_message_event(group_id=20000, user_id=30001))
+        depend = _make_event_depend(
+            make_obv11_group_message_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
+        )
 
         params = depend.extract_entity_params('event')
 
@@ -963,7 +915,9 @@ class TestOneBotV11EventDepends:
     async def test_private_message_event_params_fallback_to_user(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_obv11_private_message_event(user_id=30001, nickname='nick'))
+        depend = _make_event_depend(
+            make_obv11_private_message_event(user_id=30001, nickname='nick'), adapter_name='OneBot V11',
+        )
 
         params = depend.extract_entity_params('event')
 
@@ -972,7 +926,7 @@ class TestOneBotV11EventDepends:
         assert params.entity_name == 'nick'
 
     async def test_meta_event_user_extraction_raises(self) -> None:
-        depend = self._make_depend(_make_obv11_meta_event())
+        depend = _make_event_depend(_make_obv11_meta_event(), adapter_name='OneBot V11')
 
         with pytest.raises(NotImplementedError):
             depend.extract_entity_params('user')
@@ -980,7 +934,9 @@ class TestOneBotV11EventDepends:
     async def test_notify_event_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_obv11_honor_notify_event(group_id=20000, user_id=30001))
+        depend = _make_event_depend(
+            _make_obv11_honor_notify_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
+        )
 
         event_params = depend.extract_entity_params('event')
         user_params = depend.extract_entity_params('user')
@@ -991,10 +947,7 @@ class TestOneBotV11EventDepends:
         assert user_params.entity_id == '30001'
 
     async def test_notify_event_without_group_falls_back_to_user(self) -> None:
-        """group_id 为空的 notify 事件应回退到用户对象, 不产生 entity_id='None' 的污染数据
-
-        PokeNotifyEvent 经注册表解析到专属 Depend, 此处直接实例化基类 Depend 验证其空值防御
-        """
+        """group_id 为空的 notify 事件应回退到用户实体"""
         from src.database.internal.entity import EntityType
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11NotifyEventDepend
 
@@ -1009,7 +962,9 @@ class TestOneBotV11EventDepends:
     async def test_private_poke_event_params_fallback_to_user(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_obv11_poke_notify_event(group_id=None, user_id=30001))
+        depend = _make_event_depend(
+            _make_obv11_poke_notify_event(group_id=None, user_id=30001), adapter_name='OneBot V11',
+        )
 
         event_params = depend.extract_entity_params('event')
 
@@ -1019,7 +974,9 @@ class TestOneBotV11EventDepends:
     async def test_group_poke_event_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_obv11_poke_notify_event(group_id=20000, user_id=30001))
+        depend = _make_event_depend(
+            _make_obv11_poke_notify_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
+        )
 
         event_params = depend.extract_entity_params('event')
 
@@ -1029,9 +986,9 @@ class TestOneBotV11EventDepends:
     async def test_group_message_user_params_include_sender_dump(self) -> None:
         from nonebot.adapters.onebot.v11.event import Sender
 
-        depend = self._make_depend(_make_obv11_group_message_event(
+        depend = _make_event_depend(make_obv11_group_message_event(
             group_id=20000, user_id=30001, nickname='nick', card='card',
-        ))
+        ), adapter_name='OneBot V11')
 
         user_params = depend.extract_entity_params('user')
 
@@ -1040,12 +997,14 @@ class TestOneBotV11EventDepends:
         assert user_params.entity_extra == Sender(user_id=30001, nickname='nick', card='card').model_dump()
 
     async def test_get_user_nickname_prefers_card(self) -> None:
-        depend = self._make_depend(_make_obv11_group_message_event(nickname='nick', card='card'))
+        depend = _make_event_depend(
+            make_obv11_group_message_event(nickname='nick', card='card'), adapter_name='OneBot V11',
+        )
 
         assert depend.get_user_nickname() == 'card'
 
     async def test_get_user_nickname_empty_fallback(self) -> None:
-        depend = self._make_depend(_make_obv11_group_message_event(nickname=None, card=None))
+        depend = _make_event_depend(make_obv11_group_message_event(nickname=None, card=None), adapter_name='OneBot V11')
 
         assert depend.get_user_nickname() == ''
 
@@ -1067,12 +1026,12 @@ class TestOneBotV11EventDepends:
                 MessageSegment.text('text'),
             ]),
         )
-        depend = self._make_depend(_make_obv11_group_message_event(reply=reply))
+        depend = _make_event_depend(make_obv11_group_message_event(reply=reply), adapter_name='OneBot V11')
 
         assert depend.get_reply_msg_image_urls() == ['https://example.com/1.jpg']
 
     async def test_get_reply_msg_image_urls_without_reply(self) -> None:
-        depend = self._make_depend(_make_obv11_group_message_event(reply=None))
+        depend = _make_event_depend(make_obv11_group_message_event(reply=None), adapter_name='OneBot V11')
 
         assert depend.get_reply_msg_image_urls() == []
 
@@ -1089,7 +1048,7 @@ class TestOneBotV11EventDepends:
             sender=Sender(user_id=1),
             message=Message('text only'),
         )
-        depend = self._make_depend(_make_obv11_group_message_event(reply=reply))
+        depend = _make_event_depend(make_obv11_group_message_event(reply=reply), adapter_name='OneBot V11')
 
         assert depend.get_reply_msg_image_urls() == []
 
@@ -1097,17 +1056,10 @@ class TestOneBotV11EventDepends:
 class TestTelegramEventDepends:
     """Telegram 中间件 EventDepend 提取逻辑测试"""
 
-    @staticmethod
-    def _make_depend(event: 'BaseEvent') -> Any:
-        from src.service.omega_base import OmegaMatcherInterface
-
-        depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
-        return depend_cls(bot=make_mock_bot(adapter_name='Telegram'), event=event)
-
     async def test_group_message_event_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_telegram_message_event('group'))
+        depend = _make_event_depend(_make_telegram_message_event('group'), adapter_name='Telegram')
 
         params = depend.extract_entity_params('event')
 
@@ -1120,7 +1072,7 @@ class TestTelegramEventDepends:
     async def test_group_message_user_params_with_username(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_telegram_message_event('group', username='tester'))
+        depend = _make_event_depend(_make_telegram_message_event('group', username='tester'), adapter_name='Telegram')
 
         params = depend.extract_entity_params('user')
 
@@ -1132,7 +1084,7 @@ class TestTelegramEventDepends:
 
     async def test_group_message_user_params_without_username(self) -> None:
         """username 为 None 时 entity_info 不应产生 'Name@None' 形式"""
-        depend = self._make_depend(_make_telegram_message_event('group', username=None))
+        depend = _make_event_depend(_make_telegram_message_event('group', username=None), adapter_name='Telegram')
 
         params = depend.extract_entity_params('user')
 
@@ -1141,7 +1093,7 @@ class TestTelegramEventDepends:
     async def test_private_message_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_telegram_message_event('private', username=None))
+        depend = _make_event_depend(_make_telegram_message_event('private', username=None), adapter_name='Telegram')
 
         event_params = depend.extract_entity_params('event')
         user_params = depend.extract_entity_params('user')
@@ -1154,7 +1106,7 @@ class TestTelegramEventDepends:
     async def test_channel_post_user_params_fallback_to_channel(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_telegram_message_event('channel'))
+        depend = _make_event_depend(_make_telegram_message_event('channel'), adapter_name='Telegram')
 
         event_params = depend.extract_entity_params('event')
         user_params = depend.extract_entity_params('user')
@@ -1193,7 +1145,7 @@ class TestTelegramEventDepends:
         assert depend_without.get_user_nickname() == ''
 
     async def test_group_depend_get_user_nickname(self) -> None:
-        depend = self._make_depend(_make_telegram_message_event('group'))
+        depend = _make_event_depend(_make_telegram_message_event('group'), adapter_name='Telegram')
 
         assert depend.get_user_nickname() == 'Tester'
 
@@ -1213,12 +1165,12 @@ class TestTelegramEventDepends:
             # original_message 仅在适配器 parse_event 中填充, 直接 model_validate 需显式提供
             'original_message': reply_message,
         }
-        depend = self._make_depend(_make_telegram_message_event('group', reply_to=reply_to))
+        depend = _make_event_depend(_make_telegram_message_event('group', reply_to=reply_to), adapter_name='Telegram')
 
         assert depend.get_reply_msg_image_urls() == ['file_id_1', 'file_id_2']
 
     async def test_get_reply_msg_image_urls_without_reply(self) -> None:
-        depend = self._make_depend(_make_telegram_message_event('group', reply_to=None))
+        depend = _make_event_depend(_make_telegram_message_event('group', reply_to=None), adapter_name='Telegram')
 
         assert depend.get_reply_msg_image_urls() == []
 
@@ -1226,17 +1178,10 @@ class TestTelegramEventDepends:
 class TestConsoleEventDepends:
     """Console 中间件 EventDepend 提取逻辑测试"""
 
-    @staticmethod
-    def _make_depend(event: 'BaseEvent') -> Any:
-        from src.service.omega_base import OmegaMatcherInterface
-
-        depend_cls = OmegaMatcherInterface.get_event_depend_cls(target_event=event)
-        return depend_cls(bot=make_mock_bot(adapter_name='Console'), event=event)
-
     async def test_event_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_console_message_event(channel_id='channel_1'))
+        depend = _make_event_depend(_make_console_message_event(channel_id='channel_1'), adapter_name='Console')
 
         params = depend.extract_entity_params('event')
 
@@ -1248,7 +1193,7 @@ class TestConsoleEventDepends:
     async def test_user_params_public_channel(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_console_message_event(channel_id='channel_1'))
+        depend = _make_event_depend(_make_console_message_event(channel_id='channel_1'), adapter_name='Console')
 
         params = depend.extract_entity_params('user')
 
@@ -1258,7 +1203,7 @@ class TestConsoleEventDepends:
     async def test_user_params_direct_channel(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_console_message_event(direct=True))
+        depend = _make_event_depend(_make_console_message_event(direct=True), adapter_name='Console')
 
         params = depend.extract_entity_params('user')
 
@@ -1270,7 +1215,7 @@ class TestConsoleEventDepends:
     async def test_user_params_private_prefix_channel(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = self._make_depend(_make_console_message_event(channel_id='private:user_1'))
+        depend = _make_event_depend(_make_console_message_event(channel_id='private:user_1'), adapter_name='Console')
 
         params = depend.extract_entity_params('user')
 
@@ -1278,11 +1223,11 @@ class TestConsoleEventDepends:
         assert params.entity_id == 'user_1'
 
     async def test_get_user_nickname(self) -> None:
-        depend = self._make_depend(_make_console_message_event())
+        depend = _make_event_depend(_make_console_message_event(), adapter_name='Console')
 
         assert depend.get_user_nickname() == '测试用户'
 
     async def test_get_reply_msg_image_urls(self) -> None:
-        depend = self._make_depend(_make_console_message_event())
+        depend = _make_event_depend(_make_console_message_event(), adapter_name='Console')
 
         assert depend.get_reply_msg_image_urls() == []

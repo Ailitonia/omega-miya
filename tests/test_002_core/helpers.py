@@ -17,12 +17,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from unittest.mock import AsyncMock, MagicMock
+from uuid import NAMESPACE_URL, uuid5
 
 import nonebot
 from sqlalchemy import delete
 from sqlalchemy.exc import NoResultFound
+
+from tests.utils import unique_test_id as unique_test_id  # noqa: F401
 
 if TYPE_CHECKING:
     from nonebot.adapters import Adapter, Bot
@@ -128,11 +130,6 @@ async def delete_global_cache_rows(cache_name: str, cache_keys: list[str] | None
 # omega_base / 事件构造族 helper
 # ------------------------------------------------------------------ #
 
-def unique_test_id(prefix: str) -> str:
-    """生成带唯一后缀的测试 ID"""
-    return f'{prefix}_{uuid4().hex[:8]}'
-
-
 def make_entity_init_params(**overrides: Any) -> 'EntityInitParams':
     """构造测试用 EntityInitParams (内部导入避免收集期初始化)"""
     from src.database.internal.bot import BotType
@@ -151,11 +148,7 @@ def make_entity_init_params(**overrides: Any) -> 'EntityInitParams':
 
 
 def make_mock_bot(*, self_id: str = '10086', adapter_name: str = 'OneBot V11') -> MagicMock:
-    """构造轻量 mock Bot (为三处本地实现配置属性的并集: self_id / adapter.get_name / type / config)
-
-    注意: 仅在不需要经 NoneBot 依赖注入 (如 SUPERUSER) 的场景使用;
-    涉及实体落库的调用必须将 self_id 设置为数据库中已存在的 Bot (如 test_onebot_v11_bot.self_id)
-    """
+    """构造轻量 mock Bot, 配置 self_id / adapter.get_name / type / config 属性"""
     bot = MagicMock()
     bot.self_id = self_id
     bot.type = 'fake_adapter'
@@ -165,12 +158,20 @@ def make_mock_bot(*, self_id: str = '10086', adapter_name: str = 'OneBot V11') -
     return bot
 
 
+def make_mock_receipt() -> MagicMock:
+    """构造带 recall AsyncMock 的 mock Receipt"""
+    receipt = MagicMock()
+    receipt.recall = AsyncMock()
+    return receipt
+
+
 def make_obv11_private_message_event(
         *,
         user_id: int = 10001,
         text: str = '/test',
         self_id: int = 10086,
         message_id: int = 1,
+        nickname: str | None = 'tester',
 ) -> 'BaseEvent':
     """构造 OneBot V11 私聊消息事件"""
     from nonebot.adapters.onebot.v11 import Message
@@ -188,17 +189,20 @@ def make_obv11_private_message_event(
         original_message=Message(text),
         raw_message=text,
         font=0,
-        sender=Sender(user_id=user_id, nickname='tester'),
+        sender=Sender(user_id=user_id, nickname=nickname),
     )
 
 
 def make_obv11_group_message_event(
         *,
-        group_id: int,
+        group_id: int = 10000,
         user_id: int = 10001,
         text: str = '/test',
         self_id: int = 10086,
         message_id: int = 1,
+        nickname: str | None = 'tester',
+        card: str | None = None,
+        reply: Any = None,
 ) -> 'BaseEvent':
     """构造 OneBot V11 群消息事件"""
     from nonebot.adapters.onebot.v11 import Message
@@ -217,7 +221,8 @@ def make_obv11_group_message_event(
         original_message=Message(text),
         raw_message=text,
         font=0,
-        sender=Sender(user_id=user_id, nickname='tester'),
+        sender=Sender(user_id=user_id, nickname=nickname, card=card),
+        reply=reply,
     )
 
 

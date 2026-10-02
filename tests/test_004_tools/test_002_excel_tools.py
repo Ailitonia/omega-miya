@@ -9,9 +9,8 @@
 """
 
 import io
-import shutil
 import warnings
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -90,13 +89,6 @@ def _excel_file(buf: 'BytesIO') -> 'pd.ExcelFile':
     """重置读指针后从内存缓冲区打开 ExcelFile"""
     buf.seek(0)
     return pd.ExcelFile(buf)
-
-
-def _cleanup_path_test_folder() -> None:
-    """清理路径语义用例产生的临时文件与目录"""
-    from src.resource import TemporaryResource
-
-    shutil.rmtree(TemporaryResource('excel_tools_test').path, ignore_errors=True)
 
 
 # 异常信息片段, 用于 pytest.raises 的 match 校验
@@ -202,17 +194,13 @@ class TestDumpExcel:
             assert excel.sheet_names == ['Custom']
         assert await sample_tools.load_excel(excel_file, sheet_name='Custom') == SAMPLE_MODELS
 
-    async def test_dump_creates_missing_parent_dirs(self, sample_tools):
-        from src.resource import TemporaryResource
+    async def test_dump_creates_missing_parent_dirs(self, sample_tools, excel_tmp_folder):
+        file = excel_tmp_folder('deep', 'nested', 'subdir', 'dump.xlsx')
 
-        file = TemporaryResource('excel_tools_test', 'deep', 'nested', 'subdir', 'dump.xlsx')
-        try:
-            await sample_tools.dump_excel(SAMPLE_MODELS, file)
+        await sample_tools.dump_excel(SAMPLE_MODELS, file)
 
-            assert file.is_file
-            assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
-        finally:
-            _cleanup_path_test_folder()
+        assert file.is_file
+        assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
 
     async def test_dump_empty_data_writes_header_only(self, sample_tools, excel_file):
         await sample_tools.dump_excel([], excel_file)
@@ -220,12 +208,6 @@ class TestDumpExcel:
         assert excel_file.getbuffer().nbytes > 0
         assert _read_excel(excel_file).columns.tolist() == list(SampleModel.model_fields)
         assert await sample_tools.load_excel(excel_file) == []
-
-    async def test_dump_invalid_data_raises_validation_error(self, sample_tools, excel_file):
-        with pytest.raises(ValidationError):
-            await sample_tools.dump_excel([{'name': 'alpha'}], excel_file)
-
-        assert excel_file.getvalue() == b''
 
     async def test_dump_overwrites_existing_content(self, sample_tools, excel_file):
         replacement = [SampleModel(
@@ -277,11 +259,6 @@ class TestDumpExcel:
 
 
 class TestLoadExcel:
-    async def test_round_trip(self, sample_tools, excel_file):
-        await sample_tools.dump_excel(SAMPLE_MODELS, excel_file)
-
-        assert await sample_tools.load_excel(excel_file) == SAMPLE_MODELS
-
     async def test_empty_cells_become_none_for_optional_fields(self, optional_tools, excel_file):
         data = [
             OptionalModel(name='a', remark='r', score=1.5),
@@ -361,21 +338,13 @@ class TestLoadExcel:
         with pytest.raises(ResourceNotFileError, match=_MSG_NOT_FILE):
             await sample_tools.load_excel(TemporaryResource('excel_tools_test', 'not_exists.xlsx'))
 
-    async def test_load_directory_raises(self, sample_tools):
-        from src.resource import ResourceNotFileError, TemporaryResource
+    async def test_load_directory_raises(self, sample_tools, excel_tmp_folder):
+        from src.resource import ResourceNotFileError
 
-        folder = TemporaryResource('excel_tools_test', 'as_load_dir')
+        folder = excel_tmp_folder('as_load_dir')
         folder.path.mkdir(parents=True, exist_ok=True)
-        try:
-            with pytest.raises(ResourceNotFileError, match=_MSG_NOT_FILE):
-                await sample_tools.load_excel(folder)
-        finally:
-            _cleanup_path_test_folder()
-
-    async def test_load_header_only_returns_empty(self, sample_tools, excel_file):
-        await sample_tools.dump_excel([], excel_file)
-
-        assert await sample_tools.load_excel(excel_file) == []
+        with pytest.raises(ResourceNotFileError, match=_MSG_NOT_FILE):
+            await sample_tools.load_excel(folder)
 
     async def test_fully_empty_rows_become_none_models(self, nullable_tools, excel_file):
         pd.DataFrame({'a': [1, None, 3], 'b': ['x', None, 'z']}).to_excel(excel_file, index=False)
@@ -658,41 +627,31 @@ class TestRoundTrip:
         assert loaded[0].created_at == datetime(2024, 1, 1, 12, 30, 45, 123000)
         assert loaded != data
 
-    async def test_dump_failure_leaves_buffer_untouched(self, sample_tools, excel_file):
+    async def test_dump_failure_leaves_buffer_untouched(self, sample_tools, excel_file, tz_aware_sample):
         """非分块写出中途失败时缓冲区目标保持写入前内容(临时目标原子写入)"""
         from src.utils.excel_tools import ExcelToolsException
 
         await sample_tools.dump_excel(SAMPLE_MODELS, excel_file)
         original_content = excel_file.getvalue()
 
-        bad_data = [SampleModel(
-            name='tz', count=1, score=1.0, enabled=True, created_at=datetime(2024, 1, 1, tzinfo=UTC),
-        )]
         with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
-            await sample_tools.dump_excel(bad_data, excel_file)
+            await sample_tools.dump_excel([SampleModel(**tz_aware_sample)], excel_file)
 
         assert excel_file.getvalue() == original_content
         assert await sample_tools.load_excel(excel_file) == SAMPLE_MODELS
 
-    async def test_dump_failure_leaves_file_untouched(self, sample_tools):
+    async def test_dump_failure_leaves_file_untouched(self, sample_tools, excel_tmp_folder, tz_aware_sample):
         """非分块写出中途失败时文件目标保持写入前内容, 且不残留临时文件"""
-        from src.resource import TemporaryResource
         from src.utils.excel_tools import ExcelToolsException
 
-        file = TemporaryResource('excel_tools_test', 'atomic_dump.xlsx')
-        try:
-            await sample_tools.dump_excel(SAMPLE_MODELS, file)
+        file = excel_tmp_folder('atomic_dump.xlsx')
+        await sample_tools.dump_excel(SAMPLE_MODELS, file)
 
-            bad_data = [SampleModel(
-                name='tz', count=1, score=1.0, enabled=True, created_at=datetime(2024, 1, 1, tzinfo=UTC),
-            )]
-            with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
-                await sample_tools.dump_excel(bad_data, file)
+        with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
+            await sample_tools.dump_excel([SampleModel(**tz_aware_sample)], file)
 
-            assert await sample_tools.load_excel(file) == SAMPLE_MODELS
-            assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
-        finally:
-            _cleanup_path_test_folder()
+        assert await sample_tools.load_excel(file) == SAMPLE_MODELS
+        assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
 
 
 class TestAppendExcel:
@@ -786,35 +745,27 @@ class TestAppendExcel:
 
 
 class TestSheetNameValidation:
+    @pytest.mark.parametrize('method', ['dump_excel', 'append_excel'])
     @pytest.mark.parametrize(
         'sheet_name',
-        ['', 'x' * 32, 'a/b', 'a*b'],
-        ids=['empty', 'too-long', 'invalid-slash', 'invalid-asterisk'],
+        ['', 'x' * 32, 'a/b', 'a*b', 'a[b'],
+        ids=['empty', 'too-long', 'invalid-slash', 'invalid-asterisk', 'invalid-bracket'],
     )
-    async def test_dump_invalid_sheet_name_raises(self, sample_tools, excel_file, sheet_name):
+    async def test_invalid_sheet_name_raises(self, sample_tools, excel_file, method, sheet_name):
         """非法 sheet 名在写入前校验失败, 目标不被触碰"""
         from src.utils.excel_tools import ExcelToolsException
 
-        with pytest.raises(ExcelToolsException, match='sheet 名'):
-            await sample_tools.dump_excel(SAMPLE_MODELS, excel_file, sheet_name=sheet_name)
-
-        assert excel_file.getvalue() == b''
-
-    @pytest.mark.parametrize(
-        'sheet_name',
-        ['', 'x' * 32, 'a/b', 'a[b'],
-        ids=['empty', 'too-long', 'invalid-slash', 'invalid-bracket'],
-    )
-    async def test_append_invalid_sheet_name_raises(self, sample_tools, excel_file, sheet_name):
-        from src.utils.excel_tools import ExcelToolsException
-
-        pd.DataFrame({'old': [1]}).to_excel(excel_file, sheet_name='Old', index=False)
+        if method == 'append_excel':
+            pd.DataFrame({'old': [1]}).to_excel(excel_file, sheet_name='Old', index=False)
 
         with pytest.raises(ExcelToolsException, match='sheet 名'):
-            await sample_tools.append_excel(SAMPLE_MODELS, excel_file, sheet_name=sheet_name)
+            await getattr(sample_tools, method)(SAMPLE_MODELS, excel_file, sheet_name=sheet_name)
 
-        with _excel_file(excel_file) as excel:
-            assert excel.sheet_names == ['Old']
+        if method == 'append_excel':
+            with _excel_file(excel_file) as excel:
+                assert excel.sheet_names == ['Old']
+        else:
+            assert excel_file.getvalue() == b''
 
     async def test_max_length_sheet_name_allowed(self, sample_tools, excel_file):
         """31 字符上限内的 sheet 名合法"""
@@ -872,16 +823,6 @@ class TestDumpExcelInChunks:
         loaded = await sample_tools.load_excel(excel_file)
         assert loaded == SAMPLE_MODELS
 
-    async def test_in_chunks_first_item_invalid_raises_validation_error(self, sample_tools, excel_file):
-        """首条数据校验失败时裸抛 ValidationError, 不被包装成 ExcelToolsException"""
-        from src.utils.excel_tools import ExcelToolsException
-
-        with pytest.raises(ValidationError) as exc_info:
-            await sample_tools.dump_excel([{'name': 'alpha'}], excel_file, in_chunks=True)
-
-        assert not isinstance(exc_info.value, ExcelToolsException)
-        assert excel_file.getvalue() == b''
-
     async def test_in_chunks_later_item_invalid_raises_validation_error(self, sample_tools, excel_file):
         """后续条目校验失败时同样裸抛 ValidationError, 与非分块路径语义一致"""
         from src.utils.excel_tools import ExcelToolsException
@@ -906,23 +847,18 @@ class TestDumpExcelInChunks:
         assert excel_file.getvalue() == original_content
         assert await sample_tools.load_excel(excel_file) == SAMPLE_MODELS
 
-    async def test_in_chunks_later_item_invalid_leaves_file_untouched(self, sample_tools):
+    async def test_in_chunks_later_item_invalid_leaves_file_untouched(self, sample_tools, excel_tmp_folder):
         """后续条目校验失败时文件目标保持写入前内容, 且不残留临时文件"""
-        from src.resource import TemporaryResource
+        file = excel_tmp_folder('atomic_chunks.xlsx')
+        await sample_tools.dump_excel(SAMPLE_MODELS, file)
 
-        file = TemporaryResource('excel_tools_test', 'atomic_chunks.xlsx')
-        try:
-            await sample_tools.dump_excel(SAMPLE_MODELS, file)
+        with pytest.raises(ValidationError):
+            await sample_tools.dump_excel(
+                [SAMPLE_MODELS[0], {'name': 'bad'}], file, in_chunks=True
+            )
 
-            with pytest.raises(ValidationError):
-                await sample_tools.dump_excel(
-                    [SAMPLE_MODELS[0], {'name': 'bad'}], file, in_chunks=True
-                )
-
-            assert await sample_tools.load_excel(file) == SAMPLE_MODELS
-            assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
-        finally:
-            _cleanup_path_test_folder()
+        assert await sample_tools.load_excel(file) == SAMPLE_MODELS
+        assert [p for p in file.path.parent.iterdir() if p.name != file.path.name] == []
 
     async def test_write_excel_in_chunks_empty_iterator(self, excel_file):
         """空迭代器直接调用分块写入, 产出仅含空 sheet 的合法文件(私有方法健壮性)"""
@@ -934,17 +870,13 @@ class TestDumpExcelInChunks:
             assert excel.sheet_names == ['Empty']
         assert _read_excel(excel_file).empty
 
-    async def test_in_chunks_creates_missing_parent_dirs(self, sample_tools):
-        from src.resource import TemporaryResource
+    async def test_in_chunks_creates_missing_parent_dirs(self, sample_tools, excel_tmp_folder):
+        file = excel_tmp_folder('deep', 'nested', 'dump_in_chunks.xlsx')
 
-        file = TemporaryResource('excel_tools_test', 'deep', 'nested', 'dump_in_chunks.xlsx')
-        try:
-            await sample_tools.dump_excel(SAMPLE_MODELS, file, in_chunks=True)
+        await sample_tools.dump_excel(SAMPLE_MODELS, file, in_chunks=True)
 
-            assert file.is_file
-            assert await sample_tools.load_excel(file) == SAMPLE_MODELS
-        finally:
-            _cleanup_path_test_folder()
+        assert file.is_file
+        assert await sample_tools.load_excel(file) == SAMPLE_MODELS
 
 
 class TestExceptionWrapping:
@@ -967,19 +899,15 @@ class TestExceptionWrapping:
         with pytest.raises(ExcelToolsException, match='NOPE'):
             await sample_tools.load_excel(excel_file, sheet_name='NOPE')
 
-    async def test_write_to_directory_wrapped(self, sample_tools):
-        from src.resource import TemporaryResource
+    async def test_write_to_directory_wrapped(self, sample_tools, excel_tmp_folder):
         from src.utils.excel_tools import ExcelToolsException
 
-        target = TemporaryResource('excel_tools_test', 'as_dir.xlsx')
+        target = excel_tmp_folder('as_dir.xlsx')
         target.path.mkdir(parents=True, exist_ok=True)
-        try:
-            with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
-                await sample_tools.dump_excel(SAMPLE_MODELS, target)
+        with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
+            await sample_tools.dump_excel(SAMPLE_MODELS, target)
 
-            assert [p for p in target.path.parent.iterdir() if p.name != target.path.name] == []
-        finally:
-            _cleanup_path_test_folder()
+        assert [p for p in target.path.parent.iterdir() if p.name != target.path.name] == []
 
     async def test_exception_contract(self):
         from src.exception import OmegaException
@@ -992,42 +920,28 @@ class TestExceptionWrapping:
         assert 'some message' in str(exc)
         assert repr(exc) == "ExcelToolsException(message='some message')"
 
-    async def test_validation_error_not_wrapped(self, sample_tools, excel_file):
+    @pytest.mark.parametrize('in_chunks', [False, True], ids=['full', 'in-chunks'])
+    async def test_validation_error_not_wrapped(self, sample_tools, excel_file, in_chunks):
+        """数据校验失败时裸抛 ValidationError, 不被包装成 ExcelToolsException"""
         from src.utils.excel_tools import ExcelToolsException
 
         with pytest.raises(ValidationError) as exc_info:
-            await sample_tools.dump_excel([{'name': 'alpha'}], excel_file)
+            await sample_tools.dump_excel([{'name': 'alpha'}], excel_file, in_chunks=in_chunks)
 
         assert not isinstance(exc_info.value, ExcelToolsException)
         assert excel_file.getvalue() == b''
 
-    async def test_read_closed_buffer_wrapped(self, sample_tools):
+    @pytest.mark.parametrize('method', ['load_excel', 'dump_excel', 'append_excel'])
+    async def test_closed_buffer_wrapped(self, sample_tools, method):
         """已关闭缓冲区在目标检查阶段抛出 ExcelToolsException, 不透出裸 ValueError"""
         from src.utils.excel_tools import ExcelToolsException
 
         buffer = io.BytesIO()
         buffer.close()
 
+        args = (buffer,) if method == 'load_excel' else (SAMPLE_MODELS, buffer)
         with pytest.raises(ExcelToolsException, match=_MSG_BUFFER_UNUSABLE):
-            await sample_tools.load_excel(buffer)
-
-    async def test_dump_closed_buffer_wrapped(self, sample_tools):
-        from src.utils.excel_tools import ExcelToolsException
-
-        buffer = io.BytesIO()
-        buffer.close()
-
-        with pytest.raises(ExcelToolsException, match=_MSG_BUFFER_UNUSABLE):
-            await sample_tools.dump_excel(SAMPLE_MODELS, buffer)
-
-    async def test_append_closed_buffer_wrapped(self, sample_tools):
-        from src.utils.excel_tools import ExcelToolsException
-
-        buffer = io.BytesIO()
-        buffer.close()
-
-        with pytest.raises(ExcelToolsException, match=_MSG_BUFFER_UNUSABLE):
-            await sample_tools.append_excel(SAMPLE_MODELS, buffer)
+            await getattr(sample_tools, method)(*args)
 
     async def test_read_non_seekable_stream_wrapped(self, sample_tools):
         """不可 seek 的流在目标检查阶段抛出 ExcelToolsException, 不透出裸 UnsupportedOperation"""
@@ -1043,13 +957,9 @@ class TestExceptionWrapping:
         with pytest.raises(ExcelToolsException, match=_MSG_BUFFER_UNUSABLE):
             await sample_tools.load_excel(NonSeekableStream())
 
-    async def test_dump_timezone_aware_datetime_wrapped(self, sample_tools, excel_file):
+    async def test_dump_timezone_aware_datetime_wrapped(self, sample_tools, excel_file, tz_aware_sample):
         """时区感知 datetime 无法写出(openpyxl 限制), 包装为 ExcelToolsException"""
         from src.utils.excel_tools import ExcelToolsException
 
-        data = [SampleModel(
-            name='tz', count=1, score=1.0, enabled=True, created_at=datetime(2024, 1, 1, tzinfo=UTC),
-        )]
-
         with pytest.raises(ExcelToolsException, match=_MSG_WRITE_FAIL):
-            await sample_tools.dump_excel(data, excel_file)
+            await sample_tools.dump_excel([SampleModel(**tz_aware_sample)], excel_file)

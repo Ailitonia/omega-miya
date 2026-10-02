@@ -8,11 +8,9 @@
 @Software       : PyCharm
 """
 
-import random
-import string
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
@@ -23,47 +21,6 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope='class')
-async def test_history_message_id() -> str:
-    return f'MESSAGE_ID_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_history_bot_self_id() -> str:
-    return f'BOT_SELF_ID_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_history_event_entity_id() -> str:
-    return f'EVENT_ENTITY_ID_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_history_user_entity_id() -> str:
-    return f'USER_ENTITY_ID_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_history_message_type() -> str:
-    return f'MESSAGE_TYPE_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-
-
-@pytest.fixture(scope='class')
-async def test_history_message_plain_text() -> str:
-    return f'MESSAGE_PLAIN_TEXT_{"".join(random.choices(string.ascii_letters + string.digits, k=1024))}'
-
-
-@pytest.fixture(scope='class')
-async def test_history_message_raw(
-        test_history_message_type,
-        test_history_message_plain_text,
-) -> list[dict[str, Any]]:
-    return [
-        {'type': 'text', 'data': {'text': test_history_message_plain_text}},
-        {'type': test_history_message_type, 'data': {'meta': 'test'}},
-    ]
-
-
-@pytest.fixture(scope='class')
 async def history_dal() -> AsyncGenerator['HistoryDAL', None]:
     from src.database.internal.history import HistoryDAL
 
@@ -71,51 +28,15 @@ async def history_dal() -> AsyncGenerator['HistoryDAL', None]:
         yield dal
 
 
+@pytest.fixture(autouse=True)
+async def _clean_table(history_dal) -> None:
+    """每个测试用例执行前清空数据表"""
+    await history_dal._clear_all()
+    await history_dal.commit_session()
+
+
 class TestHistoryDAL:
     """HistoryDAL CRUD 单元测试"""
-
-    async def test_check_clear_table(self, history_dal) -> None:
-        """清空数据表, 查回验证表行数为空"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
-        rows_num = await history_dal._count_all()
-
-        assert rows_num == 0
-
-    async def test_clear_all_rollback(
-            self,
-            history_dal,
-            test_history_message_id,
-            test_history_bot_self_id,
-            test_history_event_entity_id,
-            test_history_user_entity_id,
-            test_history_message_type,
-            test_history_message_plain_text,
-            test_history_message_raw,
-    ) -> None:
-        """_clear_all 不执行 commit, 外层事务 rollback 后数据应恢复"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
-        now_timestamp = int(datetime.now().timestamp())
-        await history_dal.add(
-            received_timestamp=now_timestamp,
-            message_id=test_history_message_id,
-            bot_self_id=test_history_bot_self_id,
-            event_entity_id=test_history_event_entity_id,
-            user_entity_id=test_history_user_entity_id,
-            message_type=test_history_message_type,
-            message_plain_text=test_history_message_plain_text,
-            message_raw=test_history_message_raw,
-        )
-        await history_dal.commit_session()
-
-        await history_dal._clear_all()
-        assert await history_dal._count_all() == 0
-
-        await history_dal.rollback_session()
-        assert await history_dal._count_all() == 1
 
     # ------------------------------------------------------------------ #
     # add
@@ -133,9 +54,6 @@ class TestHistoryDAL:
             test_history_message_raw,
     ) -> None:
         """插入一条记录, 验证返回值所有字段正确 (含 JSON 字段往返)"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         now_timestamp = int(datetime.now().timestamp())
         result = await history_dal.add(
             received_timestamp=now_timestamp,
@@ -164,9 +82,6 @@ class TestHistoryDAL:
             test_history_bot_self_id,
     ) -> None:
         """插入含嵌套结构的多段消息列表, 查回验证嵌套结构与元素顺序完整"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         nested_raw = [
             {'type': 'text', 'data': {'text': 'hello'}},
             {'type': 'image', 'data': {'url': 'https://example.com/img.png', 'meta': {'width': 640, 'height': 480}}},
@@ -191,9 +106,6 @@ class TestHistoryDAL:
 
     async def test_add_multi_distinct_ids(self, history_dal, test_history_bot_self_id) -> None:
         """插入多条 (不同 message_id + 不同 entity 组合), 验证 id 递增且 _count_all 递增"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         ids = []
         for i in range(5):
@@ -226,9 +138,6 @@ class TestHistoryDAL:
             test_history_message_raw,
     ) -> None:
         """相同 (bot_self_id, message_id) 插入两次, 预期 IntegrityError (唯一约束 1)"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         now_timestamp = int(datetime.now().timestamp())
         await history_dal.add(
             received_timestamp=now_timestamp,
@@ -266,67 +175,12 @@ class TestHistoryDAL:
         assert queried.message_plain_text == test_history_message_plain_text
         assert queried.message_raw == test_history_message_raw
 
-    async def test_add_duplicate_raises_full_unique(
-            self,
-            history_dal,
-            test_history_message_id,
-            test_history_bot_self_id,
-            test_history_event_entity_id,
-            test_history_user_entity_id,
-            test_history_message_type,
-            test_history_message_plain_text,
-            test_history_message_raw,
-    ) -> None:
-        """四元组完全相同的记录重复插入, 实际命中 (bot_self_id, message_id) 唯一约束, 预期 IntegrityError"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
-        now_timestamp = int(datetime.now().timestamp())
-        await history_dal.add(
-            received_timestamp=now_timestamp,
-            message_id=test_history_message_id,
-            bot_self_id=test_history_bot_self_id,
-            event_entity_id=test_history_event_entity_id,
-            user_entity_id=test_history_user_entity_id,
-            message_type=test_history_message_type,
-            message_plain_text=test_history_message_plain_text,
-            message_raw=test_history_message_raw,
-        )
-        await history_dal.commit_session()
-
-        with pytest.raises(IntegrityError):
-            await history_dal.add(
-                received_timestamp=now_timestamp,
-                message_id=test_history_message_id,
-                bot_self_id=test_history_bot_self_id,
-                event_entity_id=test_history_event_entity_id,
-                user_entity_id=test_history_user_entity_id,
-                message_type=test_history_message_type,
-                message_plain_text='other text',
-                message_raw=[],
-            )
-
-        # 回滚到正常状态
-        await history_dal.rollback_session()
-
-        queried = await history_dal.query_unique(
-            test_history_message_id,
-            test_history_bot_self_id,
-            test_history_event_entity_id,
-            test_history_user_entity_id,
-        )
-        assert queried.message_plain_text == test_history_message_plain_text
-        assert queried.message_raw == test_history_message_raw
-
     # ------------------------------------------------------------------ #
     # add — message_raw 边界条件
     # ------------------------------------------------------------------ #
 
     async def test_add_message_raw_empty_list(self, history_dal, test_history_bot_self_id) -> None:
         """message_raw=[] 空列表插入, 查回验证为空列表"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         now_timestamp = int(datetime.now().timestamp())
         await history_dal.add(
             received_timestamp=now_timestamp,
@@ -346,10 +200,7 @@ class TestHistoryDAL:
         assert queried.message_raw == []
 
     async def test_add_message_raw_dict_rejected(self, history_dal, test_history_bot_self_id) -> None:
-        """message_raw 传旧形态 dict (含空 dict 与嵌套 dict), 预期 ValidationError 且不写入数据"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
+        """message_raw 传 dict (非 list) 时预期 ValidationError 且不写入数据"""
         now_timestamp = int(datetime.now().timestamp())
         for legacy_raw in ({}, {'segments': [{'type': 'text', 'data': {'text': 'hello'}}]}):
             with pytest.raises(ValidationError):
@@ -368,9 +219,6 @@ class TestHistoryDAL:
 
     async def test_add_message_raw_none_rejected(self, history_dal, test_history_bot_self_id) -> None:
         """message_raw=None, 预期 ValidationError 且不写入数据"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         with pytest.raises(ValidationError):
             await history_dal.add(
                 received_timestamp=int(datetime.now().timestamp()),
@@ -387,9 +235,6 @@ class TestHistoryDAL:
 
     async def test_add_message_raw_invalid_element_rejected(self, history_dal, test_history_bot_self_id) -> None:
         """message_raw 元素非 dict 时 (纯元素/混合元素), 预期 ValidationError 且不写入数据"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         now_timestamp = int(datetime.now().timestamp())
         for invalid_raw in (['not_a_dict'], [{'type': 'text'}, 'mixed']):
             with pytest.raises(ValidationError):
@@ -407,16 +252,11 @@ class TestHistoryDAL:
         assert await history_dal._count_all() == 0
 
     async def test_add_message_raw_not_json_serializable(self, history_dal, test_history_bot_self_id) -> None:
-        """message_raw 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败
-
-        message_raw 类型为 list[dict[str, Any]], 入口 pydantic 校验不限制元素内部的值类型,
-        不可序列化值 (如 bytes) 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异
-        (如 StatementError 包装 TypeError), 此处固定当前的失败行为,
-        若后续 DAL 层增加前置序列化校验, 本用例需同步调整
-        """
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
+        """message_raw 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败"""
+        # message_raw 类型为 list[dict[str, Any]], 入口 pydantic 校验不限制元素内部的值类型,
+        # 不可序列化值 (如 bytes) 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异
+        # (如 StatementError 包装 TypeError), 此处固定当前的失败行为,
+        # 若后续 DAL 层增加前置序列化校验, 本用例需同步调整
         with pytest.raises((TypeError, StatementError)):
             await history_dal.add(
                 received_timestamp=int(datetime.now().timestamp()),
@@ -439,9 +279,6 @@ class TestHistoryDAL:
 
     async def test_query_unique_not_found(self, history_dal) -> None:
         """查询不存在的记录, 预期 NoResultFound"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         with pytest.raises(NoResultFound):
             await history_dal.query_unique(
                 'nonexistent_msg',
@@ -462,9 +299,6 @@ class TestHistoryDAL:
             test_history_message_raw,
     ) -> None:
         """插入后按四元组查询, 验证返回字段"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         now_timestamp = int(datetime.now().timestamp())
         await history_dal.add(
             received_timestamp=now_timestamp,
@@ -499,9 +333,6 @@ class TestHistoryDAL:
 
     async def test_query_records_by_event_entity_id(self, history_dal) -> None:
         """按 event_entity_id 过滤"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -520,9 +351,6 @@ class TestHistoryDAL:
 
     async def test_query_records_by_user_entity_id(self, history_dal) -> None:
         """按 user_entity_id 过滤"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_x', message_type='group',
@@ -541,9 +369,6 @@ class TestHistoryDAL:
 
     async def test_query_records_by_event_and_user(self, history_dal) -> None:
         """同时按 event_entity_id + user_entity_id 过滤"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_shared', user_entity_id='user_shared', message_type='group',
@@ -564,9 +389,6 @@ class TestHistoryDAL:
 
     async def test_query_records_by_message_type(self, history_dal) -> None:
         """加 message_type 过滤"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -586,9 +408,6 @@ class TestHistoryDAL:
 
     async def test_query_records_by_time_range(self, history_dal) -> None:
         """start_time + end_time (datetime) 过滤"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_dt = datetime(2025, 1, 1, 0, 0, 0)
         base_ts = int(base_dt.timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
@@ -614,9 +433,6 @@ class TestHistoryDAL:
 
     async def test_query_records_exclude_bot_self(self, history_dal) -> None:
         """exclude_bot_self_message=True 排除 bot_self_id == user_entity_id 的记录"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         # bot_self_id == user_entity_id (bot 自身消息)
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
@@ -638,9 +454,6 @@ class TestHistoryDAL:
 
     async def test_query_records_limit(self, history_dal) -> None:
         """limit 限制返回数量, 取最近 (timestamp 最大) 的记录"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         for i in range(5):
             await history_dal.add(
@@ -667,9 +480,6 @@ class TestHistoryDAL:
 
     async def test_query_records_ordering_desc(self, history_dal) -> None:
         """验证结果按 received_timestamp DESC 排序"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         timestamps = [1000000000, 1000000005, 1000000003, 1000000001, 1000000004]
         for i, ts in enumerate(timestamps):
             await history_dal.add(
@@ -685,9 +495,6 @@ class TestHistoryDAL:
 
     async def test_query_records_empty(self, history_dal) -> None:
         """条件不匹配返回空列表"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         await history_dal.add(
             received_timestamp=1000000000,
             message_id='m1',
@@ -705,9 +512,6 @@ class TestHistoryDAL:
 
     async def test_query_records_raises_no_entity(self, history_dal) -> None:
         """event_entity_id 和 user_entity_id 都为 None, 预期 ValueError"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         with pytest.raises(ValueError, match='need at least one of the event_entity_id and user_entity_id parameters'):
             await history_dal.query_records_by_condition(bot_self_id='bot1')
 
@@ -717,9 +521,6 @@ class TestHistoryDAL:
 
     async def test_count_by_event_entity_id(self, history_dal) -> None:
         """按 event_entity_id 过滤计数"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -737,9 +538,6 @@ class TestHistoryDAL:
 
     async def test_count_by_user_entity_id(self, history_dal) -> None:
         """按 user_entity_id 过滤计数"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_x', message_type='group',
@@ -756,9 +554,6 @@ class TestHistoryDAL:
 
     async def test_count_with_message_type(self, history_dal) -> None:
         """加 message_type 过滤计数"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -778,9 +573,6 @@ class TestHistoryDAL:
 
     async def test_count_with_time_range(self, history_dal) -> None:
         """时间范围过滤计数"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_dt = datetime(2025, 1, 1, 0, 0, 0)
         base_ts = int(base_dt.timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
@@ -801,9 +593,6 @@ class TestHistoryDAL:
 
     async def test_count_exclude_bot_self(self, history_dal) -> None:
         """排除 bot 自身消息后的计数"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='bot1', message_type='group',
@@ -825,9 +614,6 @@ class TestHistoryDAL:
 
     async def test_count_zero(self, history_dal) -> None:
         """不匹配返回 0"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         await history_dal.add(
             received_timestamp=1000000000,
             message_id='m1',
@@ -844,9 +630,6 @@ class TestHistoryDAL:
 
     async def test_count_raises_no_entity(self, history_dal) -> None:
         """event_entity_id 和 user_entity_id 都为 None, 预期 ValueError"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         with pytest.raises(ValueError, match='need at least one of the event_entity_id and user_entity_id parameters'):
             await history_dal.count_records_by_condition(bot_self_id='bot1')
 
@@ -856,9 +639,6 @@ class TestHistoryDAL:
 
     async def test_delete_period_older_basic(self, history_dal) -> None:
         """删除 received_timestamp <= before_timestamp 的记录, 验证剩余"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -881,9 +661,6 @@ class TestHistoryDAL:
 
     async def test_delete_period_older_with_bot_self_id(self, history_dal) -> None:
         """指定 bot_self_id 只删该 bot 的过期记录, 其他 bot 的同 timestamp 记录保留"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -900,19 +677,17 @@ class TestHistoryDAL:
         await history_dal.commit_session()
 
         assert await history_dal._count_all() == 2
-        remaining_bots = set()
-        for event_id in ['event_a', 'event_b']:
-            records = await history_dal.query_records_by_condition(bot_self_id='bot2', event_entity_id=event_id)
-            remaining_bots.update(item.bot_self_id for item in records)
-        # bot2's record at base_ts should still exist
+
+        # bot2 在 base_ts 的记录应保留
+        bot2_remaining = await history_dal.query_records_by_condition(bot_self_id='bot2', event_entity_id='event_a')
+        assert len(bot2_remaining) == 1
+
+        # bot1 仅 base_ts + 200 的记录保留
         bot1_remaining = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_b')
         assert len(bot1_remaining) == 1
 
     async def test_delete_period_older_no_match(self, history_dal) -> None:
         """before_timestamp 小于所有记录, 不删除"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',
@@ -929,9 +704,6 @@ class TestHistoryDAL:
 
     async def test_delete_period_older_all(self, history_dal) -> None:
         """before_timestamp 大于所有记录, 全部删除"""
-        await history_dal._clear_all()
-        await history_dal.commit_session()
-
         base_ts = int(datetime.now().timestamp())
         await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
                               event_entity_id='event_a', user_entity_id='user_a', message_type='group',

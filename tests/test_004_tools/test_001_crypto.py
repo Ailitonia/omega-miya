@@ -233,7 +233,7 @@ class TestKeyDerivation:
         }
 
         assert len(set(keys.values())) == 3
-        # 审计 L1: key_length 混入 KDF 盐值, 短密钥不再是长密钥的前缀
+        # key_length 混入 KDF 盐值, 短密钥不是长密钥的前缀
         assert keys[16] != keys[32][:16]
         assert keys[16] != keys[24][:16]
 
@@ -245,12 +245,23 @@ class TestKeyDerivation:
         )
 
     def test_short_salt_is_used_as_is(self):
-        # 审计 L3: 短盐不再 null 填充, 原样参与派生
+        # 短盐不做 null 填充, 原样参与派生
         from src.utils.crypto.encryptor import derive_key
 
         _key, salt = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc')
 
         assert salt == b'abc'
+
+    def test_salt_padding_aliasing_is_eliminated(self):
+        """盐值按原样参与派生: 短盐不补 NUL, 尾部带 NUL 字节的盐派生出不同密钥"""
+        from src.utils.crypto.encryptor import derive_key
+
+        key_a, salt_a = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc')
+        key_b, salt_b = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc\x00\x00\x00')
+
+        assert salt_a == b'abc'
+        assert salt_b == b'abc\x00\x00\x00'
+        assert key_a != key_b
 
     def test_exact_16_byte_salt_is_unchanged(self):
         from src.utils.crypto.encryptor import derive_key
@@ -347,7 +358,7 @@ class TestKeyDerivation:
             derive_key(TEST_KEY, 32, purpose=invalid_purpose, salt=TEST_SALT)
 
     def test_purpose_separates_derived_keys(self):
-        # 审计 L1: 同密钥同盐同长度下, 不同用途派生出完全独立的密钥
+        # 同密钥同盐同长度下, 不同用途派生出完全独立的密钥
         from src.utils.crypto.encryptor import derive_key
 
         aes_key = derive_key(TEST_KEY, 32, purpose='AES-256', salt=TEST_SALT)[0]
@@ -411,7 +422,7 @@ class TestKeyDerivation:
 
     @pytest.mark.parametrize('empty_key', ['', ' ', '   ', '\t', '\n'])
     def test_empty_key_is_rejected_by_encryptors(self, empty_key: str):
-        # 审计 M2: 空密钥曾在 API 层被接受, 仅配置层拒绝, 直接传 key='' 可绕过 H3 防护
+        # 空密钥在加密器与配置层同样被拒绝
         from src.utils.crypto import AESEncryptor, ChaCha20Encryptor
 
         with pytest.raises(ValueError, match=_MSG_EMPTY_KEY):
@@ -706,7 +717,7 @@ class TestAESCTR:
     @pytest.mark.parametrize(('version', 'key_length'), AES_VERSIONS)
     @pytest.mark.parametrize('plaintext', PLAINTEXTS, ids=PLAINTEXT_IDS)
     def test_roundtrip_all_versions(self, version: str, key_length: int, plaintext: str):
-        # 审计 H1 回归: nonce 长度曾与密钥长度绑定, AES-256 下 CTR 会直接抛出 Nonce is too long
+        # nonce 长度不随密钥长度变化, AES-256 下 CTR 同样正常往返
         from src.utils.crypto import AESEncryptor
 
         encryptor = AESEncryptor(key=TEST_KEY, salt=TEST_SALT, version=version)
@@ -1135,116 +1146,29 @@ class TestUnsupportedInput:
             aes128.ctr_decrypt(base64.b64encode(bad_ciphertext).decode(), nonce)
 
 
-class TestAuditRegression:
-    """针对历轮审计发现问题的定向回归测试"""
+def test_config_failure_fails_fast_in_subprocess():
+    """空密钥配置使宿主进程在模块导入期快速失败 (fail-fast 约定), 只能在子进程中复现"""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
 
-    def test_ctr_supports_aes_256(self, aes256):
-        # 审计 H1: 旧实现取 nonce = key_length // 2 字节, AES-256 下 nonce 等于分组长度, CTR 必然失败
-        ciphertext, nonce = aes256.ctr_encrypt('multi block plaintext ' * 4)
+    script = (
+        'import importlib.util\n'
+        'import nonebot\n'
+        'nonebot.init()\n'
+        "spec = importlib.util.spec_from_file_location('probe_config', 'src/utils/crypto/config.py')\n"
+        'module = importlib.util.module_from_spec(spec)\n'
+        'spec.loader.exec_module(module)\n'
+    )
+    project_root = Path(__file__).resolve().parents[2]
 
-        assert len(base64.b64decode(nonce)) < BLOCK_SIZE
-        assert aes256.ctr_decrypt(ciphertext, nonce) == 'multi block plaintext ' * 4
+    result = subprocess.run(
+        [sys.executable, '-c', script],
+        capture_output=True,
+        timeout=60,
+        cwd=project_root,
+        env={**os.environ, 'OMEGA_AES_KEY': '', 'PYTHONIOENCODING': 'utf-8'},
+    )
 
-    def test_base64_decoding_is_strict(self):
-        # 审计 M3: 旧实现使用宽松模式, '!!!!' 会被静默解码为空字节串
-        from src.utils.crypto import AESEncryptor
-
-        with pytest.raises(ValueError, match=_MSG_B64):
-            AESEncryptor._b64_decode('!!!!')
-
-    def test_unsupported_aes_version_is_not_silently_downgraded(self):
-        # 审计 M2: 旧实现会把一切无法识别的版本静默当作 AES-128
-        from src.utils.crypto import AESEncryptor
-
-        with pytest.raises(ValueError, match=_MSG_VERSION):
-            AESEncryptor(key=TEST_KEY, salt=TEST_SALT, version='AES-999')
-
-    def test_empty_config_key_is_rejected(self):
-        # 审计 H3: 旧实现接受空密钥, 并派生出所有部署共用的固定密钥
-        from src.utils.crypto.config import EncryptConfig
-
-        with pytest.raises(ValueError, match=_MSG_EMPTY_KEY):
-            EncryptConfig(omega_aes_key='')
-
-    def test_key_derivation_uses_full_entropy(self):
-        # 审计 M1: 旧实现的密钥是十六进制文本, 每字节只有 4 bit 熵
-        from src.utils.crypto.encryptor import derive_key
-
-        assert not set(derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]) <= set(b'0123456789abcdef')
-
-    def test_authenticated_envelope_is_available(self, aes128):
-        # 审计 H2: 存量密文使用无认证的 ECB, 现提供自带完整性且自描述的默认接口
-        envelope = aes128.encrypt('mailbox-password')
-        segments = envelope.split(':')
-
-        assert segments[0] == 'v2'
-        assert segments[1] == 'AES-128-GCM'
-
-        segments[5] = _flip_b64_byte(segments[5], 0)
-
-        with pytest.raises(ValueError, match=_MSG_TAG):
-            aes128.decrypt(':'.join(segments))
-
-    def test_salt_type_error_names_actual_type(self):
-        # 审计 N1: salt 类型校验错误消息曾引用错误变量, 恒报 "int 类型"
-        from src.utils.crypto.encryptor import derive_key
-
-        with pytest.raises(TypeError, match=f'{_MSG_SALT_TYPE}, 而不是 int 类型'):
-            derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=123)
-
-        with pytest.raises(TypeError, match=f'{_MSG_SALT_TYPE}, 而不是 list 类型'):
-            derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt=['x'])
-
-    def test_derived_keys_have_no_cross_purpose_relation(self):
-        # 审计 L1: PBKDF2 前缀性质曾使短密钥成为长密钥前缀, 且 AES-256 与 ChaCha20 复用同一密钥
-        from src.utils.crypto.encryptor import derive_key
-
-        k128 = derive_key(TEST_KEY, 16, purpose='AES-128', salt=TEST_SALT)[0]
-        k256 = derive_key(TEST_KEY, 32, purpose='AES-256', salt=TEST_SALT)[0]
-        k_chacha = derive_key(TEST_KEY, 32, purpose='ChaCha20', salt=TEST_SALT)[0]
-
-        assert k128 != k256[:16]
-        assert k256 != k_chacha
-
-    def test_gcm_nonce_is_96_bit(self, aes128):
-        # 审计 L2: GCM nonce 现为 NIST SP 800-38D 推荐的 96-bit
-        _ciphertext, nonce, _tag = aes128.gcm_encrypt('secret')
-
-        assert len(base64.b64decode(nonce)) == 12
-
-    def test_salt_padding_aliasing_is_eliminated(self):
-        # 审计 L3: 盐不再 null 填充, 'abc' 与 'abc\0\0\0' 不再等价
-        from src.utils.crypto.encryptor import derive_key
-
-        key_a, salt_a = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc')
-        key_b, salt_b = derive_key(TEST_KEY, 32, purpose=TEST_PURPOSE, salt='abc\x00\x00\x00')
-
-        assert salt_a == b'abc'
-        assert salt_b == b'abc\x00\x00\x00'
-        assert key_a != key_b
-
-    def test_config_failure_fails_fast_in_subprocess(self):
-        # 空密钥配置使宿主进程在模块导入期快速失败 (fail-fast 约定), 只能在子进程中复现
-        import os
-        import subprocess
-        import sys
-        from pathlib import Path
-
-        script = (
-            'import importlib.util\n'
-            'import nonebot\n'
-            'nonebot.init()\n'
-            "spec = importlib.util.spec_from_file_location('probe_config', 'src/utils/crypto/config.py')\n"
-            'module = importlib.util.module_from_spec(spec)\n'
-            'spec.loader.exec_module(module)\n'
-        )
-        project_root = Path(__file__).resolve().parents[2]
-
-        result = subprocess.run(
-            [sys.executable, '-c', script],
-            capture_output=True,
-            cwd=project_root,
-            env={**os.environ, 'OMEGA_AES_KEY': '', 'PYTHONIOENCODING': 'utf-8'},
-        )
-
-        assert result.returncode != 0
+    assert result.returncode != 0

@@ -12,8 +12,8 @@
 
 import random
 import string
-from datetime import timedelta
-from unittest.mock import MagicMock
+from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy.exc import DBAPIError, IntegrityError, NoResultFound
@@ -94,17 +94,13 @@ class TestDatabaseSession:
 
     async def test_commit_on_normal_exit(self) -> None:
         """上下文正常退出时, 写入必须提交并对后续会话可见"""
-        import random
-        import string
-        from datetime import datetime, timedelta
-
         from sqlalchemy import delete, select
 
         from src.database.helpers import database_session
         from src.database.schema import GlobalCacheOrm
 
-        cache_name = f'TEST_COMMIT_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-        cache_key = f'TEST_COMMIT_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+        cache_name = f'TEST_COMMIT_{_random_string()}'
+        cache_key = f'TEST_COMMIT_{_random_string()}'
 
         try:
             async with database_session() as session:
@@ -133,17 +129,13 @@ class TestDatabaseSession:
 
     async def test_rollback_on_exception(self) -> None:
         """上下文中发生异常时, 已 flush 的写入必须回滚, 不得提交"""
-        import random
-        import string
-        from datetime import datetime, timedelta
-
         from sqlalchemy import delete, select
 
         from src.database.helpers import database_session
         from src.database.schema import GlobalCacheOrm
 
-        cache_name = f'TEST_ROLLBACK_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
-        cache_key = f'TEST_ROLLBACK_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+        cache_name = f'TEST_ROLLBACK_{_random_string()}'
+        cache_key = f'TEST_ROLLBACK_{_random_string()}'
 
         try:
             async def _write_then_raise() -> None:
@@ -183,9 +175,7 @@ class TestTransactionGuards:
         """非活动会话上开启事务应抛出 RuntimeError"""
         from src.database.internal.global_cache import GlobalCacheDAL
 
-        mock_session = MagicMock()
-        mock_session.is_active = False
-        dal = GlobalCacheDAL(session=mock_session)
+        dal = GlobalCacheDAL(session=SimpleNamespace(is_active=False))
 
         with pytest.raises(RuntimeError, match='Current session is not active'):
             async with dal.safe_begin_transaction():
@@ -195,9 +185,7 @@ class TestTransactionGuards:
         """非活动会话上开启嵌套事务应抛出 RuntimeError"""
         from src.database.internal.global_cache import GlobalCacheDAL
 
-        mock_session = MagicMock()
-        mock_session.is_active = False
-        dal = GlobalCacheDAL(session=mock_session)
+        dal = GlobalCacheDAL(session=SimpleNamespace(is_active=False))
 
         with pytest.raises(RuntimeError, match='Current session is not active'):
             async with dal.must_begin_nested_in_transaction():
@@ -220,10 +208,7 @@ class TestWriteTransactionContract:
     """DAL 写方法事务契约: 纯写方法不得自行提交, 提交统一由会话边界负责"""
 
     async def test_pure_write_method_not_self_commit(self) -> None:
-        """纯写方法在 fresh session 上不得自行 commit, 外层 rollback 必须能撤销其写入
-
-        safe_begin_transaction 顶层分支若自行提交, rollback 将无法撤销, query_unique 会查到数据
-        """
+        """纯写方法在 fresh session 上不得自行 commit, 外层 rollback 必须能撤销其写入"""
         from src.database.internal.global_cache import GlobalCacheDAL
 
         cache_name = f'TEST_NSC_NAME_{_random_string()}'
@@ -236,6 +221,7 @@ class TestWriteTransactionContract:
                 cache_value='test_value',
                 expired_time=timedelta(days=1),
             )
+            # safe_begin_transaction 顶层分支若自行提交, rollback 将无法撤销, query_unique 会查到数据
             await dal.rollback_session()
 
             with pytest.raises(NoResultFound):
@@ -249,11 +235,7 @@ class TestCheckConstraint:
     """
 
     async def test_check_constraint_violation_raises_and_not_unique_conflict(self) -> None:
-        """绕过 DAL 枚举校验直接写入越界 enabled 值, 应触发 CHECK 约束冲突, 且不被误判为唯一冲突
-
-        方言差异: MySQL 将 CHECK 违例 (errno 3819) 映射为 OperationalError, PostgreSQL (23514) 与
-        SQLite (CONSTRAINT_CHECK 275) 映射为 IntegrityError, 此处以公共基类 DBAPIError 断言
-        """
+        """绕过 DAL 枚举校验直接写入越界 enabled 值, 应触发 CHECK 约束冲突, 且不被误判为唯一冲突"""
         from src.database.helpers import database_session
         from src.database.model import BaseDataAccessLayer
         from src.database.schema import PluginOrm
@@ -263,6 +245,8 @@ class TestCheckConstraint:
 
         async with database_session() as session:
             session.add(PluginOrm(plugin_name=plugin_name, module_name=module_name, enabled=99))
+            # 方言差异: MySQL 将 CHECK 违例 (errno 3819) 映射为 OperationalError, PostgreSQL (23514) 与
+            # SQLite (CONSTRAINT_CHECK 275) 映射为 IntegrityError, 此处以公共基类 DBAPIError 断言
             with pytest.raises(DBAPIError) as exc_info:
                 await session.flush()
 

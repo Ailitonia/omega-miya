@@ -32,7 +32,7 @@ from tests.test_003_web.helpers import (
 if TYPE_CHECKING:
     from src.utils.bilibili_api.credential_manager import _BilibiliCredentialManager
 
-require_real_test = require_env_flag('BILIBILI_API_REAL_TEST')
+requires_live = require_env_flag('BILIBILI_API_REAL_TEST')
 """真实请求验证类门禁: 日常运行 (含全量套件) 一律跳过, 由用户手动设置 BILIBILI_API_REAL_TEST=1 后发起"""
 
 # ------------------------------------------------------------------ #
@@ -1916,7 +1916,7 @@ async def live_dynamic_state() -> SimpleNamespace:
     return SimpleNamespace(feed=None, harvested=[])
 
 
-@require_real_test
+@requires_live
 class TestBilibiliDynamicLive:
     """BilibiliDynamic 真实请求验证 (需数据库中已登录 Cookies)
 
@@ -2083,11 +2083,11 @@ async def live_room_state() -> SimpleNamespace:
     return SimpleNamespace(rooms=unique_rooms)
 
 
-@require_real_test
+@requires_live
 class TestBilibiliLiveLive:
     """BilibiliLive 真实请求验证 (直播端点匿名可用, 凭据仅用于降低风控概率)
 
-    本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
+    需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliLiveLive -v -s` 单独运行
     """
 
@@ -2181,11 +2181,11 @@ async def live_user_state() -> SimpleNamespace:
     return SimpleNamespace(own_mid=int(dedeuserid), author=author)
 
 
-@require_real_test
+@requires_live
 class TestBilibiliUserLive:
     """BilibiliUser 真实请求验证 (强制依赖登录态)
 
-    本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
+    需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
     `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliUserLive -v -s` 单独运行
     """
 

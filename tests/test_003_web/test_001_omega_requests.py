@@ -857,25 +857,20 @@ class TestDownload:
 class TestGetSession:
     """get_session 集成测试"""
 
-    async def test_session_request(self, test_server: SimpleNamespace):
+    @pytest.mark.parametrize(
+        'kwargs',
+        [
+            pytest.param({}, id='default'),
+            pytest.param({'use_proxy': False}, id='without_proxy'),
+        ],
+    )
+    async def test_session_request(self, kwargs: dict[str, Any], test_server: SimpleNamespace):
         from nonebot.drivers import HTTPClientSession, Request
 
         from src.utils.omega_requests import OmegaRequests
 
-        session = OmegaRequests().get_session()
+        session = OmegaRequests().get_session(**kwargs)
         assert isinstance(session, HTTPClientSession)
-
-        async with session:
-            response = await session.request(Request('GET', f'{test_server.base_url}/get'))
-
-        assert response.status_code == 200
-
-    async def test_session_without_proxy(self, test_server: SimpleNamespace):
-        from nonebot.drivers import Request
-
-        from src.utils.omega_requests import OmegaRequests
-
-        session = OmegaRequests().get_session(use_proxy=False)
 
         async with session:
             response = await session.request(Request('GET', f'{test_server.base_url}/get'))
@@ -958,48 +953,34 @@ class TestProxy:
 class TestAutoRedirectsSetup:
     """auto_redirects 参数透传 Request setup 单元测试(monkeypatch 驱动方法, 不经网络)"""
 
+    @pytest.mark.parametrize('auto_redirects', [True, False], ids=['default_follow', 'no_follow'])
     @pytest.mark.parametrize('method', ['get', 'post', 'put', 'delete'])
-    async def test_request_methods_default_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
+    async def test_request_methods_pass_auto_redirects(
+            self, method: str, auto_redirects: bool, monkeypatch: pytest.MonkeyPatch,
+    ):
         from src.utils.omega_requests import OmegaRequests
 
         captured = capture_driver_request(monkeypatch)
 
-        await getattr(OmegaRequests(), method)('http://127.0.0.1/')
+        kwargs = {} if auto_redirects else {'auto_redirects': False}
+        await getattr(OmegaRequests(), method)('http://127.0.0.1/', **kwargs)
 
         assert len(captured) == 1
-        assert captured[0].auto_redirects is True
+        assert captured[0].auto_redirects is auto_redirects
 
-    @pytest.mark.parametrize('method', ['get', 'post', 'put', 'delete'])
-    async def test_request_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
-        from src.utils.omega_requests import OmegaRequests
-
-        captured = capture_driver_request(monkeypatch)
-
-        await getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)
-
-        assert len(captured) == 1
-        assert captured[0].auto_redirects is False
-
-    @pytest.mark.parametrize('method', ['stream_get', 'stream_post'])
+    @pytest.mark.parametrize(
+        'method',
+        ['stream_get', 'stream_post', 'stream_get_iter_lines', 'stream_post_iter_lines'],
+    )
     async def test_stream_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
-        from src.utils.omega_requests import OmegaRequests
-
-        captured = capture_driver_stream_request(monkeypatch)
-
-        _ = [x async for x in getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)]
-
-        assert len(captured) == 1
-        assert captured[0].auto_redirects is False
-
-    @pytest.mark.parametrize('method', ['stream_get_iter_lines', 'stream_post_iter_lines'])
-    async def test_iter_lines_methods_no_follow(self, method: str, monkeypatch: pytest.MonkeyPatch):
         from src.utils.omega_requests import OmegaRequests
 
         captured = capture_driver_stream_request(monkeypatch)
 
         lines = [x async for x in getattr(OmegaRequests(), method)('http://127.0.0.1/', auto_redirects=False)]
 
-        assert lines == ['a', 'b']
+        if method.endswith('iter_lines'):
+            assert lines == ['a', 'b']
         assert len(captured) == 1
         assert captured[0].auto_redirects is False
 
