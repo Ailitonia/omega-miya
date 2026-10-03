@@ -13,14 +13,14 @@ from datetime import datetime
 from nonebot.log import logger
 from sqlalchemy.exc import NoResultFound
 
-from src.database import SystemSettingDAL, begin_db_session
+from src.database import SystemSettingDAL
 from .consts import DOWNLOADER_SETTING_NAME, LAST_FOLLOWING_SETTING_KEY
 
 
 async def set_last_follow_illust_pid(pid: int) -> None:
     """保存上次关注用户的最新作品"""
-    async with begin_db_session() as session:
-        await SystemSettingDAL(session=session).upsert(
+    async with SystemSettingDAL.create() as dal:
+        await dal.add_update_exist(
             setting_name=DOWNLOADER_SETTING_NAME,
             setting_key=LAST_FOLLOWING_SETTING_KEY,
             setting_value=str(pid),
@@ -30,9 +30,9 @@ async def set_last_follow_illust_pid(pid: int) -> None:
 
 async def get_last_follow_illust_pid() -> int | None:
     """读取上次关注用户的最新作品"""
-    async with begin_db_session() as session:
+    async with SystemSettingDAL.create() as dal:
         try:
-            setting = await SystemSettingDAL(session=session).query_unique(
+            setting = await dal.query_unique(
                 setting_name=DOWNLOADER_SETTING_NAME,
                 setting_key=LAST_FOLLOWING_SETTING_KEY,
             )
