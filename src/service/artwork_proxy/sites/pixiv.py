@@ -48,7 +48,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
         """Pixiv 主站作品默认分类分级
         (classification, rating)
                     is_ai     not_ai
-        is_r18     (1,  3)    (0,  3)
+        is_r18     (1,  2)    (0,  2)
         not_r18    (1, -1)    (0, -1)
         """
 
@@ -59,7 +59,7 @@ class PixivArtworkProxy(BaseArtworkProxy):
             'title': artwork_data.title,
             'uname': artwork_data.uname,
             'classification': 1 if artwork_data.is_ai else 0,
-            'rating': 3 if artwork_data.is_r18 else -1,
+            'rating': 2 if artwork_data.is_r18 else -1,
             'width': artwork_data.width,
             'height': artwork_data.height,
             'tags': artwork_data.tags,
