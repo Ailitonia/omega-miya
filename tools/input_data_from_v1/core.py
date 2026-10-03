@@ -403,7 +403,3 @@ if __name__ == '__main__':
     nonebot.init(log_level='INFO')
 
     asyncio.run(core_main())
-
-__all__ = [
-    'core_main',
-]
