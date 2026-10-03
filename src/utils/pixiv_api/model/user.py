@@ -132,6 +132,17 @@ class _BookmarkBody(BasePixivModel):
     bookmarkTags: dict[str, list[str]] = Field(default_factory=dict)
     total: int
 
+    @model_validator(mode='before')
+    @classmethod
+    def _validate_bookmark_tags_is_empty_list(cls, values):
+        """校验 bookmarkTags 值为空列表时转为空字典"""
+        if isinstance(values, dict):
+            values = {
+                k: ({} if (k == 'bookmarkTags' and isinstance(v, list) and not v) else v)
+                for k, v in values.items()
+            }
+        return values
+
 
 class PixivBookmark(BasePixivModel):
     """Pixiv 收藏作品"""
