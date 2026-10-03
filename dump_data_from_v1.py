@@ -18,7 +18,7 @@ from decimal import Decimal
 
 import nonebot
 from nonebot.log import logger
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator
 
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +33,20 @@ if TYPE_CHECKING:
 
 class _DataModel(BaseModel):
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True, frozen=True)
+
+
+def _truncate_to_v2_limit(field_desc: str, value: str | None, max_length: int, item_desc: str) -> str | None:
+    """将字段值截断至 v2 数据库字段长度限制, 超长时记录警告
+
+    v2 的部分 string 字段长度小于 v1 (如 bot_info/entity_info 由 512 缩短为 255),
+    按字符截断 (与 MySQL utf8mb4 字符计数语义一致), 避免导入 v2 时报 Data too long
+    """
+    if value is not None and len(value) > max_length:
+        logger.warning(
+            f'{field_desc} of {item_desc} length {len(value)} exceeds v2 limit {max_length}, truncated'
+        )
+        return value[:max_length]
+    return value
 
 
 class _BotRef(_DataModel):
@@ -56,11 +70,17 @@ class _SourceRef(_DataModel):
 
 
 class BotSelf(_DataModel):
-    """Bot 自身数据"""
+    """Bot 自身数据 (v2 `bot_info` 字段长度限制为 255)"""
     bot_type: str
     self_id: str
     bot_status: int
     bot_info: str | None
+
+    @field_validator('bot_info')
+    @classmethod
+    def _truncate_bot_info(cls, value: str | None, info: ValidationInfo) -> str | None:
+        item_desc = f"Bot(type={info.data.get('bot_type')}, self_id={info.data.get('self_id')})"
+        return _truncate_to_v2_limit('BotSelf.bot_info', value, max_length=255, item_desc=item_desc)
 
 
 class SubscriptionSource(_DataModel):
@@ -72,13 +92,19 @@ class SubscriptionSource(_DataModel):
 
 
 class Entity(_DataModel):
-    """实体对象数据"""
+    """实体对象数据 (v2 `entity_info` 字段长度限制为 255)"""
     entity_parent_bot: _BotRef
     entity_type: str
     entity_id: str
     entity_name: str
     entity_extra: dict[str, Any]
     entity_info: str | None
+
+    @field_validator('entity_info')
+    @classmethod
+    def _truncate_entity_info(cls, value: str | None, info: ValidationInfo) -> str | None:
+        item_desc = f"Entity(type={info.data.get('entity_type')}, entity_id={info.data.get('entity_id')})"
+        return _truncate_to_v2_limit('Entity.entity_info', value, max_length=255, item_desc=item_desc)
 
 
 class Friendship(_DataModel):
