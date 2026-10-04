@@ -240,9 +240,9 @@ class PixivArtworkDownloader:
                 for url in await af.readlines()
             ]
 
-        logger.info(f'Querying latest following artworks data completed, start downloading...')
+        logger.info('Querying latest following artworks data completed, start downloading...')
         await semaphore_gather(tasks=tasks, semaphore_num=8)
-        logger.success(f'Downloading latest following artworks completed')
+        logger.success('Downloading latest following artworks completed')
 
     async def download_follow_artworks_main(self) -> None:
         try:
