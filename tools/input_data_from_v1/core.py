@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 import nonebot
 from nonebot.log import logger
@@ -31,6 +31,21 @@ SourceIndexIdMap = dict[tuple[str, str], int]
 
 class _DataModel(BaseModel):
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True, frozen=True)
+
+
+@overload
+def _truncate_to_v2_limit(field_desc: str, value: str, max_length: int, item_desc: str) -> str:
+    ...
+
+
+@overload
+def _truncate_to_v2_limit(field_desc: str, value: None, max_length: int, item_desc: str) -> None:
+    ...
+
+
+@overload
+def _truncate_to_v2_limit(field_desc: str, value: str | None, max_length: int, item_desc: str) -> str | None:
+    ...
 
 
 def _truncate_to_v2_limit(field_desc: str, value: str | None, max_length: int, item_desc: str) -> str | None:
