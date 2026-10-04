@@ -43,8 +43,7 @@ DISPATCH_HANDERS: dict[str, 'CliHandler'] = {
 
 
 def execute_cli_handler(args: 'CliQueryArguments') -> None:
-    enabled_arg_in_mutually_exclusive_commands = [k for k, v in args.model_dump().items() if v]
-    if len(enabled_arg_in_mutually_exclusive_commands) > 1:
+    if len(enabled_arg_in_mutually_exclusive_commands := args.enabled_options) > 1:
         raise ValueError('parsed exceeding options, only need 1')
 
     handler = DISPATCH_HANDERS.get(enabled_arg_in_mutually_exclusive_commands[0], run_bot)

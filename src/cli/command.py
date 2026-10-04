@@ -10,7 +10,7 @@
 
 import argparse
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def build_cli_parser() -> argparse.ArgumentParser:
@@ -30,6 +30,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
     group.add_argument('--database-downgrade', type=str, help='降级数据库到指定版本')
     group.add_argument('--database-revision', type=str, help='生成数据库迁移版本')
     group.add_argument('--database-stamp', type=str, help='手动标记数据库版本')
+    parser.add_argument('extra_args', nargs='*')
     return parser
 
 
@@ -43,8 +44,14 @@ class CliQueryArguments(BaseModel):
     database_downgrade: str | None
     database_revision: str | None
     database_stamp: str | None
+    extra_args: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True)
+
+    @property
+    def enabled_options(self) -> list[str]:
+        """解析结果中已启用的可选命令名, 不包含 `extra_args` 参数组"""
+        return [k for k, v in self.model_dump(exclude={'extra_args'}).items() if v]
 
 
 def parse_cli_args(args: argparse.Namespace) -> CliQueryArguments:

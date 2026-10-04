@@ -116,15 +116,15 @@ def run_tool_execute(args: 'CliQueryArguments') -> None:
     if not inspect.isfunction(func):
         raise TypeError(f'tool target is not function: {module_path}:{func_name}')
 
-    logger.info(f'Executing tool: {module_path}:{func_name}')
+    logger.info(f'Executing tool: {module_path}:{func_name}, with args: {args.extra_args}')
 
     # 执行入口函数, 兼容同步与异步入口
     if inspect.iscoroutinefunction(func):
-        asyncio.run(func())
+        asyncio.run(func(*args.extra_args))
     else:
         @run_sync
         def _wrapped_func():
-            func()
+            func(*args.extra_args)
 
         asyncio.run(_wrapped_func())
 
