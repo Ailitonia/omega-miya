@@ -78,7 +78,8 @@ MySQL/PostgreSQL/SQLite backends.
   per-table DAL CRUD, DAL execute), `test_002_core` (compat, resource, apscheduler, event patches, omega services,
   `OmegaEntity`, omega_base internals), `test_003_web` (HTTP client layer, external API clients, artwork proxy -
   against the local uvicorn test server), `test_004_tools` (crypto: key derivation, AES/ChaCha20 modes,
-  authenticated envelopes), and `test_009_cli` (CLI `--tool-execute` entry).
+  authenticated envelopes), and `test_009_cli` (CLI `--tool-execute` entry, `extra_args` positional parsing and
+  pass-through).
 - `docs/` - documentation assets: `img/` holds images referenced by the README; `reference/` holds curated reference
   tutorials (see "Reference Documentation").
 
