@@ -8,7 +8,8 @@
 @Software       : PyCharm
 """
 
-from tkinter import StringVar, Tk, messagebox, ttk
+import asyncio
+from tkinter import StringVar, TclError, Tk, messagebox, ttk
 
 from .data_source import BasePixivArtworkSource
 
@@ -85,13 +86,13 @@ class ManualRatingPixivArtworkMain[T: BasePixivArtworkSource]:
         self.root.bind('<Control-KeyPress-1>', lambda x: self.source.set_current_sensitive(*show_components))
 
         ttk.Button(
-            rate_frm, text='(2) Questionable | 软色情', padding=6,
+            rate_frm, text='(2) Questionable | R18', padding=6,
             command=lambda: self.source.set_current_questionable(*show_components)
         ).pack(anchor='center')
         self.root.bind('<Control-KeyPress-2>', lambda x: self.source.set_current_questionable(*show_components))
 
         ttk.Button(
-            rate_frm, text='(3) Explicit | R18', padding=6,
+            rate_frm, text='(3) Explicit | R18+(G)', padding=6,
             command=lambda: self.source.set_current_explicit(*show_components)
         ).pack(anchor='center')
         self.root.bind('<Control-KeyPress-3>', lambda x: self.source.set_current_explicit(*show_components))
@@ -124,8 +125,19 @@ class ManualRatingPixivArtworkMain[T: BasePixivArtworkSource]:
 
         self.root.destroy()
 
-    def run(self):
-        self.root.mainloop()
+    def run(self) -> None:
+        asyncio.run(self._run_mainloop())
+
+    async def _run_mainloop(self) -> None:
+        """单线程事件循环中交替驱动 Tk 事件与 asyncio 任务"""
+        while True:
+            try:
+                if not self.root.winfo_exists():
+                    break
+                self.root.update()
+            except TclError:
+                break
+            await asyncio.sleep(0.02)
 
 
 __all__ = [

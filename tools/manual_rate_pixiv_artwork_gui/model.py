@@ -16,7 +16,6 @@ type ALLOW_ARTWORK_ORIGIN = Literal[
     'pixiv',
     'danbooru',
     'gelbooru',
-    'behoimi',
     'konachan',
     'yandere',
     'local_collected_artwork',
