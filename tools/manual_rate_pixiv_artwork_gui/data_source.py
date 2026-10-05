@@ -2,66 +2,145 @@
 @Author         : Ailitonia
 @Date           : 2024/9/9 23:21
 @FileName       : data_source
-@Project        : ailitonia-toolkit
-@Description    :
+@Project        : omega-miya
+@Description    : 作品数据源基类
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
 import abc
 import asyncio
-import re
 from collections.abc import Coroutine
 from datetime import datetime
-from tkinter import Tk, filedialog, simpledialog
 from typing import IO, TYPE_CHECKING, Any
 
 from PIL import Image, ImageTk
 from nonebot.log import logger
-from pydantic import BaseModel, ConfigDict
 
 from src.compat import dump_json_as, parse_json_as
-from src.resource import AnyResource, TemporaryResource
-from src.service.artwork_proxy import PixivArtworkProxy
-from .model import CustomImportArtwork
+from src.resource import TemporaryResource
+from .model import CurrentArtwork, CustomImportArtwork
 
 if TYPE_CHECKING:
     from os import PathLike
     from tkinter.ttk import Entry, Label
+    from src.service.artwork_proxy.internal import BaseArtworkProxy
 
+    type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
 
-type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
+_TOOL_TMP_DIR: TemporaryResource = TemporaryResource('omega_tools_manual_rate_artwork')
+"""工具缓存文件夹路径"""
+_IMPORT_META_DATA_FILE_NAME: str = 'artwork_collection_manual_rating_meta_for_import.json'
+"""人工评级元数据导入文件名"""
 
 
 class OutputPath:
-    TMP_DIR = TemporaryResource('manual_rate_pixiv_artwork')
+    """缓存文件路径"""
 
     def __init__(self, working_name: str):
         self._working_timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
-        self._output_dir = self.TMP_DIR(working_name)
+        self._working_root_dir = _TOOL_TMP_DIR(working_name)
 
     @property
     def output_dir(self) -> TemporaryResource:
-        return self._output_dir(self._working_timestamp)
+        return self._working_root_dir('output')
 
     @property
     def cache_dir(self) -> TemporaryResource:
-        return self._output_dir('working_dir_cache')
+        return self._working_root_dir('working_dir_cache')
+
+    @property
+    def import_data_dir(self) -> TemporaryResource:
+        return self.output_dir(self._working_timestamp)
 
     @property
     def import_data_file(self) -> TemporaryResource:
-        return self.output_dir('custom_import_collected_artworks.json')
+        return self.import_data_dir(_IMPORT_META_DATA_FILE_NAME)
 
 
-class CurrentArtwork(BaseModel):
-    """当前进行分级的作品"""
-    pid: int
-    source_path: str
+class ArtworkRatingImportTool:
+    """作品分级元数据导入工具"""
+    __slots__ = (
+        '_output_path',
+    )
 
-    model_config = ConfigDict(extra='ignore', from_attributes=True, frozen=True, coerce_numbers_to_str=True)
+    if TYPE_CHECKING:
+        _output_path: OutputPath
+
+    def __init__(self, source_type: str) -> None:
+        self._output_path = OutputPath(source_type)
+
+    async def _get_import_artworks_rating_meta_from_file(self) -> list[CustomImportArtwork]:
+        """获取需要导入图库的作品分级元数据"""
+        import_data: list[CustomImportArtwork] = []
+        # 遍历工作目录获取所有的导入文件
+        for file in self._output_path.output_dir.iter_all_files():
+            if file.name == _IMPORT_META_DATA_FILE_NAME:
+                async with file.async_open('r', encoding='utf-8') as af:
+                    import_data.extend(parse_json_as(list[CustomImportArtwork], await af.read()))
+        return import_data
+
+    async def _import_artwork_rating_into_database(
+            self,
+            import_data: CustomImportArtwork,
+            *,
+            need_retry: bool = False,
+            log_index: int = -1,
+    ) -> None:
+        """内部方法, 导入图库的作品分级元数据, 自动重试"""
+        from src.exception import WebSourceException
+        from src.service.artwork_proxy import get_artwork_proxy
+
+        try:
+            artwork = get_artwork_proxy(import_data.origin)(artwork_id=import_data.aid)
+            artwork_info = await artwork.query()
+
+            rating = max(import_data.rating, artwork_info.rating)
+            classification = 1 if artwork_info.classification == 1 else import_data.classification
+
+            # 更新数据库作品条目信息
+            await artwork.add_and_upgrade_artwork_into_database(
+                classification=classification,
+                rating=rating,
+                force_update_cr=True,
+            )
+        except WebSourceException as e:
+            # 网络问题有可能是风控/限流, 小概率是作品已经被删除
+            if e.status_code == 404 or not need_retry:
+                raise e
+
+            logger.warning(
+                f'Query {import_data.origin}-{import_data.aid} data failed and will retry after 60s, {e}'
+            )
+            await asyncio.sleep(60)
+            await self._import_artwork_rating_into_database(import_data, need_retry=False, log_index=log_index)
+
+        logger.debug(f'Import artworks {import_data} rating succeed, index: {log_index}')
+
+    async def import_artwork_rating_into_database(self) -> None:
+        """导入图库的作品分级元数据"""
+        from src.utils import semaphore_gather
+
+        try:
+            import_data = await self._get_import_artworks_rating_meta_from_file()
+            total = len(import_data)
+            logger.info(f'Parsing artworks import rating data completed, total: {total}')
+        except Exception as e:
+            logger.error(f'Parsing artworks import rating data failed, {e}')
+            raise e
+
+        import_tasks = [
+            self._import_artwork_rating_into_database(import_data=data, log_index=index)
+            for index, data in enumerate(import_data)
+        ]
+        result = await semaphore_gather(
+            tasks=import_tasks, semaphore_num=8, return_exceptions=True, filter_exception=True
+        )
+
+        logger.success(f'Import artworks rating data completed, total: {total}, succeed: {len(result)}')
 
 
-class BasePixivArtworkSource(abc.ABC):
+class BaseArtworkSource(abc.ABC):
     """待分级作品源基类"""
 
     __slots__ = (
@@ -78,7 +157,7 @@ class BasePixivArtworkSource(abc.ABC):
         _working_path: str
 
     def __init__(self) -> None:
-        self._remaining_source = []
+        self._remaining_source: list[CurrentArtwork] = []
         self._output_path = OutputPath(self.source_type)
 
     @property
@@ -88,39 +167,51 @@ class BasePixivArtworkSource(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def title_name(self) -> str:
+    def source_origin(self) -> str:
         raise NotImplementedError
 
     @property
-    def current_source_path(self) -> str:
-        return self._current_source.source_path
-
-    @property
-    def working_path(self) -> str:
-        return self._working_path
+    @abc.abstractmethod
+    def title_name(self) -> str:
+        raise NotImplementedError
 
     @staticmethod
     def _spawn(coro: Coroutine[Any, Any, None]) -> None:
         """在主线程事件循环中调度异步任务, 供按钮回调等同步入口使用"""
-        asyncio.create_task(coro)
 
+        def _log_task_exception(future: asyncio.Task[None]) -> None:
+            if future.cancelled():
+                return
+            if (exception := future.exception()) is not None:
+                logger.error(f'Manual rating task failed, {exception!r}')
+
+        asyncio.create_task(coro).add_done_callback(_log_task_exception)
+
+    @property
     @abc.abstractmethod
-    async def _load_current_source(self) -> SourceOpenFp:
-        """内部方法, 加载目标作品图片"""
+    def _current_artwork_proxy(self) -> 'BaseArtworkProxy':
+        """内部属性, 目标作品的 ArtworkProxy 实例"""
         raise NotImplementedError
 
-    async def _load_current(
+    @abc.abstractmethod
+    async def _load_current_source(self) -> 'SourceOpenFp':
+        """内部方法, 异步加载目标作品及其预览图"""
+        # load from `self._current_source`
+        raise NotImplementedError
+
+    async def _load_current_async(
             self,
             image_label: 'Label',
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
             *,
             rs_width: int = 1024,
-            rs_height: int = 768,
+            rs_height: int = 1024,
     ) -> None:
-        """内部方法, 加载的目标作品图片并在控件上显示"""
+        """内部方法, 异步加载目标作品及其预览图, 刷新控件显示预览图"""
         image = Image.open(await self._load_current_source()).convert('RGB')
 
+        # 缩放图片到固定尺寸
         width, height = image.size
         scale = min(rs_width / width, rs_height / height)
         image = image.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
@@ -128,25 +219,53 @@ class BasePixivArtworkSource(abc.ABC):
         background = Image.new(mode='RGB', size=(rs_width, rs_height), color=(0, 0, 0))
         background.paste(image, box=box)
 
+        # 更新控件显示作品预览图
         self._current_source_image = ImageTk.PhotoImage(background)
-        image_label.config(image=self._current_source_image)  # type: ignore
+        image_label.config(image=self._current_source_image)
 
+        # 清理 Image 对象
         image.close()
         background.close()
+        del image
+        del background
 
+        # 更新顶部控件状态显示
         show_current_entry.delete(0, 'end')
         show_current_entry.insert(0, self._current_source.source_path)
         show_remaining_entry.delete(0, 'end')
         show_remaining_entry.insert(0, str(len(self._remaining_source)))
 
+    async def _load_next_async(
+            self,
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
+    ) -> None:
+        """内部方法, 异步加载待处理作品列表中的下一个作品及其预览图, 刷新控件显示预览图"""
+        if self._remaining_source:
+            self._current_source = self._remaining_source.pop(0)
+        await self._load_current_async(image_label, show_current_entry, show_remaining_entry)
+
+    def load_next(
+            self,
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
+    ) -> None:
+        """加载待处理作品列表中的下一个作品及其预览图, 刷新控件显示预览图"""
+        self._spawn(self._load_next_async(image_label, show_current_entry, show_remaining_entry))
+
     @abc.abstractmethod
     async def _select_current_source(self) -> None:
         """内部方法, 选择开始时的目标作品"""
+        # self._current_source = ...
+        # self._working_path = ...
         raise NotImplementedError
 
     @abc.abstractmethod
     async def _init_working_path(self) -> None:
         """内部方法, 初始化工作路径, 预处理和缓存待处理作品列表"""
+        # self._remaining_source = ...
         raise NotImplementedError
 
     async def _select_current(
@@ -155,10 +274,10 @@ class BasePixivArtworkSource(abc.ABC):
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        """选择开始时的目标作品, 初始化工作目录"""
+        """内部方法, 选择开始时的目标作品, 初始化工作目录, 刷新控件显示预览图"""
         await self._select_current_source()
         await self._init_working_path()
-        await self.next_image_async(image_label, show_current_entry, show_remaining_entry)
+        await self._load_next_async(image_label, show_current_entry, show_remaining_entry)
 
     def select_current(
             self,
@@ -166,33 +285,14 @@ class BasePixivArtworkSource(abc.ABC):
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        """选择开始时的目标作品, 初始化工作目录, 并在输出控件中显示作品位置"""
+        """选择开始时的目标作品, 初始化工作目录, 刷新控件显示预览图"""
         self._spawn(self._select_current(image_label, show_current_entry, show_remaining_entry))
 
-    async def next_image_async(
-            self,
-            image_label: 'Label',
-            show_current_entry: 'Entry',
-            show_remaining_entry: 'Entry',
-    ) -> None:
-        """异步加载待处理作品列表中的下一个作品, 刷新控件显示"""
-        if self._remaining_source:
-            self._current_source = self._remaining_source.pop(0)
-        await self._load_current(image_label, show_current_entry, show_remaining_entry)
-
-    def next_image(
-            self,
-            image_label: 'Label',
-            show_current_entry: 'Entry',
-            show_remaining_entry: 'Entry',
-    ) -> None:
-        """加载待处理作品列表中的下一个作品, 刷新控件显示"""
-        self._spawn(self.next_image_async(image_label, show_current_entry, show_remaining_entry))
-
     async def _merge_all_output(self) -> None:
+        """内部方法, 合并所有人工评级的元数据文件, 生成一个汇总的导入文件"""
         import_artworks_data: list[CustomImportArtwork] = []
 
-        for file in self._output_path.output_dir.list_current_files():
+        for file in self._output_path.import_data_dir.iter_current_files():
             async with file.async_open('r', encoding='utf-8') as af:
                 import_artworks_data.append(CustomImportArtwork.model_validate_json(await af.read()))
 
@@ -202,12 +302,19 @@ class BasePixivArtworkSource(abc.ABC):
         logger.info(f'Merge all rating data into {self._output_path.import_data_file.resolve_path}')
 
     def merge(self) -> None:
+        """合并所有人工评级的元数据文件, 生成一个汇总的导入文件"""
         self._spawn(self._merge_all_output())
 
     async def _generate_output(self, rating: int, *, classification: int = 3) -> None:
-        aid = str(self._current_source.pid)
-        data = CustomImportArtwork(origin='pixiv', classification=classification, aid=aid, rating=rating)
-        async with self._output_path.output_dir(f'{aid}.json').async_open('w', encoding='utf-8') as af:
+        """内部方法, 生成人工评级的元数据文件"""
+        data = CustomImportArtwork.model_validate({
+            'origin': (origin := self.source_origin),
+            'aid': (aid := self._current_source.aid),
+            'classification': classification,
+            'rating': rating,
+        })
+        import_data_file = self._output_path.import_data_dir(f'{origin}_{aid}.json')
+        async with import_data_file.async_open('w', encoding='utf-8') as af:
             await af.write(data.model_dump_json())
 
     async def _set_current(
@@ -219,59 +326,119 @@ class BasePixivArtworkSource(abc.ABC):
             *,
             classification: int = 3,
     ) -> None:
-        aid = str(self._current_source.pid)
+        """内部方法, 设置人工评级, 写入数据库并生成元数据文件"""
         try:
-            artwork = PixivArtworkProxy(artwork_id=aid)
+            artwork = self._current_artwork_proxy
             artwork_info = await artwork.query()
 
-            rating = 2 if artwork_info.rating == 2 else rating
+            rating = max(rating, artwork_info.rating)
             classification = 1 if artwork_info.classification == 1 else classification
 
+            # 更新数据库作品条目信息
             await artwork.add_and_upgrade_artwork_into_database(
-                classification=classification, rating=rating, force_update_cr=True
+                classification=classification,
+                rating=rating,
+                force_update_cr=True,
             )
+            # 添加评审记录
+            await artwork.add_artwork_review_record_into_database(
+                review_classification=classification,
+                review_rating=rating,
+                review_from=f'GUI-{self.source_type}',
+                review_info='人工审核',
+                record_tag='approved',
+            )
+            # 生成导入元数据
             await self._generate_output(rating=rating, classification=classification)
 
             logger.opt(colors=True).success(
                 f'Set classification=<lc>{classification}</lc> rating=<lc>{rating}</lc> succeed, '
-                f'artwork(id={aid}, title={artwork_info.title}, username={artwork_info.uname})'
+                f'artwork(id={artwork_info.aid}, title={artwork_info.title}, username={artwork_info.uname})'
             )
         except Exception as e:
-            logger.error(f'Set artwork(id={aid}) rating failed, {repr(e)}')
+            logger.error(f'Set artwork(id={self._current_source.aid}) rating failed, {e}')
         finally:
-            await self.next_image_async(image_label, show_current_entry, show_remaining_entry)
+            await self._load_next_async(image_label, show_current_entry, show_remaining_entry)
 
-    def set_current_general(
+    def set_current_general_c3(
             self,
             image_label: 'Label',
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        self._spawn(self._set_current(0, image_label, show_current_entry, show_remaining_entry))
+        self._spawn(self._set_current(
+            0, image_label, show_current_entry, show_remaining_entry, classification=3,
+        ))
 
-    def set_current_sensitive(
+    def set_current_sensitive_c3(
             self,
             image_label: 'Label',
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        self._spawn(self._set_current(1, image_label, show_current_entry, show_remaining_entry))
+        self._spawn(self._set_current(
+            1, image_label, show_current_entry, show_remaining_entry, classification=3,
+        ))
 
-    def set_current_questionable(
+    def set_current_questionable_c3(
             self,
             image_label: 'Label',
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        self._spawn(self._set_current(2, image_label, show_current_entry, show_remaining_entry))
+        self._spawn(self._set_current(
+            2, image_label, show_current_entry, show_remaining_entry, classification=3,
+        ))
 
-    def set_current_explicit(
+    def set_current_explicit_c3(
             self,
             image_label: 'Label',
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        self._spawn(self._set_current(3, image_label, show_current_entry, show_remaining_entry))
+        self._spawn(self._set_current(
+            3, image_label, show_current_entry, show_remaining_entry, classification=3,
+        ))
+
+    def set_current_general_c4(
+            self,
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
+    ) -> None:
+        self._spawn(self._set_current(
+            0, image_label, show_current_entry, show_remaining_entry, classification=4,
+        ))
+
+    def set_current_sensitive_c4(
+            self,
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
+    ) -> None:
+        self._spawn(self._set_current(
+            1, image_label, show_current_entry, show_remaining_entry, classification=4,
+        ))
+
+    def set_current_questionable_c4(
+            self,
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
+    ) -> None:
+        self._spawn(self._set_current(
+            2, image_label, show_current_entry, show_remaining_entry, classification=4,
+        ))
+
+    def set_current_explicit_c4(
+            self,
+            image_label: 'Label',
+            show_current_entry: 'Entry',
+            show_remaining_entry: 'Entry',
+    ) -> None:
+        self._spawn(self._set_current(
+            3, image_label, show_current_entry, show_remaining_entry, classification=4,
+        ))
 
     def set_current_reset(
             self,
@@ -279,9 +446,9 @@ class BasePixivArtworkSource(abc.ABC):
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        self._spawn(
-            self._set_current(-1, image_label, show_current_entry, show_remaining_entry, classification=0)
-        )
+        self._spawn(self._set_current(
+            -1, image_label, show_current_entry, show_remaining_entry, classification=0
+        ))
 
     def set_current_ignored(
             self,
@@ -289,267 +456,12 @@ class BasePixivArtworkSource(abc.ABC):
             show_current_entry: 'Entry',
             show_remaining_entry: 'Entry',
     ) -> None:
-        self._spawn(
-            self._set_current(-1, image_label, show_current_entry, show_remaining_entry, classification=-2)
-        )
-
-
-class LocalPixivArtworkSource(BasePixivArtworkSource):
-    """本地图片"""
-
-    @property
-    def source_type(self) -> str:
-        return 'local_pixiv_image'
-
-    @property
-    def title_name(self) -> str:
-        return '本地图片'
-
-    async def _load_current_source(self) -> SourceOpenFp:
-        return self._current_source.source_path
-
-    async def _select_current_source(self) -> None:
-        current_file = AnyResource(filedialog.askopenfilename())
-        self._current_source = CurrentArtwork.model_validate({
-            'pid': current_file.name.split('_')[0],
-            'source_path': current_file.resolve_path,
-        })
-        self._working_path = current_file.parent.resolve_path
-
-    async def _init_working_path(self) -> None:
-        working_dir = AnyResource(self._working_path)
-
-        # 文件列表缓存
-        working_dir_all_files_cache = self._output_path.cache_dir(
-            f'{working_dir.parent.name}-{working_dir.name}.txt'
-        )
-
-        # 加载文件列表缓存
-        if working_dir_all_files_cache.is_file:
-            async with working_dir_all_files_cache.async_open('r', encoding='utf-8') as af:
-                cache_files = parse_json_as(list[CurrentArtwork], await af.read())
-            working_dir_all_files = sorted(
-                (x for x in cache_files if x.pid >= self._current_source.pid),
-                key=lambda x: x.pid
-            )
-            logger.info(f'发现目录缓存, 已载入, 共计 {len(cache_files)}, 剩余待处理 {len(working_dir_all_files)}')
-        else:
-            exists_files = sorted(
-                (
-                    CurrentArtwork.model_validate({
-                        'pid': x.name.split('_')[0],
-                        'source_path': x.resolve_path,
-                    })
-                    for x in working_dir.list_current_files()
-                    if re.match(r'^\d+?_p0\d*?\.(jpg|jpeg|png|JPG|JPEG|PNG)$', x.name)
-                ),
-                key=lambda x: x.pid
-            )
-            working_dir_all_files = sorted(
-                (x for x in exists_files if x.pid >= self._current_source.pid),
-                key=lambda x: x.pid
-            )
-            logger.info(f'已筛选目录作品文件, 共计 {len(exists_files)}, 剩余待处理 {len(working_dir_all_files)}')
-
-        self._remaining_source = working_dir_all_files
-
-        # 保存文件清单缓存
-        async with working_dir_all_files_cache.async_open('w', encoding='utf-8') as af:
-            await af.write(dump_json_as(list[CurrentArtwork], self._remaining_source))
-
-
-class BaseDatabasePixivArtworkSource(BasePixivArtworkSource, abc.ABC):
-    """从数据中获取作品方法基类"""
-
-    @property
-    def source_type(self) -> str:
-        return 'database_pixiv_artwork'
-
-    @abc.abstractmethod
-    async def query_some_artworks_from_database(self) -> list['PixivArtworkProxy']:
-        """从数据库中获取作品的条件方法"""
-        raise NotImplementedError
-
-    async def _load_current_source(self) -> SourceOpenFp:
-        logger.info(f'获取作品 {self._current_source.pid} 图片中, 请稍候')
-        file = await PixivArtworkProxy(artwork_id=self._current_source.pid).get_page_file()
-        return file.resolve_path
-
-    async def _select_current_source(self) -> None:
-        pass
-
-    async def _init_working_path(self) -> None:
-        artworks = await self.query_some_artworks_from_database()
-        artworks_data = [await x.query() for x in artworks]
-        logger.info(f'已从数据中获取作品 {len(artworks)} 个, 正在初始化处理队列')
-
-        self._remaining_source = sorted(
-            (
-                CurrentArtwork.model_validate({
-                    'pid': x.aid,
-                    'source_path': x.cover_page_url,
-                })
-                for x in artworks_data
-            ),
-            key=lambda x: x.pid,
-            reverse=True
-        )
-
-
-class NonRatingPixivArtworkSource(BaseDatabasePixivArtworkSource):
-    """从数据中获取尚未分级的作品作品"""
-
-    @property
-    def title_name(self) -> str:
-        return '数据库中未分级作品'
-
-    async def query_some_artworks_from_database(self) -> list['PixivArtworkProxy']:
-        return await PixivArtworkProxy.query_db_by_condition(
-            keywords=None,
-            page=1,
-            size=200,
-            allow_classification_range=(-1, 0),
-            allow_rating_range=(-1, 3),
-            order_mode='aid_desc',
-        )
-
-
-class BaseCustomPixivArtworkSource(BasePixivArtworkSource, abc.ABC):
-    """自定义任意处理作品方法基类"""
-
-    @property
-    def source_type(self) -> str:
-        return 'custom_pixiv_artwork'
-
-    @abc.abstractmethod
-    async def query_some_artworks(self) -> list[int]:
-        """自定义获取作品 ID 的条件方法"""
-        raise NotImplementedError
-
-    async def _load_current_source(self) -> SourceOpenFp:
-        logger.info(f'获取作品 {self._current_source.pid} 图片中, 请稍候')
-        file = await PixivArtworkProxy(artwork_id=self._current_source.pid).get_page_file()
-        return file.resolve_path
-
-    async def _select_current_source(self) -> None:
-        pass
-
-    async def _init_working_path(self) -> None:
-        artworks = await self.query_some_artworks()
-        logger.info(f'已从自定义来源获取作品 {len(artworks)} 个, 正在初始化处理队列')
-
-        self._remaining_source = sorted(
-            (
-                CurrentArtwork.model_validate({
-                    'pid': x,
-                    'source_path': f'https://www.pixiv.net/artworks/{x}',
-                })
-                for x in artworks
-            ),
-            key=lambda x: x.pid,
-            reverse=True
-        )
-
-
-class RecommendPixivArtworkSource(BaseCustomPixivArtworkSource):
-    """Pixiv 首页推荐作品"""
-
-    @property
-    def title_name(self) -> str:
-        return 'Pixiv 首页推荐作品'
-
-    async def query_some_artworks(self) -> list[int]:
-        from src.utils.pixiv_api.pixiv import PixivCommon
-
-        logger.info('正在从 Pixiv 发现/推荐获取作品来源, 请稍候')
-        discovery_result = await PixivCommon.query_discovery_artworks()
-        top_result = await PixivCommon.query_top_illust()
-        aids = [str(x) for x in (discovery_result.recommend_pids + top_result.recommend_pids)]
-
-        return [x.i_aid for x in await PixivArtworkProxy.query_db_not_exists_artworks(aids, exclude_classification=3)]
-
-
-class ArtworkRecommendPixivArtworkSource(BaseCustomPixivArtworkSource):
-    """Pixiv 作品相关推荐作品"""
-
-    @property
-    def title_name(self) -> str:
-        return 'Pixiv 作品相关推荐作品'
-
-    @staticmethod
-    def _ask_pid() -> int:
-        tmp_root = Tk()  # Create a new temporary "parent", but make it invisible
-        tmp_root.withdraw()
-
-        pid = simpledialog.askinteger('目标作品', '请输入想要获取相关推荐的作品 PID', parent=tmp_root)
-        while pid is None:
-            pid = simpledialog.askinteger('目标作品', 'PID 不能为空, 请输入想要获取相关推荐的作品 PID', parent=tmp_root)
-
-        tmp_root.destroy()
-        return pid
-
-    async def query_some_artworks(self) -> list[int]:
-        from src.utils.pixiv_api.pixiv import PixivArtwork
-
-        pid = self._ask_pid()
-
-        logger.info(f'正在从获取作品 {pid} 相关推荐, 请稍候')
-        recommend_result = await PixivArtwork(pid=pid).query_recommend(init_limit=100)
-        not_exists = await PixivArtworkProxy.query_db_not_exists_artworks(
-            recommend_result.illust_ids,
-            exclude_classification=3,
-        )
-        return [x.i_aid for x in not_exists]
-
-
-class SearchPopularPixivArtworkSource(BaseCustomPixivArtworkSource):
-    """Pixiv 搜索作品"""
-
-    @property
-    def title_name(self) -> str:
-        return 'Pixiv 搜索'
-
-    @staticmethod
-    def _ask_keyword() -> str:
-        tmp_root = Tk()  # Create a new temporary "parent", but make it invisible
-        tmp_root.withdraw()
-
-        keyword = simpledialog.askstring('搜索关键词', '请输入搜索关键词', parent=tmp_root)
-        while keyword is None:
-            keyword = simpledialog.askstring('搜索关键词', '关键词不能为空, 请输入搜索关键词', parent=tmp_root)
-
-        tmp_root.destroy()
-        return keyword
-
-    @staticmethod
-    def _ask_page() -> int:
-        tmp_root = Tk()  # Create a new temporary "parent", but make it invisible
-        tmp_root.withdraw()
-
-        page = simpledialog.askinteger('页码', '请输入请求的搜索结果页码', parent=tmp_root)
-        page = 1 if page is None else page
-
-        tmp_root.destroy()
-        return page
-
-    async def query_some_artworks(self) -> list[int]:
-        from src.utils.pixiv_api.pixiv import PixivArtwork
-
-        keyword = self._ask_keyword()
-        page = self._ask_page()
-
-        logger.info(f'正在从 {keyword!r} 搜索结果 Page-{page} 获取作品信息, 请稍候')
-        search_result = await PixivArtwork.search_by_default_popular_condition(word=keyword, page=page)
-        aids = [str(x.id) for x in search_result.artworks]
-
-        return [x.i_aid for x in await PixivArtworkProxy.query_db_not_exists_artworks(aids, exclude_classification=3)]
+        self._spawn(self._set_current(
+            -1, image_label, show_current_entry, show_remaining_entry, classification=-2
+        ))
 
 
 __all__ = [
-    'BasePixivArtworkSource',
-    'LocalPixivArtworkSource',
-    'NonRatingPixivArtworkSource',
-    'RecommendPixivArtworkSource',
-    'ArtworkRecommendPixivArtworkSource',
-    'SearchPopularPixivArtworkSource',
+    'ArtworkRatingImportTool',
+    'BaseArtworkSource',
 ]

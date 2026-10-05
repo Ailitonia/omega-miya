@@ -2,37 +2,36 @@
 @Author         : Ailitonia
 @Date           : 2024/9/8 17:06
 @FileName       : model
-@Project        : ailitonia-toolkit
-@Description    :
+@Project        : omega-miya
+@Description    : 数据模型类
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict
 
-type ALLOW_ARTWORK_ORIGIN = Literal[
-    'pixiv',
-    'danbooru',
-    'gelbooru',
-    'konachan',
-    'yandere',
-    'local_collected_artwork',
-    'none',
-]
+
+class BaseRatingDataModel(BaseModel):
+    """评级数据模型基类"""
+
+    model_config = ConfigDict(extra='ignore', coerce_numbers_to_str=True, from_attributes=True, frozen=True)
 
 
-class CustomImportArtwork(BaseModel):
-    """手动导入/更新作品信息"""
-    origin: ALLOW_ARTWORK_ORIGIN
+class CurrentArtwork(BaseRatingDataModel):
+    """当前进行分级的作品"""
+    aid: str
+    source_path: str
+
+
+class CustomImportArtwork(BaseRatingDataModel):
+    """导出后供手动导入/更新的作品信息"""
+    origin: str
     aid: str
     classification: int
     rating: int
 
-    model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
-
 
 __all__ = [
+    'CurrentArtwork',
     'CustomImportArtwork',
 ]
