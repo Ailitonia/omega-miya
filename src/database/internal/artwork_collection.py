@@ -568,8 +568,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             origin: str | Sequence[str] | None,
             aids: Sequence[str],
             *,
-            filter_classification: int | None = None,
-            filter_rating: int | None = None,
+            filter_classification: int | Sequence[int] | None = None,
+            filter_rating: int | Sequence[int] | None = None,
     ) -> list[str]:
         """根据提供的 artwork_id 列表查询数据库中已存在的列表中的 artwork_id
 
@@ -592,9 +592,16 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             stmt = stmt.where(ArtworkCollectionOrm.origin.in_(origin))
 
         if filter_classification is not None:
-            stmt = stmt.where(ArtworkCollectionOrm.classification == filter_classification)
+            if isinstance(filter_classification, int):
+                stmt = stmt.where(ArtworkCollectionOrm.classification == filter_classification)
+            elif isinstance(filter_classification, Sequence):
+                stmt = stmt.where(ArtworkCollectionOrm.classification.in_(filter_classification))
+
         if filter_rating is not None:
-            stmt = stmt.where(ArtworkCollectionOrm.rating == filter_rating)
+            if isinstance(filter_rating, int):
+                stmt = stmt.where(ArtworkCollectionOrm.rating == filter_rating)
+            elif isinstance(filter_rating, Sequence):
+                stmt = stmt.where(ArtworkCollectionOrm.rating.in_(filter_rating))
 
         # 按 aid 数值感知排序
         stmt = (stmt
@@ -608,8 +615,8 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             origin: str | Sequence[str] | None,
             aids: Sequence[str],
             *,
-            exclude_classification: int | None = None,
-            exclude_rating: int | None = None,
+            exclude_classification: int | Sequence[int] | None = None,
+            exclude_rating: int | Sequence[int] | None = None,
     ) -> list[str]:
         """根据提供的 artwork_id 列表查询数据库中不存在的列表中的 artwork_id
 
@@ -620,7 +627,10 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
         :return: 数据库中不存在的, 匹配提供的作品清单的 artwork_id 列表
         """
         exists_aids = await self.query_exists_aids(
-            origin=origin, aids=aids, filter_classification=exclude_classification, filter_rating=exclude_rating
+            origin=origin,
+            aids=aids,
+            filter_classification=exclude_classification,
+            filter_rating=exclude_rating,
         )
         # 按 (长度, 字典序) 的数值感知顺序倒序排列, 与查询方法的 aid 排序口径一致
         return sorted(set(aids) - set(exists_aids), key=lambda x: (len(x), x), reverse=True)

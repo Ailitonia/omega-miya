@@ -1278,6 +1278,128 @@ class TestArtworkCollectionDAL:
         assert '1002' in not_exists
         assert '1001' not in not_exists
 
+    async def test_query_exists_and_not_exists_aids_filter_classification_sequence(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """filter_classification 传入序列时, 只返回命中序列内分类的 aid"""
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['aid'] = '1001'
+        a1_kwargs['classification'] = 1
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['aid'] = '1002'
+        a2_kwargs['classification'] = 2
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['aid'] = '1003'
+        a3_kwargs['classification'] = 3
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        exists = await artwork_dal.query_exists_aids(
+            'test_origin', ['1001', '1002', '1003'], filter_classification=[1, 2],
+        )
+        assert sorted(exists) == ['1001', '1002']
+
+        exists = await artwork_dal.query_exists_aids(
+            'test_origin', ['1001', '1002', '1003'], filter_classification=(2,),
+        )
+        assert exists == ['1002']
+
+        # 分类命中序列 [1, 2] 的视为已存在, 其余视为不存在
+        not_exists = await artwork_dal.query_not_exists_aids(
+            'test_origin', ['1001', '1002', '1003', '1999'], exclude_classification=[1, 2],
+        )
+        assert '1003' in not_exists
+        assert '1999' in not_exists
+        assert '1001' not in not_exists
+        assert '1002' not in not_exists
+
+    async def test_query_exists_and_not_exists_aids_filter_rating_sequence(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """filter_rating 传入序列时, 只返回命中序列内分级的 aid"""
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['aid'] = '1001'
+        a1_kwargs['rating'] = 0
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['aid'] = '1002'
+        a2_kwargs['rating'] = 1
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['aid'] = '1003'
+        a3_kwargs['rating'] = 3
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        exists = await artwork_dal.query_exists_aids(
+            'test_origin', ['1001', '1002', '1003'], filter_rating=[0, 1],
+        )
+        assert sorted(exists) == ['1001', '1002']
+
+        exists = await artwork_dal.query_exists_aids(
+            'test_origin', ['1001', '1002', '1003'], filter_rating=(3,),
+        )
+        assert exists == ['1003']
+
+        # 分级命中序列 [0, 1] 的视为已存在, 其余视为不存在
+        not_exists = await artwork_dal.query_not_exists_aids(
+            'test_origin', ['1001', '1002', '1003', '1999'], exclude_rating=[0, 1],
+        )
+        assert '1003' in not_exists
+        assert '1999' in not_exists
+        assert '1001' not in not_exists
+        assert '1002' not in not_exists
+
+    async def test_query_exists_aids_filter_sequence_combined_and_empty(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """序列形式的 classification 与 rating 筛选同时传入时为 AND 语义, 空序列恒不命中"""
+        a1_kwargs = test_basic_artwork_kwargs_generator()
+        a1_kwargs['aid'] = '1001'
+        a1_kwargs['classification'] = 3
+        a1_kwargs['rating'] = 0
+        await artwork_dal.add_artwork_update_exist(**a1_kwargs)
+
+        a2_kwargs = test_basic_artwork_kwargs_generator()
+        a2_kwargs['aid'] = '1002'
+        a2_kwargs['classification'] = 3
+        a2_kwargs['rating'] = 1
+        await artwork_dal.add_artwork_update_exist(**a2_kwargs)
+
+        a3_kwargs = test_basic_artwork_kwargs_generator()
+        a3_kwargs['aid'] = '1003'
+        a3_kwargs['classification'] = 2
+        a3_kwargs['rating'] = 0
+        await artwork_dal.add_artwork_update_exist(**a3_kwargs)
+
+        # classification 与 rating 序列筛选同时生效, 为 AND 语义
+        exists = await artwork_dal.query_exists_aids(
+            'test_origin', ['1001', '1002', '1003'],
+            filter_classification=[2, 3], filter_rating=[0],
+        )
+        assert sorted(exists) == ['1001', '1003']
+
+        # 空序列筛选恒不命中, 视为不存在任何作品
+        exists = await artwork_dal.query_exists_aids(
+            'test_origin', ['1001', '1002', '1003'], filter_classification=[],
+        )
+        assert exists == []
+
+        not_exists = await artwork_dal.query_not_exists_aids(
+            'test_origin', ['1001', '1002', '1003'], exclude_rating=[],
+        )
+        assert sorted(not_exists) == ['1001', '1002', '1003']
+
     # ------------------------------------------------------------------ #
     # query_user_all_artworks / query_user_all_aids
     # ------------------------------------------------------------------ #
