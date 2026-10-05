@@ -92,7 +92,6 @@ def run_tool_execute(args: 'CliQueryArguments') -> None:
 
     import nonebot
     from nonebot.log import default_format, logger
-    from nonebot.utils import run_sync
 
     from src.resource import LogFileResource
 
@@ -118,15 +117,12 @@ def run_tool_execute(args: 'CliQueryArguments') -> None:
 
     logger.info(f'Executing tool: {module_path}:{func_name}, with args: {args.extra_args}')
 
-    # 执行入口函数, 兼容同步与异步入口
+    # 执行入口函数, 兼容同步与异步入口, 同步入口直接在主线程调用,
+    # 避免 GUI 等线程亲和的同步入口被放到工作线程执行
     if inspect.iscoroutinefunction(func):
         asyncio.run(func(*args.extra_args))
     else:
-        @run_sync
-        def _wrapped_func():
-            func(*args.extra_args)
-
-        asyncio.run(_wrapped_func())
+        func(*args.extra_args)
 
 
 def run_database_check(_: 'CliQueryArguments') -> None:
