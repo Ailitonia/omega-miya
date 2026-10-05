@@ -12,6 +12,7 @@ import abc
 import asyncio
 from collections.abc import Coroutine
 from datetime import datetime
+from tkinter import messagebox
 from typing import IO, TYPE_CHECKING, Any
 
 from PIL import Image, ImageTk
@@ -304,6 +305,10 @@ class BaseArtworkSource(abc.ABC):
     def merge(self) -> None:
         """合并所有人工评级的元数据文件, 生成一个汇总的导入文件"""
         self._spawn(self._merge_all_output())
+        messagebox.showinfo(
+            title='合并生成导入文件完成',
+            message='已合并生成评级导入文件, 文件路径详见日志',
+        )
 
     async def _generate_output(self, rating: int, *, classification: int = 3) -> None:
         """内部方法, 生成人工评级的元数据文件"""

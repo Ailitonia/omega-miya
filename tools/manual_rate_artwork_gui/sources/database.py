@@ -59,12 +59,16 @@ class _DatabaseArtworkSource(BaseArtworkSource, abc.ABC):
 
     async def _init_working_path(self) -> None:
         artworks = await self.query_some_artworks_from_database()
+        if not artworks:
+            logger.error('数据源为空, 目前无符合条件的作品')
+            raise RuntimeError('null of artwork source')
+
         artworks_data = await semaphore_gather(
             tasks=[x.query(use_cache=True) for x in artworks],
             semaphore_num=8,
             return_exceptions=False,
         )
-        logger.info(f'已从数据中获取作品 {len(artworks)} 个, 正在初始化处理队列')
+        logger.info(f'已从数据源中获取作品 {len(artworks)} 个, 正在初始化处理队列')
 
         self._remaining_source = sorted(
             (

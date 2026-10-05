@@ -134,6 +134,10 @@ class _PixivPoolArtworkSource(BaseArtworkSource, abc.ABC):
 
     async def _init_working_path(self) -> None:
         aids = await self.query_pool_artworks()
+        if not aids:
+            logger.error(f'{self.source_type} 来源为空, 可能是网络异常或无符合条件的作品')
+            raise RuntimeError('null of artwork source')
+
         logger.info(f'已从 {self.source_type} 来源获取作品 {len(aids)} 个, 正在初始化处理队列')
 
         self._remaining_source = sorted(
