@@ -3,7 +3,7 @@
 @Date           : 2026/10/2 10:45
 @FileName       : conftest
 @Project        : omega-miya
-@Description    : test_004_tools 共享 fixtures(路径清理/样例数据/命名空间重绑定录制)
+@Description    : test_004_utils 共享 fixtures(路径清理/样例数据/命名空间重绑定录制)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """

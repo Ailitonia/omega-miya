@@ -77,7 +77,7 @@ MySQL/PostgreSQL/SQLite backends.
 - `tests/` - pytest suite (see "Testing Instructions"): `test_001_database` (migration state check, database init,
   per-table DAL CRUD, DAL execute), `test_002_core` (compat, resource, apscheduler, event patches, omega services,
   `OmegaEntity`, omega_base internals), `test_003_web` (HTTP client layer, external API clients, artwork proxy -
-  against the local uvicorn test server), `test_004_tools` (crypto: key derivation, AES/ChaCha20 modes,
+  against the local uvicorn test server), `test_004_utils` (crypto: key derivation, AES/ChaCha20 modes,
   authenticated envelopes), and `test_009_cli` (CLI `--tool-execute` entry, `extra_args` positional parsing and
   pass-through).
 - `docs/` - documentation assets: `img/` holds images referenced by the README; `reference/` holds curated reference
