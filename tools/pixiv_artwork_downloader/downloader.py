@@ -8,7 +8,6 @@
 @Software       : PyCharm
 """
 
-import asyncio
 import sys
 from asyncio import sleep as async_sleep
 from collections.abc import Sequence
@@ -31,8 +30,6 @@ from .utils import get_last_follow_illust_pid, set_last_follow_illust_pid
 if TYPE_CHECKING:
     from src.service.artwork_proxy.models import ArtworkProxyData
 
-_DATABASE_WRITE_LOCK: asyncio.Lock = asyncio.Lock()
-"""数据库写入锁, 减少数据库并发写入时的冲突"""
 _DOWNLOAD_URL_TMP_DIR: TemporaryResource = TemporaryResource(DOWNLOADER_SETTING_NAME)
 """下载链接缓存目录"""
 
@@ -88,8 +85,7 @@ class PixivArtworkDownloader:
             artwork_data = await artwork.query(use_cache=self.__use_cache)
 
         # 作品信息写入数据库
-        async with _DATABASE_WRITE_LOCK:
-            await artwork.add_artwork_into_database_ignore_exists()
+        await artwork.add_artwork_into_database_ignore_exists()
         return artwork_data
 
     async def _handle_append_write_artworks_download_urls_into_output_file(
