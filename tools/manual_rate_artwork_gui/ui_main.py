@@ -9,7 +9,7 @@
 """
 
 import asyncio
-from tkinter import StringVar, TclError, Tk, messagebox, ttk
+from tkinter import TclError, Tk, messagebox, ttk
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
         ttk.Label(file_frm, text='当前文件: ').pack(side='left')
 
         # 初始化当前文件入口输入控件, 绑定实例变量供后续交互
-        self._file_entry = ttk.Entry(file_frm, textvariable=StringVar())
+        self._file_entry = ttk.Entry(file_frm)
         self._file_entry.pack(fill='x')
 
         # 顶部子框架 top_info_frm 内容填充: 剩余文件显示组件
@@ -55,7 +55,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
         ttk.Label(remaining_frm, text='剩余文件: ').pack(side='left')
 
         # 初始化剩余文件输入控件, 绑定实例变量供后续交互
-        self._remaining_entry = ttk.Entry(remaining_frm, textvariable=StringVar())
+        self._remaining_entry = ttk.Entry(remaining_frm)
         self._remaining_entry.pack(fill='x')
 
         # ------------------------------------------------------------------ #
@@ -120,7 +120,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
         # Classification: HUMAN_CONFIRMED 类型的评级按钮
         ttk.Button(
             rating_confirmed_button_frm,
-            text='(0) General | 萌图',
+            text='(Ctrl+0) General | 萌图',
             padding=6,
             command=lambda: self.source.set_current_general_c3(*show_components)
         ).pack(anchor='center')
@@ -128,7 +128,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
 
         ttk.Button(
             rating_confirmed_button_frm,
-            text='(1) Sensitive | 涩图',
+            text='(Ctrl+1) Sensitive | 涩图',
             padding=6,
             command=lambda: self.source.set_current_sensitive_c3(*show_components)
         ).pack(anchor='center')
@@ -136,7 +136,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
 
         ttk.Button(
             rating_confirmed_button_frm,
-            text='(2) Questionable | R18',
+            text='(Ctrl+2) Questionable | R18',
             padding=6,
             command=lambda: self.source.set_current_questionable_c3(*show_components)
         ).pack(anchor='center')
@@ -144,7 +144,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
 
         ttk.Button(
             rating_confirmed_button_frm,
-            text='(3) Explicit | R18+(G)',
+            text='(Ctrl+3) Explicit | R18+(G)',
             padding=6,
             command=lambda: self.source.set_current_explicit_c3(*show_components)
         ).pack(anchor='center')
@@ -153,36 +153,40 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
         # Classification: FEATURED 类型的评级按钮
         ttk.Button(
             rating_featured_button_frm,
-            text='(0) General | 萌图',
+            text='(Alt+0) General | 萌图',
             padding=6,
             command=lambda: self.source.set_current_general_c4(*show_components)
         ).pack(anchor='center')
+        self.root.bind('<Alt-KeyPress-0>', lambda x: self.source.set_current_general_c4(*show_components))
 
         ttk.Button(
             rating_featured_button_frm,
-            text='(1) Sensitive | 涩图',
+            text='(Alt+1) Sensitive | 涩图',
             padding=6,
             command=lambda: self.source.set_current_sensitive_c4(*show_components)
         ).pack(anchor='center')
+        self.root.bind('<Alt-KeyPress-1>', lambda x: self.source.set_current_sensitive_c4(*show_components))
 
         ttk.Button(
             rating_featured_button_frm,
-            text='(2) Questionable | R18',
+            text='(Alt+2) Questionable | R18',
             padding=6,
             command=lambda: self.source.set_current_questionable_c4(*show_components)
         ).pack(anchor='center')
+        self.root.bind('<Alt-KeyPress-2>', lambda x: self.source.set_current_questionable_c4(*show_components))
 
         ttk.Button(
             rating_featured_button_frm,
-            text='(3) Explicit | R18+(G)',
+            text='(Alt+3) Explicit | R18+(G)',
             padding=6,
             command=lambda: self.source.set_current_explicit_c4(*show_components)
         ).pack(anchor='center')
+        self.root.bind('<Alt-KeyPress-3>', lambda x: self.source.set_current_explicit_c4(*show_components))
 
         # 特殊类型的评级按钮
         ttk.Button(
             extra_button_frm,
-            text='(P) Pass | 跳过',
+            text='(Ctrl+Right) Pass | 跳过',
             padding=6,
             command=lambda: self.source.load_next(*show_components)
         ).pack(anchor='center')
@@ -190,7 +194,7 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
 
         ttk.Button(
             extra_button_frm,
-            text='(R) Reset | 重置',
+            text='(Ctrl+Down) Reset | 重置',
             padding=6,
             command=lambda: self.source.set_current_reset(*show_components)
         ).pack(anchor='center')
@@ -198,23 +202,32 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
 
         ttk.Button(
             extra_button_frm,
-            text='(I) Ignored | 忽略',
+            text='(Ctrl+Left) Ignored | 忽略',
             padding=6,
             command=lambda: self.source.set_current_ignored(*show_components)
         ).pack(anchor='center')
+        self.root.bind('<Control-KeyPress-Left>', lambda x: self.source.set_current_ignored(*show_components))
 
         # 拦截关闭按钮处理
         self.root.protocol('WM_DELETE_WINDOW', self._shutdown)
 
     def _shutdown(self) -> None:
-        ok_exist = messagebox.askokcancel(
-            message='退出前记得生成导出文件, 确认要退出吗?',
-            icon='question',
-            title='退出确认',
-        )
+        if self.source.processing or self.source.has_pending_tasks:
+            ok_exist = messagebox.askokcancel(
+                message='有任务正在进行中, 强制退出将中断未完成的操作, 确认要退出吗?',
+                icon='warning',
+                title='退出确认',
+            )
+        else:
+            ok_exist = messagebox.askokcancel(
+                message='退出前记得生成导出文件, 确认要退出吗?',
+                icon='question',
+                title='退出确认',
+            )
         if not ok_exist:
             return
 
+        self.source.cancel_pending_tasks()
         self.root.destroy()
 
     def run(self) -> None:

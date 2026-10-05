@@ -22,7 +22,7 @@ from .ui_main import ManualRatingArtworkMain
 
 async def run_import_artwork_rating_into_database(*args: str) -> None:
     if not (source_type := args[0] if args else None):
-        raise ValueError('source_type param is acquired but not')
+        raise ValueError('source_type param is required but not provided')
     await ArtworkRatingImportTool(source_type).import_artwork_rating_into_database()
 
 

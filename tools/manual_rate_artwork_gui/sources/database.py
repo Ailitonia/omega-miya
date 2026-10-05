@@ -20,6 +20,7 @@ from ..model import CurrentArtwork
 
 if TYPE_CHECKING:
     from os import PathLike
+
     from src.service.artwork_proxy.internal import BaseArtworkProxy
 
     type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
@@ -49,9 +50,9 @@ class _DatabaseArtworkSource(BaseArtworkSource, abc.ABC):
         """从数据库中获取作品 ID 序列"""
         raise NotImplementedError
 
-    async def _load_current_source(self) -> 'SourceOpenFp':
-        logger.info(f'获取作品 {self._current_source.aid} 图片中, 请稍候')
-        file = await self._current_artwork_proxy.get_page_file()
+    async def _load_source(self, source: CurrentArtwork) -> 'SourceOpenFp':
+        logger.info(f'获取作品 {source.aid} 图片中, 请稍候')
+        file = await self._artwork_proxy_cls(artwork_id=source.aid).get_page_file()
         return file.resolve_path
 
     async def _select_current_source(self) -> None:
@@ -70,6 +71,9 @@ class _DatabaseArtworkSource(BaseArtworkSource, abc.ABC):
         )
         logger.info(f'已从数据源中获取作品 {len(artworks)} 个, 正在初始化处理队列')
 
+        if any(not x.aid.isdecimal() for x in artworks_data):
+            logger.warning(f'数据源 {self.source_origin} 中存在非数字 aid 的作品, 排序时将被置于末尾')
+
         self._remaining_source = sorted(
             (
                 CurrentArtwork.model_validate({
@@ -78,8 +82,8 @@ class _DatabaseArtworkSource(BaseArtworkSource, abc.ABC):
                 })
                 for x in artworks_data
             ),
-            key=lambda x: int(x.aid),
-            reverse=True
+            key=lambda x: int(x.aid) if x.aid.isdecimal() else 0,
+            reverse=True,
         )
 
 
