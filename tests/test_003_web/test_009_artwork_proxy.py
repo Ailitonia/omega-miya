@@ -21,6 +21,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.test_003_web.helpers import patch_module_time
+
 
 @pytest.fixture
 def isolated_temporary_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -183,6 +185,7 @@ def fake_artwork_dal(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         query_exists_aids=AsyncMock(return_value=[]),
         query_not_exists_aids=AsyncMock(return_value=[]),
         query_unique=AsyncMock(return_value='artwork_from_db'),
+        add_artwork_review_record=AsyncMock(),
         add_artwork_update_exist=AsyncMock(),
         add_artwork_ignore_exist=AsyncMock(),
         delete=AsyncMock(),
@@ -1201,7 +1204,7 @@ class TestDatabaseOps:
             origin=None, keywords=['a'], page=1, size=3,
             classification_min=3, classification_max=4,
             rating_min=0, rating_max=0,
-            acc_mode=False, ratio=None, order_mode='random',
+            acc_mode=False, ratio=None, has_review_record=None, order_mode='random',
         )
 
     async def test_query_db_any_origin_by_condition_custom_ranges(
@@ -1217,7 +1220,7 @@ class TestDatabaseOps:
             origin='x', keywords=['a', 'b'], page=2, size=5,
             classification_min=1, classification_max=4,
             rating_min=0, rating_max=3,
-            acc_mode=True, ratio=2, order_mode='latest',
+            acc_mode=True, ratio=2, has_review_record=None, order_mode='latest',
         )
 
     async def test_query_db_by_condition_filters_origin(
@@ -1234,6 +1237,15 @@ class TestDatabaseOps:
         assert isinstance(result[0], proxy_factory.cls)
         assert fake_artwork_dal.query_by_condition.await_args.kwargs['origin'] == 'unit_test_proxy'
 
+    @pytest.mark.parametrize('has_review_record', [True, False])
+    async def test_query_db_by_condition_has_review_record(
+            self, proxy_factory: SimpleNamespace, fake_artwork_dal: SimpleNamespace, has_review_record: bool,
+    ):
+        """has_review_record 参数经 query_db_by_condition 完整转发链透传到 DAL"""
+        await proxy_factory.cls.query_db_by_condition(keywords='a', has_review_record=has_review_record)
+
+        assert fake_artwork_dal.query_by_condition.await_args.kwargs['has_review_record'] is has_review_record
+
     async def test_query_db_random(self, proxy_factory: SimpleNamespace, fake_artwork_dal: SimpleNamespace):
         await proxy_factory.cls.query_db_random(num=5)
 
@@ -1241,7 +1253,7 @@ class TestDatabaseOps:
             origin='unit_test_proxy', keywords=None, page=1, size=5,
             classification_min=3, classification_max=4,
             rating_min=0, rating_max=0,
-            acc_mode=False, ratio=None, order_mode='random',
+            acc_mode=False, ratio=None, has_review_record=None, order_mode='random',
         )
 
     async def test_query_db_classification_statistic(
@@ -1295,6 +1307,108 @@ class TestDatabaseOps:
             origin='unit_test_proxy', aids=['1', '2'], exclude_classification=3, exclude_rating=0,
         )
         assert [x.s_aid for x in result] == ['2']
+
+    @pytest.mark.parametrize(
+        ('filter_classification', 'filter_rating'),
+        [
+            pytest.param([2, 3], [0, 1], id='sequence'),
+            pytest.param((3,), (0,), id='tuple'),
+            pytest.param([2, 3], 0, id='mixed'),
+        ],
+    )
+    async def test_query_db_exists_artworks_sequence_filters(
+            self,
+            proxy_factory: SimpleNamespace,
+            fake_artwork_dal: SimpleNamespace,
+            filter_classification,
+            filter_rating,
+    ):
+        fake_artwork_dal.query_exists_aids.return_value = ['1']
+
+        result = await proxy_factory.cls.query_db_exists_artworks(
+            ['1', '2'], filter_classification=filter_classification, filter_rating=filter_rating,
+        )
+
+        fake_artwork_dal.query_exists_aids.assert_awaited_once_with(
+            origin='unit_test_proxy', aids=['1', '2'],
+            filter_classification=filter_classification, filter_rating=filter_rating,
+        )
+        assert [x.s_aid for x in result] == ['1']
+
+    @pytest.mark.parametrize(
+        ('exclude_classification', 'exclude_rating'),
+        [
+            pytest.param([2, 3], [0, 1], id='sequence'),
+            pytest.param((3,), 1, id='mixed'),
+        ],
+    )
+    async def test_query_db_not_exists_artworks_sequence_filters(
+            self,
+            proxy_factory: SimpleNamespace,
+            fake_artwork_dal: SimpleNamespace,
+            exclude_classification,
+            exclude_rating,
+    ):
+        fake_artwork_dal.query_not_exists_aids.return_value = ['2']
+
+        result = await proxy_factory.cls.query_db_not_exists_artworks(
+            ['1', '2'], exclude_classification=exclude_classification, exclude_rating=exclude_rating,
+        )
+
+        fake_artwork_dal.query_not_exists_aids.assert_awaited_once_with(
+            origin='unit_test_proxy', aids=['1', '2'],
+            exclude_classification=exclude_classification, exclude_rating=exclude_rating,
+        )
+        assert [x.s_aid for x in result] == ['2']
+
+    async def test_add_artwork_review_record_into_database(
+            self,
+            proxy_factory: SimpleNamespace,
+            fake_artwork_dal: SimpleNamespace,
+            monkeypatch: pytest.MonkeyPatch,
+    ):
+        """向数据库插入作品评审记录, 完整透传参数, 时间戳取模块 time.time()"""
+        import src.service.artwork_proxy.internal as internal
+
+        patch_module_time(monkeypatch, internal, fixed_ts=1730000000)
+
+        sentinel = object()
+        fake_artwork_dal.add_artwork_review_record.return_value = sentinel
+
+        result = await proxy_factory.cls('123').add_artwork_review_record_into_database(
+            3, 1, 'unit_test', 'info',
+        )
+
+        fake_artwork_dal.add_artwork_review_record.assert_awaited_once_with(
+            origin='unit_test_proxy', aid='123', review_timestamp=1730000000,
+            review_classification=3, review_rating=1,
+            review_from='unit_test', review_info='info', record_tag=None,
+        )
+        assert result is sentinel
+
+    async def test_add_artwork_review_record_into_database_custom_tag(
+            self,
+            proxy_factory: SimpleNamespace,
+            fake_artwork_dal: SimpleNamespace,
+            monkeypatch: pytest.MonkeyPatch,
+    ):
+        """显式指定 record_tag 时透传到 DAL"""
+        import src.service.artwork_proxy.internal as internal
+
+        patch_module_time(monkeypatch, internal, fixed_ts=1730000000)
+
+        fake_artwork_dal.add_artwork_review_record.return_value = 'record'
+
+        result = await proxy_factory.cls('123').add_artwork_review_record_into_database(
+            2, 0, 'unit_test', 'info', record_tag='approved',
+        )
+
+        fake_artwork_dal.add_artwork_review_record.assert_awaited_once_with(
+            origin='unit_test_proxy', aid='123', review_timestamp=1730000000,
+            review_classification=2, review_rating=0,
+            review_from='unit_test', review_info='info', record_tag='approved',
+        )
+        assert result == 'record'
 
     def test_convert_proxy_data_to_add_artwork_params(self, proxy_factory: SimpleNamespace):
         data = make_artwork_data()

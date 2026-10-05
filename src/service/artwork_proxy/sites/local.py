@@ -38,13 +38,13 @@ class LocalCollectedArtworkProxy(BaseArtworkProxy):
     @classmethod
     async def _search(cls, keyword: str, *, page: int | None = None, **kwargs) -> list[str | int]:
         artwork_path = cls._get_path_config().artwork_path
-        return [file.name for file in artwork_path.list_all_files() if keyword in file.name]
+        return [file.name for file in artwork_path.iter_all_files() if keyword in file.name]
 
     @classmethod
     async def list_all_artwork(cls) -> list[Self]:
         """列出所有的本地图片作品"""
         artwork_path = cls._get_path_config().artwork_path
-        return [cls(file.name) for file in artwork_path.list_all_files()]
+        return [cls(file.name) for file in artwork_path.iter_all_files()]
 
     @property
     def self_file(self) -> 'TemporaryResource':

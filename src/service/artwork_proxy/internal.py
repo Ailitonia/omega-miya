@@ -13,6 +13,7 @@ import asyncio
 import glob
 import hashlib
 import re
+import time
 import unicodedata
 import weakref
 from collections.abc import Sequence
@@ -29,6 +30,7 @@ from src.database.internal.artwork_collection import (
     ArtworkClassificationStatistic,
     ArtworkCollectionDAL,
     ArtworkRatingStatistic,
+    ArtworkReviewRecord,
 )
 from src.utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
@@ -67,6 +69,8 @@ _WINDOWS_RESERVED_FILE_NAMES = frozenset(
 """Windows 保留设备文件名(不区分大小写, 含扩展名形式, 不可用作文件名)"""
 _PAGE_FILE_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 """作品页面文件写入的进程内锁注册表(按目标文件解析路径, 弱引用自动清理)"""
+_DATABASE_WRITE_LOCK: asyncio.Lock = asyncio.Lock()
+"""数据库写入锁, 避免数据库并发写入时的冲突"""
 _META_SNAPSHOT_KEPT_NUM: int = 8
 """每个作品保留的元数据快照数量上限"""
 
@@ -773,6 +777,7 @@ class BaseArtworkProxy(abc.ABC):
             allow_rating_range: tuple[int, int] | None = None,
             acc_mode: bool = False,
             ratio: int | None = None,
+            has_review_record: bool | None = None,
             order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
     ) -> list[tuple[str, str]]:
         """从数据库所有或任意指定来源根据要求查询作品
@@ -801,6 +806,7 @@ class BaseArtworkProxy(abc.ABC):
                 rating_max=max(allow_rating_range),
                 acc_mode=acc_mode,
                 ratio=ratio,
+                has_review_record=has_review_record,
                 order_mode=order_mode,
             )
         return [(x.origin, x.aid) for x in result]
@@ -816,6 +822,7 @@ class BaseArtworkProxy(abc.ABC):
             allow_rating_range: tuple[int, int] | None = None,
             acc_mode: bool = False,
             ratio: int | None = None,
+            has_review_record: bool | None = None,
             order_mode: Literal['random', 'latest', 'aid', 'aid_desc'] = 'random',
     ) -> list[Self]:
         """从数据库根据要求查询作品
@@ -832,6 +839,7 @@ class BaseArtworkProxy(abc.ABC):
             allow_rating_range=allow_rating_range,
             acc_mode=acc_mode,
             ratio=ratio,
+            has_review_record=has_review_record,
             order_mode=order_mode,
         )
         return [cls(artwork_id=aid) for origin, aid in result if origin == origin_name]
@@ -912,8 +920,8 @@ class BaseArtworkProxy(abc.ABC):
             cls,
             aids: Sequence[str],
             *,
-            filter_classification: int | None = None,
-            filter_rating: int | None = None,
+            filter_classification: int | Sequence[int] | None = None,
+            filter_rating: int | Sequence[int] | None = None,
     ) -> list[Self]:
         """从数据库根据提供的 aids 列表查询数据库中已存在的列表中的作品
 
@@ -935,8 +943,8 @@ class BaseArtworkProxy(abc.ABC):
             cls,
             aids: Sequence[str],
             *,
-            exclude_classification: int | None = None,
-            exclude_rating: int | None = None,
+            exclude_classification: int | Sequence[int] | None = None,
+            exclude_rating: int | Sequence[int] | None = None,
     ) -> list[Self]:
         """从数据库根据提供的 aids 列表查询数据库中不存在的列表中的作品
 
@@ -979,8 +987,9 @@ class BaseArtworkProxy(abc.ABC):
             'force_update_cr': force_update_cr,
         })
 
-        async with ArtworkCollectionDAL.create() as dal:
-            await dal.add_artwork_update_exist(**add_artwork_params)
+        async with _DATABASE_WRITE_LOCK:
+            async with ArtworkCollectionDAL.create() as dal:
+                await dal.add_artwork_update_exist(**add_artwork_params)
 
     async def add_artwork_into_database_ignore_exists(
             self,
@@ -1005,13 +1014,15 @@ class BaseArtworkProxy(abc.ABC):
             'rating': rating,
         })
 
-        async with ArtworkCollectionDAL.create() as dal:
-            await dal.add_artwork_ignore_exist(**add_artwork_params)
+        async with _DATABASE_WRITE_LOCK:
+            async with ArtworkCollectionDAL.create() as dal:
+                await dal.add_artwork_ignore_exist(**add_artwork_params)
 
     async def delete_artwork_from_database(self) -> None:
         """从数据库删除该作品信息"""
-        async with ArtworkCollectionDAL.create() as dal:
-            await dal.delete(origin=self._get_base_origin_name(), aid=self.s_aid)
+        async with _DATABASE_WRITE_LOCK:
+            async with ArtworkCollectionDAL.create() as dal:
+                await dal.delete(origin=self._get_base_origin_name(), aid=self.s_aid)
 
     async def query_artwork_from_database(self) -> 'Artwork':
         """从数据库查询作品信息
@@ -1021,6 +1032,29 @@ class BaseArtworkProxy(abc.ABC):
         async with ArtworkCollectionDAL.create() as dal:
             artwork = await dal.query_unique(origin=self._get_base_origin_name(), aid=self.s_aid)
         return artwork
+
+    async def add_artwork_review_record_into_database(
+            self,
+            review_classification: int,
+            review_rating: int,
+            review_from: str,
+            review_info: str,
+            record_tag: str | None = None,
+    ) -> 'ArtworkReviewRecord':
+        """向数据库插入作品评审记录"""
+        async with _DATABASE_WRITE_LOCK:
+            async with ArtworkCollectionDAL.create() as dal:
+                record = await dal.add_artwork_review_record(
+                    origin=self._get_base_origin_name(),
+                    aid=self.s_aid,
+                    review_timestamp=int(time.time()),
+                    review_classification=review_classification,
+                    review_rating=review_rating,
+                    review_from=review_from,
+                    review_info=review_info,
+                    record_tag=record_tag,
+                )
+        return record
 
 
 __all__ = [
