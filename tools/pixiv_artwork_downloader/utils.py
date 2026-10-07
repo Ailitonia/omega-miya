@@ -3,7 +3,7 @@
 @Date           : 2024/9/9 00:53
 @FileName       : utils
 @Project        : ailitonia-toolkit
-@Description    :
+@Description    : 辅助工具
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -36,8 +36,14 @@ async def get_last_follow_illust_pid() -> int | None:
                 setting_name=DOWNLOADER_SETTING_NAME,
                 setting_key=LAST_FOLLOWING_SETTING_KEY,
             )
-            last_pid = int(setting.setting_value)
-            info = setting.info
+            try:
+                last_pid = int(setting.setting_value)
+                info = setting.info
+            except (TypeError, ValueError):
+                # 数据库中残留脏数据时视为无历史分界, 本次全量扫描
+                logger.warning(f'Invalid last follow illust pid in database: {setting.setting_value!r}, ignored')
+                last_pid = None
+                info = f'Invalid setting value: {setting.setting_value!r}'
         except NoResultFound:
             last_pid = None
             info = 'No result found'

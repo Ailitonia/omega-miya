@@ -12,6 +12,7 @@ from nonebot import get_plugin_config, logger
 from pydantic import BaseModel, Field, ValidationError
 
 from src.resource import AnyResource, BaseResource, TemporaryResource
+from .consts import DOWNLOADER_SETTING_NAME
 
 
 class PixivArtworkDownloaderConfig(BaseModel):
@@ -27,13 +28,15 @@ class PixivArtworkDownloaderConfig(BaseModel):
     """下载收藏作品保存文件目录名"""
 
     @property
+    def url_output_dir(self) -> TemporaryResource:
+        return TemporaryResource(DOWNLOADER_SETTING_NAME, 'output_urls')
+
+    @property
     def root_dir(self) -> BaseResource:
         if self.omega_tool_pixiv_download_root_folder is None:
-            return TemporaryResource('pixiv_artwork_downloader')
+            return TemporaryResource(DOWNLOADER_SETTING_NAME)
 
-        root_dir = AnyResource(self.omega_tool_pixiv_download_root_folder)
-        root_dir.raise_not_dir()
-        return root_dir
+        return AnyResource(self.omega_tool_pixiv_download_root_folder)
 
     @property
     def save_dir(self) -> BaseResource:
@@ -50,7 +53,6 @@ class PixivArtworkDownloaderConfig(BaseModel):
 
 try:
     downloader_config = get_plugin_config(PixivArtworkDownloaderConfig)
-    _ = downloader_config.root_dir
 except (ValidationError, ValueError) as e:
     import sys
 
