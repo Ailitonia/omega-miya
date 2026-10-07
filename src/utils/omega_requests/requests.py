@@ -639,8 +639,7 @@ class OmegaRequests:
                 f'Download {url} to {file} failed with code {response.status_code}'
             )
 
-        async with file.async_open(mode='wb') as af:
-            await af.write(self.parse_content_as_bytes(response=response))
+        await file.safe_write_bytes(self.parse_content_as_bytes(response=response))
 
         logger.opt(colors=True).success(
             f'<lc>Omega Requests</lc> | Download <ly>{url}</ly> to {file} completed'

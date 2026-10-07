@@ -13,7 +13,6 @@ import hashlib
 import re
 from tkinter import Tk, filedialog, messagebox, simpledialog
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from nonebot.log import logger
 from pydantic import ValidationError
@@ -123,11 +122,10 @@ class PixivLocalArtworkFileSource(BaseArtworkSource):
             logger.info(f'已载入目录作品文件, 共计 {len(exists_files)}')
 
             # 保存目录缓存(缓存全量扫描结果, 载入时再按起始作品过滤, 避免历史作品被排除)
-            # 先写临时文件再原子替换, 避免写入中断残留截断文件
-            tmp_file = working_dir_all_files_cache.with_name(f'{working_dir_all_files_cache.name}.{uuid4().hex}.tmp')
-            async with tmp_file.async_open('w', encoding='utf-8') as af:
-                await af.write(dump_json_as(list[CurrentArtwork], exists_files))
-            tmp_file.replace(working_dir_all_files_cache.path)
+            await working_dir_all_files_cache.safe_write_text(
+                dump_json_as(list[CurrentArtwork], exists_files),
+                encoding='utf-8',
+            )
 
         current_id = int(self._anchor_source.aid)
         self._remaining_source = sorted(

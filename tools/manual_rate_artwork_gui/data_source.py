@@ -15,7 +15,6 @@ from datetime import datetime
 from os import PathLike
 from tkinter import messagebox
 from typing import IO, TYPE_CHECKING, Any
-from uuid import uuid4
 
 from PIL import Image, ImageTk
 from nonebot.log import logger
@@ -407,14 +406,10 @@ class BaseArtworkSource(abc.ABC):
             async with file.async_open('r', encoding='utf-8') as af:
                 import_artworks_data.append(CustomImportArtwork.model_validate_json(await af.read()))
 
-        # 先写临时文件再原子替换, 避免写入中断残留截断文件
-        tmp_file = self._output_path.import_data_file.with_name(
-            f'{self._output_path.import_data_file.name}.{uuid4().hex}.tmp'
+        await self._output_path.import_data_file.safe_write_text(
+            dump_json_as(list[CustomImportArtwork], import_artworks_data),
+            encoding='utf-8',
         )
-        async with tmp_file.async_open('w', encoding='utf-8') as af:
-            await af.write(dump_json_as(list[CustomImportArtwork], import_artworks_data))
-        tmp_file.replace(self._output_path.import_data_file.path)
-
         logger.info(f'Merge all rating data into {self._output_path.import_data_file.resolve_path}')
 
     async def _merge_all_output_and_notify(self) -> None:
@@ -446,12 +441,7 @@ class BaseArtworkSource(abc.ABC):
             'rating': rating,
         })
         import_data_file = self._output_path.import_data_dir(f'{origin}_{aid}.json')
-
-        # 先写临时文件再原子替换, 避免写入中断残留截断文件
-        tmp_file = import_data_file.with_name(f'{import_data_file.name}.{uuid4().hex}.tmp')
-        async with tmp_file.async_open('w', encoding='utf-8') as af:
-            await af.write(data.model_dump_json())
-        tmp_file.replace(import_data_file.path)
+        await import_data_file.safe_write_text(data.model_dump_json(), encoding='utf-8')
 
     async def _set_current(
             self,

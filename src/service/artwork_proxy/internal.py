@@ -21,7 +21,6 @@ from datetime import datetime
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 from urllib.parse import unquote, urlparse
-from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -504,12 +503,9 @@ class BaseArtworkProxy(abc.ABC):
             if page_file.is_file:
                 return page_file
 
-            # 先写临时文件再原子替换, 避免写入中断残留截断文件被当作有效缓存
             page_content = await self._get_resource_as_bytes(url=page.url)
-            tmp_file = page_file.with_name(f'{page_file.name}.{uuid4().hex}.downloading')
-            async with tmp_file.async_open('wb') as af:
-                await af.write(page_content)
-            return tmp_file.replace(page_file.path)
+            await page_file.safe_write_bytes(content=page_content)
+            return page_file
 
     async def _load_page(
             self,
