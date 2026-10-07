@@ -238,9 +238,11 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             raw_tags: str | None,
             tag_handler: Callable[[str], list[tuple[str, str | None]]] | None = None,
     ) -> list[tuple[str, str | None]]:
-        """解析原始标签串, 过滤空标签并按 tag_name 去重, 避免插入空标签行或关联表主键冲突
+        """解析原始标签串, 过滤空标签并按 tag_name 去重, 避免插入空标签行
 
         默认解析按逗号切分并 lower, 使用 tag_handler 时保留其原始大小写, 同名标签仅保留首个别名
+        注意: 此处去重粒度为 Python 精确字符串, 数据库校对规则下等价的不同名字(如仅大小写/假名差异)
+        仍会解析到同一标签行, 关联表插入前的主键冲突由调用方按标签行 id 去重兜底
         """
         if raw_tags is None:
             return []
@@ -766,6 +768,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             tags_item: list[ArtworkTagOrm] = []
             for tag_name, tag_alt_name in tag_list:
                 tags_item.append(await self._add_artwork_tag_update_exist_nested(tag_name, tag_alt_name))
+            # 不同 tag_name 在数据库校对规则(如 MySQL utf8mb4_0900_ai_ci 不区分大小写/假名/浊音)下
+            # 可能解析到同一标签行, 需按标签行 id 去重, 避免关联表 (artwork_index_id, tag_index_id) 主键冲突
+            tags_item = list({tag.id: tag for tag in tags_item}.values())
 
             try:
                 # 处理作品插入
@@ -884,6 +889,9 @@ class ArtworkCollectionDAL(BaseDataAccessLayer[ArtworkCollectionOrm, Artwork]):
             tags_item: list[ArtworkTagOrm] = []
             for tag_name, tag_alt_name in tag_list:
                 tags_item.append(await self._add_artwork_tag_update_exist_nested(tag_name, tag_alt_name))
+            # 不同 tag_name 在数据库校对规则(如 MySQL utf8mb4_0900_ai_ci 不区分大小写/假名/浊音)下
+            # 可能解析到同一标签行, 需按标签行 id 去重, 避免关联表 (artwork_index_id, tag_index_id) 主键冲突
+            tags_item = list({tag.id: tag for tag in tags_item}.values())
 
             try:
                 # 处理作品插入

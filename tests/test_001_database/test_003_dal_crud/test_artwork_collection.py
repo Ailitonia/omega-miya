@@ -191,6 +191,41 @@ class TestArtworkCollectionDAL:
         assert result.aid == artwork_kwargs['aid']
         assert result.tags_name_artwork_had == []
 
+    async def test_add_new_with_collation_equivalent_tags(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """数据库校对规则下等价的不同标签名(如仅大小写/假名差异)解析到同一标签行时, 关联插入不应主键冲突"""
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({
+            'raw_tags': 'TestTagXx, testtagxx',
+            # 绕过默认解析的 lower, 构造仅大小写不同的标签名(ci 类校对规则下等价)
+            'tag_handler': lambda _: [('TestTagXx', None), ('testtagxx', None)],
+        })
+        result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        tag_ids = [tag.id for tag in result.tags_name_artwork_had]
+        assert len(tag_ids) == len(set(tag_ids))
+
+    async def test_add_update_exist_with_collation_equivalent_tags(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """已存在作品更新并重建标签关联时, 校对规则等价的标签名同样不应导致关联表主键冲突"""
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        artwork_kwargs.update({
+            'raw_tags': 'TestTagXx, testtagxx',
+            'tag_handler': lambda _: [('TestTagXx', None), ('testtagxx', None)],
+        })
+        result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
+
+        tag_ids = [tag.id for tag in result.tags_name_artwork_had]
+        assert len(tag_ids) == len(set(tag_ids))
+
     async def test_add_update_exist_updates_fields_and_rebuild_tags(
             self,
             artwork_dal,
@@ -479,6 +514,22 @@ class TestArtworkCollectionDAL:
 
         assert await artwork_dal._count_artwork_all() == 1
         assert await artwork_dal._count_artwork_with_tags_all() == 8  # tag 关联未被清空
+
+    async def test_add_ignore_exist_with_collation_equivalent_tags(
+            self,
+            artwork_dal,
+            test_basic_artwork_kwargs_generator,
+    ) -> None:
+        """add_artwork_ignore_exist 新增含校对规则等价标签名的作品时, 关联插入不应主键冲突"""
+        artwork_kwargs = test_basic_artwork_kwargs_generator()
+        artwork_kwargs.update({
+            'raw_tags': 'TestTagXx, testtagxx',
+            'tag_handler': lambda _: [('TestTagXx', None), ('testtagxx', None)],
+        })
+        result = await artwork_dal.add_artwork_ignore_exist(**artwork_kwargs)
+
+        tag_ids = [tag.id for tag in result.tags_name_artwork_had]
+        assert len(tag_ids) == len(set(tag_ids))
 
     # ------------------------------------------------------------------ #
     # 嵌套事务 (SAVEPOINT) 路径
