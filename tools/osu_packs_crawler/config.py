@@ -24,6 +24,10 @@ class OsuWebConfig(BaseModel):
     """导出曲包元数据保存目录名"""
     omega_tool_osu_download_urls_folder_name: str = Field(default='download_urls')
     """导出曲包下载链接保存目录名"""
+    omega_tool_osu_request_interval: float = Field(default=1.0, ge=0)
+    """每次请求间隔秒数"""
+    omega_tool_osu_max_consecutive_failures: int = Field(default=5, ge=1)
+    """连续请求失败熔断阈值"""
 
     model_config = ConfigDict(extra='ignore')
 

@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2025/5/18 16:22
-@FileName       : main
+@FileName       : api
 @Project        : omega-miya
 @Description    : osu! 网页端 API
 @GitHub         : https://github.com/Ailitonia

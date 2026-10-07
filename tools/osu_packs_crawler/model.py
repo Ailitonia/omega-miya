@@ -3,7 +3,7 @@
 @Date           : 2025/5/18 16:59
 @FileName       : model
 @Project        : omega-miya
-@Description    : 
+@Description    : osu! web 数据模型
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
