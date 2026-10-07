@@ -593,6 +593,109 @@ class TestOpenAsync:
             await AnyResource(tmp_path).async_open('r').__aenter__()
 
 
+class TestSafeWrite:
+    """safe_write_* 安全写入方法测试(先写同目录临时文件再原子替换)"""
+
+    async def test_safe_write_text_roundtrip(self, tmp_path: Path):
+        """写入新文件内容一致, 完成后无临时文件残留"""
+        from src.resource import AnyResource
+
+        await AnyResource(tmp_path / 'a.txt').safe_write_text(_ASYNC_TEXT_CONTENT, encoding='utf-8')
+
+        assert tmp_path.joinpath('a.txt').read_text(encoding='utf-8') == _ASYNC_TEXT_CONTENT
+        assert list(tmp_path.glob('*.tmp')) == []
+
+    async def test_safe_write_text_overwrites_existing(self, tmp_path: Path):
+        """已存在文件被完整替换(长内容覆写为短内容, 抓未截断问题)"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'exist.txt'
+        target.write_text('a much longer original content', encoding='utf-8')
+
+        await AnyResource(target).safe_write_text('short', encoding='utf-8')
+
+        assert target.read_text(encoding='utf-8') == 'short'
+
+    async def test_safe_write_text_creates_missing_parent_dirs(self, tmp_path: Path):
+        """目标父目录缺失时自动创建(与 async_open 写模式行为一致)"""
+        from src.resource import AnyResource
+
+        await AnyResource(tmp_path / 'deep' / 'nested' / 'a.txt').safe_write_text(
+            _NESTED_FILE_CONTENT, encoding='utf-8',
+        )
+
+        assert tmp_path.joinpath('deep', 'nested', 'a.txt').read_text(encoding='utf-8') == _NESTED_FILE_CONTENT
+
+    async def test_safe_write_text_honors_encoding(self, tmp_path: Path):
+        """显式 encoding 透传到写入, 非 ASCII 内容按指定编码落盘"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'zh.txt'
+        await AnyResource(target).safe_write_text('测试内容', encoding='utf-8')
+
+        assert target.read_bytes() == '测试内容'.encode()
+
+    async def test_safe_write_text_lines_roundtrip(self, tmp_path: Path):
+        """多行写入不自动补换行(writelines 语义), 完成后无临时文件残留"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'lines.txt'
+        await AnyResource(target).safe_write_text_lines(['line1\n', 'line2\n'], encoding='utf-8')
+
+        assert target.read_text(encoding='utf-8') == 'line1\nline2\n'
+        assert list(tmp_path.glob('*.tmp')) == []
+
+    async def test_safe_write_text_lines_accepts_generator(self, tmp_path: Path):
+        """lines 参数契约为 Iterable, 生成器入参可正常写入"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'gen.txt'
+        await AnyResource(target).safe_write_text_lines((f'{i}\n' for i in range(3)), encoding='utf-8')
+
+        assert target.read_text(encoding='utf-8') == '0\n1\n2\n'
+
+    async def test_safe_write_text_lines_failure_preserves_original(self, tmp_path: Path):
+        """写入中途失败时异常向外传播, 原文件内容保持完整"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'f.txt'
+        target.write_text('original', encoding='utf-8')
+
+        def _broken_lines():
+            yield 'partial\n'
+            raise RuntimeError('write interrupted')
+
+        with pytest.raises(RuntimeError, match='write interrupted'):
+            await AnyResource(target).safe_write_text_lines(_broken_lines(), encoding='utf-8')
+
+        assert target.read_text(encoding='utf-8') == 'original'
+
+    async def test_safe_write_text_lines_failure_leaves_no_tmp_file(self, tmp_path: Path):
+        """写入中途失败后清理临时文件, 不残留 .tmp 垃圾"""
+        from src.resource import AnyResource
+
+        def _broken_lines():
+            yield 'partial\n'
+            raise RuntimeError('write interrupted')
+
+        with pytest.raises(RuntimeError, match='write interrupted'):
+            await AnyResource(tmp_path / 'f.txt').safe_write_text_lines(_broken_lines(), encoding='utf-8')
+
+        assert list(tmp_path.glob('*.tmp')) == []
+
+    async def test_safe_write_bytes_roundtrip(self, tmp_path: Path):
+        """二进制内容写入并覆盖已有文件, 完成后无临时文件残留"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'a.bin'
+        target.write_bytes(b'old content longer')
+
+        await AnyResource(target).safe_write_bytes(_BINARY_CONTENT)
+
+        assert target.read_bytes() == _BINARY_CONTENT
+        assert list(tmp_path.glob('*.tmp')) == []
+
+
 class TestFileUriAndSize:
     """file_uri/file_size 属性测试"""
 

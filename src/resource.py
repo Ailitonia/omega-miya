@@ -9,7 +9,7 @@
 """
 
 import abc
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterable
 from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
 from datetime import datetime
 from functools import wraps
@@ -26,6 +26,7 @@ from typing import (
     final,
     overload,
 )
+from uuid import uuid4
 
 import aiofiles
 
@@ -408,6 +409,36 @@ class BaseResource(abc.ABC):
         async with aiofiles.open(file=self.path, mode=mode, encoding=encoding, **kwargs) as _afh:
             yield _afh
 
+    async def safe_write_text(self, content: str, *, encoding: str | None = None, **kwargs) -> None:
+        """向文件安全写入文本内容, 先写临时文件再原子替换, 避免写入中断残留截断文件, 写入失败时清理临时文件"""
+        tmp_file = self.with_name(f'{self.name}.{uuid4().hex}.tmp')
+        try:
+            async with tmp_file.async_open('w', encoding=encoding, **kwargs) as af:
+                await af.write(content)
+            tmp_file.replace(self.path)
+        finally:
+            tmp_file.remove(missing_ok=True)
+
+    async def safe_write_text_lines(self, lines: Iterable[str], *, encoding: str | None = None, **kwargs) -> None:
+        """向文件安全写入多行文本内容, 先写临时文件再原子替换, 避免写入中断残留截断文件, 写入失败时清理临时文件"""
+        tmp_file = self.with_name(f'{self.name}.{uuid4().hex}.tmp')
+        try:
+            async with tmp_file.async_open('w', encoding=encoding, **kwargs) as af:
+                await af.writelines(lines)
+            tmp_file.replace(self.path)
+        finally:
+            tmp_file.remove(missing_ok=True)
+
+    async def safe_write_bytes(self, content: bytes, **kwargs) -> None:
+        """向文件安全写入二进制数据, 先写临时文件再原子替换, 避免写入中断残留截断文件, 写入失败时清理临时文件"""
+        tmp_file = self.with_name(f'{self.name}.{uuid4().hex}.tmp')
+        try:
+            async with tmp_file.async_open('wb', **kwargs) as af:
+                await af.write(content)
+            tmp_file.replace(self.path)
+        finally:
+            tmp_file.remove(missing_ok=True)
+
     @check_directory
     def list_all_files(self) -> list[Self]:
         """遍历文件夹内所有文件并返回文件列表"""
@@ -472,7 +503,7 @@ class BaseResource(abc.ABC):
         """
         if self.path.exists() and not self.path.is_file():
             raise ResourceNotFileError(self.path)
-        return self.path.unlink(missing_ok=missing_ok)
+        self.path.unlink(missing_ok=missing_ok)
 
     @check_file
     async def get_hosting_path(self, *, ttl_delta: int = 0) -> str:
