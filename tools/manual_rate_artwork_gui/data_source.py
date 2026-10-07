@@ -12,6 +12,7 @@ import abc
 import asyncio
 from collections.abc import Coroutine
 from datetime import datetime
+from os import PathLike
 from tkinter import messagebox
 from typing import IO, TYPE_CHECKING, Any
 from uuid import uuid4
@@ -24,12 +25,12 @@ from src.resource import TemporaryResource
 from .model import CurrentArtwork, CustomImportArtwork
 
 if TYPE_CHECKING:
-    from os import PathLike
     from tkinter.ttk import Entry, Label
 
     from src.service.artwork_proxy.internal import BaseArtworkProxy
 
-    type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
+type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
+"""作品预览图加载源的可接受类型"""
 
 _TOOL_TMP_DIR: TemporaryResource = TemporaryResource('omega_tools_manual_rate_artwork')
 """工具缓存文件夹路径"""
@@ -107,6 +108,7 @@ class ArtworkRatingImportTool:
             artwork = get_artwork_proxy(import_data.origin)(artwork_id=import_data.aid)
             artwork_info = await artwork.query()
 
+            # 站点评级作为导入分级的下限, AI 生成作品保持 AI 分类标记(导入数据已是人工评级结果, 此处幂等合并)
             rating = max(import_data.rating, artwork_info.rating)
             classification = 1 if artwork_info.classification == 1 else import_data.classification
 
@@ -119,7 +121,8 @@ class ArtworkRatingImportTool:
         except WebSourceException as e:
             # 网络问题有可能是风控/限流, 小概率是作品已经被删除
             if e.status_code == 404 or not need_retry:
-                raise e
+                logger.error(f'Import {import_data.origin}-{import_data.aid} rating failed, {e}')
+                raise
 
             logger.warning(
                 f'Query {import_data.origin}-{import_data.aid} data failed and will retry after 60s, {e}'
@@ -127,6 +130,9 @@ class ArtworkRatingImportTool:
             await asyncio.sleep(60)
             await self._import_artwork_rating_into_database(import_data, need_retry=False, log_index=log_index)
             return
+        except Exception as e:
+            logger.error(f'Import {import_data.origin}-{import_data.aid} rating failed unexpectedly, {e}')
+            raise
 
         logger.debug(f'Import artworks {import_data} rating succeed, index: {log_index}')
 
@@ -157,6 +163,7 @@ class BaseArtworkSource(abc.ABC):
     """待分级作品源基类"""
 
     __slots__ = (
+        '_anchor_source',
         '_current_source',
         '_current_source_image',
         '_remaining_source',
@@ -169,6 +176,7 @@ class BaseArtworkSource(abc.ABC):
     )
 
     def __init__(self) -> None:
+        self._anchor_source: CurrentArtwork | None = None
         self._current_source: CurrentArtwork | None = None
         self._current_source_image: ImageTk.PhotoImage | None = None
         self._remaining_source: list[CurrentArtwork] = []
@@ -260,9 +268,10 @@ class BaseArtworkSource(abc.ABC):
     ) -> None:
         """内部方法, 异步加载指定作品及其预览图, 刷新图片控件显示预览图
 
-        以参数传入目标作品而, 由调用方在加载成功后再提交状态, 避免加载失败时界面显示与内部状态错位
+        以参数传入目标作品, 由调用方在加载成功后再提交状态, 避免加载失败时界面显示与内部状态错位
         """
-        image = Image.open(await self._load_source(source)).convert('RGB')
+        with Image.open(await self._load_source(source)) as loaded_image:
+            image = loaded_image.convert('RGB')
 
         # 缩放图片到固定尺寸
         width, height = image.size
@@ -280,6 +289,14 @@ class BaseArtworkSource(abc.ABC):
         image.close()
         background.close()
 
+    @staticmethod
+    def _set_entry_text(entry: 'Entry', text: str) -> None:
+        """内部静态方法, 更新只读展示控件的显示文本"""
+        entry.config(state='normal')
+        entry.delete(0, 'end')
+        entry.insert(0, text)
+        entry.config(state='readonly')
+
     async def _load_next_async(
             self,
             image_label: 'Label',
@@ -290,15 +307,12 @@ class BaseArtworkSource(abc.ABC):
         if not self._remaining_source:
             # 队列已空, 当前作品已被处理过, 标记后禁止重复评级
             self._queue_finished = True
-            show_current_entry.delete(0, 'end')
-            show_current_entry.insert(0, '队列已处理完毕')
-            show_remaining_entry.delete(0, 'end')
-            show_remaining_entry.insert(0, '0')
+            self._set_entry_text(show_current_entry, '队列已处理完毕')
+            self._set_entry_text(show_remaining_entry, '0')
             return
 
         next_source = self._remaining_source.pop(0)
-        show_remaining_entry.delete(0, 'end')
-        show_remaining_entry.insert(0, str(len(self._remaining_source)))
+        self._set_entry_text(show_remaining_entry, str(len(self._remaining_source)))
 
         try:
             await self._load_source_async(next_source, image_label)
@@ -313,8 +327,7 @@ class BaseArtworkSource(abc.ABC):
 
         # 加载成功后再提交当前作品状态, 保证界面显示与内部状态一致
         self._current_source = next_source
-        show_current_entry.delete(0, 'end')
-        show_current_entry.insert(0, next_source.source_path)
+        self._set_entry_text(show_current_entry, next_source.source_path)
 
     def load_next(
             self,
@@ -328,7 +341,7 @@ class BaseArtworkSource(abc.ABC):
     @abc.abstractmethod
     async def _select_current_source(self) -> None:
         """内部方法, 选择开始时的目标作品"""
-        # self._current_source = ...
+        # self._anchor_source = ...
         # self._working_path = ...
         raise NotImplementedError
 
@@ -359,9 +372,13 @@ class BaseArtworkSource(abc.ABC):
                 # 用户在初始化过程中(参数输入)取消, 未初始化
                 return
         except Exception as e:
+            # 初始化失败时 _current_source 保持为当前界面展示的作品(或 None), 不会误评级未展示的作品
             logger.error(f'Initialize artwork source failed, {e}')
             messagebox.showerror(title='初始化失败', message='初始化作品源失败')
             return
+        finally:
+            # 初始化锚点仅在本次初始化流程内有效, 无论成败均在退出时清理
+            self._anchor_source = None
 
         # 清空当前作品, 由 _load_next_async 在加载成功后再提交, 避免未经加载展示的作品被评级
         self._current_source = None
@@ -446,8 +463,13 @@ class BaseArtworkSource(abc.ABC):
             classification: int = 3,
             review_info: str = '人工审核',
             record_tag: str = 'approved',
+            clamp_to_source: bool = True,
     ) -> None:
-        """内部方法, 设置人工评级, 写入数据库并生成元数据文件"""
+        """内部方法, 设置人工评级, 写入数据库并生成元数据文件
+
+        :param clamp_to_source: 是否以站点源数据为下限钳制评级结果(评级操作启用, 重置/忽略操作应禁用)
+        """
+        # 不变量: _current_source 仅在 _load_next_async 加载展示成功后提交, 此处作品必然已经过界面展示
         if self._current_source is None:
             logger.warning('No artwork selected, skip setting rating')
             messagebox.showwarning(
@@ -467,9 +489,21 @@ class BaseArtworkSource(abc.ABC):
             artwork = self._current_artwork_proxy
             artwork_info = await artwork.query()
 
-            rating = max(rating, artwork_info.rating)
-            classification = 1 if artwork_info.classification == 1 else classification
+            if clamp_to_source:
+                clamped_rating = max(rating, artwork_info.rating)
+                clamped_classification = 1 if artwork_info.classification == 1 else classification
+                if clamped_rating != rating or clamped_classification != classification:
+                    logger.warning(
+                        f'Rating clamped by source metadata, artwork(id={artwork_info.aid}): '
+                        f'manual(classification={classification}, rating={rating}) -> '
+                        f'effective(classification={clamped_classification}, rating={clamped_rating})'
+                    )
+                rating = clamped_rating
+                classification = clamped_classification
 
+            # 先生成导入元数据文件, 再更新数据库与评审记录
+            # 文件写失败时数据库无副作用可直接重试, 数据库写失败残留的孤立文件在导入时按下限合并
+            await self._generate_output(rating=rating, classification=classification)
             # 更新数据库作品条目信息
             await artwork.add_and_upgrade_artwork_into_database(
                 classification=classification,
@@ -484,12 +518,13 @@ class BaseArtworkSource(abc.ABC):
                 review_info=review_info,
                 record_tag=record_tag,
             )
-            # 生成导入元数据
-            await self._generate_output(rating=rating, classification=classification)
 
+            # 作品标题与作者名为外部可控文本, 不经 colors 解析, 避免标签样式文本导致着色错乱或日志报错
+            logger.info(
+                f'Rated artwork(id={artwork_info.aid}, title={artwork_info.title}, username={artwork_info.uname})'
+            )
             logger.opt(colors=True).success(
-                f'Set classification=<lc>{classification}</lc> rating=<lc>{rating}</lc> succeed, '
-                f'artwork(id={artwork_info.aid}, title={artwork_info.title}, username={artwork_info.uname})'
+                f'Set classification=<lc>{classification}</lc> rating=<lc>{rating}</lc> succeed'
             )
         except Exception as e:
             # 评级失败时保留当前作品, 不自动前进, 供用户重试或手动跳过
@@ -589,7 +624,7 @@ class BaseArtworkSource(abc.ABC):
     ) -> None:
         self._spawn_exclusive(self._set_current(
             -1, image_label, show_current_entry, show_remaining_entry,
-            classification=0, review_info='人工重置', record_tag='pending',
+            classification=0, review_info='人工重置', record_tag='pending', clamp_to_source=False,
         ))
 
     def set_current_ignored(
@@ -600,11 +635,12 @@ class BaseArtworkSource(abc.ABC):
     ) -> None:
         self._spawn_exclusive(self._set_current(
             -1, image_label, show_current_entry, show_remaining_entry,
-            classification=-2, review_info='人工忽略', record_tag='rejected',
+            classification=-2, review_info='人工忽略', record_tag='rejected', clamp_to_source=False,
         ))
 
 
 __all__ = [
     'ArtworkRatingImportTool',
     'BaseArtworkSource',
+    'SourceOpenFp',
 ]

@@ -45,8 +45,8 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
         file_frm.pack(side='top', fill='x')
         ttk.Label(file_frm, text='当前文件: ').pack(side='left')
 
-        # 初始化当前文件入口输入控件, 绑定实例变量供后续交互
-        self._file_entry = ttk.Entry(file_frm)
+        # 初始化当前文件展示控件(只读, 由数据源经 _set_entry_text 更新), 绑定实例变量供后续交互
+        self._file_entry = ttk.Entry(file_frm, state='readonly')
         self._file_entry.pack(fill='x')
 
         # 顶部子框架 top_info_frm 内容填充: 剩余文件显示组件
@@ -54,8 +54,8 @@ class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
         remaining_frm.pack(side='top', fill='x')
         ttk.Label(remaining_frm, text='剩余文件: ').pack(side='left')
 
-        # 初始化剩余文件输入控件, 绑定实例变量供后续交互
-        self._remaining_entry = ttk.Entry(remaining_frm)
+        # 初始化剩余文件展示控件(只读, 由数据源经 _set_entry_text 更新), 绑定实例变量供后续交互
+        self._remaining_entry = ttk.Entry(remaining_frm, state='readonly')
         self._remaining_entry.pack(fill='x')
 
         # ------------------------------------------------------------------ #

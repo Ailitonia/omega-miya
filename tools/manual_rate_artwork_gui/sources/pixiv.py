@@ -12,22 +12,20 @@ import abc
 import hashlib
 import re
 from tkinter import Tk, filedialog, messagebox, simpledialog
-from typing import IO, TYPE_CHECKING
+from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from nonebot.log import logger
+from pydantic import ValidationError
 
 from src.compat import dump_json_as, parse_json_as
 from src.resource import AnyResource
 from src.service.artwork_proxy import PixivArtworkProxy
-from ..data_source import BaseArtworkSource
+from ..data_source import BaseArtworkSource, SourceOpenFp
 from ..model import CurrentArtwork
 
 if TYPE_CHECKING:
-    from os import PathLike
-
     from src.service.artwork_proxy.internal import BaseArtworkProxy
-
-    type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
 
 _PIXIV_FILE_NAME_PATTERN: re.Pattern[str] = re.compile(r'^(\d+)(?=[_-])')
 """pixiv 作品文件命名规范(数字 ID 开头)"""
@@ -50,6 +48,8 @@ class PixivLocalArtworkFileSource(BaseArtworkSource):
 
     @property
     def _current_artwork_proxy(self) -> 'BaseArtworkProxy':
+        # 由 _set_current 保证调用时当前作品已加载展示
+        assert self._current_source is not None
         return PixivArtworkProxy(artwork_id=self._current_source.aid)
 
     async def _load_source(self, source: CurrentArtwork) -> 'SourceOpenFp':
@@ -74,13 +74,18 @@ class PixivLocalArtworkFileSource(BaseArtworkSource):
             self._select_cancelled = True
             return
 
-        self._current_source = CurrentArtwork.model_validate({
+        # 写入初始化锚点而非当前作品, 锚点仅在本次初始化中用于过滤队列起始位置,
+        # 与当前已展示作品(_current_source)语义分离, 避免初始化失败时误评级未展示的作品
+        self._anchor_source = CurrentArtwork.model_validate({
             'aid': current_file.name.split('_')[0].split('-')[0],
             'source_path': current_file.resolve_path,
         })
         self._working_path = current_file.parent.resolve_path
 
     async def _init_working_path(self) -> None:
+        # 初始化锚点及工作路径由 _select_current_source 写入, 仅在本初始化流程内使用
+        assert self._anchor_source is not None
+        assert self._working_path is not None
         working_dir = AnyResource(self._working_path)
         working_dir_hash = hashlib.sha256(working_dir.resolve_path.encode('utf-8')).hexdigest()[:16]
 
@@ -89,13 +94,21 @@ class PixivLocalArtworkFileSource(BaseArtworkSource):
             f'working_files_cache_{working_dir.name}_{working_dir_hash}.json'
         )
 
+        exists_files: list[CurrentArtwork] = []
         if working_dir_all_files_cache.is_file:
             # 若存在文件列表缓存, 则加载文件列表缓存
-            async with working_dir_all_files_cache.async_open('r', encoding='utf-8') as af:
-                exists_files = parse_json_as(list[CurrentArtwork], await af.read())
-            logger.info(f'发现目录缓存, 已载入, 共计 {len(exists_files)}')
-        else:
-            # 若不存在文件列表缓存, 则扫描工作目录并初始化文件列表
+            try:
+                async with working_dir_all_files_cache.async_open('r', encoding='utf-8') as af:
+                    exists_files = parse_json_as(list[CurrentArtwork], await af.read())
+            except (ValidationError, OSError, UnicodeDecodeError) as e:
+                # 缓存损坏(如写入中断残留的截断文件), 移除缓存并回退到重新扫描目录
+                logger.warning(f'Load working directory files cache failed, fallback to rescan, {e}')
+                working_dir_all_files_cache.remove(missing_ok=True)
+            else:
+                logger.info(f'发现目录缓存, 已载入, 共计 {len(exists_files)}')
+
+        if not exists_files:
+            # 无可用缓存或缓存为空, 扫描工作目录并初始化文件列表
             exists_files = sorted(
                 (
                     CurrentArtwork.model_validate({
@@ -110,10 +123,13 @@ class PixivLocalArtworkFileSource(BaseArtworkSource):
             logger.info(f'已载入目录作品文件, 共计 {len(exists_files)}')
 
             # 保存目录缓存(缓存全量扫描结果, 载入时再按起始作品过滤, 避免历史作品被排除)
-            async with working_dir_all_files_cache.async_open('w', encoding='utf-8') as af:
+            # 先写临时文件再原子替换, 避免写入中断残留截断文件
+            tmp_file = working_dir_all_files_cache.with_name(f'{working_dir_all_files_cache.name}.{uuid4().hex}.tmp')
+            async with tmp_file.async_open('w', encoding='utf-8') as af:
                 await af.write(dump_json_as(list[CurrentArtwork], exists_files))
+            tmp_file.replace(working_dir_all_files_cache.path)
 
-        current_id = int(self._current_source.aid)
+        current_id = int(self._anchor_source.aid)
         self._remaining_source = sorted(
             (x for x in exists_files if int(x.aid) >= current_id),
             key=lambda x: int(x.aid),
@@ -130,6 +146,8 @@ class _PixivPoolArtworkSource(BaseArtworkSource, abc.ABC):
 
     @property
     def _current_artwork_proxy(self) -> 'BaseArtworkProxy':
+        # 由 _set_current 保证调用时当前作品已加载展示
+        assert self._current_source is not None
         return PixivArtworkProxy(artwork_id=self._current_source.aid)
 
     @abc.abstractmethod
@@ -218,6 +236,7 @@ class PixivRelatedArtworkSource(_PixivPoolArtworkSource):
                 '目标作品',
                 '请输入想要获取相关推荐的作品 PID',
                 parent=tmp_root,
+                minvalue=1,
             )
         finally:
             tmp_root.destroy()
@@ -273,27 +292,33 @@ class PixivSearchPopularArtworkSource(_PixivPoolArtworkSource):
         return keyword
 
     @staticmethod
-    def _ask_page() -> int:
+    def _ask_page() -> int | None:
         tmp_root = Tk()  # Create a new temporary "parent", but make it invisible
         tmp_root.withdraw()
 
         try:
-            page = simpledialog.askinteger('页码', '请输入请求的搜索结果页码', parent=tmp_root)
+            page = simpledialog.askinteger('页码', '请输入请求的搜索结果页码', parent=tmp_root, minvalue=1)
         finally:
             tmp_root.destroy()
 
-        return max(1, page) if page is not None else 1
+        return page
 
     async def query_pool_artworks(self) -> list[str]:
         from src.utils.pixiv_api.pixiv import PixivArtwork
 
         keyword = self._ask_keyword()
-        if keyword is None:
+        if not keyword:
+            # 用户取消或未输入关键词
             logger.info('No keyword input, cancelled initializing search artwork source')
             self._select_cancelled = True
             return []
 
         page = self._ask_page()
+        if page is None:
+            # 用户取消了页码输入
+            logger.info('No page input, cancelled initializing search artwork source')
+            self._select_cancelled = True
+            return []
 
         logger.info(f'正在从 {keyword!r} 搜索结果 Page-{page} 获取作品信息, 请稍候')
         search_result = await PixivArtwork.search_by_default_popular_condition(word=keyword, page=page)

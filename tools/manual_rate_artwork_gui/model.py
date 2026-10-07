@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseRatingDataModel(BaseModel):
@@ -27,8 +27,8 @@ class CustomImportArtwork(BaseRatingDataModel):
     """导出后供手动导入/更新的作品信息"""
     origin: str
     aid: str
-    classification: int
-    rating: int
+    classification: int = Field(ge=-2, le=4)
+    rating: int = Field(ge=-1, le=3)
 
 
 __all__ = [

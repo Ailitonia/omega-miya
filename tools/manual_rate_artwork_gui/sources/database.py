@@ -9,21 +9,17 @@
 """
 
 import abc
-from typing import IO, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from nonebot.log import logger
 
 from src.service.artwork_proxy import get_artwork_proxy
 from src.utils import semaphore_gather
-from ..data_source import BaseArtworkSource
+from ..data_source import BaseArtworkSource, SourceOpenFp
 from ..model import CurrentArtwork
 
 if TYPE_CHECKING:
-    from os import PathLike
-
     from src.service.artwork_proxy.internal import BaseArtworkProxy
-
-    type SourceOpenFp = str | bytes | PathLike[str] | IO[bytes]
 
 
 class _DatabaseArtworkSource(BaseArtworkSource, abc.ABC):
@@ -43,6 +39,8 @@ class _DatabaseArtworkSource(BaseArtworkSource, abc.ABC):
 
     @property
     def _current_artwork_proxy(self) -> 'BaseArtworkProxy':
+        # 由 _set_current 保证调用时当前作品已加载展示
+        assert self._current_source is not None
         return self._artwork_proxy_cls(artwork_id=self._current_source.aid)
 
     @abc.abstractmethod
