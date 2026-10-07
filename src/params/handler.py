@@ -53,7 +53,7 @@ def get_command_str_multi_args_parser_handler(
     """构造解析多个文本命令参数并更新到 State 的 handler, 一般用于 on_command 的首个 handler
 
     :param key_prefix: 参数前缀, 更新 State 的 key 格式: {key_prefix}_{index}
-    :param default: 未解析出参数时的默认值, 必须与 ensure_keys 参数同时使用
+    :param default: 未解析出参数时的默认值, 必须与 ensure_keys_num 参数同时使用
     :param ensure_keys_num: 即便未解析出参数, 也要保证有这么多数量的 key 存在于 State 中
     :return: T_Handler
     """
@@ -114,13 +114,13 @@ def get_set_default_state_handler(
     """构造设置 State 默认值的 handler"""
 
     async def handle_set_default_state(state: T_State):
-        """首次运行时解析命令参数"""
+        """设置 State 默认值 (不覆盖已有键)"""
         update_data = {key: value}
         if extra_data is not None:
             update_data.update(extra_data)
 
         # 过滤 State 中已有的键值, 避免赋值异常
-        update_data = {k: v for k, v in update_data.copy().items() if k not in state.keys()}
+        update_data = {k: v for k, v in update_data.items() if k not in state.keys()}
         state.update(update_data)
 
     return handle_set_default_state
