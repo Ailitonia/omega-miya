@@ -1,16 +1,19 @@
 """
 @Author         : Ailitonia
 @Date           : 2023/6/24 21:31
-@FileName       : permission
+@FileName       : rule
 @Project        : nonebot2_miya
 @Description    : 自定义 Rule 依赖注入
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
+from nonebot.adapters import Bot as BaseBot
+from nonebot.adapters import Event as BaseEvent
 from nonebot.rule import Rule
 
-from .depends import EVENT_ENTITY_INTERFACE, USER_ENTITY_INTERFACE
+from src.database.helpers import database_session
+from src.service import OmegaMatcherInterface
 
 
 class EventGlobalPermissionRule:
@@ -18,8 +21,11 @@ class EventGlobalPermissionRule:
 
     __slots__ = ()
 
-    async def __call__(self, entity_interface: EVENT_ENTITY_INTERFACE) -> bool:
-        return await entity_interface.entity.check_global_permission()  # caught NoResultFound exception
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
+        async with database_session() as session:
+            entity = OmegaMatcherInterface.get_target_entity(bot, event, session, acquire_type='event')
+            has_global_permission = await entity.check_global_permission()
+        return has_global_permission
 
 
 class EventPermissionLevelRule:
@@ -30,10 +36,12 @@ class EventPermissionLevelRule:
     def __init__(self, level: int):
         self.level = level
 
-    async def __call__(self, entity_interface: EVENT_ENTITY_INTERFACE) -> bool:
-        has_global_permission = await entity_interface.entity.check_global_permission()
-        has_permission_level = await entity_interface.entity.check_permission_level(level=self.level)
-        return has_global_permission and has_permission_level  # caught NoResultFound exception
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
+        async with database_session() as session:
+            entity = OmegaMatcherInterface.get_target_entity(bot, event, session, acquire_type='event')
+            has_global_permission = await entity.check_global_permission()
+            has_permission_level = await entity.check_permission_level(level=self.level)
+        return has_global_permission and has_permission_level
 
 
 class EventPermissionNodeRule:
@@ -46,14 +54,16 @@ class EventPermissionNodeRule:
         self.plugin = plugin
         self.node = node
 
-    async def __call__(self, entity_interface: EVENT_ENTITY_INTERFACE) -> bool:
-        has_global_permission = await entity_interface.entity.check_global_permission()
-        has_auth = await entity_interface.entity.check_auth_setting(
-            module=self.module,
-            plugin=self.plugin,
-            node=self.node,
-        )
-        return has_global_permission and has_auth  # caught NoResultFound exception
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
+        async with database_session() as session:
+            entity = OmegaMatcherInterface.get_target_entity(bot, event, session, acquire_type='event')
+            has_global_permission = await entity.check_global_permission()
+            verified_auth = await entity.verify_auth_setting(
+                module=self.module,
+                plugin=self.plugin,
+                node=self.node,
+            )
+        return has_global_permission and verified_auth == 1
 
 
 class UserGlobalPermissionRule:
@@ -61,8 +71,11 @@ class UserGlobalPermissionRule:
 
     __slots__ = ()
 
-    async def __call__(self, entity_interface: USER_ENTITY_INTERFACE) -> bool:
-        return await entity_interface.entity.check_global_permission()  # caught NoResultFound exception
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
+        async with database_session() as session:
+            entity = OmegaMatcherInterface.get_target_entity(bot, event, session, acquire_type='user')
+            has_global_permission = await entity.check_global_permission()
+        return has_global_permission
 
 
 class UserPermissionLevelRule:
@@ -73,10 +86,12 @@ class UserPermissionLevelRule:
     def __init__(self, level: int):
         self.level = level
 
-    async def __call__(self, entity_interface: USER_ENTITY_INTERFACE) -> bool:
-        has_global_permission = await entity_interface.entity.check_global_permission()
-        has_permission_level = await entity_interface.entity.check_permission_level(level=self.level)
-        return has_global_permission and has_permission_level  # caught NoResultFound exception
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
+        async with database_session() as session:
+            entity = OmegaMatcherInterface.get_target_entity(bot, event, session, acquire_type='user')
+            has_global_permission = await entity.check_global_permission()
+            has_permission_level = await entity.check_permission_level(level=self.level)
+        return has_global_permission and has_permission_level
 
 
 class UserPermissionNodeRule:
@@ -89,30 +104,32 @@ class UserPermissionNodeRule:
         self.plugin = plugin
         self.node = node
 
-    async def __call__(self, entity_interface: USER_ENTITY_INTERFACE) -> bool:
-        has_global_permission = await entity_interface.entity.check_global_permission()
-        has_auth = await entity_interface.entity.check_auth_setting(
-            module=self.module,
-            plugin=self.plugin,
-            node=self.node,
-        )
-        return has_global_permission and has_auth  # caught NoResultFound exception
+    async def __call__(self, bot: BaseBot, event: BaseEvent) -> bool:
+        async with database_session() as session:
+            entity = OmegaMatcherInterface.get_target_entity(bot, event, session, acquire_type='user')
+            has_global_permission = await entity.check_global_permission()
+            verified_auth = await entity.verify_auth_setting(
+                module=self.module,
+                plugin=self.plugin,
+                node=self.node,
+            )
+        return has_global_permission and verified_auth == 1
 
 
 def event_has_global_permission() -> Rule:
-    """匹配具有全局权限的群组/频道"""
+    """匹配具有全局权限的事件"""
 
     return Rule(EventGlobalPermissionRule())
 
 
 def event_has_permission_level(level: int) -> Rule:
-    """匹配具有权限等级的群组/频道"""
+    """匹配具有权限等级的事件"""
 
     return Rule(EventPermissionLevelRule(level=level))
 
 
 def event_has_permission_node(module: str, plugin: str, node: str) -> Rule:
-    """匹配具有权限节点的群组/频道"""
+    """匹配具有权限节点的事件"""
 
     return Rule(EventPermissionNodeRule(module=module, plugin=plugin, node=node))
 

@@ -29,5 +29,5 @@ IS_ADMIN: Permission = (
 
 
 __all__ = [
-    'IS_ADMIN'
+    'IS_ADMIN',
 ]
