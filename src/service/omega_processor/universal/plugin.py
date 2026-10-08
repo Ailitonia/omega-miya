@@ -16,7 +16,7 @@ from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 from sqlalchemy.exc import NoResultFound
 
-from src.database import DATABASE_SESSION, PluginDAL, database_session
+from src.database import DATABASE_SESSION, PluginDAL
 
 _DRIVER = get_driver()
 _LOG_PREFIX: str = '<lc>Plugin Manager</lc> | '
@@ -30,8 +30,7 @@ async def _startup_init_plugins():
     仅插入缺失的插件行, 已存在的行保持不变, 避免重启时将已禁用的插件重置为启用
     """
     try:
-        async with database_session() as session:
-            dal = PluginDAL(session=session)
+        async with PluginDAL.create() as dal:
             for plugin in get_loaded_plugins():
                 try:
                     await dal.query_unique(plugin_name=plugin.name, module_name=plugin.module_name)
