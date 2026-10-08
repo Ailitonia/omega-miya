@@ -7,9 +7,3 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
-
-from .subscription_manager import OmegaSubscriptionHandlerManager
-
-__all__ = [
-    'OmegaSubscriptionHandlerManager',
-]
