@@ -32,11 +32,11 @@ from .consts import (
     CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX,
     CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX,
     GLOBAL_COOLDOWN_EVENT,
+    OMEGA_ICA_ATTR_NODE,
+    OMEGA_ICA_PROFILE_NODE,
+    OMEGA_PERM_GLOBAL_NODE,
+    OMEGA_PERM_LEVEL_NODE,
     SKIP_COOLDOWN_PERMISSION_NODE,
-    CharacterAttribute,
-    CharacterProfile,
-    PermissionGlobal,
-    PermissionLevel,
 )
 
 if TYPE_CHECKING:
@@ -521,17 +521,17 @@ class OmegaEntity:
     async def query_global_permission(self) -> AuthSetting:
         """查询 Entity 全局功能开关"""
         return await self.query_auth_setting(
-            module=PermissionGlobal.module,
-            plugin=PermissionGlobal.plugin,
-            node=PermissionGlobal.node,
+            module=OMEGA_PERM_GLOBAL_NODE.module,
+            plugin=OMEGA_PERM_GLOBAL_NODE.plugin,
+            node=OMEGA_PERM_GLOBAL_NODE.node,
         )
 
     async def check_global_permission(self) -> bool:
         """检查 Entity 是否打开全局功能开关"""
         verified = await self.verify_auth_setting(
-            module=PermissionGlobal.module,
-            plugin=PermissionGlobal.plugin,
-            node=PermissionGlobal.node,
+            module=OMEGA_PERM_GLOBAL_NODE.module,
+            plugin=OMEGA_PERM_GLOBAL_NODE.plugin,
+            node=OMEGA_PERM_GLOBAL_NODE.node,
             available=1,
             strict_match_available=True,
         )
@@ -540,9 +540,9 @@ class OmegaEntity:
     async def enable_global_permission(self) -> AuthSetting:
         """打开 Entity 全局功能开关"""
         return await self.set_auth_setting(
-            module=PermissionGlobal.module,
-            plugin=PermissionGlobal.plugin,
-            node=PermissionGlobal.node,
+            module=OMEGA_PERM_GLOBAL_NODE.module,
+            plugin=OMEGA_PERM_GLOBAL_NODE.plugin,
+            node=OMEGA_PERM_GLOBAL_NODE.node,
             available=1,
             value={},
         )
@@ -550,9 +550,9 @@ class OmegaEntity:
     async def disable_global_permission(self) -> AuthSetting:
         """关闭 Entity 全局功能开关"""
         return await self.set_auth_setting(
-            module=PermissionGlobal.module,
-            plugin=PermissionGlobal.plugin,
-            node=PermissionGlobal.node,
+            module=OMEGA_PERM_GLOBAL_NODE.module,
+            plugin=OMEGA_PERM_GLOBAL_NODE.plugin,
+            node=OMEGA_PERM_GLOBAL_NODE.node,
             available=0,
             value={},
         )
@@ -560,17 +560,17 @@ class OmegaEntity:
     async def query_permission_level(self) -> AuthSetting:
         """查询 Entity 权限等级"""
         return await self.query_auth_setting(
-            module=PermissionLevel.module,
-            plugin=PermissionLevel.plugin,
-            node=PermissionLevel.node
+            module=OMEGA_PERM_LEVEL_NODE.module,
+            plugin=OMEGA_PERM_LEVEL_NODE.plugin,
+            node=OMEGA_PERM_LEVEL_NODE.node
         )
 
     async def check_permission_level(self, level: int) -> bool:
         """检查 Entity 权限等级是否达到要求"""
         verified = await self.verify_auth_setting(
-            module=PermissionLevel.module,
-            plugin=PermissionLevel.plugin,
-            node=PermissionLevel.node,
+            module=OMEGA_PERM_LEVEL_NODE.module,
+            plugin=OMEGA_PERM_LEVEL_NODE.plugin,
+            node=OMEGA_PERM_LEVEL_NODE.node,
             available=level,
             strict_match_available=False,
         )
@@ -579,9 +579,9 @@ class OmegaEntity:
     async def set_permission_level(self, level: int) -> AuthSetting:
         """设置 Entity 权限等级"""
         return await self.set_auth_setting(
-            module=PermissionLevel.module,
-            plugin=PermissionLevel.plugin,
-            node=PermissionLevel.node,
+            module=OMEGA_PERM_LEVEL_NODE.module,
+            plugin=OMEGA_PERM_LEVEL_NODE.plugin,
+            node=OMEGA_PERM_LEVEL_NODE.node,
             available=level,
             value={},
         )
@@ -686,8 +686,8 @@ class OmegaEntity:
         """设置 Entity 对象的角色属性, 属性应当为 int 类型"""
         value = parse_obj_as(dict[str, int], {attr_name: attr_value})
         return await self.set_auth_setting(
-            module=CharacterAttribute.module,
-            plugin=CharacterAttribute.plugin,
+            module=OMEGA_ICA_ATTR_NODE.module,
+            plugin=OMEGA_ICA_ATTR_NODE.plugin,
             node=attr_name,
             available=1,
             value=value,
@@ -697,8 +697,8 @@ class OmegaEntity:
         """设置 Entity 对象的角色档案, 档案内容应当为 dict 类型"""
         value = parse_obj_as(dict[str, dict[str, Any]], {profile_name: profile_value})
         return await self.set_auth_setting(
-            module=CharacterProfile.module,
-            plugin=CharacterProfile.plugin,
+            module=OMEGA_ICA_PROFILE_NODE.module,
+            plugin=OMEGA_ICA_PROFILE_NODE.plugin,
             node=profile_name,
             available=1,
             value=value,
@@ -707,31 +707,31 @@ class OmegaEntity:
     async def delete_character_attribute(self, attribute_name: str) -> None:
         """删除 Entity 对象的角色属性"""
         return await self.delete_auth_setting(
-            module=CharacterAttribute.module,
-            plugin=CharacterAttribute.plugin,
+            module=OMEGA_ICA_ATTR_NODE.module,
+            plugin=OMEGA_ICA_ATTR_NODE.plugin,
             node=attribute_name,
         )
 
     async def delete_character_profile(self, profile_name: str) -> None:
         """删除 Entity 对象的角色档案"""
         return await self.delete_auth_setting(
-            module=CharacterProfile.module,
-            plugin=CharacterProfile.plugin,
+            module=OMEGA_ICA_PROFILE_NODE.module,
+            plugin=OMEGA_ICA_PROFILE_NODE.plugin,
             node=profile_name,
         )
 
     async def query_all_character_attribute(self) -> list[AuthSetting]:
         """获取 Entity 对象所有的角色属性"""
         return await self.query_plugin_all_auth_setting(
-            module=CharacterAttribute.module,
-            plugin=CharacterAttribute.plugin,
+            module=OMEGA_ICA_ATTR_NODE.module,
+            plugin=OMEGA_ICA_ATTR_NODE.plugin,
         )
 
     async def query_all_character_profile(self) -> list[AuthSetting]:
         """获取 Entity 对象所有的角色档案"""
         return await self.query_plugin_all_auth_setting(
-            module=CharacterProfile.module,
-            plugin=CharacterProfile.plugin,
+            module=OMEGA_ICA_PROFILE_NODE.module,
+            plugin=OMEGA_ICA_PROFILE_NODE.plugin,
         )
 
     async def query_character_attribute(
@@ -748,8 +748,8 @@ class OmegaEntity:
         """
         try:
             attribute = await self.query_auth_setting(
-                module=CharacterAttribute.module,
-                plugin=CharacterAttribute.plugin,
+                module=OMEGA_ICA_ATTR_NODE.module,
+                plugin=OMEGA_ICA_ATTR_NODE.plugin,
                 node=attr_name,
             )
 
@@ -780,8 +780,8 @@ class OmegaEntity:
         """
         try:
             profile = await self.query_auth_setting(
-                module=CharacterProfile.module,
-                plugin=CharacterProfile.plugin,
+                module=OMEGA_ICA_PROFILE_NODE.module,
+                plugin=OMEGA_ICA_PROFILE_NODE.plugin,
                 node=profile_name,
             )
 

@@ -1182,28 +1182,28 @@ class TestCharacterAttributeAndProfile:
         assert calls == 1
 
     async def test_attribute_unavailable_regenerated_by_factory(self, test_onebot_v11_entity_factory) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=0, value={'luck': 99}
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck', available=0, value={'luck': 99}
         )
 
         value = await entity.query_character_attribute('luck', default_factory=lambda: 7)
 
         assert value == 7
         auth_setting = await entity.query_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck'
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck'
         )
         assert auth_setting.available == 1
         assert auth_setting.value == {'luck': 7}
 
     async def test_attribute_missing_key_regenerated_by_factory(self, test_onebot_v11_entity_factory) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=1, value={'other_key': 1}
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck', available=1, value={'other_key': 1}
         )
 
         value = await entity.query_character_attribute('luck', default_factory=lambda: 8)
@@ -1211,11 +1211,11 @@ class TestCharacterAttributeAndProfile:
         assert value == 8
 
     async def test_attribute_non_int_value(self, test_onebot_v11_entity_factory) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=1, value={'luck': 'abc'}
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck', available=1, value={'luck': 'abc'}
         )
 
         with pytest.raises(ValueError, match='invalid literal'):
@@ -1254,11 +1254,15 @@ class TestCharacterAttributeAndProfile:
         assert calls == 1
 
     async def test_profile_unavailable_regenerated_by_factory(self, test_onebot_v11_entity_factory) -> None:
-        from src.service.omega_base.internal.consts import CharacterProfile
+        from src.service.omega_base.internal.consts import OMEGA_ICA_PROFILE_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterProfile.module, CharacterProfile.plugin, 'appearance', available=0, value={'appearance': {}}
+            OMEGA_ICA_PROFILE_NODE.module,
+            OMEGA_ICA_PROFILE_NODE.plugin,
+            'appearance',
+            available=0,
+            value={'appearance': {}},
         )
 
         value = await entity.query_character_profile('appearance', default_factory=lambda: {'new': 1})
@@ -1267,27 +1271,35 @@ class TestCharacterAttributeAndProfile:
 
     async def test_profile_missing_key_regenerated_by_factory(self, test_onebot_v11_entity_factory) -> None:
         """存储的 value 字典缺少目标键时, 提供 default_factory 应重新生成并持久化"""
-        from src.service.omega_base.internal.consts import CharacterProfile
+        from src.service.omega_base.internal.consts import OMEGA_ICA_PROFILE_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterProfile.module, CharacterProfile.plugin, 'appearance', available=1, value={'other_key': {}}
+            OMEGA_ICA_PROFILE_NODE.module,
+            OMEGA_ICA_PROFILE_NODE.plugin,
+            'appearance',
+            available=1,
+            value={'other_key': {}},
         )
 
         value = await entity.query_character_profile('appearance', default_factory=lambda: {'gen': True})
 
         assert value == {'gen': True}
         auth_setting = await entity.query_auth_setting(
-            CharacterProfile.module, CharacterProfile.plugin, 'appearance'
+            OMEGA_ICA_PROFILE_NODE.module, OMEGA_ICA_PROFILE_NODE.plugin, 'appearance'
         )
         assert auth_setting.value == {'appearance': {'gen': True}}
 
     async def test_profile_missing_key_without_factory_raises(self, test_onebot_v11_entity_factory) -> None:
-        from src.service.omega_base.internal.consts import CharacterProfile
+        from src.service.omega_base.internal.consts import OMEGA_ICA_PROFILE_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterProfile.module, CharacterProfile.plugin, 'appearance', available=1, value={'other_key': {}}
+            OMEGA_ICA_PROFILE_NODE.module,
+            OMEGA_ICA_PROFILE_NODE.plugin,
+            'appearance',
+            available=1,
+            value={'other_key': {}},
         )
 
         with pytest.raises(KeyError):
@@ -1326,17 +1338,17 @@ class TestCharacterAttributeAndProfile:
         assert profiles[0].node == 'appearance'
 
     async def test_attribute_none_value_with_factory_regenerates(self, test_onebot_v11_entity_factory) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=1, value={'luck': None},
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck', available=1, value={'luck': None},
         )
 
         assert await entity.query_character_attribute('luck', default_factory=lambda: 42) == 42
 
         auth_setting = await entity.query_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck',
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck',
         )
         assert auth_setting.available == 1
         assert auth_setting.value == {'luck': 42}
@@ -1344,11 +1356,11 @@ class TestCharacterAttributeAndProfile:
     async def test_attribute_none_value_without_factory_raises_type_error(
             self, test_onebot_v11_entity_factory,
     ) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=1, value={'luck': None},
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck', available=1, value={'luck': None},
         )
 
         with pytest.raises(TypeError):
@@ -1357,11 +1369,11 @@ class TestCharacterAttributeAndProfile:
     async def test_unavailable_attribute_error_message_distinguished(
             self, test_onebot_v11_entity_factory,
     ) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterAttribute.module, CharacterAttribute.plugin, 'luck', available=0, value={'luck': 99},
+            OMEGA_ICA_ATTR_NODE.module, OMEGA_ICA_ATTR_NODE.plugin, 'luck', available=0, value={'luck': 99},
         )
 
         with pytest.raises(ValueError, match="CharacterAttribute 'luck' is not available"):
@@ -1370,11 +1382,11 @@ class TestCharacterAttributeAndProfile:
     async def test_unavailable_profile_error_message_distinguished(
             self, test_onebot_v11_entity_factory,
     ) -> None:
-        from src.service.omega_base.internal.consts import CharacterProfile
+        from src.service.omega_base.internal.consts import OMEGA_ICA_PROFILE_NODE
 
         entity = test_onebot_v11_entity_factory()
         await entity.set_auth_setting(
-            CharacterProfile.module, CharacterProfile.plugin, 'pf', available=0, value={'pf': {'k': 'v'}},
+            OMEGA_ICA_PROFILE_NODE.module, OMEGA_ICA_PROFILE_NODE.plugin, 'pf', available=0, value={'pf': {'k': 'v'}},
         )
 
         with pytest.raises(ValueError, match="CharacterProfile 'pf' is not available"):

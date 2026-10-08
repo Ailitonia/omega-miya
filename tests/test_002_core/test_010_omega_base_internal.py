@@ -251,11 +251,11 @@ class TestModuleContract:
             'CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX',
             'CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX',
             'GLOBAL_COOLDOWN_EVENT',
+            'OMEGA_ICA_ATTR_NODE',
+            'OMEGA_ICA_PROFILE_NODE',
+            'OMEGA_PERM_GLOBAL_NODE',
+            'OMEGA_PERM_LEVEL_NODE',
             'SKIP_COOLDOWN_PERMISSION_NODE',
-            'CharacterAttribute',
-            'CharacterProfile',
-            'PermissionGlobal',
-            'PermissionLevel',
         ]
         assert entity_module.__all__ == ['EntityAcquireType', 'EntityInitParams', 'OmegaEntity']
         assert event_module.__all__ == ['BotActionEvent', 'BotConnectEvent', 'BotDisconnectEvent', 'OmegaBaseEvent']
@@ -265,22 +265,22 @@ class TestInternalConsts:
     """内部权限节点及冷却事件常量测试"""
 
     def test_permission_nodes(self) -> None:
-        from src.service.omega_base.internal.consts import PermissionGlobal, PermissionLevel
+        from src.service.omega_base.internal.consts import OMEGA_PERM_GLOBAL_NODE, OMEGA_PERM_LEVEL_NODE
 
-        assert PermissionGlobal.module == 'OmegaInternal'
-        assert PermissionGlobal.plugin == 'OmegaInternal'
-        assert PermissionGlobal.node == 'OmegaPermissionGlobalEnable'
-        assert PermissionLevel.module == 'OmegaInternal'
-        assert PermissionLevel.plugin == 'OmegaInternal'
-        assert PermissionLevel.node == 'OmegaPermissionLevel'
+        assert OMEGA_PERM_GLOBAL_NODE.module == 'OmegaInternal'
+        assert OMEGA_PERM_GLOBAL_NODE.plugin == 'OmegaInternal'
+        assert OMEGA_PERM_GLOBAL_NODE.node == 'OmegaPermissionGlobalEnable'
+        assert OMEGA_PERM_LEVEL_NODE.module == 'OmegaInternal'
+        assert OMEGA_PERM_LEVEL_NODE.plugin == 'OmegaInternal'
+        assert OMEGA_PERM_LEVEL_NODE.node == 'OmegaPermissionLevel'
 
     def test_character_nodes(self) -> None:
-        from src.service.omega_base.internal.consts import CharacterAttribute, CharacterProfile
+        from src.service.omega_base.internal.consts import OMEGA_ICA_ATTR_NODE, OMEGA_ICA_PROFILE_NODE
 
-        assert CharacterAttribute.module == 'OmegaInternal'
-        assert CharacterAttribute.plugin == 'OmegaInternalCharacterAttribute'
-        assert CharacterProfile.module == 'OmegaInternal'
-        assert CharacterProfile.plugin == 'OmegaInternalCharacterProfile'
+        assert OMEGA_ICA_ATTR_NODE.module == 'OmegaInternal'
+        assert OMEGA_ICA_ATTR_NODE.plugin == 'OmegaInternalCharacterAttribute'
+        assert OMEGA_ICA_PROFILE_NODE.module == 'OmegaInternal'
+        assert OMEGA_ICA_PROFILE_NODE.plugin == 'OmegaInternalCharacterProfile'
 
     def test_cooldown_and_permission_constants(self) -> None:
         from src.service.omega_base.internal import consts
@@ -290,10 +290,21 @@ class TestInternalConsts:
         assert consts.CHARACTER_ATTRIBUTE_SETTER_COOLDOWN_EVENT_PREFIX == 'OmegaICAttrSetter'
         assert consts.CHARACTER_PROFILE_SETTER_COOLDOWN_EVENT_PREFIX == 'OmegaICProfileSetter'
 
-    def test_dataclass_default_instantiation(self) -> None:
-        from src.service.omega_base.internal.consts import PermissionGlobal
+    def test_nodes_are_frozen_dataclass_singletons(self) -> None:
+        import dataclasses
 
-        assert PermissionGlobal().module == 'OmegaInternal'
+        from src.service.omega_base.internal import consts
+
+        nodes = (
+            consts.OMEGA_PERM_GLOBAL_NODE,
+            consts.OMEGA_PERM_LEVEL_NODE,
+            consts.OMEGA_ICA_ATTR_NODE,
+            consts.OMEGA_ICA_PROFILE_NODE,
+        )
+        for node in nodes:
+            assert dataclasses.is_dataclass(node)
+            with pytest.raises(dataclasses.FrozenInstanceError):
+                node.module = 'mutated'  # type: ignore[misc]
 
 
 class TestOmegaBaseEvent:
