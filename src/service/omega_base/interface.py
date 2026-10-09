@@ -39,6 +39,9 @@ class OmegaEntityInterface:
     def __init__(self, entity_params: 'EntityInitParams') -> None:
         self.entity_params = entity_params
 
+    def __repr__(self) -> str:
+        return f'EntityInterface({self.entity_params})'
+
     @property
     def type(self) -> 'EntityType':
         return self.entity_params.entity_type
@@ -122,6 +125,12 @@ class OmegaMatcherInterface:
         self.event = event
         self.matcher = matcher
         self.acquire_type: EntityAcquireType = acquire_type
+
+    def __repr__(self) -> str:
+        return f'{self.acquire_type.title()}Interface(bot={self.bot}, event={self.event}, matcher={self.matcher})'
+
+    def __str__(self) -> str:
+        return f'{self.acquire_type.title()}Interface({self.extract_current_entity_params()})'
 
     @classmethod
     def depend(
