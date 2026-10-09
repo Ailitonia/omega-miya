@@ -47,14 +47,28 @@ class CustomUserDownloader(PixivUser):
             save_folder: T,
             *,
             ignore_exist_file: bool = True,
+            retry_num: int = 3,
     ) -> T:
-        """下载任意资源到任意位置"""
-        return await cls._download_resource(
-            url=url,
-            save_folder=save_folder,
-            ignore_exist_file=ignore_exist_file,
-            stream_download=True,
-        )
+        """下载任意资源到任意位置, 失败时自动重试"""
+        retried = 0
+        while True:
+            try:
+                return await cls._download_resource(
+                    url=url,
+                    save_folder=save_folder,
+                    ignore_exist_file=ignore_exist_file,
+                    stream_download=True,
+                )
+            except Exception as e:
+                # 4xx 为确定性错误(资源不存在/无权限等), 重试无意义, 直接抛出(429 流控除外)
+                if isinstance(e, WebSourceException) and 400 <= e.status_code < 500 and e.status_code != 429:
+                    raise
+                if retried >= retry_num:
+                    raise
+                delay = min(5 * 2 ** retried, 30)
+                retried += 1
+                logger.warning(f'Download {url} failed, will retry ({retried}/{retry_num}) after {delay}s, {e!r}')
+                await async_sleep(delay)
 
     async def _query_tag_user_id(self, tag: str) -> list[int]:
         ids: list[int] = []

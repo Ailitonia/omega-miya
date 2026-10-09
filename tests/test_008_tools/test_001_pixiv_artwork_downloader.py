@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from tests.test_008_tools.helpers import (
+    capture_async_sleep,
     make_bookmark_page_querier,
     patch_fake_pixiv_downloader,
     patch_zero_page_interval,
@@ -112,6 +113,110 @@ class TestHandleDownloadArtworksFromOutputFile:
             await pixiv_output_downloader._handle_download_artworks_from_output_file(
                 save_folder=TemporaryResource('test'),
             )
+
+
+class TestDownloadAnyUrlRetry:
+    """任意链接下载自动重试测试"""
+
+    @staticmethod
+    def _patch_download_resource(monkeypatch: pytest.MonkeyPatch, failures: list[Exception]) -> list[str]:
+        """以按顺序抛出注入异常的替身替换 _download_resource, 异常耗尽后返回成功, 返回调用 url 记录列表"""
+        import tools.pixiv_artwork_downloader.downloader as downloader_module
+
+        calls: list[str] = []
+
+        async def fake_download_resource(url, save_folder, **kwargs):
+            calls.append(url)
+            if failures:
+                raise failures.pop(0)
+            return save_folder
+
+        monkeypatch.setattr(
+            downloader_module.CustomUserDownloader, '_download_resource', staticmethod(fake_download_resource),
+        )
+        return calls
+
+    async def test_success_after_transient_failures(self):
+        import tools.pixiv_artwork_downloader.downloader as downloader_module
+        from src.exception import WebSourceException
+        from src.resource import TemporaryResource
+        from tools.pixiv_artwork_downloader.downloader import CustomUserDownloader
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            calls = self._patch_download_resource(
+                monkeypatch, [WebSourceException(500, 'Server error'), ConnectionError('Connection reset')],
+            )
+            sleep_calls = capture_async_sleep(monkeypatch, downloader_module)
+            save_folder = TemporaryResource('test')
+            async with asyncio.timeout(5):
+                result = await CustomUserDownloader.download_any_url(
+                    url='https://example.com/a.png', save_folder=save_folder,
+                )
+
+        assert len(calls) == 3
+        assert result is save_folder
+        assert sleep_calls == [5, 10]
+
+    async def test_retry_exhaustion_raises(self):
+        import tools.pixiv_artwork_downloader.downloader as downloader_module
+        from src.exception import WebSourceException
+        from src.resource import TemporaryResource
+        from tools.pixiv_artwork_downloader.downloader import CustomUserDownloader
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            calls = self._patch_download_resource(
+                monkeypatch, [WebSourceException(500, 'Server error') for _ in range(10)],
+            )
+            sleep_calls = capture_async_sleep(monkeypatch, downloader_module)
+            with pytest.raises(WebSourceException, match='Server error'):
+                async with asyncio.timeout(5):
+                    await CustomUserDownloader.download_any_url(
+                        url='https://example.com/a.png', save_folder=TemporaryResource('test'), retry_num=2,
+                    )
+
+        assert len(calls) == 3
+        assert sleep_calls == [5, 10]
+
+    async def test_client_error_fails_fast_without_retry(self):
+        import tools.pixiv_artwork_downloader.downloader as downloader_module
+        from src.exception import WebSourceException
+        from src.resource import TemporaryResource
+        from tools.pixiv_artwork_downloader.downloader import CustomUserDownloader
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            calls = self._patch_download_resource(
+                monkeypatch, [WebSourceException(404, 'Not found') for _ in range(10)],
+            )
+            sleep_calls = capture_async_sleep(monkeypatch, downloader_module)
+            with pytest.raises(WebSourceException, match='Not found'):
+                async with asyncio.timeout(5):
+                    await CustomUserDownloader.download_any_url(
+                        url='https://example.com/a.png', save_folder=TemporaryResource('test'),
+                    )
+
+        assert len(calls) == 1
+        assert sleep_calls == []
+
+    async def test_rate_limit_429_is_retried(self):
+        import tools.pixiv_artwork_downloader.downloader as downloader_module
+        from src.exception import WebSourceException
+        from src.resource import TemporaryResource
+        from tools.pixiv_artwork_downloader.downloader import CustomUserDownloader
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            calls = self._patch_download_resource(
+                monkeypatch, [WebSourceException(429, 'Too many requests')],
+            )
+            sleep_calls = capture_async_sleep(monkeypatch, downloader_module)
+            save_folder = TemporaryResource('test')
+            async with asyncio.timeout(5):
+                result = await CustomUserDownloader.download_any_url(
+                    url='https://example.com/a.png', save_folder=save_folder,
+                )
+
+        assert len(calls) == 2
+        assert result is save_folder
+        assert sleep_calls == [5]
 
 
 class TestQueryAllBookmarkIllust:
