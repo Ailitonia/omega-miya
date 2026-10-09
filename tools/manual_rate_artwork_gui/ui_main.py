@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .data_source import BaseArtworkSource
 
 
-class ManualRatingArtworkMain[T: 'BaseArtworkSource']:
+class ManualRatingArtworkMain[T: BaseArtworkSource]:
 
     def __init__(self, source: T) -> None:
         self.root: Tk = Tk()
