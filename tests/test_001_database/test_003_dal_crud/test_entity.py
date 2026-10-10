@@ -56,6 +56,8 @@ async def bot_dal(
         try:
             await dal._clear_all()
             await dal.add_update_exist(test_bot_type, test_bot_self_id, 1)
+            # database_session 不再跨上下文共享会话, 需显式提交使父行对其他会话可见
+            await dal.commit_session()
             yield dal
         finally:
             await dal._clear_all()
@@ -82,6 +84,8 @@ async def subscription_source_dal(
         try:
             await dal._clear_all()
             await dal.add_update_exist(test_sub_type, test_sub_id, test_sub_user_name)
+            # database_session 不再跨上下文共享会话, 需显式提交使父行对其他会话可见
+            await dal.commit_session()
             yield dal
         finally:
             await dal._clear_all()

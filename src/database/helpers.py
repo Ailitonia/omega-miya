@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from nonebot import get_driver, logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .connector import get_engine, get_scoped_session_factory
+from .connector import get_engine, get_session_factory
 
 
 @get_driver().on_startup
@@ -70,17 +70,14 @@ async def __database_dispose():
 @asynccontextmanager
 async def database_session() -> AsyncGenerator[AsyncSession, None]:
     """创建并进入数据库 AsyncSession 上下文, 自动处理 commit/rollback"""
-    scoped_session_factory = get_scoped_session_factory()
-    try:
-        async with scoped_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except:  # noqa: E722
-                await session.rollback()
-                raise
-    finally:
-        await scoped_session_factory.remove()
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except:  # noqa: E722
+            await session.rollback()
+            raise
 
 
 async def database_session_depend() -> AsyncGenerator[AsyncSession, None]:

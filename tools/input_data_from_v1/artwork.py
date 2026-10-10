@@ -245,9 +245,8 @@ async def _import_worker(
 ) -> None:
     """从队列消费记录并逐条导入, 单条失败仅记录不中断
 
-    不使用 `ArtworkCollectionDAL.create()`: 其经 scoped_session 按 (current_event, current_matcher)
-    作用域复用会话, 工具并发任务无 event/matcher 上下文时所有任务会共享同一会话,
-    导致并发状态冲突 (IllegalStateChangeError); 此处直接使用底层非 scoped 会话工厂, 每条记录独立会话
+    不使用 `ArtworkCollectionDAL.create()`: 直接使用底层会话工厂, 每条记录独立会话并显式逐条
+    commit, 便于控制失败重试粒度 (单条失败不影响同批次其他记录的提交状态)
     """
     consecutive_failures = 0
     while True:

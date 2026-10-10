@@ -259,3 +259,65 @@ class TestCheckConstraint:
 
             # 清理失败的事务状态, 避免上下文退出时提交失败事务
             await session.rollback()
+
+
+class TestConcurrentSessionIsolation:
+    """并发会话隔离测试 (回归: 快速重连时连接/断开预处理并发重叠导致会话状态互相破坏)
+
+    曾经 async_scoped_session 的 scopefunc 在无事件上下文时退化为常量 key (id(None), id(None)),
+    并发事件处理协程共享同一 AsyncSession, 交错 commit/rollback/close 触发
+    IllegalStateChangeError 与 RuntimeError('Current session is not active');
+    现在 database_session() 每次调用创建独占会话, 并发协程互不影响
+    """
+
+    async def test_concurrent_sessions_are_distinct_objects(self) -> None:
+        """并发开启的多个 database_session 上下文必须持有互相独立的会话对象"""
+        import asyncio
+
+        from src.database.helpers import database_session
+
+        barrier = asyncio.Barrier(2)
+        sessions: dict[str, object] = {}
+
+        async def _hold_open(tag: str) -> None:
+            async with database_session() as session:
+                sessions[tag] = session
+                # 等待两个上下文同时处于打开状态后再退出
+                await barrier.wait()
+
+        await asyncio.gather(_hold_open('a'), _hold_open('b'))
+        assert sessions['a'] is not sessions['b']
+
+    async def test_concurrent_dal_upsert_no_session_corruption(self) -> None:
+        """并发 DAL 写操作不得互相破坏会话状态, 且各自写入正确落库
+
+        模拟 OneBot V11 快速重连场景: 多个任务并发执行 BotSelfDAL.add_update_exist
+        (连接/断开预处理对同一 bot 表的并发更新)
+        """
+        import asyncio
+
+        from src.database.internal.bot import BotSelfDAL, BotStatus
+
+        base_id = f'TEST_CONCURRENT_{_random_string()}'
+
+        async def _upsert_bot(index: int) -> None:
+            async with BotSelfDAL.create() as dal:
+                await dal.add_update_exist(
+                    'OneBot V11',
+                    f'{base_id}_{index}',
+                    BotStatus.ENABLED,
+                    bot_info=f'connect-{index}',
+                )
+
+        try:
+            await asyncio.gather(*(_upsert_bot(i) for i in range(4)))
+
+            async with BotSelfDAL.create() as dal:
+                for i in range(4):
+                    bot = await dal.query_unique(bot_type='OneBot V11', self_id=f'{base_id}_{i}')
+                    assert bot.bot_status == BotStatus.ENABLED
+                    assert bot.bot_info == f'connect-{i}'
+        finally:
+            async with BotSelfDAL.create() as dal:
+                for i in range(4):
+                    await dal.delete(bot_type='OneBot V11', self_id=f'{base_id}_{i}')
