@@ -36,12 +36,12 @@ def _user_entity_interface(m_iface: USER_M_IFACE) -> OmegaEntityInterface:
 
 type EVENT_E_IFACE = Annotated[
     OmegaEntityInterface,
-    Depends(_event_entity_interface)
+    Depends(_event_entity_interface, use_cache=True)
 ]
 """子依赖: 事件对象的 OmegaEntityInterface"""
 type USER_E_IFACE = Annotated[
     OmegaEntityInterface,
-    Depends(_user_entity_interface)
+    Depends(_user_entity_interface, use_cache=True)
 ]
 """子依赖: 用户对象的 OmegaEntityInterface"""
 

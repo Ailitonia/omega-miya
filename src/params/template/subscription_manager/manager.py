@@ -10,11 +10,12 @@
 
 import abc
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from nonebot.exception import ActionFailed
 from nonebot.log import logger
 from nonebot_plugin_alconna.uniseg import Receipt, UniMessage
+from sqlalchemy.exc import NoResultFound
 
 from src.database import SocialMediaContentDAL, SubscriptionSourceDAL, database_session
 from src.service import OmegaEntityInterface, OmegaMatcherInterface
@@ -31,7 +32,7 @@ _LIMIT_SMC_SEND_ENTITY: int = 2
 """限制异步同时发送订阅源内容的对象数量, 避免机器人平台端流控限制"""
 
 
-class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
+class BaseSubscriptionManager[SMC_T](abc.ABC):
     """订阅服务管理基类(SMC: SubscriptionMainContent 订阅源内容)"""
 
     __slots__ = ('sub_id',)
@@ -187,7 +188,7 @@ class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
         raise NotImplementedError
 
     async def _add_upgrade_sub_source(self) -> 'SubscriptionSource':
-        """在数据库中新更新订阅源"""
+        """在数据库中新增或更新订阅源"""
         sub_source_data = await self.query_sub_source_data()
 
         # 提前添加订阅源内容到数据库避免后续检查时将添加时查询到的内容当作需要推送的新内容
@@ -311,6 +312,9 @@ class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
             await self._entity_message_send_postprocessor(receipt=receipt, smc_item=smc_item)
         except ActionFailed as e:
             logger.warning(f'{self} | Sending message to eid={entity_index_id} failed with ActionFailed, {e!r}')
+        except NoResultFound:
+            # 目标 Entity 已被删除 (失效订阅), 无需错误日志, 等待订阅关系清理
+            logger.warning(f'{self} | Sending message to eid={entity_index_id} skipped, entity no longer exists')
         except Exception as e:
             logger.error(f'{self} | Sending message to eid={entity_index_id} failed, {e!r}')
 
@@ -342,15 +346,18 @@ class BaseSubscriptionManager[SMC_T: Any](abc.ABC):
             logger.debug(f'{self} | No new content found')
             return
 
-        # 更新内容先插入数据库避免发送失败后重复发送
+        # 更新内容先插入数据库避免发送失败后重复发送; 仅对入库成功的内容执行发送,
+        # 入库失败的内容跳过本次发送, 待下一轮检查重新入库后再推送, 避免数据库故障期间重复推送
+        added_smc_items: list[SMC_T] = []
         for smc_item in new_smc_items:
             try:
                 await self._add_upgrade_smc_item(smc_item=smc_item)
+                added_smc_items.append(smc_item)
             except Exception as e:
                 logger.error(f'{self} | Add new smc content {smc_item} to database failed, {e!r}')
 
         # 向订阅者发送订阅更新信息
-        for smc_item in new_smc_items:
+        for smc_item in added_smc_items:
             try:
                 await self._send_subscribed_entity_smc_message(smc_item=smc_item)
             except Exception as e:

@@ -78,8 +78,15 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
         """执行新增订阅流程"""
         await interface.send_reply(f'正在更新{self._command_prefix}订阅信息, 请稍候')
 
-        # 暂停计划任务避免中途检查更新
-        scheduler.pause()
+        # 暂停计划任务避免中途检查更新; 调度器未运行时 (STATE_STOPPED) pause/resume 会抛出
+        # SchedulerNotRunningError, 此时跳过暂停保护, 不阻断订阅流程
+        scheduler_paused = False
+        if scheduler.running:
+            scheduler.pause()
+            scheduler_paused = True
+        else:
+            logger.warning('Scheduler is not running, skip pausing scheduled jobs during subscription update')
+
         try:
             await self._get_manager(sub_id).add_entity_sub(interface=interface)
             logger.success(f'{interface}订阅{self._command_prefix}({sub_id})成功')
@@ -93,8 +100,9 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
                 f'可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
             )
         finally:
-            # 恢复计划任务
-            scheduler.resume()
+            # 恢复计划任务 (仅恢复本流程实际暂停的情况, 且调度器仍在运行)
+            if scheduler_paused and scheduler.running:
+                scheduler.resume()
         await interface.finish_reply(msg)
 
     async def _execute_del_subscription(self, interface: OmegaMatcherInterface, sub_id: str) -> None:
