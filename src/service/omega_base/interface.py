@@ -16,7 +16,7 @@ from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.exception import FinishedException, PausedException, RejectedException
 from nonebot.matcher import Matcher
-from nonebot_plugin_alconna.uniseg import Receipt, Segment, UniMessage
+from nonebot_plugin_alconna.uniseg import Receipt, Reply, Segment, UniMessage
 
 from src.database import DATABASE_SESSION, database_session
 from src.database.internal.entity import EntityType
@@ -63,8 +63,8 @@ class OmegaEntityInterface:
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             **kwargs,
     ) -> 'Receipt':
         """向 Entity 直接发送消息"""
@@ -80,8 +80,8 @@ class OmegaEntityInterface:
             message: str | Segment | Sequence[Segment] | UniMessage,
             revoke_delay: int = 60,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             **kwargs,
     ) -> None:
         """向 Entity 直接发送消息并在一定时间后撤回"""
@@ -200,8 +200,8 @@ class OmegaMatcherInterface:
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             **kwargs,
     ) -> 'Receipt':
         return await self.get_event_depend().send(
@@ -214,14 +214,18 @@ class OmegaMatcherInterface:
     async def send_at_sender(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            at_target: str | None = None,
     ) -> 'Receipt':
-        return await self.send(message=message, at_sender=True)
+        return await self.send(message=message, at_sender=at_target or True)
 
     async def send_reply(
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            reply_target: str | Reply | None = None,
     ) -> 'Receipt':
-        return await self.send(message=message, reply_to=True)
+        return await self.send(message=message, reply_to=reply_target or True)
 
     async def revoke_bot_sent_msg(self, receipt: 'Receipt', *, revoke_delay: int = 0) -> None:
         return await self.get_event_depend().revoke_bot_sent_msg(receipt=receipt, revoke_delay=revoke_delay)
@@ -230,8 +234,8 @@ class OmegaMatcherInterface:
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             revoke_delay: int = 60,
     ) -> None:
         """发送消息指定时间后自动撤回
@@ -245,36 +249,66 @@ class OmegaMatcherInterface:
         await self.send(message=message)
         raise FinishedException
 
-    async def finish_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
-        await self.send_at_sender(message=message)
+    async def finish_at_sender(
+            self,
+            message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            at_target: str | None = None,
+    ) -> NoReturn:
+        await self.send_at_sender(message=message, at_target=at_target)
         raise FinishedException
 
-    async def finish_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
-        await self.send_reply(message=message)
+    async def finish_reply(
+            self,
+            message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            reply_target: str | Reply | None = None,
+    ) -> NoReturn:
+        await self.send_reply(message=message, reply_target=reply_target)
         raise FinishedException
 
     async def pause(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send(message=message)
         raise PausedException
 
-    async def pause_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
-        await self.send_at_sender(message=message)
+    async def pause_at_sender(
+            self,
+            message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            at_target: str | None = None,
+    ) -> NoReturn:
+        await self.send_at_sender(message=message, at_target=at_target)
         raise PausedException
 
-    async def pause_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
-        await self.send_reply(message=message)
+    async def pause_reply(
+            self,
+            message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            reply_target: str | Reply | None = None,
+    ) -> NoReturn:
+        await self.send_reply(message=message, reply_target=reply_target)
         raise PausedException
 
     async def reject(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
         await self.send(message=message)
         raise RejectedException
 
-    async def reject_at_sender(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
-        await self.send_at_sender(message=message)
+    async def reject_at_sender(
+            self,
+            message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            at_target: str | None = None,
+    ) -> NoReturn:
+        await self.send_at_sender(message=message, at_target=at_target)
         raise RejectedException
 
-    async def reject_reply(self, message: str | Segment | Sequence[Segment] | UniMessage) -> NoReturn:
-        await self.send_reply(message=message)
+    async def reject_reply(
+            self,
+            message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            reply_target: str | Reply | None = None,
+    ) -> NoReturn:
+        await self.send_reply(message=message, reply_target=reply_target)
         raise RejectedException
 
     async def reject_arg(
@@ -289,16 +323,20 @@ class OmegaMatcherInterface:
             self,
             key: str,
             message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            at_target: str | None = None,
     ) -> NoReturn:
-        await self.send_at_sender(message=message)
+        await self.send_at_sender(message=message, at_target=at_target)
         await self.matcher.reject_arg(key)
 
     async def reject_arg_reply(
             self,
             key: str,
             message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            reply_target: str | Reply | None = None,
     ) -> NoReturn:
-        await self.send_reply(message=message)
+        await self.send_reply(message=message, reply_target=reply_target)
         await self.matcher.reject_arg(key)
 
     async def reject_receive(
@@ -312,15 +350,19 @@ class OmegaMatcherInterface:
             self,
             key: str,
             message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            at_target: str | None = None,
     ) -> NoReturn:
-        await self.send_at_sender(message=message)
+        await self.send_at_sender(message=message, at_target=at_target)
         await self.matcher.reject_receive(key)
 
     async def reject_receive_reply(
             self,
             key: str, message: str | Segment | Sequence[Segment] | UniMessage,
+            *,
+            reply_target: str | Reply | None = None,
     ) -> NoReturn:
-        await self.send_reply(message=message)
+        await self.send_reply(message=message, reply_target=reply_target)
         await self.matcher.reject_receive(key)
 
 

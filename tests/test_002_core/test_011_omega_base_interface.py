@@ -252,6 +252,7 @@ class TestOmegaEntityInterface:
 
     async def test_send_entity_message_wires_target_and_bot(self, app: App, fake_uni_message_send: AsyncMock) -> None:
         from nonebot.adapters.onebot.v11 import Adapter, Bot
+        from nonebot_plugin_alconna.uniseg import Reply
 
         from src.service.omega_base import OmegaEntityInterface
 
@@ -274,6 +275,14 @@ class TestOmegaEntityInterface:
                 assert kwargs['at_sender'] is True
                 assert kwargs['target'].id == '10000'
                 assert kwargs['target'].private is False
+
+                # 放宽后的 str/Reply 类型 flags 应原样透传
+                reply = Reply(id='1')
+                await interface.send_entity_message('hello', at_sender='10001', reply_to=reply)
+
+                second_kwargs = send_mock.await_args_list[1].kwargs
+                assert second_kwargs['at_sender'] == '10001'
+                assert second_kwargs['reply_to'] is reply
 
     async def test_send_entity_message_auto_revoke_recalls(self, app: App, fake_uni_message_send: AsyncMock) -> None:
         from nonebot.adapters.console import Adapter
@@ -783,6 +792,44 @@ class TestOmegaMatcherInterface:
         assert mock_depend.send.await_args_list[1].kwargs['at_sender'] is True
         assert mock_depend.send.await_args_list[2].kwargs['reply_to'] is True
 
+    @pytest.mark.parametrize(
+        ('method_name', 'target_value', 'flag_key'),
+        [
+            ('send_at_sender', '10001', 'at_sender'),
+            ('send_at_sender', '', 'at_sender'),
+            ('send_reply', 'm1', 'reply_to'),
+            ('send_reply', 'REPLY_OBJ', 'reply_to'),
+        ],
+        ids=['at_str', 'at_empty_falls_back', 'reply_str', 'reply_object'],
+    )
+    async def test_send_custom_target_mapping(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            method_name: str,
+            target_value: Any,
+            flag_key: str,
+    ) -> None:
+        """send_at_sender/send_reply 的自定义目标应映射到对应 flag: 非空值原样透传, 空值经 `or True` 回退"""
+        from nonebot_plugin_alconna.uniseg import Reply
+
+        interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
+
+        if target_value == 'REPLY_OBJ':
+            target_value = Reply(id='1')
+
+        if method_name == 'send_at_sender':
+            await interface.send_at_sender('msg', at_target=target_value)
+        else:
+            await interface.send_reply('msg', reply_target=target_value)
+
+        flag_value = mock_depend.send.await_args.kwargs[flag_key]
+        if target_value == '':
+            assert flag_value is True
+        elif isinstance(target_value, Reply):
+            assert flag_value is target_value
+        else:
+            assert flag_value == target_value
+
     async def test_send_auto_revoke_recalls(self, monkeypatch: pytest.MonkeyPatch) -> None:
         interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
 
@@ -790,9 +837,12 @@ class TestOmegaMatcherInterface:
         mock_depend.send = AsyncMock(return_value=receipt)
         mock_depend.revoke_bot_sent_msg = AsyncMock()
 
-        await interface.send_auto_revoke('msg', revoke_delay=7)
+        await interface.send_auto_revoke('msg', at_sender='10001', reply_to='m1', revoke_delay=7)
 
         mock_depend.send.assert_awaited_once()
+        send_kwargs = mock_depend.send.await_args.kwargs
+        assert send_kwargs['at_sender'] == '10001'
+        assert send_kwargs['reply_to'] == 'm1'
         mock_depend.revoke_bot_sent_msg.assert_awaited_once()
         assert mock_depend.revoke_bot_sent_msg.await_args.kwargs['revoke_delay'] == 7
 
@@ -824,17 +874,17 @@ class TestOmegaMatcherInterface:
         assert mock_depend.revoke_bot_sent_msg.await_args.kwargs['revoke_delay'] == 60
 
     @pytest.mark.parametrize(
-        ('method_name', 'expected_exception', 'expected_flags'),
+        ('method_name', 'expected_exception', 'extra_kwargs', 'expected_flags'),
         [
-            ('finish', FinishedException, {'at_sender': False, 'reply_to': False}),
-            ('finish_at_sender', FinishedException, {'at_sender': True, 'reply_to': False}),
-            ('finish_reply', FinishedException, {'at_sender': False, 'reply_to': True}),
-            ('pause', PausedException, {'at_sender': False, 'reply_to': False}),
-            ('pause_at_sender', PausedException, {'at_sender': True, 'reply_to': False}),
-            ('pause_reply', PausedException, {'at_sender': False, 'reply_to': True}),
-            ('reject', RejectedException, {'at_sender': False, 'reply_to': False}),
-            ('reject_at_sender', RejectedException, {'at_sender': True, 'reply_to': False}),
-            ('reject_reply', RejectedException, {'at_sender': False, 'reply_to': True}),
+            ('finish', FinishedException, {}, {'at_sender': False, 'reply_to': False}),
+            ('finish_at_sender', FinishedException, {'at_target': '10001'}, {'at_sender': '10001', 'reply_to': False}),
+            ('finish_reply', FinishedException, {'reply_target': 'm1'}, {'at_sender': False, 'reply_to': 'm1'}),
+            ('pause', PausedException, {}, {'at_sender': False, 'reply_to': False}),
+            ('pause_at_sender', PausedException, {'at_target': '10001'}, {'at_sender': '10001', 'reply_to': False}),
+            ('pause_reply', PausedException, {'reply_target': 'm1'}, {'at_sender': False, 'reply_to': 'm1'}),
+            ('reject', RejectedException, {}, {'at_sender': False, 'reply_to': False}),
+            ('reject_at_sender', RejectedException, {'at_target': '10001'}, {'at_sender': '10001', 'reply_to': False}),
+            ('reject_reply', RejectedException, {'reply_target': 'm1'}, {'at_sender': False, 'reply_to': 'm1'}),
         ],
     )
     async def test_flow_control_variants(
@@ -842,28 +892,31 @@ class TestOmegaMatcherInterface:
             monkeypatch: pytest.MonkeyPatch,
             method_name: str,
             expected_exception: type[Exception],
-            expected_flags: dict[str, bool],
+            extra_kwargs: dict[str, Any],
+            expected_flags: dict[str, Any],
     ) -> None:
-        """finish/pause/reject 各变体均应先发送消息 (flags 正确), 再抛出对应流程控制异常"""
+        """finish/pause/reject 各变体均应先发送消息, 再抛出对应流程控制异常
+
+        at/reply 变体的 at_target/reply_target 应透传至 depend.send 的对应 flags
+        """
         interface, mock_depend = self._make_interface_with_mocked_depend(monkeypatch)
 
         with pytest.raises(expected_exception):
-            await getattr(interface, method_name)('msg')
+            await getattr(interface, method_name)('msg', **extra_kwargs)
 
         mock_depend.send.assert_awaited_once()
-        call_kwargs = mock_depend.send.await_args.kwargs
-        assert call_kwargs['at_sender'] is expected_flags['at_sender']
-        assert call_kwargs['reply_to'] is expected_flags['reply_to']
+        assert mock_depend.send.await_args.kwargs == {'message': 'msg', **expected_flags}
 
     @pytest.mark.parametrize(
-        ('method_name', 'matcher_method', 'expected_flags'),
+        ('method_name', 'matcher_method', 'extra_kwargs', 'expected_flags'),
         [
-            ('reject_arg', 'reject_arg', {'at_sender': False, 'reply_to': False}),
-            ('reject_arg_at_sender', 'reject_arg', {'at_sender': True, 'reply_to': False}),
-            ('reject_arg_reply', 'reject_arg', {'at_sender': False, 'reply_to': True}),
-            ('reject_receive', 'reject_receive', {'at_sender': False, 'reply_to': False}),
-            ('reject_receive_at_sender', 'reject_receive', {'at_sender': True, 'reply_to': False}),
-            ('reject_receive_reply', 'reject_receive', {'at_sender': False, 'reply_to': True}),
+            ('reject_arg', 'reject_arg', {}, {'at_sender': False, 'reply_to': False}),
+            ('reject_arg_at_sender', 'reject_arg', {'at_target': '10001'}, {'at_sender': '10001', 'reply_to': False}),
+            ('reject_arg_reply', 'reject_arg', {'reply_target': 'm1'}, {'at_sender': False, 'reply_to': 'm1'}),
+            ('reject_receive', 'reject_receive', {}, {'at_sender': False, 'reply_to': False}),
+            ('reject_receive_at_sender', 'reject_receive', {'at_target': '10001'},
+             {'at_sender': '10001', 'reply_to': False}),
+            ('reject_receive_reply', 'reject_receive', {'reply_target': 'm1'}, {'at_sender': False, 'reply_to': 'm1'}),
         ],
     )
     async def test_reject_key_variants(
@@ -871,9 +924,13 @@ class TestOmegaMatcherInterface:
             monkeypatch: pytest.MonkeyPatch,
             method_name: str,
             matcher_method: str,
-            expected_flags: dict[str, bool],
+            extra_kwargs: dict[str, Any],
+            expected_flags: dict[str, Any],
     ) -> None:
-        """reject_arg/reject_receive 各变体均应先发送消息 (flags 正确), 再以相同 key 委托 matcher"""
+        """reject_arg/reject_receive 各变体均应先发送消息, 再以相同 key 委托 matcher
+
+        at/reply 变体的 at_target/reply_target 应透传至 depend.send 的对应 flags
+        """
         from src.service.omega_base import OmegaMatcherInterface
 
         matcher = MagicMock()
@@ -887,12 +944,10 @@ class TestOmegaMatcherInterface:
         monkeypatch.setattr(OmegaMatcherInterface, 'get_event_depend', lambda self: mock_depend)
 
         with pytest.raises(RejectedException):
-            await getattr(interface, method_name)('key', 'msg')
+            await getattr(interface, method_name)('key', 'msg', **extra_kwargs)
 
         mock_depend.send.assert_awaited_once()
-        call_kwargs = mock_depend.send.await_args.kwargs
-        assert call_kwargs['at_sender'] is expected_flags['at_sender']
-        assert call_kwargs['reply_to'] is expected_flags['reply_to']
+        assert mock_depend.send.await_args.kwargs == {'message': 'msg', **expected_flags}
         getattr(matcher, matcher_method).assert_awaited_once_with('key')
 
 

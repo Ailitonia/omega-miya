@@ -482,24 +482,45 @@ class TestEntityTargetRegister:
 class TestBaseEntityTarget:
     """BaseEntityTarget 平台 API 适配器基类方法测试"""
 
-    async def test_send_message_constructs_target_and_passthrough(self, fake_uni_message_send: AsyncMock) -> None:
-        """send_message 应使用 _construct_target 构造的 Target 与 get_bot 的 Bot, 并透传 flags/kwargs"""
+    @pytest.mark.parametrize(
+        ('at_sender', 'reply_to'),
+        [
+            (True, True),
+            ('10001', 'REPLY_OBJ'),
+        ],
+        ids=['bool_flags', 'custom_target_flags'],
+    )
+    async def test_send_message_constructs_target_and_passthrough(
+            self,
+            fake_uni_message_send: AsyncMock,
+            at_sender: Any,
+            reply_to: Any,
+    ) -> None:
+        """send_message 应使用 _construct_target 构造的 Target 与 get_bot 的 Bot, 并透传 flags/kwargs
+
+        放宽后的 str/Reply 类型 flags 应原样透传
+        """
+        from nonebot_plugin_alconna.uniseg import Reply
+
         dummy_cls = _define_dummy_target_cls()
         target_adapter = dummy_cls(entity_params=make_entity_init_params())
 
         fake_bot = MagicMock()
         target_adapter.get_bot = lambda: fake_bot  # type: ignore[method-assign]
 
+        if reply_to == 'REPLY_OBJ':
+            reply_to = Reply(id='1')
+
         send_mock = fake_uni_message_send
 
-        result = await target_adapter.send_message('hello', at_sender=True, reply_to=True, extra_kwarg=1)
+        result = await target_adapter.send_message('hello', at_sender=at_sender, reply_to=reply_to, extra_kwarg=1)
 
         assert result is send_mock.return_value
         call_kwargs = send_mock.await_args.kwargs
         assert call_kwargs['target'].id == 'TEST_DUMMY_ENTITY'
         assert call_kwargs['bot'] is fake_bot
-        assert call_kwargs['at_sender'] is True
-        assert call_kwargs['reply_to'] is True
+        assert call_kwargs['at_sender'] is at_sender
+        assert call_kwargs['reply_to'] is reply_to
         assert call_kwargs['extra_kwarg'] == 1
 
     async def test_send_message_auto_revoke_default_delay(self) -> None:
@@ -590,25 +611,40 @@ class TestBaseEventDepend:
         with pytest.raises(ValueError, match='Not supported entity acquire_type'):
             depend.extract_entity_params('invalid')
 
-    async def test_send_passthrough(self, fake_uni_message_send: AsyncMock) -> None:
-        """send 应使用事件 Target 与构造时的 Bot, 并透传 flags/kwargs"""
-        from nonebot_plugin_alconna.uniseg import Target
+    @pytest.mark.parametrize(
+        ('at_sender', 'reply_to'),
+        [
+            (True, True),
+            ('10001', 'REPLY_OBJ'),
+        ],
+        ids=['bool_flags', 'custom_target_flags'],
+    )
+    async def test_send_passthrough(
+            self,
+            fake_uni_message_send: AsyncMock,
+            at_sender: Any,
+            reply_to: Any,
+    ) -> None:
+        """send 应以事件本身作为 target、构造时的 Bot 为 bot, 并透传 flags/kwargs (含放宽后的 str/Reply 类型)"""
+        from nonebot_plugin_alconna.uniseg import Reply
 
         bot = MagicMock()
-        depend = _define_dummy_depend_cls()(bot=bot, event=MagicMock())
-        depend.get_target = lambda: Target(id='TARGET_1', private=True)
+        event = make_obv11_group_message_event()
+        depend = _define_dummy_depend_cls()(bot=bot, event=event)
+
+        if reply_to == 'REPLY_OBJ':
+            reply_to = Reply(id='1')
 
         send_mock = fake_uni_message_send
 
-        result = await depend.send('hello', at_sender=True, reply_to=True, custom_kwarg='x')
+        result = await depend.send('hello', at_sender=at_sender, reply_to=reply_to, custom_kwarg='x')
 
         assert result is send_mock.return_value
         call_kwargs = send_mock.await_args.kwargs
-        assert call_kwargs['target'].id == 'TARGET_1'
-        assert call_kwargs['target'].private is True
+        assert call_kwargs['target'] is event
         assert call_kwargs['bot'] is bot
-        assert call_kwargs['at_sender'] is True
-        assert call_kwargs['reply_to'] is True
+        assert call_kwargs['at_sender'] is at_sender
+        assert call_kwargs['reply_to'] is reply_to
         assert call_kwargs['custom_kwarg'] == 'x'
 
     async def test_revoke_bot_sent_msg_delay_passthrough(self) -> None:

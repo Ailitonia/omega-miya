@@ -52,8 +52,8 @@ class BaseEntityTarget[BT: 'BaseBot'](abc.ABC):
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             **kwargs,
     ) -> Receipt:
         """主动发送消息"""
@@ -67,8 +67,8 @@ class BaseEntityTarget[BT: 'BaseBot'](abc.ABC):
             message: str | Segment | Sequence[Segment] | UniMessage,
             revoke_delay: int = 60,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             **kwargs,
     ) -> None:
         """主动发送消息并在一定时间后撤回"""
@@ -134,15 +134,14 @@ class BaseEventDepend[BT: 'BaseBot', ET: 'BaseEvent'](abc.ABC):
             self,
             message: str | Segment | Sequence[Segment] | UniMessage,
             *,
-            at_sender: bool = False,
-            reply_to: bool = False,
+            at_sender: str | bool = False,
+            reply_to: str | bool | Reply | None = False,
             **kwargs,
     ) -> Receipt:
         """发送消息"""
-        target = self.get_target()
         uni_message = UniMessage(message)
         return await uni_message.send(
-            target=target,
+            target=self.event,
             bot=self.bot,
             at_sender=at_sender,
             reply_to=reply_to,
