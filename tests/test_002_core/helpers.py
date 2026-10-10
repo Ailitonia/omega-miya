@@ -202,6 +202,7 @@ def make_obv11_group_message_event(
         message_id: int = 1,
         nickname: str | None = 'tester',
         card: str | None = None,
+        role: str | None = None,
         reply: Any = None,
 ) -> 'BaseEvent':
     """构造 OneBot V11 群消息事件"""
@@ -221,7 +222,7 @@ def make_obv11_group_message_event(
         original_message=Message(text),
         raw_message=text,
         font=0,
-        sender=Sender(user_id=user_id, nickname=nickname, card=card),
+        sender=Sender(user_id=user_id, nickname=nickname, card=card, role=role),
         reply=reply,
     )
 
