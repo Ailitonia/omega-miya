@@ -71,7 +71,11 @@ def run_bot(_: 'CliQueryArguments') -> None:
     # 优先加载数据库模块
     import src.database  # noqa: F401
 
-    # 加载插件
+    # 加载 Alconna 相关插件
+    nonebot.load_plugin('nonebot_plugin_waiter')
+    nonebot.load_plugin('nonebot_plugin_alconna')
+
+    # 加载 omega-miya 相关服务及插件
     nonebot.load_plugins('src/service')
     nonebot.load_plugins('src/plugins')
 
