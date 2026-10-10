@@ -10,17 +10,14 @@
 
 from typing import TYPE_CHECKING
 
-from arclet.alconna import Alconna, Args, Arparma, CommandMeta, Subcommand
-from nonebot.adapters import Bot as BaseBot
-from nonebot.adapters import Event as BaseEvent
+from arclet.alconna import Alconna, Args, CommandMeta, Subcommand
 from nonebot.exception import MatcherException
 from nonebot.log import logger
-from nonebot.typing import T_State
 from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
 
 from src.service import OmegaMatcherInterface, enable_processor_state, scheduler
 from ...depends import EVENT_M_IFACE
-from ...permission import IS_ADMIN
+from ...permission import check_event_is_admin
 
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler
@@ -31,11 +28,6 @@ _CONFIRM_WORDS: frozenset[str] = frozenset({'是', '确认', 'Yes', 'yes', 'Y', 
 """订阅流程确认消息关键词"""
 _HANDLER_PROMPT_TIMEOUT: float = 60
 """订阅流程等待用户响应超时时间"""
-
-
-async def _check_event_is_admin(event: BaseEvent, bot: BaseBot, _s: T_State, _a: Arparma) -> bool:
-    """assign additional 检查: 事件触发对象是否为管理员"""
-    return await IS_ADMIN(bot, event)
 
 
 class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
@@ -332,16 +324,16 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
             ),
         )
 
-        sub_matcher.assign('订阅', additional=_check_event_is_admin)(
+        sub_matcher.assign('订阅', additional=check_event_is_admin)(
             self._generate_add_subscription_handler()
         )
-        sub_matcher.assign('取消订阅', additional=_check_event_is_admin)(
+        sub_matcher.assign('取消订阅', additional=check_event_is_admin)(
             self._generate_del_subscription_handler()
         )
         sub_matcher.assign('订阅列表')(
             self._generate_list_subscription_handler()
         )
-        sub_matcher.assign('全体通知开关', additional=_check_event_is_admin)(
+        sub_matcher.assign('全体通知开关', additional=check_event_is_admin)(
             self._generate_switch_subscription_notice_at_all_handler()
         )
 

@@ -203,7 +203,7 @@ class TestModuleContract:
             'user_has_permission_level',
             'user_has_permission_node',
         }),
-        ('src.params.permission', {'IS_ADMIN'}),
+        ('src.params.permission', {'IS_ADMIN', 'check_event_is_admin', 'check_event_is_superuser'}),
         ('src.params.depends', {
             'ARTWORK_COLLECTION_DAL',
             'BOT_SELF_DAL',
@@ -928,6 +928,23 @@ class TestIsAdmin:
 
         assert await IS_ADMIN(_make_real_obv11_bot(), make_fake_message_event(user_id='nobody')) is False
 
+    async def test_check_event_is_admin_additional(self) -> None:
+        """assign additional 检查函数: 参数序为 (event, bot, state, arparma), 委托 IS_ADMIN"""
+        from src.params.permission import check_event_is_admin
+
+        bot = _make_real_obv11_bot()
+        assert await check_event_is_admin(make_obv11_private_message_event(), bot, {}, MagicMock()) is True
+        assert await check_event_is_admin(make_obv11_group_message_event(role='member'), bot, {}, MagicMock()) is False
+        assert await check_event_is_admin(make_obv11_group_message_event(role='admin'), bot, {}, MagicMock()) is True
+
+    async def test_check_event_is_superuser_additional(self) -> None:
+        """assign additional 检查函数: 委托 SUPERUSER (测试配置中 superusers 包含 'User')"""
+        from src.params.permission import check_event_is_superuser
+
+        bot = _make_real_obv11_bot()
+        assert await check_event_is_superuser(make_fake_message_event(user_id='User'), bot, {}, MagicMock()) is True
+        assert await check_event_is_superuser(make_fake_message_event(user_id='nobody'), bot, {}, MagicMock()) is False
+
 
 class TestBaseSubscriptionManager:
     """BaseSubscriptionManager 订阅管理基类测试 (stub 子类 + 真实数据库)"""
@@ -1385,14 +1402,6 @@ class TestSubscriptionHandlerFactory:
         manager = factory._get_manager(12345)
         assert isinstance(manager, manager_cls)
         assert manager.sub_id == '12345'
-
-    async def test_check_event_is_admin(self) -> None:
-        from src.params.template.subscription_manager.handlers import _check_event_is_admin
-
-        bot = _make_real_obv11_bot()
-        assert await _check_event_is_admin(make_obv11_private_message_event(), bot, {}, MagicMock()) is True
-        assert await _check_event_is_admin(make_obv11_group_message_event(role='member'), bot, {}, MagicMock()) is False
-        assert await _check_event_is_admin(make_obv11_group_message_event(role='admin'), bot, {}, MagicMock()) is True
 
     async def test_add_handler_with_default_sub_id(self, handler_factory, recording_uni_message) -> None:
         """配置了默认订阅 ID 时直接使用默认值执行, 忽略参数且无需确认"""
