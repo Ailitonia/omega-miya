@@ -15,6 +15,7 @@ pydantic = ">=2.12.0,<3.0.0"
 nonebot-adapter-console = ">=0.10.0,<1.0.0"
 nonebot-adapter-onebot = ">=2.4.6,<2.5.0"
 nonebot-adapter-telegram = ">=0.1.0b20,<0.2.0"
+nonebot-plugin-waiter = ">=0.8.1,<1.0.0"
 nonebot-plugin-alconna = ">=0.62.0,<1.0.0"
 nonebot-plugin-apscheduler = ">=0.5.0,<1.0.0"
 sqlalchemy = { version = ">=2.0.50,<2.1.0", extras = ["asyncio"] }
