@@ -12,34 +12,29 @@ Source: https://github.com/cscs181/QQ-GitHub-Bot/blob/master/src/plugins/nonebot
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import psutil
 from nonebot import get_driver
 from nonebot.log import logger
 
 if TYPE_CHECKING:
-    from psutil._common import sdiskusage
+    from psutil._ntuples import sdiskusage
+
+_CURRENT_TIMEZONE = datetime.now().astimezone().tzinfo
+_NONEBOT_RUN_TIME: datetime
 
 
-CURRENT_TIMEZONE = datetime.now().astimezone().tzinfo
-driver = get_driver()
-
-# bot status
-_nonebot_run_time: datetime
-_bot_connect_time: dict[str, datetime] = {}
-
-
-@driver.on_startup
+@get_driver().on_startup
 async def _():
-    global _nonebot_run_time
-    _nonebot_run_time = datetime.now(CURRENT_TIMEZONE)
+    global _NONEBOT_RUN_TIME
+    _NONEBOT_RUN_TIME = datetime.now(_CURRENT_TIMEZONE)
 
 
 def get_nonebot_run_time() -> datetime:
     """Get the time when NoneBot started running."""
     try:
-        return _nonebot_run_time
+        return _NONEBOT_RUN_TIME
     except NameError:
         raise RuntimeError('NoneBot not running!') from None
 
@@ -61,7 +56,7 @@ def get_swap_status():
     return psutil.swap_memory()
 
 
-def _get_disk_usage(path: str) -> Optional['sdiskusage']:
+def _get_disk_usage(path: str) -> 'sdiskusage | None':
     try:
         return psutil.disk_usage(path)
     except Exception as e:
@@ -74,13 +69,13 @@ def get_disk_usage() -> dict[str, 'sdiskusage']:
     return {
         d.mountpoint: usage
         for d in disk_parts
-        if (usage := _get_disk_usage(d.mountpoint))
+        if (usage := _get_disk_usage(d.mountpoint)) is not None
     }
 
 
 def get_uptime() -> datetime:
-    """Get the uptime of the mechine."""
-    return datetime.fromtimestamp(psutil.boot_time(), tz=CURRENT_TIMEZONE)
+    """Get the uptime of the machine."""
+    return datetime.fromtimestamp(psutil.boot_time(), tz=_CURRENT_TIMEZONE)
 
 
 async def get_status() -> str:
