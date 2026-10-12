@@ -6,6 +6,24 @@
 @Description    : osu! 曲包下载链接批量获取工具
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
+
+用法:
+    python bot.py --tool-execute osu_packs_crawler
+    python bot.py --tool-execute osu_packs_crawler standard loved
+
+说明:
+    - 不传入参数时依次抓取全部曲包类型, 传入一个或多个类型参数时仅抓取指定类型
+    - 合法曲包类型: standard / featured / tournament / loved / chart / theme / artist,
+      传入其他类型会抛出 ValueError
+    - 工作流为分页抓取曲包列表并逐个抓取曲包元数据, 已存在的元数据文件自动跳过,
+      因此中断后重新执行同一命令即可增量续跑
+    - 输出保存在临时资源目录 osu_packs_crawler/ 下:
+      曲包元数据位于 beatmaps_pack_meta/<type>/<pack_id>.json,
+      汇总生成的下载链接位于 download_urls/<type>_beatmaps_packs_download_urls.txt
+    - 相关环境变量配置:
+      OMEGA_TOOL_OSU_WEB_SESSION 为可选的 osu! web osu_session Cookie,
+      OMEGA_TOOL_OSU_REQUEST_INTERVAL 为请求间隔秒数 (默认 1.0),
+      OMEGA_TOOL_OSU_MAX_CONSECUTIVE_FAILURES 为连续失败熔断阈值 (默认 5)
 """
 
 from asyncio import sleep as async_sleep
