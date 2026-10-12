@@ -10,26 +10,30 @@
 
 import random
 import time
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
 
 import nonebot
 import pytest
 from nonebug import App
 from pydantic import ValidationError
 
-from tests.test_002_core.helpers import (
+from tests.utils import (
+    create_console_bot,
+    create_real_obv11_bot,
     make_entity_init_params,
+    make_fake_message_event,
     make_mock_bot,
     make_mock_receipt,
     make_obv11_group_message_event,
+    make_telegram_bot_config,
     registered_online_bot,
+    unique_test_id,
 )
 
 if TYPE_CHECKING:
-    from src.database.internal.bot import BotType
+    from src.database.internal.bot import BotSelf, BotType
     from src.service.omega_base.internal.entity import EntityInitParams
 
 
@@ -37,7 +41,7 @@ if TYPE_CHECKING:
 def onebot_v11_version_info() -> dict[str, Any]:
     """OneBot V11 get_version_info 接口返回的客户端版本信息"""
     return {
-        'app_name': f'cqhttp-{uuid4().hex[:8]}',
+        'app_name': unique_test_id('cqhttp'),
         'app_version': '1.0.1',
         'protocol_version': 'v11',
         'app_full_name': 'test-go-cqhttp-client-1.0.1',
@@ -51,7 +55,7 @@ def onebot_v11_group_info() -> list[dict[str, Any]]:
     def _random_group_info() -> dict[str, Any]:
         return {
             'group_id': random.randint(10000000, 99999999),
-            'group_name': uuid4().hex[:8],
+            'group_name': unique_test_id('group'),
             'member_count': random.randint(1, 255),
             'max_member_count': 500,
             'group_memo': 'test_group',
@@ -69,7 +73,7 @@ def onebot_v11_friend_info() -> list[dict[str, Any]]:
     def _random_friend_info() -> dict[str, Any]:
         return {
             'user_id': random.randint(10000000, 99999999),
-            'nickname': uuid4().hex[:8],
+            'nickname': unique_test_id('nickname'),
             'remark': 'test_user',
         }
 
@@ -82,9 +86,71 @@ async def telegram_me_info() -> dict[str, Any]:
     return {
         'id': random.randint(10000000, 99999999),
         'is_bot': True,
-        'first_name': uuid4().hex[:8],
-        'username': uuid4().hex[:8],
+        'first_name': unique_test_id('first_name'),
+        'username': unique_test_id('username'),
     }
+
+
+@pytest.fixture(scope='class')
+async def test_console_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
+    """测试用 Console Bot, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+
+    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.CONSOLE)
+
+    try:
+        yield bot
+    finally:
+        await test_db_data_factory.delete_test_bot(bot=bot)
+
+
+@pytest.fixture(scope='class')
+async def test_telegram_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
+    """测试用 Telegram Bot, 测试类结束后清理"""
+    from src.database.internal.bot import BotType
+
+    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.TELEGRAM)
+
+    try:
+        yield bot
+    finally:
+        await test_db_data_factory.delete_test_bot(bot=bot)
+
+
+@pytest.fixture
+def event_depend_register_sandbox(monkeypatch: pytest.MonkeyPatch):
+    """EventDepend 注册表测试沙箱
+
+    以空表替换内部注册表 (monkeypatch 在测试后恢复原表), 测试内的注册操作不影响全局
+    """
+    from src.service.omega_base.internal import EVENT_DEPEND_REGISTER
+
+    monkeypatch.setattr(EVENT_DEPEND_REGISTER, '_map', {})
+    return EVENT_DEPEND_REGISTER
+
+
+@pytest.fixture
+def online_bots_sandbox(monkeypatch: pytest.MonkeyPatch):
+    """bots 模块全局状态测试沙箱
+
+    快照并清空全局 __ONLINE_BOTS 与 __FIRST_RESPOND_REGISTRY (测试后恢复), 同时将模块内引用的
+    handle_event 替换为 AsyncMock, 避免连接/断开钩子触发真实事件管线及数据库副作用
+    """
+    import src.service.omega_base.internal.bots as bots_module
+
+    online_bots_snapshot: dict[tuple[str, str], Any] = dict(getattr(bots_module, '__ONLINE_BOTS'))
+    getattr(bots_module, '__ONLINE_BOTS').clear()
+    registry_snapshot: dict[str, tuple[str, float]] = dict(getattr(bots_module, '__FIRST_RESPOND_REGISTRY'))
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
+    handle_event_mock = AsyncMock()
+    monkeypatch.setattr(bots_module, 'handle_event', handle_event_mock)
+
+    yield bots_module, handle_event_mock
+
+    getattr(bots_module, '__ONLINE_BOTS').clear()
+    getattr(bots_module, '__ONLINE_BOTS').update(online_bots_snapshot)
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
+    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').update(registry_snapshot)
 
 
 def _define_dummy_target_cls() -> type:
@@ -145,32 +211,6 @@ def _define_plain_event_cls(event_type_name: str = 'plain_event') -> type:
             return False
 
     return _PlainEvent
-
-
-def _define_message_event_cls() -> type:
-    """构造携带平台消息字段的事件子类, 用于 BaseEventDepend 消息提取测试"""
-    from nonebot.adapters import Message as BaseMessage
-
-    from src.service.omega_base.internal import OmegaBaseEvent
-
-    class _FakeMessageEvent(OmegaBaseEvent):
-        event_type: str = 'fake_message'
-        message: BaseMessage
-        original_message: BaseMessage | None = None
-
-        def get_message(self) -> BaseMessage:
-            return self.message
-
-        def get_user_id(self) -> str:
-            return '10001'
-
-        def get_session_id(self) -> str:
-            return 'fake_session_10001'
-
-        def is_tome(self) -> bool:
-            return False
-
-    return _FakeMessageEvent
 
 
 async def _run_bot_disconnect_scenario(
@@ -466,18 +506,6 @@ class TestEntityTargetRegister:
 
                 assert target.get_bot() is bot
 
-    async def test_send_message_auto_revoke_sends_and_recalls(self) -> None:
-        dummy_cls = _define_dummy_target_cls()
-        target = dummy_cls(entity_params=make_entity_init_params())
-
-        receipt = make_mock_receipt()
-        target.send_message = AsyncMock(return_value=receipt)
-
-        await target.send_message_auto_revoke('hello', revoke_delay=5)
-
-        target.send_message.assert_awaited_once()
-        receipt.recall.assert_awaited_once_with(delay=5)
-
 
 class TestBaseEntityTarget:
     """BaseEntityTarget 平台 API 适配器基类方法测试"""
@@ -498,7 +526,7 @@ class TestBaseEntityTarget:
     ) -> None:
         """send_message 应使用 _construct_target 构造的 Target 与 get_bot 的 Bot, 并透传 flags/kwargs
 
-        放宽后的 str/Reply 类型 flags 应原样透传
+        str/Reply 类型的 flags 应原样透传
         """
         from nonebot_plugin_alconna.uniseg import Reply
 
@@ -523,18 +551,31 @@ class TestBaseEntityTarget:
         assert call_kwargs['reply_to'] is reply_to
         assert call_kwargs['extra_kwarg'] == 1
 
-    async def test_send_message_auto_revoke_default_delay(self) -> None:
-        """send_message_auto_revoke 缺省撤回延迟应为 60 秒"""
+    @pytest.mark.parametrize(
+        ('revoke_delay', 'expected_delay'),
+        [
+            (5, 5),
+            (None, 60),
+        ],
+        ids=['explicit_delay', 'default_delay'],
+    )
+    async def test_send_message_auto_revoke_sends_and_recalls(
+            self,
+            revoke_delay: int | None,
+            expected_delay: int,
+    ) -> None:
+        """send_message_auto_revoke 应发送消息并按指定延迟撤回, 缺省撤回延迟为 60 秒"""
         dummy_cls = _define_dummy_target_cls()
         target = dummy_cls(entity_params=make_entity_init_params())
 
         receipt = make_mock_receipt()
         target.send_message = AsyncMock(return_value=receipt)
 
-        await target.send_message_auto_revoke('hello')
+        kwargs: dict[str, Any] = {} if revoke_delay is None else {'revoke_delay': revoke_delay}
+        await target.send_message_auto_revoke('hello', **kwargs)
 
         target.send_message.assert_awaited_once()
-        receipt.recall.assert_awaited_once_with(delay=60)
+        receipt.recall.assert_awaited_once_with(delay=expected_delay)
 
 
 class TestEventDependRegister:
@@ -625,7 +666,7 @@ class TestBaseEventDepend:
             at_sender: Any,
             reply_to: Any,
     ) -> None:
-        """send 应以事件本身作为 target、构造时的 Bot 为 bot, 并透传 flags/kwargs (含放宽后的 str/Reply 类型)"""
+        """send 应以事件本身作为 target、构造时的 Bot 为 bot, 并透传 flags/kwargs (含 str/Reply 类型)"""
         from nonebot_plugin_alconna.uniseg import Reply
 
         bot = MagicMock()
@@ -664,7 +705,7 @@ class TestBaseEventDepend:
             adapter = nonebot.get_adapter(Adapter)
             bot = ctx.create_bot(self_id='TEST_DEP_BOT_1', base=Bot, adapter=adapter, auto_connect=False)
 
-            event = _define_message_event_cls()(
+            event = make_fake_message_event(
                 message=Message([MessageSegment.at('111'), MessageSegment.text('hi')]),
             )
             depend = _define_dummy_depend_cls()(bot=bot, event=event)
@@ -681,7 +722,7 @@ class TestBaseEventDepend:
             adapter = nonebot.get_adapter(Adapter)
             bot = ctx.create_bot(self_id='TEST_DEP_BOT_2', base=Bot, adapter=adapter, auto_connect=False)
 
-            event = _define_message_event_cls()(
+            event = make_fake_message_event(
                 message=Message([MessageSegment.image('https://example.com/a.png')]),
             )
             depend = _define_dummy_depend_cls()(bot=bot, event=event)
@@ -695,7 +736,7 @@ class TestBaseEventDepend:
             adapter = nonebot.get_adapter(Adapter)
             bot = ctx.create_bot(self_id='TEST_DEP_BOT_3', base=Bot, adapter=adapter, auto_connect=False)
 
-            event = _define_message_event_cls()(
+            event = make_fake_message_event(
                 message=Message('current'),
                 original_message=Message('origin text'),
             )
@@ -790,7 +831,7 @@ class TestBaseEventDepend:
             adapter = nonebot.get_adapter(Adapter)
             bot = ctx.create_bot(self_id='TEST_DEP_BOT_4', base=Bot, adapter=adapter, auto_connect=False)
 
-            event = _define_message_event_cls()(
+            event = make_fake_message_event(
                 message=Message([MessageSegment.reply(123), MessageSegment.text('hi')]),
             )
             depend = _define_dummy_depend_cls()(bot=bot, event=event)
@@ -1051,7 +1092,6 @@ class TestBotActions:
             onebot_v11_group_info: list[dict[str, Any]],
             onebot_v11_friend_info: list[dict[str, Any]],
     ) -> None:
-        from nonebot.adapters.onebot.v11 import Adapter, Bot
         from nonebot.message import handle_event
 
         from src.database.internal.bot import BotSelf, BotSelfDAL, BotStatus, BotType
@@ -1060,9 +1100,7 @@ class TestBotActions:
 
         test_bot_self_id = test_onebot_v11_bot.self_id
         async with app.test_api() as ctx:
-            adapter = nonebot.get_adapter(Adapter)
-            # auto_connect=False: 不触发后台连接钩子任务, 由下方 handle_event 同步驱动
-            bot = ctx.create_bot(self_id=test_bot_self_id, base=Bot, adapter=adapter, auto_connect=False)
+            bot = create_real_obv11_bot(ctx, test_bot_self_id)
 
             # 不带 adapter= 约束: ApiContext 已将真实 adapter 的 _call_api 替换为
             # 临时 fake adapter 实例的绑定方法, 声明真实 adapter 身份永远无法匹配
@@ -1117,16 +1155,10 @@ class TestBotActions:
             app: App,
             test_onebot_v11_bot,
     ) -> None:
-        from nonebot.adapters.onebot.v11 import Adapter, Bot
-
         from src.database.internal.bot import BotType
 
         def _bot_factory(ctx: Any) -> Any:
-            adapter = nonebot.get_adapter(Adapter)
-            # auto_connect=False: 不触发后台连接钩子任务, 由场景辅助函数同步驱动
-            return ctx.create_bot(
-                self_id=test_onebot_v11_bot.self_id, base=Bot, adapter=adapter, auto_connect=False,
-            )
+            return create_real_obv11_bot(ctx, test_onebot_v11_bot.self_id)
 
         # OneBot V11 不断言 bot_status, 仅验证 bot_info 更新
         await _run_bot_disconnect_scenario(
@@ -1138,20 +1170,14 @@ class TestBotActions:
             app: App,
             test_console_bot,
     ) -> None:
-        from nonebot.adapters.console import Adapter
-        from nonebot.adapters.console import Bot as ConsoleBot
         from nonebot.message import handle_event
-        from nonechat.model import Robot
 
         from src.database.internal.bot import BotSelfDAL, BotStatus, BotType
         from src.service.omega_base.internal import BotConnectEvent
 
         test_bot_self_id = test_console_bot.self_id
         async with app.test_api() as ctx:
-            adapter = nonebot.get_adapter(Adapter)
-            # Console Bot 构造签名为 __init__(adapter, info: Robot), 与 nonebug 的
-            # create_bot(self_id=...) 不兼容, 手动构造实例 (不注册进 driver)
-            bot = ConsoleBot(adapter=adapter, info=Robot(id=test_bot_self_id))
+            bot = create_console_bot(test_bot_self_id)
 
             # 连接处理不调用任何 API, 期望队列应保持为空
             await handle_event(
@@ -1171,17 +1197,10 @@ class TestBotActions:
             app: App,
             test_console_bot,
     ) -> None:
-        from nonebot.adapters.console import Adapter
-        from nonebot.adapters.console import Bot as ConsoleBot
-        from nonechat.model import Robot
-
         from src.database.internal.bot import BotType
 
         def _bot_factory(ctx: Any) -> Any:
-            adapter = nonebot.get_adapter(Adapter)
-            # Console Bot 构造签名为 __init__(adapter, info: Robot), 与 nonebug 的
-            # create_bot(self_id=...) 不兼容, 手动构造实例 (不注册进 driver)
-            return ConsoleBot(adapter=adapter, info=Robot(id=test_console_bot.self_id))
+            return create_console_bot(test_console_bot.self_id)
 
         await _run_bot_disconnect_scenario(
             app, _bot_factory, BotType.CONSOLE, test_console_bot.self_id, expect_disabled=True,
@@ -1194,7 +1213,6 @@ class TestBotActions:
             telegram_me_info: dict[str, Any],
     ) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
-        from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
         from nonebot.message import handle_event
 
         from src.database.internal.bot import BotSelfDAL, BotStatus, BotType
@@ -1204,13 +1222,12 @@ class TestBotActions:
         async with app.test_api() as ctx:
             adapter = nonebot.get_adapter(Adapter)
             # auto_connect=False: 不触发后台连接钩子任务, 由下方 handle_event 同步驱动
-            # Telegram Bot 构造强制要求 config 参数, 经 create_bot 的 **kwargs 透传
             bot = ctx.create_bot(
                 self_id=test_bot_self_id,
                 base=Bot,
                 adapter=adapter,
                 auto_connect=False,
-                config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+                config=make_telegram_bot_config(),
             )
 
             # 不带 adapter= 约束 (同 OneBot V11 测试); get_me 的返回值会经
@@ -1242,20 +1259,18 @@ class TestBotActions:
             test_telegram_bot,
     ) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
-        from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
 
         from src.database.internal.bot import BotType
 
         def _bot_factory(ctx: Any) -> Any:
             adapter = nonebot.get_adapter(Adapter)
             # auto_connect=False: 不触发后台连接钩子任务, 由场景辅助函数同步驱动
-            # Telegram Bot 构造强制要求 config 参数, 经 create_bot 的 **kwargs 透传
             return ctx.create_bot(
                 self_id=test_telegram_bot.self_id,
                 base=Bot,
                 adapter=adapter,
                 auto_connect=False,
-                config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+                config=make_telegram_bot_config(),
             )
 
         await _run_bot_disconnect_scenario(

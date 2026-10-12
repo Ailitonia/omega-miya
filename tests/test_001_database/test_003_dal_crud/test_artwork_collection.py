@@ -3,63 +3,82 @@
 @Date           : 2026/08/30 22:24
 @FileName       : test_artwork_collection
 @Project        : omega-miya
-@Description    : artwork_collection.py  数据库 CRUD 单元测试
+@Description    : artwork_collection.py 数据库 CRUD 单元测试
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
 import random
 import string
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from sqlalchemy.exc import NoResultFound
 
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
 if TYPE_CHECKING:
-    from src.database.internal.artwork_collection import ArtworkCollectionDAL
+    from src.database.internal.artwork_collection import ArtworkCollectionDAL, ArtworkReviewRecord
+
+artwork_dal, _clean_table = define_dal_fixtures(
+    'src.database.internal.artwork_collection.ArtworkCollectionDAL', 'artwork_dal',
+)
 
 
-class TagsGeneratorProtocol(Protocol):
-    def __call__(self, prefix: str = '', separator: str = ', ') -> str: ...
+def _random_tags() -> str:
+    """生成逗号分隔的 8 个随机标签"""
+    return ', '.join(unique_test_id('tag') for _ in range(8))
+
+
+def _collation_equivalent_tag_handler(_: str) -> list[tuple[str, None]]:
+    """绕过默认解析的 lower, 构造仅大小写不同的标签名 (ci 类校对规则下等价)"""
+    return [('TestTagXx', None), ('testtagxx', None)]
+
+
+async def _add_review_record(
+        artwork_dal: 'ArtworkCollectionDAL',
+        *,
+        origin: str,
+        aid: str,
+        review_timestamp: int = 1000000000,
+        review_classification: int = 3,
+        review_rating: int = 1,
+        review_from: str = 'test_reviewer',
+        review_info: str = 'test review info',
+        **kwargs: Any,
+) -> 'ArtworkReviewRecord':
+    """以默认评审参数播种一条评审记录, 差异项经关键字参数覆盖, record_tag 等额外参数经 kwargs 透传"""
+    return await artwork_dal.add_artwork_review_record(
+        origin=origin,
+        aid=aid,
+        review_timestamp=review_timestamp,
+        review_classification=review_classification,
+        review_rating=review_rating,
+        review_from=review_from,
+        review_info=review_info,
+        **kwargs,
+    )
 
 
 @pytest.fixture(scope='class')
-async def test_random_id_generator() -> Callable[[], str]:
-    def _generate_random_id() -> str:
-        return ''.join(random.sample(string.ascii_letters + string.digits, k=8))
-
-    return _generate_random_id
-
-
-@pytest.fixture(scope='class')
-async def test_random_tags_generator() -> TagsGeneratorProtocol:
-    def _generate_random_tag() -> str:
-        return ''.join(random.sample(string.ascii_letters + string.digits, k=8))
-
-    def _generate_random_tags(prefix: str = '', separator: str = ', ') -> str:
-        return separator.join(f'{prefix}{_generate_random_tag()}' for _ in range(8))
-
-    return _generate_random_tags
-
-
-@pytest.fixture(scope='class')
-async def test_basic_artwork_kwargs_generator(test_random_id_generator) -> Callable[[], dict[str, Any]]:
+async def test_basic_artwork_kwargs_generator() -> Callable[[], dict[str, Any]]:
     """测试用作品参数生成器, 默认满足 query_by_condition 的默认过滤条件 (classification=3, rating=0)"""
 
     def _generate_basic_artwork_kwargs() -> dict[str, Any]:
         return {
             'origin': 'test_origin',
-            'aid': f'test_aid_{test_random_id_generator()}',
-            'uid': f'test_uid_{test_random_id_generator()}',
-            'uname': f'test_uname_{test_random_id_generator()}',
-            'title': f'test_title_{test_random_id_generator()}',
+            'aid': unique_test_id('test_aid'),
+            'uid': unique_test_id('test_uid'),
+            'uname': unique_test_id('test_uname'),
+            'title': unique_test_id('test_title'),
             'classification': 3,
             'rating': 0,
             'width': 1920,
             'height': 1080,
-            'url': f'https://example.com/artwork/{test_random_id_generator()}',
+            'url': unique_test_id('https://example.com/artwork/x'),
         }
 
     return _generate_basic_artwork_kwargs
@@ -67,8 +86,6 @@ async def test_basic_artwork_kwargs_generator(test_random_id_generator) -> Calla
 
 @pytest.fixture(scope='class')
 async def test_full_artwork_kwargs_generator(
-        test_random_id_generator,
-        test_random_tags_generator,
         test_basic_artwork_kwargs_generator,
 ) -> Callable[[], dict[str, Any]]:
     """测试用作品参数生成器, 补全可选参数, 默认满足 query_by_condition 的默认过滤条件 (classification=3, rating=0)"""
@@ -76,30 +93,15 @@ async def test_full_artwork_kwargs_generator(
     def _generate_full_artwork_kwargs() -> dict[str, Any]:
         kwargs = test_basic_artwork_kwargs_generator()
         kwargs.update({
-            'source': f'https://example.com/source/{test_random_id_generator()}',
-            'cover_page': f'https://example.com/images/{test_random_id_generator()}',
-            'raw_tags': test_random_tags_generator(),
+            'source': unique_test_id('https://example.com/source/x'),
+            'cover_page': unique_test_id('https://example.com/images/x'),
+            'raw_tags': _random_tags(),
             'description': ''.join(random.choices(string.ascii_letters + string.digits, k=1024)),
             'published_at': datetime(2020, 2, 12, 1, 0, 0)
         })
         return kwargs
 
     return _generate_full_artwork_kwargs
-
-
-@pytest.fixture(scope='class')
-async def artwork_dal() -> AsyncGenerator['ArtworkCollectionDAL', None]:
-    from src.database.internal.artwork_collection import ArtworkCollectionDAL
-
-    async with ArtworkCollectionDAL.create() as dal:
-        yield dal
-
-
-@pytest.fixture(autouse=True)
-async def _clean_table(artwork_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await artwork_dal._clear_all()
-    await artwork_dal.commit_session()
 
 
 class TestArtworkCollectionDAL:
@@ -200,8 +202,7 @@ class TestArtworkCollectionDAL:
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({
             'raw_tags': 'TestTagXx, testtagxx',
-            # 绕过默认解析的 lower, 构造仅大小写不同的标签名(ci 类校对规则下等价)
-            'tag_handler': lambda _: [('TestTagXx', None), ('testtagxx', None)],
+            'tag_handler': _collation_equivalent_tag_handler,
         })
         result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -219,7 +220,7 @@ class TestArtworkCollectionDAL:
 
         artwork_kwargs.update({
             'raw_tags': 'TestTagXx, testtagxx',
-            'tag_handler': lambda _: [('TestTagXx', None), ('testtagxx', None)],
+            'tag_handler': _collation_equivalent_tag_handler,
         })
         result = await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
@@ -524,7 +525,7 @@ class TestArtworkCollectionDAL:
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs.update({
             'raw_tags': 'TestTagXx, testtagxx',
-            'tag_handler': lambda _: [('TestTagXx', None), ('testtagxx', None)],
+            'tag_handler': _collation_equivalent_tag_handler,
         })
         result = await artwork_dal.add_artwork_ignore_exist(**artwork_kwargs)
 
@@ -537,17 +538,11 @@ class TestArtworkCollectionDAL:
 
     async def test_add_artwork_update_exist_in_nested_transaction_insert(
             self,
+            require_savepoint_support,
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """外层已有活动事务时插入走 SAVEPOINT, 外层 rollback 后作品/标签/关联应全部撤销"""
-        from src.database.config import database_config
-        if database_config.database == 'sqlite':
-            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'neko, moe'
 
@@ -570,15 +565,11 @@ class TestArtworkCollectionDAL:
 
     async def test_add_artwork_update_exist_in_nested_transaction_update(
             self,
+            require_savepoint_support,
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """外层已有活动事务时更新走 SAVEPOINT (含复用已存在标签的冲突回退路径), 外层 rollback 后应全部恢复"""
-        from src.database.config import database_config
-        if database_config.database == 'sqlite':
-            # SQLite 后端下同受驱动 legacy 事务控制限制 (标签先行插入会被提前物理提交), 本平台跳过该用例
-            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套事务语义不完整, 跳过')
-
         # 预提交作品 (tags: neko, moe)
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'neko, moe'
@@ -609,15 +600,11 @@ class TestArtworkCollectionDAL:
 
     async def test_add_artwork_ignore_exist_in_nested_transaction(
             self,
+            require_savepoint_support,
             artwork_dal,
             test_basic_artwork_kwargs_generator,
     ) -> None:
         """外层已有活动事务时 ignore_exist 插入走 SAVEPOINT, 外层 rollback 后全部撤销; 对已存在作品应保持忽略语义"""
-        from src.database.config import database_config
-        if database_config.database == 'sqlite':
-            # SQLite 后端下同受驱动 legacy 事务控制限制 (插入会被提前物理提交), 本平台跳过该用例
-            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
         # 外层事务内插入新作品, rollback 后全部撤销
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         artwork_kwargs['raw_tags'] = 'neko'
@@ -962,14 +949,11 @@ class TestArtworkCollectionDAL:
         # a1 一条评审记录, a2 两条评审记录, a3 无评审记录
         for kwargs, count in ((a1_kwargs, 1), (a2_kwargs, 2)):
             for i in range(count):
-                await artwork_dal.add_artwork_review_record(
+                await _add_review_record(
+                    artwork_dal,
                     origin=kwargs['origin'],
                     aid=kwargs['aid'],
                     review_timestamp=1000000000 + i,
-                    review_classification=3,
-                    review_rating=1,
-                    review_from='test_reviewer',
-                    review_info='test review info',
                 )
         await artwork_dal.commit_session()
 
@@ -990,14 +974,8 @@ class TestArtworkCollectionDAL:
         assert [item.aid for item in result] == ['1001', '1002', '1003']
 
         # 为 a3 补加评审记录后, 其从 False 桶转入 True 桶
-        await artwork_dal.add_artwork_review_record(
-            origin=a3_kwargs['origin'],
-            aid=a3_kwargs['aid'],
-            review_timestamp=1000000010,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
+        await _add_review_record(
+            artwork_dal, origin=a3_kwargs['origin'], aid=a3_kwargs['aid'], review_timestamp=1000000010,
         )
         await artwork_dal.commit_session()
 
@@ -1042,15 +1020,7 @@ class TestArtworkCollectionDAL:
         await artwork_dal.add_artwork_update_exist(**a4_kwargs)
 
         for kwargs in (a1_kwargs, a2_kwargs, a4_kwargs):
-            await artwork_dal.add_artwork_review_record(
-                origin=kwargs['origin'],
-                aid=kwargs['aid'],
-                review_timestamp=1000000000,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
-            )
+            await _add_review_record(artwork_dal, origin=kwargs['origin'], aid=kwargs['aid'])
         await artwork_dal.commit_session()
 
         # 默认分类范围 (3-4): classification=2 的 a1 即使有评审记录也不可见
@@ -1094,15 +1064,7 @@ class TestArtworkCollectionDAL:
             kwargs['aid'] = str(1001 + i)
             await artwork_dal.add_artwork_update_exist(**kwargs)
             if i < 4:
-                await artwork_dal.add_artwork_review_record(
-                    origin=kwargs['origin'],
-                    aid=kwargs['aid'],
-                    review_timestamp=1000000000,
-                    review_classification=3,
-                    review_rating=1,
-                    review_from='test_reviewer',
-                    review_info='test review info',
-                )
+                await _add_review_record(artwork_dal, origin=kwargs['origin'], aid=kwargs['aid'])
         await artwork_dal.commit_session()
 
         page1 = await artwork_dal.query_by_condition(
@@ -1514,15 +1476,7 @@ class TestArtworkCollectionDAL:
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
-        result = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
-        )
+        result = await _add_review_record(artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'])
 
         assert result.review_timestamp == 1000000000
         assert result.review_classification == 3
@@ -1536,15 +1490,7 @@ class TestArtworkCollectionDAL:
     async def test_add_artwork_review_record_not_found(self, artwork_dal) -> None:
         """为不存在的作品插入评审记录, 预期 NoResultFound"""
         with pytest.raises(NoResultFound):
-            await artwork_dal.add_artwork_review_record(
-                origin='nonexistent_origin',
-                aid='nonexistent_aid',
-                review_timestamp=1000000000,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
-            )
+            await _add_review_record(artwork_dal, origin='nonexistent_origin', aid='nonexistent_aid')
 
     async def test_add_artwork_review_record_invalid_raises(
             self,
@@ -1557,14 +1503,8 @@ class TestArtworkCollectionDAL:
         await artwork_dal.commit_session()
 
         with pytest.raises(ValueError, match='is not a valid ArtworkClassification'):
-            await artwork_dal.add_artwork_review_record(
-                origin=artwork_kwargs['origin'],
-                aid=artwork_kwargs['aid'],
-                review_timestamp=1000000000,
-                review_classification=5,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
+            await _add_review_record(
+                artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], review_classification=5,
             )
 
         assert await artwork_dal._count_artwork_review_record_all() == 0
@@ -1580,24 +1520,14 @@ class TestArtworkCollectionDAL:
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
-        result_str = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
-            record_tag='approved',
+        result_str = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], record_tag='approved',
         )
-        result_enum = await artwork_dal.add_artwork_review_record(
+        result_enum = await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs['origin'],
             aid=artwork_kwargs['aid'],
             review_timestamp=1000000001,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
             record_tag=ArtworkReviewTag.REJECTED,
         )
         await artwork_dal.commit_session()
@@ -1619,15 +1549,8 @@ class TestArtworkCollectionDAL:
         await artwork_dal.commit_session()
 
         with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
-            await artwork_dal.add_artwork_review_record(
-                origin=artwork_kwargs['origin'],
-                aid=artwork_kwargs['aid'],
-                review_timestamp=1000000000,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
-                record_tag='invalid_tag',
+            await _add_review_record(
+                artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], record_tag='invalid_tag',
             )
 
         assert await artwork_dal._count_artwork_review_record_all() == 0
@@ -1644,15 +1567,8 @@ class TestArtworkCollectionDAL:
 
         for invalid_tag in ('', 'APPROVED', 'Pending'):
             with pytest.raises(ValueError, match='is not a valid ArtworkReviewTag'):
-                await artwork_dal.add_artwork_review_record(
-                    origin=artwork_kwargs['origin'],
-                    aid=artwork_kwargs['aid'],
-                    review_timestamp=1000000000,
-                    review_classification=3,
-                    review_rating=1,
-                    review_from='test_reviewer',
-                    review_info='test review info',
-                    record_tag=invalid_tag,
+                await _add_review_record(
+                    artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], record_tag=invalid_tag,
                 )
 
         assert await artwork_dal._count_artwork_review_record_all() == 0
@@ -1668,14 +1584,12 @@ class TestArtworkCollectionDAL:
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
-        result = await artwork_dal.add_artwork_review_record(
+        result = await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs['origin'],
             aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
             review_classification=-2,
             review_rating=-1,
-            review_from='test_reviewer',
-            review_info='test review info',
         )
 
         assert result.review_classification == -2
@@ -1683,14 +1597,13 @@ class TestArtworkCollectionDAL:
         assert result.record_tag == ArtworkReviewTag.PENDING
 
         # 上边界: FEATURED(4) 与 EXPLICIT(3) 同样合法 (CHECK 约束 BETWEEN -2 AND 4)
-        upper_result = await artwork_dal.add_artwork_review_record(
+        upper_result = await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs['origin'],
             aid=artwork_kwargs['aid'],
             review_timestamp=1000000001,
             review_classification=4,
             review_rating=3,
-            review_from='test_reviewer',
-            review_info='test review info',
         )
 
         assert upper_result.review_classification == 4
@@ -1710,7 +1623,8 @@ class TestArtworkCollectionDAL:
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
         for i in range(3):
-            await artwork_dal.add_artwork_review_record(
+            await _add_review_record(
+                artwork_dal,
                 origin=artwork_kwargs['origin'],
                 aid=artwork_kwargs['aid'],
                 review_timestamp=1000000000 + i,
@@ -1734,7 +1648,8 @@ class TestArtworkCollectionDAL:
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
-        await artwork_dal.add_artwork_review_record(
+        await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs['origin'],
             aid=artwork_kwargs['aid'],
             review_timestamp=1000,
@@ -1743,12 +1658,11 @@ class TestArtworkCollectionDAL:
             review_from='test_reviewer_1',
             review_info='test review info 1',
         )
-        await artwork_dal.add_artwork_review_record(
+        await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs['origin'],
             aid=artwork_kwargs['aid'],
             review_timestamp=2000,
-            review_classification=3,
-            review_rating=1,
             review_from='test_reviewer_2',
             review_info='test review info 2',
         )
@@ -1783,15 +1697,8 @@ class TestArtworkCollectionDAL:
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
         for tag in ('pending', 'approved', 'rejected'):
-            await artwork_dal.add_artwork_review_record(
-                origin=artwork_kwargs['origin'],
-                aid=artwork_kwargs['aid'],
-                review_timestamp=1000000000,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
-                record_tag=tag,
+            await _add_review_record(
+                artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], record_tag=tag,
             )
 
         approved = await artwork_dal.query_artwork_review_records_with_tag('approved')
@@ -1814,24 +1721,14 @@ class TestArtworkCollectionDAL:
         artwork_kwargs_b = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs_b)
 
-        record_a = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs_a['origin'],
-            aid=artwork_kwargs_a['aid'],
-            review_timestamp=1000000000,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
-            record_tag='approved',
+        record_a = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs_a['origin'], aid=artwork_kwargs_a['aid'], record_tag='approved',
         )
-        await artwork_dal.add_artwork_review_record(
+        await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs_b['origin'],
             aid=artwork_kwargs_b['aid'],
             review_timestamp=1000000001,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
             record_tag='approved',
         )
 
@@ -1856,14 +1753,11 @@ class TestArtworkCollectionDAL:
 
         base_ts = 1000000000
         for i in range(5):
-            await artwork_dal.add_artwork_review_record(
+            await _add_review_record(
+                artwork_dal,
                 origin=artwork_kwargs['origin'],
                 aid=artwork_kwargs['aid'],
                 review_timestamp=base_ts + i,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
                 record_tag='pending',
             )
         await artwork_dal.commit_session()
@@ -1913,25 +1807,19 @@ class TestArtworkCollectionDAL:
         base_ts = 1000000000
         records_a = []
         for i in range(4):
-            records_a.append(await artwork_dal.add_artwork_review_record(
+            records_a.append(await _add_review_record(
+                artwork_dal,
                 origin=artwork_kwargs_a['origin'],
                 aid=artwork_kwargs_a['aid'],
                 review_timestamp=base_ts + i,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
                 record_tag='pending',
             ))
         # 干扰数据: 另一作品相同标签的记录, id 更大, 不应混入过滤结果
-        await artwork_dal.add_artwork_review_record(
+        await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs_b['origin'],
             aid=artwork_kwargs_b['aid'],
             review_timestamp=base_ts + 100,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
             record_tag='pending',
         )
         await artwork_dal.commit_session()
@@ -1956,14 +1844,11 @@ class TestArtworkCollectionDAL:
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
         for i in range(3):
-            await artwork_dal.add_artwork_review_record(
+            await _add_review_record(
+                artwork_dal,
                 origin=artwork_kwargs['origin'],
                 aid=artwork_kwargs['aid'],
                 review_timestamp=1000000000 + i,
-                review_classification=3,
-                review_rating=1,
-                review_from='test_reviewer',
-                review_info='test review info',
                 record_tag='pending',
             )
         await artwork_dal.commit_session()
@@ -1980,15 +1865,8 @@ class TestArtworkCollectionDAL:
         """artwork_index_id 指向不存在作品时返回空列表, 而非抛出 NoResultFound"""
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
-            record_tag='pending',
+        await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], record_tag='pending',
         )
         await artwork_dal.commit_session()
 
@@ -2005,15 +1883,8 @@ class TestArtworkCollectionDAL:
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=3,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
-            record_tag='approved',
+        await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], record_tag='approved',
         )
         await artwork_dal.commit_session()
 
@@ -2063,14 +1934,12 @@ class TestArtworkCollectionDAL:
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        record = await artwork_dal.add_artwork_review_record(
+        record = await _add_review_record(
+            artwork_dal,
             origin=artwork_kwargs['origin'],
             aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
             review_classification=0,
             review_rating=0,
-            review_from='test_reviewer',
-            review_info='test review info',
         )
 
         altered = await artwork_dal.alter_review_record(
@@ -2106,14 +1975,8 @@ class TestArtworkCollectionDAL:
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        record = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=2,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
+        record = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], review_classification=2,
         )
 
         altered = await artwork_dal.alter_review_record(record.id, record_tag='under_review')
@@ -2133,14 +1996,8 @@ class TestArtworkCollectionDAL:
         """不传任何可变字段时返回原记录, 不产生变更"""
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        record = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=2,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
+        record = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], review_classification=2,
         )
 
         altered = await artwork_dal.alter_review_record(record.id)
@@ -2168,14 +2025,8 @@ class TestArtworkCollectionDAL:
 
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        record = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=2,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
+        record = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], review_classification=2,
         )
         await artwork_dal.commit_session()
 
@@ -2202,14 +2053,8 @@ class TestArtworkCollectionDAL:
         """review_from/review_info 传空串 (非 None) 时实际更新为空串"""
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        record = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=2,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
+        record = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], review_classification=2,
         )
 
         altered = await artwork_dal.alter_review_record(record.id, review_from='', review_info='')
@@ -2235,14 +2080,8 @@ class TestArtworkCollectionDAL:
         """新建记录 updated_at 为空, 修改后 updated_at 被填充 (onupdate 生效)"""
         artwork_kwargs = test_basic_artwork_kwargs_generator()
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
-        record = await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'],
-            aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000,
-            review_classification=2,
-            review_rating=1,
-            review_from='test_reviewer',
-            review_info='test review info',
+        record = await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'], review_classification=2,
         )
         await artwork_dal.commit_session()
         assert record.updated_at is None
@@ -2285,9 +2124,8 @@ class TestArtworkCollectionDAL:
         artwork_kwargs['raw_tags'] = 'neko,nekomimi'
         await artwork_dal.add_artwork_update_exist(**artwork_kwargs)
 
-        await artwork_dal.add_artwork_review_record(
-            origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'],
-            review_timestamp=1000000000, review_classification=3, review_rating=1,
+        await _add_review_record(
+            artwork_dal, origin=artwork_kwargs['origin'], aid=artwork_kwargs['aid'],
             review_from='reviewer', review_info='test',
         )
         await artwork_dal.commit_session()

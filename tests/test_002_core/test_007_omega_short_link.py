@@ -309,21 +309,18 @@ class TestSyncJob:
         assert short_link_api._SHORT_LINK_CACHE._cache[key2] == 'value2'
 
     async def test_sync_purges_expired_rows(self, short_link_row_tracker) -> None:
-        """同步时物理删除已过期的行"""
+        """同步后单例内存缓存不再持有已过期键(数据库行物理删除行为由 omega_global_cache 测试覆盖)"""
         from src.service.omega_short_link import api as short_link_api
 
         expired_key = make_uuid5(_make_unique_url())
-        alive_key = make_uuid5(_make_unique_url())
         await seed_global_cache_row(
             _SHORT_LINK_CACHE_NAME, expired_key, 'expired_value', expired_time=TEST_DATETIME_PAST
         )
-        await seed_global_cache_row(_SHORT_LINK_CACHE_NAME, alive_key, 'alive_value')
-        short_link_row_tracker.extend([expired_key, alive_key])
+        short_link_row_tracker.append(expired_key)
+        short_link_api._SHORT_LINK_CACHE._cache[expired_key] = 'expired_value'
 
         await short_link_api._sync_short_link_cache()
 
-        assert await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, expired_key) is None
-        assert await query_global_cache_row_or_none(_SHORT_LINK_CACHE_NAME, alive_key) is not None
         assert expired_key not in short_link_api._SHORT_LINK_CACHE._cache
 
     async def test_sync_failure_swallowed(self, monkeypatch: pytest.MonkeyPatch) -> None:

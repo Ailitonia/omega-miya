@@ -17,12 +17,22 @@ import pytest
 from nonebot.exception import FinishedException, PausedException, RejectedException
 from nonebug import App
 
-from tests.test_002_core.helpers import (
+from tests.utils import (
+    create_console_bot,
+    create_real_obv11_bot,
     make_entity_init_params,
     make_mock_bot,
     make_mock_receipt,
+    make_obv11_friend_recall_notice_event,
     make_obv11_group_message_event,
+    make_obv11_honor_notify_event,
+    make_obv11_meta_event,
+    make_obv11_poke_notify_event,
     make_obv11_private_message_event,
+    make_obv11_reply,
+    make_telegram_bot_config,
+    make_telegram_message_event,
+    make_telegram_user_payload,
     registered_online_bot,
 )
 
@@ -34,95 +44,14 @@ if TYPE_CHECKING:
 # 事件构造工具
 # ------------------------------------------------------------------ #
 
-def _make_obv11_meta_event() -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11.event import MetaEvent
-
-    return MetaEvent(time=1, self_id=10086, post_type='meta_event', meta_event_type='lifecycle')
-
-
-def _make_obv11_friend_recall_notice_event(*, user_id: int = 30001) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11.event import FriendRecallNoticeEvent
-
-    return FriendRecallNoticeEvent(
-        time=1,
-        self_id=10086,
-        post_type='notice',
-        notice_type='friend_recall',
-        user_id=user_id,
-        message_id=1,
-    )
-
-
-def _make_obv11_honor_notify_event(*, group_id: int = 10000, user_id: int = 10001) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11.event import HonorNotifyEvent
-
-    return HonorNotifyEvent(
-        time=1,
-        self_id=10086,
-        post_type='notice',
-        notice_type='notify',
-        sub_type='honor',
-        honor_type='talkative',
-        group_id=group_id,
-        user_id=user_id,
-    )
-
-
-def _make_obv11_poke_notify_event(*, group_id: int | None = 10000, user_id: int = 10001) -> 'BaseEvent':
-    from nonebot.adapters.onebot.v11.event import PokeNotifyEvent
-
-    return PokeNotifyEvent(
-        time=1,
-        self_id=10086,
-        post_type='notice',
-        notice_type='notify',
-        sub_type='poke',
-        group_id=group_id,
-        user_id=user_id,
-        target_id=user_id,
-    )
-
-
-def _make_telegram_user_payload(*, user_id: int = 10001, username: str | None = None) -> dict[str, Any]:
-    return {'id': user_id, 'is_bot': False, 'first_name': 'Tester', 'username': username}
-
-
-def _make_telegram_message_event(
-        event_kind: str = 'group',
-        *,
-        username: str | None = None,
-        chat_username: str | None = None,
-        reply_to: dict[str, Any] | None = None,
-        message: list[dict[str, Any]] | None = None,
-) -> 'BaseEvent':
-    """构造 Telegram 平台消息事件 (经 model_validate 以正确处理 from 字段别名)"""
-    from nonebot.adapters.telegram.event import (
-        ChannelPostEvent,
-        GroupMessageEvent,
-        PrivateMessageEvent,
-    )
-
-    chat: dict[str, Any] = {
-        'id': -1001234567,
-        'type': {'group': 'group', 'private': 'private', 'channel': 'channel'}[event_kind],
-        'title': 'Test Chat',
-    }
-    if chat_username is not None:
-        chat['username'] = chat_username
-
-    payload: dict[str, Any] = {
-        'message_id': 1,
-        'date': 1,
-        'chat': chat,
-        'message': message or [{'type': 'text', 'data': {'text': 'hi'}}],
-    }
-    if event_kind != 'channel':
-        payload['from'] = _make_telegram_user_payload(username=username)
-    if reply_to is not None:
-        payload['reply_to_message'] = reply_to
-
-    event_cls = {'group': GroupMessageEvent, 'private': PrivateMessageEvent, 'channel': ChannelPostEvent}[event_kind]
-    return event_cls.model_validate(payload)
+# Telegram get_chat 接口私聊会话响应负载 (test_telegram_get_entity_name_falls_back_to_first_name 等共用)
+_TELEGRAM_GET_CHAT_PRIVATE_PAYLOAD: dict[str, Any] = {
+    'id': 10001,
+    'type': 'private',
+    'first_name': '名字',
+    'accent_color_id': 0,
+    'max_reaction_count': 10,
+}
 
 
 def _make_console_message_event(*, direct: bool = False, channel_id: str = 'channel_1') -> 'BaseEvent':
@@ -276,7 +205,7 @@ class TestOmegaEntityInterface:
                 assert kwargs['target'].id == '10000'
                 assert kwargs['target'].private is False
 
-                # 放宽后的 str/Reply 类型 flags 应原样透传
+                # str/Reply 类型的 flags 应原样透传
                 reply = Reply(id='1')
                 await interface.send_entity_message('hello', at_sender='10001', reply_to=reply)
 
@@ -285,10 +214,6 @@ class TestOmegaEntityInterface:
                 assert second_kwargs['reply_to'] is reply
 
     async def test_send_entity_message_auto_revoke_recalls(self, app: App, fake_uni_message_send: AsyncMock) -> None:
-        from nonebot.adapters.console import Adapter
-        from nonebot.adapters.console import Bot as ConsoleBot
-        from nonechat.model import Robot
-
         from src.service.omega_base import OmegaEntityInterface
 
         receipt = make_mock_receipt()
@@ -296,9 +221,7 @@ class TestOmegaEntityInterface:
         send_mock.return_value = receipt
 
         async with app.test_api():
-            adapter = nonebot.get_adapter(Adapter)
-            # Console Bot 构造签名与 create_bot 不兼容, 手动构造 (同 test_010 模式)
-            bot = ConsoleBot(adapter=adapter, info=Robot(id='TEST_SEND_BOT_2'))
+            bot = create_console_bot('TEST_SEND_BOT_2')
 
             driver_bots = nonebot.get_driver().bots
             driver_bots['TEST_SEND_BOT_2'] = bot
@@ -472,7 +395,6 @@ class TestMiddlewareEntityTargets:
 
     async def test_telegram_get_entity_name_via_api(self, app: App) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
-        from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
 
         from src.service.omega_base import OmegaEntityInterface
 
@@ -483,7 +405,7 @@ class TestMiddlewareEntityTargets:
                     self_id='TEST_NAME_BOT_2',
                     base=Bot,
                     adapter=adapter,
-                    config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+                    config=make_telegram_bot_config(),
             ):
                 ctx.should_call_api(
                     'get_chat',
@@ -508,7 +430,6 @@ class TestMiddlewareEntityTargets:
 
     async def test_telegram_get_entity_name_falls_back_to_first_name(self, app: App) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
-        from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
 
         from src.service.omega_base.middlewares.telegram import TelegramUserEntityTarget
 
@@ -519,19 +440,9 @@ class TestMiddlewareEntityTargets:
                     self_id='TEST_NAME_BOT_3',
                     base=Bot,
                     adapter=adapter,
-                    config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+                    config=make_telegram_bot_config(),
             ):
-                ctx.should_call_api(
-                    'get_chat',
-                    {'chat_id': '10001'},
-                    {
-                        'id': 10001,
-                        'type': 'private',
-                        'first_name': '名字',
-                        'accent_color_id': 0,
-                        'max_reaction_count': 10,
-                    },
-                )
+                ctx.should_call_api('get_chat', {'chat_id': '10001'}, _TELEGRAM_GET_CHAT_PRIVATE_PAYLOAD)
 
                 target = TelegramUserEntityTarget(entity_params=make_entity_init_params(
                     bot_type='Telegram', bot_id='TEST_NAME_BOT_3', entity_type='telegram_user', entity_id='10001',
@@ -541,7 +452,6 @@ class TestMiddlewareEntityTargets:
 
     async def test_telegram_profile_image_url_without_photo_raises(self, app: App) -> None:
         from nonebot.adapters.telegram import Adapter, Bot
-        from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
 
         from src.service.omega_base.middlewares.telegram import TelegramUserEntityTarget
 
@@ -552,19 +462,9 @@ class TestMiddlewareEntityTargets:
                     self_id='TEST_NAME_BOT_4',
                     base=Bot,
                     adapter=adapter,
-                    config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+                    config=make_telegram_bot_config(),
             ):
-                ctx.should_call_api(
-                    'get_chat',
-                    {'chat_id': '10001'},
-                    {
-                        'id': 10001,
-                        'type': 'private',
-                        'first_name': '名字',
-                        'accent_color_id': 0,
-                        'max_reaction_count': 10,
-                    },
-                )
+                ctx.should_call_api('get_chat', {'chat_id': '10001'}, _TELEGRAM_GET_CHAT_PRIVATE_PAYLOAD)
 
                 target = TelegramUserEntityTarget(entity_params=make_entity_init_params(
                     bot_type='Telegram', bot_id='TEST_NAME_BOT_4', entity_type='telegram_user', entity_id='10001',
@@ -615,11 +515,11 @@ class TestOmegaMatcherInterface:
             target_event=make_obv11_private_message_event(),
         ) is OneBotV11PrivateMessageEventDepend
         assert OmegaMatcherInterface.get_event_depend_cls(
-            target_event=_make_obv11_poke_notify_event(),
+            target_event=make_obv11_poke_notify_event(),
         ) is OneBotV11PokeNotifyEventDepend
         # 精确类与中间抽象类均未注册时按 MRO 解析到基类注册
         assert OmegaMatcherInterface.get_event_depend_cls(
-            target_event=_make_obv11_friend_recall_notice_event(),
+            target_event=make_obv11_friend_recall_notice_event(),
         ) is OneBotV11EventDepend
 
     def test_get_event_depend_cls_unsupported_rejected(self) -> None:
@@ -694,16 +594,13 @@ class TestOmegaMatcherInterface:
         assert entity.not_init is True
 
     async def test_create_current_entity_session_persists(self, app: App, test_onebot_v11_bot) -> None:
-        from nonebot.adapters.onebot.v11 import Adapter, Bot
-
         from src.database.internal.bot import BotType
         from src.database.internal.entity import EntityDAL
         from src.service.omega_base import OmegaMatcherInterface
 
         group_id = random.randint(10_000_000, 99_999_999)
         async with app.test_api() as ctx:
-            adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(self_id=test_onebot_v11_bot.self_id, base=Bot, adapter=adapter, auto_connect=False)
+            bot = create_real_obv11_bot(ctx, test_onebot_v11_bot.self_id)
 
             interface = OmegaMatcherInterface(
                 bot=bot, event=make_obv11_group_message_event(group_id=group_id), matcher=MagicMock(),
@@ -730,7 +627,6 @@ class TestOmegaMatcherInterface:
     async def test_create_current_entity_session_rolls_back_on_error(
             self, app: App, test_onebot_v11_bot,
     ) -> None:
-        from nonebot.adapters.onebot.v11 import Adapter, Bot
         from sqlalchemy.exc import NoResultFound
 
         from src.database.internal.bot import BotType
@@ -739,8 +635,7 @@ class TestOmegaMatcherInterface:
 
         group_id = random.randint(10_000_000, 99_999_999)
         async with app.test_api() as ctx:
-            adapter = nonebot.get_adapter(Adapter)
-            bot = ctx.create_bot(self_id=test_onebot_v11_bot.self_id, base=Bot, adapter=adapter, auto_connect=False)
+            bot = create_real_obv11_bot(ctx, test_onebot_v11_bot.self_id)
 
             interface = OmegaMatcherInterface(
                 bot=bot, event=make_obv11_group_message_event(group_id=group_id), matcher=MagicMock(),
@@ -981,7 +876,7 @@ class TestOneBotV11EventDepends:
         assert params.entity_name == 'nick'
 
     async def test_meta_event_user_extraction_raises(self) -> None:
-        depend = _make_event_depend(_make_obv11_meta_event(), adapter_name='OneBot V11')
+        depend = _make_event_depend(make_obv11_meta_event(), adapter_name='OneBot V11')
 
         with pytest.raises(NotImplementedError):
             depend.extract_entity_params('user')
@@ -990,7 +885,7 @@ class TestOneBotV11EventDepends:
         from src.database.internal.entity import EntityType
 
         depend = _make_event_depend(
-            _make_obv11_honor_notify_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
+            make_obv11_honor_notify_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
         )
 
         event_params = depend.extract_entity_params('event')
@@ -1006,7 +901,7 @@ class TestOneBotV11EventDepends:
         from src.database.internal.entity import EntityType
         from src.service.omega_base.middlewares.onebot_v11 import OneBotV11NotifyEventDepend
 
-        event = _make_obv11_poke_notify_event(group_id=None, user_id=30001)
+        event = make_obv11_poke_notify_event(group_id=None, user_id=30001)
         depend = OneBotV11NotifyEventDepend(bot=make_mock_bot(adapter_name='OneBot V11'), event=event)
 
         event_params = depend.extract_entity_params('event')
@@ -1018,7 +913,7 @@ class TestOneBotV11EventDepends:
         from src.database.internal.entity import EntityType
 
         depend = _make_event_depend(
-            _make_obv11_poke_notify_event(group_id=None, user_id=30001), adapter_name='OneBot V11',
+            make_obv11_poke_notify_event(group_id=None, user_id=30001), adapter_name='OneBot V11',
         )
 
         event_params = depend.extract_entity_params('event')
@@ -1030,7 +925,7 @@ class TestOneBotV11EventDepends:
         from src.database.internal.entity import EntityType
 
         depend = _make_event_depend(
-            _make_obv11_poke_notify_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
+            make_obv11_poke_notify_event(group_id=20000, user_id=30001), adapter_name='OneBot V11',
         )
 
         event_params = depend.extract_entity_params('event')
@@ -1066,21 +961,12 @@ class TestOneBotV11EventDepends:
     async def test_get_reply_msg_image_urls(self) -> None:
         """回复消息中的图片链接应从 event.reply 提取, 无 url 的图片段被过滤"""
         from nonebot.adapters.onebot.v11 import Message, MessageSegment
-        from nonebot.adapters.onebot.v11.event import Reply as Obv11Reply
-        from nonebot.adapters.onebot.v11.event import Sender
 
-        reply = Obv11Reply(
-            time=1,
-            message_type='group',
-            message_id=111,
-            real_id=111,
-            sender=Sender(user_id=1),
-            message=Message([
-                MessageSegment('image', {'file': '1.jpg', 'url': 'https://example.com/1.jpg'}),
-                MessageSegment('image', {'file': '2.jpg'}),
-                MessageSegment.text('text'),
-            ]),
-        )
+        reply = make_obv11_reply(Message([
+            MessageSegment('image', {'file': '1.jpg', 'url': 'https://example.com/1.jpg'}),
+            MessageSegment('image', {'file': '2.jpg'}),
+            MessageSegment.text('text'),
+        ]))
         depend = _make_event_depend(make_obv11_group_message_event(reply=reply), adapter_name='OneBot V11')
 
         assert depend.get_reply_msg_image_urls() == ['https://example.com/1.jpg']
@@ -1092,17 +978,8 @@ class TestOneBotV11EventDepends:
 
     async def test_get_reply_msg_image_urls_text_only_reply(self) -> None:
         from nonebot.adapters.onebot.v11 import Message
-        from nonebot.adapters.onebot.v11.event import Reply as Obv11Reply
-        from nonebot.adapters.onebot.v11.event import Sender
 
-        reply = Obv11Reply(
-            time=1,
-            message_type='group',
-            message_id=111,
-            real_id=111,
-            sender=Sender(user_id=1),
-            message=Message('text only'),
-        )
+        reply = make_obv11_reply(Message('text only'))
         depend = _make_event_depend(make_obv11_group_message_event(reply=reply), adapter_name='OneBot V11')
 
         assert depend.get_reply_msg_image_urls() == []
@@ -1114,7 +991,7 @@ class TestTelegramEventDepends:
     async def test_group_message_event_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = _make_event_depend(_make_telegram_message_event('group'), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('group'), adapter_name='Telegram')
 
         params = depend.extract_entity_params('event')
 
@@ -1127,7 +1004,7 @@ class TestTelegramEventDepends:
     async def test_group_message_user_params_with_username(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = _make_event_depend(_make_telegram_message_event('group', username='tester'), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('group', username='tester'), adapter_name='Telegram')
 
         params = depend.extract_entity_params('user')
 
@@ -1139,7 +1016,7 @@ class TestTelegramEventDepends:
 
     async def test_group_message_user_params_without_username(self) -> None:
         """username 为 None 时 entity_info 不应产生 'Name@None' 形式"""
-        depend = _make_event_depend(_make_telegram_message_event('group', username=None), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('group', username=None), adapter_name='Telegram')
 
         params = depend.extract_entity_params('user')
 
@@ -1148,7 +1025,7 @@ class TestTelegramEventDepends:
     async def test_private_message_params(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = _make_event_depend(_make_telegram_message_event('private', username=None), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('private', username=None), adapter_name='Telegram')
 
         event_params = depend.extract_entity_params('event')
         user_params = depend.extract_entity_params('user')
@@ -1161,7 +1038,7 @@ class TestTelegramEventDepends:
     async def test_channel_post_user_params_fallback_to_channel(self) -> None:
         from src.database.internal.entity import EntityType
 
-        depend = _make_event_depend(_make_telegram_message_event('channel'), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('channel'), adapter_name='Telegram')
 
         event_params = depend.extract_entity_params('event')
         user_params = depend.extract_entity_params('user')
@@ -1176,7 +1053,7 @@ class TestTelegramEventDepends:
 
         bot = make_mock_bot(adapter_name='Telegram')
         bot.self_id = 'TG_BOT_SELF'
-        depend = TelegramEventDepend(bot=bot, event=_make_telegram_message_event('group'))
+        depend = TelegramEventDepend(bot=bot, event=make_telegram_message_event('group'))
 
         params = depend.extract_entity_params('user')
 
@@ -1188,8 +1065,8 @@ class TestTelegramEventDepends:
         """基类 TelegramMessageEventDepend 的昵称取 chat.username (具体子类均覆写为 from_.first_name)"""
         from src.service.omega_base.middlewares.telegram import TelegramMessageEventDepend
 
-        chat_with_username = _make_telegram_message_event('group', chat_username='tester')
-        chat_without_username = _make_telegram_message_event('group', chat_username=None)
+        chat_with_username = make_telegram_message_event('group', chat_username='tester')
+        chat_without_username = make_telegram_message_event('group', chat_username=None)
 
         depend_with = TelegramMessageEventDepend(bot=make_mock_bot(adapter_name='Telegram'), event=chat_with_username)
         depend_without = TelegramMessageEventDepend(
@@ -1200,7 +1077,7 @@ class TestTelegramEventDepends:
         assert depend_without.get_user_nickname() == ''
 
     async def test_group_depend_get_user_nickname(self) -> None:
-        depend = _make_event_depend(_make_telegram_message_event('group'), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('group'), adapter_name='Telegram')
 
         assert depend.get_user_nickname() == 'Tester'
 
@@ -1215,17 +1092,17 @@ class TestTelegramEventDepends:
             'message_id': 2,
             'date': 1,
             'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
-            'from': _make_telegram_user_payload(),
+            'from': make_telegram_user_payload(),
             'message': reply_message,
             # original_message 仅在适配器 parse_event 中填充, 直接 model_validate 需显式提供
             'original_message': reply_message,
         }
-        depend = _make_event_depend(_make_telegram_message_event('group', reply_to=reply_to), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('group', reply_to=reply_to), adapter_name='Telegram')
 
         assert depend.get_reply_msg_image_urls() == ['file_id_1', 'file_id_2']
 
     async def test_get_reply_msg_image_urls_without_reply(self) -> None:
-        depend = _make_event_depend(_make_telegram_message_event('group', reply_to=None), adapter_name='Telegram')
+        depend = _make_event_depend(make_telegram_message_event('group', reply_to=None), adapter_name='Telegram')
 
         assert depend.get_reply_msg_image_urls() == []
 

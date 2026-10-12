@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2026/8/23 15:40
-@FileName       : test_migration_check.py
+@FileName       : test_001_migration_check.py
 @Project        : omega-miya
 @Description    : src/database/migrate.py 迁移状态检查功能单元测试
 
@@ -12,9 +12,160 @@
 @Software       : PyCharm
 """
 
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
+from typing import ClassVar
 
 import pytest
+from nonebot.utils import run_sync
+from sqlalchemy import Column, Integer, MetaData, String, Table, inspect, select
+from sqlalchemy.engine import Connection
+
+
+class _TestDatabaseMigrationHelper:
+    """测试数据库迁移操作辅助类
+
+    敏感操作警告: 本类方法会直接修改 .env.test 配置的测试数据库, 禁止将测试环境指向生产数据库
+    """
+
+    _alembic_version_table: ClassVar[Table] = Table(
+        'alembic_version',
+        MetaData(),
+        Column('version_num', String(32), nullable=False),
+    )
+    """Alembic 版本表定义 (与 alembic 默认结构一致)"""
+
+    def __init__(self) -> None:
+        from src.database.config import database_config
+        from src.database.connector import get_engine
+
+        self._engine = get_engine()
+        self._db_prefix = database_config.db_prefix
+
+    @property
+    def _test_business_table(self) -> Table:
+        """测试用业务表 (仅用于测试中构造业务表存在场景)"""
+        return Table(
+            f'{self._db_prefix}test_already_business_table',
+            MetaData(),
+            Column('id', Integer, nullable=False),
+        )
+
+    @classmethod
+    def _drop_all_tables(cls, connection: Connection) -> None:
+        # 创建一个空 MetaData 并反射当前数据库中的所有表, 之后按依赖顺序删除
+        metadata = MetaData()
+        metadata.reflect(bind=connection)
+        for table in reversed(metadata.sorted_tables):
+            table.drop(connection, checkfirst=True)
+
+    @classmethod
+    def _drop_version_table(cls, connection: Connection) -> None:
+        cls._alembic_version_table.drop(connection, checkfirst=True)
+
+    @classmethod
+    def _create_version_table(cls, connection: Connection, versions: list[str]) -> None:
+        cls._alembic_version_table.create(connection, checkfirst=True)
+        if versions:
+            connection.execute(cls._alembic_version_table.insert(), [{'version_num': v} for v in versions])
+
+    @classmethod
+    def _query_all_versions(cls, connection: Connection) -> list[str]:
+        table_names = inspect(connection).get_table_names()
+        if cls._alembic_version_table.name not in table_names:
+            return []
+        versions = list(connection.execute(select(cls._alembic_version_table)).scalars().all())
+        return versions
+
+    def _drop_test_business_table(self, connection: Connection) -> None:
+        self._test_business_table.drop(connection, checkfirst=True)
+
+    def _create_test_business_table(self, connection: Connection) -> None:
+        self._test_business_table.create(connection, checkfirst=True)
+
+    async def drop_all_tables(self) -> None:
+        """删除数据库所有表
+
+        敏感操作: 直接删除测试数据库中所有表
+        """
+        async with self._engine.connect() as connection:
+            await connection.run_sync(self._drop_all_tables)
+
+    async def rebuild_versions(self, versions: list[str] | None) -> None:
+        """重建 alembic_version 表到指定的版本记录
+
+        敏感操作: 直接删除并重建测试数据库的 alembic_version 表
+
+        :param versions: None 表示删除版本表, 空列表表示创建空版本表, 否则重建版本表并插入对应版本记录
+        """
+        async with self._engine.begin() as connection:
+            await connection.run_sync(self._drop_version_table)
+
+        if versions is not None:
+            async with self._engine.begin() as connection:
+                await connection.run_sync(self._create_version_table, versions)
+
+    async def query_all_versions(self) -> list[str]:
+        """查询 alembic_version 表中所有 version 记录"""
+        async with self._engine.begin() as connection:
+            versions = await connection.run_sync(self._query_all_versions)
+        return versions
+
+    async def delete_test_business_table(self) -> None:
+        """删除测试用业务表"""
+        async with self._engine.begin() as connection:
+            await connection.run_sync(self._drop_test_business_table)
+
+    async def create_test_business_table(self) -> None:
+        """创建测试用业务表"""
+        async with self._engine.begin() as connection:
+            await connection.run_sync(self._create_test_business_table)
+
+    def _get_already_tables(self, connection: Connection) -> list[str]:
+        return [name for name in inspect(connection).get_table_names() if name.startswith(self._db_prefix)]
+
+    async def count_already_tables(self) -> int:
+        """计数测试数据库中已存在的数据表"""
+        async with self._engine.connect() as connection:
+            return len(await connection.run_sync(self._get_already_tables))
+
+    async def has_already_tables(self) -> bool:
+        """检查测试数据库中是否已存在数据表"""
+        return (await self.count_already_tables()) > 0
+
+    @staticmethod
+    async def upgrade_to(revision: str = 'head') -> None:
+        from src.database.migrate import run_upgrade_migrations
+
+        @run_sync
+        def _upgrade_to() -> None:
+            run_upgrade_migrations(revision=revision)
+
+        await _upgrade_to()
+
+    @staticmethod
+    async def downgrade_to(revision: str = 'base') -> None:
+        from src.database.migrate import run_downgrade_migrations
+
+        @run_sync
+        def _downgrade_to() -> None:
+            run_downgrade_migrations(revision=revision)
+
+        await _downgrade_to()
+
+
+@pytest.fixture(scope='class')
+async def test_database_helper() -> AsyncGenerator[_TestDatabaseMigrationHelper, None]:
+    """测试数据库操作辅助 fixture
+
+    setup 阶段清空所有数据表, teardown 阶段恢复数据库到 HEAD 版本, 以便后续插件测试使用
+    """
+    helper = _TestDatabaseMigrationHelper()
+    await helper.drop_all_tables()
+    try:
+        yield helper
+    finally:
+        await helper.drop_all_tables()
+        await helper.upgrade_to('head')
 
 
 @pytest.fixture
@@ -156,32 +307,16 @@ class TestCheckMigrationState:
         assert not result.is_safe
         assert result.message.startswith('迁移脚本存在多个')
 
+    @pytest.mark.parametrize('versions', [None, []], ids=['no_version_table', 'empty_version_table'])
     async def test_fresh_database(
             self,
+            versions: list[str] | None,
             test_database_helper,
             patch_script_revisions,
     ) -> None:
         patch_script_revisions(heads=['head_rev'])
         await test_database_helper.drop_all_tables()
-        await test_database_helper.rebuild_versions(None)
-
-        from src.database.migrate import MigrationStatus, check_migration_state
-
-        result = await check_migration_state()
-
-        assert result.status is MigrationStatus.FRESH
-        assert result.head == 'head_rev'
-        assert result.is_safe
-        assert not result.message
-
-    async def test_fresh_database_with_empty_version_table(
-            self,
-            test_database_helper,
-            patch_script_revisions,
-    ) -> None:
-        patch_script_revisions(heads=['head_rev'])
-        await test_database_helper.drop_all_tables()
-        await test_database_helper.rebuild_versions([])
+        await test_database_helper.rebuild_versions(versions)
 
         from src.database.migrate import MigrationStatus, check_migration_state
 

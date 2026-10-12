@@ -11,7 +11,6 @@
 from collections.abc import AsyncGenerator, Callable
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 import pytest
 from sqlalchemy.exc import NoResultFound
@@ -24,6 +23,7 @@ from tests.test_002_core.helpers import (
     query_global_cache_row_or_none,
     seed_global_cache_row,
 )
+from tests.utils import unique_test_id
 
 if TYPE_CHECKING:
     from src.service.omega_global_cache import OmegaGlobalCache
@@ -48,7 +48,7 @@ async def cache_factory() -> AsyncGenerator[Callable[..., 'OmegaGlobalCache'], N
     created: list[OmegaGlobalCache] = []
 
     def _factory(cache_name: str | None = None, **kwargs: Any) -> 'OmegaGlobalCache':
-        cache = cache_module.OmegaGlobalCache(cache_name or f'test_ogc_{uuid4().hex[:8]}', **kwargs)
+        cache = cache_module.OmegaGlobalCache(cache_name or unique_test_id('test_ogc'), **kwargs)
         created.append(cache)
         return cache
 
@@ -128,7 +128,7 @@ class TestInitAndRegistry:
     async def test_register_strip_name(self, cache_factory) -> None:
         import src.service.omega_global_cache as cache_module
 
-        name = f'test_ogc_{uuid4().hex[:8]}'
+        name = unique_test_id('test_ogc')
         cache = cache_factory(cache_name=f'  {name}  ')
 
         assert cache._cache_name == name
@@ -198,7 +198,7 @@ class TestInitAndRegistry:
     async def test_register_unicode_name(self, cache_factory) -> None:
         import src.service.omega_global_cache as cache_module
 
-        name = f'测试缓存_{uuid4().hex[:6]}'
+        name = unique_test_id('测试缓存')
         cache = cache_factory(cache_name=name)
 
         assert cache._cache_name == name

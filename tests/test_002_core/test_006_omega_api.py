@@ -12,7 +12,6 @@ import time
 from collections.abc import AsyncGenerator, Callable, Generator, Mapping
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 import pytest
 from async_asgi_testclient import TestClient
@@ -21,6 +20,8 @@ from nonebug import App
 from pydantic import SecretStr, ValidationError
 from starlette.datastructures import QueryParams
 from starlette.routing import Mount
+
+from tests.utils import unique_test_id
 
 if TYPE_CHECKING:
     from src.service.omega_api import OmegaAPI
@@ -67,9 +68,9 @@ def omega_api_factory() -> Generator[Callable[..., 'OmegaAPI'], None, None]:
     created: list[OmegaAPI] = []
 
     def _factory(app_name: str | None = None, **kwargs: Any) -> 'OmegaAPI':
-        api = OmegaAPI(app_name or f'omega_test_{uuid4().hex[:8]}', **kwargs)
-        created.append(api)
-        return api
+        _api = OmegaAPI(app_name or unique_test_id('omega_test'), **kwargs)
+        created.append(_api)
+        return _api
 
     yield _factory
 

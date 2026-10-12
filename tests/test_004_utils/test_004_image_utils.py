@@ -310,7 +310,7 @@ class TestImageLoaderExtract:
             ImageLoader.extract_to_bytes(image=_new_image(mode='RGBA'), format_='JPEG')
 
     def test_get_bytes_delegation_equivalence(self):
-        """get_bytes 委托 extract_to_bytes 的重构等价性"""
+        """get_bytes 委托 extract_to_bytes 实现, 两者输出一致"""
         from src.utils.image_utils import ImageLoader
         image = _new_image()
         processor = _make_processor(image)
@@ -416,14 +416,11 @@ class TestSplitMultilineText:
         result = ImageTextProcessor.split_multiline_text(text='中', width=100, font=_get_default_font())
         assert result == '中'
 
-    def test_char_wider_than_width_one_char_per_line(self):
+    @pytest.mark.parametrize('width', [5, 0], ids=['narrower-than-char', 'zero'])
+    def test_too_narrow_width_one_char_per_line(self, width: int):
+        """宽度小于等于单个字符宽度时每字一行, 不产生空行"""
         from src.utils.image_utils import ImageTextProcessor
-        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK[:5], width=5, font=_get_default_font())
-        assert result.split('\n') == list(TEXT_CJK[:5])
-
-    def test_zero_width_one_char_per_line(self):
-        from src.utils.image_utils import ImageTextProcessor
-        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK[:5], width=0, font=_get_default_font())
+        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK[:5], width=width, font=_get_default_font())
         lines = result.split('\n')
         assert lines == list(TEXT_CJK[:5])
         assert all(line for line in lines)
@@ -442,19 +439,17 @@ class TestSplitMultilineText:
         for line in stroked.split('\n'):
             assert font.getlength(line) + 2 * 5 * len(line) <= 120 or len(line) == 1
 
-    def test_font_as_none(self):
+    @pytest.mark.parametrize('font_kind', ['none', 'str-name', 'instance'])
+    def test_font_accepts_none_str_and_instance(self, font_kind: str):
+        """font 参数接受 None(回退默认字体)/字体名字符串/FreeTypeFont 实例"""
         from src.utils.image_utils import ImageTextProcessor
-        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK, width=100)
-        assert _normalized(result) == _normalized(TEXT_CJK)
-
-    def test_font_as_str_name(self):
-        from src.utils.image_utils import ImageTextProcessor
-        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK, width=100, font='msyh.ttc')
-        assert _normalized(result) == _normalized(TEXT_CJK)
-
-    def test_font_as_instance(self):
-        from src.utils.image_utils import ImageTextProcessor
-        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK, width=100, font=_get_default_font())
+        if font_kind == 'none':
+            font = None
+        elif font_kind == 'str-name':
+            font = 'msyh.ttc'
+        else:
+            font = _get_default_font()
+        result = ImageTextProcessor.split_multiline_text(text=TEXT_CJK, width=100, font=font)
         assert _normalized(result) == _normalized(TEXT_CJK)
 
     def test_long_text_completes(self):

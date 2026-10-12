@@ -10,19 +10,17 @@
 
 import asyncio
 import os
-import time
 import uuid
 from collections.abc import AsyncGenerator
-from http.cookiejar import Cookie, CookieJar
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.utils import rebind_module_namespace
+
 if TYPE_CHECKING:
-    from src.resource import AnyResource
     from src.service.omega_api import OmegaAPI
 
 _STREAM_CHUNKS = [b'alpha', b'-beta', b'-game']
@@ -38,20 +36,6 @@ _LINES_EXPECTED = ['first', 'second', 'third', 'fourth', '', 'last-no-newline']
 """行迭代测试期望结果, 对应混合 \\n / \\r\\n / \\r 行结尾与无换行残留行"""
 
 
-def make_test_file(tmp_path: Path, name: str) -> 'AnyResource':
-    """在临时目录构造下载目标文件资源"""
-    from src.resource import AnyResource
-
-    return AnyResource(tmp_path, name)
-
-
-def make_test_folder(tmp_path: Path) -> 'AnyResource':
-    """构造指向临时目录本身的文件夹资源"""
-    from src.resource import AnyResource
-
-    return AnyResource(tmp_path)
-
-
 def new_request_token() -> str:
     """生成测试用例隔离 token(用于服务端按用例计数/记录请求头)"""
     return uuid.uuid4().hex[:8]
@@ -65,18 +49,6 @@ def make_response(content: Any = None, headers: Any = None, status_code: int = 2
     if content is not None and not isinstance(content, (str, bytes, bytearray)):
         content = ujson.dumps(content).encode(encoding='utf-8')
     return Response(status_code, headers=headers, content=content)
-
-
-def make_cookie_jar(name: str, value: str) -> CookieJar:
-    """构造含单个 cookie 的 http.cookiejar.CookieJar"""
-    jar = CookieJar()
-    jar.set_cookie(Cookie(
-        version=0, name=name, value=value,
-        port=None, port_specified=False, domain='example.com', domain_specified=False, domain_initial_dot=False,
-        path='/', path_specified=True, secure=False, expires=None, discard=True,
-        comment=None, comment_url=None, rest={}, rfc2109=False,
-    ))
-    return jar
 
 
 def capture_driver_request(monkeypatch: pytest.MonkeyPatch) -> list:
@@ -117,7 +89,7 @@ def patch_module_asyncio_sleep(monkeypatch: pytest.MonkeyPatch, module: ModuleTy
     uvicorn Server.main_loop (asyncio.sleep 轮询) 竞态导致卡死
     """
     sleep_mock = AsyncMock()
-    monkeypatch.setattr(module, 'asyncio', SimpleNamespace(**{**vars(asyncio), 'sleep': sleep_mock}))
+    rebind_module_namespace(monkeypatch, module, 'asyncio', sleep=sleep_mock)
     return sleep_mock
 
 
@@ -127,7 +99,7 @@ def patch_module_time(monkeypatch: pytest.MonkeyPatch, module: ModuleType, fixed
     目标模块以 `import time` 方式引用标准库, 直接 patch `module.time.time` 会冻结进程级 time.time,
     殃及 session 事件循环上常驻的 uvicorn/nonebot 组件; 此处仅替换模块内的 time 名字本身
     """
-    monkeypatch.setattr(module, 'time', SimpleNamespace(**{**vars(time), 'time': lambda: fixed_ts}))
+    rebind_module_namespace(monkeypatch, module, 'time', time=lambda: fixed_ts)
 
 
 def require_env_flag(env_var: str, *, reason: str | None = None):
@@ -395,10 +367,7 @@ __all__ = [
     'capture_driver_request',
     'capture_driver_stream_request',
     'line_chunks_stream',
-    'make_cookie_jar',
     'make_response',
-    'make_test_file',
-    'make_test_folder',
     'new_request_token',
     'patch_module_asyncio_sleep',
     'patch_module_time',

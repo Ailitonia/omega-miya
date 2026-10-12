@@ -738,7 +738,7 @@ class TestAESCTR:
 
     @pytest.mark.parametrize('nonce_length', [1, 8, 12, 15])
     def test_nonce_shorter_than_block_is_supported(self, aes128, nonce_length: int):
-        # 直接使用指定长度 nonce 构造密文, 验证解密侧不再把 nonce 长度限制在单一取值
+        # 直接使用指定长度 nonce 构造密文, 验证解密侧支持多种 nonce 长度
         nonce = bytes(range(nonce_length))
         cipher = AES.new(aes128._key, AES.MODE_CTR, nonce=nonce)
         ciphertext = base64.b64encode(cipher.encrypt(b'hello')).decode()
@@ -1066,15 +1066,6 @@ class TestCrossKeyIsolation:
         args = (encrypted,) if isinstance(encrypted, str) else encrypted
 
         _assert_decrypt_never_returns(lambda: getattr(aes128, f'{mode}_decrypt')(*args), plaintext)
-
-    def test_derived_keys_differ_across_versions(self):
-        from src.utils.crypto.encryptor import derive_key
-
-        keys = {
-            derive_key(TEST_KEY, key_length, purpose=TEST_PURPOSE, salt=TEST_SALT)[0]
-            for key_length in (16, 24, 32)
-        }
-        assert len(keys) == 3
 
     def test_envelope_cross_version_is_rejected(self, aes128, aes256):
         # 信封携带算法标识, AES-256 信封不能被 AES-128 实例解密

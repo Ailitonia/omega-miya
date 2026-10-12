@@ -11,6 +11,7 @@
 import json
 import random
 import time
+from collections.abc import AsyncGenerator
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
@@ -20,18 +21,28 @@ import nonebot
 import pytest
 from nonebug import App
 
-from tests.test_002_core.helpers import (
+from tests.utils import (
+    create_real_obv11_bot,
     make_fake_message_event,
     make_mock_bot,
     make_non_plugin_matcher,
     make_obv11_group_message_event,
     make_obv11_private_message_event,
+    make_obv11_reply,
+    make_telegram_bot_config,
+    make_telegram_message_event,
+    make_telegram_user_payload,
+    persisted_numeric_obv11_bot,
+    preserve_plugin_row,
+    seed_entity_permissions,
     unique_test_id,
 )
 
 if TYPE_CHECKING:
     from nonebot.adapters import Event as BaseEvent
     from nonebot.matcher import Matcher
+
+    from src.database.internal.bot import BotSelf
 
 
 # ------------------------------------------------------------------ #
@@ -91,34 +102,7 @@ def _make_real_bot(ctx: Any, self_id: str) -> Any:
     NoneBot 依赖注入 (如 SUPERUSER) 对 bot/event 参数做 isinstance 校验, MagicMock 不通过,
     涉及 SUPERUSER 路径的用例必须使用真实 Bot
     """
-    from nonebot.adapters.onebot.v11 import Adapter, Bot
-
-    adapter = nonebot.get_adapter(Adapter)
-    return ctx.create_bot(self_id=self_id, base=Bot, adapter=adapter, auto_connect=False)
-
-
-async def _grant_entity_permissions(
-        bot_type: str,
-        bot_id: str,
-        entity_type: str,
-        entity_id: str,
-        *,
-        level: int = 1,
-) -> None:
-    """为指定 Entity 开启全局功能并授予权限等级 (独立会话, 退出即提交)"""
-    from src.database.helpers import database_session
-    from src.service.omega_base import OmegaEntity
-
-    async with database_session() as session:
-        entity = OmegaEntity(
-            session=session,
-            bot_type=bot_type,
-            bot_id=bot_id,
-            entity_type=entity_type,
-            entity_id=entity_id,
-        )
-        await entity.enable_global_permission()
-        await entity.set_permission_level(level=level)
+    return create_real_obv11_bot(ctx, self_id)
 
 
 @pytest.fixture
@@ -550,8 +534,8 @@ class TestPermission:
         from src.service.omega_processor.universal.permission import preprocessor_permission
 
         user_id = 51003
-        await _grant_entity_permissions(
-            test_onebot_v11_bot.bot_type, test_onebot_v11_bot.self_id, 'onebot_v11_user', str(user_id), level=1,
+        await seed_entity_permissions(
+            test_onebot_v11_bot, 'onebot_v11_user', str(user_id), enable_global=True, permission_level=1,
         )
         matcher = _make_plugin_matcher(level=10)
 
@@ -568,8 +552,8 @@ class TestPermission:
         from src.service.omega_processor.universal.permission import preprocessor_permission
 
         user_id = 51004
-        await _grant_entity_permissions(
-            test_onebot_v11_bot.bot_type, test_onebot_v11_bot.self_id, 'onebot_v11_user', str(user_id), level=10,
+        await seed_entity_permissions(
+            test_onebot_v11_bot, 'onebot_v11_user', str(user_id), enable_global=True, permission_level=10,
         )
         matcher = _make_plugin_matcher(level=5)
 
@@ -582,29 +566,19 @@ class TestPermission:
 
     async def test_auth_node_grant_allows(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         from src.database.helpers import database_session
-        from src.service.omega_base import OmegaEntity
         from src.service.omega_processor.universal.permission import preprocessor_permission
 
         user_id = 51005
         matcher = _make_plugin_matcher(level=100, auth_node='granted_node')
+        await seed_entity_permissions(
+            test_onebot_v11_bot,
+            'onebot_v11_user',
+            str(user_id),
+            enable_global=True,
+            auth_nodes=[('src.service.omega_processor', 'omega_processor', 'granted_node', 1)],
+        )
 
         async with database_session() as session:
-            entity = OmegaEntity(
-                session=session,
-                bot_type=test_onebot_v11_bot.bot_type,
-                bot_id=test_onebot_v11_bot.self_id,
-                entity_type='onebot_v11_user',
-                entity_id=str(user_id),
-            )
-            await entity.enable_global_permission()
-            await entity.set_auth_setting(
-                module='src.service.omega_processor',
-                plugin='omega_processor',
-                node='granted_node',
-                available=1,
-                value={},
-            )
-
             # node 验证通过时无视 level 不足
             await preprocessor_permission(
                 bot=bound_mock_bot,
@@ -681,25 +655,20 @@ class TestCooldown:
 
     async def test_skip_cooldown_permission_allows(self, test_onebot_v11_bot, bound_mock_bot) -> None:
         from src.database.helpers import database_session
-        from src.service.omega_base import OmegaEntity
+        from src.service.omega_base.internal.consts import SKIP_COOLDOWN_PERMISSION_NODE
         from src.service.omega_processor.universal.cooldown import preprocessor_cooldown
 
         user_id = 52005
         matcher = _make_plugin_matcher(cooldown=60, cooldown_type='user')
+        await seed_entity_permissions(
+            test_onebot_v11_bot,
+            'onebot_v11_user',
+            str(user_id),
+            auth_nodes=[('src.service.omega_processor', 'omega_processor', SKIP_COOLDOWN_PERMISSION_NODE, 1)],
+        )
+        event = make_obv11_private_message_event(user_id=user_id)
 
         async with database_session() as session:
-            entity = OmegaEntity(
-                session=session,
-                bot_type=test_onebot_v11_bot.bot_type,
-                bot_id=test_onebot_v11_bot.self_id,
-                entity_type='onebot_v11_user',
-                entity_id=str(user_id),
-            )
-            await entity.enable_plugin_skip_cooldown_permission(
-                module='src.service.omega_processor', plugin='omega_processor',
-            )
-            event = make_obv11_private_message_event(user_id=user_id)
-
             await preprocessor_cooldown(
                 bot=bound_mock_bot, event=event, matcher=matcher, db_session=session,
             )
@@ -801,25 +770,20 @@ class TestCooldown:
         from nonebot.exception import IgnoredException
 
         from src.database.helpers import database_session
-        from src.service.omega_base import OmegaEntity
+        from src.service.omega_base.internal.consts import SKIP_COOLDOWN_PERMISSION_NODE
         from src.service.omega_processor.universal.cooldown import preprocessor_cooldown
 
         user_id = 52009
         matcher = _make_plugin_matcher(cooldown=60, cooldown_type='global', echo_processor_result=False)
         event = make_obv11_private_message_event(user_id=user_id)
+        await seed_entity_permissions(
+            test_onebot_v11_bot,
+            'onebot_v11_user',
+            str(user_id),
+            auth_nodes=[('src.service.omega_processor', 'omega_processor', SKIP_COOLDOWN_PERMISSION_NODE, 1)],
+        )
 
         async with database_session() as session:
-            entity = OmegaEntity(
-                session=session,
-                bot_type=test_onebot_v11_bot.bot_type,
-                bot_id=test_onebot_v11_bot.self_id,
-                entity_type='onebot_v11_user',
-                entity_id=str(user_id),
-            )
-            await entity.enable_plugin_skip_cooldown_permission(
-                module='src.service.omega_processor', plugin='omega_processor',
-            )
-
             # 首次放行 (全局冷却未设置), 并写入全局冷却
             await preprocessor_cooldown(bot=bound_mock_bot, event=event, matcher=matcher, db_session=session)
 
@@ -1061,46 +1025,14 @@ class TestStatistic:
 
 
 @pytest.fixture
-async def plugin_enabled_guard():
+async def plugin_enabled_guard() -> AsyncGenerator[None, None]:
     """保证 omega_processor 插件行存在且启用, 测试后恢复原状态
 
     全量套件中 test_001_database 的迁移检查会 drop_all_tables 清空插件表,
     不能依赖会话启动时播种的插件行仍然存在
     """
-    from sqlalchemy.exc import NoResultFound
-
-    from src.database import PluginDAL
-    from src.database.helpers import database_session
-
-    # 快照原状态并确保插件行存在且启用
-    async with database_session() as session:
-        dal = PluginDAL(session=session)
-        try:
-            plugin = await dal.query_unique(plugin_name='omega_processor', module_name='src.service.omega_processor')
-            original_enabled, original_info = plugin.enabled, plugin.info
-        except NoResultFound:
-            original_enabled, original_info = None, None
-        await dal.add_update_exist(
-            plugin_name='omega_processor',
-            module_name='src.service.omega_processor',
-            enabled=1,
-            info=original_info,
-        )
-
-    yield
-
-    # 恢复原状态 (原不存在则删除, 否则恢复 enabled/info 原值)
-    async with database_session() as session:
-        dal = PluginDAL(session=session)
-        if original_enabled is None:
-            await dal.delete(plugin_name='omega_processor', module_name='src.service.omega_processor')
-        else:
-            await dal.add_update_exist(
-                plugin_name='omega_processor',
-                module_name='src.service.omega_processor',
-                enabled=original_enabled,
-                info=original_info,
-            )
+    async with preserve_plugin_row('omega_processor', 'src.service.omega_processor', ensure_enabled=True):
+        yield
 
 
 class TestPluginManager:
@@ -1229,6 +1161,17 @@ class TestPluginManager:
             assert plugin.info == expected_info
 
 
+@pytest.fixture(scope='class')
+async def test_onebot_v11_numeric_bot() -> AsyncGenerator['BotSelf', None]:
+    """管线测试用 Bot: 数字 self_id (OneBot V11 事件模型要求 int) 且已落库
+
+    omega_base 中间件的 self_id 校验预处理器要求 event.self_id == bot.self_id,
+    且好感度/历史后处理器会经实体初始化要求 bot 行存在, 故 bot 身份须全程一致
+    """
+    async with persisted_numeric_obv11_bot() as bot:
+        yield bot
+
+
 class TestFullPipeline:
     """完整事件管线测试 (nonebug test_matcher 驱动真实处理器链)"""
 
@@ -1247,13 +1190,6 @@ class TestFullPipeline:
             module_name='src.service.omega_processor',
         )
         return matcher
-
-    @staticmethod
-    def _make_pipeline_bot(ctx, self_id: str):
-        from nonebot.adapters.onebot.v11 import Adapter, Bot
-
-        adapter = nonebot.get_adapter(Adapter)
-        return ctx.create_bot(self_id=self_id, base=Bot, adapter=adapter, auto_connect=False)
 
     @staticmethod
     def _make_pipeline_event(bot_self_id: str, user_id: int, text: str) -> 'BaseEvent':
@@ -1275,12 +1211,9 @@ class TestFullPipeline:
         user_id = random.randint(10_000_000, 99_999_999)
 
         try:
-            await _grant_entity_permissions(
-                test_onebot_v11_numeric_bot.bot_type,
-                test_onebot_v11_numeric_bot.self_id,
-                'onebot_v11_user',
-                str(user_id),
-                level=1,
+            await seed_entity_permissions(
+                test_onebot_v11_numeric_bot, 'onebot_v11_user', str(user_id),
+                enable_global=True, permission_level=1,
             )
 
             @matcher.handle()
@@ -1288,7 +1221,7 @@ class TestFullPipeline:
                 await matcher.finish('done')
 
             async with app.test_matcher(matcher) as ctx:
-                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                bot = _make_real_bot(ctx, test_onebot_v11_numeric_bot.self_id)
                 event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
 
                 ctx.receive_event(bot, event)
@@ -1310,7 +1243,7 @@ class TestFullPipeline:
 
         try:
             async with app.test_matcher(matcher) as ctx:
-                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                bot = _make_real_bot(ctx, test_onebot_v11_numeric_bot.self_id)
                 event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
 
                 ctx.receive_event(bot, event)
@@ -1334,12 +1267,9 @@ class TestFullPipeline:
         user_id = random.randint(10_000_000, 99_999_999)
 
         try:
-            await _grant_entity_permissions(
-                test_onebot_v11_numeric_bot.bot_type,
-                test_onebot_v11_numeric_bot.self_id,
-                'onebot_v11_user',
-                str(user_id),
-                level=1,
+            await seed_entity_permissions(
+                test_onebot_v11_numeric_bot, 'onebot_v11_user', str(user_id),
+                enable_global=True, permission_level=1,
             )
 
             @matcher.handle()
@@ -1347,7 +1277,7 @@ class TestFullPipeline:
                 await matcher.finish('done')
 
             async with app.test_matcher(matcher) as ctx:
-                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                bot = _make_real_bot(ctx, test_onebot_v11_numeric_bot.self_id)
 
                 # 第一轮: 通过全部检查并执行 handler
                 event_1 = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, user_id, f'/{cmd}')
@@ -1380,7 +1310,7 @@ class TestFullPipeline:
 
         try:
             async with app.test_matcher(matcher) as ctx:
-                bot = self._make_pipeline_bot(ctx, test_onebot_v11_numeric_bot.self_id)
+                bot = _make_real_bot(ctx, test_onebot_v11_numeric_bot.self_id)
                 event = self._make_pipeline_event(test_onebot_v11_numeric_bot.self_id, 54001, f'/{cmd}')
 
                 ctx.receive_event(bot, event)
@@ -1397,37 +1327,12 @@ class TestFullPipeline:
 # ------------------------------------------------------------------ #
 
 
-def _make_telegram_photo_event(*, with_reply: bool = False) -> 'BaseEvent':
-    """构造携带 photo 消息段的 Telegram 私聊消息事件"""
-    from nonebot.adapters.telegram.event import PrivateMessageEvent
-
-    payload: dict[str, Any] = {
-        'message_id': 1,
-        'date': 1,
-        'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
-        'from': {'id': 10001, 'is_bot': False, 'first_name': 'Tester'},
-        'message': [{'type': 'photo', 'data': {'file': 'file_id_1'}}],
-        'original_message': [{'type': 'photo', 'data': {'file': 'file_id_1'}}],
-    }
-    if with_reply:
-        payload['reply_to_message'] = {
-            'message_id': 2,
-            'date': 1,
-            'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
-            'from': {'id': 10001, 'is_bot': False, 'first_name': 'Tester'},
-            'message': [{'type': 'photo', 'data': {'file': 'file_id_2'}}],
-            'original_message': [{'type': 'photo', 'data': {'file': 'file_id_2'}}],
-        }
-    return PrivateMessageEvent.model_validate(payload)
-
-
 class TestTelegramImageParser:
     """Telegram 图片解析预处理器测试"""
 
     @staticmethod
     def _make_telegram_bot(ctx):
         from nonebot.adapters.telegram import Adapter, Bot
-        from nonebot.adapters.telegram.config import BotConfig as TelegramBotConfig
 
         adapter = nonebot.get_adapter(Adapter)
         return ctx.create_bot(
@@ -1435,7 +1340,7 @@ class TestTelegramImageParser:
             base=Bot,
             adapter=adapter,
             auto_connect=False,
-            config=TelegramBotConfig(token='123456:TEST_TOKEN'),
+            config=make_telegram_bot_config(),
         )
 
     async def test_photo_segment_parsed_with_url(self, app: App) -> None:
@@ -1445,7 +1350,12 @@ class TestTelegramImageParser:
 
         async with app.test_api() as ctx:
             bot = self._make_telegram_bot(ctx)
-            event = _make_telegram_photo_event()
+            event = make_telegram_message_event(
+                'private',
+                chat_id=10001,
+                with_photo=True,
+                original_message=[{'type': 'photo', 'data': {'file': 'file_id_1'}}],
+            )
 
             ctx.should_call_api(
                 'get_file', {'file_id': 'file_id_1'},
@@ -1466,7 +1376,20 @@ class TestTelegramImageParser:
 
         async with app.test_api() as ctx:
             bot = self._make_telegram_bot(ctx)
-            event = _make_telegram_photo_event(with_reply=True)
+            event = make_telegram_message_event(
+                'private',
+                chat_id=10001,
+                with_photo=True,
+                original_message=[{'type': 'photo', 'data': {'file': 'file_id_1'}}],
+                reply_to={
+                    'message_id': 2,
+                    'date': 1,
+                    'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
+                    'from': make_telegram_user_payload(user_id=10001),
+                    'message': [{'type': 'photo', 'data': {'file': 'file_id_2'}}],
+                    'original_message': [{'type': 'photo', 'data': {'file': 'file_id_2'}}],
+                },
+            )
 
             ctx.should_call_api(
                 'get_file', {'file_id': 'file_id_1'},
@@ -1484,23 +1407,18 @@ class TestTelegramImageParser:
             assert ctx.wait_list.empty()
 
     async def test_sticker_segment_parsed(self, app: App) -> None:
-        from nonebot.adapters.telegram.event import PrivateMessageEvent
-
         from src.service.omega_processor.message.telegram_image_parser import (
             handle_parse_message_image_event_preprocessor,
         )
 
         async with app.test_api() as ctx:
             bot = self._make_telegram_bot(ctx)
-            payload: dict[str, Any] = {
-                'message_id': 1,
-                'date': 1,
-                'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
-                'from': {'id': 10001, 'is_bot': False, 'first_name': 'Tester'},
-                'message': [{'type': 'sticker', 'data': {'file': 'sticker_file_id'}}],
-                'original_message': [{'type': 'sticker', 'data': {'file': 'sticker_file_id'}}],
-            }
-            event = PrivateMessageEvent.model_validate(payload)
+            event = make_telegram_message_event(
+                'private',
+                chat_id=10001,
+                message=[{'type': 'sticker', 'data': {'file': 'sticker_file_id'}}],
+                original_message=[{'type': 'sticker', 'data': {'file': 'sticker_file_id'}}],
+            )
 
             ctx.should_call_api(
                 'get_file', {'file_id': 'sticker_file_id'},
@@ -1518,7 +1436,12 @@ class TestTelegramImageParser:
 
         async with app.test_api() as ctx:
             bot = self._make_telegram_bot(ctx)
-            event = _make_telegram_photo_event()
+            event = make_telegram_message_event(
+                'private',
+                chat_id=10001,
+                with_photo=True,
+                original_message=[{'type': 'photo', 'data': {'file': 'file_id_1'}}],
+            )
 
             ctx.should_call_api('get_file', {'file_id': 'file_id_1'}, {'file_id': 'file_id_1', 'file_path': None})
 
@@ -1533,7 +1456,12 @@ class TestTelegramImageParser:
 
         async with app.test_api() as ctx:
             bot = self._make_telegram_bot(ctx)
-            event = _make_telegram_photo_event()
+            event = make_telegram_message_event(
+                'private',
+                chat_id=10001,
+                with_photo=True,
+                original_message=[{'type': 'photo', 'data': {'file': 'file_id_1'}}],
+            )
 
             ctx.should_call_api('get_file', {'file_id': 'file_id_1'}, exception=RuntimeError('telegram error'))
 
@@ -1543,22 +1471,17 @@ class TestTelegramImageParser:
             assert event.message[0].data['file'] == 'file_id_1'
 
     async def test_text_segment_untouched(self, app: App) -> None:
-        from nonebot.adapters.telegram.event import PrivateMessageEvent
-
         from src.service.omega_processor.message.telegram_image_parser import (
             handle_parse_message_image_event_preprocessor,
         )
 
         async with app.test_api() as ctx:
             bot = self._make_telegram_bot(ctx)
-            payload: dict[str, Any] = {
-                'message_id': 1,
-                'date': 1,
-                'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
-                'from': {'id': 10001, 'is_bot': False, 'first_name': 'Tester'},
-                'message': [{'type': 'text', 'data': {'text': 'plain text'}}],
-            }
-            event = PrivateMessageEvent.model_validate(payload)
+            event = make_telegram_message_event(
+                'private',
+                chat_id=10001,
+                message=[{'type': 'text', 'data': {'text': 'plain text'}}],
+            )
 
             await handle_parse_message_image_event_preprocessor(bot=bot, event=event)
 
@@ -1580,6 +1503,12 @@ class TestTelegramImageParser:
 _NTQQ_ORIGIN_DOMAIN = 'https://multimedia.nt.qq.com.cn'
 _NTQQ_REPLACED_DOMAIN = 'https://gchat.qpic.cn'
 
+_NTQQ_IMAGE_SEGMENT_DATA = {
+    'file': f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=file_ntqq&spec=0',
+    'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0',
+}
+"""事件级测试主消息的 NTQQ 域名 image 段数据 (使用时须 dict(...) 复制, 避免共享可变字典)"""
+
 
 def _make_image_message_segment(data: dict[str, Any]) -> Any:
     """构造 OneBot V11 image 消息段"""
@@ -1588,42 +1517,11 @@ def _make_image_message_segment(data: dict[str, Any]) -> Any:
     return MessageSegment(type='image', data=data)
 
 
-def _make_obv11_image_message_event(*, reply_message_data: dict[str, Any] | None = None) -> Any:
-    """构造携带 NTQQ 域名 image 消息段的 OneBot V11 私聊消息事件, 可附带 reply 消息"""
+def _make_ntqq_image_message() -> Any:
+    """构造携带 NTQQ 域名 image 段的 OneBot V11 消息 (事件级测试主消息)"""
     from nonebot.adapters.onebot.v11 import Message
-    from nonebot.adapters.onebot.v11.event import PrivateMessageEvent, Reply, Sender
 
-    message = Message([_make_image_message_segment({
-        'file': f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=file_ntqq&spec=0',
-        'url': f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0',
-    })])
-
-    reply = None
-    if reply_message_data is not None:
-        reply = Reply(
-            time=1,
-            message_type='private',
-            message_id=2,
-            real_id=2,
-            sender=Sender(user_id=10002, nickname='replied'),
-            message=Message([_make_image_message_segment(reply_message_data)]),
-        )
-
-    return PrivateMessageEvent(
-        time=1,
-        self_id=10086,
-        post_type='message',
-        message_type='private',
-        sub_type='friend',
-        message_id=1,
-        user_id=10001,
-        message=message,
-        original_message=message.copy(),
-        raw_message='[CQ:image,file=file_ntqq]',
-        font=0,
-        sender=Sender(user_id=10001, nickname='tester'),
-        reply=reply,
-    )
+    return Message([_make_image_message_segment(dict(_NTQQ_IMAGE_SEGMENT_DATA))])
 
 
 class TestOnebotV11NtqqImageUrlReplacer:
@@ -1802,7 +1700,10 @@ class TestOnebotV11NtqqImageUrlReplacer:
 
         ntqq_url = f'{_NTQQ_ORIGIN_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0'
         replaced_url = f'{_NTQQ_REPLACED_DOMAIN}/download?appid=1407&fileid=url_ntqq&spec=0'
-        event = _make_obv11_image_message_event()
+        event = make_obv11_private_message_event(
+            message=_make_ntqq_image_message(),
+            raw_message='[CQ:image,file=file_ntqq]',
+        )
         original_message = event.message
 
         await handle_replace_image_url_event_preprocessor(bot=make_mock_bot(), event=event)
@@ -1815,12 +1716,25 @@ class TestOnebotV11NtqqImageUrlReplacer:
 
     async def test_event_reply_message_also_replaced(self) -> None:
         """事件携带 reply 时主消息与 reply 消息均被替换, 原 reply 消息对象不被污染"""
+        from nonebot.adapters.onebot.v11 import Message
+        from nonebot.adapters.onebot.v11.event import Sender
+
         from src.service.omega_processor.message.onebot_v11_ntqq_image_url_replacer import (
             handle_replace_image_url_event_preprocessor,
         )
 
         ntqq_reply_url = f'{_NTQQ_ORIGIN_DOMAIN}/download?fileid=url_reply'
-        event = _make_obv11_image_message_event(reply_message_data={'url': ntqq_reply_url})
+        event = make_obv11_private_message_event(
+            message=_make_ntqq_image_message(),
+            raw_message='[CQ:image,file=file_ntqq]',
+            reply=make_obv11_reply(
+                Message([_make_image_message_segment({'url': ntqq_reply_url})]),
+                message_type='private',
+                message_id=2,
+                real_id=2,
+                sender=Sender(user_id=10002, nickname='replied'),
+            ),
+        )
         original_reply_message = event.reply.message
 
         await handle_replace_image_url_event_preprocessor(bot=make_mock_bot(), event=event)
@@ -1837,7 +1751,10 @@ class TestOnebotV11NtqqImageUrlReplacer:
             handle_replace_image_url_event_preprocessor,
         )
 
-        event = _make_obv11_image_message_event()
+        event = make_obv11_private_message_event(
+            message=_make_ntqq_image_message(),
+            raw_message='[CQ:image,file=file_ntqq]',
+        )
         assert event.reply is None
 
         await handle_replace_image_url_event_preprocessor(bot=make_mock_bot(), event=event)

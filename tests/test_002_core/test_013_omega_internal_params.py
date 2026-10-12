@@ -19,28 +19,55 @@ import nonebot
 import pytest
 from nonebug import App
 
-from tests.test_002_core.helpers import (
+from tests.utils import (
+    make_fake_event,
     make_fake_message_event,
     make_mock_bot,
     make_non_plugin_matcher,
     make_obv11_group_message_event,
     make_obv11_private_message_event,
+    make_real_obv11_bot,
+    make_telegram_message_event,
     registered_online_bot,
+    seed_entity_permissions,
     unique_test_id,
 )
-from tests.utils import make_fake_event
 
 if TYPE_CHECKING:
-    from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
-
     from src.service import OmegaMatcherInterface
 
 
-def _make_real_obv11_bot(self_id: str = '10086') -> 'OneBotV11Bot':
-    """构造真实 OneBot V11 Bot 实例 (不建立连接, 仅满足依赖注入的实例校验)"""
-    from nonebot.adapters.onebot.v11 import Adapter, Bot
+async def _run_parser_handler(handler: Any, text: str) -> dict:
+    """以空 state 直接调用命令参数解析 handler, 返回解析后的 state"""
+    from nonebot.adapters.onebot.v11 import Message
 
-    return Bot(nonebot.get_adapter(Adapter), self_id)
+    state: dict = {}
+    await handler(state, Message(text))
+    return state
+
+
+def _make_matcher_interface(bot_self_id: str = '10086', user_id: int = 10001) -> 'OmegaMatcherInterface':
+    """构造绑定 mock Bot 与私聊消息事件的 OmegaMatcherInterface"""
+    from src.service import OmegaMatcherInterface
+
+    return OmegaMatcherInterface(
+        bot=make_mock_bot(self_id=bot_self_id),
+        event=make_obv11_private_message_event(user_id=user_id),
+        matcher=make_non_plugin_matcher(),
+    )
+
+
+def _stub_running_scheduler(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """以运行中的调度器替身替换订阅管理 handlers 模块内的 scheduler 名字, 返回 pause/resume 调用记录列表"""
+    import src.params.template.subscription_manager.handlers as handlers_module
+
+    calls: list[str] = []
+    monkeypatch.setattr(handlers_module, 'scheduler', SimpleNamespace(
+        running=True,
+        pause=lambda: calls.append('pause'),
+        resume=lambda: calls.append('resume'),
+    ))
+    return calls
 
 
 def _flatten_exceptions(exc: BaseException) -> list[BaseException]:
@@ -238,124 +265,108 @@ class TestModuleContract:
 class TestCommandStrSingleArgParserHandler:
     """单个文本命令参数解析 handler 测试 (直接调用)"""
 
-    @staticmethod
-    async def _run(handler: Any, text: str) -> dict:
-        from nonebot.adapters.onebot.v11 import Message
-
-        state: dict = {}
-        await handler(state, Message(text))
-        return state
-
     async def test_arg_extracted_and_stripped(self) -> None:
         from src.params.handler import get_command_str_single_arg_parser_handler
 
         handler = get_command_str_single_arg_parser_handler('test_key')
-        assert await self._run(handler, '  hello  ') == {'test_key': 'hello'}
+        assert await _run_parser_handler(handler, '  hello  ') == {'test_key': 'hello'}
 
     async def test_whitespace_arg_treated_as_empty(self) -> None:
         from src.params.handler import get_command_str_single_arg_parser_handler
 
         handler = get_command_str_single_arg_parser_handler('test_key')
-        assert await self._run(handler, '   ') == {}
+        assert await _run_parser_handler(handler, '   ') == {}
 
     async def test_default_used_when_empty(self) -> None:
         from src.params.handler import get_command_str_single_arg_parser_handler
 
         handler = get_command_str_single_arg_parser_handler('test_key', default='200')
-        assert await self._run(handler, '') == {'test_key': '200'}
+        assert await _run_parser_handler(handler, '') == {'test_key': '200'}
 
     async def test_empty_string_default_is_honored(self) -> None:
         """显式传入空字符串默认值时应写入空字符串而非忽略"""
         from src.params.handler import get_command_str_single_arg_parser_handler
 
         handler = get_command_str_single_arg_parser_handler('test_key', default='')
-        assert await self._run(handler, '') == {'test_key': ''}
+        assert await _run_parser_handler(handler, '') == {'test_key': ''}
 
     async def test_ensure_key_sets_none(self) -> None:
         from src.params.handler import get_command_str_single_arg_parser_handler
 
         handler = get_command_str_single_arg_parser_handler('test_key', ensure_key=True)
-        assert await self._run(handler, '') == {'test_key': None}
+        assert await _run_parser_handler(handler, '') == {'test_key': None}
 
     async def test_default_and_ensure_key_priority(self) -> None:
         from src.params.handler import get_command_str_single_arg_parser_handler
 
         handler = get_command_str_single_arg_parser_handler('test_key', default='fallback', ensure_key=True)
         # 无参数时 default 优先于 ensure_key
-        assert await self._run(handler, '') == {'test_key': 'fallback'}
+        assert await _run_parser_handler(handler, '') == {'test_key': 'fallback'}
         # 有参数时参数优先于 default
-        assert await self._run(handler, 'value') == {'test_key': 'value'}
+        assert await _run_parser_handler(handler, 'value') == {'test_key': 'value'}
 
 
 class TestCommandStrMultiArgsParserHandler:
     """多个文本命令参数解析 handler 测试 (直接调用)"""
 
-    @staticmethod
-    async def _run(handler: Any, text: str) -> dict:
-        from nonebot.adapters.onebot.v11 import Message
-
-        state: dict = {}
-        await handler(state, Message(text))
-        return state
-
     async def test_split_all_args(self) -> None:
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg')
-        assert await self._run(handler, 'a b  c') == {'arg_0': 'a', 'arg_1': 'b', 'arg_2': 'c'}
+        assert await _run_parser_handler(handler, 'a b  c') == {'arg_0': 'a', 'arg_1': 'b', 'arg_2': 'c'}
 
     async def test_extra_args_merged_into_last_key(self) -> None:
         """ensure_keys_num 限定了分割次数, 超出数量的参数以空白连接合并入末位 key"""
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=2)
-        assert await self._run(handler, 'a b c d') == {'arg_0': 'a', 'arg_1': 'b c d'}
+        assert await _run_parser_handler(handler, 'a b c d') == {'arg_0': 'a', 'arg_1': 'b c d'}
 
     async def test_missing_args_filled_with_default(self) -> None:
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', default='d', ensure_keys_num=2)
-        assert await self._run(handler, 'x') == {'arg_0': 'x', 'arg_1': 'd'}
+        assert await _run_parser_handler(handler, 'x') == {'arg_0': 'x', 'arg_1': 'd'}
 
     async def test_missing_args_filled_with_none(self) -> None:
         """default 缺省时以 None 填充缺位"""
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=2)
-        assert await self._run(handler, 'x') == {'arg_0': 'x', 'arg_1': None}
+        assert await _run_parser_handler(handler, 'x') == {'arg_0': 'x', 'arg_1': None}
 
     async def test_ensure_one_key_disables_splitting(self) -> None:
         """ensure_keys_num=1 时全部文本作为单个参数不分割"""
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=1)
-        assert await self._run(handler, 'a b c') == {'arg_0': 'a b c'}
+        assert await _run_parser_handler(handler, 'a b c') == {'arg_0': 'a b c'}
 
     async def test_empty_input_without_ensure_keeps_state(self) -> None:
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg')
-        assert await self._run(handler, '   ') == {}
+        assert await _run_parser_handler(handler, '   ') == {}
 
     async def test_empty_input_with_ensure_fills_default(self) -> None:
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', default='d', ensure_keys_num=2)
-        assert await self._run(handler, '') == {'arg_0': 'd', 'arg_1': 'd'}
+        assert await _run_parser_handler(handler, '') == {'arg_0': 'd', 'arg_1': 'd'}
 
     async def test_negative_ensure_keys_num_behaves_as_zero(self) -> None:
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=-1)
-        assert await self._run(handler, 'a b') == {'arg_0': 'a', 'arg_1': 'b'}
+        assert await _run_parser_handler(handler, 'a b') == {'arg_0': 'a', 'arg_1': 'b'}
 
     async def test_default_without_ensure_keys_num_is_ignored(self) -> None:
         """default 仅在 ensure_keys_num > 0 时生效, 单独传入不产生效果"""
         from src.params.handler import get_command_str_multi_args_parser_handler
 
         handler = get_command_str_multi_args_parser_handler('arg', default='d')
-        assert await self._run(handler, 'a b') == {'arg_0': 'a', 'arg_1': 'b'}
-        assert await self._run(handler, '') == {}
+        assert await _run_parser_handler(handler, 'a b') == {'arg_0': 'a', 'arg_1': 'b'}
+        assert await _run_parser_handler(handler, '') == {}
 
 
 class TestCommandMessageArgParserHandler:
@@ -613,7 +624,7 @@ class TestEntityDepends:
             captured['event_iface'] = event_iface
             captured['user_iface'] = user_iface
 
-        bot = _make_real_obv11_bot()
+        bot = make_real_obv11_bot()
         event = make_obv11_group_message_event(group_id=10000, user_id=10001)
         matcher = make_non_plugin_matcher()
 
@@ -642,7 +653,7 @@ class TestEntityDepends:
             captured['event_iface'] = event_iface
             captured['user_iface'] = user_iface
 
-        bot = _make_real_obv11_bot(self_id='10086')
+        bot = make_real_obv11_bot(self_id='10086')
         event = make_obv11_group_message_event(group_id=10000, user_id=10001)
         matcher = make_non_plugin_matcher()
 
@@ -674,7 +685,7 @@ class TestEntityDepends:
             captured['event_url'] = event_url
             captured['user_url'] = user_url
 
-        bot = _make_real_obv11_bot()
+        bot = make_real_obv11_bot()
         event = make_obv11_group_message_event(group_id=10000, user_id=10001)
         matcher = make_non_plugin_matcher()
 
@@ -692,7 +703,7 @@ class TestEntityDepends:
         async def dep(event_iface: EVENT_E_IFACE) -> None:
             captured['event_iface'] = event_iface
 
-        bot = _make_real_obv11_bot()
+        bot = make_real_obv11_bot()
         event = make_fake_event()()
         matcher = make_non_plugin_matcher()
 
@@ -717,38 +728,6 @@ class TestPermissionRules:
             str(user_id),
         )
 
-    @staticmethod
-    async def _grant_entity_auth(
-            bot: Any,
-            entity_type: str,
-            entity_id: str,
-            *,
-            enable_global: bool = False,
-            level: int | None = None,
-            auth_nodes: list[tuple[str, str, str, int]] | None = None,
-    ) -> None:
-        """为指定 Entity 授予权限 (独立会话, 退出即提交)
-
-        :param bot: BotSelf 数据记录 (读取 bot_type/self_id)
-        """
-        from src.database.helpers import database_session
-        from src.service import OmegaEntity
-
-        async with database_session() as session:
-            entity = OmegaEntity(
-                session=session,
-                bot_type=bot.bot_type,
-                bot_id=bot.self_id,
-                entity_type=entity_type,
-                entity_id=entity_id,
-            )
-            if enable_global:
-                await entity.enable_global_permission()
-            if level is not None:
-                await entity.set_permission_level(level=level)
-            for module, plugin, node, available in auth_nodes or []:
-                await entity.set_auth_setting(module=module, plugin=plugin, node=node, available=available, value={})
-
     async def test_event_global_permission_rule(self, test_onebot_v11_bot) -> None:
         from src.params.rule import EventGlobalPermissionRule
 
@@ -757,7 +736,7 @@ class TestPermissionRules:
         rule = EventGlobalPermissionRule()
         assert await rule(bot, event) is False
 
-        await self._grant_entity_auth(test_onebot_v11_bot, 'onebot_v11_user', user_id, enable_global=True)
+        await seed_entity_permissions(test_onebot_v11_bot, 'onebot_v11_user', user_id, enable_global=True)
         assert await rule(bot, event) is True
 
     @pytest.mark.parametrize('rule_cls_name', ['EventPermissionLevelRule', 'UserPermissionLevelRule'])
@@ -780,9 +759,9 @@ class TestPermissionRules:
         from src.params import rule as rule_module
 
         bot, event, user_id = self._make_private_case(test_onebot_v11_bot.self_id)
-        await self._grant_entity_auth(
+        await seed_entity_permissions(
             test_onebot_v11_bot, 'onebot_v11_user', user_id,
-            enable_global=enable_global, level=granted_level,
+            enable_global=enable_global, permission_level=granted_level,
         )
 
         rule = getattr(rule_module, rule_cls_name)(level=required_level)
@@ -808,7 +787,7 @@ class TestPermissionRules:
 
         bot, event, user_id = self._make_private_case(test_onebot_v11_bot.self_id)
         auth_nodes = [('TestModule', 'TestPlugin', 'test_node', node_available)] if node_available is not None else None
-        await self._grant_entity_auth(
+        await seed_entity_permissions(
             test_onebot_v11_bot, 'onebot_v11_user', user_id,
             enable_global=enable_global, auth_nodes=auth_nodes,
         )
@@ -825,12 +804,12 @@ class TestPermissionRules:
         bot = make_mock_bot(self_id=test_onebot_v11_bot.self_id)
         event = make_obv11_group_message_event(group_id=group_id, user_id=user_id)
 
-        await self._grant_entity_auth(test_onebot_v11_bot, 'onebot_v11_group', str(group_id), enable_global=True)
+        await seed_entity_permissions(test_onebot_v11_bot, 'onebot_v11_group', str(group_id), enable_global=True)
 
         assert await EventGlobalPermissionRule()(bot, event) is True
         assert await UserGlobalPermissionRule()(bot, event) is False
 
-        await self._grant_entity_auth(test_onebot_v11_bot, 'onebot_v11_user', str(user_id), enable_global=True)
+        await seed_entity_permissions(test_onebot_v11_bot, 'onebot_v11_user', str(user_id), enable_global=True)
         assert await UserGlobalPermissionRule()(bot, event) is True
 
     async def test_rule_check_failure_denies_with_warning(self, log_capture) -> None:
@@ -841,7 +820,7 @@ class TestPermissionRules:
             UserGlobalPermissionRule,
         )
 
-        bot = _make_real_obv11_bot()
+        bot = make_real_obv11_bot()
         event = make_fake_event()()
 
         assert await EventGlobalPermissionRule()(bot, event) is False
@@ -889,12 +868,12 @@ class TestIsAdmin:
         from src.params.permission import IS_ADMIN
 
         # 测试配置中 superusers 包含 'User'
-        assert await IS_ADMIN(_make_real_obv11_bot(), make_fake_message_event(user_id='User')) is True
+        assert await IS_ADMIN(make_real_obv11_bot(), make_fake_message_event(user_id='User')) is True
 
     async def test_onebot_v11_private(self) -> None:
         from src.params.permission import IS_ADMIN
 
-        assert await IS_ADMIN(_make_real_obv11_bot(), make_obv11_private_message_event()) is True
+        assert await IS_ADMIN(make_real_obv11_bot(), make_obv11_private_message_event()) is True
 
     @pytest.mark.parametrize(('role', 'expected'), [
         ('admin', True),
@@ -906,42 +885,38 @@ class TestIsAdmin:
         from src.params.permission import IS_ADMIN
 
         event = make_obv11_group_message_event(role=role)
-        assert await IS_ADMIN(_make_real_obv11_bot(), event) is expected
+        assert await IS_ADMIN(make_real_obv11_bot(), event) is expected
 
     async def test_telegram_private(self) -> None:
-        from nonebot.adapters.telegram.event import PrivateMessageEvent
-
         from src.params.permission import IS_ADMIN
 
-        event = PrivateMessageEvent.model_validate({
-            'message_id': 1,
-            'date': 1,
-            'chat': {'id': 10001, 'type': 'private', 'first_name': 'Tester'},
-            'from': {'id': 10001, 'is_bot': False, 'first_name': 'Tester'},
-            'message': [{'type': 'text', 'data': {'text': 'hi'}}],
-            'original_message': [{'type': 'text', 'data': {'text': 'hi'}}],
-        })
-        assert await IS_ADMIN(_make_real_obv11_bot(), event) is True
+        event = make_telegram_message_event(
+            'private',
+            chat_id=10001,
+            user_id=10001,
+            original_message=[{'type': 'text', 'data': {'text': 'hi'}}],
+        )
+        assert await IS_ADMIN(make_real_obv11_bot(), event) is True
 
     async def test_non_privileged_event(self) -> None:
         from src.params.permission import IS_ADMIN
 
-        assert await IS_ADMIN(_make_real_obv11_bot(), make_fake_message_event(user_id='nobody')) is False
+        assert await IS_ADMIN(make_real_obv11_bot(), make_fake_message_event(user_id='nobody')) is False
 
     async def test_check_event_is_admin_additional(self) -> None:
-        """assign additional 检查函数: 参数序为 (event, bot, state, arparma), 委托 IS_ADMIN"""
+        """alconna assign additional 检查函数: 参数序为 (event, bot, state, arparma), 委托 IS_ADMIN"""
         from src.params.permission import check_event_is_admin
 
-        bot = _make_real_obv11_bot()
+        bot = make_real_obv11_bot()
         assert await check_event_is_admin(make_obv11_private_message_event(), bot, {}, MagicMock()) is True
         assert await check_event_is_admin(make_obv11_group_message_event(role='member'), bot, {}, MagicMock()) is False
         assert await check_event_is_admin(make_obv11_group_message_event(role='admin'), bot, {}, MagicMock()) is True
 
     async def test_check_event_is_superuser_additional(self) -> None:
-        """assign additional 检查函数: 委托 SUPERUSER (测试配置中 superusers 包含 'User')"""
+        """alconna assign additional 检查函数: 委托 SUPERUSER (测试配置中 superusers 包含 'User')"""
         from src.params.permission import check_event_is_superuser
 
-        bot = _make_real_obv11_bot()
+        bot = make_real_obv11_bot()
         assert await check_event_is_superuser(make_fake_message_event(user_id='User'), bot, {}, MagicMock()) is True
         assert await check_event_is_superuser(make_fake_message_event(user_id='nobody'), bot, {}, MagicMock()) is False
 
@@ -1124,16 +1099,13 @@ class TestBaseSubscriptionManager:
     async def test_entity_subscription_flow(
             self, subscription_manager_stub_cls, test_onebot_v11_bot, test_db_data_factory,
     ) -> None:
-        from src.service import OmegaMatcherInterface
-
         manager_cls = subscription_manager_stub_cls()
         source = await test_db_data_factory.create_test_subscription_source(sub_type=manager_cls.get_sub_type())
         manager = manager_cls(source.sub_id)
 
-        interface = OmegaMatcherInterface(
-            bot=make_mock_bot(self_id=test_onebot_v11_bot.self_id),
-            event=make_obv11_private_message_event(user_id=random.randint(10_000_000, 99_999_999)),
-            matcher=make_non_plugin_matcher(),
+        interface = _make_matcher_interface(
+            bot_self_id=test_onebot_v11_bot.self_id,
+            user_id=random.randint(10_000_000, 99_999_999),
         )
 
         await manager.add_entity_sub(interface=interface)
@@ -1348,16 +1320,6 @@ class TestSubscriptionHandlerFactory:
         return factory, _HandlerStubManager
 
     @staticmethod
-    def _make_interface(bot_self_id: str = '10086', user_id: int = 10001) -> 'OmegaMatcherInterface':
-        from src.service import OmegaMatcherInterface
-
-        return OmegaMatcherInterface(
-            bot=make_mock_bot(self_id=bot_self_id),
-            event=make_obv11_private_message_event(user_id=user_id),
-            matcher=make_non_plugin_matcher(),
-        )
-
-    @staticmethod
     def _make_prompt_matcher(response: Any) -> Any:
         """构造 prompt 替身 (组合式, 仅提供 handler 实际调用的 prompt 方法)"""
         return SimpleNamespace(prompt=AsyncMock(return_value=response))
@@ -1386,7 +1348,7 @@ class TestSubscriptionHandlerFactory:
 
         prompt_matcher = self._make_prompt_matcher(UniMessage(prompt_response) if prompt_response is not None else None)
         with pytest.raises(FinishedException):
-            await handler(prompt_matcher, interface or self._make_interface(), match)
+            await handler(prompt_matcher, interface or _make_matcher_interface(), match)
         return prompt_matcher
 
     def test_factory_properties(self, handler_factory) -> None:
@@ -1507,19 +1469,12 @@ class TestSubscriptionHandlerFactory:
         """调度器运行时应在订阅更新期间暂停并在结束后恢复"""
         from nonebot.exception import FinishedException
 
-        import src.params.template.subscription_manager.handlers as handlers_module
-
-        calls: list[str] = []
-        monkeypatch.setattr(handlers_module, 'scheduler', SimpleNamespace(
-            running=True,
-            pause=lambda: calls.append('pause'),
-            resume=lambda: calls.append('resume'),
-        ))
+        calls = _stub_running_scheduler(monkeypatch)
 
         factory, manager_cls = handler_factory
 
         with pytest.raises(FinishedException):
-            await factory._execute_add_subscription(interface=self._make_interface(), sub_id='123')
+            await factory._execute_add_subscription(interface=_make_matcher_interface(), sub_id='123')
 
         assert calls == ['pause', 'resume']
         assert manager_cls.add_sub_calls == ['123']
@@ -1530,20 +1485,13 @@ class TestSubscriptionHandlerFactory:
         """订阅执行失败时应返回友好提示且仍恢复调度器"""
         from nonebot.exception import FinishedException
 
-        import src.params.template.subscription_manager.handlers as handlers_module
-
-        calls: list[str] = []
-        monkeypatch.setattr(handlers_module, 'scheduler', SimpleNamespace(
-            running=True,
-            pause=lambda: calls.append('pause'),
-            resume=lambda: calls.append('resume'),
-        ))
+        calls = _stub_running_scheduler(monkeypatch)
 
         factory, manager_cls = handler_factory
         manager_cls.fail_add = True
 
         with pytest.raises(FinishedException):
-            await factory._execute_add_subscription(interface=self._make_interface(), sub_id='123')
+            await factory._execute_add_subscription(interface=_make_matcher_interface(), sub_id='123')
 
         assert calls == ['pause', 'resume']
         assert manager_cls.add_sub_calls == []
@@ -1615,7 +1563,7 @@ class TestSubscriptionHandlerFactory:
         manager_cls.fail_del = True
 
         with pytest.raises(FinishedException):
-            await factory._execute_del_subscription(interface=self._make_interface(), sub_id='123')
+            await factory._execute_del_subscription(interface=_make_matcher_interface(), sub_id='123')
 
         assert self._sent_texts(recording_uni_message) == ['取消订阅测试源: 123失败, 请稍后再试或联系管理员处理']
 
@@ -1630,7 +1578,7 @@ class TestSubscriptionHandlerFactory:
         manager_cls.exist_subs = exist_subs
         handler = factory._generate_list_subscription_handler()
 
-        await handler(self._make_interface())
+        await handler(_make_matcher_interface())
 
         assert self._sent_texts(recording_uni_message) == [expected_message]
 
@@ -1642,7 +1590,7 @@ class TestSubscriptionHandlerFactory:
         handler = factory._generate_list_subscription_handler()
 
         with pytest.raises(FinishedException):
-            await handler(self._make_interface())
+            await handler(_make_matcher_interface())
 
         assert self._sent_texts(recording_uni_message) == ['获取已订阅的测试源列表失败, 请稍后再试或联系管理员处理']
 
@@ -1663,7 +1611,7 @@ class TestSubscriptionHandlerFactory:
         handler = factory._generate_switch_subscription_notice_at_all_handler()
 
         user_id = random.randint(10_000_000, 99_999_999)
-        interface = self._make_interface(bot_self_id=test_onebot_v11_bot.self_id, user_id=user_id)
+        interface = _make_matcher_interface(bot_self_id=test_onebot_v11_bot.self_id, user_id=user_id)
         await handler(self._make_prompt_matcher(None), interface, self._match(switch_arg, True))
 
         assert self._sent_texts(recording_uni_message) == [f'已设置测试源订阅通知@所有人功能为{expected_echo}']
@@ -1695,7 +1643,7 @@ class TestSubscriptionHandlerFactory:
         handler = factory._generate_switch_subscription_notice_at_all_handler()
 
         with pytest.raises(FinishedException):
-            await handler(self._make_prompt_matcher(None), self._make_interface(), self._match('xxx', True))
+            await handler(self._make_prompt_matcher(None), _make_matcher_interface(), self._match('xxx', True))
 
         assert self._sent_texts(recording_uni_message) == [
             '无效选项, 请输入【ON/OFF】以启用或关闭订阅通知@所有人, 操作已取消',
@@ -1711,7 +1659,7 @@ class TestSubscriptionHandlerFactory:
         handler = factory._generate_switch_subscription_notice_at_all_handler()
 
         user_id = random.randint(10_000_000, 99_999_999)
-        interface = self._make_interface(bot_self_id=test_onebot_v11_bot.self_id, user_id=user_id)
+        interface = _make_matcher_interface(bot_self_id=test_onebot_v11_bot.self_id, user_id=user_id)
         prompt_matcher = self._make_prompt_matcher(UniMessage('on'))
         await handler(prompt_matcher, interface, self._match('', False))
 
@@ -1725,7 +1673,7 @@ class TestSubscriptionHandlerFactory:
         handler = factory._generate_switch_subscription_notice_at_all_handler()
 
         with pytest.raises(FinishedException):
-            await handler(self._make_prompt_matcher(None), self._make_interface(), self._match('', False))
+            await handler(self._make_prompt_matcher(None), _make_matcher_interface(), self._match('', False))
 
         assert self._sent_texts(recording_uni_message) == ['等待输入超时, 已取消操作']
 
@@ -1741,7 +1689,7 @@ class TestSubscriptionHandlerFactory:
         monkeypatch.setattr(manager_cls, 'enable_entity_notice_at_all_node', classmethod(_fail_enable))
 
         user_id = random.randint(10_000_000, 99_999_999)
-        interface = self._make_interface(bot_self_id=test_onebot_v11_bot.self_id, user_id=user_id)
+        interface = _make_matcher_interface(bot_self_id=test_onebot_v11_bot.self_id, user_id=user_id)
         await handler(self._make_prompt_matcher(None), interface, self._match('on', True))
 
         assert self._sent_texts(recording_uni_message) == ['设置测试源订阅通知@所有人功能失败, 请联系管理员处理']

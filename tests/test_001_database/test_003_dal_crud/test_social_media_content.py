@@ -8,30 +8,85 @@
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
 if TYPE_CHECKING:
     from src.database.internal.social_media_content import SocialMediaContentDAL
 
+smc_dal, _clean_table = define_dal_fixtures(
+    'src.database.internal.social_media_content.SocialMediaContentDAL', 'smc_dal',
+)
+
+
+async def _add_smc_records(smc_dal: 'SocialMediaContentDAL', *records: tuple[str, str, str, str]) -> None:
+    """批量播种社交内容记录, 每条为 (source, m_type, m_id, m_uid), title 按播种序号占位 (t1/t2/...)"""
+    for index, (source, m_type, m_id, m_uid) in enumerate(records, start=1):
+        await smc_dal.add(
+            source=source,
+            m_type=m_type,
+            m_id=m_id,
+            m_uid=m_uid,
+            title=f't{index}',
+            raw_data={},
+        )
+
 
 @pytest.fixture(scope='class')
-async def smc_dal() -> AsyncGenerator['SocialMediaContentDAL', None]:
-    from src.database.internal.social_media_content import SocialMediaContentDAL
-
-    async with SocialMediaContentDAL.create() as dal:
-        yield dal
+def test_smc_source() -> str:
+    return unique_test_id('TEST_SMC_SOURCE')
 
 
-@pytest.fixture(autouse=True)
-async def _clean_table(smc_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await smc_dal._clear_all()
-    await smc_dal.commit_session()
+@pytest.fixture(scope='class')
+def test_smc_m_type() -> str:
+    return unique_test_id('TEST_SMC_M_TYPE')
+
+
+@pytest.fixture(scope='class')
+def test_smc_m_id() -> str:
+    return unique_test_id('TEST_SMC_M_ID')
+
+
+@pytest.fixture(scope='class')
+def test_smc_m_uid() -> str:
+    return unique_test_id('TEST_SMC_M_UID')
+
+
+@pytest.fixture(scope='class')
+def test_smc_title() -> str:
+    return unique_test_id('TEST_SMC_TITLE')
+
+
+@pytest.fixture(scope='class')
+def test_smc_content() -> str:
+    return unique_test_id('TEST_SMC_CONTENT')
+
+
+@pytest.fixture(scope='class')
+def test_content_raw_data(
+        test_smc_source: str,
+        test_smc_m_type: str,
+        test_smc_m_id: str,
+        test_smc_m_uid: str,
+        test_smc_title: str,
+        test_smc_content: str,
+) -> dict[str, Any]:
+    return {
+        'id': test_smc_m_id,
+        'type': test_smc_m_type,
+        'uid': test_smc_m_uid,
+        'content': {
+            'title': test_smc_title,
+            'body': test_smc_content,
+        },
+        'source': test_smc_source,
+    }
 
 
 class TestSocialMediaContentDAL:
@@ -236,9 +291,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_source_all_by_source(self, smc_dal) -> None:
         """仅按 source 过滤 (不同 m_type 记录混合)"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_2', m_id='mid_02', m_uid='uid_b', title='t2', raw_data={})
-        await smc_dal.add(source='src_b', m_type='type_1', m_id='mid_03', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_2', 'mid_02', 'uid_b'),
+            ('src_b', 'type_1', 'mid_03', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_all('src_a')
@@ -247,9 +305,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_source_all_with_m_type(self, smc_dal) -> None:
         """source + m_type 过滤"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_2', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_b', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_2', 'mid_02', 'uid_a'),
+            ('src_a', 'type_1', 'mid_03', 'uid_b'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_all('src_a', m_type='type_1')
@@ -258,9 +319,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_source_all_with_m_uid(self, smc_dal) -> None:
         """source + m_uid 过滤"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_x', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_2', m_id='mid_02', m_uid='uid_y', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_x', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_x'),
+            ('src_a', 'type_2', 'mid_02', 'uid_y'),
+            ('src_a', 'type_1', 'mid_03', 'uid_x'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_all('src_a', m_uid='uid_x')
@@ -269,9 +333,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_source_all_with_m_type_and_m_uid(self, smc_dal) -> None:
         """双条件过滤"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_x', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_y', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_2', m_id='mid_03', m_uid='uid_x', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_x'),
+            ('src_a', 'type_1', 'mid_02', 'uid_y'),
+            ('src_a', 'type_2', 'mid_03', 'uid_x'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_all('src_a', m_type='type_1', m_uid='uid_x')
@@ -281,9 +348,12 @@ class TestSocialMediaContentDAL:
     async def test_query_source_all_ordering(self, smc_dal) -> None:
         """按 m_id DESC 排序 (字符串排序, 非降序插入验证)"""
         # 按升序插入, 查询应返回降序
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_1', 'mid_02', 'uid_a'),
+            ('src_a', 'type_1', 'mid_03', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_all('src_a')
@@ -300,10 +370,13 @@ class TestSocialMediaContentDAL:
 
     async def test_query_source_all_m_ids_filtered(self, smc_dal) -> None:
         """source + m_type + m_uid 条件组合, 返回 m_id 列表"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_x', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_2', m_id='mid_02', m_uid='uid_x', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_y', title='t3', raw_data={})
-        await smc_dal.add(source='src_b', m_type='type_1', m_id='mid_04', m_uid='uid_x', title='t4', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_x'),
+            ('src_a', 'type_2', 'mid_02', 'uid_x'),
+            ('src_a', 'type_1', 'mid_03', 'uid_y'),
+            ('src_b', 'type_1', 'mid_04', 'uid_x'),
+        )
         await smc_dal.commit_session()
 
         # 仅 source
@@ -324,9 +397,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_source_all_m_ids_ordering(self, smc_dal) -> None:
         """m_id DESC 排序"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_1', 'mid_02', 'uid_a'),
+            ('src_a', 'type_1', 'mid_03', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_all_m_ids('src_a')
@@ -343,8 +419,11 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_basic(self, smc_dal) -> None:
         """基础存在性: 部分存在部分不存在"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_1', 'mid_02', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         exists = await smc_dal.query_source_exists_m_ids(
@@ -355,9 +434,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_source_forms(self, smc_dal) -> None:
         """source 为 None/str/list 三种形态"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_b', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_c', m_type='type_1', m_id='mid_03', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_b', 'type_1', 'mid_02', 'uid_a'),
+            ('src_c', 'type_1', 'mid_03', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         m_ids = ['mid_01', 'mid_02', 'mid_03']
@@ -376,9 +458,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_m_type_forms(self, smc_dal) -> None:
         """m_type 为 None/str/list 三种形态"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_2', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_3', m_id='mid_03', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_2', 'mid_02', 'uid_a'),
+            ('src_a', 'type_3', 'mid_03', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         m_ids = ['mid_01', 'mid_02', 'mid_03']
@@ -397,9 +482,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_m_uid_forms(self, smc_dal) -> None:
         """m_uid 为 None/str/list 三种形态"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_x', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_y', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_z', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_x'),
+            ('src_a', 'type_1', 'mid_02', 'uid_y'),
+            ('src_a', 'type_1', 'mid_03', 'uid_z'),
+        )
         await smc_dal.commit_session()
 
         m_ids = ['mid_01', 'mid_02', 'mid_03']
@@ -418,9 +506,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_ordering(self, smc_dal) -> None:
         """结果按 m_id DESC 排序"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_03', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_1', 'mid_02', 'uid_a'),
+            ('src_a', 'type_1', 'mid_03', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_exists_m_ids(
@@ -430,7 +521,7 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_no_match(self, smc_dal) -> None:
         """无匹配返回空列表"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
+        await _add_smc_records(smc_dal, ('src_a', 'type_1', 'mid_01', 'uid_a'))
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_exists_m_ids(
@@ -444,8 +535,11 @@ class TestSocialMediaContentDAL:
 
     async def test_query_not_exists_m_ids_basic(self, smc_dal) -> None:
         """补集 (部分存在部分不存在)"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_1', 'mid_02', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         not_exists = await smc_dal.query_source_not_exists_m_ids(
@@ -457,8 +551,11 @@ class TestSocialMediaContentDAL:
 
     async def test_query_not_exists_m_ids_all_exists(self, smc_dal) -> None:
         """全部存在返回空列表"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_02', m_uid='uid_a', title='t2', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_01', 'uid_a'),
+            ('src_a', 'type_1', 'mid_02', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         not_exists = await smc_dal.query_source_not_exists_m_ids(
@@ -468,7 +565,7 @@ class TestSocialMediaContentDAL:
 
     async def test_query_not_exists_m_ids_none_exists(self, smc_dal) -> None:
         """全部不存在返回全部 (sorted reverse)"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
+        await _add_smc_records(smc_dal, ('src_a', 'type_1', 'mid_01', 'uid_a'))
         await smc_dal.commit_session()
 
         not_exists = await smc_dal.query_source_not_exists_m_ids(
@@ -482,7 +579,7 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_empty_input(self, smc_dal) -> None:
         """m_ids 为空列表时返回空列表"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
+        await _add_smc_records(smc_dal, ('src_a', 'type_1', 'mid_01', 'uid_a'))
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_exists_m_ids(None, None, None, [])
@@ -495,7 +592,7 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_empty_sequence_filter(self, smc_dal) -> None:
         """过滤器传空序列时匹配为空 (与 None 匹配全部的语义不同)"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_01', m_uid='uid_a', title='t1', raw_data={})
+        await _add_smc_records(smc_dal, ('src_a', 'type_1', 'mid_01', 'uid_a'))
         await smc_dal.commit_session()
 
         m_ids = ['mid_01']
@@ -530,9 +627,12 @@ class TestSocialMediaContentDAL:
 
     async def test_query_exists_m_ids_natural_order(self, smc_dal) -> None:
         """exists 查询按 m_id 数值感知倒序, not_exists 在部分已存在时保持相同排序语义"""
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_9', m_uid='uid_a', title='t1', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_10', m_uid='uid_a', title='t2', raw_data={})
-        await smc_dal.add(source='src_a', m_type='type_1', m_id='mid_2', m_uid='uid_a', title='t3', raw_data={})
+        await _add_smc_records(
+            smc_dal,
+            ('src_a', 'type_1', 'mid_9', 'uid_a'),
+            ('src_a', 'type_1', 'mid_10', 'uid_a'),
+            ('src_a', 'type_1', 'mid_2', 'uid_a'),
+        )
         await smc_dal.commit_session()
 
         result = await smc_dal.query_source_exists_m_ids('src_a', None, None, ['mid_9', 'mid_10', 'mid_2'])

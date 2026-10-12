@@ -3,20 +3,25 @@
 @Date           : 2026/9/1 17:23
 @FileName       : test_subscription_source
 @Project        : omega-miya
-@Description    : subscription_source.py  数据库 CRUD 单元测试
+@Description    : subscription_source.py 数据库 CRUD 单元测试
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy.exc import NoResultFound
 
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+
 if TYPE_CHECKING:
     from src.database.internal.subscription_source import SubscriptionSourceDAL
     from src.database.schema import BotSelfOrm, EntityOrm, SubscriptionSourceOrm
+
+subscription_source_dal, _clean_table = define_dal_fixtures(
+    'src.database.internal.subscription_source.SubscriptionSourceDAL', 'subscription_source_dal',
+)
 
 
 async def _build_subscribed_chain(
@@ -49,21 +54,6 @@ async def _build_subscribed_chain(
     session.add(SubscriptionOrm(sub_source_index_id=source_obj.id, entity_index_id=entity_obj.id))
     await subscription_source_dal.commit_session()
     return bot_obj, source_obj, entity_obj
-
-
-@pytest.fixture(scope='class')
-async def subscription_source_dal() -> AsyncGenerator['SubscriptionSourceDAL', None]:
-    from src.database.internal.subscription_source import SubscriptionSourceDAL
-
-    async with SubscriptionSourceDAL.create() as dal:
-        yield dal
-
-
-@pytest.fixture(autouse=True)
-async def _clean_table(subscription_source_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await subscription_source_dal._clear_all()
-    await subscription_source_dal.commit_session()
 
 
 class TestSubscriptionSourceDAL:
@@ -327,19 +317,13 @@ class TestSubscriptionSourceDAL:
 
     async def test_add_update_exist_in_nested_transaction_insert(
             self,
+            require_savepoint_support,
             subscription_source_dal,
             test_sub_type,
             test_sub_id,
             test_sub_user_name,
     ) -> None:
         """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销"""
-        from src.database.config import database_config
-        if database_config.database == 'sqlite':
-            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
         await subscription_source_dal.db_session.begin()
         result = await subscription_source_dal.add_update_exist(
             sub_type=test_sub_type,

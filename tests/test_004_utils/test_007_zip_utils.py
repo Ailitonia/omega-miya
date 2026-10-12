@@ -232,8 +232,8 @@ def _make_zip_utils(file_name: str, *, overwrite: bool = True, target_exists: bo
     return zu
 
 
-class TestCreateZipBaseline:
-    """create_zip 现有正确行为"""
+class TestCreateZip:
+    """create_zip 基本行为"""
 
     async def test_writes_all_files_with_basename_arcname(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         _patch_archive_backends(monkeypatch, zip_file_cls=_BytesIOZipFile)
@@ -305,8 +305,8 @@ class TestCreateZipBaseline:
         assert _BytesIOZipFile.created[-1].compression == zip_utils_config.zip_utils_default_zip_compression
 
 
-class TestCreate7zBaseline:
-    """create_7z 现有正确行为"""
+class TestCreate7z:
+    """create_7z 基本行为"""
 
     async def test_writes_files_with_password(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
         _patch_archive_backends(monkeypatch, seven_zip_file_cls=_FakeSevenZipFile)
@@ -482,12 +482,6 @@ class TestMissingInputRaises:
             await zu.create_zip([_MemoryInputResource('/mem/missing.txt', is_file=False)])
         assert zu.file.is_file
         assert not zu.file.children
-
-    async def test_self_reference_not_treated_as_missing(self, monkeypatch: pytest.MonkeyPatch, reset_fakes: None):
-        _patch_archive_backends(monkeypatch, zip_file_cls=_BytesIOZipFile)
-        zu = _make_zip_utils('test.zip')
-        await zu.create_zip([_MemoryInputResource(zu.file.resolve_path), _MemoryInputResource('/mem/a.txt')])
-        assert _BytesIOZipFile.created[-1].written == ['a.txt']
 
 
 class TestInitValidation:

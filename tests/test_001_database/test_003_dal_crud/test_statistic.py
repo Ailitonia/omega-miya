@@ -8,29 +8,62 @@
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
+import random
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
 
 if TYPE_CHECKING:
     from src.database.internal.statistic import StatisticDAL
 
+statistic_dal, _clean_table = define_dal_fixtures('src.database.internal.statistic.StatisticDAL', 'statistic_dal')
+
+
+async def _add_statistic_records(statistic_dal: 'StatisticDAL', *records: tuple[str, str, int]) -> None:
+    """批量播种统计记录 (空 JSON 字段), 每条为 (plugin_name, module_name, call_timestamp)"""
+    for plugin_name, module_name, call_timestamp in records:
+        await statistic_dal.add(
+            plugin_name=plugin_name,
+            module_name=module_name,
+            call_timestamp=call_timestamp,
+            call_entity_meta={},
+            call_data={},
+        )
+
 
 @pytest.fixture(scope='class')
-async def statistic_dal() -> AsyncGenerator['StatisticDAL', None]:
-    from src.database.internal.statistic import StatisticDAL
-
-    async with StatisticDAL.create() as dal:
-        yield dal
+def test_statistic_plugin_name() -> str:
+    return unique_test_id('PLUGIN_NAME')
 
 
-@pytest.fixture(autouse=True)
-async def _clean_table(statistic_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await statistic_dal._clear_all()
-    await statistic_dal.commit_session()
+@pytest.fixture(scope='class')
+def test_statistic_plugin_module() -> str:
+    return unique_test_id('PLUGIN_MODULE')
+
+
+@pytest.fixture(scope='class')
+def test_statistic_call_entity_meta() -> dict[str, Any]:
+    return {
+        'id': random.randint(100000, 999999),
+        'name': unique_test_id('ENTITY_META_NAME'),
+        'message': unique_test_id('ENTITY_META_MESSAGE'),
+    }
+
+
+@pytest.fixture(scope='class')
+def test_statistic_call_data() -> dict[str, Any]:
+    return {
+        'command': unique_test_id('CALL_COMMAND'),
+        'data': {
+            'target': unique_test_id('CALL_DATA_TARGET'),
+            'payload': unique_test_id('CALL_DATA_PAYLOAD'),
+        },
+        'token': unique_test_id('CALL_TOKEN'),
+    }
 
 
 class TestStatisticDAL:
@@ -143,12 +176,12 @@ class TestStatisticDAL:
     async def test_query_by_plugin_name(self, statistic_dal) -> None:
         """仅按 plugin_name 过滤"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts + 1,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_b', call_timestamp=base_ts + 2,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_c', call_timestamp=base_ts + 3,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts + 1),
+            ('plugin_a', 'mod_b', base_ts + 2),
+            ('plugin_b', 'mod_c', base_ts + 3),
+        )
         await statistic_dal.commit_session()
 
         result = await statistic_dal.query_by_condition(plugin_name='plugin_a')
@@ -158,12 +191,12 @@ class TestStatisticDAL:
     async def test_query_by_module_name(self, statistic_dal) -> None:
         """仅按 module_name 过滤"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_x', call_timestamp=base_ts + 1,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_y', call_timestamp=base_ts + 2,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_x', call_timestamp=base_ts + 3,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_x', base_ts + 1),
+            ('plugin_b', 'mod_y', base_ts + 2),
+            ('plugin_c', 'mod_x', base_ts + 3),
+        )
         await statistic_dal.commit_session()
 
         result = await statistic_dal.query_by_condition(module_name='mod_x')
@@ -173,12 +206,12 @@ class TestStatisticDAL:
     async def test_query_by_plugin_and_module(self, statistic_dal) -> None:
         """同时按 plugin_name + module_name 过滤"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_shared', call_timestamp=base_ts + 1,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_other', call_timestamp=base_ts + 2,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_shared', call_timestamp=base_ts + 3,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_shared', base_ts + 1),
+            ('plugin_a', 'mod_other', base_ts + 2),
+            ('plugin_b', 'mod_shared', base_ts + 3),
+        )
         await statistic_dal.commit_session()
 
         result = await statistic_dal.query_by_condition(plugin_name='plugin_a', module_name='mod_shared')
@@ -189,12 +222,12 @@ class TestStatisticDAL:
     async def test_query_by_start_timestamp_int(self, statistic_dal) -> None:
         """start_timestamp 为 int, 只返回 >= start_timestamp 的记录"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts + 100,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_c', call_timestamp=base_ts + 200,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts + 100),
+            ('plugin_c', 'mod_c', base_ts + 200),
+        )
         await statistic_dal.commit_session()
 
         result = await statistic_dal.query_by_condition(start_timestamp=base_ts + 100)
@@ -206,12 +239,12 @@ class TestStatisticDAL:
         """start_timestamp 为 datetime, 验证过滤生效 (内部转 timestamp)"""
         base_dt = datetime(2025, 1, 1, 0, 0, 0)
         base_ts = int(base_dt.timestamp())
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts - 100,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_c', call_timestamp=base_ts + 100,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts - 100),
+            ('plugin_b', 'mod_b', base_ts),
+            ('plugin_c', 'mod_c', base_ts + 100),
+        )
         await statistic_dal.commit_session()
 
         result = await statistic_dal.query_by_condition(start_timestamp=base_dt)
@@ -286,10 +319,11 @@ class TestStatisticDAL:
     async def test_count_no_filter(self, statistic_dal) -> None:
         """不带条件返回全表行数"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts + 1,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts + 1),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal.count_by_condition() == 2
@@ -297,12 +331,12 @@ class TestStatisticDAL:
     async def test_count_by_plugin_name(self, statistic_dal) -> None:
         """按 plugin_name 过滤的计数"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_b', call_timestamp=base_ts + 1,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_c', call_timestamp=base_ts + 2,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_a', 'mod_b', base_ts + 1),
+            ('plugin_b', 'mod_c', base_ts + 2),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal.count_by_condition(plugin_name='plugin_a') == 2
@@ -311,12 +345,12 @@ class TestStatisticDAL:
     async def test_count_by_plugin_and_module(self, statistic_dal) -> None:
         """双条件计数"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_shared', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_other', call_timestamp=base_ts + 1,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_shared', call_timestamp=base_ts + 2,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_shared', base_ts),
+            ('plugin_a', 'mod_other', base_ts + 1),
+            ('plugin_b', 'mod_shared', base_ts + 2),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal.count_by_condition(plugin_name='plugin_a', module_name='mod_shared') == 1
@@ -326,12 +360,12 @@ class TestStatisticDAL:
     async def test_count_by_start_timestamp(self, statistic_dal) -> None:
         """按 start_timestamp 过滤的计数"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts + 100,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_c', call_timestamp=base_ts + 200,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts + 100),
+            ('plugin_c', 'mod_c', base_ts + 200),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal.count_by_condition(start_timestamp=base_ts + 100) == 2
@@ -339,8 +373,7 @@ class TestStatisticDAL:
 
     async def test_count_zero(self, statistic_dal) -> None:
         """条件不匹配时返回 0"""
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=1000000000,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(statistic_dal, ('plugin_a', 'mod_a', 1000000000))
         await statistic_dal.commit_session()
 
         assert await statistic_dal.count_by_condition(plugin_name='nonexistent') == 0
@@ -352,12 +385,12 @@ class TestStatisticDAL:
     async def test_delete_period_older_basic(self, statistic_dal) -> None:
         """删除 call_timestamp <= before_timestamp 的记录, 验证剩余记录"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts + 100,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_c', call_timestamp=base_ts + 200,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts + 100),
+            ('plugin_c', 'mod_c', base_ts + 200),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal._count_all() == 3
@@ -372,12 +405,12 @@ class TestStatisticDAL:
     async def test_delete_period_older_with_plugin_name(self, statistic_dal) -> None:
         """指定 plugin_name 时只删除该 plugin 的过期记录, 其他 plugin 的同 timestamp 记录保留"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_c', call_timestamp=base_ts + 200,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts),
+            ('plugin_a', 'mod_c', base_ts + 200),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal._count_all() == 3
@@ -396,12 +429,12 @@ class TestStatisticDAL:
     async def test_delete_period_older_with_module_name(self, statistic_dal) -> None:
         """指定 module_name 时只删除该 module 的过期记录"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_target', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_other', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_target', call_timestamp=base_ts + 200,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_target', base_ts),
+            ('plugin_b', 'mod_other', base_ts),
+            ('plugin_c', 'mod_target', base_ts + 200),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal._count_all() == 3
@@ -417,10 +450,11 @@ class TestStatisticDAL:
     async def test_delete_period_older_no_match(self, statistic_dal) -> None:
         """before_timestamp 小于所有记录, 不删除任何数据"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts + 100,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts + 100),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal._count_all() == 2
@@ -433,12 +467,12 @@ class TestStatisticDAL:
     async def test_delete_period_older_all(self, statistic_dal) -> None:
         """before_timestamp 大于所有记录, 全部删除"""
         base_ts = 1000000000
-        await statistic_dal.add(plugin_name='plugin_a', module_name='mod_a', call_timestamp=base_ts,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_b', module_name='mod_b', call_timestamp=base_ts + 100,
-                                call_entity_meta={}, call_data={})
-        await statistic_dal.add(plugin_name='plugin_c', module_name='mod_c', call_timestamp=base_ts + 200,
-                                call_entity_meta={}, call_data={})
+        await _add_statistic_records(
+            statistic_dal,
+            ('plugin_a', 'mod_a', base_ts),
+            ('plugin_b', 'mod_b', base_ts + 100),
+            ('plugin_c', 'mod_c', base_ts + 200),
+        )
         await statistic_dal.commit_session()
 
         assert await statistic_dal._count_all() == 3

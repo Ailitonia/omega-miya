@@ -32,13 +32,8 @@ if TYPE_CHECKING:
 requires_live = require_env_flag('OMEGA_TWITTER_X_LIVE_TEST')
 """真实请求测试门禁: 日常运行(含全量套件)一律跳过, 由用户手动设置 OMEGA_TWITTER_X_LIVE_TEST=1 后发起"""
 
-pytestmark = pytest.mark.usefixtures('_twitter_api_ready')
+pytestmark = pytest.mark.usefixtures('web_api_barrier')
 """模块级 nonebug 初始化屏障, 统一作用于全部用例(含 TestTwitterGuestLive; 屏障本就会话级激活, 对 live 类为 no-op)"""
-
-
-@pytest.fixture(scope='session')
-def _twitter_api_ready(nonebug_init: None) -> None:
-    """src.utils.twitter_x_api 导入期依赖 NoneBot 初始化(get_plugin_config), 离线用例的统一屏障"""
 
 
 def _user_result_payload(**overrides: Any) -> dict[str, Any]:

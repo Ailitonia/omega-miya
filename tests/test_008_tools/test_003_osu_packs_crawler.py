@@ -8,9 +8,16 @@
 @Software       : PyCharm
 """
 
+import shutil
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
 import pytest
 
-from tests.test_008_tools.helpers import capture_async_sleep, make_fake_query_packs_recorder
+from tests.test_008_tools.helpers import capture_async_sleep
+
+if TYPE_CHECKING:
+    from tools.osu_packs_crawler.model import BeatmapsPack
 
 _PACKS_LIST_HTML = """
 <html>
@@ -71,6 +78,37 @@ _PACK_DETAIL_NO_LINK_HTML = """
 """
 
 _ALL_PACK_TYPES = ['standard', 'featured', 'tournament', 'loved', 'chart', 'theme', 'artist']
+
+
+def _make_pack(pack_id: str = 'S1000') -> 'BeatmapsPack':
+    """构造样例曲包(默认 S1000), 下载链接按 id 派生"""
+    from tools.osu_packs_crawler.model import BeatmapsPack
+
+    return BeatmapsPack(id=pack_id, download_url=f'https://osu.ppy.sh/beatmaps/packs/{pack_id}/download')
+
+
+def make_fake_query_packs_recorder(captured: list[str]) -> Callable[..., Any]:
+    """构造记录分发类型的假 _query_packs_download_urls"""
+
+    async def _fake_query_packs(type_='standard'):
+        captured.append(type_)
+
+    return _fake_query_packs
+
+
+@pytest.fixture
+def osu_test_root(monkeypatch: pytest.MonkeyPatch) -> str:
+    """隔离的 osu 曲包爬虫测试输出根目录, 测试结束后自动清理"""
+    from src.resource import TemporaryResource
+    from tests.utils import unique_test_id
+    from tools.osu_packs_crawler.config import osu_web_config
+
+    test_root = unique_test_id('osu_packs_crawler_test')
+    monkeypatch.setattr(osu_web_config, 'omega_tool_osu_output_root_folder', test_root)
+    try:
+        yield test_root
+    finally:
+        shutil.rmtree(TemporaryResource(test_root).path, ignore_errors=True)
 
 
 async def _run_info_crawl(
@@ -232,7 +270,6 @@ class TestQueryBeatmapsPacksInfoCircuitBreaker:
     async def test_transient_error_resets_consecutive_counter(self, osu_test_root):
         from src.exception import WebSourceException
         from tools.osu_packs_crawler.config import osu_web_config
-        from tools.osu_packs_crawler.model import BeatmapsPack
 
         query_pages: list[int] = []
         queried_packs: list[str] = []
@@ -247,10 +284,7 @@ class TestQueryBeatmapsPacksInfoCircuitBreaker:
 
         async def fake_query_pack(beatmap_pack_id):
             queried_packs.append(beatmap_pack_id)
-            return BeatmapsPack(
-                id=beatmap_pack_id,
-                download_url=f'https://osu.ppy.sh/beatmaps/packs/{beatmap_pack_id}/download',
-            )
+            return _make_pack(beatmap_pack_id)
 
         with pytest.MonkeyPatch.context() as monkeypatch:
             sleep_calls = await _run_info_crawl(
@@ -268,7 +302,6 @@ class TestQueryBeatmapsPacksInfoCircuitBreaker:
 
     async def test_existing_meta_file_skips_pack_query(self, osu_test_root):
         from tools.osu_packs_crawler.config import osu_web_config
-        from tools.osu_packs_crawler.model import BeatmapsPack
 
         pages = {1: ['S1000'], 2: []}
 
@@ -278,10 +311,7 @@ class TestQueryBeatmapsPacksInfoCircuitBreaker:
         async def fail_query_pack(beatmap_pack_id):
             pytest.fail(f'should not query pack with existing meta file, got {beatmap_pack_id}')
 
-        pack = BeatmapsPack(
-            id='S1000',
-            download_url='https://osu.ppy.sh/beatmaps/packs/S1000/download',
-        )
+        pack = _make_pack()
         meta_file = osu_web_config.meta_dir('standard', 'S1000.json')
         await meta_file.safe_write_text(pack.model_dump_json(), encoding='utf-8')
 
@@ -295,12 +325,8 @@ class TestGenDownloadUrlFromMetaFile:
     async def test_skips_invalid_meta_file(self, osu_test_root):
         import tools.osu_packs_crawler as tool_module
         from tools.osu_packs_crawler.config import osu_web_config
-        from tools.osu_packs_crawler.model import BeatmapsPack
 
-        valid_pack = BeatmapsPack(
-            id='S1000',
-            download_url='https://osu.ppy.sh/beatmaps/packs/S1000/download',
-        )
+        valid_pack = _make_pack()
         meta_dir = osu_web_config.meta_dir('standard')
         await meta_dir('S1000.json').safe_write_text(valid_pack.model_dump_json(), encoding='utf-8')
         await meta_dir('broken.json').safe_write_text('{"id": ', encoding='utf-8')

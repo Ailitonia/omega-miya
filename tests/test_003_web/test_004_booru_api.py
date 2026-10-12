@@ -30,11 +30,6 @@ requires_live = require_env_flag('OMEGA_BOORU_LIVE_TEST')
 # 离线单元测试公共设施(罐装响应, 零网络, 默认运行)
 # ================================================================== #
 
-@pytest.fixture(scope='session')
-def _booru_api_ready(nonebug_init: None) -> None:
-    """src.utils.booru_api 导入期依赖 NoneBot 初始化(get_plugin_config), 离线用例的统一屏障"""
-
-
 def _capture_json_api(monkeypatch: pytest.MonkeyPatch, payload: Any, captured: dict[str, Any]) -> None:
     """将 BaseCommonAPI._get_resource_as_json 替换为捕获型假实现(零网络)
 
@@ -212,7 +207,7 @@ def _moebooru_post_payload(**overrides: Any) -> dict[str, Any]:
 # 离线单元测试共享基类(站点差异经类属性表达)
 # ================================================================== #
 
-@pytest.mark.usefixtures('_booru_api_ready')
+@pytest.mark.usefixtures('web_api_barrier')
 class BooruAPIUnitTestBase:
     """booru API 离线单元测试共享基类(罐装响应, 零网络)
 

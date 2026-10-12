@@ -11,7 +11,6 @@
 import asyncio
 import contextlib
 import os
-import socket
 import uuid
 from collections import defaultdict
 from collections.abc import AsyncGenerator
@@ -25,12 +24,8 @@ from tests.test_003_web.helpers import register_test_routes
 
 
 @pytest.fixture(scope='session')
-def unused_port() -> int:
-    """获取一个当前空闲(已关闭)的本地端口, 用于连接拒绝/代理失败用例"""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        port = s.getsockname()[1]
-    return port
+def web_api_barrier(nonebug_init: None) -> None:
+    """API 测试模块共用的 NoneBot 初始化屏障(src.utils.* 各 API 客户端模块导入期依赖 get_plugin_config)"""
 
 
 @pytest.fixture(scope='session')

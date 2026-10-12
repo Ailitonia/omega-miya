@@ -177,15 +177,12 @@ class TestEventRegistration:
 
     def test_unrelated_notice_type_not_hijacked(self):
         """无关 notice_type 的 payload 不应被自定义事件类劫持"""
-        payload = {
-            'time': 1700000000,
-            'self_id': _SELF_ID,
-            'post_type': 'notice',
-            'notice_type': 'group_upload',
-            'group_id': _GROUP_ID,
-            'user_id': _USER_ID,
-            'file': {'id': 'test_file_id', 'name': 'test_file', 'size': 1024, 'busid': 102},
-        }
+        payload = _make_notice_payload(
+            'group_upload',
+            group_id=_GROUP_ID,
+            user_id=_USER_ID,
+            file={'id': 'test_file_id', 'name': 'test_file', 'size': 1024, 'busid': 102},
+        )
         parsed = OneBotV11Adapter.json_to_event(payload)
 
         assert isinstance(parsed, OneBotV11GroupUploadNoticeEvent)

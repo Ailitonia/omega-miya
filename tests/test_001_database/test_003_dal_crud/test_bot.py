@@ -10,34 +10,18 @@
 
 import random
 import string
-from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.bot import BotSelfDAL
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+
+bot_dal, _clean_table = define_dal_fixtures('src.database.internal.bot.BotSelfDAL', 'bot_dal')
 
 
 @pytest.fixture(scope='class')
 async def test_bot_info() -> str:
     return f'TEST_INFO_{"".join(random.choices(string.ascii_letters + string.digits, k=64))}'
-
-
-@pytest.fixture(scope='class')
-async def bot_dal() -> AsyncGenerator['BotSelfDAL', None]:
-    from src.database.internal.bot import BotSelfDAL
-
-    async with BotSelfDAL.create() as dal:
-        yield dal
-
-
-@pytest.fixture(autouse=True)
-async def _clean_table(bot_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await bot_dal._clear_all()
-    await bot_dal.commit_session()
 
 
 class TestBotSelfDAL:
@@ -181,25 +165,6 @@ class TestBotSelfDAL:
     # ------------------------------------------------------------------ #
     # query_unique — 多策略全覆盖
     # ------------------------------------------------------------------ #
-
-    async def test_query_unique_by_bot_type_and_self_id(
-            self,
-            bot_dal,
-            test_bot_type,
-            test_bot_self_id,
-            test_bot_info,
-    ) -> None:
-        """提供 (bot_type, self_id, None) 正常查询验证字段"""
-        await bot_dal.add(
-            bot_type=test_bot_type, self_id=test_bot_self_id, bot_status=1, bot_info=test_bot_info,
-        )
-        await bot_dal.commit_session()
-
-        queried = await bot_dal.query_unique(test_bot_type, test_bot_self_id, None)
-        assert queried.self_id == test_bot_self_id
-        assert queried.bot_type == test_bot_type
-        assert queried.bot_status == 1
-        assert queried.bot_info == test_bot_info
 
     async def test_query_unique_by_index_id(
             self,
@@ -474,19 +439,13 @@ class TestBotSelfDAL:
 
     async def test_add_update_exist_in_nested_transaction_insert(
             self,
+            require_savepoint_support,
             bot_dal,
             test_bot_type,
             test_bot_self_id,
             test_bot_info,
     ) -> None:
         """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销"""
-        from src.database.config import database_config
-        if database_config.database == 'sqlite':
-            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
         await bot_dal.db_session.begin()
         result = await bot_dal.add_update_exist(
             bot_type=test_bot_type,

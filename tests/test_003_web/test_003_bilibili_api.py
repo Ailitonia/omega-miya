@@ -1920,8 +1920,7 @@ async def live_dynamic_state() -> SimpleNamespace:
 class TestBilibiliDynamicLive:
     """BilibiliDynamic 真实请求验证 (需数据库中已登录 Cookies)
 
-    本类用例发起真实 bilibili API 请求, 默认跳过, 需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
-    `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliDynamicLive -v -s` 单独运行
+    默认跳过, 需设置 BILIBILI_API_REAL_TEST=1 环境变量后单独运行
 
     注意: 本类用例有意按声明顺序共享 live_dynamic_state 状态 — 后两个用例
     (test_query_my_following_dynamics_pagination / test_query_user_space_dynamics)
@@ -2087,8 +2086,7 @@ async def live_room_state() -> SimpleNamespace:
 class TestBilibiliLiveLive:
     """BilibiliLive 真实请求验证 (直播端点匿名可用, 凭据仅用于降低风控概率)
 
-    需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
-    `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliLiveLive -v -s` 单独运行
+    默认跳过, 需设置 BILIBILI_API_REAL_TEST=1 环境变量后单独运行
     """
 
     async def test_query_room_info(self, live_room_state: SimpleNamespace) -> None:
@@ -2185,8 +2183,7 @@ async def live_user_state() -> SimpleNamespace:
 class TestBilibiliUserLive:
     """BilibiliUser 真实请求验证 (强制依赖登录态)
 
-    需手动设置环境变量 BILIBILI_API_REAL_TEST=1 并以
-    `pytest tests/test_003_web/test_003_bilibili_api.py -k TestBilibiliUserLive -v -s` 单独运行
+    默认跳过, 需设置 BILIBILI_API_REAL_TEST=1 环境变量后单独运行
     """
 
     async def test_query_my_account_info(self, live_user_state: SimpleNamespace) -> None:

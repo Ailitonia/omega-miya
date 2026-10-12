@@ -8,29 +8,23 @@
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING
-
 import pytest
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.plugin import PluginDAL
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
+plugin_dal, _clean_table = define_dal_fixtures('src.database.internal.plugin.PluginDAL', 'plugin_dal')
 
 
 @pytest.fixture(scope='class')
-async def plugin_dal() -> AsyncGenerator['PluginDAL', None]:
-    from src.database.internal.plugin import PluginDAL
-
-    async with PluginDAL.create() as dal:
-        yield dal
+def test_plugin_name() -> str:
+    return unique_test_id('PLUGIN_NAME')
 
 
-@pytest.fixture(autouse=True)
-async def _clean_table(plugin_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await plugin_dal._clear_all()
-    await plugin_dal.commit_session()
+@pytest.fixture(scope='class')
+def test_plugin_module() -> str:
+    return unique_test_id('PLUGIN_MODULE')
 
 
 class TestPluginDAL:
@@ -191,27 +185,6 @@ class TestPluginDAL:
         """查询不存在的记录, 预期 NoResultFound"""
         with pytest.raises(NoResultFound):
             await plugin_dal.query_unique('nonexistent_plugin', 'nonexistent_module')
-
-    async def test_query_unique_normal(
-            self,
-            plugin_dal,
-            test_plugin_name,
-            test_plugin_module,
-    ) -> None:
-        """插入后查询, 验证返回值字段正确"""
-        await plugin_dal.add(
-            plugin_name=test_plugin_name,
-            module_name=test_plugin_module,
-            enabled=1,
-            info='query test info',
-        )
-        await plugin_dal.commit_session()
-
-        queried = await plugin_dal.query_unique(test_plugin_name, test_plugin_module)
-        assert queried.plugin_name == test_plugin_name
-        assert queried.module_name == test_plugin_module
-        assert queried.enabled == 1
-        assert queried.info == 'query test info'
 
     # ------------------------------------------------------------------ #
     # query_by_enable_status

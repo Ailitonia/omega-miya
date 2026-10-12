@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+from http.cookiejar import Cookie, CookieJar
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -23,15 +24,32 @@ from tests.test_003_web.helpers import (
     capture_driver_request,
     capture_driver_stream_request,
     line_chunks_stream,
-    make_cookie_jar,
     make_response,
-    make_test_folder,
     new_request_token,
 )
 
 if TYPE_CHECKING:
     from src.resource import AnyResource
     from src.utils.omega_common_api import BaseCommonAPI
+
+
+def make_test_folder(tmp_path: Path) -> 'AnyResource':
+    """构造指向临时目录本身的文件夹资源"""
+    from src.resource import AnyResource
+
+    return AnyResource(tmp_path)
+
+
+def make_cookie_jar(name: str, value: str) -> CookieJar:
+    """构造含单个 cookie 的 http.cookiejar.CookieJar"""
+    jar = CookieJar()
+    jar.set_cookie(Cookie(
+        version=0, name=name, value=value,
+        port=None, port_specified=False, domain='example.com', domain_specified=False, domain_initial_dot=False,
+        path='/', path_specified=True, secure=False, expires=None, discard=True,
+        comment=None, comment_url=None, rest={}, rfc2109=False,
+    ))
+    return jar
 
 
 @pytest.fixture(scope='module')
@@ -494,7 +512,7 @@ class TestDownloadResource:
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
             tmp_path: Path, save_folder: 'AnyResource',
     ):
-        """URL 无文件名(空路径)时回退哈希文件名, 不再因写入目录而崩溃"""
+        """URL 无文件名(空路径)时回退哈希文件名, 避免以目录本身作为写入目标"""
         from src.utils.omega_requests import OmegaRequests
 
         url = f'{test_server.base_url}/'

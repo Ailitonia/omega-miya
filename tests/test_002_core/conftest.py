@@ -8,11 +8,9 @@
 @Software       : PyCharm
 """
 
-import random
 from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
 
 import pytest
 from async_asgi_testclient import TestClient
@@ -176,12 +174,6 @@ class _TestDataFactory:
         return candidates[0]
 
 
-@pytest.fixture
-def test_nonexist_id() -> str:
-    """随机生成一个不存在的 ID"""
-    return f'TEST_NONEXIST_{uuid4().hex}'
-
-
 @pytest.fixture(scope='class')
 async def test_db_data_factory() -> AsyncGenerator[_TestDataFactory, None]:
     """测试数据对象及数据库会话工厂, 测试结束后自动清理
@@ -201,32 +193,6 @@ async def test_onebot_v11_bot(test_db_data_factory) -> AsyncGenerator['BotSelf',
     from src.database.internal.bot import BotType
 
     bot = await test_db_data_factory.create_test_bot(bot_type=BotType.ONEBOT_V11)
-
-    try:
-        yield bot
-    finally:
-        await test_db_data_factory.delete_test_bot(bot=bot)
-
-
-@pytest.fixture(scope='class')
-async def test_console_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
-    """测试用 Console Bot, 测试类结束后清理"""
-    from src.database.internal.bot import BotType
-
-    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.CONSOLE)
-
-    try:
-        yield bot
-    finally:
-        await test_db_data_factory.delete_test_bot(bot=bot)
-
-
-@pytest.fixture(scope='class')
-async def test_telegram_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
-    """测试用 Telegram Bot, 测试类结束后清理"""
-    from src.database.internal.bot import BotType
-
-    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.TELEGRAM)
 
     try:
         yield bot
@@ -260,37 +226,6 @@ async def test_onebot_v11_entity_factory(test_onebot_v11_bot) -> AsyncGenerator[
             return OmegaEntity(**params)
 
         yield _factory
-
-
-@pytest.fixture(scope='class')
-async def test_subscription_source(test_db_data_factory) -> AsyncGenerator['SubscriptionSource', None]:
-    """测试用订阅源, 测试类结束后清理"""
-
-    sub_type = test_db_data_factory.unique_id('TEST_SUBTYPE')
-    source = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type)
-
-    try:
-        yield source
-    finally:
-        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source)
-
-
-@pytest.fixture(scope='class')
-async def test_subscription_sources(
-        test_db_data_factory,
-) -> AsyncGenerator[tuple['SubscriptionSource', 'SubscriptionSource'], None]:
-    """两个不同 sub_type 的订阅源, 测试类结束后清理"""
-
-    sub_type_a = test_db_data_factory.unique_id('TEST_SUBTYPE_A')
-    sub_type_b = test_db_data_factory.unique_id('TEST_SUBTYPE_B')
-    source_a = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type_a)
-    source_b = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type_b)
-
-    try:
-        yield source_a, source_b
-    finally:
-        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_a)
-        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_b)
 
 
 @pytest.fixture
@@ -337,42 +272,6 @@ def entity_target_register_sandbox(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def event_depend_register_sandbox(monkeypatch: pytest.MonkeyPatch):
-    """EventDepend 注册表测试沙箱
-
-    以空表替换内部注册表 (monkeypatch 在测试后恢复原表), 测试内的注册操作不影响全局
-    """
-    from src.service.omega_base.internal import EVENT_DEPEND_REGISTER
-
-    monkeypatch.setattr(EVENT_DEPEND_REGISTER, '_map', {})
-    return EVENT_DEPEND_REGISTER
-
-
-@pytest.fixture
-def online_bots_sandbox(monkeypatch: pytest.MonkeyPatch):
-    """bots 模块全局状态测试沙箱
-
-    快照并清空全局 __ONLINE_BOTS 与 __FIRST_RESPOND_REGISTRY (测试后恢复), 同时将模块内引用的
-    handle_event 替换为 AsyncMock, 避免连接/断开钩子触发真实事件管线及数据库副作用
-    """
-    import src.service.omega_base.internal.bots as bots_module
-
-    online_bots_snapshot: dict[tuple[str, str], Any] = dict(getattr(bots_module, '__ONLINE_BOTS'))
-    getattr(bots_module, '__ONLINE_BOTS').clear()
-    registry_snapshot: dict[str, tuple[str, float]] = dict(getattr(bots_module, '__FIRST_RESPOND_REGISTRY'))
-    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
-    handle_event_mock = AsyncMock()
-    monkeypatch.setattr(bots_module, 'handle_event', handle_event_mock)
-
-    yield bots_module, handle_event_mock
-
-    getattr(bots_module, '__ONLINE_BOTS').clear()
-    getattr(bots_module, '__ONLINE_BOTS').update(online_bots_snapshot)
-    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').clear()
-    getattr(bots_module, '__FIRST_RESPOND_REGISTRY').update(registry_snapshot)
-
-
-@pytest.fixture
 def fake_uni_message_send(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     """以 UniMessage 替身子类重绑定 omega_base 适配器模块内的 UniMessage 名字, 并返回其 send AsyncMock
 
@@ -391,21 +290,3 @@ def fake_uni_message_send(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 
     monkeypatch.setattr(adapter_module, 'UniMessage', _FakeUniMessage)
     return send_mock
-
-
-@pytest.fixture(scope='class')
-async def test_onebot_v11_numeric_bot(test_db_data_factory) -> AsyncGenerator['BotSelf', None]:
-    """管线测试用 Bot: 数字 self_id (OneBot V11 事件模型要求 int) 且已落库
-
-    omega_base 中间件的 self_id 校验预处理器要求 event.self_id == bot.self_id,
-    且好感度/历史后处理器会经实体初始化要求 bot 行存在, 故 bot 身份须全程一致
-    """
-    from src.database.internal.bot import BotType
-
-    self_id = str(random.randint(10_000_000, 99_999_999))
-    bot = await test_db_data_factory.create_test_bot(bot_type=BotType.ONEBOT_V11, bot_self_id=self_id)
-
-    try:
-        yield bot
-    finally:
-        await test_db_data_factory.delete_test_bot(bot=bot)

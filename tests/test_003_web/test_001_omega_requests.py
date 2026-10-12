@@ -9,9 +9,10 @@
 """
 
 import hashlib
+import socket
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import ujson
@@ -24,9 +25,27 @@ from tests.test_003_web.helpers import (
     capture_driver_stream_request,
     line_chunks_stream,
     make_response,
-    make_test_file,
     new_request_token,
 )
+
+if TYPE_CHECKING:
+    from src.resource import AnyResource
+
+
+@pytest.fixture(scope='session')
+def unused_port() -> int:
+    """获取一个当前空闲(已关闭)的本地端口, 用于连接拒绝/代理失败用例"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        port = s.getsockname()[1]
+    return port
+
+
+def make_test_file(tmp_path: Path, name: str) -> 'AnyResource':
+    """在临时目录构造下载目标文件资源"""
+    from src.resource import AnyResource
+
+    return AnyResource(tmp_path, name)
 
 
 class TestModuleContract:
@@ -305,7 +324,7 @@ class TestGetUrlInText:
                 ('http://10.0.0.1/a', ['http://10.0.0.1/a']),
             ],
             [('https://example.xn--p1ai/path', ['https://example.xn--p1ai/path'])],
-            # 路径仅匹配可打印 ASCII, 紧随 URL 的中文不再被吞入
+            # 路径仅匹配可打印 ASCII, 紧随 URL 的中文不被吞入
             [('链接https://example.com/a结尾', ['https://example.com/a'])],
             # 尾随中英文标点及成对符号右半部分自动剥离
             [

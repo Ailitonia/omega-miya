@@ -9,9 +9,30 @@
 """
 
 import asyncio
-from types import SimpleNamespace
 
 import pytest
+
+from tests.utils import rebind_module_namespace
+
+
+@pytest.fixture
+def recorded_sleep(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> list[float | None]:
+    """以替身 asyncio.sleep 录制 run_async_delay 实际传入的 delay(重绑定模块命名空间, 不污染全局 asyncio)
+
+    以 @pytest.mark.parametrize('recorded_sleep', [True], indirect=True) 额外将模块内 random.gauss 固定为 -1.0
+    """
+    import src.utils.process_utils as process_utils
+
+    recorded: list[float | None] = []
+
+    async def _fake_sleep(*, delay: float | None = None) -> None:
+        recorded.append(delay)
+
+    rebind_module_namespace(monkeypatch, process_utils, 'asyncio', sleep=_fake_sleep)
+    if getattr(request, 'param', False):
+        rebind_module_namespace(monkeypatch, process_utils, 'random', gauss=lambda mu, sigma: -1.0)
+
+    return recorded
 
 
 class TestRunAsyncDelay:
@@ -103,9 +124,7 @@ class TestRunAsyncDelay:
         async def _fake_sleep(*, delay: float | None = None) -> None:
             pass
 
-        monkeypatch.setattr(
-            process_utils, 'asyncio', SimpleNamespace(**{**vars(asyncio_module), 'sleep': _fake_sleep})
-        )
+        rebind_module_namespace(monkeypatch, process_utils, 'asyncio', sleep=_fake_sleep)
 
         assert asyncio_module.sleep is original_sleep
         await asyncio_module.sleep(0)  # 若全局被 keyword-only fake 污染, 位置参数调用将抛 TypeError

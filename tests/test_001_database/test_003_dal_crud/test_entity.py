@@ -8,8 +8,6 @@
 @Software       : PyCharm
 """
 
-import random
-import string
 from collections.abc import AsyncGenerator
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -19,9 +17,12 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.exc import NoResultFound, StatementError
 
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
 if TYPE_CHECKING:
     from src.database.internal.bot import BotSelf, BotSelfDAL
-    from src.database.internal.entity import Entity, EntityDAL
+    from src.database.internal.entity import Entity
     from src.database.internal.subscription_source import SubscriptionSource, SubscriptionSourceDAL
 
 
@@ -32,12 +33,12 @@ async def test_entity_type() -> str:
 
 @pytest.fixture(scope='class')
 async def test_entity_id() -> str:
-    return f'TEST_ENTITY_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+    return unique_test_id('TEST_ENTITY')
 
 
 @pytest.fixture(scope='class')
 async def test_entity_name() -> str:
-    return f'TEST_ENTITY_NAME_{"".join(random.sample(string.ascii_letters + string.digits, k=8))}'
+    return unique_test_id('TEST_ENTITY_NAME')
 
 
 @pytest.fixture(scope='class')
@@ -56,7 +57,6 @@ async def bot_dal(
         try:
             await dal._clear_all()
             await dal.add_update_exist(test_bot_type, test_bot_self_id, 1)
-            # database_session 不再跨上下文共享会话, 需显式提交使父行对其他会话可见
             await dal.commit_session()
             yield dal
         finally:
@@ -84,7 +84,6 @@ async def subscription_source_dal(
         try:
             await dal._clear_all()
             await dal.add_update_exist(test_sub_type, test_sub_id, test_sub_user_name)
-            # database_session 不再跨上下文共享会话, 需显式提交使父行对其他会话可见
             await dal.commit_session()
             yield dal
         finally:
@@ -100,19 +99,11 @@ async def test_subscription_source(
     return await subscription_source_dal.query_unique(test_sub_type, test_sub_id)
 
 
-@pytest.fixture(scope='class')
-async def entity_dal(bot_dal, subscription_source_dal) -> AsyncGenerator['EntityDAL', None]:
-    from src.database.internal.entity import EntityDAL
-
-    async with EntityDAL.create() as dal:
-        yield dal
-
-
-@pytest.fixture(autouse=True)
-async def _clean_table(entity_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await entity_dal._clear_all()
-    await entity_dal.commit_session()
+entity_dal, _clean_table = define_dal_fixtures(
+    'src.database.internal.entity.EntityDAL',
+    'entity_dal',
+    extra_dependencies=('bot_dal', 'subscription_source_dal'),
+)
 
 
 @pytest.fixture
@@ -124,10 +115,7 @@ async def fresh_entity(
         test_entity_name,
         test_entity_extra,
 ) -> 'Entity':
-    """清空实体数据表并提交创建一个标准测试实体"""
-    await entity_dal._clear_all()
-    await entity_dal.commit_session()
-
+    """创建一个标准测试实体并提交 (数据表已由 autouse _clean_table 清空)"""
     entity = await entity_dal.add_update_exist(
         bot_type=test_bot.bot_type,
         bot_self_id=test_bot.self_id,
@@ -335,6 +323,7 @@ class TestEntityDAL:
 
     async def test_add_update_exist_in_nested_transaction_insert(
             self,
+            require_savepoint_support,
             entity_dal,
             test_bot,
             test_entity_type,
@@ -343,13 +332,6 @@ class TestEntityDAL:
             test_entity_extra,
     ) -> None:
         """外层已有活动事务时插入分支走 SAVEPOINT, 外层 rollback 后插入应被撤销"""
-        from src.database.config import database_config
-        if database_config.database == 'sqlite':
-            # SQLite 后端 (aiosqlite 默认 legacy 事务控制, 会话事务不显式发送 BEGIN) 下,
-            # 外层事务的首个语句若为 SAVEPOINT 则物理事务由 SAVEPOINT 开启且 RELEASE 即提交,
-            # 外层 rollback 无法撤销插入, 属驱动层限制而非 DAL 逻辑问题, 故本平台跳过该用例
-            pytest.skip('SQLite 驱动 legacy 事务控制下嵌套插入无法被外层事务回滚, 跳过')
-
         await entity_dal.db_session.begin()
         result = await entity_dal.add_update_exist(
             bot_type=test_bot.bot_type,

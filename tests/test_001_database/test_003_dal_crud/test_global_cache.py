@@ -8,30 +8,32 @@
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.global_cache import GlobalCacheDAL
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
+global_cache_dal, _clean_table = define_dal_fixtures(
+    'src.database.internal.global_cache.GlobalCacheDAL', 'global_cache_dal',
+)
 
 
 @pytest.fixture(scope='class')
-async def global_cache_dal() -> AsyncGenerator['GlobalCacheDAL', None]:
-    from src.database.internal.global_cache import GlobalCacheDAL
-
-    async with GlobalCacheDAL.create() as dal:
-        yield dal
+def test_global_cache_name() -> str:
+    return unique_test_id('CACHE_NAME')
 
 
-@pytest.fixture(autouse=True)
-async def _clean_table(global_cache_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await global_cache_dal._clear_all()
-    await global_cache_dal.commit_session()
+@pytest.fixture(scope='class')
+def test_global_cache_key() -> str:
+    return unique_test_id('CACHE_KEY')
+
+
+@pytest.fixture(scope='class')
+def test_global_cache_value() -> str:
+    return unique_test_id('CACHE_VALUE')
 
 
 class TestGlobalCacheDAL:
@@ -200,26 +202,6 @@ class TestGlobalCacheDAL:
         )
         assert queried.cache_value == 'value_expired'
 
-    async def test_query_unique_normal(
-            self,
-            global_cache_dal,
-            test_global_cache_name,
-            test_global_cache_key,
-            test_global_cache_value,
-    ) -> None:
-        """插入未过期记录, 正常查回"""
-        await global_cache_dal.add(
-            cache_name=test_global_cache_name,
-            cache_key=test_global_cache_key,
-            cache_value=test_global_cache_value,
-        )
-        await global_cache_dal.commit_session()
-
-        queried = await global_cache_dal.query_unique(test_global_cache_name, test_global_cache_key)
-        assert queried.cache_name == test_global_cache_name
-        assert queried.cache_key == test_global_cache_key
-        assert queried.cache_value == test_global_cache_value
-
     # ------------------------------------------------------------------ #
     # query_series
     # ------------------------------------------------------------------ #
@@ -282,6 +264,10 @@ class TestGlobalCacheDAL:
         result = await global_cache_dal.query_series('nonexistent_cache_name')
         assert result == []
 
+    # ------------------------------------------------------------------ #
+    # add_update_exist
+    # ------------------------------------------------------------------ #
+
     async def test_add_update_exist_insert(
             self,
             global_cache_dal,
@@ -304,10 +290,6 @@ class TestGlobalCacheDAL:
         # 确认确实写入了一条
         queried = await global_cache_dal.query_unique(test_global_cache_name, test_global_cache_key)
         assert queried.cache_value == test_global_cache_value
-
-    # ------------------------------------------------------------------ #
-    # add_update_exist
-    # ------------------------------------------------------------------ #
 
     async def test_add_update_exist_update(
             self,

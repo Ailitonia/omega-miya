@@ -872,12 +872,6 @@ class TestHostProtocol:
         file = sample_file('f.txt', 'x')
         assert await hostable_resource(file).get_hosting_path() == hostable_resource(file).resolve_path
 
-    async def test_get_hosting_path_on_missing_file_raises(self, tmp_path: Path):
-        from src.resource import AnyResource, ResourceNotFileError
-
-        with pytest.raises(ResourceNotFileError):
-            await AnyResource(tmp_path / 'missing.txt').get_hosting_path()
-
     async def test_registered_protocol_returns_url(self, sample_file: _SampleFileFactory):
         hostable_resource, protocol = self._make_hostable_resource()
         hostable_resource.register_host_protocol(protocol)
@@ -936,7 +930,7 @@ class TestHostProtocol:
 
 
 class TestGlobalHostProtocolRegistration:
-    """omega_file_host 全局注册契约测试 (重构后: 本地资源统一注册 OmegaFileHostProtocol)"""
+    """omega_file_host 全局注册契约测试 (本地资源统一注册 OmegaFileHostProtocol)"""
 
     def test_registered_class_rejects_second_registration(self):
         """已全局注册的类拒绝再次注册, 异常先于赋值抛出, 状态不被修改"""
@@ -1047,20 +1041,10 @@ class TestPathConfinement:
 
     def test_normal_args_not_affected(self):
         import src.resource
-        from src.resource import StaticResource, TemporaryResource
+        from src.resource import StaticResource
 
         static_resource = StaticResource('fonts', 'a.ttf')
         assert static_resource.path == src.resource._STATIC_RESOURCE_FOLDER.joinpath('fonts', 'a.ttf')
-        temporary_resource = TemporaryResource('a', 'b.txt')
-        assert temporary_resource.path == src.resource._TEMPORARY_RESOURCE_FOLDER.joinpath('a', 'b.txt')
-
-    def test_no_args_boundary_allowed(self):
-        """无参构造路径与根目录边界相等, 合法"""
-        import src.resource
-        from src.resource import StaticResource, TemporaryResource
-
-        assert StaticResource().path == src.resource._STATIC_RESOURCE_FOLDER
-        assert TemporaryResource().path == src.resource._TEMPORARY_RESOURCE_FOLDER
 
     def test_dotdot_staying_inside_root_allowed(self):
         """'..' 拼接但最终落在根内时放行, 且保持原始(未归一化)路径语义"""

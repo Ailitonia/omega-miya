@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2026/09/03 01:10
-@FileName       : test_base_model.py
+@FileName       : test_004_dal_execute.py
 @Project        : omega-miya
 @Description    : src/database/model.py DAL 基类工具方法与会话事务契约单元测试
 
@@ -10,17 +10,13 @@
 @Software       : PyCharm
 """
 
-import random
-import string
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy.exc import DBAPIError, IntegrityError, NoResultFound
 
-
-def _random_string(k: int = 8) -> str:
-    return ''.join(random.sample(string.ascii_letters + string.digits, k=k))
+from tests.utils import unique_test_id
 
 
 class _FakePostgresqlError(Exception):
@@ -99,8 +95,8 @@ class TestDatabaseSession:
         from src.database.helpers import database_session
         from src.database.schema import GlobalCacheOrm
 
-        cache_name = f'TEST_COMMIT_{_random_string()}'
-        cache_key = f'TEST_COMMIT_{_random_string()}'
+        cache_name = unique_test_id('TEST_COMMIT')
+        cache_key = unique_test_id('TEST_COMMIT')
 
         try:
             async with database_session() as session:
@@ -134,8 +130,8 @@ class TestDatabaseSession:
         from src.database.helpers import database_session
         from src.database.schema import GlobalCacheOrm
 
-        cache_name = f'TEST_ROLLBACK_{_random_string()}'
-        cache_key = f'TEST_ROLLBACK_{_random_string()}'
+        cache_name = unique_test_id('TEST_ROLLBACK')
+        cache_key = unique_test_id('TEST_ROLLBACK')
 
         try:
             async def _write_then_raise() -> None:
@@ -211,8 +207,8 @@ class TestWriteTransactionContract:
         """纯写方法在 fresh session 上不得自行 commit, 外层 rollback 必须能撤销其写入"""
         from src.database.internal.global_cache import GlobalCacheDAL
 
-        cache_name = f'TEST_NSC_NAME_{_random_string()}'
-        cache_key = f'TEST_NSC_KEY_{_random_string()}'
+        cache_name = unique_test_id('TEST_NSC_NAME')
+        cache_key = unique_test_id('TEST_NSC_KEY')
 
         async with GlobalCacheDAL.create() as dal:
             await dal.add_update_exist(
@@ -240,8 +236,8 @@ class TestCheckConstraint:
         from src.database.model import BaseDataAccessLayer
         from src.database.schema import PluginOrm
 
-        plugin_name = f'TEST_CK_{_random_string()}'
-        module_name = f'TEST_CK_{_random_string()}'
+        plugin_name = unique_test_id('TEST_CK')
+        module_name = unique_test_id('TEST_CK')
 
         async with database_session() as session:
             session.add(PluginOrm(plugin_name=plugin_name, module_name=module_name, enabled=99))
@@ -262,13 +258,7 @@ class TestCheckConstraint:
 
 
 class TestConcurrentSessionIsolation:
-    """并发会话隔离测试 (回归: 快速重连时连接/断开预处理并发重叠导致会话状态互相破坏)
-
-    曾经 async_scoped_session 的 scopefunc 在无事件上下文时退化为常量 key (id(None), id(None)),
-    并发事件处理协程共享同一 AsyncSession, 交错 commit/rollback/close 触发
-    IllegalStateChangeError 与 RuntimeError('Current session is not active');
-    现在 database_session() 每次调用创建独占会话, 并发协程互不影响
-    """
+    """并发会话隔离测试 (回归: 并发协程共享同一会话曾导致交错 commit/rollback 互相破坏, 现每次调用创建独占会话)"""
 
     async def test_concurrent_sessions_are_distinct_objects(self) -> None:
         """并发开启的多个 database_session 上下文必须持有互相独立的会话对象"""
@@ -298,7 +288,7 @@ class TestConcurrentSessionIsolation:
 
         from src.database.internal.bot import BotSelfDAL, BotStatus
 
-        base_id = f'TEST_CONCURRENT_{_random_string()}'
+        base_id = unique_test_id('TEST_CONCURRENT')
 
         async def _upsert_bot(index: int) -> None:
             async with BotSelfDAL.create() as dal:

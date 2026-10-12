@@ -9,9 +9,11 @@
 """
 
 import io
+import shutil
 import warnings
-from datetime import datetime
-from typing import TYPE_CHECKING
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import pytest
@@ -21,6 +23,7 @@ from pydantic import BaseModel, ValidationError, create_model
 if TYPE_CHECKING:
     from io import BytesIO
 
+    from src.resource import TemporaryResource
     from src.utils.excel_tools import ExcelTools
 
 
@@ -126,6 +129,22 @@ def nullable_tools() -> 'ExcelTools[NullableModel]':
 def excel_file() -> 'BytesIO':
     """每个用例独立的内存 Excel 缓冲区, 读写均不落盘"""
     return io.BytesIO()
+
+
+@pytest.fixture
+def excel_tmp_folder() -> Generator['TemporaryResource', None, None]:
+    """路径语义用例的临时目录资源(可继续拼接子路径), 用例结束后整体清理"""
+    from src.resource import TemporaryResource
+
+    folder = TemporaryResource('excel_tools_test')
+    yield folder
+    shutil.rmtree(folder.path, ignore_errors=True)
+
+
+@pytest.fixture
+def tz_aware_sample() -> dict[str, Any]:
+    """时区感知 datetime 的非法样例字段(openpyxl 无法写出, 用于触发写出失败路径)"""
+    return {'name': 'tz', 'count': 1, 'score': 1.0, 'enabled': True, 'created_at': datetime(2024, 1, 1, tzinfo=UTC)}
 
 
 class TestModuleContract:
@@ -259,12 +278,16 @@ class TestDumpExcel:
 
 
 class TestLoadExcel:
-    async def test_empty_cells_become_none_for_optional_fields(self, optional_tools, excel_file):
-        data = [
-            OptionalModel(name='a', remark='r', score=1.5),
-            OptionalModel(name='b', remark=None, score=None),
-        ]
-
+    @pytest.mark.parametrize(
+        'data',
+        [
+            [OptionalModel(name='a', remark='r', score=1.5), OptionalModel(name='b', remark=None, score=None)],
+            [OptionalModel(name='a', remark='r', score=None), OptionalModel(name='b', remark=None, score=2.5)],
+        ],
+        ids=['trailing-none-optionals', 'scattered-none-optionals'],
+    )
+    async def test_empty_cells_become_none_for_optional_fields(self, optional_tools, excel_file, data):
+        """可选字段的空单元格读回为 None, 与写出前的模型实例一致"""
         await optional_tools.dump_excel(data, excel_file)
 
         assert await optional_tools.load_excel(excel_file) == data
@@ -608,13 +631,6 @@ class TestRoundTrip:
         assert first == SAMPLE_MODELS
         assert second == SAMPLE_MODELS
 
-    async def test_round_trip_with_none_optionals(self, optional_tools, excel_file):
-        data = [OptionalModel(name='a', remark='r', score=None), OptionalModel(name='b', remark=None, score=2.5)]
-
-        await optional_tools.dump_excel(data, excel_file)
-
-        assert await optional_tools.load_excel(excel_file) == data
-
     async def test_datetime_microseconds_truncated_to_milliseconds(self, sample_tools, excel_file):
         """微秒级 datetime 往返被截断到毫秒(Excel 序列日期固有限制, 已知行为快照)"""
         data = [SampleModel(
@@ -785,11 +801,6 @@ class TestDumpExcelInChunks:
 
         assert await sample_tools.load_excel(chunked) == SAMPLE_MODELS
         assert await sample_tools.load_excel(chunked) == await sample_tools.load_excel(full)
-
-    async def test_in_chunks_default_off(self, sample_tools, excel_file):
-        await sample_tools.dump_excel(SAMPLE_MODELS, excel_file)
-
-        assert await sample_tools.load_excel(excel_file) == SAMPLE_MODELS
 
     async def test_in_chunks_empty_data_writes_header_only(self, sample_tools, excel_file):
         await sample_tools.dump_excel([], excel_file, in_chunks=True)

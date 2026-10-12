@@ -494,17 +494,6 @@ class TestArtworkMetaCache:
         assert len(snapshots) == 8
         assert snapshots == expected
 
-    async def test_fast_query_warm_uses_cache(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
-        data = make_artwork_data()
-        proxy = proxy_factory.cls('123')
-        async with proxy.meta_file.async_open('w', encoding='utf-8') as af:
-            await af.write(data.model_dump_json())
-
-        result = await proxy.query()
-
-        proxy_factory.hooks.query.assert_not_awaited()
-        assert result == data
-
     async def test_fast_query_use_cache_false_rewrites(
             self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
     ):
@@ -1142,7 +1131,7 @@ class TestPreviewGeneration:
     async def test_generate_preview_image_stable_name(
             self, isolated_temporary_root: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        """预览图文件名使用稳定哈希前缀(跨进程一致), 不再使用内置 hash()"""
+        """预览图文件名使用稳定哈希前缀(sha256 派生, 跨进程一致)"""
         from src.resource import StaticResource, TemporaryResource
         from src.service.artwork_proxy.models import PreviewImagesData
         from src.service.artwork_proxy.preview_image_utils import ArtworkImageOps

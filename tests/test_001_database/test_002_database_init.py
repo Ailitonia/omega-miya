@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2026/8/23 15:10
-@FileName       : test_database_init.py
+@FileName       : test_002_database_init.py
 @Project        : omega-miya
 @Description    : src/database/helpers.py 数据库初始化钩子编排逻辑单元测试
 
@@ -80,26 +80,15 @@ class TestDatabaseInit:
         check_mock.assert_awaited_once()
         upgrade_mock.assert_not_awaited()
 
-    async def test_migrate_when_upgradable(
+    @pytest.mark.parametrize('status', ['upgradable', 'fresh'])
+    async def test_migrate_when_upgradable_or_fresh(
             self,
+            status: str,
             database_init: Callable[[], Awaitable[Any]],
             mock_migrate: tuple[AsyncMock, AsyncMock],
     ) -> None:
         check_mock, upgrade_mock = mock_migrate
-        check_mock.side_effect = [_make_check_result('upgradable'), _make_check_result('up_to_date')]
-
-        await database_init()
-
-        assert check_mock.await_count == 2
-        upgrade_mock.assert_awaited_once()
-
-    async def test_migrate_when_fresh(
-            self,
-            database_init: Callable[[], Awaitable[Any]],
-            mock_migrate: tuple[AsyncMock, AsyncMock],
-    ) -> None:
-        check_mock, upgrade_mock = mock_migrate
-        check_mock.side_effect = [_make_check_result('fresh'), _make_check_result('up_to_date')]
+        check_mock.side_effect = [_make_check_result(status), _make_check_result('up_to_date')]
 
         await database_init()
 

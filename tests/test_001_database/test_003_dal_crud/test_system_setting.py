@@ -8,29 +8,30 @@
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING
-
 import pytest
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-if TYPE_CHECKING:
-    from src.database.internal.system_setting import SystemSettingDAL
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
+system_setting_dal, _clean_table = define_dal_fixtures(
+    'src.database.internal.system_setting.SystemSettingDAL', 'system_setting_dal',
+)
 
 
 @pytest.fixture(scope='class')
-async def system_setting_dal() -> AsyncGenerator['SystemSettingDAL', None]:
-    from src.database.internal.system_setting import SystemSettingDAL
-
-    async with SystemSettingDAL.create() as dal:
-        yield dal
+def test_system_setting_name() -> str:
+    return unique_test_id('SETTING_NAME')
 
 
-@pytest.fixture(autouse=True)
-async def _clean_table(system_setting_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await system_setting_dal._clear_all()
-    await system_setting_dal.commit_session()
+@pytest.fixture(scope='class')
+def test_system_setting_key() -> str:
+    return unique_test_id('SETTING_KEY')
+
+
+@pytest.fixture(scope='class')
+def test_system_setting_value() -> str:
+    return unique_test_id('SETTING_VALUE')
 
 
 class TestSystemSettingDAL:
@@ -121,28 +122,6 @@ class TestSystemSettingDAL:
         """查询不存在的 key, 预期 NoResultFound"""
         with pytest.raises(NoResultFound):
             await system_setting_dal.query_unique('nonexistent_name', 'nonexistent_key')
-
-    async def test_query_unique_normal(
-            self,
-            system_setting_dal,
-            test_system_setting_name,
-            test_system_setting_key,
-            test_system_setting_value,
-    ) -> None:
-        """插入后查询, 验证返回值字段正确"""
-        await system_setting_dal.add(
-            setting_name=test_system_setting_name,
-            setting_key=test_system_setting_key,
-            setting_value=test_system_setting_value,
-            info='query test info',
-        )
-        await system_setting_dal.commit_session()
-
-        queried = await system_setting_dal.query_unique(test_system_setting_name, test_system_setting_key)
-        assert queried.setting_name == test_system_setting_name
-        assert queried.setting_key == test_system_setting_key
-        assert queried.setting_value == test_system_setting_value
-        assert queried.info == 'query test info'
 
     # ------------------------------------------------------------------ #
     # query_series

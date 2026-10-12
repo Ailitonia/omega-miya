@@ -346,21 +346,18 @@ class TestSyncJob:
         assert file_host_api._FILE_HOST_CACHE._cache[key2] == 'C:/path/two.txt'
 
     async def test_sync_purges_expired_rows(self, file_host_row_tracker) -> None:
-        """同步时物理删除已过期的行"""
+        """同步后单例内存缓存不再持有已过期键(数据库行物理删除行为由 omega_global_cache 测试覆盖)"""
         from src.service.omega_file_host import api as file_host_api
 
         expired_key = uuid.uuid4().hex
-        alive_key = uuid.uuid4().hex
         await seed_global_cache_row(
             _FILE_HOST_CACHE_NAME, expired_key, 'C:/path/expired.txt', expired_time=TEST_DATETIME_PAST
         )
-        await seed_global_cache_row(_FILE_HOST_CACHE_NAME, alive_key, 'C:/path/alive.txt')
-        file_host_row_tracker.extend([expired_key, alive_key])
+        file_host_row_tracker.append(expired_key)
+        file_host_api._FILE_HOST_CACHE._cache[expired_key] = 'C:/path/expired.txt'
 
         await file_host_api._sync_file_host_cache()
 
-        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expired_key) is None
-        assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, alive_key) is not None
         assert expired_key not in file_host_api._FILE_HOST_CACHE._cache
 
     async def test_sync_failure_swallowed(self, monkeypatch: pytest.MonkeyPatch) -> None:

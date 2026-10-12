@@ -1915,8 +1915,7 @@ class TestWeiboLive:
     """Weibo 真实请求验证
 
     前置条件: 数据库 (system_setting 表 weibo_api_config 系列) 中已配置已登录状态的 cookies;
-    需手动设置环境变量 WEIBO_API_REAL_TEST=1 并以
-    `pytest tests/test_003_web/test_007_weibo_api.py -k TestWeiboLive -v -s` 单独运行
+    默认跳过, 需设置 WEIBO_API_REAL_TEST=1 环境变量后单独运行
     """
 
     @pytest.fixture(autouse=True)
@@ -2015,8 +2014,7 @@ class TestWeiboLive:
 class TestRefreshVisitorCookiesLive:
     """访客流程强制刷新真实验证 (会重建数据库 cookies 覆盖登录态)
 
-    需手动设置环境变量 WEIBO_API_FORCE_REFRESH_TEST=1 并以
-    `pytest tests/test_003_web/test_007_weibo_api.py -k TestRefreshVisitorCookiesLive -v -s` 单独运行
+    默认跳过, 需设置 WEIBO_API_FORCE_REFRESH_TEST=1 环境变量后单独运行
     """
 
     async def test_refresh_visitor_cookies_live(self) -> None:

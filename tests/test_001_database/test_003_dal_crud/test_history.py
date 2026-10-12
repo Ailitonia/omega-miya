@@ -3,36 +3,91 @@
 @Date           : 2026/8/30 14:07
 @FileName       : test_history
 @Project        : omega-miya
-@Description    : history.py  数据库 CRUD 单元测试
+@Description    : history.py 数据库 CRUD 单元测试
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
 
+from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
+from tests.utils import unique_test_id
+
 if TYPE_CHECKING:
     from src.database.internal.history import HistoryDAL
 
+history_dal, _clean_table = define_dal_fixtures('src.database.internal.history.HistoryDAL', 'history_dal')
+
+
+async def _add_history_record(
+        history_dal: 'HistoryDAL',
+        *,
+        received_timestamp: int,
+        message_id: str,
+        bot_self_id: str = 'bot1',
+        event_entity_id: str,
+        user_entity_id: str,
+        message_type: str = 'group',
+        message_plain_text: str,
+        message_raw: list | None = None,
+) -> None:
+    """播种一条历史消息记录 (查询/计数/删除用例共享 bot_self_id/message_type/message_raw 默认值)"""
+    await history_dal.add(
+        received_timestamp=received_timestamp,
+        message_id=message_id,
+        bot_self_id=bot_self_id,
+        event_entity_id=event_entity_id,
+        user_entity_id=user_entity_id,
+        message_type=message_type,
+        message_plain_text=message_plain_text,
+        message_raw=[] if message_raw is None else message_raw,
+    )
+
 
 @pytest.fixture(scope='class')
-async def history_dal() -> AsyncGenerator['HistoryDAL', None]:
-    from src.database.internal.history import HistoryDAL
-
-    async with HistoryDAL.create() as dal:
-        yield dal
+def test_history_message_id() -> str:
+    return unique_test_id('MESSAGE_ID')
 
 
-@pytest.fixture(autouse=True)
-async def _clean_table(history_dal) -> None:
-    """每个测试用例执行前清空数据表"""
-    await history_dal._clear_all()
-    await history_dal.commit_session()
+@pytest.fixture(scope='class')
+def test_history_bot_self_id() -> str:
+    return unique_test_id('BOT_SELF_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_event_entity_id() -> str:
+    return unique_test_id('EVENT_ENTITY_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_user_entity_id() -> str:
+    return unique_test_id('USER_ENTITY_ID')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_type() -> str:
+    return unique_test_id('MESSAGE_TYPE')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_plain_text() -> str:
+    return unique_test_id('MESSAGE_PLAIN_TEXT')
+
+
+@pytest.fixture(scope='class')
+def test_history_message_raw(
+        test_history_message_type: str,
+        test_history_message_plain_text: str,
+) -> list[dict[str, Any]]:
+    return [
+        {'type': 'text', 'data': {'text': test_history_message_plain_text}},
+        {'type': test_history_message_type, 'data': {'meta': 'test'}},
+    ]
 
 
 class TestHistoryDAL:
@@ -334,15 +389,12 @@ class TestHistoryDAL:
     async def test_query_records_by_event_entity_id(self, history_dal) -> None:
         """按 event_entity_id 过滤"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_b', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_a')
@@ -352,15 +404,12 @@ class TestHistoryDAL:
     async def test_query_records_by_user_entity_id(self, history_dal) -> None:
         """按 user_entity_id 过滤"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_y', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_c', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_x', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_y', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_c', user_entity_id='user_x', message_plain_text='t3')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', user_entity_id='user_x')
@@ -370,15 +419,15 @@ class TestHistoryDAL:
     async def test_query_records_by_event_and_user(self, history_dal) -> None:
         """同时按 event_entity_id + user_entity_id 过滤"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_shared', user_entity_id='user_shared', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_shared', user_entity_id='user_other', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_other', user_entity_id='user_shared', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_shared', user_entity_id='user_shared',
+                                  message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_shared', user_entity_id='user_other',
+                                  message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_other', user_entity_id='user_shared',
+                                  message_plain_text='t3')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_shared',
@@ -390,15 +439,13 @@ class TestHistoryDAL:
     async def test_query_records_by_message_type(self, history_dal) -> None:
         """加 message_type 过滤"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_b', message_type='private',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_a', user_entity_id='user_b', message_type='private',
+                                  message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_a',
@@ -410,15 +457,12 @@ class TestHistoryDAL:
         """start_time + end_time (datetime) 过滤"""
         base_dt = datetime(2025, 1, 1, 0, 0, 0)
         base_ts = int(base_dt.timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 100, message_id='m2',
+                                  event_entity_id='event_a', user_entity_id='user_b', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 200, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(
@@ -435,13 +479,11 @@ class TestHistoryDAL:
         """exclude_bot_self_message=True 排除 bot_self_id == user_entity_id 的记录"""
         base_ts = int(datetime.now().timestamp())
         # bot_self_id == user_entity_id (bot 自身消息)
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='bot1', message_type='group',
-                              message_plain_text='t1', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='bot1', message_plain_text='t1')
         # bot_self_id != user_entity_id (普通用户消息)
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t2', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t2')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(
@@ -456,16 +498,9 @@ class TestHistoryDAL:
         """limit 限制返回数量, 取最近 (timestamp 最大) 的记录"""
         base_ts = int(datetime.now().timestamp())
         for i in range(5):
-            await history_dal.add(
-                received_timestamp=base_ts + i,
-                message_id=f'm{i}',
-                bot_self_id='bot1',
-                event_entity_id='event_a',
-                user_entity_id='user_a',
-                message_type='group',
-                message_plain_text=f't{i}',
-                message_raw=[],
-            )
+            await _add_history_record(history_dal, received_timestamp=base_ts + i, message_id=f'm{i}',
+                                      event_entity_id='event_a', user_entity_id='user_a',
+                                      message_plain_text=f't{i}')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(
@@ -482,11 +517,9 @@ class TestHistoryDAL:
         """验证结果按 received_timestamp DESC 排序"""
         timestamps = [1000000000, 1000000005, 1000000003, 1000000001, 1000000004]
         for i, ts in enumerate(timestamps):
-            await history_dal.add(
-                received_timestamp=ts, message_id=f'm{i}', bot_self_id='bot1',
-                event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                message_plain_text=f't{i}', message_raw=[],
-            )
+            await _add_history_record(history_dal, received_timestamp=ts, message_id=f'm{i}',
+                                      event_entity_id='event_a', user_entity_id='user_a',
+                                      message_plain_text=f't{i}')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='event_a')
@@ -495,16 +528,8 @@ class TestHistoryDAL:
 
     async def test_query_records_empty(self, history_dal) -> None:
         """条件不匹配返回空列表"""
-        await history_dal.add(
-            received_timestamp=1000000000,
-            message_id='m1',
-            bot_self_id='bot1',
-            event_entity_id='event_a',
-            user_entity_id='user_a',
-            message_type='group',
-            message_plain_text='t1',
-            message_raw=[],
-        )
+        await _add_history_record(history_dal, received_timestamp=1000000000, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
         await history_dal.commit_session()
 
         result = await history_dal.query_records_by_condition(bot_self_id='bot1', event_entity_id='nonexistent_event')
@@ -522,15 +547,12 @@ class TestHistoryDAL:
     async def test_count_by_event_entity_id(self, history_dal) -> None:
         """按 event_entity_id 过滤计数"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_b', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='event_a') == 2
@@ -539,15 +561,12 @@ class TestHistoryDAL:
     async def test_count_by_user_entity_id(self, history_dal) -> None:
         """按 user_entity_id 过滤计数"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_y', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_c', user_entity_id='user_x', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_x', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_y', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_c', user_entity_id='user_x', message_plain_text='t3')
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', user_entity_id='user_x') == 2
@@ -555,15 +574,13 @@ class TestHistoryDAL:
     async def test_count_with_message_type(self, history_dal) -> None:
         """加 message_type 过滤计数"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_b', message_type='private',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_a', user_entity_id='user_b', message_type='private',
+                                  message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='event_a',
@@ -575,15 +592,12 @@ class TestHistoryDAL:
         """时间范围过滤计数"""
         base_dt = datetime(2025, 1, 1, 0, 0, 0)
         base_ts = int(base_dt.timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 100, message_id='m2',
+                                  event_entity_id='event_a', user_entity_id='user_b', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 200, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(
@@ -594,15 +608,12 @@ class TestHistoryDAL:
     async def test_count_exclude_bot_self(self, history_dal) -> None:
         """排除 bot 自身消息后的计数"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='bot1', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 1, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 2, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='bot1', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='bot1', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 1, message_id='m2',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 2, message_id='m3',
+                                  event_entity_id='event_a', user_entity_id='bot1', message_plain_text='t3')
         await history_dal.commit_session()
 
         total = await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='event_a')
@@ -614,16 +625,8 @@ class TestHistoryDAL:
 
     async def test_count_zero(self, history_dal) -> None:
         """不匹配返回 0"""
-        await history_dal.add(
-            received_timestamp=1000000000,
-            message_id='m1',
-            bot_self_id='bot1',
-            event_entity_id='event_a',
-            user_entity_id='user_a',
-            message_type='group',
-            message_plain_text='t1',
-            message_raw=[],
-        )
+        await _add_history_record(history_dal, received_timestamp=1000000000, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
         await history_dal.commit_session()
 
         assert await history_dal.count_records_by_condition(bot_self_id='bot1', event_entity_id='nonexistent') == 0
@@ -640,15 +643,12 @@ class TestHistoryDAL:
     async def test_delete_period_older_basic(self, history_dal) -> None:
         """删除 received_timestamp <= before_timestamp 的记录, 验证剩余"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_c', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 100, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_b', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 200, message_id='m3',
+                                  event_entity_id='event_c', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts + 100)
@@ -662,15 +662,12 @@ class TestHistoryDAL:
     async def test_delete_period_older_with_bot_self_id(self, history_dal) -> None:
         """指定 bot_self_id 只删该 bot 的过期记录, 其他 bot 的同 timestamp 记录保留"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts, message_id='m2', bot_self_id='bot2',
-                              event_entity_id='event_a', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 200, message_id='m3', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_c', message_type='group',
-                              message_plain_text='t3', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m2', bot_self_id='bot2',
+                                  event_entity_id='event_a', user_entity_id='user_b', message_plain_text='t2')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 200, message_id='m3',
+                                  event_entity_id='event_b', user_entity_id='user_c', message_plain_text='t3')
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts, bot_self_id='bot1')
@@ -689,12 +686,10 @@ class TestHistoryDAL:
     async def test_delete_period_older_no_match(self, history_dal) -> None:
         """before_timestamp 小于所有记录, 不删除"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 100, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_b', message_plain_text='t2')
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts - 1)
@@ -705,12 +700,10 @@ class TestHistoryDAL:
     async def test_delete_period_older_all(self, history_dal) -> None:
         """before_timestamp 大于所有记录, 全部删除"""
         base_ts = int(datetime.now().timestamp())
-        await history_dal.add(received_timestamp=base_ts, message_id='m1', bot_self_id='bot1',
-                              event_entity_id='event_a', user_entity_id='user_a', message_type='group',
-                              message_plain_text='t1', message_raw=[])
-        await history_dal.add(received_timestamp=base_ts + 100, message_id='m2', bot_self_id='bot1',
-                              event_entity_id='event_b', user_entity_id='user_b', message_type='group',
-                              message_plain_text='t2', message_raw=[])
+        await _add_history_record(history_dal, received_timestamp=base_ts, message_id='m1',
+                                  event_entity_id='event_a', user_entity_id='user_a', message_plain_text='t1')
+        await _add_history_record(history_dal, received_timestamp=base_ts + 100, message_id='m2',
+                                  event_entity_id='event_b', user_entity_id='user_b', message_plain_text='t2')
         await history_dal.commit_session()
 
         await history_dal.delete_period_older(base_ts + 200)

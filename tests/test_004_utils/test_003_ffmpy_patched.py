@@ -14,7 +14,6 @@ import errno
 import os
 import subprocess
 import threading
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -457,9 +456,7 @@ class TestExceptions:
         def _raise_enoent(*args: Any, **kwargs: Any) -> None:
             raise OSError(errno.ENOENT, 'No such file or directory')
 
-        monkeypatch.setattr(
-            ffmpy_patched, 'subprocess', SimpleNamespace(**{**vars(subprocess), 'Popen': _raise_enoent})
-        )
+        rebind_module_namespace(monkeypatch, ffmpy_patched, 'subprocess', Popen=_raise_enoent)
         with pytest.raises(ffmpy_patched.FFExecutableNotFoundError, match="Executable 'ffmpeg' not found"):
             ffmpy_patched.FFmpeg().start()
 
@@ -469,9 +466,7 @@ class TestExceptions:
         def _raise_eacces(*args: Any, **kwargs: Any) -> None:
             raise OSError(errno.EACCES, 'Permission denied')
 
-        monkeypatch.setattr(
-            ffmpy_patched, 'subprocess', SimpleNamespace(**{**vars(subprocess), 'Popen': _raise_eacces})
-        )
+        rebind_module_namespace(monkeypatch, ffmpy_patched, 'subprocess', Popen=_raise_eacces)
         with pytest.raises(OSError, match='Permission denied') as excinfo:
             ffmpy_patched.FFmpeg().start()
         assert not isinstance(excinfo.value, ffmpy_patched.FFExecutableNotFoundError)
@@ -709,8 +704,8 @@ class TestPatchIsolation:
     def test_patch_does_not_pollute_global_modules(self, monkeypatch: pytest.MonkeyPatch):
         from src.utils import ffmpy_patched
 
-        monkeypatch.setattr(ffmpy_patched, 'subprocess', SimpleNamespace(**{**vars(subprocess), 'Popen': None}))
-        monkeypatch.setattr(ffmpy_patched, 'os', SimpleNamespace(**{**vars(os), 'read': None}))
+        rebind_module_namespace(monkeypatch, ffmpy_patched, 'subprocess', Popen=None)
+        rebind_module_namespace(monkeypatch, ffmpy_patched, 'os', read=None)
 
         assert subprocess.Popen is not None
         assert callable(os.read)

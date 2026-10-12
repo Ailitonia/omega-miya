@@ -9,10 +9,12 @@
 """
 
 import asyncio
+from collections.abc import AsyncGenerator
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -21,6 +23,7 @@ from sqlalchemy.exc import NoResultFound
 from tests.test_002_core.helpers import assert_datetime_close
 
 if TYPE_CHECKING:
+    from src.database.internal.subscription_source import SubscriptionSource
     from src.service.omega_base.internal.entity import OmegaEntity
 
 
@@ -52,13 +55,41 @@ async def _query_entity_or_none(
             return None
 
 
-class TestModuleContract:
-    """模块导出契约测试"""
+@pytest.fixture
+def test_nonexist_id() -> str:
+    """随机生成一个不存在的 ID"""
+    return f'TEST_NONEXIST_{uuid4().hex}'
 
-    def test_module_all(self) -> None:
-        import src.service.omega_base.internal.entity as entity_module
 
-        assert entity_module.__all__ == ['EntityAcquireType', 'EntityInitParams', 'OmegaEntity']
+@pytest.fixture(scope='class')
+async def test_subscription_source(test_db_data_factory) -> AsyncGenerator['SubscriptionSource', None]:
+    """测试用订阅源, 测试类结束后清理"""
+
+    sub_type = test_db_data_factory.unique_id('TEST_SUBTYPE')
+    source = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type)
+
+    try:
+        yield source
+    finally:
+        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source)
+
+
+@pytest.fixture(scope='class')
+async def test_subscription_sources(
+        test_db_data_factory,
+) -> AsyncGenerator[tuple['SubscriptionSource', 'SubscriptionSource'], None]:
+    """两个不同 sub_type 的订阅源, 测试类结束后清理"""
+
+    sub_type_a = test_db_data_factory.unique_id('TEST_SUBTYPE_A')
+    sub_type_b = test_db_data_factory.unique_id('TEST_SUBTYPE_B')
+    source_a = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type_a)
+    source_b = await test_db_data_factory.create_test_subscription_source(sub_type=sub_type_b)
+
+    try:
+        yield source_a, source_b
+    finally:
+        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_a)
+        await test_db_data_factory.delete_test_subscription_source(subscription_sources=source_b)
 
 
 class TestEntityInitParams:
