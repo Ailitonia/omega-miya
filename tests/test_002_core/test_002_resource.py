@@ -695,6 +695,69 @@ class TestSafeWrite:
         assert target.read_bytes() == _BINARY_CONTENT
         assert list(tmp_path.glob('*.tmp')) == []
 
+    @pytest.mark.parametrize('content_type', [bytearray, memoryview], ids=['bytearray', 'memoryview'])
+    async def test_safe_write_bytes_accepts_buffer_like_content(
+            self, tmp_path: Path, content_type: 'type[bytearray | memoryview]',
+    ):
+        """写入内容契约为 Buffer, bytes 之外的 buffer 类型(bytearray/memoryview)同样可写"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'buf.bin'
+        await AnyResource(target).safe_write_bytes(content_type(_BINARY_CONTENT))
+
+        assert target.read_bytes() == _BINARY_CONTENT
+        assert list(tmp_path.glob('*.tmp')) == []
+
+
+class TestReadTextBytes:
+    """read_text/read_bytes 只读读取方法测试"""
+
+    async def test_read_text_roundtrip(self, tmp_path: Path):
+        """默认编码读回写入内容一致"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'a.txt'
+        target.write_text(_ASYNC_TEXT_CONTENT, encoding='utf-8')
+
+        assert await AnyResource(target).read_text() == _ASYNC_TEXT_CONTENT
+
+    async def test_read_text_honors_encoding(self, tmp_path: Path):
+        """显式 encoding 透传到读取, 非 ASCII 内容按指定编码解析"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'zh.txt'
+        target.write_bytes('测试内容'.encode())
+
+        assert await AnyResource(target).read_text(encoding='utf-8') == '测试内容'
+
+    async def test_read_text_kwargs_errors_passthrough(self, tmp_path: Path):
+        """**kwargs 透传到底层打开调用(errors='replace' 容错读取非法字节)"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'bad.txt'
+        target.write_bytes(b'ok \xff\xfe')
+
+        assert await AnyResource(target).read_text(encoding='utf-8', errors='replace') == 'ok \ufffd\ufffd'
+
+    @pytest.mark.parametrize('method', ['read_text', 'read_bytes'])
+    @pytest.mark.parametrize('target', ['missing', 'directory'], ids=['missing_raises', 'on_directory_raises'])
+    async def test_read_on_missing_or_directory_raises(self, tmp_path: Path, method: str, target: str):
+        """缺失文件或目录目标抛 ResourceNotFileError(校验在 async_open 读模式入口处)"""
+        from src.resource import AnyResource, ResourceNotFileError
+
+        resource = AnyResource(tmp_path / 'missing.txt') if target == 'missing' else AnyResource(tmp_path)
+        with pytest.raises(ResourceNotFileError):
+            await getattr(resource, method)()
+
+    async def test_read_bytes_roundtrip(self, tmp_path: Path):
+        """二进制内容读回一致"""
+        from src.resource import AnyResource
+
+        target = tmp_path / 'a.bin'
+        target.write_bytes(_BINARY_CONTENT)
+
+        assert await AnyResource(target).read_bytes() == _BINARY_CONTENT
+
 
 class TestFileUriAndSize:
     """file_uri/file_size 属性测试"""
