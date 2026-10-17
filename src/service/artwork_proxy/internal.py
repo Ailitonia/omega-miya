@@ -16,7 +16,7 @@ import re
 import time
 import unicodedata
 import weakref
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
@@ -37,7 +37,6 @@ from .models import (
     ArtistUserData,
     ArtworkPoolData,
     ArtworkProxyData,
-    ArtworkRating,
     PreviewImageThumbsItem,
     PreviewImagesData,
 )
@@ -613,59 +612,26 @@ class BaseArtworkProxy(abc.ABC):
         """使用相关方法处理作品图片"""
         return await self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode=process_mode)
 
-    async def get_auto_proceed_page_file(
-            self,
-            page_index: int = 0,
-            *,
-            page_type: 'ArtworkPageParamType' = 'regular',
-            need_blur_rating: int = 2,
-    ) -> 'TemporaryResource':
-        """根据作品分级处理作品图片
-
-        :param page_index: 作品图片页码
-        :param page_type: 作品图片类型
-        :param need_blur_rating: 需要模糊处理的最小分级等级, 默认为 2: QUESTIONABLE
-        :return: 处理后的图片文件
-
-        注意: UNKNOWN(-1) 可能为任意分级, 按最严格的模糊(blur)处理, 不得直接视为 G-rated 作品
-        """
-        need_blur_rating = max(0, need_blur_rating)
-        artwork_data = await self.query()
-
-        if artwork_data.rating == ArtworkRating.UNKNOWN:
-            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='blur')
-        elif artwork_data.rating == 0:
-            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='mark')
-        elif artwork_data.rating < need_blur_rating:
-            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='noise')
-        else:
-            process = self._process_artwork_page(page_index=page_index, page_type=page_type, process_mode='blur')
-
-        return await process
-
     async def _get_preview_thumb_data(
             self,
             *,
             page_type: 'ArtworkPageParamType' = 'preview',
-            need_blur_rating: int = 2,
+            process_handler: Callable[[int], 'ArtworkProcessParamType'] | None = None,
     ) -> 'PreviewImageThumbsItem':
-        """内部方法, 获取生成预览图所需要的每个小缩略图的数据
-
-        缩略图处理策略类似 get_auto_proceed_page_file 方法,
-        为保证显示效果 0 < rating <= need_blur_rating 的图片不再 noise 处理;
-        UNKNOWN(-1) 可能为任意分级, 按最严格的模糊(blur)处理, 不得直接视为 G-rated 作品
-        """
-        need_blur_rating = max(0, need_blur_rating)
+        """内部方法, 获取生成预览图所需要的每个小缩略图的数据"""
         artwork_data = await self.query()
 
         page_file = await self.get_page_file(page_type=page_type)
         origin_mark = f'{artwork_data.origin.title()} | {artwork_data.aid}'
-        if artwork_data.rating == ArtworkRating.UNKNOWN:
-            proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
-        elif 0 <= artwork_data.rating < need_blur_rating:
+
+        if process_handler is None:
             proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
-        else:
+        elif (process_mode := process_handler(artwork_data.rating)) == 'blur':
             proceed_image = await ArtworkImageOps.handle_blur(image=page_file, origin_mark=origin_mark)
+        elif process_mode == 'noise':
+            proceed_image = await ArtworkImageOps.handle_noise(image=page_file, origin_mark=origin_mark)
+        else:
+            proceed_image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
 
         desc_text = await self.get_std_preview_desc()
         thumb_data = await proceed_image.async_get_bytes()
@@ -679,12 +645,12 @@ class BaseArtworkProxy(abc.ABC):
             artworks: Sequence[Self],
             *,
             page_type: 'ArtworkPageParamType' = 'preview',
-            need_blur_rating: int = 2,
+            process_handler: Callable[[int], 'ArtworkProcessParamType'] | None = None,
             limit: int = 100,
     ) -> 'PreviewImagesData':
         """内部方法, 获取生成预览图所需要的所有作品的数据"""
         tasks = [
-            artwork._get_preview_thumb_data(page_type=page_type, need_blur_rating=need_blur_rating)
+            artwork._get_preview_thumb_data(page_type=page_type, process_handler=process_handler)
             for artwork in artworks[:limit]
         ]
         thumb_items = list(await semaphore_gather(tasks=tasks, semaphore_num=6, filter_exception=True))
@@ -697,7 +663,7 @@ class BaseArtworkProxy(abc.ABC):
             artworks: Sequence[Self],
             *,
             page_type: 'ArtworkPageParamType' = 'preview',
-            need_blur_rating: int = 2,
+            process_handler: Callable[[int], 'ArtworkProcessParamType'] | None = None,
             preview_size: tuple[int, int] = (256, 256),
             header_color: tuple[int, int, int] = (0, 150, 250),
             edge_scale: float = 1 / 32,
@@ -709,7 +675,8 @@ class BaseArtworkProxy(abc.ABC):
         :param preview_name: 预览图标题
         :param artworks: 作品列表
         :param page_type: 作品图片类型
-        :param need_blur_rating: 需要模糊处理的最小分级等级
+        :param process_handler: 缩略图处理方案, 由应用层决定, 入参为作品分级(ArtworkRating),
+            返回 'mark'/'blur'/'noise' 之一(未知返回值回退为 mark), 为 None 时一律仅 mark 处理
         :param preview_size: 单个小缩略图的尺寸, 默认为 256x256
         :param header_color: 页眉装饰色, 默认为 (0, 150, 250)
         :param edge_scale: 缩略图添加白边的比例, 范围 0~1
@@ -721,7 +688,7 @@ class BaseArtworkProxy(abc.ABC):
             preview_name=preview_name,
             artworks=artworks,
             page_type=page_type,
-            need_blur_rating=need_blur_rating,
+            process_handler=process_handler,
             limit=limit,
         )
         path_config = cls._get_path_config()

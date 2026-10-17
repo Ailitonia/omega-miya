@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -981,7 +981,7 @@ class TestSiteListing:
 
 
 class TestImageProcessing:
-    """作品图片处理(_process_artwork_page/get_auto_proceed_page_file/_get_preview_thumb_data)测试"""
+    """作品图片处理(_process_artwork_page/_get_preview_thumb_data)测试"""
 
     @pytest.mark.parametrize(
         ('process_mode', 'expected_tag', 'expected_suffix'),
@@ -1018,53 +1018,43 @@ class TestImageProcessing:
         assert [call[0] for call in fake_image_ops.calls] == ['mark']
         assert result.name == '123_regular_p0_marked.jpg'
 
-    @pytest.mark.parametrize(
-        ('rating', 'need_blur_rating', 'expected_tag'),
-        [
-            (0, 2, 'mark'),
-            (1, 2, 'noise'),
-            (2, 2, 'blur'),
-            (3, 2, 'blur'),
-            (-1, 2, 'blur'),
-            (1, 1, 'blur'),
-            (0, 0, 'mark'),
-            (1, 0, 'blur'),
-            (-1, 0, 'blur'),
-            (1, -3, 'blur'),
-        ],
-    )
-    async def test_auto_proceed_rating_matrix(
+    @pytest.mark.parametrize('rating', [-1, 0, 1, 2, 3])
+    async def test_preview_thumb_default_marks_regardless_of_rating(
             self, proxy_factory: SimpleNamespace, fake_image_ops: SimpleNamespace, isolated_temporary_root: Path,
-            rating: int, need_blur_rating: int, expected_tag: str,
+            rating: int,
     ):
+        """未提供 process_handler 时一律仅打水印(mark), 按分级处理的逻辑交由应用层自行控制"""
         proxy_factory.hooks.query.return_value = make_artwork_data(rating=rating)
         proxy = proxy_factory.cls('123')
 
-        await proxy.get_auto_proceed_page_file(need_blur_rating=need_blur_rating)
+        item = await proxy._get_preview_thumb_data()
 
-        assert [call[0] for call in fake_image_ops.calls] == [expected_tag]
+        assert [call[0] for call in fake_image_ops.calls] == ['mark']
+        assert fake_image_ops.calls[0][2] == 'Unit_Test_Proxy | 123'
+        assert item.desc_text == 'preview desc'
+        assert item.thumb_data == b'mark'
 
     @pytest.mark.parametrize(
-        ('rating', 'need_blur_rating', 'expected_tag'),
+        ('handler_return', 'expected_tag'),
         [
-            (0, 2, 'mark'),
-            (1, 2, 'mark'),
-            (-1, 2, 'blur'),
-            (2, 2, 'blur'),
-            (3, 2, 'blur'),
-            (0, 0, 'blur'),
+            ('blur', 'blur'),
+            ('noise', 'noise'),
+            ('mark', 'mark'),
+            ('other', 'mark'),
         ],
     )
-    async def test_preview_thumb_rating_matrix(
+    async def test_preview_thumb_process_handler_dispatch(
             self, proxy_factory: SimpleNamespace, fake_image_ops: SimpleNamespace, isolated_temporary_root: Path,
-            rating: int, need_blur_rating: int, expected_tag: str,
+            handler_return: str, expected_tag: str,
     ):
-        """预览缩略图 0 <= rating < need_blur_rating 时打水印(mark), UNKNOWN 及其余一律模糊(blur)"""
-        proxy_factory.hooks.query.return_value = make_artwork_data(rating=rating)
+        """process_handler 接收作品分级并决定缩略图处理方式, 未知返回值回退为 mark"""
+        proxy_factory.hooks.query.return_value = make_artwork_data(rating=2)
         proxy = proxy_factory.cls('123')
+        handler = Mock(return_value=handler_return)
 
-        item = await proxy._get_preview_thumb_data(need_blur_rating=need_blur_rating)
+        item = await proxy._get_preview_thumb_data(process_handler=handler)
 
+        handler.assert_called_once_with(2)
         assert [call[0] for call in fake_image_ops.calls] == [expected_tag]
         assert fake_image_ops.calls[0][2] == 'Unit_Test_Proxy | 123'
         assert item.desc_text == 'preview desc'
@@ -1103,6 +1093,24 @@ class TestPreviewGeneration:
         data = await proxy_factory.cls._get_artworks_preview_data('preview', artworks)
 
         assert data.count == 2
+
+    async def test_get_artworks_preview_data_forwards_process_handler(
+            self, proxy_factory: SimpleNamespace, fake_image_ops: SimpleNamespace, isolated_temporary_root: Path,
+    ):
+        """process_handler 经 _get_artworks_preview_data 透传到每个作品的缩略图处理"""
+
+        async def _query_side_effect(proxy_self):
+            return make_artwork_data(aid=proxy_self.s_aid, rating=2)
+
+        proxy_factory.hooks.query.side_effect = _query_side_effect
+        artworks = [proxy_factory.cls(aid) for aid in ('1', '2')]
+
+        data = await proxy_factory.cls._get_artworks_preview_data(
+            'preview', artworks, process_handler=lambda rating: 'blur',
+        )
+
+        assert data.count == 2
+        assert [call[0] for call in fake_image_ops.calls] == ['blur', 'blur']
 
     async def test_generate_artworks_preview_delegates(
             self, proxy_factory: SimpleNamespace, fake_image_ops: SimpleNamespace, isolated_temporary_root: Path,
