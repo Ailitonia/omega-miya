@@ -38,7 +38,7 @@ class ArtworkClassification(IntEnum):
 @unique
 class ArtworkRating(IntEnum):
     """图库作品分级"""
-    UNKNOWN = -1  # 未知, 可能为下面任意一种分级的其中之一, 绝对不要直接当作 G-rated 作品使用
+    UNKNOWN = -1  # 未知或未分级作品, 可能为下面任意一种分级的其中之一
     GENERAL = 0  # G-rated content. 任何人随时可观看的, sfw
     SENSITIVE = 1  # Ecchi, sexy, suggestive, or mildly erotic. 包含内衣/泳装/部分裸露/暗示性动作等, 涩图, nsfw
     QUESTIONABLE = 2  # Softcore erotica. 除了关键之外的明目张胆, 官能作品, nsfw+

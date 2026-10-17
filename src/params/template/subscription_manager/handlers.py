@@ -48,7 +48,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
     ) -> None:
         self._subscription_manager = subscription_manager
         self._command_prefix = command_prefix
-        self._aliases_command_prefix: set[str] = set() if aliases_command_prefix is None else aliases_command_prefix
+        self._aliases_command_prefix: set[str] = set(aliases_command_prefix or set())
 
         # 相关插件配置参数
         self._need_decimal_sub_id = need_decimal_sub_id
@@ -86,7 +86,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
         except MatcherException:
             raise
         except Exception as e:
-            logger.error(f'{interface}订阅{self._command_prefix}({sub_id})失败, {e!r}')
+            logger.error(f'{interface}订阅{self._command_prefix}({sub_id})失败, {e}')
             msg = (
                 f'订阅{self._command_prefix}: {sub_id}失败, '
                 f'可能是网络异常或发生了意外的错误, 请稍后再试或联系管理员处理'
@@ -106,7 +106,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
         except MatcherException:
             raise
         except Exception as e:
-            logger.error(f'{interface}取消订阅{self._command_prefix}({sub_id})失败, {e!r}')
+            logger.error(f'{interface}取消订阅{self._command_prefix}({sub_id})失败, {e}')
             msg = f'取消订阅{self._command_prefix}: {sub_id}失败, 请稍后再试或联系管理员处理'
         await interface.finish_reply(msg)
 
@@ -141,7 +141,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
                     )
                     target_sub_id = sub_source_data.sub_id
             except Exception as e:
-                logger.error(f'获取订阅{self._command_prefix}({target_sub_id})信息失败, {e!r}')
+                logger.error(f'获取订阅{self._command_prefix}({target_sub_id})信息失败, {e}')
                 await interface.finish_reply('获取订阅源信息失败, 可能是网络原因或没有这个订阅源, 请稍后再试')
 
             # 确认流程
@@ -183,7 +183,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
             try:
                 exist_sub = await self._subscription_manager.query_entity_subscribed_sub_source(interface=interface)
             except Exception as e:
-                logger.error(f'获取{interface}已订阅的{self._command_prefix}列表失败, {e!r}')
+                logger.error(f'获取{interface}已订阅的{self._command_prefix}列表失败, {e}')
                 await interface.finish_reply(f'获取已订阅的{self._command_prefix}列表失败, 请稍后再试或联系管理员处理')
 
             if target_sub_id not in exist_sub:
@@ -221,7 +221,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
                     f'当前已订阅的{self._command_prefix}列表:\n\n{exist_text if exist_text else "无"}'
                 )
             except Exception as e:
-                logger.error(f'获取{interface}已订阅的{self._command_prefix}列表失败, {e!r}')
+                logger.error(f'获取{interface}已订阅的{self._command_prefix}列表失败, {e}')
                 await interface.finish_reply(f'获取已订阅的{self._command_prefix}列表失败, 请稍后再试或联系管理员处理')
 
         return _list_subscription_handler
@@ -261,7 +261,7 @@ class SubscriptionHandlerFactory[SM_T: BaseSubscriptionManager]:
                 logger.success(f'{interface}设置{self._command_prefix}订阅通知@所有人功能为 {switch_arg!r} 成功')
                 await interface.send_reply(f'已设置{self._command_prefix}订阅通知@所有人功能为【{switch_arg.upper()}】')
             except Exception as e:
-                logger.error(f'{interface}设置{self._command_prefix}订阅通知@所有人功能为 {switch_arg!r} 失败, {e!r}')
+                logger.error(f'{interface}设置{self._command_prefix}订阅通知@所有人功能为 {switch_arg!r} 失败, {e}')
                 await interface.send_reply(f'设置{self._command_prefix}订阅通知@所有人功能失败, 请联系管理员处理')
 
         return _switch_subscription_notice_at_all_handler
