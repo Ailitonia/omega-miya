@@ -3,13 +3,13 @@
 @Date           : 2026/10/10 12:50
 @FileName       : test_013_omega_internal_params
 @Project        : omega-miya
-@Description    : omega params 模块单元测试 (handler 工厂/权限规则/子依赖/订阅管理模板)
+@Description    : omega params 模块单元测试 (handler 工厂/权限规则/子依赖/订阅管理与图站浏览模板)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
 import random
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator, Sequence
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -20,6 +20,7 @@ import pytest
 from nonebug import App
 
 from tests.utils import (
+    create_real_obv11_bot,
     make_fake_event,
     make_fake_message_event,
     make_mock_bot,
@@ -251,6 +252,11 @@ class TestModuleContract:
             'state_plain_text',
         }),
         ('src.params.template.subscription_manager', {'BaseSubscriptionManager', 'SubscriptionHandlerFactory'}),
+        ('src.params.template.artwork_viewer', {
+            'ALLOW_R18_NODE',
+            'ArtworkViewerHandlerFactory',
+            'ArtworkProcessHandler',
+        }),
     ])
     def test_module_all(self, module_path: str, expected_all: set) -> None:
         import importlib
@@ -1720,6 +1726,1285 @@ class TestSubscriptionHandlerFactory:
             processor_state = parse_processor_state(matcher._default_state)
             assert processor_state.name.endswith('SubscriptionManager')
             assert processor_state.level == 30
+        finally:
+            matcher._tests.clear()
+            matcher.destroy()
+
+
+# ------------------------------------------------------------------ #
+# artwork_viewer 模板测试辅助
+# ------------------------------------------------------------------ #
+
+class _StubHostedFile:
+    """已托管文件替身: 仅提供 get_hosting_path"""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    async def get_hosting_path(self) -> str:
+        return f'https://host.test/{self.name}'
+
+
+class _RecordingArtworkInterface:
+    """组合式 Matcher 接口替身: 记录 send/finish/revoke 调用, finish 语义抛出 FinishedException"""
+
+    def __init__(self) -> None:
+        self.sent: list = []
+        self.finished: list = []
+        self.revoked: list[tuple[Any, int]] = []
+
+    async def send_reply(self, message: Any, **kwargs: Any) -> Any:
+        self.sent.append(message)
+        return SimpleNamespace(bot=SimpleNamespace(self_id='10086'), msg_ids=[f'msg_{len(self.sent)}'])
+
+    async def finish_reply(self, message: Any, **kwargs: Any) -> None:
+        self.finished.append(message)
+        from nonebot.exception import FinishedException
+
+        raise FinishedException
+
+    async def revoke_bot_sent_msg(self, receipt: Any, *, revoke_delay: int = 0) -> None:
+        self.revoked.append((receipt, revoke_delay))
+
+
+def _make_artwork_query_data(
+        aid: str = '1000',
+        *,
+        rating: int = 0,
+        page_indexes: Sequence[int] = (0, 1),
+) -> Any:
+    """构造测试用 ArtworkProxyData (分级与页索引可编程)"""
+    from src.database.internal.artwork_collection import ArtworkClassification
+    from src.service.artwork_proxy.models import ArtworkPage, ArtworkPageFile, ArtworkProxyData
+
+    page_file = ArtworkPageFile(url='https://img.test/page.jpg', file_ext='jpg')
+    return ArtworkProxyData(
+        origin='test_gallery',
+        aid=aid,
+        uid='2000',
+        title='test artwork',
+        uname='test artist',
+        classification=ArtworkClassification.HUMAN_CONFIRMED,
+        rating=rating,
+        width=1000,
+        height=1000,
+        source=f'https://source.test/{aid}',
+        pages=[
+            ArtworkPage(page_index=i, preview_file=page_file, regular_file=page_file, original_file=page_file)
+            for i in page_indexes
+        ],
+    )
+
+
+def _make_plugin_matcher(module_name: str = 'TestModule', plugin_name: str = 'TestPlugin') -> Any:
+    """构造携带假 plugin 对象的 Matcher 实例 (子类属性遮蔽 classproperty, 供权限节点检查路径使用)"""
+    from nonebot.matcher import Matcher
+
+    fake_plugin = SimpleNamespace(module_name=module_name, name=plugin_name)
+    return type('FakePluginMatcher', (Matcher,), {'plugin': fake_plugin, 'temp': False})()
+
+
+@pytest.fixture
+def artwork_stub_cls() -> type:
+    """构造行为可编程的 BaseArtworkProxy 测试子类 (类级记录容器随每次 fixture 调用重建)"""
+    from src.service.artwork_proxy.internal import BaseArtworkProxy
+
+    class _StubArtworkProxy(BaseArtworkProxy):
+        """测试用图站代理: 查询结果与各分类查询的返回值均由类属性编程"""
+
+        query_results: ClassVar[dict[str, Any]] = {}
+        random_ids: ClassVar[list[str]] = []
+        search_ids: ClassVar[list[str]] = []
+        ranking_ids: ClassVar[list[str]] = []
+        bookmark_ids: ClassVar[list[str]] = []
+        user_data: ClassVar[Any] = None
+        random_limits: ClassVar[list[int]] = []
+        search_received: ClassVar[list[tuple[str, int | None]]] = []
+        ranking_received: ClassVar[list[tuple[str, int]]] = []
+        bookmark_received: ClassVar[list[tuple[str, int]]] = []
+        user_received: ClassVar[list[str]] = []
+        proceed_calls: ClassVar[list[tuple[int, str]]] = []
+        preview_calls: ClassVar[list[dict]] = []
+
+        @classmethod
+        def _get_base_origin_name(cls) -> str:
+            return 'test_gallery'
+
+        @classmethod
+        async def _get_resource_as_bytes(cls, url: str, *, timeout: int = 30) -> bytes:
+            raise NotImplementedError
+
+        @classmethod
+        async def _random(cls, *, limit: int = 20) -> list[str]:
+            cls.random_limits.append(limit)
+            return list(cls.random_ids)
+
+        @classmethod
+        async def _search(cls, keyword: str, *, page: int | None = None, **kwargs: Any) -> list[str]:
+            cls.search_received.append((keyword, page))
+            return list(cls.search_ids)
+
+        async def _query(self) -> Any:
+            raise NotImplementedError
+
+        async def get_std_desc(self, *, split_len: int = 128) -> str:
+            return f'{self.origin_name.title()} {self.s_aid} desc'
+
+        async def get_std_preview_desc(self, *, split_len: int = 12) -> str:
+            return self.s_aid
+
+        @classmethod
+        async def _query_pool(cls, pool_id: str | int) -> Any:
+            raise NotImplementedError
+
+        @classmethod
+        async def _discovery(cls, *, limit: int = 20) -> list[str]:
+            raise NotImplementedError
+
+        @classmethod
+        async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str]:
+            raise NotImplementedError
+
+        @classmethod
+        async def _daily_ranking(cls, page: int) -> list[str]:
+            cls.ranking_received.append(('daily', page))
+            return list(cls.ranking_ids)
+
+        @classmethod
+        async def _weekly_ranking(cls, page: int) -> list[str]:
+            cls.ranking_received.append(('weekly', page))
+            return list(cls.ranking_ids)
+
+        @classmethod
+        async def _monthly_ranking(cls, page: int) -> list[str]:
+            cls.ranking_received.append(('monthly', page))
+            return list(cls.ranking_ids)
+
+        @classmethod
+        async def _query_user(cls, uid: str | int) -> Any:
+            raise NotImplementedError
+
+        @classmethod
+        async def query_user(cls, uid: str | int, *, use_cache: bool = True) -> Any:
+            cls.user_received.append(str(uid))
+            return cls.user_data
+
+        @classmethod
+        async def _query_user_bookmark_artworks(cls, uid: str | int, page: int) -> list[str]:
+            cls.bookmark_received.append((str(uid), page))
+            return list(cls.bookmark_ids)
+
+        @classmethod
+        async def _query_follow_latest(cls, page: int, *, filter_tag: str | None = None) -> list[str]:
+            raise NotImplementedError
+
+        async def query(self, *, use_cache: bool = True) -> Any:
+            if (data := self.query_results.get(self.s_aid)) is None:
+                raise ValueError(f'no preset query result for {self.s_aid}')
+            self.artwork_data = data
+            return data
+
+        async def get_custom_proceed_page_file(
+                self,
+                page_index: int = 0,
+                *,
+                page_type: str = 'regular',
+                process_mode: str = 'mark',
+        ) -> Any:
+            type(self).proceed_calls.append((page_index, process_mode))
+            return _StubHostedFile(name=f'{self.s_aid}_p{page_index}_{process_mode}')
+
+        @classmethod
+        async def generate_artworks_preview(
+                cls,
+                preview_name: str,
+                artworks: Sequence[Any],
+                *,
+                page_type: str = 'preview',
+                process_handler: Any = None,
+                preview_size: tuple[int, int] = (256, 256),
+                header_color: tuple[int, int, int] = (0, 150, 250),
+                edge_scale: float = 1 / 32,
+                num_of_line: int = 6,
+                limit: int = 100,
+        ) -> Any:
+            cls.preview_calls.append({
+                'preview_name': preview_name,
+                'artworks': list(artworks),
+                'process_handler': process_handler,
+                'limit': limit,
+            })
+            return _StubHostedFile(name=f'preview_{preview_name}')
+
+    return _StubArtworkProxy
+
+
+@pytest.fixture
+def recording_artwork_context(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """以记录型替身重绑定 artwork_viewer.handlers 命名空间内的 ARTWORK_CONTEXT_MANAGER"""
+    import src.params.template.artwork_viewer.handlers as artwork_handlers_module
+
+    recorded: list[dict] = []
+
+    async def _set_message_context(receipt: Any, data: Any = None, **context_data: Any) -> str:
+        recorded.append(context_data)
+        return 'test_cache_key'
+
+    monkeypatch.setattr(
+        artwork_handlers_module,
+        'ARTWORK_CONTEXT_MANAGER',
+        SimpleNamespace(set_message_context=_set_message_context),
+    )
+    return recorded
+
+
+class TestArtworkFactoryInit:
+    """ArtworkViewerHandlerFactory 构造与基础属性测试"""
+
+    def test_default_prefix_from_origin_name(self, artwork_stub_cls) -> None:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+        assert factory._command_prefix == 'test_gallery'
+        assert factory._aliases_command_prefix == set()
+        assert factory._need_decimal_artwork_id is False
+        assert factory._need_decimal_user_id is False
+        assert factory.origin == 'test_gallery'
+        assert str(factory) == 'ArtworkViewerHandlerFactory | Test_Gallery'
+
+    def test_explicit_prefix_normalized(self, artwork_stub_cls) -> None:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(
+            artwork_stub_cls,
+            '  CustomCMD  ',
+            aliases_command_prefix={'Alias_One', 'two'},
+        )
+
+        assert factory._command_prefix == 'customcmd'
+        assert factory._aliases_command_prefix == {'Alias_One', 'two'}
+
+    @pytest.mark.parametrize('bad_prefix', ['', '   ', '\t'])
+    def test_blank_prefix_rejected(self, artwork_stub_cls, bad_prefix: str) -> None:
+        """显式提供的空/纯空白前缀应当抛出 ValueError 而非静默回退"""
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        with pytest.raises(ValueError, match='command_prefix must not be empty'):
+            ArtworkViewerHandlerFactory(artwork_stub_cls, bad_prefix)
+
+
+class TestParseRankingMode:
+    """榜单类型解析真值表测试"""
+
+    @pytest.mark.parametrize(('mode', 'expected'), [
+        ('', 'monthly'),
+        ('月榜', 'monthly'),
+        ('每月', 'monthly'),
+        ('月', 'monthly'),
+        ('month', 'monthly'),
+        ('  Monthly ', 'monthly'),
+        ('日榜', 'daily'),
+        ('每日', 'daily'),
+        ('日', 'daily'),
+        ('day', 'daily'),
+        ('DAILY', 'daily'),
+        ('周榜', 'weekly'),
+        ('每周', 'weekly'),
+        ('周', 'weekly'),
+        ('week', 'weekly'),
+        ('Weekly', 'weekly'),
+        ('年榜', None),
+        ('foo', None),
+    ])
+    def test_parse_ranking_mode(self, mode: str, expected: str | None) -> None:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        assert ArtworkViewerHandlerFactory._parse_ranking_mode(mode) == expected
+
+
+class TestArtworkCheckAllowR18:
+    """allow_r18 权限节点检查测试"""
+
+    async def test_non_plugin_matcher_denied(self, artwork_stub_cls) -> None:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+        assert await factory.check_allow_r18(interface=_make_matcher_interface()) is False
+
+    async def test_checker_failure_denies_with_warning(
+            self, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch, log_capture,
+    ) -> None:
+        import src.params.template.artwork_viewer.handlers as artwork_handlers_module
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        async def _broken_checker(interface: Any) -> bool:
+            raise RuntimeError('broken checker')
+
+        monkeypatch.setattr(artwork_handlers_module, '_allow_r18_node_checker', _broken_checker)
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+        assert await factory.check_allow_r18(interface=_make_matcher_interface()) is False
+        assert any('ALLOW_R18_NODE node failed' in message for message in log_capture)
+
+    async def test_grant_flow_with_real_permissions(self, artwork_stub_cls, test_onebot_v11_bot) -> None:
+        """全局功能与 allow_r18 节点必须同时授权"""
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+        from src.service import OmegaMatcherInterface
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+        granted_user = random.randint(10_000_000, 99_999_999)
+        denied_user = random.randint(10_000_000, 99_999_999)
+        global_only_user = random.randint(10_000_000, 99_999_999)
+        node_only_user = random.randint(10_000_000, 99_999_999)
+
+        def _interface(user_id: int) -> 'OmegaMatcherInterface':
+            return OmegaMatcherInterface(
+                bot=make_mock_bot(self_id=test_onebot_v11_bot.self_id),
+                event=make_obv11_private_message_event(user_id=user_id),
+                matcher=_make_plugin_matcher('TestModule', 'TestPlugin'),
+            )
+
+        assert await factory.check_allow_r18(interface=_interface(granted_user)) is False
+
+        await seed_entity_permissions(test_onebot_v11_bot, 'onebot_v11_user', str(global_only_user), enable_global=True)
+        assert await factory.check_allow_r18(interface=_interface(global_only_user)) is False
+
+        await seed_entity_permissions(
+            test_onebot_v11_bot,
+            'onebot_v11_user',
+            str(node_only_user),
+            enable_global=False,
+            auth_nodes=[('TestModule', 'TestPlugin', 'allow_r18', 1)],
+        )
+        assert await factory.check_allow_r18(interface=_interface(node_only_user)) is False
+
+        await seed_entity_permissions(
+            test_onebot_v11_bot,
+            'onebot_v11_user',
+            str(granted_user),
+            enable_global=True,
+            auth_nodes=[('TestModule', 'TestPlugin', 'allow_r18', 1)],
+        )
+        assert await factory.check_allow_r18(interface=_interface(granted_user)) is True
+
+        await seed_entity_permissions(
+            test_onebot_v11_bot,
+            'onebot_v11_user',
+            str(denied_user),
+            enable_global=True,
+            auth_nodes=[('TestModule', 'TestPlugin', 'allow_r18', 0)],
+        )
+        assert await factory.check_allow_r18(interface=_interface(denied_user)) is False
+
+
+class TestSendArtworkMessage:
+    """send_artwork_message 边界测试 (组合式接口替身)"""
+
+    @pytest.fixture
+    def factory(self, artwork_stub_cls) -> Any:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        return ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+    async def test_empty_pages_raises(self, factory, artwork_stub_cls) -> None:
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', page_indexes=())}
+
+        with pytest.raises(ValueError, match='has no available pages'):
+            await factory.send_artwork_message(_RecordingArtworkInterface(), artwork_stub_cls('1000'))
+
+    @pytest.mark.parametrize('bad_limiting', [0, -1])
+    async def test_invalid_limiting_raises(self, factory, artwork_stub_cls, bad_limiting: int) -> None:
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000')}
+
+        with pytest.raises(ValueError, match='show_pages_limiting'):
+            await factory.send_artwork_message(
+                _RecordingArtworkInterface(), artwork_stub_cls('1000'), show_pages_limiting=bad_limiting,
+            )
+
+    @pytest.mark.parametrize(('rating', 'allow_r18', 'expected_mode', 'expected_revoke_count'), [
+        (-1, False, 'mark', 0),
+        (-1, True, 'mark', 0),
+        (0, False, 'mark', 0),
+        (0, True, 'mark', 0),
+        (1, False, 'mark', 0),
+        (1, True, 'mark', 0),
+        (2, False, 'blur', 0),
+        (2, True, 'noise', 1),
+        (3, False, 'blur', 0),
+        (3, True, 'noise', 1),
+    ])
+    async def test_rating_process_and_revoke(
+            self,
+            factory,
+            artwork_stub_cls,
+            recording_artwork_context,
+            rating: int,
+            allow_r18: bool,
+            expected_mode: str,
+            expected_revoke_count: int,
+    ) -> None:
+        """默认分级处理与撤回策略真值表"""
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', rating=rating, page_indexes=(0,))}
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artwork_message(interface, artwork_stub_cls('1000'), allow_r18=allow_r18)
+
+        assert artwork_stub_cls.proceed_calls == [(0, expected_mode)]
+        assert len(interface.revoked) == expected_revoke_count
+        if expected_revoke_count:
+            assert interface.revoked[0][1] == 90
+        assert len(interface.sent) == 1
+
+    @pytest.mark.parametrize(('process_mode', 'expected_revoke_count'), [
+        ('mark', 1),
+        ('blur', 0),
+        ('noise', 1),
+    ])
+    async def test_custom_process_mode_and_revoke(
+            self,
+            artwork_stub_cls,
+            recording_artwork_context,
+            process_mode: str,
+            expected_revoke_count: int,
+    ) -> None:
+        """QUESTIONABLE 以上作品仅在实际处理模式不是 blur 时撤回"""
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(
+            artwork_stub_cls,
+            normal_artwork_process_handler=lambda _: process_mode,
+        )
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', rating=3, page_indexes=(0,))}
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artwork_message(interface, artwork_stub_cls('1000'))
+
+        assert artwork_stub_cls.proceed_calls == [(0, process_mode)]
+        assert len(interface.revoked) == expected_revoke_count
+
+    @pytest.mark.parametrize(('allow_r18', 'expected_mode'), [(False, 'blur'), (True, 'noise')])
+    async def test_custom_process_handler_for_unknown(
+            self,
+            artwork_stub_cls,
+            recording_artwork_context,
+            allow_r18: bool,
+            expected_mode: str,
+    ) -> None:
+        """UNKNOWN 图片处理策略可由应用层注入的 handler 覆盖"""
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(
+            artwork_stub_cls,
+            normal_artwork_process_handler=lambda _: 'blur',
+            allow_r18_artwork_process_handler=lambda _: 'noise',
+        )
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', rating=-1, page_indexes=(0,))}
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artwork_message(interface, artwork_stub_cls('1000'), allow_r18=allow_r18)
+
+        assert artwork_stub_cls.proceed_calls == [(0, expected_mode)]
+        assert interface.revoked == []
+
+    async def test_pages_truncated_with_desc_prefix(
+            self, factory, artwork_stub_cls, recording_artwork_context,
+    ) -> None:
+        """页数超出限制时仅发送前若干页, 描述前缀标注 (n of m pages)"""
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', page_indexes=(0, 1, 2))}
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artwork_message(interface, artwork_stub_cls('1000'), show_pages_limiting=2)
+
+        assert [call[0] for call in artwork_stub_cls.proceed_calls] == [0, 1]
+        assert '(2 of 3 pages)' in interface.sent[0].extract_plain_text()
+
+    async def test_context_failure_warns_only(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch, log_capture,
+    ) -> None:
+        """上下文写入失败时仅记录警告, 消息发送不受影响"""
+        import src.params.template.artwork_viewer.handlers as artwork_handlers_module
+
+        async def _broken_set_context(receipt: Any, data: Any = None, **kwargs: Any) -> str:
+            raise RuntimeError('broken context')
+
+        monkeypatch.setattr(
+            artwork_handlers_module,
+            'ARTWORK_CONTEXT_MANAGER',
+            SimpleNamespace(set_message_context=_broken_set_context),
+        )
+
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', page_indexes=(0,))}
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artwork_message(interface, artwork_stub_cls('1000'))
+
+        assert len(interface.sent) == 1
+        assert any('Set' in message and 'context failed' in message for message in log_capture)
+
+    async def test_revoke_failure_warns_only(
+            self, factory, artwork_stub_cls, recording_artwork_context, monkeypatch: pytest.MonkeyPatch, log_capture,
+    ) -> None:
+        """撤回调度失败时仅记录警告, 消息发送不受影响"""
+        artwork_stub_cls.query_results = {'1000': _make_artwork_query_data('1000', rating=3, page_indexes=(0,))}
+        interface = _RecordingArtworkInterface()
+
+        async def _broken_revoke(receipt: Any, *, revoke_delay: int = 0) -> None:
+            raise RuntimeError('broken revoke')
+
+        monkeypatch.setattr(interface, 'revoke_bot_sent_msg', _broken_revoke)
+
+        await factory.send_artwork_message(interface, artwork_stub_cls('1000'), allow_r18=True)
+
+        assert len(interface.sent) == 1
+        assert any('Schedule revoking' in message and 'failed' in message for message in log_capture)
+
+
+class TestSendArtworksPreviewMessage:
+    """send_artworks_preview_message 边界测试"""
+
+    @pytest.fixture
+    def factory(self, artwork_stub_cls) -> Any:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        return ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+    @pytest.mark.parametrize('bad_limiting', [0, -1])
+    async def test_invalid_limiting_raises(self, factory, artwork_stub_cls, bad_limiting: int) -> None:
+        with pytest.raises(ValueError, match='show_artworks_limiting'):
+            await factory.send_artworks_preview_message(
+                _RecordingArtworkInterface(),
+                'title',
+                [artwork_stub_cls('1')],
+                show_artworks_limiting=bad_limiting,
+            )
+
+    async def test_empty_artworks_raises(self, factory, artwork_stub_cls) -> None:
+        with pytest.raises(ValueError, match='artworks must not be empty'):
+            await factory.send_artworks_preview_message(_RecordingArtworkInterface(), 'title', [])
+
+    @pytest.mark.parametrize(('allow_r18', 'expected_handler_attr'), [
+        (False, '_aph_normal'),
+        (True, '_aph_allow_r18'),
+    ])
+    async def test_slice_and_process_handler_passed(
+            self, factory, artwork_stub_cls, allow_r18: bool, expected_handler_attr: str,
+    ) -> None:
+        artworks = [artwork_stub_cls(str(i)) for i in range(5)]
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artworks_preview_message(
+            interface, 'preview title', artworks, allow_r18=allow_r18, show_artworks_limiting=3,
+        )
+
+        assert len(artwork_stub_cls.preview_calls) == 1
+        preview_call = artwork_stub_cls.preview_calls[0]
+        assert preview_call['preview_name'] == 'preview title'
+        assert preview_call['limit'] == 3
+        assert preview_call['artworks'] == artworks[:3]
+        assert preview_call['process_handler'] is getattr(factory, expected_handler_attr)
+        assert len(interface.sent) == 1
+
+    @pytest.mark.parametrize(('allow_r18', 'expected_revoke_num'), [(False, 0), (True, 1)])
+    async def test_revoke_only_for_allow_r18(
+            self, factory, artwork_stub_cls, allow_r18: bool, expected_revoke_num: int,
+    ) -> None:
+        interface = _RecordingArtworkInterface()
+
+        await factory.send_artworks_preview_message(
+            interface, 'title', [artwork_stub_cls('1')], allow_r18=allow_r18,
+        )
+
+        assert len(interface.revoked) == expected_revoke_num
+
+    async def test_revoke_failure_warns_only(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch, log_capture,
+    ) -> None:
+        """预览消息撤回调度失败时仅记录警告"""
+        interface = _RecordingArtworkInterface()
+
+        async def _broken_revoke(receipt: Any, *, revoke_delay: int = 0) -> None:
+            raise RuntimeError('broken revoke')
+
+        monkeypatch.setattr(interface, 'revoke_bot_sent_msg', _broken_revoke)
+
+        await factory.send_artworks_preview_message(
+            interface, 'title', [artwork_stub_cls('1')], allow_r18=True,
+        )
+
+        assert len(interface.sent) == 1
+        assert any('Schedule revoking' in message and 'failed' in message for message in log_capture)
+
+
+class TestExecuteQueryAndSendResult:
+    """execute_query_and_send_result 分支测试"""
+
+    @pytest.fixture
+    def factory(self, artwork_stub_cls) -> Any:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        return ArtworkViewerHandlerFactory(artwork_stub_cls)
+
+    @staticmethod
+    def _query_coro(artworks: list, title: str = 't') -> Any:
+        async def _query() -> tuple[list, str]:
+            return artworks, title
+
+        return _query()
+
+    async def test_empty_result_finishes_with_hint(self, factory) -> None:
+        from nonebot.exception import FinishedException
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory.execute_query_and_send_result(
+                interface, self._query_coro([]), allow_r18=False,
+            )
+
+        assert interface.finished == ['未找到相关作品, 请尝试调整查询条件后重试']
+
+    async def test_single_artwork_sends_detail(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        artwork = artwork_stub_cls('1000')
+        detail_calls: list[dict] = []
+
+        async def _record_detail(interface: Any, artwork: Any, **kwargs: Any) -> None:
+            detail_calls.append({'artwork': artwork, **kwargs})
+
+        monkeypatch.setattr(factory, 'send_artwork_message', _record_detail)
+
+        await factory.execute_query_and_send_result(
+            _RecordingArtworkInterface(), self._query_coro([artwork]), allow_r18=True,
+        )
+
+        assert detail_calls == [{'artwork': artwork, 'allow_r18': True}]
+
+    async def test_multiple_artworks_sends_preview(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        artworks = [artwork_stub_cls('1'), artwork_stub_cls('2')]
+        preview_calls: list[dict] = []
+
+        async def _record_preview(interface: Any, title: str, artworks: Any, **kwargs: Any) -> None:
+            preview_calls.append({'title': title, 'artworks': artworks, **kwargs})
+
+        monkeypatch.setattr(factory, 'send_artworks_preview_message', _record_preview)
+
+        await factory.execute_query_and_send_result(
+            _RecordingArtworkInterface(), self._query_coro(artworks, 'search title'), allow_r18=False,
+        )
+
+        assert preview_calls == [{
+            'title': 'search title',
+            'artworks': artworks,
+            'allow_r18': False,
+            'show_artworks_limiting': 60,
+        }]
+
+    async def test_not_implemented_finishes_friendly(self, factory) -> None:
+        from nonebot.exception import FinishedException
+
+        async def _unsupported() -> tuple[list, str]:
+            raise NotImplementedError('search not supported')
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory.execute_query_and_send_result(interface, _unsupported(), allow_r18=False)
+
+        assert interface.finished == ['Test_Gallery不支持该功能, 请确认后再重试']
+
+    async def test_generic_exception_finishes_friendly(self, factory) -> None:
+        from nonebot.exception import FinishedException
+
+        async def _failed() -> tuple[list, str]:
+            raise RuntimeError('network down')
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory.execute_query_and_send_result(interface, _failed(), allow_r18=False)
+
+        assert interface.finished == ['获取作品失败了, 可能是网络原因或者作品已经被删除, 请稍后再试']
+
+    async def test_matcher_exception_reraised(self, factory) -> None:
+        """MatcherException (含 FinishedException) 必须原样透传, 不被转换为友好提示"""
+        from nonebot.exception import FinishedException
+
+        async def _finish_like_query() -> tuple[list, str]:
+            raise FinishedException
+
+        with pytest.raises(FinishedException):
+            await factory.execute_query_and_send_result(
+                _RecordingArtworkInterface(), _finish_like_query(), allow_r18=False,
+            )
+
+
+class TestArtworkEnsureArgs:
+    """_ensure_arg_text / _ensure_keywords 参数补全测试"""
+
+    @staticmethod
+    def _match(result: Any, available: bool) -> Any:
+        from nonebot_plugin_alconna import Match
+
+        return Match(result, available)
+
+    async def test_arg_text_stripped(self) -> None:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        text = await ArtworkViewerHandlerFactory._ensure_arg_text(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+            _RecordingArtworkInterface(),
+            self._match('  1000  ', True),
+            'prompt:',
+        )
+        assert text == '1000'
+
+    @pytest.mark.parametrize(('arg_result', 'arg_available'), [('', False), ('   ', True)])
+    async def test_arg_prompted_when_missing(self, arg_result: str, arg_available: bool) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        text = await ArtworkViewerHandlerFactory._ensure_arg_text(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(UniMessage(' 2000 ')),
+            _RecordingArtworkInterface(),
+            self._match(arg_result, arg_available),
+            'prompt:',
+        )
+        assert text == '2000'
+
+    async def test_arg_prompt_timeout_finishes(self) -> None:
+        from nonebot.exception import FinishedException
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await ArtworkViewerHandlerFactory._ensure_arg_text(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match('', False),
+                'prompt:',
+            )
+
+        assert interface.finished == ['等待输入超时, 已取消操作']
+
+    async def test_arg_prompt_empty_finishes(self) -> None:
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await ArtworkViewerHandlerFactory._ensure_arg_text(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(UniMessage('   ')),
+                interface,
+                self._match('', False),
+                'prompt:',
+            )
+
+        assert interface.finished == ['未提供有效参数, 已取消操作']
+
+    @pytest.mark.parametrize(('keywords_result', 'expected'), [
+        (['foo', 'bar'], 'foo bar'),
+        ('solo', 'solo'),
+        (['  a  ', 'b'], 'a b'),
+    ])
+    async def test_keywords_merged(self, keywords_result: Any, expected: str) -> None:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        text = await ArtworkViewerHandlerFactory._ensure_keywords(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+            _RecordingArtworkInterface(),
+            self._match(keywords_result, True),
+        )
+        assert text == expected
+
+    @pytest.mark.parametrize(('keywords_result', 'available'), [([], False), ([' ', ''], True)])
+    async def test_keywords_prompted_when_missing(self, keywords_result: Any, available: bool) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        text = await ArtworkViewerHandlerFactory._ensure_keywords(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(UniMessage('foo bar')),
+            _RecordingArtworkInterface(),
+            self._match(keywords_result, available),
+        )
+        assert text == 'foo bar'
+
+    @pytest.mark.parametrize(('response_text', 'expected_message'), [
+        (None, '等待输入超时, 已取消操作'),
+        ('   ', '未提供有效搜索关键词, 已取消操作'),
+    ])
+    async def test_keywords_prompt_failure_finishes(self, response_text: str | None, expected_message: str) -> None:
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        response = UniMessage(response_text) if response_text is not None else None
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await ArtworkViewerHandlerFactory._ensure_keywords(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(response),
+                interface,
+                self._match([], False),
+            )
+
+        assert interface.finished == [expected_message]
+
+
+class TestArtworkGeneratedHandlers:
+    """生成的各子命令 handler 参数校验与分发测试"""
+
+    @pytest.fixture
+    def factory(self, artwork_stub_cls) -> Any:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        return ArtworkViewerHandlerFactory(artwork_stub_cls, 'test_gallery')
+
+    @staticmethod
+    def _match(result: Any, available: bool) -> Any:
+        from nonebot_plugin_alconna import Match
+
+        return Match(result, available)
+
+    @staticmethod
+    def _patch_execute(monkeypatch: pytest.MonkeyPatch, factory: Any) -> list[dict]:
+        """以消费并记录查询协程结果的替身替换 execute_query_and_send_result"""
+        calls: list[dict] = []
+
+        async def _record(interface: Any, query_handler: Any, **kwargs: Any) -> None:
+            artworks, title = await query_handler
+            calls.append({'artworks': artworks, 'title': title, **kwargs})
+
+        monkeypatch.setattr(factory, 'execute_query_and_send_result', _record)
+        return calls
+
+    async def test_view_rejects_non_decimal_id(self, artwork_stub_cls) -> None:
+        from nonebot.exception import FinishedException
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls, 'test_gallery', need_decimal_artwork_id=True)
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_view_artwork_handler()(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match('abc', True),
+            )
+
+        assert interface.finished == ['作品ID应当为纯数字, 请确认后重试']
+
+    async def test_view_dispatches_query(self, factory, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+        interface = _RecordingArtworkInterface()
+
+        await factory._generate_view_artwork_handler()(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+            interface,
+            self._match('123456', True),
+        )
+
+        assert interface.sent
+        assert interface.sent[0] == '稍等, 正在获取作品信息~'
+        assert len(calls) == 1
+        assert [artwork.s_aid for artwork in calls[0]['artworks']] == ['123456']
+        assert calls[0]['title'] == ''
+        assert calls[0]['allow_r18'] is False
+
+    @pytest.mark.parametrize(('num', 'valid'), [(0, False), (61, False), (-1, False), (1, True), (60, True)])
+    async def test_random_num_bounds(self, factory, monkeypatch: pytest.MonkeyPatch, num: int, valid: bool) -> None:
+        from nonebot.exception import FinishedException
+
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+        interface = _RecordingArtworkInterface()
+
+        if valid:
+            await factory._generate_random_artworks_handler()(interface, self._match(num, True))
+            assert calls[0]['show_artworks_limiting'] == num
+        else:
+            with pytest.raises(FinishedException):
+                await factory._generate_random_artworks_handler()(interface, self._match(num, True))
+            assert interface.finished == ['作品数量应当在 1~60 之间, 请确认后重试']
+
+    async def test_random_defaults_and_queries(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        artwork_stub_cls.random_ids = ['1', '2', '3']
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+
+        await factory._generate_random_artworks_handler()(_RecordingArtworkInterface(), self._match(0, False))
+
+        assert artwork_stub_cls.random_limits == [60]
+        assert [artwork.s_aid for artwork in calls[0]['artworks']] == ['1', '2', '3']
+        assert calls[0]['show_artworks_limiting'] == 60
+        assert 'Random Artworks' in calls[0]['title']
+
+    async def test_search_invalid_page_rejected(self, factory) -> None:
+        from nonebot.exception import FinishedException
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_search_artworks_handler()(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match(['foo'], True),
+                self._match(0, True),
+            )
+
+        assert interface.finished == ['查询页码应当为正整数, 请确认后重试']
+
+    async def test_search_dispatches_query(self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch) -> None:
+        artwork_stub_cls.search_ids = ['1', '2']
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+
+        await factory._generate_search_artworks_handler()(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+            _RecordingArtworkInterface(),
+            self._match(['foo', 'bar'], True),
+            self._match(2, True),
+        )
+
+        assert artwork_stub_cls.search_received == [('foo bar', 2)]
+        assert [artwork.s_aid for artwork in calls[0]['artworks']] == ['1', '2']
+        assert calls[0]['title'] == 'Test_Gallery Search: foo bar'
+
+    async def test_ranking_invalid_mode_rejected(self, factory) -> None:
+        from nonebot.exception import FinishedException
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_ranking_artworks_handler()(
+                interface,
+                self._match('年榜', True),
+                self._match(1, True),
+            )
+
+        assert interface.finished == ['榜单类型应当为【日榜/周榜/月榜】, 请确认后重试']
+
+    async def test_ranking_invalid_page_rejected(self, factory, artwork_stub_cls) -> None:
+        from nonebot.exception import FinishedException
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_ranking_artworks_handler()(
+                interface,
+                self._match('日榜', True),
+                self._match(0, True),
+            )
+
+        assert interface.finished == ['查询页码应当为正整数, 请确认后重试']
+        assert artwork_stub_cls.ranking_received == []
+
+    @pytest.mark.parametrize(('mode', 'expected_ranking'), [
+        ('', 'monthly'),
+        ('日榜', 'daily'),
+        ('weekly', 'weekly'),
+    ])
+    async def test_ranking_dispatches_query(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch, mode: str, expected_ranking: str,
+    ) -> None:
+        artwork_stub_cls.ranking_ids = ['1']
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+
+        await factory._generate_ranking_artworks_handler()(
+            _RecordingArtworkInterface(),
+            self._match(mode, bool(mode)),
+            self._match(1, False),
+        )
+
+        assert artwork_stub_cls.ranking_received == [(expected_ranking, 1)]
+        assert [artwork.s_aid for artwork in calls[0]['artworks']] == ['1']
+        assert expected_ranking.title() in calls[0]['title']
+
+    async def test_bookmark_rejects_non_decimal_uid(self, artwork_stub_cls) -> None:
+        from nonebot.exception import FinishedException
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls, 'test_gallery', need_decimal_user_id=True)
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_bookmark_artworks_handler()(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match('abc', True),
+                self._match(1, True),
+            )
+
+        assert interface.finished == ['用户ID应当为纯数字, 请确认后重试']
+
+    async def test_bookmark_invalid_page_rejected(self, factory, artwork_stub_cls) -> None:
+        from nonebot.exception import FinishedException
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_bookmark_artworks_handler()(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match('12345', True),
+                self._match(-1, True),
+            )
+
+        assert interface.finished == ['查询页码应当为正整数, 请确认后重试']
+        assert artwork_stub_cls.bookmark_received == []
+
+    async def test_bookmark_dispatches_query(self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch) -> None:
+        artwork_stub_cls.bookmark_ids = ['1', '2']
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+
+        await factory._generate_bookmark_artworks_handler()(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+            _RecordingArtworkInterface(),
+            self._match('12345', True),
+            self._match(2, True),
+        )
+
+        assert artwork_stub_cls.bookmark_received == [('12345', 2)]
+        assert calls[0]['title'] == 'Test_Gallery User Bookmark - UID: 12345'
+
+    async def test_user_dispatches_query(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from src.service.artwork_proxy.models import ArtistUserData
+
+        artwork_stub_cls.user_data = ArtistUserData(
+            origin='test_gallery',
+            uid='2000',
+            name='test artist',
+            artwork_ids=['a1', 'a2', 'a3'],
+        )
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+
+        await factory._generate_user_artworks_handler()(
+            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+            _RecordingArtworkInterface(),
+            self._match('2000', True),
+            self._match(1, False),
+        )
+
+        assert artwork_stub_cls.user_received == ['2000']
+        assert [artwork.s_aid for artwork in calls[0]['artworks']] == ['a1', 'a2', 'a3']
+        assert calls[0]['title'] == 'Test_Gallery User Artwork - test artist/UID: 2000'
+
+    @pytest.mark.parametrize(
+        ('page', 'expected_count', 'expected_first', 'expected_last'),
+        [(1, 60, 'a0', 'a59'), (2, 1, 'a60', 'a60'), (3, 0, None, None)],
+    )
+    async def test_query_user_pagination(
+            self,
+            factory,
+            artwork_stub_cls,
+            page: int,
+            expected_count: int,
+            expected_first: str | None,
+            expected_last: str | None,
+    ) -> None:
+        from src.service.artwork_proxy.models import ArtistUserData
+
+        artwork_stub_cls.user_data = ArtistUserData(
+            origin='test_gallery',
+            uid='2000',
+            name='test artist',
+            artwork_ids=[f'a{i}' for i in range(61)],
+        )
+
+        artworks, _ = await factory.query_user('2000', page)
+        artwork_ids = [artwork.s_aid for artwork in artworks]
+
+        assert len(artwork_ids) == expected_count
+        if expected_count == 0:
+            assert artwork_ids == []
+        else:
+            assert artwork_ids[0] == expected_first
+            assert artwork_ids[-1] == expected_last
+        assert artwork_stub_cls.user_received == ['2000']
+
+    async def test_user_rejects_non_decimal_uid(self, artwork_stub_cls) -> None:
+        from nonebot.exception import FinishedException
+
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls, 'test_gallery', need_decimal_user_id=True)
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_user_artworks_handler()(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match('abc', True),
+                self._match(1, True),
+            )
+
+        assert interface.finished == ['用户ID应当为纯数字, 请确认后重试']
+        assert artwork_stub_cls.user_received == []
+
+    async def test_user_invalid_page_rejected(self, factory, artwork_stub_cls) -> None:
+        from nonebot.exception import FinishedException
+
+        interface = _RecordingArtworkInterface()
+
+        with pytest.raises(FinishedException):
+            await factory._generate_user_artworks_handler()(
+                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
+                interface,
+                self._match('2000', True),
+                self._match(-1, True),
+            )
+
+        assert interface.finished == ['查询页码应当为正整数, 请确认后重试']
+        assert artwork_stub_cls.user_received == []
+
+
+class TestRegisterArtworkHandlers:
+    """register_handlers 注册与命令路由行为测试"""
+
+    @pytest.fixture
+    def registered_factory(self, artwork_stub_cls) -> tuple[Any, Any]:
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        command_prefix = unique_test_id('testacv').lower()
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls, command_prefix)
+        return factory, factory.register_handlers(permission_level=30)
+
+    def test_register_handlers(self, registered_factory) -> None:
+        """注册应创建 AlconnaMatcher 并携带 processor state 与 allow_r18 额外权限节点"""
+        from nonebot_plugin_alconna import AlconnaMatcher
+
+        from src.service.omega_processor.universal.processor_utils import parse_processor_state
+
+        factory, matcher = registered_factory
+        try:
+            assert issubclass(matcher, AlconnaMatcher)
+
+            processor_state = parse_processor_state(matcher._default_state)
+            assert processor_state.name == factory._command_prefix.title()
+            assert processor_state.level == 30
+            assert 'allow_r18' in processor_state.extra_auth_node
+        finally:
+            matcher._tests.clear()
+            matcher.destroy()
+
+    async def test_full_flow_main_args_routes_to_view_handler(
+            self,
+            app: App,
+            artwork_stub_cls,
+            recording_artwork_context,
+            recording_uni_message,
+            monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """主参数命令路由到详情查看流程 (非插件 matcher 跳过全部预处理器)"""
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        command_prefix = unique_test_id('testacvmain').lower()
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls, command_prefix)
+        artwork_stub_cls.query_results = {'123456': _make_artwork_query_data('123456', page_indexes=(0,))}
+        matcher = factory.register_handlers()
+
+        prompt_messages: list = []
+
+        async def _prompt(cls, message: Any, timeout: float = 120, block: bool = True) -> None:
+            prompt_messages.append(message)
+            return None
+
+        monkeypatch.setattr(matcher, 'prompt', classmethod(_prompt))
+
+        try:
+            async with app.test_matcher(matcher) as ctx:
+                bot = create_real_obv11_bot(ctx, '10086')
+                event = make_obv11_private_message_event(
+                    user_id=random.randint(10_000_000, 99_999_999),
+                    message_id=random.randint(1_000_000, 2_000_000_000),
+                    text=f'/{command_prefix} 123456',
+                )
+
+                ctx.receive_event(bot, event)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+
+            # 详情流程已执行: 页面按真实索引处理, 未追问作品 ID, 消息上下文已写入
+            assert artwork_stub_cls.proceed_calls == [(0, 'mark')]
+            assert prompt_messages == []
+            assert len(recording_uni_message) == 2
+            assert recording_uni_message[0].extract_plain_text() == '稍等, 正在获取作品信息~'
+            assert recording_artwork_context[0]['aid'] == '123456'
+            assert recording_artwork_context[0]['origin'] == 'test_gallery'
+        finally:
+            matcher._tests.clear()
+            matcher.destroy()
+
+    @pytest.mark.parametrize('subcommand_args', ['随机 --num 3', 'random -n 3'])
+    async def test_full_flow_subcommand_does_not_trigger_view_prompt(
+            self,
+            app: App,
+            artwork_stub_cls,
+            recording_artwork_context,
+            recording_uni_message,
+            monkeypatch: pytest.MonkeyPatch,
+            subcommand_args: str,
+    ) -> None:
+        """中文与英文随机子命令均路由到随机流程, 不触发详情查看追问"""
+        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
+
+        command_prefix = unique_test_id('testacvsub').lower()
+        factory = ArtworkViewerHandlerFactory(artwork_stub_cls, command_prefix)
+        artwork_stub_cls.random_ids = ['1', '2']
+        matcher = factory.register_handlers()
+
+        prompt_messages: list = []
+
+        async def _prompt(cls, message: Any, timeout: float = 120, block: bool = True) -> None:
+            prompt_messages.append(message)
+            return None
+
+        monkeypatch.setattr(matcher, 'prompt', classmethod(_prompt))
+
+        try:
+            async with app.test_matcher(matcher) as ctx:
+                bot = create_real_obv11_bot(ctx, '10086')
+                event = make_obv11_private_message_event(
+                    user_id=random.randint(10_000_000, 99_999_999),
+                    message_id=random.randint(1_000_000, 2_000_000_000),
+                    text=f'/{command_prefix} {subcommand_args}',
+                )
+
+                ctx.receive_event(bot, event)
+                ctx.should_pass_rule(matcher=matcher)
+                ctx.should_pass_permission(matcher=matcher)
+
+            # 随机流程已执行且仅执行随机流程: 无页面处理, 无追问, 预览图生成收到限定量
+            assert artwork_stub_cls.random_limits == [3]
+            assert artwork_stub_cls.proceed_calls == []
+            assert prompt_messages == []
+            assert len(artwork_stub_cls.preview_calls) == 1
+            assert artwork_stub_cls.preview_calls[0]['limit'] == 3
+            assert len(recording_uni_message) == 2
         finally:
             matcher._tests.clear()
             matcher.destroy()
