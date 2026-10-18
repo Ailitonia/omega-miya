@@ -103,7 +103,7 @@ class DatabaseNonRatingArtworkSource(_DatabaseArtworkSource):
             size=200,
             allow_classification_range=(-1, 0),
             allow_rating_range=(-1, 3),
-            order_mode='aid_desc',
+            order_mode='random',
         )
 
 
@@ -125,7 +125,7 @@ class DatabaseNonReviewRecordArtworkSource(_DatabaseArtworkSource):
             size=200,
             allow_classification_range=(-1, 4),
             allow_rating_range=(-1, 3),
-            order_mode='aid_desc',
+            order_mode='random',
             has_review_record=False,
         )
 
