@@ -6,6 +6,19 @@
 @Description    : 手动导入邮箱账号工具(仅支持 IMAP)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
+
+用法:
+    python bot.py --tool-execute input_email_account
+
+交互式依次输入邮箱 IMAP 服务器地址、邮箱地址、邮箱密码, 通过 IMAP 登录校验后
+将账号加密写入数据库 (protocol=imap, port=993), 导入成功后可在会话中使用
+/邮箱 绑定 绑定该邮箱。本工具不接受任何命令行参数。
+
+安全说明:
+    - 邮箱密码为登录凭据, tty 下输入不回显, 请注意可视环境
+    - 非 tty 环境(管道/重定向)从 stdin 按行读取 (依次为服务器地址/邮箱地址/密码),
+      可用于脚本化调用, 如:
+      printf 'imap.example.com\\nuser@example.com\\npassword\\n' | python bot.py --tool-execute input_email_account
 """
 
 import getpass
