@@ -10,10 +10,11 @@
 
 from typing import TYPE_CHECKING, Literal
 
+from nonebot.log import logger
 from pydantic import BaseModel, ConfigDict
 
-from src.service.artwork_collection import PixivArtworkCollection
-from src.utils import BaseCommonAPI, semaphore_gather
+from src.service.artwork_proxy import PixivArtworkProxy
+from src.utils import BaseCommonAPI
 
 if TYPE_CHECKING:
     from src.utils.omega_common_api.types import CookieTypes, HeaderTypes
@@ -69,21 +70,19 @@ class LoliconAPI(BaseCommonAPI):
         return LoliconAPIReturn.model_validate(await cls._post_acquire_as_json(url=cls._get_setu_api_url(), json=json))
 
     @classmethod
-    async def _add_lolicon_setu_into_database(cls, pixiv_ac: PixivArtworkCollection) -> None:
-        """在数据库中添加作品信息"""
-        artwork_data = await pixiv_ac.artwork_proxy.query()
-
-        classification = 1 if artwork_data.classification == 1 else 2
-        rating = 3 if artwork_data.rating == 3 else 1
-
-        await pixiv_ac.add_artwork_into_database_ignore_exists(classification=classification, rating=rating)
-
-    @classmethod
     async def update_lolicon_setu(cls) -> None:
         """从 lolicon API 获取涩图数据并导入数据库"""
         setu_data = await cls._query_setu(r18=2, num=20)
-        tasks = [cls._add_lolicon_setu_into_database(PixivArtworkCollection(artwork_id=x.pid)) for x in setu_data.data]
-        await semaphore_gather(tasks=tasks, semaphore_num=8, return_exceptions=False)
+
+        for setu in setu_data.data:
+            artwork = PixivArtworkProxy(setu.pid)
+            try:
+                artwork_data = await artwork.query()
+                classification = 1 if artwork_data.classification == 1 else 2
+                rating = max(artwork_data.rating, 1)
+                await artwork.add_artwork_into_database_ignore_exists(classification=classification, rating=rating)
+            except Exception as e:
+                logger.error(f'ArtworkCollectionUpdater | Add {artwork} into database failed, {e}')
 
 
 __all__ = [

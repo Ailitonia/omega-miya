@@ -3,34 +3,23 @@
 @Date           : 2024/8/17 下午7:02
 @FileName       : scheduled_tasks
 @Project        : nonebot2_miya
-@Description    : 更新任务管理
+@Description    : 自动更新任务管理
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
 
-from nonebot import get_driver, logger
+from nonebot.log import logger
 
 from src.service import scheduler
 from src.utils import run_async_with_time_limited
 from .sites import (
     BooruArtworksUpdater,
-    LocalCollectedArtworkUpdater,
     LoliconAPI,
     PixivArtworkUpdater,
 )
 
 
-@get_driver().on_startup
-async def artwork_collection_updater_startup_task() -> None:
-    logger.debug('OmegaArtworkCollectionUpdater | Starting update from LocalCollectedArtwork')
-    try:
-        await LocalCollectedArtworkUpdater.update_local_collected_artwork()
-        logger.success('OmegaArtworkCollectionUpdater | Updated from LocalCollectedArtwork succeed')
-    except Exception as e:
-        logger.error(f'OmegaArtworkCollectionUpdater | Updating from LocalCollectedArtwork failed, {e!r}')
-
-
-@run_async_with_time_limited(delay_time=240)
+@run_async_with_time_limited(delay_time=900)
 async def artwork_collection_updater_main() -> None:
     logger.debug('OmegaArtworkCollectionUpdater | Starting update from LoliconAPI')
     try:
@@ -77,7 +66,7 @@ scheduler.add_job(
     # week=None,
     # day_of_week=None,
     hour='1-7',  # 只在夜间执行自动更新
-    minute='*/6',
+    minute='*/20',
     second='17',
     # start_date=None,
     # end_date=None,

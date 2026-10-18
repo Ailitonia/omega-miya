@@ -3,7 +3,7 @@
 @Date           : 2024/8/24 下午5:24
 @FileName       : pixiv
 @Project        : nonebot2_miya
-@Description    :
+@Description    : Pixiv 首页及推荐作品更新
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -11,8 +11,9 @@
 from asyncio import sleep as async_sleep
 from collections.abc import Sequence
 
-from src.service.artwork_collection import PixivArtworkCollection
-from src.utils import semaphore_gather
+from nonebot.log import logger
+
+from src.service.artwork_proxy import PixivArtworkProxy
 from src.utils.pixiv_api import PixivArtwork
 
 
@@ -20,9 +21,15 @@ class PixivArtworkUpdater:
     """自动从 Pixiv 发现/推荐更新作品"""
 
     @staticmethod
-    async def _add_artwork_into_database(pids: Sequence[int], semaphore_num: int = 8) -> None:
-        tasks = [PixivArtworkCollection(x).add_artwork_into_database_ignore_exists() for x in pids]
-        await semaphore_gather(tasks=tasks, semaphore_num=semaphore_num, return_exceptions=False)
+    async def _add_artwork_into_database(pids: Sequence[str | int]) -> None:
+        for artwork_id in pids:
+            artwork = PixivArtworkProxy(artwork_id)
+            try:
+                await artwork.add_artwork_into_database_ignore_exists()
+            except Exception as e:
+                logger.error(f'ArtworkCollectionUpdater | Add {artwork} into database failed, {e}')
+            finally:
+                await async_sleep(2)
 
     @classmethod
     async def update_random_discovery_artworks(cls) -> None:
