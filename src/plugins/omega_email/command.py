@@ -9,7 +9,6 @@
 """
 
 import re
-from typing import TYPE_CHECKING
 
 from arclet.alconna import Alconna, Args, CommandMeta, Option, Subcommand
 from nonebot.log import logger
@@ -18,6 +17,7 @@ from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
 from nonebot_plugin_alconna.uniseg import Image, UniMessage
 
 from src.params.depends import EVENT_M_IFACE
+from src.params.handler import ensure_arg_text
 from src.params.permission import check_event_is_admin, check_event_is_superuser
 from src.service import enable_processor_state
 from .helpers import (
@@ -33,29 +33,8 @@ from .helpers import (
     unbind_entity_mailbox,
 )
 
-if TYPE_CHECKING:
-    from src.service import OmegaMatcherInterface
-
-_DEFAULT_PROMPT_TIMEOUT: int = 60
-
-
-async def _ensure_arg_text(
-        matcher: 'AlconnaMatcher',
-        interface: 'OmegaMatcherInterface',
-        arg: 'Match[str]',
-        prompt_text: str,
-) -> str:
-    """确保命令参数已提供, 缺失时通过 prompt 追问获取"""
-    if arg.available and (text := arg.result.strip()):
-        return text
-
-    resp = await matcher.prompt(prompt_text, timeout=_DEFAULT_PROMPT_TIMEOUT)
-    if resp is None:
-        await interface.finish_reply('等待输入超时, 已取消操作')
-    text = resp.extract_plain_text().strip()
-    if not text:
-        await interface.finish_reply('未提供有效参数, 已取消操作')
-    return text
+_HANDLER_PROMPT_TIMEOUT: float = 60
+"""交互流程等待用户响应超时时间"""
 
 
 mailbox_manager = on_alconna(
@@ -113,27 +92,30 @@ async def handle_add_mailbox(
         address: Match[str],
         password: Match[str],
 ) -> None:
-    target_server = await _ensure_arg_text(
+    target_server = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=server,
         prompt_text='请输入邮箱IMAP服务器地址:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
     )
 
-    target_address = await _ensure_arg_text(
+    target_address = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=address,
         prompt_text='请输入邮箱地址:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
     )
     if not is_valid_email_address(target_address):
         await interface.finish_reply('输入的不是有效的邮箱地址, 请确认后重试')
 
-    target_password = await _ensure_arg_text(
+    target_password = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=password,
         prompt_text='【警告】在会话中添加邮箱可能导致账号信息泄露, 强烈建议使用内置工具在命令行导入\n\n请输入邮箱密码:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
     )
 
     if not await check_mailbox(address=target_address, server_host=target_server, password=target_password):
@@ -170,11 +152,12 @@ async def handle_bind_mailbox(
     if not available_mailbox:
         await interface.finish_reply('无可绑定邮箱, 请联系管理员添加邮箱后再试')
 
-    target_address = await _ensure_arg_text(
+    target_address = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=address,
         prompt_text=f'请输入需要绑定的邮箱地址:\n\n{"\n".join(available_mailbox)}',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
     )
 
     if not is_valid_email_address(target_address):
@@ -207,11 +190,12 @@ async def handle_unbind_mailbox(
     if not bound_mailbox:
         await interface.finish_reply('无已绑定邮箱, 无需解绑')
 
-    target_address = await _ensure_arg_text(
+    target_address = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=address,
         prompt_text=f'请输入需要解绑的邮箱地址:\n\n{"\n".join(bound_mailbox)}',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
     )
 
     if not is_valid_email_address(target_address):

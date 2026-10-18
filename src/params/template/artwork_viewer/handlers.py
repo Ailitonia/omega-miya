@@ -23,6 +23,7 @@ from src.service import OmegaMatcherInterface, enable_processor_state
 from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MANAGER
 from src.utils.process_utils import semaphore_gather
 from ...depends import EVENT_M_IFACE
+from ...handler import ensure_arg_text, ensure_multi_args_text
 
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler
@@ -294,49 +295,6 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
             logger.error(f'{self} | Query or send artworks failed, {e}')
             await interface.finish_reply('获取作品失败了, 可能是网络原因或者作品已经被删除, 请稍后再试')
 
-    @staticmethod
-    async def _ensure_arg_text(
-            matcher: AlconnaMatcher,
-            interface: OmegaMatcherInterface,
-            arg: Match[str],
-            prompt_text: str,
-    ) -> str:
-        """确保命令参数已提供, 缺失时通过 prompt 追问获取"""
-        if arg.available and (text := arg.result.strip()):
-            return text
-
-        resp = await matcher.prompt(prompt_text, timeout=_HANDLER_PROMPT_TIMEOUT)
-        if resp is None:
-            await interface.finish_reply('等待输入超时, 已取消操作')
-        text = resp.extract_plain_text().strip()
-        if not text:
-            await interface.finish_reply('未提供有效参数, 已取消操作')
-        return text
-
-    @staticmethod
-    async def _ensure_keywords(
-            matcher: AlconnaMatcher,
-            interface: OmegaMatcherInterface,
-            keywords: Match[Sequence[str]],
-    ) -> str:
-        """确保搜索关键词已提供, 合并变长参数或 prompt 响应"""
-        if keywords.available:
-            keyword_result = keywords.result
-            if isinstance(keyword_result, str):
-                text = keyword_result.strip()
-            else:
-                text = ' '.join(keyword for keyword in (k.strip() for k in keyword_result) if keyword)
-            if text:
-                return text
-
-        resp = await matcher.prompt('请输入要搜索的作品关键词:', timeout=_HANDLER_PROMPT_TIMEOUT)
-        if resp is None:
-            await interface.finish_reply('等待输入超时, 已取消操作')
-        text = resp.extract_plain_text().strip()
-        if not text:
-            await interface.finish_reply('未提供有效搜索关键词, 已取消操作')
-        return text
-
     def _generate_view_artwork_handler(self) -> 'T_Handler':
         """生成单作品详情查看流程"""
 
@@ -345,11 +303,12 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
                 interface: EVENT_M_IFACE,
                 artwork_id: Match[str],
         ) -> None:
-            target_artwork_id = await self._ensure_arg_text(
+            target_artwork_id = await ensure_arg_text(
                 matcher=matcher,
                 interface=interface,
                 arg=artwork_id,
                 prompt_text='请输入要查看的作品ID:',
+                timeout=_HANDLER_PROMPT_TIMEOUT,
             )
             if self._need_decimal_artwork_id and not target_artwork_id.isdecimal():
                 await interface.finish_reply('作品ID应当为纯数字, 请确认后重试')
@@ -399,12 +358,18 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
             if page_value < 1:
                 await interface.finish_reply('查询页码应当为正整数, 请确认后重试')
 
-            keyword = await self._ensure_keywords(matcher=matcher, interface=interface, keywords=keywords)
+            keywords_list = await ensure_multi_args_text(
+                matcher=matcher,
+                interface=interface,
+                multi_args=keywords,
+                prompt_text='请输入要搜索的作品关键词:',
+                timeout=_HANDLER_PROMPT_TIMEOUT,
+            )
             allow_r18 = await self.check_allow_r18(interface=interface)
             await interface.send_reply('稍等, 正在获取作品信息~')
             await self.execute_query_and_send_result(
                 interface=interface,
-                query_handler=self.query_search(keyword=keyword, page=page_value),
+                query_handler=self.query_search(keyword=' '.join(keywords_list), page=page_value),
                 allow_r18=allow_r18,
             )
 
@@ -445,11 +410,12 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
                 uid: Match[str],
                 page: Match[int],
         ) -> None:
-            target_uid = await self._ensure_arg_text(
+            target_uid = await ensure_arg_text(
                 matcher=matcher,
                 interface=interface,
                 arg=uid,
                 prompt_text='请输入要查询收藏作品的用户ID:',
+                timeout=_HANDLER_PROMPT_TIMEOUT,
             )
             if self._need_decimal_user_id and not target_uid.isdecimal():
                 await interface.finish_reply('用户ID应当为纯数字, 请确认后重试')
@@ -477,11 +443,12 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
                 uid: Match[str],
                 page: Match[int],
         ) -> None:
-            target_uid = await self._ensure_arg_text(
+            target_uid = await ensure_arg_text(
                 matcher=matcher,
                 interface=interface,
                 arg=uid,
                 prompt_text='请输入要查询作品的用户ID:',
+                timeout=_HANDLER_PROMPT_TIMEOUT,
             )
             if self._need_decimal_user_id and not target_uid.isdecimal():
                 await interface.finish_reply('用户ID应当为纯数字, 请确认后重试')

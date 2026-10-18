@@ -18,6 +18,7 @@ from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
 from sqlalchemy.exc import NoResultFound
 
 from src.params.depends import EVENT_M_IFACE, PLUGIN_DAL
+from src.params.handler import ensure_arg_text
 from src.params.permission import check_event_is_admin, check_event_is_superuser
 from src.service import OmegaMatcherInterface, enable_processor_state
 from .helpers import get_all_plugins_desc, get_plugin_auth_node, get_plugin_desc, list_command_by_priority
@@ -121,25 +122,6 @@ omega_cmd = on_alconna(
 )
 
 
-async def _ensure_arg_text(
-        matcher: AlconnaMatcher,
-        interface: OmegaMatcherInterface,
-        arg: Match[str],
-        prompt_text: str,
-) -> str:
-    """确保命令参数已提供, 缺失时通过 prompt 追问获取"""
-    if arg.available and (text := arg.result.strip()):
-        return text
-
-    resp = await matcher.prompt(prompt_text, timeout=_HANDLER_PROMPT_TIMEOUT)
-    if resp is None:
-        await interface.finish_reply('等待输入超时, 已取消操作')
-    text = resp.extract_plain_text().strip()
-    if not text:
-        await interface.finish_reply('未提供有效参数, 已取消操作')
-    return text
-
-
 @omega_cmd.assign('$main')
 async def handle_hello(interface: EVENT_M_IFACE) -> None:
     """Omega 问候"""
@@ -233,7 +215,13 @@ async def handle_set_level(
         level: Match[str],
 ) -> None:
     """设置当前会话权限等级"""
-    level_str = await _ensure_arg_text(matcher, interface, level, '请输入需要设定的权限等级:')
+    level_str = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=level,
+        prompt_text='请输入需要设定的权限等级:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
     if not level_str.isdecimal():
         await interface.finish_reply('异常参数, 权限等级应当为整数, 操作已取消')
 
@@ -339,7 +327,13 @@ async def handle_enable_plugin(
         plugin_name: Match[str],
 ) -> None:
     """启用插件"""
-    target_plugin_name = await _ensure_arg_text(matcher, interface, plugin_name, '请输入需要启用的插件名称:')
+    target_plugin_name = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=plugin_name,
+        prompt_text='请输入需要启用的插件名称:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
     await _handle_switch_plugin_enabled(interface, plugin_dal, plugin_name=target_plugin_name, enabled=1)
 
 
@@ -351,7 +345,13 @@ async def handle_disable_plugin(
         plugin_name: Match[str],
 ) -> None:
     """禁用插件"""
-    target_plugin_name = await _ensure_arg_text(matcher, interface, plugin_name, '请输入需要禁用的插件名称:')
+    target_plugin_name = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=plugin_name,
+        prompt_text='请输入需要禁用的插件名称:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
     await _handle_switch_plugin_enabled(interface, plugin_dal, plugin_name=target_plugin_name, enabled=0)
 
 
@@ -362,7 +362,13 @@ async def handle_show_plugin_nodes(
         plugin_name: Match[str],
 ) -> None:
     """列出插件可配置权限节点"""
-    target_plugin_name = await _ensure_arg_text(matcher, interface, plugin_name, '请输入查询的插件名称:')
+    target_plugin_name = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=plugin_name,
+        prompt_text='请输入查询的插件名称:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
     plugin_auth_nodes = get_plugin_auth_node(plugin_name=target_plugin_name)
 
     if not plugin_auth_nodes:
@@ -419,8 +425,20 @@ async def handle_allow_plugin_node(
         auth_node: Match[str],
 ) -> None:
     """为当前会话启用插件权限节点"""
-    target_plugin_name = await _ensure_arg_text(matcher, interface, plugin_name, '请输入需要配置的插件名称:')
-    target_auth_node = await _ensure_arg_text(matcher, interface, auth_node, '请输入需要配置的权限节点:')
+    target_plugin_name = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=plugin_name,
+        prompt_text='请输入需要配置的插件名称:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
+    target_auth_node = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=auth_node,
+        prompt_text='请输入需要配置的权限节点:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
     await _handle_config_plugin_node(
         interface=interface,
         plugin_name=target_plugin_name,
@@ -437,8 +455,20 @@ async def handle_deny_plugin_node(
         auth_node: Match[str],
 ) -> None:
     """为当前会话禁用插件权限节点"""
-    target_plugin_name = await _ensure_arg_text(matcher, interface, plugin_name, '请输入需要配置的插件名称:')
-    target_auth_node = await _ensure_arg_text(matcher, interface, auth_node, '请输入需要配置的权限节点:')
+    target_plugin_name = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=plugin_name,
+        prompt_text='请输入需要配置的插件名称:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
+    target_auth_node = await ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=auth_node,
+        prompt_text='请输入需要配置的权限节点:',
+        timeout=_HANDLER_PROMPT_TIMEOUT,
+    )
     await _handle_config_plugin_node(
         interface=interface,
         plugin_name=target_plugin_name,

@@ -9,9 +9,8 @@
 """
 
 import random
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import nonebot
 import pytest
@@ -207,79 +206,6 @@ class TestStatusFunctions:
         status = await status_module.get_status()
         for label in ('CPU Usage:', 'Memory Usage:', 'Swap Usage:', 'Disk Usage:', 'Uptime:', 'Runtime:'):
             assert label in status
-
-
-class TestEnsureArgText:
-    """_ensure_arg_text 参数追问逻辑测试 (直接调用, mock 交互)
-
-    nonebug 顺序处理事件, waiter 挂起时后续事件无法派发, prompt 多轮流程在此直接单测
-    """
-
-    @staticmethod
-    def _make_interface() -> MagicMock:
-        from nonebot.exception import FinishedException
-
-        interface = MagicMock()
-        interface.finish_reply = AsyncMock(side_effect=FinishedException)
-        return interface
-
-    async def test_arg_available_returns_stripped_text(self) -> None:
-        from src.plugins.omega_core_manager.command import _ensure_arg_text
-
-        matcher = MagicMock()
-        matcher.prompt = AsyncMock()
-        arg = SimpleNamespace(available=True, result='  50  ')
-
-        result = await _ensure_arg_text(matcher, self._make_interface(), arg, 'prompt')
-
-        assert result == '50'
-        matcher.prompt.assert_not_awaited()
-
-    async def test_arg_available_but_blank_falls_back_to_prompt(self) -> None:
-        """参数仅含空白字符时应视为未提供, 转入 prompt 追问"""
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
-        from src.plugins.omega_core_manager.command import _ensure_arg_text
-
-        matcher = MagicMock()
-        matcher.prompt = AsyncMock(return_value=UniMessage(' 42 '))
-        arg = SimpleNamespace(available=True, result='   ')
-
-        result = await _ensure_arg_text(matcher, self._make_interface(), arg, 'prompt')
-
-        assert result == '42'
-        matcher.prompt.assert_awaited_once()
-
-    async def test_prompt_timeout_finishes(self) -> None:
-        from nonebot.exception import FinishedException
-
-        from src.plugins.omega_core_manager.command import _ensure_arg_text
-
-        matcher = MagicMock()
-        matcher.prompt = AsyncMock(return_value=None)
-        interface = self._make_interface()
-        arg = SimpleNamespace(available=False, result=None)
-
-        with pytest.raises(FinishedException):
-            await _ensure_arg_text(matcher, interface, arg, 'prompt')
-
-        interface.finish_reply.assert_awaited_once_with('等待输入超时, 已取消操作')
-
-    async def test_prompt_blank_reply_finishes(self) -> None:
-        from nonebot.exception import FinishedException
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
-        from src.plugins.omega_core_manager.command import _ensure_arg_text
-
-        matcher = MagicMock()
-        matcher.prompt = AsyncMock(return_value=UniMessage('   '))
-        interface = self._make_interface()
-        arg = SimpleNamespace(available=False, result=None)
-
-        with pytest.raises(FinishedException):
-            await _ensure_arg_text(matcher, interface, arg, 'prompt')
-
-        interface.finish_reply.assert_awaited_once_with('未提供有效参数, 已取消操作')
 
 
 class TestMatcherGreeting:

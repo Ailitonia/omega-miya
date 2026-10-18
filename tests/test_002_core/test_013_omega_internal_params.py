@@ -2383,126 +2383,6 @@ class TestExecuteQueryAndSendResult:
             )
 
 
-class TestArtworkEnsureArgs:
-    """_ensure_arg_text / _ensure_keywords 参数补全测试"""
-
-    @staticmethod
-    def _match(result: Any, available: bool) -> Any:
-        from nonebot_plugin_alconna import Match
-
-        return Match(result, available)
-
-    async def test_arg_text_stripped(self) -> None:
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        text = await ArtworkViewerHandlerFactory._ensure_arg_text(
-            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
-            _RecordingArtworkInterface(),
-            self._match('  1000  ', True),
-            'prompt:',
-        )
-        assert text == '1000'
-
-    @pytest.mark.parametrize(('arg_result', 'arg_available'), [('', False), ('   ', True)])
-    async def test_arg_prompted_when_missing(self, arg_result: str, arg_available: bool) -> None:
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        text = await ArtworkViewerHandlerFactory._ensure_arg_text(
-            TestSubscriptionHandlerFactory._make_prompt_matcher(UniMessage(' 2000 ')),
-            _RecordingArtworkInterface(),
-            self._match(arg_result, arg_available),
-            'prompt:',
-        )
-        assert text == '2000'
-
-    async def test_arg_prompt_timeout_finishes(self) -> None:
-        from nonebot.exception import FinishedException
-
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        interface = _RecordingArtworkInterface()
-
-        with pytest.raises(FinishedException):
-            await ArtworkViewerHandlerFactory._ensure_arg_text(
-                TestSubscriptionHandlerFactory._make_prompt_matcher(None),
-                interface,
-                self._match('', False),
-                'prompt:',
-            )
-
-        assert interface.finished == ['等待输入超时, 已取消操作']
-
-    async def test_arg_prompt_empty_finishes(self) -> None:
-        from nonebot.exception import FinishedException
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        interface = _RecordingArtworkInterface()
-
-        with pytest.raises(FinishedException):
-            await ArtworkViewerHandlerFactory._ensure_arg_text(
-                TestSubscriptionHandlerFactory._make_prompt_matcher(UniMessage('   ')),
-                interface,
-                self._match('', False),
-                'prompt:',
-            )
-
-        assert interface.finished == ['未提供有效参数, 已取消操作']
-
-    @pytest.mark.parametrize(('keywords_result', 'expected'), [
-        (['foo', 'bar'], 'foo bar'),
-        ('solo', 'solo'),
-        (['  a  ', 'b'], 'a b'),
-    ])
-    async def test_keywords_merged(self, keywords_result: Any, expected: str) -> None:
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        text = await ArtworkViewerHandlerFactory._ensure_keywords(
-            TestSubscriptionHandlerFactory._make_prompt_matcher(None),
-            _RecordingArtworkInterface(),
-            self._match(keywords_result, True),
-        )
-        assert text == expected
-
-    @pytest.mark.parametrize(('keywords_result', 'available'), [([], False), ([' ', ''], True)])
-    async def test_keywords_prompted_when_missing(self, keywords_result: Any, available: bool) -> None:
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        text = await ArtworkViewerHandlerFactory._ensure_keywords(
-            TestSubscriptionHandlerFactory._make_prompt_matcher(UniMessage('foo bar')),
-            _RecordingArtworkInterface(),
-            self._match(keywords_result, available),
-        )
-        assert text == 'foo bar'
-
-    @pytest.mark.parametrize(('response_text', 'expected_message'), [
-        (None, '等待输入超时, 已取消操作'),
-        ('   ', '未提供有效搜索关键词, 已取消操作'),
-    ])
-    async def test_keywords_prompt_failure_finishes(self, response_text: str | None, expected_message: str) -> None:
-        from nonebot.exception import FinishedException
-        from nonebot_plugin_alconna.uniseg import UniMessage
-
-        from src.params.template.artwork_viewer import ArtworkViewerHandlerFactory
-
-        response = UniMessage(response_text) if response_text is not None else None
-        interface = _RecordingArtworkInterface()
-
-        with pytest.raises(FinishedException):
-            await ArtworkViewerHandlerFactory._ensure_keywords(
-                TestSubscriptionHandlerFactory._make_prompt_matcher(response),
-                interface,
-                self._match([], False),
-            )
-
-        assert interface.finished == [expected_message]
-
-
 class TestArtworkGeneratedHandlers:
     """生成的各子命令 handler 参数校验与分发测试"""
 
@@ -2624,6 +2504,29 @@ class TestArtworkGeneratedHandlers:
 
         assert artwork_stub_cls.search_received == [('foo bar', 2)]
         assert [artwork.s_aid for artwork in calls[0]['artworks']] == ['1', '2']
+        assert calls[0]['title'] == 'Test_Gallery Search: foo bar'
+
+    async def test_search_prompt_fallback_merges_keywords(
+            self, factory, artwork_stub_cls, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """关键词未提供时经通用流程 prompt 追问, 响应切分合并为单个关键词, 页码缺省为 1"""
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        artwork_stub_cls.search_ids = ['1']
+        monkeypatch.setattr(factory, 'check_allow_r18', AsyncMock(return_value=False))
+        calls = self._patch_execute(monkeypatch, factory)
+
+        prompt_matcher = _make_prompt_matcher(UniMessage('foo  bar'))
+        await factory._generate_search_artworks_handler()(
+            prompt_matcher,
+            _RecordingArtworkInterface(),
+            self._match([], False),
+            self._match(0, False),
+        )
+
+        assert prompt_matcher.prompt.await_args.args[0] == '请输入要搜索的作品关键词:'
+        assert prompt_matcher.prompt.await_args.kwargs == {'timeout': 60}
+        assert artwork_stub_cls.search_received == [('foo bar', 1)]
         assert calls[0]['title'] == 'Test_Gallery Search: foo bar'
 
     async def test_ranking_invalid_mode_rejected(self, factory) -> None:
