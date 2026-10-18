@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 
 _EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 """邮箱地址校验正则"""
+_PASSWORD_ENCRYPTOR: AESEncryptor = AESEncryptor(salt=EMAIL_PASSWORD_ENCRYPT_SALT)
+"""实例化加密工具类, 避免每次密钥派生耗时"""
 
 
 class BaseMailboxModel(BaseModel):
@@ -66,12 +68,12 @@ def is_valid_email_address(email_address: str) -> bool:
 
 @run_sync
 def _encrypt_password(plaintext: str) -> str:
-    return AESEncryptor(salt=EMAIL_PASSWORD_ENCRYPT_SALT).encrypt(plaintext=plaintext)
+    return _PASSWORD_ENCRYPTOR.encrypt(plaintext=plaintext)
 
 
 @run_sync
 def _decrypt_password(envelope: str) -> str:
-    return AESEncryptor(salt=EMAIL_PASSWORD_ENCRYPT_SALT).decrypt(envelope=envelope)
+    return _PASSWORD_ENCRYPTOR.decrypt(envelope=envelope)
 
 
 async def save_mailbox_into_database(
