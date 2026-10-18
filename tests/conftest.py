@@ -18,11 +18,17 @@ from pytest_asyncio import is_async_test
 os.environ['ENVIRONMENT'] = 'test'
 """设置环境及配置文件为 test"""
 
+_SUPERUSER_INT_ID: int = 0
+"""数字型测试超级用户 ID"""
+_SUPERUSER_STR_ID: str = '_SUPERUSER_'
+"""字符型测试超级用户 ID"""
+
 
 def pytest_configure(config: pytest.Config):
     """通过 pytest_configure 钩子函数自定义 NoneBot 初始化的参数"""
     config.stash[NONEBOT_INIT_KWARGS] = {
         'log_level': 'DEBUG',
+        'superusers': {str(_SUPERUSER_INT_ID), _SUPERUSER_STR_ID},  # 指定测试用特定超级用户 ID
         'console_headless_mode': True,  # 测试环境注册 Console 适配器但不启动交互式前端
         'apscheduler_autostart': False,  # 测试环境不自动启动定时任务
         'omega_file_host_enable_hosting_service': True,  # 被测组件, 测试环境须启用文件托管服务
@@ -41,6 +47,16 @@ def pytest_collection_modifyitems(items: list[pytest.Item]):
     session_scope_marker = pytest.mark.asyncio(loop_scope='session')
     for async_test in pytest_asyncio_tests:
         async_test.add_marker(session_scope_marker, append=False)
+
+
+@pytest.fixture(scope='session')
+def superuser_int_id() -> int:
+    return _SUPERUSER_INT_ID
+
+
+@pytest.fixture(scope='session')
+def superuser_str_id() -> str:
+    return _SUPERUSER_STR_ID
 
 
 @pytest.fixture(scope='session')
