@@ -68,7 +68,10 @@ class MessageContextManager[Data_T: BaseModel]:
 
     def format_response_data_key(self, receipt: 'Receipt') -> str:
         """解析并格式化发送消息返回值为缓存键值"""
-        return f'{self._data_type.__name__}:{receipt.bot.self_id}:{receipt.msg_ids[0]}'
+        if (sent_reply := receipt.get_reply(index=0)) is None:
+            raise ValueError(f'{receipt} has no reply')
+
+        return f'{self._data_type.__name__}:{receipt.bot.self_id}:{sent_reply.id}'
 
     def format_interface_event_data_key(self, bot_self_id: str, message_id: str) -> str:
         """格式化消息 ID 为缓存键值"""
