@@ -9,85 +9,160 @@
 """
 
 import re
-from typing import Annotated
+from typing import TYPE_CHECKING
 
+from arclet.alconna import Alconna, Args, CommandMeta, Option, Subcommand
 from nonebot.log import logger
-from nonebot.matcher import Matcher
-from nonebot.params import ArgStr
-from nonebot.permission import SUPERUSER
-from nonebot.plugin import CommandGroup
 from nonebot.rule import to_me
+from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
+from nonebot_plugin_alconna.uniseg import Image, UniMessage
 
-from src.params.depends import EVENT_MATCHER_INTERFACE
-from src.params.handler import get_command_str_multi_args_parser_handler, get_command_str_single_arg_parser_handler
-from src.service import OmegaMessageSegment, enable_processor_state
+from src.params.depends import EVENT_M_IFACE
+from src.params.permission import check_event_is_admin, check_event_is_superuser
+from src.service import enable_processor_state
 from .helpers import (
     bind_entity_mailbox,
     check_mailbox,
-    decrypt_password,
-    encrypt_password,
     generate_mail_snapshot,
-    get_entity_bound_mailbox,
     get_unseen_mail_data,
-    query_available_mailbox,
-    save_mailbox,
+    is_valid_email_address,
+    load_mailbox_from_database,
+    query_available_mailbox_address,
+    query_entity_bound_mailbox,
+    save_mailbox_into_database,
     unbind_entity_mailbox,
 )
 
-mailbox_manager = CommandGroup(
-    'mailbox-manager',
+if TYPE_CHECKING:
+    from src.service import OmegaMatcherInterface
+
+_DEFAULT_PROMPT_TIMEOUT: int = 60
+
+
+async def _ensure_arg_text(
+        matcher: 'AlconnaMatcher',
+        interface: 'OmegaMatcherInterface',
+        arg: 'Match[str]',
+        prompt_text: str,
+) -> str:
+    """确保命令参数已提供, 缺失时通过 prompt 追问获取"""
+    if arg.available and (text := arg.result.strip()):
+        return text
+
+    resp = await matcher.prompt(prompt_text, timeout=_DEFAULT_PROMPT_TIMEOUT)
+    if resp is None:
+        await interface.finish_reply('等待输入超时, 已取消操作')
+    text = resp.extract_plain_text().strip()
+    if not text:
+        await interface.finish_reply('未提供有效参数, 已取消操作')
+    return text
+
+
+mailbox_manager = on_alconna(
+    Alconna(
+        'mailbox',
+        Subcommand(
+            'add',
+            Option('--server|-s', Args['server#服务器地址', str], help_text='邮箱IMAP服务器地址'),
+            Option('--address|-a', Args['address#邮箱地址', str], help_text='邮箱地址'),
+            Option('--password|-p', Args['password#邮箱密码', str], help_text='邮箱密码'),
+            alias=['新增', '添加'],
+            help_text='新增邮箱账号',
+        ),
+        Subcommand(
+            'bind',
+            Option('--address|-a', Args['address#邮箱地址', str], help_text='邮箱地址'),
+            alias=['绑定'],
+            help_text='为当前会话绑定已有邮箱账号',
+        ),
+        Subcommand(
+            'unbind',
+            Option('--address|-a', Args['address#邮箱地址', str], help_text='邮箱地址'),
+            alias=['解绑', '取消绑定'],
+            help_text='为当前会话解绑已绑定的邮箱账号',
+        ),
+        Subcommand(
+            'receive',
+            alias=['收件', '收邮件'],
+            help_text='检查当前会话已绑定的邮箱账号并收取未读邮件',
+        ),
+        meta=CommandMeta(
+            description='邮箱管理与邮件收取',
+            usage='mailbox <add|bind|unbind|receive> [参数] [选项]',
+            example='mailbox bind --address test@example.com',
+            compact=True,
+        ),
+    ),
     rule=to_me(),
-    permission=SUPERUSER,
+    use_cmd_start=True,
+    aliases={'邮箱'},
     priority=10,
     block=True,
-    state=enable_processor_state(name='MailboxManager', enable_processor=False),
-)
-
-add_mail_box = mailbox_manager.command(
-    'add',
-    aliases={'添加邮箱', '新增邮箱'},
-    handlers=[get_command_str_multi_args_parser_handler('add_mailbox_arg')]
+    default_state=enable_processor_state(
+        name='OmegaMailboxManager',
+        level=10,
+    ),
 )
 
 
-@add_mail_box.got('add_mailbox_arg_0', prompt='请输入邮箱IMAP服务器地址:')
-@add_mail_box.got('add_mailbox_arg_1', prompt='请输入邮箱地址:')
-@add_mail_box.got('add_mailbox_arg_2', prompt='请输入邮箱密码:')
+@mailbox_manager.assign('add', additional=check_event_is_superuser)
 async def handle_add_mailbox(
-        matcher: Matcher,
-        server_host: Annotated[str, ArgStr('add_mailbox_arg_0')],
-        address: Annotated[str, ArgStr('add_mailbox_arg_1')],
-        password: Annotated[str, ArgStr('add_mailbox_arg_2')],
+        matcher: AlconnaMatcher,
+        interface: EVENT_M_IFACE,
+        server: Match[str],
+        address: Match[str],
+        password: Match[str],
 ) -> None:
-    server_host = server_host.strip()
-    address = address.strip()
-    password = password.strip()
+    target_server = await _ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=server,
+        prompt_text='请输入邮箱IMAP服务器地址:',
+    )
 
-    if not await check_mailbox(address=address, server_host=server_host, password=password):
-        logger.error(f'EmailBoxManager | 添加邮箱: {address} 失败, 邮箱验证不通过')
-        await matcher.finish('验证邮箱信息失败, 请检查邮箱信息或稍后再试')
+    target_address = await _ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=address,
+        prompt_text='请输入邮箱地址:',
+    )
+    if not is_valid_email_address(target_address):
+        await interface.finish_reply('输入的不是有效的邮箱地址, 请确认后重试')
+
+    target_password = await _ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=password,
+        prompt_text='【警告】在会话中添加邮箱可能导致账号信息泄露, 强烈建议使用内置工具在命令行导入\n\n请输入邮箱密码:',
+    )
+
+    if not await check_mailbox(address=target_address, server_host=target_server, password=target_password):
+        logger.error(f'EmailBoxManager | 添加邮箱: {target_address} 失败, 邮箱验证未通过')
+        await interface.finish_reply('验证邮箱信息失败, 请检查邮箱信息或稍后再试')
 
     try:
-        password = await encrypt_password(plaintext=password)
-        await save_mailbox(address=address, server_host=server_host, password=password, protocol='imap', port=993)
-        logger.success(f'EmailBoxManager | 添加邮箱: {address} 成功')
-        await matcher.send(f'添加邮箱 {address} 成功')
+        await save_mailbox_into_database(
+            address=target_address,
+            server_host=target_server,
+            password=target_password,
+            protocol='imap',
+            port=993,
+        )
+        logger.success(f'EmailBoxManager | 添加邮箱: {target_address} 成功')
+        await interface.send_reply(f'添加邮箱 {target_address} 成功')
     except Exception as e:
-        logger.error(f'EmailBoxManager | 添加邮箱: {address} 失败, 数据库写入失败, {e}')
-        await matcher.send('添加邮箱失败, 数据库写入失败, 详情请查看日志')
+        logger.error(f'EmailBoxManager | 添加邮箱: {target_address} 失败, 数据库写入失败, {e}')
+        await interface.send_reply('添加邮箱失败, 数据库写入失败, 详情请查看日志')
 
 
-@mailbox_manager.command(
-    'bind',
-    aliases={'绑定邮箱'},
-    handlers=[get_command_str_single_arg_parser_handler('mailbox_address', ensure_key=True)]
-).got('mailbox_address', prompt='请输入需要绑定的邮箱地址:')
+@mailbox_manager.assign('bind', additional=check_event_is_admin)
 async def handle_bind_mailbox(
-        interface: EVENT_MATCHER_INTERFACE,
-        mailbox_address: Annotated[str | None, ArgStr('mailbox_address')],
+        matcher: AlconnaMatcher,
+        interface: EVENT_M_IFACE,
+        address: Match[str],
 ) -> None:
     try:
-        available_mailbox = await query_available_mailbox()
+        available_mailbox = await query_available_mailbox_address()
     except Exception as e:
         logger.error(f'EmailBoxManager | 查询可用邮箱失败, {e}')
         await interface.finish_reply('查询可用邮箱失败, 详情请查看日志')
@@ -95,36 +170,36 @@ async def handle_bind_mailbox(
     if not available_mailbox:
         await interface.finish_reply('无可绑定邮箱, 请联系管理员添加邮箱后再试')
 
-    if mailbox_address is None or not mailbox_address.strip():
-        mailbox_msg = '\n'.join(x.address for x in available_mailbox)
-        await interface.reject_reply(f'请输入需要绑定的邮箱地址:\n\n{mailbox_msg}')
+    target_address = await _ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=address,
+        prompt_text=f'请输入需要绑定的邮箱地址:\n\n{"\n".join(available_mailbox)}',
+    )
 
-    available_mailbox_map = {x.address: x for x in available_mailbox}
-    mailbox_address = mailbox_address.strip()
-    if mailbox_address not in available_mailbox_map.keys():
-        await interface.finish_reply(f'{mailbox_address} 不是可用的邮箱地址, 请确认后重试或请管理员添加该邮箱')
+    if not is_valid_email_address(target_address):
+        await interface.finish_reply('输入的不是有效的邮箱地址, 请确认后重试')
+
+    if target_address not in available_mailbox:
+        await interface.finish_reply(f'{target_address} 不是可用的邮箱地址, 请确认后重试或请管理员添加该邮箱')
 
     try:
-        await bind_entity_mailbox(interface=interface, mailbox_account=available_mailbox_map[mailbox_address])
-        await interface.entity.commit_session()
-        logger.success(f'EmailBoxManager | 绑定邮箱: {mailbox_address} 成功')
-        await interface.send_reply(f'绑定邮箱 {mailbox_address} 成功')
+        await bind_entity_mailbox(interface=interface, mailbox_address=target_address)
+        logger.success(f'EmailBoxManager | 绑定邮箱: {target_address} 成功')
+        await interface.send_reply(f'绑定邮箱 {target_address} 成功')
     except Exception as e:
-        logger.error(f'EmailBoxManager | 绑定邮箱: {mailbox_address} 失败, {e}')
-        await interface.send_reply(f'绑定邮箱 {mailbox_address} 失败, 详情请查看日志')
+        logger.error(f'EmailBoxManager | 绑定邮箱: {target_address} 失败, {e}')
+        await interface.send_reply(f'绑定邮箱 {target_address} 失败, 请稍后再试或联系管理员处理')
 
 
-@mailbox_manager.command(
-    'unbind',
-    aliases={'解绑邮箱'},
-    handlers=[get_command_str_single_arg_parser_handler('mailbox_address', ensure_key=True)]
-).got('mailbox_address', prompt='请输入需要解绑的邮箱地址:')
+@mailbox_manager.assign('unbind', additional=check_event_is_admin)
 async def handle_unbind_mailbox(
-        interface: EVENT_MATCHER_INTERFACE,
-        mailbox_address: Annotated[str | None, ArgStr('mailbox_address')],
+        matcher: AlconnaMatcher,
+        interface: EVENT_M_IFACE,
+        address: Match[str],
 ) -> None:
     try:
-        bound_mailbox = await get_entity_bound_mailbox(interface=interface)
+        bound_mailbox = await query_entity_bound_mailbox(interface=interface)
     except Exception as e:
         logger.error(f'EmailBoxManager | 查询已绑定邮箱失败, {e}')
         await interface.finish_reply('查询已绑定邮箱失败, 详情请查看日志')
@@ -132,35 +207,32 @@ async def handle_unbind_mailbox(
     if not bound_mailbox:
         await interface.finish_reply('无已绑定邮箱, 无需解绑')
 
-    if mailbox_address is None or not mailbox_address.strip():
-        mailbox_msg = '\n'.join(x.address for x in bound_mailbox)
-        await interface.reject_reply(f'请输入需要解绑的邮箱地址:\n\n{mailbox_msg}')
+    target_address = await _ensure_arg_text(
+        matcher=matcher,
+        interface=interface,
+        arg=address,
+        prompt_text=f'请输入需要解绑的邮箱地址:\n\n{"\n".join(bound_mailbox)}',
+    )
 
-    bound_mailbox_map = {x.address: x for x in bound_mailbox}
-    mailbox_address = mailbox_address.strip()
-    if mailbox_address not in bound_mailbox_map.keys():
-        await interface.finish_reply(f'{mailbox_address} 不是已绑定的邮箱地址, 请确认后重试')
+    if not is_valid_email_address(target_address):
+        await interface.finish_reply('输入的不是有效的邮箱地址, 请确认后重试')
+
+    if target_address not in bound_mailbox:
+        await interface.finish_reply(f'{target_address} 不是已绑定的邮箱地址, 请确认后重试')
 
     try:
-        await unbind_entity_mailbox(interface=interface, mailbox_address=mailbox_address)
-        await interface.entity.commit_session()
-        logger.success(f'EmailBoxManager | 解绑邮箱: {mailbox_address} 成功')
-        await interface.send_reply(f'解绑邮箱 {mailbox_address} 成功')
+        await unbind_entity_mailbox(interface=interface, mailbox_address=target_address)
+        logger.success(f'EmailBoxManager | 解绑邮箱: {target_address} 成功')
+        await interface.send_reply(f'解绑邮箱 {target_address} 成功')
     except Exception as e:
-        logger.error(f'EmailBoxManager | 解绑邮箱: {mailbox_address} 失败, {e}')
-        await interface.send_reply(f'解绑邮箱 {mailbox_address} 失败, 详情请查看日志')
+        logger.error(f'EmailBoxManager | 解绑邮箱: {target_address} 失败, {e}')
+        await interface.send_reply(f'解绑邮箱 {target_address} 失败, 请稍后再试或联系管理员处理')
 
 
-@mailbox_manager.command(
-    'receive',
-    aliases={'收邮件'},
-    rule=None,
-    permission=None,
-    state=enable_processor_state(name='ReceiveEmail', level=10),
-).handle()
-async def handle_receive_email(interface: EVENT_MATCHER_INTERFACE) -> None:
+@mailbox_manager.assign('receive')
+async def handle_receive_email(interface: EVENT_M_IFACE) -> None:
     try:
-        bound_mailbox = await get_entity_bound_mailbox(interface=interface)
+        bound_mailbox = await query_entity_bound_mailbox(interface=interface)
     except Exception as e:
         logger.error(f'ReceiveEmail | 查询已绑定邮箱失败, {e}')
         await interface.finish_reply('查询已绑定邮箱失败, 请稍后重试或联系管理员处理')
@@ -169,31 +241,31 @@ async def handle_receive_email(interface: EVENT_MATCHER_INTERFACE) -> None:
         logger.warning('ReceiveEmail | 收邮件结束, 没有绑定的邮箱')
         await interface.finish_reply('没有绑定的邮箱, 请先联系管理员绑定邮箱后再收件')
 
-    bound_mailbox_msg = '\n'.join(x.address for x in bound_mailbox)
-    await interface.send_reply(f'已绑定邮箱:\n\n{bound_mailbox_msg}\n\n正在连接到邮箱服务器, 请稍候~')
+    await interface.send_reply(f'已绑定邮箱:\n\n{"\n".join(bound_mailbox)}\n\n正在连接到邮箱服务器, 请稍候~')
 
-    for mailbox in bound_mailbox:
-        # 解密密码
-        try:
-            password = await decrypt_password(ciphertext=mailbox.server.password)
-        except Exception as e:
-            logger.error(f'ReceiveEmail | 邮箱 {mailbox.address} 密码验证失败, {e}')
-            await interface.send_reply(f'邮箱: {mailbox.address}\n密码验证失败, 请联系管理员处理')
+    for mailbox_address in bound_mailbox:
+        # 读取并解密邮箱账号, 读取失败(含旧版本数据不可解)时返回 None
+        mailbox_account = await load_mailbox_from_database(mailbox_address=mailbox_address)
+        if mailbox_account is None:
+            logger.error(f'ReceiveEmail | 邮箱 {mailbox_address} 账号读取失败, 已跳过')
+            await interface.send_reply(f'邮箱: {mailbox_address}\n账号读取失败, 可能需管理员重新导入, 已跳过')
             continue
 
         # 接收邮件内容
         try:
             unseen_mail = await get_unseen_mail_data(
-                address=mailbox.address, server_host=mailbox.server.server_host, password=password
+                address=mailbox_account.address,
+                server_host=mailbox_account.server.server_host,
+                password=mailbox_account.server.password,
             )
         except Exception as e:
-            logger.error(f'ReceiveEmail | 邮箱 {mailbox.address} 收件失败, {e}')
-            await interface.send_reply(f'邮箱: {mailbox.address}\n收件失败, 请稍后重试或联系管理员处理')
+            logger.error(f'ReceiveEmail | 邮箱 {mailbox_address} 收件失败, {e}')
+            await interface.send_reply(f'邮箱: {mailbox_address}\n收件失败, 请稍后重试或联系管理员处理')
             continue
 
         if not unseen_mail:
-            logger.success(f'ReceiveEmail | 邮箱 {mailbox.address} 收件完成, 没有新的邮件')
-            await interface.send_reply(f'邮箱: {mailbox.address}\n收件完成, 没有新的邮件')
+            logger.success(f'ReceiveEmail | 邮箱 {mailbox_address} 收件完成, 没有新的邮件')
+            await interface.send_reply(f'邮箱: {mailbox_address}\n收件完成, 没有新的邮件')
             continue
 
         for mail in unseen_mail:
@@ -202,13 +274,13 @@ async def handle_receive_email(interface: EVENT_MATCHER_INTERFACE) -> None:
                 content = re.sub(r'(\n|&nbsp;){2,}', '\n', content)
                 mail_content = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
                 mail_img = await generate_mail_snapshot(mail_content=mail_content)
-                await interface.send_reply(OmegaMessageSegment.image(await mail_img.get_hosting_path()))
+                await interface.send_reply(UniMessage(Image(url=await mail_img.get_hosting_path())))
             except Exception as e:
                 logger.error(f'ReceiveEmail | 转换或发送已收邮件失败, {e}')
                 continue
 
-        logger.success(f'ReceiveEmail | 邮箱 {mailbox.address} 收件完成, 共{len(unseen_mail)}封新的邮件')
-        await interface.send_reply(f'邮箱 {mailbox.address}\n收件完成, 共{len(unseen_mail)}封新的邮件')
+        logger.success(f'ReceiveEmail | 邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail)}封新的邮件')
+        await interface.send_reply(f'邮箱 {mailbox_address}\n收件完成, 共{len(unseen_mail)}封新的邮件')
 
 
 __all__ = []
