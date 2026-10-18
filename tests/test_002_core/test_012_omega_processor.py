@@ -402,14 +402,18 @@ class TestRateLimiting:
             bot=make_mock_bot(self_id='50005'), event=make_fake_message_event(user_id='50005'),
         )
 
-    async def test_superuser_ignored(self, app: App, rate_limiting_sandbox) -> None:
+    async def test_superuser_ignored(
+            self,
+            app: App,
+            rate_limiting_sandbox,
+            superuser_str_id: str,
+    ) -> None:
         """超级用户消息不进入限流跟踪 (SUPERUSER 经 NoneBot 依赖注入, 须使用真实 Bot)"""
         async with app.test_api() as ctx:
             bot = _make_real_bot(ctx, unique_test_id('TEST_RL_SU_BOT'))
 
-            # 测试配置中 superusers 为 {'User'}
             await rate_limiting_sandbox.preprocessor_rate_limiting(
-                bot=bot, event=make_fake_message_event(user_id='User'),
+                bot=bot, event=make_fake_message_event(user_id=superuser_str_id),
             )
 
         # 断言真实跳过证据: 未产生限流跟踪条目
@@ -468,7 +472,12 @@ class TestPermission:
                 bot=make_mock_bot(), event=make_obv11_private_message_event(), matcher=matcher, db_session=session,
             )
 
-    async def test_super_user_ignored(self, app: App, test_onebot_v11_bot) -> None:
+    async def test_super_user_ignored(
+            self,
+            app: App,
+            test_onebot_v11_bot,
+            superuser_str_id: str,
+    ) -> None:
         """超级用户跳过权限检查; 对照组普通用户无授权被阻断"""
         from nonebot.exception import IgnoredException
 
@@ -484,7 +493,10 @@ class TestPermission:
             async with database_session() as session:
                 # 超级用户跳过全部权限检查
                 await preprocessor_permission(
-                    bot=bot, event=make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
+                    bot=bot,
+                    event=make_fake_message_event(user_id=superuser_str_id),
+                    matcher=matcher,
+                    db_session=session,
                 )
 
                 # 对照: 普通用户无任何授权, 全局功能未开启即被阻断
@@ -614,7 +626,12 @@ class TestCooldown:
                 matcher=matcher, db_session=session,
             )
 
-    async def test_super_user_ignored(self, app: App, test_onebot_v11_bot) -> None:
+    async def test_super_user_ignored(
+            self,
+            app: App,
+            test_onebot_v11_bot,
+            superuser_str_id: str,
+    ) -> None:
         """超级用户跳过冷却检查 (SUPERUSER 经依赖注入做 isinstance 校验, 须使用真实 Bot)"""
         from src.database.helpers import database_session
         from src.service.omega_processor.universal.cooldown import preprocessor_cooldown
@@ -626,7 +643,10 @@ class TestCooldown:
 
             async with database_session() as session:
                 await preprocessor_cooldown(
-                    bot=bot, event=make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
+                    bot=bot,
+                    event=make_fake_message_event(user_id=superuser_str_id),
+                    matcher=matcher,
+                    db_session=session,
                 )
 
     @pytest.mark.parametrize(('cooldown_type', 'is_group_event'), [
@@ -1091,7 +1111,12 @@ class TestPluginManager:
                 bot=make_mock_bot(), event=make_obv11_private_message_event(), matcher=matcher, db_session=session,
             )
 
-    async def test_super_user_ignored(self, app: App, plugin_enabled_guard) -> None:
+    async def test_super_user_ignored(
+            self,
+            app: App,
+            superuser_str_id: str,
+            plugin_enabled_guard,
+    ) -> None:
         """超级用户跳过插件启用检查 (以禁用插件为背景, 对照组普通用户被阻断, 排除假阳性)"""
         from nonebot.exception import IgnoredException
 
@@ -1115,7 +1140,10 @@ class TestPluginManager:
             async with database_session() as session:
                 # 超级用户在插件已禁用时仍跳过检查
                 await preprocessor_plugin_manager(
-                    bot=bot, event=make_fake_message_event(user_id='User'), matcher=matcher, db_session=session,
+                    bot=bot,
+                    event=make_fake_message_event(user_id=superuser_str_id),
+                    matcher=matcher,
+                    db_session=session,
                 )
 
                 # 对照: 普通用户在插件禁用时被阻断
@@ -1251,7 +1279,10 @@ class TestFullPipeline:
                 ctx.should_pass_permission(matcher=matcher)
                 # 权限预处理器发送全局功能未启用提示后被忽略, 不声明 handler 动作
                 ctx.should_call_send(
-                    event, 'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理', 'result', bot=bot,
+                    event,
+                    'Omega Miya 未启用, 请尝试使用 "/omega start" 命令初始化, 或联系管理员处理',
+                    'result',
+                    bot=bot,
                 )
         finally:
             matcher.destroy()

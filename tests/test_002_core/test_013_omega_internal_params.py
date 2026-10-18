@@ -808,11 +808,10 @@ class TestPermissionRules:
 class TestIsAdmin:
     """IS_ADMIN 组合权限测试 (直接调用, 真值表)"""
 
-    async def test_superuser(self) -> None:
+    async def test_superuser(self, superuser_str_id: str) -> None:
         from src.params.permission import IS_ADMIN
 
-        # 测试配置中 superusers 包含 'User'
-        assert await IS_ADMIN(make_real_obv11_bot(), make_fake_message_event(user_id='User')) is True
+        assert await IS_ADMIN(make_real_obv11_bot(), make_fake_message_event(user_id=superuser_str_id)) is True
 
     async def test_onebot_v11_private(self) -> None:
         from src.params.permission import IS_ADMIN
@@ -856,13 +855,17 @@ class TestIsAdmin:
         assert await check_event_is_admin(make_obv11_group_message_event(role='member'), bot, {}, MagicMock()) is False
         assert await check_event_is_admin(make_obv11_group_message_event(role='admin'), bot, {}, MagicMock()) is True
 
-    async def test_check_event_is_superuser_additional(self) -> None:
-        """alconna assign additional 检查函数: 委托 SUPERUSER (测试配置中 superusers 包含 'User')"""
+    async def test_check_event_is_superuser_additional(self, superuser_str_id: str) -> None:
+        """alconna assign additional 检查函数: 委托 SUPERUSER"""
         from src.params.permission import check_event_is_superuser
 
         bot = make_real_obv11_bot()
-        assert await check_event_is_superuser(make_fake_message_event(user_id='User'), bot, {}, MagicMock()) is True
-        assert await check_event_is_superuser(make_fake_message_event(user_id='nobody'), bot, {}, MagicMock()) is False
+        assert await check_event_is_superuser(
+            make_fake_message_event(user_id=superuser_str_id), bot, {}, MagicMock()
+        ) is True
+        assert await check_event_is_superuser(
+            make_fake_message_event(user_id='nobody'), bot, {}, MagicMock()
+        ) is False
 
 
 class TestBaseSubscriptionManager:
@@ -1679,8 +1682,8 @@ class _StubHostedFile:
     def __init__(self, name: str) -> None:
         self.name = name
 
-    async def get_hosting_path(self) -> str:
-        return f'https://host.test/{self.name}'
+    async def get_hosting_path(self) -> tuple[str, str]:
+        return 'url', f'https://host.test/{self.name}'
 
 
 class _RecordingArtworkInterface:
@@ -2037,6 +2040,45 @@ class TestArtworkCheckAllowR18:
             auth_nodes=[('TestModule', 'TestPlugin', 'allow_r18', 0)],
         )
         assert await factory.check_allow_r18(interface=_interface(denied_user)) is False
+
+
+class TestBuildSendableImage:
+    """build_sendable_image 测试"""
+
+    def test_url_path_type_builds_url_segment(self) -> None:
+        """'url' 类型构造 Image(url=...), 不携带 path 字段"""
+        from nonebot_plugin_alconna.uniseg import Image
+
+        from src.params.message_builder import build_sendable_image
+
+        segment = build_sendable_image(('url', 'https://host.test/image.jpg'))
+
+        assert isinstance(segment, Image)
+        assert segment.url == 'https://host.test/image.jpg'
+        assert segment.path is None
+
+    def test_path_type_builds_path_segment(self) -> None:
+        """'path' 类型构造 Image(path=...), 不携带 url 字段
+
+        本地路径严禁进入 Image.url: uniseg Media 会将没有 hostname 的 url 自动改写为
+        非法的 https:// 前缀 URL(如 Windows 盘符路径), 导致 Telegram sendPhoto 失败
+        """
+        from nonebot_plugin_alconna.uniseg import Image
+
+        from src.params.message_builder import build_sendable_image
+
+        segment = build_sendable_image(('path', 'C:/Users/Administrator/Project/omega-miya/.tmp/image.jpg'))
+
+        assert isinstance(segment, Image)
+        assert str(segment.path) == 'C:/Users/Administrator/Project/omega-miya/.tmp/image.jpg'
+        assert segment.url is None
+
+    @pytest.mark.parametrize('path_type', ['file', '', 'PATH'])
+    def test_unsupported_path_type_raises(self, path_type: str) -> None:
+        from src.params.message_builder import build_sendable_image
+
+        with pytest.raises(ValueError, match='Unsupported hosting path type'):
+            build_sendable_image((path_type, 'some_value'))
 
 
 class TestSendArtworkMessage:
