@@ -16,7 +16,7 @@ from arclet.alconna import Alconna, Args, CommandMeta, MultiVar, Option, Subcomm
 from nonebot.exception import MatcherException
 from nonebot.log import logger
 from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
-from nonebot_plugin_alconna.uniseg import Image, UniMessage
+from nonebot_plugin_alconna.uniseg import UniMessage
 
 from src.database.internal.artwork_collection import ArtworkRating
 from src.service import OmegaMatcherInterface, enable_processor_state
@@ -24,6 +24,7 @@ from src.service.omega_message_context.custom_depends import ARTWORK_CONTEXT_MAN
 from src.utils.process_utils import semaphore_gather
 from ...depends import EVENT_M_IFACE
 from ...handler import ensure_arg_text, ensure_multi_args_text
+from ...message_builder import build_sendable_image
 
 if TYPE_CHECKING:
     from nonebot.typing import T_Handler
@@ -154,10 +155,10 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
         ]
         proceed_pages = await semaphore_gather(tasks=tasks, semaphore_num=8, return_exceptions=False)
 
-        pages_url_tasks = [x.get_hosting_path() for x in proceed_pages]
-        pages_hosting_urls = await semaphore_gather(tasks=pages_url_tasks, semaphore_num=8, return_exceptions=False)
+        pages_path_tasks = [x.get_hosting_path() for x in proceed_pages]
+        pages_hosting_paths = await semaphore_gather(tasks=pages_path_tasks, semaphore_num=8, return_exceptions=False)
 
-        send_msg = UniMessage(Image(url=url) for url in pages_hosting_urls) + f'\n{artwork_desc}'
+        send_msg = UniMessage(build_sendable_image(path) for path in pages_hosting_paths) + f'\n{artwork_desc}'
         receipt = await interface.send_reply(send_msg)
 
         try:
@@ -198,7 +199,7 @@ class ArtworkViewerHandlerFactory[AP_T: BaseArtworkProxy]:
             num_of_line=6,
             limit=show_artworks_limiting,
         )
-        send_msg = UniMessage(Image(url=await preview_image.get_hosting_path()))
+        send_msg = UniMessage(build_sendable_image(await preview_image.get_hosting_path()))
         receipt = await interface.send_reply(send_msg)
 
         if allow_r18:

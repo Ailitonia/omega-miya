@@ -14,10 +14,11 @@ from arclet.alconna import Alconna, Args, CommandMeta, Option, Subcommand
 from nonebot.log import logger
 from nonebot.rule import to_me
 from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
-from nonebot_plugin_alconna.uniseg import Image, UniMessage
+from nonebot_plugin_alconna.uniseg import UniMessage
 
 from src.params.depends import EVENT_M_IFACE
 from src.params.handler import ensure_arg_text
+from src.params.message_builder import build_sendable_image
 from src.params.permission import check_event_is_admin, check_event_is_superuser
 from src.service import enable_processor_state
 from .helpers import (
@@ -258,7 +259,7 @@ async def handle_receive_email(interface: EVENT_M_IFACE) -> None:
                 content = re.sub(r'(\n|&nbsp;){2,}', '\n', content)
                 mail_content = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
                 mail_img = await generate_mail_snapshot(mail_content=mail_content)
-                await interface.send_reply(UniMessage(Image(url=await mail_img.get_hosting_path())))
+                await interface.send_reply(UniMessage(build_sendable_image(await mail_img.get_hosting_path())))
             except Exception as e:
                 logger.error(f'ReceiveEmail | 转换或发送已收邮件失败, {e}')
                 continue
