@@ -1,9 +1,9 @@
 """
 @Author         : Ailitonia
 @Date           : 2024/8/31 上午10:44
-@FileName       : omega_any_artworks
-@Project        : bot.py
-@Description    : [Deactivated]omega-miya 启动入口文件
+@FileName       : bot.py
+@Project        : omega-miya
+@Description    : omega-miya 启动入口文件
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
