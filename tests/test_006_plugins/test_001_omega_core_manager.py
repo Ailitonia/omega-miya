@@ -9,10 +9,10 @@
 """
 
 import random
+from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
-import nonebot
 import pytest
 from nonebug import App
 
@@ -29,8 +29,19 @@ if TYPE_CHECKING:
     from src.database.internal.bot import BotSelf
 
 
+@pytest.fixture(scope='class')
+async def core_manager_enabled_guard() -> AsyncGenerator[None, None]:
+    """保证 omega_core_manager 插件行存在且启用, 测试后恢复原状态
+
+    插件管理预处理器对非超级用户校验插件启用状态, 且不看 processor state;
+    全量套件中 test_001_database 的迁移检查会清空插件表, 不能依赖启动时播种的行仍然存在
+    """
+    async with preserve_plugin_row('omega_core_manager', 'src.plugins.omega_core_manager', ensure_enabled=True):
+        yield
+
+
 def _random_user_id(bot_self_id: str) -> int:
-    """随机非超管用户 ID (8 位段, 避开注入超管的 9 位段及 bot self_id)"""
+    """随机非超管用户 ID (8 位段, 避开 bot self_id)"""
     user_id = random.randint(10_000_000, 99_999_999)
     while str(user_id) == bot_self_id:
         user_id = random.randint(10_000_000, 99_999_999)
@@ -39,20 +50,7 @@ def _random_user_id(bot_self_id: str) -> int:
 
 def _random_message_id() -> int:
     """随机消息 ID (history 表对 (bot, message_id) 有唯一约束, 随机化避免跨用例冲突)"""
-    return random.randint(1, 2_147_483_647)
-
-
-class TestSuperuserInjection:
-    """超管注入哨兵测试: 若注入失效, 全部超管用例随之失败并由此定位"""
-
-    async def test_injected_superuser_active(self, app: App, test_superuser_id: int) -> None:
-        config = nonebot.get_driver().config
-        assert str(test_superuser_id) in config.superusers
-
-    async def test_existing_superusers_preserved(self, app: App) -> None:
-        """注入应为合并而非覆盖: .env.test 既有超管 'User' 仍生效 (test_013 依赖)"""
-        config = nonebot.get_driver().config
-        assert 'User' in config.superusers
+    return random.randint(1, 2 ** 31 - 1)
 
 
 class TestPluginMetadata:
@@ -449,14 +447,14 @@ class TestMatcherHelp:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         """超级用户查询插件帮助应附加处理器配置信息"""
         from src.plugins.omega_core_manager.command import omega_cmd
         from src.plugins.omega_core_manager.helpers import get_plugin_desc
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega help OmegaCoreManager',
+            user_id=superuser_int_id, text='/omega help OmegaCoreManager',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -646,13 +644,13 @@ class TestMatcherListCommands:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
         from src.plugins.omega_core_manager.helpers import list_command_by_priority
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega list-commands',
+            user_id=superuser_int_id, text='/omega list-commands',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
         expected_text = f'当前可用的命令列表:\n{"-" * 16}\n{list_command_by_priority()}'
@@ -671,7 +669,7 @@ class TestMatcherListPlugins:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
             core_manager_enabled_guard: None,
     ) -> None:
         from nonebot.plugin import get_loaded_plugins, get_plugin
@@ -703,7 +701,7 @@ class TestMatcherListPlugins:
         assert 'omega_core_manager(OmegaCoreManager)' in enabled_text
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega list-plugins',
+            user_id=superuser_int_id, text='/omega list-plugins',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
         expected_text = f'已启用的插件:\n{"-" * 16}\n{enabled_text}\n\n\n已禁用的插件:\n{"-" * 16}\n{disabled_text}'
@@ -742,7 +740,7 @@ class TestMatcherSwitchPlugin:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
             subcommand: str,
             verb: str,
             enabled: int,
@@ -755,7 +753,7 @@ class TestMatcherSwitchPlugin:
 
         async with preserve_plugin_row(target_name, target_module):
             event = make_obv11_private_message_event(
-                user_id=test_superuser_id, text=f'/omega {subcommand} {target_name}',
+                user_id=superuser_int_id, text=f'/omega {subcommand} {target_name}',
                 self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
             )
 
@@ -774,12 +772,12 @@ class TestMatcherSwitchPlugin:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega disable-plugin not_exist_plugin_aaa',
+            user_id=superuser_int_id, text='/omega disable-plugin not_exist_plugin_aaa',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -797,12 +795,12 @@ class TestMatcherPluginNodes:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega show-plugin-nodes omega_core_manager',
+            user_id=superuser_int_id, text='/omega show-plugin-nodes omega_core_manager',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -818,12 +816,12 @@ class TestMatcherPluginNodes:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega show-plugin-nodes not_exist_plugin_aaa',
+            user_id=superuser_int_id, text='/omega show-plugin-nodes not_exist_plugin_aaa',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -846,14 +844,14 @@ class TestMatcherPluginNodes:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
             subcommand: str,
             available: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text=f'/omega {subcommand} omega_core_manager OmegaCoreManager',
+            user_id=superuser_int_id, text=f'/omega {subcommand} omega_core_manager OmegaCoreManager',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -865,7 +863,7 @@ class TestMatcherPluginNodes:
             ctx.should_call_send(event, expected_reply(event, expected_text))
             ctx.should_finished(omega_cmd)
 
-        async with obv11_user_entity(numeric_bot, str(test_superuser_id)) as entity:
+        async with obv11_user_entity(numeric_bot, str(superuser_int_id)) as entity:
             setting = await entity.query_auth_setting(
                 module='src.plugins.omega_core_manager', plugin='omega_core_manager', node='OmegaCoreManager',
             )
@@ -875,12 +873,12 @@ class TestMatcherPluginNodes:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega allow-plugin-node omega_core_manager NotANode',
+            user_id=superuser_int_id, text='/omega allow-plugin-node omega_core_manager NotANode',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -897,12 +895,12 @@ class TestMatcherPluginNodes:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega allow-plugin-node not_exist_plugin_aaa node_x',
+            user_id=superuser_int_id, text='/omega allow-plugin-node not_exist_plugin_aaa node_x',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -922,13 +920,13 @@ class TestMatcherListConfiguredAuth:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         """未配置任何权限节点的实体应回复 '无'"""
         from src.plugins.omega_core_manager.command import omega_cmd
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega list-configured-auth',
+            user_id=superuser_int_id, text='/omega list-configured-auth',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
@@ -942,18 +940,18 @@ class TestMatcherListConfiguredAuth:
             self,
             app: App,
             numeric_bot: 'BotSelf',
-            test_superuser_id: int,
+            superuser_int_id: int,
     ) -> None:
         from src.plugins.omega_core_manager.command import omega_cmd
 
         # 预先为超管用户实体配置一个权限节点
         await seed_entity_permissions(
-            numeric_bot, 'onebot_v11_user', str(test_superuser_id),
+            numeric_bot, 'onebot_v11_user', str(superuser_int_id),
             auth_nodes=[('test_module', 'test_plugin', 'test_node', 1)],
         )
 
         event = make_obv11_private_message_event(
-            user_id=test_superuser_id, text='/omega list-configured-auth',
+            user_id=superuser_int_id, text='/omega list-configured-auth',
             self_id=int(numeric_bot.self_id), message_id=_random_message_id(),
         )
 
