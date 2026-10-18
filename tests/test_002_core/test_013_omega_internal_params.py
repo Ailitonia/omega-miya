@@ -3,7 +3,7 @@
 @Date           : 2026/10/10 12:50
 @FileName       : test_013_omega_internal_params
 @Project        : omega-miya
-@Description    : omega params 模块单元测试 (handler 工厂/权限规则/子依赖/订阅管理与图站浏览模板)
+@Description    : omega params 模块单元测试 (通用参数补全/权限规则/子依赖/订阅管理与图站浏览模板)
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
@@ -38,13 +38,29 @@ if TYPE_CHECKING:
     from src.service import OmegaMatcherInterface
 
 
-async def _run_parser_handler(handler: Any, text: str) -> dict:
-    """以空 state 直接调用命令参数解析 handler, 返回解析后的 state"""
-    from nonebot.adapters.onebot.v11 import Message
+def _make_prompt_matcher(response: Any) -> Any:
+    """构造 prompt 替身 (组合式, 仅提供被测函数实际调用的 prompt 方法)"""
+    return SimpleNamespace(prompt=AsyncMock(return_value=response))
 
-    state: dict = {}
-    await handler(state, Message(text))
-    return state
+
+def _match(result: Any, available: bool) -> Any:
+    """构造 alconna Match 参数"""
+    from nonebot_plugin_alconna import Match
+
+    return Match(result, available)
+
+
+class _RecordingFinishInterface:
+    """组合式 Matcher 接口替身: 记录 finish_reply 消息并按真实语义抛出 FinishedException"""
+
+    def __init__(self) -> None:
+        self.finished: list[str] = []
+
+    async def finish_reply(self, message: str, **kwargs: Any) -> None:
+        from nonebot.exception import FinishedException
+
+        self.finished.append(message)
+        raise FinishedException
 
 
 def _make_matcher_interface(bot_self_id: str = '10086', user_id: int = 10001) -> 'OmegaMatcherInterface':
@@ -216,13 +232,7 @@ class TestModuleContract:
     """模块导出契约测试"""
 
     @pytest.mark.parametrize(('module_path', 'expected_all'), [
-        ('src.params.handler', {
-            'get_command_str_single_arg_parser_handler',
-            'get_command_str_multi_args_parser_handler',
-            'get_command_message_arg_parser_handler',
-            'get_set_default_state_handler',
-            'get_shell_command_parse_failed_handler',
-        }),
+        ('src.params.handler', {'ensure_arg_text', 'ensure_multi_args_text'}),
         ('src.params.rule', {
             'event_has_global_permission',
             'event_has_permission_level',
@@ -268,225 +278,153 @@ class TestModuleContract:
             assert getattr(module, name) is not None
 
 
-class TestCommandStrSingleArgParserHandler:
-    """单个文本命令参数解析 handler 测试 (直接调用)"""
+class TestEnsureArgText:
+    """ensure_arg_text 单参数补全测试 (直接调用, 组合式替身)"""
 
-    async def test_arg_extracted_and_stripped(self) -> None:
-        from src.params.handler import get_command_str_single_arg_parser_handler
+    async def test_arg_available_returned_stripped_without_prompt(self) -> None:
+        from src.params.handler import ensure_arg_text
 
-        handler = get_command_str_single_arg_parser_handler('test_key')
-        assert await _run_parser_handler(handler, '  hello  ') == {'test_key': 'hello'}
+        prompt_matcher = _make_prompt_matcher(None)
+        text = await ensure_arg_text(prompt_matcher, _RecordingFinishInterface(), _match('  1000  ', True), 'p:', 60)
 
-    async def test_whitespace_arg_treated_as_empty(self) -> None:
-        from src.params.handler import get_command_str_single_arg_parser_handler
+        assert text == '1000'
+        prompt_matcher.prompt.assert_not_awaited()
 
-        handler = get_command_str_single_arg_parser_handler('test_key')
-        assert await _run_parser_handler(handler, '   ') == {}
+    @pytest.mark.parametrize(('arg_result', 'arg_available'), [('', False), ('   ', True)])
+    async def test_missing_arg_prompted_and_stripped(self, arg_result: str, arg_available: bool) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
 
-    async def test_default_used_when_empty(self) -> None:
-        from src.params.handler import get_command_str_single_arg_parser_handler
+        from src.params.handler import ensure_arg_text
 
-        handler = get_command_str_single_arg_parser_handler('test_key', default='200')
-        assert await _run_parser_handler(handler, '') == {'test_key': '200'}
+        text = await ensure_arg_text(
+            _make_prompt_matcher(UniMessage(' 2000 ')),
+            _RecordingFinishInterface(),
+            _match(arg_result, arg_available),
+            'p:',
+            60,
+        )
 
-    async def test_empty_string_default_is_honored(self) -> None:
-        """显式传入空字符串默认值时应写入空字符串而非忽略"""
-        from src.params.handler import get_command_str_single_arg_parser_handler
+        assert text == '2000'
 
-        handler = get_command_str_single_arg_parser_handler('test_key', default='')
-        assert await _run_parser_handler(handler, '') == {'test_key': ''}
+    async def test_prompt_text_and_timeout_passed_through(self) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
 
-    async def test_ensure_key_sets_none(self) -> None:
-        from src.params.handler import get_command_str_single_arg_parser_handler
+        from src.params.handler import ensure_arg_text
 
-        handler = get_command_str_single_arg_parser_handler('test_key', ensure_key=True)
-        assert await _run_parser_handler(handler, '') == {'test_key': None}
+        prompt_matcher = _make_prompt_matcher(UniMessage('x'))
+        await ensure_arg_text(prompt_matcher, _RecordingFinishInterface(), _match('', False), '请输入:', 60)
 
-    async def test_default_and_ensure_key_priority(self) -> None:
-        from src.params.handler import get_command_str_single_arg_parser_handler
+        assert prompt_matcher.prompt.await_args.args[0] == '请输入:'
+        assert prompt_matcher.prompt.await_args.kwargs == {'timeout': 60}
 
-        handler = get_command_str_single_arg_parser_handler('test_key', default='fallback', ensure_key=True)
-        # 无参数时 default 优先于 ensure_key
-        assert await _run_parser_handler(handler, '') == {'test_key': 'fallback'}
-        # 有参数时参数优先于 default
-        assert await _run_parser_handler(handler, 'value') == {'test_key': 'value'}
+    async def test_prompt_timeout_finishes(self) -> None:
+        from nonebot.exception import FinishedException
 
+        from src.params.handler import ensure_arg_text
 
-class TestCommandStrMultiArgsParserHandler:
-    """多个文本命令参数解析 handler 测试 (直接调用)"""
+        interface = _RecordingFinishInterface()
 
-    async def test_split_all_args(self) -> None:
-        from src.params.handler import get_command_str_multi_args_parser_handler
+        with pytest.raises(FinishedException):
+            await ensure_arg_text(_make_prompt_matcher(None), interface, _match('', False), 'p:', 60)
 
-        handler = get_command_str_multi_args_parser_handler('arg')
-        assert await _run_parser_handler(handler, 'a b  c') == {'arg_0': 'a', 'arg_1': 'b', 'arg_2': 'c'}
+        assert interface.finished == ['等待输入超时, 已取消操作']
 
-    async def test_extra_args_merged_into_last_key(self) -> None:
-        """ensure_keys_num 限定了分割次数, 超出数量的参数以空白连接合并入末位 key"""
-        from src.params.handler import get_command_str_multi_args_parser_handler
+    async def test_prompt_empty_response_finishes(self) -> None:
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
 
-        handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=2)
-        assert await _run_parser_handler(handler, 'a b c d') == {'arg_0': 'a', 'arg_1': 'b c d'}
+        from src.params.handler import ensure_arg_text
 
-    async def test_missing_args_filled_with_default(self) -> None:
-        from src.params.handler import get_command_str_multi_args_parser_handler
+        interface = _RecordingFinishInterface()
 
-        handler = get_command_str_multi_args_parser_handler('arg', default='d', ensure_keys_num=2)
-        assert await _run_parser_handler(handler, 'x') == {'arg_0': 'x', 'arg_1': 'd'}
+        with pytest.raises(FinishedException):
+            await ensure_arg_text(_make_prompt_matcher(UniMessage('   ')), interface, _match('', False), 'p:', 60)
 
-    async def test_missing_args_filled_with_none(self) -> None:
-        """default 缺省时以 None 填充缺位"""
-        from src.params.handler import get_command_str_multi_args_parser_handler
+        assert interface.finished == ['未提供有效参数, 已取消操作']
 
-        handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=2)
-        assert await _run_parser_handler(handler, 'x') == {'arg_0': 'x', 'arg_1': None}
 
-    async def test_ensure_one_key_disables_splitting(self) -> None:
-        """ensure_keys_num=1 时全部文本作为单个参数不分割"""
-        from src.params.handler import get_command_str_multi_args_parser_handler
+class TestEnsureMultiArgsText:
+    """ensure_multi_args_text 多参数补全测试 (直接调用, 组合式替身)"""
 
-        handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=1)
-        assert await _run_parser_handler(handler, 'a b c') == {'arg_0': 'a b c'}
+    async def test_sequence_args_stripped_and_filtered_without_prompt(self) -> None:
+        from src.params.handler import ensure_multi_args_text
 
-    async def test_empty_input_without_ensure_keeps_state(self) -> None:
-        from src.params.handler import get_command_str_multi_args_parser_handler
+        prompt_matcher = _make_prompt_matcher(None)
+        args = await ensure_multi_args_text(
+            prompt_matcher, _RecordingFinishInterface(), _match(['  a  ', '', 'b'], True), 'p:', 60,
+        )
 
-        handler = get_command_str_multi_args_parser_handler('arg')
-        assert await _run_parser_handler(handler, '   ') == {}
+        assert args == ['a', 'b']
+        prompt_matcher.prompt.assert_not_awaited()
 
-    async def test_empty_input_with_ensure_fills_default(self) -> None:
-        from src.params.handler import get_command_str_multi_args_parser_handler
+    async def test_str_result_wrapped_without_prompt(self) -> None:
+        from src.params.handler import ensure_multi_args_text
 
-        handler = get_command_str_multi_args_parser_handler('arg', default='d', ensure_keys_num=2)
-        assert await _run_parser_handler(handler, '') == {'arg_0': 'd', 'arg_1': 'd'}
+        prompt_matcher = _make_prompt_matcher(None)
+        args = await ensure_multi_args_text(
+            prompt_matcher, _RecordingFinishInterface(), _match('  solo  ', True), 'p:', 60,
+        )
 
-    async def test_negative_ensure_keys_num_behaves_as_zero(self) -> None:
-        from src.params.handler import get_command_str_multi_args_parser_handler
+        assert args == ['solo']
+        prompt_matcher.prompt.assert_not_awaited()
 
-        handler = get_command_str_multi_args_parser_handler('arg', ensure_keys_num=-1)
-        assert await _run_parser_handler(handler, 'a b') == {'arg_0': 'a', 'arg_1': 'b'}
+    @pytest.mark.parametrize(('args_result', 'available'), [
+        ([], False),
+        ([], True),
+        ([' ', ''], True),
+    ])
+    async def test_missing_args_prompted_and_split(self, args_result: list, available: bool) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
 
-    async def test_default_without_ensure_keys_num_is_ignored(self) -> None:
-        """default 仅在 ensure_keys_num > 0 时生效, 单独传入不产生效果"""
-        from src.params.handler import get_command_str_multi_args_parser_handler
+        from src.params.handler import ensure_multi_args_text
 
-        handler = get_command_str_multi_args_parser_handler('arg', default='d')
-        assert await _run_parser_handler(handler, 'a b') == {'arg_0': 'a', 'arg_1': 'b'}
-        assert await _run_parser_handler(handler, '') == {}
+        args = await ensure_multi_args_text(
+            _make_prompt_matcher(UniMessage('foo  bar ')),
+            _RecordingFinishInterface(),
+            _match(args_result, available),
+            'p:',
+            60,
+        )
 
+        assert args == ['foo', 'bar']
 
-class TestCommandMessageArgParserHandler:
-    """单个消息命令参数解析 handler 测试 (真实 matcher 实例)"""
+    async def test_prompt_text_and_timeout_passed_through(self) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
 
-    async def test_message_arg_set_as_is(self) -> None:
-        from nonebot.adapters.onebot.v11 import Message
+        from src.params.handler import ensure_multi_args_text
 
-        from src.params.handler import get_command_message_arg_parser_handler
+        prompt_matcher = _make_prompt_matcher(UniMessage('x'))
+        await ensure_multi_args_text(prompt_matcher, _RecordingFinishInterface(), _match([], False), '请输入:', 60)
 
-        matcher = make_non_plugin_matcher()
-        message = Message('hello')
-        handler = get_command_message_arg_parser_handler('arg')
-        await handler(matcher, message)
+        assert prompt_matcher.prompt.await_args.args[0] == '请输入:'
+        assert prompt_matcher.prompt.await_args.kwargs == {'timeout': 60}
 
-        assert matcher.state['arg'] is message
+    async def test_prompt_timeout_finishes(self) -> None:
+        from nonebot.exception import FinishedException
 
-    async def test_empty_message_uses_default(self) -> None:
-        from nonebot.adapters.onebot.v11 import Message
+        from src.params.handler import ensure_multi_args_text
 
-        from src.params.handler import get_command_message_arg_parser_handler
+        interface = _RecordingFinishInterface()
 
-        matcher = make_non_plugin_matcher()
-        handler = get_command_message_arg_parser_handler('arg', default='fallback')
-        await handler(matcher, Message())
+        with pytest.raises(FinishedException):
+            await ensure_multi_args_text(_make_prompt_matcher(None), interface, _match([], False), 'p:', 60)
 
-        assert matcher.state['arg'].extract_plain_text() == 'fallback'
+        assert interface.finished == ['等待输入超时, 已取消操作']
 
-    async def test_empty_string_default_is_honored(self) -> None:
-        from nonebot.adapters.onebot.v11 import Message
+    async def test_prompt_empty_response_finishes(self) -> None:
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
 
-        from src.params.handler import get_command_message_arg_parser_handler
+        from src.params.handler import ensure_multi_args_text
 
-        matcher = make_non_plugin_matcher()
-        handler = get_command_message_arg_parser_handler('arg', default='')
-        await handler(matcher, Message())
+        interface = _RecordingFinishInterface()
 
-        assert matcher.state['arg'].extract_plain_text() == ''
+        with pytest.raises(FinishedException):
+            await ensure_multi_args_text(
+                _make_prompt_matcher(UniMessage('  ')), interface, _match([], False), 'p:', 60,
+            )
 
-    async def test_empty_message_with_ensure_key(self) -> None:
-        from nonebot.adapters.onebot.v11 import Message
-
-        from src.params.handler import get_command_message_arg_parser_handler
-
-        matcher = make_non_plugin_matcher()
-        handler = get_command_message_arg_parser_handler('arg', ensure_key=True)
-        await handler(matcher, Message())
-
-        assert matcher.state['arg'].extract_plain_text() == ''
-
-    async def test_empty_message_without_config_keeps_state(self) -> None:
-        from nonebot.adapters.onebot.v11 import Message
-
-        from src.params.handler import get_command_message_arg_parser_handler
-
-        matcher = make_non_plugin_matcher()
-        handler = get_command_message_arg_parser_handler('arg')
-        await handler(matcher, Message())
-
-        assert 'arg' not in matcher.state
-
-
-class TestGetSetDefaultStateHandler:
-    """State 默认值设置 handler 测试 (直接调用)"""
-
-    async def test_set_key_and_value(self) -> None:
-        from src.params.handler import get_set_default_state_handler
-
-        state: dict = {}
-        await get_set_default_state_handler('k', 'v')(state)
-        assert state == {'k': 'v'}
-
-    async def test_extra_data_merged(self) -> None:
-        from src.params.handler import get_set_default_state_handler
-
-        state: dict = {}
-        await get_set_default_state_handler('k', 'v', extra_data={'a': 1, 'b': None})(state)
-        assert state == {'k': 'v', 'a': 1, 'b': None}
-
-    async def test_existing_keys_not_overwritten(self) -> None:
-        from src.params.handler import get_set_default_state_handler
-
-        state: dict = {'k': 'original', 'a': 'existing'}
-        await get_set_default_state_handler('k', 'v', extra_data={'a': 1, 'b': 2})(state)
-        assert state == {'k': 'original', 'a': 'existing', 'b': 2}
-
-    async def test_extra_data_shadows_primary_key(self) -> None:
-        """extra_data 与主 key 同名时按 dict.update 语义由 extra_data 覆盖"""
-        from src.params.handler import get_set_default_state_handler
-
-        state: dict = {}
-        await get_set_default_state_handler('k', 'v', extra_data={'k': 'extra'})(state)
-        assert state == {'k': 'extra'}
-
-
-class TestShellCommandParseFailedHandler:
-    """Shell 命令解析失败 handler 测试"""
-
-    async def test_finish_with_error_message(self) -> None:
-        from nonebot.exception import ParserExit
-
-        from src.params.handler import get_shell_command_parse_failed_handler
-
-        # matcher 为 don't-care 载体, 以 mock 断言 finish 调用
-        matcher = MagicMock()
-        matcher.finish = AsyncMock()
-
-        handler = get_shell_command_parse_failed_handler()
-        await handler(matcher, ParserExit(status=2, message='usage text'))
-
-        matcher.finish.assert_awaited_once()
-        sent_message = matcher.finish.await_args.args[0]
-        assert '命令参数解析错误' in sent_message
-        assert 'usage text' in sent_message
+        assert interface.finished == ['未提供有效参数, 已取消操作']
 
 
 class TestStatePlainText:
