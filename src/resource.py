@@ -92,6 +92,9 @@ _STATIC_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('static')
 _TEMPORARY_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.tmp')
 """运行时产生的的可随时清理的缓存/临时文件路径"""
 
+type HostingPathType = Literal['path', 'url']
+"""文件托管路径类型, 'path' 为本地文件路径, 'url' 为 HTTP URL"""
+
 
 class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
     """文件托管协议基类"""
@@ -100,8 +103,8 @@ class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
         self._resource = resource
 
     @abc.abstractmethod
-    async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> str:
-        """获取文件托管路径, 返回文件 URL"""
+    async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> tuple[HostingPathType, str]:
+        """获取文件托管路径, 返回 (路径类型, 路径值) 元组"""
         raise NotImplementedError
 
 
@@ -525,10 +528,10 @@ class BaseResource(abc.ABC):
         self.path.unlink(missing_ok=missing_ok)
 
     @check_file
-    async def get_hosting_path(self, *, ttl_delta: int = 0) -> str:
-        """获取文件托管路径, 已注册文件托管服务时返回文件 URL, 未启用时返回文件本地路径"""
+    async def get_hosting_path(self, *, ttl_delta: int = 0) -> tuple[HostingPathType, str]:
+        """获取文件托管路径, 已注册文件托管服务时返回 (url, 文件 URL), 未启用时返回 (path, 文件本地路径)"""
         if self._host_protocol is None:
-            return self.resolve_path
+            return 'path', self.resolve_path
         else:
             return await self._host_protocol(self).get_hosting_file_path(ttl_delta=ttl_delta)
 
@@ -588,6 +591,7 @@ __all__ = [
     'AnyResource',
     'BaseResource',
     'BaseResourceHostProtocol',
+    'HostingPathType',
     'LogFileResource',
     'StaticResource',
     'TemporaryResource',

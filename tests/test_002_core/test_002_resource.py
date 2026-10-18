@@ -116,6 +116,7 @@ class TestModuleContract:
             'AnyResource',
             'BaseResource',
             'BaseResourceHostProtocol',
+            'HostingPathType',
             'LogFileResource',
             'StaticResource',
             'TemporaryResource',
@@ -917,8 +918,8 @@ class TestHostProtocol:
         from src.resource import BaseResource, BaseResourceHostProtocol
 
         class _FakeProtocol(BaseResourceHostProtocol):
-            async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> str:
-                return f'https://fake.host/{self._resource.name}?ttl={ttl_delta}'
+            async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> tuple[str, str]:
+                return 'url', f'https://fake.host/{self._resource.name}?ttl={ttl_delta}'
 
         class _HostableResource(BaseResource):
             """隔离测试用资源类: 直接继承 BaseResource, 不受 omega_file_host 全局注册状态影响"""
@@ -933,14 +934,14 @@ class TestHostProtocol:
         hostable_resource, _ = self._make_hostable_resource()
 
         file = sample_file('f.txt', 'x')
-        assert await hostable_resource(file).get_hosting_path() == hostable_resource(file).resolve_path
+        assert await hostable_resource(file).get_hosting_path() == ('path', hostable_resource(file).resolve_path)
 
     async def test_registered_protocol_returns_url(self, sample_file: _SampleFileFactory):
         hostable_resource, protocol = self._make_hostable_resource()
         hostable_resource.register_host_protocol(protocol)
 
         file = sample_file('f.txt', 'x')
-        assert await hostable_resource(file).get_hosting_path(ttl_delta=60) == 'https://fake.host/f.txt?ttl=60'
+        assert await hostable_resource(file).get_hosting_path(ttl_delta=60) == ('url', 'https://fake.host/f.txt?ttl=60')
 
     def test_register_twice_raises(self):
         hostable_resource, protocol = self._make_hostable_resource()
@@ -971,10 +972,10 @@ class TestHostProtocol:
         hostable_resource.register_host_protocol(protocol)
 
         file = sample_file('f.txt', 'x')
-        assert await hostable_resource(file).get_hosting_path() == 'https://fake.host/f.txt?ttl=0'
+        assert await hostable_resource(file).get_hosting_path() == ('url', 'https://fake.host/f.txt?ttl=0')
 
         hostable_resource.unregister_host_protocol()
-        assert await hostable_resource(file).get_hosting_path() == hostable_resource(file).resolve_path
+        assert await hostable_resource(file).get_hosting_path() == ('path', hostable_resource(file).resolve_path)
 
     def test_unregister_without_registration_is_noop(self):
         hostable_resource, _ = self._make_hostable_resource()
@@ -985,7 +986,7 @@ class TestHostProtocol:
         from src.resource import AnyResource, BaseResourceHostProtocol
 
         class _Protocol(BaseResourceHostProtocol):
-            async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> str:
+            async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> tuple[str, str]:
                 return await super().get_hosting_file_path(ttl_delta=ttl_delta)
 
         with pytest.raises(NotImplementedError):
@@ -1030,7 +1031,7 @@ class TestGlobalHostProtocolRegistration:
 
         file = sample_file('f.txt', 'x')
         resource = AnyResource(file)
-        assert await resource.get_hosting_path() == resource.resolve_path
+        assert await resource.get_hosting_path() == ('path', resource.resolve_path)
 
     async def test_file_check_precedes_protocol_call(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         """即使启用托管服务, 缺失文件仍在 @check_file 处抛出 ResourceNotFileError, 不会发出托管请求"""

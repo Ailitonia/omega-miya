@@ -511,7 +511,7 @@ class TestProtocol:
 
         expected_uuid = make_uuid5(resource.resolve_path)
         file_host_row_tracker.append(expected_uuid)
-        assert result == f'{file_host_api._FILE_HOST_API.root_url}/download/{expected_uuid}'
+        assert result == ('url', f'{file_host_api._FILE_HOST_API.root_url}/download/{expected_uuid}')
         assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expected_uuid) is not None
 
     async def test_get_hosting_path_disabled(
@@ -532,7 +532,7 @@ class TestProtocol:
 
         expected_uuid = make_uuid5(resource.resolve_path)
         file_host_row_tracker.append(expected_uuid)
-        assert result == resource.resolve_path
+        assert result == ('path', resource.resolve_path)
         assert await query_global_cache_row_or_none(_FILE_HOST_CACHE_NAME, expected_uuid) is None
 
     async def test_get_hosting_path_missing_file_raises(self, tmp_path: Path) -> None:
