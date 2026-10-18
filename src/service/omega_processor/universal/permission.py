@@ -16,8 +16,8 @@ from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
 from src.database import DATABASE_SESSION
-from ...omega_base import OmegaEntity, OmegaMatcherInterface
 from .processor_utils import parse_processor_state
+from ...omega_base import OmegaEntity, OmegaMatcherInterface
 
 _LOG_PREFIX: str = '<lc>Permission Manager</lc> | '
 """日志前缀"""
@@ -101,7 +101,7 @@ async def preprocessor_permission(
         )
         if processor_state.echo_processor_result:
             try:
-                echo_message = 'Omega Miya 未启用, 请尝试使用 "/Start" 命令初始化, 或联系管理员处理'
+                echo_message = 'Omega Miya 未启用, 请尝试使用 "/omega start" 命令初始化, 或联系管理员处理'
                 await matcher.send(message=echo_message)
             except Exception as e:
                 logger.opt(colors=True).warning(
