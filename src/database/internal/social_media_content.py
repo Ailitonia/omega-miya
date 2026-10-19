@@ -10,8 +10,8 @@
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any
 
+from pydantic import JsonValue
 from sqlalchemy import delete, desc, func, select
 
 from src.compat import parse_obj_as
@@ -27,7 +27,7 @@ class SocialMediaContent(BaseDataOutModel):
     m_id: str
     m_uid: str
     title: str
-    raw_data: dict[str, Any]
+    raw_data: dict[str, JsonValue]
     content: str | None
     ref_content: str | None
     published_at: datetime | None
@@ -202,7 +202,7 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
             m_id: str,
             m_uid: str,
             title: str,
-            raw_data: dict[str, Any],
+            raw_data: dict[str, JsonValue],
             content: str | None = None,
             ref_content: str | None = None,
             published_at: datetime | None = None,
@@ -212,7 +212,7 @@ class SocialMediaContentDAL(BaseDataAccessLayer[SocialMediaContentOrm, SocialMed
         尽量保证插入的是新数据时才使用, 冲突直接抛出异常
         原则上此表保存社交媒体内容原始副本, 不进行更新
         """
-        raw_data = parse_obj_as(dict[str, Any], raw_data)
+        raw_data = parse_obj_as(dict[str, JsonValue], raw_data)
 
         new_obj = SocialMediaContentOrm(
             source=source,

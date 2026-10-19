@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy.exc import NoResultFound, StatementError
+from sqlalchemy.exc import NoResultFound
 
 from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
 from tests.utils import unique_test_id
@@ -703,11 +703,10 @@ class TestEntityDAL:
             test_entity_id,
             test_entity_name,
     ) -> None:
-        """entity_extra 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败"""
-        # entity_extra 类型为 dict[str, Any], 入口 pydantic 校验不限制 value 类型, 不可序列化值 (如 bytes)
-        # 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异 (SQLite 下为 StatementError 包装 TypeError),
-        # 此处固定当前的失败行为, 若后续 DAL 层增加前置序列化校验, 本用例需同步调整
-        with pytest.raises((TypeError, StatementError)):
+        """entity_extra 含非 JSON 类型的值时, 在入口 pydantic 校验阶段失败"""
+        # entity_extra 类型为 dict[str, JsonValue], 非 JSON 原生类型的值 (如 bytes) 在入口
+        # pydantic 校验 (parse_obj_as) 即被拒绝, 抛 ValidationError, 不会开启事务或写入数据库
+        with pytest.raises(ValidationError):
             await entity_dal.add_update_exist(
                 bot_type=test_bot.bot_type,
                 bot_self_id=test_bot.self_id,

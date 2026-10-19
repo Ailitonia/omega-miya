@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from pydantic import ValidationError
 
 from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
 from tests.utils import unique_test_id
@@ -168,6 +169,37 @@ class TestStatisticDAL:
 
         assert result.call_entity_meta == {}
         assert result.call_data == {}
+
+    async def test_add_not_json_serializable(
+            self,
+            statistic_dal,
+            test_statistic_plugin_name,
+            test_statistic_plugin_module,
+    ) -> None:
+        """call_entity_meta / call_data 含非 JSON 类型的值时, 在入口 pydantic 校验阶段失败"""
+        # JSON 字段类型为 dict[str, JsonValue], 非 JSON 原生类型的值 (如 bytes) 在入口
+        # pydantic 校验 (parse_obj_as) 即被拒绝, 抛 ValidationError, 不会开启事务或写入数据库
+        now_timestamp = int(datetime.now().timestamp())
+
+        with pytest.raises(ValidationError):
+            await statistic_dal.add(
+                plugin_name=test_statistic_plugin_name,
+                module_name=test_statistic_plugin_module,
+                call_timestamp=now_timestamp,
+                call_entity_meta={'meta': b'bytes'},
+                call_data={},
+            )
+
+        with pytest.raises(ValidationError):
+            await statistic_dal.add(
+                plugin_name=test_statistic_plugin_name,
+                module_name=test_statistic_plugin_module,
+                call_timestamp=now_timestamp,
+                call_entity_meta={},
+                call_data={'data': b'bytes'},
+            )
+
+        assert await statistic_dal._count_all() == 0
 
     # ------------------------------------------------------------------ #
     # query_by_condition

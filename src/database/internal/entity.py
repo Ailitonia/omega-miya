@@ -11,9 +11,9 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum, unique
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Literal, overload
 
-from pydantic import Field
+from pydantic import Field, JsonValue
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import selectinload
@@ -53,7 +53,7 @@ class _BaseEntity(BaseDataOutModel):
     entity_type: EntityType
     entity_id: str
     entity_name: str
-    entity_extra: dict[str, Any]
+    entity_extra: dict[str, JsonValue]
 
 
 class _Bot(BaseDataOutModel):
@@ -103,7 +103,7 @@ class AuthSetting(BaseDataOutModel):
     plugin: str
     node: str
     available: int
-    value: dict[str, Any]
+    value: dict[str, JsonValue]
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -403,7 +403,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_type: str,
             entity_id: str,
             entity_name: str,
-            entity_extra: dict[str, Any],
+            entity_extra: dict[str, JsonValue],
             entity_info: str | None = None
     ) -> Entity:
         """向数据库插入新行, 存在则更新
@@ -417,7 +417,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
         (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
         外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
         """
-        entity_extra = parse_obj_as(dict[str, Any], entity_extra)
+        entity_extra = parse_obj_as(dict[str, JsonValue], entity_extra)
 
         select_bot_stmt = (select(BotSelfOrm)
                            .where(BotSelfOrm.bot_type == bot_type)
@@ -477,7 +477,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             entity_type: str,
             entity_id: str,
             entity_name: str,
-            entity_extra: dict[str, Any],
+            entity_extra: dict[str, JsonValue],
             entity_info: str | None = None
     ) -> Entity:
         """向数据库插入新行, 若已存在则忽略
@@ -487,7 +487,7 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
         (会话事务不显式发送 BEGIN, SAVEPOINT 直接开启物理事务且 RELEASE 即提交) 而被提前提交,
         外层事务 rollback 无法撤销; MySQL/PostgreSQL 后端不受影响
         """
-        entity_extra = parse_obj_as(dict[str, Any], entity_extra)
+        entity_extra = parse_obj_as(dict[str, JsonValue], entity_extra)
 
         select_bot_stmt = (select(BotSelfOrm)
                            .where(BotSelfOrm.bot_type == bot_type)
@@ -896,10 +896,10 @@ class EntityDAL(BaseDataAccessLayer[EntityOrm, Entity]):
             plugin: str,
             node: str,
             available: int,
-            value: dict[str, Any],
+            value: dict[str, JsonValue],
     ) -> AuthSetting:
         """设置 Entity 权限或配置节点参数值"""
-        value = parse_obj_as(dict[str, Any], value)
+        value = parse_obj_as(dict[str, JsonValue], value)
 
         new_obj = AuthSettingOrm(
             entity_index_id=entity_index_id,

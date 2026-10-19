@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
@@ -156,6 +157,30 @@ class TestSocialMediaContentDAL:
         assert result.content is None
         assert result.ref_content is None
         assert result.published_at is None
+
+    async def test_add_raw_data_not_json_serializable(
+            self,
+            smc_dal,
+            test_smc_source,
+            test_smc_m_type,
+            test_smc_m_id,
+            test_smc_m_uid,
+            test_smc_title,
+    ) -> None:
+        """raw_data 含非 JSON 类型的值时, 在入口 pydantic 校验阶段失败"""
+        # raw_data 类型为 dict[str, JsonValue], 非 JSON 原生类型的值 (如 bytes) 在入口
+        # pydantic 校验 (parse_obj_as) 即被拒绝, 抛 ValidationError, 不会开启事务或写入数据库
+        with pytest.raises(ValidationError):
+            await smc_dal.add(
+                source=test_smc_source,
+                m_type=test_smc_m_type,
+                m_id=test_smc_m_id,
+                m_uid=test_smc_m_uid,
+                title=test_smc_title,
+                raw_data={'key': b'bytes'},
+            )
+
+        assert await smc_dal._count_all() == 0
 
     async def test_add_title_truncated(
             self,

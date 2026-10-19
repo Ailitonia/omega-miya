@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from tests.test_001_database.test_003_dal_crud.conftest import define_dal_fixtures
 from tests.utils import unique_test_id
@@ -307,12 +307,10 @@ class TestHistoryDAL:
         assert await history_dal._count_all() == 0
 
     async def test_add_message_raw_not_json_serializable(self, history_dal, test_history_bot_self_id) -> None:
-        """message_raw 含 JSON 不可序列化的值时, 在 flush 序列化阶段失败"""
-        # message_raw 类型为 list[dict[str, Any]], 入口 pydantic 校验不限制元素内部的值类型,
-        # 不可序列化值 (如 bytes) 由数据库驱动在序列化时拒绝; 抛出的异常类型因后端/驱动而异
-        # (如 StatementError 包装 TypeError), 此处固定当前的失败行为,
-        # 若后续 DAL 层增加前置序列化校验, 本用例需同步调整
-        with pytest.raises((TypeError, StatementError)):
+        """message_raw 含非 JSON 类型的值时, 在入口 pydantic 校验阶段失败"""
+        # message_raw 类型为 list[dict[str, JsonValue]], 非 JSON 原生类型的值 (如 bytes) 在入口
+        # pydantic 校验 (parse_obj_as) 即被拒绝, 抛 ValidationError, 不会开启事务或写入数据库
+        with pytest.raises(ValidationError):
             await history_dal.add(
                 received_timestamp=int(datetime.now().timestamp()),
                 message_id='msg_not_serializable',
@@ -324,7 +322,7 @@ class TestHistoryDAL:
                 message_raw=[{'type': 'text', 'data': {'raw': b'bytes'}}],
             )
 
-        # add() 不经嵌套事务包装, flush 失败后需回滚恢复会话状态
+        # 失败发生在入口校验, 会话未经事务写入, 回滚后确认无残留
         await history_dal.rollback_session()
         assert await history_dal._count_all() == 0
 

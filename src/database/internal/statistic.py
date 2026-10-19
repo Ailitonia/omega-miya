@@ -9,8 +9,8 @@
 """
 
 from datetime import datetime
-from typing import Any
 
+from pydantic import JsonValue
 from sqlalchemy import delete, desc, func, select
 
 from src.compat import parse_obj_as
@@ -24,8 +24,8 @@ class Statistic(BaseDataOutModel):
     plugin_name: str
     module_name: str
     call_timestamp: int
-    call_entity_meta: dict[str, Any]
-    call_data: dict[str, Any]
+    call_entity_meta: dict[str, JsonValue]
+    call_data: dict[str, JsonValue]
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -127,15 +127,15 @@ class StatisticDAL(BaseDataAccessLayer[StatisticOrm, Statistic]):
             plugin_name: str,
             module_name: str,
             call_timestamp: int,
-            call_entity_meta: dict[str, Any],
-            call_data: dict[str, Any],
+            call_entity_meta: dict[str, JsonValue],
+            call_data: dict[str, JsonValue],
     ) -> Statistic:
         """向数据库插入新行, 不校验唯一性
 
         尽量保证插入的是新数据时才使用, 冲突直接抛出异常
         """
-        call_entity_meta = parse_obj_as(dict[str, Any], call_entity_meta)
-        call_data = parse_obj_as(dict[str, Any], call_data)
+        call_entity_meta = parse_obj_as(dict[str, JsonValue], call_entity_meta)
+        call_data = parse_obj_as(dict[str, JsonValue], call_data)
 
         new_obj = StatisticOrm(
             plugin_name=plugin_name,
