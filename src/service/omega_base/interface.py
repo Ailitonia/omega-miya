@@ -166,7 +166,7 @@ class OmegaMatcherInterface:
         event_depend_cls = cls.get_event_depend_cls(target_event=event)
         event_depend = event_depend_cls(bot=bot, event=event)
         entity_params = event_depend.extract_entity_params(acquire_type=acquire_type)
-        return OmegaEntity(session=db_session, **entity_params.model_dump())
+        return OmegaEntity(session=db_session, **entity_params.model_dump(mode='json'))
 
     def get_event_depend(self) -> 'BaseEventDepend':
         """获取的中间件平台事件对象解析器"""
@@ -184,7 +184,7 @@ class OmegaMatcherInterface:
 
     def get_current_entity(self, db_session: DATABASE_SESSION) -> OmegaEntity:
         """使用已有数据库会话创建 OmegaEntity 实例"""
-        return OmegaEntity(session=db_session, **self.extract_current_entity_params().model_dump())
+        return OmegaEntity(session=db_session, **self.extract_current_entity_params().model_dump(mode='json'))
 
     @asynccontextmanager
     async def create_current_entity_session(self) -> AsyncGenerator[OmegaEntity, None]:

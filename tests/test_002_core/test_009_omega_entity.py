@@ -201,6 +201,19 @@ class TestEntityInitParams:
                 entity_extra={},
             )
 
+    def test_entity_extra_not_json_value_raises(self) -> None:
+        from src.service.omega_base.internal.entity import EntityInitParams
+
+        # entity_extra 类型为 dict[str, JsonValue], 非 JSON 原生类型的值 (如 bytes) 在模型校验时即被拒绝
+        with pytest.raises(ValidationError):
+            EntityInitParams(
+                bot_type='Console',
+                bot_id='1',
+                entity_type='console_user',
+                entity_id='2',
+                entity_extra={'key': b'bytes'},
+            )
+
 
 class TestOmegaEntityInit:
     """OmegaEntity 构造与基础属性测试 (不访问数据库)"""
@@ -257,6 +270,12 @@ class TestOmegaEntityInit:
         entity = self._make_entity(entity_extra={'key': 'value'})
 
         assert entity.entity_extra == {'key': 'value'}
+
+    def test_entity_extra_not_json_value_raises(self) -> None:
+        # entity_extra 类型为 dict[str, JsonValue], 构造时经 parse_obj_as 校验,
+        # 非 JSON 原生类型的值 (如 bytes) 在入口即抛 ValidationError
+        with pytest.raises(ValidationError):
+            self._make_entity(entity_extra={'key': b'bytes'})
 
     def test_entity_info_default_none(self) -> None:
         entity = self._make_entity()
@@ -1261,6 +1280,22 @@ class TestCharacterAttributeAndProfile:
         await entity.set_character_profile('appearance', {'hair': 'black'})
 
         assert await entity.query_character_profile('appearance') == {'hair': 'black'}
+
+    async def test_profile_nested_value_round_trip(self, test_onebot_v11_entity_factory) -> None:
+        entity = test_onebot_v11_entity_factory()
+        profile = {'stats': {'hp': 100, 'mp': 50}, 'tags': ['brave', 'kind'], 'level': 3}
+
+        await entity.set_character_profile('adventure', profile)
+
+        assert await entity.query_character_profile('adventure') == profile
+
+    async def test_profile_not_json_value_raises(self, test_onebot_v11_entity_factory) -> None:
+        entity = test_onebot_v11_entity_factory()
+
+        # profile_value 类型为 dict[str, JsonValue], 包装为 dict[str, dict[str, JsonValue]] 时经
+        # parse_obj_as 校验, 非 JSON 原生类型的值 (如 bytes) 在入口即抛 ValidationError, 不写入数据库
+        with pytest.raises(ValidationError):
+            await entity.set_character_profile('broken', {'key': b'bytes'})
 
     async def test_profile_missing_without_factory_raises(self, test_onebot_v11_entity_factory) -> None:
         entity = test_onebot_v11_entity_factory()

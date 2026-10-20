@@ -11,9 +11,9 @@
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy.exc import DatabaseError, NoResultFound
 
 from src.compat import parse_obj_as
@@ -49,7 +49,7 @@ type EntityAcquireType = Literal['event', 'user']
 """Entity 对象的类型, event: 事件本身所在场景的对象(群组频道等), user: 触发事件的用户对象"""
 
 type DefaultIntValueFactory = Callable[[], int]
-type DefaultDictFactory = Callable[[], dict[str, Any]]
+type DefaultJsonDictFactory = Callable[[], dict[str, JsonValue]]
 
 
 class EntityInitParams(BaseModel):
@@ -58,15 +58,15 @@ class EntityInitParams(BaseModel):
     bot_id: str
     entity_type: EntityType
     entity_id: str
-    entity_extra: dict[str, Any]
+    entity_extra: dict[str, JsonValue]
     entity_name: str | None = Field(default=None)
     entity_info: str | None = Field(default=None)
 
     model_config = ConfigDict(extra='ignore', frozen=True, coerce_numbers_to_str=True)
 
     @property
-    def kwargs(self) -> dict[str, Any]:
-        return self.model_dump()
+    def kwargs(self) -> dict[str, JsonValue]:
+        return self.model_dump(mode='json')
 
 
 class OmegaEntity:
@@ -80,15 +80,15 @@ class OmegaEntity:
             entity_type: str,
             entity_id: str,
             entity_name: str | None = None,
-            entity_extra: dict[str, Any] | None = None,
+            entity_extra: dict[str, JsonValue] | None = None,
             entity_info: str | None = None
     ) -> None:
         self.bot_type = BotType(bot_type)
         self.bot_id = bot_id
         self.entity_type = EntityType(entity_type)
         self.entity_id = entity_id
-        self.entity_name: str = f'{entity_type}_{entity_id}' if entity_name is None else entity_name
-        self.entity_extra: dict[str, Any] = entity_extra if entity_extra is not None else {}
+        self.entity_name = f'{entity_type}_{entity_id}' if entity_name is None else entity_name
+        self.entity_extra = parse_obj_as(dict[str, JsonValue], entity_extra if entity_extra is not None else {})
         self.entity_info = entity_info
 
         self._db_session = session
@@ -486,7 +486,7 @@ class OmegaEntity:
             plugin: str,
             node: str,
             available: int,
-            value: dict[str, Any],
+            value: dict[str, JsonValue],
     ) -> AuthSetting:
         """设置 Entity 权限节点参数值"""
         entity = await self.query_entity_self()
@@ -693,9 +693,9 @@ class OmegaEntity:
             value=value,
         )
 
-    async def set_character_profile(self, profile_name: str, profile_value: dict[str, Any]) -> AuthSetting:
+    async def set_character_profile(self, profile_name: str, profile_value: dict[str, JsonValue]) -> AuthSetting:
         """设置 Entity 对象的角色档案, 档案内容应当为 dict 类型"""
-        value = parse_obj_as(dict[str, dict[str, Any]], {profile_name: profile_value})
+        value = parse_obj_as(dict[str, dict[str, JsonValue]], {profile_name: profile_value})
         return await self.set_auth_setting(
             module=OMEGA_ICA_PROFILE_NODE.module,
             plugin=OMEGA_ICA_PROFILE_NODE.plugin,
@@ -770,8 +770,8 @@ class OmegaEntity:
             self,
             profile_name: str,
             *,
-            default_factory: DefaultDictFactory | None = None,
-    ) -> dict[str, Any]:
+            default_factory: DefaultJsonDictFactory | None = None,
+    ) -> dict[str, JsonValue]:
         """查询 Entity 对象的角色档案, 提供 `default_factory` 时若无角色档案则动态生成
 
         以下情形视为档案不可用: 档案未配置 (NoResultFound)、档案被禁用 (available != 1)、

@@ -140,7 +140,7 @@ async def __obv11_bot_connect(bot: OneBotV11Bot, event: BotConnectEvent) -> None
                 'entity_type': EntityType.ONEBOT_V11_GROUP,
                 'entity_id': group.group_id,
                 'entity_name': group.group_name,
-                'entity_extra': group.model_dump(),
+                'entity_extra': group.model_dump(mode='json'),
                 'entity_info': group.group_memo,
             }
             try:
@@ -160,7 +160,7 @@ async def __obv11_bot_connect(bot: OneBotV11Bot, event: BotConnectEvent) -> None
                 'entity_type': EntityType.ONEBOT_V11_USER,
                 'entity_id': user.user_id,
                 'entity_name': user.nickname,
-                'entity_extra': user.model_dump(),
+                'entity_extra': user.model_dump(mode='json'),
                 'entity_info': user.remark,
             }
             try:
@@ -372,7 +372,7 @@ class OneBotV11GroupMessageEventDepend(OneBotV11MessageEventDepend[OneBotV11Grou
             'entity_type': EntityType.ONEBOT_V11_USER,
             'entity_id': str(self.event.user_id),
             'entity_name': self.event.sender.nickname or self.event.sender.card or 'Unknown',
-            'entity_extra': self.event.sender.model_dump(),
+            'entity_extra': self.event.sender.model_dump(mode='json'),
             'entity_info': None,
         })
 
@@ -390,7 +390,7 @@ class OneBotV11PrivateMessageEventDepend(OneBotV11MessageEventDepend[OneBotV11Pr
             'entity_type': EntityType.ONEBOT_V11_USER,
             'entity_id': str(self.event.user_id),
             'entity_name': self.event.sender.nickname or 'Unknown',
-            'entity_extra': self.event.sender.model_dump(),
+            'entity_extra': self.event.sender.model_dump(mode='json'),
             'entity_info': None,
         })
 

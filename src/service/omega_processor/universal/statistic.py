@@ -10,30 +10,26 @@
 
 import time
 
-try:
-    import ujson as json
-except ImportError:
-    import json
-
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters import Event as BaseEvent
 from nonebot.log import logger
 from nonebot.matcher import Matcher
+from pydantic import JsonValue, ValidationError
 
+from src.compat import dump_obj_as
 from src.database import DATABASE_SESSION, StatisticDAL
-from ...omega_base import OmegaMatcherInterface
 from .processor_utils import parse_processor_state
+from ...omega_base import OmegaMatcherInterface
 
 _LOG_PREFIX: str = '<lc>Statistic</lc> | '
 """日志前缀"""
 
 
-def _jsonable(value: object) -> object:
+def _jsonable(value: object) -> JsonValue:
     """将 matcher.state 运行时值转换为 JSON 可序列化对象, 无法序列化的以 repr 兜底"""
     try:
-        json.dumps(value)
-        return value
-    except (TypeError, ValueError):
+        return dump_obj_as(JsonValue, value)
+    except ValidationError:
         return repr(value)
 
 
