@@ -13,8 +13,28 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from nonebot_plugin_alconna import AlconnaMatcher, Match
+    from nonebot_plugin_alconna.uniseg import UniMessage
 
     from src.service import OmegaMatcherInterface
+
+
+async def ensure_arg_message(
+        matcher: 'AlconnaMatcher',
+        interface: 'OmegaMatcherInterface',
+        arg: 'Match[UniMessage]',
+        prompt_text: str,
+        timeout: float,
+) -> 'UniMessage':
+    """确保命令参数已提供, 获取原始消息, 缺失时通过 prompt 追问获取"""
+    if arg.available and (msg := arg.result):
+        return msg
+
+    resp = await matcher.prompt(prompt_text, timeout=timeout)
+    if resp is None:
+        await interface.finish_reply('等待输入超时, 已取消操作')
+    if not resp:
+        await interface.finish_reply('未提供有效参数, 已取消操作')
+    return resp
 
 
 async def ensure_arg_text(
@@ -69,6 +89,7 @@ async def ensure_multi_args_text(
 
 
 __all__ = [
+    'ensure_arg_message',
     'ensure_arg_text',
     'ensure_multi_args_text',
 ]
