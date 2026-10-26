@@ -9,7 +9,9 @@
 """
 
 import abc
+import hashlib
 import io
+import string
 from collections.abc import Buffer, Callable, Generator, Iterable
 from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
 from datetime import datetime
@@ -68,7 +70,7 @@ class ResourceNotFileError(LocalSourceException):
 class ResourcePathOutOfRootError(LocalSourceException):
     """拼接后的路径超出资源根目录限制(路径穿越)"""
 
-    def __init__(self, path: Path | str, root: Path | str):
+    def __init__(self, path: str | Path, root: str | Path):
         super().__init__(path)
         self.root = Path(root) if isinstance(root, str) else root
 
@@ -92,8 +94,110 @@ _STATIC_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('static')
 _TEMPORARY_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.tmp')
 """运行时产生的的可随时清理的缓存/临时文件路径"""
 
+_FILE_NAME_SAFE_CHARS = frozenset(string.ascii_letters + string.digits + '-_%.~')
+"""规范文件名中允许的字符集(含百分号编码前缀 '%'、点号 '.' 与截断后缀分隔符 '~', 点号合法性由首尾位置另行约束)"""
+_FILE_NAME_WINDOWS_RESERVED = frozenset(
+    ['CON', 'PRN', 'AUX', 'NUL']
+    + [f'COM{i}' for i in range(1, 10)]
+    + [f'LPT{i}' for i in range(1, 10)]
+)
+"""Windows 保留设备名(按首个点之前的基名判定, 不区分大小写)"""
+_FILE_NAME_MAX_LENGTH: int = 255
+"""文件名长度上限(输出为纯 ASCII, 字符数即字节数)"""
+_FILE_NAME_KEPT_SUFFIX_MAX_LENGTH: int = 16
+"""文件名扩展名保留长度上限(含前导点, 超出时在变更分支截断为 前缀+'~'+短哈希 形式)"""
+_FILE_NAME_HASH_SUFFIX_LENGTH: int = 8
+"""清洗变更/超长截断时追加的确定性短哈希后缀长度"""
+
 type HostingPathType = Literal['path', 'url']
 """文件托管路径类型, 'path' 为本地文件路径, 'url' 为 HTTP URL"""
+
+
+def _encode_ascii_char(char: str) -> str:
+    """将单个字符处理为 ASCII 字符"""
+    if (char_len := len(char)) != 1:
+        raise ValueError(f'char 必须为单个字符, 而不是 {char_len} 个')
+
+    if char in _FILE_NAME_SAFE_CHARS:
+        return char
+    return f'%{ord(char):02X}'
+
+
+def clean_ascii_valid_filename(name: str) -> str:
+    """清理并返回 ASCII 字符构成的确定性合法文件名(仅接受 str 输入)
+
+    非安全字符按码点百分号编码(如 '中' -> '%4E2D', '/' -> '%2F'), 剥离尾部空白与点混合序列;
+    原始值本身合法时原样返回; 清洗改变了原始值或超出长度上限时, 截断基名并追加原始值的确定性短哈希后缀
+    (保留合法短扩展名), 避免不同原始值碰撞到同一文件名; 基名命中 Windows 设备保留名(含扩展名形式,
+    不区分大小写)时强制编码首字符中和; 原始值无可用内容时回退为原始值 sha256 哈希值。
+    同一输入恒返回同一结果, 清理输出再次清理恒不变(幂等);
+    结果恒为合法文件名: 由 ASCII 安全字符与点号构成、非保留名、非空、不以点结尾、不超过 255 字节
+    """
+    if not isinstance(name, str):
+        raise ValueError(f'name 必须为 str 类型, 而不是 {type(name).__name__} 类型')
+
+    # 剥离尾部空白与点混合序列
+    stripped = name.rstrip('. ')
+    if not stripped:
+        # 原始值无可用内容, 回退为原始值的确定性哈希文件名
+        return hashlib.sha256(name.encode('utf-8', errors='namereplace')).hexdigest()
+
+    # 在最后一个点处切分基名与后缀(前导点名字无后缀, 基名内点号为合法字符不编码), 后缀保留前导点
+    if (dot_index := stripped.rfind('.')) > 0:
+        raw_stem, raw_suffix = stripped[:dot_index], stripped[dot_index:]
+    else:
+        raw_stem, raw_suffix = stripped, ''
+
+    stem = ''.join(_encode_ascii_char(char) for char in raw_stem)
+    suffix = ''.join(_encode_ascii_char(char) for char in raw_suffix)
+
+    # 基名命中 Windows 设备保留名(按首个点之前的部分判定)时强制编码首字符中和
+    if stem.upper().split('.')[0] in _FILE_NAME_WINDOWS_RESERVED:
+        stem = f'%{ord(stem[0]):02X}{stem[1:]}'
+
+    if (cleaned := f'{stem}{suffix}') == name and len(cleaned) <= _FILE_NAME_MAX_LENGTH:
+        # 未改变原始值且长度未超限时原样返回
+        return cleaned
+
+    # 清洗改变了原始值或超出长度上限时, 截断基名并追加确定性短哈希后缀(保留合法短扩展名),
+    # 避免不同原始值碰撞到同一文件名, 且总长度不超过上限
+    if len(suffix) > _FILE_NAME_KEPT_SUFFIX_MAX_LENGTH:
+        suffix_hash = hashlib.sha256(suffix.encode('utf-8')).hexdigest()[:_FILE_NAME_HASH_SUFFIX_LENGTH]
+        suffix = f'{suffix[:_FILE_NAME_KEPT_SUFFIX_MAX_LENGTH - _FILE_NAME_HASH_SUFFIX_LENGTH - 1]}~{suffix_hash}'
+    name_hash = hashlib.sha256(name.encode('utf-8', errors='namereplace')).hexdigest()
+    stem_budget = _FILE_NAME_MAX_LENGTH - 1 - _FILE_NAME_HASH_SUFFIX_LENGTH - len(suffix)
+    return f'{stem[:stem_budget]}.{name_hash[:_FILE_NAME_HASH_SUFFIX_LENGTH]}{suffix}'
+
+
+def clean_ascii_valid_dirname(name: str) -> str:
+    """清理并返回 ASCII 字符构成的确定性合法目录名(不允许嵌套子目录, 仅接受 str 输入)
+
+    剥离首尾空白与点混合序列, 非安全字符按码点百分号编码后直接返回, 变更不追加哈希后缀
+    (同编码结果的不同原始值可能碰撞到同一目录名, 调用方需自行保证输入可分);
+    命中 Windows 设备保留名(含扩展名形式, 不区分大小写)时强制编码首字符中和;
+    空结果与超长输入回退为原始值 sha256 哈希值。
+    同一输入恒返回同一结果, 清理输出再次清理恒不变(幂等);
+    结果恒为合法目录名: 由 ASCII 安全字符与点号构成、非保留名、非空、不以点结尾、不超过 255 字节
+    """
+    if not isinstance(name, str):
+        raise ValueError(f'name 必须为 str 类型, 而不是 {type(name).__name__} 类型')
+
+    # 剥离首尾的空白与点混合序列
+    stripped = name.strip('. ')
+
+    # 清理命名字符
+    cleaned = ''.join(_encode_ascii_char(char) for char in stripped)
+
+    # 命中 Windows 设备保留名(按首个点之前的部分判定)时强制编码首字符中和
+    if cleaned.upper().split('.')[0] in _FILE_NAME_WINDOWS_RESERVED:
+        cleaned = f'%{ord(cleaned[0]):02X}{cleaned[1:]}'
+
+    # 清理后目录名非空且长度未超限时直接返回
+    if cleaned and len(cleaned) <= _FILE_NAME_MAX_LENGTH:
+        return cleaned
+
+    # 其他情况(空结果/超长)均回退为原始值的确定性哈希目录名
+    return hashlib.sha256(name.encode('utf-8', errors='namereplace')).hexdigest()
 
 
 class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
@@ -598,4 +702,6 @@ __all__ = [
     'ResourceNotFolderError',
     'ResourceNotFileError',
     'ResourcePathOutOfRootError',
+    'clean_ascii_valid_dirname',
+    'clean_ascii_valid_filename',
 ]
