@@ -111,7 +111,10 @@ class BaseWeiboAPI(BaseCommonAPI):
             headers: 'HeaderTypes' = None,
             ignore_exist_file: bool = False,
     ) -> 'TemporaryResource':
-        """下载任意资源到本地, 保持原始文件名, 直接覆盖同名文件"""
+        """下载任意资源到本地, 文件名经校验清洗(被修改时追加确定性短哈希后缀)
+
+        subdir 扁平化为单层目录(不保留路径分隔符), 直接覆盖同名文件
+        """
         return await cls._download_resource(
             save_folder=weibo_api_config.default_download_folder,
             url=url,

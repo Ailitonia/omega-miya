@@ -276,6 +276,15 @@ class TestUrlFileName:
         assert OmegaRequests.hash_url_file_name(url=url) == f'file_{expected_hash}.jpg'
         assert OmegaRequests.hash_url_file_name(url=url) == OmegaRequests.hash_url_file_name(url=url)
 
+    def test_hash_url_file_name_with_lone_surrogate(self):
+        """孤立代理项按 namereplace 编码哈希, 不因严格 UTF-8 编码失败"""
+        from src.utils.omega_requests import OmegaRequests
+
+        url = 'http://example.com/\udcff.jpg'
+        expected_hash = hashlib.sha256(url.encode('utf-8', errors='namereplace')).hexdigest()
+
+        assert OmegaRequests.hash_url_file_name(url=url) == f'file_{expected_hash}.jpg'
+
     def test_hash_url_file_name_prefixes(self):
         from src.utils.omega_requests import OmegaRequests
 

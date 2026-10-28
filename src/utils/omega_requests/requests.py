@@ -172,11 +172,10 @@ class OmegaRequests:
     def hash_url_file_name(cls, *prefix: str, url: str) -> str:
         """尝试解析 url 对应的文件后缀名并用 hash 和前缀代替"""
         parsed_url = urlparse(url=url, allow_fragments=True)
-        name_hash = hashlib.sha256(url.encode(encoding='utf8')).hexdigest()
+        name_hash = hashlib.sha256(url.encode(encoding='utf-8', errors='namereplace')).hexdigest()
         name_suffix = pathlib.PurePath(unquote(parsed_url.path)).suffix
         name_prefix = '_'.join(prefix) if prefix else 'file'
-        new_name = f'{name_prefix}_{name_hash}{name_suffix}'
-        return new_name
+        return f'{name_prefix}_{name_hash}{name_suffix}'
 
     @classmethod
     def get_url_in_text(cls, text: str) -> list[str]:

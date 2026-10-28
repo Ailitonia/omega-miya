@@ -10,11 +10,9 @@
 
 import abc
 import asyncio
-import glob
 import hashlib
 import re
 import time
-import unicodedata
 import weakref
 from collections.abc import Callable, Sequence
 from datetime import datetime
@@ -31,6 +29,7 @@ from src.database.internal.artwork_collection import (
     ArtworkRatingStatistic,
     ArtworkReviewRecord,
 )
+from src.resource import clean_ascii_valid_filename
 from src.utils import semaphore_gather
 from .config import ArtworkProxyPathConfig
 from .models import (
@@ -57,20 +56,20 @@ _INT_AID_SLICED_SIZE: int = 1_000_000
 _STR_AID_SLICED_LEN: int = 3
 """字符型 artwork_id 切分目录分片长度(按哈希)"""
 
-_FILE_NAME_INVALID_CHARS = re.compile(r'[/\\<>:"|?*\x00-\x1f]')
-"""缓存文件名中不允许出现的字符(Windows/POSIX 文件名保留字符与控制字符/路径分隔符/NUL)"""
-_FILE_NAME_MAX_LENGTH: int = 128
-"""清洗后文件名长度上限(超出时截断基名并追加确定性短哈希后缀)"""
-_WINDOWS_RESERVED_FILE_NAMES = frozenset(
-    {'CON', 'PRN', 'AUX', 'NUL'} | {f'COM{i}' for i in range(1, 10)} | {f'LPT{i}' for i in range(1, 10)}
-)
-"""Windows 保留设备文件名(不区分大小写, 含扩展名形式, 不可用作文件名)"""
 _PAGE_FILE_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 """作品页面文件写入的进程内锁注册表(按目标文件解析路径, 弱引用自动清理)"""
 _DATABASE_WRITE_LOCK: asyncio.Lock = asyncio.Lock()
 """数据库写入锁, 避免数据库并发写入时的冲突"""
 _META_SNAPSHOT_KEPT_NUM: int = 8
 """每个作品保留的元数据快照数量上限"""
+_CACHE_FILE_NAME_MAX_LENGTH: int = 192
+"""缓存文件名长度上限(为原子写入追加的临时文件名后缀预留空间, 保证最终文件名仍不超系统上限)"""
+_CACHE_NAME_STEM_MAX_LENGTH: int = _CACHE_FILE_NAME_MAX_LENGTH - 1 - 20 - len('.json.snapshot')
+"""缓存文件名中标识作品的清洗后主干长度上限(为快照分隔点、20 位时间戳与固定后缀预留空间)"""
+_CACHE_NAME_HASH_LENGTH: int = 8
+"""清洗结果仍超长时追加的确定性短哈希长度"""
+_CACHE_NAME_KEPT_SUFFIX_MAX_LENGTH: int = 16
+"""清洗结果二次截断时保留的最后扩展名最大长度(超出时丢弃扩展名)"""
 
 
 class BaseArtworkProxy(abc.ABC):
@@ -80,7 +79,8 @@ class BaseArtworkProxy(abc.ABC):
     """作品相关缓存及数据存储路径配置"""
 
     def __init__(self, artwork_id: str | int):
-        self.__id: str = self._clean_file_name(artwork_id)
+        # artwork_id 保留原始身份, 本地文件回查、源站请求及数据库收录均使用原始值, 清洗仅用于构造缓存文件名
+        self.__id: str = str(artwork_id)
 
         # 实例缓存
         self.artwork_data: ArtworkProxyData | None = None
@@ -97,31 +97,6 @@ class BaseArtworkProxy(abc.ABC):
     @property
     def s_aid(self) -> str:
         return self.__id
-
-    @staticmethod
-    def _clean_file_name(value: str | int) -> str:
-        """规范化文件名, 拦截路径分隔符/特殊目录名/NUL/Windows 保留字符及保留设备名, 为空时回退为哈希文件名
-
-        清洗结果与原始值不一致或超出长度上限时, 截断基名并追加确定性短哈希后缀,
-        保证最终文件名长度不超过 _FILE_NAME_MAX_LENGTH 且不同原始值不碰撞到同一文件名;
-        底层路径越界最终由 TemporaryResource confinement 兜底
-        """
-        cleaned = _FILE_NAME_INVALID_CHARS.sub('_', str(value).strip().rstrip('. '))
-        value_hash = hashlib.sha256(str(value).encode('utf-8')).hexdigest()
-
-        if cleaned and cleaned.upper().split('.')[0] in _WINDOWS_RESERVED_FILE_NAMES:
-            # Windows 保留设备名(含扩展名形式)不可用作文件名, 按无效输入回退为哈希文件名
-            cleaned = ''
-
-        if not cleaned:
-            # 原始值全部无效或为 Windows 保留设备名时, 回退为确定性哈希文件名
-            return value_hash[:16]
-
-        if cleaned != str(value) or len(cleaned) > _FILE_NAME_MAX_LENGTH:
-            # 清洗改变了原始值或超出长度上限时, 截断基名并追加确定性短哈希后缀,
-            # 避免 'a/b' 与 'a\\b' 等不同原始值碰撞到同一文件名, 且总长度不超过上限
-            cleaned = f'{cleaned[:_FILE_NAME_MAX_LENGTH - 5]}.{value_hash[:4]}'
-        return cleaned
 
     @classmethod
     @abc.abstractmethod
@@ -160,7 +135,7 @@ class BaseArtworkProxy(abc.ABC):
             start, _ = divmod(i_aid, _INT_AID_SLICED_SIZE)
             subdir_name = f'artwork_id_{start * _INT_AID_SLICED_SIZE}-{(start + 1) * _INT_AID_SLICED_SIZE - 1}'
         else:
-            id_hash = hashlib.sha256(unicodedata.normalize('NFC', self.s_aid).encode('utf-8')).hexdigest()
+            id_hash = hashlib.sha256(self.s_aid.encode('utf-8', errors='namereplace')).hexdigest()
             subdir_name = f'artwork_id_H{id_hash[:_STR_AID_SLICED_LEN]}'
         return subdir_name
 
@@ -174,15 +149,39 @@ class BaseArtworkProxy(abc.ABC):
         """本类型作品图片缓存文件目录"""
         return self._get_path_config().artwork_path(self.sliced_aid_subdir_name)
 
+    @staticmethod
+    def _clean_cache_component(component: str, *, max_length: int = _CACHE_FILE_NAME_MAX_LENGTH) -> str:
+        """内部方法, 清洗完整的缓存文件名组件, 保证结果为合法文件名且不超过给定长度"""
+        cleaned = clean_ascii_valid_filename(component)
+        if len(cleaned) <= max_length:
+            return cleaned
+
+        # 清洗结果仍超长(如超长标识拼接固定前后缀)时截断主干并追加确定性短哈希, 保留合法短扩展名,
+        # 保证结果原样再次清洗不变
+        suffix = PurePath(cleaned).suffix
+        suffix = suffix if len(suffix) <= _CACHE_NAME_KEPT_SUFFIX_MAX_LENGTH else ''
+        cleaned_hash = hashlib.sha256(cleaned.encode('utf-8')).hexdigest()[:_CACHE_NAME_HASH_LENGTH]
+        return f'{cleaned[:max_length - _CACHE_NAME_HASH_LENGTH - 1 - len(suffix)]}.{cleaned_hash}{suffix}'
+
+    @property
+    def _cache_name_stem(self) -> str:
+        """内部属性, 缓存文件名中代表 artwork_id 的清洗后主干
+
+        元数据文件及其快照副本共用该主干, 使固定长度的后缀与定宽时间戳不会因整体清洗而被截断,
+        历史快照文件名也因此保持可精确匹配的稳定结构(主干 + 定宽时间戳 + 固定后缀)
+        """
+        return self._clean_cache_component(self.s_aid, max_length=_CACHE_NAME_STEM_MAX_LENGTH)
+
     @property
     def meta_file(self) -> 'TemporaryResource':
         """作品元数据文件路径"""
-        return self.meta_path(f'{self.s_aid}.json')
+        return self.meta_path(self._clean_cache_component(f'{self._cache_name_stem}.json'))
 
     @property
     def meta_file_date_snapshot(self) -> 'TemporaryResource':
         """作品元数据文件(获取时快照副本)路径"""
-        return self.meta_path(f'{self.s_aid}.{datetime.now().strftime("%Y%m%d%H%M%S%f")}.json.snapshot')
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+        return self.meta_path(self._clean_cache_component(f'{self._cache_name_stem}.{timestamp}.json.snapshot'))
 
     @staticmethod
     def parse_url_file_suffix(url: str) -> str:
@@ -233,8 +232,13 @@ class BaseArtworkProxy(abc.ABC):
         async with self.meta_file_date_snapshot.async_open('w', encoding='utf-8') as asf:
             await asf.write(artwork_data.model_dump_json())
 
-        # 清理超出保留上限的历史快照(文件名时间戳定宽, 按名称排序即按时间排序), 避免快照只增不减
-        snapshots = sorted(self.meta_path.path.glob(f'{glob.escape(self.s_aid)}.*.json.snapshot'))
+        # 清理超出保留上限的历史快照(文件名时间戳定宽, 按名称排序即按时间排序), 避免快照只增不减;
+        # 以完整文件名正则精确匹配本作品(同分片内 'hrd' 与 'hrd.0' 这类前缀相近的 ID 不会互相误删)
+        snapshot_pattern = re.compile(rf'{re.escape(self._cache_name_stem)}\.\d{{20}}\.json\.snapshot')
+        snapshots = sorted(
+            file for file in self.meta_path.path.glob('*.json.snapshot')
+            if snapshot_pattern.fullmatch(file.name)
+        )
         for stale_snapshot in snapshots[:-_META_SNAPSHOT_KEPT_NUM]:
             stale_snapshot.unlink(missing_ok=True)
 
@@ -275,8 +279,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     def _get_pool_meta_file(cls, pool_id: str | int) -> 'TemporaryResource':
-        pool_id = cls._clean_file_name(pool_id)
-        return cls._get_path_config().meta_path('pool', f'pool_{pool_id}.json')
+        return cls._get_path_config().meta_path('pool', cls._clean_cache_component(f'pool_{pool_id}.json'))
 
     @classmethod
     @abc.abstractmethod
@@ -394,8 +397,7 @@ class BaseArtworkProxy(abc.ABC):
 
     @classmethod
     def _get_user_meta_file(cls, uid: str | int) -> 'TemporaryResource':
-        uid = cls._clean_file_name(uid)
-        return cls._get_path_config().meta_path('user', f'user_{uid}.json')
+        return cls._get_path_config().meta_path('user', cls._clean_cache_component(f'user_{uid}.json'))
 
     @classmethod
     @abc.abstractmethod
@@ -487,9 +489,14 @@ class BaseArtworkProxy(abc.ABC):
             case 'regular' | _:
                 page = index_pages[page_index].regular_file
 
-        file_ext = self._clean_file_name(page.file_ext.strip('.'))
-        page_file_name = f'{self.s_aid}_{page_type}_p{page_index}.{file_ext}'
-        page_file = self.artwork_path(page_file_name)
+        # 扩展名无可用内容(空/全空白)时不拼接扩展名, 避免产出哈希伪扩展名文件;
+        # 扩展名不再单独清洗, 与作品标识/页码拼成完整组件后统一清洗
+        file_ext = page.file_ext.strip('.').strip()
+        page_file_name = (
+            f'{self.s_aid}_{page_type}_p{page_index}.{file_ext}' if file_ext
+            else f'{self.s_aid}_{page_type}_p{page_index}'
+        )
+        page_file = self.artwork_path(self._clean_cache_component(page_file_name))
 
         # 如果已经存在则直接返回本地资源
         if page_file.is_file:
@@ -599,7 +606,8 @@ class BaseArtworkProxy(abc.ABC):
                 image = await ArtworkImageOps.handle_mark(image=page_file, origin_mark=origin_mark)
                 output_file_name = f'{page_file.stem}_marked.jpg'
 
-        output_file = self._get_path_config().processed_path(output_file_name)
+        # 输出文件名同样按完整组件清洗, 避免超长原始文件名(如本地收集的长文件名)拼接处理标记后超限
+        output_file = self._get_path_config().processed_path(self._clean_cache_component(output_file_name))
         return await image.save(file=output_file)
 
     async def get_custom_proceed_page_file(

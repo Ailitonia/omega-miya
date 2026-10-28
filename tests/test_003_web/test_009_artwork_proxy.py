@@ -11,7 +11,6 @@
 import asyncio
 import hashlib
 import re
-import unicodedata
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -82,6 +81,43 @@ def make_user_data(uid: str = '456', artwork_ids: list[str] | None = None):
         'origin': 'unit_test_proxy', 'uid': uid, 'name': 'uname',
         'artwork_ids': ['1'] if artwork_ids is None else artwork_ids,
     })
+
+
+_INVALID_AIDS = [
+    'a/b', 'a\\b', 'a//b', 'a:b', 'a*b', 'a\x00b', '', '.', '..', 'CON', 'com1', 'a b.jpg', '图.jpg', '\udcff',
+]
+"""非法/边界 artwork_id 取值(不能直接作为文件名使用, 末项为孤立代理项)"""
+
+_LONG_AID = 'x' * 300
+"""超出文件名长度上限的 artwork_id 取值"""
+
+
+def assert_valid_cache_name(name: str, *, suffix: str) -> None:
+    """校验缓存文件名组件: 保留给定后缀, 且为 ASCII、单层、不超长、再次清洗不变的合法文件名"""
+    from src.resource import clean_ascii_valid_filename
+
+    assert name.endswith(suffix), name
+    assert name.isascii(), name
+    assert len(name) <= 255, name
+    assert '/' not in name, name
+    assert '\\' not in name, name
+    assert clean_ascii_valid_filename(name) == name, name
+
+
+def patch_incrementing_datetime(
+        monkeypatch: pytest.MonkeyPatch, module: Any, *, start: datetime = datetime(2026, 1, 1),
+) -> None:
+    """重绑定指定模块内的 datetime 名字, 使其 now() 每次调用递增 1 微秒(快照文件名确定且互不冲突)"""
+
+    class _IncrementingDatetime(datetime):
+        _counter = 0
+
+        @classmethod
+        def now(cls, tz=None) -> datetime:
+            cls._counter += 1
+            return start + timedelta(microseconds=cls._counter)
+
+    monkeypatch.setattr(module, 'datetime', _IncrementingDatetime)
 
 
 @pytest.fixture
@@ -253,77 +289,54 @@ class TestBasicInterface:
         assert proxy_factory.cls(123).s_aid == '123'
         assert proxy_factory.cls('007').s_aid == '007'
 
-    @pytest.mark.parametrize(
-        ('aid', 'expected'),
-        [
-            ('a/b', f'a_b.{hashlib.sha256(b'a/b').hexdigest()[:4]}'),
-            ('a\\b', f'a_b.{hashlib.sha256(b'a\\b').hexdigest()[:4]}'),
-            ('a//b', f'a__b.{hashlib.sha256(b'a//b').hexdigest()[:4]}'),
-            ('a:b', f'a_b.{hashlib.sha256(b'a:b').hexdigest()[:4]}'),
-            ('a*b', f'a_b.{hashlib.sha256(b'a*b').hexdigest()[:4]}'),
-            ('a\x00b', f'a_b.{hashlib.sha256(b'a\x00b').hexdigest()[:4]}'),
-            ('', hashlib.sha256(b'').hexdigest()[:16]),
-            ('.', hashlib.sha256(b'.').hexdigest()[:16]),
-            ('..', hashlib.sha256(b'..').hexdigest()[:16]),
-            ('CON', hashlib.sha256(b'CON').hexdigest()[:16]),
-            ('com1', hashlib.sha256(b'com1').hexdigest()[:16]),
-        ],
-    )
-    def test_init_cleans_invalid_aid(self, proxy_factory: SimpleNamespace, aid: str, expected: str):
-        """非法文件名字符清洗为下划线并追加短哈希后缀防碰撞, 保留设备名与全空输入回退 sha256 哈希"""
-        assert proxy_factory.cls(aid).s_aid == expected
+    @pytest.mark.parametrize('aid', _INVALID_AIDS)
+    def test_init_preserves_original_aid(self, proxy_factory: SimpleNamespace, aid: str):
+        """s_aid 保持原始 artwork_id 身份不变: 不做 NFC 规范化, 清洗只作用于缓存路径构造"""
+        assert proxy_factory.cls(aid).s_aid == aid
 
-    @pytest.mark.parametrize(
-        ('raw', 'expected'),
-        [
-            ('  padded  ', f'padded.{hashlib.sha256(b'  padded  ').hexdigest()[:4]}'),
-            ('name.', f'name.{hashlib.sha256(b'name.').hexdigest()[:4]}'),
-            ('name. ', f'name.{hashlib.sha256(b'name. ').hexdigest()[:4]}'),
-            ('a\x01b', f'a_b.{hashlib.sha256(b'a\x01b').hexdigest()[:4]}'),
-            ('a\tb', f'a_b.{hashlib.sha256(b'a\tb').hexdigest()[:4]}'),
-            ('a<b>c', f'a_b_c.{hashlib.sha256(b'a<b>c').hexdigest()[:4]}'),
-            ('nul.txt', hashlib.sha256(b'nul.txt').hexdigest()[:16]),
-            ('dot..inside', 'dot..inside'),
-            ('.hidden', '.hidden'),
-        ],
-    )
-    def test_clean_file_name_edge_semantics(self, proxy_factory: SimpleNamespace, raw: str, expected: str):
-        """清洗边界语义: 首尾空白/尾点剥离, 控制字符替换, 保留设备名(含扩展名形式)回退, 合法点号保留"""
-        assert proxy_factory.cls._clean_file_name(raw) == expected
-
-    def test_clean_file_name_default_max_length(self):
-        import src.service.artwork_proxy.internal as internal
-
-        assert internal._FILE_NAME_MAX_LENGTH == 128
-
-    @pytest.mark.parametrize(('raw', 'expect_unchanged'), [('a' * 128, True), ('a' * 129, False), ('a' * 200, False)])
-    def test_clean_file_name_length_limit(self, proxy_factory: SimpleNamespace, raw: str, expect_unchanged: bool):
-        """超长文件名截断至上限并追加短哈希后缀(恰为上限时原样保留)"""
-        result = proxy_factory.cls._clean_file_name(raw)
-        if expect_unchanged:
-            assert result == raw
-        else:
-            assert len(result) == 128
-            assert result == f'{'a' * 123}.{hashlib.sha256(raw.encode()).hexdigest()[:4]}'
-
-    def test_clean_file_name_truncates_after_cleaning(self, proxy_factory: SimpleNamespace):
-        """清洗改变原始值且基名超出 123 时, 基名截断至 123 并追加短哈希后缀(总长不超上限)"""
-        raw = 'a/' + 'b' * 124  # 清洗后为 'a_b' + 'b'*124, 共 127 字符
-        result = proxy_factory.cls._clean_file_name(raw)
-        assert len(result) == 128
-        assert result == f'{'a_b' + 'b' * 120}.{hashlib.sha256(raw.encode()).hexdigest()[:4]}'
-
-    def test_clean_file_name_max_length_is_dynamic(
-            self, proxy_factory: SimpleNamespace, monkeypatch: pytest.MonkeyPatch,
+    @pytest.mark.parametrize('aid', _INVALID_AIDS)
+    def test_init_cache_file_names_bounded_and_legal(
+            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path, aid: str,
     ):
-        """长度上限为模块级变量, 运行时读取(可配置)"""
-        import src.service.artwork_proxy.internal as internal
+        """非法字符 aid 的元数据缓存文件名对最终完整组件统一清洗: ASCII、单层路径、不超长且幂等"""
+        proxy = proxy_factory.cls(aid)
 
-        monkeypatch.setattr(internal, '_FILE_NAME_MAX_LENGTH', 16)
-        raw = 'a/very/long/path'
-        result = proxy_factory.cls._clean_file_name(raw)
-        assert len(result) == 16
-        assert result == f'a_very_long.{hashlib.sha256(raw.encode()).hexdigest()[:4]}'
+        components = (
+            (proxy.meta_file, '.json'),
+            (proxy.meta_file_date_snapshot, '.json.snapshot'),
+        )
+        for file, suffix in components:
+            assert file.path.parent == proxy.meta_path.path
+            assert_valid_cache_name(file.name, suffix=suffix)
+
+    def test_init_cache_file_names_distinct(self, proxy_factory: SimpleNamespace):
+        """不同原始 aid 映射到互不相同的缓存文件名(组件成分改变时附带确定性短哈希)"""
+        names = {proxy_factory.cls(aid).meta_file.name for aid in _INVALID_AIDS}
+        assert len(names) == len(_INVALID_AIDS)
+
+    def test_init_cache_file_name_distinguishes_nfc_equivalent_forms(self, proxy_factory: SimpleNamespace):
+        """NFC 等价但字节不同的 aid 各自保留原始身份, 且不共享缓存文件名(避免别名串用可变缓存)"""
+        composed, decomposed = proxy_factory.cls('é'), proxy_factory.cls('e\u0301')
+
+        assert composed.s_aid != decomposed.s_aid
+        assert composed.meta_file.name != decomposed.meta_file.name
+
+    def test_long_aid_cache_file_names_bounded(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
+        """超长 aid 及其 pool/user 标识拼接固定前后缀后, 最终组件仍合法且不超限"""
+        proxy = proxy_factory.cls(_LONG_AID)
+        snapshot_pattern = re.compile(rf'{re.escape(proxy._cache_name_stem)}\.\d{{20}}\.json\.snapshot')
+        assert len(proxy.meta_file_date_snapshot.name) <= 192
+        assert snapshot_pattern.fullmatch(proxy.meta_file_date_snapshot.name) is not None
+
+        components = (
+            (proxy.meta_file, '.json'),
+            (proxy.meta_file_date_snapshot, '.json.snapshot'),
+            (proxy_factory.cls._get_pool_meta_file(pool_id=f'p{_LONG_AID}'), '.json'),
+            (proxy_factory.cls._get_user_meta_file(uid=f'u{_LONG_AID}'), '.json'),
+        )
+
+        for file, suffix in components:
+            assert_valid_cache_name(file.name, suffix=suffix)
 
     def test_i_aid_decimal(self, proxy_factory: SimpleNamespace):
         assert proxy_factory.cls('123').i_aid == 123
@@ -373,13 +386,26 @@ class TestBasicInterface:
 
     @pytest.mark.parametrize('aid', ['abc', '-1'])
     def test_sliced_aid_subdir_non_decimal_hashed(self, proxy_factory: SimpleNamespace, aid: str):
-        expected_hash = hashlib.sha256(unicodedata.normalize('NFC', aid).encode('utf-8')).hexdigest()[:3]
+        expected_hash = hashlib.sha256(aid.encode('utf-8')).hexdigest()[:3]
         assert proxy_factory.cls(aid).sliced_aid_subdir_name == f'artwork_id_H{expected_hash}'
 
-    def test_sliced_aid_subdir_nfc_normalization(self, proxy_factory: SimpleNamespace):
+    def test_sliced_aid_subdir_distinguishes_nfc_equivalent_forms(self, proxy_factory: SimpleNamespace):
+        """NFC 等价但字节不同的 aid 各自分片, 不共享缓存目录"""
         composed = proxy_factory.cls('é').sliced_aid_subdir_name
         decomposed = proxy_factory.cls('é').sliced_aid_subdir_name
-        assert composed == decomposed
+        assert composed != decomposed
+
+    def test_sliced_aid_subdir_lone_surrogate(
+            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
+    ):
+        """孤立代理项按 namereplace 编码分片, 且能构造出缓存路径(严格 UTF-8 编码会崩溃)"""
+        proxy = proxy_factory.cls('\udcff')
+        expected_hash = hashlib.sha256('\udcff'.encode('utf-8', errors='namereplace')).hexdigest()[:3]
+
+        assert proxy.sliced_aid_subdir_name == f'artwork_id_H{expected_hash}'
+        assert proxy.meta_path.name == proxy.sliced_aid_subdir_name
+        assert proxy.artwork_path.name == proxy.sliced_aid_subdir_name
+        assert_valid_cache_name(proxy.meta_file.name, suffix='.json')
 
     @pytest.mark.parametrize(
         ('url', 'expected'),
@@ -407,14 +433,16 @@ class TestBasicInterface:
         assert re.fullmatch(r'123\.\d{20}\.json\.snapshot', proxy.meta_file_date_snapshot.name) is not None
 
     def test_pool_meta_file_cleans_pool_id(self, proxy_factory: SimpleNamespace):
-        """pool_id 非法文件名字符被清洗(sanitize 实现)"""
+        """固定前后缀与 pool_id 拼成最终完整组件后统一清洗(非法字符百分号编码 + 短哈希)"""
         file = proxy_factory.cls._get_pool_meta_file(pool_id='a/b')
-        assert file.name == f'pool_a_b.{hashlib.sha256(b'a/b').hexdigest()[:4]}.json'
+        expected_hash = hashlib.sha256(b'pool_a/b.json').hexdigest()[:8]
+        assert file.name == f'pool_a%2Fb.{expected_hash}.json'
 
     def test_user_meta_file_cleans_uid(self, proxy_factory: SimpleNamespace):
-        """uid 非法文件名字符被清洗(sanitize 实现), 清洗后不产生路径嵌套"""
+        """固定前后缀与 uid 拼成最终完整组件后统一清洗, 清洗后不产生路径嵌套"""
         file = proxy_factory.cls._get_user_meta_file(uid='../x')
-        assert file.name == f'user_.._x.{hashlib.sha256(b'../x').hexdigest()[:4]}.json'
+        expected_hash = hashlib.sha256(b'user_../x.json').hexdigest()[:8]
+        assert file.name == f'user_..%2Fx.{expected_hash}.json'
 
     def test_all_exports_complete(self):
         """__all__ 须导出全部已注册 proxy 类(含 BilibiliDynamic/TweetPic)"""
@@ -493,6 +521,48 @@ class TestArtworkMetaCache:
         ]
         assert len(snapshots) == 8
         assert snapshots == expected
+
+    async def test_dumps_meta_prunes_snapshots_for_long_aid(
+            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """超长 aid 的快照文件名仍保留可定位的稳定前缀, 同样按保留上限裁剪"""
+        import src.service.artwork_proxy.internal as internal
+
+        patch_incrementing_datetime(monkeypatch, internal)
+        proxy = proxy_factory.cls(_LONG_AID)
+        data = make_artwork_data(aid=_LONG_AID)
+
+        for _ in range(10):
+            await proxy._dumps_meta(artwork_data=data)
+
+        snapshot_pattern = re.compile(rf'{re.escape(proxy._cache_name_stem)}\.\d{{20}}\.json\.snapshot')
+        snapshots = sorted(f.name for f in proxy.meta_path.list_all_files() if f.name.endswith('.snapshot'))
+        assert len(snapshots) == 8
+        for name in snapshots:
+            assert snapshot_pattern.fullmatch(name) is not None
+            assert_valid_cache_name(name, suffix='.json.snapshot')
+
+    async def test_dumps_meta_prunes_only_own_snapshots_in_shared_slice(
+            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """同分片且前缀相近的作品('hrd' 与 'hrd.0'): 裁剪 hrd 的历史快照时不得误删 hrd.0 的快照"""
+        import src.service.artwork_proxy.internal as internal
+
+        patch_incrementing_datetime(monkeypatch, internal)
+        proxy, neighbour = proxy_factory.cls('hrd'), proxy_factory.cls('hrd.0')
+        assert proxy.sliced_aid_subdir_name == neighbour.sliced_aid_subdir_name
+
+        for _ in range(10):
+            await neighbour._dumps_meta(artwork_data=make_artwork_data(aid='hrd.0'))
+        for _ in range(10):
+            await proxy._dumps_meta(artwork_data=make_artwork_data(aid='hrd'))
+
+        names = [f.name for f in proxy.meta_path.list_all_files() if f.name.endswith('.json.snapshot')]
+        own = [name for name in names if re.fullmatch(r'hrd\.\d{20}\.json\.snapshot', name)]
+        neighbour_names = [name for name in names if re.fullmatch(r'hrd\.0\.\d{20}\.json\.snapshot', name)]
+
+        assert len(own) == 8
+        assert len(neighbour_names) == 8
 
     async def test_fast_query_use_cache_false_rewrites(
             self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
@@ -602,7 +672,7 @@ class TestPageFiles:
         [
             ('.jpg', '123_regular_p0.jpg'),
             ('jpg', '123_regular_p0.jpg'),
-            ('', f'123_regular_p0.{hashlib.sha256(b'').hexdigest()[:16]}'),
+            ('', '123_regular_p0'),
         ],
     )
     async def test_save_page_file_ext_stripped(
@@ -644,14 +714,29 @@ class TestPageFiles:
     async def test_save_page_cleans_file_ext(
             self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
     ):
-        """file_ext 非法文件名字符被清洗(sanitize 实现)"""
+        """扩展名不再单独清洗, 与作品标识/页码拼成完整组件后统一清洗(非法字符百分号编码 + 短哈希)"""
         proxy_factory.hooks.query.return_value = make_artwork_data(ext='a/b')
         proxy = proxy_factory.cls('123')
 
         result = await proxy.get_page_file()
 
-        assert result.name == f'123_regular_p0.a_b.{hashlib.sha256(b'a/b').hexdigest()[:4]}'
+        expected_hash = hashlib.sha256(b'123_regular_p0.a/b').hexdigest()[:8]
+        assert result.name == f'123_regular_p0.{expected_hash}.a%2Fb'
         assert result.is_file
+
+    async def test_save_page_long_aid_writes_bounded_name(
+            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
+    ):
+        """超长 aid 的页面缓存文件名整体清洗后不超限, 且实际写入的正是该文件"""
+        proxy_factory.hooks.query.return_value = make_artwork_data(aid=_LONG_AID)
+        proxy = proxy_factory.cls(_LONG_AID)
+
+        result = await proxy.get_page_file()
+
+        assert result.path.parent == proxy.artwork_path.path
+        assert_valid_cache_name(result.name, suffix='.jpg')
+        assert result.is_file
+        assert [f.name for f in proxy.artwork_path.list_all_files()] == [result.name]
 
     async def test_save_page_atomic_write_no_temp_left(
             self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path,
@@ -1495,17 +1580,17 @@ class TestDatabaseOps:
         with pytest.raises(NoResultFound):
             await proxy.query_artwork_from_database()
 
-    async def test_query_artwork_from_database_uses_cleaned_aid(
+    async def test_query_artwork_from_database_uses_original_aid(
             self, proxy_factory: SimpleNamespace, fake_artwork_dal: SimpleNamespace,
     ):
-        """含路径分隔符的 aid 按清洗后的 s_aid 查询数据库, 与 delete/add 同口径"""
+        """含路径分隔符的 aid 以原始身份查询数据库(与 delete/add 及源站 API 同口径, 不做缓存名清洗)"""
         proxy = proxy_factory.cls('a/b')
 
         await proxy.query_artwork_from_database()
 
         kwargs = fake_artwork_dal.query_unique.await_args.kwargs
         assert kwargs['origin'] == 'unit_test_proxy'
-        assert kwargs['aid'] == proxy.s_aid
+        assert kwargs['aid'] == 'a/b'
 
 
 class TestModels:
@@ -1567,6 +1652,48 @@ class TestSitesFixes:
         result = await LocalCollectedArtworkProxy._random(limit=5)
 
         assert sorted(result) == ['a.jpg', 'b.jpg']
+
+    @pytest.mark.parametrize('name', ['a b.jpg', '图.jpg'])
+    async def test_local_unclean_filename_query_and_page(
+            self, isolated_temporary_root: Path, name: str,
+    ):
+        """真实存在的含空格/CJK 文件: 作品身份与文件回查均使用原始文件名, 缓存名不影响本地文件定位"""
+        from src.service.artwork_proxy.sites.local import LocalCollectedArtworkProxy
+
+        artwork_path = LocalCollectedArtworkProxy._get_path_config().artwork_path
+        artwork_path.path.mkdir(parents=True)
+        artwork_path.path.joinpath(name).write_bytes(b'local-image')
+
+        proxy = LocalCollectedArtworkProxy(name)
+        assert proxy.s_aid == name
+        assert proxy.self_file.path == artwork_path.path / name
+
+        data = await proxy.query()
+        assert data.aid == name
+        assert data.index_pages[0].regular_file.file_ext == '.jpg'
+
+        page_file = await proxy.get_page_file()
+        assert page_file.path == artwork_path.path / name
+        assert page_file.is_file
+
+    @pytest.mark.parametrize('process_mode', ['mark', 'blur', 'noise'])
+    async def test_local_long_filename_processed_output_name_bounded(
+            self, isolated_temporary_root: Path, fake_image_ops: SimpleNamespace, process_mode: str,
+    ):
+        """本地超长原始文件名: 三种处理模式的输出文件名写入前同样清洗, 不超系统文件名上限"""
+        from src.service.artwork_proxy.sites.local import LocalCollectedArtworkProxy
+
+        artwork_path = LocalCollectedArtworkProxy._get_path_config().artwork_path
+        artwork_path.path.mkdir(parents=True)
+        long_name = f'{"x" * 240}.jpg'
+        artwork_path.path.joinpath(long_name).write_bytes(b'local-image')
+
+        result = await LocalCollectedArtworkProxy(long_name).get_custom_proceed_page_file(
+            process_mode=process_mode,
+        )
+
+        assert result.path.parent == LocalCollectedArtworkProxy._get_path_config().processed_path.path
+        assert_valid_cache_name(result.name, suffix='.jpg')
 
 
 class TestArtworkImageOpsReal:

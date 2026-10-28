@@ -8,6 +8,8 @@
 @Software       : PyCharm
 """
 
+import hashlib
+import string
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -123,6 +125,8 @@ class TestModuleContract:
             'ResourceNotFolderError',
             'ResourceNotFileError',
             'ResourcePathOutOfRootError',
+            'clean_ascii_valid_dirname',
+            'clean_ascii_valid_filename',
         ]
 
     def test_root_path_derived_from_module_file(self):
@@ -274,6 +278,211 @@ class TestDunderMethods:
 
         resource = AnyResource(tmp_path / 'f.txt')
         assert str(resource) == resource.resolve_path
+
+
+_MAX_NAME_LENGTH = 255
+_ASCII_SAFE_CHARS = frozenset(string.ascii_letters + string.digits + '-_%.~')
+_WINDOWS_RESERVED_NAMES = frozenset(
+    ['CON', 'PRN', 'AUX', 'NUL'] + [f'COM{i}' for i in range(1, 10)] + [f'LPT{i}' for i in range(1, 10)]
+)
+_CLEANER_NAMES = ['clean_ascii_valid_filename', 'clean_ascii_valid_dirname']
+
+
+def _sha256_hex(value: str) -> str:
+    return hashlib.sha256(value.encode('utf-8', errors='namereplace')).hexdigest()
+
+
+def _short_hash(value: str) -> str:
+    return _sha256_hex(value)[:8]
+
+
+def _assert_ascii_valid_name(name: str) -> None:
+    """断言清洗结果符合公开的文件名契约"""
+    assert name
+    assert name.isascii()
+    assert set(name) <= _ASCII_SAFE_CHARS
+    assert name.upper().split('.')[0] not in _WINDOWS_RESERVED_NAMES
+    assert not name.endswith('.')
+    assert len(name) <= _MAX_NAME_LENGTH
+    assert Path(name).parts == (name,)
+
+
+class TestCleanAsciiValidFilename:
+    """clean_ascii_valid_filename 文件名清洗测试"""
+
+    @pytest.mark.parametrize('name', ['foo.txt', 'archive.tar.gz', '.hidden', '100%.txt', 'a' * 255])
+    def test_valid_name_returned_unchanged(self, name: str):
+        from src.resource import clean_ascii_valid_filename
+
+        assert clean_ascii_valid_filename(name) == name
+
+    @pytest.mark.parametrize(
+        ('name', 'expected'),
+        [
+            ('a中b.txt', 'a%4E2Db.' + _short_hash('a中b.txt') + '.txt'),
+            ('foo?.png', 'foo%3F.' + _short_hash('foo?.png') + '.png'),
+            ('a/b', 'a%2Fb.' + _short_hash('a/b')),
+            ('foo ', 'foo.' + _short_hash('foo ')),
+            ('a\x01b', 'a%01b.' + _short_hash('a\x01b')),
+            ('\U0001F600.txt', '%1F600.' + _short_hash('\U0001F600.txt') + '.txt'),
+            ('CON', '%43ON.' + _short_hash('CON')),
+            ('con.txt', '%63on.' + _short_hash('con.txt') + '.txt'),
+            ('COM1', '%43OM1.' + _short_hash('COM1')),
+        ],
+    )
+    def test_changed_name_gets_encoded_with_hash_suffix(self, name: str, expected: str):
+        """编码非安全字符并中和保留名, 变更时按原始值追加短哈希"""
+        from src.resource import clean_ascii_valid_filename
+
+        assert clean_ascii_valid_filename(name) == expected
+
+    @pytest.mark.parametrize(
+        'name',
+        [
+            'foo.txt', 'a中b.txt', 'CON', 'foo ', 'a/b', 'a\\b', '../..', '../etc', '', '...', 'a\x01b',
+            'a' * 256, 'a' * 300, '中' * 200, 'x?.' + 'b' * 16, '\U0001F600.txt', '\udcff',
+        ],
+    )
+    def test_idempotent_and_always_valid(self, name: str):
+        from src.resource import clean_ascii_valid_filename
+
+        result = clean_ascii_valid_filename(name)
+        assert clean_ascii_valid_filename(result) == result
+        _assert_ascii_valid_name(result)
+
+    @pytest.mark.parametrize(
+        ('name', 'expected'),
+        [
+            ('a' * 256, 'a' * 246 + '.' + _short_hash('a' * 256)),
+            ('a' * 300, 'a' * 246 + '.' + _short_hash('a' * 300)),
+            ('a' * 300 + '.png', 'a' * 242 + '.' + _short_hash('a' * 300 + '.png') + '.png'),
+            ('中' * 200, ('%4E2D' * 200)[:246] + '.' + _short_hash('中' * 200)),
+            ('x?.' + 'b' * 15, 'x%3F.' + _short_hash('x?.' + 'b' * 15) + '.' + 'b' * 15),
+            ('x?.' + 'b' * 16, 'x%3F.' + _short_hash('x?.' + 'b' * 16) + '.bbbbbb~' + _short_hash('.' + 'b' * 16)),
+        ],
+    )
+    def test_truncation_boundaries(self, name: str, expected: str):
+        """覆盖长度 256、编码膨胀和扩展名 16/17 字节边界"""
+        from src.resource import clean_ascii_valid_filename
+
+        result = clean_ascii_valid_filename(name)
+        assert result == expected
+        _assert_ascii_valid_name(result)
+
+    def test_custom_max_length(self):
+        from src.resource import clean_ascii_valid_filename
+
+        name = 'a' * 300
+        result = clean_ascii_valid_filename(name, max_length=192)
+
+        assert result == 'a' * 183 + '.' + _short_hash(name)
+        assert len(result) == 192
+        assert clean_ascii_valid_filename(result) == result
+        assert clean_ascii_valid_filename(result, max_length=192) == result
+
+    def test_custom_max_length_allows_full_hash_fallback(self):
+        from src.resource import clean_ascii_valid_filename
+
+        result = clean_ascii_valid_filename('...', max_length=64)
+
+        assert result == _sha256_hex('...')
+        assert len(result) == 64
+
+    @pytest.mark.parametrize('max_length', [63, 256, None])
+    def test_invalid_max_length_raises(self, max_length: object):
+        from src.resource import clean_ascii_valid_filename
+
+        with pytest.raises(ValueError, match='max_length'):
+            clean_ascii_valid_filename('foo', max_length=max_length)
+
+
+class TestCleanAsciiValidDirname:
+    """clean_ascii_valid_dirname 目录名清洗测试"""
+
+    @pytest.mark.parametrize(
+        ('name', 'expected'),
+        [
+            ('dir', 'dir'), ('a_b', 'a_b'), ('a.b', 'a.b'), ('100%', '100%'),
+            ('a/b', 'a%2Fb'), ('a\\b', 'a%5Cb'), ('a中b', 'a%4E2Db'),
+            ('foo ', 'foo'), ('foo.', 'foo'), ('a\x01b', 'a%01b'), ('\U0001F600', '%1F600'),
+            ('CON', '%43ON'), ('con', '%63on'), ('CON.txt', '%43ON.txt'), ('COM1', '%43OM1'),
+        ],
+    )
+    def test_exact_mapping(self, name: str, expected: str):
+        """合法名原样返回, 非安全字符编码、首尾剥离和保留名中和不追加哈希"""
+        from src.resource import clean_ascii_valid_dirname
+
+        assert clean_ascii_valid_dirname(name) == expected
+
+    @pytest.mark.parametrize(
+        ('name', 'expected'),
+        [
+            ('a' * 255, 'a' * 255),
+            ('a' * 256, _sha256_hex('a' * 256)),
+            ('中' * 51, '%4E2D' * 51),
+            ('中' * 52, _sha256_hex('中' * 52)),
+            ('a' * 300, _sha256_hex('a' * 300)),
+        ],
+    )
+    def test_encoded_length_boundary(self, name: str, expected: str):
+        from src.resource import clean_ascii_valid_dirname
+
+        result = clean_ascii_valid_dirname(name)
+        assert result == expected
+        _assert_ascii_valid_name(result)
+
+    @pytest.mark.parametrize(
+        'name',
+        [
+            'dir', 'a/b', 'a%2Fb', 'CON', 'CON.txt', '..', '../..', '../etc', ' foo', 'a\x01b',
+            '\U0001F600', '\udcff', '中' * 51, '中' * 52, 'a' * 256, '',
+        ],
+    )
+    def test_idempotent_and_always_valid(self, name: str):
+        from src.resource import clean_ascii_valid_dirname
+
+        result = clean_ascii_valid_dirname(name)
+        assert clean_ascii_valid_dirname(result) == result
+        _assert_ascii_valid_name(result)
+
+
+class TestCleanerSharedContract:
+    """两个清洗函数的共同契约与语义差异"""
+
+    @pytest.mark.parametrize('cleaner_name', _CLEANER_NAMES)
+    @pytest.mark.parametrize('name', ['', '   ', '...', '..'])
+    def test_no_usable_content_falls_back_to_full_sha256(self, cleaner_name: str, name: str):
+        import src.resource
+
+        assert getattr(src.resource, cleaner_name)(name) == _sha256_hex(name)
+
+    @pytest.mark.parametrize('cleaner_name', _CLEANER_NAMES)
+    @pytest.mark.parametrize('name', [None, 123, 1.5, b'bytes'])
+    def test_non_str_input_raises(self, cleaner_name: str, name: object):
+        import src.resource
+
+        with pytest.raises(ValueError, match='必须为 str 类型'):
+            getattr(src.resource, cleaner_name)(name)
+
+    @pytest.mark.parametrize('cleaner_name', _CLEANER_NAMES)
+    @pytest.mark.parametrize('name', ['COM0', 'COM10', 'LPT0', 'CONSOLE'])
+    def test_device_like_non_reserved_names_returned_unchanged(self, cleaner_name: str, name: str):
+        import src.resource
+
+        assert getattr(src.resource, cleaner_name)(name) == name
+
+    def test_leading_whitespace_kept_by_filename_only(self):
+        import src.resource
+
+        assert src.resource.clean_ascii_valid_dirname(' foo') == 'foo'
+        assert src.resource.clean_ascii_valid_filename(' foo') == '%20foo.' + _short_hash(' foo')
+
+    def test_hash_suffix_only_for_filename(self):
+        import src.resource
+
+        dirname = src.resource.clean_ascii_valid_dirname
+        assert dirname('a/b') == dirname('a%2Fb') == 'a%2Fb'
+        assert src.resource.clean_ascii_valid_filename('a/b') != src.resource.clean_ascii_valid_filename('a%2Fb')
 
 
 class TestWithMethods:

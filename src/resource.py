@@ -123,7 +123,7 @@ def _encode_ascii_char(char: str) -> str:
     return f'%{ord(char):02X}'
 
 
-def clean_ascii_valid_filename(name: str) -> str:
+def clean_ascii_valid_filename(name: str, *, max_length: int = _FILE_NAME_MAX_LENGTH) -> str:
     """清理并返回 ASCII 字符构成的确定性合法文件名(仅接受 str 输入)
 
     非安全字符按码点百分号编码(如 '中' -> '%4E2D', '/' -> '%2F'), 剥离尾部空白与点混合序列;
@@ -131,10 +131,13 @@ def clean_ascii_valid_filename(name: str) -> str:
     (保留合法短扩展名), 避免不同原始值碰撞到同一文件名; 基名命中 Windows 设备保留名(含扩展名形式,
     不区分大小写)时强制编码首字符中和; 原始值无可用内容时回退为原始值 sha256 哈希值。
     同一输入恒返回同一结果, 清理输出再次清理恒不变(幂等);
-    结果恒为合法文件名: 由 ASCII 安全字符与点号构成、非保留名、非空、不以点结尾、不超过 255 字节
+    结果恒为合法文件名: 由 ASCII 安全字符与点号构成、非保留名、非空、不以点结尾、不超过 max_length 字节
+    max_length 默认为 255, 允许 64~255; 下限保证空内容回退时可保留完整 sha256 哈希值
     """
     if not isinstance(name, str):
         raise ValueError(f'name 必须为 str 类型, 而不是 {type(name).__name__} 类型')
+    if not isinstance(max_length, int) or not 64 <= max_length <= _FILE_NAME_MAX_LENGTH:
+        raise ValueError(f'max_length 必须为 64~{_FILE_NAME_MAX_LENGTH} 之间的 int, 而不是 {max_length!r}')
 
     # 剥离尾部空白与点混合序列
     stripped = name.rstrip('. ')
@@ -155,7 +158,7 @@ def clean_ascii_valid_filename(name: str) -> str:
     if stem.upper().split('.')[0] in _FILE_NAME_WINDOWS_RESERVED:
         stem = f'%{ord(stem[0]):02X}{stem[1:]}'
 
-    if (cleaned := f'{stem}{suffix}') == name and len(cleaned) <= _FILE_NAME_MAX_LENGTH:
+    if (cleaned := f'{stem}{suffix}') == name and len(cleaned) <= max_length:
         # 未改变原始值且长度未超限时原样返回
         return cleaned
 
@@ -165,7 +168,7 @@ def clean_ascii_valid_filename(name: str) -> str:
         suffix_hash = hashlib.sha256(suffix.encode('utf-8')).hexdigest()[:_FILE_NAME_HASH_SUFFIX_LENGTH]
         suffix = f'{suffix[:_FILE_NAME_KEPT_SUFFIX_MAX_LENGTH - _FILE_NAME_HASH_SUFFIX_LENGTH - 1]}~{suffix_hash}'
     name_hash = hashlib.sha256(name.encode('utf-8', errors='namereplace')).hexdigest()
-    stem_budget = _FILE_NAME_MAX_LENGTH - 1 - _FILE_NAME_HASH_SUFFIX_LENGTH - len(suffix)
+    stem_budget = max_length - 1 - _FILE_NAME_HASH_SUFFIX_LENGTH - len(suffix)
     return f'{stem[:stem_budget]}.{name_hash[:_FILE_NAME_HASH_SUFFIX_LENGTH]}{suffix}'
 
 

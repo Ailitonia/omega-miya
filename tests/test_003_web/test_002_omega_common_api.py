@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+import hashlib
 from http.cookiejar import Cookie, CookieJar
 from pathlib import Path
 from types import SimpleNamespace
@@ -504,8 +505,6 @@ class TestDownloadResource:
         file = await api_impl._download_resource(save_folder, url, hash_file_name=True)
 
         assert file.name == OmegaRequests.hash_url_file_name('_CommonAPIImpl', url=url)
-        assert file.name.startswith('_CommonAPIImpl_')
-        assert not file.name.startswith('ABCMeta_')
         assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
 
     async def test_download_empty_file_name_fallback_hash(
@@ -536,18 +535,49 @@ class TestDownloadResource:
 
         assert file.name == 'evil.bin'
         assert file.path.parent == tmp_path
+        assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
 
     async def test_download_invalid_chars_sanitized(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, save_folder: 'AnyResource',
     ):
-        """Windows 非法字符替换为下划线"""
+        """Windows 非法字符按码点百分号编码, 清洗改变原始值时追加确定性短哈希后缀"""
         file = await api_impl._download_resource(
             save_folder,
             f'{test_server.base_url}/download_file/pic.jpg',
             custom_file_name='bad<>name.bin',
         )
 
-        assert file.name == 'bad__name.bin'
+        expected_suffix = hashlib.sha256(b'bad<>name.bin').hexdigest()[:8]
+
+        assert file.name == f'bad%3C%3Ename.{expected_suffix}.bin'
+        assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
+
+    @pytest.mark.parametrize(
+        'custom_file_name',
+        [
+            pytest.param('   ', id='whitespace_only'),
+            pytest.param('\t', id='tab_only'),
+            pytest.param('\r\n', id='crlf_only'),
+            pytest.param('\xa0', id='no_break_space_only'),
+            pytest.param('.', id='single_dot'),
+            pytest.param('..', id='double_dot'),
+            pytest.param('...', id='triple_dot'),
+            pytest.param(' . ', id='dot_with_spaces'),
+            pytest.param('.\t.', id='dots_with_tab'),
+        ],
+    )
+    async def test_download_blank_custom_file_name_fallback_hash(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace, save_folder: 'AnyResource',
+            custom_file_name: str,
+    ):
+        """自定义文件名无可用内容(仅由点号与任意空白组成)时回退为带 URL 哈希的唯一文件名"""
+        from src.utils.omega_requests import OmegaRequests
+
+        url = f'{test_server.base_url}/download_file/pic.jpg'
+
+        file = await api_impl._download_resource(save_folder, url, custom_file_name=custom_file_name)
+
+        assert file.name == OmegaRequests.hash_url_file_name('_CommonAPIImpl', url=url)
 
     async def test_download_subdir(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
@@ -560,6 +590,34 @@ class TestDownloadResource:
         )
 
         assert file.path == tmp_path / 'sub' / 'pic.jpg'
+
+    async def test_download_subdir_flattened(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource',
+    ):
+        """subdir 中路径分隔符按码点百分号编码, 不形成嵌套子目录, 防止经子目录逃逸"""
+        file = await api_impl._download_resource(
+            save_folder,
+            f'{test_server.base_url}/download_file/pic.jpg',
+            subdir='a/b',
+        )
+
+        assert file.path == tmp_path / 'a%2Fb' / 'pic.jpg'
+        assert not tmp_path.joinpath('a').exists()
+
+    @pytest.mark.parametrize('subdir', ['', '   '], ids=['empty', 'whitespace_only'])
+    async def test_download_blank_subdir_treated_as_none(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource', subdir: str,
+    ):
+        """空或全空白 subdir 视为无子目录, 直接落在下载目录"""
+        file = await api_impl._download_resource(
+            save_folder,
+            f'{test_server.base_url}/download_file/pic.jpg',
+            subdir=subdir,
+        )
+
+        assert file.path == tmp_path / 'pic.jpg'
 
     async def test_download_ignore_exist_file(
             self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
@@ -597,6 +655,30 @@ class TestDownloadResource:
 
         assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
         assert not tmp_path.joinpath('stream_pic.jpg.DOWNLOADING_TMP').exists()
+
+    @pytest.mark.parametrize(
+        'custom_file_name',
+        ['x' * 240 + '.bin', '中' * 80 + '.bin'],
+        ids=['plain_long', 'percent_encoded_long'],
+    )
+    @pytest.mark.parametrize('stream_download', [False, True], ids=['buffered', 'stream'])
+    async def test_download_long_file_name_bounded_for_temp_write(
+            self, api_impl: 'type[BaseCommonAPI]', test_server: SimpleNamespace,
+            tmp_path: Path, save_folder: 'AnyResource', stream_download: bool, custom_file_name: str,
+    ):
+        file = await api_impl._download_resource(
+            save_folder,
+            f'{test_server.base_url}/download_file/long_name.jpg',
+            custom_file_name=custom_file_name,
+            stream_download=stream_download,
+        )
+
+        assert len(file.name) <= 192
+        assert file.path.read_bytes() == _DOWNLOAD_PAYLOAD
+        assert not any(
+            path.name.endswith(('.tmp', '.DOWNLOADING_TMP'))
+            for path in tmp_path.iterdir()
+        )
 
 
 class TestParseWrappers:

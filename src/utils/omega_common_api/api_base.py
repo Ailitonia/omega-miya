@@ -9,15 +9,15 @@
 """
 
 import abc
-import pathlib
-import re
 from collections.abc import AsyncGenerator, Generator
 from http.cookiejar import CookieJar
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Any
 
 from multidict import CIMultiDict
 
 from src.exception import WebSourceException
+from src.resource import clean_ascii_valid_dirname, clean_ascii_valid_filename
 from .types import Cookies, Timeout
 from ..omega_requests import OmegaRequests
 
@@ -34,8 +34,8 @@ if TYPE_CHECKING:
         TimeoutTypes,
     )
 
-_FILE_NAME_INVALID_CHARS = re.compile(r'[<>:"|?*\x00-\x1f]')
-"""Windows/POSIX 文件名保留字符与控制字符(不含路径分隔符, 分隔层级另行剥离)"""
+_DOWNLOAD_FILE_NAME_MAX_LENGTH: int = 192
+"""下载文件名长度上限(为原子写入与断点续传的临时文件名后缀预留空间)"""
 
 
 class BaseCommonAPI(abc.ABC):
@@ -569,23 +569,6 @@ class BaseCommonAPI(abc.ABC):
         return cls._parse_content_as_json(response)
 
     @classmethod
-    def _clean_file_name(cls, file_name: str, *, url: str) -> str:
-        """规范化下载文件名: 剥离路径层级与非法字符, 为空时回退为哈希文件名
-
-        :param file_name: 原始文件名(可来自 URL 解析或调用方自定义)
-        :param url: 下载链接(回退哈希文件名时使用)
-        """
-        cleaned = _FILE_NAME_INVALID_CHARS.sub('_', pathlib.PurePath(file_name).name).strip().rstrip('. ')
-        if not cleaned:
-            cleaned = OmegaRequests.hash_url_file_name(cls.__name__, url=url)
-        return cleaned
-
-    @classmethod
-    def _clean_subdir(cls, subdir: str) -> str:
-        """清理下载子目录名中的非法字符(保留路径分隔符以允许嵌套子目录)"""
-        return _FILE_NAME_INVALID_CHARS.sub('_', subdir)
-
-    @classmethod
     async def _download_resource[T: 'BaseResource'](
             cls,
             save_folder: T,
@@ -603,19 +586,24 @@ class BaseCommonAPI(abc.ABC):
             custom_file_name: str | None = None,
             stream_download: bool = False,
     ) -> T:
-        """内部方法, 下载任意资源到本地, 默认保持原始文件名, 默认直接覆盖同名文件"""
+        """内部方法, 下载任意资源到本地, 文件名经校验清洗且不超过 192 字节(原始名被修改时追加确定性短哈希后缀,
+        无可用内容时回退为 URL 哈希名), subdir 扁平化为单层目录(不保留路径分隔符), 默认直接覆盖同名文件"""
         if custom_file_name is not None:
-            file_name = custom_file_name
+            raw_file_name = PurePath(custom_file_name).name
         elif hash_file_name:
-            file_name = OmegaRequests.hash_url_file_name(cls.__name__, url=url)
+            raw_file_name = OmegaRequests.hash_url_file_name(cls.__name__, url=url)
         else:
-            file_name = OmegaRequests.parse_url_file_name(url=url)
-        file_name = cls._clean_file_name(file_name, url=url)
+            raw_file_name = OmegaRequests.parse_url_file_name(url=url)
 
-        if subdir is None:
-            file = save_folder(file_name)
+        if not raw_file_name.replace('.', '').strip():
+            # 原始名无可用内容(仅由点号与任意空白组成)时回退为带 URL 哈希的唯一文件名, 避免不同 URL 碰撞到同一常量哈希名
+            raw_file_name = OmegaRequests.hash_url_file_name(cls.__name__, url=url)
+        file_name = clean_ascii_valid_filename(raw_file_name, max_length=_DOWNLOAD_FILE_NAME_MAX_LENGTH)
+
+        if subdir and subdir.strip():
+            file = save_folder(clean_ascii_valid_dirname(subdir), file_name)
         else:
-            file = save_folder(cls._clean_subdir(subdir), file_name)
+            file = save_folder(file_name)
 
         requests = cls._init_omega_requests(
             headers=headers, cookies=cookies, no_headers=no_headers, no_cookies=no_cookies
