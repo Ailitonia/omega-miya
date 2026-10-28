@@ -25,7 +25,11 @@ async def ensure_arg_message(
         prompt_text: str,
         timeout: float,
 ) -> 'UniMessage':
-    """确保命令参数已提供, 获取原始消息, 缺失时通过 prompt 追问获取"""
+    """确保命令参数已提供, 获取原始消息, 缺失时通过 prompt 追问获取
+
+    与 ensure_arg_text 不同, 本函数保留原始消息(不 strip), 仅无任何消息段的 UniMessage 视为缺失;
+    纯空白文本消息、仅媒体(图片等)消息均视为有效参数
+    """
     if arg.available and (msg := arg.result):
         return msg
 

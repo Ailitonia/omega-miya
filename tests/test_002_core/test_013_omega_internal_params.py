@@ -232,7 +232,7 @@ class TestModuleContract:
     """模块导出契约测试"""
 
     @pytest.mark.parametrize(('module_path', 'expected_all'), [
-        ('src.params.handler', {'ensure_arg_text', 'ensure_multi_args_text'}),
+        ('src.params.handler', {'ensure_arg_message', 'ensure_arg_text', 'ensure_multi_args_text'}),
         ('src.params.rule', {
             'event_has_global_permission',
             'event_has_permission_level',
@@ -276,6 +276,96 @@ class TestModuleContract:
         assert set(module.__all__) == expected_all
         for name in module.__all__:
             assert getattr(module, name) is not None
+
+
+class TestEnsureArgMessage:
+    """ensure_arg_message 原始消息参数补全测试 (直接调用, 组合式替身)"""
+
+    @pytest.mark.parametrize('message_kind', ['text', 'media_only'])
+    async def test_arg_available_returned_without_prompt(self, message_kind: str) -> None:
+        """available 且消息非空时原样返回 (身份断言, 不复制不修改), 不触发 prompt
+
+        纯文本与仅媒体消息均为有效参数 (消息版保留原始消息, 与 ensure_arg_text 的 strip 语义不同)
+        """
+        from nonebot_plugin_alconna.uniseg import Image, UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        message = (
+            UniMessage('内容') if message_kind == 'text'
+            else UniMessage(Image(url='https://test.example/x.jpg'))
+        )
+        prompt_matcher = _make_prompt_matcher(None)
+        result = await ensure_arg_message(
+            prompt_matcher, _RecordingFinishInterface(), _match(message, True), 'p:', 60,
+        )
+
+        assert result is message
+        prompt_matcher.prompt.assert_not_awaited()
+
+    async def test_empty_available_arg_prompted(self) -> None:
+        """available 但消息结构为空 (无任何消息段) 时视为缺失, 走 prompt 追问"""
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        response = UniMessage('follow-up')
+        result = await ensure_arg_message(
+            _make_prompt_matcher(response), _RecordingFinishInterface(), _match(UniMessage(), True), 'p:', 60,
+        )
+
+        assert result is response
+
+    async def test_missing_arg_prompted(self) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        response = UniMessage('follow-up')
+        result = await ensure_arg_message(
+            _make_prompt_matcher(response), _RecordingFinishInterface(), _match(UniMessage(), False), 'p:', 60,
+        )
+
+        assert result is response
+
+    async def test_prompt_text_and_timeout_passed_through(self) -> None:
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        prompt_matcher = _make_prompt_matcher(UniMessage('x'))
+        await ensure_arg_message(
+            prompt_matcher, _RecordingFinishInterface(), _match(UniMessage(), False), '请输入:', 60,
+        )
+
+        assert prompt_matcher.prompt.await_args.args[0] == '请输入:'
+        assert prompt_matcher.prompt.await_args.kwargs == {'timeout': 60}
+
+    async def test_prompt_timeout_finishes(self) -> None:
+        from nonebot.exception import FinishedException
+
+        from src.params.handler import ensure_arg_message
+
+        interface = _RecordingFinishInterface()
+
+        with pytest.raises(FinishedException):
+            await ensure_arg_message(_make_prompt_matcher(None), interface, _match(None, False), 'p:', 60)
+
+        assert interface.finished == ['等待输入超时, 已取消操作']
+
+    async def test_prompt_empty_response_finishes(self) -> None:
+        """prompt 返回空消息 (无任何消息段) 时视为未提供有效参数"""
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        interface = _RecordingFinishInterface()
+
+        with pytest.raises(FinishedException):
+            await ensure_arg_message(_make_prompt_matcher(UniMessage()), interface, _match(None, False), 'p:', 60)
+
+        assert interface.finished == ['未提供有效参数, 已取消操作']
 
 
 class TestEnsureArgText:
