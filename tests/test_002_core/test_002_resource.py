@@ -118,6 +118,7 @@ class TestModuleContract:
             'AnyResource',
             'BaseResource',
             'BaseResourceHostProtocol',
+            'DataResource',
             'HostingPathType',
             'LogFileResource',
             'StaticResource',
@@ -143,6 +144,7 @@ class TestModuleContract:
         root_path = getattr(src.resource, '__ROOT_PATH')
         assert src.resource._LOG_FOLDER == root_path.joinpath('log')
         assert src.resource._STATIC_RESOURCE_FOLDER == root_path.joinpath('static')
+        assert src.resource._DATA_RESOURCE_FOLDER == root_path.joinpath('.data')
         assert src.resource._TEMPORARY_RESOURCE_FOLDER == root_path.joinpath('.tmp')
 
 
@@ -202,6 +204,13 @@ class TestConstructors:
 
         assert TemporaryResource('a', 'b.txt').path == src.resource._TEMPORARY_RESOURCE_FOLDER.joinpath('a', 'b.txt')
         assert TemporaryResource().path == src.resource._TEMPORARY_RESOURCE_FOLDER
+
+    def test_data_resource_root(self):
+        import src.resource
+        from src.resource import DataResource
+
+        assert DataResource('a', 'b.txt').path == src.resource._DATA_RESOURCE_FOLDER.joinpath('a', 'b.txt')
+        assert DataResource().path == src.resource._DATA_RESOURCE_FOLDER
 
     def test_log_resource_month_subdir(self, fixed_datetime: datetime):
         import src.resource
@@ -1303,44 +1312,67 @@ class TestPathConfinement:
         with pytest.raises(ResourcePathOutOfRootError):
             TemporaryResource('..', '..', 'etc')
 
+    def test_data_resource_parent_escape_raises(self):
+        from src.resource import DataResource, ResourcePathOutOfRootError
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            DataResource('..')
+        with pytest.raises(ResourcePathOutOfRootError):
+            DataResource('sub', '..', '..')
+
     def test_absolute_path_arg_raises(self, tmp_path: Path):
         """绝对路径参数会整体替换 base 根目录, 必须拦截"""
-        from src.resource import ResourcePathOutOfRootError, StaticResource, TemporaryResource
+        from src.resource import DataResource, ResourcePathOutOfRootError, StaticResource, TemporaryResource
 
         with pytest.raises(ResourcePathOutOfRootError):
             StaticResource(str(tmp_path))
         with pytest.raises(ResourcePathOutOfRootError):
             TemporaryResource(str(tmp_path))
+        with pytest.raises(ResourcePathOutOfRootError):
+            DataResource(str(tmp_path))
 
     def test_normal_args_not_affected(self):
         import src.resource
-        from src.resource import StaticResource
+        from src.resource import DataResource, StaticResource
 
         static_resource = StaticResource('fonts', 'a.ttf')
         assert static_resource.path == src.resource._STATIC_RESOURCE_FOLDER.joinpath('fonts', 'a.ttf')
 
+        data_resource = DataResource('sub', 'a.txt')
+        assert data_resource.path == src.resource._DATA_RESOURCE_FOLDER.joinpath('sub', 'a.txt')
+
     def test_dotdot_staying_inside_root_allowed(self):
         """'..' 拼接但最终落在根内时放行, 且保持原始(未归一化)路径语义"""
         import src.resource
-        from src.resource import StaticResource
+        from src.resource import DataResource, StaticResource
 
         resource = StaticResource('fonts', '..', 'docs', 'x.txt')
         assert resource.path == src.resource._STATIC_RESOURCE_FOLDER.joinpath('fonts', '..', 'docs', 'x.txt')
         expected = src.resource._STATIC_RESOURCE_FOLDER.joinpath('docs', 'x.txt').resolve().as_posix()
         assert resource.resolve_path == expected
 
+        data_resource = DataResource('sub', '..', 'docs', 'x.txt')
+        assert data_resource.path == src.resource._DATA_RESOURCE_FOLDER.joinpath('sub', '..', 'docs', 'x.txt')
+        data_expected = src.resource._DATA_RESOURCE_FOLDER.joinpath('docs', 'x.txt').resolve().as_posix()
+        assert data_resource.resolve_path == data_expected
+
     def test_call_parent_escape_raises(self):
-        from src.resource import ResourcePathOutOfRootError, TemporaryResource
+        from src.resource import DataResource, ResourcePathOutOfRootError, TemporaryResource
 
         with pytest.raises(ResourcePathOutOfRootError):
             TemporaryResource('sub')('..', '..')
+        with pytest.raises(ResourcePathOutOfRootError):
+            DataResource('sub')('..', '..')
 
     def test_call_within_root_allowed(self):
         import src.resource
-        from src.resource import TemporaryResource
+        from src.resource import DataResource, TemporaryResource
 
         resource = TemporaryResource('sub')('nested', 'f.txt')
         assert resource.path == src.resource._TEMPORARY_RESOURCE_FOLDER.joinpath('sub', 'nested', 'f.txt')
+
+        data_resource = DataResource('sub')('nested', 'f.txt')
+        assert data_resource.path == src.resource._DATA_RESOURCE_FOLDER.joinpath('sub', 'nested', 'f.txt')
 
     def test_log_resource_call_escape_raises(self):
         from src.resource import LogFileResource, ResourcePathOutOfRootError

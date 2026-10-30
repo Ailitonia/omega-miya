@@ -165,6 +165,9 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
+# runtime persistent data files
+.data/
+
 # tmp folders
 tmp/
 .tmp/

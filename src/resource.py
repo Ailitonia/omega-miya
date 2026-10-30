@@ -91,6 +91,8 @@ _LOG_FOLDER: Path = __ROOT_PATH.joinpath('log')
 """日志文件路径"""
 _STATIC_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('static')
 """静态资源文件路径"""
+_DATA_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.data')
+"""运行时产生的需要持久保存的数据文件路径"""
 _TEMPORARY_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.tmp')
 """运行时产生的的可随时清理的缓存/临时文件路径"""
 
@@ -685,6 +687,15 @@ class StaticResource(BaseResource):
         self.path = self._check_confinement(_STATIC_RESOURCE_FOLDER.joinpath(*args))
 
 
+class DataResource(BaseResource):
+    """运行时产生的需要持久保存的数据文件"""
+
+    _CONFINEMENT_ROOT: ClassVar[Path | None] = _DATA_RESOURCE_FOLDER.resolve()
+
+    def __init__(self, *args: str):
+        self.path = self._check_confinement(_DATA_RESOURCE_FOLDER.joinpath(*args))
+
+
 class TemporaryResource(BaseResource):
     """运行时产生的的可随时清理的缓存/临时文件"""
 
@@ -698,6 +709,7 @@ __all__ = [
     'AnyResource',
     'BaseResource',
     'BaseResourceHostProtocol',
+    'DataResource',
     'HostingPathType',
     'LogFileResource',
     'StaticResource',

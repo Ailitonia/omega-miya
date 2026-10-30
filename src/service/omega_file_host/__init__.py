@@ -12,6 +12,7 @@ from src.resource import (
     AnyResource,
     BaseResource,
     BaseResourceHostProtocol,
+    DataResource,
     HostingPathType,
     StaticResource,
     TemporaryResource,
@@ -33,6 +34,7 @@ class OmegaFileHostProtocol[RT: BaseResource](BaseResourceHostProtocol[RT]):
 
 # 统一为本地资源注册 `OmegaFileHostProtocol`
 AnyResource.register_host_protocol(OmegaFileHostProtocol)
+DataResource.register_host_protocol(OmegaFileHostProtocol)
 StaticResource.register_host_protocol(OmegaFileHostProtocol)
 TemporaryResource.register_host_protocol(OmegaFileHostProtocol)
 
