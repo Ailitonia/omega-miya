@@ -7,6 +7,8 @@
 @GitHub         : https://github.com/Ailitonia
 @Software       : PyCharm
 """
+
+import hashlib
 from typing import Literal
 
 from apscheduler.triggers.cron import CronTrigger
@@ -30,8 +32,19 @@ _SAVE_MEDIA_FOLDER: TemporaryResource = TemporaryResource(_SAVE_MEDIA_FOLDER_NAM
 """暂存消息媒体的目录"""
 
 
+def _generate_job_unique_id(readable_job_name: str, entity_init_params: EntityInitParams) -> str:
+    unique_name = (
+        f'{entity_init_params.bot_type}'
+        f'_{entity_init_params.bot_id}'
+        f'_{entity_init_params.entity_type}'
+        f'_{entity_init_params.entity_id}'
+        f'_{readable_job_name}'
+    )
+    return f'SchedMsgJob_{hashlib.sha1(unique_name.encode("utf-8", errors="namereplace")).hexdigest()}'
+
+
 class ScheduleMessageJob(BaseModel):
-    schedule_job_name: str
+    readable_job_name: str
     crontab: str
     mode: Literal['cron'] = 'cron'
     entity_init_params: EntityInitParams
@@ -39,12 +52,8 @@ class ScheduleMessageJob(BaseModel):
 
     @property
     def job_unique_id(self) -> str:
-        return (
-            f'{self.entity_init_params.bot_id}'
-            f'_{self.entity_init_params.entity_type}'
-            f'_{self.entity_init_params.entity_id}'
-            f'_{self.schedule_job_name}'
-        )
+        return _generate_job_unique_id(self.readable_job_name, self.entity_init_params)
+
 
 def add_schedule_job(job_data: ScheduleMessageJob) -> None:
     """添加发送定时消息的计划任务"""
@@ -77,7 +86,10 @@ def add_schedule_job(job_data: ScheduleMessageJob) -> None:
 
 
 def remove_schedule_job(job_data: ScheduleMessageJob) -> None:
-    """移除定时消息的计划任务"""
+    """移除定时消息的计划任务, 调度器中不存在对应任务时仅记录日志"""
+    if scheduler.get_job(job_id=job_data.job_unique_id) is None:
+        logger.warning(f'ScheduleMessageJob | Job({job_data.job_unique_id}) not exist in scheduler, ignore remove')
+        return
     scheduler.remove_job(job_id=job_data.job_unique_id)
     logger.success(f'ScheduleMessageJob | Remove job({job_data.job_unique_id}) succeed')
 
@@ -95,22 +107,36 @@ async def _init_schedule_message_job() -> None:
                 try:
                     add_schedule_job(job_data=ScheduleMessageJob.model_validate(job.value))
                 except Exception as e:
-                    logger.error(f'ScheduleMessageJob | Add job({job}) failed when init in startup, {e}')
+                    logger.error(
+                        f'ScheduleMessageJob | Add job(entity_index_id={job.entity_index_id}, node={job.node}) '
+                        f'failed when init in startup, {e}'
+                    )
 
 
 async def generate_schedule_job_data(
         interface: OmegaMatcherInterface,
-        schedule_job_name: str,
+        readable_job_name: str,
         crontab: str,
         message: UniMessage,
 ) -> ScheduleMessageJob:
     """生成定时消息的计划任务"""
+    entity_init_params = interface.extract_current_entity_params()
+
+    # 先将消息中的媒体内容下载到本地, 避免媒体链接过期导致定时任务触发时发送失败
+    try:
+        await message.download()
+    except Exception as e:
+        logger.warning(f'ScheduleMessageJob | Download media in message failed, keep origin media url, {e}')
+
     return ScheduleMessageJob.model_validate({
-        'schedule_job_name': schedule_job_name,
+        'readable_job_name': readable_job_name,
         'crontab': crontab,
         'mode': 'cron',
-        'entity_init_params': interface.extract_current_entity_params(),
-        'message': message.dump(media_save_dir=_SAVE_MEDIA_FOLDER(schedule_job_name).path),
+        'entity_init_params': entity_init_params,
+        'message': message.dump(media_save_dir=_SAVE_MEDIA_FOLDER(_generate_job_unique_id(
+            readable_job_name=readable_job_name,
+            entity_init_params=entity_init_params,
+        )).path),
     })
 
 
@@ -121,11 +147,15 @@ async def get_schedule_message_job_list(interface: OmegaMatcherInterface) -> lis
             module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
             plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         )
-    job_list = [
-        ScheduleMessageJob.model_validate(x.value).schedule_job_name
-        for x in job_settings
-        if (x.available == 1 and x.value is not None)
-    ]
+
+    job_list = []
+    for job in job_settings:
+        if job.available != 1 or job.value is None:
+            continue
+        try:
+            job_list.append(ScheduleMessageJob.model_validate(job.value).readable_job_name)
+        except Exception as e:
+            logger.warning(f'ScheduleMessageJob | Parse job(node={job.node}) failed, skipped, {e}')
     return job_list
 
 
@@ -135,22 +165,26 @@ async def set_schedule_message_job(interface: OmegaMatcherInterface, job_data: S
         await entity.set_auth_setting(
             module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
             plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
-            node=job_data.schedule_job_name,
+            node=job_data.job_unique_id,
             available=1,
             value=job_data.model_dump(mode='json'),
         )
 
 
-async def remove_schedule_message_job(interface: OmegaMatcherInterface, schedule_job_name: str) -> None:
-    """在数据库中停用 Event 对应 Entity 的定时任务信息"""
+async def remove_schedule_message_job(interface: OmegaMatcherInterface, readable_job_name: str) -> None:
+    """在数据库中停用 Event 对应 Entity 的定时任务信息, 不清理该任务暂存的媒体文件"""
+    job_unique_id = _generate_job_unique_id(
+        readable_job_name=readable_job_name,
+        entity_init_params=interface.extract_current_entity_params(),
+    )
     async with interface.create_current_entity_session() as entity:
         job_setting = await entity.query_auth_setting(
             module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
             plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
-            node=schedule_job_name,
+            node=job_unique_id,
         )
         if job_setting.available != 1:
-            logger.info(f'ScheduleMessageJob | Job({schedule_job_name}) not available, ignore')
+            logger.info(f'ScheduleMessageJob | Job({readable_job_name}) not available, ignore')
             return
 
         job_data = ScheduleMessageJob.model_validate(job_setting.value)
@@ -159,7 +193,7 @@ async def remove_schedule_message_job(interface: OmegaMatcherInterface, schedule
         await entity.set_auth_setting(
             module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
             plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
-            node=schedule_job_name,
+            node=job_unique_id,
             available=0,
             value={},
         )

@@ -8,6 +8,7 @@
 @Software       : PyCharm
 """
 
+from apscheduler.triggers.cron import CronTrigger
 from arclet.alconna import Alconna, Args, CommandMeta, Option, Subcommand
 from nonebot.log import logger
 from nonebot_plugin_alconna import AlconnaMatcher, Match, on_alconna
@@ -27,6 +28,7 @@ from .helpers import (
 
 _HANDLER_PROMPT_TIMEOUT: float = 60
 """交互流程等待用户响应超时时间"""
+
 
 schedule_message_manager = on_alconna(
     Alconna(
@@ -76,14 +78,14 @@ async def handle_add_schedule_message(
         crontab: Match[str],
         message: Match[UniMessage],
 ) -> None:
-    schedule_job_name = await ensure_arg_text(
+    readable_job_name = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=name,
         prompt_text='请输入为定时消息设置的任务名称:',
         timeout=_HANDLER_PROMPT_TIMEOUT,
     )
-    if len(schedule_job_name) > 50:
+    if len(readable_job_name) > 50:
         await interface.finish_reply('设置的定时消息任务名称过长(超过50字), 请修改后重试')
 
     set_crontab = await ensure_arg_text(
@@ -93,6 +95,10 @@ async def handle_add_schedule_message(
         prompt_text='请输入调度的定时任务的crontab表达式:',
         timeout=_HANDLER_PROMPT_TIMEOUT,
     )
+    try:
+        CronTrigger.from_crontab(set_crontab)
+    except (TypeError, ValueError):
+        await interface.finish_reply(f'设置的crontab表达式{set_crontab!r}非法, 请修改后重试')
 
     set_message = await ensure_arg_message(
         matcher=matcher,
@@ -105,7 +111,7 @@ async def handle_add_schedule_message(
     try:
         job_data = await generate_schedule_job_data(
             interface=interface,
-            schedule_job_name=schedule_job_name,
+            readable_job_name=readable_job_name,
             crontab=set_crontab,
             message=set_message,
         )
@@ -114,18 +120,23 @@ async def handle_add_schedule_message(
         await interface.finish_reply('处理定时消息数据错误, 请稍后再试或联系管理员处理')
 
     try:
-        add_schedule_job(job_data=job_data)
-    except Exception as e:
-        logger.error(f'SetScheduleMessage | 添加定时消息任务({job_data.job_unique_id})失败, {e}')
-        await interface.finish_reply('设置消息定时任务失败, 请稍后再试或联系管理员处理')
-
-    try:
         await set_schedule_message_job(interface=interface, job_data=job_data)
     except Exception as e:
         logger.error(f'SetScheduleMessage | 将定时消息任务({job_data.job_unique_id})写入数据库失败, {e}')
         await interface.finish_reply('保存定时消息失败, 请稍后再试或联系管理员处理')
 
-    await interface.finish_reply(f'添加定时消息{job_data.schedule_job_name!r}成功!')
+    try:
+        add_schedule_job(job_data=job_data)
+    except Exception as e:
+        logger.error(f'SetScheduleMessage | 添加定时消息任务({job_data.job_unique_id})到调度器失败, {e}')
+        # 注册调度器失败时回滚数据库中的任务配置, 避免产生不可见的残留任务
+        try:
+            await remove_schedule_message_job(interface=interface, readable_job_name=job_data.readable_job_name)
+        except Exception as rollback_e:
+            logger.error(f'SetScheduleMessage | 回滚定时消息任务({job_data.job_unique_id})失败, {rollback_e}')
+        await interface.finish_reply('设置消息定时任务失败, 请稍后再试或联系管理员处理')
+
+    await interface.finish_reply(f'添加定时消息{job_data.readable_job_name!r}成功!')
 
 
 @schedule_message_manager.assign('remove', additional=check_event_is_admin)
@@ -134,7 +145,7 @@ async def handle_remove_schedule_message(
         interface: EVENT_M_IFACE,
         name: Match[str],
 ) -> None:
-    schedule_job_name = await ensure_arg_text(
+    readable_job_name = await ensure_arg_text(
         matcher=matcher,
         interface=interface,
         arg=name,
@@ -148,18 +159,18 @@ async def handle_remove_schedule_message(
         logger.error(f'RemoveScheduleMessage | 获取{interface}已配置任务列表失败, {e}')
         await interface.finish_reply('获取已配置任务列表失败, 请稍后再试或联系管理员处理')
 
-    if schedule_job_name not in exist_jobs:
+    if readable_job_name not in exist_jobs:
         exist_text = '\n'.join(exist_jobs) if exist_jobs else '无已配置的定时消息'
         await interface.finish_reply(
-            f'没有名为{schedule_job_name!r}定时消息任务, 请确认已配置的定时消息:\n\n{exist_text}')
+            f'没有名为{readable_job_name!r}定时消息任务, 请确认已配置的定时消息:\n\n{exist_text}')
 
     try:
-        await remove_schedule_message_job(interface=interface, schedule_job_name=schedule_job_name)
+        await remove_schedule_message_job(interface=interface, readable_job_name=readable_job_name)
     except Exception as e:
-        logger.error(f'RemoveScheduleMessage | 移除定时消息任务({schedule_job_name})失败, {e}')
+        logger.error(f'RemoveScheduleMessage | 移除定时消息任务({readable_job_name})失败, {e}')
         await interface.finish_reply('移除定时消息任务失败, 请稍后再试或联系管理员处理')
 
-    await interface.finish_reply(f'移除定时消息{schedule_job_name!r}成功!')
+    await interface.finish_reply(f'移除定时消息{readable_job_name!r}成功!')
 
 
 @schedule_message_manager.assign('list', additional=check_event_is_admin)
