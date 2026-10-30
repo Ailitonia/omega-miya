@@ -14,11 +14,11 @@ from typing import Literal
 from apscheduler.triggers.cron import CronTrigger
 from nonebot import get_driver
 from nonebot.log import logger
-from nonebot_plugin_alconna.uniseg import UniMessage
-from pydantic import BaseModel, Json, JsonValue
+from nonebot_plugin_alconna.uniseg import Reference, Reply, UniMessage
+from pydantic import BaseModel, JsonValue
 
 from src.database import EntityDAL
-from src.resource import TemporaryResource
+from src.resource import DataResource
 from src.service import OmegaEntityInterface, OmegaMatcherInterface, scheduler
 from src.service.omega_base.internal import EntityInitParams
 
@@ -27,9 +27,9 @@ _SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME: Literal['OmegaScheduleMessage'] = 'OmegaSc
 _SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME: Literal['OmegaScheduleMessageJob'] = 'OmegaScheduleMessageJob'
 """固定写入数据库的 plugin name 参数"""
 _SAVE_MEDIA_FOLDER_NAME: Literal['omega_scheduled_message_save_media'] = 'omega_scheduled_message_save_media'
-"""暂存消息媒体的目录名"""
-_SAVE_MEDIA_FOLDER: TemporaryResource = TemporaryResource(_SAVE_MEDIA_FOLDER_NAME)
-"""暂存消息媒体的目录"""
+"""持久保存消息媒体的目录名"""
+_SAVE_MEDIA_FOLDER: DataResource = DataResource(_SAVE_MEDIA_FOLDER_NAME)
+"""持久保存消息媒体的目录, 定时消息的媒体需要长期保留, 不能放在可随时清理的临时目录"""
 
 
 def _generate_job_unique_id(readable_job_name: str, entity_init_params: EntityInitParams) -> str:
@@ -40,7 +40,7 @@ def _generate_job_unique_id(readable_job_name: str, entity_init_params: EntityIn
         f'_{entity_init_params.entity_id}'
         f'_{readable_job_name}'
     )
-    return f'SchedMsgJob_{hashlib.sha1(unique_name.encode("utf-8", errors="namereplace")).hexdigest()}'
+    return f'SchedMsgJob_{hashlib.sha1(unique_name.encode("utf-8")).hexdigest()}'
 
 
 class ScheduleMessageJob(BaseModel):
@@ -48,7 +48,7 @@ class ScheduleMessageJob(BaseModel):
     crontab: str
     mode: Literal['cron'] = 'cron'
     entity_init_params: EntityInitParams
-    message: Json[list[dict[str, JsonValue]]]
+    message: list[dict[str, JsonValue]]
 
     @property
     def job_unique_id(self) -> str:
@@ -56,7 +56,7 @@ class ScheduleMessageJob(BaseModel):
 
 
 def add_schedule_job(job_data: ScheduleMessageJob) -> None:
-    """添加发送定时消息的计划任务"""
+    """添加发送定时消息的计划任务, 已存在同名任务时整体替换"""
     send_message = UniMessage.load(data=job_data.message)
 
     async def _handle_send_message():
@@ -66,23 +66,19 @@ def add_schedule_job(job_data: ScheduleMessageJob) -> None:
         except Exception as e:
             logger.error(f'ScheduleMessageJob | Job({job_data.job_unique_id}) send message failed, {e}')
 
-    # 根据 crontab 字符串构造调度器
-    trigger = CronTrigger.from_crontab(job_data.crontab)
+    # 根据 crontab 字符串构造调度器, 时区跟随调度器配置
+    trigger = CronTrigger.from_crontab(job_data.crontab, timezone=scheduler.timezone)
 
-    # 检查有没有同名计划任务
-    exist_job = scheduler.get_job(job_id=job_data.job_unique_id)
-    if exist_job is None:
-        scheduler.add_job(
-            _handle_send_message,
-            trigger=trigger,
-            id=job_data.job_unique_id,
-            coalesce=True,
-            misfire_grace_time=10
-        )
-        logger.success(f'ScheduleMessageJob | Add job({job_data.job_unique_id}) succeed')
-    else:
-        exist_job.reschedule(trigger=trigger)
-        logger.success(f'ScheduleMessageJob | Reschedule job({job_data.job_unique_id}) succeed')
+    # 同名计划任务需要整体替换
+    scheduler.add_job(
+        _handle_send_message,
+        trigger=trigger,
+        id=job_data.job_unique_id,
+        coalesce=True,
+        misfire_grace_time=30,
+        replace_existing=True,
+    )
+    logger.success(f'ScheduleMessageJob | Add job({job_data.job_unique_id}) succeed')
 
 
 def remove_schedule_job(job_data: ScheduleMessageJob) -> None:
@@ -94,6 +90,15 @@ def remove_schedule_job(job_data: ScheduleMessageJob) -> None:
     logger.success(f'ScheduleMessageJob | Remove job({job_data.job_unique_id}) succeed')
 
 
+def remove_schedule_job_media(job_unique_id: str) -> None:
+    """移除定时消息任务暂存的媒体文件, 目录不存在时忽略"""
+    media_folder = _SAVE_MEDIA_FOLDER(job_unique_id)
+    if not media_folder.is_dir:
+        return
+    media_folder.rmtree(ignore_errors=True)
+    logger.success(f'ScheduleMessageJob | Remove job({job_unique_id}) media files succeed')
+
+
 @get_driver().on_startup
 async def _init_schedule_message_job() -> None:
     """启动时读取并配置所有定时消息任务"""
@@ -103,7 +108,7 @@ async def _init_schedule_message_job() -> None:
             plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
         )
         for job in job_settings:
-            if job.available == 1 and job.value is not None:
+            if job.available == 1 and job.value:
                 try:
                     add_schedule_job(job_data=ScheduleMessageJob.model_validate(job.value))
                 except Exception as e:
@@ -121,6 +126,19 @@ async def generate_schedule_job_data(
 ) -> ScheduleMessageJob:
     """生成定时消息的计划任务"""
     entity_init_params = interface.extract_current_entity_params()
+    job_unique_id = _generate_job_unique_id(
+        readable_job_name=readable_job_name,
+        entity_init_params=entity_init_params,
+    )
+
+    # 剔除回复/引用消息段, 避免定时任务触发时因原消息已不可引用导致发送失败
+    segments = [seg for seg in message if not isinstance(seg, (Reply, Reference))]
+    if len(segments) != len(message):
+        logger.warning(
+            f'ScheduleMessageJob | Remove reply/reference segment from message of job({job_unique_id}) '
+            f'when generate job data, {len(message) - len(segments)} segment(s) removed'
+        )
+    message = UniMessage(segments)
 
     # 先将消息中的媒体内容下载到本地, 避免媒体链接过期导致定时任务触发时发送失败
     try:
@@ -133,10 +151,7 @@ async def generate_schedule_job_data(
         'crontab': crontab,
         'mode': 'cron',
         'entity_init_params': entity_init_params,
-        'message': message.dump(media_save_dir=_SAVE_MEDIA_FOLDER(_generate_job_unique_id(
-            readable_job_name=readable_job_name,
-            entity_init_params=entity_init_params,
-        )).path),
+        'message': message.dump(media_save_dir=_SAVE_MEDIA_FOLDER(job_unique_id).path),
     })
 
 
@@ -150,7 +165,7 @@ async def get_schedule_message_job_list(interface: OmegaMatcherInterface) -> lis
 
     job_list = []
     for job in job_settings:
-        if job.available != 1 or job.value is None:
+        if job.available != 1 or not job.value:
             continue
         try:
             job_list.append(ScheduleMessageJob.model_validate(job.value).readable_job_name)
@@ -172,7 +187,7 @@ async def set_schedule_message_job(interface: OmegaMatcherInterface, job_data: S
 
 
 async def remove_schedule_message_job(interface: OmegaMatcherInterface, readable_job_name: str) -> None:
-    """在数据库中停用 Event 对应 Entity 的定时任务信息, 不清理该任务暂存的媒体文件"""
+    """在数据库中停用 Event 对应 Entity 的定时任务信息, 并清理该任务暂存的媒体文件"""
     job_unique_id = _generate_job_unique_id(
         readable_job_name=readable_job_name,
         entity_init_params=interface.extract_current_entity_params(),
@@ -187,8 +202,16 @@ async def remove_schedule_message_job(interface: OmegaMatcherInterface, readable
             logger.info(f'ScheduleMessageJob | Job({readable_job_name}) not available, ignore')
             return
 
-        job_data = ScheduleMessageJob.model_validate(job_setting.value)
-        remove_schedule_job(job_data=job_data)
+        # 数据库中的配置无法解析时调度器中大概率也没有对应任务, 跳过调度器处理继续停用配置
+        try:
+            job_data = ScheduleMessageJob.model_validate(job_setting.value)
+        except Exception as e:
+            logger.warning(
+                f'ScheduleMessageJob | Parse job(node={job_unique_id}) failed when remove, '
+                f'skip remove from scheduler, {e}'
+            )
+        else:
+            remove_schedule_job(job_data=job_data)
 
         await entity.set_auth_setting(
             module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
@@ -198,6 +221,9 @@ async def remove_schedule_message_job(interface: OmegaMatcherInterface, readable
             value={},
         )
 
+    # 移除定时消息任务暂存的媒体文件
+    remove_schedule_job_media(job_unique_id=job_unique_id)
+
 
 __all__ = [
     'add_schedule_job',
@@ -205,4 +231,5 @@ __all__ = [
     'get_schedule_message_job_list',
     'set_schedule_message_job',
     'remove_schedule_message_job',
+    'remove_schedule_job_media',
 ]
