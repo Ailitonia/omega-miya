@@ -22,7 +22,7 @@ class OmegaException(Exception):
         return self.__repr__()
 
 
-class LocalSourceException(OmegaException):
+class LocalResourceException(OmegaException):
     """本地资源异常"""
 
     def __init__(self, path: 'PurePath | str'):
@@ -52,7 +52,7 @@ class WebSourceException(OmegaException):
 
 __all__ = [
     'OmegaException',
-    'LocalSourceException',
+    'LocalResourceException',
     'PluginException',
     'WebSourceException',
 ]

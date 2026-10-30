@@ -69,6 +69,20 @@ def sample_file(tmp_path: Path) -> _SampleFileFactory:
     return _make_file
 
 
+@pytest.fixture
+def confined_resource(tmp_path: Path) -> type:
+    """构造以 tmp_path/'root' 为 confinement root 的测试用资源类(类级隔离, 每测试生成新类, 不触碰真实项目目录)"""
+    from src.resource import BaseResource
+
+    class _ConfinedResource(BaseResource):
+        _CONFINEMENT_ROOT = tmp_path.joinpath('root').resolve()
+
+        def __init__(self, *args: str):
+            self.path = self._check_confinement(self._CONFINEMENT_ROOT.joinpath(*args))
+
+    return _ConfinedResource
+
+
 class TestExceptions:
     """资源异常类测试"""
 
@@ -81,11 +95,11 @@ class TestExceptions:
     )
     def test_not_file_or_folder_error(self, tmp_path: Path, exc_class_name: str, sub_path: str, message_fragment: str):
         import src.resource
-        from src.exception import LocalSourceException, OmegaException
+        from src.exception import LocalResourceException, OmegaException
 
         exc_class = getattr(src.resource, exc_class_name)
         exc = exc_class(tmp_path / sub_path)
-        assert isinstance(exc, LocalSourceException)
+        assert isinstance(exc, LocalResourceException)
         assert isinstance(exc, OmegaException)
         assert exc.path == tmp_path / sub_path
         assert exc.path.as_posix() in exc.message
@@ -94,7 +108,7 @@ class TestExceptions:
         assert str(exc) == repr(exc)
 
     def test_exception_with_str_path(self):
-        """LocalSourceException 兼容 str 构造, 内部规范化为 Path"""
+        """LocalResourceException 兼容 str 构造, 内部规范化为 Path"""
         from src.resource import ResourceNotFileError, ResourceNotFolderError
 
         file_exc = ResourceNotFileError('some/missing.txt')
@@ -1070,27 +1084,225 @@ class TestListFiles:
             AnyResource(sample_tree / 'a.txt').iter_all_files()
 
 
-class TestRenameReplaceRemove:
-    """rename/replace/remove 测试"""
+class TestCopy:
+    """copy 文件复制方法测试"""
 
-    def test_rename(self, tmp_path: Path):
+    def test_copy_roundtrip(self, tmp_path: Path, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
 
-        tmp_path.joinpath('old.txt').write_text('x', encoding='utf-8')
-        new_resource = AnyResource(tmp_path / 'old.txt').rename(tmp_path / 'new.txt')
-        assert isinstance(new_resource, AnyResource)
-        assert new_resource.path == tmp_path / 'new.txt'
-        assert not tmp_path.joinpath('old.txt').exists()
-        assert tmp_path.joinpath('new.txt').is_file()
+        source = sample_file('f.txt', _SYNC_TEXT_CONTENT)
+        resource = AnyResource(source)
+        target = tmp_path / 'g.txt'
 
-    @pytest.mark.parametrize('method', ['rename', 'replace'])
+        new_resource = resource.copy(target)
+
+        assert new_resource is not resource
+        assert isinstance(new_resource, AnyResource)
+        assert new_resource.path == target
+        assert target.read_text(encoding='utf-8') == _SYNC_TEXT_CONTENT
+        assert source.read_text(encoding='utf-8') == _SYNC_TEXT_CONTENT
+
+    def test_copy_into_existing_directory(self, tmp_path: Path, sample_file: _SampleFileFactory):
+        """target 为已存在目录时以原文件名拷入其中, 返回实例指向目录内的新文件"""
+        from src.resource import AnyResource
+
+        source = sample_file('f.txt', 'x')
+        target_dir = tmp_path / 'dest'
+        target_dir.mkdir()
+
+        new_resource = AnyResource(source).copy(target_dir)
+
+        assert new_resource.path == target_dir / 'f.txt'
+        assert target_dir.joinpath('f.txt').is_file()
+
+    def test_copy_overwrites_existing_target(self, sample_file: _SampleFileFactory):
+        """target 为已存在文件时内容被替换, 源文件保持不动"""
+        from src.resource import AnyResource
+
+        source = sample_file('f.txt', 'new content')
+        target = sample_file('g.txt', 'old content')
+
+        AnyResource(source).copy(target)
+
+        assert target.read_text(encoding='utf-8') == 'new content'
+        assert source.read_text(encoding='utf-8') == 'new content'
+
+    def test_copy_creates_missing_parent_dirs(self, tmp_path: Path, sample_file: _SampleFileFactory):
+        """目标文件父目录缺失时自动创建(与 open 写模式行为一致)"""
+        from src.resource import AnyResource
+
+        source = sample_file('f.txt', 'x')
+        target = tmp_path / 'deep' / 'nested' / 'g.txt'
+
+        AnyResource(source).copy(target)
+
+        assert target.is_file()
+        assert target.read_text(encoding='utf-8') == 'x'
+
+    def test_copy_preserves_metadata(self, tmp_path: Path, sample_file: _SampleFileFactory):
+        """经 copy2 复制保留文件元数据(锁定 copy2 接线, 防退化为 copy)"""
+        from src.resource import AnyResource
+
+        source = sample_file('f.txt', 'x')
+        target = tmp_path / 'g.txt'
+
+        AnyResource(source).copy(target)
+
+        assert target.stat().st_mtime_ns == source.stat().st_mtime_ns
+
     @pytest.mark.parametrize('source', ['missing', 'directory'])
-    def test_missing_or_directory_source_raises(self, tmp_path: Path, method: str, source: str):
+    def test_copy_source_missing_or_directory_raises(self, tmp_path: Path, source: str):
+        from src.resource import AnyResource, ResourceNotFileError
+
+        resource = AnyResource(tmp_path / 'missing.txt') if source == 'missing' else AnyResource(tmp_path)
+        target = tmp_path / 'new.txt'
+        with pytest.raises(ResourceNotFileError):
+            resource.copy(target)
+        assert not target.exists()
+
+    def test_copy_target_outside_confinement_raises(self, confined_resource: type, tmp_path: Path):
+        """受限资源类 copy 目标越界时抛 ResourcePathOutOfRootError, 且校验先于写入(源文件保留, 目标及父目录不创建)"""
+        from src.resource import ResourcePathOutOfRootError
+
+        root = confined_resource._CONFINEMENT_ROOT
+        root.mkdir(parents=True)
+        root.joinpath('f.txt').write_text('x', encoding='utf-8')
+        outside = tmp_path / 'outside' / 'g.txt'
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            confined_resource('f.txt').copy(outside)
+
+        assert root.joinpath('f.txt').read_text(encoding='utf-8') == 'x'
+        assert not outside.exists()
+        assert not outside.parent.exists()
+
+    def test_copy_target_within_confinement_allowed(self, confined_resource: type):
+        """受限资源类 copy 目标在 root 内时正常复制, 缺失父目录自动创建"""
+        root = confined_resource._CONFINEMENT_ROOT
+        root.mkdir(parents=True)
+        root.joinpath('f.txt').write_text('x', encoding='utf-8')
+
+        target = root / 'sub' / 'g.txt'
+        new_resource = confined_resource('f.txt').copy(target)
+
+        assert isinstance(new_resource, confined_resource)
+        assert new_resource.path == target
+        assert target.read_text(encoding='utf-8') == 'x'
+        assert root.joinpath('f.txt').is_file()
+
+
+class TestCopytree:
+    """copytree 目录递归复制方法测试"""
+
+    @staticmethod
+    def _make_source_tree(root: Path) -> Path:
+        """构建测试用源目录树: root/a.txt + root/sub/b.txt"""
+        root.mkdir(parents=True)
+        root.joinpath('a.txt').write_text('a', encoding='utf-8')
+        root.joinpath('sub').mkdir()
+        root.joinpath('sub', 'b.txt').write_text('bb', encoding='utf-8')
+        return root
+
+    def test_copytree_recursive_roundtrip(self, tmp_path: Path):
+        from src.resource import AnyResource
+
+        source = self._make_source_tree(tmp_path / 'src')
+        target = tmp_path / 'dst'
+
+        new_resource = AnyResource(source).copytree(target)
+
+        assert isinstance(new_resource, AnyResource)
+        assert new_resource.path == target
+        assert target.joinpath('a.txt').read_text(encoding='utf-8') == 'a'
+        assert target.joinpath('sub', 'b.txt').read_text(encoding='utf-8') == 'bb'
+        assert source.joinpath('a.txt').is_file()
+        assert source.joinpath('sub', 'b.txt').is_file()
+
+    def test_copytree_creates_intermediate_parents(self, tmp_path: Path):
+        """目标路径的中间目录将被创建"""
+        from src.resource import AnyResource
+
+        source = self._make_source_tree(tmp_path / 'src')
+        target = tmp_path / 'deep' / 'nested' / 'dst'
+
+        AnyResource(source).copytree(target)
+
+        assert target.joinpath('a.txt').is_file()
+        assert target.joinpath('sub', 'b.txt').is_file()
+
+    def test_copytree_dirs_exist_ok_merges_by_default(self, tmp_path: Path):
+        """默认 dirs_exist_ok=True: 同名文件被覆盖, 目标目录无关文件保留, 新增文件补齐"""
+        from src.resource import AnyResource
+
+        source = self._make_source_tree(tmp_path / 'src')
+        target = tmp_path / 'dst'
+        target.mkdir()
+        target.joinpath('a.txt').write_text('old', encoding='utf-8')
+        target.joinpath('keep.txt').write_text('keep', encoding='utf-8')
+
+        AnyResource(source).copytree(target)
+
+        assert target.joinpath('a.txt').read_text(encoding='utf-8') == 'a'
+        assert target.joinpath('sub', 'b.txt').read_text(encoding='utf-8') == 'bb'
+        assert target.joinpath('keep.txt').read_text(encoding='utf-8') == 'keep'
+
+    def test_copytree_dirs_exist_ok_false_raises(self, tmp_path: Path):
+        """dirs_exist_ok=False 时目标目录已存在抛 FileExistsError(参数透传)"""
+        from src.resource import AnyResource
+
+        source = self._make_source_tree(tmp_path / 'src')
+        target = tmp_path / 'dst'
+        target.mkdir()
+
+        with pytest.raises(FileExistsError):
+            AnyResource(source).copytree(target, dirs_exist_ok=False)
+
+    @pytest.mark.parametrize('source', ['file', 'missing'])
+    def test_copytree_source_not_directory_raises(self, tmp_path: Path, sample_file: _SampleFileFactory, source: str):
+        from src.resource import AnyResource, ResourceNotFolderError
+
+        resource = AnyResource(sample_file('f.txt', 'x')) if source == 'file' else AnyResource(tmp_path / 'missing')
+        with pytest.raises(ResourceNotFolderError):
+            resource.copytree(tmp_path / 'dst')
+
+    def test_copytree_target_outside_confinement_raises(self, confined_resource: type, tmp_path: Path):
+        """受限资源类 copytree 目标越界时抛 ResourcePathOutOfRootError, 且校验先于写入(源目录保留, 目标不创建)"""
+        from src.resource import ResourcePathOutOfRootError
+
+        root = self._make_source_tree(confined_resource._CONFINEMENT_ROOT)
+        outside = tmp_path / 'outside' / 'dst'
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            confined_resource().copytree(outside)
+
+        assert root.joinpath('a.txt').is_file()
+        assert not outside.exists()
+        assert not outside.parent.exists()
+
+    def test_copytree_target_within_confinement_allowed(self, confined_resource: type):
+        """受限资源类 copytree 目标在 root 内时正常复制"""
+        root = confined_resource._CONFINEMENT_ROOT
+        self._make_source_tree(root / 'src')
+
+        target = root / 'dst'
+        new_resource = confined_resource('src').copytree(target)
+
+        assert isinstance(new_resource, confined_resource)
+        assert new_resource.path == target
+        assert target.joinpath('a.txt').read_text(encoding='utf-8') == 'a'
+        assert target.joinpath('sub', 'b.txt').read_text(encoding='utf-8') == 'bb'
+
+
+class TestReplaceRemove:
+    """replace/remove 测试"""
+
+    @pytest.mark.parametrize('source', ['missing', 'directory'])
+    def test_replace_missing_or_directory_source_raises(self, tmp_path: Path, source: str):
         from src.resource import AnyResource, ResourceNotFileError
 
         resource = AnyResource(tmp_path / 'missing.txt') if source == 'missing' else AnyResource(tmp_path)
         with pytest.raises(ResourceNotFileError):
-            getattr(resource, method)(tmp_path / 'new')
+            resource.replace(tmp_path / 'new')
 
     def test_replace_overwrites_existing_target(self, tmp_path: Path):
         from src.resource import AnyResource
@@ -1100,6 +1312,35 @@ class TestRenameReplaceRemove:
         AnyResource(tmp_path / 'old.txt').replace(tmp_path / 'exist.txt')
         assert not tmp_path.joinpath('old.txt').exists()
         assert tmp_path.joinpath('exist.txt').read_text(encoding='utf-8') == 'new content'
+
+    def test_replace_target_outside_confinement_raises(self, confined_resource: type, tmp_path: Path):
+        """受限资源类 replace 目标越界时抛 ResourcePathOutOfRootError, 且校验先于移动(源文件保留, 目标不创建)"""
+        from src.resource import ResourcePathOutOfRootError
+
+        root = confined_resource._CONFINEMENT_ROOT
+        root.mkdir(parents=True)
+        root.joinpath('f.txt').write_text('x', encoding='utf-8')
+        outside = tmp_path / 'outside' / 'moved.txt'
+
+        with pytest.raises(ResourcePathOutOfRootError):
+            confined_resource('f.txt').replace(outside)
+
+        assert root.joinpath('f.txt').read_text(encoding='utf-8') == 'x'
+        assert not outside.exists()
+        assert not outside.parent.exists()
+
+    def test_replace_target_within_confinement_allowed(self, confined_resource: type):
+        """受限资源类 replace 目标在 root 内时正常移动"""
+        root = confined_resource._CONFINEMENT_ROOT
+        root.mkdir(parents=True)
+        root.joinpath('old.txt').write_text('x', encoding='utf-8')
+
+        new_resource = confined_resource('old.txt').replace(root / 'new.txt')
+
+        assert isinstance(new_resource, confined_resource)
+        assert new_resource.path == root / 'new.txt'
+        assert not root.joinpath('old.txt').exists()
+        assert root.joinpath('new.txt').read_text(encoding='utf-8') == 'x'
 
     def test_remove_existing_file(self, sample_file: _SampleFileFactory):
         from src.resource import AnyResource
@@ -1126,6 +1367,60 @@ class TestRenameReplaceRemove:
 
         with pytest.raises(ResourceNotFileError):
             AnyResource(tmp_path).remove()
+
+
+class TestRmtree:
+    """rmtree 目录树删除方法测试"""
+
+    def test_rmtree_removes_tree_recursively(self, tmp_path: Path):
+        from src.resource import AnyResource
+
+        target = tmp_path / 'd'
+        target.mkdir()
+        target.joinpath('a.txt').write_text('a', encoding='utf-8')
+        target.joinpath('sub').mkdir()
+        target.joinpath('sub', 'b.txt').write_text('bb', encoding='utf-8')
+
+        AnyResource(target).rmtree()
+
+        assert not target.exists()
+
+    def test_rmtree_empty_dir(self, tmp_path: Path):
+        from src.resource import AnyResource
+
+        target = tmp_path / 'empty'
+        target.mkdir()
+
+        AnyResource(target).rmtree()
+
+        assert not target.exists()
+
+    def test_rmtree_missing_default_is_noop(self, tmp_path: Path):
+        """缺失路径默认静默(ignore_errors=True), 且不创建任何目录"""
+        from src.resource import AnyResource
+
+        AnyResource(tmp_path / 'newdir' / 'missing').rmtree()
+
+        assert not tmp_path.joinpath('newdir').exists()
+
+    def test_rmtree_missing_with_ignore_errors_false_raises(self, tmp_path: Path):
+        from src.resource import AnyResource
+
+        with pytest.raises(FileNotFoundError):
+            AnyResource(tmp_path / 'missing').rmtree(ignore_errors=False)
+
+    @pytest.mark.parametrize('ignore_errors', [True, False])
+    def test_rmtree_on_file_raises_not_folder_error(
+            self, sample_file: _SampleFileFactory, ignore_errors: bool,
+    ):
+        """路径存在但不是目录时抛 ResourceNotFolderError(守卫先于 shutil, 与 ignore_errors 无关), 文件保持完整"""
+        from src.resource import AnyResource, ResourceNotFolderError
+
+        file = sample_file('f.txt', 'x')
+        with pytest.raises(ResourceNotFolderError):
+            AnyResource(file).rmtree(ignore_errors=ignore_errors)
+
+        assert file.is_file()
 
 
 class TestHostProtocol:
@@ -1284,11 +1579,11 @@ class TestPathConfinement:
     """路径穿越防护(confinement)测试"""
 
     def test_out_of_root_error_contract(self, tmp_path: Path):
-        from src.exception import LocalSourceException, OmegaException
+        from src.exception import LocalResourceException, OmegaException
         from src.resource import ResourcePathOutOfRootError
 
         exc = ResourcePathOutOfRootError(tmp_path / 'escape.txt', tmp_path)
-        assert isinstance(exc, LocalSourceException)
+        assert isinstance(exc, LocalResourceException)
         assert isinstance(exc, OmegaException)
         assert exc.path == tmp_path / 'escape.txt'
         assert exc.root == tmp_path

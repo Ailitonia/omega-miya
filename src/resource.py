@@ -11,6 +11,7 @@
 import abc
 import hashlib
 import io
+import shutil
 import string
 from collections.abc import Buffer, Callable, Generator, Iterable
 from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
@@ -33,7 +34,7 @@ from uuid import uuid4
 
 import aiofiles
 
-from src.exception import LocalSourceException
+from src.exception import LocalResourceException
 
 if TYPE_CHECKING:
     from io import FileIO, TextIOWrapper
@@ -42,9 +43,14 @@ if TYPE_CHECKING:
     from aiofiles.threadpool.text import AsyncTextIOWrapper
 
 
+# ------------------------------------------------------------------ #
+# 本地资源相关异常
+# ------------------------------------------------------------------ #
+
+
 @final
-class ResourceNotFolderError(LocalSourceException):
-    """LocalResource 实例不是文件夹"""
+class ResourceNotFolderError(LocalResourceException):
+    """Resource 实例不是文件夹"""
 
     @property
     def message(self) -> str:
@@ -55,8 +61,8 @@ class ResourceNotFolderError(LocalSourceException):
 
 
 @final
-class ResourceNotFileError(LocalSourceException):
-    """LocalResource 实例不是文件"""
+class ResourceNotFileError(LocalResourceException):
+    """Resource 实例不是文件"""
 
     @property
     def message(self) -> str:
@@ -67,7 +73,7 @@ class ResourceNotFileError(LocalSourceException):
 
 
 @final
-class ResourcePathOutOfRootError(LocalSourceException):
+class ResourcePathOutOfRootError(LocalResourceException):
     """拼接后的路径超出资源根目录限制(路径穿越)"""
 
     def __init__(self, path: str | Path, root: str | Path):
@@ -85,6 +91,11 @@ class ResourcePathOutOfRootError(LocalSourceException):
         )
 
 
+# ------------------------------------------------------------------ #
+# 本地资源路径定义
+# ------------------------------------------------------------------ #
+
+
 __ROOT_PATH: Path = Path(__file__).resolve().parent.parent
 """项目根目录"""
 _LOG_FOLDER: Path = __ROOT_PATH.joinpath('log')
@@ -95,6 +106,11 @@ _DATA_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.data')
 """运行时产生的需要持久保存的数据文件路径"""
 _TEMPORARY_RESOURCE_FOLDER: Path = __ROOT_PATH.joinpath('.tmp')
 """运行时产生的的可随时清理的缓存/临时文件路径"""
+
+# ------------------------------------------------------------------ #
+# 规范文件名定义及相关方法
+# ------------------------------------------------------------------ #
+
 
 _FILE_NAME_SAFE_CHARS = frozenset(string.ascii_letters + string.digits + '-_%.~')
 """规范文件名中允许的字符集(含百分号编码前缀 '%'、点号 '.' 与截断后缀分隔符 '~', 点号合法性由首尾位置另行约束)"""
@@ -110,9 +126,6 @@ _FILE_NAME_KEPT_SUFFIX_MAX_LENGTH: int = 16
 """文件名扩展名保留长度上限(含前导点, 超出时在变更分支截断为 前缀+'~'+短哈希 形式)"""
 _FILE_NAME_HASH_SUFFIX_LENGTH: int = 8
 """清洗变更/超长截断时追加的确定性短哈希后缀长度"""
-
-type HostingPathType = Literal['path', 'url']
-"""文件托管路径类型, 'path' 为本地文件路径, 'url' 为 HTTP URL"""
 
 
 def _encode_ascii_char(char: str) -> str:
@@ -205,6 +218,15 @@ def clean_ascii_valid_dirname(name: str) -> str:
     return hashlib.sha256(name.encode('utf-8', errors='namereplace')).hexdigest()
 
 
+# ------------------------------------------------------------------ #
+# 文件托管协议类
+# ------------------------------------------------------------------ #
+
+
+type HostingPathType = Literal['path', 'url']
+"""文件托管路径类型, 'path' 为本地文件路径, 'url' 为 HTTP URL"""
+
+
 class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
     """文件托管协议基类"""
 
@@ -215,6 +237,11 @@ class BaseResourceHostProtocol[RT: 'BaseResource'](abc.ABC):
     async def get_hosting_file_path(self, *, ttl_delta: int = 0) -> tuple[HostingPathType, str]:
         """获取文件托管路径, 返回 (路径类型, 路径值) 元组"""
         raise NotImplementedError
+
+
+# ------------------------------------------------------------------ #
+# 本地资源类及其实现
+# ------------------------------------------------------------------ #
 
 
 class BaseResource(abc.ABC):
@@ -243,22 +270,9 @@ class BaseResource(abc.ABC):
     def __str__(self) -> str:
         return self.resolve_path
 
-    @classmethod
-    def register_host_protocol(
-            cls,
-            protocol: type[BaseResourceHostProtocol[Self]],
-    ) -> None:
-        """注册文件托管协议"""
-        if cls._host_protocol is not None:
-            raise RuntimeError(f'host protocol already registered: {cls._host_protocol!r}')
-        if not issubclass(protocol, BaseResourceHostProtocol):
-            raise TypeError(f'protocol must be a subclass of BaseResourceHostProtocol, not {protocol!r}')
-        cls._host_protocol = protocol
-
-    @classmethod
-    def unregister_host_protocol(cls) -> None:
-        """注销已注册的文件托管协议, 未注册时为空操作"""
-        cls._host_protocol = None
+    # ------------------------------------------------------------------ #
+    # 路径校验相关方法
+    # ------------------------------------------------------------------ #
 
     @classmethod
     def _check_confinement(cls, path: Path) -> Path:
@@ -271,6 +285,10 @@ class BaseResource(abc.ABC):
         if root is not None and not path.resolve().is_relative_to(root):
             raise ResourcePathOutOfRootError(path, root)
         return path
+
+    # ------------------------------------------------------------------ #
+    # 路径构造相关方法
+    # ------------------------------------------------------------------ #
 
     @classmethod
     def _init_from_path(cls, path: Path) -> Self:
@@ -339,55 +357,9 @@ class BaseResource(abc.ABC):
         new_obj.path = new_parent.joinpath(self.path.name)
         return new_obj
 
-    @property
-    def name(self) -> str:
-        """一个表示最后路径组件的字符串, 排除了驱动器与根目录, 如果存在的话"""
-        return self.path.name
-
-    @property
-    def suffix(self) -> str:
-        """路径目标最终组件的文件扩展名(如果有)
-
-        'my/library/setup.py' -> '.py'
-        'my/library.tar.gz' -> .gz'
-        'my/library' -> ''
-        """
-        return self.path.suffix
-
-    @property
-    def stem(self) -> str:
-        """最后一个路径组件, 除去后缀
-
-        'my/library.tar.gz' -> 'library.tar'
-        'my/library.tar' -> 'library'
-        'my/library' -> 'library'
-        """
-        return self.path.stem
-
-    @property
-    def is_exist(self) -> bool:
-        """路径目标文件/文件夹是否存在"""
-        return self.path.exists()
-
-    @property
-    def is_file(self) -> bool:
-        """路径目标是否为文件且存在"""
-        return self.is_exist and self.path.is_file()
-
-    @property
-    def is_dir(self) -> bool:
-        """路径目标是否为文件夹且存在"""
-        return self.is_exist and self.path.is_dir()
-
-    def raise_not_file(self) -> NoReturn | None:
-        """路径目标不是文件或不存在时抛出 ResourceNotFileError 异常"""
-        if not self.is_file:
-            raise ResourceNotFileError(self.path)
-
-    def raise_not_dir(self) -> NoReturn | None:
-        """路径目标不是文件夹或不存在时抛出 ResourceNotFolderError 异常"""
-        if not self.is_dir:
-            raise ResourceNotFolderError(self.path)
+    # ------------------------------------------------------------------ #
+    # 路径检查装饰器
+    # ------------------------------------------------------------------ #
 
     @staticmethod
     def check_directory[**P, R, ST: 'BaseResource'](
@@ -450,6 +422,60 @@ class BaseResource(abc.ABC):
         if not self.path.parent.exists():
             Path.mkdir(self.path.parent, parents=True, exist_ok=exist_ok)
 
+    # ------------------------------------------------------------------ #
+    # 路径属性相关方法
+    # ------------------------------------------------------------------ #
+
+    @property
+    def name(self) -> str:
+        """一个表示最后路径组件的字符串, 排除了驱动器与根目录, 如果存在的话"""
+        return self.path.name
+
+    @property
+    def suffix(self) -> str:
+        """路径目标最终组件的文件扩展名(如果有)
+
+        'my/library/setup.py' -> '.py'
+        'my/library.tar.gz' -> .gz'
+        'my/library' -> ''
+        """
+        return self.path.suffix
+
+    @property
+    def stem(self) -> str:
+        """最后一个路径组件, 除去后缀
+
+        'my/library.tar.gz' -> 'library.tar'
+        'my/library.tar' -> 'library'
+        'my/library' -> 'library'
+        """
+        return self.path.stem
+
+    @property
+    def is_exist(self) -> bool:
+        """路径目标文件/文件夹是否存在"""
+        return self.path.exists()
+
+    @property
+    def is_file(self) -> bool:
+        """路径目标是否为文件且存在"""
+        return self.is_exist and self.path.is_file()
+
+    @property
+    def is_dir(self) -> bool:
+        """路径目标是否为文件夹且存在"""
+        return self.is_exist and self.path.is_dir()
+
+    def raise_not_file(self) -> NoReturn | None:
+        """路径目标不是文件或不存在时抛出 ResourceNotFileError 异常"""
+        if not self.is_file:
+            raise ResourceNotFileError(self.path)
+
+    def raise_not_dir(self) -> NoReturn | None:
+        """路径目标不是文件夹或不存在时抛出 ResourceNotFolderError 异常"""
+        if not self.is_dir:
+            raise ResourceNotFolderError(self.path)
+
     @property
     def parent(self) -> Self:
         """返回逻辑父路径"""
@@ -471,6 +497,10 @@ class BaseResource(abc.ABC):
     def file_size(self) -> int:
         """获取路径对应的文件大小(以字节为单位）"""
         return self.path.stat().st_size
+
+    # ------------------------------------------------------------------ #
+    # 文件读写相关方法
+    # ------------------------------------------------------------------ #
 
     @overload
     def open(
@@ -570,6 +600,10 @@ class BaseResource(abc.ABC):
         finally:
             tmp_file.remove(missing_ok=True)
 
+    # ------------------------------------------------------------------ #
+    # 目录及文件操作相关方法
+    # ------------------------------------------------------------------ #
+
     @check_directory
     def list_all_files(self) -> list[Self]:
         """遍历文件夹内所有文件并返回文件列表"""
@@ -607,24 +641,57 @@ class BaseResource(abc.ABC):
                 yield file
 
     @check_file
-    def rename(self, target: str | Path) -> Self:
-        """将此文件或目录重命名为/移动到给定的 target, 并返回一个新的指向 target 的实例
+    def copy(self, target: str | Path, *, follow_symlinks: bool = True) -> Self:
+        """将此文件复制到给定的 target, 并返回一个新的指向 target 的实例
 
-        目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录
+        尽量保留所有元数据, 如果 target 指定了一个已存在的文件, 则它将被替换,
+        如果 target 指定了一个目录, 文件将使用原文件的基准文件名拷贝到 target 中;
+        当 follow_symlinks 为 False, 并且此文件为符号链接时,
+        会尝试将来自此符号链接的所有元数据拷贝到新创建的 target 符号链接;
+        目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录;
+        目标文件父目录缺失时将自动创建;
+        目标路径超出 confinement root 时抛出 ResourcePathOutOfRootError 异常(仅限 _CONFINEMENT_ROOT 非 None 的资源类);
+        本方法为同步方法, 应当避免对大文件使用从而造成阻塞
         """
+        target_path = self._check_confinement(Path(target))
+        if not target_path.parent.exists():
+            Path.mkdir(target_path.parent, parents=True)
         new_obj = self.__class__(str(self.path))
-        new_obj.path = self.path.rename(target)
+        new_obj.path = Path(shutil.copy2(self.path, target_path, follow_symlinks=follow_symlinks))
+        return new_obj
+
+    @check_directory
+    def copytree(self, target: str | Path, *, dirs_exist_ok: bool = True) -> Self:
+        """将此目录递归地复制到给定的 target, 并返回一个新的指向 target 的实例
+
+        尽量保留目录的权限和时间和文件元数据, 所需的中间目录默认也将被创建,
+        会将源目录树中的符号链接的内容和元数据拷贝到新目录树;
+        dirs_exist_ok 默认为 True, 将会覆盖已存在的目录;
+        目标路径超出 confinement root 时抛出 ResourcePathOutOfRootError 异常(仅限 _CONFINEMENT_ROOT 非 None 的资源类);
+        本方法为同步方法, 应当避免对含有大量文件的目录使用从而造成阻塞
+        """
+        target_path = self._check_confinement(Path(target))
+        new_obj = self.__class__(str(self.path))
+        new_obj.path = Path(shutil.copytree(
+            self.path,
+            target_path,
+            symlinks=False,
+            copy_function=shutil.copy2,
+            dirs_exist_ok=dirs_exist_ok,
+        ))
         return new_obj
 
     @check_file
     def replace(self, target: str | Path) -> Self:
-        """将此文件或目录重命名为/移动到给定的 target, 并返回一个新的指向 target 的实例
+        """将此文件重命名为/移动到给定的 target, 并返回一个新的指向 target 的实例
 
-        如果 target 指向一个现有文件或空目录, 则它将被无条件地替换
-        目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录
+        如果 target 指向一个现有文件, 则它将被无条件地替换;
+        目标路径可能为绝对或相对路径, 相对路径将被解读为相对于当前工作目录, 而不是相对于 Path 对象的目录;
+        目标路径超出 confinement root 时抛出 ResourcePathOutOfRootError 异常(仅限 _CONFINEMENT_ROOT 非 None 的资源类)
         """
+        target_path = self._check_confinement(Path(target))
         new_obj = self.__class__(str(self.path))
-        new_obj.path = self.path.replace(target)
+        new_obj.path = self.path.replace(target_path)
         return new_obj
 
     def remove(self, *, missing_ok=True) -> None:
@@ -635,6 +702,37 @@ class BaseResource(abc.ABC):
         if self.path.exists() and not self.path.is_file():
             raise ResourceNotFileError(self.path)
         self.path.unlink(missing_ok=missing_ok)
+
+    def rmtree(self, *, ignore_errors: bool = True) -> None:
+        """递归地删除完整的目录树, 此目标不能是一个目录的符号链接
+
+        ignore_errors 默认为 True, 将会忽略删除失败导致的错误;
+        路径存在但不是目录时抛出 ResourceNotFolderError 异常, 路径不存在时按 ignore_errors 语义处理
+        """
+        if self.path.exists() and not self.path.is_dir():
+            raise ResourceNotFolderError(self.path)
+        shutil.rmtree(self.path, ignore_errors=ignore_errors)
+
+    # ------------------------------------------------------------------ #
+    # 文件托管协议相关方法
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def register_host_protocol(
+            cls,
+            protocol: type[BaseResourceHostProtocol[Self]],
+    ) -> None:
+        """注册文件托管协议"""
+        if cls._host_protocol is not None:
+            raise RuntimeError(f'host protocol already registered: {cls._host_protocol!r}')
+        if not issubclass(protocol, BaseResourceHostProtocol):
+            raise TypeError(f'protocol must be a subclass of BaseResourceHostProtocol, not {protocol!r}')
+        cls._host_protocol = protocol
+
+    @classmethod
+    def unregister_host_protocol(cls) -> None:
+        """注销已注册的文件托管协议, 未注册时为空操作"""
+        cls._host_protocol = None
 
     @check_file
     async def get_hosting_path(self, *, ttl_delta: int = 0) -> tuple[HostingPathType, str]:
