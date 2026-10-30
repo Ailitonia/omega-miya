@@ -279,7 +279,11 @@ class TestModuleContract:
 
 
 class TestEnsureArgMessage:
-    """ensure_arg_message 原始消息参数补全测试 (直接调用, 组合式替身)"""
+    """ensure_arg_message 原始消息参数补全测试 (直接调用, 组合式替身)
+
+    有效性校验对命令参数与 prompt 响应同源生效: 非空白纯文本 或 含媒体段 即为有效;
+    纯空白文本/仅控制段(At/Reply 等)且无媒体段视为无效, 结构为空的消息视为缺失并走 prompt
+    """
 
     @pytest.mark.parametrize('message_kind', ['text', 'media_only'])
     async def test_arg_available_returned_without_prompt(self, message_kind: str) -> None:
@@ -303,6 +307,65 @@ class TestEnsureArgMessage:
         assert result is message
         prompt_matcher.prompt.assert_not_awaited()
 
+    async def test_blank_text_arg_finishes_without_prompt(self) -> None:
+        """available 但纯空白文本且无媒体段的参数视为无效, 直接取消且不重试 prompt"""
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        prompt_matcher = _make_prompt_matcher(None)
+        interface = _RecordingFinishInterface()
+
+        with pytest.raises(FinishedException):
+            await ensure_arg_message(prompt_matcher, interface, _match(UniMessage('   '), True), 'p:', 60)
+
+        assert interface.finished == ['未提供有效参数, 已取消操作']
+        prompt_matcher.prompt.assert_not_awaited()
+
+    async def test_arg_whitespace_preserved(self) -> None:
+        """含有效内容的消息不 strip, 首尾空白原样保留"""
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        message = UniMessage('  内容  ')
+        result = await ensure_arg_message(
+            _make_prompt_matcher(None), _RecordingFinishInterface(), _match(message, True), 'p:', 60,
+        )
+
+        assert result is message
+        assert result.extract_plain_text() == '  内容  '
+
+    async def test_blank_text_with_media_arg_returned(self) -> None:
+        """空白文本与媒体段混合的消息因含媒体段而有效 (校验条件为 and 逻辑)"""
+        from nonebot_plugin_alconna.uniseg import Image, UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        message = UniMessage(' ') + UniMessage(Image(url='https://test.example/x.jpg'))
+        result = await ensure_arg_message(
+            _make_prompt_matcher(None), _RecordingFinishInterface(), _match(message, True), 'p:', 60,
+        )
+
+        assert result is message
+
+    async def test_control_segment_only_arg_finishes(self) -> None:
+        """仅控制段 (At/Reply 等) 且无文本无媒体的消息视为无效参数"""
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import At, UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        interface = _RecordingFinishInterface()
+
+        with pytest.raises(FinishedException):
+            await ensure_arg_message(
+                _make_prompt_matcher(None), interface, _match(UniMessage(At('user', '123456')), True), 'p:', 60,
+            )
+
+        assert interface.finished == ['未提供有效参数, 已取消操作']
+
     async def test_empty_available_arg_prompted(self) -> None:
         """available 但消息结构为空 (无任何消息段) 时视为缺失, 走 prompt 追问"""
         from nonebot_plugin_alconna.uniseg import UniMessage
@@ -322,6 +385,19 @@ class TestEnsureArgMessage:
         from src.params.handler import ensure_arg_message
 
         response = UniMessage('follow-up')
+        result = await ensure_arg_message(
+            _make_prompt_matcher(response), _RecordingFinishInterface(), _match(UniMessage(), False), 'p:', 60,
+        )
+
+        assert result is response
+
+    async def test_prompt_media_only_response_returned(self) -> None:
+        """prompt 追问得到的仅媒体消息同样视为有效参数"""
+        from nonebot_plugin_alconna.uniseg import Image, UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        response = UniMessage(Image(url='https://test.example/x.jpg'))
         result = await ensure_arg_message(
             _make_prompt_matcher(response), _RecordingFinishInterface(), _match(UniMessage(), False), 'p:', 60,
         )
@@ -364,6 +440,20 @@ class TestEnsureArgMessage:
 
         with pytest.raises(FinishedException):
             await ensure_arg_message(_make_prompt_matcher(UniMessage()), interface, _match(None, False), 'p:', 60)
+
+        assert interface.finished == ['未提供有效参数, 已取消操作']
+
+    async def test_prompt_blank_response_finishes(self) -> None:
+        """prompt 返回纯空白文本且无媒体段时视为未提供有效参数"""
+        from nonebot.exception import FinishedException
+        from nonebot_plugin_alconna.uniseg import UniMessage
+
+        from src.params.handler import ensure_arg_message
+
+        interface = _RecordingFinishInterface()
+
+        with pytest.raises(FinishedException):
+            await ensure_arg_message(_make_prompt_matcher(UniMessage('  ')), interface, _match(None, False), 'p:', 60)
 
         assert interface.finished == ['未提供有效参数, 已取消操作']
 
