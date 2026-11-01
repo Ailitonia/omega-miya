@@ -41,15 +41,15 @@ schedule_message_manager = on_alconna(
         Subcommand(
             'add',
             Option(
-                '--name|-n', Args['name#任务名称', str],
+                '--name|-n', Args['name?#任务名称', str],
                 help_text='为定时消息设置的任务名称',
             ),
             Option(
-                '--crontab|-c', Args['crontab#调度策略', MultiVar(str)],
+                '--crontab|-c', Args['crontab?#调度策略', MultiVar(str)],
                 help_text='调度的定时任务的crontab表达式, 星期字段0代表周一(APScheduler 语义)',
             ),
             Option(
-                '--message|-m', Args['message#消息内容', AllParam],
+                '--message|-m', Args['message?#消息内容', AllParam],
                 help_text='发送的定时消息内容, 该选项须放在最后, 其后的全部内容均作为消息内容',
             ),
             alias=['新增', '添加', '设置'],
@@ -57,7 +57,7 @@ schedule_message_manager = on_alconna(
         ),
         Subcommand(
             'remove',
-            Option('--name|-n', Args['name#任务名称', str], help_text='将移除定时消息的任务名称'),
+            Option('--name|-n', Args['name?#任务名称', str], help_text='将移除定时消息的任务名称'),
             alias=['移除', '删除'],
             help_text='移除一个定时消息任务',
         ),
