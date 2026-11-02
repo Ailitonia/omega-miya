@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2026/8/21 22:20
-@FileName       : hanlder
+@FileName       : handler
 @Project        : omega-miya
 @Description    : 命令分发及处理函数
 @GitHub         : https://github.com/Ailitonia
@@ -29,6 +29,20 @@ def _parse_tool_target(target: str) -> tuple[str, str]:
         raise ValueError(f'invalid tool target function name: {target!r}')
 
     return f'tools.{module_part}', func_name
+
+
+def _prepare_log_and_nonebot() -> None:
+    """配置 DEBUG 级别日志文件 sink 并初始化 NoneBot (工具执行及数据库命令的公共运行时准备)"""
+    import nonebot
+    from nonebot.log import default_format, logger
+
+    from src.resource import LogFileResource
+
+    log_path = LogFileResource()
+    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
+
+    # Initialize nonebot
+    nonebot.init()
 
 
 def run_bot(_: 'CliQueryArguments') -> None:
@@ -94,16 +108,9 @@ def run_tool_execute(args: 'CliQueryArguments') -> None:
     import importlib
     import inspect
 
-    import nonebot
-    from nonebot.log import default_format, logger
+    from nonebot.log import logger
 
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 导入目标工具模块, 仅当目标模块本身缺失时转换为友好的错误提示, 工具内部的依赖缺失则原样抛出
     try:
@@ -131,16 +138,7 @@ def run_tool_execute(args: 'CliQueryArguments') -> None:
 
 def run_database_check(_: 'CliQueryArguments') -> None:
     """执行检查数据库版本"""
-    import nonebot
-    from nonebot.log import default_format, logger
-
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 执行 alembic current/check
     from src.database.migrate import run_check_current
@@ -149,16 +147,7 @@ def run_database_check(_: 'CliQueryArguments') -> None:
 
 def run_database_upgrade_to_head(_: 'CliQueryArguments') -> None:
     """执行升级数据库到最新"""
-    import nonebot
-    from nonebot.log import default_format, logger
-
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 执行数据库升级
     from src.database.migrate import run_upgrade_migrations
@@ -170,16 +159,7 @@ def run_database_upgrade(args: 'CliQueryArguments') -> None:
     if not args.database_upgrade:
         raise ValueError('not provide upgrade target version argument')
 
-    import nonebot
-    from nonebot.log import default_format, logger
-
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 执行数据库升级
     from src.database.migrate import run_upgrade_migrations
@@ -191,16 +171,7 @@ def run_database_downgrade(args: 'CliQueryArguments') -> None:
     if not args.database_downgrade:
         raise ValueError('not provide downgrade target version argument')
 
-    import nonebot
-    from nonebot.log import default_format, logger
-
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 执行数据库降级
     from src.database.migrate import run_downgrade_migrations
@@ -212,16 +183,7 @@ def run_database_revision(args: 'CliQueryArguments') -> None:
     if not args.database_revision:
         raise ValueError('not provide version message')
 
-    import nonebot
-    from nonebot.log import default_format, logger
-
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 执行生成数据库迁移版本
     from src.database.migrate import run_revision
@@ -233,16 +195,7 @@ def run_database_stamp(args: 'CliQueryArguments') -> None:
     if not args.database_stamp:
         raise ValueError('not provide revision_id')
 
-    import nonebot
-    from nonebot.log import default_format, logger
-
-    from src.resource import LogFileResource
-
-    log_path = LogFileResource()
-    logger.add(log_path.debug, level='DEBUG', format=default_format, encoding='utf-8')
-
-    # Initialize nonebot
-    nonebot.init()
+    _prepare_log_and_nonebot()
 
     # 执行标记数据库版本
     from src.database.migrate import run_stamp

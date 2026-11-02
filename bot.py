@@ -10,11 +10,9 @@
 
 
 def omega_miya_main():
-    from src.cli import build_cli_parser, execute_cli_handler, parse_cli_args
+    from src.cli import execute_cli_handler, parse_cli_command
 
-    parser = build_cli_parser()
-    args = parse_cli_args(parser.parse_args())
-
+    args = parse_cli_command()
     execute_cli_handler(args)
 
 
