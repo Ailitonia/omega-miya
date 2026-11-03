@@ -15,6 +15,7 @@ from nonebot.utils import run_sync
 
 from .model.pixivision import PixivisionArticle, PixivisionIllustrationList
 from .model.user import PixivUserSearchingModel
+from .pixivision_links import parse_pixivision_link
 
 
 class PixivParser:
@@ -171,7 +172,7 @@ class PixivParser:
             title_href = card.xpath('article//h2[@class="arc__title"]/a[1]').pop(0)
             title = title_href.text.strip()
             aid = title_href.attrib.get('data-gtm-label')
-            url = root_url + title_href.attrib.get('href')
+            _, url = parse_pixivision_link(title_href.attrib.get('href'), root_url, 'a')
 
             thumbnail = card.xpath('article//div[@class="_thumbnail"]').pop(0).attrib.get('style')
             matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', thumbnail)
@@ -185,8 +186,7 @@ class PixivParser:
                 tag_href = tag.xpath('a[1]').pop(0)
                 tag_name = tag_href.attrib.get('data-gtm-label').strip()
                 tag_rela_url = tag_href.attrib.get('href')
-                tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
-                tag_url = root_url + tag_rela_url
+                tag_id, tag_url = parse_pixivision_link(tag_rela_url, root_url, 't')
                 tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
             result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail_url, 'url': url, 'tags': tag_list})
         return PixivisionIllustrationList.model_validate({'illustrations': result_list})
@@ -255,13 +255,12 @@ class PixivParser:
             illustration_info = illustration.xpath('div/h2[@class="arc__title"]/a').pop(0)
             illustration_title = illustration_info.text.strip()
             illustration_href = illustration_info.attrib.get('href')
-            illustration_url = root_url + illustration_href
-            illustration_aid = re.sub(r'^/\w{2}/a/(?=\d+)', '', illustration_href)
+            illustration_aid, illustration_url = parse_pixivision_link(illustration_href, root_url, 'a')
             illustration_tags = [
                 {
-                    'tag_id': re.sub(r'^/\w{2}/t/(?=\d+)', '', x.attrib.get('href')),
+                    'tag_id': parse_pixivision_link(x.attrib.get('href'), root_url, 't')[0],
                     'tag_name': x.attrib.get('data-gtm-label'),
-                    'tag_url': root_url + x.attrib.get('href'),
+                    'tag_url': parse_pixivision_link(x.attrib.get('href'), root_url, 't')[1],
                 }
                 for x in illustration.xpath('div/ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a')
             ]
@@ -279,8 +278,7 @@ class PixivParser:
         for tag in tag_hrefs:
             tag_name = tag.attrib.get('data-gtm-label')
             tag_rela_url = tag.attrib.get('href')
-            tag_id = re.sub(r'^/zh/t/(?=\d+)', '', tag_rela_url)
-            tag_url = root_url + tag_rela_url
+            tag_id, tag_url = parse_pixivision_link(tag_rela_url, root_url, 't')
             tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
 
         result = {
