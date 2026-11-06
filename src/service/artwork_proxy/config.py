@@ -8,7 +8,7 @@
 @Software       : PyCharm
 """
 
-from src.resource import StaticResource, TemporaryResource
+from src.resource import DataResource, StaticResource, TemporaryResource
 
 
 class ArtworkProxyPathConfig:
@@ -30,29 +30,34 @@ class ArtworkProxyPathConfig:
         return StaticResource('fonts', self._default_theme_font_name)
 
     @property
-    def base_path(self) -> TemporaryResource:
+    def base_data_path(self) -> DataResource:
+        """数据文件主目录"""
+        return DataResource(self.__base)
+
+    @property
+    def base_tmp_path(self) -> TemporaryResource:
         """缓存文件主目录"""
         return TemporaryResource(self.__base)
 
     @property
-    def meta_path(self) -> TemporaryResource:
+    def meta_path(self) -> DataResource:
         """作品元数据文件目录"""
-        return self.base_path('metadata')
+        return self.base_data_path('metadata')
 
     @property
     def artwork_path(self) -> TemporaryResource:
         """作品图片缓存文件目录"""
-        return self.base_path('artwork')
+        return self.base_tmp_path('artwork')
 
     @property
     def preview_path(self) -> TemporaryResource:
         """生成预览图缓存文件目录"""
-        return self.base_path('preview')
+        return self.base_tmp_path('preview')
 
     @property
     def processed_path(self) -> TemporaryResource:
         """处理后图片缓存文件目录"""
-        return self.base_path('processed')
+        return self.base_tmp_path('processed')
 
 
 __all__ = [

@@ -160,7 +160,7 @@ class BaseMoebooruArtworkProxy(BaseArtworkProxy, abc.ABC):
     @classmethod
     async def _recommend(cls, base_aid: str | int | None = None, *, limit: int = 20) -> list[str | int]:
         if isinstance(base_aid, int) or (isinstance(base_aid, str) and base_aid.isdecimal()):
-            artworks_data = await cls._get_api().post_show_similar(id_=int(base_aid))
+            artworks_data = (await cls._get_api().post_show_similar(id_=int(base_aid))).posts
         else:
             artworks_data = await cls._get_api().posts_show_popular_recent()
         return [x.id for x in artworks_data[:limit]]
@@ -222,7 +222,6 @@ class KonachanSafeArtworkProxy(BaseMoebooruArtworkProxy):
         if cls._api is None:
             cls._api = KonachanSafeAPI()
         return cls._api
-
 
     @classmethod
     def _get_base_origin_name(cls) -> str:

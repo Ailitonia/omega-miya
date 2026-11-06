@@ -42,7 +42,7 @@ from .models import (
 from .preview_image_utils import ArtworkImageOps
 
 if TYPE_CHECKING:
-    from src.resource import TemporaryResource
+    from src.resource import DataResource, TemporaryResource
 
 type ArtworkPageParamType = Literal['preview', 'regular', 'original']
 """作品页面可选类型参数"""
@@ -140,7 +140,7 @@ class BaseArtworkProxy(abc.ABC):
         return subdir_name
 
     @property
-    def meta_path(self) -> 'TemporaryResource':
+    def meta_path(self) -> 'DataResource':
         """本类型作品元数据文件目录"""
         return self._get_path_config().meta_path(self.sliced_aid_subdir_name)
 
@@ -173,12 +173,12 @@ class BaseArtworkProxy(abc.ABC):
         return self._clean_cache_component(self.s_aid, max_length=_CACHE_NAME_STEM_MAX_LENGTH)
 
     @property
-    def meta_file(self) -> 'TemporaryResource':
+    def meta_file(self) -> 'DataResource':
         """作品元数据文件路径"""
         return self.meta_path(self._clean_cache_component(f'{self._cache_name_stem}.json'))
 
     @property
-    def meta_file_date_snapshot(self) -> 'TemporaryResource':
+    def meta_file_date_snapshot(self) -> 'DataResource':
         """作品元数据文件(获取时快照副本)路径"""
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
         return self.meta_path(self._clean_cache_component(f'{self._cache_name_stem}.{timestamp}.json.snapshot'))
@@ -278,7 +278,7 @@ class BaseArtworkProxy(abc.ABC):
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def _get_pool_meta_file(cls, pool_id: str | int) -> 'TemporaryResource':
+    def _get_pool_meta_file(cls, pool_id: str | int) -> 'DataResource':
         return cls._get_path_config().meta_path('pool', cls._clean_cache_component(f'pool_{pool_id}.json'))
 
     @classmethod
@@ -396,7 +396,7 @@ class BaseArtworkProxy(abc.ABC):
         return [cls(artwork_id=aid) for aid in artwork_ids]
 
     @classmethod
-    def _get_user_meta_file(cls, uid: str | int) -> 'TemporaryResource':
+    def _get_user_meta_file(cls, uid: str | int) -> 'DataResource':
         return cls._get_path_config().meta_path('user', cls._clean_cache_component(f'user_{uid}.json'))
 
     @classmethod

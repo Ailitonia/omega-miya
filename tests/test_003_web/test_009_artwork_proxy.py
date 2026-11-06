@@ -24,13 +24,27 @@ from tests.test_003_web.helpers import patch_module_time
 
 
 @pytest.fixture
-def isolated_temporary_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """将 TemporaryResource 根目录隔离到 tmp_path, 避免污染项目 .tmp 缓存目录"""
+def isolated_data_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """将 DataResource 根目录隔离到 tmp_path, 避免污染项目 .data 数据目录"""
     import src.resource
 
-    monkeypatch.setattr(src.resource, '_TEMPORARY_RESOURCE_FOLDER', tmp_path)
-    monkeypatch.setattr(src.resource.TemporaryResource, '_CONFINEMENT_ROOT', tmp_path.resolve())
-    return tmp_path
+    data_root = tmp_path / 'data'
+    monkeypatch.setattr(src.resource, '_DATA_RESOURCE_FOLDER', data_root)
+    monkeypatch.setattr(src.resource.DataResource, '_CONFINEMENT_ROOT', data_root.resolve())
+    return data_root
+
+
+@pytest.fixture
+def isolated_temporary_root(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, isolated_data_root: Path,
+) -> Path:
+    """将 TemporaryResource 根目录隔离到 tmp_path, 并同时隔离元数据使用的 DataResource"""
+    import src.resource
+
+    temporary_root = tmp_path / 'tmp'
+    monkeypatch.setattr(src.resource, '_TEMPORARY_RESOURCE_FOLDER', temporary_root)
+    monkeypatch.setattr(src.resource.TemporaryResource, '_CONFINEMENT_ROOT', temporary_root.resolve())
+    return temporary_root
 
 
 def make_page(page_index: int, *, base_url: str = 'https://unit.test', ext: str = '.jpg') -> dict[str, Any]:
@@ -365,7 +379,8 @@ class TestBasicInterface:
 
         other = _OtherProxy('1')
         assert other.path_config is not proxy.path_config
-        assert other.path_config.base_path.name == 'other_unit_test_proxy'
+        assert other.path_config.base_data_path.name == 'other_unit_test_proxy'
+        assert other.path_config.base_tmp_path.name == 'other_unit_test_proxy'
 
     @pytest.mark.parametrize(
         ('aid', 'expected'),
@@ -424,13 +439,20 @@ class TestBasicInterface:
     def test_parse_url_file_suffix(self, proxy_factory: SimpleNamespace, url: str, expected: str):
         assert proxy_factory.cls.parse_url_file_suffix(url) == expected
 
-    def test_meta_file_and_paths(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
+    def test_meta_file_and_paths(
+            self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path, isolated_data_root: Path,
+    ):
         proxy = proxy_factory.cls('123')
-        base = isolated_temporary_root / 'unit_test_proxy'
-        assert proxy.meta_path.path == base / 'metadata' / 'artwork_id_0-999999'
-        assert proxy.artwork_path.path == base / 'artwork' / 'artwork_id_0-999999'
+        data_base = isolated_data_root / 'unit_test_proxy'
+        temporary_base = isolated_temporary_root / 'unit_test_proxy'
+        assert proxy.meta_path.path == data_base / 'metadata' / 'artwork_id_0-999999'
+        assert proxy.artwork_path.path == temporary_base / 'artwork' / 'artwork_id_0-999999'
+        assert proxy.path_config.preview_path.path == temporary_base / 'preview'
+        assert proxy.path_config.processed_path.path == temporary_base / 'processed'
         assert proxy.meta_file.name == '123.json'
-        assert re.fullmatch(r'123\.\d{20}\.json\.snapshot', proxy.meta_file_date_snapshot.name) is not None
+        snapshot = proxy.meta_file_date_snapshot
+        assert snapshot.path.parent == proxy.meta_path.path
+        assert re.fullmatch(r'123\.\d{20}\.json\.snapshot', snapshot.name) is not None
 
     def test_pool_meta_file_cleans_pool_id(self, proxy_factory: SimpleNamespace):
         """固定前后缀与 pool_id 拼成最终完整组件后统一清洗(非法字符百分号编码 + 短哈希)"""
@@ -835,9 +857,9 @@ class TestPageFiles:
 class TestPool:
     """图集元数据缓存与图集查询测试"""
 
-    def test_pool_meta_file_naming(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
+    def test_pool_meta_file_naming(self, proxy_factory: SimpleNamespace, isolated_data_root: Path):
         file = proxy_factory.cls._get_pool_meta_file(pool_id='p1')
-        assert file.path == isolated_temporary_root / 'unit_test_proxy' / 'metadata' / 'pool' / 'pool_p1.json'
+        assert file.path == isolated_data_root / 'unit_test_proxy' / 'metadata' / 'pool' / 'pool_p1.json'
 
     async def test_fast_query_pool_cold_and_warm(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
         proxy_factory.hooks.query_pool.return_value = make_pool_data()
@@ -934,9 +956,9 @@ class TestPool:
 class TestUserSpace:
     """用户空间(用户元数据缓存/作品列表/收藏/关注)测试"""
 
-    def test_user_meta_file_naming(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
+    def test_user_meta_file_naming(self, proxy_factory: SimpleNamespace, isolated_data_root: Path):
         file = proxy_factory.cls._get_user_meta_file(uid='456')
-        assert file.path == isolated_temporary_root / 'unit_test_proxy' / 'metadata' / 'user' / 'user_456.json'
+        assert file.path == isolated_data_root / 'unit_test_proxy' / 'metadata' / 'user' / 'user_456.json'
 
     async def test_fast_query_user_cold_and_warm(self, proxy_factory: SimpleNamespace, isolated_temporary_root: Path):
         proxy_factory.hooks.query_user.return_value = make_user_data()
