@@ -19,7 +19,11 @@ DB_ENTITY_SETTING_PLUGIN_NAME: Literal['OmegaEmailPluginMailboxBind'] = 'OmegaEm
 """实体对象绑定邮箱的配置项名称"""
 EMAIL_PASSWORD_ENCRYPT_SALT: Literal['0x656D61696C'] = '0x656D61696C'
 """邮箱密码加密盐值"""
-EMAIL_TMP_FOLDER: TemporaryResource = TemporaryResource('receive_email')
+EMAIL_IMAP_PORT: Literal[993] = 993
+"""IMAP 连接端口"""
+EMAIL_IMAP_TIMEOUT: float = 30.0
+"""IMAP 连接及 Socket 操作超时时间(秒)"""
+EMAIL_TMP_FOLDER: TemporaryResource = TemporaryResource('omega_email_received')
 """已收邮件图片缓存路径"""
 
 
@@ -27,6 +31,8 @@ __all__ = [
     'DB_MAILBOX_ACCOUNT_SETTING_NAME',
     'DB_ENTITY_SETTING_MODULE_NAME',
     'DB_ENTITY_SETTING_PLUGIN_NAME',
+    'EMAIL_IMAP_PORT',
+    'EMAIL_IMAP_TIMEOUT',
     'EMAIL_PASSWORD_ENCRYPT_SALT',
     'EMAIL_TMP_FOLDER',
 ]

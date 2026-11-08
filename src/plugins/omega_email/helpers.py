@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from nonebot.log import logger
 from nonebot.utils import run_sync
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.exc import NoResultFound
 
 from src.database.internal.system_setting import SystemSetting, SystemSettingDAL
 from src.utils.crypto import AESEncryptor
@@ -23,6 +24,7 @@ from .consts import (
     DB_ENTITY_SETTING_MODULE_NAME,
     DB_ENTITY_SETTING_PLUGIN_NAME,
     DB_MAILBOX_ACCOUNT_SETTING_NAME,
+    EMAIL_IMAP_PORT,
     EMAIL_PASSWORD_ENCRYPT_SALT,
     EMAIL_TMP_FOLDER,
 )
@@ -32,8 +34,14 @@ if TYPE_CHECKING:
     from src.resource import TemporaryResource
     from src.service import OmegaMatcherInterface
 
-_EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
-"""邮箱地址校验正则"""
+_MAX_EMAIL_ADDRESS_LENGTH: int = 64
+"""与 SystemSettingOrm.setting_key 的 String(64) 存储约束一致"""
+_EMAIL_LOCAL_RE = re.compile(r'[A-Za-z0-9_%+-]+(?:\.[A-Za-z0-9_%+-]+)*')
+"""邮箱地址名称部分校验正则"""
+_EMAIL_DOMAIN_LABEL_RE = re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?')
+"""邮箱地址域名部分校验正则"""
+_EMAIL_TLD_RE = re.compile(r'[A-Za-z]{2,63}')
+"""邮箱顶级域校验正则"""
 _PASSWORD_ENCRYPTOR: AESEncryptor = AESEncryptor(salt=EMAIL_PASSWORD_ENCRYPT_SALT)
 """实例化加密工具类, 避免每次密钥派生耗时"""
 
@@ -58,12 +66,18 @@ class MailboxAccount(BaseMailboxModel):
 
 
 def is_valid_email_address(email_address: str) -> bool:
-    if not email_address or len(email_address) > 254:
+    """校验实用型 ASCII 邮箱地址, 并确保地址可写入现有数据库字段"""
+    if not email_address or len(email_address) > _MAX_EMAIL_ADDRESS_LENGTH or email_address.count('@') != 1:
         return False
-    local = email_address.split('@')[0]
-    if len(local) > 64:
+    local, domain = email_address.split('@')
+    if not local or len(local) > 64 or _EMAIL_LOCAL_RE.fullmatch(local) is None:
         return False
-    return _EMAIL_RE.match(email_address) is not None
+    domain_labels = domain.split('.')
+    if len(domain_labels) < 2:
+        return False
+    if any(_EMAIL_DOMAIN_LABEL_RE.fullmatch(label) is None for label in domain_labels):
+        return False
+    return _EMAIL_TLD_RE.fullmatch(domain_labels[-1]) is not None
 
 
 @run_sync
@@ -99,16 +113,18 @@ async def save_mailbox_into_database(
 
 
 async def load_mailbox_from_database(mailbox_address: str) -> MailboxAccount | None:
-    """从数据库读取邮箱账号数据"""
+    """从数据库读取邮箱账号数据, 记录不存在或读取/解析失败时返回 None"""
     try:
         async with SystemSettingDAL.create() as dal:
             mailbox_setting = await dal.query_unique(
                 setting_name=DB_MAILBOX_ACCOUNT_SETTING_NAME,
                 setting_key=mailbox_address,
             )
+    except NoResultFound:
+        logger.warning(f'OmegaEmail | Mailbox {mailbox_address!r} not found')
+        return None
     except Exception as e:
-        logger.error(f'OmegaEmail | Load mailbox {mailbox_address!r} failed, {e}, '
-                     f'若为旧版本数据需使用内置工具重新导入')
+        logger.error(f'OmegaEmail | Load mailbox {mailbox_address!r} failed, {e}')
         return None
 
     try:
@@ -182,10 +198,29 @@ def check_mailbox(address: str, server_host: str, password: str) -> bool:
 
 
 @run_sync
-def get_unseen_mail_data(address: str, server_host: str, password: str) -> list[Email]:
+def get_unseen_mail_data(
+        address: str,
+        server_host: str,
+        password: str,
+        *,
+        port: int = EMAIL_IMAP_PORT,
+) -> list[Email]:
     """获取未读邮件列表"""
-    mail = ImapMailbox(host=server_host, address=address, password=password)
+    mail = ImapMailbox(host=server_host, address=address, password=password, port=port)
     return mail.get_mail_list(None, 'UNSEEN')
+
+
+@run_sync
+def mark_mail_as_seen(
+        address: str,
+        server_host: str,
+        password: str,
+        uid: str,
+        *,
+        port: int = EMAIL_IMAP_PORT,
+) -> None:
+    """按 UID 显式确认邮件已读"""
+    ImapMailbox(host=server_host, address=address, password=password, port=port).mark_as_seen(uid)
 
 
 @run_sync
@@ -207,6 +242,7 @@ __all__ = [
     'get_unseen_mail_data',
     'is_valid_email_address',
     'load_mailbox_from_database',
+    'mark_mail_as_seen',
     'query_available_mailbox_address',
     'query_entity_bound_mailbox',
     'save_mailbox_into_database',

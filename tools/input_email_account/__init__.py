@@ -11,7 +11,7 @@
     python bot.py --tool-execute input_email_account
 
 交互式依次输入邮箱 IMAP 服务器地址、邮箱地址、邮箱密码, 通过 IMAP 登录校验后
-将账号加密写入数据库 (protocol=imap, port=993), 导入成功后可在会话中使用
+将账号加密写入数据库, 导入成功后可在会话中使用
 /邮箱 绑定 绑定该邮箱。本工具不接受任何命令行参数。
 
 安全说明:
@@ -60,6 +60,7 @@ def _prompt(text: str, *, secret: bool = False) -> str:
 
 async def main(*args: str) -> None:
     """手动导入邮箱账号: 交互式读入 -> 解析 -> 校验 -> 落库"""
+    from src.plugins.omega_email.consts import EMAIL_IMAP_PORT
     from src.plugins.omega_email.helpers import check_mailbox, is_valid_email_address, save_mailbox_into_database
 
     if args:
@@ -92,7 +93,7 @@ async def main(*args: str) -> None:
             server_host=server_host,
             password=password,
             protocol='imap',
-            port=993,
+            port=EMAIL_IMAP_PORT,
         )
         logger.success(f'添加邮箱: {address} 成功, 可在会话中使用 /邮箱 绑定 该邮箱')
     except Exception as e:

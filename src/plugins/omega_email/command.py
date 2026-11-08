@@ -1,7 +1,7 @@
 """
 @Author         : Ailitonia
 @Date           : 2022/04/28 20:26
-@FileName       : omega_email.py
+@FileName       : command.py
 @Project        : nonebot2_miya
 @Description    : Omega 邮箱插件
 @GitHub         : https://github.com/Ailitonia
@@ -21,6 +21,7 @@ from src.params.handler import ensure_arg_text
 from src.params.message_builder import build_sendable_image
 from src.params.permission import check_event_is_admin, check_event_is_superuser
 from src.service import enable_processor_state
+from .consts import EMAIL_IMAP_PORT
 from .helpers import (
     bind_entity_mailbox,
     check_mailbox,
@@ -28,6 +29,7 @@ from .helpers import (
     get_unseen_mail_data,
     is_valid_email_address,
     load_mailbox_from_database,
+    mark_mail_as_seen,
     query_available_mailbox_address,
     query_entity_bound_mailbox,
     save_mailbox_into_database,
@@ -43,21 +45,21 @@ mailbox_manager = on_alconna(
         'mailbox',
         Subcommand(
             'add',
-            Option('--server|-s', Args['server#服务器地址', str], help_text='邮箱IMAP服务器地址'),
-            Option('--address|-a', Args['address#邮箱地址', str], help_text='邮箱地址'),
-            Option('--password|-p', Args['password#邮箱密码', str], help_text='邮箱密码'),
+            Option('--server|-s', Args['server?#服务器地址', str], help_text='邮箱IMAP服务器地址'),
+            Option('--address|-a', Args['address?#邮箱地址', str], help_text='邮箱地址'),
+            Option('--password|-p', Args['password?#邮箱密码', str], help_text='邮箱密码'),
             alias=['新增', '添加'],
             help_text='新增邮箱账号',
         ),
         Subcommand(
             'bind',
-            Option('--address|-a', Args['address#邮箱地址', str], help_text='邮箱地址'),
+            Option('--address|-a', Args['address?#邮箱地址', str], help_text='邮箱地址'),
             alias=['绑定'],
             help_text='为当前会话绑定已有邮箱账号',
         ),
         Subcommand(
             'unbind',
-            Option('--address|-a', Args['address#邮箱地址', str], help_text='邮箱地址'),
+            Option('--address|-a', Args['address?#邮箱地址', str], help_text='邮箱地址'),
             alias=['解绑', '取消绑定'],
             help_text='为当前会话解绑已绑定的邮箱账号',
         ),
@@ -83,6 +85,11 @@ mailbox_manager = on_alconna(
         level=10,
     ),
 )
+
+
+@mailbox_manager.assign('$main')
+async def handle_default(interface: EVENT_M_IFACE) -> None:
+    await interface.finish_reply('邮箱插件, 可用子命令：<添加|绑定|解绑|收件>, 使用帮助查看详细使用方法')
 
 
 @mailbox_manager.assign('add', additional=check_event_is_superuser)
@@ -129,7 +136,7 @@ async def handle_add_mailbox(
             server_host=target_server,
             password=target_password,
             protocol='imap',
-            port=993,
+            port=EMAIL_IMAP_PORT,
         )
         logger.success(f'EmailBoxManager | 添加邮箱: {target_address} 成功')
         await interface.send_reply(f'添加邮箱 {target_address} 成功')
@@ -223,7 +230,7 @@ async def handle_receive_email(interface: EVENT_M_IFACE) -> None:
         await interface.finish_reply('查询已绑定邮箱失败, 请稍后重试或联系管理员处理')
 
     if not bound_mailbox:
-        logger.warning('ReceiveEmail | 收邮件结束, 没有绑定的邮箱')
+        logger.info('ReceiveEmail | 收邮件结束, 没有绑定的邮箱')
         await interface.finish_reply('没有绑定的邮箱, 请先联系管理员绑定邮箱后再收件')
 
     await interface.send_reply(f'已绑定邮箱:\n\n{"\n".join(bound_mailbox)}\n\n正在连接到邮箱服务器, 请稍候~')
@@ -242,6 +249,7 @@ async def handle_receive_email(interface: EVENT_M_IFACE) -> None:
                 address=mailbox_account.address,
                 server_host=mailbox_account.server.server_host,
                 password=mailbox_account.server.password,
+                port=mailbox_account.server.port,
             )
         except Exception as e:
             logger.error(f'ReceiveEmail | 邮箱 {mailbox_address} 收件失败, {e}')
@@ -253,19 +261,60 @@ async def handle_receive_email(interface: EVENT_M_IFACE) -> None:
             await interface.send_reply(f'邮箱: {mailbox_address}\n收件完成, 没有新的邮件')
             continue
 
+        sent_count = 0
+        failed_count = 0
         for mail in unseen_mail:
             try:
+                if mail.uid is None or not mail.uid.isdecimal() or int(mail.uid) <= 0:
+                    raise ValueError(f'Invalid IMAP UID: {mail.uid!r}')
                 content = mail.html if mail.html else mail.body
-                content = re.sub(r'(\n|&nbsp;){2,}', '\n', content)
+                content = re.sub(r'(\n|&nbsp;|\xa0){2,}', '\n', content)
                 mail_content = f"【{mail.header}】\n时间: {mail.date}\n发件人: {mail.sender}\n{'=' * 16}\n{content}"
                 mail_img = await generate_mail_snapshot(mail_content=mail_content)
                 await interface.send_reply(UniMessage(build_sendable_image(await mail_img.get_hosting_path())))
+                sent_count += 1
             except Exception as e:
+                failed_count += 1
                 logger.error(f'ReceiveEmail | 转换或发送已收邮件失败, {e}')
-                continue
+            else:
+                try:
+                    await mark_mail_as_seen(
+                        address=mailbox_account.address,
+                        server_host=mailbox_account.server.server_host,
+                        password=mailbox_account.server.password,
+                        uid=mail.uid,
+                        port=mailbox_account.server.port,
+                    )
+                except Exception as e:
+                    logger.warning(f'ReceiveEmail | 邮箱 {mailbox_address} 邮件 UID {mail.uid} 标记已读失败, {e}')
 
-        logger.success(f'ReceiveEmail | 邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail)}封新的邮件')
-        await interface.send_reply(f'邮箱 {mailbox_address}\n收件完成, 共{len(unseen_mail)}封新的邮件')
+        if failed_count:
+            logger.warning(
+                f'ReceiveEmail | 邮箱 {mailbox_address} 收件完成, 共{len(unseen_mail)}封新的邮件, '
+                f'发送消息成功{sent_count}封, 发送消息失败{failed_count}封',
+            )
+            await interface.send_reply(
+                f'邮箱 {mailbox_address}\n收件完成, 共{len(unseen_mail)}封新的邮件, '
+                f'发送消息成功{sent_count}封, 发送消息失败{failed_count}封',
+            )
+        else:
+            logger.success(f'ReceiveEmail | 邮箱 {mailbox_address} 收件完成, 共{sent_count}封新的邮件')
+            await interface.send_reply(f'邮箱 {mailbox_address}\n收件完成, 共{sent_count}封新的邮件')
+
+
+# 注册声明式自检, 启动时解析失败将输出 ERROR 日志
+mailbox_manager.test('mailbox')
+mailbox_manager.test(
+    'mailbox add -s imap.example.com -a test@example.com -p test-password',
+    expected={
+        'server': 'imap.example.com',
+        'address': 'test@example.com',
+        'password': 'test-password',
+    },
+)
+mailbox_manager.test('mailbox bind --address test@example.com', expected={'address': 'test@example.com'})
+mailbox_manager.test('mailbox unbind --address test@example.com', expected={'address': 'test@example.com'})
+mailbox_manager.test('mailbox receive')
 
 
 __all__ = []
