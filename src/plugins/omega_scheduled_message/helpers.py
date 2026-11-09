@@ -16,6 +16,7 @@ from nonebot import get_driver
 from nonebot.log import logger
 from nonebot_plugin_alconna.uniseg import Reference, Reply, UniMessage
 from pydantic import BaseModel, JsonValue
+from sqlalchemy.exc import NoResultFound
 
 from src.database import EntityDAL
 from src.resource import DataResource
@@ -81,13 +82,13 @@ def add_schedule_job(job_data: ScheduleMessageJob) -> None:
     logger.success(f'ScheduleMessageJob | Add job({job_data.job_unique_id}) succeed')
 
 
-def remove_schedule_job(job_data: ScheduleMessageJob) -> None:
+def remove_schedule_job(job_unique_id: str) -> None:
     """移除定时消息的计划任务, 调度器中不存在对应任务时仅记录日志"""
-    if scheduler.get_job(job_id=job_data.job_unique_id) is None:
-        logger.warning(f'ScheduleMessageJob | Job({job_data.job_unique_id}) not exist in scheduler, ignore remove')
+    if scheduler.get_job(job_id=job_unique_id) is None:
+        logger.warning(f'ScheduleMessageJob | Job({job_unique_id}) not exist in scheduler, ignore remove')
         return
-    scheduler.remove_job(job_id=job_data.job_unique_id)
-    logger.success(f'ScheduleMessageJob | Remove job({job_data.job_unique_id}) succeed')
+    scheduler.remove_job(job_id=job_unique_id)
+    logger.success(f'ScheduleMessageJob | Remove job({job_unique_id}) succeed')
 
 
 def remove_schedule_job_media(job_unique_id: str) -> None:
@@ -186,41 +187,73 @@ async def set_schedule_message_job(interface: OmegaMatcherInterface, job_data: S
         )
 
 
+async def query_schedule_message_job_value(
+        interface: OmegaMatcherInterface,
+        job_unique_id: str,
+) -> dict[str, JsonValue] | None:
+    """查询指定定时任务当前生效的配置值, 用于覆盖更新失败时的回滚, 配置不存在或未启用时返回 None"""
+    async with interface.create_current_entity_session() as entity:
+        try:
+            job_setting = await entity.query_auth_setting(
+                module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
+                plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
+                node=job_unique_id,
+            )
+        except NoResultFound:
+            return None
+    if job_setting.available != 1 or not job_setting.value:
+        return None
+    return job_setting.value
+
+
+async def restore_schedule_message_job_value(
+        interface: OmegaMatcherInterface,
+        job_unique_id: str,
+        value: dict[str, JsonValue],
+) -> None:
+    """将指定定时任务的配置恢复为给定的历史值, 用于覆盖更新失败时的回滚"""
+    async with interface.create_current_entity_session() as entity:
+        await entity.set_auth_setting(
+            module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
+            plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
+            node=job_unique_id,
+            available=1,
+            value=value,
+        )
+
+
 async def remove_schedule_message_job(interface: OmegaMatcherInterface, readable_job_name: str) -> None:
-    """在数据库中停用 Event 对应 Entity 的定时任务信息, 并清理该任务暂存的媒体文件"""
+    """在数据库中停用 Event 对应 Entity 的定时任务信息, 并移除调度器任务及该任务暂存的媒体文件
+
+    幂等: 数据库配置不存在/已停用或调度器中无对应任务时均仅记录日志, 不抛出异常
+    """
     job_unique_id = _generate_job_unique_id(
         readable_job_name=readable_job_name,
         entity_init_params=interface.extract_current_entity_params(),
     )
     async with interface.create_current_entity_session() as entity:
-        job_setting = await entity.query_auth_setting(
-            module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
-            plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
-            node=job_unique_id,
-        )
-        if job_setting.available != 1:
-            logger.info(f'ScheduleMessageJob | Job({readable_job_name}) not available, ignore')
-            return
-
-        # 数据库中的配置无法解析时调度器中大概率也没有对应任务, 跳过调度器处理继续停用配置
         try:
-            job_data = ScheduleMessageJob.model_validate(job_setting.value)
-        except Exception as e:
-            logger.warning(
-                f'ScheduleMessageJob | Parse job(node={job_unique_id}) failed when remove, '
-                f'skip remove from scheduler, {e}'
+            job_setting = await entity.query_auth_setting(
+                module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
+                plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
+                node=job_unique_id,
             )
+        except NoResultFound:
+            logger.info(f'ScheduleMessageJob | Job({readable_job_name}) not exist in database, ignore disable')
         else:
-            remove_schedule_job(job_data=job_data)
+            if job_setting.available != 1:
+                logger.info(f'ScheduleMessageJob | Job({readable_job_name}) not available, ignore')
+            else:
+                await entity.set_auth_setting(
+                    module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
+                    plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
+                    node=job_unique_id,
+                    available=0,
+                    value={},
+                )
 
-        await entity.set_auth_setting(
-            module=_SCHEDULE_MESSAGE_CUSTOM_MODULE_NAME,
-            plugin=_SCHEDULE_MESSAGE_CUSTOM_PLUGIN_NAME,
-            node=job_unique_id,
-            available=0,
-            value={},
-        )
-
+    # 调度器任务按 job_unique_id 直接移除, 不依赖数据库中的配置值可解析
+    remove_schedule_job(job_unique_id=job_unique_id)
     # 移除定时消息任务暂存的媒体文件
     remove_schedule_job_media(job_unique_id=job_unique_id)
 
@@ -229,7 +262,10 @@ __all__ = [
     'add_schedule_job',
     'generate_schedule_job_data',
     'get_schedule_message_job_list',
+    'query_schedule_message_job_value',
     'set_schedule_message_job',
+    'restore_schedule_message_job_value',
+    'remove_schedule_job',
     'remove_schedule_message_job',
     'remove_schedule_job_media',
 ]
