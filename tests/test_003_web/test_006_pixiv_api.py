@@ -23,6 +23,7 @@ import re
 from datetime import datetime
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urljoin
 
 import pytest
 from lxml import etree
@@ -257,9 +258,15 @@ def _extract_cards(context: Any, xpath: str) -> list[dict[str, Any]]:
             continue
         tags = []
         for tag_a in card.xpath('.//ul/li/a[contains(@href, "/t/")]'):
-            tid_matched = re.search(r'/t/(\d+)', tag_a.attrib.get('href') or '')
+            tag_href = tag_a.attrib.get('href') or ''
+            tid_matched = re.search(r'/t/(\d+)', tag_href)
             if tid_matched is not None:
-                tags.append({'id': tid_matched.group(1), 'name': ''.join(tag_a.itertext()).strip()})
+                # 保留原始 href(相对或绝对), 由用例用 urllib.parse.urljoin 独立合成期望 url
+                tags.append({
+                    'id': tid_matched.group(1),
+                    'name': ''.join(tag_a.itertext()).strip(),
+                    'href': tag_href,
+                })
         items.append({
             'aid': aid_matched.group(1),
             'title': ''.join(link[0].itertext()).strip(),
@@ -308,10 +315,16 @@ def _gt_pixivision_article_page(content: str) -> dict[str, Any]:
     collections = _extract_cards(main, './/article[contains(@class, "spotlight")]')
 
     article_tags = []
-    for tag_a in main.xpath('./div//ul[@class="_tag-list"]/a'):
-        tid_matched = re.search(r'/t/(\d+)', tag_a.attrib.get('href') or '')
+    # 文章底部标签的实际结构为 ul._tag-list > li.tls__list-item-container > a, 链接实际为相对路径
+    for tag_a in main.xpath('./div//ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a'):
+        tag_href = tag_a.attrib.get('href') or ''
+        tid_matched = re.search(r'/t/(\d+)', tag_href)
         if tid_matched is not None:
-            article_tags.append({'id': tid_matched.group(1), 'name': ''.join(tag_a.itertext()).strip()})
+            article_tags.append({
+                'id': tid_matched.group(1),
+                'name': ''.join(tag_a.itertext()).strip(),
+                'href': tag_href,
+            })
 
     return {
         'title': title,
@@ -995,9 +1008,13 @@ class TestPixivision:
         for item, gt_item in zip(parsed.illustrations, gt):
             assert item.aid == gt_item['aid']
             assert item.title == gt_item['title']
-            assert item.url == f'{show_page.root_url}{gt_item["href"]}'
+            # 卡片 href 可能为相对或绝对形式, 用标准库独立合成期望 url(不依赖解析器的拼接实现)
+            assert item.url == urljoin(show_page.root_url, gt_item['href'])
             assert item.thumbnail == gt_item['thumbnail']
             assert item.all_tags_id == [x['id'] for x in gt_item['tags']]
+            assert [x.tag_url for x in item.tags] == [
+                urljoin(show_page.root_url, x['href']) for x in gt_item['tags']
+            ]
 
     async def test_article_artwork_type(self, article_pages_sample: list[SimpleNamespace]):
         # 取导览页首篇特辑, 同一份 HTML 上比对解析结果与独立基准
@@ -1042,18 +1059,23 @@ class TestPixivision:
         assert parsed.title == gt['title']
         # description 核验内容忠实性(忽略换行/空白分隔差异)
         assert ''.join(parsed.description.split()) == ''.join(gt['description'].split())
+        # 文章级 tag 存在于源站页面, 空列表相等不能作为通过依据
+        assert gt['tags'], '样本页面中未找到文章级标签, 页面结构可能已变化'
         assert [x.tag_id for x in parsed.tags_list] == [x['id'] for x in gt['tags']]
         assert [x.tag_name for x in parsed.tags_list] == [x['name'] for x in gt['tags']]
+        assert [x.tag_url for x in parsed.tags_list] == [urljoin(root_url, x['href']) for x in gt['tags']]
 
         # 合集条目核验
         assert len(parsed.illustration_list) == len(gt['collections'])
         for sub, gt_sub in zip(parsed.illustration_list, gt['collections']):
             assert sub.aid == gt_sub['aid']
             assert sub.title == gt_sub['title']
-            assert sub.url == f'{root_url}{gt_sub["href"]}'
+            # 卡片 href 可能为相对或绝对形式, 用标准库独立合成期望 url(不依赖解析器的拼接实现)
+            assert sub.url == urljoin(root_url, gt_sub['href'])
             assert sub.thumbnail == gt_sub['thumbnail']
             assert sub.all_tags_id == [x['id'] for x in gt_sub['tags']]
             assert sub.all_tags_name == [x['name'] for x in gt_sub['tags']]
+            assert [x.tag_url for x in sub.tags] == [urljoin(root_url, x['href']) for x in gt_sub['tags']]
 
     async def test_download_eyecatch(self, article_pages_sample: list[SimpleNamespace]):
         from src.resource import TemporaryResource
@@ -1072,6 +1094,106 @@ class TestPixivision:
             return
 
         pytest.skip('当前导览页前 5 篇特辑均无头图')
+
+
+_PIXIVISION_ROOT_URL = 'https://www.pixivision.net'
+"""离线用例使用的 pixivision 主域名"""
+
+_PIXIVISION_THUMBNAIL_URL = 'https://i.pximg.net/c/540x540_70/img-master/img/example_thumbnail.png'
+"""离线用例使用的卡片缩略图"""
+
+_PIXIVISION_EYECATCH_URL = 'https://i.pximg.net/c/1200x630/img-master/img/example_eyecatch.png'
+"""离线用例使用的文章头图"""
+
+
+def _pixivision_href(path: str, *, absolute: bool) -> str:
+    """按源站实际形式构造链接: absolute 为 True 时带域名(源站当前形式), 否则为以 / 开头的相对链接"""
+    return f'{_PIXIVISION_ROOT_URL}{path}' if absolute else path
+
+
+def _make_pixivision_card(
+        *, article_href: str, title: str, tag_href: str, tag_name: str, spotlight: bool = False,
+) -> str:
+    """离线构造单张 pixivision 特辑卡片(导览页卡片与文章合集卡片共用同一 DOM 结构)"""
+    card_class = '_article-card spotlight' if spotlight else '_article-card'
+    return (
+        f'<article class="{card_class}">'
+        '<div>'
+        f'<a href="{article_href}">'
+        f'<div class="_thumbnail" style="background-image: url({_PIXIVISION_THUMBNAIL_URL})"></div>'
+        '</a>'
+        f'<h2 class="arc__title"><a href="{article_href}">{title}</a></h2>'
+        '<ul class="_tag-list">'
+        '<li class="tls__list-item-container">'
+        f'<a href="{tag_href}" data-gtm-label="{tag_name}">{tag_name}</a>'
+        '</li>'
+        '</ul>'
+        '</div>'
+        '</article>'
+    )
+
+
+def _make_pixivision_show_page(
+        *, article_absolute: bool = False, tag_absolute: bool = False, article_href: str | None = None,
+) -> str:
+    """离线构造 pixivision 导览页(单张特辑卡片)
+
+    article_absolute / tag_absolute 分别控制文章与卡片标签 href 是否带域名(源站两种形式并存);
+    article_href 用于覆盖文章标题链接, 以构造非法 href 负例
+    """
+    href = article_href
+    if href is None:
+        href = _pixivision_href('/zh/a/11826', absolute=article_absolute)
+    card = _make_pixivision_card(
+        article_href=href,
+        title='离线导览特辑',
+        tag_href=_pixivision_href('/zh/t/23', absolute=tag_absolute),
+        tag_name='离线标签',
+    )
+    return f'<html><body><ul><li class="article-card-container">{card}</li></ul></body></html>'
+
+
+def _make_pixivision_article_page(
+        *, article_absolute: bool = False, tag_absolute: bool = False, tag_href: str | None = None,
+) -> str:
+    """离线构造 pixivision 特辑文章页(一张合集卡片 + 文章底部标签)
+
+    article_absolute / tag_absolute 分别控制合集卡片的文章链接与标签 href 是否带域名;
+    文章底部标签在两种形式下都保留源站实际的相对链接与 ul > li > a 结构, 以锁定混合链接形式;
+    tag_href 用于覆盖合集卡片的标签链接, 以构造非法 href 负例
+    """
+    card_tag_href = tag_href
+    if card_tag_href is None:
+        card_tag_href = _pixivision_href('/zh/t/45', absolute=tag_absolute)
+    card = _make_pixivision_card(
+        article_href=_pixivision_href('/zh/a/11138', absolute=article_absolute),
+        title='离线合集特辑',
+        tag_href=card_tag_href,
+        tag_name='离线合集标签',
+        spotlight=True,
+    )
+    article_tag = (
+        '<li class="tls__list-item-container">'
+        '<a href="/zh/t/67" data-gtm-label="离线文章标签">离线文章标签</a>'
+        '</li>'
+    )
+    return (
+        '<html><body>'
+        '<div class="_article-main">'
+        '<article class="am__article-body-container">'
+        '<header><h1 class="am__title">离线特辑文章</h1></header>'
+        '<div><div class="_article-illust-eyecatch">'
+        f'<img src="{_PIXIVISION_EYECATCH_URL}">'
+        '</div></div>'
+        '<div class="am__body"><div>'
+        '<div class="am__description _medium-editor-text">离线特辑简介</div>'
+        f'{card}'
+        '</div></div>'
+        '</article>'
+        f'<div class="_tag-list-container"><ul class="_tag-list">{article_tag}</ul></div>'
+        '</div>'
+        '</body></html>'
+    )
 
 
 class TestPixivParser:
@@ -1114,6 +1236,81 @@ class TestPixivParser:
         assert PixivParser.parse_pid_from_url(
             '看这个 https://evilpixiv.net/artworks/999 不是 pixiv 链接', url_mode=False
         ) is None
+
+    @pytest.mark.parametrize(
+        ('article_absolute', 'tag_absolute'),
+        [
+            pytest.param(False, False, id='relative'),
+            pytest.param(True, True, id='absolute'),
+            pytest.param(False, True, id='article_relative_tag_absolute'),
+        ],
+    )
+    async def test_parse_pixivision_show_page_href_forms(self, article_absolute: bool, tag_absolute: bool):
+        from src.utils.pixiv_api.helper import PixivParser
+
+        # 文章与标签 href 的绝对/相对形式各自独立生效: 均应解析出相同 id 并合成唯一域名的绝对 URL
+        content = _make_pixivision_show_page(article_absolute=article_absolute, tag_absolute=tag_absolute)
+
+        parsed = await PixivParser.parse_pixivision_show_page(
+            content=content, root_url=_PIXIVISION_ROOT_URL
+        )
+        assert len(parsed.illustrations) == 1
+        item = parsed.illustrations[0]
+        assert item.aid == '11826'
+        assert item.url == 'https://www.pixivision.net/zh/a/11826'
+        assert item.thumbnail == _PIXIVISION_THUMBNAIL_URL
+        assert item.all_tags_id == ['23']
+        assert [x.tag_url for x in item.tags] == ['https://www.pixivision.net/zh/t/23']
+
+    @pytest.mark.parametrize(
+        ('article_absolute', 'tag_absolute'),
+        [
+            pytest.param(False, False, id='relative'),
+            pytest.param(True, True, id='absolute'),
+            pytest.param(False, True, id='article_relative_tag_absolute'),
+        ],
+    )
+    async def test_parse_pixivision_article_page_href_forms(self, article_absolute: bool, tag_absolute: bool):
+        from src.utils.pixiv_api.helper import PixivParser
+
+        # 合集卡片的文章与标签链接各自兼容相对/绝对及混合形式; 文章级标签为相对链接且在 li 内, 不得为空
+        content = _make_pixivision_article_page(article_absolute=article_absolute, tag_absolute=tag_absolute)
+
+        parsed = await PixivParser.parse_pixivision_article_page(
+            content=content, root_url=_PIXIVISION_ROOT_URL
+        )
+        assert parsed.title == '离线特辑文章'
+        assert parsed.eyecatch_image == _PIXIVISION_EYECATCH_URL
+
+        assert len(parsed.illustration_list) == 1
+        collection = parsed.illustration_list[0]
+        assert collection.aid == '11138'
+        assert collection.url == 'https://www.pixivision.net/zh/a/11138'
+        assert collection.all_tags_id == ['45']
+        assert [x.tag_url for x in collection.tags] == ['https://www.pixivision.net/zh/t/45']
+
+        assert parsed.tags_list, 'article level tags should not be empty'
+        assert [x.tag_id for x in parsed.tags_list] == ['67']
+        assert [x.tag_name for x in parsed.tags_list] == ['离线文章标签']
+        assert [x.tag_url for x in parsed.tags_list] == ['https://www.pixivision.net/zh/t/67']
+
+    async def test_parse_pixivision_show_page_invalid_href(self):
+        from src.utils.pixiv_api.helper import PixivParser
+
+        # 非文章路径应明确失败, 不得把整串 href 当作 aid 返回
+        content = _make_pixivision_show_page(article_href='/zh/c/illustration')
+
+        with pytest.raises(ValueError, match='cannot parse article id from href'):
+            await PixivParser.parse_pixivision_show_page(content=content, root_url=_PIXIVISION_ROOT_URL)
+
+    async def test_parse_pixivision_article_page_invalid_tag_href(self):
+        from src.utils.pixiv_api.helper import PixivParser
+
+        # 合集卡片的标签链接不是标签路径时应明确失败, 不得把整串 href 当作 tag_id 或拼进 tag_url
+        content = _make_pixivision_article_page(tag_href='/zh/c/illustration')
+
+        with pytest.raises(ValueError, match='tag'):
+            await PixivParser.parse_pixivision_article_page(content=content, root_url=_PIXIVISION_ROOT_URL)
 
 
 def _make_ranking(page: int, ranks: list[int]):
