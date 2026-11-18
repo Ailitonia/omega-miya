@@ -9,13 +9,36 @@
 """
 
 import re
+from urllib.parse import urljoin, urlsplit
 
 from lxml import etree
 from nonebot.utils import run_sync
 
 from .model.pixivision import PixivisionArticle, PixivisionIllustrationList
 from .model.user import PixivUserSearchingModel
-from .pixivision_links import parse_pixivision_link
+
+_PIXIVISION_ARTICLE_PATH_PATTERN = re.compile(r'/[a-z]{2}/a/(\d+)')
+"""pixivision 文章链接路径(形如 /zh/a/12345), 完整匹配路径并捕获文章 id"""
+_PIXIVISION_TAG_PATH_PATTERN = re.compile(r'/[a-z]{2}/t/(\d+)')
+"""pixivision 标签链接路径(形如 /zh/t/6789), 完整匹配路径并捕获标签 id"""
+_BACKGROUND_IMAGE_URL = re.compile(r'background-image:\s*url\((.+?)\)')
+"""内联样式 background-image 中的图片链接"""
+
+
+def _extract_pixivision_path_id(href: str, pattern: re.Pattern[str]) -> str | None:
+    """提取 pixivision 链接路径中的数字 id, 相对链接与绝对链接共用同一逻辑
+
+    :param href: 页面中的原始链接(可能为 /zh/a/12345 形式, 也可能为带域名的绝对链接)
+    :param pattern: 完整匹配链接路径的正则, 数字 id 位于第 1 个捕获组
+    :return: 解析出的数字 id, 路径不匹配时返回 None
+    """
+    matched = pattern.fullmatch(urlsplit(href).path)
+    return matched.group(1) if matched is not None else None
+
+
+def _resolve_pixivision_url(root_url: str, href: str) -> str:
+    """将 pixivision 链接合成为绝对链接, 绝对链接原样保留, 相对链接相对主域名解析"""
+    return urljoin(root_url, href)
 
 
 class PixivParser:
@@ -169,26 +192,54 @@ class PixivParser:
         result_list = []
         for card in illustration_cards:
             # 解析每篇文章对应 card 的内容
-            title_href = card.xpath('article//h2[@class="arc__title"]/a[1]').pop(0)
-            title = title_href.text.strip()
-            aid = title_href.attrib.get('data-gtm-label')
-            _, url = parse_pixivision_link(title_href.attrib.get('href'), root_url, 'a')
+            title_links = card.xpath('article//h2[@class="arc__title"]/a[1]')
+            if not title_links:
+                raise ValueError('Parse pixivision show page failed, article title link not found')
+            title_link = title_links.pop(0)
+            title = (title_link.text or '').strip()
+            title_href = title_link.attrib.get('href') or ''
+
+            aid = _extract_pixivision_path_id(title_href, _PIXIVISION_ARTICLE_PATH_PATTERN)
+            if aid is None:
+                raise ValueError(
+                    f'Parse pixivision show page failed, cannot parse article id from href {title_href!r}'
+                )
 
             thumbnail = card.xpath('article//div[@class="_thumbnail"]').pop(0).attrib.get('style')
-            matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', thumbnail)
+            matched_thumbnail = _BACKGROUND_IMAGE_URL.search(thumbnail or '')
             if matched_thumbnail is None:
                 continue
-            thumbnail_url = matched_thumbnail.group(1)
+            thumbnail_url = matched_thumbnail.group(1).strip('\'" ')
 
             tag_container = card.xpath('article//ul[@class="_tag-list"]/li[@class="tls__list-item-container"]')
             tag_list = []
             for tag in tag_container:
-                tag_href = tag.xpath('a[1]').pop(0)
-                tag_name = tag_href.attrib.get('data-gtm-label').strip()
-                tag_rela_url = tag_href.attrib.get('href')
-                tag_id, tag_url = parse_pixivision_link(tag_rela_url, root_url, 't')
-                tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
-            result_list.append({'aid': aid, 'title': title, 'thumbnail': thumbnail_url, 'url': url, 'tags': tag_list})
+                tag_hrefs = tag.xpath('a[1]')
+                if not tag_hrefs:
+                    continue
+
+                tag_item = tag_hrefs.pop(0)
+                tag_name = tag_item.attrib.get('data-gtm-label')
+                tag_href = tag_item.attrib.get('href')
+                if not tag_name or not tag_href:
+                    raise ValueError('Parse pixivision tag failed, tag name or href not found')
+
+                tag_id = _extract_pixivision_path_id(tag_href, _PIXIVISION_TAG_PATH_PATTERN)
+                if tag_id is None:
+                    raise ValueError(f'Parse pixivision tag id from href {tag_href!r} failed')
+                tag_list.append({
+                    'tag_id': tag_id,
+                    'tag_name': tag_name,
+                    'tag_url': _resolve_pixivision_url(root_url, tag_href),
+                })
+
+            result_list.append({
+                'aid': aid,
+                'title': title,
+                'thumbnail': thumbnail_url,
+                'url': _resolve_pixivision_url(root_url, title_href),
+                'tags': tag_list,
+            })
         return PixivisionIllustrationList.model_validate({'illustrations': result_list})
 
     @classmethod
@@ -231,8 +282,17 @@ class PixivParser:
 
             artwork_main = artwork.xpath('div[@class="am__work__main"]').pop(0)
             artwork_url = artwork_main.xpath('a[@class="inner-link"]').pop(0).attrib.get('href')
+            if not artwork_url:
+                raise ValueError('Parse pixivision article page artwork failed, artwork url not found')
+
             artwork_id = cls.parse_pid_from_url(text=artwork_url, url_mode=False)
-            image_url = artwork_main.xpath('a//img[contains(@class, "am__work__illust")]').pop(0).attrib.get('src')
+            if artwork_id is None:
+                raise ValueError(
+                    f'Parse pixivision article page artwork failed, cannot parse artwork id from url {artwork_url!r}'
+                )
+            image_url = artwork_main.xpath(
+                'a//img[contains(@class, "am__work__illust")]'
+            ).pop(0).attrib.get('src')
 
             artwork_list.append({
                 'artwork_id': artwork_id,
@@ -247,39 +307,73 @@ class PixivParser:
         illustrations = article_body.xpath('div//article[@class="_article-card spotlight"]')
         for illustration in illustrations:
             # 解析特辑信息
-            illustration_thumbnail = illustration.xpath('div/a/div[@class="_thumbnail"]').pop(0).attrib.get('style')
-            matched_thumbnail = re.search(r'^background-image:\s\surl\((.+)\)$', illustration_thumbnail)
+            illustration_thumbnail = illustration.xpath(
+                'div/a/div[@class="_thumbnail"]'
+            ).pop(0).attrib.get('style')
+            matched_thumbnail = _BACKGROUND_IMAGE_URL.search(illustration_thumbnail or '')
             if matched_thumbnail is None:
                 continue
-            illustration_thumbnail_url = matched_thumbnail.group(1)
+            illustration_thumbnail_url = matched_thumbnail.group(1).strip('\'" ')
+
             illustration_info = illustration.xpath('div/h2[@class="arc__title"]/a').pop(0)
-            illustration_title = illustration_info.text.strip()
-            illustration_href = illustration_info.attrib.get('href')
-            illustration_aid, illustration_url = parse_pixivision_link(illustration_href, root_url, 'a')
-            illustration_tags = [
-                {
-                    'tag_id': parse_pixivision_link(x.attrib.get('href'), root_url, 't')[0],
-                    'tag_name': x.attrib.get('data-gtm-label'),
-                    'tag_url': parse_pixivision_link(x.attrib.get('href'), root_url, 't')[1],
-                }
-                for x in illustration.xpath('div/ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a')
-            ]
+            illustration_title = (illustration_info.text or '').strip()
+            illustration_href = illustration_info.attrib.get('href') or ''
+
+            illustration_aid = _extract_pixivision_path_id(
+                illustration_href, _PIXIVISION_ARTICLE_PATH_PATTERN
+            )
+            if illustration_aid is None:
+                raise ValueError(
+                    f'Parse pixivision article page illustration failed, '
+                    f'cannot parse illustration id from href {illustration_href!r}'
+                )
+            illustration_tags = []
+            for tag in illustration.xpath('div/ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a'):
+                tag_href = tag.attrib.get('href')
+                tag_name = tag.attrib.get('data-gtm-label')
+                if not tag_href or not tag_name:
+                    raise ValueError(
+                        'Parse pixivision article page illustration tag failed, tag name or href not found'
+                    )
+
+                tag_id = _extract_pixivision_path_id(tag_href, _PIXIVISION_TAG_PATH_PATTERN)
+                if tag_id is None:
+                    raise ValueError(
+                        f'Parse pixivision article page illustration tag failed, '
+                        f'cannot parse tag id from href {tag_href!r}'
+                    )
+                illustration_tags.append({
+                    'tag_id': tag_id,
+                    'tag_name': tag_name.strip(),
+                    'tag_url': _resolve_pixivision_url(root_url, tag_href),
+                })
             illustration_list.append({
                 'aid': illustration_aid,
                 'title': illustration_title,
                 'thumbnail': illustration_thumbnail_url,
-                'url': illustration_url,
+                'url': _resolve_pixivision_url(root_url, illustration_href),
                 'tags': illustration_tags,
             })
 
         # 解析 tag
         tag_list = []
-        tag_hrefs = article_main.xpath('div//ul[@class="_tag-list"]/a')
+        tag_hrefs = article_main.xpath('div//ul[@class="_tag-list"]/li[@class="tls__list-item-container"]/a')
         for tag in tag_hrefs:
             tag_name = tag.attrib.get('data-gtm-label')
-            tag_rela_url = tag.attrib.get('href')
-            tag_id, tag_url = parse_pixivision_link(tag_rela_url, root_url, 't')
-            tag_list.append({'tag_id': tag_id, 'tag_name': tag_name, 'tag_url': tag_url})
+            tag_href = tag.attrib.get('href')
+            if not tag_href:
+                raise ValueError('Parse pixivision article page tag failed, tag href not found')
+
+            tag_id = _extract_pixivision_path_id(tag_href, _PIXIVISION_TAG_PATH_PATTERN)
+            if tag_id is None:
+                raise ValueError(
+                    f'Parse pixivision article page tag failed, cannot parse tag id from href {tag_href!r}'
+                )
+            tag_list.append({
+                'tag_id': tag_id,
+                'tag_name': tag_name,
+                'tag_url': _resolve_pixivision_url(root_url, tag_href),
+            })
 
         result = {
             'title': article_title,
